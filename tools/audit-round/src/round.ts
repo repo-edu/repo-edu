@@ -1,4 +1,3 @@
-import type { ExecutionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
 import type { RoundDocuments } from "./output.js"
 import {
@@ -18,10 +17,10 @@ import type { AuditReport } from "./report.js"
 import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
-import { type AuditTarget, planStem } from "./target.js"
+import { type AuditTarget, planStem, type RoundContext } from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
-export type RoundSetup = ExecutionContext & {
+export type RoundSetup = RoundContext & {
   readonly auditor?: Assistant
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
@@ -45,14 +44,14 @@ export type RoundInput = RoundSetup & {
   readonly watch: WatchTarget | null
 }
 
-export type BriefInput = ExecutionContext & {
+export type BriefInput = RoundContext & {
   readonly transcript: string
   readonly brief: string
 }
 
 type RoundFailure = PhaseFailure &
   PhaseRun &
-  ExecutionContext & {
+  RoundContext & {
     readonly phase: Phase | "ruling-input" | "complete"
   }
 
@@ -157,8 +156,7 @@ export async function runBrief(
  * not due or was not asked for.
  */
 async function runWatch(
-  input: ExecutionContext &
-    Pick<RoundInput, "watch"> & { readonly plan: string },
+  input: RoundContext & Pick<RoundInput, "watch"> & { readonly plan: string },
   dependencies: Pick<
     RoundDependencies,
     "runPhase" | "checkFile" | "glance" | "watchEvidence"

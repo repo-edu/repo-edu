@@ -4,6 +4,7 @@ import type { WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput } from "./glance.js"
 import type { AuditReport, ReportFindings } from "./report.js"
 import type { RoundSettings } from "./settings.js"
+import type { RoundContext, RoundKind } from "./target.js"
 
 export type Assistant = "claude" | "codex"
 
@@ -287,7 +288,7 @@ type PhaseArguments = {
 type PhaseInputs = {
   [K in Phase]: PhaseArguments[K] &
     PhaseRun &
-    ExecutionContext & {
+    RoundContext & {
       readonly phase: K
     }
 }
@@ -337,7 +338,7 @@ export type PhaseResult<P extends Phase = Phase> =
  * a resumed session continues on the model the round ran it on.
  */
 export type InteractiveSession = PhaseRun &
-  ExecutionContext & {
+  RoundContext & {
     readonly sessionId: string
   }
 
@@ -347,10 +348,7 @@ export type RoundDependencies = {
   /** Prints the saved brief after its phase and output validation have completed. */
   readonly showBrief: (document: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<void>
-  readonly readReport: (
-    file: string,
-    kind: ExecutionContext["roundKind"],
-  ) => Promise<AuditReport>
+  readonly readReport: (file: string, kind: RoundKind) => Promise<AuditReport>
   readonly readVet: (file: string, findings: ReportFindings) => Promise<boolean>
   readonly readHead: (root: string) => Promise<string>
   readonly readSubjects: (

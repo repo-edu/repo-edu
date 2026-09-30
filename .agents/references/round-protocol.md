@@ -140,6 +140,13 @@ an unlisted model. The command claims the next number and prints two absolute
 paths, claim then audit report. It creates only the claim and starts no
 assistant or settings discovery. It does not name later writers' files.
 
+The target grammar is the same from either checkout. A plan stem alone selects
+a planning audit. A stem with a step number, an inclusive range or `all`
+selects an implementation audit. Commit references select a Repo Edu commit
+audit. Plan arguments accept `.md` and `-widen` but no path; lookup prefers the
+active artifact at the plan root, then its archive. A commit-shaped stem keeps
+`.md` to identify it as a plan.
+
 For later phases, use complete supplied paths when present. Otherwise run the
 matching command from the invoking checkout:
 

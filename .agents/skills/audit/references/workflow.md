@@ -26,13 +26,15 @@ the absolute path where the runner saves the report. Deliver the report under
 Do not allocate or claim again. A hand-run audit follows
 [Round allocation](#round-allocation).
 
-Interpret the remaining invocation arguments as a plan file and an optional
-implementation-step range. The plan must be in the sibling `../plan` repo and
-may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
+For hand-run audits, name the plan by its stem followed by an implementation
+step scope or `all`. A typed `.md` or `-widen` is ignored; paths are refused.
+Resolve the active artifact at the plan root before looking in its archive.
+The runner supplies the resolved absolute plan path to an automated audit.
+Interpret `3-5` as a
 range and `4` as one step, counted against the plan's **Implementation plan**
-numbering. A range makes the round scoped. No range makes the scope `all`, the
-whole plan. When neither a plan nor a commit reference is named, ask which to
-audit and wait.
+numbering. A range makes the round scoped. `all` selects the whole plan.
+A stem without a scope selects a planning audit. Without a plan or commit
+reference, ask which target to audit and wait.
 
 An invocation that names no plan file and names commit references, including
 `HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan covers.
@@ -47,7 +49,7 @@ the plan repo. Its audit workflow routes those rounds here and supplies the
 local substitutions: that repo's report root and finding metadata.
 Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
 audits still belong to the plan repo's own audit workflow. The runner selects
-that workflow when invoked from the plan root with an artifact alone. Its
+that round kind when invoked with a stem alone, from either checkout. Its
 sessions and round files belong to the invoking root. The shared brief launcher
 stays in Repo Edu and writes beside the supplied transcript at either root.
 Its launcher location never changes the session's working directory.

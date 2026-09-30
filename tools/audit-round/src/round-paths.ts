@@ -2,9 +2,9 @@ import { readdir, realpath, stat, unlink } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
-import { type AuditTarget, planStem } from "./target.js"
+import { type AuditTarget, planStem, type RoundContext } from "./target.js"
 
-type NamingTarget = ExecutionContext & AuditTarget
+type NamingTarget = RoundContext & AuditTarget
 
 const phaseOrder = {
   round: 1,
@@ -96,7 +96,7 @@ async function targetDescription(target: NamingTarget): Promise<{
   if (target.roundKind === "planning")
     return { label: stem, title: `plan ${target.plan}` }
   const scope =
-    target.scope === undefined
+    target.scope === undefined || target.scope === "all"
       ? "all"
       : `${target.scope.includes("-") ? "steps" : "step"}-${target.scope}`
   return {

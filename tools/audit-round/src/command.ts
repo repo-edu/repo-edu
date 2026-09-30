@@ -1,5 +1,5 @@
-import { readFile, stat } from "node:fs/promises"
-import { dirname, join, resolve } from "node:path"
+import { readFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import {
   Command,
   CommanderError,
@@ -9,7 +9,7 @@ import {
 import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { completeClean } from "./clean.js"
-import { type ExecutionContext, executionContext } from "./context.js"
+import { executionContext } from "./context.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance } from "./glance.js"
@@ -46,23 +46,8 @@ import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-import { auditTarget } from "./target.js"
+import { auditTarget, resolvePlan } from "./target.js"
 import { readVet } from "./vet.js"
-
-/** The plan a round audits, resolved where its phases open it. */
-async function checkPlan(
-  context: ExecutionContext,
-  plan: string,
-): Promise<void> {
-  const path = resolve(context.cwd, plan)
-  let file = false
-  try {
-    file = (await stat(path)).isFile()
-  } catch {
-    // The message below names the resolved file.
-  }
-  if (!file) throw new Error(`No plan file at ${path}.`)
-}
 
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
@@ -114,7 +99,7 @@ function parseInvocation(
   const command = new Command("audit-round")
     .enablePositionalOptions()
     .description(
-      "Audit a plan or its implementation, review the findings and apply agreed fixes.\nRun from the Repo Edu or plan checkout root.",
+      "Audit a plan or its implementation, review the findings and apply agreed fixes.\nArguments have the same meaning from either checkout.",
     )
     .configureHelp({
       helpWidth: 88,
@@ -127,10 +112,10 @@ function parseInvocation(
       writeErr: (text) => options.emergency(text.trimEnd()),
     })
     .exitOverride()
-    .argument("<target>", "plan file, commit reference or commit range")
+    .argument("<target>", "plan stem, commit reference or commit range")
     .argument(
       "[scope-or-commits...]",
-      "plan step scope or more commit references (Repo Edu only)",
+      "plan step scope, all or more commit references",
     )
     .addOption(
       new Option(
@@ -157,14 +142,12 @@ function parseInvocation(
       "after",
       `
 Targets and scope:
-  From Repo Edu: audit a plan's implementation or named commits.
-    Plan     Path to the plan in ../plan; .md may be omitted.
-    Scope    One step (3) or an increasing range (1-3). Omit for all steps.
-    Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to>.
-             HEAD-1 is the previous first-parent commit. Ranges include both ends.
-
-  From the plan root: audit the plan document itself.
-    Name only the plan file; .md may be omitted. No steps or commit references.
+  Plan     A stem alone audits the plan document in the sibling plan repo.
+           .md and -widen are ignored. Paths are refused. Active plans precede archives.
+           A stem shaped like a commit reference keeps .md to identify it as a plan.
+  Scope    One step (3), an increasing range (1-3) or all audits implementation.
+  Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to> in Repo Edu.
+           HEAD-1 is the previous first-parent commit. Ranges include both ends.
 
 Auditor selection (--auditor <selections>):
   <selections> accepts one or more comma-separated names or tags:
@@ -215,16 +198,16 @@ Round sequence:
     - --no-watch skips both the glance and the watch.
     - Commit audits never run a glance or watch.
 
-Examples (from Repo Edu):
+Examples (from either checkout):
 
   1. Audit steps 1-3, first with Codex and then with Claude.
 
-     $ pnpm audit-round ../plan/example.md 1-3 --auditor codex,claude
+     $ pnpm audit-round example 1-3 --auditor codex,claude
 
   2. Audit step 3 with Claude's top model at xhigh effort (atx),
      then Codex's base model at medium effort (obm).
 
-     $ pnpm audit-round ../plan/example.md 3 --auditor atx,obm
+     $ pnpm audit-round example 3 --auditor atx,obm
 
   3. Audit an inclusive commit range.
 
@@ -410,20 +393,8 @@ export async function runCommand(
           }
         : {
             ...invocation,
-            target: auditTarget(
-              invocation.first,
-              invocation.rest,
-              invocation.kind === "name" && invocation.rest.length > 0
-                ? "implementation"
-                : context.roundKind,
-            ),
+            target: auditTarget(invocation.first, invocation.rest),
           }
-    if (
-      prepared.kind === "name" &&
-      context.roundKind === "planning" &&
-      "commits" in prepared.target
-    )
-      throw new InvalidArgumentError("Commit audits run from Repo Edu.")
     if (
       prepared.kind === "round" &&
       "commits" in prepared.target &&
@@ -433,15 +404,14 @@ export async function runCommand(
         "Commit audits run once. Multiple auditors require a plan target.",
       )
     if (prepared.kind !== "brief" && "plan" in prepared.target)
-      await checkPlan(context, prepared.target.plan)
+      prepared.target = {
+        ...prepared.target,
+        plan: await resolvePlan(context.planRoot, prepared.target.plan),
+      }
     if (prepared.kind === "name") {
       const { nameStart } = await roundIdentity({
         ...context,
         ...prepared.target,
-        roundKind:
-          "plan" in prepared.target && prepared.target.scope !== undefined
-            ? "implementation"
-            : context.roundKind,
       })
       const claim = join(context.cwd, `${nameStart}-0-claim.md`)
       claimRound(claim)

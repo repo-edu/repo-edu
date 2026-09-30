@@ -1,10 +1,9 @@
 import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
-import type { ExecutionContext } from "./context.js"
 import { parseSubject, type Repository } from "./subject.js"
-import { type AuditTarget, planStem } from "./target.js"
+import { type AuditTarget, planStem, type RoundContext } from "./target.js"
 
-export type CleanInput = ExecutionContext &
+export type CleanInput = RoundContext &
   AuditTarget & {
     readonly report: string
     readonly judgedRepos: readonly Repository[]

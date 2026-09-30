@@ -14,7 +14,7 @@ test("a ruling stays in the runner and resumes the fix without replaying interna
   const reply = "Choose option 1.\nKeep the existing range."
   let requests = 0
   const code = await runCommand(
-    ["example.md", "--auditor", "codex,claude", "--no-watch"],
+    ["example.md", "all", "--auditor", "codex,claude", "--no-watch"],
     f.runtime,
     {
       ...f.options,
@@ -290,7 +290,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
       f.runtime,
       f.options,
     ),
-    2,
+    0,
   )
 })
 
@@ -519,7 +519,7 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(markdown.includes("Written brief"), false)
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([f.report, "example.md", "2-3"])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3"])}`,
           ),
         )
         assert.equal(
@@ -693,7 +693,10 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     const f = await roundFixture(t)
     f.phases[phase] = { stream: "", exitCode: 7 }
     await f.configure({ phases: f.phases })
-    assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+    assert.equal(
+      await runCommand(["example.md", "all"], f.runtime, f.options),
+      1,
+    )
     const log = (await f.records()).log
     assert.match(log, new RegExp(`\\[${phase}\\] failed:`))
     for (const output of [log, f.visible.join("\n")])
@@ -721,7 +724,7 @@ for (const target of ["log", "markdown"] as const) {
       audit: { ...(f.phases.audit as object), wait: true },
     }
     await f.configure({ phases })
-    const code = await runCommand(["example.md"], f.runtime, {
+    const code = await runCommand(["example.md", "all"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         const files = openRunFiles(paths)
@@ -753,7 +756,7 @@ test("an unavailable writer still prints the known session to the emergency chan
   const f = await roundFixture(t)
   let failed = false
   assert.equal(
-    await runCommand(["example.md"], f.runtime, {
+    await runCommand(["example.md", "all"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         const files = openRunFiles(paths)
@@ -778,7 +781,7 @@ test("an unavailable writer still prints the known session to the emergency chan
 test("a terminal failure during startup stops before any round file is created", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md"], f.runtime, {
+    await runCommand(["example.md", "all"], f.runtime, {
       ...f.options,
       terminal: {
         ...f.options.terminal,
@@ -799,7 +802,7 @@ test("a terminal failure during startup stops before any round file is created",
 test("startup writes only to the terminal before the models table opens the run log", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md"], f.runtime, {
+    await runCommand(["example.md", "all"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         assert.ok(f.visible.includes("Checking claude updates..."))
@@ -826,7 +829,10 @@ for (const effort of [null, "max"]) {
       config: { model: "unlisted-model", model_reasoning_effort: effort },
     })
     const before = await readdir(f.repoRoot)
-    assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+    assert.equal(
+      await runCommand(["example.md", "all"], f.runtime, f.options),
+      1,
+    )
     assert.match(f.errors.join("\n"), /codex audit.*full --auditor tag/)
     assert.deepEqual(await readdir(f.repoRoot), before)
     assert.equal(
@@ -904,7 +910,7 @@ for (const auditor of ["codex", "claude"] as const) {
     settings.phases.audit[auditor] = { model: "pinned-auditor", effort: "low" }
     settings.phases.fix = { model: "pinned-fix", effort: "medium" }
     assert.equal(
-      await runCommand(["example.md", "--auditor", auditor], f.runtime, {
+      await runCommand(["example.md", "all", "--auditor", auditor], f.runtime, {
         ...f.options,
         settings,
       }),
@@ -1024,20 +1030,20 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "HEAD"],
     ["example.md", "3-1"],
     ["example.md", "0"],
-    ["example.md", "--auditor", "other"],
-    ["example.md", "--auditor", ""],
-    ["example.md", "--auditor", "codex,"],
-    ["example.md", "--auditor", ",claude"],
-    ["example.md", "--auditor", "codex,,claude"],
-    ["example.md", "--auditor", "codex, ,claude"],
-    ["example.md", "--auditor", "codex,other"],
+    ["example.md", "all", "--auditor", "other"],
+    ["example.md", "all", "--auditor", ""],
+    ["example.md", "all", "--auditor", "codex,"],
+    ["example.md", "all", "--auditor", ",claude"],
+    ["example.md", "all", "--auditor", "codex,,claude"],
+    ["example.md", "all", "--auditor", "codex, ,claude"],
+    ["example.md", "all", "--auditor", "codex,other"],
     ["example.md", "--chain"],
     ["name", "example.md", "--auditor", "oth,ath"],
     // A tag names its fields by letter, in order, and never asks for `u`.
-    ["example.md", "--auditor", "claudex"],
-    ["example.md", "--auditor", "xa"],
-    ["example.md", "--auditor", "aux"],
-    ["example.md", "--auditor", "atxx"],
+    ["example.md", "all", "--auditor", "claudex"],
+    ["example.md", "all", "--auditor", "xa"],
+    ["example.md", "all", "--auditor", "aux"],
+    ["example.md", "all", "--auditor", "atxx"],
     ["example.md", "--chain", "extra", "3"],
     ["example.md", "--unknown"],
     ["brief"],
@@ -1071,7 +1077,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /<assistant>\[<tier>\]\[<effort>\]/)
   assert.match(visible, /--auditor atx,obm/)
   assert.match(visible, /Round sequence:/)
-  assert.match(visible, /Examples \(from Repo Edu\):/)
+  assert.match(visible, /Examples \(from either checkout\):/)
   assert.ok(visible.split("\n").every((line) => line.length <= 88))
   // A round is the command itself, and each command carries its own help.
   assert.doesNotMatch(visible, /^\s+round\b/m)
@@ -1202,16 +1208,16 @@ test("a plan named without its extension runs as its .md file", async (t) => {
   const { log } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, "example.md", "2-3"])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3"])}`,
     ),
   )
 })
 
 test("a missing plan file is refused before any assistant starts", async (t) => {
   const f = await roundFixture(t)
-  for (const name of ["missing", "missing.md", "../plan/missing"]) {
+  for (const name of ["missing", "missing.md"]) {
     assert.equal(await runCommand([name, "3"], f.runtime, f.options), 1)
-    assert.match(f.errors.at(-1) as string, /No plan file at .*missing\.md/)
+    assert.match(f.errors.at(-1) as string, /No plan named missing/)
   }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
@@ -1287,7 +1293,7 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   const second = await readFile(join(f.repoRoot, names[2]), "utf8")
   assert.match(
     second,
-    /Audit round of implementation example\.md 3 \(round 2\)/,
+    /Audit round of implementation .*example\.md 3 \(round 2\)/,
   )
   assert.match(second, /audit +codex +chosen-model high/)
 })
@@ -1296,7 +1302,7 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   const f = await roundFixture(t, "codex", "repo-edu", false, null)
   assert.equal(
     await runCommand(
-      ["example.md", "--auditor", "codex,codex,claude"],
+      ["example.md", "all", "--auditor", "codex,codex,claude"],
       f.runtime,
       f.options,
     ),
@@ -1366,7 +1372,12 @@ for (const target of ["implementation", "planning", "commits"] as const) {
     const args =
       target === "commits"
         ? ["HEAD", "--no-watch"]
-        : ["example.md", "--auditor", "codex,claude"]
+        : [
+            "example.md",
+            ...(target === "planning" ? [] : ["all"]),
+            "--auditor",
+            "codex,claude",
+          ]
     assert.equal(
       await runCommand([...args, "--no-brief"], f.runtime, f.options),
       0,
@@ -1418,7 +1429,7 @@ test("a chained run stops at the round that requires a ruling", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   assert.equal(
     await runCommand(
-      ["example.md", "--auditor", "codex,claude"],
+      ["example.md", "all", "--auditor", "codex,claude"],
       f.runtime,
       f.options,
     ),
@@ -1476,10 +1487,10 @@ for (const auditor of ["codex", "claude"] as const) {
           `example-01-1-round.${auditor === "codex" ? "ouh" : "auh"}.md`,
         ),
       )
-      assert.match(log, /Audit round of plan example-widen\.md/)
+      assert.match(log, /Audit round of plan .*example\.md/)
       assert.ok(
         log.includes(
-          `Phase arguments (JSON array): ${JSON.stringify([f.report, "example-widen.md"])}`,
+          `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md")])}`,
         ),
       )
       const calls = await f.calls()
@@ -1549,27 +1560,40 @@ for (const auditor of ["codex", "claude"] as const) {
   }
 }
 
-test("planning start rejects step and commit scopes before any assistant or output", async (t) => {
-  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
-  for (const argv of [
-    ["example.md", "1"],
-    ["example.md", "1-2"],
-    ["HEAD"],
-    ["HEAD-2..HEAD"],
-    ["abcdef"],
-    ["example.md", "HEAD"],
-  ]) {
-    assert.equal(await runCommand(argv, f.runtime, f.options), 2)
-    assert.match(
-      f.errors.at(-1) as string,
-      /Implementation and commit audits run from Repo Edu/,
+for (const working of ["repo-edu", "plan"] as const) {
+  test(`name uses the same target grammar from ${working}`, async (t) => {
+    const f = await roundFixture(
+      t,
+      "codex",
+      working,
+      false,
+      null,
+      false,
+      working,
     )
-  }
-  assert.deepEqual(await f.roundFiles(), [])
-  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-    code: "ENOENT",
+    for (const [args, target] of [
+      [["example"], "example"],
+      [["example", "all"], "example-all"],
+      [["example", "1-2"], "example-steps-1-2"],
+      [["abcdef"], "abcdef"],
+    ] as const) {
+      f.visible.length = 0
+      assert.equal(
+        await runCommand(
+          ["name", ...args, "--auditor", "oth"],
+          f.runtime,
+          f.options,
+        ),
+        0,
+        f.errors.join("\n"),
+      )
+      assert.equal(f.visible[0], join(f.runtime.cwd, `${target}-01-0-claim.md`))
+    }
+    await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+      code: "ENOENT",
+    })
   })
-})
+}
 
 for (const working of ["repo-edu", "plan"] as const) {
   for (const owner of ["repo-edu", "plan"] as const) {
@@ -1616,33 +1640,25 @@ for (const working of ["repo-edu", "plan"] as const) {
   }
 }
 
-test("discovery admits a checkout alias but refuses subdirectories and unrelated roots", async (t) => {
+test("discovery accepts aliases, subdirectories and unrelated directories", async (t) => {
   const f = await roundFixture(t)
   const nested = join(f.repoRoot, "nested")
   const unrelated = join(f.root, "unrelated")
+  const alias = join(f.root, "alias")
   await mkdir(nested)
   await mkdir(unrelated)
-  for (const cwd of [nested, unrelated]) {
+  await symlink(f.repoRoot, alias)
+  for (const cwd of [nested, unrelated, alias]) {
     assert.equal(
-      await runCommand(["example.md"], { ...f.runtime, cwd }, f.options),
-      1,
-    )
-    assert.match(
-      f.errors.at(-1) as string,
-      /Repo Edu or sibling plan checkout root/,
+      await runCommand(
+        ["name", "example", "--auditor", "oth"],
+        { ...f.runtime, cwd },
+        f.options,
+      ),
+      0,
+      f.errors.join("\n"),
     )
   }
-  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-    code: "ENOENT",
-  })
-  const alias = join(f.root, "alias")
-  await symlink(f.repoRoot, alias)
-  assert.equal(
-    await runCommand(["example.md"], { ...f.runtime, cwd: alias }, f.options),
-    0,
-    f.errors.join("\n"),
-  )
-  for (const call of await f.calls()) assert.equal(call.cwd, f.repoRoot)
 })
 
 for (const phase of ["audit", "vet"] as const) {
@@ -1651,7 +1667,10 @@ for (const phase of ["audit", "vet"] as const) {
     const file =
       phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
     await writeFile(file, "Malformed evidence")
-    assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+    assert.equal(
+      await runCommand(["example.md", "all"], f.runtime, f.options),
+      1,
+    )
     const { log } = await f.records()
     assert.ok(log.includes(`[${phase}] failed:`))
     assert.ok(log.includes(`${phase}-session`))
@@ -1676,7 +1695,10 @@ for (const phase of [
       document: { text: " \n" },
     }
     await f.configure({ phases: f.phases })
-    assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+    assert.equal(
+      await runCommand(["example.md", "all"], f.runtime, f.options),
+      1,
+    )
     const { log } = await f.records()
     assert.ok(log.includes(`[${phase}] failed: Phase output is empty:`))
     assert.ok(log.includes(`Session: ${phase}-session`))
@@ -1687,7 +1709,7 @@ test("a fix cannot request a ruling without writing its supplied document", asyn
   const f = await roundFixture(t, "codex", "repo-edu", true)
   f.phases.fix = { ...(f.phases.fix as object), document: undefined }
   await f.configure({ phases: f.phases })
-  assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+  assert.equal(await runCommand(["example.md", "all"], f.runtime, f.options), 1)
   const { log } = await f.records()
   assert.match(log, /\[fix\] failed:/)
   assert.match(log, /Session: fix-session/)
@@ -1699,7 +1721,7 @@ test("a finished fix with no actual commit cannot complete a plan round with fin
   const f = await roundFixture(t)
   f.phases.fix = { ...(f.phases.fix as object), commits: [] }
   await f.configure({ phases: f.phases })
-  assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+  assert.equal(await runCommand(["example.md", "all"], f.runtime, f.options), 1)
   const { log } = await f.records()
   assert.match(log, /\[fix\] failed:.*landed no commit/)
   assert.doesNotMatch(log, /\[brief\] starting|\[glance\]/)

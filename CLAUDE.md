@@ -50,8 +50,9 @@ pnpm check
 pnpm test
 ```
 
-`pnpm audit-round ../plan/example.md 3` runs an implementation-audit round for
-the named plan and step from this checkout root. The
+`pnpm audit-round example 3` runs an implementation-audit round for
+the named plan and step from either checkout. A stem alone audits the plan
+document; `example all` audits every implementation step. The
 [runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
 options, settings and outcomes. The
 [shared round protocol](.agents/references/round-protocol.md) owns file names

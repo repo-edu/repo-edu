@@ -2,14 +2,11 @@ import { realpath, stat } from "node:fs/promises"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-export type RoundKind = "planning" | "implementation"
-
 /** One command-owned context, independent of any phase's workflow owner. */
 export type ExecutionContext = {
   readonly cwd: string
   readonly repoEduRoot: string
   readonly planRoot: string
-  readonly roundKind: RoundKind
 }
 
 export const installationRoot = fileURLToPath(
@@ -23,10 +20,6 @@ export async function executionContext(
   const repoEduRoot = await realpath(installedAt)
   const planRoot = await realpath(resolve(repoEduRoot, "../plan"))
   const root = await realpath(cwd)
-  if (root !== repoEduRoot && root !== planRoot)
-    throw new Error(
-      "Run pnpm audit-round from the Repo Edu or sibling plan checkout root.",
-    )
   for (const repository of [repoEduRoot, planRoot]) {
     if (
       !(
@@ -43,7 +36,6 @@ export async function executionContext(
     cwd: root,
     repoEduRoot,
     planRoot,
-    roundKind: root === planRoot ? "planning" : "implementation",
   }
 }
 

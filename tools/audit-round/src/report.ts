@@ -1,6 +1,6 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
-import type { RoundKind } from "./context.js"
 import type { Repository } from "./subject.js"
+import type { RoundKind } from "./target.js"
 
 type Block = ReturnType<typeof fromMarkdown>["children"][number]
 type List = Extract<Block, { type: "list" }>

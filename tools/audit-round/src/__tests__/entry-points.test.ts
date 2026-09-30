@@ -89,27 +89,17 @@ for (const working of ["repo-edu", "plan"] as const) {
     const help = await execa("pnpm", ["audit-round", "--help"], options)
     assert.equal(help.exitCode, 0, help.stderr)
     assert.match(help.stdout, /Usage: audit-round/)
-    const invalid =
-      working === "plan"
-        ? [
-            ["example.md", "1"],
-            ["example.md", "1-3"],
-            ["HEAD"],
-            ["abcdef"],
-            ["HEAD-2..HEAD"],
-          ]
-        : [
-            ["example.md", "0"],
-            ["HEAD", "--auditor", "codex,claude"],
-          ]
+    const invalid = [
+      ["example.md", "0"],
+      ["HEAD", "--auditor", "codex,claude"],
+      ["../plan/example.md", "1"],
+    ]
     for (const args of invalid) {
       const result = await execa("pnpm", ["audit-round", ...args], options)
       assert.equal(result.exitCode, 2, result.stderr)
       assert.match(
         result.stderr,
-        working === "plan"
-          ? /Implementation and commit audits run from Repo Edu/
-          : /positive step number|Multiple auditors require a plan target/,
+        /positive step number|Multiple auditors require a plan target|Name the plan by its stem/,
       )
     }
     const brief = await execa(

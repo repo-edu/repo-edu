@@ -1,40 +1,45 @@
 import assert from "node:assert/strict"
+import { mkdir, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { test } from "node:test"
-import { auditTarget } from "../target.js"
+import { auditTarget, resolvePlan } from "../target.js"
+import { fixture } from "./helpers.js"
 
-test("plan targets retain their filename and optional step scope", () => {
-  assert.deepEqual(auditTarget("../plan/example.md", []), {
-    plan: "../plan/example.md",
+test("a stem alone selects planning and an explicit scope selects implementation", () => {
+  assert.deepEqual(auditTarget("example", []), {
+    roundKind: "planning",
+    plan: "example",
     scope: undefined,
   })
-  for (const scope of ["1", "2-4"])
+  for (const scope of ["1", "2-4", "all"])
     assert.deepEqual(auditTarget("example.md", [scope]), {
-      plan: "example.md",
+      roundKind: "implementation",
+      plan: "example",
       scope,
     })
 })
 
-test("a plan named without its extension gets .md in either round kind", () => {
-  assert.deepEqual(auditTarget("phase-arguments", []), {
-    plan: "phase-arguments.md",
-    scope: undefined,
-  })
-  assert.deepEqual(auditTarget("../plan/phase-arguments", ["2"]), {
-    plan: "../plan/phase-arguments.md",
-    scope: "2",
-  })
-  assert.deepEqual(auditTarget("phase-arguments", [], "planning"), {
-    plan: "phase-arguments.md",
-  })
-  assert.deepEqual(auditTarget("example.md", [], "planning"), {
-    plan: "example.md",
-  })
+test("plan arguments discard the extension and widening postfix", () => {
+  for (const name of [
+    "example",
+    "example.md",
+    "example-widen",
+    "example-widen.md",
+  ])
+    assert.deepEqual(auditTarget(name, []), {
+      roundKind: "planning",
+      plan: "example",
+      scope: undefined,
+    })
 })
 
-test("commit-shaped names stay commits and are refused from the plan root", () => {
+test("commit-shaped stems keep .md to select planning", () => {
   for (const first of ["HEAD", "HEAD-1", "abcdef", "HEAD-2..HEAD"])
-    assert.throws(() => auditTarget(first, [], "planning"))
-  assert.throws(() => auditTarget("phase-arguments", ["1"], "planning"))
+    assert.deepEqual(auditTarget(`${first}.md`, []), {
+      roundKind: "planning",
+      plan: first,
+      scope: undefined,
+    })
 })
 
 test("commit targets preserve references for the workflow to resolve", () => {
@@ -51,7 +56,10 @@ test("commit targets preserve references for the workflow to resolve", () => {
     ["abcdef..23674f"],
     ["HEAD-2", "23674f", "HEAD"],
   ])
-    assert.deepEqual(auditTarget(commits[0], commits.slice(1)), { commits })
+    assert.deepEqual(auditTarget(commits[0], commits.slice(1)), {
+      commits,
+      roundKind: "implementation",
+    })
 })
 
 test("invalid targets and mixed plan/commit scopes are refused", () => {
@@ -74,6 +82,46 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["example.md", "1", "2"],
     ["phase-arguments", "1", "2"],
     ["phase-arguments", "HEAD"],
+    ["../plan/example.md"],
+    ["/tmp/example.md"],
+    ["archive/example/plan.md"],
+    ["example", "all", "2"],
   ])
     assert.throws(() => auditTarget(args[0], args.slice(1)))
+})
+
+test("stem resolution prefers active plans then resolves closed plans and archived peers", async (t) => {
+  const f = await fixture(t)
+  const planRoot = join(f.root, "../plan")
+  for (const file of [
+    "example-widen.md",
+    "archive/example/plan.md",
+    "archive/closed/plan.md",
+    "archive/group/peer.md",
+  ]) {
+    const path = join(planRoot, file)
+    await mkdir(join(path, ".."), { recursive: true })
+    await writeFile(path, "# Plan\n")
+  }
+  assert.equal(
+    await resolvePlan(planRoot, "example"),
+    join(planRoot, "example-widen.md"),
+  )
+  await writeFile(join(planRoot, "example.md"), "# Settled plan\n")
+  assert.equal(
+    await resolvePlan(planRoot, "example"),
+    join(planRoot, "example.md"),
+  )
+  assert.equal(
+    await resolvePlan(planRoot, "peer"),
+    join(planRoot, "archive/group/peer.md"),
+  )
+  assert.equal(
+    await resolvePlan(planRoot, "closed"),
+    join(planRoot, "archive/closed/plan.md"),
+  )
+  await assert.rejects(
+    resolvePlan(planRoot, "missing"),
+    /No plan named missing/,
+  )
 })

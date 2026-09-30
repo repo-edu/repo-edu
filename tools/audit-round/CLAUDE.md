@@ -234,18 +234,15 @@ consumers.
   Multiple matches require an explicit file selection.
   `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
   filenames without consulting model settings.
-- `context.ts` resolves the installed Repo Edu checkout, its sibling plan root,
-  the invoking working directory and the round kind once. Only those two roots
-  may start a round. The context follows every phase and recovery session;
-  workflow ownership never changes the working directory.
-- `target.ts` owns target validation and the target type: a plan with optional
-  steps or a non-empty list of commit references from Repo Edu and an artifact
-  alone from the plan root. A plan named by its stem gets `.md`; a name shaped
-  like a commit reference, a range or a bare hex string is judged as commits,
-  so a plan whose stem reads as a SHA keeps its extension. Planning starts
-  reject step scopes and commit references before assistant startup.
-  `command.ts` checks that the plan file exists where the phases open it,
-  before any assistant starts. The audit workflow owns Git
+- `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
+  It accepts any invoking directory and carries no round kind.
+- `target.ts` owns the argument grammar for automated rounds and `name`. A plan
+  stem alone selects planning; a stem with a step, an increasing range or `all`
+  selects implementation. Commit references select a Repo Edu commit audit.
+  A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan arguments
+  drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan`
+  prefers the active artifact at the plan root, then looks in the archive. It
+  supplies the absolute plan path before any assistant starts. The audit workflow owns Git
   resolution and inclusive-range admission. The runner passes references
   unchanged and rejects multiple auditor entries for commit targets, which run once without
   a trajectory glance or watch.
@@ -335,7 +332,7 @@ generation and validation separately.
 
 ### Invocation
 
-Run from the Repo Edu checkout root with authenticated `claude` and `codex`
+Run from either checkout with authenticated `claude` and `codex`
 commands available. Terminal Markdown rendering is bundled with the runner and needs no separate
 executable. Set `NO_COLOR=1` to disable colour. Redirected output retains the original Markdown.
 
@@ -346,19 +343,19 @@ spacing and uses cyan code references without heavy background blocks. Preserve
 these qualities when changing terminal rendering.
 
 ```bash
-pnpm audit-round ../plan/example.md 1-3
-pnpm audit-round ../plan/example.md 3 --auditor a -v
-pnpm audit-round ../plan/example.md 3 --auditor atx
-pnpm audit-round task-modifier --auditor claude
+pnpm audit-round example 1-3
+pnpm audit-round example 3 --auditor a -v
+pnpm audit-round example 3 --auditor atx
+pnpm audit-round task-modifier all --auditor claude
 pnpm audit-round task-modifier --auditor codex
-pnpm audit-round ../plan/example.md 3 --auditor codex,claude,claude
-pnpm audit-round ../plan/example.md 3 --auditor "atx, obm"
-pnpm audit-round ../plan/example.md 3 --no-watch
-pnpm audit-round ../plan/example.md 3 --no-brief
+pnpm audit-round example 3 --auditor codex,claude,claude
+pnpm audit-round example 3 --auditor "atx, obm"
+pnpm audit-round example 3 --no-watch
+pnpm audit-round example 3 --no-brief
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
 pnpm audit-round brief example-step-3-01-1-round.otm.md
-pnpm audit-round name ../plan/example.md 3 --auditor oth
+pnpm audit-round name example 3 --auditor oth
 pnpm audit-round paths vet example-step-3-01-2-audit.oth.md --writer abx
 pnpm audit-round paths rebut example-step-3-01-2-audit.oth.md --writer otm
 pnpm audit-round paths fix example-step-3-01-2-audit.oth.md
@@ -376,9 +373,8 @@ the shared round protocol, with the transcript and log sharing `1-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
 
 `name` prints two absolute paths, claim then audit report, and creates only the
-claim. It does not load settings or start an assistant. A plan-root hand-run
-implementation audit may name a step scope; the automated round still requires
-Repo Edu for that route.
+claim. It does not load settings or start an assistant. Its argument grammar
+is the same as the automated round, from either checkout.
 
 `paths <vet|rebut|fix|brief> [input]` resolves a later manual phase and prints its
 arguments as one JSON array. Vet, rebuttal and brief take `--writer <full tag>`

@@ -11,14 +11,14 @@ import { join } from "node:path"
 import type { TestContext } from "node:test"
 import { fileURLToPath } from "node:url"
 import type { AssistantRuntime } from "../assistant.js"
-import type { ExecutionContext, RoundKind } from "../context.js"
 import type { Feedback, PhaseOutput } from "../feedback.js"
 import type { Assistant, PhaseInput, PhaseResult } from "../phase.js"
+import type { RoundContext, RoundKind } from "../target.js"
 
 export function testContext(
   repoEduRoot: string,
   roundKind: RoundKind = "implementation",
-): ExecutionContext {
+): RoundContext {
   const planRoot = join(repoEduRoot, "../plan")
   return {
     repoEduRoot,
@@ -120,7 +120,7 @@ export async function fixture(
       assistant,
     ],
   })
-  const runtime: AssistantRuntime & ExecutionContext = {
+  const runtime: AssistantRuntime & RoundContext = {
     ...testContext(root),
     sessionsRoot: root,
     executables: { claude: executable("claude"), codex: executable("codex") },

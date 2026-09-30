@@ -1,6 +1,6 @@
 ---
 description: Coordinate implementation of a ready plan from ../plan, using one fresh sub-agent per step with per-step commits.
-argument-hint: [plan-file] [step-range]
+argument-hint: [plan-stem] [step-range]
 disable-model-invocation: true
 ---
 

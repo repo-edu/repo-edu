@@ -1,6 +1,10 @@
-import { basename, dirname } from "node:path"
+import { readdir, stat } from "node:fs/promises"
+import { basename, dirname, join } from "node:path"
 import { InvalidArgumentError } from "commander"
-import type { RoundKind } from "./context.js"
+import type { ExecutionContext } from "./context.js"
+
+export type RoundKind = "planning" | "implementation"
+export type RoundContext = ExecutionContext & { readonly roundKind: RoundKind }
 
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =
@@ -17,10 +21,11 @@ export function planStem(plan: string): string {
 }
 
 function stepScope(value: string): string {
+  if (value === "all") return value
   const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
   if (match === null)
     throw new InvalidArgumentError(
-      "Use a positive step number or an increasing range, such as 2-4.",
+      "Use all, a positive step number or an increasing range, such as 2-4.",
     )
   const first = Number(match[1])
   const last = Number(match[2] ?? match[1])
@@ -44,41 +49,32 @@ function commitReference(value: string): boolean {
 /**
  * A reference attempt is judged as commits, so a malformed `HEAD-<n>` or
  * range is refused as one, and a plan whose bare stem reads as a SHA keeps its
- * `.md` to be told apart. A path separator marks a plan, so `../plan/<stem>`
- * never reads as a range.
+ * `.md` to be told apart.
  */
 function commitShaped(value: string): boolean {
   return (
-    !value.includes("/") &&
+    !value.endsWith(".md") &&
     (value.includes("..") ||
       value.startsWith("HEAD") ||
       /^[a-fA-F0-9]+$/.test(value))
   )
 }
 
-/** A plan is named by its Markdown file; a bare stem gets the extension. */
-function planFile(value: string): string {
-  return value.endsWith(".md") ? value : `${value}.md`
-}
-
 /** Git resolution and inclusive-range admission belong to the audit workflow. */
 export function auditTarget(
   first: string,
   rest: readonly string[],
-  kind: RoundKind = "implementation",
-): AuditTarget {
-  if (kind === "planning") {
-    if (commitShaped(first) || rest.length > 0)
-      throw new InvalidArgumentError(
-        "From the plan root, name only a plan artifact. Implementation and commit audits run from Repo Edu.",
-      )
-    return { plan: planFile(first) }
-  }
+): AuditTarget & { readonly roundKind: RoundKind } {
+  if (/[\\/]/.test(first))
+    throw new InvalidArgumentError(
+      `Name the plan by its stem, such as ${planStem(first.replaceAll("\\", "/"))}, without a path.`,
+    )
   if (!commitShaped(first)) {
     if (rest.length > 1)
       throw new InvalidArgumentError("A plan accepts at most one step scope.")
     return {
-      plan: planFile(first),
+      roundKind: rest.length === 0 ? "planning" : "implementation",
+      plan: planStem(first),
       scope: rest[0] === undefined ? undefined : stepScope(rest[0]),
     }
   }
@@ -90,8 +86,47 @@ export function auditTarget(
       endpoints.length === 2 &&
       endpoints.every(commitReference))
   )
-    return { commits }
+    return { commits, roundKind: "implementation" }
   throw new InvalidArgumentError(
     "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
   )
+}
+
+/** Resolve one plan identity, preferring the active artifact over its archive. */
+export async function resolvePlan(
+  planRoot: string,
+  stem: string,
+): Promise<string> {
+  for (const name of [`${stem}.md`, `${stem}-widen.md`]) {
+    const path = join(planRoot, name)
+    try {
+      if ((await stat(path)).isFile()) return path
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    }
+  }
+  const archive = join(planRoot, "archive")
+  let files: string[]
+  try {
+    files = await readdir(archive, { recursive: true })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    files = []
+  }
+  const matches = []
+  for (const file of files) {
+    const path = join(archive, file)
+    if (
+      path.endsWith(".md") &&
+      planStem(path) === stem &&
+      (await stat(path)).isFile()
+    )
+      matches.push(path)
+  }
+  if (matches.length === 1) return matches[0]
+  if (matches.length > 1)
+    throw new Error(
+      `Several archived plans have the stem ${stem}:\n${matches.sort().join("\n")}`,
+    )
+  throw new Error(`No plan named ${stem} at ${planRoot} or in its archive.`)
 }

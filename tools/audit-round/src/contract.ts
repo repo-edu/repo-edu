@@ -127,8 +127,13 @@ export async function recordContracts(
   fixturesRoot: string,
   terminal: Terminal,
 ): Promise<void> {
-  const { cwd, repoEduRoot, planRoot, roundKind } = runtime
-  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const { cwd, repoEduRoot, planRoot } = runtime
+  const context = {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    roundKind: "implementation" as const,
+  }
   const scratch = await mkdtemp(join(tmpdir(), "audit-round-ts-contract-"))
   const assistants: readonly Assistant[] =
     selected === "both" ? ["claude", "codex"] : [selected]
