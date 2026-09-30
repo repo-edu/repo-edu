@@ -1,4 +1,16 @@
+---
+reads:
+  - ../../../references/round-protocol.md
+  - commit-scope.md
+  - ../../../../../plan/GROWTH-PATTERNS.md
+  - ../../../../../plan/BOUNDARIES.md
+---
+
 # Implementation audit workflow
+
+The header's files are part of this workflow. Paths are relative to this file.
+The runner supplies them whole; in a hand-run session, read them whole, following
+any listed workflow's header too. Read each file once.
 
 One shared workflow behind two launchers: the Claude command
 `.claude/commands/audit.md` and the Codex skill
@@ -6,9 +18,9 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-Read the shared [round protocol](../../../references/round-protocol.md) for
+The shared [round protocol](../../../references/round-protocol.md) owns
 file names, writer tags, evidence rules, finding shape, yield, rating tokens and runner results.
-Read the whole reference. In a runner-started audit, the first argument is
+In a runner-started audit, the first argument is
 the absolute path where the runner saves the report. Deliver the report under
 [Report file](#report-file) and read the remaining arguments as the audit scope.
 Do not allocate or claim again. A hand-run audit follows
@@ -25,7 +37,7 @@ audit and wait.
 An invocation that names no plan file and names commit references, including
 `HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan covers.
 Resolve the references under **Range** in `commit-scope.md` before asking Git
-to resolve them; `HEAD-<n>` is workflow shorthand. Read
+to resolve them; `HEAD-<n>` is workflow shorthand. Use
 `commit-scope.md` beside this file for that round's scope, gate, baseline,
 coverage, report name, record and settlement, and follow the rest of this
 workflow unchanged.
@@ -83,8 +95,7 @@ tokens on each finding, including cross-repo deferrals.
 
 ## Evidence
 
-Before assessing the implementation or drafting findings, read
-`../plan/GROWTH-PATTERNS.md` completely.
+Assess the implementation and draft findings against the supplied growth patterns.
 
 In every judged repo, locate the implementation commits for the user-named
 steps through the joined topic stems. Follow later corrections and the history
@@ -101,7 +112,7 @@ deviation rules, not as a strict conformance failure.
 Read the plan end to end. Read the current files that implement every in-scope step
 in every judged repo, including files added or moved by later corrections.
 
-Read `../plan/BOUNDARIES.md` beside the plan: boundaries change only by user
+Check the supplied boundaries beside the plan: boundaries change only by user
 decision, so the current file can be newer than the plan. This is a check, not
 a source of findings. A boundary is not a minimum the round may raise, and the
 round never edits the file. The check covers three things. Shipped code that

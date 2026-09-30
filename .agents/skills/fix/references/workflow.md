@@ -1,4 +1,14 @@
+---
+reads:
+  - ../../../references/round-protocol.md
+  - ruling.md
+---
+
 # Implementation fix workflow
+
+The header's files are part of this workflow. Paths are relative to this file.
+The runner supplies them whole; in a hand-run session, read them whole, following
+any listed workflow's header too. Read each file once.
 
 One shared workflow behind two launchers: the Claude command
 `.claude/commands/fix.md` and the Codex skill
@@ -17,8 +27,8 @@ After a vet that accepted every finding without a
 condition the runner skips the rebuttal, so the fix reads the report and its
 vet twin alone.
 
-Read the whole [shared round protocol](../../../references/round-protocol.md)
-for paths, rating tokens, reconciliation, records and runner results.
+The [shared round protocol](../../../references/round-protocol.md)
+owns paths, rating tokens, reconciliation, records and runner results.
 Follow its **Reconciliation** rule after grounding the findings below.
 
 When unattended, follow the shared

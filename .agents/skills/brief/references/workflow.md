@@ -1,4 +1,14 @@
+---
+reads:
+  - ../../../references/round-protocol.md
+  - ../../../../../plan/GROWTH-PATTERNS.md
+---
+
 # Round brief workflow
+
+The header's files are part of this workflow. Paths are relative to this file.
+The runner supplies them whole; in a hand-run session, read them whole, following
+any listed workflow's header too. Read each file once.
 
 One shared workflow behind two launchers: the Claude command
 `.claude/commands/brief.md` and the Codex skill
@@ -19,7 +29,7 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 
 ## Input
 
-Read the whole shared [round protocol](../../../references/round-protocol.md) for
+The shared [round protocol](../../../references/round-protocol.md) owns
 file names, writer tags and rating meanings. The invocation supplies the transcript to read
 and the brief to write, in that order. A manual `/brief` or `$brief` may omit
 the transcript. Resolve its input and output through `paths brief` under the
@@ -31,8 +41,8 @@ outside the shared grammar fails under the result rule when unattended.
 Resolve workflow references from Repo Edu. The transcript may belong to either
 root; use the supplied output path.
 
-Read the whole transcript and the whole
-`../plan/GROWTH-PATTERNS.md` for the pattern labels. Read nothing else about the round: no code, no
+Read the whole transcript. The supplied growth patterns explain its pattern labels.
+Read nothing else about the round: no code, no
 plan, no git history and no report or twin file. The brief retells what the round said and adds
 nothing the round did not say. When the transcript states something you believe is wrong, retell it
 as the round's claim; you have no evidence to correct it, and the round's own vet and rebuttal

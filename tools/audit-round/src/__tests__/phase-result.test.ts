@@ -1,12 +1,136 @@
 import assert from "node:assert/strict"
+import { rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { test } from "node:test"
 import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
+import type { PhaseInput } from "../phase.js"
 import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import { unpinned } from "./configured-runner.js"
-import { testContext } from "./helpers.js"
+import { fixture, testContext } from "./helpers.js"
+
+test("a fresh prompt supplies routed workflows and shared files once under their source paths", async (t) => {
+  const f = await fixture(t)
+  const context = testContext(f.root, "planning")
+  const route = join(
+    context.planRoot,
+    ".agents/skills/rebut/references/workflow.md",
+  )
+  const target = join(f.root, ".agents/skills/rebut/references/workflow.md")
+  const shared = join(f.root, "shared rules.md")
+  const routing =
+    "---\nreads:\n  - '../../../../../repo-edu/.agents/skills/rebut/references/workflow.md' # route\n---\n\nRouting rules\n"
+  const routed =
+    "---\r\nreads: ['../../../../shared rules.md', '../../../../shared rules.md']\r\n---\r\n\r\nRouted rules\r\n"
+  await writeFile(route, routing)
+  await writeFile(target, routed)
+  await writeFile(shared, "Whole shared rules\n\nLast paragraph\n")
+  const input: PhaseInput<"rebut"> = {
+    ...context,
+    phase: "rebut",
+    assistant: "codex",
+    model: unpinned,
+    sessionId: null,
+    arguments: ["audit.md", "vet.md", "rebut.md"],
+  }
+  const prompt = phasePrompt(input)
+  for (const [path, content] of [
+    [route, routing],
+    [target, routed],
+    [shared, "Whole shared rules\n\nLast paragraph\n"],
+  ]) {
+    assert.ok(prompt.includes(`Source file: ${path}\n\n${content}`))
+    assert.equal(prompt.split(`Source file: ${path}\n`).length, 2)
+  }
+  assert.ok(prompt.includes("Codex rebut launcher"))
+  assert.doesNotMatch(prompt, /Source file: .*CLAUDE\.md/)
+  await writeFile(route, "---\nreads: wrong-shape\n---\n")
+  assert.throws(() => phasePrompt(input), /Invalid workflow header/)
+})
+
+test("fresh prompts use the owning launcher while resumed fixes supply no files again", async (t) => {
+  const f = await fixture(t)
+  for (const roundKind of ["implementation", "planning"] as const) {
+    for (const assistant of ["claude", "codex"] as const) {
+      const context = testContext(f.root, roundKind)
+      const input: PhaseInput<"fix"> = {
+        ...context,
+        phase: "fix",
+        assistant,
+        model: unpinned,
+        sessionId: null,
+        arguments: ["audit.md", "vet.md"],
+        rulingFile: join(context.cwd, "ruling.md"),
+      }
+      const prompt = phasePrompt(input)
+      const launcher = join(
+        context.cwd,
+        assistant === "claude"
+          ? ".claude/commands/fix.md"
+          : ".agents/skills/fix/SKILL.md",
+      )
+      assert.ok(prompt.includes(`Source file: ${launcher}`))
+      assert.ok(
+        prompt.includes(
+          `Source file: ${context.cwd}/.agents/skills/fix/references/workflow.md`,
+        ),
+      )
+      assert.ok(
+        prompt.includes(
+          `Ruling output path (JSON string): ${JSON.stringify(input.rulingFile)}`,
+        ),
+      )
+      const resumed = {
+        ...input,
+        sessionId: "fix-session",
+        rulingReply: "Apply the correction.",
+      }
+      const reply = phasePrompt(resumed)
+      assert.match(reply, /Run the fix phase .* resumed session/)
+      assert.ok(reply.includes(`Read and follow this launcher: ${launcher}`))
+      assert.doesNotMatch(reply, /Source file:|supplied phase instructions/)
+      assert.ok(reply.endsWith("User reply:\nApply the correction."))
+      await rm(launcher)
+      assert.equal(phasePrompt(resumed), reply)
+    }
+  }
+})
+
+test("watch and watch edit share Repo Edu's workflow while only the writer receives evidence", async (t) => {
+  const f = await fixture(t)
+  const common = {
+    ...testContext(f.root, "planning"),
+    assistant: "codex" as const,
+    model: unpinned,
+    sessionId: null,
+  }
+  const writer = phasePrompt({
+    ...common,
+    phase: "watch",
+    arguments: ["watch.md", "cache"],
+    evidence: "Joined episode facts",
+  })
+  const editor = phasePrompt({
+    ...common,
+    phase: "watch-edit",
+    arguments: ["watch.md"],
+  })
+  for (const prompt of [writer, editor]) {
+    assert.ok(
+      prompt.includes(
+        `Source file: ${f.root}/.agents/skills/watch/references/workflow.md`,
+      ),
+    )
+    assert.doesNotMatch(
+      prompt,
+      /Source file: .*watch-edit\/references\/workflow\.md/,
+    )
+  }
+  assert.ok(writer.endsWith("Git episode evidence:\nJoined episode facts"))
+  assert.doesNotMatch(editor, /Git episode evidence|Joined episode facts/)
+})
 
 for (const phase of [
   "audit",
@@ -107,13 +231,14 @@ test("Codex completion does not depend on unused usage fields", () => {
     assert.deepEqual(decodeCodex(record), [{ type: "complete" }])
 })
 
-test("phase arguments and recovery identifiers stay data across spaces and shell syntax", () => {
+test("phase arguments and recovery identifiers stay data across spaces and shell syntax", async (t) => {
+  const f = await fixture(t)
   const plan = '../plan/a "quoted" plan; $(touch forbidden).md'
   const prompt = phasePrompt({
     phase: "audit",
     assistant: "codex",
     model: unpinned,
-    ...testContext("/repo"),
+    ...testContext(f.root),
 
     sessionId: null,
     arguments: ["example-steps-2-3-01", plan, "2-3"],

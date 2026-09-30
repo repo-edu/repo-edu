@@ -5,8 +5,10 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { installationRoot } from "../context.js"
-import { runCommand } from "./configured-runner.js"
-import { fixture } from "./helpers.js"
+import type { PhaseInput } from "../phase.js"
+import { phasePrompt } from "../requests.js"
+import { runCommand, unpinned } from "./configured-runner.js"
+import { fixture, testContext } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
 // These integration checks exercise files owned by both checkouts. Ordinary
@@ -19,6 +21,44 @@ const checkoutRequirement =
       : false
 
 for (const working of ["repo-edu", "plan"] as const) {
+  test(`published ${working} workflow headers supply every phase's current instructions`, {
+    skip: checkoutRequirement,
+  }, () => {
+    const context = testContext(
+      installationRoot,
+      working === "plan" ? "planning" : "implementation",
+    )
+    for (const assistant of ["claude", "codex"] as const) {
+      for (const phase of [
+        "audit",
+        "vet",
+        "rebut",
+        "fix",
+        "brief",
+        "watch",
+        "watch-edit",
+      ] as const) {
+        const prompt = phasePrompt({
+          ...context,
+          phase,
+          assistant,
+          model: unpinned,
+          sessionId: null,
+          arguments: ["input.md", "output.md", "review.md"],
+          rulingFile: "ruling.md",
+          evidence: "Episode facts",
+        } as PhaseInput)
+        const protocol = `Source file: ${join(installationRoot, ".agents/references/round-protocol.md")}\n`
+        assert.equal(
+          prompt.split(protocol).length,
+          2,
+          `${working} ${assistant} ${phase}`,
+        )
+        assert.ok(prompt.includes("End of supplied phase instructions."))
+      }
+    }
+  })
+
   test(`the published ${working} pnpm entry resolves the runner without changing directories`, {
     skip: checkoutRequirement,
   }, async (t) => {

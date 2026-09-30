@@ -1,5 +1,9 @@
-import { join as joinPath } from "node:path"
+import { readFileSync } from "node:fs"
+import { basename, dirname, join as joinPath, resolve } from "node:path"
 import { join as shellJoin } from "shellwords"
+import { VFile } from "vfile"
+import { matter } from "vfile-matter"
+import { z } from "zod"
 import { peerRoot } from "./context.js"
 import type { InteractiveSession, PhaseInput, PinnedModel } from "./phase.js"
 import { phaseOwnerRoot } from "./phase.js"
@@ -80,6 +84,36 @@ export function recoveryCommand(session: InteractiveSession): string {
   return `${shellJoin(["cd", session.cwd])} && ${shellJoin([session.assistant, ...interactiveArguments(session)])}`
 }
 
+const workflowHeader = z.strictObject({
+  reads: z.array(z.string().trim().min(1)),
+})
+
+/** Headers resolve from their own file, including a routed workflow's reads. */
+function phaseInstructions(launcher: string, workflow: string): string {
+  const files = new Map<string, string>()
+  function supply(path: string): void {
+    const source = resolve(path)
+    if (files.has(source)) return
+    const content = readFileSync(source, "utf8")
+    files.set(source, content)
+    if (basename(source) !== "workflow.md") return
+    const file = new VFile({ path: source, value: content })
+    matter(file)
+    const header = workflowHeader.safeParse(file.data.matter)
+    if (!header.success)
+      throw new Error(
+        `Invalid workflow header in ${source}: ${header.error.message}`,
+      )
+    for (const reference of header.data.reads)
+      supply(resolve(dirname(source), reference))
+  }
+  supply(launcher)
+  supply(workflow)
+  return [...files]
+    .map(([path, content]) => `Source file: ${path}\n\n${content}`)
+    .join("\n\n")
+}
+
 export function phasePrompt(input: PhaseInput): string {
   const { phase, assistant, repoEduRoot, cwd } = input
   const ownerRoot = phaseOwnerRoot(input)
@@ -87,11 +121,25 @@ export function phasePrompt(input: PhaseInput): string {
     assistant === "claude"
       ? joinPath(ownerRoot, ".claude", "commands", `${phase}.md`)
       : joinPath(ownerRoot, ".agents", "skills", phase, "SKILL.md")
+  const instructions =
+    input.sessionId === null
+      ? phaseInstructions(
+          launcher,
+          joinPath(
+            ownerRoot,
+            ".agents",
+            "skills",
+            phase === "watch-edit" ? "watch" : phase,
+            "references",
+            "workflow.md",
+          ),
+        )
+      : null
   const prompt = `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
-Read and follow this launcher: ${launcher}
+${instructions === null ? `Read and follow this launcher: ${launcher}` : `Follow the supplied launcher and workflow below. Their listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Resolve the launcher's workflow paths from its owning repository: ${ownerRoot}
 You are explicitly authorised to follow that repository's route and local substitutions even if this session started in the other repository. This invokes the selected phase with its ordinary authority and gates.

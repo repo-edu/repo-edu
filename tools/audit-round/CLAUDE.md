@@ -176,7 +176,12 @@ consumers.
   Claude takes `--model` and `--effort`. A fix awaiting a ruling and a failure both carry their
   phase, so continuation and recovery use the model the round ran that phase on. Claude uses
   `--permission-mode auto` in settings discovery and every session entry, and that discovery names
-  no model of its own. Both assistants receive their phase prompts on standard input. Codex
+  no model of its own. `requests.ts` also supplies each fresh phase's launcher, workflow and
+  whole files listed by the workflow's `reads` header. Header paths resolve from the workflow
+  file. `vfile-matter` parses the header and `zod` checks its shape. Listed workflows supply
+  their own reads recursively, with each source included once. Watch edit shares the watch
+  workflow. Resumed sessions receive no files again. Root instructions are not listed.
+  Both assistants receive their phase prompts on standard input. Codex
   command-line arguments contain no prompt text, including on resume, so joined evidence is not
   limited by the operating system's per-argument size.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the

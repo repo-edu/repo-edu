@@ -1,4 +1,15 @@
+---
+reads:
+  - ../../../references/round-protocol.md
+  - ../../../../../plan/BOUNDARIES.md
+  - ../../../../../plan/GROWTH-PATTERNS.md
+---
+
 # Watch workflow
+
+The header's files are part of this workflow. Paths are relative to this file.
+The runner supplies them whole; in a hand-run session, read them whole, following
+any listed workflow's header too. Read each file once.
 
 One shared workflow behind two passes. The Codex skills
 `.agents/skills/watch/SKILL.md` and `.agents/skills/watch-edit/SKILL.md` write
@@ -9,8 +20,8 @@ specific to it and points here for the rest. Where a launcher and this file
 disagree, this file is right.
 
 This workflow owns the watch's rules for hand-run watches and automated
-planning or plan-scoped implementation-audit rounds. Read the whole shared
-[round protocol](../../../references/round-protocol.md) for file names, writer
+planning or plan-scoped implementation-audit rounds. The shared
+[round protocol](../../../references/round-protocol.md) owns file names, writer
 tags, severity sequences and rating tokens.
 
 Keep the invoking repository as the working directory. The launcher's Repo

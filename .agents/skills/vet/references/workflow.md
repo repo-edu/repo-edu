@@ -1,4 +1,16 @@
+---
+reads:
+  - ../../../references/round-protocol.md
+  - ../../../../../plan/.agents/references/planning-rules.md
+  - ../../../../../plan/BOUNDARIES.md
+  - ../../../../../plan/GROWTH-PATTERNS.md
+---
+
 # Implementation-finding vet workflow
+
+The header's files are part of this workflow. Paths are relative to this file.
+The runner supplies them whole; in a hand-run session, read them whole, following
+any listed workflow's header too. Read each file once.
 
 One shared workflow behind two launchers: the Claude command
 `.claude/commands/vet.md` and the Codex skill
@@ -32,7 +44,7 @@ belongs in `../plan` and stop. Continue only when the user explicitly says to.
 
 ## Report discovery
 
-Read the whole [shared round protocol](../../../references/round-protocol.md) for path resolution,
+The [shared round protocol](../../../references/round-protocol.md) owns path resolution,
 evidence rules, tiers, rating tokens, verdict formats and runner results. The arguments name the
 report to read and the vet output, in that order; use the report's judged-repos opening for repo and
 head checks and its filename for the auditor's vendor letter.
@@ -92,8 +104,8 @@ Drop findings on that excluded metadata. Classify the remaining findings.
   Correctness or quality evidence can reopen a settled decision. Taste never
   does. Whether the vet may accept the reopening or must hand it to the
   user is decided under the verdict rules.
-- New machinery no boundary asks for. Read `../plan/BOUNDARIES.md` and
-  `../plan/GROWTH-PATTERNS.md`. Check its trade under axis 3 instead of
+- New machinery no boundary asks for. Check the supplied boundaries and growth
+  patterns. Check its trade under axis 3 instead of
   authoring a competing pricing. A real unresolved choice about cost goes to
   the user's ruling.
 
@@ -154,7 +166,7 @@ choice about cost goes to the user's ruling; the vet never settles it.
 Use the shared round protocol's [Vet verdicts](../../../references/round-protocol.md#vet-verdicts)
 for the verdict values, numbering and response format.
 
-Read the whole [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
+Use the [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
 for changes to recorded decisions.
 They own when a supported simplification can be accepted and when the user
 must rule. Apply them to settled decisions too; replacing a decision alone

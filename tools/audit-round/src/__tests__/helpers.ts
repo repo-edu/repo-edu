@@ -38,6 +38,34 @@ export const recorded = async (name: string) =>
 export const finishedText =
   'Résumé complete\nPHASE RESULT: {"status":"finished","reason":null}'
 
+export async function writePhaseInstructions(...roots: string[]) {
+  for (const root of roots) {
+    await mkdir(join(root, ".claude/commands"), { recursive: true })
+    for (const phase of [
+      "audit",
+      "vet",
+      "rebut",
+      "fix",
+      "brief",
+      "watch",
+      "watch-edit",
+    ]) {
+      const skill = join(root, ".agents/skills", phase)
+      await mkdir(join(skill, "references"), { recursive: true })
+      await writeFile(join(skill, "SKILL.md"), `Codex ${phase} launcher\n`)
+      await writeFile(
+        join(root, ".claude/commands", `${phase}.md`),
+        `Claude ${phase} launcher\n`,
+      )
+      if (phase !== "watch-edit")
+        await writeFile(
+          join(skill, "references/workflow.md"),
+          `---\nreads: []\n---\n\n${phase} workflow\n`,
+        )
+    }
+  }
+}
+
 export async function phaseStream(
   assistant: Assistant,
   final = finishedText,
@@ -80,6 +108,7 @@ export async function fixture(
   const root = join(directory, "repo-edu")
   await mkdir(root)
   await mkdir(join(directory, "plan"))
+  await writePhaseInstructions(root, join(directory, "plan"))
   await writeFile(join(root, "scenario.json"), JSON.stringify(scenario))
   const executable = (assistant: Assistant) => ({
     file: process.execPath,

@@ -5,7 +5,12 @@ import { join } from "node:path"
 import type { TestContext } from "node:test"
 import { execa } from "execa"
 import type { Assistant } from "../phase.js"
-import { fixture, phaseStream, recorded } from "./helpers.js"
+import {
+  fixture,
+  phaseStream,
+  recorded,
+  writePhaseInstructions,
+} from "./helpers.js"
 
 /** One empty commit under a stem, so the glance finds an episode and a head to count from. */
 export async function commitFixture(
@@ -74,14 +79,7 @@ export async function roundFixture(
   await mkdir(join(planDirectory, ".agents/skills/audit/references"), {
     recursive: true,
   })
-  await writeFile(
-    join(planDirectory, ".agents/skills/audit/references/workflow.md"),
-    "Fixture marker",
-  )
-  await writeFile(
-    join(repoRoot, ".agents/skills/audit/references/workflow.md"),
-    "Fixture marker",
-  )
+  await writePhaseInstructions(repoRoot, planDirectory)
   await writeFile(join(repoRoot, "pnpm-workspace.yaml"), "packages: []\n")
   await mkdir(join(repoRoot, "tools/architecture-check/src"), {
     recursive: true,

@@ -1,4 +1,15 @@
+---
+reads:
+  - ../../../references/round-protocol.md
+  - ../../../../../plan/BOUNDARIES.md
+  - ../../../../../plan/GROWTH-PATTERNS.md
+---
+
 # Implementation-vet rebuttal workflow
+
+The header's files are part of this workflow. Paths are relative to this file.
+The runner supplies them whole; in a hand-run session, read them whole, following
+any listed workflow's header too. Read each file once.
 
 One shared workflow behind two launchers: the Claude command
 `.claude/commands/rebut.md` and the Codex skill
@@ -32,7 +43,7 @@ substitutions: that repo's report root and finding metadata.
 
 ## Report discovery
 
-Read the whole [shared round protocol](../../../references/round-protocol.md) for path resolution,
+The [shared round protocol](../../../references/round-protocol.md) owns path resolution,
 rating tokens, rebuttal grounding, answers and runner results. Follow its **Rebuttal grounding** and
 **Rebuttal answers** rules. The arguments name the report and vet to read and the rebuttal output,
 in that order; read the judged repos and audited heads from the report opening and the auditor's

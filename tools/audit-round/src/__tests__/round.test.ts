@@ -11,7 +11,7 @@ import {
   type GlanceInput,
   glanceDecision,
 } from "../glance.js"
-import { phasePrompt } from "../requests.js"
+import { phaseOwnerRoot } from "../phase.js"
 import {
   type Assistant,
   type Phase,
@@ -407,13 +407,8 @@ for (const grade of ["green", "amber"] as const) {
       assert.equal(writer.phase, "watch")
       assert.equal(editor.phase, "watch-edit")
       assert.match(writer.evidence, /finished-plan-fix/)
-      assert.ok(phasePrompt(writer).endsWith(writer.evidence))
       assert.equal(writer.arguments.includes(writer.evidence), false)
       assert.equal("evidence" in editor, false)
-      assert.doesNotMatch(
-        phasePrompt(editor),
-        /Git episode evidence|finished-plan-fix/,
-      )
     }
   })
 }
@@ -594,12 +589,7 @@ for (const auditor of ["claude", "codex"] as const) {
       ])
       for (const call of round.calls) {
         const root = call.phase === "brief" ? repoRoot : ownerRoot
-        assert.ok(
-          phasePrompt(call).includes(
-            "Resolve the launcher's workflow paths from its owning repository: " +
-              root,
-          ),
-        )
+        assert.equal(phaseOwnerRoot(call), root)
       }
       assert.deepEqual(round.rulings, [])
     })
@@ -629,7 +619,7 @@ for (const auditor of ["claude", "codex"] as const) {
     )
     assert.equal(round.calls[3].sessionId, null)
     assert.equal(round.calls[3].phase, "fix")
-    assert.ok(phasePrompt(round.calls[3]).includes(JSON.stringify(ruling)))
+    assert.equal(round.calls[3].rulingFile, ruling)
     assert.deepEqual(round.rulings, [ruling])
     assert.deepEqual(result, {
       status: "awaiting-ruling",
