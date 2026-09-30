@@ -99,10 +99,15 @@ for (const working of ["repo-edu", "plan"] as const) {
       working,
     )
     const root = f.repoRoot
+    const facade = await commitFixture(
+      f.planRoot,
+      "facade/init ath: commit-shaped plan stem",
+    )
     const older = await commitFixture(
       root,
       "older/impl-1 oth docs(x): older topic",
     )
+    await execa("git", ["tag", "facade.md", older], { cwd: root })
     await commitFixture(root, "oth docs(x): unstemmed anchor")
     const unstemmed = (await execa("git", ["rev-parse", "HEAD"], { cwd: root }))
       .stdout
@@ -154,6 +159,17 @@ for (const working of ["repo-edu", "plan"] as const) {
     const stem = await invoke("topology-example")
     assert.equal(stem.topic, "example")
     assert.equal(stem.repositories.length, 2)
+    for (const target of ["example.md", "example-widen", "example-widen.md"])
+      assert.deepEqual(await invoke(target), stem)
+    const named = await invoke("facade.md")
+    assert.equal(named.topic, "facade")
+    assert.ok(
+      named.repositories
+        .find((entry: { repository: string }) => entry.repository === "plan")
+        .commits.some((commit: { sha: string }) =>
+          commit.sha.startsWith(facade),
+        ),
+    )
     const anchored = await invoke(older)
     assert.equal(anchored.topic, "older")
     assert.ok(

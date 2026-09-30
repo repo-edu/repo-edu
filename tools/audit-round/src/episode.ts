@@ -17,7 +17,7 @@ import {
   type Subject,
   stemTopic,
 } from "./subject.js"
-import { commitShaped } from "./target.js"
+import { commitShaped, planStem } from "./target.js"
 
 export type Area = {
   readonly id: string
@@ -290,9 +290,11 @@ export async function readWatchEvidence(
   let anchor: { repository: Repository; sha: string } | undefined
   if ("target" in input && input.target !== undefined) {
     const reference = input.target.replace(/^HEAD-(\d+)$/, "HEAD~$1")
-    const repositories: Repository[] = reference.startsWith("HEAD")
-      ? ["repo-edu"]
-      : ["repo-edu", "plan"]
+    const repositories: Repository[] = reference.endsWith(".md")
+      ? []
+      : reference.startsWith("HEAD")
+        ? ["repo-edu"]
+        : ["repo-edu", "plan"]
     for (const repository of repositories) {
       const result = await execa(
         "git",
@@ -325,7 +327,7 @@ export async function readWatchEvidence(
         throw new Error(
           `Cannot resolve episode commit reference: ${input.target}`,
         )
-      topic = input.target
+      topic = planStem(input.target)
     }
   }
   return formatWatchEvidence(

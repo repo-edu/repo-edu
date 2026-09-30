@@ -580,7 +580,7 @@ for (const auditor of ["claude", "codex"] as const) {
           sessionId: null,
         },
       ])
-      // The glance reads the invoking repository's record, never the report's.
+      // The glance reads the round kind's repository record.
       assert.deepEqual(round.glances, [
         {
           cwd: ownerRoot,
