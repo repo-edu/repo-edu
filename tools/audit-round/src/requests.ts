@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs"
-import { basename, dirname, join as joinPath, resolve } from "node:path"
+import { basename, dirname, resolve } from "node:path"
 import { join as shellJoin } from "shellwords"
 import { VFile } from "vfile"
 import { matter } from "vfile-matter"
 import { z } from "zod"
 import { peerRoot } from "./context.js"
 import type { InteractiveSession, PhaseInput, PinnedModel } from "./phase.js"
-import { phaseOwnerRoot } from "./phase.js"
+import { phaseLauncher, phaseWorkflow } from "./phase.js"
 
 export const claudeSettingsRequest = {
   type: "control_request",
@@ -115,25 +115,11 @@ function phaseInstructions(launcher: string, workflow: string): string {
 }
 
 export function phasePrompt(input: PhaseInput): string {
-  const { phase, assistant, repoEduRoot, cwd } = input
-  const ownerRoot = phaseOwnerRoot(input)
-  const launcher =
-    assistant === "claude"
-      ? joinPath(ownerRoot, ".claude", "commands", `${phase}.md`)
-      : joinPath(ownerRoot, ".agents", "skills", phase, "SKILL.md")
+  const { phase, repoEduRoot, cwd } = input
+  const launcher = phaseLauncher(input)
   const instructions =
     input.sessionId === null
-      ? phaseInstructions(
-          launcher,
-          joinPath(
-            ownerRoot,
-            ".agents",
-            "skills",
-            phase === "watch-edit" ? "watch" : phase,
-            "references",
-            "workflow.md",
-          ),
-        )
+      ? phaseInstructions(launcher, phaseWorkflow(input))
       : null
   const prompt = `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
 Working directory: ${cwd}
@@ -141,8 +127,8 @@ Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
 ${instructions === null ? `Read and follow this launcher: ${launcher}` : `Follow the supplied launcher and workflow below. Their listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
-Resolve the launcher's workflow paths from its owning repository: ${ownerRoot}
-You are explicitly authorised to follow that repository's route and local substitutions even if this session started in the other repository. This invokes the selected phase with its ordinary authority and gates.
+Workflow: ${phaseWorkflow(input)}
+The supplied workflow and phase arguments are already resolved. Do not run name or paths again. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
 For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result. Put its PHASE RESULT JSON line last in the final response, outside the report.${input.phase === "watch" ? `\n\nGit episode evidence:\n${input.evidence}` : ""}`
   if (input.phase !== "fix") return prompt
   const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md in this fix session. Write the final ruling to that path and review it for clarity before returning needs-ruling. Reuse established evidence and read more only to verify uncertain claims. Every needs-ruling return must write the current open decisions, including after a reply. The runner displays your ruling directly; no separate ruling session follows. It writes and displays the brief only after the full fix has completed.`

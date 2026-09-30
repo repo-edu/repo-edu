@@ -10,14 +10,13 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-One shared workflow behind two launchers: the Claude command
-`.claude/commands/fix.md` and the Codex skill
-`.agents/skills/fix/SKILL.md`. Each launcher carries only what is
-specific to it and points here for the rest, so the two cannot drift
-apart. Where a launcher and this file disagree, this file is right.
+The shared launchers live in the plan checkout under
+`home/claude/commands/fix.md` and `home/agents/skills/fix/SKILL.md`.
+The runner selects this workflow and its working checkout for both entry routes.
+Where a launcher and this file disagree, this file is right.
 
 This workflow is the fix phase of an implementation-audit round. The audit is read-only and writes
-its report to the invoking repo root. An audit with findings stops there. This workflow starts from
+its report to the plan repo root. An audit with findings stops there. This workflow starts from
 that report: it reads the report, its vet twin and its rebuttal twin, presents the outcome for the
 user's ruling, applies the accepted corrections, lands the round's records.
 
@@ -41,10 +40,8 @@ with that reply. Questions may leave a decision open; return `needs-ruling`
 again until the user resolves it. The runner keeps the internal prompt out of
 the terminal. It writes and displays the brief only after the full fix has completed.
 
-This procedure also serves the fix phase of rounds whose report is stored at
-the plan repo root. The plan repo's fix workflow routes those here and
-supplies the local substitutions: that repo's report root, Markdown format
-and finding metadata. Follow the `CLAUDE.md` of every repo a fix touches.
+Follow the `CLAUDE.md` of every repo a fix touches. Plan-repo findings use
+`[section:]`; only findings deferred to Repo Edu use `[area:]` there.
 
 ## Report discovery
 
@@ -56,10 +53,6 @@ Automated invocations use their supplied paths unchanged.
 Read the supplied report path followed by the vet and rebuttal paths that exist; the judged-repos
 opening selects the repo set and audited heads, and the report filename's writer tag identifies the
 auditor.
-
-When the invocation names a report stored at the plan repo root, say the fix
-phase belongs in `../plan` and stop. Continue only when the user explicitly
-says to.
 
 ## Grounding
 

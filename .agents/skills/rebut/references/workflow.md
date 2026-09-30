@@ -11,11 +11,10 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-One shared workflow behind two launchers: the Claude command
-`.claude/commands/rebut.md` and the Codex skill
-`.agents/skills/rebut/SKILL.md`. Each launcher carries only what is
-specific to it and points here for the rest, so the two cannot drift
-apart. Where a launcher and this file disagree, this file is right.
+The shared launchers live in the plan checkout under
+`home/claude/commands/rebut.md` and `home/agents/skills/rebut/SKILL.md`.
+The runner selects this workflow and its working checkout for both entry routes.
+Where a launcher and this file disagree, this file is right.
 
 The rebuttal is the auditor's answer to the vet. An implementation-audit round writes its
 `*-2-audit.<tag>.md` report, the other assistant vets it into the `-3-vet.<tag>.md` twin and this
@@ -37,10 +36,6 @@ When unattended, follow the shared
 response. The runner saves the twin at its supplied path. Contested verdicts and items for the
 user's ruling still complete the rebuttal: the fix phase presents them.
 
-This procedure also serves reports stored at the plan repo root. The plan
-repo's rebuttal workflow routes those here and supplies the local
-substitutions: that repo's report root and finding metadata.
-
 ## Report discovery
 
 The [shared round protocol](../../../references/round-protocol.md) owns path resolution,
@@ -58,10 +53,6 @@ Never answer the vet on a report whose tag's vendor letter is the other
 assistant's. The rebuttal is the auditor's reply, and the other assistant's
 verdicts are not yours to defend. Continue only when the user explicitly
 says to.
-
-When the invocation names a report stored at the plan repo root, say the
-rebuttal belongs in `../plan` and stop. Continue only when the user
-explicitly says to.
 
 ## Rebuttal file
 

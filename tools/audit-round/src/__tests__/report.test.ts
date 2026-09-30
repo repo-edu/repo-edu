@@ -1,10 +1,31 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { readReport as readAuditReport } from "../report.js"
+import { readReport as readAuditReport, reportKind } from "../report.js"
 import { readVet } from "../vet.js"
 
 const readReport = (source: string, kind: "planning" | "implementation") =>
   readAuditReport(source, kind).findings
+
+test("report routing reads the named workflow only in the opening", () => {
+  assert.equal(
+    reportKind("# Planning round workflow\n\nJudged repos: plan@abc123"),
+    "planning",
+  )
+  assert.equal(
+    reportKind(
+      "**Implementation audit workflow**\n\nJudged repos: plan@abc123",
+    ),
+    "implementation",
+  )
+  for (const source of [
+    "Judged repos: plan@abc123",
+    "> Planning round workflow",
+    "```text\nImplementation audit workflow\n```",
+    "# Audit\n\n## Findings\n\nPlanning round workflow",
+    "Planning round workflow\n\nImplementation audit workflow",
+  ])
+    assert.throws(() => reportKind(source), /Report opening must name/)
+})
 
 const ratings = "[growth:none] [reach:developer] [complexity:none]"
 function finding(

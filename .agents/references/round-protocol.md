@@ -136,9 +136,11 @@ still owns its assistant and scope checks.
 A hand-run audit runs
 `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>`
 before auditing. It passes its own resolved three-letter tag, including `u` for
-an unlisted model. The command claims the next number and prints two absolute
-paths, claim then audit report. It creates only the claim and starts no
-assistant or settings discovery. It does not name later writers' files.
+an unlisted model. The command claims the next number and prints one JSON object:
+`cwd` is the working checkout, `workflow` is the owning workflow, `claim` is the
+reserved claim path and `arguments` holds the report path followed by the resolved
+audit target and scope. It creates only the claim and starts no assistant or
+settings discovery. It does not name later writers' files.
 
 The target grammar is the same from either checkout. A plan stem alone selects
 a planning audit. A stem with a step number, an inclusive range or `all`
@@ -157,8 +159,10 @@ commands take bare file names and resolve them at the plan repo root:
 | Fix | `pnpm audit-round paths fix [report]` |
 | Round brief | `pnpm audit-round paths brief [transcript] --writer <own full tag>` |
 
-Each command prints one JSON array of absolute paths in the phase's argument
-order above. Use that array for the ordinary workflow. The command writes
+Each command prints one JSON object with `cwd`, `workflow` and `arguments`.
+The arguments are absolute paths in the phase's order above. The report opening's
+named workflow selects the route; a brief uses its transcript title. Work in the
+printed checkout and follow the printed workflow with those arguments. The command writes
 nothing, claims no round and starts no assistant or settings discovery. The
 output name retains the input's target and round and uses the writing session's
 current tag, even when its model or effort differs from the earlier audit or
@@ -799,7 +803,7 @@ The two answer different questions and neither replaces the other.
 
 ### Implementation reports
 
-Open by naming the workflow that ran and include exactly one plain line: `Judged repos: plan@<sha>`,
+Open by naming `Implementation audit workflow` and include exactly one plain line: `Judged repos: plan@<sha>`,
 `Judged repos: repo-edu@<sha>` or `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's
 short audited HEAD. Repos read only as evidence stay outside that line. It selects the repos for
 vet, rebuttal, fix and clean completion. The filename holds the writer tag; do not repeat or look up
@@ -814,7 +818,7 @@ finding blocks. A report with only deferred findings still has findings.
 
 ### Planning reports
 
-Open by naming the workflow, artifact and widening or detailing phase.
+Open by naming `Planning round workflow`, the artifact and widening or detailing phase.
 Include exactly one plain line `Judged repos: plan@<sha>` with the audited
 short HEAD. Evidence-only repos stay outside it. Do not repeat the writer tag
 from the filename. The planning workflow supplies current-shape advice for a

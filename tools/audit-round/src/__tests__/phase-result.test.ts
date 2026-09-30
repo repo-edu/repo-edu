@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { rm, writeFile } from "node:fs/promises"
+import { readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { split } from "shellwords"
@@ -66,10 +66,10 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
       }
       const prompt = phasePrompt(input)
       const launcher = join(
-        context.cwd,
+        context.planRoot,
         assistant === "claude"
-          ? ".claude/commands/fix.md"
-          : ".agents/skills/fix/SKILL.md",
+          ? "home/claude/commands/fix.md"
+          : "home/agents/skills/fix/SKILL.md",
       )
       assert.ok(prompt.includes(`Source file: ${launcher}`))
       assert.ok(
@@ -92,8 +92,10 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
       assert.ok(reply.includes(`Read and follow this launcher: ${launcher}`))
       assert.doesNotMatch(reply, /Source file:|supplied phase instructions/)
       assert.ok(reply.endsWith("User reply:\nApply the correction."))
+      const launcherContent = await readFile(launcher, "utf8")
       await rm(launcher)
       assert.equal(phasePrompt(resumed), reply)
+      await writeFile(launcher, launcherContent)
     }
   }
 })

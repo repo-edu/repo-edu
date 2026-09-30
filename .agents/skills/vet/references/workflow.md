@@ -12,14 +12,13 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-One shared workflow behind two launchers: the Claude command
-`.claude/commands/vet.md` and the Codex skill
-`.agents/skills/vet/SKILL.md`. Each launcher carries only what is
-specific to it and points here for the rest, so the two cannot drift
-apart. Where a launcher and this file disagree, this file is right.
+The shared launchers live in the plan checkout under
+`home/claude/commands/vet.md` and `home/agents/skills/vet/SKILL.md`.
+The runner selects this workflow and its working checkout for both entry routes.
+Where a launcher and this file disagree, this file is right.
 
 The vet's input is another AI assistant's implementation-audit report, an `*-2-audit.<tag>.md` file
-at its owning repo root. A report at this repo's root belongs to a round that started here.
+at the plan repo root.
 [Report discovery](#report-discovery) says how the file is found. Vet its graded findings. Do not
 run an audit round of your own. Whether a finding is a good idea is not an axis: a finding can be
 appealing and still unauthorised.
@@ -36,11 +35,6 @@ ending. Report `finished` only after completing the required checks and
 returning every verdict in the final response. The runner saves the twin. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
 that open item. The runner reads the twin to decide whether to skip the rebuttal.
-
-Planning-artifact audit reports belong to the sibling plan repo. An implementation-audit report
-lives there when its round started there. Its local vet workflow routes to this owned procedure.
-When the invocation here names any report stored at the plan repo root, name the file, say the vet
-belongs in `../plan` and stop. Continue only when the user explicitly says to.
 
 ## Report discovery
 

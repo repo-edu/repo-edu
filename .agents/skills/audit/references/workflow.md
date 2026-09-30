@@ -12,11 +12,10 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-One shared workflow behind two launchers: the Claude command
-`.claude/commands/audit.md` and the Codex skill
-`.agents/skills/audit/SKILL.md`. Each launcher carries only what is
-specific to it and points here for the rest, so the two cannot drift
-apart. Where a launcher and this file disagree, this file is right.
+The shared launchers live in the plan checkout under
+`home/claude/commands/audit.md` and `home/agents/skills/audit/SKILL.md`.
+The runner selects this workflow and its working checkout for both entry routes.
+Where a launcher and this file disagree, this file is right.
 
 The shared [round protocol](../../../references/round-protocol.md) owns
 file names, writer tags, evidence rules, finding shape, yield, rating tokens and runner results.
@@ -45,12 +44,10 @@ coverage, report name, record and settlement, and follow the rest of this
 workflow unchanged.
 
 This procedure also serves implementation-audit rounds on changes hosted by
-the plan repo. Its audit workflow routes those rounds here and supplies the
-local substitutions: that repo's report root and finding metadata.
-Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
-audits still belong to the plan repo's own audit workflow. The runner selects
-that round kind when invoked with a stem alone, from either checkout. Its
-sessions work in the plan checkout. All round files live at the plan root.
+the plan repo. Follow the `CLAUDE.md` of every repo the round judges. Plan-repo
+findings use `[section:]` and carry no `[area:]` token. All round files live at
+the plan root. The runner selects the workflow and working checkout from the
+round kind.
 The shared brief launcher stays in Repo Edu and writes beside the transcript.
 Its launcher location never changes the session's working directory.
 
@@ -89,8 +86,8 @@ and complete a clean outcome under [Clean completion](#clean-completion), or
 stop when there are findings.
 
 The fix lands one record in each repo whose files took an accepted finding.
-A clean round lands one record in the sole judged repo or at the invoking
-root when both repos were judged, as named in the report opening.
+A clean round lands one record in the sole judged repo or in Repo Edu
+when both repos were judged, as named in the report opening.
 
 Use the shared round protocol's **Finding metadata** for the location and rating
 tokens on each finding, including cross-repo deferrals.
@@ -127,8 +124,7 @@ cross a boundary does not land.
 A round is read-only and runs no checks and no tests. Its evidence is what it
 reads. For Repo Edu files, read
 each affected package's `CLAUDE.md` and `package.json` for its rules; do not
-run its scripts. For plan-repo files, use the local substitutions in that
-repo's audit workflow the same way.
+run its scripts. For plan-repo files, read that repo's `CLAUDE.md` for its rules.
 
 ## Coverage
 
@@ -278,5 +274,5 @@ ordinary completion rules.
 Use the supplied report path. Without one, resolve your full writer tag under
 the shared round protocol and pass it unchanged to
 `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at
-the invoking root before auditing. Use its printed audit report path. Do not
+either checkout before auditing. Use its printed audit report path. Do not
 pass only the vendor letter.

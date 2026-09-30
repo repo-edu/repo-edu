@@ -81,15 +81,15 @@ consumers.
   directory. That configuration is passed through routing, output naming and commit stamps.
   `--auditor` overrides each field it names, using the configured tier table for its model. Both
   audit settings and command-line overrides bind the audit and rebuttal together, because the
-  rebuttal is the auditor's answer. Each named
-  field carries what named it, so the report never guesses, and either CLI accepts one. It also
-  defines the private inputs and results for assistant invocations, and the launcher-root table, and
-  owns which phases' texts enter the round transcript: only audit, vet, rebuttal and fix. The brief,
-  ruling and watch are separate documents. The fix writes the ruling; the brief and watch
-  run once the transcript holds the round. Assistant boundaries own processes, stream
-  validation, session observations and phase output. They return only after accounting for the
-  process, streams and required record writes. A failure retains the known session identity,
-  including a resumed session whose new invocation reported no identity.
+  rebuttal is the auditor's answer. Each named field carries what named it, so the report never
+  guesses, and either CLI accepts one. It also defines the private inputs and results for assistant
+  invocations, and the shared workflow and launcher selectors, and owns which phases' texts enter
+  the round transcript: only audit, vet, rebuttal and fix. The brief, ruling and watch are separate
+  documents. The fix writes the ruling; the brief and watch run once the transcript holds the round.
+  Assistant boundaries own processes, stream validation, session observations and phase output. They
+  return only after accounting for the process, streams and required record writes. A failure
+  retains the known session identity, including a resumed session whose new invocation reported no
+  identity.
 - `episode.ts` owns episode membership and history facts for the glance and
   joined watch evidence. It joins historical stems, includes rework touching
   the topic's artifacts and retains both repositories' heads and anchors.
@@ -178,13 +178,13 @@ consumers.
   awaiting a ruling and a failure both carry their phase, so continuation and recovery use the model
   the round ran that phase on. Claude uses `--permission-mode auto` in settings discovery and every
   session entry, and that discovery names no model of its own. `requests.ts` also supplies each
-  fresh phase's launcher, workflow and whole files listed by the workflow's `reads` header. Header
-  paths resolve from the workflow file. `vfile-matter` parses the header and `zod` checks its shape.
-  Listed workflows supply their own reads recursively, with each source included once. Watch edit
-  shares the watch workflow. Resumed sessions receive no files again. Root instructions are not
-  listed. Both assistants receive their phase prompts on standard input. Codex command-line
-  arguments contain no prompt text, including on resume, so joined evidence is not limited by the
-  operating system's per-argument size.
+  fresh phase's launcher, selected workflow and whole files listed by the workflow's
+  `reads` header. Header paths resolve from the workflow file. `vfile-matter` parses the header and
+  `zod` checks its shape. Listed workflows supply their own reads recursively, with each source
+  included once. Watch edit shares the watch workflow. Resumed sessions receive no files again. Root
+  instructions are not listed. Both assistants receive their phase prompts on standard input. Codex
+  command-line arguments contain no prompt text, including on resume, so joined evidence is not
+  limited by the operating system's per-argument size.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
@@ -253,24 +253,26 @@ consumers.
   the target as its own arguments. Its subcommands are `brief`, `name`, `paths`, `close` and
   `episode`. The `episode` command prints joined watch evidence from the shared reader and formatter
   without settings discovery, assistant startup or file writes. The `name` command claims a round
-  and prints its claim and audit report paths. Its required `--auditor` is the hand-run session's
-  full tag, including `u`, checked separately from a round's model request. The `paths` command
-  prints a JSON array of a manual phase's input and output paths for an existing report or
-  transcript. Both commands bypass assistant startup and settings discovery; `paths` writes nothing.
-  The `close` command uses the same closing function as the coordinator and starts no assistant or
-  settings discovery. So the program carries an action handler, Commander adds no `help` command,
-  and each command's own `-h` prints its help. A bare command line prints that help rather than
-  reporting a missing plan. It also owns the remaining auditor list and round counter. Each entry
-  runs once in the supplied order with its own override. Only an audit with no findings removes all
-  remaining entries for that assistant, across model and effort tags. A fix that lands a clean
-  record removes none. Failure or a round requiring a ruling stops the sequence. The list length is
-  the only round limit and an omitted list uses the configured default once. Each round records its
-  own file pair and the coordinator has no filesystem side effects: it opens one output per round,
-  retires the previous one first, and reads updates and settings once for the whole run before
-  opening any files. Startup messages go only to the terminal; the run log begins with the models
-  table. A chained round carries its place in its title and independently claims the next number for
-  its target. Required write failures stop phase progression. If recording itself fails, the
-  emergency channel still reports the known session and recovery command.
+  and prints its claim, workflow, working checkout and audit arguments. Its required `--auditor` is
+  the hand-run session's full tag, including `u`, checked separately from a round's model request.
+  The `paths` command prints the workflow, working checkout and argument paths for an existing
+  report or transcript as a JSON object. It reads the report opening's named workflow to select its
+  kind; a brief uses the transcript title. Both commands bypass assistant startup and settings
+  discovery; `paths` writes nothing. The `close` command uses the same closing function as the
+  coordinator and starts no assistant or settings discovery. So the program carries an action
+  handler, Commander adds no `help` command, and each command's own `-h` prints its help. A bare
+  command line prints that help rather than reporting a missing plan. It also owns the remaining
+  auditor list and round counter. Each entry runs once in the supplied order with its own override.
+  Only an audit with no findings removes all remaining entries for that assistant, across model and
+  effort tags. A fix that lands a clean record removes none. Failure or a round requiring a ruling
+  stops the sequence. The list length is the only round limit and an omitted list uses the
+  configured default once. Each round records its own file pair and the coordinator has no
+  filesystem side effects: it opens one output per round, retires the previous one first, and reads
+  updates and settings once for the whole run before opening any files. Startup messages go only to
+  the terminal; the run log begins with the models table. A chained round carries its place in its
+  title and independently claims the next number for its target. Required write failures stop phase
+  progression. If recording itself fails, the emergency channel still reports the known session and
+  recovery command.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -281,12 +283,14 @@ Its dependencies supply those operations explicitly. A returned phase failure
 stops the sequence. A rejected phase invocation also stops it without retrying;
 the invocation owner must release its resources before rejecting.
 
-The phase table in `phase.ts` owns launcher roots. Planning sessions work in the plan checkout;
-implementation and commit sessions work in Repo Edu. Every round file lives at the plan root. The
-runner names all input and output paths before the audit. The runner saves audit, vet and rebuttal
-final responses; brief and watch sessions write their own documents. Report phases finish only when
-their supplied output exists and is non-empty. Claude receives the peer checkout as an additional
-directory; recovery commands restore the working directory.
+`phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal and fix use the single
+launcher set under the plan checkout's `home/`; their workflow follows the round's kind. Planning
+sessions work in the plan checkout; implementation and commit sessions work in Repo Edu. Every round
+file lives at the plan root. The runner names all input and output paths before the audit. The
+runner saves audit, vet and rebuttal final responses; brief and watch sessions write their own
+documents. Report phases finish only when their supplied output exists and is non-empty. Claude
+receives the peer checkout as an additional directory; recovery commands restore the working
+directory.
 
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
@@ -373,17 +377,17 @@ root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
 the shared round protocol, with the transcript and log sharing `1-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
 
-`name` prints two absolute paths, claim then audit report, and creates only the
-claim. It does not load settings or start an assistant. Its argument grammar
+`name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
+The arguments hold the report path followed by the resolved target and scope.
+It creates only the claim. It does not load settings or start an assistant. Its argument grammar
 is the same as the automated round, from either checkout.
 
-`paths <vet|rebut|fix|brief> [input]` resolves a later manual phase and prints its
-arguments as one JSON array. Vet, rebuttal and brief take `--writer <full tag>`
-from the current session. Fix writes no phase report and needs no writer tag.
-Without an input, the command selects the sole eligible file at the plan root.
-Use `--vet <file>` or `--rebut <file>` to select an existing review when several
-belong to that round. The command writes nothing and never claims another
-number. The shared round protocol owns manual invocation details.
+`paths <vet|rebut|fix|brief> [input]` resolves a later manual phase and prints its working checkout,
+workflow and arguments as one JSON object. Vet, rebuttal and brief take `--writer <full tag>` from
+the current session. Fix writes no phase report and needs no writer tag. Without an input, the
+command selects the sole eligible file at the plan root. Use `--vet <file>` or `--rebut <file>` to
+select an existing review when several belong to that round. The command writes nothing and never
+claims another number. The shared round protocol owns manual invocation details.
 
 `close` deletes the audit and twins for its exact target and round at the
 plan root. Claims and runner documents remain.

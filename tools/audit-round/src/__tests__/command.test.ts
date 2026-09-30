@@ -235,7 +235,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         f.errors.join("\n"),
       )
       assert.deepEqual(
-        f.visible,
+        [JSON.parse(f.visible[0]).claim, JSON.parse(f.visible[0]).arguments[0]],
         [`${target}-10-0-claim.md`, `${target}-10-2-audit.${tag}.md`].map(
           (name) => join(root, name),
         ),
@@ -244,10 +244,13 @@ for (const working of ["repo-edu", "plan"] as const) {
         (await readdir(root)).filter((name) => !before.includes(name)),
         [`${target}-10-0-claim.md`],
       )
-      assert.equal(await readFile(f.visible[0], "utf8"), "")
+      assert.equal(await readFile(JSON.parse(f.visible[0]).claim, "utf8"), "")
       f.visible.length = 0
       assert.equal(await runCommand(args, f.runtime, f.options), 0)
-      assert.equal(f.visible[0], join(root, `${target}-11-0-claim.md`))
+      assert.equal(
+        JSON.parse(f.visible[0]).claim,
+        join(root, `${target}-11-0-claim.md`),
+      )
       await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
         code: "ENOENT",
       })
@@ -270,7 +273,10 @@ test("name shares commit range and list targets with the runner", async (t) => {
       ),
       0,
     )
-    assert.equal(f.visible[1], join(f.planRoot, `${target}-01-2-audit.oux.md`))
+    assert.equal(
+      JSON.parse(f.visible[0]).arguments[0],
+      join(f.planRoot, `${target}-01-2-audit.oux.md`),
+    )
   }
 })
 
@@ -306,7 +312,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
     0,
   )
   assert.equal(
-    f.visible[1],
+    JSON.parse(f.visible[0]).arguments[0],
     join(f.planRoot, "example-steps-2-3-01-2-audit.oux.md"),
   )
   assert.equal(
@@ -565,7 +571,9 @@ for (const auditor of ["claude", "codex"] as const) {
             ),
           )
         }
-        assert.ok(log.includes(join(repoRoot, ".agents/skills/fix/SKILL.md")))
+        assert.ok(
+          log.includes(join(f.planRoot, "home/agents/skills/fix/SKILL.md")),
+        )
         assert.match(log, /audit-round-probe-error/)
         assert.equal(visible.includes("audit-round-probe-error"), false)
         assert.equal(log.includes("\u001b"), false)
@@ -1529,8 +1537,8 @@ for (const auditor of ["codex", "claude"] as const) {
         const launcher =
           phase === "fix" ||
           (phase === "vet" ? auditor === "claude" : auditor === "codex")
-            ? join(f.planRoot, `.agents/skills/${phase}/SKILL.md`)
-            : join(f.planRoot, `.claude/commands/${phase}.md`)
+            ? join(f.planRoot, `home/agents/skills/${phase}/SKILL.md`)
+            : join(f.planRoot, `home/claude/commands/${phase}.md`)
         assert.ok(log.includes(launcher), launcher)
       }
       assert.equal(
@@ -1609,7 +1617,10 @@ for (const working of ["repo-edu", "plan"] as const) {
         0,
         f.errors.join("\n"),
       )
-      assert.equal(f.visible[0], join(f.planRoot, `${target}-01-0-claim.md`))
+      assert.equal(
+        JSON.parse(f.visible[0]).claim,
+        join(f.planRoot, `${target}-01-0-claim.md`),
+      )
     }
     await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
       code: "ENOENT",

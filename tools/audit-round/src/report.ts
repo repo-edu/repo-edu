@@ -6,6 +6,28 @@ type Block = ReturnType<typeof fromMarkdown>["children"][number]
 type List = Extract<Block, { type: "list" }>
 type Paragraph = Extract<Block, { type: "paragraph" }>
 
+/** The named workflow in the report opening owns routing, never its file name. */
+export function reportKind(source: string): RoundKind {
+  const children = fromMarkdown(source).children
+  const end = children.findIndex(
+    (node) => node.type === "heading" && node.depth === 2,
+  )
+  const opening = children
+    .slice(0, end === -1 ? undefined : end)
+    .filter((node) => node.type === "heading" || node.type === "paragraph")
+    .map((node) =>
+      source.slice(node.position?.start.offset, node.position?.end.offset),
+    )
+    .join("\n")
+  const planning = /\bPlanning round workflow\b/i.test(opening)
+  const implementation = /\bImplementation audit workflow\b/i.test(opening)
+  if (planning === implementation)
+    throw new Error(
+      "Report opening must name either Planning round workflow or Implementation audit workflow",
+    )
+  return planning ? "planning" : "implementation"
+}
+
 /** Finding identities survive the fix consuming the report and its twins. */
 export type ReportFindings = readonly number[]
 

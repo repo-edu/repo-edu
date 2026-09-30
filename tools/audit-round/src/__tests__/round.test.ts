@@ -11,7 +11,7 @@ import {
   type GlanceInput,
   glanceDecision,
 } from "../glance.js"
-import { phaseOwnerRoot } from "../phase.js"
+import { phaseWorkflow } from "../phase.js"
 import {
   type Assistant,
   type Phase,
@@ -509,7 +509,7 @@ for (const auditor of ["claude", "codex"] as const) {
   const vetAssistant: Assistant = auditor === "claude" ? "codex" : "claude"
 
   for (const ownerRoot of [repoRoot, "/workspace/plan"]) {
-    test(`${auditor} audit uses the invoking launchers at ${ownerRoot}`, async () => {
+    test(`${auditor} audit uses the selected workflows at ${ownerRoot}`, async () => {
       const report = files.documents.report
       const round = controlledRound()
 
@@ -589,7 +589,10 @@ for (const auditor of ["claude", "codex"] as const) {
       ])
       for (const call of round.calls) {
         const root = call.phase === "brief" ? repoRoot : ownerRoot
-        assert.equal(phaseOwnerRoot(call), root)
+        assert.equal(
+          phaseWorkflow(call),
+          `${root}/.agents/skills/${call.phase}/references/workflow.md`,
+        )
       }
       assert.deepEqual(round.rulings, [])
     })

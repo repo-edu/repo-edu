@@ -1,3 +1,4 @@
+import { join } from "node:path"
 import type { CleanInput } from "./clean.js"
 import type { WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput } from "./glance.js"
@@ -22,19 +23,25 @@ export type Phase =
   | "watch"
   | "watch-edit"
 
-/** Launcher ownership is independent of the files a phase reads or writes. */
-const launcherRoots: Record<Phase, "cwd" | "repoEduRoot"> = {
-  audit: "cwd",
-  vet: "cwd",
-  rebut: "cwd",
-  fix: "cwd",
-  brief: "repoEduRoot",
-  watch: "repoEduRoot",
-  "watch-edit": "repoEduRoot",
+/** Manual and automated phases share one workflow selection. */
+export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
+  const root = transcribed(input.phase) ? input.cwd : input.repoEduRoot
+  return join(
+    root,
+    ".agents/skills",
+    input.phase === "watch-edit" ? "watch" : input.phase,
+    "references/workflow.md",
+  )
 }
 
-export function phaseOwnerRoot(input: RoundContext & { phase: Phase }): string {
-  return input[launcherRoots[input.phase]]
+export function phaseLauncher(
+  input: RoundContext & { phase: Phase; assistant: Assistant },
+): string {
+  const home = transcribed(input.phase)
+  const root = home ? join(input.planRoot, "home") : input.repoEduRoot
+  return input.assistant === "claude"
+    ? join(root, home ? "claude" : ".claude", "commands", `${input.phase}.md`)
+    : join(root, home ? "agents" : ".agents", "skills", input.phase, "SKILL.md")
 }
 
 /** The model tiers a round may ask its auditor for, as the command line names them. */

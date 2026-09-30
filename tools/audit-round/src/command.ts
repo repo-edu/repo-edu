@@ -24,9 +24,10 @@ import {
   type AuditorSeat,
   noOverride,
   parseAuditor,
+  phaseWorkflow,
   type RoundDependencies,
 } from "./phase.js"
-import { readReport } from "./report.js"
+import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
@@ -234,7 +235,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
   command
     .command("name")
     .description(
-      "Claim a hand-run round and print its claim and audit report paths.",
+      "Claim a hand-run round and print its workflow, working checkout and arguments.",
     )
     .argument("<target>", "the same plan or commit target accepted by a round")
     .argument(
@@ -252,7 +253,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
   command
     .command("paths")
     .description(
-      "Resolve a manual phase's paths without starting an assistant or claiming a round.",
+      "Resolve a manual phase's workflow, working checkout and arguments without starting an assistant.",
     )
     .argument(
       "<phase>",
@@ -372,15 +373,24 @@ export async function runCommand(
       return 0
     }
     if (invocation.kind === "paths") {
+      const args = await manualPhasePaths(
+        context,
+        invocation.phase,
+        invocation.input,
+        invocation,
+      )
+      const session = roundContext(
+        context,
+        invocation.phase === "brief"
+          ? await transcriptKind(args[0])
+          : reportKind(await readFile(args[0], "utf8")),
+      )
       options.terminal.write(
-        JSON.stringify(
-          await manualPhasePaths(
-            context,
-            invocation.phase,
-            invocation.input,
-            invocation,
-          ),
-        ),
+        JSON.stringify({
+          cwd: session.cwd,
+          workflow: phaseWorkflow({ ...session, phase: invocation.phase }),
+          arguments: args,
+        }),
       )
       return 0
     }
@@ -416,12 +426,28 @@ export async function runCommand(
       })
       const claim = join(context.planRoot, `${nameStart}-0-claim.md`)
       claimRound(claim)
-      options.terminal.write(claim)
+      const report = join(
+        context.planRoot,
+        `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
+      )
+      const session = roundContext(context, prepared.target.roundKind)
       options.terminal.write(
-        join(
-          context.planRoot,
-          `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
-        ),
+        JSON.stringify({
+          cwd: session.cwd,
+          workflow: phaseWorkflow({ ...session, phase: "audit" }),
+          claim,
+          arguments: [
+            report,
+            ...("plan" in prepared.target
+              ? [
+                  prepared.target.plan,
+                  ...(prepared.target.scope === undefined
+                    ? []
+                    : [prepared.target.scope]),
+                ]
+              : prepared.target.commits),
+          ],
+        }),
       )
       return 0
     }
