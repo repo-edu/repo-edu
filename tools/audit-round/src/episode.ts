@@ -17,6 +17,7 @@ import {
   type Subject,
   stemTopic,
 } from "./subject.js"
+import { commitShaped } from "./target.js"
 
 export type Area = {
   readonly id: string
@@ -319,7 +320,13 @@ export async function readWatchEvidence(
         break
       }
     }
-    if (anchor === undefined) topic = input.target
+    if (anchor === undefined) {
+      if (commitShaped(input.target))
+        throw new Error(
+          `Cannot resolve episode commit reference: ${input.target}`,
+        )
+      topic = input.target
+    }
   }
   return formatWatchEvidence(
     joinedEpisode(logs, topic, loadAreaModel(input.repoEduRoot).areas, anchor),

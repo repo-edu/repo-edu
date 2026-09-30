@@ -41,6 +41,7 @@ test("commit stamps retain each phase's reported selection across later phases",
   const setup = {
     ...testContext(f.root),
     plan: "example.md",
+    scope: "all",
     auditor: "claude" as const,
     override: { strength: "top", effort: "xhigh" } as const,
   }
@@ -98,7 +99,7 @@ test("output records complete invocations incrementally and refreshes only while
   let clears = 0
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md", scope: "all" },
       Date.now(),
       selections,
     ),
@@ -224,7 +225,7 @@ test("written status stamps chain into the running total", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md", scope: "all" },
       Date.now(),
       selections,
     ),
@@ -290,7 +291,7 @@ for (const assistant of ["claude", "codex"] as const) {
       const visible: string[] = []
       const output = new RoundOutput(
         await roundRun(
-          { ...testContext(f.root), plan: "example.md" },
+          { ...testContext(f.root), plan: "example.md", scope: "all" },
           Date.now(),
           selections,
         ),
@@ -454,7 +455,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md", scope: "all" },
       Date.now(),
       selections,
     ),
@@ -494,7 +495,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { ...testContext(f.root), plan: "example.md", auditor },
+        { ...testContext(f.root), plan: "example.md", scope: "all", auditor },
         Date.now(),
         selections,
       ),
@@ -554,7 +555,7 @@ test("the settings header names what set each phase's model and effort", async (
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { ...testContext(f.root), plan: "example.md", override },
+        { ...testContext(f.root), plan: "example.md", scope: "all", override },
         Date.now(),
         selections,
       ),
@@ -612,7 +613,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md", scope: "all" },
       Date.now(),
       selections,
     ),

@@ -186,6 +186,19 @@ for (const working of ["repo-edu", "plan"] as const) {
           f.heads[entry.repository as keyof typeof f.heads],
         ),
       )
+    for (const target of ["HEAD-999999999", "HEAD-nope", "f".repeat(40)]) {
+      f.visible.length = 0
+      f.errors.length = 0
+      assert.equal(
+        await runCommand(["episode", target], f.runtime, f.options),
+        1,
+      )
+      assert.match(
+        f.errors.join("\n"),
+        new RegExp(`Cannot resolve episode commit reference: ${target}`),
+      )
+      assert.deepEqual(f.visible, [])
+    }
     assert.deepEqual(
       await Promise.all(
         [f.repoRoot, f.planRoot, f.options.cacheRoot].map((path) =>

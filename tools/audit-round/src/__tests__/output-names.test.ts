@@ -84,7 +84,7 @@ test("different auditors cannot open the same candidate and the next run advance
 
 test("only retained round files at the plan root reserve numbers across auditors", async (t) => {
   const f = await fixture(t)
-  const setup = { ...testContext(f.root), plan: "example.md" }
+  const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
   for (const root of [f.root, join(f.root, "../plan")]) {
     for (const suffix of [
       "0-claim.md",
@@ -121,7 +121,7 @@ test("only retained round files at the plan root reserve numbers across auditors
 
 test("a plan-root report survives partial cleanup and full cleanup restarts numbering", async (t) => {
   const f = await fixture(t)
-  const setup = { ...testContext(f.root), plan: "example.md" }
+  const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
   const run = await roundRun(setup, 0, selections)
   new RoundOutput(run, options).close()
   const report = join(f.root, "../plan", `${run.nameStart}-2-audit.oth.md`)
@@ -141,7 +141,7 @@ test("a plan-root report survives partial cleanup and full cleanup restarts numb
 
 test("a failed tagged-file open retains the number's claim", async (t) => {
   const f = await fixture(t)
-  const setup = { ...testContext(f.root), plan: "example.md" }
+  const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
   const run = await roundRun(setup, 0, selections)
   await mkdir(run.paths.log)
   assert.throws(() => new RoundOutput(run, options))
@@ -196,7 +196,7 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
 test("archived plans use their folder and scopes keep separate numbering", async (t) => {
   const f = await fixture(t)
   for (const [scope, target] of [
-    [undefined, "all"],
+    ["all", "all"],
     ["3", "step-3"],
     ["2-4", "steps-2-4"],
   ] as const) {
@@ -242,7 +242,11 @@ test("unspellable phase efforts fail before any claim or output is created", asy
         [assistant]: { ...selections[assistant], effort },
       }
       await assert.rejects(
-        roundRun({ ...testContext(f.root), plan: "example.md" }, 0, chosen),
+        roundRun(
+          { ...testContext(f.root), plan: "example.md", scope: "all" },
+          0,
+          chosen,
+        ),
         assistant === "codex"
           ? /codex audit.*full --auditor tag/
           : /claude vet.*CLI settings/,
@@ -255,6 +259,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
       {
         ...testContext(f.root),
         plan: "example.md",
+        scope: "all",
         override: { strength: "top", effort: "high" },
       },
       0,

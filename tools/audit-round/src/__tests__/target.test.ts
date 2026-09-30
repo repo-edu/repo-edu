@@ -9,7 +9,6 @@ test("a stem alone selects planning and an explicit scope selects implementation
   assert.deepEqual(auditTarget("example", []), {
     roundKind: "planning",
     plan: "example",
-    scope: undefined,
   })
   for (const scope of ["1", "2-4", "all"])
     assert.deepEqual(auditTarget("example.md", [scope]), {
@@ -29,7 +28,6 @@ test("plan arguments discard the extension and widening postfix", () => {
     assert.deepEqual(auditTarget(name, []), {
       roundKind: "planning",
       plan: "example",
-      scope: undefined,
     })
 })
 
@@ -38,7 +36,6 @@ test("commit-shaped stems keep .md to select planning", () => {
     assert.deepEqual(auditTarget(`${first}.md`, []), {
       roundKind: "planning",
       plan: first,
-      scope: undefined,
     })
 })
 

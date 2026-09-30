@@ -241,7 +241,7 @@ export async function runRound(
         arguments:
           "commits" in input
             ? [input.documents.report, ...input.commits]
-            : input.scope === undefined
+            : input.roundKind === "planning"
               ? [input.documents.report, input.plan]
               : [input.documents.report, input.plan, input.scope],
         sessionId: null,

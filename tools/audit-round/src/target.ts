@@ -22,8 +22,16 @@ export function roundContext(
 
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =
-  | { readonly plan: string; readonly scope?: string }
-  | { readonly commits: readonly [string, ...string[]] }
+  | { readonly roundKind: "planning"; readonly plan: string }
+  | {
+      readonly roundKind: "implementation"
+      readonly plan: string
+      readonly scope: string
+    }
+  | {
+      readonly roundKind: "implementation"
+      readonly commits: readonly [string, ...string[]]
+    }
 
 /** Active and archived plan paths share one identity for files and records. */
 export function planStem(plan: string): string {
@@ -65,7 +73,7 @@ function commitReference(value: string): boolean {
  * range is refused as one, and a plan whose bare stem reads as a SHA keeps its
  * `.md` to be told apart.
  */
-function commitShaped(value: string): boolean {
+export function commitShaped(value: string): boolean {
   return (
     !value.endsWith(".md") &&
     (value.includes("..") ||
@@ -78,7 +86,7 @@ function commitShaped(value: string): boolean {
 export function auditTarget(
   first: string,
   rest: readonly string[],
-): AuditTarget & { readonly roundKind: RoundKind } {
+): AuditTarget {
   if (/[\\/]/.test(first))
     throw new InvalidArgumentError(
       `Name the plan by its stem, such as ${planStem(first.replaceAll("\\", "/"))}, without a path.`,
@@ -86,11 +94,10 @@ export function auditTarget(
   if (!commitShaped(first)) {
     if (rest.length > 1)
       throw new InvalidArgumentError("A plan accepts at most one step scope.")
-    return {
-      roundKind: rest.length === 0 ? "planning" : "implementation",
-      plan: planStem(first),
-      scope: rest[0] === undefined ? undefined : stepScope(rest[0]),
-    }
+    const plan = planStem(first)
+    return rest[0] === undefined
+      ? { roundKind: "planning", plan }
+      : { roundKind: "implementation", plan, scope: stepScope(rest[0]) }
   }
   const commits: [string, ...string[]] = [first, ...rest]
   const endpoints = first.split("..")

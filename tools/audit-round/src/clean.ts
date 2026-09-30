@@ -32,9 +32,7 @@ export async function completeClean(
     )
   const repository = cwd === input.planRoot ? "plan" : "repo-edu"
   const role =
-    input.roundKind === "planning"
-      ? "audit"
-      : `impl-audit-${input.scope ?? "all"}`
+    input.roundKind === "planning" ? "audit" : `impl-audit-${input.scope}`
   const subject = `${planStem(input.plan)}/${role} ${stamps.auditor} clean: record audit with no findings`
   parseSubject(subject, repository)
   const body =

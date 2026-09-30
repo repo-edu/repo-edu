@@ -2,16 +2,9 @@ import { readdir, readFile, realpath, stat, unlink } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
-import {
-  type AuditTarget,
-  planStem,
-  type RoundContext,
-  type RoundKind,
-} from "./target.js"
+import { type AuditTarget, planStem, type RoundKind } from "./target.js"
 
-type NamingTarget = ExecutionContext &
-  Pick<RoundContext, "roundKind"> &
-  AuditTarget
+type NamingTarget = ExecutionContext & AuditTarget
 
 const phaseOrder = {
   round: 1,
@@ -103,12 +96,12 @@ async function targetDescription(target: NamingTarget): Promise<{
   if (target.roundKind === "planning")
     return { label: stem, title: `plan ${target.plan}` }
   const scope =
-    target.scope === undefined || target.scope === "all"
+    target.scope === "all"
       ? "all"
       : `${target.scope.includes("-") ? "steps" : "step"}-${target.scope}`
   return {
     label: `${stem}-${scope}`,
-    title: `implementation ${target.plan} ${target.scope ?? "all"}`,
+    title: `implementation ${target.plan} ${target.scope}`,
   }
 }
 

@@ -17,6 +17,13 @@ import type { RoundContext, RoundKind } from "../target.js"
 
 export function testContext(
   repoEduRoot: string,
+): RoundContext & { readonly roundKind: "implementation" }
+export function testContext<K extends RoundKind>(
+  repoEduRoot: string,
+  roundKind: K,
+): RoundContext & { readonly roundKind: K }
+export function testContext(
+  repoEduRoot: string,
   roundKind: RoundKind = "implementation",
 ): RoundContext {
   const planRoot = join(repoEduRoot, "../plan")

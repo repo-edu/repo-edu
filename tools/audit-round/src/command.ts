@@ -435,7 +435,7 @@ export async function runCommand(
             ...("plan" in prepared.target
               ? [
                   prepared.target.plan,
-                  ...(prepared.target.scope === undefined
+                  ...(prepared.target.roundKind === "planning"
                     ? []
                     : [prepared.target.scope]),
                 ]

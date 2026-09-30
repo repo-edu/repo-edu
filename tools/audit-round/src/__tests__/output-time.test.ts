@@ -49,7 +49,7 @@ for (const { zone, instant, timestamp } of [
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { ...testContext(f.root), plan: "example.md" },
+        { ...testContext(f.root), plan: "example.md", scope: "all" },
         Date.parse(instant),
         selections,
       ),
@@ -94,7 +94,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   const log: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md", scope: "all" },
       Date.now(),
       selections,
     ),
@@ -169,7 +169,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   const log: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md", scope: "all" },
       Date.now(),
       selections,
     ),
