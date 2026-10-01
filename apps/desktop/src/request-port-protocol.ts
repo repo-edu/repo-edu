@@ -93,11 +93,6 @@ export function createRequestMessageParser<I, P, O, S>(
     const { type } = envelope.parse(raw)
     if (!Object.hasOwn(schemas, type))
       throw new Error("Unknown request-port message.")
-    return schemas[type as keyof typeof schemas].parse(raw) as RequestMessage<
-      I,
-      P,
-      O,
-      S
-    >
+    return schemas[type as keyof typeof schemas].parse(raw)
   }
 }

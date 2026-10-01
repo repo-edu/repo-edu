@@ -89,20 +89,14 @@ export function requestMessageSchemas<I, P, O, S>(
   }
 }
 
-export type RequestMessage<I, P, O, S> =
-  | { type: "admission"; status: "accepted" | "busy" }
-  | { type: "prepare" }
-  | { type: "bundle"; bundle: RequestPersistenceBundle }
-  | { type: "persisted"; result: RequestPersistenceResult }
-  | { type: "input"; input: I }
-  | { type: "progress"; progress: P }
-  | { type: "output"; output: O }
-  | { type: "cancel" }
-  | { type: "settlement"; settlement: S }
-  | { type: "acknowledged" }
-  | { type: "released" }
-  | { type: "close-ready" }
-  | { type: "close-acknowledged" }
+type RequestMessageSchemas<I, P, O, S> = ReturnType<
+  typeof requestMessageSchemas<I, P, O, S>
+>
+export type RequestMessage<I, P, O, S> = {
+  [K in keyof RequestMessageSchemas<I, P, O, S>]: z.output<
+    RequestMessageSchemas<I, P, O, S>[K]
+  >
+}[keyof RequestMessageSchemas<I, P, O, S>]
 
 export const closePayloadSchemas = {
   input: z.never(),
