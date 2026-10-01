@@ -79,8 +79,8 @@ rule.
 After the user accepts the outcome, apply every directed correction. One
 acceptance covers the whole round: fixes in each judged repo and findings
 deferred only to repos outside the round's repo set. Every fix is a
-root-cause fix under the repo's `CLAUDE.md`, including its complexity
-escalation and repeated-fix rules. A correction those rules turn into a
+root-cause fix under the repo's `CLAUDE.md` and the home policy's complexity
+escalation rule. A correction those rules turn into a
 structural change is applied as that structural change, never narrowed to
 fit.
 

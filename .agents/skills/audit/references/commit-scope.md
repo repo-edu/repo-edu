@@ -134,8 +134,7 @@ rebuttal and fix; the resolved range remains report content rather than a pair o
 
 A commit-scoped round has no plan stem, so its fix commit takes this repo's
 ordinary severity-prefixed conventional subject, the form `CLAUDE.md` gives a
-commit unattached to a plan. It carries no `impl-audit-` role token, so the
-repeated-fix gate counts it like any other fix. The body keeps the fix
+commit unattached to a plan. It carries no `impl-audit-` role token. The body keeps the fix
 workflow's finding bullets with their metadata tokens and the round's two yield
 lines.
 
