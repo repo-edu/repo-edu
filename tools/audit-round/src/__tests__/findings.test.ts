@@ -4,7 +4,7 @@ import { readFindings } from "../findings.js"
 import { findingSequence, printSequence } from "../sequence.js"
 
 const strict = "audit"
-const rating = "[growth:none] [reach:developer] [complexity:none]"
+const rating = "[growth-pattern:none] [reach:developer] [complexity:none]"
 
 test("both bullet forms derive sorted tier counts, all reach cases and D findings", () => {
   const cases = [
@@ -19,8 +19,8 @@ test("both bullet forms derive sorted tier counts, all reach cases and D finding
     const body = cases
       .map(([tier, reach]) =>
         repository === "repo-edu"
-          ? `- [${tier}] [area:area-a] [growth:none] [reach:${reach}] [complexity:none] Concern.`
-          : `- ${tier} [field:missing] [section:decisions] [growth:none] [reach:${reach}] [complexity:none] Concern.`,
+          ? `- [${tier}] [area:area-a] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern.`
+          : `- ${tier} [field:missing] [section:decisions] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern.`,
       )
       .join("\n")
     const findings = readFindings(body, repository, strict)
@@ -51,7 +51,7 @@ test("strict reads require each token and name the offending bullet", () => {
       valid.replace("[area:area-a]", "[area:area-a] [section:elsewhere]"),
       /location/,
     ],
-    ...["growth", "reach", "complexity"].flatMap((key) => [
+    ...["growth-pattern", "reach", "complexity"].flatMap((key) => [
       [valid.replace(new RegExp(`\\[${key}:[^\\]]+\\] `), ""), new RegExp(key)],
       [valid.replace(" Correct", ` [${key}:none] Correct`), new RegExp(key)],
     ]),
@@ -63,7 +63,10 @@ test("strict reads require each token and name the offending bullet", () => {
       valid.replace("complexity:none", "complexity:state"),
       /invalid \[complexity/,
     ],
-    [valid.replace("growth:none", "growth:bad label"), /invalid \[growth/],
+    [
+      valid.replace("growth-pattern:none", "growth-pattern:bad label"),
+      /invalid \[growth/,
+    ],
     [valid.replace(" Correct the record.", ""), /followed by prose/],
     [valid.replace("[C]", "[D]").replace("[reach:developer] ", ""), /reach/],
   ] as const) {
@@ -93,7 +96,7 @@ test("strict reads require each token and name the offending bullet", () => {
     )
   }
   const plan = `- C [field:missing] [section:decisions] ${rating} Correct.`
-  for (const key of ["section", "growth", "reach", "complexity"]) {
+  for (const key of ["section", "growth-pattern", "reach", "complexity"]) {
     assert.throws(
       () =>
         readFindings(

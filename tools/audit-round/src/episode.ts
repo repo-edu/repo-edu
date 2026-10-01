@@ -3,7 +3,7 @@ import { loadAreaModel } from "../../architecture-check/src/area-model.js"
 import type { ExecutionContext } from "./context.js"
 import {
   checkFindingTotals,
-  repeatedGrowth,
+  repeatedGrowthPatterns,
   runEvidence,
   tokenCounts,
   trajectory,
@@ -245,7 +245,7 @@ export function joinedEpisode(
     topic: topic === null ? null : stemTopic(topic),
     repositories,
     tokens: tokenCounts(commits.flatMap((commit) => commit.findings)),
-    growth: repeatedGrowth(commits),
+    growthPatterns: repeatedGrowthPatterns(commits),
   }
 }
 

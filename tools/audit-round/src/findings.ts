@@ -3,7 +3,7 @@ import { type Repository, SubjectError, type TierLetter } from "./subject.js"
 
 const label = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 const ratings = z.object({
-  growth: z
+  "growth-pattern": z
     .string()
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*(?:,[a-z0-9]+(?:-[a-z0-9]+)*)*$/),
   reach: z.enum(["developer", "very-rare", "rare", "ordinary"]),
@@ -18,7 +18,9 @@ const ratings = z.object({
   ]),
 })
 
-export type Finding = z.infer<typeof ratings> & {
+export type Finding = Omit<z.infer<typeof ratings>, "growth-pattern"> & {
+  /** The growth-pattern labels the flagged work could violate, comma-joined, or `none`. */
+  readonly growthPattern: string
   readonly tier: TierLetter
   readonly location: { readonly key: string; readonly value: string }
   readonly deferred: boolean
@@ -49,7 +51,7 @@ export function readFindings(
     const prefix = /^ ((?:\[[^\]\n]+\](?: |$))+)(.*)$/.exec(remainder)
     if (prefix === null || prefix[2].trim().length === 0)
       fail(
-        "needs location, growth, reach and complexity tokens followed by prose",
+        "needs location, growth-pattern, reach and complexity tokens followed by prose",
       )
     const tokens = [...prefix[1].matchAll(/\[([^:\]]+):([^\]]*)\]/g)]
     const values = (key: string) =>
@@ -79,7 +81,7 @@ export function readFindings(
       if (!label.safeParse(area).success) fail(`invalid area ID: ${area}`)
     const planning = repository === "plan" && role === "audit"
     for (const token of [
-      "growth",
+      "growth-pattern",
       "reach",
       "complexity",
       ...(planning ? ["field"] : []),
@@ -102,7 +104,9 @@ export function readFindings(
     if (repository === "plan" && !planning && values("field").length > 0)
       fail("[field:...] belongs only to a planning audit")
     findings.push({
-      ...checked.data,
+      growthPattern: checked.data["growth-pattern"],
+      reach: checked.data.reach,
+      complexity: checked.data.complexity,
       tier: start[1].toLowerCase() as TierLetter,
       location,
       deferred,

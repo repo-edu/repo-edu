@@ -128,7 +128,8 @@ The report is removed after completion, so the record is the only durable home f
 round's yield. A clean record carries both lines with zeroes, in either repo.
 
 The hook derives the severity sequence, its case and its `!` from the graded
-bullets; the growth mark stays authored under the shared **Severity sequence**.
+bullets; the growth mark stays authored under the shared **Severity sequence**,
+`growth-none` when the commit leaves maintenance burden unchanged.
 
 For a finding deferred from a Repo Edu-only round to the plan repo, follow this
 repo's `CLAUDE.md` for record placement. A clean record's subject

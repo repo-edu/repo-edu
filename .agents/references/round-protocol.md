@@ -260,13 +260,16 @@ commit graph shows the subject and none of the finding tokens.
   compare its code and instructions before and after using the
   [common complexity levels](#reach-and-complexity).
   The word gives the direction, `growth` for a net increase and `pruning` for a
-  net reduction. The level grades the size of that net change. Omit the whole
-  mark when there is no material net change. The direction is a word and not a sign,
+  net reduction. The level grades the size of that net change, and `growth-none`
+  says there was no material net change. The mark is written beside every
+  sequence except a deferral record's, which changes no code and so measures
+  nothing. The direction is a word and not a sign,
   because a sign carries direction and not judgement: `+` reads as a gain where
   growth is the cost. The level is always written, as `growth-low` rather than
-  a bare `growth`, because an omitted level would
-  pass as the floor and a level is countable in the log only when it is on the
-  page. A commit can read `pruning-high` while one concern inside it added a
+  a bare `growth` and `growth-none` rather than no mark, because an omission
+  cannot be told from a forgotten mark and a level is countable in the log only
+  when it is on the page. The floor has no direction, so `pruning-none` is not
+  a spelling. A commit can read `pruning-high` while one concern inside it added a
   rule, because the mark states the size of the commit's net reduction in
   burden. It carries no colon of its own.
 
@@ -285,7 +288,7 @@ That section also owns the requirement and case for explaining the whole
 commit's net change in one untiered decision bullet in its existing body. The mark and
 the finding token `[complexity:...]` run that one measurement, so they translate
 exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
-`[complexity:minus-high]` and an absent mark is `[complexity:none]`.
+`[complexity:minus-high]` and `growth-none` is `[complexity:none]`.
 
 The marks read the same in both repos. Until 2026-10-01 plan-repo records kept
 an unmarked uppercase sequence, on the reasoning that the marks describe
@@ -299,8 +302,9 @@ burden trajectory it had the evidence to show.
 
 The metadata tokens are user-directed. Every graded concern carries its title and metadata into the
 report and the round's record. The record is durable after the chat and report are gone. Every
-finding includes `[growth:...]`, `[reach:...]` and `[complexity:...]`, including the floor values
-`none`, `developer` and `none`. Their meanings live under [Growth tags](#growth-tags) and
+finding includes `[growth-pattern:...]`, `[reach:...]` and `[complexity:...]`, including the floor
+values `none`, `developer` and `none`. Their meanings live under
+[Growth-pattern tags](#growth-pattern-tags) and
 [Reach and complexity](#reach-and-complexity). Location and search-direction tokens depend on what
 the round judges:
 
@@ -337,7 +341,7 @@ In a planning audit commit bullet the tier letter comes first, then the tokens, 
 title, then the prose after a colon:
 
 ```text
-- B [field:excess] [section:decisions] [growth:hardening,growing-lists] [reach:rare] [complexity:minus-low] Anchorless admission cases: removing a few independent admission checks leaves only the case the boundary names.
+- B [field:excess] [section:decisions] [growth-pattern:hardening,growing-lists] [reach:rare] [complexity:minus-low] Anchorless admission cases: removing a few independent admission checks leaves only the case the boundary names.
 ```
 
 The title is required, and it is the same title the report's finding block leads
@@ -381,16 +385,16 @@ example/audit ath: align the report location
 
 gpt-6-astra high
 
-- C [field:missing] [section:decisions] [growth:none] [reach:developer] [complexity:none] Report location: the decision names the plan repo root.
+- C [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Report location: the decision names the plan repo root.
 
 Round yield: 0 ordinary; 0 rare; 1 developer.
 Structure: 0 removing, 0 adding, 1 flat.
 ```
 
-The hook inserts `c1` before the colon. When the commit changes maintenance
-burden, author its growth or pruning mark under
-[Severity sequence](#severity-sequence); this applies to every record form
-below as well.
+The hook inserts `c1` before the colon. Author the growth or pruning mark
+before the sequence under [Severity sequence](#severity-sequence), `growth-none`
+when the commit leaves maintenance burden unchanged; this applies to every
+record form below except the deferral record, which changes no code.
 
 ### Implementation record in Repo Edu
 
@@ -404,7 +408,7 @@ example/impl-audit-2 ath docs(audit-round): align the report location
 
 gpt-6-astra high
 
-- [C] [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
+- [C] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
 
 Round yield: 0 ordinary; 0 rare; 1 developer.
 Structure: 0 removing, 0 adding, 1 flat.
@@ -424,7 +428,7 @@ example/impl-audit-2 ath docs(audit): align the report location
 
 gpt-6-astra high
 
-- C [section:report-file] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
+- C [section:report-file] [growth-pattern:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
 
 Round yield: 0 ordinary; 0 rare; 1 developer.
 Structure: 0 removing, 0 adding, 1 flat.
@@ -519,11 +523,14 @@ a finding. The standard is the shipped code, never fidelity for its own sake.
 Do not reopen decisions the plan settled. Question one only on correctness or
 quality evidence, never on taste.
 
-## Growth tags
+## Growth-pattern tags
 
-Every finding carries a growth tag naming the patterns in `../plan/GROWTH-PATTERNS.md` it could
-violate, by their labels: `[growth:hardening]` for one, `[growth:hardening,unpriced-complexity]`
-when more than one could apply, listed in pattern order, and `[growth:none]` when none does. What is
+Every finding carries a growth-pattern tag naming the patterns in `../plan/GROWTH-PATTERNS.md` it
+could violate, by their labels: `[growth-pattern:hardening]` for one,
+`[growth-pattern:hardening,unpriced-complexity]` when more than one could apply, listed in pattern
+order, and `[growth-pattern:none]` when none does. The token names the pattern list rather than
+bare growth, because the subject's growth mark measures how much burden a commit added and this tag
+names which kind of unwanted growth a finding suspects. What is
 tagged is the work the finding flags, never the correction it asks for; the complexity token rates
 the correction. A finding that flags a guard added control by control tags `growing-lists` even when
 its correction removes the copies. The tag rides the finding in the report and the matching bullet
@@ -536,7 +543,7 @@ one trade block and its ruling when the other two tokens also show risk. A
 false negative costs the loop this rule exists to break: a run of rounds each
 repairing machinery that no boundary asks for, every round locally defensible
 and no round able to see the run. The tag is a suspicion, never a verdict, and
-it blocks nothing. A finding tagged `[growth:hardening]` still lands. So
+it blocks nothing. A finding tagged `[growth-pattern:hardening]` still lands. So
 there is no reason to suppress one. The tag's cross-round signal lives in
 the run; a single risky finding prices its own trade inside its trade
 block, per the finding explanation rules, and still lands.
@@ -547,7 +554,7 @@ a mandatory episode scan. Each finding keeps its own trade assessment.
 
 ## Reach and complexity
 
-Every finding carries a reach and a complexity token beside its growth tag,
+Every finding carries a reach and a complexity token beside its growth-pattern tag,
 floor values spelled out rather than left off: `[reach:developer]` and
 `[complexity:none]` are written, never implied. No absence carries meaning,
 so a forgotten token can never pass as a rating, and the floor values on the
@@ -627,28 +634,24 @@ and output remain prescribed, while burden size is judged. The account makes
 disagreement inspectable; it does not make the scale mechanical.
 
 The commit subject's leading mark runs this measurement over a whole commit, with the same level
-spellings: `growth-low` is `low` and `pruning-high` is `minus-high`. An absent mark presents `none`
-compactly. Severity and reach stay separate from complexity. [Severity sequence](#severity-sequence)
-owns the mark's meaning and the subject grammar owns its form. Replace the old definition directly,
-with no date-based grading, historical conversion, episode split or extra inspection duties for old
-marks. Do not rewrite Git history.
+spellings: `growth-low` is `low`, `pruning-high` is `minus-high` and `growth-none` is `none`.
+Severity and reach stay separate from complexity. [Severity sequence](#severity-sequence) owns the
+mark's meaning and the subject grammar owns its form. Replace the old definition directly, with no
+date-based grading, historical conversion, episode split or extra inspection duties for old marks.
+Do not rewrite Git history.
 
 The two tokens are one pair, and the pair is the point. Growth pattern 6 in
-`../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a
-complexity cost never does, and its test is to name the trade: what the work
-gives the user against what its machinery costs. The pair fires that test on
-every finding, so a cross-round run of `[reach:developer]`,
-`[reach:very-rare]` or `[reach:rare]` beside `low`, `medium` or `high`
-`[complexity:...]` values on the same machinery is the unpriced trade shown
-in the log for the watch to judge. A
-`minus-` value is the opposite signal: the correction removed more burden
-than it added, which counts in its favour and never joins a priced run. The
-tokens describe reach and net burden, not worth, and like the growth tag they block nothing: a
-finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
-has one spelling across both logs. A run can also supply evidence for a new
-growth pattern, including work no listed pattern matches. The tokens rate
-facts rather than worth: a round that scored its own proposed correction
-would be grading its own work.
+`../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a complexity cost never does, and
+its test is to name the trade: what the work gives the user against what its machinery costs. The
+pair fires that test on every finding, so a cross-round run of `[reach:developer]`,
+`[reach:very-rare]` or `[reach:rare]` beside `low`, `medium` or `high` `[complexity:...]` values on
+the same machinery is the unpriced trade shown in the log for the watch to judge. A `minus-` value
+is the opposite signal: the correction removed more burden than it added, which counts in its favour
+and never joins a priced run. The tokens describe reach and net burden, not worth, and like the
+growth-pattern tag they block nothing: a finding tagged `[reach:rare] [complexity:high]` still
+lands. The vocabulary has one spelling across both logs. A run can also supply evidence for a new
+growth pattern, including work no listed pattern matches. The tokens rate facts rather than worth: a
+round that scored its own proposed correction would be grading its own work.
 
 ## Head drift
 
@@ -892,7 +895,7 @@ Separate the title, token line and explanation with blank lines:
 
 1. **C: Conflicting report names**
 
-   [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none]
+   [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none]
 
    The report rule and its example name different files. The vet cannot resolve
    the example. Align the example with the rule.
@@ -902,7 +905,7 @@ Use the same block shape for a planning finding, with its planning metadata:
 1. **C: Conflicting report names**
 
    <!-- rumdl-disable-next-line MD013 -->
-   [field:missing] [section:report-file] [growth:none] [reach:developer] [complexity:none]
+   [field:missing] [section:report-file] [growth-pattern:none] [reach:developer] [complexity:none]
 
    The report rule requires the scope in the filename, but the phase argument
    contract requires an unscoped name. Following either contract makes one
@@ -931,7 +934,7 @@ situation. When the cost is only rework or re-derivation, state that cost and us
 tier claim without a consequence does not stand; drop a finding whose trace ends with the same
 behaviour shipping. Reach supports the user's ruling on the outcome and never changes the tier.
 
-At tiers A to C, explain the trade when a finding's growth tag is not `none`,
+At tiers A to C, explain the trade when a finding's growth-pattern tag is not `none`,
 its reach is not `ordinary` and its complexity is `low`, `medium` or `high`.
 State the simplest
 mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery

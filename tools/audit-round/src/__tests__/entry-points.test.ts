@@ -155,10 +155,10 @@ for (const auditor of ["codex", "claude"] as const) {
       const message = join(f.root, "commit-message")
       const suffix = clean
         ? "clean: record a clean round"
-        : "b1: correct the plan"
+        : "growth-none b1: correct the plan"
       const bullet = clean
         ? "Preserve the decision."
-        : "B [field:missing] [section:decisions] [growth:none] [reach:developer] [complexity:none] Preserve the decision."
+        : "B [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Preserve the decision."
       await writeFile(
         message,
         `example/audit ${auditor === "codex" ? "o" : "a"} ${suffix}\n\ngpt-6-astra high\n\n- ${bullet}\n`,

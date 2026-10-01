@@ -14,17 +14,17 @@ export function trajectory(subject: Subject | null) {
     upper,
     lower,
     ordinary: severity && severity !== "clean" ? severity.ordinary : false,
-    structure: subject?.growth ?? null,
+    structure: subject?.burden ?? null,
   }
 }
 
 /** Counts are per bullet. A split finding contributes once to each current area. */
 export function tokenCounts(findings: readonly EpisodeFinding[]) {
   const counts: Record<
-    "growth" | "reach" | "complexity" | "sections" | "areas" | "covers",
+    "growthPattern" | "reach" | "complexity" | "sections" | "areas" | "covers",
     Record<string, number>
   > = {
-    growth: {},
+    growthPattern: {},
     reach: {},
     complexity: {},
     sections: {},
@@ -36,7 +36,8 @@ export function tokenCounts(findings: readonly EpisodeFinding[]) {
       (Object.hasOwn(counts[kind], key) ? counts[kind][key] : 0) + 1
   }
   for (const finding of findings) {
-    for (const label of new Set(finding.growth.split(","))) add("growth", label)
+    for (const label of new Set(finding.growthPattern.split(",")))
+      add("growthPattern", label)
     add("reach", finding.reach)
     add("complexity", finding.complexity)
     if (finding.location.key === "section")
@@ -64,21 +65,21 @@ export function checkFindingTotals(
 }
 
 /** Evidence names commits, never deciding whether they concern the same machinery. */
-export function repeatedGrowth(
+export function repeatedGrowthPatterns(
   commits: readonly Pick<EpisodeCommit, "sha" | "findings">[],
 ) {
-  const growth = new Map<string, string[]>()
+  const patterns = new Map<string, string[]>()
   for (const commit of [...commits].reverse()) {
     for (const label of new Set(
-      commit.findings.flatMap((finding) => finding.growth.split(",")),
+      commit.findings.flatMap((finding) => finding.growthPattern.split(",")),
     )) {
       if (label === "none") continue
-      const shas = growth.get(label) ?? []
+      const shas = patterns.get(label) ?? []
       shas.push(commit.sha)
-      growth.set(label, shas)
+      patterns.set(label, shas)
     }
   }
-  return [...growth]
+  return [...patterns]
     .filter(([, shas]) => shas.length >= 2)
     .map(([label, commits]) => ({ label, commits }))
 }
@@ -109,7 +110,7 @@ export function runEvidence(commits: readonly EpisodeCommit[]) {
   }
   finish()
   return {
-    growth: repeatedGrowth(commits),
+    growthPatterns: repeatedGrowthPatterns(commits),
     complexity: complexityRuns,
   }
 }

@@ -27,7 +27,7 @@ test("report routing reads the named workflow only in the opening", () => {
     assert.throws(() => reportKind(source), /Report opening must name/)
 })
 
-const ratings = "[growth:none] [reach:developer] [complexity:none]"
+const ratings = "[growth-pattern:none] [reach:developer] [complexity:none]"
 function finding(
   number = 1,
   location = "[area:tool-audit-round]",

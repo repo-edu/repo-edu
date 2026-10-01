@@ -60,7 +60,7 @@ test("missing, invalid and former watch records read green from the episode's an
 test("without a record the whole episode counts, from its earliest stem commit", () => {
   const before = {
     ...correction(),
-    subject: "ath c1 fix(x): before the episode",
+    subject: "ath growth-none c1 fix(x): before the episode",
   }
   const three = history(correction(), correction(), correction())
   assert.equal(glanceDecision(three, null, "repo-edu").due, false)
@@ -78,7 +78,7 @@ test("without a record the whole episode counts, from its earliest stem commit",
   const bare = four.map(({ sha }) => ({
     ...correction(),
     sha,
-    subject: "ath c1 fix(x): correction",
+    subject: "ath growth-none c1 fix(x): correction",
   }))
   assert.equal(glanceDecision(bare, null, "repo-edu").due, true)
 })
@@ -120,12 +120,12 @@ test("corrections in separate areas never add together", () => {
 
 test("D-only work, clean records, deferrals, steps and empty commits do not advance counts", () => {
   const skipped = [
-    commit("example/impl-audit-all ath D2d1 docs(x): polish"),
+    commit("example/impl-audit-all ath growth-none D2d1 docs(x): polish"),
     commit("example/impl-audit-all ath clean: clear"),
     commit("example/impl-audit-all ath B1: deferred"),
     commit("example/impl-2 ath feat(x): step"),
     commit("example/implemented ath: finished"),
-    commit("ath d1 fix(x): polish"),
+    commit("ath growth-none d1 fix(x): polish"),
     { ...correction(), files: [] },
     commit("c1 fix(x): older subject", "- [C] [area:area-a] Old grammar."),
   ]
@@ -141,7 +141,7 @@ test("D-only work, clean records, deferrals, steps and empty commits do not adva
 
 test("mixed tiers count only areas with A-C corrections, once per commit", () => {
   const mixed = commit(
-    "example/impl-audit-all ath C2d1 fix(x): mixed corrections",
+    "example/impl-audit-all ath growth-none C2d1 fix(x): mixed corrections",
     [bullet(), bullet(), bullet("area:area-b", "D")].join("\n"),
   )
   const decision = glanceDecision(
@@ -163,7 +163,7 @@ test("mixed tiers count only areas with A-C corrections, once per commit", () =>
 
 test("a commit can correct two areas without merging their counts", () => {
   const mixed = commit(
-    "example/impl-audit-all ath c2 fix(x): two areas",
+    "example/impl-audit-all ath growth-none c2 fix(x): two areas",
     [bullet(), bullet("area:area-b")].join("\n"),
   )
   assert.equal(
@@ -178,7 +178,7 @@ test("a commit can correct two areas without merging their counts", () => {
 
 test("severity, reach and growth have no early trigger; both cases count", () => {
   const severe = commit(
-    "example/impl-audit-all ath A1 redesign(x): proper correction",
+    "example/impl-audit-all ath growth-none A1 redesign(x): proper correction",
     bullet("area:area-a", "A"),
   )
   assert.equal(
@@ -208,10 +208,13 @@ test("severity, reach and growth have no early trigger; both cases count", () =>
 })
 
 test("only episode corrections after the saved head count, including off-plan rework", () => {
-  const offPlan = { ...correction(), subject: "ath c1 fix(x): rework" }
+  const offPlan = {
+    ...correction(),
+    subject: "ath growth-none c1 fix(x): rework",
+  }
   const outside = {
     ...correction(),
-    subject: "ath c1 fix(y): outside",
+    subject: "ath growth-none c1 fix(y): outside",
     files: ["src/other.ts"],
   }
   const log = history(offPlan, outside, correction(), correction())
@@ -225,7 +228,7 @@ test("only episode corrections after the saved head count, including off-plan re
 test("plan rounds count sections independently and ignore D findings", () => {
   const plan = (section: string) =>
     commit(
-      "example/audit ath C1D1: correct the plan",
+      "example/audit ath growth-none C1D1: correct the plan",
       `- C [field:missing] [section:${section}] ${ratings} Correct.\n- D [field:missing] [section:wording] ${ratings} Words.`,
       ["example.md"],
     )
@@ -247,11 +250,11 @@ test("plan rounds count sections independently and ignore D findings", () => {
 
 test("plan commits count local sections without counting deferred Repo Edu findings", () => {
   const mixed = commit(
-    "example/impl-audit-all ath C2 docs(x): correct the plan and defer the code",
+    "example/impl-audit-all ath growth-none C2 docs(x): correct the plan and defer the code",
     `- C [section:decisions] ${ratings} Correct.\n- C [area:tool-audit-round] ${ratings} Defer.`,
   )
   const deferred = commit(
-    "example/impl-audit-all ath C1 docs(x): record the deferred code fix",
+    "example/impl-audit-all ath growth-none C1 docs(x): record the deferred code fix",
     `- C [area:tool-audit-round] ${ratings} Defer.`,
   )
   const decision = glanceDecision(
@@ -275,11 +278,13 @@ test("plan commits count local sections without counting deferred Repo Edu findi
 test("historical stem prefixes join; unstemmed history uses its own record", () => {
   const a = {
     ...correction(),
-    subject: "topology-example/impl-audit-all ath c1 fix(x): correction",
+    subject:
+      "topology-example/impl-audit-all ath growth-none c1 fix(x): correction",
   }
   const b = {
     ...correction(),
-    subject: "plan-example/impl-audit-all ath c1 fix(x): correction",
+    subject:
+      "plan-example/impl-audit-all ath growth-none c1 fix(x): correction",
   }
   assert.equal(
     glanceDecision(history(a, b), record("amber"), "repo-edu").due,
@@ -287,7 +292,7 @@ test("historical stem prefixes join; unstemmed history uses its own record", () 
   )
   const bare = history(correction(), correction()).map((c) => ({
     ...c,
-    subject: "ath c1 fix(x): correction",
+    subject: "ath growth-none c1 fix(x): correction",
   }))
   assert.equal(
     glanceDecision(bare, { "-": record("amber").example }, "repo-edu").due,
@@ -297,7 +302,9 @@ test("historical stem prefixes join; unstemmed history uses its own record", () 
 
 test("unreadable corrections stay in episode evidence without contributing partial counts", () => {
   const data = episode(
-    history(commit("example/impl-audit-all ath c1 fix(x): correction")),
+    history(
+      commit("example/impl-audit-all ath growth-none c1 fix(x): correction"),
+    ),
   )
   assert.equal(data.unreadable.length, 1)
   assert.equal(decide(data, record("green")).due, false)
@@ -329,7 +336,7 @@ test("real Git history carries finding bodies and touched files into the decisio
       await execa("git", ["add", "."], { cwd })
       await commitFixture(
         cwd,
-        `example/impl-audit-all ath c1 fix(x): correction\n\n${body}`,
+        `example/impl-audit-all ath growth-none c1 fix(x): correction\n\n${body}`,
       )
     }
     const commits = await readLog(cwd)

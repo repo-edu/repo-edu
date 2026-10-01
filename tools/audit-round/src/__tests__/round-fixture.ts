@@ -125,7 +125,7 @@ export async function roundFixture(
   )
   const report = join(outputRoot, "audit-source.md")
   const finding = (location: string) =>
-    `1. **B: Fixture finding**\n\n   ${location} [growth:none] [reach:developer] [complexity:none]\n\n   Correct the fixture.\n`
+    `1. **B: Fixture finding**\n\n   ${location} [growth-pattern:none] [reach:developer] [complexity:none]\n\n   Correct the fixture.\n`
   await writeFile(
     report,
     `Judged repos: ${owner}@${heads[owner]}\n\n` +
@@ -176,7 +176,7 @@ export async function roundFixture(
                 subject:
                   tier === null
                     ? "example/impl-audit-all oth clean: fixture"
-                    : `example/impl-audit-all oth ${tier}1 fix(audit-round): fixture`,
+                    : `example/impl-audit-all oth growth-none ${tier}1 fix(audit-round): fixture`,
               },
             ]
           : [],

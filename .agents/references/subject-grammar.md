@@ -53,9 +53,9 @@ under [Classes](#classes).
 <tier>      ::= b | t | u                   ; base | top | unlisted
 <effort>    ::= l | m | h | x               ; low | medium | high | xhigh
 
-<growth>    ::= <direction>-<level>
-<direction> ::= growth | pruning
-<level>     ::= low | medium | high
+<growth>    ::= growth-<level> | pruning-<size>
+<level>     ::= none | <size>
+<size>      ::= low | medium | high
 
 <severity>  ::= <sequence> | clean
 <sequence>  ::= !?<upper>?<lower>?          ; at least one run present; ! requires <upper>
@@ -78,12 +78,12 @@ never a `<role>`.
 
 ## One sequence form
 
-Both repos use the same `<sequence>`: the hook derives its case and its `!`
-from the finding bullets, and a `<growth>` mark appears only in a subject that
-carries a sequence. The plan repo carried a bare uppercase form without marks
-until 2026-10-01, when the user directed one form for both repos: the reach
-and burden marks read from the same finding tokens in either repo, and a
-doctrine fix changes the instructions the burden measurement is defined over.
+Both repos use the same `<sequence>`: the hook derives its case and its `!` from the finding
+bullets, and every sequence outside a deferral record carries a `<growth>` mark before it,
+`growth-none` when the burden did not change. The plan repo carried a bare uppercase form without
+marks until 2026-10-01, when the user directed one form for both repos: the reach and burden marks
+read from the same finding tokens in either repo, and a doctrine fix changes the instructions the
+burden measurement is defined over.
 
 ## Classes
 
@@ -94,7 +94,7 @@ Plan-file commits, plan repo only. No `<kind>`:
 
 ```text
 <P1 init>    ::= <stem>/init <tag>: <S>
-<P2 audit>   ::= <stem>/audit <tag>[ <growth>] <sequence>: <S>
+<P2 audit>   ::= <stem>/audit <tag> <growth> <sequence>: <S>
                | <stem>/audit <tag> clean: <S>
 <P3 marker>  ::= <stem>/settle <tag>: <S>
                | <stem>/ready <tag>: <S>
@@ -106,7 +106,7 @@ changes:
 
 ```text
 <I1 step>            ::= <stem>/impl-<n> <tag> <kind>: <S>
-<I2 fix>             ::= <stem>/impl-audit-<scope> <tag>[ <growth>] <sequence> <kind>: <S>
+<I2 fix>             ::= <stem>/impl-audit-<scope> <tag> <growth> <sequence> <kind>: <S>
 <I3 deferral record> ::= <stem>/impl-audit-<scope> <tag> <sequence>: <S>
 <I4 clean record>    ::= <stem>/impl-audit-<scope> <tag> clean: <S>
 <I5 marker>          ::= <stem>/implemented <tag>: <S>
@@ -116,8 +116,8 @@ changes:
 Off-plan commits, no `<form>`:
 
 ```text
-<O1 Repo Edu> ::= <tag>[ <growth>] <sequence> <kind>: <S>
-<O2 plan>     ::= <tag>[[ <growth>] <sequence>] <kind>: <S>
+<O1 Repo Edu> ::= <tag> <growth> <sequence> <kind>: <S>
+<O2 plan>     ::= <tag>[ <growth> <sequence>] <kind>: <S>
 ```
 
 Rules across the classes:
@@ -158,19 +158,19 @@ Plan repo:
 
 ```text
 P1        planning-rounds/init ath:
-P2        planning-rounds/audit ath B2C2:
+P2        planning-rounds/audit ath growth-none B2C2:
 P2        planning-rounds/audit ath pruning-low c2d1:
 P2        round-file-naming/audit ath clean:
 P3        planning-rounds/ready ath:
 P3        planning-rounds/closed oth:
 I1        planning-rounds/impl-3 oth feat(audit-round):
-I2        round-file-naming/impl-audit-all oth d1 docs(vet):
+I2        round-file-naming/impl-audit-all oth growth-none d1 docs(vet):
 I2        round-file-naming/impl-audit-all oth pruning-low c3 docs(audit):
 I3        planning-rounds/impl-audit-all oth B1:
 I4        planning-rounds/impl-audit-all otm clean:
 I5        planning-rounds/implemented oth:
 O2        ath chore(repo):
-O2        ath c1 docs(claude):
+O2        ath growth-none c1 docs(claude):
 O2        ath growth-low B1c1 docs(claude):
 ```
 
@@ -185,7 +185,7 @@ I5           planning-rounds/closed oth:
 O1           ath growth-medium c1 feat(audit-round):
 O1           abx pruning-low c1 redesign(audit-round):
 O1           abx growth-low c1d1 fix(repo):
-O1           ath !B1C1c2d1 fix(renderer-app):
+O1           ath growth-none !B1C1c2d1 fix(renderer-app):
 ```
 
 ## Rulings
@@ -196,8 +196,11 @@ fixed here:
 1. An off-plan plan-repo commit may carry a `<sequence>`. The sequence is
    evidence the trajectory reads, and an off-plan fix can close a graded
    concern.
-2. A `<growth>` mark appears only beside a `<sequence>`. A step is where
-   burden grows by design, and the audit rounds that follow grade what it
-   did.
+2. A `<growth>` mark appears beside every `<sequence>` except a deferral
+   record's, and nowhere else. A step is where burden grows by design, and the
+   audit rounds that follow grade what it did. A deferral record changes no
+   code, so it has nothing to measure. The floor is written as `growth-none`,
+   ruled on 2026-10-01: an absent mark could not be told from a forgotten one,
+   and a floor is countable in the log only when it is on the page.
 3. `<conventional>` is a closed list, the Angular set plus `redesign`. A scan
    by kind can only count what is on the list.

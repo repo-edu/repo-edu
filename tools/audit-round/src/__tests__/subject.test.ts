@@ -69,7 +69,7 @@ test("the parser reads every slot of a marked subject", () => {
       class: "I2",
       form: { stem: "round-file-naming", role: "impl-audit", scope: "2-3" },
       tag: { vendor: "o", tier: "t", effort: "h" },
-      growth: { direction: "pruning", level: "high" },
+      burden: { direction: "pruning", level: "high" },
       severity: {
         ordinary: true,
         upper: [
@@ -92,8 +92,10 @@ test("the parser reads every slot of a marked subject", () => {
   })
   // The sentence may hold colons of its own; only the first tag-ending colon splits.
   assert.equal(
-    parseSubject("atx c1 docs(repo): note: keep the colon", "repo-edu")
-      .sentence,
+    parseSubject(
+      "atx growth-none c1 docs(repo): note: keep the colon",
+      "repo-edu",
+    ).sentence,
     "note: keep the colon",
   )
 })
@@ -105,23 +107,23 @@ const refusals: [Repository, string, RegExp][] = [
   ["repo-edu", "docs(repo): s", /capability tag/],
   ["plan", "example/audit C1: s", /capability tag/],
   // The colon and the sentence.
-  ["repo-edu", "atx c1 docs(repo) s", /colon/],
-  ["repo-edu", "atx c1 docs(repo):", /sentence/],
+  ["repo-edu", "atx growth-none c1 docs(repo) s", /colon/],
+  ["repo-edu", "atx growth-none c1 docs(repo):", /sentence/],
   ["repo-edu", "atx  c1 docs(repo): s", /single spaces/],
   // The order of the slots.
   ["repo-edu", "c1 atx docs(repo): s", /capability tag/],
   ["repo-edu", "atx c1 growth-low docs(repo): s", /fits no slot/],
   ["repo-edu", "atx docs(repo) c1: s", /fits no slot/],
   // The sequence.
-  ["repo-edu", "atx !c1 docs(repo): s", /opens with !/],
-  ["repo-edu", "atx B1A1 docs(repo): s", /ascending/],
-  ["repo-edu", "atx c1b1 docs(repo): s", /ascending/],
-  ["repo-edu", "atx B01 docs(repo): s", /fits no slot/],
+  ["repo-edu", "atx growth-none !c1 docs(repo): s", /opens with !/],
+  ["repo-edu", "atx growth-none B1A1 docs(repo): s", /ascending/],
+  ["repo-edu", "atx growth-none c1b1 docs(repo): s", /ascending/],
+  ["repo-edu", "atx growth-none B01 docs(repo): s", /fits no slot/],
   ["repo-edu", "atx B1c1 B2 docs(repo): s", /fits no slot/],
   ["repo-edu", "atx docs(repo): s", /carries a severity sequence/],
   ["repo-edu", "atx clean docs(repo): s", /never clean/],
   ["plan", "atm clean docs(claude): s", /never clean/],
-  // A growth mark needs a sequence beside it, in either repo.
+  // A growth or pruning mark needs a sequence beside it, in either repo.
   ["repo-edu", "example/impl-3 atx growth-low feat(x): s", /beside a severity/],
   [
     "repo-edu",
@@ -130,23 +132,36 @@ const refusals: [Repository, string, RegExp][] = [
   ],
   ["plan", "example/audit atx growth-low clean: s", /beside a severity/],
   ["plan", "atx growth-low docs(claude): s", /beside a severity/],
-  ["repo-edu", "example/impl-audit-all atx growth-low B1: s", /no growth mark/],
+  [
+    "repo-edu",
+    "example/impl-audit-all atx growth-low B1: s",
+    /no growth or pruning mark/,
+  ],
+  // Every other sequence carries a mark, and the floor has no direction.
+  ["repo-edu", "atx c1 docs(repo): s", /carries a growth or pruning mark/],
+  ["plan", "example/audit atx B1: s", /carries a growth or pruning mark/],
+  ["plan", "atx c1 docs(claude): s", /carries a growth or pruning mark/],
+  ["repo-edu", "atx pruning-none c1 docs(repo): s", /write growth-none/],
   // The kind.
-  ["repo-edu", "atx c1 update(repo): s", /not on the list/],
-  ["repo-edu", "atx c1 docs(Repo): s", /fits no slot/],
+  ["repo-edu", "atx growth-none c1 update(repo): s", /not on the list/],
+  ["repo-edu", "atx growth-none c1 docs(Repo): s", /fits no slot/],
   ["repo-edu", "atx c1 docs: s", /fits no slot/],
   // The roles and where they belong.
   ["repo-edu", "example/init atx: s", /belongs to the plan/],
   ["repo-edu", "example/audit atx B1: s", /belongs to the plan/],
   ["repo-edu", "example/ready atx: s", /belongs to the plan/],
   ["plan", "example/audit atx: s", /needs a severity/],
-  ["plan", "example/audit atx B1 docs(x): s", /no conventional kind/],
+  [
+    "plan",
+    "example/audit atx growth-none B1 docs(x): s",
+    /no conventional kind/,
+  ],
   ["plan", "example/init atx docs(x): s", /nothing after its tag/],
   ["plan", "example/closed atx B1: s", /nothing after its tag/],
   ["repo-edu", "example/implemented atx c1: s", /nothing after its tag/],
   [
     "repo-edu",
-    "example/impl-3 atx c1 feat(x): s",
+    "example/impl-3 atx growth-none c1 feat(x): s",
     /step subject carries no severity/,
   ],
   ["repo-edu", "example/impl-3 atx: s", /needs a conventional kind/],
@@ -157,8 +172,16 @@ const refusals: [Repository, string, RegExp][] = [
     /clean record carries no kind/,
   ],
   ["repo-edu", "example/impl-audit-all atx: s", /needs a severity/],
-  ["repo-edu", "example/impl-audit-0 atx c1 fix(x): s", /audit scope/],
-  ["repo-edu", "example/impl-audit-3-2x atx c1 fix(x): s", /audit scope/],
+  [
+    "repo-edu",
+    "example/impl-audit-0 atx growth-none c1 fix(x): s",
+    /audit scope/,
+  ],
+  [
+    "repo-edu",
+    "example/impl-audit-3-2x atx growth-none c1 fix(x): s",
+    /audit scope/,
+  ],
   ["repo-edu", "example/impl-0 atx fix(x): s", /step/],
   ["repo-edu", "example/impl-all atx fix(x): s", /step/],
   ["repo-edu", "example/deploy atx: s", /role deploy/],
@@ -192,7 +215,7 @@ test("the loose form read reaches subjects older than the settled grammar", () =
       role: "impl-audit-all/C4D1",
     },
   )
-  assert.equal(looseForm("abx c1 fix(repo): x"), null)
+  assert.equal(looseForm("abx growth-none c1 fix(repo): x"), null)
   assert.equal(looseForm("/impl-3 abx fix(repo): x"), null)
   assert.equal(stemTopic("plan-lexer"), "lexer")
   assert.equal(stemTopic("topology-lexer"), "lexer")

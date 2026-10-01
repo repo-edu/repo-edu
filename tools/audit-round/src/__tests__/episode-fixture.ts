@@ -11,7 +11,8 @@ export const areas: readonly Area[] = [
   { id: "cover-x", kind: "cover" },
 ]
 
-export const ratings = "[growth:none] [reach:developer] [complexity:none]"
+export const ratings =
+  "[growth-pattern:none] [reach:developer] [complexity:none]"
 export const bullet = (
   location = "area:area-a",
   tier = "C",
@@ -30,7 +31,7 @@ export function commit(
 export const base = commit("example/impl-1 ath feat(x): step")
 export const correction = (area = "area-a", severity = "c1", tier = "C") =>
   commit(
-    `example/impl-audit-all ath ${severity} fix(x): correction`,
+    `example/impl-audit-all ath growth-none ${severity} fix(x): correction`,
     bullet(`area:${area}`, tier),
   )
 

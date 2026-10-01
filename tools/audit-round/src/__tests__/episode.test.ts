@@ -19,15 +19,15 @@ import { commitFixture } from "./round-fixture.js"
 
 test("membership joins historical stems and admits only touched-file rework after the anchor", () => {
   const log = history(
-    commit("oth c1 fix(x): rework", bullet()),
-    commit("oth c1 fix(x): unrelated", bullet(), ["other.ts"]),
+    commit("oth growth-none c1 fix(x): rework", bullet()),
+    commit("oth growth-none c1 fix(x): unrelated", bullet(), ["other.ts"]),
     commit("topology-example/impl-audit-all old C1: older subject", bullet()),
     commit("plan-example/impl-1 ath feat(x): earlier step", "", ["src/b.ts"]),
   )
   const before = {
     ...correction(),
     sha: "before",
-    subject: "oth c1 fix(x): before the anchor",
+    subject: "oth growth-none c1 fix(x): before the anchor",
   }
   const data = episode([...log, before])
   assert.deepEqual(data.artifacts, ["src/a.ts", "src/b.ts"])
@@ -48,7 +48,7 @@ test("joined evidence keeps both heads and applies an explicit anchor only in it
     "repo-edu": history(correction(), correction()),
     plan: history(
       commit(
-        "plan-example/audit ath C1: change",
+        "plan-example/audit ath growth-none C1: change",
         `- C [field:missing] [section:decisions] ${ratings} Correct.`,
         ["example.md"],
       ),
@@ -109,15 +109,21 @@ test("trajectory retains tier counts, reach case and structure independently of 
 })
 
 test("joined totals and repeated growth include findings from both repositories", () => {
-  const tokens = ratings.replace("growth:none", "growth:recurrence")
+  const tokens = ratings.replace(
+    "growth-pattern:none",
+    "growth-pattern:recurrence",
+  )
   const data = joinedEpisode(
     {
       "repo-edu": history(
-        commit("oth c1 fix(x): code", bullet("area:area-a", "C", tokens)),
+        commit(
+          "oth growth-none c1 fix(x): code",
+          bullet("area:area-a", "C", tokens),
+        ),
       ),
       plan: history(
         commit(
-          "example/audit ath C1: plan",
+          "example/audit ath growth-none C1: plan",
           `- C [field:missing] [section:decisions] ${tokens} Correct.`,
         ),
       ),
@@ -125,8 +131,8 @@ test("joined totals and repeated growth include findings from both repositories"
     "example",
     areas,
   )
-  assert.equal(data.tokens.growth.recurrence, 2)
-  assert.deepEqual(data.growth, [
+  assert.equal(data.tokens.growthPattern.recurrence, 2)
+  assert.deepEqual(data.growthPatterns, [
     { label: "recurrence", commits: ["repo-edu@c000002", "plan@c000002"] },
   ])
 })
@@ -136,12 +142,14 @@ test("each finding resolves current, split and unknown areas while all other tok
     bullet(
       "area:area-a",
       "C",
-      "[cover:cover-x] [growth:recurrence,ownership] [reach:rare] [complexity:low]",
+      "[cover:cover-x] [growth-pattern:recurrence,ownership] [reach:rare] [complexity:low]",
     ),
     bullet("area:retired", "C"),
     bullet("area:missing", "D"),
   ].join("\n")
-  const data = episode(history(commit("oth C1c1d1 fix(x): findings", body)))
+  const data = episode(
+    history(commit("oth growth-none C1c1d1 fix(x): findings", body)),
+  )
   const findings = data.commits[0].findings
   assert.deepEqual(
     findings.map((f) => f.areas),
@@ -152,7 +160,7 @@ test("each finding resolves current, split and unknown areas while all other tok
     [[], [], ["missing"]],
   )
   assert.deepEqual(data.tokens, {
-    growth: { recurrence: 1, ownership: 1, none: 2 },
+    growthPattern: { recurrence: 1, ownership: 1, none: 2 },
     reach: { rare: 1, developer: 2 },
     complexity: { low: 1, none: 2 },
     sections: {},
@@ -171,21 +179,22 @@ test("each finding resolves current, split and unknown areas while all other tok
 })
 
 test("run evidence counts distinct graded commits including off-plan and D-only work", () => {
-  const tokens = "[growth:recurrence] [reach:developer] [complexity:medium]"
+  const tokens =
+    "[growth-pattern:recurrence] [reach:developer] [complexity:medium]"
   const repeated = commit(
-    "oth d2 docs(x): wording",
+    "oth growth-none d2 docs(x): wording",
     [
       bullet("area:area-a", "D", tokens),
       bullet("area:area-a", "D", tokens),
     ].join("\n"),
   )
   const data = episode(history(repeated, repeated))
-  assert.deepEqual(data.runs.growth, [
+  assert.deepEqual(data.runs.growthPatterns, [
     { label: "recurrence", commits: ["c000002", "c000003"] },
   ])
   assert.deepEqual(data.runs.complexity, [["c000002", "c000003"]])
-  assert.equal(data.tokens.growth.recurrence, 4)
-  assert.deepEqual(episode(history(repeated)).runs.growth, [])
+  assert.equal(data.tokens.growthPattern.recurrence, 4)
+  assert.deepEqual(episode(history(repeated)).runs.growthPatterns, [])
 })
 
 test("complexity runs include all three non-ordinary reaches and positive levels only", () => {
@@ -200,11 +209,11 @@ test("complexity runs include all three non-ordinary reaches and positive levels
       "minus-high",
     ]) {
       const c = commit(
-        "oth C1 fix(x): trade",
+        "oth growth-none C1 fix(x): trade",
         bullet(
           "area:area-a",
           "C",
-          `[growth:none] [reach:${reach}] [complexity:${complexity}]`,
+          `[growth-pattern:none] [reach:${reach}] [complexity:${complexity}]`,
         ),
       )
       const data = episode(history(c, c))
@@ -215,11 +224,11 @@ test("complexity runs include all three non-ordinary reaches and positive levels
         eligible ? 1 : 0,
         `${reach}/${complexity}`,
       )
-      assert.deepEqual(data.runs.growth, [])
+      assert.deepEqual(data.runs.growthPatterns, [])
     }
   }
   const c = commit(
-    "oth c1 fix(x): trade",
+    "oth growth-none c1 fix(x): trade",
     bullet(
       "area:area-a",
       "C",
@@ -228,13 +237,13 @@ test("complexity runs include all three non-ordinary reaches and positive levels
   )
   assert.deepEqual(episode(history(c, correction(), c)).runs.complexity, [])
   const broken = commit(
-    "oth c1 fix(x): unreadable",
+    "oth growth-none c1 fix(x): unreadable",
     "- [C] [area:area-a] Old tokens.",
   )
   assert.deepEqual(episode(history(c, broken, c)).runs.complexity, [])
   // Different bullets cannot supply the reach and complexity halves of a pair.
   const unpaired = commit(
-    "oth C1c1 fix(x): separate trades",
+    "oth growth-none C1c1 fix(x): separate trades",
     [
       bullet(
         "area:area-a",
@@ -251,7 +260,9 @@ test("complexity runs include all three non-ordinary reaches and positive levels
 
 test("a missing or malformed bullet makes the whole commit unreadable, D included", () => {
   for (const body of ["", `${bullet()}\n- [D] [area:area-a] Old.`, bullet()]) {
-    const data = episode(history(commit("oth c1d1 fix(x): two findings", body)))
+    const data = episode(
+      history(commit("oth growth-none c1d1 fix(x): two findings", body)),
+    )
     assert.equal(data.unreadable.length, 1)
     assert.equal(data.commits[0].findings.length, 0)
     assert.equal(data.commits[0].trajectory.counts.d, 1)
@@ -292,7 +303,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
       ["commit-tree", tree, "-p", "HEAD"],
       {
         cwd,
-        input: `example/audit ath C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct.\n`,
+        input: `example/audit ath growth-none C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct.\n`,
       },
     )
     await execa("git", ["update-ref", "HEAD", added], { cwd })
@@ -319,7 +330,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
     await execa("git", ["add", "."], { cwd })
     await commitFixture(
       cwd,
-      `example/impl-audit-all oth c1 fix(x): code\n\n${bullet()}`,
+      `example/impl-audit-all oth growth-none c1 fix(x): code\n\n${bullet()}`,
     )
     const modelDirectory = join(cwd, "tools/architecture-check/src")
     await mkdir(modelDirectory, { recursive: true })

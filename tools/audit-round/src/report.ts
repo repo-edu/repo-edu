@@ -114,14 +114,14 @@ function findingNumber(
   if (
     number === null ||
     title?.type !== "strong" ||
-    !/^(?:\[[a-z]+:[^\]\n]+\])(?: \[[a-z]+:[^\]\n]+\])*$/.test(tokens)
+    !/^(?:\[[a-z-]+:[^\]\n]+\])(?: \[[a-z-]+:[^\]\n]+\])*$/.test(tokens)
   )
     throw new Error(
       `Malformed finding at report line ${item.position?.start.line}: expected a bold tier title followed by a token line`,
     )
   const has = (key: string) => tokens.includes(`[${key}:`)
   if (
-    !["growth", "reach", "complexity"].every(has) ||
+    !["growth-pattern", "reach", "complexity"].every(has) ||
     !["area", "section", "plan"].some(has) ||
     (field !== null && !tokens.includes(`[field:${field}]`))
   )

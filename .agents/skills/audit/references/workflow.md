@@ -150,8 +150,8 @@ Grade each finding with the
 The fix workflow lands findings as corrections in their hosting repo when that repo is
 directed, or as deferrals in the current repo's round commit when it is not. When a finding's root
 cause is the plan itself, say so in the finding and carry the plan correction into the cross-repo
-findings below. Every finding also carries a growth tag, per
-[Growth tags](../../../references/round-protocol.md#growth-tags).
+findings below. Every finding also carries a growth-pattern tag, per
+[Growth-pattern tags](../../../references/round-protocol.md#growth-pattern-tags).
 
 ## Cross-repo findings
 

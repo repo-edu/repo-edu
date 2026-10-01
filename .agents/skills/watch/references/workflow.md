@@ -139,7 +139,7 @@ a reset.
 
 Finding bullets carry the tokens the shared round protocol's finding metadata
 prescribes. Read `[section:<heading>]` as the cluster key on plan-side rounds
-and one `[growth:<label>]` label repeating across rounds as growth drift.
+and one `[growth-pattern:<label>]` label repeating across rounds as growth drift.
 Read a run of `low`, `medium` or `high` `[complexity:...]` beside
 `[reach:developer]`, `[reach:very-rare]` or `[reach:rare]` as the unpriced
 trade the pattern `unpriced-complexity` names: rounds that keep adding
@@ -233,18 +233,16 @@ The user owns the response and may still read the diagnostic directly.
   rounds whose uppercase counts have reached zero says the episode stopped
   finding user-facing faults, whatever its severity maximum still reads, and a
   leading `!` marks the rounds that found a fault needing no special condition.
-- The leading mark is a third trajectory, burden,
-  read alongside severity and reach and never merged into either. `growth` says
-  the round increased maintenance burden. `pruning` says it reduced it. The
-  level grades the size of that net change under the
-  [common complexity levels](../../../references/round-protocol.md#reach-and-complexity),
-  so the trajectory carries magnitude and direction. Two rounds at the same
-  severity maximum differ when one prunes and the other grows, and when the
-  amounts differ. Convergence prunes or holds steady, and trends the level down
-  where it grows. A run of `pruning` rounds is evidence against
-  the rounds that over-built the shape, not against the rounds repaying it. Read
-  each round's mark against that round's severity, not the alternation between
-  rounds. Report all three trajectories separately.
+- The leading mark is a third trajectory, burden, read alongside severity and reach and never merged
+  into either. `growth` says the round increased maintenance burden. `pruning` says it reduced it
+  and `growth-none` that it left the burden unchanged. The level grades the size of that net change
+  under the [common complexity levels](../../../references/round-protocol.md#reach-and-complexity),
+  so the trajectory carries magnitude and direction. Two rounds at the same severity maximum differ
+  when one prunes and the other grows, and when the amounts differ. Convergence prunes or holds
+  steady, and trends the level down where it grows. A run of `pruning` rounds is evidence against
+  the rounds that over-built the shape, not against the rounds repaying it. Read each round's mark
+  against that round's severity, not the alternation between rounds. Report all three trajectories
+  separately.
 
 Yellow flags:
 

@@ -34,9 +34,14 @@ export type Tag = {
   readonly effort: "l" | "m" | "h" | "x"
 }
 
-export type Growth = {
+/**
+ * The leading burden mark: what the commit did to maintenance burden. `growth`
+ * is a net increase and `pruning` a net reduction; `none` is the floor and
+ * only `growth` carries it, because a floor has no direction.
+ */
+export type Burden = {
   readonly direction: "growth" | "pruning"
-  readonly level: "low" | "medium" | "high"
+  readonly level: "none" | "low" | "medium" | "high"
 }
 
 export type TierLetter = "a" | "b" | "c" | "d"
@@ -95,7 +100,7 @@ export type Subject = {
   readonly class: SubjectClass
   readonly form: Form | null
   readonly tag: Tag
-  readonly growth: Growth | null
+  readonly burden: Burden | null
   readonly severity: Severity | null
   readonly kind: Kind | null
   readonly sentence: string
@@ -104,7 +109,7 @@ export type Subject = {
 export class SubjectError extends Error {}
 
 const tagPattern = /^([ao])([btu])([lmhx])$/
-const growthPattern = /^(growth|pruning)-(low|medium|high)$/
+const burdenPattern = /^(growth|pruning)-(none|low|medium|high)$/
 const sequencePattern =
   /^(!)?((?:[A-D](?:[1-9]\d*))+)?((?:[a-d](?:[1-9]\d*))+)?$/
 // The hook replaces authored counts before strict sequence validation.
@@ -153,14 +158,15 @@ function parseTag(token: string | undefined): Tag {
   }
 }
 
-function parseGrowth(token: string): Growth | null {
-  const match = growthPattern.exec(token)
-  return match === null
-    ? null
-    : {
-        direction: match[1] as Growth["direction"],
-        level: match[2] as Growth["level"],
-      }
+function parseBurden(token: string): Burden | null {
+  const match = burdenPattern.exec(token)
+  if (match === null) return null
+  if (token === "pruning-none")
+    fail("the burden floor has no direction; write growth-none")
+  return {
+    direction: match[1] as Burden["direction"],
+    level: match[2] as Burden["level"],
+  }
 }
 
 function runs(text: string | undefined): Run[] {
@@ -200,17 +206,34 @@ function parseKind(token: string): Kind | null {
 
 type Slots = Omit<Subject, "class">
 
-/** The class whose production the filled slots match, or a refusal. */
+/**
+ * The class whose production the filled slots match, or a refusal. Every
+ * sequence outside a deferral record carries a burden mark, so the log can
+ * tell a measured floor from a forgotten mark.
+ */
 function classify(slots: Slots, repository: Repository): SubjectClass {
-  const { form, growth, severity, kind } = slots
+  const found = classOf(slots, repository)
+  const { burden, severity } = slots
+  if (
+    found !== "I3" &&
+    severity !== null &&
+    severity !== "clean" &&
+    burden === null
+  )
+    fail("a severity sequence carries a growth or pruning mark before it")
+  return found
+}
+
+function classOf(slots: Slots, repository: Repository): SubjectClass {
+  const { form, burden, severity, kind } = slots
   const sequence = severity === null || severity === "clean" ? null : severity
-  const empty = growth === null && severity === null && kind === null
+  const empty = burden === null && severity === null && kind === null
   const where =
     form === null
       ? "an off-plan subject"
       : `a subject with the ${form.role} role`
-  if (growth !== null && sequence === null)
-    fail("a growth mark appears only beside a severity sequence")
+  if (burden !== null && sequence === null)
+    fail("a growth or pruning mark appears only beside a severity sequence")
   if (form === null) {
     if (kind === null) fail(`${where} needs a conventional kind`)
     if (severity === "clean")
@@ -248,8 +271,8 @@ function classify(slots: Slots, repository: Repository): SubjectClass {
         if (severity === "clean") fail("a clean record carries no kind")
         return "I2"
       }
-      if (growth !== null)
-        fail("a record without a kind carries no growth mark")
+      if (burden !== null)
+        fail("a record without a kind carries no growth or pruning mark")
       return severity === "clean" ? "I4" : "I3"
   }
 }
@@ -264,12 +287,12 @@ export function locateSubjectSlots(line: string) {
   const sentence = tokens.slice(colon + 1).join(" ")
   const tag = tags[0]?.includes("/") ? 1 : 0
   let at = tag + 1
-  const growth = growthPattern.test(tags[at] ?? "") ? at++ : null
+  const burden = burdenPattern.test(tags[at] ?? "") ? at++ : null
   const severity = at
   const hasSeverity = authoredSeverityPattern.test(tags[at] ?? "")
   if (hasSeverity) at += 1
   const kind = kindPattern.test(tags[at] ?? "") ? at++ : null
-  return { tags, sentence, tag, growth, severity, hasSeverity, kind, end: at }
+  return { tags, sentence, tag, burden, severity, hasSeverity, kind, end: at }
 }
 
 /**
@@ -284,8 +307,8 @@ export function parseSubject(line: string, repository: Repository): Subject {
     fail("the tags are separated by single spaces")
   const form = located.tag === 1 ? parseForm(tags[0]) : null
   const tag = parseTag(tags[located.tag])
-  const growth =
-    located.growth === null ? null : parseGrowth(tags[located.growth])
+  const burden =
+    located.burden === null ? null : parseBurden(tags[located.burden])
   const severity = located.hasSeverity
     ? tags[located.severity] === "clean"
       ? "clean"
@@ -298,9 +321,9 @@ export function parseSubject(line: string, repository: Repository): Subject {
   const kind = located.kind === null ? null : parseKind(tags[located.kind])
   if (located.end < tags.length)
     fail(
-      `the tag ${tags[located.end]} fits no slot; the order is form, tag, growth, severity, kind`,
+      `the tag ${tags[located.end]} fits no slot; the order is form, tag, burden, severity, kind`,
     )
-  const slots: Slots = { form, tag, growth, severity, kind, sentence }
+  const slots: Slots = { form, tag, burden, severity, kind, sentence }
   return { class: classify(slots, repository), ...slots }
 }
 

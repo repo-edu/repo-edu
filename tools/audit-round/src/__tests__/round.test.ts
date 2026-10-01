@@ -351,7 +351,7 @@ for (const grade of ["green", "amber"] as const) {
     }
     const landed = {
       ...commit(
-        "example/impl-audit-all oth C1 docs(x): finished fix",
+        "example/impl-audit-all oth growth-none C1 docs(x): finished fix",
         bullet("section:decisions"),
         ["example.md"],
       ),
@@ -1024,7 +1024,7 @@ for (const auditor of ["claude", "codex"] as const) {
 
     round.evidence.accepted = true
     round.evidence.subjects = [
-      "example/impl-audit-all oth c1 fix(audit-round): correct",
+      "example/impl-audit-all oth growth-none c1 fix(audit-round): correct",
     ]
     const result = await runRound(
       { ...files, plan: "../plan/example.md", scope: "all", auditor },
@@ -1182,11 +1182,11 @@ test("the round reads each supplied file and records both heads immediately befo
         assert.equal(before, `head-${root}`)
         return root === files.repoEduRoot
           ? [
-              "example/impl-audit-all oth !C1a1 fix(audit-round): repair",
+              "example/impl-audit-all oth growth-none !C1a1 fix(audit-round): repair",
               "example/impl-2 oth feat(audit-round): deliver",
             ]
           : [
-              "example/audit ath B1: correct the plan",
+              "example/audit ath growth-none B1: correct the plan",
               "example/ready ath: ready",
             ]
       },
@@ -1211,8 +1211,10 @@ test("landed plan corrections do not make an audit clean", async () => {
       ...round.dependencies,
       readSubjects: async (root) =>
         root === repoRoot
-          ? ["example/impl-audit-all oth d1 fix(audit-round): polish"]
-          : ["example/audit ath A1C2: correct the plan"],
+          ? [
+              "example/impl-audit-all oth growth-none d1 fix(audit-round): polish",
+            ]
+          : ["example/audit ath growth-none A1C2: correct the plan"],
     },
   )
   assert.equal(result.status === "finished" && result.cleanAudit, false)
@@ -1287,7 +1289,9 @@ test("every landed subject must parse under its repository's grammar", async () 
       readSubjects: async (root) =>
         root === repoRoot
           ? ["example/impl-audit-all oth clean: done"]
-          : ["example/audit ath B1 docs(x): a kind on a planning record"],
+          : [
+              "example/audit ath growth-none B1 docs(x): a kind on a planning record",
+            ],
     },
   )
   assert.equal(result.status, "failed")

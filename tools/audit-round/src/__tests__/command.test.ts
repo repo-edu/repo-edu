@@ -40,7 +40,7 @@ test("a ruling stays in the runner and resumes the fix without replaying interna
                 {
                   cwd: f.repoRoot,
                   subject:
-                    "example/impl-audit-all oth c1 fix(audit-round): apply ruling",
+                    "example/impl-audit-all oth growth-none c1 fix(audit-round): apply ruling",
                 },
               ],
             },
