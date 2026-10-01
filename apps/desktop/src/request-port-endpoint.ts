@@ -4,7 +4,21 @@ import {
   type RequestPortSide,
   type RequestPortState,
 } from "./request-port-protocol"
-import type { RequestMessage, RequestPayloadSchemas } from "./request-port-wire"
+import type {
+  RendererRequestMessage,
+  RequestMessage,
+  RequestPayloadSchemas,
+} from "./request-port-wire"
+
+type ReceivedMessage<
+  Side extends RequestPortSide,
+  I,
+  P,
+  O,
+  S,
+> = Side extends "host"
+  ? RendererRequestMessage<I>
+  : Exclude<RequestMessage<I, P, O, S>, RendererRequestMessage<I>>
 
 export type RequestPort = {
   postMessage(message: unknown): void
@@ -21,13 +35,19 @@ export type RequestPort = {
 }
 
 /** Retained by the transport until a final message or explicit terminal disposal. */
-export function createRequestPortEndpoint<I, P, O, S>(options: {
+export function createRequestPortEndpoint<
+  I,
+  P,
+  O,
+  S,
+  Side extends RequestPortSide = RequestPortSide,
+>(options: {
   port: RequestPort
-  side: RequestPortSide
+  side: Side
   kind: "command" | "close"
   schemas: RequestPayloadSchemas<I, P, O, S>
   permit(message: RequestMessage<I, P, O, S>, sender: RequestPortSide): void
-  receive(message: RequestMessage<I, P, O, S>): void
+  receive(message: ReceivedMessage<Side, I, P, O, S>): void
   terminal(error: unknown): void
   retired(): void
 }) {
@@ -71,7 +91,8 @@ export function createRequestPortEndpoint<I, P, O, S>(options: {
           raw,
           options.side === "host" ? "renderer" : "host",
         )
-        options.receive(message)
+        // Protocol admission has proved the sender and message direction.
+        options.receive(message as ReceivedMessage<Side, I, P, O, S>)
         if (state.stage === "finished") dispose()
       } catch (error) {
         fail(error)

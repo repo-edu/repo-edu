@@ -15,6 +15,7 @@ import {
 } from "./request-port-endpoint"
 import {
   closePayloadSchemas,
+  type RendererRequestMessage,
   type RequestMessage,
   type RequestPersistenceResult,
 } from "./request-port-wire"
@@ -51,7 +52,7 @@ export type HostRequestReceipt =
       operation: ExclusiveRequestOperation
       signal: AbortSignal
     }
-  | Exclude<Message, { type: "input" | "cancel" }>
+  | Exclude<RendererRequestMessage<unknown>, { type: "input" | "cancel" }>
 
 type CommandRun = { command: ExclusiveCommandId; signal: AbortSignal }
 
@@ -73,7 +74,8 @@ export function createHostRequestTransport(options: {
       unknown,
       unknown,
       unknown,
-      unknown
+      unknown,
+      "host"
     >({
       port,
       side: "host",

@@ -106,3 +106,8 @@ export const closePayloadSchemas = {
   output: z.never(),
   settlement: z.never(),
 }
+
+export type RendererRequestMessage<I> = Extract<
+  RequestMessage<I, unknown, unknown, unknown>,
+  { type: "bundle" | "input" | "acknowledged" | "close-ready" | "cancel" }
+>

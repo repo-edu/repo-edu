@@ -1,6 +1,20 @@
 import { workflowInputSchemas } from "@repo-edu/application-contract"
+import type {
+  LlmAuthMode,
+  LlmEffort,
+} from "@repo-edu/integrations-llm-contract"
 import { z } from "zod"
 
+const authModes: Record<LlmAuthMode, true> = { subscription: true, api: true }
+const efforts: Record<LlmEffort, true> = {
+  none: true,
+  minimal: true,
+  low: true,
+  medium: true,
+  high: true,
+  xhigh: true,
+  max: true,
+}
 const count = z.number().int().nonnegative()
 const questions =
   workflowInputSchemas[
@@ -25,7 +39,7 @@ const usage = z
     outputTokens: count,
     reasoningOutputTokens: count,
     wallMs: z.number().nonnegative(),
-    authMode: z.enum(["subscription", "api"]),
+    authMode: z.enum(Object.keys(authModes) as LlmAuthMode[]),
   })
   .nullable()
 const key = z.strictObject({
@@ -37,7 +51,7 @@ const key = z.strictObject({
 })
 const provenance = z.strictObject({
   model: z.string(),
-  effort: z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]),
+  effort: z.enum(Object.keys(efforts) as LlmEffort[]),
   questionCount: count,
   usage,
   createdAtMs: z.number(),

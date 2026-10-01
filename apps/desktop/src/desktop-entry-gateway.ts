@@ -80,9 +80,6 @@ export function installDesktopEntryGateway(options: {
         admission.dispatch({ type: "settlement-acknowledged", request })
         return
       }
-      terminal(
-        new Error(`Unexpected renderer request message ${message.type}.`),
-      )
     },
   })
   const adapter = createDesktopTrpcAdapter({
