@@ -12,3 +12,8 @@ line-length = 100
 code-blocks = false
 tables = false
 reflow = true       # Enable automatic line wrapping (required for --fix)
+
+[per-file-ignores]
+# Assistant instructions link to the sibling plan checkout, which CI does not have.
+"**/CLAUDE.md" = ["MD057"]
+".agents/**/*.md" = ["MD057"]

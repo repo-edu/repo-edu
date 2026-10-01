@@ -13,6 +13,7 @@
   "internalChecksFilter": "strict",
   "lockFileMaintenance": {
     "enabled": true,
+    "updateNotScheduled": false,
     "schedule": ["* 0-4 2 */2 *"]
   },
   "vulnerabilityAlerts": {

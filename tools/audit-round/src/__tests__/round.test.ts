@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { join } from "node:path"
 import { test } from "node:test"
 import type { CleanInput } from "../clean.js"
 import {
@@ -577,7 +578,7 @@ for (const auditor of ["claude", "codex"] as const) {
         const root = call.phase === "brief" ? repoRoot : ownerRoot
         assert.equal(
           phaseWorkflow(call),
-          `${root}/.agents/skills/${call.phase}/references/workflow.md`,
+          join(root, ".agents/skills", call.phase, "references/workflow.md"),
         )
       }
       assert.deepEqual(round.rulings, [])

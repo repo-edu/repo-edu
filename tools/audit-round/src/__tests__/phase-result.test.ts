@@ -78,7 +78,7 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
       assert.ok(prompt.includes(`Source file: ${launcher}`))
       assert.ok(
         prompt.includes(
-          `Source file: ${context.cwd}/.agents/skills/fix/references/workflow.md`,
+          `Source file: ${join(context.cwd, ".agents/skills/fix/references/workflow.md")}`,
         ),
       )
       assert.ok(
@@ -122,7 +122,7 @@ test("watch receives Repo Edu's workflow and joined evidence without a launcher"
   assert.doesNotMatch(writer, /launcher|SKILL\.md/)
   assert.ok(
     writer.includes(
-      `Source file: ${f.root}/.agents/skills/watch/references/workflow.md`,
+      `Source file: ${join(f.root, ".agents/skills/watch/references/workflow.md")}`,
     ),
   )
   assert.ok(writer.endsWith("Git episode evidence:\nJoined episode facts"))
