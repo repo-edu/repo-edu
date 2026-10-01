@@ -57,6 +57,7 @@
         "sweep": "tsx tools/sweep/src/main.ts",
         "file-sizes": "tsx tools/file-sizes/src/main.ts",
         "claude2assistants": "node scripts/claude2assistants.mjs",
+        "check-links": "node scripts/check-links.mjs",
         "leak-scan": "bash ./scripts/leak-scan.sh",
         "leak-scan:git": "sh ./scripts/leak-scan-git.sh",
         "pnpm:update": "pnpm self-update",
