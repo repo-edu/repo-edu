@@ -108,10 +108,7 @@ Land records under the plan doctrine's
 which owns placement and its reasons. Land at most one record per judged repo
 whose files took an accepted finding, or one clean record when none remain.
 A Repo Edu round that accepts only
-findings deferred to a repo outside the round's repo set uses the shared empty severity form. The
-subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or `all`; no
-`Audit:` body line repeats it. The capability tag follows that form and names the assistant that ran
-the audit step, never the one that vets, rebuts or fixes, and it reads on the clean record too.
+findings deferred to a repo outside the round's repo set uses the shared empty severity form.
 Use the shared round protocol's
 [worked record forms](../../../references/round-protocol.md#worked-record-forms).
 
@@ -119,17 +116,11 @@ Use the shared round protocol's **Finding metadata** and **Record bullets**
 for each accepted finding's title, tier, location and rating tokens.
 
 Close the record's body with the round's two yield lines, in the form
-the shared round protocol defines under **Round yield**. Recount the accepted findings
-in that record after vetting and discussion, using their final reach and
-complexity values. Earlier report totals may no longer match what lands.
+the shared round protocol defines under **Round yield**.
 The shared worked forms show their placement.
 
 The report is removed after completion, so the record is the only durable home for the
 round's yield. A clean record carries both lines with zeroes, in either repo.
-
-The hook derives the severity sequence, its case and its `!` from the graded
-bullets; the growth mark stays authored under the shared **Severity sequence**,
-`growth-none` when the commit leaves maintenance burden unchanged.
 
 For a finding deferred from a Repo Edu-only round to the plan repo, follow this
 repo's `CLAUDE.md` for record placement. A clean record's subject

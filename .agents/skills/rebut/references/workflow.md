@@ -44,10 +44,7 @@ rating tokens, rebuttal grounding, answers and runner results. Follow its **Rebu
 in that order; read the judged repos and audited heads from the report opening and the auditor's
 vendor letter from its filename.
 
-A hand-run invocation may omit the audit report. Resolve the report, vet input
-and rebuttal output under the shared round protocol's **Manual phases** with
-`paths rebut` and your current writer tag. Automated invocations use their
-supplied paths unchanged.
+Follow the shared round protocol's **Manual phases** for path resolution.
 
 Never answer the vet on a report whose tag's vendor letter is the other
 assistant's. The rebuttal is the auditor's reply, and the other assistant's
@@ -56,10 +53,8 @@ says to.
 
 ## Rebuttal file
 
-Return the complete answers in the final response, without a grouped closing
-list. When no verdict needs an answer, state that once. When hand-run, also
-write the same text to the supplied rebuttal path. The twin is untracked and
-gitignored, so that write keeps the rebuttal read-only.
+Follow the shared round protocol's **Rebuttal answers** for delivery.
+When no verdict needs an answer, state that once.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
 and `$fix` for Codex.

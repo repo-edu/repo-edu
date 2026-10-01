@@ -751,6 +751,11 @@ use a few short sentences. Every rebut-answer is one of three kinds.
   recorded-decision or trade rules. State the auditor's position and its
   evidence in the same short form, and stop there. Never settle it here.
 
+Return the complete rebut-answers in the final response without a grouped
+closing list. When hand-run, also write the same text to the supplied rebuttal
+path. The twin is untracked and gitignored, so that write keeps the rebuttal
+read-only.
+
 ## Reconciliation
 
 Build the outcome from the numbered vet-verdicts and rebut-answers, accounting
