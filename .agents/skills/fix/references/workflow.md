@@ -22,9 +22,6 @@ user's ruling, applies the accepted corrections, lands the round's records.
 
 An audit with no findings
 completes directly under the audit workflow and never enters this workflow.
-After a vet that accepted every finding without a
-condition the runner skips the rebuttal, so the fix reads the report and its
-vet twin alone.
 
 The [shared round protocol](../../../references/round-protocol.md)
 owns paths, rating tokens, reconciliation, records and runner results.
@@ -125,11 +122,9 @@ round's yield. A clean record carries both lines with zeroes, in either repo.
 For a finding deferred from a Repo Edu-only round to the plan repo, follow this
 repo's `CLAUDE.md` for record placement. A clean record's subject
 carries the auditor and the step scope, and its sentence names the repo set when the round judged
-both. This clean record follows reconciliation of an audit that reported findings. Audits that
-report no findings complete directly under the audit workflow and create no fix session.
-When the user declines the outcome in full, no commit lands
-because disagreement is not a state. The logs show every confirmed round that ran, including clean
-rounds that would otherwise exist only in chat.
+both. This clean record follows reconciliation of an audit that reported findings.
+The logs show every confirmed round that ran, including clean rounds that would
+otherwise exist only in chat.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed

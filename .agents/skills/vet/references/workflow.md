@@ -34,7 +34,7 @@ When unattended, follow the shared
 ending. Report `finished` only after completing the required checks and
 returning every verdict in the final response. The runner saves the twin. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
-that open item. The runner reads the twin to decide whether to skip the rebuttal.
+that open item.
 
 ## Report discovery
 

@@ -23,9 +23,6 @@ auditor. The automated rebuttal always starts fresh on the audit's model and eff
 reply may use the audit session while it still holds the round. In either route, ground answers as
 the shared round protocol requires under **Rebuttal grounding**. The fix phase then reads all three
 files. The user directed this chain on 2026-09-09 to give the fix phase both assistants' views.
-Under the runner the rebuttal runs only when the vet's verdicts leave the auditor something to
-answer: a vet that accepted every finding without a condition sends the report and its vet twin
-straight to the fix, which the user directed on 2026-09-20 so the fix starts sooner.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. Only a hand-run rebuttal writes its `-4-rebut.<tag>.md` twin.

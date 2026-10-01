@@ -302,7 +302,7 @@ commit body. Grade each concern against that rubric in its bullet.
 
 The conventional commit kind is the last tag before the sentence, from the
 closed list the subject grammar admits:
-`abx B3C8d4 fix(renderer-app): surface session command errors`.
+`abx growth-none B3C8d4 fix(renderer-app): surface session command errors`.
 
 `redesign` is the typical kind at tier A, alongside `refactor`, `feat`
 and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
@@ -349,7 +349,7 @@ letter decodes without counting positions, and the tag holds no digit, which a
 subject already spends on the severity sequence's counts.
 
 The tag opens the subject, after the plan form when the subject has one, as
-`abx c1d1 fix(audit-round): align the recorder result`. Its place in every
+`abx growth-none c1d1 fix(audit-round): align the recorder result`. Its place in every
 subject class is fixed by
 [the subject grammar](.agents/references/subject-grammar.md).
 

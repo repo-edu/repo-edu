@@ -381,7 +381,7 @@ location under [Finding metadata](#finding-metadata). Recount the accepted
 findings for the closing yield lines. For one missing C finding:
 
 ```text
-example/audit ath: align the report location
+example/audit ath growth-none: align the report location
 
 gpt-6-astra high
 
@@ -404,7 +404,7 @@ areas. Recount the accepted findings in this record for its closing yield lines,
 using their final reach and complexity values. For one C finding in step 2:
 
 ```text
-example/impl-audit-2 ath docs(audit-round): align the report location
+example/impl-audit-2 ath growth-none docs(audit-round): align the report location
 
 gpt-6-astra high
 
@@ -424,7 +424,7 @@ tiers and `[section:]`, without `[field:]`. The record closes with the same
 yield lines:
 
 ```text
-example/impl-audit-2 ath docs(audit): align the report location
+example/impl-audit-2 ath growth-none docs(audit): align the report location
 
 gpt-6-astra high
 
@@ -474,7 +474,8 @@ clean report also finishes. The runner replaces only the supplied output path.
 Reports from other rounds do not block the run.
 
 A clean audit completes directly without later phases. A vet that accepts
-every finding without conditions skips the rebuttal. A ruling resumes the same
+every finding without conditions skips the rebuttal. The user directed this
+skip on 2026-09-20 so the fix starts sooner. A ruling resumes the same
 fix session. [Later files](#later-files) owns the supplied paths.
 
 Required work still blocked by a permission refusal or another error means
