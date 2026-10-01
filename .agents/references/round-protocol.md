@@ -577,10 +577,10 @@ The watch judges convergence and repeated structural growth; the user owns
 settlement. The final whole-plan round expects an `implemented` marker in every
 judged repo under the plan doctrine's
 [Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms).
-When one is missing, name it once and continue on the user's word. That round
-uses the audit's read-only evidence rules. It is advice, not a gate: when asked
-to treat the implementation as done without one, name the missing round once
-and continue on the user's word.
+When a marker is missing, name it once and continue on the user's word. That round
+uses the audit's read-only evidence rules. The final round is advice, not a gate.
+When asked to treat the implementation as done without that round, name the
+missing round once and continue on the user's word.
 
 On the user's word, the fix writes each repo's closing form under that doctrine.
 The stem scans already show every round, so no compiled history belongs in
