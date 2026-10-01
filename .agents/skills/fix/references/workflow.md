@@ -1,6 +1,7 @@
 ---
 reads:
   - ../../../references/round-protocol.md
+  - ../../../references/subject-grammar.md
   - ../../../../../plan/CLAUDE.md
   - ruling.md
 ---
