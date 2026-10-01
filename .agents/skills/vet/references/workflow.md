@@ -147,9 +147,7 @@ for the verdict values, numbering, response format and delivery.
 Use the [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
 for changes to recorded decisions.
 They own when a supported simplification can be accepted and when the user
-must rule. Apply them to settled decisions too; replacing a decision alone
-does not require a ruling. The user directed the shared simplification rule
-on 2026-09-26.
+must rule.
 
 ## Cross-repo findings
 

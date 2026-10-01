@@ -30,12 +30,6 @@ Follow its **Reconciliation** rule after grounding the findings below.
 When unattended, follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every
 ending.
-When the fix needs a ruling, it writes the final document in this session under
-[Writing a ruling](ruling.md). The runner displays that document directly
-and collects the user's reply. It resumes the same fix session in the background
-with that reply. Questions may leave a decision open; return `needs-ruling`
-again until the user resolves it. The runner keeps the internal prompt out of
-the terminal. It writes and displays the brief only after the full fix has completed.
 
 Follow the `CLAUDE.md` of every repo a fix touches.
 
@@ -66,13 +60,11 @@ covers them when it is code, and the `CLAUDE.md` of each package a fix would
 touch. The report's evidence is the round's; this session verifies what it
 is about to change.
 
-In an unattended phase, write the final ruling under [Writing a ruling](ruling.md)
-at the runner's supplied output path before returning `needs-ruling`. Review it for clarity
-in this session. Reuse established evidence and verify only claims that remain uncertain.
-Keep the explanation proportional to the choice. This also applies when a rule
-in the repo's `CLAUDE.md` stops a correction for a ruling. A permission refusal or another error
-that leaves required work blocked returns `failed`, not `needs-ruling`, under the shared result
-rule.
+When a decision stays open in an unattended fix, follow
+[Writing a ruling](ruling.md) at the supplied ruling path, including when a
+repo's `CLAUDE.md` requires a ruling before a correction.
+For blocked work, follow the shared
+[Runner result](../../../references/round-protocol.md#runner-result).
 
 ## Applying corrections
 
@@ -121,8 +113,8 @@ round's yield. A clean record carries both lines with zeroes, in either repo.
 
 For a finding deferred from a Repo Edu-only round to the plan repo, follow this
 repo's `CLAUDE.md` for record placement. A clean record's subject
-carries the auditor and the step scope, and its sentence names the repo set when the round judged
-both. This clean record follows reconciliation of an audit that reported findings.
+carries the auditor and the step scope. This clean record follows reconciliation of an audit
+that reported findings.
 The logs show every confirmed round that ran, including clean rounds that would
 otherwise exist only in chat.
 

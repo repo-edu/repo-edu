@@ -22,8 +22,7 @@ file names, writer tags, evidence rules, finding shape, yield, rating tokens and
 In a runner-started audit, the first argument is
 the absolute path where the runner saves the report. Deliver the report under
 [Report file](#report-file) and read the remaining arguments as the audit scope.
-Do not allocate or claim again. A hand-run audit follows
-[Round allocation](#round-allocation).
+Do not allocate or claim again.
 
 For hand-run audits, name the plan by its stem followed by an implementation
 step scope or `all`. A typed `.md` or `-widen` is ignored; paths are refused.
@@ -84,10 +83,6 @@ Run one read-only implementation-audit round. Judge only the repos in the
 round's repo set. Report in the order prescribed below under [Report file](#report-file)
 and complete a clean outcome under [Clean completion](#clean-completion), or
 stop when there are findings.
-
-The fix lands one record in each repo whose files took an accepted finding.
-A clean round lands one record in the sole judged repo or in Repo Edu
-when both repos were judged, as named in the report opening.
 
 Use the shared round protocol's **Finding metadata** for the location and rating
 tokens on each finding, including cross-repo deferrals.
@@ -231,8 +226,10 @@ evidence. Deliver the complete report under [Report file](#report-file).
 An unattended audit returns the complete report under
 [Runner result](../../../references/round-protocol.md#runner-result); the runner saves it. A
 hand-run audit presents the report, writes the same text to its supplied path and says so. Without
-one, use the path printed by `pnpm audit-round name`. Its chat and file must not differ. The opening
-identifies the judged repos and their heads, without a writer tag.
+one, follow the shared
+[Manual phases](../../../references/round-protocol.md#manual-phases).
+Its chat and file must not differ. The opening identifies the judged repos
+and their heads, without a writer tag.
 
 Follow the shared round protocol's [Audit notes](../../../references/round-protocol.md#audit-notes)
 for what belongs in the report, handoff and chat.
@@ -252,16 +249,14 @@ commit-scoped audit lands no record and retains its report, under `commit-scope.
 
 The user directed direct clean completion on 2026-09-23. The runner retains
 the report and uses only the audit's model record and capability tag for a
-plan target's clean record. An explicitly requested chain still follows its
-normal crossover rule, and an explicit watch remains available.
+plan target's clean record.
 
 For a hand-run plan target, land one empty clean record under the placement
 rule in
 [Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms).
 Use its clean form: `<stem>/impl-audit-<scope> <tag> clean: <subject>`.
 The scope is `<n>`, `<a>-<b>` or `all` from the audit. The tag and the body's
-opening model line name this auditing session. Name the judged repo set in the
-subject's sentence when both repos were judged. The record closes with both
+opening model line name this auditing session. The record closes with both
 **Round yield** lines at zero. The
 standing clean-record rule grants this empty commit without separate permission.
 After the record lands, run `pnpm audit-round close <target>-<round>` under
@@ -269,11 +264,3 @@ After the record lands, run `pnpm audit-round close <target>-<round>` under
 with the target and round from its filename, then stop. A clean
 record reached after vetting or discussion stays with the fix workflow and its
 ordinary completion rules.
-
-## Round allocation
-
-Use the supplied report path. Without one, resolve your full writer tag under
-the shared round protocol and pass it unchanged to
-`pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at
-either checkout before auditing. Use its printed audit report path. Do not
-pass only the vendor letter.
