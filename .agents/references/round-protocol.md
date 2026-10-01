@@ -932,13 +932,22 @@ at its report and the route's discussion or review follows.
 
 ### Audit notes
 
-Anything the audit has to say about the judged work goes into the report or
-the round's handoff. Chat carries nothing about it that the file does not. A
-planned edit that no audit-finding asks for, such as user-directed work, goes
-in the report opening so the vet can check it. Material for the next round
-goes in the handoff. An audit-finding dropped under the route's own rules stays
-out of both. Setup and tooling problems are not about the judged work and stay
-in chat. A note only in chat reaches neither the vet nor the fix.
+A report holds only the parts its kind lists below, in that order, and nothing
+precedes its opening. A planned edit that no audit-finding asks for, such as
+user-directed work, joins the opening so the vet can check it. Material for the
+next round goes in the round's handoff. An audit-finding dropped under the
+route's own rules stays out of both.
+
+Those parts are the whole account of the round's checking. The coverage table
+shows what an implementation round inspected, and an empty finding field is the
+verdict that its checks passed. So a report lists no passed checks, files read
+or verified claims, and it narrates no other verification. Evidence appears only
+inside the finding it supports. The user directed this on 2026-10-01: no phase
+reads such an account, and it repeats the coverage table.
+
+Chat carries nothing about the judged work that the report or handoff does
+not. Setup and tooling problems are not about the judged work and stay in chat.
+A note only in chat reaches neither the vet nor the fix.
 
 ### Implementation reports
 
