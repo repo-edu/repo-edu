@@ -228,6 +228,15 @@ function reduceHostAdmission(
       if (state.phase !== "preparing" && state.phase !== "executing.running")
         break
       if (state.cancellationAccepted) return transition(state, "ignored")
+      if (state.phase === "preparing" && state.stage === "input-pending")
+        return transition(
+          executionState(
+            { ...state, cancellationAccepted: true },
+            "executing.settling",
+          ),
+          "accepted",
+          [{ type: "settle-cancelled-preparation", request: state.request }],
+        )
       return transition(
         { ...state, cancellationAccepted: true },
         "accepted",
@@ -238,18 +247,12 @@ function reduceHostAdmission(
     case "preparation-committed":
       if (state.phase !== "preparing" || state.stage !== "bundle-pending") break
       if (state.cancellationAccepted)
-        return transition(
-          executionState(state, "executing.settling"),
-          "accepted",
-          [{ type: "settle-cancelled-preparation", request: state.request }],
-        )
+        return transition(executionState(state, "executing.settling"))
       return transition({ ...state, stage: "input-pending" })
     case "input-prepared":
       if (state.phase !== "preparing" || state.stage !== "input-pending") break
       return state.cancellationAccepted
-        ? transition(executionState(state, "executing.settling"), "accepted", [
-            { type: "settle-cancelled-preparation", request: state.request },
-          ])
+        ? transition(executionState(state, "executing.settling"))
         : transition(executionState(state, "executing.running"), "accepted", [
             { type: "execute-command", request: state.request },
           ])

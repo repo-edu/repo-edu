@@ -18,6 +18,7 @@ import { useCourseStore } from "../../../../packages/renderer-app/src/stores/cou
 import { HostAdmission } from "../host-admission"
 import type { HostRequest } from "../host-admission-model"
 import { executeHostCommand } from "../host-command-execution"
+import { settleCancelledPreparation } from "../host-command-settlement"
 import { createHostRequestTransport } from "../host-request-transport"
 import { createPreloadRequestTransport } from "../preload-request-transport"
 import { createRendererCommandClient } from "../renderer-command-client"
@@ -30,6 +31,94 @@ const target = {
   referenceId: "target",
   displayName: "students.csv",
   suggestedFormat: "csv" as const,
+}
+
+for (const timing of ["before persistence", "after persisted"] as const) {
+  it(`settles a cancel ${timing} without capturing input and releases the command`, {
+    timeout: 3000,
+  }, async () => {
+    const channel = requestChannel()
+    const abort = new AbortController()
+    const order: string[] = []
+    const admission = new HostAdmission((event) => {
+      if (event.type === "settle-cancelled-preparation")
+        settleCancelledPreparation(event.request, admission, host)
+      if (event.type === "release-command") host.release(event.request)
+    })
+    admission.dispatch({ type: "bootstrap-acknowledged" })
+    const host = createHostRequestTransport({
+      admission,
+      receive(request, message) {
+        if (message.type === "bundle") {
+          void commitRequestPersistence({
+            request,
+            bundle: message.bundle,
+            admission,
+            handlers: {
+              "settings.saveCredentials": async () =>
+                assert.fail("No credentials"),
+              "settings.savePreferences": async () =>
+                assert.fail("No preferences"),
+              "course.save": async () => {
+                order.push("committed")
+                return { revision: 4, updatedAt: "2026-09-07T12:00:00.000Z" }
+              },
+            },
+            transport: host,
+          })
+        } else if (message.type === "acknowledged") {
+          order.push("acknowledged")
+          admission.dispatch({ type: "settlement-acknowledged", request })
+        } else assert.fail(`Unexpected ${message.type}`)
+      },
+    })
+    const preload = createPreloadRequestTransport({
+      channel: (command) => ({
+        renderer: channel.renderer,
+        transfer: () => host.acceptCommand(command, channel.host),
+      }),
+      terminal: admission.terminal,
+    })
+    const client = createRendererCommandClient(preload.bridge)
+    try {
+      await assert.rejects(
+        client.runBody(
+          "roster.exportMembers",
+          async (commit) => {
+            if (timing === "before persistence") abort.abort()
+            const result = await commit({ course: makeCourse("course") })
+            assert.equal(result.course?.revision, 4)
+            order.push("persisted")
+            if (timing === "after persisted") abort.abort()
+          },
+          (scope) =>
+            scope.run(
+              "roster.exportMembers",
+              () => assert.fail("Cancelled preparation must not capture input"),
+              { signal: abort.signal },
+            ),
+          async () => {
+            order.push("settled")
+          },
+        ),
+        { type: "cancelled" },
+      )
+      assert.deepEqual(order, [
+        "committed",
+        "persisted",
+        "settled",
+        "acknowledged",
+      ])
+      assert.equal(admission.getSnapshot().phase, "interactive")
+      assert.deepEqual(channel.listenerCounts, [0, 0])
+      const next = admission.startWorkflow("course.list", { cancel() {} })
+      next()
+    } finally {
+      preload.dispose()
+      host.dispose()
+      channel.dispose()
+    }
+  })
 }
 
 it("orders preparation, capture, running, publication, acknowledgement and release under one freeze", {

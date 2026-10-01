@@ -225,12 +225,6 @@ describe("desktop host admission", () => {
           .phase,
         "terminal",
       )
-      const cancel = hostAdmissionReducer(state, {
-        type: "cancel-request",
-        request: current,
-      })
-      assert.equal(cancel.state.phase, "preparing")
-      assert.equal(cancel.effects.length, 0)
     })
   }
 
@@ -374,6 +368,7 @@ describe("desktop host admission", () => {
     dispatch({ type: "cancel-request", request: current })
     dispatch({ type: "cancel-request", request: current })
     assert.equal(owner.getSnapshot().phase, "preparing")
+    assert.deepEqual(effects, [{ type: "prepare-command", request: current }])
     dispatch({ type: "preparation-committed", request: current })
     assert.equal(owner.getSnapshot().phase, "executing.settling")
     assert.equal(
@@ -382,8 +377,40 @@ describe("desktop host admission", () => {
     )
     assert.equal(
       effects.filter((e) => e.type === "settle-cancelled-preparation").length,
-      1,
+      0,
     )
+  })
+
+  it("settles cancellation after persistence without waiting for command input", () => {
+    const { owner, dispatch, effects } = harness()
+    dispatch({ type: "bootstrap-acknowledged" })
+    dispatch({
+      type: "exclusive-intent",
+      command: "repo.clone",
+      request: current,
+    })
+    dispatch({ type: "preparation-committed", request: current })
+    assert.equal(
+      dispatch({ type: "cancel-request", request: current }),
+      "accepted",
+    )
+    assert.deepEqual(owner.getSnapshot(), {
+      ...command,
+      phase: "executing.settling",
+      completion: null,
+      cancellationAccepted: true,
+    })
+    assert.equal(
+      dispatch({ type: "cancel-request", request: current }),
+      "ignored",
+    )
+    assert.deepEqual(effects, [
+      { type: "prepare-command", request: current },
+      { type: "settle-cancelled-preparation", request: current },
+    ])
+    dispatch({ type: "settlement-acknowledged", request: current })
+    assert.equal(owner.getSnapshot().phase, "interactive")
+    assert.equal(effects.at(-1)?.type, "release-command")
   })
 
   it("forwards running cancellation once and ignores it after the official outcome", () => {

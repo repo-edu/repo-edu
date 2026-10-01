@@ -80,6 +80,7 @@ import type {
   HostAdmissionHostEffect,
   HostRequest,
 } from "./host-admission-model"
+import { settleCancelledPreparation } from "./host-command-settlement"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
 import { updateRestartRefusedMessage } from "./renderer-host-bridge"
 import { createDesktopAppSettingsStore } from "./settings-store"
@@ -333,7 +334,12 @@ export function installDesktopApplication(): void {
         // reducer transition has established executing.running.
         return
       case "settle-cancelled-preparation":
-        // The preparation sender must publish committed stamps before cancellation.
+        if (desktopGateway)
+          settleCancelledPreparation(
+            effect.request,
+            admission,
+            desktopGateway.requests,
+          )
         return
       case "release-command":
         desktopGateway?.requests.release(effect.request)
