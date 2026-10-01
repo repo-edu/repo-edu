@@ -4,7 +4,9 @@ import {
   type WorkflowResult,
   workflowInputSchemas,
 } from "@repo-edu/application-contract"
+import { gitProviderKinds, lmsProviderKinds } from "@repo-edu/domain/connection"
 import { persistedCourseSchema } from "@repo-edu/domain/schemas"
+import type { RosterValidationKind } from "@repo-edu/domain/types"
 import { z } from "zod"
 import {
   examinationLookupSchema,
@@ -82,6 +84,25 @@ const resource = z.enum([
   "file",
 ])
 const conflictResource = resource.exclude(["course"])
+const rosterValidationKinds: Record<RosterValidationKind, true> = {
+  duplicate_student_id: true,
+  missing_email: true,
+  invalid_email: true,
+  duplicate_email: true,
+  duplicate_assignment_name: true,
+  duplicate_group_id_in_assignment: true,
+  duplicate_group_name_in_assignment: true,
+  duplicate_repo_name_in_assignment: true,
+  orphan_group_member: true,
+  empty_group: true,
+  system_group_sets_missing: true,
+  invalid_enrollment_partition: true,
+  invalid_group_origin: true,
+  missing_git_username: true,
+  invalid_git_username: true,
+  unassigned_student: true,
+  student_in_multiple_groups_in_assignment: true,
+}
 const failure = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("effect"), message: z.string() }),
   z.strictObject({
@@ -91,25 +112,9 @@ const failure = z.discriminatedUnion("type", [
       z.union([
         z.strictObject({ path: z.string(), message: z.string() }),
         z.strictObject({
-          kind: z.enum([
-            "duplicate_student_id",
-            "missing_email",
-            "invalid_email",
-            "duplicate_email",
-            "duplicate_assignment_name",
-            "duplicate_group_id_in_assignment",
-            "duplicate_group_name_in_assignment",
-            "duplicate_repo_name_in_assignment",
-            "orphan_group_member",
-            "empty_group",
-            "system_group_sets_missing",
-            "invalid_enrollment_partition",
-            "invalid_group_origin",
-            "missing_git_username",
-            "invalid_git_username",
-            "unassigned_student",
-            "student_in_multiple_groups_in_assignment",
-          ]),
+          kind: z.enum(
+            Object.keys(rosterValidationKinds) as RosterValidationKind[],
+          ),
           affectedIds: z.array(z.string()),
           context: z.string().nullable(),
         }),
@@ -130,15 +135,7 @@ const failure = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("provider"),
     message: z.string(),
-    provider: z.enum([
-      "canvas",
-      "moodle",
-      "github",
-      "gitlab",
-      "gitea",
-      "git",
-      "llm",
-    ]),
+    provider: z.enum([...lmsProviderKinds, ...gitProviderKinds, "git", "llm"]),
     operation: z.string(),
     retryable: z.boolean(),
   }),
