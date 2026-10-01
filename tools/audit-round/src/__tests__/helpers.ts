@@ -120,13 +120,9 @@ export async function fixture(
   await writeFile(join(root, "scenario.json"), JSON.stringify(scenario))
   const executable = (assistant: Assistant) => ({
     file: process.execPath,
-    args: [
-      "--import",
-      import.meta.resolve("tsx"),
-      join(fixtureRoot, "process.ts"),
-      root,
-      assistant,
-    ],
+    // The self-contained fixture uses Node's native type stripping. Loading
+    // tsx for every simulated version, settings and phase call adds startup cost.
+    args: [join(fixtureRoot, "process.ts"), root, assistant],
   })
   const runtime: AssistantRuntime & RoundContext = {
     ...testContext(root),

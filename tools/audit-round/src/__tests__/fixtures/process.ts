@@ -1,8 +1,9 @@
+import { execFile } from "node:child_process"
 import { appendFile, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createInterface } from "node:readline"
 import { setTimeout } from "node:timers/promises"
-import { execa } from "execa"
+import { promisify } from "node:util"
 
 const [root, assistant, ...args] = process.argv.slice(2)
 let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
@@ -207,7 +208,7 @@ if (scenario.phases !== undefined) {
 }
 
 for (const commit of scenario.commits ?? [])
-  await execa(
+  await promisify(execFile)(
     "git",
     [
       "-c",

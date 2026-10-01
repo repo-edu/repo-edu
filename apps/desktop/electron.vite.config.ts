@@ -119,6 +119,26 @@ function shouldSuppressKnownWebTreeSitterWarning(warning: BuildWarning) {
   return isBrowserBuiltinExternalWarning
 }
 
+function onBuildWarning(
+  warning: BuildWarning,
+  warn: (warning: BuildWarning) => void,
+) {
+  if (shouldSuppressKnownWebTreeSitterWarning(warning)) return
+
+  // Zod's prose mentions the pure marker while the actual annotations remain
+  // valid. Rollup removes these comments without changing generated code.
+  const id = warning.id?.replaceAll("\\", "/") ?? ""
+  const isZodProseAnnotation =
+    warning.code === "INVALID_ANNOTATION" &&
+    ((id.endsWith("/zod/v4/core/util.js") &&
+      warning.message.includes("// Wrapped in a `@__PURE__` IIFE:")) ||
+      (id.endsWith("/zod/v4/core/regexes.js") &&
+        warning.message.includes("/** Anchors a pattern source.")))
+  if (isZodProseAnnotation) return
+
+  warn(warning)
+}
+
 const workspaceAliases = buildWorkspaceAliases()
 const mainOutputDirectory = resolve(configDir, "out/main")
 const mainRuntimeExternalMatchers = desktopRuntimeExternalPackageRoots.map(
@@ -151,13 +171,7 @@ export default defineConfig({
           chunkFileNames: "[name]-[hash].js",
         },
         external: mainRuntimeExternalMatchers,
-        onwarn(warning, warn) {
-          if (shouldSuppressKnownWebTreeSitterWarning(warning)) {
-            return
-          }
-
-          warn(warning)
-        },
+        onwarn: onBuildWarning,
       },
     },
   },
@@ -170,6 +184,7 @@ export default defineConfig({
       outDir: "out/preload",
       rollupOptions: {
         input: resolve(configDir, "src/preload.ts"),
+        onwarn: onBuildWarning,
         output: {
           format: "cjs",
           entryFileNames: "preload.cjs",
@@ -192,10 +207,6 @@ export default defineConfig({
         // are not used in this Electron renderer bundle. They are expected and
         // noisy for runtime validation output, so we suppress only this case.
         onwarn(warning, warn) {
-          if (shouldSuppressKnownWebTreeSitterWarning(warning)) {
-            return
-          }
-
           const isUseClientDirectiveWarning =
             warning.code === "MODULE_LEVEL_DIRECTIVE" &&
             warning.message.includes('"use client"')
@@ -204,7 +215,7 @@ export default defineConfig({
             return
           }
 
-          warn(warning)
+          onBuildWarning(warning, warn)
         },
       },
     },
