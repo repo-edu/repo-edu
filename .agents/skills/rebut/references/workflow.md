@@ -18,7 +18,7 @@ Where a launcher and this file disagree, this file is right.
 
 The rebuttal is the auditor's answer to the vet. An implementation-audit round writes its
 `*-2-audit.<tag>.md` report, the other assistant vets it into the `-3-vet.<tag>.md` twin and this
-workflow answers those verdicts, writing the `-4-rebut.<tag>.md` twin. The answers come from the
+workflow answers those verdicts in the `-4-rebut.<tag>.md` twin. The answers come from the
 auditor. Session selection follows the shared protocol's **Writer tags**. A hand-run
 reply may use the audit session while it still holds the round. In either route, ground answers as
 the shared round protocol requires under **Rebuttal grounding**. The fix phase then reads all three
