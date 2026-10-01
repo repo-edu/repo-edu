@@ -1,6 +1,7 @@
 ---
 reads:
   - ../../../references/round-protocol.md
+  - ../../../../../plan/CLAUDE.md
   - commit-scope.md
   - ../../../../../plan/GROWTH-PATTERNS.md
   - ../../../../../plan/BOUNDARIES.md

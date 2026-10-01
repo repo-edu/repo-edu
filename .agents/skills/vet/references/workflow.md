@@ -1,6 +1,7 @@
 ---
 reads:
   - ../../../references/round-protocol.md
+  - ../../../../../plan/CLAUDE.md
   - ../../../../../plan/.agents/references/planning-rules.md
   - ../../../../../plan/BOUNDARIES.md
   - ../../../../../plan/GROWTH-PATTERNS.md
