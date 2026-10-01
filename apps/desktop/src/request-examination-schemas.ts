@@ -1,9 +1,13 @@
-import { workflowInputSchemas } from "@repo-edu/application-contract"
+import {
+  type ExaminationGenerateOutput,
+  workflowInputSchemas,
+} from "@repo-edu/application-contract"
 import type {
   LlmAuthMode,
   LlmEffort,
 } from "@repo-edu/integrations-llm-contract"
 import { z } from "zod"
+import type { Assert, SchemaMatches } from "./request-settlement-schema"
 
 const authModes: Record<LlmAuthMode, true> = { subscription: true, api: true }
 const efforts: Record<LlmEffort, true> = {
@@ -96,3 +100,7 @@ export const examinationOutputSchema = z.discriminatedUnion("kind", [
     sourceReferences: references,
   }),
 ])
+
+type _ExaminationOutputContract = Assert<
+  SchemaMatches<typeof examinationOutputSchema, ExaminationGenerateOutput>
+>

@@ -6,6 +6,7 @@ import {
 } from "@repo-edu/application-contract"
 import { persistedCourseSchema } from "@repo-edu/domain/schemas"
 import { z } from "zod"
+import type { Assert, SchemaMatches } from "./request-settlement-schema"
 
 export const requestPortChannel = "repo-edu/request-port"
 export const closeTransferSchema = z.strictObject({ kind: z.literal("close") })
@@ -34,6 +35,9 @@ export const persistenceResultSchema = z.strictObject({
     })
     .optional(),
 })
+type _PersistenceResultContract = Assert<
+  SchemaMatches<typeof persistenceResultSchema, PersistencePreparationResult>
+>
 export type RequestPersistenceBundle = PersistencePreparationBundle
 export type RequestPersistenceResult = PersistencePreparationResult
 
