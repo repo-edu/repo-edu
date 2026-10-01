@@ -11,7 +11,7 @@ import type {
   RoundDependencies,
 } from "./phase.js"
 import { phaseResult, withoutPhaseResult } from "./phase-result.js"
-import { phasePrompt, phaseRequest } from "./requests.js"
+import { type AssistantPrompt, phasePrompt, phaseRequest } from "./requests.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
 
@@ -31,14 +31,14 @@ export function runAssistantPhase(
 /** Also used by the contract recorder with a probe prompt and a raw-record sink. */
 export function runAssistantInvocation<P extends Phase>(
   input: PhaseInput<P>,
-  prompt: string,
+  prompt: AssistantPrompt,
   output: PhaseOutput,
   runtime: AssistantRuntime,
   record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult<P>>
 export async function runAssistantInvocation(
   input: PhaseInput,
-  prompt: string,
+  prompt: AssistantPrompt,
   output: PhaseOutput,
   runtime: AssistantRuntime,
   record?: (value: unknown) => Promise<void>,
@@ -54,9 +54,9 @@ export async function runAssistantInvocation(
   try {
     try {
       runtime.signal?.throwIfAborted()
-      await output.start(input, prompt)
+      await output.start(input, prompt.log)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
-      const request = phaseRequest(input, prompt)
+      const request = phaseRequest(input, prompt.text)
       const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
       await withCliProcess(
         { ...runtime, cwd: input.cwd },

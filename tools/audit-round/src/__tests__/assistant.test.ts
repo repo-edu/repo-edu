@@ -123,10 +123,18 @@ for (const assistant of ["claude", "codex"] as const) {
       ),
     )
     assert.ok(f.starts[0].prompt.includes("/peer plan/"))
+    const logged = f.starts[0].prompt
+    const supplied = (await f.prompts())[0].prompt
+    const workflow = join(f.root, ".agents/skills/fix/references/workflow.md")
+    assert.ok(supplied.includes(`Source file: ${workflow}\n\n`))
+    assert.ok(supplied.includes("fix workflow\n"))
+    assert.ok(
+      logged.includes(`Source file: ${workflow} (contents omitted from log)`),
+    )
+    assert.doesNotMatch(logged, /fix workflow\n|fix launcher\n/)
     const [call] = await f.calls()
     if (assistant === "codex") {
       assert.deepEqual(call.args, ["exec", "--approve-for-me", "--json"])
-      assert.equal((await f.prompts())[0].prompt, f.starts[0].prompt)
     } else {
       assert.equal(
         call.args[call.args.indexOf("--permission-mode") + 1],

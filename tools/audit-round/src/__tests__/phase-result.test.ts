@@ -35,7 +35,7 @@ test("a fresh prompt supplies routed workflows and shared files once under their
     sessionId: null,
     arguments: ["audit.md", "vet.md", "rebut.md"],
   }
-  const prompt = phasePrompt(input)
+  const { text: prompt, log } = phasePrompt(input)
   for (const [path, content] of [
     [route, routing],
     [target, routed],
@@ -43,8 +43,12 @@ test("a fresh prompt supplies routed workflows and shared files once under their
   ]) {
     assert.ok(prompt.includes(`Source file: ${path}\n\n${content}`))
     assert.equal(prompt.split(`Source file: ${path}\n`).length, 2)
+    assert.ok(log.includes(`Source file: ${path} (contents omitted from log)`))
+    assert.equal(log.split(`Source file: ${path} `).length, 2)
+    assert.ok(!log.includes(content))
   }
   assert.ok(prompt.includes("Codex rebut launcher"))
+  assert.doesNotMatch(log, /Codex rebut launcher/)
   assert.doesNotMatch(prompt, /Source file: .*CLAUDE\.md/)
   await writeFile(route, "---\nreads: wrong-shape\n---\n")
   assert.throws(() => phasePrompt(input), /Invalid workflow header/)
@@ -64,7 +68,7 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
         arguments: ["audit.md", "vet.md"],
         rulingFile: join(context.cwd, "ruling.md"),
       }
-      const prompt = phasePrompt(input)
+      const { text: prompt } = phasePrompt(input)
       const launcher = join(
         context.planRoot,
         assistant === "claude"
@@ -87,14 +91,15 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
         sessionId: "fix-session",
         rulingReply: "Apply the correction.",
       }
-      const reply = phasePrompt(resumed)
+      const { text: reply, log } = phasePrompt(resumed)
+      assert.equal(log, reply)
       assert.match(reply, /Run the fix phase .* resumed session/)
       assert.ok(reply.includes(`Read and follow this launcher: ${launcher}`))
       assert.doesNotMatch(reply, /Source file:|supplied phase instructions/)
       assert.ok(reply.endsWith("User reply:\nApply the correction."))
       const launcherContent = await readFile(launcher, "utf8")
       await rm(launcher)
-      assert.equal(phasePrompt(resumed), reply)
+      assert.equal(phasePrompt(resumed).text, reply)
       await writeFile(launcher, launcherContent)
     }
   }
@@ -108,13 +113,13 @@ test("watch and watch edit share Repo Edu's workflow while only the writer recei
     model: unpinned,
     sessionId: null,
   }
-  const writer = phasePrompt({
+  const { text: writer } = phasePrompt({
     ...common,
     phase: "watch",
     arguments: ["watch.md", "cache"],
     evidence: "Joined episode facts",
   })
-  const editor = phasePrompt({
+  const { text: editor } = phasePrompt({
     ...common,
     phase: "watch-edit",
     arguments: ["watch.md"],
@@ -237,7 +242,7 @@ test("Codex completion does not depend on unused usage fields", () => {
 test("phase arguments and recovery identifiers stay data across spaces and shell syntax", async (t) => {
   const f = await fixture(t)
   const plan = '../plan/a "quoted" plan; $(touch forbidden).md'
-  const prompt = phasePrompt({
+  const { text: prompt } = phasePrompt({
     phase: "audit",
     assistant: "codex",
     model: unpinned,

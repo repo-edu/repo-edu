@@ -38,7 +38,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         "watch",
         "watch-edit",
       ] as const) {
-        const prompt = phasePrompt({
+        const { text: prompt } = phasePrompt({
           ...context,
           phase,
           assistant,

@@ -186,7 +186,8 @@ consumers.
   Watch edit shares the watch workflow. Resumed sessions receive no files again. Root
   instructions are not listed. Both assistants receive their phase prompts on standard input. Codex
   command-line arguments contain no prompt text, including on resume, so joined evidence is not
-  limited by the operating system's per-argument size.
+  limited by the operating system's per-argument size. The same collected file list produces a
+  separate log prompt containing source paths with an omission notice in place of file contents.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
@@ -224,7 +225,8 @@ consumers.
   briefs use this route. `beginRuling` releases the live status display and renders the fix's
   ruling. `endRuling` excludes the user's waiting time and records a submitted reply in the log and
   transcript before any resumed process starts. Assistant replies use the normal phase output, so
-  launch prompts stay in the log and never reach the terminal.
+  launch prompts stay in the log and never reach the terminal. Supplied instruction files appear
+  there by path only; their full contents go to the assistant.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates,
   existing document resolution and report closure for both entry routes. It resolves `HEAD`
   in commit targets and scans the plan root for the next target-wide number. Automated rounds

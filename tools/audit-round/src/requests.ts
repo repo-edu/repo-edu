@@ -89,7 +89,10 @@ const workflowHeader = z.strictObject({
 })
 
 /** Headers resolve from their own file, including a routed workflow's reads. */
-function phaseInstructions(launcher: string | null, workflow: string): string {
+function phaseInstructions(
+  launcher: string | null,
+  workflow: string,
+): ReadonlyMap<string, string> {
   const files = new Map<string, string>()
   function supply(path: string): void {
     const source = resolve(path)
@@ -109,18 +112,46 @@ function phaseInstructions(launcher: string | null, workflow: string): string {
   }
   if (launcher !== null) supply(launcher)
   supply(workflow)
-  return [...files]
-    .map(([path, content]) => `Source file: ${path}\n\n${content}`)
-    .join("\n\n")
+  return files
 }
 
-export function phasePrompt(input: PhaseInput): string {
-  const { phase, repoEduRoot, cwd } = input
+export type AssistantPrompt = {
+  readonly text: string
+  readonly log: string
+}
+
+export function phasePrompt(input: PhaseInput): AssistantPrompt {
   const launcher = phaseLauncher(input)
-  const instructions =
+  const files =
     input.sessionId === null
       ? phaseInstructions(launcher, phaseWorkflow(input))
       : null
+  return {
+    text: formatPhasePrompt(
+      input,
+      files === null
+        ? null
+        : [...files]
+            .map(([path, content]) => `Source file: ${path}\n\n${content}`)
+            .join("\n\n"),
+    ),
+    log: formatPhasePrompt(
+      input,
+      files === null
+        ? null
+        : [...files.keys()]
+            .map((path) => `Source file: ${path} (contents omitted from log)`)
+            .join("\n"),
+    ),
+  }
+}
+
+function formatPhasePrompt(
+  input: PhaseInput,
+  instructions: string | null,
+): string {
+  const { phase, repoEduRoot, cwd } = input
+  const launcher = phaseLauncher(input)
   const prompt = `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}

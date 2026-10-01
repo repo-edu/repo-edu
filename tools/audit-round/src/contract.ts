@@ -209,7 +209,7 @@ export async function recordContracts(
             arguments: ["CLI contract probe"],
             sessionId: null,
           },
-          contractPrompt,
+          { text: contractPrompt, log: contractPrompt },
           { ...output.phase, observe },
           runtime,
           async (record) => {
