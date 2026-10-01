@@ -49,15 +49,7 @@ pnpm test
 ```
 
 `pnpm audit-round example 3` runs an implementation-audit round for
-the named plan and step from either checkout. Every round file lives at the
-plan repo root. Planning sessions work there; implementation and commit sessions
-work in Repo Edu. The shared home audit, vet, rebuttal and fix launchers use
-its `name` and `paths` commands to select the workflow, working checkout and
-phase arguments. A stem alone audits the plan
-document; `example all` audits every implementation step. Home `/brief` and
-`$brief` explain one plan; home `/watch` and `$watch` run a hand-run trajectory
-watch. The round brief and automated watch have no chat commands.
-Use `pnpm audit-round brief <transcript>` to retell an earlier round. The
+the named plan and step from either checkout. The
 [runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
 options, settings and outcomes. The
 [shared round protocol](.agents/references/round-protocol.md) owns file names
