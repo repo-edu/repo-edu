@@ -9,10 +9,7 @@ import {
 } from "@repo-edu/application-contract"
 import type { HostAdmission } from "./host-admission"
 import type { HostRequest } from "./host-admission-model"
-import {
-  settleCancelledPreparation,
-  settleHostCommand,
-} from "./host-command-settlement"
+import { settleHostCommand } from "./host-command-settlement"
 import type { createHostRequestTransport } from "./host-request-transport"
 import { commandPayloadSchemas } from "./request-command-schemas"
 
@@ -44,10 +41,6 @@ export async function executeHostCommand(options: {
   const running = () => {
     const state = admission.getSnapshot()
     return state.phase === "executing.running" && state.request === request
-  }
-  if (!running()) {
-    settleCancelledPreparation(request, admission, transport)
-    return
   }
   const handler = handlers[
     operation.workflowId

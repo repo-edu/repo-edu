@@ -1,5 +1,4 @@
 import {
-  type AppSettingsStore,
   type CourseStore,
   createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
@@ -51,6 +50,7 @@ import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import { initTRPC } from "@trpc/server"
 import { observable } from "@trpc/server/observable"
 import { isDesktopTrpcWorkflowId } from "./host-entry-inventory"
+import type { DesktopAppSettingsStore } from "./settings-store"
 
 export type DesktopWorkflowContext = {
   signal: AbortSignal
@@ -65,7 +65,7 @@ type DesktopWorkflowId = keyof typeof workflowCatalog
 export type DesktopRouterPorts = {
   http: HttpPort
   courseStore: CourseStore
-  appSettingsStore: AppSettingsStore
+  appSettingsStore: DesktopAppSettingsStore
   userFile: UserFilePort
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort
@@ -81,12 +81,6 @@ export type DesktopRouterPorts = {
   onAppCredentialsSaved?: (credentials: PersistedAppCredentials) => void
   /** Factory for verifying draft LLM connections. */
   createDraftLlmTextClient: LlmConnectionWorkflowPorts["createDraftLlmTextClient"]
-}
-
-type DesktopSettingsStore = AppSettingsStore & {
-  readPreferencesWithoutRecovery?(
-    signal?: AbortSignal,
-  ): Promise<PersistedAppPreferences | null> | PersistedAppPreferences | null
 }
 
 function envPositiveInt(name: string): number | null {
@@ -164,21 +158,16 @@ function stripEnvOverridesForPersist(
 export async function resolveDesktopPreferencesSavePayload(
   next: PersistedAppPreferences,
   options: {
-    readPreferencesWithoutRecovery?: (
-      signal?: AbortSignal,
-    ) =>
-      | Promise<PersistedAppPreferences | null>
-      | PersistedAppPreferences
-      | null
+    readPreferencesWithoutRecovery: DesktopAppSettingsStore["readPreferencesWithoutRecovery"]
     signal?: AbortSignal
-  } = {},
+  },
 ): Promise<PersistedAppPreferences> {
   if (!hasPreferenceEnvOverrides()) {
     return next
   }
 
   const rawPersisted =
-    (await options.readPreferencesWithoutRecovery?.(options.signal)) ??
+    (await options.readPreferencesWithoutRecovery(options.signal)) ??
     defaultAppPreferences
 
   return stripEnvOverridesForPersist(next, rawPersisted)
@@ -192,7 +181,7 @@ export function createDesktopWorkflowRegistry(
 
   const examinationArchive = createExaminationArchive(ports.examinationArchive)
 
-  const appSettingsStore = ports.appSettingsStore as DesktopSettingsStore
+  const appSettingsStore = ports.appSettingsStore
   const settingsHandlers = createSettingsWorkflowHandlers(appSettingsStore)
   const wrappedSettingsHandlers: typeof settingsHandlers = {
     ...settingsHandlers,
@@ -333,17 +322,6 @@ function createWorkflowSubscriptionProcedure<
     )
 }
 
-/**
- * Creates the Electron main-side tRPC router for the startup and ordinary
- * workflow ids. The registry it composes covers every shared workflow id;
- * `createDesktopWorkflowRouter` keeps only the ids that start over tRPC.
- *
- * Workflow registration is compile-time exhaustive through WorkflowHandlerMap.
- */
-export function createDesktopRouter(ports: DesktopRouterPorts) {
-  return createDesktopWorkflowRouter(createDesktopWorkflowRegistry(ports))
-}
-
 type DesktopTrpcProcedures = {
   [K in OrdinaryWorkflowId]: ReturnType<
     typeof createWorkflowSubscriptionProcedure<K>
@@ -382,5 +360,5 @@ function toAppError(error: unknown): AppError {
   }
 }
 
-export type DesktopRouter = ReturnType<typeof createDesktopRouter>
-export type { DesktopWorkflowId as DesktopWorkflowKey, WorkflowId }
+export type DesktopRouter = ReturnType<typeof createDesktopWorkflowRouter>
+export type { WorkflowId }

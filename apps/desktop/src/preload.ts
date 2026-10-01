@@ -48,10 +48,10 @@ const requestTransport = createPreloadRequestTransport({
       },
     }
   },
-  terminal() {
+  terminal(error) {
     // Endpoint failure closes the live port. Its peer reports that loss to the
     // host reducer, without creating a second renderer-to-host control route.
-    console.error("The desktop request port failed.")
+    console.error("The desktop request port failed.", error)
   },
 })
 

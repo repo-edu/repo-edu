@@ -251,11 +251,11 @@ function reduceHostAdmission(
       return transition({ ...state, stage: "input-pending" })
     case "input-prepared":
       if (state.phase !== "preparing" || state.stage !== "input-pending") break
-      return state.cancellationAccepted
-        ? transition(executionState(state, "executing.settling"))
-        : transition(executionState(state, "executing.running"), "accepted", [
-            { type: "execute-command", request: state.request },
-          ])
+      return transition(
+        executionState(state, "executing.running"),
+        "accepted",
+        [{ type: "execute-command", request: state.request }],
+      )
     case "outcome-fixed":
       if (state.phase !== "executing.running") break
       return transition({
