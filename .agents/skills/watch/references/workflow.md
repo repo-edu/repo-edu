@@ -114,12 +114,18 @@ nothing the user cannot read there; the grounding is what the watch is for.
 
 The grade and response class are suggestions, not actions the watch takes.
 The runner's fixed repeat limits only decide when to read the evidence again.
-The watch suggests a response class: continue, redesign the shape, delete an
-over-scoped section, hold an unstable area until evidence arrives, spin off a
-peer plan or question the objective when drift persists across reframes. It
-never suggests a fix, because proposing an implementation re-enters the doer's
-frame and drops the user from judging the frame to judging a solution. The user
-owns the call, including whether to terminate or let the round in flight run on.
+The watch suggests a response class: continue, make a bounded correction pass,
+redesign the shape, delete an over-scoped section, hold an unstable area until
+evidence arrives, spin off a peer plan or question the objective when drift
+persists across reframes. The user owns the call, including whether to terminate
+or let the round in flight run on.
+
+When rounds keep finding instances of the same unresolved cause, judge whether
+another general audit is an effective next step. Useful individual corrections
+do not establish that the method is converging. Where the evidence supports a
+bounded pass that addresses the cause across its affected scope, recommend that
+pass and name its scope and completion condition. The watch may recommend a
+correction method without designing the implementation or performing the work.
 
 The watch is not the iteration audit. The audit reads the current artifact end
 to end for content defects and normally lands a fix commit; a clean round lands
@@ -238,8 +244,9 @@ The user owns the response and may still read the diagnostic directly.
   under the [common complexity levels](../../../references/round-protocol.md#reach-and-complexity),
   so the trajectory carries magnitude and direction. Two rounds at the same severity maximum differ
   when one prunes and the other grows, and when the amounts differ. Convergence prunes or holds
-  steady, and trends the level down where it grows. A run of `pruning` rounds is evidence against
-  the rounds that over-built the shape, not against the rounds repaying it. Read each round's mark
+  steady, and trends the level down where it grows. A run of `pruning` rounds shows burden being
+  removed; it does not by itself show that repeated audits are an effective correction method.
+  Read each round's mark
   against that round's severity, not the alternation between rounds. Report all three trajectories
   separately.
 
@@ -387,8 +394,7 @@ The watch has these sections in this order.
    letters' case carries and the burden trajectory the leading
    `growth-<level>` or `pruning-<level>` marks carry.
 4. **What to do about it**: the suggested response class and the reason it
-   fits. Never a fix: proposing an implementation moves the user from judging
-   the frame to judging a solution.
+   fits, following [Watch step](#watch-step).
 5. **When to look again**: on amber, name the area to watch. On red, state that
    this is for the user to act on now. On green, nothing more.
 
