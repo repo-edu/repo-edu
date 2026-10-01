@@ -9,7 +9,7 @@ import type { Repository } from "./subject.js"
  * Clean audits never call it. It answers one question from
  * the commit record and the watch's own history: has the record moved far
  * enough that the trajectory watch would read it differently than last time?
- * The watch is two sessions that read the log and then the code behind it,
+ * The watch reads the log and then the code behind it,
  * and most rounds do not move the record that far. The glance is the cheap
  * check that keeps the watch from running on every round. It reads recorded
  * areas, grades nothing and writes no file; the watch phase owns the record.

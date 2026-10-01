@@ -158,14 +158,7 @@ for (const auditor of ["codex", "claude"] as const) {
   })
 }
 
-for (const phase of [
-  "vet",
-  "rebut",
-  "fix",
-  "brief",
-  "watch",
-  "watch-edit",
-] as const) {
+for (const phase of ["vet", "rebut", "fix", "brief", "watch"] as const) {
   test(`planning ${phase} failure ends the chain in the plan repository`, async (t) => {
     const f = await roundFixture(t, "codex", "plan", false, null, true, "plan")
     f.phases[phase] = { stream: "", exitCode: 7 }
@@ -244,11 +237,6 @@ for (const working of ["repo-edu", "plan"] as const) {
         )
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([f.watch])}`,
-          ),
-        )
-        assert.ok(
-          log.includes(
             join(f.repoRoot, ".agents/skills/watch/references/workflow.md"),
           ),
         )
@@ -256,12 +244,10 @@ for (const working of ["repo-edu", "plan"] as const) {
         assert.ok(log.includes(`Working directory: ${f.runtime.cwd}`))
         assert.ok(log.includes(`Repo Edu checkout: ${f.repoRoot}`))
         assert.ok(log.includes(`Plan checkout: ${f.planRoot}`))
-        assert.ok(
-          log.indexOf("[watch] finished") <
-            log.indexOf("[watch-edit] starting"),
-        )
+        assert.ok(log.includes("[watch] finished"))
       }
-      assert.doesNotMatch(markdown, /## (?:watch|watch-edit) /)
+      assert.doesNotMatch(log, /watch-edit/)
+      assert.doesNotMatch(markdown, /## watch /)
       assert.equal(await readFile(record, "utf8"), history)
       for (const call of await f.calls()) assert.equal(call.cwd, f.runtime.cwd)
     })

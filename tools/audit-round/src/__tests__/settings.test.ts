@@ -119,13 +119,7 @@ test("assistant names bypass audit pins while letter tags retain them across cha
           : configured.audit.model,
       )
       assert.deepEqual(phases.rebut, phases.audit)
-      for (const phase of [
-        "vet",
-        "fix",
-        "brief",
-        "watch",
-        "watch-edit",
-      ] as const)
+      for (const phase of ["vet", "fix", "brief", "watch"] as const)
         assert.deepEqual(phases[phase], configured[phase])
     }
   }

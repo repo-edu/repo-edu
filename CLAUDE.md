@@ -58,7 +58,7 @@ its `name` and `paths` commands to select the workflow, working checkout and
 phase arguments. A stem alone audits the plan
 document; `example all` audits every implementation step. Home `/brief` and
 `$brief` explain one plan; home `/watch` and `$watch` run a hand-run trajectory
-watch. The round brief and both automated watch passes have no chat commands.
+watch. The round brief and automated watch have no chat commands.
 Use `pnpm audit-round brief <transcript>` to retell an earlier round. The
 [runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
 options, settings and outcomes. The

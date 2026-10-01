@@ -105,7 +105,7 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
   }
 })
 
-test("watch and watch edit share Repo Edu's workflow while only the writer receives evidence", async (t) => {
+test("watch receives Repo Edu's workflow and joined evidence without a launcher", async (t) => {
   const f = await fixture(t)
   const common = {
     ...testContext(f.root, "planning"),
@@ -119,25 +119,13 @@ test("watch and watch edit share Repo Edu's workflow while only the writer recei
     arguments: ["watch.md", "cache"],
     evidence: "Joined episode facts",
   })
-  const { text: editor } = phasePrompt({
-    ...common,
-    phase: "watch-edit",
-    arguments: ["watch.md"],
-  })
-  for (const prompt of [writer, editor]) {
-    assert.doesNotMatch(prompt, /launcher|SKILL\.md/)
-    assert.ok(
-      prompt.includes(
-        `Source file: ${f.root}/.agents/skills/watch/references/workflow.md`,
-      ),
-    )
-    assert.doesNotMatch(
-      prompt,
-      /Source file: .*watch-edit\/references\/workflow\.md/,
-    )
-  }
+  assert.doesNotMatch(writer, /launcher|SKILL\.md/)
+  assert.ok(
+    writer.includes(
+      `Source file: ${f.root}/.agents/skills/watch/references/workflow.md`,
+    ),
+  )
   assert.ok(writer.endsWith("Git episode evidence:\nJoined episode facts"))
-  assert.doesNotMatch(editor, /Git episode evidence|Joined episode facts/)
 })
 
 for (const phase of [
@@ -147,7 +135,6 @@ for (const phase of [
   "fix",
   "brief",
   "watch",
-  "watch-edit",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
     const finished = { status: "finished", reason: null }

@@ -133,7 +133,6 @@ export function assistantDependencies(
       fix: (input) => runAssistantPhase(input, output, runtime),
       brief: (input) => runAssistantPhase(input, output, runtime),
       watch: (input) => runAssistantPhase(input, output, runtime),
-      "watch-edit": (input) => runAssistantPhase(input, output, runtime),
     },
   }
 }

@@ -100,7 +100,6 @@ these absolute paths in order:
 - fix: report, then the vet and rebuttal twins that exist
 - brief: transcript to read, brief to write
 - watch: watch to write, cache root
-- watch-edit: watch to replace
 
 The runner saves audit, vet and rebuttal outputs from each final response under
 [Runner result](#runner-result). Those sessions write no file. Only brief and watch
@@ -109,7 +108,7 @@ Use the supplied paths without reconstructing a name or adding an opening writer
 A standalone brief reuses the transcript's target
 and round. Its document and log share `6-brief.<tag>`; the log is opened for
 overwrite without another claim. The round transcript and log share
-`1-round.<tag>`. The second watch pass replaces the supplied draft.
+`1-round.<tag>`.
 
 The fix receives the ruling output path separately from its report arguments.
 It writes the final ruling at that path before returning `needs-ruling`, using
@@ -183,7 +182,7 @@ resolution. A manual fix asks for any open ruling in chat; it needs no ruling
 output path. `pnpm audit-round brief <transcript>` remains the separate command
 that starts a brief session itself. The home `/brief <stem>` and `$brief <stem>`
 summarise a plan from either checkout and are outside this round protocol.
-The round brief, watch writer and watch edit have no chat commands. The runner
+The round brief and watch have no chat commands. The runner
 supplies their workflow and its listed files, including the `simple` definition,
 without a launcher.
 
@@ -442,8 +441,8 @@ the fix workflow.
 ## Runner result
 
 When the prompt identifies an unattended round phase, planning or implementation, follow this rule
-for every ending, including an early stop. It is shared by audit, vet, rebuttal, fix, brief and the
-two watch passes. Planning workflows read this whole reference from its Repo Edu home; their
+for every ending, including an early stop. It is shared by audit, vet, rebuttal, fix, brief and
+watch. Planning workflows read this whole reference from its Repo Edu home; their
 planning rules stay in the plan repo. Implementation routes may supply local substitutions. Ordinary
 interactive invocations do not add a result line.
 

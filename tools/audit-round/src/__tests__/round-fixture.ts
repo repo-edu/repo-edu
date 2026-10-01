@@ -145,9 +145,8 @@ export async function roundFixture(
     "fix",
     "brief",
     "watch",
-    "watch-edit",
   ] as const) {
-    const assistant = ["fix", "brief", "watch", "watch-edit"].includes(phase)
+    const assistant = ["fix", "brief", "watch"].includes(phase)
       ? "codex"
       : phase === "vet"
         ? auditor === "codex"

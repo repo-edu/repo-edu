@@ -81,7 +81,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       const { log, markdown } = await f.records()
       assert.doesNotMatch(
         log,
-        /\[(?:vet|rebut|fix|brief|watch|watch-edit)\] starting|\[glance\]/,
+        /\[(?:vet|rebut|fix|brief|watch)\] starting|\[glance\]/,
       )
       assert.match(markdown, /Clean audit recorded/)
     })

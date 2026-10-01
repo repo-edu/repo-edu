@@ -13,8 +13,8 @@ The runner supplies them whole; in a hand-run session, read them whole, followin
 any listed workflow's header too. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
 
-The runner starts the writer and wording pass directly from this workflow.
-Its settings select each pass's assistant. These passes have no chat commands.
+The runner starts one watch session directly from this workflow.
+Its settings select the assistant. This phase has no chat command.
 
 This workflow owns the watch's rules for hand-run watches and automated
 planning or plan-scoped implementation-audit rounds. The shared
@@ -25,7 +25,7 @@ The round kind sets automated sessions' working directory: plan for planning,
 Repo Edu for implementation. Use the supplied checkout paths.
 
 A hand-run watch returns its watch in chat and writes no file or cadence
-record. The automated writer and editor follow the file input, output, shape
+record. The automated writer follows the file input, output, shape
 and result instructions below only when the invocation supplies their paths.
 
 ## Watch step
@@ -45,9 +45,8 @@ nothing in flight to block.
 
 The shared episode module in Repo Edu computes membership and counts from Git. The runner supplies
 the audited plan's topic and formats joined evidence only after a finished fix when glance says
-watch is due. Only the writer receives that evidence, including the two graded heads. The fresh
-editor reads the draft and required instructions, improves the wording and preserves its claims and
-judgements without investigating its sources again. A hand-run watch runs
+watch is due. The writer receives that evidence, including the two graded heads, and owns both the
+judgement and the finished wording. A hand-run watch runs
 `pnpm audit-round episode [stem|commit]` in its own context and reads the output. With no target,
 the command selects the newest stem commit across both repos by commit date. A SHA anchors the repo
 that holds it; HEAD forms mean Repo Edu. No route writes an episode file or computes an episode
@@ -203,7 +202,7 @@ cannot drift.
 The hand-run definitions live under `home/` in the plan repo: a Claude agent,
 a Claude slash command and a Codex skill. The plan root's
 [Layout](../../../../../plan/CLAUDE.md#layout) owns their linking rule.
-The runner supplies this workflow directly to its writer and wording pass.
+The runner supplies this workflow directly to its watch session.
 
 ## Trajectory diagnostic
 
@@ -295,8 +294,7 @@ where the mismatch surfaces, and which class a problem is in is the user's call.
 ## Independence
 
 The writer's judgement rests on reading the commit record and the code, never
-the doer's reasoning. The editor reads only the draft and required instructions,
-preserving the writer's claims and judgements. So:
+the doer's reasoning. So:
 
 - The writer reads the supplied Git evidence, the current artifact at the area it points
   to, the area model and the named plan. Inspect named commits as needed to
@@ -304,7 +302,7 @@ preserving the writer's claims and judgements. So:
 - Do not read the round's transcript, its brief, its report or its vet and
   rebuttal twins, and do not read the fix session. The invocation gives you
   none of them on purpose.
-- Both passes are read-only except for the watch file and the watch record.
+- The watch is read-only except for the watch file and the watch record.
   Change no code, run no writing command and land no commit.
 
 The round that just ran is evidence only through the commits it landed, the
@@ -319,8 +317,6 @@ select a topic from HEAD or reread current heads to replace the supplied ones.
 The runner computes this snapshot after the fix, only when glance says watch
 is due.
 
-The editor receives only the draft watch path. It fetches no Git evidence and
-does not investigate the draft's sources. There is no hand-run editor.
 No route reads or writes an episode file.
 
 ## Output
@@ -329,8 +325,8 @@ The runner supplies a watch path carrying its chosen
 target and round with this phase's writer tag. Keep that path; allocate no round and read no
 transcript to derive it.
 
-Write the watch to the named `-9-watch.<tag>.md` file, replacing anything already there. The
-second pass replaces that same file. It is Markdown for a person reading in a
+Write the finished watch to the named `-9-watch.<tag>.md` file, replacing anything already there.
+It is Markdown for a person reading in a
 Markdown viewer.
 
 Then write the watch record. It lives at `watch.json` in the named cache root,
@@ -357,12 +353,8 @@ describes the joined episode. Keep other episode entries unchanged.
 directory when they are missing. A record that cannot be written is a failure of this phase: say so
 rather than leaving a watch the next glance cannot count from.
 
-The first pass writes both. The second pass, the watch edit, rewrites the file
-and leaves the record alone: it changes wording while preserving the claims,
-judgements, grade and graded heads.
-
-Write the first pass as a finished watch. A fresh session rewrites it afterwards;
-leave no notes for that pass.
+The same session owns the finished watch and its record. Check the wording
+before returning; there is no separate editing phase.
 
 ## Voice
 
@@ -402,10 +394,9 @@ The watch has these sections in this order.
 
 Nothing else belongs in the file. The round's own brief holds its findings.
 
-## The second pass
+## Final wording
 
-You did not write this draft. Read it as the user will, checking for clarity
-before writing anything:
+Before finishing, read the watch as the user will and correct unclear wording:
 
 1. Does the wording explain the unstable abstraction and the stated reason
    rounds keep reopening it?
@@ -414,9 +405,9 @@ before writing anything:
 3. Is the stated reason for the suggested response clear?
 4. Can the reader follow each sentence without `git log` open beside it?
 
-Then rewrite the whole file for clarity, preserving its claims and judgements.
-Do not investigate sources or add new evidence. Never append a critique, a
-change list or a note about the draft: the file must read as the finished watch.
+Keep the wording consistent with the evidence and judgement. Never append a
+critique, a change list or a note about the draft: the file must read as the
+finished watch.
 
 ## Runner result
 
@@ -424,7 +415,6 @@ When the prompt identifies an unattended round phase, follow the
 shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every
 ending. The writer reports `finished` only after both the watch file and the
-watch record are written at the supplied paths. The editor reports `finished`
-after replacing the draft and leaves the record alone. A missing required input
+watch record are written at the supplied paths. A missing required input
 or failed required write is `failed`, with the reason. Never return
 `needs-ruling`: the watch suggests and never asks.

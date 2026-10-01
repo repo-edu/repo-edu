@@ -14,24 +14,12 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
   codex: "o",
 }
 
-export type Phase =
-  | "audit"
-  | "vet"
-  | "rebut"
-  | "fix"
-  | "brief"
-  | "watch"
-  | "watch-edit"
+export type Phase = "audit" | "vet" | "rebut" | "fix" | "brief" | "watch"
 
 /** Manual and automated phases share one workflow selection. */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root = transcribed(input.phase) ? input.cwd : input.repoEduRoot
-  return join(
-    root,
-    ".agents/skills",
-    input.phase === "watch-edit" ? "watch" : input.phase,
-    "references/workflow.md",
-  )
+  return join(root, ".agents/skills", input.phase, "references/workflow.md")
 }
 
 export function phaseLauncher(
@@ -230,7 +218,6 @@ export function roundPhases(
     brief: run("brief", config.phases.brief.assistant),
     // The watch reads the commit record, never the round, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
-    "watch-edit": run("watch-edit", config.phases["watch-edit"].assistant),
   }
 }
 
@@ -282,11 +269,6 @@ type PhaseArguments = {
     readonly arguments: readonly [watch: string, cacheRoot: string]
     readonly sessionId: null
   }
-  /** The editor improves the draft's wording without another evidence review. */
-  "watch-edit": {
-    readonly arguments: readonly [watch: string]
-    readonly sessionId: null
-  }
 }
 
 type PhaseInputs = {
@@ -329,7 +311,6 @@ type PhaseResults = {
   fix: FixResult
   brief: ReportResult
   watch: ReportResult
-  "watch-edit": ReportResult
 }
 
 /** Internal results, admitted only after the complete invocation has settled. */

@@ -44,11 +44,6 @@
       "assistant": "codex",
       "model": null,
       "effort": null
-    },
-    "watch-edit": {
-      "assistant": "codex",
-      "model": "gpt-5.6-sol",
-      "effort": "medium"
     }
   }
 }

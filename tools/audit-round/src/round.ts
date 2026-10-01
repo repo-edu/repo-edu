@@ -196,27 +196,6 @@ async function runWatch(
   if (watch.status === "failed")
     return { ...watch, phase: "watch", ...phases.watch, ...context }
 
-  // The watch is a document the user decides from, so a session that did not
-  // write it improves its wording before the user reads it.
-  const edit = await reportPhase(
-    () =>
-      dependencies.runPhase["watch-edit"]({
-        phase: "watch-edit",
-        ...phases["watch-edit"],
-        ...context,
-        arguments: [target.file],
-        sessionId: null,
-      }),
-    target.file,
-    dependencies,
-  )
-  if (edit.status === "failed")
-    return {
-      ...edit,
-      phase: "watch-edit",
-      ...phases["watch-edit"],
-      ...context,
-    }
   return null
 }
 

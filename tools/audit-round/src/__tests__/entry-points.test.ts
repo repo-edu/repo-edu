@@ -36,7 +36,6 @@ for (const working of ["repo-edu", "plan"] as const) {
         "fix",
         "brief",
         "watch",
-        "watch-edit",
       ] as const) {
         const { text: prompt } = phasePrompt({
           ...context,
@@ -55,7 +54,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           `${working} ${assistant} ${phase}`,
         )
         assert.ok(prompt.includes("End of supplied phase instructions."))
-        if (["brief", "watch", "watch-edit"].includes(phase)) {
+        if (["brief", "watch"].includes(phase)) {
           assert.ok(
             prompt.includes(
               `Source file: ${join(context.planRoot, "home/claude/commands/simple.md")}\n`,

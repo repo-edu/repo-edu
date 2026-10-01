@@ -32,13 +32,13 @@ consumers.
   reuses established evidence and verifies only uncertain claims. It keeps the explanation
   proportional to the choice. No separate ruling phases run. `runWatch` owns the watch that follows
   a round: the glance decides from the commit record and the watch's own history whether a watch is
-  due, and only a due glance runs `watch` and `watch-edit` over that draft. The audited plan's stem
+  due, and only a due glance runs `watch` to write the finished document. The audited plan's stem
   comes from `planStem` and selects both the glance record and joined watch evidence. Only a due
   glance computes and formats that evidence, once after the fix. Only the writer's prompt receives
   the snapshot separately from its file arguments. The glance is a dependency the runner supplies
-  from `glance.ts`, not a phase, so a not-due round starts no session for it. The watch edit takes
-  only the draft and improves its wording while preserving its claims and judgements. Both passes
-  have their own model and effort in `settings.json`, beside the brief's settings. The watch runs
+  from `glance.ts`, not a phase, so a not-due round starts no session for it. The watch writer owns
+  both the judgement and final wording. Its model and effort live in `settings.json`, beside the
+  brief's settings. The watch runs
   only after a plan round with audit findings that finished, because a round awaiting a ruling has
   not proved its work landed; nothing is lost, since the glance counts correction commits and not
   rounds. A round given no watch target, which is what `--no-watch` does, consults no glance at all.
@@ -181,9 +181,9 @@ consumers.
   fresh phase's selected workflow and whole files listed by the workflow's
   `reads` header. Header paths resolve from the workflow file. `vfile-matter` parses the header and
   `zod` checks its shape. Listed workflows supply their own reads recursively, with each source
-  included once. Audit, vet, rebuttal and fix also receive their home launcher. Brief and both watch
-  passes have no launcher; their workflow headers list the `simple` definition directly.
-  Watch edit shares the watch workflow. Resumed sessions receive no files again. Root
+  included once. Audit, vet, rebuttal and fix also receive their home launcher. Brief and watch
+  have no launcher; their workflow headers list the `simple` definition directly.
+  Resumed sessions receive no files again. Root
   instructions are not listed. Both assistants receive their phase prompts on standard input. Codex
   command-line arguments contain no prompt text, including on resume, so joined evidence is not
   limited by the operating system's per-argument size. The same collected file list produces a
@@ -288,8 +288,8 @@ stops the sequence. A rejected phase invocation also stops it without retrying;
 the invocation owner must release its resources before rejecting.
 
 `phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal and fix use the single
-launcher set under the plan checkout's `home/`; their workflow follows the round's kind. Brief,
-watch and watch edit have no launchers; the runner supplies their Repo Edu workflows directly.
+launcher set under the plan checkout's `home/`; their workflow follows the round's kind. Brief
+and watch have no launchers; the runner supplies their Repo Edu workflows directly.
 Planning sessions work in the plan checkout; implementation and commit sessions work in Repo Edu.
 Every round file lives at the plan root. The runner names all input and output paths before the
 audit. The runner saves audit, vet and rebuttal final responses; brief and watch sessions write

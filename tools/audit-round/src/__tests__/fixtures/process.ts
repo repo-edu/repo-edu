@@ -142,10 +142,9 @@ await appendFile(
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
-  const phase =
-    /^Run the (audit|vet|rebut|fix|brief|watch|watch-edit) phase /.exec(
-      prompt ?? "",
-    )?.[1]
+  const phase = /^Run the (audit|vet|rebut|fix|brief|watch) phase /.exec(
+    prompt ?? "",
+  )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
   // A chained round changes who audits, so a phase may answer as either CLI.
@@ -160,7 +159,6 @@ if (scenario.phases !== undefined) {
       rebut: 2,
       brief: 1,
       watch: 0,
-      "watch-edit": 0,
     }[phase]
     const output =
       phase === "fix"

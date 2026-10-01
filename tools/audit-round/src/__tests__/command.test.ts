@@ -435,11 +435,6 @@ test("one supplied configuration controls default auditor, phase arguments and o
     model: "chosen-watch",
     effort: "medium",
   }
-  settings.phases["watch-edit"] = {
-    assistant: "codex",
-    model: null,
-    effort: "medium",
-  }
   settings.strengthModels.codex.top = "chosen-watch"
   assert.equal(
     await runCommand(["example.md", "3"], f.runtime, {
@@ -452,10 +447,7 @@ test("one supplied configuration controls default auditor, phase arguments and o
   assert.ok(transcript.endsWith("-1-round.aul.md"))
   assert.match(log, /audit +claude +chosen-auditor low +settings\.json/)
   assert.match(log, /watch +codex +chosen-watch medium +settings\.json/)
-  assert.match(
-    log,
-    /watch-edit +codex +chosen-model medium +codex settings\/settings\.json/,
-  )
+  assert.doesNotMatch(log, /watch-edit/)
   const watchCall = (await f.prompts()).find(
     (call) =>
       call.assistant === "codex" && /^Run the watch phase /.test(call.prompt),
@@ -1419,12 +1411,10 @@ test("a due glance sends the watch the record and the cache, never the round", a
       `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
     ),
   )
-  // The edit pass is given the draft alone, and no round file.
-  assert.doesNotMatch(log, /Source file: .*\/watch(?:-edit)?\/SKILL\.md/)
-  assert.ok(
-    log.includes(`Phase arguments (JSON array): ${JSON.stringify([f.watch])}`),
-  )
-  assert.ok(log.includes(`[watch-edit] finished`))
+  assert.doesNotMatch(log, /Source file: .*\/watch\/SKILL\.md/)
+  assert.doesNotMatch(log, /watch-edit/)
+  assert.equal(log.match(/\[watch\] starting/g)?.length, 1)
+  assert.ok(log.includes(`[watch] finished`))
   // The watch follows the round it grades, so none of its text enters the transcript.
   assert.equal(markdown.includes("## watch ("), false)
   assert.ok(f.visible.join("\n").includes("Complete watch text."))
@@ -1468,7 +1458,7 @@ for (const target of ["implementation", "planning", "commits"] as const) {
     assert.match(visible, /Audit round finished\./)
     if (target !== "commits") {
       assert.match(visible, /Auditor sequence finished after 2 rounds\./)
-      assert.equal(visible.match(/\[watch-edit\] finished/g)?.length, 2)
+      assert.equal(visible.match(/\[watch\] finished/g)?.length, 2)
     }
     const files = await readdir(f.planRoot)
     assert.equal(
@@ -1771,7 +1761,6 @@ for (const phase of [
   "fix",
   "brief",
   "watch",
-  "watch-edit",
 ] as const) {
   test(`an empty ${phase} output cannot complete its phase`, async (t) => {
     const ruling = phase === "fix"

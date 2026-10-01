@@ -38,11 +38,6 @@ const briefPin: PinnedModel = {
   model: { value: "gpt-5.6-terra", source: "settings.json" },
   effort: { value: "low", source: "settings.json" },
 }
-/** The watch edit names Codex's base tier, whoever audited. */
-const editPin: PinnedModel = {
-  model: { value: "gpt-5.6-sol", source: "settings.json" },
-  effort: { value: "medium", source: "settings.json" },
-}
 
 const repoRoot = "/workspace/repo-edu"
 const transcript = `${repoRoot}/example-all-01-1-round.oth.md`
@@ -67,7 +62,7 @@ const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 /** An open decision returns directly from the fix to the user. */
 const rulingPhases = ["audit", "vet", "rebut", "fix"] as const
 /** Every phase in order when the round finishes and the glance calls a watch due. */
-const watchPhases = [...phases, "watch", "watch-edit"] as const
+const watchPhases = [...phases, "watch"] as const
 
 /**
  * The fix either leaves an open item for the user or finishes through the brief
@@ -110,10 +105,6 @@ function controlledRound(
     brief: {
       status: "finished",
       sessionId: "brief-session",
-    },
-    "watch-edit": {
-      status: "finished",
-      sessionId: "watch-edit-session",
     },
     watch: {
       status: "finished",
@@ -173,10 +164,6 @@ function controlledRound(
       async brief(input) {
         await record(input)
         return results.brief
-      },
-      async "watch-edit"(input) {
-        await record(input)
-        return results["watch-edit"]
       },
       async watch(input) {
         await record(input)
@@ -256,8 +243,8 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
   assert.deepEqual(round.briefs, [brief])
   assert.equal(round.calls.filter((call) => call.phase === "brief").length, 1)
   assert.deepEqual(
-    round.calls.slice(-3).map((call) => call.phase),
-    ["brief", "watch", "watch-edit"],
+    round.calls.slice(-2).map((call) => call.phase),
+    ["brief", "watch"],
   )
 })
 
@@ -398,17 +385,13 @@ for (const grade of ["green", "amber"] as const) {
     )
     assert.equal(result.status, "finished")
     assert.equal(computations, grade === "amber" ? 1 : 0)
-    const watches = round.calls.filter(
-      (call) => call.phase === "watch" || call.phase === "watch-edit",
-    )
-    assert.equal(watches.length, grade === "amber" ? 2 : 0)
-    if (watches.length === 2) {
-      const [writer, editor] = watches
+    const watches = round.calls.filter((call) => call.phase === "watch")
+    assert.equal(watches.length, grade === "amber" ? 1 : 0)
+    if (watches.length === 1) {
+      const [writer] = watches
       assert.equal(writer.phase, "watch")
-      assert.equal(editor.phase, "watch-edit")
       assert.match(writer.evidence, /finished-plan-fix/)
       assert.equal(writer.arguments.includes(writer.evidence), false)
-      assert.equal("evidence" in editor, false)
     }
   })
 }
@@ -660,12 +643,7 @@ for (const auditor of ["claude", "codex"] as const) {
           ...failure,
           phase,
           assistant: runner(phase, auditor, vetAssistant),
-          model:
-            phase === "brief"
-              ? briefPin
-              : phase === "watch-edit"
-                ? editPin
-                : unpinned,
+          model: phase === "brief" ? briefPin : unpinned,
           ...testContext(repoRoot),
         })
       })
@@ -673,7 +651,7 @@ for (const auditor of ["claude", "codex"] as const) {
   }
 }
 
-test("a due glance sends the watch to a fresh writer and a fresh rewriter", async () => {
+test("a due glance completes the watch in one fresh session", async () => {
   const round = controlledRound()
   arrange(round, "watch")
 
@@ -687,7 +665,7 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
   })
-  // The watch reads the commit record, so neither pass is given the round's files.
+  // The watch reads the commit record, so it receives none of the round's files.
   assert.equal(round.glances.length, 1)
   assert.deepEqual(round.calls.slice(5), [
     {
@@ -697,14 +675,6 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
       model: unpinned,
       ...testContext(repoRoot),
       arguments: [watch, cacheRoot],
-      sessionId: null,
-    },
-    {
-      phase: "watch-edit",
-      assistant: "codex",
-      model: editPin,
-      ...testContext(repoRoot),
-      arguments: [watch],
       sessionId: null,
     },
   ])

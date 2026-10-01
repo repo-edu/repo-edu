@@ -135,7 +135,7 @@ export async function roundRun(
       entry("rebut"),
       entry("fix"),
       ...(setup.brief === false ? [] : [entry("brief")]),
-      ...("plan" in setup ? [entry("watch"), entry("watch-edit")] : []),
+      ...("plan" in setup ? [entry("watch")] : []),
     ],
     paths: {
       claim: join(setup.planRoot, `${nameStart}-0-claim.md`),

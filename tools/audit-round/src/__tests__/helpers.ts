@@ -50,22 +50,13 @@ export async function writePhaseInstructions(
   planRoot: string,
 ) {
   for (const root of [repoEduRoot, planRoot]) {
-    for (const phase of [
-      "audit",
-      "vet",
-      "rebut",
-      "fix",
-      "brief",
-      "watch",
-      "watch-edit",
-    ]) {
+    for (const phase of ["audit", "vet", "rebut", "fix", "brief", "watch"]) {
       const skill = join(root, ".agents/skills", phase)
       await mkdir(join(skill, "references"), { recursive: true })
-      if (phase !== "watch-edit")
-        await writeFile(
-          join(skill, "references/workflow.md"),
-          `---\nreads: []\n---\n\n${phase} workflow\n`,
-        )
+      await writeFile(
+        join(skill, "references/workflow.md"),
+        `---\nreads: []\n---\n\n${phase} workflow\n`,
+      )
     }
   }
   await mkdir(join(planRoot, "home/claude/commands"), { recursive: true })
