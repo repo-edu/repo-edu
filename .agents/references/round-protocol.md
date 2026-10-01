@@ -229,6 +229,10 @@ Lifecycle, scope discovery and handoff lookups remain required. This keeps
 current-work review separate from trajectory judgement without withholding
 the evidence a finding needs.
 
+The plan doctrine's [Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff
+for both round kinds. The phase landing the record writes it. The next audit
+reads it under that section's read gate.
+
 ## Finding tiers
 
 Use the rubric for the work being judged. The same letters carry different

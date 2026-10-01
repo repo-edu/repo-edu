@@ -31,12 +31,11 @@ For unattended completion, follow the shared protocol's **Runner result**.
 
 ## Report discovery
 
-The [shared round protocol](../../../references/round-protocol.md) owns path resolution,
-rating tokens, rebuttal grounding, answers and runner results. Follow its **Rebuttal grounding** and
-**Rebuttal answers** rules. Use its **Later files** for argument order and **Report format** for the
-judged repos and heads.
+Follow the [shared round protocol](../../../references/round-protocol.md):
 
-Follow the shared round protocol's **Manual phases** for path resolution.
+- **Manual phases** for path resolution.
+- **Later files** for argument order.
+- **Report format** for the judged repos and heads.
 
 Never answer the vet on a report whose tag's vendor letter is the other
 assistant's. The rebuttal is the auditor's reply, and the other assistant's
