@@ -70,20 +70,23 @@ under [Classes](#classes).
 <scope-char>   ::= a lowercase letter, a digit or -
 ```
 
-The three alphabets of `<tag>` share no letter, so each letter names its
-position on its own. `<conventional>` is the Angular set that Conventional
-Commits recommends, plus `redesign`; a new kind enters by editing this line.
-`clean` fills the severity slot of a round that accepted no findings and is
-never a `<role>`.
+A slash ends the stem and hyphens stay inside the role token, so scope numbers
+cannot be mistaken for an address. Use `all` rather than `complete`, which
+would read as an outcome. The role already identifies steps, so the scope
+needs no `step` word. One planned step is one commit; `implemented` records
+completion, so there is no `impl-all`.
+
+The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
+`<conventional>` is the Angular set that Conventional Commits recommends, plus `redesign`; a new
+kind enters by editing this line. `clean` fills the severity slot of a round that accepted no
+findings and is never a `<role>`.
 
 ## One sequence form
 
-Both repos use the same `<sequence>`: the hook derives its case and its `!` from the finding
-bullets, and every sequence outside a deferral record carries a `<growth>` mark before it,
-`growth-none` when the burden did not change. The plan repo carried a bare uppercase form without
-marks until 2026-10-01, when the user directed one form for both repos: the reach and burden marks
-read from the same finding tokens in either repo, and a doctrine fix changes the instructions the
-burden measurement is defined over.
+Both repos use the same `<sequence>`. The productions below specify where
+`<growth>` appears. The shared protocol's
+[Severity sequence](round-protocol.md#severity-sequence) owns derivation,
+meaning and the reason for the common form.
 
 ## Classes
 
@@ -122,24 +125,22 @@ Off-plan commits, no `<form>`:
 
 Rules across the classes:
 
-- Every subject carries exactly one `<tag>`. In P2, I2, I3 and I4 it names the
-  assistant that audited, not the one that wrote the commit. Elsewhere it names
-  the writing session.
-- I1 carries no `<severity>`. A step lands planned work as designed, so its
-  grade would only restate the rounds that planned it.
+- Every subject carries exactly one `<tag>`, attributed under Repo Edu's
+  **Commit Capability Tag** rule.
+- I1 carries no `<severity>`, under the plan doctrine's **Shared implementation
+  forms**.
 - Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
   off-plan plan-repo commit (O2) carries one when it closes a graded concern
   and none otherwise.
 - P1, P3, I3, I4 and I5 change no graded file and fill only the slots their
   productions show. I3 changes no file in its own repo at all.
-- Plan identity, role, scope and auditor live only in the subject. No body line
-  repeats them.
+- Body placement follows the plan doctrine's **Shared implementation forms**.
 
 ## Roles
 
 | `<role>` | Repo | Meaning |
 | --- | --- | --- |
-| `init` | plan | first commit of a plan file, replacing any earlier content |
+| `init` | plan | first commit recording the plan's initial solution |
 | `audit` | plan | one planning round |
 | `settle` | plan | rename onto the bare topic name, no content change |
 | `ready` | plan | plan declared ready for implementation, no file change |

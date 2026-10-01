@@ -26,11 +26,9 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 
 ## Input
 
-The shared [round protocol](../../../references/round-protocol.md) owns
-file names, writer tags and rating meanings. The invocation supplies the transcript to read
-and the brief to write, in that order. Use the supplied paths unchanged.
-A missing input or a transcript
-outside the shared grammar fails under the result rule when unattended.
+The shared [round protocol](../../../references/round-protocol.md) owns file names, writer tags and
+rating meanings. Follow its **Later files** for the transcript and output arguments. A missing input
+or a transcript outside the shared grammar fails under the result rule when unattended.
 `pnpm audit-round brief <transcript>` starts a separate brief session.
 
 Resolve workflow references from Repo Edu. The transcript and output live at
@@ -122,8 +120,5 @@ what it holds.
 
 ## Runner result
 
-When the prompt identifies an unattended phase, follow the shared
-[Runner result](../../../references/round-protocol.md#runner-result) for every ending. Report
-`finished` only after the brief is written, at its supplied path. A wrong or unreadable input is
-`failed`, with the reason. Never return `needs-ruling`: the brief presents a ruling, it never asks
-one.
+Follow the shared [Runner result](../../../references/round-protocol.md#runner-result).
+Completion requires the brief at its supplied path.

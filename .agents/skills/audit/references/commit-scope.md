@@ -118,36 +118,28 @@ it apart from the range's own work.
 
 ## Report
 
-Report order follows `workflow.md` with the range in place of the plan. Open by naming the workflow
-that ran and a plain `Judged repos: repo-edu@<sha>` line with this repo's short audited HEAD, the
-commit references as typed, the resolved range with its short shas and the statement that no plan
-covers the work. Then the coverage table with its closing line, then the `## Findings` field.
-
-Deliver the report under `workflow.md`'s **Report file** rule. Use the supplied absolute path at the
-plan repo root under the shared [round protocol](../../../references/round-protocol.md), with the
-numbered audit kind and dot-separated writer tag. Keep the supplied path unchanged. Otherwise form
-the target from the typed commit references using the shared rule and allocate the round under
-`workflow.md`'s **Round allocation**. The opening carries the repo and audited head for vet,
-rebuttal and fix; the resolved range remains report content rather than a pair of filename shas.
+Follow the shared protocol's **Implementation reports** and **Audit delivery**.
+In place of plan and step evidence, supply the commit references as typed, the
+resolved range with its short shas and the statement that no plan covers the
+work. Use the commit coverage table above. Naming and allocation follow the
+protocol's **File names** and **Manual phases**.
 
 ## Record
 
-A commit-scoped round has no plan stem, so its fix commit takes this repo's
-ordinary severity-prefixed conventional subject, the form `CLAUDE.md` gives a
-commit unattached to a plan. It carries no `impl-audit-` role token. The body keeps the fix
-workflow's finding bullets with their metadata tokens and the round's two yield
-lines.
+A commit-scoped round has no plan stem, so its fix commit takes this repo's ordinary
+severity-prefixed conventional subject, the form `CLAUDE.md` gives a commit unattached to a plan. It
+carries no `impl-audit-` role token. The body follows the shared protocol's **Record bullets** and
+**Round yield**.
 
-A clean round lands no commit. No stem scan reads a record here, so a clean
-record would have no reader.
+Direct clean completion follows the shared protocol. It creates no record
+because no stem scan reads one for a commit target.
 
 ## Settlement
 
-A commit-scoped round is one-shot. The range is the scope, and the round ends at
-its report. The fix lands the record, then the runner closes the report set or
-a hand-run fix runs `pnpm audit-round close <target>-<round>`. There is no episode, no
-`implemented:` or `closed:` marker and no trajectory watch. A later round over
-later commits is a new round, not a continuation of this one.
+A commit-scoped round is one-shot. The range is the scope, and the round ends at its report. The fix
+lands its record and follows the shared protocol's **Closing reports**. There is no episode, no
+`implemented:` or `closed:` marker and no trajectory watch. A later round over later commits is a
+new round, not a continuation of this one.
 
 `pnpm audit-round` accepts these same references as its target arguments.
 It passes them to the audit phase unchanged, which resolves and fixes the

@@ -21,7 +21,7 @@ that report: it reads the report, its vet twin and its rebuttal twin, presents t
 user's ruling, applies the accepted corrections, lands the round's records.
 
 An audit with no findings
-completes directly under the audit workflow and never enters this workflow.
+uses the shared protocol's **Direct clean completion**.
 
 The [shared round protocol](../../../references/round-protocol.md)
 owns paths, rating tokens, reconciliation, records and runner results.
@@ -40,9 +40,8 @@ A hand-run invocation may omit the audit report. Resolve it and its existing rev
 [shared round protocol](../../../references/round-protocol.md#manual-phases).
 Automated invocations use their supplied paths unchanged.
 
-Read the supplied report path followed by the vet and rebuttal paths that exist; the judged-repos
-opening selects the repo set and audited heads, and the report filename's writer tag identifies the
-auditor.
+Use the shared protocol's **Later files** for arguments and **Report format**
+for the judged repo set and audited heads.
 
 ## Grounding
 
@@ -68,19 +67,13 @@ For blocked work, follow the shared
 
 ## Applying corrections
 
-After the user accepts the outcome, apply every directed correction. One
-acceptance covers the whole round: fixes in each judged repo and findings
-deferred only to repos outside the round's repo set. Every fix is a
+Apply every correction settled under the shared **Reconciliation** rule.
+Use the plan doctrine's **Shared implementation forms** for directed fixes
+and deferrals. Every fix is a
 root-cause fix under the repo's `CLAUDE.md` and the home policy's complexity
 escalation rule. A correction those rules turn into a
 structural change is applied as that structural change, never narrowed to
 fit.
-
-When the user directs a specific cross-repo fix during the discussion, apply
-the correction in the same run and commit it independently in its hosting
-repo. A plan-file correction uses the ordinary plan-round form and cites the
-finding it applies. Do not repeat it as a deferral or an implementation
-record. No write in one repo triggers or waits on the other.
 
 Then format only the fixed files, typecheck only the packages a fix touched
 and run only the test files that exercise the fixed behaviour. Run a
@@ -94,29 +87,9 @@ working tree.
 
 Land records under the plan doctrine's
 [Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms),
-which owns placement and its reasons. Land at most one record per judged repo
-whose files took an accepted finding, or one clean record when none remain.
-A Repo Edu round that accepts only
-findings deferred to a repo outside the round's repo set uses the shared empty severity form.
-Use the shared round protocol's
-[worked record forms](../../../references/round-protocol.md#worked-record-forms).
-
-Use the shared round protocol's **Finding metadata** and **Record bullets**
-for each accepted finding's title, tier, location and rating tokens.
-
-Close the record's body with the round's two yield lines, in the form
-the shared round protocol defines under **Round yield**.
-The shared worked forms show their placement.
-
-The report is removed after completion, so the record is the only durable home for the
-round's yield. A clean record carries both lines with zeroes, in either repo.
-
-For a finding deferred from a Repo Edu-only round to the plan repo, follow this
-repo's `CLAUDE.md` for record placement. A clean record's subject
-carries the auditor and the step scope. This clean record follows reconciliation of an audit
-that reported findings.
-The logs show every confirmed round that ran, including clean rounds that would
-otherwise exist only in chat.
+which owns placement and its reasons. Use the shared protocol's
+**Worked record forms**, **Record bullets** and **Round yield** for their
+contents, including a clean record reached through reconciliation.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed
@@ -124,25 +97,10 @@ round's file set still asks.
 
 ## Completion
 
-An unattended fix deletes no round files. The runner closes the report set
-when the fix returns `finished`. After a hand-run fix lands its records, run
-`pnpm audit-round close <target>-<round>` under
-[Closing reports](../../../references/round-protocol.md#closing-reports). Use the exact
-target and round from the report filename. A fix resumed by the runner after a
-ruling remains unattended; the runner closes its report set after `finished`.
-
-An unattended fix reports `finished` only after all required corrections,
-checks and records are complete. It reports completion under the shared
-[Runner result](../../../references/round-protocol.md#runner-result). The runner
-reads the landed commits in both repos to derive the grade for chaining.
-Remaining required work means the phase has not finished, even when some
-records have already landed.
+After all required corrections, checks and records are complete, follow the
+shared protocol's **Closing reports** and **Runner result**.
 
 ## Closing the episode
 
-The audit workflow's episode settlement says when the implementation is
-settled: whole-plan rounds on the finished code whose severity has
-stabilised at C or below with no new A. On the user's word after that
-point, use each repo's shared closing form: the Repo Edu `closed:` marker or
-the plan repo's loop-close move. The stem scans already show every round, so
-no compiled history belongs in either closing body.
+Follow the shared protocol's
+[Implementation settlement](../../../references/round-protocol.md#implementation-settlement).

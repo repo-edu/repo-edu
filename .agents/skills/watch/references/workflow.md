@@ -14,7 +14,7 @@ any listed workflow's header too. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
 
 The runner starts one watch session directly from this workflow.
-Its settings select the assistant. This phase has no chat command.
+Its settings select the assistant. Hand-run watches use the launchers below.
 
 This workflow owns the watch's rules for hand-run watches and automated
 planning or plan-scoped implementation-audit rounds. The shared
@@ -27,6 +27,23 @@ Repo Edu for implementation. Use the supplied checkout paths.
 A hand-run watch returns its watch in chat and writes no file or cadence
 record. The automated writer follows the file input, output, shape
 and result instructions below only when the invocation supplies their paths.
+
+## Hand-run entry
+
+For `help`, `-h`, `--help` or `?`, show usage for the invoking
+`/watch` or `$watch` command and stop: an optional stem or commit selects
+the episode, omission uses the newest stem commit across both repos by commit
+date and `help` shows usage. The `episode` command resolves a commit before
+a stem; a SHA anchors its hosting repo and HEAD forms mean Repo Edu.
+
+Pass the original target unchanged to `pnpm audit-round episode [target]`,
+omitting it when absent. Read the returned evidence in the watch context.
+In chat, return the grounded description, the grade with evidence and the
+suggested response with its reason under **Voice** below. On amber, name the
+area and the horizon in iterations for looking again under **Watch step**.
+Then ask for the user's decision and stop.
+Do not stop an iteration or schedule a later watch yourself. The watch's
+independence, evidence and judgement rules below apply to both routes.
 
 ## Watch step
 
@@ -46,11 +63,8 @@ nothing in flight to block.
 The shared episode module in Repo Edu computes membership and counts from Git. The runner supplies
 the audited plan's topic and formats joined evidence only after a finished fix when glance says
 watch is due. The writer receives that evidence, including the two graded heads, and owns both the
-judgement and the finished wording. A hand-run watch runs
-`pnpm audit-round episode [stem|commit]` in its own context and reads the output. With no target,
-the command selects the newest stem commit across both repos by commit date. A SHA anchors the repo
-that holds it; HEAD forms mean Repo Edu. No route writes an episode file or computes an episode
-before audit.
+judgement and the finished wording. A hand-run watch obtains the same evidence under
+**Hand-run entry**. No route writes an episode file or computes an episode before audit.
 
 The evidence is bounded to commits reachable from each repository's HEAD.
 Other branches and refs are outside it. The watch may inspect named commits
@@ -206,8 +220,8 @@ rules, grades, response classes and trajectory diagnostic here so consumers
 cannot drift.
 
 The hand-run definitions live under `home/` in the plan repo: a Claude agent,
-a Claude slash command and a Codex skill. The plan root's
-[Layout](../../../../../plan/CLAUDE.md#layout) owns their linking rule.
+a Claude slash command and a Codex skill. Their installation follows
+[home/README.md](../../../../../plan/home/README.md).
 The runner supplies this workflow directly to its watch session.
 
 ## Trajectory diagnostic
@@ -317,9 +331,9 @@ same as every earlier round.
 
 ## Input
 
-The writer's file arguments name the watch file to write and the cache root holding
-its cadence record. Its prompt separately supplies joined Git evidence for the
-audited plan. Take the topic and both graded heads from that evidence; do not
+Use the shared protocol's **Later files** for the watch and cache-root
+arguments. The prompt separately supplies joined Git evidence for the audited
+plan. Take the topic and both graded heads from that evidence; do not
 select a topic from HEAD or reread current heads to replace the supplied ones.
 The runner computes this snapshot after the fix, only when glance says watch
 is due.
@@ -328,9 +342,9 @@ No route reads or writes an episode file.
 
 ## Output
 
-The runner supplies a watch path carrying its chosen
-target and round with this phase's writer tag. Keep that path; allocate no round and read no
-transcript to derive it.
+Use the supplied output path under the shared protocol's **Later files**.
+The independence rule also applies when locating output: do not read the
+transcript to derive a path.
 
 Write the finished watch to the named `-9-watch.<tag>.md` file, replacing anything already there.
 It is Markdown for a person reading in a
@@ -374,9 +388,9 @@ The `simple` requirement governs the watch. Beyond it:
   is. Keep a path, an identifier or a commit sha only where the user needs it
   to check something.
 - Expand every acronym and coined term the first time.
-- Tiers become plain words with the letter after them: `A` is the wrong shape,
-  `B` is a real bug, `C` is a detail an implementer would get wrong and `D` is
-  wording. Write "a real bug [B]", never "B-tier".
+- Tiers become plain words from the shared protocol's rubric for the record
+  being discussed, with the letter after them. Write "a real bug [B]",
+  never "B-tier".
 - A watch that only restates the severity sequence re-narrates `git log` and
   has failed this workflow.
 
@@ -417,10 +431,6 @@ finished watch.
 
 ## Runner result
 
-When the prompt identifies an unattended round phase, follow the
-shared
-[Runner result](../../../references/round-protocol.md#runner-result) for every
-ending. The writer reports `finished` only after both the watch file and the
-watch record are written at the supplied paths. A missing required input
-or failed required write is `failed`, with the reason. Never return
-`needs-ruling`: the watch suggests and never asks.
+Follow the shared [Runner result](../../../references/round-protocol.md#runner-result).
+Automated completion requires both the finished watch and its cadence record
+at the supplied paths.

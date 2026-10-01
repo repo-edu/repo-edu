@@ -8,22 +8,20 @@ repository.
 Plans and design documents live in the sibling `../plan` repository, never in
 this repo.
 
-The [tooling design document](../plan/notes/tooling-design.md) explains how the
-planning and audit tooling fits together and why. The
-[tooling user guide](../plan/notes/tooling-guide.md) explains which commands to
-use and which decisions are the user's. Both are mirrors of the AI spec in the
-doctrine, workflows, launchers and runner; that spec wins where they disagree.
-Keep them in sync: a step that changes a workflow, launcher, shared reference
-or runner option updates the affected mirror text in the same step.
+The [tooling design document](../plan/notes/tooling-design.md) explains how the planning and audit
+tooling fits together and why. The [tooling user guide](../plan/notes/tooling-guide.md) explains
+which commands to use and which decisions are the user's. The plan doctrine's
+[Layout](../plan/CLAUDE.md#layout) owns their mirror status and the duty to keep them in sync with
+changes to the tooling.
 
 Areas are stable IDs in
 `tools/architecture-check/src/area-model.json`. Attribute touched tracked source
 files to their primary area ID. Cover area IDs are context for cross-cutting
 concerns, not primary ownership.
 
-Cross-round scans belong to glance and watch. Other phases read history when
-needed to establish a specific finding, prior ruling or implementation departure.
-Lifecycle and handoff lookups remain required.
+Follow the shared protocol's
+[History reads](.agents/references/round-protocol.md#history-reads) for audit
+and review history.
 
 The user never reads or edits machine artifacts such as the area model,
 ledgers or generated files. Do not justify a feature or proposal by their
@@ -312,9 +310,8 @@ named in the sentence.
 Plan-related commits use the shared `<stem>/` forms. Their meaning and keying
 are owned by the plan repo doctrine at
 `../plan/CLAUDE.md#shared-implementation-forms` and their shape by the subject
-grammar. The subject is the only home for plan identity and step numbers. Use
-the shared forms without restating them here. A commit unattached to a plan
-keeps this repo's ordinary severity-prefixed conventional subject.
+grammar. Use those owners for plan identity and step numbers. A commit unattached to
+a plan keeps this repo's ordinary severity-prefixed conventional subject.
 
 For implementation-audit records, follow the plan repo's
 [Shared implementation forms](../plan/CLAUDE.md#shared-implementation-forms)
@@ -323,13 +320,8 @@ for record placement, the
 metadata and the [fix workflow](.agents/skills/fix/references/workflow.md#records)
 for record writing.
 
-A plan-text finding deferred from a Repo Edu-only round stays in that Repo Edu
-round commit. Use the shared
-[Finding metadata](.agents/references/round-protocol.md#finding-metadata)
-for its bullet form. Deferral is only for work nobody directed. When
-the user directs a plan-file fix during the round, the same run applies it and
-lands it as an independent plan-repo commit in the ordinary plan-round form.
-No repo-local action automatically requires or waits on the other commit.
+Follow the plan doctrine's **Shared implementation forms** for cross-repo
+deferrals and directed plan-file fixes.
 
 ## Commit Capability Tag
 
@@ -353,8 +345,8 @@ The tag opens the subject, after the plan form when the subject has one, as
 subject class is fixed by
 [the subject grammar](.agents/references/subject-grammar.md).
 
-The tag names the assistant whose work the subject reports. On an
-automated planning or implementation-audit record that is the audit, not the session that wrote the
+The tag names the assistant whose work the subject reports. On a
+planning or implementation-audit record that is the audit, not the session that wrote the
 commit: Codex fixes whoever audited, so a writer's tag would say the same thing
 on every record, while the auditor is what the trajectory reads off a clean one.
 The role token right before the tag says which kind of subject it is, and a

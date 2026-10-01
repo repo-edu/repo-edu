@@ -19,20 +19,9 @@ Where a launcher and this file disagree, this file is right.
 
 The shared [round protocol](../../../references/round-protocol.md) owns
 file names, writer tags, evidence rules, finding shape, yield, rating tokens and runner results.
-In a runner-started audit, the first argument is
-the absolute path where the runner saves the report. Deliver the report under
-[Report file](#report-file) and read the remaining arguments as the audit scope.
-Do not allocate or claim again.
-
-For hand-run audits, name the plan by its stem followed by an implementation
-step scope or `all`. A typed `.md` or `-widen` is ignored; paths are refused.
-Resolve the active artifact at the plan root before looking in its archive.
-The runner supplies the resolved absolute plan path to an automated audit.
-Interpret `3-5` as a
-range and `4` as one step, counted against the plan's **Implementation plan**
-numbering. A range makes the round scoped. `all` selects the whole plan.
-A stem without a scope selects a planning audit. Without a plan or commit
-reference, ask which target to audit and wait.
+Follow its **Manual phases** and **Later files** for target resolution and
+argument order. Count the supplied step scope against the plan's
+**Implementation plan** numbering.
 
 An invocation that names no plan file and names commit references, including
 `HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan covers.
@@ -42,13 +31,9 @@ to resolve them; `HEAD-<n>` is workflow shorthand. Use
 coverage, report name, record and settlement, and follow the rest of this
 workflow unchanged.
 
-This procedure also serves implementation-audit rounds on changes hosted by
-the plan repo. Follow the `CLAUDE.md` of every repo the round judges. Plan-repo
-findings use `[section:]` and carry no `[area:]` token. All round files live at
-the plan root. The runner selects the workflow and working checkout from the
-round kind.
-The runner supplies the round brief's Repo Edu workflow directly. The brief
-writes beside the transcript and follows the round's working directory.
+This procedure also serves implementation-audit rounds on changes hosted by the plan repo. Follow
+the `CLAUDE.md` of every repo the round judges. Use the shared protocol's **Finding metadata** for
+each repo's findings.
 
 An audit with findings ends at its report file. An audit without findings follows
 [Clean completion](#clean-completion). The auditor answers the vet in the rebuttal
@@ -142,27 +127,17 @@ there are no findings.
 
 Grade each finding with the
 [implementation tiers](../../../references/round-protocol.md#implementation-tiers).
-The fix workflow lands findings as corrections in their hosting repo when that repo is
-directed, or as deferrals in the current repo's round commit when it is not. When a finding's root
-cause is the plan itself, say so in the finding and carry the plan correction into the cross-repo
-findings below. Every finding also carries a growth-pattern tag, per
-[Growth-pattern tags](../../../references/round-protocol.md#growth-pattern-tags).
+When a finding's root cause is the plan itself, say so and carry the plan
+correction under [Cross-repo findings](#cross-repo-findings). Apply the shared
+protocol's **Finding metadata**.
 
 ## Cross-repo findings
 
-Deferral covers only work nobody directed. A defect whose fix belongs to a
-repo outside the round's repo set is graded and carried in the current
-repo's round commit body. A plan defect deferred from a Repo Edu-only round
-uses the shared [Finding metadata](../../../references/round-protocol.md#finding-metadata)
-for its bullet form and this repo's `CLAUDE.md` for record placement. State the
-required plan correction, its shipped-code evidence and any user ruling with
-its reason. A Repo Edu defect deferred from a plan-repo-only round names its Repo
-Edu location, required correction and plan-repo evidence in that round's
-plan-repo commit body.
-
-A specific cross-repo fix the user directs is applied in the fix phase, in the
-same run as the round's other corrections, and committed independently in its
-hosting repo under the fix workflow's rules.
+Use the plan doctrine's
+[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms)
+for directed fixes and deferrals, and the shared protocol's **Finding metadata**
+for their location tokens. State the required correction, the inspected-code
+evidence and any user ruling with its reason.
 
 Split each deferral by whether the correction needs a choice.
 
@@ -188,31 +163,8 @@ commits it applies and leaves already-corrected text alone.
 
 ## Episode settlement
 
-Scoped rounds never settle the episode, even when their ranges tile every
-step. Each scoped verdict describes the HEAD it ran on, and later steps age it.
-The proof that the implementation is settled is whole-plan rounds on the
-finished code whose severity has stabilised at C or below with no new A, each
-round's table classifying every row. A round that finds nothing is not required.
-Prior audit commits inform those rounds, ranking their reports and naming the
-fixes to re-verify. They never excuse a row from inspection.
-
-The watch judges convergence and repeated structural growth across these
-rounds. The audit supplies current coverage and findings; it does not price
-runs or classify the trajectory. The user owns the settlement decision.
-
-The final whole-plan round expects the shared `implemented:` marker in every
-repo
-it judges. Each marker means every implementation step that repo hosts has
-landed. When one is missing, name it once and continue on the user's word. The
-round's records and, once the implementation audit settles, each repo's
-closing form land through the fix workflow.
-
-The final whole-plan round follows the same rule: no checks or tests as
-evidence.
-
-The final whole-plan round is advice, not a gate. When asked to treat the
-implementation as done without one, name the missing round once and continue
-on the user's word.
+Follow the shared protocol's
+[Implementation settlement](../../../references/round-protocol.md#implementation-settlement).
 
 ## Report order
 
@@ -223,44 +175,11 @@ evidence. Deliver the complete report under [Report file](#report-file).
 
 ## Report file
 
-An unattended audit returns the complete report under
-[Runner result](../../../references/round-protocol.md#runner-result); the runner saves it. A
-hand-run audit presents the report, writes the same text to its supplied path and says so. Without
-one, follow the shared
-[Manual phases](../../../references/round-protocol.md#manual-phases).
-Its chat and file must not differ. The opening identifies the judged repos
-and their heads, without a writer tag.
-
-Follow the shared round protocol's [Audit notes](../../../references/round-protocol.md#audit-notes)
-for what belongs in the report, handoff and chat.
-
-The report and a hand-run audit's claim are gitignored, so writing them keeps the source files
-unchanged. When there are no findings, follow [Clean completion](#clean-completion); otherwise stop.
-The runner closes the report set after a finished fix. Hand-run completion uses
-the shared `pnpm audit-round close` command under the round protocol.
+Follow the shared protocol's
+[Audit delivery](../../../references/round-protocol.md#audit-delivery) and
+[Audit notes](../../../references/round-protocol.md#audit-notes).
 
 ## Clean completion
 
-An unattended audit returns its completed report under
-[Runner result](../../../references/round-protocol.md#runner-result). The runner completes the clean
-outcome. A hand-run audit completes it here, immediately after writing its report. Neither route
-starts a fix session, changes or consumes an existing handoff, or writes a new handoff. A
-commit-scoped audit lands no record and retains its report, under `commit-scope.md`.
-
-The user directed direct clean completion on 2026-09-23. The runner retains
-the report and uses only the audit's model record and capability tag for a
-plan target's clean record.
-
-For a hand-run plan target, land one empty clean record under the placement
-rule in
-[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms).
-Use its clean form: `<stem>/impl-audit-<scope> <tag> clean: <subject>`.
-The scope is `<n>`, `<a>-<b>` or `all` from the audit. The tag and the body's
-opening model line name this auditing session. The record closes with both
-**Round yield** lines at zero. The
-standing clean-record rule grants this empty commit without separate permission.
-After the record lands, run `pnpm audit-round close <target>-<round>` under
-[Closing reports](../../../references/round-protocol.md#closing-reports),
-with the target and round from its filename, then stop. A clean
-record reached after vetting or discussion stays with the fix workflow and its
-ordinary completion rules.
+Follow the shared protocol's
+[Direct clean completion](../../../references/round-protocol.md#direct-clean-completion).

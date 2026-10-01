@@ -20,7 +20,8 @@ The plan repo's handoff rule owns that six-character sha.
 - **Target** names what was audited. A planning-artifact audit uses its bare
   stem, without `.md` or `-widen`. For an archived `plan.md`, use the archive
   folder's name. An implementation audit adds `-step-<n>`, `-steps-<a>-<b>`
-  or `-all` to that stem.
+  or `-all` to that stem. The explicit step words disambiguate a plan name
+  ending in a number when reading a filename from the right.
 - **Commit targets** preserve the references as typed, replacing `HEAD` with
   Repo Edu's short sha at the start of the round. Keep offsets: `HEAD-4..HEAD` becomes
   `b7ca0b3b-4..b7ca0b3b`. For a list, use its first reference followed by
@@ -138,7 +139,8 @@ still owns its assistant and scope checks.
 A hand-run audit runs
 `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>`
 before auditing. It passes its own resolved three-letter tag, including `u` for
-an unlisted model. The command claims the next number and prints one JSON object:
+an unlisted model. A missing target needs the user's choice. The command claims the next number
+and prints one JSON object:
 `cwd` is the working checkout, `workflow` is the owning workflow, `claim` is the
 reserved claim path and `arguments` holds the report path followed by the resolved
 audit target and scope. It creates only the claim and starts no assistant or
@@ -160,14 +162,13 @@ commands take bare file names and resolve them at the plan repo root:
 | Rebuttal | `pnpm audit-round paths rebut [report] --writer <own full tag>` |
 | Fix | `pnpm audit-round paths fix [report]` |
 
-Each command prints one JSON object with `cwd`, `workflow` and `arguments`.
-The arguments are absolute paths in the phase's order above. The report opening's
-named workflow selects the route. Work in the
-printed checkout and follow the printed workflow with those arguments. The command writes
-nothing, claims no round and starts no assistant or settings discovery. The
-output name retains the input's target and round and uses the writing session's
-current tag, even when its model or effort differs from the earlier audit or
-the runner's settings.
+Each command prints one JSON object with `cwd`, `workflow` and `arguments`. The arguments are
+absolute paths in the phase's order above. The report opening's named workflow selects the route.
+Work in the printed checkout, read its repository instructions and follow its printed workflow with
+those arguments, even when the session started elsewhere. The command writes nothing, claims no
+round and starts no assistant or settings discovery. The output name retains the input's target and
+round and uses the writing session's current tag, even when its model or effort differs from the
+earlier audit or the runner's settings.
 
 Review inputs are existing files of the exact same round at the report's root.
 The resolver requires a vet for rebuttal and returns whichever review files
@@ -188,12 +189,45 @@ without a launcher.
 
 ## Closing reports
 
+An unattended phase deletes no round files, including a fix resumed after a
+ruling. Report closure belongs to the runner so completion has one owner.
 The runner deletes the audit, vet and rebuttal reports as soon as a fix returns
 `finished`. Other outcomes retain them. After a hand-run fix lands its records
 or a hand-run audit lands its direct clean record,
 `pnpm audit-round close <target>-<round>` deletes those
 same numbered report kinds for that exact round, regardless of writer tag.
 Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.
+
+## Direct clean completion
+
+An audit with no findings completes without vet, rebuttal, fix, brief, glance
+or watch. The user directed this route on 2026-09-23 to avoid a fresh fix
+session whose only work would be an empty record.
+
+- Unattended: return the complete report under [Runner result](#runner-result).
+  The runner retains it and lands the clean record for a plan target.
+- Hand-run: deliver the report under [Audit delivery](#audit-delivery), land
+  the plan target's clean record immediately and follow
+  [Closing reports](#closing-reports), then stop.
+- A commit target lands no clean record and retains its report in either route.
+
+Use the plan doctrine's
+[record meanings and placement](../../../plan/CLAUDE.md#shared-implementation-forms) and
+[planning clean-record mandate](../../../plan/CLAUDE.md#commit-message-convention). Those standing
+rules grant the empty record without separate permission. The subject follows
+[the subject grammar](subject-grammar.md), with the auditing session's capability tag. Its body
+opens with that session's actual model and effort and closes with both [Round yield](#round-yield)
+lines at zero. The plan doctrine's [Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff
+exception for this route. A round made clean through reconciliation follows its ordinary fix
+completion instead.
+
+## History reads
+
+Cross-round scans belong to glance and watch. Other phases read history when
+needed to establish a specific finding, prior ruling or implementation departure.
+Lifecycle, scope discovery and handoff lookups remain required. This keeps
+current-work review separate from trajectory judgement without withholding
+the evidence a finding needs.
 
 ## Finding tiers
 
@@ -315,8 +349,8 @@ the round judges:
   growing or has started to shed.
   Commit bullets that predate the token carry none and read as `missing`,
   because the excess direction did not exist as a search obligation before the
-  token did. The missing search skips ground an excess finding proposes to cut.
-  A keep ruling returns that ground to the next round's missing search.
+  token did. The planning audit workflow owns the search order and how removals affect
+  the ground searched.
 - `[section:<heading>]` names the artifact section the finding lands in, the
   heading in kebab case, as in `[section:decisions]`. The watch uses it as a
   cluster key when reading the recorded findings.
@@ -357,20 +391,23 @@ Plan-repo implementation and off-plan bullets use an unbracketed tier:
 `[field:]` token; other plan-repo records refuse it.
 
 Each accepted graded concern, D included, gets one bullet. A carried decision
-or trade ruling that is not a finding takes no tier or metadata. The glance
-counts A–C corrections by primary area or section once per commit. D findings
-do not advance that count. Record placement and authorisation remain with the
-phase completing the round.
+or trade ruling that is not a finding takes no tier or metadata. Name the
+abstraction the issue touches, not only the fix, so the watch can cluster
+findings across rounds. When a round reverses or narrows a prior decision,
+name that decision, the new evidence, its seriousness and why the new direction
+holds. A reversal written as an ordinary fix hides instability from the watch.
+Record placement belongs to the plan doctrine's
+[Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms);
+authorisation remains with the route completing the round.
 
 ## Worked record forms
 
 These are worked instances of the [subject grammar](subject-grammar.md), which
-owns the shape. For a findings fix, write the report filename's full auditor
-tag in the subject and the fixing session's own model and effort in the body's
-opening line. The commit hook replaces them with `COMMIT_AUDITOR` and
-`COMMIT_PHASES` when supplied. No runner check is needed to write a record.
-Leave the severity slot to the hook; the examples below show the authored
-message before it fills that slot. Replace the example stem, tag, model,
+owns the shape. Apply Repo Edu's `CLAUDE.md` **Commit Capability Tag** and
+**Commit Model Record** and [Severity sequence](#severity-sequence).
+No runner check is needed to write a record. The examples show the authored
+message before the hook fills its sequence.
+Replace the example stem, tag, model,
 effort, scope and findings with the round's values.
 
 ### Planning record
@@ -433,10 +470,9 @@ Round yield: 0 ordinary; 0 rare; 1 developer.
 Structure: 0 removing, 0 adding, 1 flat.
 ```
 
-The hook inserts `c1` before `docs(audit)`. The fix workflows own record
-placement, deferrals and clean records reached through reconciliation.
-Audits with no findings complete under their audit workflow and never enter
-the fix workflow.
+The hook inserts `c1` before `docs(audit)`. The plan doctrine owns record
+placement and deferrals; fix workflows carry them out after reconciliation.
+Audits with no findings use [Direct clean completion](#direct-clean-completion).
 
 ## Runner result
 
@@ -462,7 +498,7 @@ tier from both repositories' commit logs.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
-| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the watch. |
+| `finished` | The phase completed its required work. A fix landed its records. A brief wrote its file beside the transcript. | Close a finished fix's reports under **Closing reports**, then continue, or finish the run after the watch. |
 | `needs-ruling` | The fix phase wrote the final ruling for its open decisions. | Check and display the ruling file, collect the user's reply and resume the same fix in the background. Only a completed fix proceeds through the normal checks, brief and watch; stopping without a reply retains the round files. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
@@ -472,7 +508,7 @@ An audit finishes when its required evidence and final report are complete. A
 clean report also finishes. The runner replaces only the supplied output path.
 Reports from other rounds do not block the run.
 
-A clean audit completes directly without later phases. A vet that accepts
+A clean audit follows [Direct clean completion](#direct-clean-completion). A vet that accepts
 every finding without conditions skips the rebuttal. The user directed this
 skip on 2026-09-20 so the fix starts sooner. A ruling resumes the same
 fix session. [Later files](#later-files) owns the supplied paths.
@@ -523,6 +559,29 @@ a finding. The standard is the shipped code, never fidelity for its own sake.
 Do not reopen decisions the plan settled. Question one only on correctness or
 quality evidence, never on taste.
 
+## Implementation settlement
+
+Scoped rounds never settle the episode, even when their ranges tile every
+step. Each scoped verdict describes the HEAD it ran on, and later steps age it.
+The proof that the implementation is settled is whole-plan rounds on the
+finished code whose severity has stabilised at C or below with no new A, each
+round's table classifying every row. A round that finds nothing is not required.
+Prior audit commits inform those rounds, ranking their reports and naming the
+fixes to re-verify. They never excuse a row from inspection.
+
+The watch judges convergence and repeated structural growth; the user owns
+settlement. The final whole-plan round expects an `implemented` marker in every
+judged repo under the plan doctrine's
+[Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms).
+When one is missing, name it once and continue on the user's word. That round
+uses the audit's read-only evidence rules. It is advice, not a gate: when asked
+to treat the implementation as done without one, name the missing round once
+and continue on the user's word.
+
+On the user's word, the fix writes each repo's closing form under that doctrine.
+The stem scans already show every round, so no compiled history belongs in
+either closing body. Commit-scoped rounds use their separate settlement rule.
+
 ## Growth-pattern tags
 
 Every finding carries a growth-pattern tag naming the patterns in `../plan/GROWTH-PATTERNS.md` it
@@ -548,9 +607,8 @@ there is no reason to suppress one. The tag's cross-round signal lives in
 the run; a single risky finding prices its own trade inside its trade
 block, per the finding explanation rules, and still lands.
 
-The watch alone counts these tags across rounds and judges repeated growth.
-The audit may read history to establish a finding or a prior ruling, without
-a mandatory episode scan. Each finding keeps its own trade assessment.
+Apply [History reads](#history-reads) to these tags. Each finding keeps its own
+trade assessment; the watch judges the cross-round signal.
 
 ## Reach and complexity
 
@@ -672,6 +730,11 @@ in place of a case.
 
 Resolve the vet's input and output under [Manual phases](#manual-phases), using
 the current writer tag. Automated invocations use their supplied paths unchanged.
+
+The vet is read-only and lands nothing. It runs no command that changes a
+tracked file, including formatters. Its verdicts inform reconciliation;
+corrections belong to the phase that completes the round. This separation
+keeps the independent check from applying its own proposals.
 
 Never vet a report whose tag's vendor letter is your own assistant. The vet
 checks audit-findings from a fresh context in the other assistant. Continue
@@ -800,8 +863,9 @@ here. When the user rules, carry the answer and its reason in the deferral.
 When the user does not rule, keep the choice open in the deferral instead of
 choosing for them.
 
-The invocation grants the corrections settled above. Stop for a ruling only on
-open items:
+The route's approval rule grants the corrections settled above. Planning uses the
+[planning round completion rules](../../../plan/.agents/references/planning-rules.md#round-completion);
+implementation uses its fix invocation's grant. Stop for a ruling only on open items:
 
 - An item sent to the user's ruling.
 - A contested vet-verdict the evidence leaves unclear.
@@ -809,9 +873,9 @@ open items:
 - A vet-verdict without a rebuttal that this session cannot settle from the evidence.
 
 When nothing is open, state the outcome in one line per audit-finding and apply.
-A cross-repo open choice awaiting the user's ruling is not an open item here.
-Its outcome lands through the deferral above or a later plan round, never
-through this session, so it holds no settled correction back. Keep it open in
+An undirected cross-repo choice outside the judged repo set is not an open
+item blocking this fix. Its outcome follows the deferral above, so it holds
+no settled correction back. Keep it open in
 the deferral and apply the settled audit-findings.
 
 ## Round yield
@@ -835,6 +899,11 @@ treating `very-rare` as rare. The second counts them by the sign of their
 `[complexity:...]` value: `minus-` levels remove, `low`, `medium` and `high` add
 and `none` is flat. A clean round writes both lines with zeroes.
 
+For a round record, recount only the accepted findings in that record using
+their final reach and complexity values. Put both lines at the end of its
+body. The report is removed after completion, so the record is the durable
+home for that yield. A clean record carries zeroes in either repo.
+
 The tally exists because the decision to run another round needs the round's
 yield, and reading it out of per-finding tokens means re-reading the whole log
 by hand. It answers what a round bought: findings an end user can meet, and
@@ -845,6 +914,17 @@ before and after.
 The two answer different questions and neither replaces the other.
 
 ## Report format
+
+### Audit delivery
+
+An unattended audit returns the complete report under
+[Runner result](#runner-result); the runner saves it at the supplied path.
+A hand-run audit presents the report, writes the same text to its resolved
+path and says so. Chat and file must not differ. Resolve a missing output path
+under [Manual phases](#manual-phases). The report and claim are gitignored,
+so writing them keeps the source files unchanged. With no findings, follow
+[Direct clean completion](#direct-clean-completion); otherwise the audit ends
+at its report and the route's discussion or review follows.
 
 ### Audit notes
 

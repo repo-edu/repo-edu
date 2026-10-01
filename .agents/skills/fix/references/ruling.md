@@ -1,10 +1,11 @@
 # Writing a ruling
 
-The fix session writes the final ruling when a user decision remains open.
-Write it before returning `needs-ruling`, at the output path supplied by the
-runner. Review it for clarity in this same session. No separate drafting or
-editing session follows. The runner displays the ruling directly and collects
-the user's reply. The brief runs only after the full fix has completed.
+The fix session writes the final ruling when a user decision remains open. Use the supplied output
+path under the shared protocol's [Later files](../../../references/round-protocol.md#later-files)
+and report completion under its
+[Runner result](../../../references/round-protocol.md#runner-result). Review it for clarity in this
+same session. No separate drafting or editing session follows. The runner displays the ruling
+directly and collects the user's reply. The brief runs only after the full fix has completed.
 
 ## Evidence and scope
 
@@ -38,9 +39,10 @@ items, so the user's reply can refer to them. Each item covers:
 3. One recommendation, its reason and any material tradeoff.
 4. A short suggested reply the user can enter in the runner.
 
-State costs that affect the decision. Do not invent a disadvantage for every
-option. Explain changes to owners, state or rules when they affect the choice.
-Include the finding context needed to decide each open item. The full round's
+Price the request under the plan doctrine's
+[Mechanism cases](../../../../../plan/CLAUDE.md#mechanism-cases).
+Do not invent a disadvantage for every option. Explain changes to owners, state or rules when they
+affect the choice. Include the finding context needed to decide each open item. The full round's
 findings and ratings belong in the brief after the fix completes.
 
 ## Review and replies
@@ -52,5 +54,5 @@ unclear or unsupported claim in this session.
 After a user reply, answer any questions before acting. If a decision remains
 open, replace the ruling with the current choices and return `needs-ruling`
 again. Carry resolved choices into the fix; do not ask the user to decide them
-again. Return `failed` if the ruling cannot be written. A finished fix follows
+again. Use the shared **Runner result** for required write failures. A finished fix follows
 the ordinary completion rules and does not need a ruling document.

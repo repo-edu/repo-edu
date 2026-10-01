@@ -28,9 +28,9 @@ consumers.
   decisions repeat this route. A completed fix follows the same report closure, commit checks, brief
   and watch as an uninterrupted fix. Stopping without a reply retains the round files and reports
   the fix's recovery command. A round that required a ruling ends the auditor sequence even when the
-  resumed fix completes. Further open decisions replace the ruling in that same session. The fix
-  reuses established evidence and verifies only uncertain claims. It keeps the explanation
-  proportional to the choice. No separate ruling phases run. `runWatch` owns the watch that follows
+  resumed fix completes. Further open decisions replace the ruling in that same session under
+  [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate
+  ruling phases run. `runWatch` owns the watch that follows
   a round: the glance decides from the commit record and the watch's own history whether a watch is
   due, and only a due glance runs `watch` to write the finished document. The audited plan's stem
   comes from `planStem` and selects both the glance record and joined watch evidence. Only a due

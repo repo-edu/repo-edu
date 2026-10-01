@@ -23,25 +23,17 @@ at the plan repo root.
 run an audit round of your own. Whether a finding is a good idea is not an axis: a finding can be
 appealing and still unauthorised.
 
-The vet is read-only and lands nothing. It runs no command that changes a
-tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
-user's ruling on the findings; any edit or commit stays with the fix workflow
-that lands the round from its report. The auditor answers the verdicts in
-a `-4-rebut.<tag>.md` twin the fix phase reads beside this one.
+Apply the shared protocol's **Vet checks** for read-only authority.
 
-When unattended, follow the shared
-[Runner result](../../../references/round-protocol.md#runner-result) for every
-ending. Report `finished` only after completing the required checks and
-returning every verdict in the final response. The runner saves the twin. A verdict
-that needs the user's ruling still completes the vet: the fix phase presents
-that open item.
+For unattended completion, follow the shared protocol's **Runner result**.
+For a clean report, state that there were no findings to vet.
 
 ## Report discovery
 
-The [shared round protocol](../../../references/round-protocol.md) owns path resolution,
-evidence rules, tiers, rating tokens, verdict formats and runner results. The arguments name the
-report to read and the vet output, in that order; use the report's judged-repos opening for repo and
-head checks and its filename for the auditor's vendor letter.
+The [shared round protocol](../../../references/round-protocol.md) owns path resolution, evidence
+rules, tiers, rating tokens, verdict formats and runner results. Use **Later files** for argument
+order and **Report format** for the judged repos and heads. The report filename identifies the
+auditor for **Vet checks**.
 
 Follow the shared [Vet checks](../../../references/round-protocol.md#vet-checks)
 for input and output resolution and the other-assistant requirement.
@@ -72,10 +64,7 @@ Drop findings on that excluded metadata. Classify the remaining findings.
   repo's standards set. This is the ordinary kind and it needs no further
   authority.
 - A defect in the plan text that the shipped code exposes. It stays a graded
-  finding. When the plan repo is outside the round's repo set, defer it in the
-  Repo Edu commit body. When that repo is in the set or the user directs the
-  fix during discussion, the same run applies it as its own plan-repo round
-  commit.
+  finding under the plan doctrine's **Shared implementation forms**.
 - A departure from the plan where the shipped code is right. The audit
   workflow records this as a deviated row in the coverage table. Drop a finding
   on the departure itself. A missing reason must pass
@@ -126,8 +115,7 @@ are common here.
   across the affected sites. Recommend a structural change when the reported
   defect has a structural cause.
 
-Read history when needed to verify a finding's cause or a prior ruling.
-Cross-round scans belong to glance and watch.
+Follow the shared protocol's **History reads**.
 
 Then check that the finding's consequence holds at the claimed tier under the
 [implementation tiers](../../../references/round-protocol.md#implementation-tiers). Verify the wrong
@@ -154,11 +142,8 @@ must rule.
 Cross-repo findings are graded findings, so vet all three axes. Also verify that
 each one traces to files this round inspected or to an answer the user gave in
 this round's own discussion. A deferral resting on any other evidence is work
-the round may not author, so the verdict is drop. Deferral is the required
-outcome only when the repo hosting the fix is outside the round's repo set.
-When that repo is in the set or the user directs the specific fix, the same
-run applies it and lands an independent commit there; a plan-file fix uses the
-ordinary plan-round form.
+the round may not author, so the verdict is drop. Check its disposition against the plan doctrine's
+[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms).
 
 ## Coverage table
 
