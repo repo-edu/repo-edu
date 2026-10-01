@@ -107,8 +107,9 @@ function parseInvocation(
       helpWidth: 88,
       subcommandTerm: (subcommand) => subcommand.name(),
     })
-    // A round is the command itself, so the usage line offers no command slot.
-    .usage("[options] <target> [scope-or-commits...]")
+    .usage(
+      "[options] <target> [scope-or-commits...]\n       audit-round brief [options] <transcript>",
+    )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
       writeErr: (text) => options.emergency(text.trimEnd()),
@@ -215,7 +216,7 @@ Examples (from either checkout):
 
      $ pnpm audit-round HEAD-2..HEAD
 
-Use pnpm audit-round <command> --help for a helper command's arguments and options.`,
+Use pnpm audit-round brief --help for the brief's arguments and options.`,
     )
     .action(
       (
@@ -233,7 +234,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
     )
   // The program owns the round, so Commander adds no `help` command of its own.
   command
-    .command("name")
+    .command("name", { hidden: true })
     .description(
       "Claim a hand-run round and print its workflow, working checkout and arguments.",
     )
@@ -251,7 +252,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
       invocation = { kind: "name", first, rest, auditor: flags.auditor }
     })
   command
-    .command("paths")
+    .command("paths", { hidden: true })
     .description(
       "Resolve a manual phase's workflow, working checkout and arguments without starting an assistant.",
     )
@@ -288,7 +289,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
       },
     )
   command
-    .command("episode")
+    .command("episode", { hidden: true })
     .description(
       "Print joined Git evidence for a hand-run watch without writing files.",
     )
@@ -300,7 +301,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
       invocation = { kind: "episode", target }
     })
   command
-    .command("close")
+    .command("close", { hidden: true })
     .description(
       "Delete one round's audit, vet and rebuttal reports at the plan root.",
     )

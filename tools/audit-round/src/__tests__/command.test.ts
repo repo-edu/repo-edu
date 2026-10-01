@@ -1124,8 +1124,10 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] <target> \[scope-or-commits\.\.\.\]/,
+    /Usage: audit-round \[options\] <target> \[scope-or-commits\.\.\.\]\n {7}audit-round brief \[options\] <transcript>/,
   )
+  assert.doesNotMatch(visible, /^\s+(name|paths|episode|close)\s/m)
+  assert.match(visible, /^\s+brief\s/m)
   assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /Codex\s+always fixes/)
   assert.match(visible, /plain-words brief/)
