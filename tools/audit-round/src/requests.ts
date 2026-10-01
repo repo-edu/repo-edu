@@ -136,7 +136,9 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
             .join("\n\n"),
     ),
     log: formatPhasePrompt(
-      input,
+      input.phase === "watch"
+        ? { ...input, evidence: "(contents omitted from log)" }
+        : input,
       files === null
         ? null
         : [...files.keys()]

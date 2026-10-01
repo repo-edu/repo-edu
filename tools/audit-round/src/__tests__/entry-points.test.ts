@@ -20,6 +20,23 @@ const checkoutRequirement =
       ? "Requires the sibling plan checkout"
       : false
 
+test("watch evidence reaches the assistant but is omitted from the log prompt", async (t) => {
+  const f = await fixture(t)
+  const evidence = '{\n  "commits": ["Complete episode evidence"]\n}'
+  const { text, log } = phasePrompt({
+    ...testContext(f.root),
+    phase: "watch",
+    assistant: "codex",
+    model: unpinned,
+    sessionId: null,
+    arguments: ["watch.md", f.root],
+    evidence,
+  })
+  assert.ok(text.endsWith(`Git episode evidence:\n${evidence}`))
+  assert.ok(log.endsWith("Git episode evidence:\n(contents omitted from log)"))
+  assert.ok(!log.includes(evidence))
+})
+
 for (const working of ["repo-edu", "plan"] as const) {
   test(`published ${working} workflow headers supply every phase's current instructions`, {
     skip: checkoutRequirement,
