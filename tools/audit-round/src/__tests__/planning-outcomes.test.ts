@@ -224,7 +224,7 @@ for (const working of ["repo-edu", "plan"] as const) {
               `\\[glance\\] due: episode example recorded red at ${f.heads[working]}\\. A red record is re-read every round`,
             )
           : new RegExp(
-              `\\[glance\\] not due: episode example recorded amber at ${f.heads[working]}\\. No A–C correction commits since`,
+              `\\[glance\\] not due: episode example recorded amber at ${f.heads[working]}\\. No A–C audit correction commits since`,
             ),
       )
       assert.equal(log.includes("[watch] starting"), due)

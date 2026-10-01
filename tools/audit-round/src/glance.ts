@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { z } from "zod"
 import { type Episode, readEpisode, sameHead } from "./episode.js"
-import type { Repository } from "./subject.js"
+import { type Repository, stemTopic } from "./subject.js"
 
 /**
  * The glance that follows a finished plan round whose audit had findings.
@@ -50,7 +50,9 @@ const correctionLimits = { green: 4, amber: 2 } as const
  * `records` is the whole watch record keyed by episode stem, or null when it
  * cannot be read.
  *
- * Count file-changing corrections since this repository's recorded head.
+ * Count file-changing audit corrections for this plan since this repository's
+ * recorded head, across all step scopes. Off-plan work and other plans' audits
+ * remain episode evidence but never advance the count.
  * Each commit counts once per area with an A–C finding, in either case.
  * Repo Edu uses each finding's area; planning uses its section. D-only work,
  * clean records, deferral-only records and planned steps do not count.
@@ -59,13 +61,13 @@ const correctionLimits = { green: 4, amber: 2 } as const
  *
  * 1. The recorded grade is red. A conclusive flag is re-read every eligible round until
  *    the user acts on it and the record moves.
- * 2. One area reaches four correction commits on green or two on amber.
+ * 2. One area reaches four audit correction commits on green or two on amber.
  *    The watch then judges whether their causes show drift.
  *
  * A record the glance cannot count from reads as green: none for this
  * episode in this repository, an old-format entry or a recorded head that is
  * not on HEAD's history. The count then runs from the episode's anchor, the
- * earliest commit carrying the stem, or over the whole unstemmed history. So
+ * earliest commit carrying the stem. Unstemmed history has no eligible audits. So
  * an episode's first round never earns a watch by being first; only its
  * corrections can. The user directed this on 2026-09-21.
  */
@@ -126,9 +128,11 @@ export function glanceDecision(
     const subject = commit.parsed
     if (
       subject === null ||
+      subject.form === null ||
+      stemTopic(subject.form.stem) !== stem ||
+      (subject.class !== "P2" && subject.class !== "I2") ||
       subject.severity === null ||
-      subject.severity === "clean" ||
-      subject.class === "I3"
+      subject.severity === "clean"
     )
       continue
     const areas = new Set(
@@ -145,8 +149,8 @@ export function glanceDecision(
   const entries = [...counts].sort(([a], [b]) => a.localeCompare(b))
   const summary =
     entries.length === 0
-      ? "No A–C correction commits since."
-      : `A–C correction commits since: ${entries.map(([area, count]) => `${area} ${count}`).join(", ")}.`
+      ? "No A–C audit correction commits since."
+      : `A–C audit correction commits since: ${entries.map(([area, count]) => `${area} ${count}`).join(", ")}.`
   const due = entries.some(([, count]) => count >= limit)
   return {
     due,

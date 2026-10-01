@@ -551,7 +551,7 @@ for (const auditor of ["claude", "codex"] as const) {
         if (!ruling)
           assert.match(
             log,
-            /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C correction commits since\. No area reached the green limit of 4/,
+            /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C audit correction commits since\. No area reached the green limit of 4/,
           )
         assert.match(log, /fix +codex +chosen-model high/)
         assert.match(log, /brief +codex +gpt-5\.6-terra low/)

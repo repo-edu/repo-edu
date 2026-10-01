@@ -19,38 +19,36 @@ consumers.
   settings file selects the default auditor and the assistants that write documents. Codex always
   fixes. The brief follows only a finished fix, after all rulings and resumed fix invocations have
   completed. `--no-brief` omits that phase and its settings row from every round. Its input is the
-  round transcript, never the report, and its workflow belongs to the Repo Edu root.
-  `runBrief` runs that one phase on its own over an earlier transcript. The fix receives a ruling
-  output path separately from its report arguments. It writes the final ruling and checks it for
-  clarity before returning `needs-ruling`. The runner checks that file, then displays it and
-  collects a reply without running the brief. A missing or empty ruling fails the fix with its
-  recovery session. The same fix session resumes in the background with that reply. Further open
-  decisions repeat this route. A completed fix follows the same report closure, commit checks, brief
-  and watch as an uninterrupted fix. Stopping without a reply retains the round files and reports
-  the fix's recovery command. A round that required a ruling ends the auditor sequence even when the
-  resumed fix completes. Further open decisions replace the ruling in that same session under
-  [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate
-  ruling phases run. `runWatch` owns the watch that follows
-  a round: the glance decides from the commit record and the watch's own history whether a watch is
-  due, and only a due glance runs `watch` to write the finished document. The audited plan's stem
-  comes from `planStem` and selects both the glance record and joined watch evidence. Only a due
-  glance computes and formats that evidence, once after the fix. Only the writer's prompt receives
-  the snapshot separately from its file arguments. The glance is a dependency the runner supplies
-  from `glance.ts`, not a phase, so a not-due round starts no session for it. The watch writer owns
-  both the judgement and final wording. Its model and effort live in `settings.json`, beside the
-  brief's settings. The watch runs
-  only after a plan round with audit findings that finished, because a round awaiting a ruling has
-  not proved its work landed; nothing is lost, since the glance counts correction commits and not
-  rounds. A round given no watch target, which is what `--no-watch` does, consults no glance at all.
-  The watch reads the commit record and never the round, so `runWatch` passes it no transcript and
-  no report. A finished round reports whether its audit had no findings, independently of any clean
-  record the fix lands. The command runner uses that result to skip later auditor entries for the
-  same assistant. The round records both repositories' HEADs before the fix and validates every
-  landed subject under its repository's grammar. A plan target fails when a finished fix landed no
-  commit. A commit target may land nothing. Reader failures retain the owning phase and its session
-  for recovery. As soon as a fix returns `finished`, the coordinator closes the report set through
-  its dependency, before reading landed subjects or running the brief. Other outcomes retain the
-  set.
+  round transcript, never the report, and its workflow belongs to the Repo Edu root. `runBrief` runs
+  that one phase on its own over an earlier transcript. The fix receives a ruling output path
+  separately from its report arguments. It writes the final ruling and checks it for clarity before
+  returning `needs-ruling`. The runner checks that file, then displays it and collects a reply
+  without running the brief. A missing or empty ruling fails the fix with its recovery session. The
+  same fix session resumes in the background with that reply. Further open decisions repeat this
+  route. A completed fix follows the same report closure, commit checks, brief and watch as an
+  uninterrupted fix. Stopping without a reply retains the round files and reports the fix's recovery
+  command. A round that required a ruling ends the auditor sequence even when the resumed fix
+  completes. Further open decisions replace the ruling in that same session under
+  [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate ruling phases run.
+  `runWatch` owns the watch that follows a round: the glance decides from the commit record and the
+  watch's own history whether a watch is due, and only a due glance runs `watch` to write the
+  finished document. The audited plan's stem comes from `planStem` and selects both the glance
+  record and joined watch evidence. Only a due glance computes and formats that evidence, once after
+  the fix. Only the writer's prompt receives the snapshot separately from its file arguments. The
+  glance is a dependency the runner supplies from `glance.ts`, not a phase, so a not-due round
+  starts no session for it. The watch writer owns both the judgement and final wording. Its model
+  and effort live in `settings.json`, beside the brief's settings. The watch runs only after a plan
+  round with audit findings that finished, because a round awaiting a ruling has not proved its work
+  landed; nothing is lost, since the glance counts audit correction commits and not rounds. A round
+  given no watch target, which is what `--no-watch` does, consults no glance at all. The watch reads
+  the commit record and never the round, so `runWatch` passes it no transcript and no report. A
+  finished round reports whether its audit had no findings, independently of any clean record the
+  fix lands. The command runner uses that result to skip later auditor entries for the same
+  assistant. The round records both repositories' HEADs before the fix and validates every landed
+  subject under its repository's grammar. A plan target fails when a finished fix landed no commit.
+  A commit target may land nothing. Reader failures retain the owning phase and its session for
+  recovery. As soon as a fix returns `finished`, the coordinator closes the report set through its
+  dependency, before reading landed subjects or running the brief. Other outcomes retain the set.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -109,17 +107,20 @@ consumers.
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
   topic from the audited plan for every runner glance. The episode reader
   also serves hand-run default-topic resolution. Each
-  file-changing commit counts once per area with an A–C correction.
+  file-changing audit correction commit for the selected plan counts once per area
+  with an A–C correction, across all step scopes. Off-plan work and other plans'
+  audits remain watch evidence but do not advance the count.
   Repo Edu groups by finding area and planning groups by finding section.
   D-only work, clean records, deferral-only records and planned steps do not count.
-  Green waits for four corrections in one area and amber waits for two. Red runs
+  Green waits for four audit correction commits in one area and amber waits for two. Red runs
   after every finished round with audit findings. Clean audits never call the
   glance. Severity, reach and growth have no early trigger.
   A subject the grammar refuses or an unreadable finding set supplies no
   correction count. The episode retains the unreadable evidence. The watch record is read as
   data: a missing, unreadable or old-format entry, or a recorded head off HEAD's
   history, is no record. No record reads as green and counts from the episode's
-  anchor, the earliest commit carrying the stem, so a first round never earns a
+  anchor, the earliest commit carrying the stem. Unstemmed history has no eligible
+  audits, so a first round never earns a
   watch by being first. The decision's sentence opens its own section of the
   log and the terminal as `[glance]`.
 - `findings.ts` reads the complete current bullet form for commit hooks and

@@ -96,6 +96,12 @@ The thresholds are code because they apply without the user in the loop.
 The watch writes both graded heads; one repository's commit never supplies
 the other's history position.
 
+Only file-changing audit correction commits for the selected plan advance the
+green or amber count. Step scopes share that count. Off-plan work and other
+plans' audits remain evidence for the watch's judgement but cannot trigger it
+through the count. The user directed this distinction on 2026-10-01 after
+maintenance work helped trigger a watch on the first audit of a new step scope.
+
 A round that stopped for the user's ruling runs no watch. Its work has not
 provably landed, so the record it would grade may be missing that round's own
 commit. Nothing is lost by waiting, because the glance counts commits and not

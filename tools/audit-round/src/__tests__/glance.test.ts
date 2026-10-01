@@ -46,7 +46,7 @@ test("missing, invalid and former watch records read green from the episode's an
     assert.equal(decision.due, false)
     assert.match(
       decision.text,
-      /has no watch record for repo-edu; it reads green from its anchor\. No A–C correction commits since\. No area reached the green limit of 4/,
+      /has no watch record for repo-edu; it reads green from its anchor\. No A–C audit correction commits since\. No area reached the green limit of 4/,
     )
   }
   const stale = glanceDecision(history(), record("red", "deadbeef"), "repo-edu")
@@ -57,7 +57,7 @@ test("missing, invalid and former watch records read green from the episode's an
   )
 })
 
-test("without a record the whole episode counts, from its earliest stem commit", () => {
+test("without a record plan audits count from the earliest stem commit", () => {
   const before = {
     ...correction(),
     subject: "ath growth-none c1 fix(x): before the episode",
@@ -74,13 +74,13 @@ test("without a record the whole episode counts, from its earliest stem commit",
   const older = [...three, { ...before, sha: "c000000" }]
   assert.equal(glanceDecision(older, null, "repo-edu").due, false)
   assert.match(glanceDecision(older, null, "repo-edu").text, /area:area-a 3/)
-  // The unstemmed history has no anchor, so all of it counts.
+  // Unstemmed history contains no audit corrections for a plan.
   const bare = four.map(({ sha }) => ({
     ...correction(),
     sha,
     subject: "ath growth-none c1 fix(x): correction",
   }))
-  assert.equal(glanceDecision(bare, null, "repo-edu").due, true)
+  assert.equal(glanceDecision(bare, null, "repo-edu").due, false)
 })
 
 test("red earns a watch without any new correction", () => {
@@ -207,7 +207,7 @@ test("severity, reach and growth have no early trigger; both cases count", () =>
   )
 })
 
-test("only episode corrections after the saved head count, including off-plan rework", () => {
+test("only plan audit corrections after the saved head count", () => {
   const offPlan = {
     ...correction(),
     subject: "ath growth-none c1 fix(x): rework",
@@ -223,6 +223,54 @@ test("only episode corrections after the saved head count, including off-plan re
     false,
   )
   assert.equal(glanceDecision(log, record("amber"), "repo-edu").due, true)
+  assert.match(
+    glanceDecision(log, record("amber"), "repo-edu").text,
+    /area:area-a 2/,
+  )
+})
+
+test("maintenance and other plans' audits remain evidence without triggering a watch", () => {
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const audit =
+      repository === "repo-edu"
+        ? correction()
+        : commit(
+            "example/audit ath growth-none c1: correct the plan",
+            `- C [field:missing] [section:decisions] ${ratings} Correct.`,
+          )
+    const maintenance = commit(
+      "ath growth-none c1 fix(x): maintenance",
+      repository === "repo-edu"
+        ? bullet()
+        : `- C [section:decisions] ${ratings} Correct.`,
+    )
+    const otherAudit = {
+      ...audit,
+      subject: audit.subject.replace("example/", "other/"),
+    }
+    const data = episode(
+      history(maintenance, maintenance, maintenance, otherAudit, audit),
+      repository,
+      "example",
+    )
+    assert.equal(data.commits.length, 6)
+    assert.equal(data.unreadable.length, 0)
+    const saved = record("green", "c000001", repository)
+    const decision = decide(data, saved)
+    assert.equal(decision.due, false)
+    assert.match(decision.text, /(?:area:area-a|section:decisions) 1\./)
+    assert.equal(
+      decide(
+        episode(
+          history(maintenance, otherAudit, audit, audit, audit, audit),
+          repository,
+          "example",
+        ),
+        saved,
+      ).due,
+      true,
+    )
+  }
 })
 
 test("plan rounds count sections independently and ignore D findings", () => {
@@ -275,16 +323,16 @@ test("plan commits count local sections without counting deferred Repo Edu findi
   )
 })
 
-test("historical stem prefixes join; unstemmed history uses its own record", () => {
+test("historical stems and different step scopes share the plan's count", () => {
   const a = {
     ...correction(),
     subject:
-      "topology-example/impl-audit-all ath growth-none c1 fix(x): correction",
+      "topology-example/impl-audit-1-2 ath growth-none c1 fix(x): correction",
   }
   const b = {
     ...correction(),
     subject:
-      "plan-example/impl-audit-all ath growth-none c1 fix(x): correction",
+      "plan-example/impl-audit-3-4 ath growth-none c1 fix(x): correction",
   }
   assert.equal(
     glanceDecision(history(a, b), record("amber"), "repo-edu").due,
@@ -296,7 +344,7 @@ test("historical stem prefixes join; unstemmed history uses its own record", () 
   }))
   assert.equal(
     glanceDecision(bare, { "-": record("amber").example }, "repo-edu").due,
-    true,
+    false,
   )
 })
 
