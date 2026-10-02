@@ -184,7 +184,7 @@ Round sequence:
     2. Vet       The other assistant reviews those findings.
     3. Rebuttal  The auditor answers the vet's objections or conditions.
                  Skipped if the vet accepts every finding unconditionally.
-    4. Fix       Codex always fixes the accepted findings.
+    4. Fix       The assistant set in settings.json fixes the accepted findings.
     5. Brief     A plain-words summary follows the fix.
                  Skipped with --no-brief.
 

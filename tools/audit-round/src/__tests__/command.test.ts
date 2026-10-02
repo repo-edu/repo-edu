@@ -87,6 +87,60 @@ test("a ruling stays in the runner and resumes the fix without replaying interna
   assert.equal((await f.roundFiles()).length, 2)
 })
 
+test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
+  const f = await roundFixture(t, "claude", "repo-edu", true)
+  const settings = structuredClone(testSettings)
+  settings.phases.fix.assistant = "claude"
+  const code = await runCommand(
+    ["example.md", "all", "--auditor", "a", "--no-watch"],
+    f.runtime,
+    {
+      ...f.options,
+      settings,
+      readReply: async () => {
+        const stream = await phaseStream(
+          "claude",
+          'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          "fix-session",
+        )
+        await f.configure({
+          phases: {
+            ...f.phases,
+            fix: {
+              ...(f.phases.fix as Record<string, unknown>),
+              assistants: { claude: { stream } },
+              commits: [
+                {
+                  cwd: f.repoRoot,
+                  subject:
+                    "example/impl-audit-all ath growth-none c1 fix(audit-round): apply ruling",
+                },
+              ],
+            },
+          },
+        })
+        return "Choose option 1."
+      },
+    },
+  )
+  assert.equal(code, 0, f.errors.join("\n"))
+  const fixes = (await f.prompts()).filter((call) =>
+    /^Run the fix phase /.test(call.prompt),
+  )
+  assert.deepEqual(
+    fixes.map((call) => [call.assistant, call.args.includes("--resume")]),
+    [
+      ["claude", false],
+      ["claude", true],
+    ],
+  )
+  const resumed = fixes[1].args
+  assert.equal(resumed[resumed.indexOf("--resume") + 1], "fix-session")
+  const { log } = await f.records()
+  assert.ok(log.includes(join(f.planRoot, "home/claude/commands/fix.md")))
+  assert.match(log, /fix +claude /)
+})
+
 for (const working of ["repo-edu", "plan"] as const) {
   test(`episode at ${working} prints shared evidence and resolves stems and explicit anchors without writes`, async (t) => {
     const f = await roundFixture(
@@ -972,7 +1026,11 @@ for (const auditor of ["codex", "claude"] as const) {
     const settings = structuredClone(testSettings)
     settings.defaultAuditor = auditor === "codex" ? "claude" : "codex"
     settings.phases.audit[auditor] = { model: "pinned-auditor", effort: "low" }
-    settings.phases.fix = { model: "pinned-fix", effort: "medium" }
+    settings.phases.fix = {
+      assistant: "codex",
+      model: "pinned-fix",
+      effort: "medium",
+    }
     assert.equal(
       await runCommand(["example.md", "all", "--auditor", auditor], f.runtime, {
         ...f.options,
@@ -1129,7 +1187,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.doesNotMatch(visible, /^\s+(name|paths|episode|close)\s/m)
   assert.match(visible, /^\s+brief\s/m)
   assert.match(visible, /HEAD-<n>/)
-  assert.match(visible, /Codex\s+always fixes/)
+  assert.match(visible, /assistant set in settings\.json\s+fixes/)
   assert.match(visible, /plain-words brief/)
   assert.match(
     visible,

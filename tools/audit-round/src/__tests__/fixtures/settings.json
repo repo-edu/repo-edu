@@ -32,6 +32,7 @@
       }
     },
     "fix": {
+      "assistant": "codex",
       "model": null,
       "effort": null
     },

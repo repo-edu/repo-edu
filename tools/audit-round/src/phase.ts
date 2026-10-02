@@ -214,7 +214,8 @@ export function roundPhases(
     vet: run("vet", auditor === "codex" ? "claude" : "codex"),
     // The rebuttal is the auditor's answer, using the same model and effort.
     rebut: run("rebut", auditor),
-    fix: run("fix", "codex"),
+    // Settings choose the fixer whoever audited; unlike the vetter, it may be the auditor.
+    fix: run("fix", config.phases.fix.assistant),
     brief: run("brief", config.phases.brief.assistant),
     // The watch reads the commit record, never the round, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),

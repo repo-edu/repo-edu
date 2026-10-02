@@ -1,20 +1,50 @@
 {
-  "defaultAuditor": "codex",
-  "strengthModels": {
-    "claude": { "base": "opus", "top": "claude-fable-5-1" },
-    "codex": { "base": "gpt-5.6-sol", "top": "gpt-6-astra" }
-  },
-  "phases": {
-    "audit": {
-      "claude": { "model": null, "effort": null },
-      "codex": { "model": null, "effort": null }
+    "defaultAuditor": "codex",
+    "strengthModels": {
+        "claude": {
+            "base": "opus",
+            "top": "claude-fable-5-1"
+        },
+        "codex": {
+            "base": "gpt-5.6-sol",
+            "top": "gpt-6.1-astra"
+        }
     },
-    "vet": {
-      "claude": { "model": null, "effort": null },
-      "codex": { "model": null, "effort": null }
-    },
-    "fix": { "model": null, "effort": null },
-    "brief": { "assistant": "codex", "model": "gpt-5.6-terra", "effort": "low" },
-    "watch": { "assistant": "codex", "model": null, "effort": null }
-  }
+    "phases": {
+        "audit": {
+            "claude": {
+                "model": null,
+                "effort": null
+            },
+            "codex": {
+                "model": null,
+                "effort": null
+            }
+        },
+        "vet": {
+            "claude": {
+                "model": null,
+                "effort": null
+            },
+            "codex": {
+                "model": null,
+                "effort": null
+            }
+        },
+        "fix": {
+            "assistant": "codex",
+            "model": null,
+            "effort": null
+        },
+        "brief": {
+            "assistant": "codex",
+            "model": "gpt-5.6-terra",
+            "effort": "low"
+        },
+        "watch": {
+            "assistant": "codex",
+            "model": null,
+            "effort": null
+        }
+    }
 }

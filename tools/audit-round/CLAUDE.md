@@ -16,8 +16,8 @@ consumers.
   coordinator reads the twin through `vet.ts` to decide whether every finding was accepted
   unconditionally. Rebuttal uses the audit's resolved model and effort, including `--auditor`
   fields, because it is the auditor's answer. Its workflow grounds answers in current sources. The
-  settings file selects the default auditor and the assistants that write documents. Codex always
-  fixes. The brief follows only a finished fix, after all rulings and resumed fix invocations have
+  settings file selects the default auditor, the fixer and the assistants that write documents.
+  The brief follows only a finished fix, after all rulings and resumed fix invocations have
   completed. `--no-brief` omits that phase and its settings row from every round. Its input is the
   round transcript, never the report, and its workflow belongs to the Repo Edu root. `runBrief` runs
   that one phase on its own over an earlier transcript. The fix receives a ruling output path
@@ -326,8 +326,8 @@ left unchanged. The user supplied the defaults on 2026-09-23.
   assistant CLI's effective setting. A named model must suit the selected CLI.
 - Audit and vet each have separate Claude and Codex selections, so changing
   auditor in a chain keeps each CLI on its own model. Rebuttal shares the
-  audit selection. The vet uses the other assistant and fix uses Codex.
-  Document phases each select their assistant.
+  audit selection. The vet uses the other assistant. Fix and the document
+  phases each select their assistant, whoever audited.
 - A field supplied by `--auditor` wins over the corresponding audit setting.
   Other fields use this file, then the CLI when the file says `null`.
 - `--auditor claude` and `--auditor codex` inherit the selected CLI's current

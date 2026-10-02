@@ -339,8 +339,9 @@ subject class is fixed by
 
 The tag names the assistant whose work the subject reports. On a
 planning or implementation-audit record that is the audit, not the session that wrote the
-commit: Codex fixes whoever audited, so a writer's tag would say the same thing
-on every record, while the auditor is what the trajectory reads off a clean one.
+commit: one setting picks the fixer whoever audited, so a writer's tag would
+repeat that setting on every record, while the auditor is what the trajectory
+reads off a clean one.
 The role token right before the tag says which kind of subject it is, and a
 reader needs that token anyway for the scope and the severity.
 

@@ -83,18 +83,30 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
   })
 })
 
-test("watch follows the configured assistant independently of the auditor", () => {
-  for (const assistant of ["claude", "codex"] as const) {
-    const config = structuredClone(settings)
-    config.phases.watch = { assistant, model: null, effort: null }
-    const phases = roundPhases("claude", noOverride, config)
-    assert.deepEqual(phases.watch, {
-      assistant,
-      model: { model: null, effort: null },
-    })
-    assert.equal(phases.vet.assistant, "codex")
-    assert.equal(phases.fix.assistant, "codex")
-    assert.deepEqual(phases.rebut, phases.audit)
+test("fix and watch follow their configured assistants independently of the auditor", () => {
+  for (const auditor of ["claude", "codex"] as const) {
+    for (const assistant of ["claude", "codex"] as const) {
+      const config = structuredClone(settings)
+      config.phases.fix = { assistant, model: "custom-fixer", effort: "high" }
+      config.phases.watch = { assistant, model: null, effort: null }
+      const phases = roundPhases(auditor, noOverride, config)
+      assert.deepEqual(phases.fix, {
+        assistant,
+        model: {
+          model: { value: "custom-fixer", source: "settings.json" },
+          effort: { value: "high", source: "settings.json" },
+        },
+      })
+      assert.deepEqual(phases.watch, {
+        assistant,
+        model: { model: null, effort: null },
+      })
+      assert.equal(
+        phases.vet.assistant,
+        auditor === "claude" ? "codex" : "claude",
+      )
+      assert.deepEqual(phases.rebut, phases.audit)
+    }
   }
 })
 

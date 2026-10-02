@@ -8,7 +8,7 @@ const selection = z.strictObject({
   model: model.nullable(),
   effort: z.enum(["low", "medium", "high", "xhigh"]).nullable(),
 })
-const documentPhase = selection.extend({ assistant })
+const assignedPhase = selection.extend({ assistant })
 const alternatingPhase = z.strictObject({ claude: selection, codex: selection })
 const strengths = z.strictObject({ base: model, top: model })
 
@@ -18,9 +18,9 @@ export const settingsSchema = z.strictObject({
   phases: z.strictObject({
     audit: alternatingPhase,
     vet: alternatingPhase,
-    fix: selection,
-    brief: documentPhase,
-    watch: documentPhase,
+    fix: assignedPhase,
+    brief: assignedPhase,
+    watch: assignedPhase,
   }),
 })
 
