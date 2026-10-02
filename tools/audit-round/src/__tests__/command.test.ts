@@ -1198,6 +1198,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /default auditor comes from\s+settings\.json/)
   assert.match(visible, /Targets and scope:/)
   assert.match(visible, /Auditor selection \(--auditor <selections>\):/)
+  assert.match(visible, /Each entry runs\s+one round, from left to right/)
   assert.match(visible, /<assistant>\[<tier>\]\[<effort>\]/)
   assert.match(visible, /--auditor atx,obm/)
   assert.match(visible, /Round sequence:/)

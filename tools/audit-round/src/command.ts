@@ -153,7 +153,9 @@ Targets and scope:
            HEAD-1 is the previous first-parent commit. Ranges include both ends.
 
 Auditor selection (--auditor <selections>):
-  <selections> accepts one or more comma-separated names or tags:
+  <selections> is a comma-separated list of names or tags. Each entry runs
+  one round, from left to right: --auditor a,o runs a round audited by
+  Claude, then a round audited by Codex. Each entry is one of:
 
     claude | codex
       Use that CLI's current model and effort instead of the runner's audit settings.
@@ -174,8 +176,7 @@ Auditor selection (--auditor <selections>):
 Round sequence:
 
   Round order (--auditor):
-    - Each name or tag after --auditor selects the auditor for one round.
-    - Rounds run from left to right, all on the same target and step scope.
+    - Every round runs on the same target and step scope.
     - Repeat a name or tag to run another round with that auditor.
     - Multiple rounds require a plan target. Commit audits run once.
 
