@@ -188,6 +188,30 @@ export async function roundDocument(
 
 export type ManualPhase = "vet" | "rebut" | "fix"
 
+/** The most recently modified document decides between eligible candidates. */
+async function newestDocument(
+  paths: readonly string[],
+): Promise<string | undefined> {
+  const dated = await Promise.all(
+    paths.map(async (path) => ({ path, time: (await stat(path)).mtimeMs })),
+  )
+  return dated.sort((first, second) => second.time - first.time)[0]?.path
+}
+
+/** A brief given no transcript retells the most recent round at the plan root. */
+export async function newestTranscript(
+  context: ExecutionContext,
+): Promise<string> {
+  const newest = await newestDocument(
+    (await phaseDocuments(context.planRoot, "round")).map(
+      (document) => document.path,
+    ),
+  )
+  if (newest === undefined)
+    throw new Error(`No round transcript at ${context.planRoot}. Name one.`)
+  return newest
+}
+
 /** Resolve one existing round without claiming it or consulting future writers' settings. */
 export async function manualPhasePaths(
   context: ExecutionContext,
@@ -204,24 +228,21 @@ export async function manualPhasePaths(
       `The ${phase} phase needs --writer with the current session's full tag.`,
     )
   if (input === undefined) {
-    const matches = (await phaseDocuments(context.planRoot, "audit"))
-      .filter((document) => {
-        const sameAssistant = document.tag[0] === options.writer?.[0]
-        if (phase === "vet") return !sameAssistant
-        if (phase === "rebut") return sameAssistant
-        return true
-      })
-      .map((document) => document.path)
-      .sort()
-    if (matches.length === 0)
+    const newest = await newestDocument(
+      (await phaseDocuments(context.planRoot, "audit"))
+        .filter((document) => {
+          const sameAssistant = document.tag[0] === options.writer?.[0]
+          if (phase === "vet") return !sameAssistant
+          if (phase === "rebut") return sameAssistant
+          return true
+        })
+        .map((document) => document.path),
+    )
+    if (newest === undefined)
       throw new Error(
         `No eligible audit report for ${phase} at ${context.planRoot}. Supply a file name.`,
       )
-    if (matches.length > 1)
-      throw new Error(
-        `Several eligible audit reports for ${phase}. Supply a file name:\n${matches.join("\n")}`,
-      )
-    input = basename(matches[0])
+    input = basename(newest)
   }
   const source = await roundDocument(context, input, "audit")
   const root = dirname(source.path)
@@ -250,15 +271,11 @@ export async function manualPhasePaths(
         )
       return chosen.path
     }
-    const matches = (await phaseDocuments(root, kind))
-      .filter((document) => document.nameStart === source.nameStart)
-      .map((document) => document.path)
-      .sort()
-    if (matches.length > 1)
-      throw new Error(
-        `Several ${kind} files belong to this round. Select one with --${kind}:\n${matches.join("\n")}`,
-      )
-    return matches[0]
+    return newestDocument(
+      (await phaseDocuments(root, kind))
+        .filter((document) => document.nameStart === source.nameStart)
+        .map((document) => document.path),
+    )
   }
   if (phase === "vet") return [source.path, output(phase)]
   const vet = await twin("vet", options.vet)

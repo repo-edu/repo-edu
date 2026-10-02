@@ -18,7 +18,7 @@ consumers.
   fields, because it is the auditor's answer. Its workflow grounds answers in current sources. The
   settings file selects the default auditor, the fixer and the assistants that write documents.
   The brief follows only a finished fix, after all rulings and resumed fix invocations have
-  completed. `--no-brief` omits that phase and its settings row from every round. Its input is the
+  completed. Only `--brief` adds that phase and its settings row to every round. Its input is the
   round transcript, never the report, and its workflow belongs to the Repo Edu root. `runBrief` runs
   that one phase on its own over an earlier transcript. The fix receives a ruling output path
   separately from its report arguments. It writes the final ruling and checks it for clarity before
@@ -234,10 +234,10 @@ consumers.
   supply every phase path. A manual audit names only its claim and report; later manual phases
   retain that report's round and name their output with the current session's writer tag.
   `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
-  the exact round at the report's root. With no input, it selects the sole eligible document at
-  the plan root: the other assistant's audit for vet, the current assistant's audit for
-  rebuttal or either assistant's audit for fix.
-  Multiple matches require an explicit file selection.
+  the exact round at the report's root. With no input, it selects the most recently modified
+  eligible document at the plan root: the other assistant's audit for vet, the current
+  assistant's audit for rebuttal or either assistant's audit for fix. Several reviews of one round
+  resolve the same way unless one is selected.
   `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
   filenames without consulting model settings.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
@@ -252,11 +252,18 @@ consumers.
   resolution and inclusive-range admission. The runner passes references
   unchanged and rejects multiple auditor entries for commit targets, which run once without
   a trajectory glance or watch.
+- `default-target.ts` owns the target of a round or `name` given none, under the shared
+  protocol's [Omitted targets](../../.agents/references/round-protocol.md#omitted-targets). It
+  reads both histories through `stemCommits`, the same newest-first order the hand-run episode
+  uses, skips plans without an active artifact and parses the newest remaining commit strictly.
+  The selected target passes through `auditTarget` as a typed one would. `defaultPlan` applies the
+  same plan rule alone for the `plan` command, which the home plan brief runs for an omitted stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the comma-separated
   auditor list and the error that identifies a malformed entry. It trims each entry and delegates
   its assistant name or capability tag to `parseAuditor`. The round is the command itself, taking
-  the target as its own arguments. Its subcommands are `brief`, `name`, `paths`, `close` and
-  `episode`. The `episode` command prints joined watch evidence from the shared reader and formatter
+  the target as its own arguments. Its subcommands are `brief`, `name`, `paths`, `close`,
+  `episode` and `plan`. `plan` prints the plan an omitted target selects, as JSON, and writes
+  nothing. The `episode` command prints joined watch evidence from the shared reader and formatter
   without settings discovery, assistant startup or file writes. The `name` command claims a round
   and prints its claim, workflow, working checkout and audit arguments. Its required `--auditor` is
   the hand-run session's full tag, including `u`, checked separately from a round's model request.
@@ -266,7 +273,8 @@ consumers.
   discovery; `paths` writes nothing. The `close` command uses the same closing function as the
   coordinator and starts no assistant or settings discovery. So the program carries an action
   handler, Commander adds no `help` command, and each command's own `-h` prints its help. A bare
-  command line prints that help rather than reporting a missing plan. It also owns the remaining
+  command line prints that help; options without a target take `defaultTarget`. It also owns the
+  remaining
   auditor list and round counter. Each entry runs once in the supplied order with its own override.
   Only an audit with no findings removes all remaining entries for that assistant, across model and
   effort tags. A fix that lands a clean record removes none. Failure or a round requiring a ruling
@@ -362,11 +370,15 @@ pnpm audit-round task-modifier --auditor codex
 pnpm audit-round example 3 --auditor codex,claude,claude
 pnpm audit-round example 3 --auditor "atx, obm"
 pnpm audit-round example 3 --no-watch
-pnpm audit-round example 3 --no-brief
+pnpm audit-round example 3 --brief
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
+pnpm audit-round --auditor codex
 pnpm audit-round brief example-step-3-01-1-round.otm.md
+pnpm audit-round brief
+pnpm audit-round plan
 pnpm audit-round name example 3 --auditor oth
+pnpm audit-round name --auditor oth
 pnpm audit-round paths vet example-step-3-01-2-audit.oth.md --writer abx
 pnpm audit-round paths rebut example-step-3-01-2-audit.oth.md --writer otm
 pnpm audit-round paths fix example-step-3-01-2-audit.oth.md
@@ -386,30 +398,33 @@ Each phase receives the complete paths it reads and writes in protocol order.
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved target and scope.
 It creates only the claim. It does not load settings or start an assistant. Its argument grammar
-is the same as the automated round, from either checkout.
+is the same as the automated round, from either checkout. Without a target, both repeat the newest
+unfinished audit under the shared protocol's
+[Omitted targets](../../.agents/references/round-protocol.md#omitted-targets).
 
 `paths <vet|rebut|fix> [input]` resolves a later manual phase and prints its working checkout,
 workflow and arguments as one JSON object. Vet and rebuttal take `--writer <full tag>` from
 the current session. Fix writes no phase report and needs no writer tag. Without an input, the
-command selects the sole eligible file at the plan root. Use `--vet <file>` or `--rebut <file>` to
-select an existing review when several belong to that round. The command writes nothing and never
+command selects the most recently modified eligible file at the plan root. Several reviews of
+that round resolve to the newest unless `--vet <file>` or `--rebut <file>` selects one. The
+command writes nothing and never
 claims another number. The shared round protocol owns manual invocation details.
 
 `close` deletes the audit and twins for its exact target and round at the
 plan root. Claims and runner documents remain.
 
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
-document in the terminal. `--no-brief` skips it for every round without changing the watch. A clean
-audit records its outcome directly and retains the report, without later sessions. A fix that stops
-for a ruling adds a ruling twin. A finished plan round with audit findings ends with a glance at the
-commit record, and a due glance adds a `-watch.md` document. The watch keeps its own history in the
-shared cache, which is how its cadence survives between rounds, and `--no-watch` skips both. `brief`
-accepts an earlier transcript at the plan root, reads its kind from the transcript title, writes
-beside it without claiming a new number and overwrites its standalone log on each run. `--auditor`
-accepts one selection or a comma-separated sequence on the named plan scope. Repeated entries
-request separate rounds. A clean audit skips all remaining entries for its assistant; failure or a
-round requiring a ruling stops the sequence. Each header records the round's start time; filenames
-carry no timestamp.
+document in the terminal. Only `--brief` runs it, for every round, without changing the watch. A
+clean audit records its outcome directly and retains the report, without later sessions. A fix that
+stops for a ruling adds a ruling twin. A finished plan round with audit findings ends with a glance
+at the commit record, and a due glance adds a `-watch.md` document. The watch keeps its own history
+in the shared cache, which is how its cadence survives between rounds, and `--no-watch` skips both.
+`brief` accepts an earlier transcript at the plan root, or takes the most recently modified one when
+none is named. It reads its kind from the transcript title, writes beside it without claiming a new
+number and overwrites its standalone log on each run. `--auditor` accepts one selection or a
+comma-separated sequence on the named plan scope. Repeated entries request separate rounds. A clean
+audit skips all remaining entries for its assistant; failure or a round requiring a ruling stops the
+sequence. Each header records the round's start time; filenames carry no timestamp.
 
 ## Verification
 

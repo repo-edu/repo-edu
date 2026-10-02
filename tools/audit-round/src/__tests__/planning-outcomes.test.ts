@@ -165,7 +165,7 @@ for (const phase of ["vet", "rebut", "fix", "brief", "watch"] as const) {
     await f.configure({ phases: f.phases })
     assert.equal(
       await runCommand(
-        ["example.md", "--auditor", "codex,claude"],
+        ["example.md", "--brief", "--auditor", "codex,claude"],
         f.runtime,
         f.options,
       ),

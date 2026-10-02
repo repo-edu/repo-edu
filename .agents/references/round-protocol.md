@@ -124,22 +124,23 @@ checkout; implementation and commit sessions work in Repo Edu.
 A manual invocation may name the audit report.
 If the current conversation identifies that input unambiguously, use it.
 Otherwise omit the input when calling `paths` below. The command searches only
-the plan repo root and selects the sole eligible file without confirmation:
+the plan repo root and selects the most recently modified eligible file without
+confirmation:
 
 - Vet uses audit reports from the other assistant.
 - Rebuttal uses audit reports from the current assistant.
 - Fix uses audit reports from either assistant.
 
 Eligibility uses the filename grammar and the writer tag's vendor letter, not
-its model tier or effort. When no file qualifies, ask for the input. When
-several qualify, present the candidates and ask which to use. Never choose by
-recency. Supplied inputs take precedence over discovery; the phase workflow
-still owns its assistant and scope checks.
+its model tier or effort. When no file qualifies, ask for the input. Supplied
+inputs take precedence over discovery; the phase workflow still owns its
+assistant and scope checks.
 
 A hand-run audit runs
-`pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>`
+`pnpm audit-round name [target] [scope-or-commits...] --auditor <full tag>`
 before auditing. It passes its own resolved three-letter tag, including `u` for
-an unlisted model. A missing target needs the user's choice. The command claims the next number
+an unlisted model. Without a target, the command follows
+[Omitted targets](#omitted-targets). It claims the next number
 and prints one JSON object:
 `cwd` is the working checkout, `workflow` is the owning workflow, `claim` is the
 reserved claim path and `arguments` holds the report path followed by the resolved
@@ -173,19 +174,38 @@ earlier audit or the runner's settings.
 Review inputs are existing files of the exact same round at the report's root.
 The resolver requires a vet for rebuttal and returns whichever review files
 exist for fix; the fix workflow decides whether those inputs suffice. If more
-than one vet or rebuttal matches, present the candidates and ask which to use,
-then pass the selection with `--vet <file>` or `--rebut <file>`. Use those
-options too when the user already named a review file. Never run `name` to
-continue an existing round.
+than one vet or rebuttal matches, the resolver takes the most recently modified
+one. Pass `--vet <file>` or `--rebut <file>` when the user named a review file.
+Never run `name` to continue an existing round.
 
 A manual planning reply in the original audit session uses the same rebuttal
 resolution. A manual fix asks for any open ruling in chat; it needs no ruling
-output path. `pnpm audit-round brief <transcript>` remains the separate command
-that starts a brief session itself. The home `/brief <stem>` and `$brief <stem>`
-summarise a plan from either checkout and are outside this round protocol.
+output path. `pnpm audit-round brief [transcript]` remains the separate command
+that starts a brief session itself; without a transcript it retells the most
+recently modified one at the plan root. The home `/brief [stem]` and
+`$brief [stem]` summarise a plan from either checkout and are outside this round
+protocol.
 The round brief and watch have no chat commands. The runner
 supplies their workflow and its listed files, including the `simple` definition,
 without a launcher.
+
+### Omitted targets
+
+When `name` or an automated round gets no target, it repeats the newest
+unfinished audit. A bare `pnpm audit-round` with no arguments at all still
+prints help. The plan is the active artifact at the plan root, never an
+archived one, whose stem commit is newest in either repo by commit date. That
+commit decides:
+
+- A planning commit, `init`, `audit`, `settle` or `ready`, selects a planning
+  audit of the plan.
+- An implementation-audit record that is not clean selects its scope again.
+- Any other commit stops with its reason: a clean record, a step or a marker.
+  The user then names the scope. Moving on to the next audit unit is the user's
+  call.
+
+The home plan brief given no stem reads the same plan.
+`pnpm audit-round plan` prints it from either checkout.
 
 ## Closing reports
 

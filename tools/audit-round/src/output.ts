@@ -111,7 +111,7 @@ export async function roundRun(
   const tag = (phase: Phase): string =>
     fileTag(entry(phase), selections, settings)
   for (const phase of Object.keys(phases) as Phase[]) {
-    if (phase !== "brief" || setup.brief !== false) tag(phase)
+    if (phase !== "brief" || setup.brief === true) tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
   const path = (kind: FileKind, phase: Phase) =>
@@ -124,7 +124,7 @@ export async function roundRun(
       report: `${path("audit", "audit")}.md`,
       vet: `${path("vet", "vet")}.md`,
       rebut: `${path("rebut", "rebut")}.md`,
-      brief: setup.brief === false ? null : `${path("brief", "brief")}.md`,
+      brief: setup.brief === true ? `${path("brief", "brief")}.md` : null,
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
@@ -134,7 +134,7 @@ export async function roundRun(
       entry("vet"),
       entry("rebut"),
       entry("fix"),
-      ...(setup.brief === false ? [] : [entry("brief")]),
+      ...(setup.brief === true ? [entry("brief")] : []),
       ...("plan" in setup ? [entry("watch")] : []),
     ],
     paths: {

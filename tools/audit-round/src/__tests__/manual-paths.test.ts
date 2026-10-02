@@ -1,5 +1,12 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  readdir,
+  readFile,
+  unlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "../command.js"
@@ -204,7 +211,7 @@ for (const working of ["repo-edu", "plan"] as const) {
 }
 
 for (const phase of ["vet", "rebut", "fix"] as const) {
-  test(`bare ${phase} reports missing and ambiguous inputs without picking the newest`, async (t) => {
+  test(`bare ${phase} reports a missing input and picks the newest eligible report`, async (t) => {
     const f = await roundFixture(t)
     const tag = phase === "vet" ? "ath" : "otm"
     const files = ["first-01", "second-02"].map((start) =>
@@ -227,15 +234,17 @@ for (const phase of ["vet", "rebut", "fix"] as const) {
     }
     assert.equal(await invoke(), 1)
     assert.match(f.errors[0], /No eligible/)
-    for (const file of files)
+    for (const file of files) {
       await writeFile(file, "# Implementation audit workflow")
-    assert.equal(await invoke(), 1)
-    assert.match(f.errors[0], /Several eligible/)
-    for (const file of files) assert.ok(f.errors[0].includes(file))
-    if (phase === "rebut")
-      await writeFile(join(f.planRoot, "first-01-3-vet.ath.md"), "Vet")
-    assert.equal(await invoke(files[0]), 0, f.errors.join("\n"))
+      if (phase === "rebut")
+        await writeFile(file.replace("-2-audit.otm", "-3-vet.ath"), "Vet")
+    }
+    // The later name carries the earlier date, so the date decides rather than the name.
+    await utimes(files[1], 1_000, 1_000)
+    assert.equal(await invoke(), 0, f.errors.join("\n"))
     assert.equal(JSON.parse(f.visible[0]).arguments[0], files[0])
+    assert.equal(await invoke(files[1]), 0, f.errors.join("\n"))
+    assert.equal(JSON.parse(f.visible[0]).arguments[0], files[1])
   })
 }
 
@@ -277,7 +286,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   })
 })
 
-test("missing or ambiguous twins are resolved explicitly without selecting another round", async (t) => {
+test("several twins resolve to the round's newest unless one is selected", async (t) => {
   const f = await roundFixture(t)
   const report = join(f.planRoot, "example-all-01-2-audit.oth.md")
   await writeFile(report, "# Implementation audit workflow")
@@ -293,36 +302,33 @@ test("missing or ambiguous twins are resolved explicitly without selecting anoth
   const vets = ["abl", "ath"].map((tag) =>
     join(f.planRoot, `example-all-01-3-vet.${tag}.md`),
   )
-  for (const file of vets) await writeFile(file, "Vet")
-  assert.equal(await invoke(["rebut", basename(report), "--writer", "oth"]), 1)
-  for (const file of vets) assert.ok(f.errors[0].includes(file))
-  assert.equal(
-    await invoke([
-      "rebut",
-      basename(report),
-      "--writer",
-      "oth",
-      "--vet",
-      basename(vets[1]),
-    ]),
-    0,
-  )
-  assert.equal(JSON.parse(f.visible[0]).arguments[1], vets[1])
   const rebuts = ["otm", "oux"].map((tag) =>
     join(f.planRoot, `example-all-01-4-rebut.${tag}.md`),
   )
-  for (const file of rebuts) await writeFile(file, "Rebuttal")
+  for (const file of [...vets, ...rebuts]) await writeFile(file, "Review")
+  // The later names carry the earlier dates, so the date decides rather than the name.
+  for (const file of [vets[1], rebuts[1]]) await utimes(file, 1_000, 1_000)
+  // A newer review of another round never joins this one.
+  const other = join(f.planRoot, "example-all-02-3-vet.ath.md")
+  await writeFile(other, "Other round")
   assert.equal(
-    await invoke(["fix", basename(report), "--vet", basename(vets[0])]),
-    1,
+    await invoke(["rebut", basename(report), "--writer", "oth"]),
+    0,
+    f.errors.join("\n"),
   )
-  for (const file of rebuts) assert.ok(f.errors[0].includes(file))
+  assert.equal(JSON.parse(f.visible[0]).arguments[1], vets[0])
+  assert.equal(await invoke(["fix", basename(report)]), 0)
+  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
+    report,
+    vets[0],
+    rebuts[0],
+  ])
   assert.equal(
     await invoke([
       "fix",
       basename(report),
       "--vet",
-      basename(vets[0]),
+      basename(vets[1]),
       "--rebut",
       basename(rebuts[1]),
     ]),
@@ -330,11 +336,9 @@ test("missing or ambiguous twins are resolved explicitly without selecting anoth
   )
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
     report,
-    vets[0],
+    vets[1],
     rebuts[1],
   ])
-  const other = join(f.planRoot, "example-all-02-3-vet.ath.md")
-  await writeFile(other, "Other round")
   assert.equal(
     await invoke([
       "rebut",

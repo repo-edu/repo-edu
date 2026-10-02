@@ -10,6 +10,7 @@ import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { completeClean } from "./clean.js"
 import { executionContext } from "./context.js"
+import { defaultPlan, defaultTarget } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance } from "./glance.js"
@@ -39,6 +40,7 @@ import {
   closeRound,
   type ManualPhase,
   manualPhasePaths,
+  newestTranscript,
   phaseFilename,
   roundDocument,
   roundIdentity,
@@ -54,9 +56,11 @@ import { readVet } from "./vet.js"
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
   | { readonly kind: "episode"; readonly target?: string }
+  | { readonly kind: "plan" }
   | {
       readonly kind: "name"
-      readonly first: string
+      /** Absent when the runner repeats the newest unfinished audit. */
+      readonly first?: string
       readonly rest: readonly string[]
       readonly auditor: string
     }
@@ -71,17 +75,20 @@ type Invocation =
   | { readonly kind: "close"; readonly nameStart: string }
   | {
       readonly kind: "round"
-      readonly first: string
+      /** Absent when the runner repeats the newest unfinished audit. */
+      readonly first?: string
       readonly rest: readonly string[]
       readonly auditor?: readonly AuditorSeat[]
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
-      readonly brief: boolean
+      /** True when `--brief` was given; rounds run no brief otherwise. */
+      readonly brief?: boolean
       readonly verbose?: boolean
     }
   | {
       readonly kind: "brief"
-      readonly transcript: string
+      /** Absent when the brief retells the newest round at the plan root. */
+      readonly transcript?: string
       readonly verbose?: boolean
     }
 
@@ -108,14 +115,17 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] <target> [scope-or-commits...]\n       audit-round brief [options] <transcript>",
+      "[options] [target] [scope-or-commits...]\n       audit-round brief [options] [transcript]",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
       writeErr: (text) => options.emergency(text.trimEnd()),
     })
     .exitOverride()
-    .argument("<target>", "plan stem, commit reference or commit range")
+    .argument(
+      "[target]",
+      "plan stem, commit reference or commit range; see Omitted below",
+    )
     .argument(
       "[scope-or-commits...]",
       "plan step scope, all or more commit references",
@@ -139,7 +149,7 @@ function parseInvocation(
       "--no-watch",
       "skip the trajectory glance and watch after every round",
     )
-    .option("--no-brief", "skip the final brief after every round")
+    .option("--brief", "write the final brief after every round")
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .addHelpText(
       "after",
@@ -151,6 +161,10 @@ Targets and scope:
   Scope    One step (3), an increasing range (1-3) or all audits implementation.
   Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to> in Repo Edu.
            HEAD-1 is the previous first-parent commit. Ranges include both ends.
+  Omitted  Options without a target repeat the newest unfinished audit. The plan is
+           the active one with the newest stem commit in either repo. A planning
+           commit repeats the planning audit; an implementation audit that was not
+           clean repeats its scope. Anything else stops: name the next scope.
 
 Auditor selection (--auditor <selections>):
   <selections> is a comma-separated list of names or tags. Each entry runs
@@ -187,7 +201,7 @@ Round sequence:
                  Skipped if the vet accepts every finding unconditionally.
     4. Fix       The assistant set in settings.json fixes the accepted findings.
     5. Brief     A plain-words summary follows the fix.
-                 Skipped with --no-brief.
+                 Runs only with --brief.
 
   Skipping rounds and stopping:
     - If the audit finds nothing, the round ends before vet or any later phase.
@@ -217,16 +231,20 @@ Examples (from either checkout):
 
      $ pnpm audit-round HEAD-2..HEAD
 
+  4. Repeat the newest unfinished audit with Codex.
+
+     $ pnpm audit-round --auditor codex
+
 Use pnpm audit-round brief --help for the brief's arguments and options.`,
     )
     .action(
       (
-        first: string,
+        first: string | undefined,
         rest: string[],
         flags: {
           auditor?: readonly AuditorSeat[]
           watch: boolean
-          brief: boolean
+          brief?: boolean
           verbose?: boolean
         },
       ) => {
@@ -239,7 +257,10 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
     .description(
       "Claim a hand-run round and print its workflow, working checkout and arguments.",
     )
-    .argument("<target>", "the same plan or commit target accepted by a round")
+    .argument(
+      "[target]",
+      "the same plan or commit target accepted by a round, or none to repeat the newest unfinished audit",
+    )
     .argument(
       "[scope-or-commits...]",
       "plan step scope or further commit references",
@@ -249,9 +270,15 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
       "the auditing session's full three-letter tag, including u for an unlisted model",
       sessionTag,
     )
-    .action((first: string, rest: string[], flags: { auditor: string }) => {
-      invocation = { kind: "name", first, rest, auditor: flags.auditor }
-    })
+    .action(
+      (
+        first: string | undefined,
+        rest: string[],
+        flags: { auditor: string },
+      ) => {
+        invocation = { kind: "name", first, rest, auditor: flags.auditor }
+      },
+    )
   command
     .command("paths", { hidden: true })
     .description(
@@ -264,15 +291,15 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
     })
     .argument(
       "[input]",
-      "bare audit report name; defaults to the sole eligible file at the plan root",
+      "bare audit report name; defaults to the newest eligible file at the plan root",
     )
     .option(
       "--writer <tag>",
       "current session's full tag; required except for fix",
       sessionTag,
     )
-    .option("--vet <file>", "select a vet when this round has several")
-    .option("--rebut <file>", "select a rebuttal when this round has several")
+    .option("--vet <file>", "select a vet instead of the round's newest")
+    .option("--rebut <file>", "select a rebuttal instead of the round's newest")
     .action(
       (
         phase: ManualPhase,
@@ -302,6 +329,14 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
       invocation = { kind: "episode", target }
     })
   command
+    .command("plan", { hidden: true })
+    .description(
+      "Print the plan an omitted stem names, as a round given no target selects it.",
+    )
+    .action(() => {
+      invocation = { kind: "plan" }
+    })
+  command
     .command("close", { hidden: true })
     .description(
       "Delete one round's audit, vet and rebuttal reports at the plan root.",
@@ -325,9 +360,12 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
     .description(
       "Write the plain-words brief of a finished round from its *-1-round.<tag>.md transcript.",
     )
-    .argument("<transcript>", "the round's Markdown transcript")
+    .argument(
+      "[transcript]",
+      "the round's Markdown transcript; defaults to the newest at the plan root",
+    )
     .option("-v, --verbose", "show tool calls as well as assistant text")
-    .action((transcript: string, flags: { verbose?: boolean }) => {
+    .action((transcript: string | undefined, flags: { verbose?: boolean }) => {
       invocation = { kind: "brief", transcript, ...flags }
     })
   try {
@@ -366,6 +404,12 @@ export async function runCommand(
       )
       return 0
     }
+    if (invocation.kind === "plan") {
+      options.terminal.write(
+        JSON.stringify({ plan: await defaultPlan(context) }),
+      )
+      return 0
+    }
     if (invocation.kind === "close") {
       await closeRound(context.planRoot, invocation.nameStart)
       return 0
@@ -394,13 +438,18 @@ export async function runCommand(
       invocation.kind === "brief"
         ? {
             ...invocation,
-            transcript: (
-              await roundDocument(context, invocation.transcript, "round")
-            ).path,
+            transcript:
+              invocation.transcript === undefined
+                ? await newestTranscript(context)
+                : (await roundDocument(context, invocation.transcript, "round"))
+                    .path,
           }
         : {
             ...invocation,
-            target: auditTarget(invocation.first, invocation.rest),
+            target:
+              invocation.first === undefined
+                ? await defaultTarget(context)
+                : auditTarget(invocation.first, invocation.rest),
           }
     if (
       prepared.kind === "round" &&

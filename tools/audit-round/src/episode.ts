@@ -71,6 +71,26 @@ export function historyTopic(log: readonly LogCommit[]): string | null {
   return log.map(commitTopic).find((topic) => topic !== null) ?? null
 }
 
+/** Every stem commit in both histories, newest commit date first. */
+export function stemCommits(
+  logs: Readonly<Record<Repository, readonly LogCommit[]>>,
+): {
+  readonly repository: Repository
+  readonly commit: LogCommit
+  readonly topic: string
+}[] {
+  return (["repo-edu", "plan"] as const)
+    .flatMap((repository) =>
+      logs[repository].flatMap((commit) => {
+        const topic = commitTopic(commit)
+        return topic === null ? [] : [{ repository, commit, topic }]
+      }),
+    )
+    .sort(
+      (first, second) => second.commit.committedAt - first.commit.committedAt,
+    )
+}
+
 export function sameHead(sha: string, head: string): boolean {
   return sha.startsWith(head) || head.startsWith(sha)
 }
@@ -278,15 +298,8 @@ export async function readWatchEvidence(
     readLog(input.repoEduRoot),
   ])
   const logs = { plan, "repo-edu": repoEdu }
-  const newest = [...repoEdu, ...plan]
-    .filter((commit) => commitTopic(commit) !== null)
-    .sort((first, second) => second.committedAt - first.committedAt)[0]
-  let topic =
-    "stem" in input
-      ? input.stem
-      : newest === undefined
-        ? null
-        : commitTopic(newest)
+  let topic: string | null =
+    "stem" in input ? input.stem : (stemCommits(logs)[0]?.topic ?? null)
   let anchor: { repository: Repository; sha: string } | undefined
   if ("target" in input && input.target !== undefined) {
     const reference = input.target.replace(/^HEAD-(\d+)$/, "HEAD~$1")

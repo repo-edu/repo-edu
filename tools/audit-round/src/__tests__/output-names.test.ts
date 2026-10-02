@@ -16,7 +16,7 @@ const options = { terminal: { write() {}, status() {}, clear() {} } }
 test("phase files sort in fixed order with paired logs and dotted commit-range targets", async (t) => {
   const f = await fixture(t)
   const run = await roundRun(
-    { ...testContext(f.root), commits: ["abcdef..123abc"] },
+    { ...testContext(f.root), commits: ["abcdef..123abc"], brief: true },
     0,
     selections,
   )

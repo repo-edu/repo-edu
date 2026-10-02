@@ -24,7 +24,7 @@ export type RoundSetup = RoundContext & {
   readonly auditor?: Assistant
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
-  /** False omits the brief from every round in the command. */
+  /** True adds the brief to every round in the command; absent runs none. */
   readonly brief?: boolean
 } & AuditTarget
 

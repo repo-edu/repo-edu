@@ -53,9 +53,12 @@ explicitly says to.
 
 ## Round strategy
 
-The user sets the step range. Follow it exactly. Never select, propose or
-replace it. The plan's **Execution and audits** subsection is guidance for the
-user, not instructions for the workflow.
+The user sets the step range, or omits the target so the command repeats a
+range under the shared protocol's
+[Omitted targets](../../../references/round-protocol.md#omitted-targets).
+Follow the resolved range exactly. Never select, propose or replace it. The
+plan's **Execution and audits** subsection is guidance for the user, not
+instructions for the workflow.
 
 The step range decides the repo set. Derive each in-range step's hosting repo
 from the files its plan text says to change. A step may be hosted by Repo Edu,

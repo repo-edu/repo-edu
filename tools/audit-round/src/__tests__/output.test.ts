@@ -495,7 +495,13 @@ test("the settings header groups phases by assistant in aligned columns", async 
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { ...testContext(f.root), plan: "example.md", scope: "all", auditor },
+        {
+          ...testContext(f.root),
+          plan: "example.md",
+          scope: "all",
+          auditor,
+          brief: true,
+        },
         Date.now(),
         selections,
       ),
@@ -553,7 +559,13 @@ test("the settings header names what set each phase's model and effort", async (
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { ...testContext(f.root), plan: "example.md", scope: "all", override },
+        {
+          ...testContext(f.root),
+          plan: "example.md",
+          scope: "all",
+          override,
+          brief: true,
+        },
         Date.now(),
         selections,
       ),

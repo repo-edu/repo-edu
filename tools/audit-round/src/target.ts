@@ -113,11 +113,11 @@ export function auditTarget(
   )
 }
 
-/** Resolve one plan identity, preferring the active artifact over its archive. */
-export async function resolvePlan(
+/** The plan's artifact at the plan root, or null once it is archived or absent. */
+export async function activePlan(
   planRoot: string,
   stem: string,
-): Promise<string> {
+): Promise<string | null> {
   for (const name of [`${stem}.md`, `${stem}-widen.md`]) {
     const path = join(planRoot, name)
     try {
@@ -126,6 +126,16 @@ export async function resolvePlan(
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
     }
   }
+  return null
+}
+
+/** Resolve one plan identity, preferring the active artifact over its archive. */
+export async function resolvePlan(
+  planRoot: string,
+  stem: string,
+): Promise<string> {
+  const active = await activePlan(planRoot, stem)
+  if (active !== null) return active
   const archive = join(planRoot, "archive")
   let files: string[]
   try {

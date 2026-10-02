@@ -29,7 +29,8 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 The shared [round protocol](../../../references/round-protocol.md) owns file names, writer tags and
 rating meanings. Follow its **Later files** for the transcript and output arguments. A missing input
 or a transcript outside the shared grammar fails under the result rule when unattended.
-`pnpm audit-round brief <transcript>` starts a separate brief session.
+`pnpm audit-round brief [transcript]` starts a separate brief session, on the most recently
+modified transcript at the plan root when none is named.
 
 Resolve workflow references from Repo Edu. The transcript and output live at
 the plan root; use the supplied output path.
