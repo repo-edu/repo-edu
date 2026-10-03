@@ -60,7 +60,6 @@ type CommandRun = { command: ExclusiveCommandId; signal: AbortSignal }
 export function createHostRequestTransport(options: {
   admission: HostAdmission
   receive(request: HostRequest, receipt: HostRequestReceipt): void
-  cancel?(request: HostRequest): void
 }) {
   const retained = new Map<HostRequest, Endpoint>()
   const terminal = options.admission.terminal
@@ -172,12 +171,7 @@ export function createHostRequestTransport(options: {
   return {
     acceptCommand(command: ExclusiveCommandId, port: RequestPort) {
       const abort = new AbortController()
-      const request: HostRequest = {
-        cancel: () => {
-          abort.abort()
-          options.cancel?.(request)
-        },
-      }
+      const request: HostRequest = { cancel: () => abort.abort() }
       const endpoint = attach(request, port, { command, signal: abort.signal })
       const decision = options.admission.dispatch({
         type: "exclusive-intent",

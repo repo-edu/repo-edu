@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import type { WorkflowId } from "@repo-edu/application-contract"
 import { workflowInputSchemas } from "@repo-edu/application-contract"
 import { appAppearanceSchema } from "@repo-edu/domain/settings"
+import { fileFormats } from "@repo-edu/domain/types"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
 import {
   desktopWorkflowStarts,
@@ -141,6 +142,20 @@ it("accepts every domain theme through the gateway", () => {
     h.invoke(message)
     assert.deepEqual(h.direct, [message])
     assert.deepEqual(h.effects, [])
+  }
+})
+
+it("accepts every owned format in native file and save pickers", () => {
+  for (const format of fileFormats) {
+    for (const message of [
+      { action: "pickUserFile", input: { acceptFormats: [format] } },
+      { action: "pickSaveTarget", input: { defaultFormat: format } },
+    ]) {
+      const h = transportHarness(async () => undefined)
+      h.invoke(message)
+      assert.deepEqual(h.direct, [message])
+      assert.deepEqual(h.effects, [])
+    }
   }
 })
 

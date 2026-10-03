@@ -87,7 +87,6 @@ it("claims a save refused after close-port transfer while its renderer queue tur
   await earlierStarted.promise
   const host = createHostRequestTransport({
     admission,
-    cancel() {},
     receive(request, message) {
       if (message.type === "bundle")
         void commitRequestPersistence({
@@ -275,7 +274,6 @@ for (const close of [false, true]) {
     }
     const host = createHostRequestTransport({
       admission,
-      cancel() {},
       receive(request, message) {
         assert.equal(message.type, "bundle")
         if (message.type === "bundle")

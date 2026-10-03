@@ -4,9 +4,7 @@ import {
   type ExclusiveCommandId,
   exclusiveCommandDeclarations,
 } from "@repo-edu/application-contract"
-import { fileFormats } from "@repo-edu/domain/types"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
-import { desktopDirectMessageSchema } from "../desktop-wire"
 import { HostAdmission } from "../host-admission"
 import type { HostRequest } from "../host-admission-model"
 import { createHostRequestTransport } from "../host-request-transport"
@@ -29,17 +27,6 @@ const input = {
   },
   settlementInput: undefined,
 }
-
-it("accepts every owned format in native file and save pickers", () => {
-  for (const format of fileFormats) {
-    for (const message of [
-      { action: "pickUserFile", input: { acceptFormats: [format] } },
-      { action: "pickSaveTarget", input: { defaultFormat: format } },
-    ]) {
-      assert.deepEqual(desktopDirectMessageSchema.parse(message), message)
-    }
-  }
-})
 const settlement = {
   workflowId: "userFile.exportPreview" as const,
   outcome: {
@@ -99,9 +86,6 @@ function harness() {
   admission.dispatch({ type: "bootstrap-acknowledged" })
   const host = createHostRequestTransport({
     admission,
-    cancel() {
-      bodies.push("cancel-effect")
-    },
     receive(request, message) {
       bodies.push(message.type)
       switch (message.type) {
