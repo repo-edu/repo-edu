@@ -73,14 +73,14 @@ export class SessionPersistence {
 
   installCourse(courseId: string, loadedCourse: PersistedCourse | null): void {
     if (this.activeCourseWorkerSlot?.courseId !== courseId) {
-      this.disposeActiveCourseWorker(false)
+      this.disposeActiveCourseWorker()
     }
     if (loadedCourse !== null) useCourseStore.getState().hydrate(loadedCourse)
     this.ensureActiveCourseWorker(courseId)
   }
 
   clearCourse(): void {
-    this.disposeActiveCourseWorker(false)
+    this.disposeActiveCourseWorker()
     useCourseStore.getState().clear()
   }
 
@@ -96,19 +96,19 @@ export class SessionPersistence {
       )
     // Preparation drained the old worker. The replacement starts with this
     // committed document as its baseline, so release cannot save it again.
-    this.disposeActiveCourseWorker(false)
+    this.disposeActiveCourseWorker()
     useCourseStore.getState().applyCommittedCourse(course)
     this.ensureActiveCourseWorker(course.id)
     this.setCourseSyncStatus(idleSyncStatus)
   }
 
   dispose(): void {
-    this.disposeActiveCourseWorker(false)
+    this.disposeActiveCourseWorker()
   }
 
   private ensureActiveCourseWorker(courseId: string): void {
     if (this.activeCourseWorkerSlot?.courseId === courseId) return
-    this.disposeActiveCourseWorker(false)
+    this.disposeActiveCourseWorker()
     const worker = createCoursePersisterWorker({
       startGate: this.startGate,
       workflowClient: this.workflowClient,
@@ -130,10 +130,9 @@ export class SessionPersistence {
     this.activeCourseWorkerSlot = { courseId, worker }
   }
 
-  private disposeActiveCourseWorker(reportIdle = true): void {
+  private disposeActiveCourseWorker(): void {
     if (this.activeCourseWorkerSlot === null) return
     this.activeCourseWorkerSlot.worker.dispose()
     this.activeCourseWorkerSlot = null
-    if (reportIdle) this.setCourseSyncStatus(idleSyncStatus)
   }
 }

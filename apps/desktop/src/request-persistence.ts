@@ -48,7 +48,7 @@ export async function commitRequestPersistence(options: {
     if (bundle.course) {
       const stamp = await handlers["course.save"](bundle.course)
       if (!current()) return
-      result.course = { courseId: bundle.course.id, ...stamp }
+      result.course = stamp
     }
     if (admission.getSnapshot().phase === "preparing")
       admission.dispatch({ type: "preparation-committed", request })

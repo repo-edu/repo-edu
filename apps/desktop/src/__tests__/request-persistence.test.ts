@@ -29,6 +29,7 @@ import {
   commitRequestPersistence,
   type PreparationHandlers,
 } from "../request-persistence"
+import { createRequestPersistenceExchange } from "../request-persistence-exchange"
 import { requestChannel, until } from "./request-port-harness"
 
 const course = createBlankCourse("course", "2026-09-07T00:00:00.000Z", {
@@ -333,7 +334,7 @@ for (const close of [false, true]) {
       const ready = await until(() => (prepared ? exchange : undefined))
       const result = await ready.commit(bundle)
       assert.deepEqual(writes, ["credentials", "preferences", "course"])
-      assert.deepEqual(result, { course: { courseId: course.id, ...stamp } })
+      assert.deepEqual(result, { course: stamp })
       assert.equal(
         admission.getSnapshot().phase,
         close ? "closing.preparing" : "preparing",
@@ -345,5 +346,3 @@ for (const close of [false, true]) {
     }
   })
 }
-
-import { createRequestPersistenceExchange } from "../request-persistence-exchange"

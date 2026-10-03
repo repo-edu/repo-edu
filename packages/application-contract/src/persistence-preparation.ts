@@ -9,7 +9,7 @@ export type PersistencePreparationBundle = {
 }
 
 export type PersistencePreparationResult = {
-  course?: CourseSaveStamp & { courseId: string }
+  course?: CourseSaveStamp
 }
 
 /** Resolves only after the accepted request has committed its whole bundle. */

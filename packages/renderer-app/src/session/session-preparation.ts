@@ -20,13 +20,9 @@ export async function prepareSessionPersistence(
     ...(course ? { course: course.snapshot } : {}),
   })
   if (!canContinue()) throw new Error("The preparation turn has retired.")
-  if (
-    course
-      ? result.course?.courseId !== course.snapshot.id
-      : result.course !== undefined
-  )
+  if ((course !== null) !== (result.course !== undefined))
     throw new Error(
-      "Preparation returned a stamp for a different course claim.",
+      "Preparation must return a course stamp exactly when a course is claimed.",
     )
   // No input capture can run until every renderer baseline and stamp lands.
   if (course && result.course) await course.apply(result.course)

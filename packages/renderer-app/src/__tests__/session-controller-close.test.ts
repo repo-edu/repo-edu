@@ -126,22 +126,39 @@ describe("SessionController close preparation", () => {
     assert.equal(controller.getSnapshot().settings.preferencesWorkerId, null)
   })
 
-  it("rejects a mismatched course stamp before any readiness", async () => {
+  it("rejects a missing course stamp before any readiness", async () => {
     const controller = controllerWithCourse()
     await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
     controller.setDisplayName("course-a", "Changed")
     await assert.rejects(
+      controller.requestClose(async () => ({})),
+      /exactly when a course is claimed/,
+    )
+    assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
+    assert.equal(useCourseStore.getState().course?.revision, 0)
+  })
+
+  it("rejects an unexpected course stamp before any readiness", async () => {
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "course.list") return []
+        if (id === "settings.loadApp") return makeSettings()
+        throw new Error("No ordinary save may start during preparation.")
+      }),
+    })
+    await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
+    controller.setTheme("dark")
+    await assert.rejects(
       controller.requestClose(async () => ({
         course: {
-          courseId: "foreign",
           revision: 3,
           updatedAt: "2026-09-07T00:00:00.000Z",
         },
       })),
-      /different course claim/,
+      /exactly when a course is claimed/,
     )
     assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
-    assert.equal(useCourseStore.getState().course?.revision, 0)
+    assert.equal(useCourseStore.getState().course, null)
   })
 
   it("installs credential cleanup before notifying subscribers", async () => {

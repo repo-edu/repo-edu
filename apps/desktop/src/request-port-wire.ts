@@ -29,7 +29,6 @@ export const persistenceBundleSchema = z.strictObject({
 export const persistenceResultSchema = z.strictObject({
   course: z
     .strictObject({
-      courseId: z.string(),
       revision: persistedCourseSchema.shape.revision,
       updatedAt: persistedCourseSchema.shape.updatedAt,
     })
