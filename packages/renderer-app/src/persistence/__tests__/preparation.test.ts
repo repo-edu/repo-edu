@@ -130,13 +130,10 @@ describe("request-owned worker preparation", () => {
     h.worker.dispose()
   })
 
-  it("refuses a retired body's save even when background starts are allowed", async () => {
+  it("does not start a retired body's save even when background starts are allowed", async () => {
     const h = harness()
     h.edit("Dirty")
-    await assert.rejects(
-      h.worker.flush(() => false),
-      HostAdmissionRefusedError,
-    )
+    await h.worker.flush(() => false)
     assert.equal(h.saves, 0)
     h.worker.dispose()
   })

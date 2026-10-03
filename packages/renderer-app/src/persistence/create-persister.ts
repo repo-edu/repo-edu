@@ -306,10 +306,6 @@ export function createPersister<
         if (lifetime.error !== undefined) throw lifetime.error
         return
       }
-      if (!canStart()) {
-        if (dirty(adapter.getSnapshot())) throw new HostAdmissionRefusedError()
-        return
-      }
       clearTimer()
       if (dirty(adapter.getSnapshot())) await ensureWorker(canStart)
     },
