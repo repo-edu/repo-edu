@@ -269,7 +269,6 @@ describe("the local renderer start contract", () => {
       effect(() => {
         controller.start()
         controller.requestClose(commit)
-        controller.flush()
         gateway.presentation(id, input)
         gateway.stop(id)
       })

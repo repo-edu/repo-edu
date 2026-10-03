@@ -113,7 +113,7 @@ describe("SessionController activation", () => {
     )
     controller.dispose()
   })
-  it("waits for pending activation before close flush persists settings", async () => {
+  it("waits for pending activation before the settings save settles", async () => {
     const courseALoad = deferred<PersistedCourse>()
     const savedSettings: PersistedAppPreferences[] = []
     const controller = startController({
@@ -153,10 +153,10 @@ describe("SessionController activation", () => {
       (snapshot) => pendingTransaction(snapshot)?.kind === "enter",
     )
 
-    const closeFlush = controller.flush()
+    const idle = controller.waitForIdle()
     assert.equal(
       await Promise.race([
-        closeFlush.then(() => "flushed" as const),
+        idle.then(() => "idle" as const),
         new Promise<"pending">((resolve) =>
           setTimeout(() => resolve("pending"), 20),
         ),
@@ -166,7 +166,7 @@ describe("SessionController activation", () => {
 
     courseALoad.resolve(makeCourse("course-a"))
     await transition
-    await closeFlush
+    await idle
 
     assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.deepStrictEqual(savedSettings.at(-1)?.activeSurface, {

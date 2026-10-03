@@ -156,7 +156,7 @@ describe("SessionController bootstrap", () => {
       controller.setTheme("light")
       controller.setDisplayName("course-a", "First edit")
       controller.setDisplayName("course-a", "Final edit")
-      await controller.flush()
+      await controller.waitForIdle()
       assert.equal(savedPreferences.length, 1)
       assert.equal(savedPreferences[0]?.appearance.theme, "light")
       assert.equal(savedCourses.length, 1)
@@ -401,7 +401,7 @@ describe("SessionController bootstrap", () => {
       controller,
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
-    await controller.flush()
+    await controller.waitForIdle()
 
     assert.deepStrictEqual(activeSurface(controller.getSnapshot()), {
       kind: "home",

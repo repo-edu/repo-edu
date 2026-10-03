@@ -106,7 +106,7 @@ describe("request-owned worker preparation", () => {
       },
     })
     h.edit("Earlier save")
-    const earlier = h.worker.flush()
+    const earlier = h.worker.waitForIdle()
     await callbackStarted.promise
     h.edit("Body follow-up")
     h.gate(false)
@@ -123,7 +123,6 @@ describe("request-owned worker preparation", () => {
     h.edit("Background edit")
     await h.worker.waitForIdle()
     assert.equal(h.saves, 2)
-    await assert.rejects(h.worker.flush(), HostAdmissionRefusedError)
     assert.equal(
       (await h.worker.claim())?.snapshot.displayName,
       "Background edit",
@@ -169,7 +168,7 @@ describe("request-owned worker preparation", () => {
     await new Promise((resolve) => setTimeout(resolve, 5))
     assert.equal(h.saves, 0)
     h.gate(true)
-    await h.worker.flush()
+    await h.worker.waitForIdle()
     assert.equal(h.saves, 1)
     h.worker.dispose()
   })
@@ -184,7 +183,7 @@ describe("request-owned worker preparation", () => {
       },
     })
     h.edit("First")
-    const save = h.worker.flush()
+    const save = h.worker.waitForIdle()
     await callbackStarted.promise
     h.edit("Later")
     h.gate(false)
@@ -203,7 +202,7 @@ describe("request-owned worker preparation", () => {
     assert.equal(h.saves, 1)
     await pending?.apply({ revision: 2, updatedAt: "2026-09-07T02:00:00.000Z" })
     h.gate(true)
-    await h.worker.flush()
+    await h.worker.waitForIdle()
     assert.equal(h.saves, 1)
     assert.equal(h.course.revision, 2)
     h.worker.dispose()
@@ -216,7 +215,8 @@ describe("request-owned worker preparation", () => {
       },
     })
     h.edit("Dirty")
-    await assert.rejects(h.worker.flush(), HostAdmissionRefusedError)
+    await h.worker.waitForIdle()
+    assert.equal(h.saves, 1)
     assert.deepEqual(h.errors, [])
     h.gate(false)
     const claim = await h.worker.claim()
@@ -232,7 +232,7 @@ describe("request-owned worker preparation", () => {
       },
     })
     h.edit("Dirty")
-    await assert.rejects(h.worker.flush(), (value) => value === error)
+    await h.worker.waitForIdle()
     h.edit("Later")
     h.gate(false)
     await assert.rejects(h.worker.claim(), /disposed/)

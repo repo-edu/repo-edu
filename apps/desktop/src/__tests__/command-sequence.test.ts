@@ -334,7 +334,7 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
       false,
     )
     await running
-    await controller.flush()
+    await controller.waitForIdle()
     assert.deepEqual(
       order.filter((entry) =>
         ["credentials", "preferences", "persist"].includes(entry),
@@ -348,6 +348,126 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
     )
     assert.ok(order.indexOf("published") < order.indexOf("acknowledged"))
     assert.ok(order.indexOf("progress-applied") < order.indexOf("acknowledged"))
+    assert.equal(admission.getSnapshot().phase, "interactive")
+  } finally {
+    controller.dispose()
+    preload.dispose()
+    host.dispose()
+    channel.dispose()
+  }
+})
+
+it("settles a save the host already holds before the command intent", {
+  timeout: 3000,
+}, async () => {
+  resetStores()
+  const channel = requestChannel()
+  const saving = deferred<void>()
+  const saveRelease = deferred<void>()
+  const order: string[] = []
+  const admission = new HostAdmission((event) => {
+    if (event.type === "release-command") host.release(event.request)
+  })
+  const handlers = {
+    "settings.savePreferences": async () => assert.fail("No preferences"),
+    "settings.saveCredentials": async () => assert.fail("No credentials"),
+    "course.save": async () =>
+      assert.fail("The settled save must not be claimed again"),
+    "roster.exportMembers": async (input) => {
+      order.push("handler")
+      assert.equal(input.course.revision, 1)
+      assert.equal(input.course.displayName, "Dirty")
+      return { file: target }
+    },
+  } as WorkflowHandlerMap
+  const host = createHostRequestTransport({
+    admission,
+    receive(request, message) {
+      if (message.type === "bundle") {
+        void commitRequestPersistence({
+          request,
+          bundle: message.bundle,
+          admission,
+          handlers,
+          transport: host,
+        })
+      } else if (message.type === "input") {
+        void executeHostCommand({
+          request,
+          operation: message.operation,
+          signal: message.signal,
+          admission,
+          handlers,
+          transport: host,
+        })
+      } else if (message.type === "acknowledged") {
+        admission.dispatch({ type: "settlement-acknowledged", request })
+      }
+    },
+  })
+  const preload = createPreloadRequestTransport({
+    channel(command) {
+      order.push("intent")
+      return {
+        renderer: channel.renderer,
+        transfer: () => {
+          host.acceptCommand(command, channel.host)
+        },
+      }
+    },
+    terminal(error) {
+      throw error
+    },
+  })
+  const controller = startController({
+    commandClient: createRendererCommandClient(preload.bridge),
+    workflowClient: workflowClient(async (id) => {
+      if (id === "settings.loadApp")
+        return makeSettings({
+          activeSurface: { kind: "course", courseId: "course" },
+        })
+      if (id === "course.load") return makeCourse("course")
+      if (id === "course.list") return [makeCourse("course")]
+      if (id === "course.save") {
+        // The host settles an ordinary call before the renderer sees its result.
+        const settle = admission.startWorkflow("course.save", { cancel() {} })
+        order.push("save")
+        saving.resolve()
+        await saveRelease.promise
+        settle()
+        return { revision: 1, updatedAt: "2026-09-07T12:00:00.000Z" }
+      }
+      throw new Error(`Unexpected ordinary workflow ${id}`)
+    }),
+    onBootstrapReady: async () => {
+      admission.dispatch({ type: "bootstrap-acknowledged" })
+    },
+  })
+  try {
+    await waitForSnapshot(
+      controller,
+      (state) => state.bootstrap.status === "ready",
+    )
+    const loaded = useCourseStore.getState().course
+    assert.ok(loaded)
+    controller.setDisplayName("course", "Dirty")
+    await saving.promise
+    const running = controller.operations.execute(
+      testSessionStart(),
+      "roster.exportMembers",
+      (scope) =>
+        scope.run("roster.exportMembers", {
+          course: loaded,
+          target,
+          format: "csv",
+        }),
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.deepEqual(order, ["save"])
+    saveRelease.resolve()
+    assert.deepEqual(await running, { file: target })
+    assert.deepEqual(order, ["save", "intent", "handler"])
+    assert.equal(useCourseStore.getState().course?.revision, 1)
     assert.equal(admission.getSnapshot().phase, "interactive")
   } finally {
     controller.dispose()

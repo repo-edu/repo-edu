@@ -182,8 +182,10 @@ the existing transaction owner. Follow-up bodies retain the initiating start.
   Its queue turn stops worker starts, settles accepted saves, claims eligible
   dirty snapshots and applies committed stamps. Ready acknowledgement never
   restores the session. Browser lifecycle signals do not participate.
-- Commands stop worker starts before intent, prepare persistence after host
-  acceptance and capture immutable input after applying stamps. Authoritative
+- Commands stop worker starts at reservation. Their queue turn waits for saves
+  already sent, because the host refuses intent while any ordinary call is
+  open. They prepare persistence after host acceptance and capture immutable
+  input after applying stamps. Authoritative
   settlement applies before acknowledgement, host release and retirement.
   Course-changing commands apply the application's complete committed course;
   features cannot merge their partial results. Confirmation-expiry unknown
@@ -191,6 +193,6 @@ the existing transaction owner. Follow-up bodies retain the initiating start.
 - `course.save` may return only the host-stamped `{ revision, updatedAt }`; the controller applies
   that stamp to the loaded course when the active worker and course id still match. No save response
   may replace the full renderer document.
-- Components use `useSessionController()` for session flushes, navigation, active tab changes and
-  course mutations. Non-component helpers use `getSessionController()`, which throws before the
-  controller is installed.
+- Components use `useSessionController()` for navigation, active tab changes and course mutations.
+  Non-component helpers use `getSessionController()`, which throws before the controller is
+  installed.

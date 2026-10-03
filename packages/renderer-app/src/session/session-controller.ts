@@ -41,7 +41,6 @@ import {
   type PersistedCourse,
   type ValidationIssue,
 } from "@repo-edu/domain/types"
-import { settlePersistenceOperations } from "../persistence/create-persister.js"
 import { useConnectionsStore } from "../stores/connections-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
@@ -191,7 +190,10 @@ export class SessionController extends CourseMutationController {
       this.getSnapshot,
       (scope, surface, folder, result) =>
         this.reconcileDiscovery(scope, surface, folder, result),
-      (scope, commit) => this.preparePersistence(scope, commit),
+      {
+        idle: () => this.persistenceIdle(),
+        prepare: (scope, commit) => this.preparePersistence(scope, commit),
+      },
       (course) => {
         this.persistence.applyCommittedCourse(course)
         seedLoadedCourseSummary(course)
@@ -354,16 +356,12 @@ export class SessionController extends CourseMutationController {
     this.dispatch({ type: "clear-command-error" })
   }
 
-  async flush(): Promise<void> {
-    await this.transactions.flush()
-    await settlePersistenceOperations([
-      this.settings.flush(),
-      this.persistence.flush(),
-    ])
-  }
-
   async waitForIdle(): Promise<void> {
     await this.transactions.flush()
+    await this.persistenceIdle()
+  }
+
+  private async persistenceIdle(): Promise<void> {
     await Promise.all([
       this.settings.waitForIdle(),
       this.persistence.waitForIdle(),

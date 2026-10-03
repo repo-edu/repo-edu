@@ -10,7 +10,6 @@ import {
   type Persister,
   type WorkerStartGate,
 } from "../persistence/create-persister.js"
-import { runWithRetry } from "../persistence/retry.js"
 import { useCourseStore } from "../stores/course-store.js"
 import type { SessionTransactionScope } from "./session-surface-transactions.js"
 import type { ControllerWorkflowId } from "./workflow-types.js"
@@ -40,11 +39,7 @@ export class SessionPersistence {
     scope: SessionTransactionScope,
     course: PersistedCourse,
   ): Promise<CourseSaveStamp> {
-    return scope.required(() =>
-      runWithRetry(() => this.workflowClient.run("course.save", course), {
-        isCancelled: () => !scope.canContinue(),
-      }),
-    )
+    return scope.required(() => this.workflowClient.run("course.save", course))
   }
 
   deleteDetached(
@@ -66,10 +61,6 @@ export class SessionPersistence {
     return scope.tolerated(async () => {
       await this.activeCourseWorkerSlot?.worker.flush(() => scope.canContinue())
     })
-  }
-
-  async flush(): Promise<void> {
-    await this.activeCourseWorkerSlot?.worker.flush()
   }
 
   async waitForIdle(): Promise<void> {

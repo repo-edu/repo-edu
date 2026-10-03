@@ -237,7 +237,7 @@ describe("SessionController deletion", () => {
 
     // The active worker is resumed, so a later edit still persists.
     controller.setDisplayName("course-a", "Renamed A")
-    await controller.flush()
+    await controller.waitForIdle()
     assert.equal(
       savedDrafts.some((draft) => draft.displayName === "Renamed A"),
       true,

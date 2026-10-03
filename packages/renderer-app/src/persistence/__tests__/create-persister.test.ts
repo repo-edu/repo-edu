@@ -153,7 +153,7 @@ describe("createPersister", () => {
   it("adopts the startup snapshot as clean", async () => {
     const harness = createCourseHarness(async (course) => nextStamp(course))
 
-    await harness.persister.flush()
+    await harness.persister.flush(() => true)
 
     assert.equal(harness.saved.length, 0)
     assert.deepStrictEqual(harness.status, idleSyncStatus)
@@ -170,7 +170,7 @@ describe("createPersister", () => {
       displayName: "Second edit",
     })
 
-    await harness.persister.flush()
+    await harness.persister.flush(() => true)
 
     assert.equal(harness.saved.length, 1)
     assert.equal(harness.saved[0]?.displayName, "Second edit")
@@ -195,7 +195,7 @@ describe("createPersister", () => {
       ...requireSnapshot(harness.snapshot),
       displayName: "First edit",
     })
-    const flush = harness.persister.flush()
+    const flush = harness.persister.flush(() => true)
     await firstSaveStarted.promise
 
     harness.setSnapshot({
@@ -232,7 +232,7 @@ describe("createPersister", () => {
       ...requireSnapshot(harness.snapshot),
       displayName: "Course 1 edit",
     })
-    const flush = harness.persister.flush()
+    const flush = harness.persister.flush(() => true)
     await firstSaveStarted.promise
 
     harness.setSnapshot(makeCourse("course-2"))
@@ -263,12 +263,18 @@ describe("createPersister", () => {
       ...requireSnapshot(harness.snapshot),
       displayName: "Dirty",
     })
-    await assert.rejects(harness.persister.flush(), (value) => value === error)
+    await assert.rejects(
+      harness.persister.flush(() => true),
+      (value) => value === error,
+    )
     harness.setSnapshot({
       ...requireSnapshot(harness.snapshot),
       displayName: "Later",
     })
-    await assert.rejects(harness.persister.flush(), (value) => value === error)
+    await assert.rejects(
+      harness.persister.flush(() => true),
+      (value) => value === error,
+    )
     assert.equal(harness.saved.length, 1)
     assert.equal(harness.status.state, "error")
   })

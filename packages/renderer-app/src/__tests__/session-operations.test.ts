@@ -55,7 +55,7 @@ function harness(
     },
     () => snapshot,
     undefined,
-    async () => {},
+    { idle: async () => {}, prepare: async () => {} },
     undefined,
     enterSurface,
   )

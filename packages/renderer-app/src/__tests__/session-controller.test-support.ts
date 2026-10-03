@@ -1,10 +1,11 @@
-import type {
-  AppSettingsLoadResult,
-  CommitPersistencePreparation,
-  ExclusiveCommandClient,
-  WorkflowClient,
-  WorkflowId,
-  WorkflowResult,
+import {
+  type AppSettingsLoadResult,
+  type CommitPersistencePreparation,
+  type ExclusiveCommandClient,
+  HostAdmissionRefusedError,
+  type WorkflowClient,
+  type WorkflowId,
+  type WorkflowResult,
 } from "@repo-edu/application-contract"
 import {
   defaultAppSettings,
@@ -104,14 +105,37 @@ export function workflowClient(
   } as WorkflowClient
 }
 
-export function commandClient(client: WorkflowClient): ExclusiveCommandClient {
+type CommandHost = {
+  /** The host's answer to command intent. */
+  admission?: () => "accepted" | "busy"
+  /** The host's durable commit of the preparation bundle. */
+  commit?: CommitPersistencePreparation
+}
+
+/** Follows the desktop client's order: intent admission, persistence
+ * preparation, input capture, execution, then settlement of the body. */
+export function commandClient(
+  client: WorkflowClient,
+  {
+    admission = () => "accepted",
+    commit = commitPreparation,
+  }: CommandHost = {},
+): ExclusiveCommandClient {
   return {
-    async runBody(_command, _preparation, body, settle) {
-      const result = await body({
-        run: (id, capture, options) => client.run(id, capture(), options),
-      })
+    async runBody(_command, preparation, body, settle) {
+      const outcome = await body({
+        async run(id, capture, options) {
+          if (admission() === "busy") throw new HostAdmissionRefusedError()
+          await preparation(commit)
+          return await client.run(id, capture(), options)
+        },
+      }).then(
+        (value) => ({ ok: true as const, value }),
+        (error: unknown) => ({ ok: false as const, error }),
+      )
       await settle()
-      return result
+      if (!outcome.ok) throw outcome.error
+      return outcome.value
     },
   }
 }

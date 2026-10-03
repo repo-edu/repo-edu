@@ -337,7 +337,7 @@ for (const command of commands) {
       )
       host.release(releasing)
       await running
-      await controller.flush()
+      await controller.waitForIdle()
       assert.equal(writes, 1)
       assert.equal(admission.getSnapshot().phase, "interactive")
       assert.equal(controller.getSnapshot().transactions.admitted.size, 0)

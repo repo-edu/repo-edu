@@ -205,7 +205,7 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
             scope.publish(() => order.push("next publication"))
           },
         )
-        await controller.flush()
+        await controller.waitForIdle()
         assert.deepEqual(order, [
           "preparation commit",
           "execution",

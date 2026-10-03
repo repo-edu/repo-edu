@@ -186,7 +186,7 @@ for (const workflow of workflows) {
         ),
         false,
       )
-      await h.controller.flush()
+      await h.controller.waitForIdle()
       assert.equal(h.saves.length, 1)
       assert.deepEqual(h.saves[0]?.roster, result.roster)
       assert.deepEqual(h.saves[0]?.idSequences, result.idSequences)

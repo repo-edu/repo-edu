@@ -7,6 +7,7 @@ import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import {
   activeSurface,
+  commandClient,
   commitPreparation,
   deferred,
   makeCourse,
@@ -53,38 +54,58 @@ describe("session course listing", () => {
         const listing = deferred<void>()
         const listRelease = deferred<void>()
         const order: string[] = []
+        const assertPublished = () => {
+          assert.deepEqual(useUiStore.getState().courseList, summaries())
+          assert.deepEqual(
+            controller.getSnapshot().settings.preferences
+              .recentSubmissionFolders,
+            [
+              { path: "/active", courseId: "active" },
+              { path: "/inactive", courseId: "inactive" },
+            ].filter(({ courseId }) => courses.has(courseId)),
+          )
+          order.push(successor)
+        }
+        const workflow = workflowClient(async (id, input) => {
+          if (id === "settings.loadApp")
+            return makeSettings({
+              activeSurface: { kind: "course", courseId: "active" },
+              recentSubmissionFolders: [
+                { path: "/active", courseId: "active" },
+                { path: "/inactive", courseId: "inactive" },
+                { path: "/missing", courseId: "missing" },
+              ],
+            })
+          if (id === "course.load")
+            return courses.get((input as { courseId: string }).courseId)
+          if (id === "course.save" || id === "course.delete") {
+            changing.resolve()
+            await changeRelease.promise
+            order.push("changed")
+            if (id === "course.delete") {
+              courses.delete((input as { courseId: string }).courseId)
+              return
+            }
+            const course = input as PersistedCourse
+            const stamp = { revision: 1, updatedAt: "2026-09-11T00:00:00Z" }
+            courses.set(course.id, { ...course, ...stamp })
+            return stamp
+          }
+          if (id === "course.list") {
+            if (order.length === 0) return summaries()
+            listing.resolve()
+            await listRelease.promise
+            return summaries()
+          }
+        })
         const controller = startController({
-          workflowClient: workflowClient(async (id, input) => {
-            if (id === "settings.loadApp")
-              return makeSettings({
-                activeSurface: { kind: "course", courseId: "active" },
-                recentSubmissionFolders: [
-                  { path: "/active", courseId: "active" },
-                  { path: "/inactive", courseId: "inactive" },
-                  { path: "/missing", courseId: "missing" },
-                ],
-              })
-            if (id === "course.load")
-              return courses.get((input as { courseId: string }).courseId)
-            if (id === "course.save" || id === "course.delete") {
-              changing.resolve()
-              await changeRelease.promise
-              order.push("changed")
-              if (id === "course.delete") {
-                courses.delete((input as { courseId: string }).courseId)
-                return
-              }
-              const course = input as PersistedCourse
-              const stamp = { revision: 1, updatedAt: "2026-09-11T00:00:00Z" }
-              courses.set(course.id, { ...course, ...stamp })
-              return stamp
-            }
-            if (id === "course.list") {
-              if (order.length === 0) return summaries()
-              listing.resolve()
-              await listRelease.promise
-              return summaries()
-            }
+          workflowClient: workflow,
+          commandClient: commandClient(workflow, {
+            commit: async (preparation) => {
+              assert.equal(preparation.course, undefined)
+              assertPublished()
+              return commitPreparation(preparation)
+            },
           }),
         })
         controllers.push(controller)
@@ -125,30 +146,18 @@ describe("session course listing", () => {
           analysisRelease.resolve()
           await changing.promise
         }
-        const assertPublished = () => {
-          assert.deepEqual(useUiStore.getState().courseList, summaries())
-          assert.deepEqual(
-            controller.getSnapshot().settings.preferences
-              .recentSubmissionFolders,
-            [
-              { path: "/active", courseId: "active" },
-              { path: "/inactive", courseId: "inactive" },
-            ].filter(({ courseId }) => courses.has(courseId)),
-          )
-          order.push(successor)
-        }
         const next =
           successor !== "close"
             ? controller.operations.execute(
-                testSessionStart("analysisRun"),
-                "roster.exportMembers",
-                async (scope) => {
-                  await scope.preparePersistence(async (preparation) => {
-                    assert.equal(preparation.course, undefined)
-                    return commitPreparation(preparation)
-                  })
-                  assertPublished()
-                },
+                testSessionStart("archiveExport"),
+                "examination.archive.export",
+                (scope) =>
+                  scope.run("examination.archive.export", {
+                    kind: "user-save-target-ref",
+                    referenceId: "target",
+                    displayName: "archive.zip",
+                    suggestedFormat: null,
+                  }),
               )
             : controller.requestClose(async (preparation) => {
                 assertPublished()

@@ -62,7 +62,6 @@ export type SessionOperationScope = {
   /** Aborts when this operation is stopped. Every host call already carries
    * it; read it to skip work a stop has overtaken. */
   readonly signal: AbortSignal
-  preparePersistence(commit: CommitPersistencePreparation): Promise<void>
   run<K extends SessionWorkflowId>(
     id: K,
     input: WorkflowInput<K>,
@@ -85,6 +84,18 @@ export type SessionOperationScope = {
     folder: string,
     result: AnalysisDiscoverReposResult,
   ): Promise<PersistedActiveSurface | null>
+}
+
+/** The persistence duties of a command turn. Reservation has already closed
+ * worker starts. */
+export type SessionCommandPersistence = {
+  /** Settles saves sent before reservation. The host refuses command intent
+   * while one of them is still open. */
+  idle(): Promise<void>
+  prepare(
+    scope: SessionTransactionScope,
+    commit: CommitPersistencePreparation,
+  ): Promise<void>
 }
 
 export type SessionOperationReservation<T> = {
@@ -134,10 +145,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
     ) => Promise<PersistedActiveSurface | null> = async () => {
       throw new Error("Discovery follow-up is not installed.")
     },
-    private readonly preparePersistence?: (
-      scope: SessionTransactionScope,
-      commit: CommitPersistencePreparation,
-    ) => Promise<void>,
+    private readonly persistence?: SessionCommandPersistence,
     private readonly applyCommittedCourse?: (course: PersistedCourse) => void,
     private readonly enterSurface?: (
       scope: SessionTransactionScope,
@@ -209,20 +217,23 @@ export class SessionOperations extends SessionSurfaceTransactions {
     }
   }
 
-  private runBody<T>(
+  private async runBody<T>(
     start: SessionStart,
     scope: SessionTransactionScope,
     operation: SessionOperationId,
     body: (scope: SessionOperationScope) => Promise<T>,
   ): Promise<T> {
     if (sessionOperationKind(operation) !== "command")
-      return body(this.operationScope(start, scope, operation))
-    const prepare = this.preparePersistence
-    if (!prepare)
+      return await body(this.operationScope(start, scope, operation))
+    const persistence = this.persistence
+    if (!persistence)
       throw new Error("The session persistence owner is not installed.")
-    return this.commands.runBody(
+    // The app's own save must not make the command busy, so the body cannot
+    // send intent before every save sent before reservation has settled.
+    await scope.required(() => persistence.idle())
+    return await this.commands.runBody(
       operation as ExclusiveCommandId,
-      (commit) => prepare(scope, commit),
+      (commit) => persistence.prepare(scope, commit),
       (client) => body(this.operationScope(start, scope, operation, client)),
       async () => {
         await scope.settle()
@@ -245,15 +256,6 @@ export class SessionOperations extends SessionSurfaceTransactions {
     return {
       start,
       signal: scope.signal,
-      preparePersistence: (commit) =>
-        scope.required(() => {
-          if (
-            sessionOperationKind(operation) !== "command" ||
-            !this.preparePersistence
-          )
-            throw new Error("Only the command owner may prepare persistence.")
-          return this.preparePersistence(scope, commit)
-        }),
       run: (id, input, options) =>
         this.runScoped(scope, operation, id, input, options, command),
       direct: (id, start) =>

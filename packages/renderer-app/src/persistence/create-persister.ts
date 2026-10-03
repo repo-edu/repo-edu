@@ -33,22 +33,11 @@ export type WorkerStartGate = {
 }
 
 export type Persister<TSnapshot = unknown, TResult = unknown> = {
-  /** A queued body supplies its own authority; other starts use the worker gate. */
-  flush: (canStart?: () => boolean) => Promise<void>
+  /** Only a queued body flushes, under its own turn's authority. */
+  flush: (canStart: () => boolean) => Promise<void>
   waitForIdle: () => Promise<void>
   claim: () => Promise<PersistenceClaim<TSnapshot, TResult> | null>
   dispose: () => void
-}
-
-export async function settlePersistenceOperations(
-  operations: readonly Promise<void>[],
-): Promise<void> {
-  const outcomes = await Promise.allSettled(operations)
-  const failure = outcomes.find(
-    (outcome): outcome is PromiseRejectedResult =>
-      outcome.status === "rejected",
-  )
-  if (failure !== undefined) throw failure.reason
 }
 
 type SaveWorkflowId<TSnapshot> = {
@@ -309,7 +298,7 @@ export function createPersister<
         },
       }
     },
-    async flush(canStart = mayStart) {
+    async flush(canStart) {
       // Join earlier saves through stamp application, then use this caller's
       // authority for any remaining dirty work.
       while (worker !== null) await worker
