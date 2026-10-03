@@ -145,7 +145,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
     ) => Promise<PersistedActiveSurface | null> = async () => {
       throw new Error("Discovery follow-up is not installed.")
     },
-    private readonly persistence?: SessionCommandPersistence,
+    private readonly persistence: SessionCommandPersistence,
     private readonly applyCommittedCourse?: (course: PersistedCourse) => void,
     private readonly enterSurface?: (
       scope: SessionTransactionScope,
@@ -225,15 +225,12 @@ export class SessionOperations extends SessionSurfaceTransactions {
   ): Promise<T> {
     if (sessionOperationKind(operation) !== "command")
       return await body(this.operationScope(start, scope, operation))
-    const persistence = this.persistence
-    if (!persistence)
-      throw new Error("The session persistence owner is not installed.")
     // The app's own save must not make the command busy, so the body cannot
     // send intent before every save sent before reservation has settled.
-    await scope.required(() => persistence.idle())
+    await scope.required(() => this.persistence.idle())
     return await this.commands.runBody(
       operation as ExclusiveCommandId,
-      (commit) => persistence.prepare(scope, commit),
+      (commit) => this.persistence.prepare(scope, commit),
       (client) => body(this.operationScope(start, scope, operation, client)),
       async () => {
         await scope.settle()

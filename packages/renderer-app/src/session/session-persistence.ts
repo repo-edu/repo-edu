@@ -57,12 +57,6 @@ export class SessionPersistence {
     })
   }
 
-  flushActiveTolerated(scope: SessionTransactionScope): Promise<void> {
-    return scope.tolerated(async () => {
-      await this.activeCourseWorkerSlot?.worker.flush(() => scope.canContinue())
-    })
-  }
-
   async waitForIdle(): Promise<void> {
     await this.activeCourseWorkerSlot?.worker.waitForIdle()
   }

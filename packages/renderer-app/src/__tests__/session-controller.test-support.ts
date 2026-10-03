@@ -48,7 +48,6 @@ export const commitPreparation: CommitPersistencePreparation = async ({
   course
     ? {
         course: {
-          courseId: course.id,
           revision: course.revision + 1,
           updatedAt: "2026-09-07T00:00:00.000Z",
         },

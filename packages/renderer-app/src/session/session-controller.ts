@@ -510,11 +510,7 @@ export class SessionController extends CourseMutationController {
           return
         }
         try {
-          try {
-            await this.persistence.flushActiveTolerated(scope)
-          } catch {
-            /* deletion supersedes a stale save failure */
-          }
+          await this.persistence.flushActive(scope)
           await this.persistence.deleteDetached(scope, courseId)
           const fallback = fallbackSurfaceForDeletedCourse(courseId)
           const commit = await this.prepareDeletedCourseFallback(
