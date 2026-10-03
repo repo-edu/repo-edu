@@ -41,10 +41,10 @@ const briefPin: PinnedModel = {
 }
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/example-all-01-1-round.oth.md`
-const brief = `${repoRoot}/example-all-01-6-brief.oul.md`
-const ruling = `${repoRoot}/example-all-01-7-ruling.abx.md`
-const watch = `${repoRoot}/example-all-01-9-watch.abx.md`
+const transcript = `${repoRoot}/example-step-all-01-1-round.oth.md`
+const brief = `${repoRoot}/example-step-all-01-6-brief.oul.md`
+const ruling = `${repoRoot}/example-step-all-01-7-ruling.abx.md`
+const watch = `${repoRoot}/example-step-all-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
@@ -406,7 +406,7 @@ for (const accepted of [false, true]) {
       const round = controlledRound(async (input) => {
         if (input.phase === "brief")
           assert.deepEqual(round.closed, [
-            { cwd: files.planRoot, nameStart: "example-all-01" },
+            { cwd: files.planRoot, nameStart: "example-step-all-01" },
           ])
       })
       round.evidence.accepted = accepted

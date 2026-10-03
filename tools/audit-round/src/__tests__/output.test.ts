@@ -63,7 +63,7 @@ test("commit stamps retain each phase's reported selection across later phases",
         ...setup,
         ...phases[phase],
         ...(phase === "audit"
-          ? { phase, arguments: ["example-all-01", "example.md"] as const }
+          ? { phase, arguments: ["example-step-all-01", "example.md"] as const }
           : phase === "rebut"
             ? {
                 phase,
@@ -127,7 +127,7 @@ test("output records complete invocations incrementally and refreshes only while
         assistant: "codex",
         model: unpinned,
         ...testContext(f.root),
-        arguments: ["example-all-01", "example.md"],
+        arguments: ["example-step-all-01", "example.md"],
         sessionId: null,
       },
       "Full prompt\nMore prompt",
@@ -250,7 +250,7 @@ test("written status stamps chain into the running total", async (t) => {
       assistant: "codex",
       model: unpinned,
       ...testContext(f.root),
-      arguments: ["example-all-01", "example.md"],
+      arguments: ["example-step-all-01", "example.md"],
       sessionId: null,
     },
     "Prompt",
@@ -313,7 +313,7 @@ for (const assistant of ["claude", "codex"] as const) {
           assistant,
           model: unpinned,
           ...testContext(f.root),
-          arguments: ["example-all-01", "example.md"],
+          arguments: ["example-step-all-01", "example.md"],
           sessionId: null,
         },
         "prompt",
@@ -663,7 +663,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
 
 test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-all-01-1-round.oth.md")
+  const transcript = join(f.root, "example-step-all-01-1-round.oth.md")
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
@@ -687,11 +687,11 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     },
   )
   t.after(() => output.close())
-  assert.match(output.paths.log, /example-all-01-6-brief\.oul\.log$/)
+  assert.match(output.paths.log, /example-step-all-01-6-brief\.oul\.log$/)
   assert.equal(output.paths.markdown, null)
   assert.match(
     visible[1] as string,
-    /^Brief of example-all-01-1-round\.oth\.md\n/,
+    /^Brief of example-step-all-01-1-round\.oth\.md\n/,
   )
   assert.doesNotMatch(visible[1] as string, /Texts:/)
   output.models({

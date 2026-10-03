@@ -303,7 +303,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         working,
       )
       const root = f.planRoot
-      const target = working === "plan" ? "example" : "example-step-2"
+      const target = working === "plan" ? "example" : "example-step-02..02"
       await writeFile(join(root, `${target}-09-2-audit.oth.md`), "Peer report")
       const before = await readdir(root)
       const settings = structuredClone(testSettings)
@@ -414,7 +414,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
   )
   assert.equal(
     JSON.parse(f.visible[0]).arguments[0],
-    join(f.planRoot, "example-steps-2-3-01-2-audit.oux.md"),
+    join(f.planRoot, "example-step-02..03-01-2-audit.oux.md"),
   )
   assert.equal(
     await runCommand(
@@ -807,7 +807,7 @@ for (const auditor of ["claude", "codex"] as const) {
       files.some((name) => name.includes("-4-rebut.")),
       false,
     )
-    assert.ok(files.includes("example-steps-2-3-01-6-brief.oul.md"))
+    assert.ok(files.includes("example-step-02..03-01-6-brief.oul.md"))
     for (const phase of ["audit", "vet", "fix"] as const)
       assert.ok(markdown.includes(`## ${phase} (`))
     assert.equal(markdown.includes("## rebut ("), false)
@@ -1291,7 +1291,7 @@ test("a brief without a transcript retells the newest round at the plan root", a
   }
   assert.equal(await brief(), 1)
   assert.match(f.errors[0], /No round transcript/)
-  const [older, newer] = ["example-02", "example-step-7-01"].map((start) =>
+  const [older, newer] = ["example-02", "example-step-07..07-01"].map((start) =>
     join(f.planRoot, `${start}-1-round.abx.md`),
   )
   await writeFile(older, "# Audit round of plan example.md\n")
@@ -1300,7 +1300,7 @@ test("a brief without a transcript retells the newest round at the plan root", a
   await utimes(older, 1_000, 1_000)
   assert.equal(await brief(), 0, f.errors.join("\n"))
   const log = await readFile(
-    join(f.planRoot, "example-step-7-01-6-brief.oul.log"),
+    join(f.planRoot, "example-step-07..07-01-6-brief.oul.log"),
     "utf8",
   )
   assert.ok(log.includes(JSON.stringify([newer, f.brief])))
@@ -1333,11 +1333,11 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
   const f = await roundFixture(t)
-  const transcript = join(f.planRoot, "example-step-7-01-1-round.abx.md")
+  const transcript = join(f.planRoot, "example-step-07..07-01-1-round.abx.md")
   await writeFile(transcript, "# Audit round of implementation example.md 7\n")
   assert.equal(
     await runCommand(
-      ["brief", "example-step-7-01-1-round.abx.md"],
+      ["brief", "example-step-07..07-01-1-round.abx.md"],
       f.runtime,
       f.options,
     ),
@@ -1355,20 +1355,20 @@ test("a brief on its own retells the named transcript without a new round pair",
     ["codex"],
   )
   const names = (await readdir(f.planRoot)).filter((name) =>
-    name.startsWith("example-step-7-01-"),
+    name.startsWith("example-step-07..07-01-"),
   )
   const logName = names.find((name) => name.endsWith(".log")) as string
-  assert.match(logName, /^example-step-7-01-6-brief\.oul\.log$/)
+  assert.match(logName, /^example-step-07\.\.07-01-6-brief\.oul\.log$/)
   assert.deepEqual(
     names.toSorted(),
     [
       logName,
-      "example-step-7-01-1-round.abx.md",
-      "example-step-7-01-6-brief.oul.md",
+      "example-step-07..07-01-1-round.abx.md",
+      "example-step-07..07-01-6-brief.oul.md",
     ].toSorted(),
   )
   const log = await readFile(join(f.planRoot, logName), "utf8")
-  assert.match(log, /Brief of example-step-7-01-1-round\.abx\.md\n/)
+  assert.match(log, /Brief of example-step-07\.\.07-01-1-round\.abx\.md\n/)
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
@@ -1486,14 +1486,14 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-step-3-01-1-round.ouh.log",
-    "example-step-3-01-1-round.ouh.md",
-    "example-step-3-02-1-round.ouh.log",
-    "example-step-3-02-1-round.ouh.md",
-    "example-step-3-03-1-round.ouh.log",
-    "example-step-3-03-1-round.ouh.md",
-    "example-step-3-04-1-round.ouh.log",
-    "example-step-3-04-1-round.ouh.md",
+    "example-step-03..03-01-1-round.ouh.log",
+    "example-step-03..03-01-1-round.ouh.md",
+    "example-step-03..03-02-1-round.ouh.log",
+    "example-step-03..03-02-1-round.ouh.md",
+    "example-step-03..03-03-1-round.ouh.log",
+    "example-step-03..03-03-1-round.ouh.md",
+    "example-step-03..03-04-1-round.ouh.log",
+    "example-step-03..03-04-1-round.ouh.md",
   ])
   const invocations = (await f.calls()).filter(
     (call) =>
@@ -1537,12 +1537,12 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-all-01-1-round.ouh.log",
-    "example-all-01-1-round.ouh.md",
-    "example-all-02-1-round.ouh.log",
-    "example-all-02-1-round.ouh.md",
-    "example-all-03-1-round.auh.log",
-    "example-all-03-1-round.auh.md",
+    "example-step-all-01-1-round.ouh.log",
+    "example-step-all-01-1-round.ouh.md",
+    "example-step-all-02-1-round.ouh.log",
+    "example-step-all-02-1-round.ouh.md",
+    "example-step-all-03-1-round.auh.log",
+    "example-step-all-03-1-round.auh.md",
   ])
   const visible = f.visible.join("\n")
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
@@ -1679,7 +1679,9 @@ test("an unchained run claims its round number and says nothing about a chain", 
   const names = await f.roundFiles()
   assert.equal(names.length, 2)
   assert.ok(
-    names.every((name) => name.startsWith("example-step-3-01-1-round.ouh.")),
+    names.every((name) =>
+      name.startsWith("example-step-03..03-01-1-round.ouh."),
+    ),
   )
   assert.doesNotMatch(f.visible.join("\n"), /Chain/)
 })
@@ -1806,8 +1808,9 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     for (const [args, target] of [
       [["example"], "example"],
-      [["example", "all"], "example-all"],
-      [["example", "1-2"], "example-steps-1-2"],
+      [["example", "all"], "example-step-all"],
+      [["example", "1-2"], "example-step-01..02"],
+      [["example", "9-12"], "example-step-09..12"],
       [["abcdef"], "abcdef"],
     ] as const) {
       f.visible.length = 0

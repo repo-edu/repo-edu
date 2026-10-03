@@ -19,9 +19,13 @@ The plan repo's handoff rule owns that six-character sha.
 
 - **Target** names what was audited. A planning-artifact audit uses its bare
   stem, without `.md` or `-widen`. For an archived `plan.md`, use the archive
-  folder's name. An implementation audit adds `-step-<n>`, `-steps-<a>-<b>`
-  or `-all` to that stem. The explicit step words disambiguate a plan name
-  ending in a number when reading a filename from the right.
+  folder's name. An implementation audit adds `-step-<a>..<b>` or `-step-all`
+  to that stem. A single step is the range from itself to itself, such as
+  `-step-07..07`, and step numbers are padded to at least two digits. The
+  explicit step word disambiguates a plan name ending in a number when reading
+  a filename from the right. One word, padding and the `..` range keep `ls` and
+  Finder in step order, with a range after every round of its first step. The
+  equal width keeps round and phase numbers aligned across scopes.
 - **Commit targets** preserve the references as typed, replacing `HEAD` with
   Repo Edu's short sha at the start of the round. Keep offsets: `HEAD-4..HEAD` becomes
   `b7ca0b3b-4..b7ca0b3b`. For a list, use its first reference followed by
@@ -57,8 +61,8 @@ then split the remaining name at its last hyphen into target and round.
 The tagless claim and handoff are the two exceptions above. Do not read repo
 names or audited heads from a filename; they belong in the report opening.
 
-For example, one round can contain `example-step-2-01-2-audit.otm.md` and
-`example-step-2-01-3-vet.abx.md`. Their target and round match; their writer tags
+For example, one round can contain `example-step-02..02-01-2-audit.otm.md` and
+`example-step-02..02-01-3-vet.abx.md`. Their target and round match; their writer tags
 differ. Automated sessions receive complete paths. Manual sessions resolve their
 paths through the shared command below.
 

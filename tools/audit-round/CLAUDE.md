@@ -374,15 +374,15 @@ pnpm audit-round example 3 --brief
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
 pnpm audit-round --auditor codex
-pnpm audit-round brief example-step-3-01-1-round.otm.md
+pnpm audit-round brief example-step-03..03-01-1-round.otm.md
 pnpm audit-round brief
 pnpm audit-round plan
 pnpm audit-round name example 3 --auditor oth
 pnpm audit-round name --auditor oth
-pnpm audit-round paths vet example-step-3-01-2-audit.oth.md --writer abx
-pnpm audit-round paths rebut example-step-3-01-2-audit.oth.md --writer otm
-pnpm audit-round paths fix example-step-3-01-2-audit.oth.md
-pnpm audit-round close example-step-3-01
+pnpm audit-round paths vet example-step-03..03-01-2-audit.oth.md --writer abx
+pnpm audit-round paths rebut example-step-03..03-01-2-audit.oth.md --writer otm
+pnpm audit-round paths fix example-step-03..03-01-2-audit.oth.md
+pnpm audit-round close example-step-03..03-01
 pnpm audit-round episode example
 pnpm audit-round episode HEAD-2
 pnpm audit-round:contract

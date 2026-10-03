@@ -95,12 +95,14 @@ async function targetDescription(target: NamingTarget): Promise<{
   const stem = planStem(target.plan)
   if (target.roundKind === "planning")
     return { label: stem, title: `plan ${target.plan}` }
-  const scope =
-    target.scope === "all"
-      ? "all"
-      : `${target.scope.includes("-") ? "steps" : "step"}-${target.scope}`
+  // Padded `first..last` scopes sort the same in `ls` and Finder and keep the
+  // round and phase numbers aligned, since a single step is a one-step range.
+  const [first, last = first] = target.scope
+    .split("-")
+    .map((step) => step.padStart(2, "0"))
+  const scope = target.scope === "all" ? "all" : `${first}..${last}`
   return {
-    label: `${stem}-${scope}`,
+    label: `${stem}-step-${scope}`,
     title: `implementation ${target.plan} ${target.scope}`,
   }
 }

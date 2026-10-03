@@ -343,11 +343,11 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
     )
     .argument(
       "<target-round>",
-      "exact target and round, such as example-step-2-01",
+      "exact target and round, such as example-step-02..02-01",
       (value: string) => {
         if (!/^[^/]+-\d{2,}$/.test(value))
           throw new InvalidArgumentError(
-            "Expected a target and round, such as example-step-2-01.",
+            "Expected a target and round, such as example-step-02..02-01.",
           )
         return value
       },
