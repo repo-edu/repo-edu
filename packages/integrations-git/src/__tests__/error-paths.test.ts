@@ -637,6 +637,52 @@ describe("error handling consistency across git providers", () => {
     }
   })
 
+  it("Gitea reports a refused delete of a renamed file's old path as a known failure", async () => {
+    const http: HttpPort = {
+      async fetch(request: HttpRequest): Promise<HttpResponse> {
+        if (request.method === "DELETE") {
+          return {
+            status: 403,
+            statusText: "Forbidden",
+            headers: { "content-type": "application/json" },
+            body: "{}",
+          }
+        }
+        if (request.method === "GET" && request.url.includes("/contents/")) {
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ sha: "previous-sha" }),
+          }
+        }
+        return createdRepositoryResponse
+      },
+    }
+    await assert.rejects(
+      createGiteaClient(http).createBranch(giteaDraft, {
+        owner: "course-org",
+        repositoryName: "repo-1",
+        branchName: "template-update",
+        baseSha: "base",
+        commitMessage: "Update template",
+        files: [
+          {
+            path: "docs/README.md",
+            previousPath: "README.md",
+            status: "renamed",
+            contentBase64: "VXBkYXRlZA==",
+          },
+        ],
+      }),
+      {
+        message: "Failed to delete 'README.md' (403).",
+        type: "git-effect",
+        disposition: "completed",
+      },
+    )
+  })
+
   it("all providers report a failed read as a known failure", async () => {
     for (const providerClient of providerClients) {
       const [client, draft] = providerClient(createNetworkErrorHttpPort())

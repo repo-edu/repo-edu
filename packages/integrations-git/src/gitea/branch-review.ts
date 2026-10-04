@@ -119,7 +119,7 @@ export function createGiteaBranchReview(
             signal,
           )
           if (previous.sha !== null) {
-            await giteaRequest(
+            const removedPrevious = await giteaRequest(
               http,
               draft,
               "DELETE",
@@ -131,6 +131,15 @@ export function createGiteaBranchReview(
               }),
               signal,
             )
+            if (
+              (removedPrevious.status < 200 || removedPrevious.status >= 300) &&
+              removedPrevious.status !== 404
+            ) {
+              throw gitEffectFailure(
+                "completed",
+                `Failed to delete '${file.previousPath}' (${removedPrevious.status}).`,
+              )
+            }
           }
         }
       }

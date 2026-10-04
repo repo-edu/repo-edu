@@ -246,7 +246,7 @@ describe("application repository update workflow helpers", () => {
     assert.equal(getTemplateDiffCalls, 0)
   })
 
-  it("goes on past one refused branch or pull request and keeps the template baseline", async () => {
+  it("goes on past one refused branch or pull request and stores the new template commit", async () => {
     for (const failedOperation of ["branch", "pull-request"] as const) {
       const refusedRepositories: string[] = []
       const refuseFirst = (repositoryName: string) => {
@@ -304,7 +304,7 @@ describe("application repository update workflow helpers", () => {
       assert.equal(result.repositoriesPlanned > 1, true)
       assert.equal(result.prsFailed, 1)
       assert.equal(result.prsCreated, result.repositoriesPlanned - 1)
-      assert.equal(result.templateCommitSha, null)
+      assert.equal(result.templateCommitSha, "new-template-sha")
       assert.equal(
         warnings.some((message) =>
           message.includes(
@@ -317,7 +317,7 @@ describe("application repository update workflow helpers", () => {
       assert.equal(
         next.roster.assignments.find((candidate) => candidate.id === "a1")
           ?.templateCommitSha,
-        "old-template-sha",
+        "new-template-sha",
       )
     }
   })

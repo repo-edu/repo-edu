@@ -503,14 +503,6 @@ export function createRepoUpdateHandler(
           channel: "info",
           message: `Repository update summary: planned ${plannedRepositoryNames.length}, prs created ${prsCreated}, skipped ${prsSkipped}, failed ${prsFailed}.`,
         })
-        // A failed repository keeps the stored baseline, so the next update
-        // retries it. Providers accept an existing branch and pull request.
-        if (prsFailed > 0) {
-          options?.onOutput?.({
-            channel: "warn",
-            message: `Some repositories failed, so the template baseline stays at ${fromSha.slice(0, 7)}. The next update retries them.`,
-          })
-        }
         options?.onProgress?.({
           step: 6,
           totalSteps,
@@ -521,7 +513,7 @@ export function createRepoUpdateHandler(
           prsCreated,
           prsSkipped,
           prsFailed,
-          templateCommitSha: prsFailed === 0 ? currentSha : null,
+          templateCommitSha: currentSha,
           recordedRepositories,
           completedAt: new Date().toISOString(),
         }
