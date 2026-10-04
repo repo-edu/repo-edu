@@ -7,6 +7,7 @@ import { execa } from "execa"
 import { type LogCommit, readLog } from "../episode-log.js"
 import {
   glanceDecision as decide,
+  readWatchGrade,
   readWatchRecords,
   runGlance,
 } from "../glance.js"
@@ -46,7 +47,7 @@ test("missing, invalid and former watch records read green from the episode's an
     assert.equal(decision.due, false)
     assert.match(
       decision.text,
-      /has no watch record for repo-edu; it reads green from its anchor\. No A–C audit correction commits since\. No area reached the green limit of 4/,
+      /has no watch record for repo-edu; it reads green from its anchor\. No A–C audit correction commits since\. No area reached the green limit of 3/,
     )
   }
   const stale = glanceDecision(history(), record("red", "deadbeef"), "repo-edu")
@@ -62,20 +63,18 @@ test("without a record plan audits count from the earliest stem commit", () => {
     ...correction(),
     subject: "ath growth-none c1 fix(x): before the episode",
   }
+  const two = history(correction(), correction())
+  assert.equal(glanceDecision(two, null, "repo-edu").due, false)
   const three = history(correction(), correction(), correction())
-  assert.equal(glanceDecision(three, null, "repo-edu").due, false)
-  const four = [
-    ...history(correction(), correction(), correction(), correction()),
-  ]
-  const decision = glanceDecision(four, null, "repo-edu")
+  const decision = glanceDecision(three, null, "repo-edu")
   assert.equal(decision.due, true)
-  assert.match(decision.text, /area:area-a 4.*green limit of 4 \(rule 2\)/)
+  assert.match(decision.text, /area:area-a 3.*green limit of 3 \(rule 2\)/)
   // A correction older than the episode's first stem commit is outside it.
-  const older = [...three, { ...before, sha: "c000000" }]
+  const older = [...two, { ...before, sha: "c000000" }]
   assert.equal(glanceDecision(older, null, "repo-edu").due, false)
-  assert.match(glanceDecision(older, null, "repo-edu").text, /area:area-a 3/)
+  assert.match(glanceDecision(older, null, "repo-edu").text, /area:area-a 2/)
   // Unstemmed history contains no audit corrections for a plan.
-  const bare = four.map(({ sha }) => ({
+  const bare = three.map(({ sha }) => ({
     ...correction(),
     sha,
     subject: "ath growth-none c1 fix(x): correction",
@@ -91,9 +90,9 @@ test("red earns a watch without any new correction", () => {
   }
 })
 
-test("green requires four correction commits in one area; amber requires two", () => {
+test("green requires three correction commits in one area; amber requires two", () => {
   for (const [grade, limit] of [
-    ["green", 4],
+    ["green", 3],
     ["amber", 2],
   ] as const) {
     for (const count of [limit - 1, limit, limit + 1]) {
@@ -196,8 +195,7 @@ test("severity, reach and growth have no early trigger; both cases count", () =>
       "example/impl-audit-all ath growth-high c1 redesign(x): correct the owner",
   }
   assert.equal(
-    glanceDecision(history(growth, growth, growth), record("green"), "repo-edu")
-      .due,
+    glanceDecision(history(growth, growth), record("green"), "repo-edu").due,
     false,
   )
   assert.equal(
@@ -397,10 +395,16 @@ test("real Git history carries finding bodies and touched files into the decisio
     await mkdir(cacheRoot)
     await writeFile(join(cacheRoot, "watch.json"), "{broken")
     assert.equal(await readWatchRecords(cacheRoot), null)
+    // A finished watch that left no readable entry has no grade to report.
+    await assert.rejects(
+      readWatchGrade(cacheRoot, "example"),
+      /no readable record for example/,
+    )
     await writeFile(
       join(cacheRoot, "watch.json"),
       JSON.stringify(record("amber", first)),
     )
+    assert.equal(await readWatchGrade(cacheRoot, "example"), "amber")
     const repoEduRoot = join(directory, "repo-edu")
     const modelDirectory = join(repoEduRoot, "tools/architecture-check/src")
     await mkdir(modelDirectory, { recursive: true })

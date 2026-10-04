@@ -58,7 +58,8 @@ The `/watch` command runs in the background and its output is consumed when it
 arrives, so the iteration in flight is not blocked. A green grade lets that
 iteration complete untouched; a red one lets the user terminate or pause it.
 The runner's watch phase runs after the round's own work is done, so there is
-nothing in flight to block.
+nothing in flight to block. A red grade from that phase ends the auditor
+sequence, so no queued round starts before the user decides.
 
 The shared episode module in Repo Edu computes membership and counts from Git. The runner supplies
 the audited plan's topic and formats joined evidence only after a finished fix when glance says
@@ -378,7 +379,8 @@ describes the joined episode. Keep other episode entries unchanged.
 
 `tools/audit-round/src/glance.ts` owns the limits and the counting. Create the file and its
 directory when they are missing. A record that cannot be written is a failure of this phase: say so
-rather than leaving a watch the next glance cannot count from.
+rather than leaving a watch the next glance cannot count from. The runner reads the grade back
+from this entry and fails the phase when it finds none.
 
 The same session owns the finished watch and its record. Check the wording
 before returning; there is no separate editing phase.

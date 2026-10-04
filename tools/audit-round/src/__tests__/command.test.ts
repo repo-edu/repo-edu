@@ -734,7 +734,7 @@ for (const auditor of ["claude", "codex"] as const) {
         if (!ruling)
           assert.match(
             log,
-            /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C audit correction commits since\. No area reached the green limit of 4/,
+            /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C audit correction commits since\. No area reached the green limit of 3/,
           )
         assert.match(log, /fix +codex +chosen-model high/)
         assert.match(log, /brief +codex +gpt-5\.6-terra low/)
@@ -1666,6 +1666,29 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   assert.match(visible, /Auditor sequence finished after 3 rounds\./)
 })
 
+test("a red watch stops the auditor sequence before the next queued round", async (t) => {
+  // The fixture's record is red, and the watch leaves it red.
+  const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  const queue = join(f.planRoot, "example-step-all-queue.md")
+  assert.equal(
+    await runCommand(
+      ["example.md", "all", "--auditor", "codex,claude"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Auditor sequence stopped: the watch graded red\. Read .*-01-9-watch\.ouh\.md before running more rounds\./,
+  )
+  assert.doesNotMatch(visible, /Next round:/)
+  assert.equal((await f.roundFiles()).length, 2)
+  await assert.rejects(readFile(queue), { code: "ENOENT" })
+})
+
 test("a due glance sends the watch the record and the cache, never the round", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
   assert.equal(
@@ -1736,8 +1759,9 @@ for (const target of ["implementation", "planning", "commits"] as const) {
     )
     assert.match(visible, /Audit round finished\./)
     if (target !== "commits") {
-      assert.match(visible, /Auditor sequence finished after 2 rounds\./)
-      assert.equal(visible.match(/\[watch\] finished/g)?.length, 2)
+      // The fixture's red record stops the sequence after the first watch.
+      assert.match(visible, /Auditor sequence stopped: the watch graded red\./)
+      assert.equal(visible.match(/\[watch\] finished/g)?.length, 1)
     }
     const files = await readdir(f.planRoot)
     assert.equal(

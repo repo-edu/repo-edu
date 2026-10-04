@@ -41,7 +41,10 @@ consumers.
   round with audit findings that finished, because a round awaiting a ruling has not proved its work
   landed; nothing is lost, since the glance counts audit correction commits and not rounds. A round
   given no watch target, which is what `--no-watch` does, consults no glance at all. The watch reads
-  the commit record and never the round, so `runWatch` passes it no transcript and no report. A
+  the commit record and never the round, so `runWatch` passes it no transcript and no report. After
+  the watch finishes, `runWatch` reads back the grade it recorded; a watch that leaves no readable
+  entry fails its phase. A finished round reports that grade, and the command runner ends the
+  auditor sequence on red, so no queued round starts before the user acts on the watch. A
   finished round reports whether its audit had no findings, independently of any clean record the
   fix lands. The command runner uses that result to skip later auditor entries for the same
   assistant. The round records both repositories' HEADs before the fix and validates every landed
@@ -112,7 +115,7 @@ consumers.
   audits remain watch evidence but do not advance the count.
   Repo Edu groups by finding area and planning groups by finding section.
   D-only work, clean records, deferral-only records and planned steps do not count.
-  Green waits for four audit correction commits in one area and amber waits for two. Red runs
+  Green waits for three audit correction commits in one area and amber waits for two. Red runs
   after every finished round with audit findings. Clean audits never call the
   glance. Severity, reach and growth have no early trigger.
   A subject the grammar refuses or an unreadable finding set supplies no
@@ -122,7 +125,8 @@ consumers.
   anchor, the earliest commit carrying the stem. Unstemmed history has no eligible
   audits, so a first round never earns a
   watch by being first. The decision's sentence opens its own section of the
-  log and the terminal as `[glance]`.
+  log and the terminal as `[glance]`. `readWatchGrade` reads back the grade a finished watch
+  recorded for the runner's sequence decision.
 - `findings.ts` reads the complete current bullet form for commit hooks and
   episodes, D included. It validates token values without consulting the area
   model. `commit-msg.ts` checks primary and cover IDs against the current model
@@ -261,36 +265,34 @@ consumers.
   The selected target passes through `auditTarget` as a typed one would. `defaultPlan` applies the
   same plan rule alone for the `plan` command, which the home plan brief runs for an omitted stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor`
-  option. It reads that value with the queue's entry grammar and refuses a list with no entries.
-  The round is the command itself, taking
-  the target as its own arguments. Its subcommands are `brief`, `name`, `paths`, `close`,
-  `episode` and `plan`. `plan` prints the plan an omitted target selects, as JSON, and writes
-  nothing. The `episode` command prints joined watch evidence from the shared reader and formatter
-  without settings discovery, assistant startup or file writes. The `name` command claims a round
-  and prints its claim, workflow, working checkout and audit arguments. Its required `--auditor` is
-  the hand-run session's full tag, including `u`, checked separately from a round's model request.
-  The `paths` command prints the workflow, working checkout and argument paths for an existing
-  report as a JSON object. It reads the report opening's named workflow to select its
-  kind. Both commands bypass assistant startup and settings
-  discovery; `paths` writes nothing. The `close` command uses the same closing function as the
-  coordinator and starts no assistant or settings discovery. So the program carries an action
-  handler, Commander adds no `help` command, and each command's own `-h` prints its help. A bare
-  command line prints that help; options without a target take `defaultTarget`. It also owns the
-  round sequence and its counter. The first `--auditor` entry, or the configured default when the
-  option is absent, runs first. For a plan target the remaining entries seed the target's queue
-  file, which the user may edit while rounds run. Between rounds the sequence takes the queue's
-  first entry, so the queue is the only round limit. Only an audit with no findings first removes
-  all queued entries for that assistant, across model and effort tags. A fix that lands a clean
-  record removes none. Failure, a round requiring a ruling or an empty queue stops the sequence,
-  and the queue file is deleted however the sequence ends. A commit target runs once and keeps no
-  queue. Each round prints the queue's path and contents when it opens. Each round records its own
-  file pair and the coordinator has no
-  filesystem side effects: it opens one output per round, retires the previous one first, and reads
-  updates and settings once for the whole run before opening any files. Startup messages go only to
-  the terminal; the run log begins with the models table. A chained round carries its place in its
-  title and independently claims the next number for its target. Required write failures stop phase
-  progression. If recording itself fails, the emergency channel still reports the known session and
-  recovery command.
+  option. It reads that value with the queue's entry grammar and refuses a list with no entries. The
+  round is the command itself, taking the target as its own arguments. Its subcommands are `brief`,
+  `name`, `paths`, `close`, `episode` and `plan`. `plan` prints the plan an omitted target selects,
+  as JSON, and writes nothing. The `episode` command prints joined watch evidence from the shared
+  reader and formatter without settings discovery, assistant startup or file writes. The `name`
+  command claims a round and prints its claim, workflow, working checkout and audit arguments. Its
+  required `--auditor` is the hand-run session's full tag, including `u`, checked separately from a
+  round's model request. The `paths` command prints the workflow, working checkout and argument
+  paths for an existing report as a JSON object. It reads the report opening's named workflow to
+  select its kind. Both commands bypass assistant startup and settings discovery; `paths` writes
+  nothing. The `close` command uses the same closing function as the coordinator and starts no
+  assistant or settings discovery. So the program carries an action handler, Commander adds no
+  `help` command, and each command's own `-h` prints its help. A bare command line prints that help;
+  options without a target take `defaultTarget`. It also owns the round sequence and its counter.
+  The first `--auditor` entry, or the configured default when the option is absent, runs first. For
+  a plan target the remaining entries seed the target's queue file, which the user may edit while
+  rounds run. Between rounds the sequence takes the queue's first entry, so the queue is the only
+  round limit. Only an audit with no findings first removes all queued entries for that assistant,
+  across model and effort tags. A fix that lands a clean record removes none. Failure, a round
+  requiring a ruling, a red watch or an empty queue stops the sequence, and the queue file is
+  deleted however the sequence ends. A commit target runs once and keeps no queue. Each round prints
+  the queue's path and contents when it opens. Each round records its own file pair and the
+  coordinator has no filesystem side effects: it opens one output per round, retires the previous
+  one first, and reads updates and settings once for the whole run before opening any files. Startup
+  messages go only to the terminal; the run log begins with the models table. A chained round
+  carries its place in its title and independently claims the next number for its target. Required
+  write failures stop phase progression. If recording itself fails, the emergency channel still
+  reports the known session and recovery command.
 - `queue.ts` owns the queue file's contents and the entry grammar `--auditor` shares: names or
   tags separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries keep the
   user's spelling, so a rewrite changes only which entries remain. The runner reads the file only

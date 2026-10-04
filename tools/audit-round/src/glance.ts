@@ -16,7 +16,9 @@ import { type Repository, stemTopic } from "./subject.js"
  *
  * The user directed the glance on 2026-09-13. It ran as a Claude session until
  * 2026-09-20, when its rules moved here. The user then replaced severity and
- * growth triggers with repeated A–C corrections in the same area.
+ * growth triggers with repeated A–C corrections in the same area. On
+ * 2026-10-04 the user lowered the green limit from four to three, so a cause
+ * that keeps drawing corrections earns its watch one round sooner.
  */
 
 const watchRecordSchema = z.strictObject({
@@ -27,6 +29,8 @@ const watchRecordSchema = z.strictObject({
 
 /** One episode's entry in `watch.json`, as the watch workflow writes it. */
 export type WatchRecord = z.infer<typeof watchRecordSchema>
+
+export type WatchGrade = WatchRecord["grade"]
 
 export type GlanceInput = {
   readonly cwd: string
@@ -43,7 +47,7 @@ export type GlanceDecision = {
 }
 
 /** Fixed correction-commit limits per area. The watch chooses only the grade. */
-const correctionLimits = { green: 4, amber: 2 } as const
+const correctionLimits = { green: 3, amber: 2 } as const
 
 /**
  * The rule. The episode owns membership and finding reads, and
@@ -61,7 +65,7 @@ const correctionLimits = { green: 4, amber: 2 } as const
  *
  * 1. The recorded grade is red. A conclusive flag is re-read every eligible round until
  *    the user acts on it and the record moves.
- * 2. One area reaches four audit correction commits on green or two on amber.
+ * 2. One area reaches three audit correction commits on green or two on amber.
  *    The watch then judges whether their causes show drift.
  *
  * A record the glance cannot count from reads as green: none for this
@@ -177,6 +181,25 @@ export async function readWatchRecords(
   } catch {
     return null
   }
+}
+
+/**
+ * The grade the watch that just ran recorded for this episode. The runner
+ * ends an auditor sequence on red, so a watch that leaves no readable entry
+ * fails its phase rather than letting queued rounds start unread.
+ */
+export async function readWatchGrade(
+  cacheRoot: string,
+  stem: string,
+): Promise<WatchGrade> {
+  const saved = watchRecordSchema.safeParse(
+    (await readWatchRecords(cacheRoot))?.[stem],
+  )
+  if (!saved.success)
+    throw new Error(
+      `The watch left no readable record for ${stem} in ${join(cacheRoot, "watch.json")}.`,
+    )
+  return saved.data.grade
 }
 
 export async function runGlance(input: GlanceInput): Promise<GlanceDecision> {

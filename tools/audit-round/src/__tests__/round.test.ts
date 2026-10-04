@@ -11,6 +11,7 @@ import {
   type GlanceDecision,
   type GlanceInput,
   glanceDecision,
+  type WatchGrade,
 } from "../glance.js"
 import { phaseWorkflow } from "../phase.js"
 import {
@@ -87,8 +88,10 @@ function controlledRound(
   const watchEvidence: WatchEvidenceInput[] = []
   const rulings: string[] = []
   const briefs: string[] = []
+  const watchGrades: { cacheRoot: string; stem: string }[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
+  let grade: WatchGrade = "green"
   const results: { [P in Phase]: PhaseResult<P> } = {
     audit: {
       status: "finished",
@@ -126,6 +129,11 @@ function controlledRound(
       assert.equal(calls.at(-1)?.phase, "brief")
       watchEvidence.push(input)
       return "Joined evidence including the finished fix"
+    },
+    watchGrade: async (cacheRoot, stem) => {
+      assert.equal(calls.at(-1)?.phase, "watch")
+      watchGrades.push({ cacheRoot, stem })
+      return grade
     },
     closeRound: async (cwd, nameStart) => {
       assert.equal(calls.at(-1)?.phase, "fix")
@@ -186,6 +194,7 @@ function controlledRound(
     completions,
     glances,
     watchEvidence,
+    watchGrades,
     rulings,
     briefs,
     results,
@@ -193,6 +202,9 @@ function controlledRound(
     evidence,
     decide(decision: GlanceDecision) {
       glance = decision
+    },
+    grade(recorded: WatchGrade) {
+      grade = recorded
     },
   }
 }
@@ -230,6 +242,7 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     status: "finished",
     report: files.documents.report,
     cleanAudit: false,
+    watch: "green",
   })
   const fixes = round.calls.filter((call) => call.phase === "fix")
   assert.equal(fixes.length, 2)
@@ -514,6 +527,7 @@ for (const auditor of ["claude", "codex"] as const) {
         status: "finished",
         report,
         cleanAudit: false,
+        watch: null,
       })
       assert.deepEqual(round.calls, [
         {
@@ -664,9 +678,11 @@ test("a due glance completes the watch in one fresh session", async () => {
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
+    watch: "green",
   })
   // The watch reads the commit record, so it receives none of the round's files.
   assert.equal(round.glances.length, 1)
+  assert.deepEqual(round.watchGrades, [{ cacheRoot, stem: "example" }])
   assert.deepEqual(round.calls.slice(5), [
     {
       phase: "watch",
@@ -679,6 +695,44 @@ test("a due glance completes the watch in one fresh session", async () => {
     },
   ])
   assert.deepEqual(round.rulings, [])
+})
+
+test("a red watch reaches the round result for the sequence to stop on", async () => {
+  const round = controlledRound()
+  arrange(round, "watch")
+  round.grade("red")
+
+  const result = await runRound(
+    { ...files, plan: "example.md", scope: "all" },
+    round.dependencies,
+  )
+
+  assert.equal(result.status === "finished" && result.watch, "red")
+})
+
+test("a watch that leaves no readable record fails its phase", async () => {
+  const round = controlledRound()
+  arrange(round, "watch")
+
+  const result = await runRound(
+    { ...files, plan: "example.md", scope: "all" },
+    {
+      ...round.dependencies,
+      watchGrade: async () => {
+        throw new Error("The watch left no readable record for example")
+      },
+    },
+  )
+
+  assert.deepEqual(result, {
+    status: "failed",
+    sessionId: "watch-session",
+    phase: "watch",
+    assistant: "codex",
+    model: unpinned,
+    ...testContext(repoRoot),
+    reason: "The watch left no readable record for example",
+  })
 })
 
 test("a round that hands over runs no watch, because its work has not landed", async () => {
@@ -731,6 +785,7 @@ test("a round asked for no watch consults no glance, whatever the record says", 
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
+    watch: null,
   })
   assert.deepEqual(round.glances, [])
   assert.deepEqual(
@@ -935,7 +990,12 @@ for (const auditor of ["claude", "codex"] as const) {
       round.dependencies,
     )
 
-    assert.deepEqual(result, { status: "finished", report, cleanAudit: true })
+    assert.deepEqual(result, {
+      status: "finished",
+      report,
+      cleanAudit: true,
+      watch: null,
+    })
     assert.deepEqual(
       round.calls.map((call) => call.phase),
       ["audit"],
@@ -1001,7 +1061,12 @@ for (const auditor of ["claude", "codex"] as const) {
       round.dependencies,
     )
 
-    assert.deepEqual(result, { status: "finished", report, cleanAudit: false })
+    assert.deepEqual(result, {
+      status: "finished",
+      report,
+      cleanAudit: false,
+      watch: null,
+    })
     // Every verdict is an unconditional accept, so the auditor has nothing to answer.
     assert.deepEqual(
       round.calls.map((call) => call.phase),
@@ -1170,6 +1235,7 @@ test("the round reads each supplied file and records both heads immediately befo
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
+    watch: null,
   })
 })
 

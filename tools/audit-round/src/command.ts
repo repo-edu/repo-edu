@@ -13,7 +13,7 @@ import { executionContext } from "./context.js"
 import { defaultPlan, defaultTarget } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
-import { runGlance } from "./glance.js"
+import { readWatchGrade, runGlance } from "./glance.js"
 import {
   briefRun,
   type OutputOptions,
@@ -231,6 +231,7 @@ Round sequence:
 
   Trajectory watch:
     - After a completed plan round with findings, the glance decides if a watch is due.
+    - A red watch stops the sequence, so you act on it before more rounds run.
     - --no-watch skips both the glance and the watch.
     - Commit audits never run a glance or watch.
 
@@ -553,6 +554,7 @@ export async function runCommand(
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
       watchEvidence: readWatchEvidence,
+      watchGrade: readWatchGrade,
       closeRound,
       checkFile: async (file) => {
         if (!(await readFile(file, "utf8")).trim())
@@ -683,6 +685,13 @@ export async function runCommand(
               round.status === "failed"
                 ? "Auditor sequence stopped: this round failed."
                 : "Auditor sequence stopped: this round required your ruling.",
+            )
+            break
+          }
+          // A red watch asks the user to act now, so no queued round starts first.
+          if (round.watch === "red") {
+            await active.message(
+              `Auditor sequence stopped: the watch graded red. Read ${run.watch} before running more rounds.`,
             )
             break
           }

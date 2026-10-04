@@ -1,4 +1,5 @@
 import { errorMessage } from "./feedback.js"
+import type { WatchGrade } from "./glance.js"
 import type { RoundDocuments } from "./output.js"
 import {
   type Assistant,
@@ -61,6 +62,8 @@ export type RoundResult =
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
+      /** The grade the watch that followed the round recorded; null when none ran. */
+      readonly watch: WatchGrade | null
     }
   | {
       readonly status: "awaiting-ruling"
@@ -150,19 +153,19 @@ export async function runBrief(
  * gained in corrections since the last watch, not how many rounds have run. A user who asked
  * for no watch gets none, whatever the record says.
  *
- * Returns the failure that stops the round, or null when the watch ran, was
- * not due or was not asked for.
+ * Returns the failure that stops the round, or the grade the watch recorded.
+ * The grade is null when the watch was not due or was not asked for.
  */
 async function runWatch(
   input: RoundContext & Pick<RoundInput, "watch"> & { readonly plan: string },
   dependencies: Pick<
     RoundDependencies,
-    "runPhase" | "checkFile" | "glance" | "watchEvidence"
+    "runPhase" | "checkFile" | "glance" | "watchEvidence" | "watchGrade"
   >,
   settings: RoundSettings,
-): Promise<RoundFailure | null> {
+): Promise<RoundFailure | { readonly grade: WatchGrade | null }> {
   const target = input.watch
-  if (target === null) return null
+  if (target === null) return { grade: null }
   // The watch uses its configured assistant, independently of the auditor.
   const phases = roundPhases("codex", noOverride, settings)
   const { cwd, repoEduRoot, planRoot, roundKind } = input
@@ -175,7 +178,7 @@ async function runWatch(
     cacheRoot: target.cacheRoot,
     stem,
   })
-  if (!glance.due) return null
+  if (!glance.due) return { grade: null }
   const evidence = await dependencies.watchEvidence({ ...context, stem })
 
   const watch = await reportPhase(
@@ -193,8 +196,18 @@ async function runWatch(
   )
   if (watch.status === "failed")
     return { ...watch, phase: "watch", ...phases.watch, ...context }
-
-  return null
+  try {
+    return { grade: await dependencies.watchGrade(target.cacheRoot, stem) }
+  } catch (error) {
+    return {
+      status: "failed",
+      sessionId: watch.sessionId,
+      phase: "watch",
+      ...phases.watch,
+      ...context,
+      reason: errorMessage(error),
+    }
+  }
 }
 
 export async function runRound(
@@ -253,7 +266,7 @@ export async function runRound(
         report,
         judgedRepos: evidence.judgedRepos,
       })
-      return { status: "finished", report, cleanAudit: true }
+      return { status: "finished", report, cleanAudit: true, watch: null }
     } catch (error) {
       return {
         status: "failed",
@@ -411,14 +424,16 @@ export async function runRound(
         )
         if (brief.status === "failed") return brief
       }
-      if ("plan" in input) {
-        const watched = await runWatch(input, dependencies, settings)
-        if (watched !== null) return watched
-      }
+      const watched =
+        "plan" in input
+          ? await runWatch(input, dependencies, settings)
+          : { grade: null }
+      if ("status" in watched) return watched
       return {
         status: "finished",
         report,
         cleanAudit: false,
+        watch: watched.grade,
       }
     }
 

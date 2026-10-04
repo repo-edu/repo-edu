@@ -1,7 +1,7 @@
 import { join } from "node:path"
 import type { CleanInput } from "./clean.js"
 import type { WatchEvidenceInput } from "./episode.js"
-import type { GlanceDecision, GlanceInput } from "./glance.js"
+import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { AuditReport, ReportFindings } from "./report.js"
 import type { RoundSettings } from "./settings.js"
 import type { RoundContext, RoundKind } from "./target.js"
@@ -351,6 +351,8 @@ export type RoundDependencies = {
    */
   readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
   readonly watchEvidence: (input: WatchEvidenceInput) => Promise<string>
+  /** The grade a finished watch recorded; rejects when it left no readable record. */
+  readonly watchGrade: (cacheRoot: string, stem: string) => Promise<WatchGrade>
   /** Displays the ruling and records a reply; null stops without submitting a draft. */
   readonly requestRuling: (document: string) => Promise<string | null>
 }
