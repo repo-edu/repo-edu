@@ -56,10 +56,7 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
-import {
-  isGitEffectFailure,
-  rethrowGitEffectFailure,
-} from "./command-outcomes.js"
+import { isGitEffectFailure } from "./command-outcomes.js"
 import {
   createSettingsRecoveryLoadError,
   createValidationAppError,
@@ -250,7 +247,6 @@ export function normalizeUserFileError(
   operation: "read" | "write",
 ): AppError {
   if (error instanceof CommandOutcomeError) throw error
-  rethrowGitEffectFailure(error)
   if (isSharedAppError(error)) {
     return error
   }
@@ -662,28 +658,6 @@ export function upsertRosterFromStudentRows(
       staff,
     },
     idSequences: seq,
-  }
-}
-
-export function normalizeRepositoryExecutionError(
-  error: unknown,
-  operation: string,
-): AppError {
-  if (error instanceof CommandOutcomeError) throw error
-  rethrowGitEffectFailure(error)
-  if (isSharedAppError(error)) {
-    return error
-  }
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return toCancelledAppError()
-  }
-
-  return {
-    type: "provider",
-    message: error instanceof Error ? error.message : String(error),
-    provider: "git",
-    operation,
-    retryable: true,
   }
 }
 

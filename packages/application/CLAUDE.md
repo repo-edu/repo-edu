@@ -33,8 +33,11 @@ It composes:
   Confirmation expiry remains an explicit unknown outcome without a result;
   other uncertainty is terminal. No caller infers disposition from an error category.
   A command takes an adapter's outcome through `rethrowGitEffectFailure` or
-  `rethrowLlmOutcome` before normalising the error. Ordinary calls normalise the
-  same adapter failures to `AppError` and never throw a command outcome.
+  `rethrowLlmOutcome` before normalising the error. Ordinary calls turn the same
+  Git and LLM adapter failures into an `AppError`. The process, file-system and
+  user-file host ports throw their own command outcomes. In an ordinary call
+  such an outcome passes through unchanged, and the desktop reports it as an
+  `unexpected` error that carries the port's message.
 - Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`;
   `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
 - Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for LMS- and

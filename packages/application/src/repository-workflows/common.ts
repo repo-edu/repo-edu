@@ -1,12 +1,6 @@
-import type { AppError } from "@repo-edu/application-contract"
-import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import {
-  commandValidationError as createValidationAppError,
-  rethrowGitEffectFailure,
-} from "../command-outcomes.js"
-import { isSharedAppError, toCancelledAppError } from "../workflow-helpers.js"
+import { commandValidationError as createValidationAppError } from "../command-outcomes.js"
 
 /**
  * Returns the API-ready namespace path for this course. The stored value may
@@ -33,26 +27,4 @@ export function requireGitOrganization(
     )
   }
   return normalized
-}
-
-export function normalizeRepositoryExecutionError(
-  error: unknown,
-  operation: string,
-): AppError {
-  if (error instanceof CommandOutcomeError) throw error
-  rethrowGitEffectFailure(error)
-  if (isSharedAppError(error)) {
-    return error
-  }
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return toCancelledAppError()
-  }
-
-  return {
-    type: "provider",
-    message: error instanceof Error ? error.message : String(error),
-    provider: "git",
-    operation,
-    retryable: true,
-  }
 }

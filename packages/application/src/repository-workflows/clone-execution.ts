@@ -3,9 +3,7 @@ import type {
   DiagnosticOutput,
 } from "@repo-edu/application-contract"
 import { CommandOutcomeError } from "@repo-edu/application-contract"
-import type { FileSystemPort } from "@repo-edu/host-runtime-contract"
 import { commandValidationError as createValidationAppError } from "../command-outcomes.js"
-import { normalizeRepositoryExecutionError } from "./common.js"
 import {
   initPullClone,
   isGitRepositoryPath,
@@ -43,15 +41,10 @@ export async function admitRepositoryCloneTargets<
 }): Promise<RepositoryCloneAdmission<T>> {
   const { ports, targets, conflictMessage, signal } = options
 
-  let inspected: Awaited<ReturnType<FileSystemPort["inspect"]>> = []
-  try {
-    inspected = await ports.fileSystem.inspect({
-      paths: targets.map((target) => target.path),
-      signal,
-    })
-  } catch (error) {
-    throw normalizeRepositoryExecutionError(error, "inspectCloneTargets")
-  }
+  const inspected = await ports.fileSystem.inspect({
+    paths: targets.map((target) => target.path),
+    signal,
+  })
 
   const targetByPath = new Map(targets.map((target) => [target.path, target]))
   const clashIssues: AppValidationIssue[] = []
@@ -95,17 +88,13 @@ export async function admitRepositoryCloneTargets<
     throw createValidationAppError(conflictMessage, clashIssues)
   }
 
-  try {
-    await ports.fileSystem.applyBatch({
-      operations: Array.from(options.parentDirectories).map((path) => ({
-        kind: "ensure-directory" as const,
-        path,
-      })),
-      signal,
-    })
-  } catch (error) {
-    throw normalizeRepositoryExecutionError(error, "ensureDirectories")
-  }
+  await ports.fileSystem.applyBatch({
+    operations: Array.from(options.parentDirectories).map((path) => ({
+      kind: "ensure-directory" as const,
+      path,
+    })),
+    signal,
+  })
 
   return {
     toClone: targets.filter((target) => !existingGitRepoPaths.has(target.path)),
@@ -171,8 +160,13 @@ export async function runRepositoryClones<
         return "failed" as const
       } catch (error) {
         // Unknown outside work must not be followed by deletion of its checkout.
-        if (error instanceof CommandOutcomeError) throw error
-        await cleanupTempPath()
+        if (
+          !(
+            error instanceof CommandOutcomeError &&
+            error.outcome.disposition === "uncertain"
+          )
+        )
+          await cleanupTempPath()
         throw error
       }
     },

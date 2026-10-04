@@ -117,6 +117,27 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
+/** A failed call has ended and nothing keeps running, so its failure is known
+ * even when a batch completed some of its operations first. */
+async function knownFileSystemEffect<T>(effect: () => Promise<T>): Promise<T> {
+  try {
+    return await effect()
+  } catch (error) {
+    if (error instanceof CommandOutcomeError) throw error
+    throw new CommandOutcomeError({
+      disposition: "completed",
+      completion: {
+        status: "failed",
+        error: {
+          type: "effect",
+          message: error instanceof Error ? error.message : String(error),
+        },
+        result: null,
+      },
+    })
+  }
+}
+
 // ---------------------------------------------------------------------------
 // NodeHttpPort — Node-side fetch implementation (architecture plan §3)
 // ---------------------------------------------------------------------------
@@ -382,19 +403,21 @@ export function createNodeFileSystemPort(): FileSystemPort {
   return {
     userHomeSystemDirectories: resolveUserHomeSystemDirectories(),
 
-    async inspect(
+    inspect(
       request: FileSystemInspectRequest,
     ): Promise<FileSystemEntryStatus[]> {
-      throwIfAborted(request.signal)
-
-      const statuses: FileSystemEntryStatus[] = []
-
-      for (const path of request.paths) {
+      return knownFileSystemEffect(async () => {
         throwIfAborted(request.signal)
-        statuses.push(await inspectPath(path))
-      }
 
-      return statuses
+        const statuses: FileSystemEntryStatus[] = []
+
+        for (const path of request.paths) {
+          throwIfAborted(request.signal)
+          statuses.push(await inspectPath(path))
+        }
+
+        return statuses
+      })
     },
 
     async stat(request): Promise<FileSystemStatResult> {
@@ -402,24 +425,26 @@ export function createNodeFileSystemPort(): FileSystemPort {
       return statPath(request.path)
     },
 
-    async applyBatch(
+    applyBatch(
       request: FileSystemBatchRequest,
     ): Promise<FileSystemBatchResult> {
-      throwIfAborted(request.signal)
-
-      const completed: FileSystemBatchOperation[] = []
-
-      for (const operation of request.operations) {
+      return knownFileSystemEffect(async () => {
         throwIfAborted(request.signal)
-        await applyFileSystemOperation(operation)
-        completed.push(operation)
-      }
 
-      return { completed }
+        const completed: FileSystemBatchOperation[] = []
+
+        for (const operation of request.operations) {
+          throwIfAborted(request.signal)
+          await applyFileSystemOperation(operation)
+          completed.push(operation)
+        }
+
+        return { completed }
+      })
     },
 
-    async createTempDirectory(prefix: string): Promise<string> {
-      return mkdtemp(join(tmpdir(), prefix))
+    createTempDirectory(prefix: string): Promise<string> {
+      return knownFileSystemEffect(() => mkdtemp(join(tmpdir(), prefix)))
     },
 
     async listDirectory(

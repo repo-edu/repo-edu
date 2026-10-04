@@ -68,6 +68,28 @@ describe("createNodeFileSystemPort", () => {
     ])
   })
 
+  it("reports a failed batch operation as a known failed completion", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
+    const filePath = join(root, "occupied.txt")
+    await writeFile(filePath, "repo-edu")
+
+    const fileSystemPort = createNodeFileSystemPort()
+
+    await assert.rejects(
+      fileSystemPort.applyBatch({
+        operations: [
+          { kind: "ensure-directory", path: join(filePath, "nested") },
+        ],
+      }),
+      (error: unknown) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "completed" &&
+        error.outcome.completion.status === "failed" &&
+        error.outcome.completion.error.type === "effect" &&
+        error.outcome.completion.result === null,
+    )
+  })
+
   it("reports abort before starting a batch as a proven stop", async () => {
     const fileSystemPort = createNodeFileSystemPort()
     const controller = new AbortController()
