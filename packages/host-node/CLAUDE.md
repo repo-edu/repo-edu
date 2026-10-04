@@ -101,11 +101,13 @@ its port interface.
   command acceptance reports proof loss, and the controller returns unknown
   after the matching stop attempt. The same rule applies when forced stop loses
   the launcher result. An explicit launcher rejection stays a known launch
-  failure. After the target's exit report, stream and launcher completion proof
-  settle inside stop-and-confirm. An empty job with lost completion proof
-  returns unknown without an unconfirmed-tree warning. The launcher turns a
-  target-input relay failure into a broken host-side pipe and keeps reporting
-  the target's exit.
+  failure. The launcher reports `refused` when the operating system starts no
+  target, and the adapter turns it into the typed launch refusal only after the
+  job is confirmed empty. After the target's exit report, stream and launcher
+  completion proof settle inside stop-and-confirm. An empty job with lost
+  completion proof returns unknown without an unconfirmed-tree warning. The
+  launcher turns a target-input relay failure into a broken host-side pipe and
+  keeps reporting the target's exit.
 - A launch environment is the complete target environment for every platform
   adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment
@@ -118,6 +120,11 @@ its port interface.
   Confirmation expiry takes the unknown branch without that confirmation.
   Callers report facts and never rank failures, attach secondary failures as
   causes or compose another outcome.
+- Both platform adapters reject a target the operating system refused to start,
+  such as a missing program or working folder, with
+  `ChildProcessLaunchRefusedError`. The process port settles only that launch
+  failure as a known failed completion. Every other launch failure stays a
+  fault.
 - The controller owns one five-second graceful stop allowance and one
   five-second confirmation deadline after a forced stop. Both platform
   adapters apply those periods. Confirmation expiry returns unknown for an

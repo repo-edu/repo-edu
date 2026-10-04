@@ -12,6 +12,7 @@ export type {
   PlatformOwnedChildProcessTree,
 } from "./child-process-lifetime-contract.js"
 export {
+  ChildProcessLaunchRefusedError,
   ChildProcessTreeUnconfirmedError,
   createChildProcessLaunchAbortError,
   isPendingLaunchStoppedError,

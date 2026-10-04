@@ -3,6 +3,7 @@ import type {
   GitConnectionDraft,
   PatchFile,
 } from "@repo-edu/integrations-git-contract"
+import { gitEffectFailure } from "../invocation-guard.js"
 import { giteaRequest } from "./transport.js"
 
 export type GiteaRepositoryUrls = {
@@ -90,7 +91,8 @@ export async function readRepositoryFile(
     return { sha: null, contentBase64: null }
   }
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(
+    throw gitEffectFailure(
+      "completed",
       `Failed to resolve file '${path}' on ref '${ref}' (${response.status}).`,
     )
   }

@@ -80,6 +80,14 @@ export function isGitEffectFailure(error: unknown): error is GitEffectFailure {
   )
 }
 
+/** One item's provider write was answered with a refusal. A run over several
+ * items warns and goes on; a stop or a failure without an outcome ends it. */
+export function isCompletedGitEffectFailure(
+  error: unknown,
+): error is GitEffectFailure {
+  return isGitEffectFailure(error) && error.disposition === "completed"
+}
+
 /** The Git adapter owns request, response and sequential-stop proof. Only an
  * exclusive command calls this; ordinary calls normalise the same failure to
  * an `AppError`. */

@@ -594,6 +594,49 @@ describe("error handling consistency across git providers", () => {
     }
   })
 
+  it("Gitea and GitLab report a failed file lookup during branch creation as a known failure", async () => {
+    const http: HttpPort = {
+      async fetch(request: HttpRequest): Promise<HttpResponse> {
+        if (
+          request.url.includes("/contents/") ||
+          request.url.includes("/repository/files/")
+        ) {
+          return {
+            status: 500,
+            statusText: "Error",
+            headers: { "content-type": "application/json" },
+            body: "{}",
+          }
+        }
+        return createdRepositoryResponse
+      },
+    }
+    const clients: Array<[GitProviderClient, GitConnectionDraft]> = [
+      [createGitLabClient(http), gitlabDraft],
+      [createGiteaClient(http), giteaDraft],
+    ]
+    for (const [client, draft] of clients) {
+      await assert.rejects(
+        client.createBranch(draft, {
+          owner: "course-org",
+          repositoryName: "repo-1",
+          branchName: "template-update",
+          baseSha: "base",
+          commitMessage: "Update template",
+          files: [
+            {
+              path: "README.md",
+              previousPath: null,
+              status: "modified",
+              contentBase64: "VXBkYXRlZA==",
+            },
+          ],
+        }),
+        { type: "git-effect", disposition: "completed" },
+      )
+    }
+  })
+
   it("all providers report a failed read as a known failure", async () => {
     for (const providerClient of providerClients) {
       const [client, draft] = providerClient(createNetworkErrorHttpPort())

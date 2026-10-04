@@ -124,3 +124,9 @@ export function createChildProcessLaunchAbortError(): DOMException {
 export class ChildProcessTreeUnconfirmedError extends Error {
   override readonly name = "ChildProcessTreeUnconfirmedError"
 }
+
+/** The operating system refused to start the target, and nothing it could
+ * start remains. It is the only launch failure that is a known outcome. */
+export class ChildProcessLaunchRefusedError extends Error {
+  override readonly name = "ChildProcessLaunchRefusedError"
+}

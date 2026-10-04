@@ -339,6 +339,70 @@ describe("application repository create workflow helpers", () => {
     }
   })
 
+  it("goes on past one refused team write and records every repository", async () => {
+    for (const failedOperation of ["create", "assign"] as const) {
+      const teamNames: string[] = []
+      const assignedTeams: string[] = []
+      const warnings: string[] = []
+      const refuse = () => {
+        throw Object.assign(new Error("Team name is rejected."), {
+          type: "git-effect" as const,
+          disposition: "completed" as const,
+        })
+      }
+      const { course, settings, handlers } = createRepoHarness({
+        git: {
+          createTeam: async (_draft, request) => {
+            teamNames.push(request.teamName)
+            if (failedOperation === "create" && teamNames.length === 1) refuse()
+            return {
+              created: true,
+              teamSlug: request.teamName,
+              membersAdded: request.memberUsernames,
+              membersNotFound: [],
+            }
+          },
+          assignRepositoriesToTeam: async (_draft, request) => {
+            if (
+              failedOperation === "assign" &&
+              request.teamSlug === teamNames[0]
+            )
+              refuse()
+            assignedTeams.push(request.teamSlug)
+          },
+        },
+      })
+
+      const result = await handlers["repo.create"](
+        {
+          course,
+          credentials: settings,
+          assignmentId: "a1",
+          template: null,
+        },
+        {
+          onOutput: (output) => {
+            if (output.channel === "warn") warnings.push(output.message)
+          },
+        },
+      )
+      const plan = planForAssignment(course, "a1")
+
+      assert.equal(teamNames.length > 1, true)
+      assert.deepStrictEqual(assignedTeams, teamNames.slice(1))
+      assert.equal(
+        Object.keys(result.recordedRepositories.a1 ?? {}).length,
+        plan.groups.length,
+      )
+      assert.equal(
+        warnings.some((message) =>
+          message.includes(`'${teamNames[0]}': Team name is rejected.`),
+        ),
+        true,
+      )
+    }
+  })
+
   it("forwards the normalized user-agent from git connection into the adapter draft", async () => {
     let receivedDraft: unknown = null
     const { course, settings } = getCourseAndSettingsScenario(

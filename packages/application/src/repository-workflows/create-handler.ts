@@ -14,6 +14,7 @@ import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import {
   commandRefusal,
   commandValidationError as createValidationAppError,
+  isCompletedGitEffectFailure,
   rethrowGitEffectFailure,
   commandThrowIfAborted as throwIfAborted,
 } from "../command-outcomes.js"
@@ -372,16 +373,26 @@ export function createRepoCreateHandler(
         const teams = planTeamSetup(planned.value)
         const teamSlugByGroupId = new Map<string, string>()
         for (const team of teams) {
-          const result = await ports.git.createTeam(
-            gitDraft,
-            {
-              organization,
-              teamName: team.teamName,
-              memberUsernames: team.gitUsernames,
-              permission: "push",
-            },
-            options?.signal,
-          )
+          let result: Awaited<ReturnType<GitProviderClient["createTeam"]>>
+          try {
+            result = await ports.git.createTeam(
+              gitDraft,
+              {
+                organization,
+                teamName: team.teamName,
+                memberUsernames: team.gitUsernames,
+                permission: "push",
+              },
+              options?.signal,
+            )
+          } catch (error) {
+            if (!isCompletedGitEffectFailure(error)) throw error
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to create team '${team.teamName}': ${error.message}`,
+            })
+            continue
+          }
           teamSlugByGroupId.set(team.groupId, result.teamSlug)
           if (result.membersNotFound.length > 0) {
             options?.onOutput?.({
@@ -412,16 +423,25 @@ export function createRepoCreateHandler(
           if (repositoryNames.length === 0) {
             continue
           }
-          await ports.git.assignRepositoriesToTeam(
-            gitDraft,
-            {
-              organization,
-              teamSlug,
-              repositoryNames,
-              permission: "push",
-            },
-            options?.signal,
-          )
+          try {
+            await ports.git.assignRepositoriesToTeam(
+              gitDraft,
+              {
+                organization,
+                teamSlug,
+                repositoryNames,
+                permission: "push",
+              },
+              options?.signal,
+            )
+          } catch (error) {
+            if (!isCompletedGitEffectFailure(error)) throw error
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to assign repositories to team '${team.teamName}': ${error.message}`,
+            })
+            continue
+          }
           options?.onOutput?.({
             channel: "info",
             message: `Assigned ${repositoryNames.length} repositories to team '${team.teamName}'.`,

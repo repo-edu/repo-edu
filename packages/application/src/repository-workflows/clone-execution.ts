@@ -120,11 +120,12 @@ export async function runRepositoryClones<
   const cloneResults = await mapConcurrent(
     cloneItems,
     async ({ target, tempPath }) => {
+      // Cleanup ignores Cancel. A proven stop leaves no Git process writing to
+      // the temporary checkout, so the delete may run after it.
       const cleanupTempPath = async () => {
         try {
           await ports.fileSystem.applyBatch({
             operations: [{ kind: "delete-path", path: tempPath }],
-            signal,
           })
         } catch {
           // Best effort cleanup.

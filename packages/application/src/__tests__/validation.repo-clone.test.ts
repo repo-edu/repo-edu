@@ -323,6 +323,74 @@ describe("application repository clone workflow helpers", () => {
     )
   })
 
+  it("removes partial checkouts after Cancel stops their clones", async () => {
+    const controller = new AbortController()
+    const deletedPaths: string[] = []
+    const pullPaths: string[] = []
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        resolveRepositoryCloneUrls: async (_draft, request) => ({
+          resolved: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+          })),
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        run: async (request) => {
+          if (request.args[0] === "pull") {
+            pullPaths.push(request.cwd ?? "")
+            controller.abort()
+            throw new CommandOutcomeError({
+              disposition: "stopped",
+              result: null,
+            })
+          }
+          return { exitCode: 0, signal: null, stdout: "", stderr: "" }
+        },
+      },
+      fileSystem: {
+        inspect: async (request) =>
+          request.paths.map((path) => ({ path, kind: "missing" as const })),
+        // Like the real port, an aborted signal refuses the whole batch.
+        applyBatch: async (request) => {
+          if (request.signal?.aborted)
+            throw new CommandOutcomeError({
+              disposition: "stopped",
+              result: null,
+            })
+          for (const operation of request.operations) {
+            if (operation.kind === "delete-path")
+              deletedPaths.push(operation.path)
+          }
+          return { completed: [...request.operations] }
+        },
+      },
+    })
+
+    await assert.rejects(
+      handlers["repo.clone"](
+        {
+          course,
+          credentials: settings,
+          assignmentId: "a1",
+          template: null,
+          targetDirectory: cloneTargetDirectory,
+          directoryLayout: "flat",
+        },
+        { signal: controller.signal },
+      ),
+      (error: unknown) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "stopped",
+    )
+    assert.equal(pullPaths.length > 0, true)
+    for (const path of pullPaths) {
+      assert.equal(deletedPaths.filter((deleted) => deleted === path).length, 2)
+    }
+  })
+
   it("rejects relative target directories", async () => {
     const { course, settings, handlers } = createRepoHarness()
 

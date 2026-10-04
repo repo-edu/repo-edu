@@ -10,10 +10,14 @@ import type {
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import type { PatchFile } from "@repo-edu/integrations-git-contract"
+import type {
+  GitProviderClient,
+  PatchFile,
+} from "@repo-edu/integrations-git-contract"
 import {
   commandRefusal,
   commandValidationError as createValidationAppError,
+  isCompletedGitEffectFailure,
   rethrowGitEffectFailure,
   commandThrowIfAborted as throwIfAborted,
 } from "../command-outcomes.js"
@@ -421,18 +425,28 @@ export function createRepoUpdateHandler(
             stageRecord(group.assignmentId, group.groupId, group.repoName)
           }
 
-          await ports.git.createBranch(
-            gitDraft,
-            {
-              owner: organization,
-              repositoryName,
-              branchName,
-              baseSha: head.sha,
-              commitMessage,
-              files: diffFiles,
-            },
-            options?.signal,
-          )
+          try {
+            await ports.git.createBranch(
+              gitDraft,
+              {
+                owner: organization,
+                repositoryName,
+                branchName,
+                baseSha: head.sha,
+                commitMessage,
+                files: diffFiles,
+              },
+              options?.signal,
+            )
+          } catch (error) {
+            if (!isCompletedGitEffectFailure(error)) throw error
+            prsFailed += 1
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to apply template patch for '${repositoryName}': ${error.message}`,
+            })
+            continue
+          }
           prCandidates.push({
             repositoryName,
             baseBranch: head.branchName,
@@ -447,18 +461,29 @@ export function createRepoUpdateHandler(
         let prsCreated = 0
         let prsSkipped = 0
         for (const candidate of prCandidates) {
-          const pr = await ports.git.createPullRequest(
-            gitDraft,
-            {
-              owner: organization,
-              repositoryName: candidate.repositoryName,
-              headBranch: branchName,
-              baseBranch: candidate.baseBranch,
-              title: prTitle,
-              body: prBody,
-            },
-            options?.signal,
-          )
+          let pr: Awaited<ReturnType<GitProviderClient["createPullRequest"]>>
+          try {
+            pr = await ports.git.createPullRequest(
+              gitDraft,
+              {
+                owner: organization,
+                repositoryName: candidate.repositoryName,
+                headBranch: branchName,
+                baseBranch: candidate.baseBranch,
+                title: prTitle,
+                body: prBody,
+              },
+              options?.signal,
+            )
+          } catch (error) {
+            if (!isCompletedGitEffectFailure(error)) throw error
+            prsFailed += 1
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to create PR for '${candidate.repositoryName}': ${error.message}`,
+            })
+            continue
+          }
           if (pr.created) {
             prsCreated += 1
             options?.onOutput?.({
@@ -478,6 +503,14 @@ export function createRepoUpdateHandler(
           channel: "info",
           message: `Repository update summary: planned ${plannedRepositoryNames.length}, prs created ${prsCreated}, skipped ${prsSkipped}, failed ${prsFailed}.`,
         })
+        // A failed repository keeps the stored baseline, so the next update
+        // retries it. Providers accept an existing branch and pull request.
+        if (prsFailed > 0) {
+          options?.onOutput?.({
+            channel: "warn",
+            message: `Some repositories failed, so the template baseline stays at ${fromSha.slice(0, 7)}. The next update retries them.`,
+          })
+        }
         options?.onProgress?.({
           step: 6,
           totalSteps,
@@ -488,7 +521,7 @@ export function createRepoUpdateHandler(
           prsCreated,
           prsSkipped,
           prsFailed,
-          templateCommitSha: currentSha,
+          templateCommitSha: prsFailed === 0 ? currentSha : null,
           recordedRepositories,
           completedAt: new Date().toISOString(),
         }

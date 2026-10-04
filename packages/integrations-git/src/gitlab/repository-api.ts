@@ -4,6 +4,7 @@ import type {
   GitConnectionDraft,
   PatchFile,
 } from "@repo-edu/integrations-git-contract"
+import { gitEffectFailure } from "../invocation-guard.js"
 import { isNotFoundError } from "./errors.js"
 import { gitLabRestGet } from "./transport.js"
 
@@ -91,7 +92,8 @@ export async function fileExistsInBranch(
   )
   if (response.status === 404) return false
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(
+    throw gitEffectFailure(
+      "completed",
       `Failed to inspect file '${path}' on '${branchName}' (${response.status}).`,
     )
   }

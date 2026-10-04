@@ -70,6 +70,49 @@ describe("createNodeProcessPort", () => {
     )
   })
 
+  it("settles a target the system refuses to start as a known failure", async () => {
+    const processPort = createProcessPort()
+    const missingFolder = join(
+      tmpdir(),
+      `repo-edu-missing-folder-${process.pid}-${Date.now()}`,
+    )
+
+    for (const request of [
+      { command: "repo-edu-missing-program" },
+      { command: process.execPath, args: ["-e", ""], cwd: missingFolder },
+    ]) {
+      await assert.rejects(
+        processPort.run(request),
+        (error) =>
+          error instanceof CommandOutcomeError &&
+          error.outcome.disposition === "completed" &&
+          error.outcome.completion.status === "failed" &&
+          error.message.startsWith(`Could not start '${request.command}'`),
+      )
+    }
+  })
+
+  it("keeps every other launch failure a fault", async () => {
+    const fault = new Error("The platform adapter failed.")
+    const processPort = createNodeProcessPort(
+      createChildProcessLifetimeController({
+        diagnosticSink() {},
+        warnUnconfirmedTree() {},
+        runtimePlatform: "win32",
+        windowsAdapter: {
+          async launch() {
+            throw fault
+          },
+        },
+      }),
+    )
+
+    await assert.rejects(
+      processPort.run({ command: "faulty-target" }),
+      (error) => error === fault,
+    )
+  })
+
   it("captures stdout, stderr, and non-zero exit codes", async () => {
     const processPort = createProcessPort()
 

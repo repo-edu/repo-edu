@@ -8,6 +8,7 @@ import type {
   ProcessResult,
 } from "@repo-edu/host-runtime-contract"
 import {
+  ChildProcessLaunchRefusedError,
   type ChildProcessLifetimeController,
   ChildProcessTreeUnconfirmedError,
 } from "./child-process-lifetime.js"
@@ -74,6 +75,21 @@ export function createNodeProcessPort(
               disposition: "stopped",
               result: null,
             })
+          if (error instanceof ChildProcessLaunchRefusedError) {
+            const place =
+              request.cwd === undefined ? "" : ` in '${request.cwd}'`
+            throw new CommandOutcomeError({
+              disposition: "completed",
+              completion: {
+                status: "failed",
+                error: {
+                  type: "effect",
+                  message: `Could not start '${request.command}'${place}: ${error.message}`,
+                },
+                result: null,
+              },
+            })
+          }
           throw error
         })
       const failStream = (error: unknown): void => {

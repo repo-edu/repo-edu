@@ -9,6 +9,7 @@ import {
   waitForLaunchStop,
 } from "./child-process-launch-stop.js"
 import {
+  ChildProcessLaunchRefusedError,
   type ChildProcessLifetimePlatformAdapter,
   type ChildProcessLifetimeStopPolicy,
   ChildProcessTreeUnconfirmedError,
@@ -759,6 +760,12 @@ export async function launchAssignedTarget(
       admission = "rejected"
       await lifecycle.stopAndConfirm()
       throw new Error(`The Windows launcher failed: ${started.message}`)
+    }
+    // A refusal becomes a known failure only once the job is confirmed empty.
+    if (started.kind === "refused") {
+      admission = "rejected"
+      await lifecycle.stopAndConfirm()
+      throw new ChildProcessLaunchRefusedError(started.message)
     }
     if (started.kind !== "started") {
       throw new Error(

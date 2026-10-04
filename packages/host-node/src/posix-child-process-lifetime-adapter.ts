@@ -5,7 +5,10 @@ import type {
   ChildProcessLifetimeResult,
   PlatformChildProcessStopResult,
 } from "./child-process-lifetime-contract.js"
-import { ChildProcessTreeUnconfirmedError } from "./child-process-lifetime-contract.js"
+import {
+  ChildProcessLaunchRefusedError,
+  ChildProcessTreeUnconfirmedError,
+} from "./child-process-lifetime-contract.js"
 import { releaseChildProcessLocalResources } from "./child-process-local-resources.js"
 
 const groupExitPollMs = 20
@@ -187,7 +190,8 @@ type ChildProcessTerminal = {
 
 // Spawn admission is asynchronous on POSIX: success and failure both arrive
 // as events, so the launch settles only after the operating system admitted
-// or rejected the target.
+// or rejected the target. An error before `spawn` means no process exists,
+// such as a missing program or working folder.
 function waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {
   return new Promise((resolve, reject) => {
     const onSpawn = () => {
@@ -196,7 +200,9 @@ function waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {
     }
     const onError = (error: Error) => {
       child.off("spawn", onSpawn)
-      reject(error)
+      reject(
+        new ChildProcessLaunchRefusedError(error.message, { cause: error }),
+      )
     }
     child.once("spawn", onSpawn)
     child.once("error", onError)

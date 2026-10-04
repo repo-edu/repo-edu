@@ -2,7 +2,7 @@ const { spawn } = require("node:child_process")
 const { createReadStream, createWriteStream } = require("node:fs")
 const { createInterface } = require("node:readline")
 
-const protocolVersion = 3
+const protocolVersion = 4
 const controlInput = createReadStream(null, { fd: 3, autoClose: false })
 const controlOutput = createWriteStream(null, { fd: 4, autoClose: false })
 const controlLines = createInterface({
@@ -32,6 +32,14 @@ function fail(error) {
   const message = error instanceof Error ? error.message : String(error)
   writeControl({ kind: "failure", message }, () => {
     process.stderr.write(`Windows launcher failure: ${message}\n`)
+    finish(1)
+  })
+}
+
+// The operating system started no target, such as a missing program or
+// working folder. The host may settle this as a known failure.
+function refuse(error) {
+  writeControl({ kind: "refused", message: error.message }, () => {
     finish(1)
   })
 }
@@ -75,6 +83,7 @@ function launchTarget(target) {
     windowsHide: true,
   })
   let targetSettled = false
+  let spawned = false
   let exited
   let exitReported = false
   let openOutputStreams = 2
@@ -117,9 +126,14 @@ function launchTarget(target) {
       return
     }
     targetSettled = true
-    fail(error)
+    if (spawned) {
+      fail(error)
+      return
+    }
+    refuse(error)
   })
   child.once("spawn", () => {
+    spawned = true
     writeControl({ kind: "started" })
   })
   child.once("exit", (exitCode, signal) => {

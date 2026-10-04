@@ -7,6 +7,7 @@ import type {
   ChildProcessLifetimePlatformAdapter,
 } from "../child-process-lifetime.js"
 import {
+  ChildProcessLaunchRefusedError,
   ChildProcessTreeUnconfirmedError,
   createChildProcessLifetimeController,
   isPendingLaunchStoppedError,
@@ -139,9 +140,8 @@ describe("child-process completion routes", {
         proof: "target-exit",
       }),
       (error: unknown) =>
-        error instanceof Error &&
-        "code" in error &&
-        (error as NodeJS.ErrnoException).code === "ENOENT",
+        error instanceof ChildProcessLaunchRefusedError &&
+        (error.cause as NodeJS.ErrnoException).code === "ENOENT",
     )
   })
 

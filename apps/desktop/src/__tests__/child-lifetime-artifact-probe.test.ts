@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
+import {
+  ChildProcessLaunchRefusedError,
+  createChildProcessLifetimeController,
+} from "@repo-edu/host-node/child-process-lifetime"
 import {
   createWindowsChildProcessLifetimeAdapter,
   resolveWindowsChildProcessLifetimeLauncherEntryUrl,
@@ -145,7 +148,7 @@ describe("desktop Windows child-process lifetime runtime", () => {
     assert.equal(run.result.stderr, "")
   })
 
-  it("keeps a rejected target launch as a known setup failure", {
+  it("reports a target the system refuses to start as a launch refusal", {
     skip: process.platform !== "win32",
   }, async () => {
     await assert.rejects(
@@ -159,7 +162,7 @@ describe("desktop Windows child-process lifetime runtime", () => {
           command: "Z:\\repo-edu-missing-target.exe",
         },
       ),
-      (error: Error) => /Windows launcher failed/.test(error.message),
+      (error: Error) => error instanceof ChildProcessLaunchRefusedError,
     )
   })
 

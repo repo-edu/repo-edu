@@ -1,4 +1,4 @@
-export const windowsLauncherProtocolVersion = 3
+export const windowsLauncherProtocolVersion = 4
 
 export type WindowsChildLifetimeTarget = {
   readonly command: string
@@ -34,12 +34,19 @@ export type WindowsLauncherFailureMessage = {
   readonly message: string
 }
 
+/** The operating system started no target. */
+export type WindowsLauncherRefusedMessage = {
+  readonly kind: "refused"
+  readonly message: string
+}
+
 export type WindowsLauncherMessage =
   | WindowsLauncherReadyMessage
   | WindowsLauncherStartedMessage
   | WindowsLauncherExitedMessage
   | WindowsLauncherTerminalMessage
   | WindowsLauncherFailureMessage
+  | WindowsLauncherRefusedMessage
 
 // A supplied environment is the whole target environment, never a set of
 // changes laid over the host's. Only an absent environment falls back to the
@@ -102,8 +109,13 @@ export function parseWindowsLauncherMessage(
       | WindowsLauncherExitedMessage
       | WindowsLauncherTerminalMessage
   }
-  if (value.kind === "failure" && typeof value.message === "string") {
-    return value as WindowsLauncherFailureMessage
+  if (
+    (value.kind === "failure" || value.kind === "refused") &&
+    typeof value.message === "string"
+  ) {
+    return value as
+      | WindowsLauncherFailureMessage
+      | WindowsLauncherRefusedMessage
   }
   throw new Error("The Windows launcher reported an unknown control message.")
 }
