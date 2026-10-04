@@ -776,8 +776,30 @@ correction is the simplest mechanism, verify that claim and the cited boundary
 or decision against the sources. When that claim cites a plan decision, reopen
 it only with evidence that the decision is wrong; otherwise accept it.
 
-Check the audit-finding's rarity against its cited evidence. A real unresolved
-choice about cost goes to the user's ruling; the vet never settles it.
+Check the audit-finding's rarity against its cited evidence. A real choice
+about cost under [Real choices](#real-choices) goes to the user's ruling; the
+vet never settles it. When one option is at least as good on every cost, the
+vet-verdict carries that option as the correction instead.
+
+## Real choices
+
+A choice about cost goes to the user's ruling only when it is real. Weigh each
+option on every cost the evidence shows: build and upkeep, what people using or
+developing the app meet and any risk, such as an extra provider charge. Doing
+nothing counts as an option. Check each cost against its sources first. A cost
+that is the same in every option does not count.
+
+The choice is settled when one option is at least as good as every other on
+every cost. That option becomes the audit-finding's correction. Otherwise the
+choice is real. It also stays real when the evidence leaves a cost unclear. A
+boundary entry or recorded user decision still settles a real choice, under
+[Finding shape](#finding-shape).
+
+Every phase that grounds the item applies this test: the vet before it refers
+an item, the rebuttal when it answers a referral and the fix during
+reconciliation. A referral is a claim like any other vet-verdict, and a later
+phase overturns it on evidence it has read. A ruling on a settled choice costs
+the user a reading and a resumed fix and decides nothing.
 
 ## Vet verdicts
 
@@ -837,9 +859,12 @@ use a few short sentences. Every rebut-answer is one of three kinds.
   evidence, name its file and line or its plan section, and state what the
   vet-verdict should have been. Contest only on evidence the vet can go and
   read. A disagreement of taste is not a contest; it is an agree with a
-  note.
+  note. Contest a referral to the user's ruling when the choice is settled
+  under [Real choices](#real-choices). Name the option that is at least as
+  good on every cost and the evidence for each cost.
 - For user's ruling. The vet sent the item to the user under its
-  recorded-decision or trade rules. State the auditor's position and its
+  recorded-decision or trade rules, and the choice is real under
+  [Real choices](#real-choices). State the auditor's position and its
   evidence in the same short form, and stop there. Never settle it here.
 
 Return the complete rebut-answers in the final response without a grouped
@@ -873,9 +898,12 @@ reservation the report never raised. Ground a reopened item the same way
 before answering it.
 
 One kind of audit-finding is not covered by accepting the round as a whole, in a
-vetted round and an unvetted one alike: a real unresolved choice about cost
-needs its own answer, whether the report explains it in the audit-finding's prose or
-a separate trade block. List these apart in the presentation.
+vetted round and an unvetted one alike: a real choice about cost needs its own
+answer, whether the report explains it in the audit-finding's prose or a
+separate trade block. List these apart in the presentation. Apply
+[Real choices](#real-choices) to every item sent to the user's ruling, whether
+or not the rebuttal contested the referral. Present a settled choice like a
+decided vet-verdict: its correction and the evidence for each cost.
 When the user picks the simpler mechanism, that mechanism becomes the
 audit-finding's required correction, revised in the discussion like any other
 revision. When that ruling overturns a reason the plan records, the round
@@ -895,7 +923,8 @@ The route's approval rule grants the corrections settled above. Planning uses th
 [planning round completion rules](../../../plan/.agents/references/planning-rules.md#round-completion);
 implementation uses its fix invocation's grant. Stop for a ruling only on open items:
 
-- An item sent to the user's ruling.
+- An item sent to the user's ruling whose choice is real under
+  [Real choices](#real-choices).
 - A contested vet-verdict the evidence leaves unclear.
 - A drift correction that changes an audit-finding.
 - A vet-verdict without a rebuttal that this session cannot settle from the evidence.
@@ -1076,8 +1105,9 @@ When a reason still rules it out, say no simpler mechanism works. When the reaso
 looks wrong, quote it and give the evidence against it. The plan can settle
 whether a mechanism works; only a boundary entry or recorded user decision
 settles a real choice about whether machinery is worth its cost. This preserves
-the anchor-rule protection in `../plan/GROWTH-PATTERNS.md`. An unresolved choice
-goes to the user under [Reconciliation](#reconciliation).
+the anchor-rule protection in `../plan/GROWTH-PATTERNS.md`. A choice that stays
+real under [Real choices](#real-choices) goes to the user under
+[Reconciliation](#reconciliation).
 
 This rule's case: it applies when an A- to C-tier finding meets all three
 trigger conditions above. Most plan findings sit at the floor values. The plan

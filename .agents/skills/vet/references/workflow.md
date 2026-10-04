@@ -81,8 +81,9 @@ Drop findings on that excluded metadata. Classify the remaining findings.
   user is decided under the verdict rules.
 - New machinery no boundary asks for. Check the supplied boundaries and growth
   patterns. Check its trade under axis 3 instead of
-  authoring a competing pricing. A real unresolved choice about cost goes to
-  the user's ruling.
+  authoring a competing pricing. A choice about cost goes to the user's
+  ruling only when it is real under the shared
+  [Real choices](../../../references/round-protocol.md#real-choices).
 
 ### 2. Grounded
 
