@@ -5,14 +5,13 @@ import {
   type WorkflowHandler,
   type WorkflowHandlerMap,
   type WorkflowInput,
-  type WorkflowResult,
 } from "@repo-edu/application-contract"
 import type { HostAdmission } from "./host-admission"
 import type { HostRequest } from "./host-admission-model"
 import { settleHostCommand } from "./host-command-settlement"
 import type { createHostRequestTransport } from "./host-request-transport"
 
-/** The execution boundary returns the official handler result to settlement.
+/** The execution boundary records the official outcome before settlement.
  * It never derives an effect disposition from an error category. */
 export async function executeHostCommand(options: {
   request: HostRequest
@@ -24,7 +23,7 @@ export async function executeHostCommand(options: {
     ReturnType<typeof createHostRequestTransport>,
     "progress" | "output" | "settlement"
   >
-}): Promise<WorkflowResult<ExclusiveCommandId> | undefined> {
+}): Promise<void> {
   const { request, admission, handlers, transport, signal } = options
   const operation = options.operation
   if (admission.dispatch({ type: "input-prepared", request }) !== "accepted")
@@ -64,7 +63,7 @@ export async function executeHostCommand(options: {
       },
     })
     await settleHostCommand(request, admission, handlers, transport)
-    return result
+    return
   } catch (error) {
     const phase = executionPhase()
     if (
@@ -72,7 +71,7 @@ export async function executeHostCommand(options: {
       error instanceof CommandOutcomeError &&
       error.outcome.disposition === "stopped"
     )
-      return undefined
+      return
     if (
       phase === "running" &&
       error instanceof CommandOutcomeError &&
@@ -90,6 +89,6 @@ export async function executeHostCommand(options: {
         admission.terminal(failure)
       }
     } else admission.terminal(error)
-    return undefined
+    return
   }
 }
