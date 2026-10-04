@@ -39,7 +39,9 @@ a stem; a SHA anchors its hosting repo and HEAD forms mean Repo Edu.
 Pass the original target unchanged to `pnpm audit-round episode [target]`,
 omitting it when absent. Read the returned evidence in the watch context.
 In chat, return the grounded description, the grade with evidence and the
-suggested response with its reason under **Voice** below. On amber, name the
+suggested response with its reason under **Voice** below. On red, or when the
+response is a targeted fix plan, add the certainty level and its seed under
+**Shape**. On amber, name the
 area and the horizon in iterations for looking again under **Watch step**.
 Then ask for the user's decision and stop.
 Do not stop an iteration or schedule a later watch yourself. The watch's
@@ -135,7 +137,7 @@ nothing the user cannot read there; the grounding is what the watch is for.
 
 The grade and response class are suggestions, not actions the watch takes.
 The runner's fixed repeat limits only decide when to read the evidence again.
-The watch suggests a response class: continue, make a bounded correction pass,
+The watch suggests a response class: continue, start a targeted fix plan,
 redesign the shape, delete an over-scoped section, hold an unstable area until
 evidence arrives, spin off a peer plan or question the objective when drift
 persists across reframes. The user owns the call, including whether to terminate
@@ -143,10 +145,29 @@ or let the round in flight run on.
 
 When rounds keep finding instances of the same unresolved cause, judge whether
 another general audit is an effective next step. Useful individual corrections
-do not establish that the method is converging. Where the evidence supports a
-bounded pass that addresses the cause across its affected scope, recommend that
-pass and name its scope and completion condition. The watch may recommend a
-correction method without designing the implementation or performing the work.
+do not establish that the method is converging. Where a bounded correction
+could address the cause across its affected scope, suggest a targeted fix plan.
+That is a small peer plan that owns this part of the parent step, with steps and
+audits of its own. A correction made without a plan has no stated scope and no
+stem. Its commits and their later fixes then cannot be told apart from other
+work, so no audit can find where it starts. The user directed this on
+2026-10-04, after a correction pass for one step left its audits with neither.
+
+On red, and whenever it suggests a targeted fix plan, the watch states how
+certain it is that such a plan fits. It grounds the level in evidence it cites:
+
+1. **Strong**: one shared cause explains the findings of the latest rounds, and
+   a later round has confirmed the scope an earlier watch predicted.
+2. **Possible**: one shared cause is visible, but the scope rests on the current
+   run alone.
+3. **None yet**: the grade is red, but the findings share no single cause or
+   their scope cannot be bounded. The watch names the evidence that would let
+   it propose a plan and suggests another response class.
+
+The level sets how much of the plan seed the watch writes under [Shape](#shape).
+The seed never designs the implementation: the watch may recommend a correction
+method without designing it or performing the work. Creating the plan stays the
+user's call, through an ordinary `init` that starts from the seed.
 
 The watch is not the iteration audit. The audit reads the current artifact end
 to end for content defects and normally lands a fix commit; a clean round lands
@@ -325,8 +346,9 @@ The writer's judgement rests on reading the commit record and the code, never
 the doer's reasoning. So:
 
 - The writer reads the supplied Git evidence, the current artifact at the area it points
-  to, the area model and the named plan. Inspect named commits as needed to
-  verify a claim; do not repeat the episode walk or token counts.
+  to, the area model, the named plan and the episode's earlier watch documents
+  at the plan root. Inspect named commits as needed to verify a claim; do not
+  repeat the episode walk or token counts.
 - Do not read the round's transcript, its brief, its report or its vet and
   rebuttal twins, and do not read the fix session. The invocation gives you
   none of them on purpose.
@@ -417,7 +439,25 @@ The watch has these sections in this order.
    `growth-<level>` or `pruning-<level>` marks carry.
 4. **What to do about it**: the suggested response class and the reason it
    fits, following [Watch step](#watch-step).
-5. **When to look again**: on amber, name the area to watch. On red, state that
+5. **Targeted fix plan**: on red, and whenever the suggested response is a
+   targeted fix plan. Open with the certainty level in plain words, such as "I
+   strongly suggest a targeted fix plan", "You might consider a targeted fix
+   plan" or "The watch is red, but I cannot yet propose a targeted fix plan".
+   Then write the seed that level allows:
+   - **Strong**: the full seed.
+     - A **name** that states the problem area and never the fix, under the
+       wide-name rule in the plan doctrine's
+       [Artifact lifecycle](../../../../../plan/CLAUDE.md#artifact-lifecycle).
+     - A **Baseline** of the drift evidence, with the commit each load-bearing
+       claim rests on.
+     - The **scope**: which part of which parent step the plan owns, listed
+       completely.
+     - The **done-test**: the completion condition one audit round can check.
+     - The **owner note**: the sentence the parent step needs to name the new
+       plan as the owner of that part.
+   - **Possible**: the scope and the done-test only.
+   - **None yet**: no seed. Name the evidence that is missing.
+6. **When to look again**: on amber, name the area to watch. On red, state that
    this is for the user to act on now. On green, nothing more.
 
 Nothing else belongs in the file. The round's own brief holds its findings.
@@ -431,7 +471,9 @@ Before finishing, read the watch as the user will and correct unclear wording:
 2. Does each cited piece of evidence have a clear connection to the claim it
    supports?
 3. Is the stated reason for the suggested response clear?
-4. Can the reader follow each sentence without `git log` open beside it?
+4. Does the certainty level rest on the evidence the watch cites, and does the
+   seed stay free of design?
+5. Can the reader follow each sentence without `git log` open beside it?
 
 Keep the wording consistent with the evidence and judgement. Never append a
 critique, a change list or a note about the draft: the file must read as the
