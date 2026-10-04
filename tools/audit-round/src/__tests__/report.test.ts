@@ -358,7 +358,15 @@ test("vet reads unconditional accepts with preamble notes", () => {
     true,
   )
   assert.equal(readVet("1. [B] Accept\r\n", [1]), true)
+  assert.equal(readVet("1. [B] Accept  \n", [1]), true)
   assert.equal(readVet("No findings to vet.", []), true)
+})
+
+test("vet reads a verdict line that ends in a Markdown hard break", () => {
+  assert.equal(
+    readVet("1. [B] Revise  \nUse the tree entry.\n\n2. [B] Accept", [1, 2]),
+    false,
+  )
 })
 
 test("every other verdict or line after a verdict prevents skipping the rebuttal", () => {

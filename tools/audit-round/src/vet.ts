@@ -1,6 +1,9 @@
 import type { ReportFindings } from "./report.js"
 
-/** Verdicts have a fixed line grammar. Any following prose is a condition. */
+/**
+ * Verdicts have a fixed line grammar. Any following prose is a condition.
+ * Trailing whitespace, such as a Markdown hard break, carries no content.
+ */
 export function readVet(source: string, findings: ReportFindings): boolean {
   const numbers: number[] = []
   let accepted = true
@@ -8,7 +11,7 @@ export function readVet(source: string, findings: ReportFindings): boolean {
     if (line.trim().length === 0) continue
     const verdict =
       /^([1-9]\d*)\. \[([A-D])\] (Accept|Revise|Drop|Needs user's ruling)$/.exec(
-        line,
+        line.trimEnd(),
       )
     if (verdict !== null) {
       numbers.push(Number(verdict[1]))
