@@ -12,8 +12,11 @@ it at `../repo-edu/.agents/references/round-protocol.md`.
 Round documents and logs use `<target>-<round>-<order>-<kind>.<tag>.<ext>`.
 The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
-Two files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
-number, and `<stem>-handoff.<sha>.md` briefs the commit it names. The runner
+Three files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
+number, `<stem>-handoff.<sha>.md` briefs the commit it names and the runner's
+`<target>-queue.md` holds the auditors a running sequence has yet to start. The
+queue file carries no round number because it belongs to the whole sequence,
+and the runner deletes it when the sequence ends. The runner
 claims at the plan repository root; a hand-run audit claims there too.
 The plan repo's handoff rule owns that six-character sha.
 
@@ -58,7 +61,7 @@ Skipped phases leave gaps. Every round file lives at the plan repo root.
 
 Read a name from the right: remove the extension, three-letter tag, kind and order,
 then split the remaining name at its last hyphen into target and round.
-The tagless claim and handoff are the two exceptions above. Do not read repo
+The tagless claim, handoff and queue file are the three exceptions above. Do not read repo
 names or audited heads from a filename; they belong in the report opening.
 
 For example, one round can contain `example-step-02..02-01-2-audit.otm.md` and
