@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
-import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { ExaminationArchiveStoredEntry } from "@repo-edu/host-runtime-contract"
 import {
   createExaminationArchiveStorage,
@@ -205,30 +204,7 @@ describe("examination archive storage (host-node)", () => {
     }
   })
 
-  it("reports a failed archive call as a known failure", () => {
-    const ctx = openTempArchive()
-    ctx.handle.close()
-    try {
-      for (const call of [
-        () => ctx.storage.get("key-1"),
-        () => ctx.storage.put(buildEntry()),
-        () => ctx.storage.remove("key-1"),
-        () => ctx.storage.exportAll(),
-        () => ctx.storage.importAll([buildEntry()]),
-      ]) {
-        assert.throws(
-          call,
-          (error: unknown) =>
-            error instanceof CommandOutcomeError &&
-            error.outcome.disposition === "completed",
-        )
-      }
-    } finally {
-      rmSync(ctx.dir, { recursive: true, force: true })
-    }
-  })
-
-  it("rolls a failed import back and reports it as a known failure", () => {
+  it("rolls a failed import back and keeps SQLite's error", () => {
     const ctx = openTempArchive()
     try {
       assert.throws(
@@ -240,10 +216,7 @@ describe("examination archive storage (host-node)", () => {
               payloadJson: null as unknown as string,
             }),
           ]),
-        (error: unknown) =>
-          error instanceof CommandOutcomeError &&
-          error.outcome.disposition === "completed" &&
-          /NOT NULL/.test(error.message),
+        /NOT NULL/,
       )
       assert.deepEqual(ctx.storage.exportAll(), [])
     } finally {

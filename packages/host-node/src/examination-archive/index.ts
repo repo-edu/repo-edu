@@ -5,7 +5,6 @@ import type {
   ExaminationArchiveStoragePort,
   ExaminationArchiveStoredEntry,
 } from "@repo-edu/host-runtime-contract"
-import { knownEffectFailure } from "../known-effect.js"
 import { withTransaction } from "../sqlite/transaction.js"
 
 const ARCHIVE_USER_VERSION = 5
@@ -86,16 +85,6 @@ type CreateArchiveOptions = {
   handle: ExaminationArchiveDatabaseHandle
 }
 
-/** Each call is one synchronous SQLite statement or transaction, so a failure
- * has ended without changing the archive and its outcome is known. */
-function knownArchiveEffect<T>(effect: () => T): T {
-  try {
-    return effect()
-  } catch (error) {
-    throw knownEffectFailure(error)
-  }
-}
-
 export function createExaminationArchiveStorage(
   options: CreateArchiveOptions,
 ): ExaminationArchiveStoragePort {
@@ -147,35 +136,31 @@ export function createExaminationArchiveStorage(
 
   return {
     get(storageKey) {
-      return knownArchiveEffect(() => {
-        const row = selectOne.get(storageKey) as
-          | {
-              storage_key: string
-              created_at: number
-              payload: string
-            }
-          | undefined
-        return row === undefined ? undefined : rowToEntry(row)
-      })
+      const row = selectOne.get(storageKey) as
+        | {
+            storage_key: string
+            created_at: number
+            payload: string
+          }
+        | undefined
+      return row === undefined ? undefined : rowToEntry(row)
     },
 
     put(entry) {
-      knownArchiveEffect(() => putEntry(entry, Date.now()))
+      putEntry(entry, Date.now())
     },
 
     remove(storageKey) {
-      knownArchiveEffect(() => deleteEntry.run(storageKey))
+      deleteEntry.run(storageKey)
     },
 
     exportAll() {
-      return knownArchiveEffect(() => {
-        const rows = selectAll.all() as {
-          storage_key: string
-          created_at: number
-          payload: string
-        }[]
-        return rows.map(rowToEntry)
-      })
+      const rows = selectAll.all() as {
+        storage_key: string
+        created_at: number
+        payload: string
+      }[]
+      return rows.map(rowToEntry)
     },
 
     importAll(entries): ExaminationArchiveImportSummary {
@@ -183,26 +168,24 @@ export function createExaminationArchiveStorage(
       let updated = 0
       let skipped = 0
 
-      knownArchiveEffect(() =>
-        withTransaction(db, () => {
-          const now = Date.now()
-          for (const entry of entries) {
-            const existing = selectExisting.get(entry.storageKey) as
-              | { created_at: number }
-              | undefined
+      withTransaction(db, () => {
+        const now = Date.now()
+        for (const entry of entries) {
+          const existing = selectExisting.get(entry.storageKey) as
+            | { created_at: number }
+            | undefined
 
-            if (existing === undefined) {
-              putEntry(entry, now)
-              inserted += 1
-            } else if (entry.createdAtMs > Number(existing.created_at)) {
-              putEntry(entry, now)
-              updated += 1
-            } else {
-              skipped += 1
-            }
+          if (existing === undefined) {
+            putEntry(entry, now)
+            inserted += 1
+          } else if (entry.createdAtMs > Number(existing.created_at)) {
+            putEntry(entry, now)
+            updated += 1
+          } else {
+            skipped += 1
           }
-        }),
-      )
+        }
+      })
 
       return {
         totalInBundle: entries.length,

@@ -52,9 +52,8 @@ its port interface.
   shared by Node command-line development and desktop packaging.
 - `createExaminationArchiveStorage(...)` and `openExaminationArchiveDatabase(...)`
   (`src/examination-archive/`): SQLite-backed `ExaminationArchiveStoragePort`. Helpers in
-  `src/sqlite/transaction.ts` wrap statements in transactions. Each storage call
-  is one synchronous statement or transaction, so its failure is a known
-  completion. Opening the archive stays a bootstrap failure.
+  `src/sqlite/transaction.ts` wrap statements in transactions. Every failure is
+  terminal: the desktop reports it before a workflow can settle it.
 - `createCourseStore(root)` owns complete course rows in `courses.sqlite`.
   Each action opens a runtime SQLite connection, takes one zero-wait exclusive
   transaction, checks the schema, commits and closes. Every failure is terminal.
