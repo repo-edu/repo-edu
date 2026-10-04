@@ -14,6 +14,7 @@ import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import {
   commandRefusal,
   commandValidationError as createValidationAppError,
+  rethrowGitEffectFailure,
   commandThrowIfAborted as throwIfAborted,
 } from "../command-outcomes.js"
 import {
@@ -448,6 +449,7 @@ export function createRepoCreateHandler(
           completedAt: new Date().toISOString(),
         }
       } catch (error) {
+        rethrowGitEffectFailure(error)
         if (isSharedAppError(error)) {
           throw error
         }

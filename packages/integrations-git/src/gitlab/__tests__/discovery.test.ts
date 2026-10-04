@@ -215,7 +215,11 @@ describe("gitlab discovery", () => {
       const client = createGitLabClient(http)
       await assert.rejects(
         client.listRepositories(baseDraft, { namespace: "my-group" }),
-        timeout,
+        {
+          message: "The operation timed out.",
+          type: "git-effect",
+          disposition: "completed",
+        },
       )
     })
   })

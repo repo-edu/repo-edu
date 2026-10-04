@@ -853,9 +853,12 @@ describe("examination.generateQuestions archive behavior", () => {
     await assert.rejects(
       () => handlers["examination.generateQuestions"](baseInput()),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        (error as { type?: unknown }).type === "validation",
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "completed" &&
+        error.outcome.completion.status === "failed" &&
+        error.outcome.completion.result === null &&
+        error.outcome.completion.error.type === "validation",
     )
+    assert.equal(archive.exportBundle().records.length, 0)
   })
 })

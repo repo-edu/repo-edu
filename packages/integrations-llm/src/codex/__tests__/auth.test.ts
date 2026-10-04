@@ -88,7 +88,8 @@ describe("resolveCodexAuth", () => {
         error instanceof LlmError &&
         error.kind === "auth" &&
         error.context.provider === "codex" &&
-        error.context.authMode === "api",
+        error.context.authMode === "api" &&
+        error.context.outcome === "refused",
     )
   })
 

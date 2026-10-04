@@ -200,8 +200,7 @@ describe("gitlab identity", () => {
 
       await assert.rejects(
         createGitLabClient(http).verifyConnection(baseDraft, controller.signal),
-        (error: unknown) =>
-          error instanceof DOMException && error.name === "AbortError",
+        { type: "git-effect", disposition: "stopped" },
       )
       assert.equal(transportSignal?.aborted, true)
     })

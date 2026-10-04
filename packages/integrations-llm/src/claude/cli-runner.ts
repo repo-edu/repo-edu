@@ -107,7 +107,13 @@ export async function* runClaudeCliStream(
     throw new LlmError(
       "auth",
       "Claude subscription mode requires the Claude CLI to be installed and available on PATH.",
-      { context: { provider: "claude", authMode: "subscription" } },
+      {
+        context: {
+          provider: "claude",
+          authMode: "subscription",
+          outcome: "refused",
+        },
+      },
     )
   }
   if (options.launch === undefined) {

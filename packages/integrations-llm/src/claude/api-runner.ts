@@ -52,7 +52,11 @@ export async function* runClaudeApiStream(
     )
   }
   throwIfClaudeAborted(options.signal)
-  const maxTokens = validatedMaxTokens(config?.maxTokens)
+  const params = buildMessageParams(
+    options.spec,
+    options.prompt,
+    validatedMaxTokens(config?.maxTokens),
+  )
   const client = (options.factory ?? defaultClaudeApiClientFactory)({
     apiKey: resolved.apiKey,
     baseURL: resolved.baseUrl,
@@ -63,12 +67,9 @@ export async function* runClaudeApiStream(
 
   try {
     yield { kind: "activity", label: "Contacting Claude." }
-    const stream = client.messages.stream(
-      buildMessageParams(options.spec, options.prompt, maxTokens),
-      {
-        signal: options.signal,
-      },
-    )
+    const stream = client.messages.stream(params, {
+      signal: options.signal,
+    })
 
     for await (const event of stream as AsyncIterable<MessageStreamEvent>) {
       if (options.signal?.aborted && event.type !== "message_stop") {
@@ -109,18 +110,14 @@ export async function* runClaudeApiStream(
     }
   } catch (cause) {
     if (emittedDone) return
+    // The request changes nothing outside the app and no reply is used after
+    // it fails, so the caller's abort is a proven stop and every other ending
+    // is a known failed completion.
+    if (options.signal?.aborted) throw claudeAbortError(options.signal.reason)
     const failure = toClaudeLlmError(cause, "api")
     throw new LlmError(failure.kind, failure.message, {
       cause,
-      context: {
-        ...failure.context,
-        outcome:
-          cause instanceof Anthropic.APIError &&
-          cause.status !== undefined &&
-          cause.headers !== undefined
-            ? "completed"
-            : "proof-lost",
-      },
+      context: { ...failure.context, outcome: "completed" },
     })
   }
 }
@@ -138,7 +135,7 @@ function validatedMaxTokens(value: number | undefined): number {
   throw new LlmError(
     "other",
     "Claude API runtime config requires a positive integer maxTokens value.",
-    { context: { provider: "claude", authMode: "api" } },
+    { context: { provider: "claude", authMode: "api", outcome: "refused" } },
   )
 }
 

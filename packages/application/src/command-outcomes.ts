@@ -6,6 +6,7 @@ import {
   type WorkflowHandler,
   type WorkflowId,
 } from "@repo-edu/application-contract"
+import type { GitEffectFailure } from "@repo-edu/integrations-git-contract"
 
 /** Call only at a workflow-owned boundary that has not started mutation. */
 export function commandRefusal(error: CommandFailure): CommandOutcomeError {
@@ -63,26 +64,29 @@ export async function commandPreparation<T>(
   }
 }
 
-/** The Git adapter owns response and sequential-stop proof. */
-export function rethrowGitEffectFailure(error: unknown): void {
-  if (
-    !(error instanceof Error) ||
-    !("type" in error) ||
-    error.type !== "git-effect" ||
-    !("disposition" in error)
+/** Call only after the effect owner proved that its run ended. */
+export function commandCompletedFailure(
+  error: CommandFailure,
+): CommandOutcomeError {
+  return new CommandOutcomeError<never>({
+    disposition: "completed",
+    completion: { status: "failed", error, result: null },
+  })
+}
+
+export function isGitEffectFailure(error: unknown): error is GitEffectFailure {
+  return (
+    error instanceof Error && "type" in error && error.type === "git-effect"
   )
-    return
+}
+
+/** The Git adapter owns request, response and sequential-stop proof. Only an
+ * exclusive command calls this; ordinary calls normalise the same failure to
+ * an `AppError`. */
+export function rethrowGitEffectFailure(error: unknown): void {
+  if (!isGitEffectFailure(error)) return
   if (error.disposition === "stopped") {
     throw new CommandOutcomeError({ disposition: "stopped", result: null })
   }
-  if (error.disposition === "completed") {
-    throw new CommandOutcomeError({
-      disposition: "completed",
-      completion: {
-        status: "failed",
-        result: null,
-        error: { type: "effect", message: error.message },
-      },
-    })
-  }
+  throw commandCompletedFailure({ type: "effect", message: error.message })
 }

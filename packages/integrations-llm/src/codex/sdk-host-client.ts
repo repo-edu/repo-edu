@@ -88,7 +88,7 @@ function validateRequest(
   const authMode = resolveCodexAuth(config).authMode
   if (request.spec.effort === "max") {
     throw new LlmError("other", "effort 'max' is not supported on Codex", {
-      context: { provider: "codex", authMode },
+      context: { provider: "codex", authMode, outcome: "refused" },
     })
   }
   return authMode

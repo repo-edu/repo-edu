@@ -13,6 +13,7 @@ import { createRequire } from "node:module"
 import { homedir, tmpdir } from "node:os"
 import { isAbsolute, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { TokenizerSupportedLanguage } from "@repo-edu/domain/analysis"
 import type {
   FileSystemBatchOperation,
@@ -109,9 +110,10 @@ export {
   defaultNodeWindowState,
 } from "./window-state-store.js"
 
+/** Each check runs between whole file-system steps, so a stop here is proven. */
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
-    throw new Error("Operation cancelled.")
+    throw new CommandOutcomeError({ disposition: "stopped", result: null })
   }
 }
 

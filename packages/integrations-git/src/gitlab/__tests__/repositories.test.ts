@@ -158,7 +158,7 @@ describe("gitlab repositories", () => {
       ])
     })
 
-    it("propagates provider failures while resolving the namespace", async () => {
+    it("reports a failed namespace read as a known failure", async () => {
       const timeout = new DOMException(
         "The operation timed out.",
         "TimeoutError",
@@ -177,7 +177,11 @@ describe("gitlab repositories", () => {
           visibility: "private",
           autoInit: true,
         }),
-        timeout,
+        {
+          message: "The operation timed out.",
+          type: "git-effect",
+          disposition: "completed",
+        },
       )
     })
 

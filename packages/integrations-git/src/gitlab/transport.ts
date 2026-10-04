@@ -2,6 +2,7 @@ import { GitbeakerRequestError, Gitlab } from "@gitbeaker/rest"
 import { resolveUserAgent } from "@repo-edu/domain/connection"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
+import { sendGitRequest } from "../invocation-guard.js"
 
 type ResponseBody =
   | Record<string, unknown>
@@ -199,13 +200,9 @@ async function executeRequest<T extends ResponseBody>(
     callerSignal && options?.signal
       ? AbortSignal.any([callerSignal, options.signal])
       : (callerSignal ?? options?.signal)
-  const httpResponse = await http.fetch({
-    url: url.toString(),
-    method,
-    headers,
-    body,
-    signal,
-  })
+  const httpResponse = await sendGitRequest(method, signal, (signal) =>
+    http.fetch({ url: url.toString(), method, headers, body, signal }),
+  )
 
   if (httpResponse.status < 200 || httpResponse.status >= 300) {
     const request = new Request(url, {
@@ -339,19 +336,21 @@ async function gitLabRestRequest(
   body: Record<string, unknown> | undefined,
   signal?: AbortSignal,
 ): Promise<{ status: number; data: unknown }> {
-  const response = await http.fetch({
-    url: `${toApiBaseUrl(draft)}${path}`,
-    method,
-    headers: {
-      "User-Agent": resolveUserAgent(draft),
-      "PRIVATE-TOKEN": draft.token,
-      accept: "application/json",
-      ...(body === undefined ? {} : { "content-type": "application/json" }),
-    },
-    body:
-      body === undefined ? undefined : JSON.stringify(decamelizeValue(body)),
-    signal,
-  })
+  const response = await sendGitRequest(method, signal, (signal) =>
+    http.fetch({
+      url: `${toApiBaseUrl(draft)}${path}`,
+      method,
+      headers: {
+        "User-Agent": resolveUserAgent(draft),
+        "PRIVATE-TOKEN": draft.token,
+        accept: "application/json",
+        ...(body === undefined ? {} : { "content-type": "application/json" }),
+      },
+      body:
+        body === undefined ? undefined : JSON.stringify(decamelizeValue(body)),
+      signal,
+    }),
+  )
 
   let data: unknown = null
   if (response.body !== "") {

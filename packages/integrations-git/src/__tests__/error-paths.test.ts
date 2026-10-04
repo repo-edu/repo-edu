@@ -68,6 +68,51 @@ function createAbortedHttpPort(): HttpPort {
   }
 }
 
+/** Like a real transport, a request that carries a signal ends with an abort
+ * when the signal fires before its response. A null response never arrives. */
+function createSignalObeyingHttpPort(
+  respond: (request: HttpRequest) => HttpResponse | null,
+): HttpPort {
+  return {
+    fetch(request: HttpRequest): Promise<HttpResponse> {
+      return new Promise((resolve, reject) => {
+        request.signal?.addEventListener(
+          "abort",
+          () =>
+            reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            ),
+          { once: true },
+        )
+        const response = respond(request)
+        if (response !== null) resolve(response)
+      })
+    },
+  }
+}
+
+/** One body every provider reads as a created repository or its group. */
+const createdRepositoryResponse: HttpResponse = {
+  status: 201,
+  statusText: "Created",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    id: 7,
+    html_url: "https://example.test/course-org/repo-1",
+    clone_url: "https://example.test/course-org/repo-1.git",
+    web_url: "https://example.test/course-org/repo-1",
+    http_url_to_repo: "https://example.test/course-org/repo-1.git",
+  }),
+}
+
+const providerClients: Array<
+  (http: HttpPort) => [GitProviderClient, GitConnectionDraft]
+> = [
+  (http) => [createGitHubClient(http), githubDraft],
+  (http) => [createGitLabClient(http), gitlabDraft],
+  (http) => [createGiteaClient(http), giteaDraft],
+]
+
 describe("Gitea error paths", () => {
   describe("verifyConnection", () => {
     it("returns verified: false on 401", async () => {
@@ -116,7 +161,7 @@ describe("Gitea error paths", () => {
       assert.equal(results[1].exists, false)
     })
 
-    it("throws canonical cancellation before username lookup", async () => {
+    it("reports a proven stop before username lookup", async () => {
       let fetchCount = 0
       const http: HttpPort = {
         async fetch(): Promise<HttpResponse> {
@@ -144,8 +189,7 @@ describe("Gitea error paths", () => {
           ["alice", "bob", "carol"],
           controller.signal,
         ),
-        (error: unknown) =>
-          error instanceof DOMException && error.name === "AbortError",
+        { type: "git-effect", disposition: "stopped" },
       )
 
       assert.equal(fetchCount, 0)
@@ -209,7 +253,7 @@ describe("GitHub error paths", () => {
       assert.equal(results[0].exists, false)
     })
 
-    it("throws canonical cancellation before username lookup", async () => {
+    it("reports a proven stop before username lookup", async () => {
       let fetchCount = 0
       const http: HttpPort = {
         async fetch(): Promise<HttpResponse> {
@@ -233,8 +277,7 @@ describe("GitHub error paths", () => {
           ["alice", "bob"],
           controller.signal,
         ),
-        (error: unknown) =>
-          error instanceof DOMException && error.name === "AbortError",
+        { type: "git-effect", disposition: "stopped" },
       )
 
       assert.equal(fetchCount, 0)
@@ -288,7 +331,7 @@ describe("GitLab error paths", () => {
       assert.equal(results[0].exists, false)
     })
 
-    it("throws canonical cancellation before username lookup", async () => {
+    it("reports a proven stop before username lookup", async () => {
       let fetchCount = 0
       const http: HttpPort = {
         async fetch(): Promise<HttpResponse> {
@@ -312,8 +355,7 @@ describe("GitLab error paths", () => {
           ["alice", "bob"],
           controller.signal,
         ),
-        (error: unknown) =>
-          error instanceof DOMException && error.name === "AbortError",
+        { type: "git-effect", disposition: "stopped" },
       )
 
       assert.equal(fetchCount, 0)
@@ -390,12 +432,12 @@ describe("error handling consistency across git providers", () => {
     assert.deepStrictEqual(gitea, [{ username: "alice", exists: false }])
   })
 
-  it("all operations and providers canonicalise custom caller abort reasons by operation kind", async () => {
+  it("all operations and providers report a caller abort as a proven stop", async () => {
     const controller = new AbortController()
     controller.abort(new Error("custom reason"))
 
     const http = createAbortedHttpPort()
-    const readOperations: Array<
+    const operations: Array<
       (client: GitProviderClient, draft: GitConnectionDraft) => Promise<unknown>
     > = [
       (client, draft) => client.verifyConnection(draft, controller.signal),
@@ -430,10 +472,6 @@ describe("error handling consistency across git providers", () => {
           { namespace: "course-org" },
           controller.signal,
         ),
-    ]
-    const effectOperations: Array<
-      (client: GitProviderClient, draft: GitConnectionDraft) => Promise<unknown>
-    > = [
       (client, draft) =>
         client.createRepositories(
           draft,
@@ -494,23 +532,10 @@ describe("error handling consistency across git providers", () => {
           controller.signal,
         ),
     ]
-    const providers: Array<[GitProviderClient, GitConnectionDraft]> = [
-      [createGitHubClient(http), githubDraft],
-      [createGitLabClient(http), gitlabDraft],
-      [createGiteaClient(http), giteaDraft],
-    ]
 
-    for (const [client, draft] of providers) {
-      for (const operation of readOperations) {
-        await assert.rejects(
-          operation(client, draft),
-          (error: unknown) =>
-            error instanceof DOMException &&
-            error.name === "AbortError" &&
-            error.message === "The operation was aborted.",
-        )
-      }
-      for (const operation of effectOperations) {
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(http)
+      for (const operation of operations) {
         await assert.rejects(operation(client, draft), {
           name: "Error",
           message: "Operation cancelled.",
@@ -518,6 +543,71 @@ describe("error handling consistency across git providers", () => {
           disposition: "stopped",
         })
       }
+    }
+  })
+
+  it("all providers stop a read that Cancel interrupts in flight", async () => {
+    for (const providerClient of providerClients) {
+      const controller = new AbortController()
+      const [client, draft] = providerClient(
+        createSignalObeyingHttpPort(() => {
+          controller.abort()
+          return null
+        }),
+      )
+      await assert.rejects(
+        client.resolveRepositoryCloneUrls(
+          draft,
+          { organization: "course-org", repositoryNames: ["repo-1"] },
+          controller.signal,
+        ),
+        { type: "git-effect", disposition: "stopped" },
+      )
+    }
+  })
+
+  it("all providers let a write run to its response when Cancel arrives", async () => {
+    for (const providerClient of providerClients) {
+      const controller = new AbortController()
+      const writeSignals: Array<AbortSignal | undefined> = []
+      const [client, draft] = providerClient(
+        createSignalObeyingHttpPort((request) => {
+          if (request.method !== "GET") {
+            writeSignals.push(request.signal)
+            controller.abort()
+          }
+          return createdRepositoryResponse
+        }),
+      )
+      const result = await client.createRepositories(
+        draft,
+        {
+          organization: "course-org",
+          repositoryNames: ["repo-1"],
+          visibility: "private",
+          autoInit: true,
+        },
+        controller.signal,
+      )
+      assert.equal(result.created.length, 1)
+      assert.deepStrictEqual(writeSignals, [undefined])
+    }
+  })
+
+  it("all providers report a failed read as a known failure", async () => {
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(createNetworkErrorHttpPort())
+      await assert.rejects(
+        client.resolveRepositoryCloneUrls(draft, {
+          organization: "course-org",
+          repositoryNames: ["repo-1"],
+        }),
+        {
+          message: "Connection refused",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
     }
   })
 })

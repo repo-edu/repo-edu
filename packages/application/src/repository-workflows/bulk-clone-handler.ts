@@ -12,6 +12,7 @@ import type {
 import {
   commandRefusal,
   commandValidationError as createValidationAppError,
+  rethrowGitEffectFailure,
   commandThrowIfAborted as throwIfAborted,
 } from "../command-outcomes.js"
 import {
@@ -188,6 +189,7 @@ export function createRepoBulkCloneHandler(
           completedAt: new Date().toISOString(),
         }
       } catch (error) {
+        rethrowGitEffectFailure(error)
         if (isSharedAppError(error)) {
           throw error
         }

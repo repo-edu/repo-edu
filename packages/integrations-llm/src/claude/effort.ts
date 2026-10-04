@@ -21,6 +21,6 @@ export function claudeNativeEffort(
   if (effort === "none") return null
   if (CLAUDE_NATIVE_EFFORTS.has(effort)) return effort as ClaudeNativeEffort
   throw new LlmError("other", `effort '${effort}' is not supported on Claude`, {
-    context: { provider: "claude", authMode },
+    context: { provider: "claude", authMode, outcome: "refused" },
   })
 }

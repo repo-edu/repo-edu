@@ -132,8 +132,7 @@ describe("github identity", () => {
           ["alice", "bob"],
           controller.signal,
         ),
-        (error: unknown) =>
-          error instanceof DOMException && error.name === "AbortError",
+        { type: "git-effect", disposition: "stopped" },
       )
     })
   })

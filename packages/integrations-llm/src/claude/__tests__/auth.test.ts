@@ -70,7 +70,8 @@ describe("resolveClaudeAuth", () => {
         error instanceof LlmError &&
         error.kind === "auth" &&
         error.context.provider === "claude" &&
-        error.context.authMode === "api",
+        error.context.authMode === "api" &&
+        error.context.outcome === "refused",
     )
   })
 })

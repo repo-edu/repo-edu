@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { createNodeFileSystemPort } from "../index.js"
 
 describe("createNodeFileSystemPort", () => {
@@ -67,7 +68,7 @@ describe("createNodeFileSystemPort", () => {
     ])
   })
 
-  it("honors abort before starting a batch", async () => {
+  it("reports abort before starting a batch as a proven stop", async () => {
     const fileSystemPort = createNodeFileSystemPort()
     const controller = new AbortController()
 
@@ -75,10 +76,15 @@ describe("createNodeFileSystemPort", () => {
 
     await assert.rejects(
       fileSystemPort.applyBatch({
-        operations: [{ kind: "ensure-directory", path: "/tmp/not-used" }],
+        operations: [
+          { kind: "ensure-directory", path: join(tmpdir(), "not-used") },
+        ],
         signal: controller.signal,
       }),
-      /Operation cancelled\./,
+      (error: unknown) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "stopped" &&
+        error.outcome.result === null,
     )
   })
 })

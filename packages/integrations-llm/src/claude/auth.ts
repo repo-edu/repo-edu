@@ -58,7 +58,9 @@ export function resolveClaudeAuth(
       throw new LlmError(
         "auth",
         `Claude auth mode "api" requires ${ANTHROPIC_API_KEY_VAR} via config.apiKey or the environment.`,
-        { context: { provider: "claude", authMode: "api" } },
+        {
+          context: { provider: "claude", authMode: "api", outcome: "refused" },
+        },
       )
     }
     return {

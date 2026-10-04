@@ -303,7 +303,8 @@ describe("runClaudeCliStream", () => {
           error instanceof LlmError &&
           error.kind === "auth" &&
           error.context.provider === "claude" &&
-          error.context.authMode === "subscription",
+          error.context.authMode === "subscription" &&
+          error.context.outcome === "refused",
       )
     } finally {
       if (savedPath === undefined) {

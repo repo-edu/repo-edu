@@ -9,6 +9,7 @@ Implement provider clients behind `GitProviderClient` from
 
 - `src/index.ts`: eager, stateless provider dispatch
 - `src/invocation-guard.ts`: caller-cancellation boundary for every operation
+  and the read and write rule for every provider request
 - `src/{github,gitlab,gitea}/*`: provider facade, six capability owners and
   provider-local infrastructure
 
@@ -31,6 +32,10 @@ absence rules.
 - Return authenticated clone URLs from repository creation rather than relying
   on a later visibility-sensitive lookup.
 - Route every public provider operation through the shared invocation guard.
+- Send every provider request through `sendGitRequest`. A read keeps the
+  caller's signal and reports its own stop or failure. A write never receives
+  the signal, so it runs to its response; a write that loses its response stays
+  unknown.
 - Translate only an explicit provider not-found response into `null`, an empty
   listing or a per-repository missing result. Network, timeout, authentication
   and provider failures must propagate to the application layer.

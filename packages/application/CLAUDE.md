@@ -32,6 +32,9 @@ It composes:
 - Exclusive effect handlers report proven outcomes through `CommandOutcomeError`.
   Confirmation expiry remains an explicit unknown outcome without a result;
   other uncertainty is terminal. No caller infers disposition from an error category.
+  A command takes an adapter's outcome through `rethrowGitEffectFailure` or
+  `rethrowLlmOutcome` before normalising the error. Ordinary calls normalise the
+  same adapter failures to `AppError` and never throw a command outcome.
 - Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`;
   `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
 - Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for LMS- and

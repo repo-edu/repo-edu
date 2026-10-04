@@ -3,27 +3,6 @@ import type {
   GitProviderClient,
 } from "@repo-edu/integrations-git-contract"
 
-function throwIfCallerAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new DOMException("The operation was aborted.", "AbortError")
-  }
-}
-
-async function invoke<T>(
-  signal: AbortSignal | undefined,
-  operation: () => Promise<T>,
-): Promise<T> {
-  throwIfCallerAborted(signal)
-  try {
-    const result = await operation()
-    throwIfCallerAborted(signal)
-    return result
-  } catch (error) {
-    throwIfCallerAborted(signal)
-    throw error
-  }
-}
-
 export function gitEffectFailure(
   disposition: GitEffectFailure["disposition"],
   message: string,
@@ -34,9 +13,65 @@ export function gitEffectFailure(
   })
 }
 
+function isGitEffectFailure(error: unknown): error is GitEffectFailure {
+  return (
+    error instanceof Error && "type" in error && error.type === "git-effect"
+  )
+}
+
 /** Called between sequential effects, after every earlier request has finished. */
 export function throwIfGitEffectAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw gitEffectFailure("stopped", "Operation cancelled.")
+}
+
+/** A read changes nothing, so the caller's stop is proven and any other
+ * failure is a known completion. */
+function readFailure(
+  signal: AbortSignal | undefined,
+  error: unknown,
+): GitEffectFailure {
+  if (isGitEffectFailure(error)) return error
+  if (signal?.aborted)
+    return gitEffectFailure("stopped", "Operation cancelled.")
+  return gitEffectFailure(
+    "completed",
+    error instanceof Error ? error.message : String(error),
+  )
+}
+
+/** Every provider request layer sends through here, so a read inside a
+ * mutating operation follows the same rule as a read-only operation. A read
+ * keeps the caller's signal. A write never receives it: the write runs to its
+ * response and the caller's stop is proven before the next request. A read
+ * failure with a response stays raw so the capability can translate absence. */
+export async function sendGitRequest<T>(
+  method: string,
+  signal: AbortSignal | undefined,
+  send: (signal: AbortSignal | undefined) => Promise<T>,
+  hasResponse: (error: unknown) => boolean = () => false,
+): Promise<T> {
+  if (method !== "GET" && method !== "HEAD") return send(undefined)
+  try {
+    return await send(signal)
+  } catch (error) {
+    if (hasResponse(error)) throw error
+    throw readFailure(signal, error)
+  }
+}
+
+async function invoke<T>(
+  signal: AbortSignal | undefined,
+  operation: () => Promise<T>,
+): Promise<T> {
+  throwIfGitEffectAborted(signal)
+  let result: T
+  try {
+    result = await operation()
+  } catch (error) {
+    throw readFailure(signal, error)
+  }
+  throwIfGitEffectAborted(signal)
+  return result
 }
 
 async function invokeEffect<T>(

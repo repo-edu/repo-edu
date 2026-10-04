@@ -172,7 +172,7 @@ describe("runClaudeApiStream", () => {
     assert.equal(calls.length, 0)
   })
 
-  it("treats mid-stream cancellation without a terminal reply as uncertainty", async () => {
+  it("reports mid-stream cancellation as a proven stop", async () => {
     const controller = new AbortController()
     const { factory, calls } = apiFactory(
       (async function* () {
@@ -200,9 +200,33 @@ describe("runClaudeApiStream", () => {
         }
       },
       (error: unknown) =>
-        error instanceof LlmError && error.context.outcome === "proof-lost",
+        error instanceof DOMException && error.name === "AbortError",
     )
     assert.equal(calls[0]?.aborted, true)
+  })
+
+  it("reports a connection lost before the reply ends as a known failure", async () => {
+    const { factory } = apiFactory(
+      (async function* () {
+        yield { type: "message_start", message: { usage: {} } }
+        throw new Error("socket hang up")
+      })(),
+    )
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeStream(
+          { spec: claudeSpec, prompt: "ping", apiFactory: factory },
+          { authMode: "api", apiKey: "sk-test", maxTokens: 8192 },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.message === "socket hang up" &&
+        error.context.outcome === "completed",
+    )
   })
 
   it("rejects unsupported Claude effort values", async () => {
@@ -224,7 +248,8 @@ describe("runClaudeApiStream", () => {
         error instanceof LlmError &&
         error.kind === "other" &&
         error.context.provider === "claude" &&
-        error.context.authMode === "api",
+        error.context.authMode === "api" &&
+        error.context.outcome === "refused",
     )
   })
 

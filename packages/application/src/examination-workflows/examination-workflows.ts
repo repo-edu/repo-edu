@@ -1,4 +1,5 @@
 import type {
+  CommandFailure,
   DiagnosticOutput,
   ExaminationArchivedProvenance,
   ExaminationArchiveRecord,
@@ -12,14 +13,18 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { CommandOutcomeError } from "@repo-edu/application-contract"
+import { CommandOutcomeError, isAppError } from "@repo-edu/application-contract"
 import type { LlmUsage } from "@repo-edu/host-runtime-contract"
 import {
+  commandCompletedFailure,
   commandPreparation,
   commandThrowIfAborted,
   commandValidationError as createValidationAppError,
 } from "../command-outcomes.js"
-import { normalizeLlmProviderError } from "../llm-error-normalization.js"
+import {
+  normalizeLlmProviderError,
+  rethrowLlmOutcome,
+} from "../llm-error-normalization.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import {
   admitRecordForCurrentContext,
@@ -64,6 +69,21 @@ type ExaminationWorkflowId =
   | "examination.lookupQuestions"
   | "examination.prepareSubmissionSource"
   | "examination.lookupQuestionSummaries"
+
+/** The run ended with its final event, so a reply that fails a check is a
+ * known failed completion without a result. */
+function checkFinishedReply<T>(check: () => T): T {
+  try {
+    return check()
+  } catch (error) {
+    if (
+      isAppError(error) &&
+      (error.type === "provider" || error.type === "validation")
+    )
+      throw commandCompletedFailure(error)
+    throw error
+  }
+}
 
 function createPrivacyWarningEmitter(
   emit: (message: string) => void,
@@ -209,6 +229,10 @@ export function createExaminationWorkflowHandlers(
       }
       let buffer = ""
       let finalUsage: LlmUsage | null = null
+      // A reply the privacy check rejects while streaming stops the run
+      // through the adapter, and the adapter's ending decides the outcome.
+      const replyStop = new AbortController()
+      let rejectedReply: CommandFailure | null = null
 
       try {
         const stream = ports.llm.stream({
@@ -220,36 +244,47 @@ export function createExaminationWorkflowHandlers(
           },
           prompt,
           runtimeConfig: llmRuntimeConfigFromConnection(resolution.connection),
-          signal: options?.signal,
+          signal:
+            options?.signal === undefined
+              ? replyStop.signal
+              : AbortSignal.any([options.signal, replyStop.signal]),
         })
 
         try {
           for await (const event of stream) {
             if (event.kind === "text-delta") {
+              if (rejectedReply !== null) continue
               buffer += event.text
               options?.onOutput?.({
                 kind: "stream-progress",
                 streamedCharacterCount: buffer.length,
                 activityLabel: "Receiving model response.",
               })
-              maybeEmitPartial({
-                buffer,
-                emittedQuestionCount: partialState,
-                onOutput: options?.onOutput,
-                seedQuestions,
-                sourceLineRanges,
-                sourceReferences: prepared.sourceReferences,
-                requestedQuestionCount: requestedGeneratedQuestionCount,
-                onOverQuota: warnOverQuota,
-                assertOutputAllowed: (questions) => {
-                  emitPrivacyWarnings(
-                    assertOutputAllowedForCurrentContext(
-                      questions,
-                      prepared.privacyContext,
-                    ),
-                  )
-                },
-              })
+              try {
+                maybeEmitPartial({
+                  buffer,
+                  emittedQuestionCount: partialState,
+                  onOutput: options?.onOutput,
+                  seedQuestions,
+                  sourceLineRanges,
+                  sourceReferences: prepared.sourceReferences,
+                  requestedQuestionCount: requestedGeneratedQuestionCount,
+                  onOverQuota: warnOverQuota,
+                  assertOutputAllowed: (questions) => {
+                    emitPrivacyWarnings(
+                      assertOutputAllowedForCurrentContext(
+                        questions,
+                        prepared.privacyContext,
+                      ),
+                    )
+                  },
+                })
+              } catch (error) {
+                if (!isAppError(error) || error.type !== "validation")
+                  throw error
+                rejectedReply = error
+                replyStop.abort()
+              }
             } else if (event.kind === "activity") {
               options?.onOutput?.({
                 kind: "stream-progress",
@@ -262,15 +297,19 @@ export function createExaminationWorkflowHandlers(
           }
         } catch (error) {
           // Preserve an effect owner's outcome before considering local stop intent.
-          const failure = normalizeLlmProviderError(
-            error,
-            "examination.generateQuestions",
-          )
+          rethrowLlmOutcome(error)
           // The adapter emits AbortError only before launch or after proven stop.
           // A category-only cancelled AppError supplies no such proof.
           const stopped =
             error instanceof DOMException && error.name === "AbortError"
-          if (!stopped) throw failure
+          if (!stopped)
+            throw normalizeLlmProviderError(
+              error,
+              "examination.generateQuestions",
+            )
+          // A plain stop would tell the teacher they had cancelled.
+          if (rejectedReply !== null)
+            throw commandCompletedFailure(rejectedReply)
           // The caller's abort is the one stop. A proven stop keeps the
           // questions accepted so far as the command's partial result.
           if (options?.signal?.aborted) {
@@ -298,18 +337,23 @@ export function createExaminationWorkflowHandlers(
       if (finalUsage === null) {
         throw providerError("LLM stream ended without a terminal usage event.")
       }
+      if (rejectedReply !== null) throw commandCompletedFailure(rejectedReply)
 
-      const generatedQuestions = parseQuestions(
-        buffer,
-        requestedGeneratedQuestionCount,
-        sourceLineRanges,
-        { onOverQuota: warnOverQuota },
+      const generatedQuestions = checkFinishedReply(() =>
+        parseQuestions(
+          buffer,
+          requestedGeneratedQuestionCount,
+          sourceLineRanges,
+          { onOverQuota: warnOverQuota },
+        ),
       )
       const questions = [...seedQuestions, ...generatedQuestions]
       emitPrivacyWarnings(
-        assertOutputAllowedForCurrentContext(
-          questions,
-          prepared.privacyContext,
+        checkFinishedReply(() =>
+          assertOutputAllowedForCurrentContext(
+            questions,
+            prepared.privacyContext,
+          ),
         ),
       )
       const acceptedQuestionCount = questions.length
@@ -344,7 +388,9 @@ export function createExaminationWorkflowHandlers(
       }
 
       emitPrivacyWarnings(
-        assertRecordAllowedForPrivacy(record, prepared.privacyContext),
+        checkFinishedReply(() =>
+          assertRecordAllowedForPrivacy(record, prepared.privacyContext),
+        ),
       )
       putSupersedingArchiveRecord(ports.archive, record)
 

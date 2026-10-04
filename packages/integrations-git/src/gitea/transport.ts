@@ -1,6 +1,7 @@
 import { resolveUserAgent } from "@repo-edu/domain/connection"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
+import { sendGitRequest } from "../invocation-guard.js"
 
 export function resolveApiBase(draft: GitConnectionDraft): string | null {
   const baseUrl = draft.baseUrl.trim()
@@ -38,13 +39,15 @@ export async function giteaRequest(
     throw new Error("Gitea baseUrl is required.")
   }
 
-  const response = await http.fetch({
-    url: `${apiBase}${path}`,
-    method,
-    headers: createHeaders(draft),
-    body,
-    signal,
-  })
+  const response = await sendGitRequest(method, signal, (signal) =>
+    http.fetch({
+      url: `${apiBase}${path}`,
+      method,
+      headers: createHeaders(draft),
+      body,
+      signal,
+    }),
+  )
 
   let data: unknown = null
   if (response.body) {

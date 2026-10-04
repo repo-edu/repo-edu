@@ -14,6 +14,7 @@ import type { PatchFile } from "@repo-edu/integrations-git-contract"
 import {
   commandRefusal,
   commandValidationError as createValidationAppError,
+  rethrowGitEffectFailure,
   commandThrowIfAborted as throwIfAborted,
 } from "../command-outcomes.js"
 import {
@@ -492,6 +493,7 @@ export function createRepoUpdateHandler(
           completedAt: new Date().toISOString(),
         }
       } catch (error) {
+        rethrowGitEffectFailure(error)
         if (isSharedAppError(error)) {
           throw error
         }

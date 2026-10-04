@@ -245,10 +245,19 @@ export function createDesktopHostEnvironment(
         await mkdir(dirname(file.path), { recursive: true })
         await writeFile(file.path, text, "utf8")
       } catch (error) {
+        // The write call has ended and nothing keeps running, so the failure
+        // is known even though the file may hold part of the text.
+        const reason = error instanceof Error ? error.message : String(error)
         throw new CommandOutcomeError({
-          disposition: "uncertain",
-          reason: "proof-lost",
-          message: error instanceof Error ? error.message : String(error),
+          disposition: "completed",
+          completion: {
+            status: "failed",
+            error: {
+              type: "effect",
+              message: `Could not write ${file.displayName}; the file may be incomplete. ${reason}`,
+            },
+            result: null,
+          },
         })
       }
 

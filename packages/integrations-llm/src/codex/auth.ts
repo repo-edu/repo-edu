@@ -47,7 +47,7 @@ export function resolveCodexAuth(
       throw new LlmError(
         "auth",
         `Codex auth mode "api" requires ${CODEX_API_KEY_VAR} via config.apiKey or the environment.`,
-        { context: { provider: "codex", authMode: "api" } },
+        { context: { provider: "codex", authMode: "api", outcome: "refused" } },
       )
     }
     apiKey = effectiveKey

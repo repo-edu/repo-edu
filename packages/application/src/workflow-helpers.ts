@@ -56,7 +56,10 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
-import { rethrowGitEffectFailure } from "./command-outcomes.js"
+import {
+  isGitEffectFailure,
+  rethrowGitEffectFailure,
+} from "./command-outcomes.js"
 import {
   createSettingsRecoveryLoadError,
   createValidationAppError,
@@ -222,12 +225,14 @@ export function normalizeProviderError(
   operation: string,
 ): AppError {
   if (error instanceof CommandOutcomeError) throw error
-  rethrowGitEffectFailure(error)
   if (isSharedAppError(error)) {
     return error
   }
 
-  if (error instanceof DOMException && error.name === "AbortError") {
+  if (
+    (error instanceof DOMException && error.name === "AbortError") ||
+    (isGitEffectFailure(error) && error.disposition === "stopped")
+  ) {
     return toCancelledAppError()
   }
 

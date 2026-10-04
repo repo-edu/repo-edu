@@ -174,7 +174,11 @@ async function stoppedResult(
   throw new Error("Generation completed instead of stopping.")
 }
 
-function blockingStreamLlm(delta: string): LlmPort {
+/** The adapter ends a stopped run with `ending`, a proven stop by default. */
+function blockingStreamLlm(
+  delta: string,
+  ending: unknown = new DOMException("Stopped.", "AbortError"),
+): LlmPort {
   return {
     async run(_request: LlmRunRequest): Promise<LlmRunResult> {
       throw new Error("run is not used by streamed examination generation.")
@@ -182,14 +186,36 @@ function blockingStreamLlm(delta: string): LlmPort {
     async *stream(request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
       yield { kind: "text-delta", text: delta }
       await new Promise<void>((resolve) => {
+        if (request.signal?.aborted) resolve()
         request.signal?.addEventListener("abort", () => resolve(), {
           once: true,
         })
       })
-      throw new DOMException("Stopped.", "AbortError")
+      throw ending
     },
   }
 }
+
+/** A reply that fails a check once the run has ended settles as a failed
+ * completion without a result. */
+function isRejectedReply(
+  error: unknown,
+  type: "provider" | "validation",
+): boolean {
+  return (
+    error instanceof CommandOutcomeError &&
+    error.outcome.disposition === "completed" &&
+    error.outcome.completion.status === "failed" &&
+    error.outcome.completion.result === null &&
+    error.outcome.completion.error.type === type
+  )
+}
+
+const privacyFailingQuestion = JSON.stringify({
+  question: "Who wrote this?",
+  answer: "Ask ada@example.test.",
+  anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+})
 
 describe("examination.generateQuestions streaming", () => {
   it("does not turn a category-only cancellation into a partial archive", async () => {
@@ -441,10 +467,7 @@ describe("examination.generateQuestions streaming", () => {
           baseInput({ questionCount: 1 }),
           { onOutput: (output) => outputs.push(output) },
         ),
-      (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        (error as { type?: unknown }).type === "validation",
+      (error: unknown) => isRejectedReply(error, "validation"),
     )
 
     assert.equal(JSON.stringify(outputs).includes(secretPrefix), false)
@@ -469,11 +492,79 @@ describe("examination.generateQuestions streaming", () => {
           baseInput({ questionCount: 1 }),
         ),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
+        isRejectedReply(error, "provider") &&
+        error instanceof Error &&
         error.message === "LLM reply was not valid JSON." &&
-        !String(error.message).includes(providerText),
+        !error.message.includes(providerText),
+    )
+  })
+
+  for (const [ending, disposition] of [
+    [new DOMException("Stopped.", "AbortError"), "completed"],
+    [
+      new LlmError("other", "The run's outside outcome is unknown.", {
+        context: {
+          provider: "claude",
+          authMode: "subscription",
+          outcome: "proof-lost",
+        },
+      }),
+      "uncertain",
+    ],
+  ] as const) {
+    it(`stops a run whose streamed output fails privacy and settles ${disposition} from the adapter`, async () => {
+      const archive = createInMemoryExaminationArchive()
+      const outputs: ExaminationGenerateOutput[] = []
+      const handlers = createExaminationWorkflowHandlers({
+        llm: blockingStreamLlm(
+          `{"questions":[${privacyFailingQuestion},`,
+          ending,
+        ),
+        archive,
+        tokenizer,
+        fileSystem: stubFileSystem,
+      })
+
+      await assert.rejects(
+        handlers["examination.generateQuestions"](baseInput(), {
+          onOutput: (output) => outputs.push(output),
+        }),
+        (error: unknown) =>
+          disposition === "completed"
+            ? isRejectedReply(error, "validation")
+            : error instanceof CommandOutcomeError &&
+              error.outcome.disposition === "uncertain",
+      )
+      assert.equal(
+        outputs.some((output) => output.kind === "partial-questions"),
+        false,
+      )
+      assert.equal(archive.exportBundle().records.length, 0)
+    })
+  }
+
+  it("settles an adapter refusal before launch as refused", async () => {
+    const handlers = createExaminationWorkflowHandlers({
+      llm: failingStreamLlm(
+        new LlmError("auth", "Claude CLI is not on PATH.", {
+          context: {
+            provider: "claude",
+            authMode: "subscription",
+            outcome: "refused",
+          },
+        }),
+      ),
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+
+    await assert.rejects(
+      handlers["examination.generateQuestions"](baseInput()),
+      (error: unknown) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        error.outcome.error.message === "Claude CLI is not on PATH.",
     )
   })
 
@@ -712,12 +803,8 @@ describe("examination.generateQuestions streaming", () => {
       onOutput: (output) => outputs.push(output),
     })
 
-    await assert.rejects(
-      generation,
-      (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        (error as { type?: unknown }).type === "validation",
+    await assert.rejects(generation, (error: unknown) =>
+      isRejectedReply(error, "validation"),
     )
     assert.equal(
       outputs.some((output) => output.kind === "partial-questions"),
