@@ -36,11 +36,19 @@ absence rules.
   caller's signal and reports its own stop or failure. A write never receives
   the signal, so it runs to its response; a write that loses its response stays
   unknown.
-- Translate only an explicit provider not-found response into `null`, an empty
-  listing, a per-repository missing result or an absent username. A username
-  is also absent when the provider reports its account inactive or blocked.
-  Network, timeout, authentication, rate-limit and other provider failures must
+- Every transport throws `GitReplyError` for a reply outside 2xx: Gitea and
+  GitLab through `sendGitHttpRequest`, GitHub by converting Octokit's error in
+  its request hook. A capability catches a reply error only for the statuses
+  or provider wording it names as an answer, through `isGitReply` or a
+  provider's message predicate. Never read a status or a reply body by hand.
+- Translate only an explicit provider 404 into `null`, an empty listing, a
+  per-repository missing result or an absent username. A username is also
+  absent when the provider reports its account inactive or blocked. Network,
+  timeout, authentication, rate-limit and other provider failures must
   propagate to the application layer.
+- A reply that lacks a field its answer depends on, such as a clone URL, a
+  compare's file list or a changed template file's content, fails the call.
+  It never reads as absence, an empty result or a skipped entry.
 
 ## Adding Git Capabilities
 

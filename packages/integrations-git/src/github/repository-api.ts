@@ -1,6 +1,6 @@
 import type { Octokit } from "@octokit/rest"
 import type { PatchFile } from "@repo-edu/integrations-git-contract"
-import { isNotFoundError } from "./errors.js"
+import { isGitReply } from "../invocation-guard.js"
 
 function toBase64FromUnknown(
   content: unknown,
@@ -36,7 +36,7 @@ export async function readRepositoryFileBase64(
     }
     return toBase64FromUnknown(response.data.content, response.data.encoding)
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isGitReply(error, 404)) {
       return null
     }
     throw error
@@ -64,7 +64,7 @@ export async function readRepositoryFileSha(
     }
     return typeof response.data.sha === "string" ? response.data.sha : null
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isGitReply(error, 404)) {
       return null
     }
     throw error

@@ -1,7 +1,7 @@
 import { resolveUserAgent } from "@repo-edu/domain/connection"
-import type { HttpPort } from "@repo-edu/host-runtime-contract"
+import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
-import { sendGitRequest } from "../invocation-guard.js"
+import { gitEffectFailure, sendGitHttpRequest } from "../invocation-guard.js"
 
 export function resolveApiBase(draft: GitConnectionDraft): string | null {
   const baseUrl = draft.baseUrl.trim()
@@ -26,6 +26,27 @@ function createHeaders(draft: GitConnectionDraft): Record<string, string> {
   }
 }
 
+function parseBody(body: string): unknown {
+  if (!body) return null
+  try {
+    return JSON.parse(body)
+  } catch {
+    return body
+  }
+}
+
+function replyDetail(response: HttpResponse): string {
+  const data = parseBody(response.body)
+  if (typeof data === "string") return data
+  if (typeof data !== "object" || data === null) return ""
+  const record = data as { message?: unknown; error?: unknown }
+  if (typeof record.message === "string") return record.message
+  if (typeof record.error === "string") return record.error
+  return ""
+}
+
+/** Answers only a 2xx reply. Any other status throws a reply error that the
+ * caller catches only for the statuses it names as answers. */
 export async function giteaRequest(
   http: HttpPort,
   draft: GitConnectionDraft,
@@ -33,30 +54,22 @@ export async function giteaRequest(
   path: string,
   body?: string,
   signal?: AbortSignal,
-): Promise<{ status: number; data: unknown }> {
+): Promise<unknown> {
   const apiBase = resolveApiBase(draft)
   if (!apiBase) {
-    throw new Error("Gitea baseUrl is required.")
+    throw gitEffectFailure("completed", "Gitea baseUrl is required.")
   }
 
-  const response = await sendGitRequest(method, signal, (signal) =>
-    http.fetch({
+  const response = await sendGitHttpRequest(
+    http,
+    {
       url: `${apiBase}${path}`,
       method,
       headers: createHeaders(draft),
       body,
-      signal,
-    }),
+    },
+    signal,
+    replyDetail,
   )
-
-  let data: unknown = null
-  if (response.body) {
-    try {
-      data = JSON.parse(response.body)
-    } catch {
-      data = response.body
-    }
-  }
-
-  return { status: response.status, data }
+  return parseBody(response.body)
 }

@@ -1,6 +1,6 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
-import { isNotFoundError } from "./errors.js"
+import { isGitReply } from "../invocation-guard.js"
 import { createOctokit } from "./transport.js"
 
 type IdentityCapability = Pick<
@@ -28,7 +28,7 @@ export function createGitHubIdentity(http: HttpPort): IdentityCapability {
           await octokit.users.getByUsername({ username, request: { signal } })
           results.push({ username, exists: true })
         } catch (error) {
-          if (!isNotFoundError(error)) throw error
+          if (!isGitReply(error, 404)) throw error
           results.push({ username, exists: false })
         }
       }

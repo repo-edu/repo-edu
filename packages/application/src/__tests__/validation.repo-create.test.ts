@@ -273,7 +273,7 @@ describe("application repository create workflow helpers", () => {
           return {
             exitCode: 0,
             signal: null,
-            stdout: request.args.includes("--abbrev-ref") ? "main\n" : "sha\n",
+            stdout: request.args[0] === "symbolic-ref" ? "main\n" : "sha\n",
             stderr: "",
           }
         },
@@ -294,6 +294,66 @@ describe("application repository create workflow helpers", () => {
     assert.equal(resolutionCalls, 0)
     assert.equal(cloneUrls.length, result.repositoriesCreated)
     assert.ok(cloneUrls.every((url) => url.includes("x-access-token:token-1@")))
+  })
+
+  it("pushes and records the template commit it read before pushing", async () => {
+    for (const branch of ["trunk", null] as const) {
+      const refspecs: string[] = []
+      const warnings: string[] = []
+      const { course, settings, handlers } = createRepoHarness({
+        gitCommand: {
+          run: async ({ args }) => {
+            if (args[0] === "push") refspecs.push(args[2] ?? "")
+            if (args[0] === "symbolic-ref" && branch === null) {
+              return {
+                exitCode: 128,
+                signal: null,
+                stdout: "",
+                stderr: "fatal: ref HEAD is not a symbolic ref",
+              }
+            }
+            return {
+              exitCode: 0,
+              signal: null,
+              stdout: args[0] === "symbolic-ref" ? `${branch}\n` : "abc1234\n",
+              stderr: "",
+            }
+          },
+        },
+      })
+
+      const result = await handlers["repo.create"](
+        {
+          course,
+          credentials: settings,
+          assignmentId: "a1",
+          template: {
+            kind: "local",
+            path: "/course-template",
+            visibility: "private",
+          },
+        },
+        {
+          onOutput: (output) => {
+            if (output.channel === "warn") warnings.push(output.message)
+          },
+        },
+      )
+
+      if (branch === null) {
+        assert.deepEqual(refspecs, [])
+        assert.deepEqual(result.templateCommitShas, {})
+        assert.ok(
+          warnings.some((warning) => warning.includes("not a symbolic ref")),
+        )
+      } else {
+        assert.ok(refspecs.length > 0)
+        assert.ok(
+          refspecs.every((refspec) => refspec === "abc1234:refs/heads/trunk"),
+        )
+        assert.equal(result.templateCommitShas.a1, "abc1234")
+      }
+    }
   })
 
   it("does not turn caller cancellation during team setup into a warning", async () => {

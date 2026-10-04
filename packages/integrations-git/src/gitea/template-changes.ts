@@ -3,11 +3,12 @@ import type {
   GitProviderClient,
   PatchFile,
 } from "@repo-edu/integrations-git-contract"
+import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
 import {
   normalizeTemplateDiffStatus,
   readRepositoryFile,
 } from "./repository-api.js"
-import { giteaRequest, resolveApiBase } from "./transport.js"
+import { giteaRequest } from "./transport.js"
 
 type TemplateChangesCapability = Pick<
   GitProviderClient,
@@ -19,71 +20,72 @@ export function createGiteaTemplateChanges(
 ): TemplateChangesCapability {
   return {
     async getRepositoryDefaultBranchHead(draft, request, signal) {
-      if (!resolveApiBase(draft)) return null
-      const repository = await giteaRequest(
-        http,
-        draft,
-        "GET",
-        `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}`,
-        undefined,
-        signal,
-      )
-      if (repository.status === 404) return null
-      if (repository.status < 200 || repository.status >= 300) {
-        throw new Error(
-          `Failed to resolve repository '${request.owner}/${request.repositoryName}' (${repository.status}).`,
+      const route = `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}`
+      try {
+        const repository = await giteaRequest(
+          http,
+          draft,
+          "GET",
+          route,
+          undefined,
+          signal,
         )
-      }
-      const branchName = (
-        repository.data as { default_branch?: unknown } | null
-      )?.default_branch
-      if (typeof branchName !== "string") return null
-      const branch = await giteaRequest(
-        http,
-        draft,
-        "GET",
-        `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}/branches/${encodeURIComponent(branchName)}`,
-        undefined,
-        signal,
-      )
-      if (branch.status === 404) return null
-      if (branch.status < 200 || branch.status >= 300) {
-        throw new Error(
-          `Failed to resolve branch '${branchName}' (${branch.status}).`,
+        const branchName = (repository as { default_branch?: unknown } | null)
+          ?.default_branch
+        if (typeof branchName !== "string") return null
+        const branch = await giteaRequest(
+          http,
+          draft,
+          "GET",
+          `${route}/branches/${encodeURIComponent(branchName)}`,
+          undefined,
+          signal,
         )
+        const commitId = (branch as { commit?: { id?: unknown } | null } | null)
+          ?.commit?.id
+        return typeof commitId === "string"
+          ? { sha: commitId, branchName }
+          : null
+      } catch (error) {
+        if (isGitReply(error, 404)) return null
+        throw error
       }
-      const commitId = (
-        branch.data as { commit?: { id?: unknown } | null } | null
-      )?.commit?.id
-      return typeof commitId === "string" ? { sha: commitId, branchName } : null
     },
     async getTemplateDiff(draft, request, signal) {
-      if (!resolveApiBase(draft)) return null
-      const compare = await giteaRequest(
-        http,
-        draft,
-        "GET",
-        `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}/compare/${encodeURIComponent(request.fromSha)}...${encodeURIComponent(request.toSha)}`,
-        undefined,
-        signal,
-      )
-      if (compare.status === 404) return null
-      if (compare.status < 200 || compare.status >= 300) {
-        throw new Error(
-          `Failed to compare template commits (${compare.status}).`,
+      let compare: unknown
+      try {
+        compare = await giteaRequest(
+          http,
+          draft,
+          "GET",
+          `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}/compare/${encodeURIComponent(request.fromSha)}...${encodeURIComponent(request.toSha)}`,
+          undefined,
+          signal,
+        )
+      } catch (error) {
+        if (isGitReply(error, 404)) return null
+        throw error
+      }
+      const changedFiles = (compare as { files?: unknown } | null)?.files
+      if (!Array.isArray(changedFiles)) {
+        throw gitEffectFailure(
+          "completed",
+          "Gitea answered a template compare without its changed files.",
         )
       }
-      const changedFiles = (compare.data as { files?: unknown } | null)?.files
-      if (!Array.isArray(changedFiles)) return { files: [] }
       const files: PatchFile[] = []
       for (const entry of changedFiles) {
-        if (typeof entry !== "object" || entry === null) continue
-        const file = entry as {
+        const file = (entry ?? {}) as {
           filename?: unknown
           previous_filename?: unknown
           status?: unknown
         }
-        if (typeof file.filename !== "string") continue
+        if (typeof file.filename !== "string") {
+          throw gitEffectFailure(
+            "completed",
+            "Gitea answered a changed template file without its path.",
+          )
+        }
         const status = normalizeTemplateDiffStatus(String(file.status ?? ""))
         let contentBase64: string | null = null
         if (status !== "removed") {
@@ -98,7 +100,12 @@ export function createGiteaTemplateChanges(
               signal,
             )
           ).contentBase64
-          if (contentBase64 === null) continue
+          if (contentBase64 === null) {
+            throw gitEffectFailure(
+              "completed",
+              `Template file '${file.filename}' has no file content at ${request.toSha.slice(0, 7)}, so the update cannot carry it.`,
+            )
+          }
         }
         files.push({
           path: file.filename,

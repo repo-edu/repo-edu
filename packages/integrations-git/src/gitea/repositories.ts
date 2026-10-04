@@ -1,14 +1,19 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
-import { throwIfGitEffectAborted } from "../invocation-guard.js"
+import {
+  errorMessage,
+  gitEffectFailure,
+  isGitReply,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
 import { withGiteaToken } from "./auth.js"
-import { isAlreadyExists, toErrorMessage } from "./errors.js"
+import { isAlreadyExists } from "./errors.js"
 import {
   extractRepositoryCloneUrl,
   extractRepositoryUrls,
-  resolveExistingRepositoryUrls,
+  readExistingRepositoryUrls,
 } from "./repository-api.js"
-import { giteaRequest, resolveApiBase } from "./transport.js"
+import { giteaRequest } from "./transport.js"
 
 type RepositoriesCapability = Pick<
   GitProviderClient,
@@ -20,54 +25,52 @@ export function createGiteaRepositories(
 ): RepositoriesCapability {
   return {
     async createRepositories(draft, request, signal) {
-      if (!request.organization || !resolveApiBase(draft)) {
-        return { created: [], alreadyExisted: [], failed: [] }
-      }
       const created = []
       const alreadyExisted = []
       const failed = []
       for (const repositoryName of request.repositoryNames) {
         throwIfGitEffectAborted(signal)
-        const response = await giteaRequest(
-          http,
-          draft,
-          "POST",
-          `/orgs/${encodeURIComponent(request.organization)}/repos`,
-          JSON.stringify({
-            name: repositoryName,
-            private: request.visibility !== "public",
-            auto_init: request.autoInit,
-          }),
-          signal,
-        )
-        if (response.status >= 200 && response.status < 300) {
-          const urls = extractRepositoryUrls(response.data)
-          if (urls === null) {
-            failed.push({
-              repositoryName,
-              reason: "Provider returned incomplete repository URLs.",
-            })
-          } else {
-            created.push({
-              repositoryName,
-              repositoryUrl: urls.repositoryUrl,
-              cloneUrl: withGiteaToken(urls.cloneUrl, draft.token),
-            })
-          }
-          continue
-        }
-        if (isAlreadyExists(response.status, response.data)) {
-          const urls = await resolveExistingRepositoryUrls(
+        let repository: unknown
+        try {
+          repository = await giteaRequest(
             http,
             draft,
-            request.organization,
-            repositoryName,
+            "POST",
+            `/orgs/${encodeURIComponent(request.organization)}/repos`,
+            JSON.stringify({
+              name: repositoryName,
+              private: request.visibility !== "public",
+              auto_init: request.autoInit,
+            }),
             signal,
           )
+        } catch (error) {
+          if (!isGitReply(error)) throw error
+          if (!isAlreadyExists(error)) {
+            failed.push({ repositoryName, reason: error.message })
+            continue
+          }
+          let urls: ReturnType<typeof extractRepositoryUrls>
+          try {
+            urls = await readExistingRepositoryUrls(
+              http,
+              draft,
+              request.organization,
+              repositoryName,
+              signal,
+            )
+          } catch (lookupError) {
+            if (!isGitReply(lookupError)) throw lookupError
+            failed.push({
+              repositoryName,
+              reason: `Repository exists but lookup failed: ${errorMessage(lookupError)}`,
+            })
+            continue
+          }
           if (urls === null) {
             failed.push({
               repositoryName,
-              reason: "Repository exists but URL lookup failed.",
+              reason: "Repository exists but URLs could not be resolved.",
             })
           } else {
             alreadyExisted.push({
@@ -78,42 +81,48 @@ export function createGiteaRepositories(
           }
           continue
         }
-        failed.push({
+        const urls = extractRepositoryUrls(repository)
+        if (urls === null) {
+          failed.push({
+            repositoryName,
+            reason: "Provider returned incomplete repository URLs.",
+          })
+          continue
+        }
+        created.push({
           repositoryName,
-          reason: toErrorMessage(response.data) || `HTTP ${response.status}`,
+          repositoryUrl: urls.repositoryUrl,
+          cloneUrl: withGiteaToken(urls.cloneUrl, draft.token),
         })
       }
       return { created, alreadyExisted, failed }
     },
     async resolveRepositoryCloneUrls(draft, request, signal) {
-      if (!request.organization || !resolveApiBase(draft)) {
-        return { resolved: [], missing: [...request.repositoryNames] }
-      }
       const resolved = []
       const missing = []
       for (const repositoryName of request.repositoryNames) {
         if (signal?.aborted) break
-        const response = await giteaRequest(
-          http,
-          draft,
-          "GET",
-          `/repos/${encodeURIComponent(request.organization)}/${encodeURIComponent(repositoryName)}`,
-          undefined,
-          signal,
-        )
-        if (response.status === 404) {
-          missing.push(repositoryName)
-          continue
-        }
-        if (response.status < 200 || response.status >= 300) {
-          throw new Error(
-            `Failed to resolve repository '${repositoryName}' (${response.status}).`,
+        let repository: unknown
+        try {
+          repository = await giteaRequest(
+            http,
+            draft,
+            "GET",
+            `/repos/${encodeURIComponent(request.organization)}/${encodeURIComponent(repositoryName)}`,
+            undefined,
+            signal,
           )
-        }
-        const cloneUrl = extractRepositoryCloneUrl(response.data)
-        if (cloneUrl === null) {
+        } catch (error) {
+          if (!isGitReply(error, 404)) throw error
           missing.push(repositoryName)
           continue
+        }
+        const cloneUrl = extractRepositoryCloneUrl(repository)
+        if (cloneUrl === null) {
+          throw gitEffectFailure(
+            "completed",
+            `Gitea answered no clone URL for repository '${repositoryName}'.`,
+          )
         }
         resolved.push({
           repositoryName,

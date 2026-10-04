@@ -60,7 +60,6 @@ import {
   normalizeQuestionAnchors,
   type PartialQuestionEmissionState,
   parseQuestions,
-  providerError,
 } from "./question-parser.js"
 import { createPrepareSubmissionSourceHandler } from "./submission-source.js"
 
@@ -334,8 +333,12 @@ export function createExaminationWorkflowHandlers(
         throw normalizeLlmProviderError(error, "examination.generateQuestions")
       }
 
+      // The stream ended, so the run is over and its outcome is known.
       if (finalUsage === null) {
-        throw providerError("LLM stream ended without a terminal usage event.")
+        throw commandCompletedFailure({
+          type: "effect",
+          message: "LLM stream ended without a terminal usage event.",
+        })
       }
       if (rejectedReply !== null) throw commandCompletedFailure(rejectedReply)
 

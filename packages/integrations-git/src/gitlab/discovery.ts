@@ -4,7 +4,7 @@ import type {
   GitProviderClient,
   ListRepositoriesResult,
 } from "@repo-edu/integrations-git-contract"
-import { isNotFoundError } from "./errors.js"
+import { isGitReply } from "../invocation-guard.js"
 import { resolveGroupId } from "./namespace.js"
 import { createGitLabApi } from "./transport.js"
 import { resolveGitLabUserId } from "./users.js"
@@ -100,7 +100,7 @@ export function createGitLabDiscovery(http: HttpPort): DiscoveryCapability {
           )
         }
       } catch (error) {
-        if (!isNotFoundError(error)) throw error
+        if (!isGitReply(error, 404)) throw error
         // An unresolved namespace has no repository result.
       }
       return { repositories }

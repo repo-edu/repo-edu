@@ -1,13 +1,12 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
-import { throwIfGitEffectAborted } from "../invocation-guard.js"
-import { withGitHubToken } from "./auth.js"
 import {
-  hasGitHubResponse,
-  isAlreadyExistsError,
-  isNotFoundError,
-  toErrorMessage,
-} from "./errors.js"
+  errorMessage,
+  isGitReply,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
+import { withGitHubToken } from "./auth.js"
+import { isAlreadyExistsError } from "./errors.js"
 import { createOctokit } from "./transport.js"
 
 type RepositoriesCapability = Pick<
@@ -40,7 +39,7 @@ export function createGitHubRepositories(
             cloneUrl: withGitHubToken(response.data.clone_url, draft.token),
           })
         } catch (error) {
-          if (!hasGitHubResponse(error)) throw error
+          if (!isGitReply(error)) throw error
           if (isAlreadyExistsError(error)) {
             try {
               const existing = await octokit.repos.get({
@@ -54,14 +53,15 @@ export function createGitHubRepositories(
                 cloneUrl: withGitHubToken(existing.data.clone_url, draft.token),
               })
             } catch (lookupError) {
+              if (!isGitReply(lookupError)) throw lookupError
               failed.push({
                 repositoryName,
-                reason: `Already exists but lookup failed: ${toErrorMessage(lookupError)}`,
+                reason: `Repository exists but lookup failed: ${errorMessage(lookupError)}`,
               })
             }
             continue
           }
-          failed.push({ repositoryName, reason: toErrorMessage(error) })
+          failed.push({ repositoryName, reason: error.message })
         }
       }
       return { created, alreadyExisted, failed }
@@ -83,7 +83,7 @@ export function createGitHubRepositories(
             cloneUrl: withGitHubToken(response.data.clone_url, draft.token),
           })
         } catch (error) {
-          if (!isNotFoundError(error)) throw error
+          if (!isGitReply(error, 404)) throw error
           missing.push(repositoryName)
         }
       }

@@ -14,6 +14,7 @@ import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import {
   commandRefusal,
   commandValidationError as createValidationAppError,
+  isCompletedCommandFailure,
   isCompletedGitEffectFailure,
   rethrowGitEffectFailure,
   commandThrowIfAborted as throwIfAborted,
@@ -30,8 +31,7 @@ import {
   cloneRemoteTemplateToTmpdir,
   mapConcurrent,
   pushTemplateToRepo,
-  resolveLocalDefaultBranch,
-  resolveLocalTemplateSha,
+  resolveLocalTemplateHead,
 } from "./git-helpers.js"
 import {
   collectRepositoryGroups,
@@ -281,10 +281,10 @@ export function createRepoCreateHandler(
               tmpDir,
               options?.signal,
             )
-            if (!cloned) {
+            if (!cloned.ok) {
               options?.onOutput?.({
                 channel: "warn",
-                message: `Failed to clone template '${describeTemplate(template)}'.`,
+                message: `Failed to clone template '${describeTemplate(template)}': ${cloned.detail}`,
               })
               continue
             }
@@ -292,11 +292,18 @@ export function createRepoCreateHandler(
             templateLocalPath = tmpDir
           }
 
-          const defaultBranch = await resolveLocalDefaultBranch(
+          const templateHead = await resolveLocalTemplateHead(
             ports.gitCommand,
             templateLocalPath,
             options?.signal,
           )
+          if (!templateHead.ok) {
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Template '${describeTemplate(template)}' has no commit on a branch to push: ${templateHead.detail}`,
+            })
+            continue
+          }
 
           const pushItems = reposToPopulate.map((repository) => ({
             repoName: repository.repositoryName,
@@ -306,20 +313,20 @@ export function createRepoCreateHandler(
           const pushResults = await mapConcurrent(
             pushItems,
             async (item) => {
-              const ok = await pushTemplateToRepo(
+              const pushed = await pushTemplateToRepo(
                 ports.gitCommand,
                 templateLocalPath,
                 item.authUrl,
-                defaultBranch,
+                templateHead.head,
                 options?.signal,
               )
-              if (!ok) {
+              if (!pushed.ok) {
                 options?.onOutput?.({
                   channel: "warn",
-                  message: `Failed to push template to '${item.repoName}'.`,
+                  message: `Failed to push template to '${item.repoName}': ${pushed.detail}`,
                 })
               }
-              return ok
+              return pushed.ok
             },
             8,
           )
@@ -330,27 +337,15 @@ export function createRepoCreateHandler(
             message: `Pushed template '${describeTemplate(template)}' to ${pushSuccessCount}/${pushItems.length} repositories.`,
           })
 
-          // Capture template commit SHA.
-          try {
-            const sha = await resolveLocalTemplateSha(
-              ports.gitCommand,
-              templateLocalPath,
-              options?.signal,
-            )
-            if (sha !== null) {
-              for (const entry of plannedWithTemplates.value) {
-                if (
-                  entry.template !== null &&
-                  templateKey(entry.template) === templateKey(template) &&
-                  successfulRepositoryNames.has(entry.group.repoName)
-                ) {
-                  templateCommitShas[entry.group.assignmentId] = sha
-                }
-              }
+          for (const entry of plannedWithTemplates.value) {
+            if (
+              entry.template !== null &&
+              templateKey(entry.template) === templateKey(template) &&
+              successfulRepositoryNames.has(entry.group.repoName)
+            ) {
+              templateCommitShas[entry.group.assignmentId] =
+                templateHead.head.sha
             }
-          } catch (error) {
-            if (error instanceof CommandOutcomeError) throw error
-            // Best-effort: template commit tracking should not fail repo creation.
           }
         }
 
@@ -360,8 +355,12 @@ export function createRepoCreateHandler(
             await ports.fileSystem.applyBatch({
               operations: [{ kind: "delete-path", path: tmpDir }],
             })
-          } catch {
-            // Best-effort cleanup.
+          } catch (error) {
+            if (!isCompletedCommandFailure(error)) throw error
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Could not remove the temporary template folder '${tmpDir}': ${error.message}`,
+            })
           }
         }
 

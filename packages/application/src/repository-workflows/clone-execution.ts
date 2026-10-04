@@ -3,7 +3,10 @@ import type {
   DiagnosticOutput,
 } from "@repo-edu/application-contract"
 import { CommandOutcomeError } from "@repo-edu/application-contract"
-import { commandValidationError as createValidationAppError } from "../command-outcomes.js"
+import {
+  commandValidationError as createValidationAppError,
+  isCompletedCommandFailure,
+} from "../command-outcomes.js"
 import {
   initPullClone,
   isGitRepositoryPath,
@@ -127,19 +130,23 @@ export async function runRepositoryClones<
           await ports.fileSystem.applyBatch({
             operations: [{ kind: "delete-path", path: tempPath }],
           })
-        } catch {
-          // Best effort cleanup.
+        } catch (error) {
+          if (!isCompletedCommandFailure(error)) throw error
+          onOutput?.({
+            channel: "warn",
+            message: `Could not remove the temporary checkout '${tempPath}': ${error.message}`,
+          })
         }
       }
       try {
         await cleanupTempPath()
-        const ok = await initPullClone(
+        const clone = await initPullClone(
           ports.gitCommand,
           target.cloneUrl,
           tempPath,
           signal,
         )
-        if (ok) {
+        if (clone.ok) {
           await ports.fileSystem.applyBatch({
             operations: [
               {
@@ -156,7 +163,7 @@ export async function runRepositoryClones<
         await cleanupTempPath()
         onOutput?.({
           channel: "warn",
-          message: `git clone failed for '${target.repoName}': git pull returned non-zero exit code`,
+          message: `git clone failed for '${target.repoName}': ${clone.detail}`,
         })
         return "failed" as const
       } catch (error) {

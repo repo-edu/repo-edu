@@ -490,6 +490,72 @@ describe("application repository update workflow helpers", () => {
       assert.equal(branchesCreated, 0)
     }
   })
+  it("refuses a local template update when a Git read loses its result", async () => {
+    let branchesCreated = 0
+    const { input, handlers } = createLocalTemplateUpdate(
+      (args) => {
+        if (args[0] === "diff") {
+          throw new CommandOutcomeError({
+            disposition: "uncertain",
+            reason: "proof-lost",
+            message: "The command result could not be confirmed.",
+          })
+        }
+        return gitResult("")
+      },
+      async () => {
+        branchesCreated += 1
+      },
+    )
+
+    await assert.rejects(
+      handlers["repo.update"](input),
+      (error: unknown) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        error.message.includes("git diff lost its result"),
+    )
+    assert.equal(branchesCreated, 0)
+  })
+
+  it("carries a binary local template file byte for byte", async () => {
+    const image = Buffer.from([0xff, 0x00, 0x89, 0x50]).toString("base64")
+    const branchFiles: PatchFile[][] = []
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        createBranch: async (_draft, request) => {
+          branchFiles.push(request.files)
+        },
+      },
+      gitCommand: {
+        run: async ({ args, stdoutEncoding }) => {
+          if (args[0] === "rev-parse") return gitResult("new-template-sha\n")
+          if (args[0] === "diff") return gitResult("M\0logo.png\0")
+          assert.equal(stdoutEncoding, "base64")
+          return gitResult(image)
+        },
+      },
+    })
+    course.repositoryTemplate = {
+      kind: "local",
+      path: "/course-template",
+      visibility: "private",
+    }
+    const assignment = course.roster.assignments.find(
+      (candidate) => candidate.id === "a1",
+    )
+    assert.ok(assignment)
+    assignment.templateCommitSha = "old-template-sha"
+
+    await handlers["repo.update"]({
+      course,
+      credentials: settings,
+      assignmentId: "a1",
+    })
+
+    assert.ok(branchFiles.length > 0)
+    assert.equal(branchFiles[0][0]?.contentBase64, image)
+  })
 })
 
 function gitResult(stdout: string, stderr = "", exitCode = 0) {
@@ -503,10 +569,13 @@ function createLocalTemplateUpdate(
   const { course, settings, handlers } = createRepoHarness({
     git: { createBranch },
     gitCommand: {
-      run: async ({ args }) =>
-        args[0] === "rev-parse"
-          ? gitResult("new-template-sha\n")
-          : runGit(args),
+      run: async ({ args, stdoutEncoding }) => {
+        if (args[0] === "rev-parse") return gitResult("new-template-sha\n")
+        const result = runGit(args)
+        return stdoutEncoding === "base64"
+          ? { ...result, stdout: Buffer.from(result.stdout).toString("base64") }
+          : result
+      },
     },
   })
   course.repositoryTemplate = {

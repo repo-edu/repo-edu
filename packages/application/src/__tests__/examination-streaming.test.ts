@@ -697,10 +697,9 @@ describe("examination.generateQuestions streaming", () => {
     await assert.rejects(
       () => handlers["examination.generateQuestions"](input),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        /terminal usage event/.test(String(error.message)),
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "completed" &&
+        /terminal usage event/.test(error.message),
     )
     const lookup = await handlers["examination.lookupQuestions"](
       lookupInput(input),

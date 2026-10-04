@@ -1,60 +1,50 @@
-export function hasGitHubResponse(error: unknown): boolean {
+import { GitReplyError, isGitReply } from "../invocation-guard.js"
+
+type OctokitReplyError = Error & {
+  status: number
+  request: { url: string }
+  response: object
+}
+
+function isOctokitReplyError(error: unknown): error is OctokitReplyError {
   return (
-    typeof error === "object" &&
-    error !== null &&
+    error instanceof Error &&
+    "status" in error &&
+    typeof error.status === "number" &&
     "response" in error &&
     typeof error.response === "object" &&
     error.response !== null &&
-    "status" in error.response &&
-    typeof error.response.status === "number"
+    "request" in error &&
+    typeof error.request === "object" &&
+    error.request !== null &&
+    "url" in error.request &&
+    typeof error.request.url === "string"
   )
 }
 
-export function toErrorStatus(error: unknown): number | null {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof (error as { status?: unknown }).status === "number"
-  ) {
-    return (error as { status: number }).status
-  }
-  return null
-}
-
-export function toErrorMessage(error: unknown): string {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message?: unknown }).message === "string"
-  ) {
-    return (error as { message: string }).message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return String(error)
+/** Octokit reads the reply itself, so its error for a reply becomes the
+ * shared reply error. Octokit's message already carries the provider's
+ * wording and validation errors. */
+export function toGitHubReplyError(error: unknown, method: string): unknown {
+  if (!isOctokitReplyError(error)) return error
+  return new GitReplyError(
+    method,
+    error.request.url,
+    error.status,
+    error.message,
+  )
 }
 
 export function isAlreadyExistsError(error: unknown): boolean {
-  const status = toErrorStatus(error)
-  if (!hasGitHubResponse(error)) return false
-  if (status !== 409 && status !== 422) {
-    return false
-  }
-  return /already exists|name already exists/i.test(toErrorMessage(error))
-}
-
-export function isNotFoundError(error: unknown): boolean {
-  return toErrorStatus(error) === 404
+  return (
+    isGitReply(error, 409, 422) &&
+    /already exists|name already exists/i.test(error.detail)
+  )
 }
 
 export function isNoChangesError(error: unknown): boolean {
   return (
-    hasGitHubResponse(error) &&
-    /no commits between|no changes|already exists|unprocessable entity/i.test(
-      toErrorMessage(error),
-    )
+    isGitReply(error, 422) &&
+    /no commits between|no changes|already exists/i.test(error.detail)
   )
 }

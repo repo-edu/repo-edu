@@ -135,6 +135,23 @@ describe("createNodeProcessPort", () => {
     })
   })
 
+  it("keeps binary stdout intact when base64 output is requested", async () => {
+    const processPort = createProcessPort()
+    const bytes = Buffer.from([0xff, 0x00, 0x89, 0x50, 0x4e, 0x47])
+
+    const result = await processPort.run({
+      command: process.execPath,
+      args: [
+        "-e",
+        `process.stdout.write(Buffer.from(${JSON.stringify([...bytes])}))`,
+      ],
+      stdoutEncoding: "base64",
+    })
+
+    assert.equal(result.exitCode, 0)
+    assert.equal(result.stdout, bytes.toString("base64"))
+  })
+
   it("writes stdin text and closes stdin for the child process", async () => {
     const processPort = createProcessPort()
 

@@ -3,7 +3,7 @@ import type {
   GitConnectionDraft,
   PatchFile,
 } from "@repo-edu/integrations-git-contract"
-import { gitEffectFailure } from "../invocation-guard.js"
+import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
 import { giteaRequest } from "./transport.js"
 
 export type GiteaRepositoryUrls = {
@@ -50,26 +50,28 @@ export function normalizeTemplateDiffStatus(
   return "modified"
 }
 
-export async function resolveExistingRepositoryUrls(
+export async function readExistingRepositoryUrls(
   http: HttpPort,
   draft: GitConnectionDraft,
   organization: string,
   repositoryName: string,
   signal?: AbortSignal,
 ): Promise<GiteaRepositoryUrls | null> {
-  const response = await giteaRequest(
-    http,
-    draft,
-    "GET",
-    `/repos/${encodeURIComponent(organization)}/${encodeURIComponent(repositoryName)}`,
-    undefined,
-    signal,
+  return extractRepositoryUrls(
+    await giteaRequest(
+      http,
+      draft,
+      "GET",
+      `/repos/${encodeURIComponent(organization)}/${encodeURIComponent(repositoryName)}`,
+      undefined,
+      signal,
+    ),
   )
-  return response.status >= 200 && response.status < 300
-    ? extractRepositoryUrls(response.data)
-    : null
 }
 
+type RepositoryFile = { sha: string | null; contentBase64: string | null }
+
+/** An explicit 404 is the only absent answer. */
 export async function readRepositoryFile(
   http: HttpPort,
   draft: GitConnectionDraft,
@@ -78,30 +80,30 @@ export async function readRepositoryFile(
   path: string,
   ref: string,
   signal?: AbortSignal,
-): Promise<{ sha: string | null; contentBase64: string | null }> {
-  const response = await giteaRequest(
-    http,
-    draft,
-    "GET",
-    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repositoryName)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`,
-    undefined,
-    signal,
-  )
-  if (response.status === 404) {
+): Promise<RepositoryFile> {
+  let data: unknown
+  try {
+    data = await giteaRequest(
+      http,
+      draft,
+      "GET",
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repositoryName)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`,
+      undefined,
+      signal,
+    )
+  } catch (error) {
+    if (!isGitReply(error, 404)) throw error
     return { sha: null, contentBase64: null }
   }
-  if (response.status < 200 || response.status >= 300) {
+  if (typeof data !== "object" || data === null) {
     throw gitEffectFailure(
       "completed",
-      `Failed to resolve file '${path}' on ref '${ref}' (${response.status}).`,
+      `Gitea answered an unreadable entry for '${path}' on ref '${ref}'.`,
     )
   }
-  if (typeof response.data !== "object" || response.data === null) {
-    return { sha: null, contentBase64: null }
-  }
-  const file = response.data as { sha?: unknown }
+  const file = data as { sha?: unknown }
   return {
     sha: typeof file.sha === "string" ? file.sha : null,
-    contentBase64: toBase64FromGiteaContent(response.data),
+    contentBase64: toBase64FromGiteaContent(data),
   }
 }

@@ -4,7 +4,7 @@ import type {
   GitProviderClient,
   ListRepositoriesResult,
 } from "@repo-edu/integrations-git-contract"
-import { isNotFoundError } from "./errors.js"
+import { isGitReply } from "../invocation-guard.js"
 import { createOctokit } from "./transport.js"
 
 type DiscoveryCapability = Pick<GitProviderClient, "listRepositories">
@@ -42,7 +42,7 @@ export function createGitHubDiscovery(http: HttpPort): DiscoveryCapability {
         )
         return { repositories }
       } catch (error) {
-        if (!isNotFoundError(error)) throw error
+        if (!isGitReply(error, 404)) throw error
       }
       await collect(
         octokit.paginate.iterator(octokit.repos.listForUser, {

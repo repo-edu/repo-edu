@@ -1,12 +1,7 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
-import { throwIfGitEffectAborted } from "../invocation-guard.js"
-import {
-  hasGitHubResponse,
-  isAlreadyExistsError,
-  isNoChangesError,
-  toErrorMessage,
-} from "./errors.js"
+import { isGitReply, throwIfGitEffectAborted } from "../invocation-guard.js"
+import { isAlreadyExistsError, isNoChangesError } from "./errors.js"
 import {
   readRepositoryFileSha,
   resolveExistingPullRequestUrl,
@@ -80,10 +75,7 @@ export function createGitHubBranchReview(
             request: { signal },
           })
         } catch (error) {
-          if (
-            !hasGitHubResponse(error) ||
-            !/content is unchanged/i.test(toErrorMessage(error))
-          )
+          if (!isGitReply(error) || !/content is unchanged/i.test(error.detail))
             throw error
         }
         if (file.previousPath && file.previousPath !== file.path) {

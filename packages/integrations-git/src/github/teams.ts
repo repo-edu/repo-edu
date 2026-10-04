@@ -3,8 +3,7 @@ import type {
   CreateTeamRequest,
   GitProviderClient,
 } from "@repo-edu/integrations-git-contract"
-import { throwIfGitEffectAborted } from "../invocation-guard.js"
-import { isNotFoundError, toErrorStatus } from "./errors.js"
+import { isGitReply, throwIfGitEffectAborted } from "../invocation-guard.js"
 import { createOctokit } from "./transport.js"
 
 function mapTeamPermission(permission: CreateTeamRequest["permission"]) {
@@ -48,7 +47,7 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
         })
         teamSlug = response.data.slug
       } catch (error) {
-        if (toErrorStatus(error) !== 422) throw error
+        if (!isGitReply(error, 422)) throw error
         created = false
         const response = await octokit.teams.getByName({
           org: request.organization,
@@ -71,7 +70,7 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
           })
           membersAdded.push(username)
         } catch (error) {
-          if (!isNotFoundError(error)) throw error
+          if (!isGitReply(error, 404)) throw error
           membersNotFound.push(username)
         }
       }

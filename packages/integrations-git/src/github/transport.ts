@@ -3,7 +3,7 @@ import { resolveUserAgent } from "@repo-edu/domain/connection"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 import { sendGitRequest } from "../invocation-guard.js"
-import { hasGitHubResponse } from "./errors.js"
+import { toGitHubReplyError } from "./errors.js"
 import { createHttpPortFetch } from "./http-port-fetch.js"
 
 function resolveApiBaseUrl(draft: GitConnectionDraft): string {
@@ -33,15 +33,14 @@ export function createOctokit(
   // hook receives one shared options object, so the inner request reads the
   // signal set here rather than an options object passed to it.
   octokit.hook.wrap("request", (request, options) =>
-    sendGitRequest(
-      options.method,
-      options.request?.signal,
-      async (signal) => {
-        options.request = { ...options.request, signal }
-        return request(options)
-      },
-      hasGitHubResponse,
-    ),
+    sendGitRequest(options.method, options.request?.signal, async (signal) => {
+      options.request = { ...options.request, signal }
+      try {
+        return await request(options)
+      } catch (error) {
+        throw toGitHubReplyError(error, options.method)
+      }
+    }),
   )
   return octokit
 }

@@ -113,7 +113,12 @@ describe("gitea discovery", () => {
       const client = createGiteaClient(http)
       await assert.rejects(
         client.listRepositories(baseDraft, { namespace: "course-org" }),
-        /Failed to list repositories for 'course-org' \(500\)\./,
+        {
+          message:
+            "GET /api/v1/orgs/course-org/repos answered 500: internal error",
+          type: "git-effect",
+          disposition: "completed",
+        },
       )
     })
 
@@ -132,14 +137,19 @@ describe("gitea discovery", () => {
       )
     })
 
-    it("returns an empty list when baseUrl is missing", async () => {
+    it("reports a missing baseUrl as a known failure", async () => {
       const client = createGiteaClient(createMockHttpPort([]))
-      const result = await client.listRepositories(
-        { ...baseDraft, baseUrl: "" },
-        { namespace: "course-org" },
+      await assert.rejects(
+        client.listRepositories(
+          { ...baseDraft, baseUrl: "" },
+          { namespace: "course-org" },
+        ),
+        {
+          message: "Gitea baseUrl is required.",
+          type: "git-effect",
+          disposition: "completed",
+        },
       )
-
-      assert.deepStrictEqual(result.repositories, [])
     })
   })
 })

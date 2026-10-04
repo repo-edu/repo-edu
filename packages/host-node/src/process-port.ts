@@ -3,6 +3,7 @@ import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type {
   GitCommandPort,
   GitCommandRequest,
+  ProcessOutputEncoding,
   ProcessPort,
   ProcessRequest,
   ProcessResult,
@@ -25,8 +26,11 @@ function completeEnvironment(
   return { ...process.env, ...overrides }
 }
 
-async function collectOutput(stream: Readable): Promise<string> {
-  stream.setEncoding("utf8")
+async function collectOutput(
+  stream: Readable,
+  encoding: ProcessOutputEncoding,
+): Promise<string> {
+  stream.setEncoding(encoding)
   let output = ""
   for await (const chunk of stream) {
     output += String(chunk)
@@ -95,14 +99,19 @@ export function createNodeProcessPort(
       const failStream = (error: unknown): void => {
         child.reportProofLost(error)
       }
-      const stdout = collectOutput(child.stdout).catch((error: unknown) => {
+      const stdout = collectOutput(
+        child.stdout,
+        request.stdoutEncoding ?? "utf8",
+      ).catch((error: unknown) => {
         failStream(error)
         return ""
       })
-      const stderr = collectOutput(child.stderr).catch((error: unknown) => {
-        failStream(error)
-        return ""
-      })
+      const stderr = collectOutput(child.stderr, "utf8").catch(
+        (error: unknown) => {
+          failStream(error)
+          return ""
+        },
+      )
       const input = writeInput(child.stdin, request.stdinText).catch(failStream)
 
       const [outcome, capturedStdout, capturedStderr] = await Promise.all([
@@ -143,6 +152,7 @@ export function createNodeGitCommandPort(
         cwd: request.cwd,
         env: request.env,
         stdinText: request.stdinText,
+        stdoutEncoding: request.stdoutEncoding,
         signal: request.signal,
       })
     },

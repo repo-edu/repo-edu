@@ -40,6 +40,7 @@ describe("createNodeGitCommandPort", () => {
       cwd: "/tmp/repo-edu",
       env: { GIT_TERMINAL_PROMPT: "0" },
       stdinText: "stdin",
+      stdoutEncoding: "base64",
       signal: abortController.signal,
     })
 
@@ -51,6 +52,7 @@ describe("createNodeGitCommandPort", () => {
         cwd: "/tmp/repo-edu",
         env: { GIT_TERMINAL_PROMPT: "0" },
         stdinText: "stdin",
+        stdoutEncoding: "base64",
         signal: abortController.signal,
       },
     ])

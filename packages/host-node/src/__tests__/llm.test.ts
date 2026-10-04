@@ -17,7 +17,11 @@ import {
   ChildProcessTreeUnconfirmedError,
   createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
-import { createNodeLlmTextClient, launchNodeCodexSdkHost } from "../llm.js"
+import {
+  createNodeLlmPort,
+  createNodeLlmTextClient,
+  launchNodeCodexSdkHost,
+} from "../llm.js"
 
 const claudeTreeFixture = fileURLToPath(
   new URL("./fixtures/claude-cli-tree.cjs", import.meta.url),
@@ -170,6 +174,44 @@ describe("createNodeLlmTextClient", () => {
     assert.equal(stdin.destroyed, true)
     assert.equal(stdout.destroyed, true)
     assert.equal(stderr.destroyed, true)
+  })
+
+  it("reports a stop before any launch in the adapters' abort form", async () => {
+    const launches: unknown[] = []
+    const port = createNodeLlmPort(
+      createChildProcessLifetimeController({
+        diagnosticSink() {},
+        warnUnconfirmedTree() {},
+        runtimePlatform: "win32",
+        windowsAdapter: {
+          async launch(request) {
+            launches.push(request)
+            throw new ChildProcessLaunchRefusedError("must not launch")
+          },
+        },
+      }),
+      { claude: { authMode: "subscription", env: {} }, codex: {} },
+      { claudeCliExecutable: "/bin/claude" },
+    )
+    const controller = new AbortController()
+    controller.abort()
+    const isAbort = (error: unknown) =>
+      error instanceof DOMException && error.name === "AbortError"
+
+    await assert.rejects(
+      port.run({ spec: claudeSpec, prompt: "x", signal: controller.signal }),
+      isAbort,
+    )
+    await assert.rejects(async () => {
+      for await (const _event of port.stream({
+        spec: claudeSpec,
+        prompt: "x",
+        signal: controller.signal,
+      })) {
+        // Drain stream.
+      }
+    }, isAbort)
+    assert.equal(launches.length, 0)
   })
 
   it("reports a Claude CLI or Codex SDK host launch the system refuses as a refusal", async () => {

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict"
 import { existsSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { PassThrough, Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import {
@@ -563,6 +565,48 @@ describe("runClaudeCliStream", () => {
     )
     assert.equal(calls[0]?.stopped, true)
     assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
+  })
+
+  it("refuses a turn whose working folder cannot be created", async () => {
+    const { launch, calls } = fakeLaunch([])
+    const saved = {
+      TMPDIR: process.env.TMPDIR,
+      TEMP: process.env.TEMP,
+      TMP: process.env.TMP,
+    }
+    const missing = join(tmpdir(), "repo-edu-missing-parent", "missing")
+    process.env.TMPDIR = missing
+    process.env.TEMP = missing
+    process.env.TMP = missing
+    try {
+      await assert.rejects(
+        async () => {
+          for await (const _event of runClaudeCliStream(
+            {
+              spec: claudeSpec,
+              prompt: "Reply ok.",
+              executable: "/bin/claude",
+              launch,
+            },
+            { authMode: "subscription", childEnv: {} },
+          )) {
+            // Drain stream.
+          }
+        },
+        (error: unknown) =>
+          error instanceof LlmError &&
+          error.context.outcome === "refused" &&
+          error.message.startsWith(
+            "Could not create the Claude CLI working folder:",
+          ),
+      )
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
+    assert.equal(calls.length, 0)
   })
 
   it("rejects pre-aborted requests without spawning Claude", async () => {

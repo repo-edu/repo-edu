@@ -1,5 +1,5 @@
 import type { Gitlab } from "@gitbeaker/rest"
-import { isNotFoundError } from "./errors.js"
+import { isGitReply } from "../invocation-guard.js"
 
 export async function resolveGroupId(
   api: Gitlab,
@@ -9,7 +9,7 @@ export async function resolveGroupId(
   try {
     group = await api.Groups.show(groupPath)
   } catch (error) {
-    if (!isNotFoundError(error)) throw error
+    if (!isGitReply(error, 404)) throw error
     return null
   }
   const id = (group as { id?: unknown }).id

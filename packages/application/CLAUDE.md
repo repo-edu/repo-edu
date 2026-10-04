@@ -55,7 +55,9 @@ It composes:
   `repo.create|clone|update|listNamespace|bulkClone`. `clone-execution.ts` is
   the single owner for target admission and temporary clone execution across
   planned and bulk cloning. `paths.ts` owns portable local names, clone paths
-  and collision detection.
+  and collision detection. Every local Git command runs through `runGit` in
+  `git-helpers.ts`, which returns either output or Git's own reason, never a
+  default value. A read-only command's lost result is a failed result there.
 - Analysis workflows are in `src/analysis-workflows/`, assembled by `analysis-workflows.ts`
   (`createAnalysisWorkflowHandlers`): `analysis-handler.ts` (`analysis.run`),
   `snapshot-head-handler.ts` (`analysis.resolveSnapshotHead`), `blame-handler.ts`

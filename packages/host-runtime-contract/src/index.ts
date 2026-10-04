@@ -74,12 +74,16 @@ export type ProcessCancellation =
   | "best-effort"
   | "cooperative"
 
+/** `base64` keeps binary standard output intact; `utf8` is the default. */
+export type ProcessOutputEncoding = "utf8" | "base64"
+
 export type ProcessRequest = {
   command: string
   args?: string[]
   cwd?: string
   env?: Record<string, string>
   stdinText?: string
+  stdoutEncoding?: ProcessOutputEncoding
   signal?: AbortSignal
 }
 
@@ -100,6 +104,7 @@ export type GitCommandRequest = {
   cwd?: string
   env?: Record<string, string>
   stdinText?: string
+  stdoutEncoding?: ProcessOutputEncoding
   signal?: AbortSignal
 }
 

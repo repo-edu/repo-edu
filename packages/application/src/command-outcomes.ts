@@ -74,6 +74,17 @@ export function commandCompletedFailure(
   })
 }
 
+/** A port's effect ended with a known failure and nothing keeps running. */
+export function isCompletedCommandFailure(
+  error: unknown,
+): error is CommandOutcomeError {
+  return (
+    error instanceof CommandOutcomeError &&
+    error.outcome.disposition === "completed" &&
+    error.outcome.completion.status === "failed"
+  )
+}
+
 export function isGitEffectFailure(error: unknown): error is GitEffectFailure {
   return (
     error instanceof Error && "type" in error && error.type === "git-effect"

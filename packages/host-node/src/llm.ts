@@ -44,9 +44,10 @@ export type NodeCodexSdkHostCommand = {
   readonly runAsNode: boolean
 }
 
+/** Nothing has started, so the stop is proven and takes the adapters' form. */
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
-    throw new Error("Operation cancelled.")
+    throw new DOMException("Operation cancelled.", "AbortError")
   }
 }
 

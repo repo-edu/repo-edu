@@ -182,23 +182,24 @@ describe("gitea repositories", () => {
       assert.ok(capturedBody.includes('"private":false'))
     })
 
-    it("returns empty result when baseUrl is missing", async () => {
+    it("reports a missing baseUrl as a known failure", async () => {
       const client = createGiteaClient(createMockHttpPort([]))
-      const result = await client.createRepositories(
-        { ...baseDraft, baseUrl: "" },
+      await assert.rejects(
+        client.createRepositories(
+          { ...baseDraft, baseUrl: "" },
+          {
+            organization: "course-org",
+            repositoryNames: ["repo-1"],
+            visibility: "private",
+            autoInit: true,
+          },
+        ),
         {
-          organization: "course-org",
-          repositoryNames: ["repo-1"],
-          visibility: "private",
-          autoInit: true,
+          message: "Gitea baseUrl is required.",
+          type: "git-effect",
+          disposition: "completed",
         },
       )
-
-      assert.deepStrictEqual(result, {
-        created: [],
-        alreadyExisted: [],
-        failed: [],
-      })
     })
   })
 

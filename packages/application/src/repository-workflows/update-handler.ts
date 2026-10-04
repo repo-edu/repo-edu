@@ -207,18 +207,13 @@ export function createRepoUpdateHandler(
             template.path,
             options?.signal,
           )
-          if (sha === null) {
+          if (!sha.ok) {
             throw createValidationAppError(
-              `Local template at '${template.path}' is not a valid Git repository.`,
-              [
-                {
-                  path: "template.path",
-                  message: "Ensure the template path is a Git repository.",
-                },
-              ],
+              `Local template at '${template.path}' has no readable commit.`,
+              [{ path: "template.path", message: sha.detail }],
             )
           }
-          currentSha = sha
+          currentSha = sha.stdout
 
           const fromSha = assignment.templateCommitSha ?? null
           if (fromSha === null || fromSha.trim() === "") {

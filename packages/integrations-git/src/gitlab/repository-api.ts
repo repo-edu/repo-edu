@@ -4,8 +4,7 @@ import type {
   GitConnectionDraft,
   PatchFile,
 } from "@repo-edu/integrations-git-contract"
-import { gitEffectFailure } from "../invocation-guard.js"
-import { isNotFoundError } from "./errors.js"
+import { isGitReply } from "../invocation-guard.js"
 import { gitLabRestGet } from "./transport.js"
 
 export type GitLabProjectUrls = {
@@ -60,7 +59,7 @@ export async function resolveProjectId(
   try {
     project = await api.Projects.show(projectPath)
   } catch (error) {
-    if (!isNotFoundError(error)) throw error
+    if (!isGitReply(error, 404)) throw error
     return null
   }
   const id = (project as { id?: unknown }).id
@@ -84,20 +83,18 @@ export async function fileExistsInBranch(
   branchName: string,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  const response = await gitLabRestGet(
-    http,
-    draft,
-    `/projects/${projectId}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(branchName)}`,
-    signal,
-  )
-  if (response.status === 404) return false
-  if (response.status < 200 || response.status >= 300) {
-    throw gitEffectFailure(
-      "completed",
-      `Failed to inspect file '${path}' on '${branchName}' (${response.status}).`,
+  try {
+    await gitLabRestGet(
+      http,
+      draft,
+      `/projects/${projectId}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(branchName)}`,
+      signal,
     )
+    return true
+  } catch (error) {
+    if (!isGitReply(error, 404)) throw error
+    return false
   }
-  return true
 }
 
 export function normalizeTemplateDiffStatus(

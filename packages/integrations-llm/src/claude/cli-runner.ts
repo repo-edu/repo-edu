@@ -120,7 +120,22 @@ export async function* runClaudeCliStream(
     throw new Error("Claude subscription mode requires a host CLI launcher.")
   }
 
-  const workingDirectory = createClaudeCliWorkingDirectory()
+  let workingDirectory: string
+  try {
+    workingDirectory = createClaudeCliWorkingDirectory()
+  } catch (error) {
+    throw new LlmError(
+      "other",
+      `Could not create the Claude CLI working folder: ${error instanceof Error ? error.message : String(error)}`,
+      {
+        context: {
+          provider: "claude",
+          authMode: "subscription",
+          outcome: "refused",
+        },
+      },
+    )
+  }
   let child: Awaited<ReturnType<ClaudeCliLaunch>>
   try {
     child = await options.launch({

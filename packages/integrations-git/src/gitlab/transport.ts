@@ -1,8 +1,8 @@
-import { GitbeakerRequestError, Gitlab } from "@gitbeaker/rest"
+import { Gitlab } from "@gitbeaker/rest"
 import { resolveUserAgent } from "@repo-edu/domain/connection"
-import type { HttpPort } from "@repo-edu/host-runtime-contract"
+import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
-import { sendGitRequest } from "../invocation-guard.js"
+import { sendGitHttpRequest } from "../invocation-guard.js"
 
 type ResponseBody =
   | Record<string, unknown>
@@ -107,11 +107,16 @@ function toQueryString(searchParams?: Record<string, unknown>): string {
   return params.toString()
 }
 
-function parseResponseBody(response: {
-  status: number
-  headers: Record<string, string>
-  body: string
-}): ResponseBody {
+function parseJson(body: string): unknown {
+  if (body === "") return null
+  try {
+    return JSON.parse(body)
+  } catch {
+    return body
+  }
+}
+
+function parseResponseBody(response: HttpResponse): ResponseBody {
   if (response.status === 204) {
     return null
   }
@@ -121,34 +126,26 @@ function parseResponseBody(response: {
     .trim()
 
   if (contentType === "application/json") {
-    return response.body === "" ? {} : JSON.parse(response.body)
-  }
-
-  if (contentType.startsWith("text/")) {
-    return response.body
+    return response.body === ""
+      ? {}
+      : (parseJson(response.body) as ResponseBody)
   }
 
   return response.body
 }
 
-function createErrorDescription(response: {
-  headers: Record<string, string>
-  body: string
-}): string {
-  const contentType = response.headers["content-type"] ?? ""
-  if (contentType.includes("application/json")) {
-    const parsed = response.body === "" ? {} : JSON.parse(response.body)
-    const errorOrMessage =
-      (parsed as { error?: unknown; message?: unknown }).error ??
-      (parsed as { error?: unknown; message?: unknown }).message ??
-      ""
-
-    return typeof errorOrMessage === "string"
-      ? errorOrMessage
-      : JSON.stringify(errorOrMessage)
+function replyDetail(response: HttpResponse): string {
+  const data = parseJson(response.body)
+  if (typeof data === "string") return data
+  if (typeof data !== "object" || data === null) return ""
+  const record = data as { error?: unknown; message?: unknown }
+  const detail = record.error ?? record.message ?? ""
+  if (typeof detail === "string") return detail
+  try {
+    return JSON.stringify(detail)
+  } catch {
+    return ""
   }
-
-  return response.body
 }
 
 async function executeRequest<T extends ResponseBody>(
@@ -200,30 +197,12 @@ async function executeRequest<T extends ResponseBody>(
     callerSignal && options?.signal
       ? AbortSignal.any([callerSignal, options.signal])
       : (callerSignal ?? options?.signal)
-  const httpResponse = await sendGitRequest(method, signal, (signal) =>
-    http.fetch({ url: url.toString(), method, headers, body, signal }),
+  const httpResponse = await sendGitHttpRequest(
+    http,
+    { url: url.toString(), method, headers, body },
+    signal,
+    replyDetail,
   )
-
-  if (httpResponse.status < 200 || httpResponse.status >= 300) {
-    const request = new Request(url, {
-      method,
-      headers,
-      body,
-      signal,
-    })
-    const response = new Response(httpResponse.body, {
-      status: httpResponse.status,
-      statusText: httpResponse.statusText,
-      headers: httpResponse.headers,
-    })
-    throw new GitbeakerRequestError(createErrorDescription(httpResponse), {
-      cause: {
-        description: createErrorDescription(httpResponse),
-        request,
-        response,
-      },
-    })
-  }
 
   return {
     body: parseResponseBody(httpResponse) as T,
@@ -328,16 +307,18 @@ export function createGitLabApi(
   })
 }
 
+/** Answers only a 2xx reply, like the Gitbeaker requester above. */
 async function gitLabRestRequest(
   http: HttpPort,
   draft: GitConnectionDraft,
-  method: "GET" | "POST" | "PUT" | "DELETE",
+  method: "GET" | "POST",
   path: string,
   body: Record<string, unknown> | undefined,
   signal?: AbortSignal,
-): Promise<{ status: number; data: unknown }> {
-  const response = await sendGitRequest(method, signal, (signal) =>
-    http.fetch({
+): Promise<unknown> {
+  const response = await sendGitHttpRequest(
+    http,
+    {
       url: `${toApiBaseUrl(draft)}${path}`,
       method,
       headers: {
@@ -348,23 +329,11 @@ async function gitLabRestRequest(
       },
       body:
         body === undefined ? undefined : JSON.stringify(decamelizeValue(body)),
-      signal,
-    }),
+    },
+    signal,
+    replyDetail,
   )
-
-  let data: unknown = null
-  if (response.body !== "") {
-    try {
-      data = JSON.parse(response.body)
-    } catch {
-      data = response.body
-    }
-  }
-
-  return {
-    status: response.status,
-    data,
-  }
+  return parseJson(response.body)
 }
 
 export async function gitLabRestPost(
@@ -373,7 +342,7 @@ export async function gitLabRestPost(
   path: string,
   body: Record<string, unknown>,
   signal?: AbortSignal,
-): Promise<{ status: number; data: unknown }> {
+): Promise<unknown> {
   return gitLabRestRequest(http, draft, "POST", path, body, signal)
 }
 
@@ -382,6 +351,6 @@ export async function gitLabRestGet(
   draft: GitConnectionDraft,
   path: string,
   signal?: AbortSignal,
-): Promise<{ status: number; data: unknown }> {
+): Promise<unknown> {
   return gitLabRestRequest(http, draft, "GET", path, undefined, signal)
 }

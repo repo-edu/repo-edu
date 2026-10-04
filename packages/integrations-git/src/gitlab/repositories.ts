@@ -1,13 +1,13 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
-import { throwIfGitEffectAborted } from "../invocation-guard.js"
-import { withGitLabToken } from "./auth.js"
 import {
-  gitLabErrorMessage,
-  gitLabErrorStatus,
-  isAlreadyExistsError,
-  isNotFoundError,
-} from "./errors.js"
+  errorMessage,
+  gitEffectFailure,
+  isGitReply,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
+import { withGitLabToken } from "./auth.js"
+import { isAlreadyExistsError } from "./errors.js"
 import { resolveGroupId } from "./namespace.js"
 import {
   createProject,
@@ -26,9 +26,6 @@ export function createGitLabRepositories(
 ): RepositoriesCapability {
   return {
     async createRepositories(draft, request, signal) {
-      if (!request.organization) {
-        return { created: [], alreadyExisted: [], failed: [] }
-      }
       const api = createGitLabApi(http, draft, signal)
       const namespaceId = await resolveGroupId(api, request.organization)
       if (namespaceId === null) {
@@ -69,7 +66,7 @@ export function createGitLabRepositories(
             })
           }
         } catch (error) {
-          if (gitLabErrorStatus(error) === null) throw error
+          if (!isGitReply(error)) throw error
           if (isAlreadyExistsError(error)) {
             try {
               const project = await api.Projects.show(
@@ -89,44 +86,46 @@ export function createGitLabRepositories(
                 })
               }
             } catch (lookupError) {
+              if (!isGitReply(lookupError)) throw lookupError
               failed.push({
                 repositoryName,
-                reason: `Repository exists but lookup failed: ${gitLabErrorMessage(lookupError)}`,
+                reason: `Repository exists but lookup failed: ${errorMessage(lookupError)}`,
               })
             }
             continue
           }
-          failed.push({ repositoryName, reason: gitLabErrorMessage(error) })
+          failed.push({ repositoryName, reason: error.message })
         }
       }
       return { created, alreadyExisted, failed }
     },
     async resolveRepositoryCloneUrls(draft, request, signal) {
-      if (!request.organization) {
-        return { resolved: [], missing: [...request.repositoryNames] }
-      }
       const api = createGitLabApi(http, draft, signal)
       const resolved = []
       const missing = []
       for (const repositoryName of request.repositoryNames) {
         if (signal?.aborted) break
+        let project: unknown
         try {
-          const project = await api.Projects.show(
+          project = await api.Projects.show(
             `${request.organization}/${repositoryName}`,
           )
-          const cloneUrl = extractProjectCloneUrl(project)
-          if (cloneUrl === null) {
-            missing.push(repositoryName)
-            continue
-          }
-          resolved.push({
-            repositoryName,
-            cloneUrl: withGitLabToken(cloneUrl, draft.token),
-          })
         } catch (error) {
-          if (!isNotFoundError(error)) throw error
+          if (!isGitReply(error, 404)) throw error
           missing.push(repositoryName)
+          continue
         }
+        const cloneUrl = extractProjectCloneUrl(project)
+        if (cloneUrl === null) {
+          throw gitEffectFailure(
+            "completed",
+            `GitLab answered no clone URL for repository '${repositoryName}'.`,
+          )
+        }
+        resolved.push({
+          repositoryName,
+          cloneUrl: withGitLabToken(cloneUrl, draft.token),
+        })
       }
       return { resolved, missing }
     },

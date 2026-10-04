@@ -4,14 +4,15 @@ import type {
   GitProviderClient,
   ListRepositoriesResult,
 } from "@repo-edu/integrations-git-contract"
-import { giteaRequest, resolveApiBase } from "./transport.js"
+import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
+import { giteaRequest } from "./transport.js"
 
 type DiscoveryCapability = Pick<GitProviderClient, "listRepositories">
 
 export function createGiteaDiscovery(http: HttpPort): DiscoveryCapability {
   return {
     async listRepositories(draft, request, signal) {
-      if (!resolveApiBase(draft) || !request.namespace) {
+      if (!request.namespace) {
         return { repositories: [] }
       }
       const matches = compileRepoNamePattern(request.filter)
@@ -25,15 +26,18 @@ export function createGiteaDiscovery(http: HttpPort): DiscoveryCapability {
         const route = tryingOrganization
           ? `/orgs/${namespace}/repos?limit=${perPage}&page=${page}`
           : `/users/${namespace}/repos?limit=${perPage}&page=${page}`
-        const response = await giteaRequest(
-          http,
-          draft,
-          "GET",
-          route,
-          undefined,
-          signal,
-        )
-        if (response.status === 404 && page === 1) {
+        let listed: unknown
+        try {
+          listed = await giteaRequest(
+            http,
+            draft,
+            "GET",
+            route,
+            undefined,
+            signal,
+          )
+        } catch (error) {
+          if (!isGitReply(error, 404) || page !== 1) throw error
           if (tryingOrganization) {
             tryingOrganization = false
             continue
@@ -41,13 +45,14 @@ export function createGiteaDiscovery(http: HttpPort): DiscoveryCapability {
           // An unresolved namespace has no repository result.
           break
         }
-        if (response.status < 200 || response.status >= 300) {
-          throw new Error(
-            `Failed to list repositories for '${request.namespace}' (${response.status}).`,
+        if (!Array.isArray(listed)) {
+          throw gitEffectFailure(
+            "completed",
+            `Gitea answered an unreadable repository list for '${request.namespace}'.`,
           )
         }
-        if (!Array.isArray(response.data) || response.data.length === 0) break
-        for (const entry of response.data) {
+        if (listed.length === 0) break
+        for (const entry of listed) {
           if (typeof entry !== "object" || entry === null) continue
           const record = entry as Record<string, unknown>
           const name = typeof record.name === "string" ? record.name : ""
@@ -56,7 +61,7 @@ export function createGiteaDiscovery(http: HttpPort): DiscoveryCapability {
           if (archived && !request.includeArchived) continue
           repositories.push({ name, identifier: name, archived })
         }
-        if (response.data.length < perPage) break
+        if (listed.length < perPage) break
         page += 1
       }
       return { repositories }

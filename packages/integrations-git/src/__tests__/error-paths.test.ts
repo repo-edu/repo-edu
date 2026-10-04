@@ -675,11 +675,179 @@ describe("error handling consistency across git providers", () => {
         ],
       }),
       {
-        message: "Failed to delete 'README.md' (403).",
+        message:
+          "DELETE /api/v1/repos/course-org/repo-1/contents/README.md answered 403",
         type: "git-effect",
         disposition: "completed",
       },
     )
+  })
+
+  it("all providers read only an explicit 404 as absence", async () => {
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(
+        createStatusHttpPort(
+          403,
+          JSON.stringify({ message: "404 Project Not Found" }),
+        ),
+      )
+      await assert.rejects(
+        client.resolveRepositoryCloneUrls(draft, {
+          organization: "course-org",
+          repositoryNames: ["repo-1"],
+        }),
+        { type: "git-effect", disposition: "completed" },
+      )
+    }
+  })
+
+  it("all providers report a repository answered without a clone URL as a known failure", async () => {
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(
+        createStatusHttpPort(200, JSON.stringify({ id: 7 })),
+      )
+      await assert.rejects(
+        client.resolveRepositoryCloneUrls(draft, {
+          organization: "course-org",
+          repositoryNames: ["repo-1"],
+        }),
+        { type: "git-effect", disposition: "completed" },
+      )
+    }
+  })
+
+  it("all providers stop when Cancel interrupts the lookup of an existing repository", async () => {
+    for (const providerClient of providerClients) {
+      const controller = new AbortController()
+      const [client, draft] = providerClient(
+        createSignalObeyingHttpPort((request) => {
+          if (request.method === "POST") {
+            return {
+              status: 422,
+              statusText: "Unprocessable Entity",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ message: "name already exists" }),
+            }
+          }
+          if (request.url.includes("/groups/")) return createdRepositoryResponse
+          controller.abort()
+          return null
+        }),
+      )
+      await assert.rejects(
+        client.createRepositories(
+          draft,
+          {
+            organization: "course-org",
+            repositoryNames: ["repo-1"],
+            visibility: "private",
+            autoInit: true,
+          },
+          controller.signal,
+        ),
+        { type: "git-effect", disposition: "stopped" },
+      )
+    }
+  })
+
+  it("all providers report a failed lookup of an existing pull request as a known failure", async () => {
+    const http: HttpPort = {
+      async fetch(request: HttpRequest): Promise<HttpResponse> {
+        if (request.method === "POST") {
+          return {
+            status: 422,
+            statusText: "Unprocessable Entity",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              message:
+                "A pull request already exists for course-org:template-update.",
+            }),
+          }
+        }
+        if (
+          request.url.includes("/pulls") ||
+          request.url.includes("/merge_requests")
+        ) {
+          return {
+            status: 500,
+            statusText: "Error",
+            headers: { "content-type": "application/json" },
+            body: "{}",
+          }
+        }
+        return createdRepositoryResponse
+      },
+    }
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(http)
+      await assert.rejects(
+        client.createPullRequest(draft, {
+          owner: "course-org",
+          repositoryName: "repo-1",
+          headBranch: "template-update",
+          baseBranch: "main",
+          title: "Template update",
+          body: "",
+        }),
+        { type: "git-effect", disposition: "completed" },
+      )
+    }
+  })
+
+  it("all providers refuse a template diff whose changed file has no content", async () => {
+    const http: HttpPort = {
+      async fetch(request: HttpRequest): Promise<HttpResponse> {
+        if (request.url.includes("/compare")) {
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              files: [{ filename: "README.md", status: "modified" }],
+              diffs: [{ new_path: "README.md", old_path: "README.md" }],
+            }),
+          }
+        }
+        return {
+          status: 404,
+          statusText: "Not Found",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ message: "Not Found" }),
+        }
+      },
+    }
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(http)
+      await assert.rejects(
+        client.getTemplateDiff(draft, {
+          owner: "course-org",
+          repositoryName: "template",
+          fromSha: "1111111aaaa",
+          toSha: "2222222bbbb",
+        }),
+        {
+          message:
+            "Template file 'README.md' has no file content at 2222222, so the update cannot carry it.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    }
+  })
+
+  it("all providers refuse a template compare answered without its changed files", async () => {
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(createStatusHttpPort(200, "{}"))
+      await assert.rejects(
+        client.getTemplateDiff(draft, {
+          owner: "course-org",
+          repositoryName: "template",
+          fromSha: "1111111aaaa",
+          toSha: "2222222bbbb",
+        }),
+        { type: "git-effect", disposition: "completed" },
+      )
+    }
   })
 
   it("all providers report a failed read as a known failure", async () => {
