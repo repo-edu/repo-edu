@@ -24,10 +24,16 @@ import {
 import {
   type AuditorSeat,
   noOverride,
-  parseAuditor,
   phaseWorkflow,
   type RoundDependencies,
 } from "./phase.js"
+import {
+  type AuditorEntry,
+  parseAuditors,
+  removeQueue,
+  takeNext,
+  writeQueue,
+} from "./queue.js"
 import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
@@ -42,6 +48,7 @@ import {
   manualPhasePaths,
   newestTranscript,
   phaseFilename,
+  queueFile,
   roundDocument,
   roundIdentity,
   transcriptKind,
@@ -78,7 +85,7 @@ type Invocation =
       /** Absent when the runner repeats the newest unfinished audit. */
       readonly first?: string
       readonly rest: readonly string[]
-      readonly auditor?: readonly AuditorSeat[]
+      readonly auditor?: readonly AuditorEntry[]
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
       /** True when `--brief` was given; rounds run no brief otherwise. */
@@ -133,16 +140,17 @@ function parseInvocation(
     .addOption(
       new Option(
         "--auditor <selections>",
-        "comma-separated auditors in round order (see below)",
+        "auditors in round order (see below)",
       ).argParser((value) => {
-        return value.split(",").map((entry, index) => {
-          const seat = parseAuditor(entry.trim())
-          if (seat === null)
-            throw new InvalidArgumentError(
-              `Auditor entry ${index + 1}: expected claude, codex or a capability tag, such as o, at or otx.`,
-            )
-          return seat
-        })
+        let entries: AuditorEntry[]
+        try {
+          entries = parseAuditors(value)
+        } catch (error) {
+          throw new InvalidArgumentError(errorMessage(error))
+        }
+        if (entries.length === 0)
+          throw new InvalidArgumentError("Expected at least one auditor.")
+        return entries
       }),
     )
     .option(
@@ -167,9 +175,9 @@ Targets and scope:
            clean repeats its scope. Anything else stops: name the next scope.
 
 Auditor selection (--auditor <selections>):
-  <selections> is a comma-separated list of names or tags. Each entry runs
-  one round, from left to right: --auditor a,o runs a round audited by
-  Claude, then a round audited by Codex. Each entry is one of:
+  <selections> is a list of names or tags, separated by commas or spaces.
+  Each entry runs one round, from left to right: --auditor a,o runs a round
+  audited by Claude, then a round audited by Codex. Each entry is one of:
 
     claude | codex
       Use that CLI's current model and effort instead of the runner's audit settings.
@@ -184,7 +192,7 @@ Auditor selection (--auditor <selections>):
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor comes from settings.json.
-  Without --auditor, one round runs with that default.
+  Without --auditor, the first round uses that default.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
@@ -193,6 +201,15 @@ Round sequence:
     - Every round runs on the same target and step scope.
     - Repeat a name or tag to run another round with that auditor.
     - Multiple rounds require a plan target. Commit audits run once.
+
+  Queue file (plan targets):
+    - The entries after the current round wait in <target>-queue.md at the
+      plan root. Each round prints its path and what it holds.
+    - Edit it at any time to add, remove or reorder rounds. It takes the same
+      names and tags, separated by commas, spaces or line breaks. The runner
+      reads it between rounds, so an edit applies from the next round on.
+    - An empty or deleted file ends the sequence after the current round.
+    - The runner deletes the file when the sequence ends.
 
   Phases within a round:
     1. Audit     The selected auditor reports findings.
@@ -205,7 +222,7 @@ Round sequence:
 
   Skipping rounds and stopping:
     - If the audit finds nothing, the round ends before vet or any later phase.
-      All remaining --auditor selections for that assistant are skipped,
+      All queued entries for that assistant are skipped,
       even if they specify a different model tier or effort.
     - A fix that records a clean result does not skip later rounds.
     - A failure stops the sequence. A decision asks for your reply in the runner.
@@ -243,7 +260,7 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
         first: string | undefined,
         rest: string[],
         flags: {
-          auditor?: readonly AuditorSeat[]
+          auditor?: readonly AuditorEntry[]
           watch: boolean
           brief?: boolean
           verbose?: boolean
@@ -607,75 +624,87 @@ export async function runCommand(
       )
       active.finish(result)
     } else {
-      const seats = prepared.auditor ?? [
-        {
-          assistant: settings.defaultAuditor,
-          override: noOverride,
-        },
-      ]
-      let pending = seats
+      const [first, ...queued] = prepared.auditor ?? []
+      // A plan target keeps the auditors after the current round in a file the
+      // user may edit while rounds run; a commit target runs once.
+      const queue =
+        "plan" in prepared.target
+          ? await queueFile({ ...session, ...prepared.target })
+          : null
+      let rest: readonly AuditorEntry[] = queued
+      if (queue !== null) await writeQueue(queue, rest)
+      let seat: AuditorSeat | null = first ?? {
+        assistant: settings.defaultAuditor,
+        override: noOverride,
+      }
       let completed = 0
-      do {
-        const seat = pending[0]
-        const setup = {
-          ...session,
-          ...prepared.target,
-          auditor: seat.assistant,
-          override: seat.override,
-          brief: prepared.brief,
-        }
-        const run = await roundRun(
-          setup,
-          now(),
-          selections,
-          settings,
-          seats.length > 1 ? completed + 1 : undefined,
-        )
-        const active = open(run)
-        const round = await runRound(
-          {
-            ...setup,
-            documents: run.documents,
-            transcript: run.paths.markdown,
-            watch: prepared.watch
-              ? {
-                  file: run.watch,
-                  cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
-                }
-              : null,
-          },
-          dependenciesFor(active),
-          settings,
-        )
-        result = round
-        active.finish(round)
-        completed += 1
-        if (seats.length === 1) break
-        if (round.status !== "finished") {
-          await active.message(
-            round.status === "failed"
-              ? "Auditor sequence stopped: this round failed."
-              : "Auditor sequence stopped: this round required your ruling.",
+      try {
+        do {
+          const setup = {
+            ...session,
+            ...prepared.target,
+            auditor: seat.assistant,
+            override: seat.override,
+            brief: prepared.brief,
+          }
+          const run = await roundRun(
+            setup,
+            now(),
+            selections,
+            settings,
+            completed > 0 || rest.length > 0 ? completed + 1 : undefined,
           )
-          break
-        }
-        pending = pending.slice(1)
-        if (round.cleanAudit) {
-          const remaining = pending.filter(
-            (entry) => entry.assistant !== seat.assistant,
+          const active = open(run)
+          if (queue !== null)
+            await active.message(
+              `Queued after this round: ${rest.map((entry) => entry.text).join(", ") || "none"}. Edit ${queue} to add or remove rounds.`,
+            )
+          const round = await runRound(
+            {
+              ...setup,
+              documents: run.documents,
+              transcript: run.paths.markdown,
+              watch: prepared.watch
+                ? {
+                    file: run.watch,
+                    cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
+                  }
+                : null,
+            },
+            dependenciesFor(active),
+            settings,
           )
-          if (remaining.length < pending.length)
+          result = round
+          active.finish(round)
+          completed += 1
+          if (queue === null) break
+          if (round.status !== "finished") {
+            await active.message(
+              round.status === "failed"
+                ? "Auditor sequence stopped: this round failed."
+                : "Auditor sequence stopped: this round required your ruling.",
+            )
+            break
+          }
+          const taken = await takeNext(
+            queue,
+            round.cleanAudit ? seat.assistant : null,
+          )
+          if (taken.skipped > 0)
             await active.message(
               `Clean audit by ${seat.assistant}; skipping all remaining entries for ${seat.assistant}.`,
             )
-          pending = remaining
-        }
-        await active.message(
-          pending.length === 0
-            ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`
-            : `Next round: ${pending[0].assistant}; ${pending.length} auditor entries remain.`,
-        )
-      } while (pending.length > 0)
+          seat = taken.next
+          rest = taken.rest
+          await active.message(
+            seat === null
+              ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`
+              : `Next round: ${seat.assistant}; ${rest.length + 1} auditor entries remain.`,
+          )
+        } while (seat !== null)
+      } finally {
+        if (queue !== null) await removeQueue(queue)
+      }
     }
 
     code = result.status === "failed" ? 1 : 0

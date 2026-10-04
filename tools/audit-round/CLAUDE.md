@@ -239,7 +239,9 @@ consumers.
   assistant's audit for rebuttal or either assistant's audit for fix. Several reviews of one round
   resolve the same way unless one is selected.
   `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
-  filenames without consulting model settings.
+  filenames without consulting model settings. `queueFile` names a plan target's
+  `<target>-queue.md` beside its rounds; it carries no round number, so round allocation ignores
+  it.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. A plan
@@ -258,9 +260,9 @@ consumers.
   uses, skips plans without an active artifact and parses the newest remaining commit strictly.
   The selected target passes through `auditTarget` as a typed one would. `defaultPlan` applies the
   same plan rule alone for the `plan` command, which the home plan brief runs for an omitted stem.
-- `command.ts` owns the command grammar, startup and final reporting, including the comma-separated
-  auditor list and the error that identifies a malformed entry. It trims each entry and delegates
-  its assistant name or capability tag to `parseAuditor`. The round is the command itself, taking
+- `command.ts` owns the command grammar, startup and final reporting, including the `--auditor`
+  option. It reads that value with the queue's entry grammar and refuses a list with no entries.
+  The round is the command itself, taking
   the target as its own arguments. Its subcommands are `brief`, `name`, `paths`, `close`,
   `episode` and `plan`. `plan` prints the plan an omitted target selects, as JSON, and writes
   nothing. The `episode` command prints joined watch evidence from the shared reader and formatter
@@ -274,18 +276,27 @@ consumers.
   coordinator and starts no assistant or settings discovery. So the program carries an action
   handler, Commander adds no `help` command, and each command's own `-h` prints its help. A bare
   command line prints that help; options without a target take `defaultTarget`. It also owns the
-  remaining
-  auditor list and round counter. Each entry runs once in the supplied order with its own override.
-  Only an audit with no findings removes all remaining entries for that assistant, across model and
-  effort tags. A fix that lands a clean record removes none. Failure or a round requiring a ruling
-  stops the sequence. The list length is the only round limit and an omitted list uses the
-  configured default once. Each round records its own file pair and the coordinator has no
+  round sequence and its counter. The first `--auditor` entry, or the configured default when the
+  option is absent, runs first. For a plan target the remaining entries seed the target's queue
+  file, which the user may edit while rounds run. Between rounds the sequence takes the queue's
+  first entry, so the queue is the only round limit. Only an audit with no findings first removes
+  all queued entries for that assistant, across model and effort tags. A fix that lands a clean
+  record removes none. Failure, a round requiring a ruling or an empty queue stops the sequence,
+  and the queue file is deleted however the sequence ends. A commit target runs once and keeps no
+  queue. Each round prints the queue's path and contents when it opens. Each round records its own
+  file pair and the coordinator has no
   filesystem side effects: it opens one output per round, retires the previous one first, and reads
   updates and settings once for the whole run before opening any files. Startup messages go only to
   the terminal; the run log begins with the models table. A chained round carries its place in its
   title and independently claims the next number for its target. Required write failures stop phase
   progression. If recording itself fails, the emergency channel still reports the known session and
   recovery command.
+- `queue.ts` owns the queue file's contents and the entry grammar `--auditor` shares: names or
+  tags separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries keep the
+  user's spelling, so a rewrite changes only which entries remain. The runner reads the file only
+  between rounds, so an edit made during a round applies from the next one. A missing file reads as
+  an empty queue. A malformed entry stops the sequence with an error naming the file and the entry.
+  The user asked on 2026-10-04 for an editable file of remaining rounds.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -422,10 +433,13 @@ in the shared cache, which is how its cadence survives between rounds, and `--no
 `brief` accepts an earlier transcript at the plan root, or takes the most recently modified one when
 none is named. It reads its kind from the transcript title, writes beside it without claiming a new
 number and overwrites its standalone log on each run. `--auditor` accepts one selection or a
-comma-separated sequence on the named plan scope. Repeated entries request separate rounds. A clean
-audit skips all remaining entries for its assistant. Failure or leaving a ruling without a reply
-stops the sequence. A submitted reply resumes the fix, then the remaining sequence after the round
-completes. Each header records the round's start time; filenames carry no timestamp.
+sequence on the named plan scope, separated by commas or spaces. Repeated entries request separate
+rounds. The entries after the current round wait in `<target>-queue.md` at the plan root. Edit it
+to add, remove or reorder rounds; the runner reads it between rounds and deletes it when the
+sequence ends. An empty or deleted file ends the sequence after the current round. A clean audit
+skips all queued entries for its assistant. Failure or leaving a ruling without a reply stops the
+sequence. A submitted reply resumes the fix, then the queue after the round completes. Each header
+records the round's start time; filenames carry no timestamp.
 
 ## Verification
 

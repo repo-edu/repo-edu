@@ -3,6 +3,7 @@ import {
   mkdir,
   readdir,
   readFile,
+  rm,
   symlink,
   utimes,
   writeFile,
@@ -99,6 +100,119 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.equal(log.match(/\[brief\] starting/g)?.length, 1)
   assert.match(log, /Written brief/)
   assert.doesNotMatch(markdown, /Written brief/)
+})
+
+/** The ruling pause lets a test act as the user editing the queue mid-round. */
+async function finishFixOnReply(f: Awaited<ReturnType<typeof roundFixture>>) {
+  const stream = await phaseStream(
+    "codex",
+    'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+    "fix-session",
+  )
+  await f.configure({
+    phases: {
+      ...f.phases,
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        assistants: { codex: { stream } },
+        commits: [
+          {
+            cwd: f.repoRoot,
+            subject:
+              "example/impl-audit-all oth growth-none c1 fix(audit-round): apply ruling",
+          },
+        ],
+      },
+    },
+  })
+}
+
+for (const { auditors, seeded, edit, rounds } of [
+  // Extending a single round.
+  { auditors: "codex", seeded: "", edit: "claude\n", rounds: 2 },
+  // Emptying the queue ends the sequence after this round.
+  {
+    auditors: "codex,claude,atx",
+    seeded: "claude\natx\n",
+    edit: "",
+    rounds: 1,
+  },
+  // Deleting the file does the same.
+  { auditors: "codex claude", seeded: "claude\n", edit: null, rounds: 1 },
+  // Entries may share a line, as in --auditor.
+  { auditors: "codex", seeded: "", edit: "claude, a\n", rounds: 3 },
+]) {
+  test(`the queue file seeded with ${JSON.stringify(seeded)} takes ${JSON.stringify(edit)} before the next round`, async (t) => {
+    const f = await roundFixture(t, "codex", "repo-edu", true)
+    const queue = join(f.planRoot, "example-step-all-queue.md")
+    const code = await runCommand(
+      ["example.md", "all", "--auditor", auditors, "--no-watch"],
+      f.runtime,
+      {
+        ...f.options,
+        readReply: async () => {
+          assert.equal(await readFile(queue, "utf8"), seeded)
+          if (edit === null) await rm(queue)
+          else await writeFile(queue, edit)
+          await finishFixOnReply(f)
+          return "Choose option 1."
+        },
+      },
+    )
+    assert.equal(code, 0, f.errors.join("\n"))
+    assert.equal((await f.roundFiles()).length, rounds * 2)
+    const visible = f.visible.join("\n")
+    assert.ok(
+      visible.includes(
+        `Queued after this round: ${seeded.trim().split("\n").join(", ") || "none"}. Edit ${queue} to add or remove rounds.`,
+      ),
+    )
+    assert.match(
+      visible,
+      new RegExp(
+        `Auditor sequence finished after ${rounds} round${rounds === 1 ? "" : "s"}\\.`,
+      ),
+    )
+    await assert.rejects(readFile(queue), { code: "ENOENT" })
+  })
+}
+
+test("a malformed queue edit stops the sequence and names the entry", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  const queue = join(f.planRoot, "example-step-all-queue.md")
+  const code = await runCommand(
+    ["example.md", "all", "--auditor", "codex,claude", "--no-watch"],
+    f.runtime,
+    {
+      ...f.options,
+      readReply: async () => {
+        await writeFile(queue, "claude\nclaud\n")
+        await finishFixOnReply(f)
+        return "Choose option 1."
+      },
+    },
+  )
+  assert.equal(code, 1)
+  assert.ok(
+    f.errors
+      .join("\n")
+      .includes(`${queue}: Auditor entry 2 (claud): expected claude, codex`),
+  )
+  assert.equal((await f.roundFiles()).length, 2)
+  await assert.rejects(readFile(queue), { code: "ENOENT" })
+})
+
+test("a commit audit keeps no queue file", async (t) => {
+  const f = await roundFixture(t)
+  assert.equal(
+    await runCommand(["HEAD", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.doesNotMatch(
+    f.visible.join("\n"),
+    /Queued after this round|Auditor sequence/,
+  )
 })
 
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
@@ -1176,10 +1290,8 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "0"],
     ["example.md", "all", "--auditor", "other"],
     ["example.md", "all", "--auditor", ""],
-    ["example.md", "all", "--auditor", "codex,"],
-    ["example.md", "all", "--auditor", ",claude"],
-    ["example.md", "all", "--auditor", "codex,,claude"],
-    ["example.md", "all", "--auditor", "codex, ,claude"],
+    ["example.md", "all", "--auditor", ","],
+    ["example.md", "all", "--auditor", " , "],
     ["example.md", "all", "--auditor", "codex,other"],
     ["example.md", "--chain"],
     ["name", "example.md", "--auditor", "oth,ath"],
@@ -1195,7 +1307,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
   // A bare command line, -h and --help all reach the same help.
-  assert.match(f.errors.join("\n"), /Auditor entry 2: expected/)
+  assert.match(f.errors.join("\n"), /Auditor entry 2 \(other\): expected/)
   for (const argv of [[], ["-h"], ["--help"], ["brief", "--help"]])
     assert.equal(await runCommand(argv, f.runtime, f.options), 0)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -1212,10 +1324,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /assistant set in settings\.json\s+fixes/)
   assert.match(visible, /plain-words brief/)
-  assert.match(
-    visible,
-    /--auditor <selections>\s+comma-separated auditors in round order/,
-  )
+  assert.match(visible, /--auditor <selections>\s+auditors in round order/)
   assert.doesNotMatch(visible, /--chain/)
   assert.match(visible, /<effort>\s+l = low, m = medium, h = high, x = xhigh/)
   assert.match(visible, /default auditor comes from\s+settings\.json/)
@@ -1225,6 +1334,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /<assistant>\[<tier>\]\[<effort>\]/)
   assert.match(visible, /--auditor atx,obm/)
   assert.match(visible, /Round sequence:/)
+  assert.match(visible, /<target>-queue\.md at the\s+plan root/)
   assert.match(visible, /Examples \(from either checkout\):/)
   assert.ok(visible.split("\n").every((line) => line.length <= 88))
   // A round is the command itself, and each command carries its own help.

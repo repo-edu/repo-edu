@@ -144,6 +144,14 @@ export async function roundIdentity(
   }
 }
 
+/** The editable list of auditors still to run on this target, beside its rounds. */
+export async function queueFile(setup: NamingTarget): Promise<string> {
+  return join(
+    setup.planRoot,
+    `${(await targetDescription(setup)).label}-queue.md`,
+  )
+}
+
 /** A later writer reuses the transcript's target and number, replacing its tag and kind. */
 export function transcriptNameStart(transcript: string): string {
   const parsed = readPhaseFilename(basename(transcript))
