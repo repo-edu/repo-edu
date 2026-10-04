@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import { throwIfLaunchStopRequested } from "./child-process-launch-stop.js"
 import type {
+  ChildProcessLifetimeLaunch,
   ChildProcessLifetimePlatformAdapter,
   ChildProcessLifetimeResult,
   PlatformChildProcessStopResult,
@@ -188,10 +189,33 @@ type ChildProcessTerminal = {
   readonly streamsClosed: Promise<void>
 }
 
-// Spawn admission is asynchronous on POSIX: success and failure both arrive
-// as events, so the launch settles only after the operating system admitted
-// or rejected the target. An error before `spawn` means no process exists,
-// such as a missing program or working folder.
+// Node reports some refusals by throwing from `spawn`, such as a working
+// folder that is a file. No process exists after such a throw.
+function spawnTarget(
+  request: ChildProcessLifetimeLaunch,
+): ChildProcessWithoutNullStreams {
+  try {
+    return spawn(request.command, [...(request.args ?? [])], {
+      cwd: request.cwd,
+      detached: true,
+      // A supplied environment is the whole target environment, never a set
+      // of changes laid over the host's. A caller that removed a variable
+      // must not get it back from `process.env`.
+      env: request.env,
+      stdio: "pipe",
+    })
+  } catch (error) {
+    throw new ChildProcessLaunchRefusedError(
+      error instanceof Error ? error.message : String(error),
+      { cause: error },
+    )
+  }
+}
+
+// Spawn admission is otherwise asynchronous on POSIX: success and failure both
+// arrive as events, so the launch settles only after the operating system
+// admitted or rejected the target. An error before `spawn` means no process
+// exists, such as a missing program or working folder.
 function waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {
   return new Promise((resolve, reject) => {
     const onSpawn = () => {
@@ -237,16 +261,7 @@ export function createPosixChildProcessLifetimeAdapter(
   return {
     async launch(request, pendingStopSignal, stopPolicy) {
       throwIfLaunchStopRequested([pendingStopSignal])
-      const child = spawn(request.command, [...(request.args ?? [])], {
-        cwd: request.cwd,
-        detached: true,
-        // A supplied environment is the whole target environment, never a set
-        // of changes laid over the host's. A caller that removed a variable
-        // must not get it back from `process.env`.
-        env: request.env,
-        stdio: "pipe",
-      })
-
+      const child = spawnTarget(request)
       const terminal = observeTerminalResult(child)
       try {
         await waitForSpawn(child)

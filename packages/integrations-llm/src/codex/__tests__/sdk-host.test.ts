@@ -88,6 +88,7 @@ function createServerHarness(run: CodexSdkHostRun): {
 function createLostSdkHostLaunch(
   errorOutput = "",
   facts: ReportedFact[] = [],
+  reason: "confirmation-expired" | "proof-lost" = "proof-lost",
 ): CodexSdkHostLaunch {
   return async () => {
     const stdin = new PassThrough()
@@ -104,7 +105,7 @@ function createLostSdkHostLaunch(
       if (errorOutput.length > 0) stderr.write(errorOutput)
       stderr.end()
       stdout.end()
-      outcome.resolve({ outcome: "unknown", reason: "proof-lost" })
+      outcome.resolve({ outcome: "unknown", reason })
     })
     return {
       stdin,
@@ -330,7 +331,7 @@ describe("Codex SDK host process", () => {
     assert.equal(startupSignal?.aborted, true)
   })
 
-  it("reports Codex SDK host process loss as an unknown outside outcome", async () => {
+  it("reports a confirmed Codex SDK host process loss as a known failure", async () => {
     const facts: ReportedFact[] = []
     const client = createCodexLlmTextClient(undefined, {
       launch: createLostSdkHostLaunch("", facts),
@@ -342,9 +343,25 @@ describe("Codex SDK host process", () => {
         error instanceof LlmError &&
         error.kind === "other" &&
         error.context.provider === "codex" &&
-        /outside outcome is unknown/.test(error.message),
+        error.context.outcome === "completed" &&
+        error.message ===
+          "The Codex SDK host process was lost before its result.",
     )
     assert.equal(facts[0]?.kind, "proof-lost")
+  })
+
+  it("keeps confirmation expiry an unknown outside outcome", async () => {
+    const client = createCodexLlmTextClient(undefined, {
+      launch: createLostSdkHostLaunch("", [], "confirmation-expired"),
+    })
+
+    await assert.rejects(
+      () => client.generateText(request(codexSpec)),
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.context.outcome === "confirmation-expired" &&
+        /outside outcome is unknown/.test(error.message),
+    )
   })
 
   it("keeps the lost Codex SDK host process output in the reported failure", async () => {

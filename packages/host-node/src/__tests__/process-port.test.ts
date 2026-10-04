@@ -80,6 +80,8 @@ describe("createNodeProcessPort", () => {
     for (const request of [
       { command: "repo-edu-missing-program" },
       { command: process.execPath, args: ["-e", ""], cwd: missingFolder },
+      // `spawn` throws this refusal at once instead of sending an event.
+      { command: process.execPath, args: ["-e", ""], cwd: childTreeFixture },
     ]) {
       await assert.rejects(
         processPort.run(request),

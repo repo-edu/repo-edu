@@ -18,28 +18,33 @@ export function abortError(
 }
 
 export type CodexSdkHostLossDetail = {
-  readonly reason?: "confirmation-expired" | "proof-lost"
-  readonly cause?: unknown
+  readonly reason: "confirmation-expired" | "proof-lost"
   readonly output?: string
 }
 
+// Codex runs read-only without network in a fresh folder. Once the controller
+// confirms the tree gone, a lost turn has changed nothing outside the app and
+// is a known failure. Only confirmation expiry leaves work that may still run.
 // The Codex SDK host process's own error output is the only account of why it
 // died, so it belongs in the reported message rather than an unread stream.
-export function unknownOutcomeError(
+export function lostSdkHostError(
   authMode: LlmAuthMode,
-  detail: CodexSdkHostLossDetail = {},
+  detail: CodexSdkHostLossDetail,
 ): LlmError {
+  const expired = detail.reason === "confirmation-expired"
+  const summary = expired
+    ? "The Codex SDK host process was not confirmed stopped; the outside outcome is unknown."
+    : "The Codex SDK host process was lost before its result."
   const output = detail.output?.trim() ?? ""
   const message =
     output.length === 0
-      ? "The Codex SDK host process was lost; the outside outcome is unknown."
-      : `The Codex SDK host process was lost; the outside outcome is unknown. Codex SDK host process output: ${output}`
+      ? summary
+      : `${summary} Codex SDK host process output: ${output}`
   return new LlmError("other", message, {
-    cause: detail.cause,
     context: {
       provider: "codex",
       authMode,
-      outcome: detail.reason ?? "proof-lost",
+      outcome: expired ? "confirmation-expired" : "completed",
     },
   })
 }

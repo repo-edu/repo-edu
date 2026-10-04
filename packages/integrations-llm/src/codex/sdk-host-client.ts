@@ -17,9 +17,9 @@ import { AsyncEventQueue } from "./async-event-queue.js"
 import { resolveCodexAuth } from "./auth.js"
 import {
   abortError,
+  lostSdkHostError,
   mapCodexSdkHostFailure,
   readCodexSdkHostFailure,
-  unknownOutcomeError,
 } from "./sdk-host-errors.js"
 import {
   type CodexSdkHostProtocolFailure,
@@ -193,7 +193,7 @@ async function* runCodexSdkHostStream(
     sdkHostProcess.requestCancellation()
     const outcome = await sdkHostProcess.outcome
     if (outcome.outcome === "unknown")
-      throw unknownOutcomeError(authMode, { reason: outcome.reason })
+      throw lostSdkHostError(authMode, { reason: outcome.reason })
     throw abortError()
   }
   const readSdkHostOutput = collectSdkHostOutput(
@@ -284,7 +284,7 @@ async function* runCodexSdkHostStream(
     await completion
     const outcome = await processOutcome
     if (outcome.outcome === "unknown") {
-      throw unknownOutcomeError(authMode, {
+      throw lostSdkHostError(authMode, {
         output: readSdkHostOutput(),
         reason: outcome.reason,
       })

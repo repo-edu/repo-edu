@@ -22,7 +22,10 @@ import type {
   ChildProcessLifetimeResult,
   OwnedChildProcessTree,
 } from "./child-process-lifetime.js"
-import { ChildProcessTreeUnconfirmedError } from "./child-process-lifetime.js"
+import {
+  ChildProcessLaunchRefusedError,
+  ChildProcessTreeUnconfirmedError,
+} from "./child-process-lifetime.js"
 import { mergeLlmRuntimeConfig } from "./llm-runtime-config.js"
 
 export type CreateNodeLlmTextClientOptions = Pick<
@@ -69,6 +72,18 @@ function createClaudeCliLaunch(
               outcome: "confirmation-expired",
             },
           })
+        if (error instanceof ChildProcessLaunchRefusedError)
+          throw new LlmError(
+            "other",
+            `Could not start the Claude CLI: ${error.message}`,
+            {
+              context: {
+                provider: "claude",
+                authMode: "subscription",
+                outcome: "refused",
+              },
+            },
+          )
         throw error
       })
   }
@@ -131,6 +146,12 @@ function createCodexSdkHostLaunch(
         throw new LlmError("other", error.message, {
           context: { provider: "codex", outcome: "confirmation-expired" },
         })
+      if (error instanceof ChildProcessLaunchRefusedError)
+        throw new LlmError(
+          "other",
+          `Could not start the Codex SDK host process: ${error.message}`,
+          { context: { provider: "codex", outcome: "refused" } },
+        )
       throw error
     })
 }

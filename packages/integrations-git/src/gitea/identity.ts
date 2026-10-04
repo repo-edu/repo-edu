@@ -1,5 +1,6 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import { toErrorMessage } from "./errors.js"
 import { giteaRequest, resolveApiBase } from "./transport.js"
 import { isActiveUser } from "./users.js"
 
@@ -27,31 +28,30 @@ export function createGiteaIdentity(http: HttpPort): IdentityCapability {
       }
     },
     async verifyGitUsernames(draft, usernames, signal) {
-      if (!resolveApiBase(draft)) {
-        return usernames.map((username) => ({ username, exists: false }))
-      }
       const results = []
       for (const username of usernames) {
         if (signal?.aborted) break
-        try {
-          const response = await giteaRequest(
-            http,
-            draft,
-            "GET",
-            `/users/${encodeURIComponent(username)}`,
-            undefined,
-            signal,
-          )
-          results.push({
-            username,
-            exists:
-              response.status >= 200 &&
-              response.status < 300 &&
-              isActiveUser(response.data, username),
-          })
-        } catch {
+        const response = await giteaRequest(
+          http,
+          draft,
+          "GET",
+          `/users/${encodeURIComponent(username)}`,
+          undefined,
+          signal,
+        )
+        if (response.status === 404) {
           results.push({ username, exists: false })
+          continue
         }
+        if (response.status < 200 || response.status >= 300) {
+          throw new Error(
+            `Failed to look up Gitea user '${username}': ${toErrorMessage(response.data) || `HTTP ${response.status}`}`,
+          )
+        }
+        results.push({
+          username,
+          exists: isActiveUser(response.data, username),
+        })
       }
       return results
     },

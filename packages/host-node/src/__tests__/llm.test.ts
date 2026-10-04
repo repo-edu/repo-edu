@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { PassThrough, Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
+import { LlmError } from "@repo-edu/integrations-llm-contract"
 import type {
   ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
@@ -12,6 +13,7 @@ import type {
   OwnedChildProcessTree,
 } from "../child-process-lifetime.js"
 import {
+  ChildProcessLaunchRefusedError,
   ChildProcessTreeUnconfirmedError,
   createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
@@ -168,6 +170,48 @@ describe("createNodeLlmTextClient", () => {
     assert.equal(stdin.destroyed, true)
     assert.equal(stdout.destroyed, true)
     assert.equal(stderr.destroyed, true)
+  })
+
+  it("reports a Claude CLI or Codex SDK host launch the system refuses as a refusal", async () => {
+    const client = createNodeLlmTextClient(
+      createChildProcessLifetimeController({
+        diagnosticSink() {},
+        warnUnconfirmedTree() {},
+        runtimePlatform: "win32",
+        windowsAdapter: {
+          async launch() {
+            throw new ChildProcessLaunchRefusedError("spawn claude ENOENT")
+          },
+        },
+      }),
+      { claude: { authMode: "subscription", env: {} }, codex: {} },
+      {
+        claudeCliExecutable: "/bin/claude",
+        codexSdkHost: {
+          command: "/fixed/electron",
+          args: ["/fixed/codex-sdk-host.js"],
+          runAsNode: true,
+        },
+      },
+    )
+    const codexSpec = {
+      provider: "codex" as const,
+      family: "gpt-5.4",
+      modelId: "gpt-5.4",
+      effort: "medium" as const,
+    }
+
+    for (const spec of [claudeSpec, codexSpec]) {
+      await assert.rejects(
+        client.generateText({ spec, prompt: "Reply ok." }),
+        (error: unknown) =>
+          error instanceof LlmError &&
+          error.context.provider === spec.provider &&
+          error.context.authMode !== undefined &&
+          error.context.outcome === "refused" &&
+          error.message.includes("spawn claude ENOENT"),
+      )
+    }
   })
 
   it("starts Codex through the Codex SDK host process with a complete Node-mode environment", async () => {

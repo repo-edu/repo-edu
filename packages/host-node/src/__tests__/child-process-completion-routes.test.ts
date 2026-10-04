@@ -145,6 +145,27 @@ describe("child-process completion routes", {
     )
   })
 
+  it("rejects a POSIX launch that spawn refuses at once", {
+    skip: !supportsProcessGroups,
+  }, async (context) => {
+    const controller = createController()
+    context.after(async () => {
+      await controller.stopAndConfirm()
+    })
+
+    await assert.rejects(
+      controller.launch({
+        command: process.execPath,
+        args: ["-e", ""],
+        cwd: windowsLauncherEntryPath,
+        proof: "target-exit",
+      }),
+      (error: unknown) =>
+        error instanceof ChildProcessLaunchRefusedError &&
+        (error.cause as NodeJS.ErrnoException).code === "ENOTDIR",
+    )
+  })
+
   it("stops a pending POSIX launch without reporting a failure", {
     skip: !supportsProcessGroups,
   }, async () => {

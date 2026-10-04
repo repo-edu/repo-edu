@@ -203,15 +203,22 @@ export async function* runClaudeCliStream(
     cleanupClaudeCliWorkingDirectory(workingDirectory)
   }
 
+  // The CLI runs without tools or a saved session. Once the controller confirms
+  // the tree gone, a turn without its result has changed nothing outside the
+  // app and is a known failure. Only confirmation expiry leaves work that may
+  // still run.
   if (outcome.outcome === "unknown") {
+    const expired = outcome.reason === "confirmation-expired"
     throw new LlmError(
       "other",
-      "The Claude turn's outside outcome is unknown.",
+      expired
+        ? "The Claude turn's outside outcome is unknown."
+        : "The Claude turn ended without its result.",
       {
         context: {
           provider: "claude",
           authMode: "subscription",
-          outcome: outcome.reason,
+          outcome: expired ? "confirmation-expired" : "completed",
         },
       },
     )

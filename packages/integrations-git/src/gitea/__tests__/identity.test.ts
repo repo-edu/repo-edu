@@ -114,14 +114,13 @@ describe("gitea identity", () => {
       ])
     })
 
-    it("returns false results when baseUrl is missing", async () => {
+    it("rejects username lookup when baseUrl is missing", async () => {
       const client = createGiteaClient(createMockHttpPort([]))
-      const result = await client.verifyGitUsernames(
-        { ...baseDraft, baseUrl: "" },
-        ["alice"],
-      )
 
-      assert.deepStrictEqual(result, [{ username: "alice", exists: false }])
+      await assert.rejects(
+        client.verifyGitUsernames({ ...baseDraft, baseUrl: "" }, ["alice"]),
+        { message: "Gitea baseUrl is required.", type: "git-effect" },
+      )
     })
   })
 })

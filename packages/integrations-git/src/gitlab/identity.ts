@@ -27,15 +27,12 @@ export function createGitLabIdentity(http: HttpPort): IdentityCapability {
       const results = []
       for (const username of usernames) {
         if (signal?.aborted) break
-        try {
-          const users = await api.Users.all({ username })
-          results.push({
-            username,
-            exists: users.some((user) => isActiveExactMatch(user, username)),
-          })
-        } catch {
-          results.push({ username, exists: false })
-        }
+        // The search answers absence with no active exact match.
+        const users = await api.Users.all({ username })
+        results.push({
+          username,
+          exists: users.some((user) => isActiveExactMatch(user, username)),
+        })
       }
       return results
     },

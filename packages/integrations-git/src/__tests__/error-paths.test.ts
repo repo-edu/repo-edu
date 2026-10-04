@@ -150,15 +150,16 @@ describe("Gitea error paths", () => {
   })
 
   describe("verifyGitUsernames", () => {
-    it("returns exists: false for all usernames on network error", async () => {
+    it("reports a failed username lookup as a known failure", async () => {
       const client = createGiteaClient(createNetworkErrorHttpPort())
-      const results = await client.verifyGitUsernames(giteaDraft, [
-        "alice",
-        "bob",
-      ])
-      assert.equal(results.length, 2)
-      assert.equal(results[0].exists, false)
-      assert.equal(results[1].exists, false)
+      await assert.rejects(
+        client.verifyGitUsernames(giteaDraft, ["alice", "bob"]),
+        {
+          message: "Connection refused",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
     })
 
     it("reports a proven stop before username lookup", async () => {
@@ -195,14 +196,16 @@ describe("Gitea error paths", () => {
       assert.equal(fetchCount, 0)
     })
 
-    it("returns exists: false for all usernames on empty baseUrl", async () => {
+    it("reports username lookup without a base URL as a known failure", async () => {
       const client = createGiteaClient(createStatusHttpPort(200))
-      const results = await client.verifyGitUsernames(
-        { ...giteaDraft, baseUrl: "" },
-        ["alice"],
+      await assert.rejects(
+        client.verifyGitUsernames({ ...giteaDraft, baseUrl: "" }, ["alice"]),
+        {
+          message: "Gitea baseUrl is required.",
+          type: "git-effect",
+          disposition: "completed",
+        },
       )
-      assert.equal(results.length, 1)
-      assert.equal(results[0].exists, false)
     })
   })
 })
@@ -322,13 +325,14 @@ describe("GitLab error paths", () => {
   })
 
   describe("verifyGitUsernames", () => {
-    it("returns exists: false when user lookup fails", async () => {
+    it("reports a failed user search as a known failure", async () => {
       const client = createGitLabClient(
         createStatusHttpPort(404, JSON.stringify({ message: "404 Not Found" })),
       )
-      const results = await client.verifyGitUsernames(gitlabDraft, ["nobody"])
-      assert.equal(results.length, 1)
-      assert.equal(results[0].exists, false)
+      await assert.rejects(client.verifyGitUsernames(gitlabDraft, ["nobody"]), {
+        type: "git-effect",
+        disposition: "completed",
+      })
     })
 
     it("reports a proven stop before username lookup", async () => {
@@ -409,27 +413,22 @@ describe("error handling consistency across git providers", () => {
     assert.equal(gitea.verified, false, "Gitea should return false on 429")
   })
 
-  it("all providers treat 429 username lookups as non-existing", async () => {
-    const http429 = createStatusHttpPort(
-      429,
-      JSON.stringify({ message: "Too many requests" }),
-    )
-    const github = await createGitHubClient(http429).verifyGitUsernames(
-      githubDraft,
-      ["alice"],
-    )
-    const gitlab = await createGitLabClient(http429).verifyGitUsernames(
-      gitlabDraft,
-      ["alice"],
-    )
-    const gitea = await createGiteaClient(http429).verifyGitUsernames(
-      giteaDraft,
-      ["alice"],
-    )
-
-    assert.deepStrictEqual(github, [{ username: "alice", exists: false }])
-    assert.deepStrictEqual(gitlab, [{ username: "alice", exists: false }])
-    assert.deepStrictEqual(gitea, [{ username: "alice", exists: false }])
+  it("all providers report a refused username lookup as a known failure", async () => {
+    // A rejected token or a rate limit says nothing about the username.
+    for (const status of [401, 429]) {
+      for (const providerClient of providerClients) {
+        const [client, draft] = providerClient(
+          createStatusHttpPort(
+            status,
+            JSON.stringify({ message: "Request refused" }),
+          ),
+        )
+        await assert.rejects(client.verifyGitUsernames(draft, ["alice"]), {
+          type: "git-effect",
+          disposition: "completed",
+        })
+      }
+    }
   })
 
   it("all operations and providers report a caller abort as a proven stop", async () => {

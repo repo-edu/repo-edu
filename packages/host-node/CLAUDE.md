@@ -122,9 +122,11 @@ its port interface.
   causes or compose another outcome.
 - Both platform adapters reject a target the operating system refused to start,
   such as a missing program or working folder, with
-  `ChildProcessLaunchRefusedError`. The process port settles only that launch
-  failure as a known failed completion. Every other launch failure stays a
-  fault.
+  `ChildProcessLaunchRefusedError`. Node sends some refusals as an event and
+  throws others from `spawn`, so both routes become that error. The process
+  port settles only that launch failure as a known failed completion. The
+  Claude CLI and Codex SDK host launches report it as a refusal. Every other
+  launch failure stays a fault.
 - The controller owns one five-second graceful stop allowance and one
   five-second confirmation deadline after a forced stop. Both platform
   adapters apply those periods. Confirmation expiry returns unknown for an

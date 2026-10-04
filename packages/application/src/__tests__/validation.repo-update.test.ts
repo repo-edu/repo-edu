@@ -2,9 +2,15 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { splitAppSettings } from "@repo-edu/domain/settings"
-import type { GitEffectFailure } from "@repo-edu/integrations-git-contract"
+import type {
+  GitEffectFailure,
+  PatchFile,
+} from "@repo-edu/integrations-git-contract"
 import { composeCourseCommandTransition } from "../course-command-transition.js"
-import { createRepositoryWorkflowHandlers } from "../repository-workflows.js"
+import {
+  createRepositoryWorkflowHandlers,
+  type RepositoryWorkflowPorts,
+} from "../repository-workflows.js"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
 
@@ -431,4 +437,90 @@ describe("application repository update workflow helpers", () => {
       )
     }
   })
+
+  it("carries a renamed local template file under its new path", async () => {
+    const branchFiles: PatchFile[][] = []
+    const { input, handlers } = createLocalTemplateUpdate(
+      (args) => {
+        if (args[0] === "diff") return gitResult("R100\0old.md\0new name.md\0")
+        if (args[1] === "new-template-sha:new name.md")
+          return gitResult("renamed")
+        return gitResult("", "fatal: path does not exist", 128)
+      },
+      async (_draft, request) => {
+        branchFiles.push(request.files)
+      },
+    )
+
+    const result = await handlers["repo.update"](input)
+
+    assert.equal(result.prsCreated, result.repositoriesPlanned)
+    assert.equal(branchFiles.length, result.repositoriesPlanned)
+    assert.deepEqual(branchFiles[0], [
+      {
+        path: "new name.md",
+        previousPath: "old.md",
+        status: "renamed",
+        contentBase64: Buffer.from("renamed").toString("base64"),
+      },
+    ])
+  })
+
+  it("refuses a local template update when Git cannot list or read the changes", async () => {
+    for (const failedCommand of ["diff", "show"] as const) {
+      let branchesCreated = 0
+      const { input, handlers } = createLocalTemplateUpdate(
+        (args) => {
+          if (args[0] === failedCommand)
+            return gitResult("", "fatal: bad object old-template-sha", 128)
+          return gitResult(args[0] === "diff" ? "M\0README.md\0" : "updated")
+        },
+        async () => {
+          branchesCreated += 1
+        },
+      )
+
+      await assert.rejects(
+        handlers["repo.update"](input),
+        (error: unknown) =>
+          error instanceof CommandOutcomeError &&
+          error.outcome.disposition === "refused" &&
+          error.message.includes("fatal: bad object old-template-sha"),
+      )
+      assert.equal(branchesCreated, 0)
+    }
+  })
 })
+
+function gitResult(stdout: string, stderr = "", exitCode = 0) {
+  return { exitCode, signal: null, stdout, stderr }
+}
+
+function createLocalTemplateUpdate(
+  runGit: (args: string[]) => ReturnType<typeof gitResult>,
+  createBranch: RepositoryWorkflowPorts["git"]["createBranch"],
+) {
+  const { course, settings, handlers } = createRepoHarness({
+    git: { createBranch },
+    gitCommand: {
+      run: async ({ args }) =>
+        args[0] === "rev-parse"
+          ? gitResult("new-template-sha\n")
+          : runGit(args),
+    },
+  })
+  course.repositoryTemplate = {
+    kind: "local",
+    path: "/course-template",
+    visibility: "private",
+  }
+  const assignment = course.roster.assignments.find(
+    (candidate) => candidate.id === "a1",
+  )
+  assert.ok(assignment)
+  assignment.templateCommitSha = "old-template-sha"
+  return {
+    input: { course, credentials: settings, assignmentId: "a1" },
+    handlers,
+  }
+}

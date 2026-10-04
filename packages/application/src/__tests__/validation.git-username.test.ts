@@ -179,4 +179,66 @@ describe("application git username workflow helpers", () => {
         error.outcome.error.type === "validation",
     )
   })
+
+  it("refuses the import when the provider cannot answer a lookup", async () => {
+    const { course, settings } = getCourseAndSettingsScenario(
+      { tier: "small", preset: "shared-teams" },
+      ({ course, settings }) => {
+        course.roster.students = [
+          { ...course.roster.students[0], email: "s1@example.com" },
+        ]
+        settings.gitConnections = [
+          {
+            id: "main-git",
+            provider: "github",
+            baseUrl: "https://github.com",
+            token: "expired-token",
+          },
+        ]
+        settings.activeGitConnectionId = "main-git"
+      },
+    )
+    const handlers = createGitUsernameWorkflowHandlers({
+      userFile: {
+        readText: async () => ({
+          displayName: "git-usernames.csv",
+          mediaType: "text/csv",
+          text: "email,git_username\ns1@example.com,ada-l",
+          byteLength: 0,
+        }),
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+      git: {
+        verifyGitUsernames: async () => {
+          throw Object.assign(new Error("Bad credentials"), {
+            type: "git-effect" as const,
+            disposition: "completed" as const,
+          })
+        },
+      },
+    })
+
+    await assert.rejects(
+      handlers["gitUsernames.import"]({
+        course,
+        credentials: splitAppSettings(settings).credentials,
+        file: {
+          kind: "user-file-ref",
+          referenceId: "file-4",
+          displayName: "git-usernames.csv",
+          mediaType: "text/csv",
+          byteLength: null,
+        },
+      }),
+      (error: unknown) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        error.message === "Bad credentials",
+    )
+  })
 })

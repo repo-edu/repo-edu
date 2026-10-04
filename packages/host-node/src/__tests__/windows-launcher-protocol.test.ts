@@ -170,43 +170,56 @@ describe("Windows launcher protocol", () => {
   it("reports a target the system refuses to start as refused", {
     timeout: 5_000,
   }, async (context) => {
-    const launcher = spawn(
-      process.execPath,
-      [fileURLToPath(resolveWindowsChildProcessLifetimeLauncherEntryUrl())],
-      { stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"] },
-    )
-    context.after(() => {
-      if (launcher.exitCode === null && launcher.signalCode === null) {
-        launcher.kill()
+    // A missing program arrives as an event; a file as the working folder
+    // makes `spawn` throw on POSIX.
+    const targets = [
+      { target: { command: "repo-edu-missing-program" }, message: /ENOENT/ },
+      {
+        target: {
+          command: process.execPath,
+          args: ["-e", ""],
+          cwd: stalledWindowsLauncherEntryPath,
+        },
+        message: /./,
+      },
+    ]
+    for (const { target, message } of targets) {
+      const launcher = spawn(
+        process.execPath,
+        [fileURLToPath(resolveWindowsChildProcessLifetimeLauncherEntryUrl())],
+        { stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"] },
+      )
+      context.after(() => {
+        if (launcher.exitCode === null && launcher.signalCode === null) {
+          launcher.kill()
+        }
+      })
+      launcher.stdout?.resume()
+      launcher.stderr?.resume()
+
+      const commandInput = launcher.stdio[3] as Writable
+      const controlLines = createInterface({
+        input: launcher.stdio[4] as Readable,
+        crlfDelay: Infinity,
+      })[Symbol.asyncIterator]()
+      const launcherClosed = once(launcher, "close")
+      const nextMessage = async () => {
+        const next = await controlLines.next()
+        assert.equal(next.done, false)
+        return parseWindowsLauncherMessage(next.value)
       }
-    })
-    launcher.stdout?.resume()
-    launcher.stderr?.resume()
 
-    const commandInput = launcher.stdio[3] as Writable
-    const controlLines = createInterface({
-      input: launcher.stdio[4] as Readable,
-      crlfDelay: Infinity,
-    })[Symbol.asyncIterator]()
-    const launcherClosed = once(launcher, "close")
-    const nextMessage = async () => {
-      const next = await controlLines.next()
-      assert.equal(next.done, false)
-      return parseWindowsLauncherMessage(next.value)
+      assert.equal((await nextMessage()).kind, "ready")
+      commandInput.end(
+        `${JSON.stringify(createWindowsLaunchCommand(target))}\n`,
+      )
+      launcher.stdin?.end()
+
+      const refused = await nextMessage()
+      assert.equal(refused.kind, "refused")
+      assert.match("message" in refused ? refused.message : "", message)
+      assert.deepEqual(await launcherClosed, [1, null])
     }
-
-    assert.equal((await nextMessage()).kind, "ready")
-    commandInput.end(
-      `${JSON.stringify(
-        createWindowsLaunchCommand({ command: "repo-edu-missing-program" }),
-      )}\n`,
-    )
-    launcher.stdin?.end()
-
-    const refused = await nextMessage()
-    assert.equal(refused.kind, "refused")
-    assert.match("message" in refused ? refused.message : "", /ENOENT/)
-    assert.deepEqual(await launcherClosed, [1, null])
   })
 
   it("reports target exit before inherited output pipes close", {

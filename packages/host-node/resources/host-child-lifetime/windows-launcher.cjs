@@ -76,12 +76,19 @@ function parseLaunchCommand(line) {
 }
 
 function launchTarget(target) {
-  const child = spawn(target.command, target.args, {
-    cwd: target.cwd,
-    env: target.env,
-    stdio: ["pipe", "pipe", "pipe"],
-    windowsHide: true,
-  })
+  let child
+  try {
+    child = spawn(target.command, target.args, {
+      cwd: target.cwd,
+      env: target.env,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    })
+  } catch (error) {
+    // Node throws some refusals from `spawn` instead of sending an event.
+    refuse(error)
+    return
+  }
   let targetSettled = false
   let spawned = false
   let exited

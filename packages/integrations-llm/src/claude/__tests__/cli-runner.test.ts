@@ -173,6 +173,15 @@ function liveLaunch(): LiveCliProcess {
   }
 }
 
+// The controller confirmed the tree gone, and the CLI changes nothing outside
+// the app, so a lost result is a known failure.
+function isLostTurnFailure(error: LlmError): boolean {
+  return (
+    error.context.outcome === "completed" &&
+    error.message === "The Claude turn ended without its result."
+  )
+}
+
 async function withoutUnhandledRejections(
   run: () => Promise<void>,
 ): Promise<void> {
@@ -320,7 +329,7 @@ describe("runClaudeCliStream", () => {
     }
   })
 
-  it("returns unknown when Claude ends without a terminal stream result", async () => {
+  it("settles a Claude turn without a terminal stream result as a known failure", async () => {
     const delayedStderr = (async function* () {
       await new Promise((resolve) => setImmediate(resolve))
       yield "Please log in to Claude."
@@ -344,7 +353,7 @@ describe("runClaudeCliStream", () => {
       (error: unknown) =>
         error instanceof LlmError &&
         error.kind === "other" &&
-        error.message.includes("outside outcome is unknown"),
+        isLostTurnFailure(error),
     )
     assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
   })
@@ -387,7 +396,7 @@ describe("runClaudeCliStream", () => {
         (error: unknown) =>
           error instanceof LlmError &&
           error.kind === "other" &&
-          error.message.includes("outside outcome is unknown"),
+          isLostTurnFailure(error),
       )
     } finally {
       clearTimeout(deadline)
@@ -454,12 +463,12 @@ describe("runClaudeCliStream", () => {
       (error: unknown) =>
         error instanceof LlmError &&
         error.kind === "other" &&
-        error.message.includes("outside outcome is unknown"),
+        isLostTurnFailure(error),
     )
     assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
   })
 
-  it("keeps error-output read failure secondary to unknown outcome", async () => {
+  it("keeps error-output read failure secondary to the lost result", async () => {
     const readFailure = new Error("error output read failed")
     const live = liveLaunch()
     let failure: unknown
@@ -492,7 +501,7 @@ describe("runClaudeCliStream", () => {
 
     assert.ok(failure instanceof LlmError)
     assert.equal(failure.kind, "other")
-    assert.ok(failure.message.includes("outside outcome is unknown"))
+    assert.ok(isLostTurnFailure(failure))
     assert.equal(failure.cause, undefined)
     assert.equal(live.stopped(), true)
     assert.equal(live.facts[0]?.kind, "failure")
@@ -526,7 +535,7 @@ describe("runClaudeCliStream", () => {
     )
   })
 
-  it("returns unknown when stdin closes during the prompt write", async () => {
+  it("settles a prompt write that fails as a known failure", async () => {
     const writeError = new Error("write EPIPE") as Error & { code: string }
     writeError.code = "EPIPE"
     const { launch, calls } = fakeLaunch([], ["CLI rejected prompt."], {
@@ -550,7 +559,7 @@ describe("runClaudeCliStream", () => {
       (error: unknown) =>
         error instanceof LlmError &&
         error.kind === "other" &&
-        error.message.includes("outside outcome is unknown"),
+        isLostTurnFailure(error),
     )
     assert.equal(calls[0]?.stopped, true)
     assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")

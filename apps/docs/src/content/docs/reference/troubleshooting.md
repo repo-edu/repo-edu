@@ -108,7 +108,6 @@ The verification workflow checks whether the username exists on the Git provider
 
 - The username is misspelled or uses the wrong case.
 - The student's account is on a different Git provider instance than your configured connection.
-- The Git provider API rate limit has been exceeded — retry later.
 
 ## Repository operations
 

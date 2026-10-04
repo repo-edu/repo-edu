@@ -37,8 +37,10 @@ absence rules.
   the signal, so it runs to its response; a write that loses its response stays
   unknown.
 - Translate only an explicit provider not-found response into `null`, an empty
-  listing or a per-repository missing result. Network, timeout, authentication
-  and provider failures must propagate to the application layer.
+  listing, a per-repository missing result or an absent username. A username
+  is also absent when the provider reports its account inactive or blocked.
+  Network, timeout, authentication, rate-limit and other provider failures must
+  propagate to the application layer.
 
 ## Adding Git Capabilities
 

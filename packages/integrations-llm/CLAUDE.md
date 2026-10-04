@@ -47,17 +47,23 @@ Provider adapters for the `LlmTextClient` contract from
   controller's unknown, cancelled, failed or completed outcome. A failed
   outcome keeps the target's message. The adapter maps that message to an
   `LlmError` with the provider and auth mode; it does not choose the run
-  outcome.
+  outcome. It picks only the `LlmError` label.
+- Subscription Claude and Codex change nothing outside the app: the CLI runs
+  without tools or a saved session, and Codex runs read-only without network.
+  So both adapters label their endings the same way:
+  - A launch the operating system refused is `refused`.
+  - A proof loss the controller confirmed is a `completed` failure.
+  - Confirmation expiry stays unknown, because only it leaves work that may
+    still run.
 - Codex auth builds immutable SDK options with a complete invocation-scoped
   child environment. Subscription mode omits `CODEX_API_KEY`, and every mode
   omits `ELECTRON_RUN_AS_NODE`. Never mutate `process.env` around a Codex turn.
 - The public Codex client never imports or starts the SDK in its host process.
   It launches one fixed Codex SDK host process through an injected capability
   and uses framed JSON-RPC over standard streams. Connection loss after request
-  start is an unknown outside outcome, not a target result. The SDK host
-  process's error output is kept, not drained away, and a bounded amount of it
-  goes into the reported loss, because it is the only account of why the SDK
-  host process died.
+  start is proof loss, not a target result. The SDK host process's error output
+  is kept, not drained away, and a bounded amount of it goes into the reported
+  loss, because it is the only account of why the SDK host process died.
 - Codex prompt/reply calls start every call in a fresh `os.tmpdir()` directory
   with `sandboxMode: "read-only"`, `approvalPolicy: "never"`,
   `networkAccessEnabled: false`, `webSearchMode: "disabled"`, and a prompt-only
