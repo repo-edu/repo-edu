@@ -244,8 +244,9 @@ consumers.
   resolve the same way unless one is selected.
   `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
   filenames without consulting model settings. `queueFile` names a plan target's
-  `<target>-queue.md` beside its rounds; it carries no round number, so round allocation ignores
-  it.
+  `<target>-queue.md` beside its rounds. It carries no round number because it belongs to the
+  whole sequence: one path stays valid across rounds, so an editor holding it open keeps editing
+  the file the runner reads.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. A plan
