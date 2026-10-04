@@ -154,11 +154,13 @@ export async function* runClaudeCliStream(
     throw toClaudeLlmError(error, "subscription")
   }
   child.stderr.setEncoding("utf8")
-  const errorOutputSettled = collectStderr(child.stderr).catch(
+  const errorOutputSettled = collectErrorOutput(child.stderr).catch(
     (error: unknown) => {
       child.reportFailure(error)
+      return ""
     },
   )
+  let errorOutput = ""
 
   let resultReported = false
   let terminalEvent: LlmStreamEvent | undefined
@@ -213,7 +215,7 @@ export async function* runClaudeCliStream(
     if (!resultReported) {
       child.requestCancellation()
     }
-    await errorOutputSettled
+    errorOutput = (await errorOutputSettled).trim()
     outcome = await child.outcome
     cleanupClaudeCliWorkingDirectory(workingDirectory)
   }
@@ -224,11 +226,14 @@ export async function* runClaudeCliStream(
   // still run.
   if (outcome.outcome === "unknown") {
     const expired = outcome.reason === "confirmation-expired"
+    const summary = expired
+      ? "The Claude turn's outside outcome is unknown."
+      : "The Claude turn ended without its result."
     throw new LlmError(
       "other",
-      expired
-        ? "The Claude turn's outside outcome is unknown."
-        : "The Claude turn ended without its result.",
+      errorOutput === ""
+        ? summary
+        : `${summary} Claude CLI error output: ${errorOutput}`,
       {
         context: {
           provider: "claude",
@@ -385,10 +390,20 @@ function writePromptToChild(
   })
 }
 
-async function collectStderr(stream: NodeJS.ReadableStream): Promise<void> {
-  for await (const _chunk of stream) {
-    // Drain the diagnostic stream without making it part of result proof.
+const errorOutputLimit = 8_192
+
+// The CLI's error output is kept, bounded, so a turn that ends without its
+// result can still say why. It reports the cause and never decides the outcome.
+async function collectErrorOutput(
+  stream: NodeJS.ReadableStream,
+): Promise<string> {
+  let collected = ""
+  for await (const chunk of stream) {
+    if (collected.length < errorOutputLimit) {
+      collected = (collected + String(chunk)).slice(0, errorOutputLimit)
+    }
   }
+  return collected
 }
 
 function cliOutcomeError(

@@ -200,7 +200,13 @@ export function createDesktopHostEnvironment(
 
       const file = readableReferences.get(reference.referenceId)
       if (!file) {
-        throw new Error(`Unknown user-file reference: ${reference.referenceId}`)
+        throw new CommandOutcomeError({
+          disposition: "refused",
+          error: {
+            type: "effect",
+            message: `Unknown user-file reference: ${reference.referenceId}`,
+          },
+        })
       }
 
       const text = await readFile(file.path, "utf8").catch((error: unknown) => {
@@ -236,9 +242,13 @@ export function createDesktopHostEnvironment(
 
       const file = writableReferences.get(reference.referenceId)
       if (!file) {
-        throw new Error(
-          `Unknown save-target reference: ${reference.referenceId}`,
-        )
+        throw new CommandOutcomeError({
+          disposition: "refused",
+          error: {
+            type: "effect",
+            message: `Unknown save-target reference: ${reference.referenceId}`,
+          },
+        })
       }
 
       try {

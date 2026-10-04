@@ -18,7 +18,10 @@ import type {
   LlmStreamEvent,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
-import { validateExaminationArchiveStorage } from "../examination-workflows/archive-port.js"
+import {
+  createExaminationArchive,
+  validateExaminationArchiveStorage,
+} from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
 import { prepareExaminationPrivacy } from "../examination-workflows/privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
@@ -114,6 +117,31 @@ it("validates saved examination records without changing them", () => {
       /Invalid examination data/,
     )
     assert.deepEqual(invalid, before)
+  }
+})
+
+it("fails loudly on a saved record that no longer reads", () => {
+  const entry = {
+    storageKey: serializeExaminationArchiveStorageKey(baseRecord.key),
+    createdAtMs: baseRecord.provenance.createdAtMs,
+    payloadJson: "{",
+  }
+  const archive = createExaminationArchive({
+    get: () => entry,
+    put() {},
+    remove() {},
+    exportAll: () => [entry],
+    importAll: () => {
+      throw new Error("importAll is not used here.")
+    },
+  })
+
+  for (const read of [
+    () => archive.get(baseRecord.key),
+    () => archive.listForGenerationContext(baseRecord.key),
+    () => archive.exportBundle(),
+  ]) {
+    assert.throws(read, /Invalid examination data/)
   }
 })
 

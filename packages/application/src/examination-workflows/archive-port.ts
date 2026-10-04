@@ -46,17 +46,22 @@ export type ExaminationArchivePort = {
 export function validateExaminationArchiveStorage(
   storage: Pick<ExaminationArchiveStoragePort, "exportAll">,
 ): void {
-  for (const entry of storage.exportAll()) {
-    const record = tryParseRecord(entry)
-    if (
-      record === null ||
-      record.provenance.createdAtMs !== entry.createdAtMs
-    ) {
-      throw new Error(
-        `Invalid examination data for archive entry ${entry.storageKey}.`,
-      )
-    }
+  for (const entry of storage.exportAll()) readStoredRecord(entry)
+}
+
+/** Bootstrap proved every saved record and every write stores a validated
+ * one, so a record that no longer reads breaks that invariant. It never reads
+ * as absent or drops out of a listing. */
+function readStoredRecord(
+  entry: ExaminationArchiveStoredEntry,
+): ExaminationArchiveRecord {
+  const record = tryParseRecord(entry)
+  if (record === null || record.provenance.createdAtMs !== entry.createdAtMs) {
+    throw new Error(
+      `Invalid examination data for archive entry ${entry.storageKey}.`,
+    )
   }
+  return record
 }
 
 export function createExaminationArchive(
@@ -65,14 +70,13 @@ export function createExaminationArchive(
   return {
     get(key) {
       const entry = storage.get(serializeExaminationArchiveStorageKey(key))
-      if (!entry) return undefined
-      return tryParseRecord(entry) ?? undefined
+      return entry === undefined ? undefined : readStoredRecord(entry)
     },
     listForGenerationContext(key) {
       const records: ExaminationArchiveRecord[] = []
       for (const entry of storage.exportAll()) {
-        const record = tryParseRecord(entry)
-        if (!record || !sameGenerationContext(record.key, key)) continue
+        const record = readStoredRecord(entry)
+        if (!sameGenerationContext(record.key, key)) continue
         records.push(record)
       }
       return records.sort(compareRecordsNewestFirst)
@@ -80,9 +84,8 @@ export function createExaminationArchive(
     listForExcerpts(scope) {
       const records: ExaminationArchiveRecord[] = []
       for (const entry of storage.exportAll()) {
-        const record = tryParseRecord(entry)
+        const record = readStoredRecord(entry)
         if (
-          !record ||
           record.key.personId !== scope.personId ||
           record.key.contentScopeId !== scope.contentScopeId ||
           record.key.providerPayloadFingerprint !==
@@ -101,17 +104,11 @@ export function createExaminationArchive(
       storage.remove(serializeExaminationArchiveStorageKey(key))
     },
     exportBundle() {
-      const entries = storage.exportAll()
-      const records: ExaminationArchiveRecord[] = []
-      for (const entry of entries) {
-        const record = tryParseRecord(entry)
-        if (record) records.push(record)
-      }
       return {
         format: EXAMINATION_ARCHIVE_BUNDLE_FORMAT,
         bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
         exportedAt: new Date().toISOString(),
-        records,
+        records: storage.exportAll().map(readStoredRecord),
       }
     },
     importBundle(raw) {

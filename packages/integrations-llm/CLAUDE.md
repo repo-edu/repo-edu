@@ -41,8 +41,10 @@ Provider adapters for the `LlmTextClient` contract from
   It reports an explicit terminal stream result unchanged. A missing terminal
   result, broken result path or prompt-stream failure becomes proof loss. It
   does not infer authentication or another provider result from process exit or
-  error output. Error-output read failures are secondary diagnostics. No Claude
-  path ranks or composes run failures.
+  error output. A bounded amount of the CLI's error output goes into a lost
+  turn's message, as with Codex, because it is the only account of the cause.
+  Error-output read failures are secondary diagnostics. No Claude path ranks or
+  composes run failures.
 - The injected owned tree confirms its full process tree before returning the
   controller's unknown, cancelled, failed or completed outcome. A failed
   outcome keeps the target's message. The adapter maps that message to an

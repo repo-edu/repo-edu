@@ -180,7 +180,7 @@ function liveLaunch(): LiveCliProcess {
 function isLostTurnFailure(error: LlmError): boolean {
   return (
     error.context.outcome === "completed" &&
-    error.message === "The Claude turn ended without its result."
+    error.message.startsWith("The Claude turn ended without its result.")
   )
 }
 
@@ -468,6 +468,32 @@ describe("runClaudeCliStream", () => {
         isLostTurnFailure(error),
     )
     assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
+  })
+
+  it("reports the CLI's error output with a turn that ended without its result", async () => {
+    const { launch } = fakeLaunch([], ["Please run /login\n"])
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.context.outcome === "completed" &&
+        error.message ===
+          "The Claude turn ended without its result. Claude CLI error output: Please run /login",
+    )
   })
 
   it("keeps error-output read failure secondary to the lost result", async () => {

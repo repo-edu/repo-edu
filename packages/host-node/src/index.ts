@@ -44,6 +44,7 @@ import {
   MIN_COMPATIBLE_VERSION,
   Parser,
 } from "web-tree-sitter"
+import { knownEffectFailure } from "./known-effect.js"
 
 export const packageId = "@repo-edu/host-node"
 export const workspaceDependencies = [
@@ -117,24 +118,11 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-/** A failed call has ended and nothing keeps running, so its failure is known
- * even when a batch completed some of its operations first. */
 async function knownFileSystemEffect<T>(effect: () => Promise<T>): Promise<T> {
   try {
     return await effect()
   } catch (error) {
-    if (error instanceof CommandOutcomeError) throw error
-    throw new CommandOutcomeError({
-      disposition: "completed",
-      completion: {
-        status: "failed",
-        error: {
-          type: "effect",
-          message: error instanceof Error ? error.message : String(error),
-        },
-        result: null,
-      },
-    })
+    throw knownEffectFailure(error)
   }
 }
 
@@ -235,7 +223,13 @@ export function createNodeTokenizerPort(): TokenizerPort {
           }
         })
       }
-      return await promise
+      // Loading reads bundled grammar files and changes nothing, so a failed
+      // load is a known failure rather than a fault.
+      try {
+        return await promise
+      } catch (error) {
+        throw knownEffectFailure(error)
+      }
     },
   }
 }
