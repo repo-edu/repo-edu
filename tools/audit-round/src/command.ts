@@ -208,8 +208,9 @@ Round sequence:
       All remaining --auditor selections for that assistant are skipped,
       even if they specify a different model tier or effort.
     - A fix that records a clean result does not skip later rounds.
-    - A failure stops the sequence. A decision requiring your ruling also
-      stops the sequence and asks for your reply in the runner.
+    - A failure stops the sequence. A decision asks for your reply in the runner.
+      A submitted reply resumes the fix and sequence. Leaving without a reply
+      stops both.
 
   Trajectory watch:
     - After a completed plan round with findings, the glance decides if a watch is due.
@@ -650,7 +651,7 @@ export async function runCommand(
         active.finish(round)
         completed += 1
         if (seats.length === 1) break
-        if (round.status !== "finished" || round.ruled) {
+        if (round.status !== "finished") {
           await active.message(
             round.status === "failed"
               ? "Auditor sequence stopped: this round failed."

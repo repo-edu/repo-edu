@@ -27,8 +27,8 @@ consumers.
   same fix session resumes in the background with that reply. Further open decisions repeat this
   route. A completed fix follows the same report closure, commit checks, brief and watch as an
   uninterrupted fix. Stopping without a reply retains the round files and reports the fix's recovery
-  command. A round that required a ruling ends the auditor sequence even when the resumed fix
-  completes. Further open decisions replace the ruling in that same session under
+  command and ends the auditor sequence. A submitted reply lets a completed round continue any
+  remaining auditor entries. Further open decisions replace the ruling in that same session under
   [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate ruling phases run.
   `runWatch` owns the watch that follows a round: the glance decides from the commit record and the
   watch's own history whether a watch is due, and only a due glance runs `watch` to write the
@@ -423,8 +423,9 @@ in the shared cache, which is how its cadence survives between rounds, and `--no
 none is named. It reads its kind from the transcript title, writes beside it without claiming a new
 number and overwrites its standalone log on each run. `--auditor` accepts one selection or a
 comma-separated sequence on the named plan scope. Repeated entries request separate rounds. A clean
-audit skips all remaining entries for its assistant; failure or a round requiring a ruling stops the
-sequence. Each header records the round's start time; filenames carry no timestamp.
+audit skips all remaining entries for its assistant. Failure or leaving a ruling without a reply
+stops the sequence. A submitted reply resumes the fix, then the remaining sequence after the round
+completes. Each header records the round's start time; filenames carry no timestamp.
 
 ## Verification
 

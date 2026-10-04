@@ -16,7 +16,7 @@ import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
-test("a ruling stays in the runner and resumes the fix without replaying internal prompts", async (t) => {
+test("a ruling resumes the fix and the remaining auditor sequence without replaying internal prompts", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const reply = "Choose option 1.\nKeep the existing range."
   let requests = 0
@@ -61,7 +61,7 @@ test("a ruling stays in the runner and resumes the fix without replaying interna
   assert.equal(requests, 1)
   const visible = f.visible.join("\n")
   assert.match(visible, /Applied the ruling/)
-  assert.equal(f.visible.filter((text) => text === "Written brief").length, 1)
+  assert.equal(f.visible.filter((text) => text === "Written brief").length, 2)
   assert.ok(
     visible.indexOf("Applied the ruling") < visible.indexOf("Written brief"),
   )
@@ -69,10 +69,9 @@ test("a ruling stays in the runner and resumes the fix without replaying interna
     visible,
     /Run the .* phase|Phase arguments|SKILL\.md|OpenAI Codex/,
   )
-  assert.match(
-    visible,
-    /Auditor sequence stopped: this round required your ruling/,
-  )
+  assert.match(visible, /Next round: claude; 1 auditor entries remain\./)
+  assert.match(visible, /Auditor sequence finished after 2 rounds\./)
+  assert.doesNotMatch(visible, /Auditor sequence stopped/)
   const calls = await f.calls()
   assert.equal(
     calls.some((call) => call.args[0] === "resume"),
@@ -84,14 +83,22 @@ test("a ruling stays in the runner and resumes the fix without replaying interna
   assert.ok(resumed)
   assert.ok(resumed.args.includes("--json"))
   assert.ok(resumed.args.includes("--approve-for-me"))
-  const { markdown, log } = await f.records()
+  const roundFiles = await f.roundFiles()
+  assert.equal(roundFiles.length, 4)
+  const firstMarkdown = roundFiles.find((name) =>
+    /-01-1-round\..+\.md$/.test(name),
+  )
+  const firstLog = roundFiles.find((name) => /-01-1-round\..+\.log$/.test(name))
+  assert.ok(firstMarkdown)
+  assert.ok(firstLog)
+  const markdown = await readFile(join(f.planRoot, firstMarkdown), "utf8")
+  const log = await readFile(join(f.planRoot, firstLog), "utf8")
   assert.ok(markdown.includes(`## User ruling\n\n${reply}`))
   assert.ok(log.includes(reply))
   assert.match(log, /Run the fix phase .* resumed session/)
   assert.equal(log.match(/\[brief\] starting/g)?.length, 1)
   assert.match(log, /Written brief/)
   assert.doesNotMatch(markdown, /Written brief/)
-  assert.equal((await f.roundFiles()).length, 2)
 })
 
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
@@ -1651,7 +1658,7 @@ test("--no-watch skips the glance and the watch, whatever the record says", asyn
   assert.match(f.visible.join("\n"), /Audit round finished\./)
 })
 
-test("a chained run stops at the round that requires a ruling", async (t) => {
+test("a chained run stops when the ruling receives no reply", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   assert.equal(
     await runCommand(

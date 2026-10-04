@@ -61,8 +61,6 @@ export type RoundResult =
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
-      /** A user ruling ends the auditor sequence even after the fix completes. */
-      readonly ruled?: true
     }
   | {
       readonly status: "awaiting-ruling"
@@ -421,7 +419,6 @@ export async function runRound(
         status: "finished",
         report,
         cleanAudit: false,
-        ...(fixInput.sessionId === null ? {} : { ruled: true as const }),
       }
     }
 

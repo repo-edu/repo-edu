@@ -230,7 +230,6 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     status: "finished",
     report: files.documents.report,
     cleanAudit: false,
-    ruled: true,
   })
   const fixes = round.calls.filter((call) => call.phase === "fix")
   assert.equal(fixes.length, 2)
