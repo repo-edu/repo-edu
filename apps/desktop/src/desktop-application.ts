@@ -326,13 +326,6 @@ export function installDesktopApplication(): void {
       case "disable-input":
         disableInput()
         return
-      case "prepare-command":
-        // The request transport sends admission and preparation on the retained port.
-        return
-      case "execute-command":
-        // The validated input receiver owns the async handler body after this
-        // reducer transition has established executing.running.
-        return
       case "settle-cancelled-preparation":
         if (desktopGateway)
           settleCancelledPreparation(

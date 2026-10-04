@@ -11,7 +11,6 @@ import type { HostAdmission } from "./host-admission"
 import type { HostRequest } from "./host-admission-model"
 import { settleHostCommand } from "./host-command-settlement"
 import type { createHostRequestTransport } from "./host-request-transport"
-import { commandPayloadSchemas } from "./request-command-schemas"
 
 /** The execution boundary returns the official handler result to settlement.
  * It never derives an effect disposition from an error category. */
@@ -27,20 +26,15 @@ export async function executeHostCommand(options: {
   >
 }): Promise<WorkflowResult<ExclusiveCommandId> | undefined> {
   const { request, admission, handlers, transport, signal } = options
-  const before = admission.getSnapshot()
-  if (
-    before.phase !== "preparing" ||
-    before.stage !== "input-pending" ||
-    before.request !== request
-  )
-    throw new Error("Command input arrived outside its preparation turn.")
-  const operation = commandPayloadSchemas(before.command).input.parse(
-    options.operation,
-  ) as ExclusiveRequestOperation
-  admission.dispatch({ type: "input-prepared", request })
-  const running = () => {
+  const operation = options.operation
+  if (admission.dispatch({ type: "input-prepared", request }) !== "accepted")
+    return
+  const executionPhase = () => {
     const state = admission.getSnapshot()
+    if (state.phase === "closing.aborting") return "aborting"
     return state.phase === "executing.running" && state.request === request
+      ? "running"
+      : "other"
   }
   const handler = handlers[
     operation.workflowId
@@ -49,10 +43,15 @@ export async function executeHostCommand(options: {
   try {
     const result = await handler(input as WorkflowInput<ExclusiveCommandId>, {
       signal,
-      onProgress: (progress) => transport.progress(request, progress),
-      onOutput: (output) => transport.output(request, output),
+      onProgress: (progress) => {
+        if (executionPhase() !== "aborting")
+          transport.progress(request, progress)
+      },
+      onOutput: (output) => {
+        if (executionPhase() !== "aborting") transport.output(request, output)
+      },
     })
-    if (!running()) return
+    if (executionPhase() !== "running") return
     admission.dispatch({
       type: "outcome-fixed",
       request,
@@ -67,8 +66,15 @@ export async function executeHostCommand(options: {
     await settleHostCommand(request, admission, handlers, transport)
     return result
   } catch (error) {
+    const phase = executionPhase()
     if (
-      running() &&
+      phase === "aborting" &&
+      error instanceof CommandOutcomeError &&
+      error.outcome.disposition === "stopped"
+    )
+      return undefined
+    if (
+      phase === "running" &&
       error instanceof CommandOutcomeError &&
       (error.outcome.disposition !== "uncertain" ||
         error.outcome.reason === "confirmation-expired")

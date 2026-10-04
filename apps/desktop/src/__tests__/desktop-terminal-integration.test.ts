@@ -136,6 +136,14 @@ it("the real gateway rejects update restart while a command owns admission", asy
   )
 })
 
+it("closing during a running command preserves a successful aborting close", async () => {
+  await proveTerminal(
+    'const port = command(); port.receive({ type: "bundle", bundle: {} }); await turn(); port.receive({ type: "input", input: { workflowId: "userFile.exportPreview", input: { kind: "user-save-target-ref", referenceId: "target", displayName: "preview.json", suggestedFormat: "json" }, settlementInput: undefined } }); app.quit()',
+    false,
+    false,
+  )
+})
+
 const invalidEntries = {
   "foreign sender": "send(null, [], { ...event, sender: {} })",
   "foreign direct sender":

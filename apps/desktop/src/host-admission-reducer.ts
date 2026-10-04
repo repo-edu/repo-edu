@@ -195,7 +195,6 @@ function reduceHostAdmission(
           cancellationAccepted: false,
         },
         "accepted",
-        [{ type: "prepare-command", request: event.request }],
       )
     case "shell-action": {
       const presentation =
@@ -251,11 +250,7 @@ function reduceHostAdmission(
       return transition({ ...state, stage: "input-pending" })
     case "input-prepared":
       if (state.phase !== "preparing" || state.stage !== "input-pending") break
-      return transition(
-        executionState(state, "executing.running"),
-        "accepted",
-        [{ type: "execute-command", request: state.request }],
-      )
+      return transition(executionState(state, "executing.running"))
     case "outcome-fixed":
       if (state.phase !== "executing.running") break
       return transition({

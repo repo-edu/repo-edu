@@ -15,6 +15,7 @@ import { HostAdmission } from "../host-admission"
 import { createHostRequestTransport } from "../host-request-transport"
 import { createPreloadRequestTransport } from "../preload-request-transport"
 import { commitRequestPersistence } from "../request-persistence"
+import { createRequestPersistenceExchange } from "../request-persistence-exchange"
 import { requestChannel, until } from "./request-port-harness"
 
 it("drains host calls before close transfer and queues persistence behind renderer publication", {
@@ -170,5 +171,3 @@ it("drains host calls before close transfer and queues persistence behind render
     channel.dispose()
   }
 })
-
-import { createRequestPersistenceExchange } from "../request-persistence-exchange"

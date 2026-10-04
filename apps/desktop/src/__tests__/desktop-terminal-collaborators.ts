@@ -17,10 +17,25 @@ export function terminalCollaborators(
       })
     `,
     "./trpc": `
+      import { CommandOutcomeError } from "@repo-edu/application-contract"
       import { initTRPC } from "@trpc/server"
       export const createDesktopWorkflowRouter = () => initTRPC.create().router({})
-      export const createDesktopWorkflowRegistry = () => new Proxy({}, {
-        get() { trace("unexpected-workflow"); throw new Error("Unexpected workflow") }
+      export const createDesktopWorkflowRegistry = () => new Proxy({
+        "userFile.exportPreview": async (_input, options) => {
+          await new Promise(resolve => {
+            if (options.signal.aborted) resolve()
+            else options.signal.addEventListener("abort", resolve, { once: true })
+          })
+          options.onProgress({ step: 1, totalSteps: 1, label: "Stopping." })
+          options.onOutput({ channel: "info", message: "Stopped." })
+          throw new CommandOutcomeError({ disposition: "stopped", result: null })
+        }
+      }, {
+        get(target, key) {
+          if (key in target) return target[key]
+          trace("unexpected-workflow")
+          throw new Error("Unexpected workflow")
+        }
       })
     `,
     "./desktop-host": `

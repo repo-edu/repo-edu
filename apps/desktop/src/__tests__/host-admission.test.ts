@@ -180,7 +180,7 @@ describe("desktop host admission", () => {
       (owner.getSnapshot() as { request: HostRequest }).request,
       first,
     )
-    assert.deepEqual(effects, [{ type: "prepare-command", request: first }])
+    assert.deepEqual(effects, [])
   })
 
   for (const state of phases.filter((s) => s.phase === "preparing")) {
@@ -368,13 +368,9 @@ describe("desktop host admission", () => {
     dispatch({ type: "cancel-request", request: current })
     dispatch({ type: "cancel-request", request: current })
     assert.equal(owner.getSnapshot().phase, "preparing")
-    assert.deepEqual(effects, [{ type: "prepare-command", request: current }])
+    assert.deepEqual(effects, [])
     dispatch({ type: "preparation-committed", request: current })
     assert.equal(owner.getSnapshot().phase, "executing.settling")
-    assert.equal(
-      effects.some((e) => e.type === "execute-command"),
-      false,
-    )
     assert.equal(
       effects.filter((e) => e.type === "settle-cancelled-preparation").length,
       0,
@@ -405,7 +401,6 @@ describe("desktop host admission", () => {
       "ignored",
     )
     assert.deepEqual(effects, [
-      { type: "prepare-command", request: current },
       { type: "settle-cancelled-preparation", request: current },
     ])
     dispatch({ type: "settlement-acknowledged", request: current })

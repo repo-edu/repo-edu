@@ -13,7 +13,6 @@ import type {
   DesktopRequestBridge,
   RendererRequest,
 } from "./preload-request-transport"
-import { commandPayloadSchemas } from "./request-command-schemas"
 import { createRequestPersistenceExchange } from "./request-persistence-exchange"
 
 function pending<T>() {
@@ -109,11 +108,11 @@ export function createRendererCommandClient(
           try {
             await prepared.promise
             if (!options?.signal?.aborted) {
-              const operation = commandPayloadSchemas(command).input.parse({
+              const operation = {
                 workflowId: command,
                 input: capture(),
                 settlementInput: options?.settlementInput,
-              }) as ExclusiveRequestOperation
+              } as ExclusiveRequestOperation
               current.prepareInput(operation)
             }
           } catch (error) {

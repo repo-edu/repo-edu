@@ -90,8 +90,6 @@ export type HostAdmissionCancellation =
 export type HostAdmissionHostEffect =
   | { type: "report-terminal"; error: unknown }
   | { type: "disable-input" }
-  | { type: "prepare-command"; request: HostRequest }
-  | { type: "execute-command"; request: HostRequest }
   | { type: "settle-cancelled-preparation"; request: HostRequest }
   | { type: "release-command"; request: HostRequest }
   | { type: "prepare-close"; request: HostRequest }

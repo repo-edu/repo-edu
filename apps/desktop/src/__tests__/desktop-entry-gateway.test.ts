@@ -226,10 +226,6 @@ it("proves command intent and port count before admission and closes rejected tr
     } as typeof h.event)
     assert.equal(h.admission.getSnapshot().phase, "terminal")
     assert.equal(closed, portCount)
-    assert.equal(
-      h.effects.some((effect) => effect.type === "prepare-command"),
-      false,
-    )
   }
 })
 
