@@ -107,34 +107,14 @@ describe("userFile.inspectSelection workflow", () => {
     )
   })
 
-  it("throws a not-found AppError when file reference is missing", async () => {
-    const port = createMockUserFilePort({
-      async readText() {
-        throw new Error("User file not found: missing.csv")
-      },
+  it("passes the port's read failure through unchanged", async () => {
+    const failure = new CommandOutcomeError({
+      disposition: "refused",
+      error: { type: "effect", message: "Unknown user-file reference: f1" },
     })
-
-    await assert.rejects(
-      runInspectUserFileWorkflow(port, {
-        kind: "user-file-ref",
-        referenceId: "missing",
-        displayName: "missing.csv",
-        mediaType: null,
-        byteLength: null,
-      }),
-      (error: unknown) => {
-        const appError = error as AppError
-        assert.equal(appError.type, "not-found")
-        assert.equal(appError.resource, "file")
-        return true
-      },
-    )
-  })
-
-  it("throws a persistence AppError on generic read failure", async () => {
     const port = createMockUserFilePort({
       async readText() {
-        throw new Error("Disk read error")
+        throw failure
       },
     })
 
@@ -146,12 +126,7 @@ describe("userFile.inspectSelection workflow", () => {
         mediaType: null,
         byteLength: null,
       }),
-      (error: unknown) => {
-        const appError = error as AppError
-        assert.equal(appError.type, "persistence")
-        assert.equal(appError.operation, "read")
-        return true
-      },
+      (error: unknown) => error === failure,
     )
   })
 
@@ -217,55 +192,5 @@ describe("userFile.exportPreview workflow", () => {
 
     assert.equal(progress.length, 2)
     assert.equal(outputs.length, 1)
-  })
-
-  it("proves a stopped command before starting an export", async () => {
-    const port = createMockUserFilePort()
-    const controller = new AbortController()
-    controller.abort()
-
-    await assert.rejects(
-      runUserFileExportPreviewWorkflow(
-        port,
-        {
-          kind: "user-save-target-ref",
-          referenceId: "t1",
-          displayName: "preview.csv",
-          suggestedFormat: "csv",
-        },
-        { signal: controller.signal },
-      ),
-      (error: unknown) => {
-        assert.ok(error instanceof CommandOutcomeError)
-        assert.deepEqual(error.outcome, {
-          disposition: "stopped",
-          result: null,
-        })
-        return true
-      },
-    )
-  })
-
-  it("throws a persistence AppError on write failure", async () => {
-    const port = createMockUserFilePort({
-      async writeText() {
-        throw new Error("Disk write error")
-      },
-    })
-
-    await assert.rejects(
-      runUserFileExportPreviewWorkflow(port, {
-        kind: "user-save-target-ref",
-        referenceId: "t1",
-        displayName: "preview.csv",
-        suggestedFormat: "csv",
-      }),
-      (error: unknown) => {
-        const appError = error as AppError
-        assert.equal(appError.type, "persistence")
-        assert.equal(appError.operation, "write")
-        return true
-      },
-    )
   })
 })

@@ -11,17 +11,20 @@ import {
   serializeExaminationArchiveStorageKey,
 } from "@repo-edu/application-contract"
 import type {
+  ExaminationArchiveStoragePort,
   FileSystemPort,
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
   LlmStreamEvent,
   TokenizerPort,
+  UserFilePort,
 } from "@repo-edu/host-runtime-contract"
 import {
   createExaminationArchive,
   validateExaminationArchiveStorage,
 } from "../examination-workflows/archive-port.js"
+import { createExaminationArchiveWorkflowHandlers } from "../examination-workflows/archive-workflows.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
 import { prepareExaminationPrivacy } from "../examination-workflows/privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
@@ -144,6 +147,15 @@ it("fails loudly on a saved record that no longer reads", () => {
     assert.throws(read, /Invalid examination data/)
   }
 })
+
+function currentBundle(records: readonly unknown[]) {
+  return {
+    format: "repo-edu-examination-archive",
+    bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+    exportedAt: "2026-05-25T00:00:00.000Z",
+    records,
+  }
+}
 
 function baseUsage(): Exclude<
   ExaminationArchiveRecord["provenance"]["usage"],
@@ -297,15 +309,72 @@ describe("examination archive adapter", () => {
     assert.deepEqual(target.get(baseKey), baseRecord)
   })
 
-  it("rejects old bundles, unsafe output, and superseded privacy policy", () => {
-    const archive = createInMemoryExaminationArchive()
-    const oldSummary = archive.importBundle({
-      format: "repo-edu-examination-archive",
-      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION - 1,
-      records: [baseRecord],
+  it("refuses a value that is not a current bundle before any write", () => {
+    let writes = 0
+    const archive = createExaminationArchive({
+      get: () => undefined,
+      put() {},
+      remove() {},
+      exportAll: () => [],
+      importAll: () => {
+        writes += 1
+        throw new Error("A refused bundle must not reach the store.")
+      },
     })
-    assert.equal(oldSummary.rejected, 1)
+    for (const value of [
+      null,
+      [],
+      { records: [baseRecord] },
+      {
+        format: "repo-edu-examination-archive",
+        bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION - 1,
+        records: [baseRecord],
+      },
+      {
+        format: "repo-edu-examination-archive",
+        bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+        records: "none",
+      },
+    ]) {
+      assert.throws(
+        () => archive.importBundle(value),
+        (error: unknown) =>
+          error instanceof CommandOutcomeError &&
+          error.outcome.disposition === "refused" &&
+          error.outcome.error.type === "validation",
+      )
+    }
+    assert.equal(writes, 0)
+  })
 
+  it("keeps the store's own rejections in the summary", () => {
+    const archive = createExaminationArchive({
+      get: () => undefined,
+      put() {},
+      remove() {},
+      exportAll: () => [],
+      importAll: (entries) => ({
+        totalInBundle: entries.length,
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        rejected: 1,
+        rejections: ["store rejected the record"],
+      }),
+    })
+
+    const summary = archive.importBundle(currentBundle([baseRecord, {}]))
+
+    assert.equal(summary.totalInBundle, 2)
+    assert.equal(summary.rejected, 2)
+    assert.deepEqual(summary.rejections, [
+      "record 1: missing or malformed key",
+      "store rejected the record",
+    ])
+  })
+
+  it("rejects unsafe output and superseded privacy policy record by record", () => {
+    const archive = createInMemoryExaminationArchive()
     const outOfBoundsCount = EXAMINATION_QUESTION_COUNT_MAX + 1
     const outOfBoundsSummary = archive.importBundle({
       format: "repo-edu-examination-archive",
@@ -471,6 +540,140 @@ describe("examination archive adapter", () => {
   })
 })
 
+describe("examination archive commands", () => {
+  const bundleFile = {
+    kind: "user-file-ref" as const,
+    referenceId: "bundle-1",
+    displayName: "archive.json",
+    mediaType: "application/json",
+    byteLength: null,
+  }
+  const bundleTarget = {
+    kind: "user-save-target-ref" as const,
+    referenceId: "bundle-target-1",
+    displayName: "archive.json",
+    suggestedFormat: "json" as const,
+  }
+
+  function userFileWith(text: string, written: string[] = []): UserFilePort {
+    return {
+      async readText() {
+        return {
+          displayName: "archive.json",
+          mediaType: "application/json",
+          text,
+          byteLength: text.length,
+        }
+      },
+      async writeText(reference, content) {
+        written.push(content)
+        return {
+          displayName: reference.displayName,
+          mediaType: "application/json",
+          byteLength: content.length,
+          savedAt: "2026-05-25T00:00:00.000Z",
+        }
+      },
+    }
+  }
+
+  function archiveStore(
+    overrides: Partial<ExaminationArchiveStoragePort>,
+  ): ExaminationArchiveStoragePort {
+    return {
+      get: () => undefined,
+      put() {},
+      remove() {},
+      exportAll: () => [],
+      importAll: () => {
+        throw new Error("The store is not reached.")
+      },
+      ...overrides,
+    }
+  }
+
+  for (const [file, content] of [
+    ["is not JSON", "{"],
+    ["is not a current bundle", JSON.stringify({ records: [baseRecord] })],
+  ] as const) {
+    it(`refuses an import whose file ${file} before any write`, async () => {
+      const handlers = createExaminationArchiveWorkflowHandlers({
+        archive: createExaminationArchive(archiveStore({})),
+        userFile: userFileWith(content),
+      })
+
+      await assert.rejects(
+        handlers["examination.archive.import"](bundleFile),
+        (error: unknown) =>
+          error instanceof CommandOutcomeError &&
+          error.outcome.disposition === "refused" &&
+          error.outcome.error.type === "validation",
+      )
+    })
+  }
+
+  it("names each rejected record in a warning", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const handlers = createExaminationArchiveWorkflowHandlers({
+      archive,
+      userFile: userFileWith(JSON.stringify(currentBundle([baseRecord, {}]))),
+    })
+    const warnings: string[] = []
+
+    const summary = await handlers["examination.archive.import"](bundleFile, {
+      onOutput: (output) => {
+        if (output.channel === "warn") warnings.push(output.message)
+      },
+    })
+
+    assert.equal(summary.inserted, 1)
+    assert.equal(summary.rejected, 1)
+    assert.deepEqual(warnings, [
+      "Rejected archive record — record 1: missing or malformed key",
+    ])
+  })
+
+  it("keeps an archive store failure on import terminal", async () => {
+    const failure = new Error("database disk image is malformed")
+    const handlers = createExaminationArchiveWorkflowHandlers({
+      archive: createExaminationArchive(
+        archiveStore({
+          importAll: () => {
+            throw failure
+          },
+        }),
+      ),
+      userFile: userFileWith(JSON.stringify(currentBundle([baseRecord]))),
+    })
+
+    await assert.rejects(
+      handlers["examination.archive.import"](bundleFile),
+      (error: unknown) => error === failure,
+    )
+  })
+
+  it("keeps an archive store failure on export terminal and writes no file", async () => {
+    const failure = new Error("database disk image is malformed")
+    const written: string[] = []
+    const handlers = createExaminationArchiveWorkflowHandlers({
+      archive: createExaminationArchive(
+        archiveStore({
+          exportAll: () => {
+            throw failure
+          },
+        }),
+      ),
+      userFile: userFileWith("", written),
+    })
+
+    await assert.rejects(
+      handlers["examination.archive.export"](bundleTarget),
+      (error: unknown) => error === failure,
+    )
+    assert.deepEqual(written, [])
+  })
+})
+
 describe("examination.generateQuestions archive behavior", () => {
   it("enforces the shared question-count bounds at input admission", async () => {
     const handlers = createExaminationWorkflowHandlers({
@@ -497,6 +700,99 @@ describe("examination.generateQuestions archive behavior", () => {
       )
     }
   })
+
+  it("passes the tokenizer's failed load through before any model run", async () => {
+    const failedLoad = new CommandOutcomeError({
+      disposition: "completed",
+      completion: {
+        status: "failed",
+        error: { type: "effect", message: "Grammar could not load." },
+        result: null,
+      },
+    })
+    const llm = createRecordingLlm(sampleLlmReply(1))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive: createInMemoryExaminationArchive(),
+      tokenizer: {
+        async loadTokenizerLanguage() {
+          throw failedLoad
+        },
+      },
+      fileSystem: stubFileSystem,
+    })
+
+    await assert.rejects(
+      handlers["examination.generateQuestions"]({
+        ...inputWithPathMappedContent({ "src/a.ts": "const answer = 42" }),
+        questionCount: 1,
+      }),
+      (error: unknown) => error === failedLoad,
+    )
+    assert.equal(llm.calls, 0)
+  })
+
+  it("stops before the model run when Cancel came first", async () => {
+    const llm = createRecordingLlm(sampleLlmReply(1))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+    const controller = new AbortController()
+    controller.abort()
+
+    await assert.rejects(
+      handlers["examination.generateQuestions"](baseInput(), {
+        signal: controller.signal,
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.deepEqual(error.outcome, {
+          disposition: "stopped",
+          result: null,
+        })
+        return true
+      },
+    )
+    assert.equal(llm.calls, 0)
+  })
+
+  for (const [call, storeFailure, modelRuns] of [
+    ["read", { get: "fails" }, 0],
+    ["write", { put: "fails" }, 1],
+  ] as const) {
+    it(`keeps an archive store ${call} failure terminal`, async () => {
+      const failure = new Error("database disk image is malformed")
+      const llm = createRecordingLlm(sampleLlmReply(2))
+      const handlers = createExaminationWorkflowHandlers({
+        llm,
+        archive: createExaminationArchive({
+          get: () => {
+            if ("get" in storeFailure) throw failure
+            return undefined
+          },
+          put: () => {
+            if ("put" in storeFailure) throw failure
+          },
+          remove() {},
+          exportAll: () => [],
+          importAll: () => {
+            throw new Error("Generation never imports.")
+          },
+        }),
+        tokenizer,
+        fileSystem: stubFileSystem,
+      })
+
+      await assert.rejects(
+        handlers["examination.generateQuestions"](baseInput()),
+        (error: unknown) => error === failure,
+      )
+      assert.equal(llm.calls, modelRuns)
+    })
+  }
 
   it("persists clean output and returns cache hits with source references", async () => {
     const archive = createInMemoryExaminationArchive()

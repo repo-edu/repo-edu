@@ -53,9 +53,6 @@ export async function commandPreparation<T>(
         case "conflict":
         case "provider":
           throw commandRefusal(error)
-        case "persistence":
-          if (error.operation === "read")
-            throw commandRefusal({ type: "effect", message: error.message })
       }
     }
     if (error instanceof DOMException && error.name === "AbortError")

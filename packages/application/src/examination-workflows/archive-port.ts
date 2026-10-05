@@ -24,6 +24,7 @@ import type {
   LlmAuthMode,
   LlmEffort,
 } from "@repo-edu/integrations-llm-contract"
+import { commandValidationError } from "../command-outcomes.js"
 import { admitExaminationRecordWithoutContext } from "./privacy-policy.js"
 
 export type ExaminationArchivePort = {
@@ -39,6 +40,8 @@ export type ExaminationArchivePort = {
   put(record: ExaminationArchiveRecord): void
   remove(key: ExaminationArchiveKey): void
   exportBundle(): ExaminationArchiveBundle
+  /** Refuses a value that is not a current bundle before any write. Records
+   * that fail validation are rejected one by one and named in the summary. */
   importBundle(bundle: unknown): ExaminationArchiveImportSummary
 }
 
@@ -114,26 +117,26 @@ export function createExaminationArchive(
     importBundle(raw) {
       const parsedRecords = parseBundleRecords(raw)
       if (parsedRecords === null) {
-        return {
-          totalInBundle: 0,
-          inserted: 0,
-          updated: 0,
-          skipped: 0,
-          rejected: 1,
-          rejections: [
-            "Bundle header missing or invalid (expected format, bundleVersion, and records array).",
+        throw commandValidationError(
+          "The file is not an examination archive bundle of the current version.",
+          [
+            {
+              path: "bundle",
+              message:
+                "Expected the current format and bundleVersion and a records array.",
+            },
           ],
-        }
+        )
       }
-      const { records, rejections: parseRejections, total } = parsedRecords
-      const summary = storage.importAll(records.map(toStoredEntry))
+      const { records, rejections, total } = parsedRecords
+      const stored = storage.importAll(records.map(toStoredEntry))
       return {
         totalInBundle: total,
-        inserted: summary.inserted,
-        updated: summary.updated,
-        skipped: summary.skipped,
-        rejected: parseRejections.length,
-        rejections: parseRejections,
+        inserted: stored.inserted,
+        updated: stored.updated,
+        skipped: stored.skipped,
+        rejected: rejections.length + stored.rejected,
+        rejections: [...rejections, ...stored.rejections],
       }
     },
   }

@@ -708,7 +708,8 @@ describe("examination.generateQuestions streaming", () => {
     assert.equal(lookup.availableSets.length, 0)
   })
 
-  it("normalizes LLM stream failures into app-level provider errors", async () => {
+  // Without the adapter's outcome the desktop ends the session.
+  it("keeps an LLM failure without the adapter's outcome terminal", async () => {
     const archive = createInMemoryExaminationArchive()
     const input = baseInput()
     const handlers = createExaminationWorkflowHandlers({
@@ -725,6 +726,7 @@ describe("examination.generateQuestions streaming", () => {
     await assert.rejects(
       () => handlers["examination.generateQuestions"](input),
       (error: unknown) =>
+        !(error instanceof CommandOutcomeError) &&
         typeof error === "object" &&
         error !== null &&
         (error as { type?: unknown }).type === "provider" &&

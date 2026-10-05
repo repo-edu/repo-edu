@@ -35,9 +35,16 @@ It composes:
   A command takes an adapter's outcome through `rethrowGitEffectFailure` or
   `rethrowLlmOutcome` before normalising the error. Ordinary calls turn the same
   Git and LLM adapter failures into an `AppError`. The process, file-system and
-  user-file host ports throw their own command outcomes. In an ordinary call
-  such an outcome passes through unchanged, and the desktop reports it as an
+  user-file host ports throw their own command outcomes. Handlers pass a port
+  failure through unchanged and never classify it by its wording, so a failure
+  without the port's outcome stays terminal. In an ordinary call such an
+  outcome passes through unchanged, and the desktop reports it as an
   `unexpected` error that carries the port's message.
+- `readOnlyCommand` turns a read-only command's validation, not-found, conflict
+  or provider error into a refusal and a cancellation into a stop, because the
+  command changed nothing. Any other failure passes through. Git username
+  import uses it, so a failed username lookup refuses the import. A reply that
+  leaves out a requested username refuses it too.
 - Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`;
   `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
 - Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for LMS- and
@@ -84,7 +91,9 @@ It composes:
   `LlmPort` workflow dependency.
 - The examination archive surface is `archive-workflows.ts` and `archive-port.ts`. Generation parses
   strict provider JSON into `ExaminationQuestion[]`. Lookup prepares a fresh privacy context and
-  revalidates archive records without calling the LLM.
+  revalidates archive records without calling the LLM. Import refuses a file that is not JSON or not
+  a current bundle before any write, and names each rejected record in its summary. Archive store
+  failures stay terminal.
 - Examination stream progress exposes counts and static application-owned activity labels but no raw
   provider text. Fully parsed, admitted questions are the only provider content sent to consumers.
   Common-word local names remain non-blocking because their prose use is ambiguous. Matching output

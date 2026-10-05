@@ -31,7 +31,6 @@ import {
 } from "../command-outcomes.js"
 import { createValidationAppError } from "../core.js"
 import {
-  normalizeUserFileError,
   parseGroupSetImportRows,
   resolveCourseSnapshot,
   throwIfAborted,
@@ -150,12 +149,10 @@ export function createFileGroupSetHandlers(
         label: "Reading and parsing group-set import file.",
       })
 
-      let fileText: UserFileText
-      try {
-        fileText = await ports.userFile.readText(input.file, options?.signal)
-      } catch (error) {
-        throw normalizeUserFileError(error, "read")
-      }
+      const fileText = await ports.userFile.readText(
+        input.file,
+        options?.signal,
+      )
 
       if (input.format === "group-set-csv") {
         const parsedRows = parseGroupSetImportRows(parseCsv(fileText.text).rows)
@@ -235,12 +232,10 @@ export function createFileGroupSetHandlers(
         const course = resolveCourseSnapshot(input.course)
         throwIfAborted(options?.signal)
 
-        let fileText: UserFileText
-        try {
-          fileText = await ports.userFile.readText(input.file, options?.signal)
-        } catch (error) {
-          throw normalizeUserFileError(error, "read")
-        }
+        const fileText = await ports.userFile.readText(
+          input.file,
+          options?.signal,
+        )
 
         options?.onProgress?.({
           step: 2,

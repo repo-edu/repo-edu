@@ -242,31 +242,6 @@ export function normalizeProviderError(
   }
 }
 
-export function normalizeUserFileError(
-  error: unknown,
-  operation: "read" | "write",
-): AppError {
-  if (error instanceof CommandOutcomeError) throw error
-  if (isSharedAppError(error)) {
-    return error
-  }
-
-  if (error instanceof Error && /not found/i.test(error.message)) {
-    return {
-      type: "not-found",
-      message: error.message,
-      resource: "file",
-    }
-  }
-
-  return {
-    type: "persistence",
-    message: error instanceof Error ? error.message : String(error),
-    operation,
-    retryable: false,
-  }
-}
-
 export function inferFileFormat(file: UserFileRef): "csv" | "xlsx" | null {
   const loweredName = file.displayName.toLowerCase()
   if (loweredName.endsWith(".csv") || file.mediaType === "text/csv") {
