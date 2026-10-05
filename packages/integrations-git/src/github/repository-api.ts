@@ -3,7 +3,9 @@ import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
 
 /** The blob of a plain file on the branch, or `null` on an explicit 404. A
  * folder, symbolic link or submodule at the path fails the read, because a
- * branch update writes plain files only. */
+ * branch update writes plain files only. GitHub answers a symbolic link to a
+ * normal file with that file, so such a link reads as a plain file and GitHub
+ * decides what the write that follows does. */
 export async function readRepositoryFileSha(
   octokit: Octokit,
   owner: string,

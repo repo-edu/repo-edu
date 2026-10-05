@@ -208,6 +208,31 @@ describe("github branch-review", () => {
       }
     })
 
+    it("reports a file answered without its blob as a known failure", async () => {
+      const http = createMockHttpPort([
+        refCreated,
+        {
+          method: "GET",
+          urlPattern: `${route}/contents/README.md`,
+          status: 200,
+          body: { type: "file", name: "README.md", path: "README.md" },
+        },
+      ])
+
+      await assert.rejects(
+        createGitHubClient(http).createBranch(baseDraft, {
+          ...branchRequest,
+          files: [changedReadme],
+        }),
+        {
+          message:
+            "GitHub answered file 'README.md' on branch 'template-update' without its blob.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
+
     it("refuses a changed file without content", async () => {
       await assert.rejects(
         createGitHubClient(createMockHttpPort([refCreated])).createBranch(

@@ -6,7 +6,7 @@ import type {
   HttpResponse,
 } from "@repo-edu/host-runtime-contract"
 import { createGitHubClient } from "../github-client.js"
-import { baseDraft, createMockHttpPort } from "./harness.js"
+import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
 
 /** GitHub's REST reference answers a refused team with 422 "Validation
  * failed" in its validation-error shape. */
@@ -15,6 +15,22 @@ const validationFailed = {
   errors: [{ resource: "Team", code: "already_exists", field: "name" }],
   documentation_url: "https://docs.github.com/rest/teams/teams#create-a-team",
   status: "422",
+}
+
+const teamRefused: MockRoute = {
+  method: "POST",
+  urlPattern: /\/orgs\/test-org\/teams$/,
+  status: 422,
+  body: validationFailed,
+}
+
+function teamPage(page: number, teams: unknown[]): MockRoute {
+  return {
+    method: "GET",
+    urlPattern: new RegExp(`/orgs/test-org/teams\\?(.*&)?page=${page}(&|$)`),
+    status: 200,
+    body: teams,
+  }
 }
 
 describe("github teams", () => {
@@ -55,32 +71,30 @@ describe("github teams", () => {
       assert.deepStrictEqual(result.membersNotFound, ["nobody"])
     })
 
-    it("falls back to existing team on HTTP 422", async () => {
+    it("reuses an existing team found on a later page of the team list", async () => {
+      // GitHub's teams reference turns "My TEam Näme" into the slug
+      // "my-team-name", a rule the app cannot rebuild from the name.
+      const firstPage = Array.from({ length: 100 }, (_, index) => ({
+        id: index + 1,
+        name: `other-${index}`,
+        slug: `other-${index}`,
+      }))
       const http = createMockHttpPort([
-        {
-          method: "POST",
-          urlPattern: "/orgs/test-org/teams",
-          status: 422,
-          body: validationFailed,
-        },
-        {
-          method: "GET",
-          urlPattern: "/orgs/test-org/teams/hw1-team",
-          status: 200,
-          body: { slug: "hw1-team" },
-        },
+        teamRefused,
+        teamPage(1, firstPage),
+        teamPage(2, [{ id: 142, name: "My TEam Näme", slug: "my-team-name" }]),
       ])
 
       const client = createGitHubClient(http)
       const result = await client.createTeam(baseDraft, {
         organization: "test-org",
-        teamName: "hw1-team",
+        teamName: "My TEam Näme",
         memberUsernames: [],
         permission: "push",
       })
 
       assert.equal(result.created, false)
-      assert.equal(result.teamSlug, "hw1-team")
+      assert.equal(result.teamSlug, "my-team-name")
     })
   })
 
@@ -112,24 +126,18 @@ describe("github teams", () => {
       )
     })
 
-    it("reports a refused team whose slug finds no team as the refusal", async () => {
+    it("reports a refused team the team list does not hold as the refusal", async () => {
       const http = createMockHttpPort([
         {
-          method: "POST",
-          urlPattern: "/orgs/test-org/teams",
-          status: 422,
+          ...teamRefused,
           body: {
             message: "Validation Failed",
             errors: [{ resource: "Team", code: "invalid", field: "privacy" }],
             status: "422",
           },
         },
-        {
-          method: "GET",
-          urlPattern: "/orgs/test-org/teams/hw1-team",
-          status: 404,
-          body: { message: "Not Found", status: "404" },
-        },
+        teamPage(1, [{ id: 1, name: "other", slug: "other" }]),
+        teamPage(2, []),
       ])
 
       await assert.rejects(
@@ -141,6 +149,30 @@ describe("github teams", () => {
           disposition: "completed",
         },
       )
+    })
+
+    it("reports an unreadable team list or a listed team without its slug as a known failure", async () => {
+      const cases: Array<[unknown, string]> = [
+        [
+          { message: "unexpected" },
+          "GitHub answered an unreadable team list for 'test-org'.",
+        ],
+        [
+          [{ id: 1, name: "hw1-team" }],
+          "GitHub answered team 'hw1-team' without its slug.",
+        ],
+      ]
+      for (const [page, message] of cases) {
+        const http = createMockHttpPort([
+          teamRefused,
+          { ...teamPage(1, []), body: page },
+        ])
+
+        await assert.rejects(
+          createGitHubClient(http).createTeam(baseDraft, teamRequest),
+          { message, type: "git-effect", disposition: "completed" },
+        )
+      }
     })
 
     it("reports a refused member as a known failure", async () => {
@@ -172,15 +204,17 @@ describe("github teams", () => {
 
   describe("assignRepositoriesToTeam", () => {
     it("assigns repositories to a team", async () => {
+      // GitHub's REST reference answers an assignment with 204 No Content,
+      // which the Node HTTP port passes on with an empty body.
       const capturedUrls: string[] = []
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
           capturedUrls.push(request.url)
           return {
-            status: 200,
-            statusText: "OK",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({}),
+            status: 204,
+            statusText: "No Content",
+            headers: {},
+            body: "",
           }
         },
       }

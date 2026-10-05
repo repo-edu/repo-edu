@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { createGitHubClient } from "../github-client.js"
-import { baseDraft, createMockHttpPort } from "./harness.js"
+import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
 
 const notFound = {
   message: "Not Found",
@@ -69,28 +69,50 @@ describe("github template-changes", () => {
       }
     })
 
-    it("reports a repository answered without its default branch as a known failure", async () => {
-      const http = createMockHttpPort([
+    it("reports a repository or branch answered without its head as a known failure", async () => {
+      const cases: Array<{ routes: MockRoute[]; message: string }> = [
         {
-          method: "GET",
-          urlPattern: "/repos/my-org/template-repo",
-          status: 200,
-          body: { name: "template-repo" },
-        },
-      ])
-
-      await assert.rejects(
-        createGitHubClient(http).getRepositoryDefaultBranchHead(baseDraft, {
-          owner: "my-org",
-          repositoryName: "template-repo",
-        }),
-        {
+          routes: [
+            {
+              method: "GET",
+              urlPattern: "/repos/my-org/template-repo",
+              status: 200,
+              body: { name: "template-repo" },
+            },
+          ],
           message:
             "GitHub answered repository 'my-org/template-repo' without its default branch.",
-          type: "git-effect",
-          disposition: "completed",
         },
-      )
+        {
+          routes: [
+            {
+              method: "GET",
+              urlPattern: /\/repos\/my-org\/template-repo\/branches\/main/,
+              status: 200,
+              body: { name: "main" },
+            },
+            {
+              method: "GET",
+              urlPattern: "/repos/my-org/template-repo",
+              status: 200,
+              body: { name: "template-repo", default_branch: "main" },
+            },
+          ],
+          message:
+            "GitHub answered branch 'main' of 'my-org/template-repo' without its commit.",
+        },
+      ]
+      for (const { routes, message } of cases) {
+        await assert.rejects(
+          createGitHubClient(
+            createMockHttpPort(routes),
+          ).getRepositoryDefaultBranchHead(baseDraft, {
+            owner: "my-org",
+            repositoryName: "template-repo",
+          }),
+          { message, type: "git-effect", disposition: "completed" },
+        )
+      }
     })
   })
 })

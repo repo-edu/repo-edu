@@ -1,3 +1,4 @@
+import type { Octokit } from "@octokit/rest"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type {
   CreateTeamRequest,
@@ -22,12 +23,39 @@ function mapTeamRole(permission: CreateTeamRequest["permission"]) {
     : ("member" as const)
 }
 
-function teamSlugFromName(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+const teamPageSize = 100
+
+/** GitHub builds a team's slug by its own rule, so an existing team is found
+ * by its name in the organisation's paged team list. Every page is read until
+ * the team is found or a page comes back empty. Octokit's paginator is not
+ * used, because it drops the caller's signal and reads a 409 as an empty
+ * page. */
+async function findTeamByName(
+  octokit: Octokit,
+  organization: string,
+  teamName: string,
+  signal?: AbortSignal,
+): Promise<{ slug?: unknown } | null> {
+  for (let page = 1; ; page += 1) {
+    const response = await octokit.teams.list({
+      org: organization,
+      per_page: teamPageSize,
+      page,
+      request: { signal },
+    })
+    const teams: unknown = response.data
+    if (!Array.isArray(teams)) {
+      throw gitEffectFailure(
+        "completed",
+        `GitHub answered an unreadable team list for '${organization}'.`,
+      )
+    }
+    if (teams.length === 0) return null
+    const team = teams.find(
+      (entry) => (entry as { name?: unknown } | null)?.name === teamName,
+    )
+    if (team !== undefined) return team
+  }
 }
 
 type TeamsCapability = Pick<
@@ -52,19 +80,17 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
         team = response.data
       } catch (error) {
         // GitHub answers an existing team name with 422 "Validation Failed",
-        // so the refusal names an existing team only when its slug finds one.
+        // so the refusal names an existing team only when the list holds it.
         if (!isGitReply(error, 422)) throw error
+        const existing = await findTeamByName(
+          octokit,
+          request.organization,
+          request.teamName,
+          signal,
+        )
+        if (existing === null) throw error
         created = false
-        try {
-          const response = await octokit.teams.getByName({
-            org: request.organization,
-            team_slug: teamSlugFromName(request.teamName),
-            request: { signal },
-          })
-          team = response.data
-        } catch (lookupError) {
-          throw isGitReply(lookupError, 404) ? error : lookupError
-        }
+        team = existing
       }
       if (typeof team.slug !== "string") {
         throw gitEffectFailure(

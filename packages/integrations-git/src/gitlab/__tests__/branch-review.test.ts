@@ -229,6 +229,21 @@ describe("gitlab branch-review", () => {
       )
     })
 
+    it("reports a project answered without its id as a known failure", async () => {
+      const http = createMockHttpPort([
+        { ...project, body: { path_with_namespace: "my-org/repo-1" } },
+      ])
+
+      await assert.rejects(
+        createGitLabClient(http).createBranch(baseDraft, branchRequest),
+        {
+          message: "GitLab answered project 'my-org/repo-1' without its id.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
+
     it("refuses to write over a path that is not a plain file", async () => {
       const entries: TreeEntry[] = [
         { type: "tree", path: "docs/README.md", mode: "040000" },

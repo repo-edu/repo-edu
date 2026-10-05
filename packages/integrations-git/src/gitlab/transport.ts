@@ -23,7 +23,6 @@ type RequestOptions = {
   body?: FormData | Record<string, unknown>
   searchParams?: Record<string, unknown>
   sudo?: string | number
-  signal?: AbortSignal
 }
 
 type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
@@ -193,14 +192,13 @@ async function executeRequest<T extends ResponseBody>(
     headers["content-type"] = "application/json"
   }
 
-  const signal =
-    callerSignal && options?.signal
-      ? AbortSignal.any([callerSignal, options.signal])
-      : (callerSignal ?? options?.signal)
+  // Gitbeaker also passes its own five-minute timer in the options. Only the
+  // caller's signal reaches the request, because the read rule reads any
+  // aborted signal as the caller's stop.
   const httpResponse = await sendGitHttpRequest(
     http,
     { url: url.toString(), method, headers, body },
-    signal,
+    callerSignal,
     replyDetail,
   )
 

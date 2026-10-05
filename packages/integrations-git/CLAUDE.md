@@ -52,7 +52,11 @@ absence rules.
   create it fails that repository's entry. It never reads as absence, an empty
   result or a skipped entry.
 - A branch update writes plain files only. A folder, symbolic link or
-  submodule at a changed path fails the call.
+  submodule at a changed path fails the call. GitHub has one exception: its
+  content read answers a symbolic link to a normal file with that file. The
+  update then writes to the link's path, and GitHub decides whether to refuse
+  the write or replace the link. The user accepted this exception on 2026-10-05 over
+  reading the branch's whole file tree first.
 
 ## Adding Git Capabilities
 

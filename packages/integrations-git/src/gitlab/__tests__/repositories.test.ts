@@ -253,6 +253,36 @@ describe("gitlab repositories", () => {
       )
     })
 
+    it("sends a read with the caller's signal only", async () => {
+      // Gitbeaker gives every read its own five-minute timer, which would
+      // otherwise read as the caller's stop.
+      const groupReadSignals: Array<AbortSignal | undefined> = []
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          groupReadSignals.push(request.signal)
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "404 Group Not Found" }),
+          }
+        },
+      }
+      const request = {
+        organization: "my-group",
+        repositoryNames: ["repo-1"],
+        visibility: "private" as const,
+        autoInit: true,
+      }
+      const controller = new AbortController()
+
+      const client = createGitLabClient(http)
+      await client.createRepositories(baseDraft, request, controller.signal)
+      await client.createRepositories(baseDraft, request)
+
+      assert.deepStrictEqual(groupReadSignals, [controller.signal, undefined])
+    })
+
     it("URL-encodes group paths with slashes", async () => {
       let capturedUrl = ""
       const http: HttpPort = {

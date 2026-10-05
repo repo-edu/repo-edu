@@ -1,5 +1,7 @@
 import type { HttpPort, HttpRequest } from "@repo-edu/host-runtime-contract"
 
+const nullBodyStatuses = new Set([204, 205, 304])
+
 /**
  * Creates a Fetch API-compatible function that delegates to HttpPort.
  * Used by Octokit's `request.fetch` option.
@@ -46,10 +48,14 @@ export function createHttpPortFetch(
 
     const httpResponse = await http.fetch(request)
 
-    return new Response(httpResponse.body, {
-      status: httpResponse.status,
-      statusText: httpResponse.statusText,
-      headers: httpResponse.headers,
-    })
+    // A `Response` refuses any body, even an empty one, for these statuses.
+    return new Response(
+      nullBodyStatuses.has(httpResponse.status) ? null : httpResponse.body,
+      {
+        status: httpResponse.status,
+        statusText: httpResponse.statusText,
+        headers: httpResponse.headers,
+      },
+    )
   }
 }

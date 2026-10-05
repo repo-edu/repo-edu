@@ -237,6 +237,38 @@ describe("gitea branch-review", () => {
       }
     })
 
+    it("reports a file answered without its blob as a known failure", async () => {
+      const http = createMockHttpPort([
+        branchCreated,
+        {
+          method: "GET",
+          urlPattern: `${route}/contents/README.md`,
+          status: 200,
+          body: { name: "README.md", path: "README.md", type: "file" },
+        },
+      ])
+
+      await assert.rejects(
+        createGiteaClient(http).createBranch(baseDraft, {
+          ...branchRequest,
+          files: [
+            {
+              path: "README.md",
+              previousPath: null,
+              status: "modified",
+              contentBase64: "dXBkYXRlZA==",
+            },
+          ],
+        }),
+        {
+          message:
+            "Gitea answered file 'README.md' on branch 'template-update' without its blob.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
+
     it("refuses a changed file without content", async () => {
       const http = createMockHttpPort([branchCreated])
 
