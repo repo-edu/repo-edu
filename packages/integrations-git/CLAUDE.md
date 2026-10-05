@@ -47,9 +47,9 @@ absence rules.
   timeout, authentication, rate-limit and other provider failures must
   propagate to the application layer.
 - A reply that lacks a field its answer depends on, such as a clone URL, an
-  account state, a default branch or a compare's file list, fails the call. In
-  a repository batch create it fails that repository's entry. It never reads
-  as absence, an empty result or a skipped entry.
+  account state or a default branch, fails the call. In a repository batch
+  create it fails that repository's entry. It never reads as absence, an empty
+  result or a skipped entry.
 - A branch update writes plain files only. A folder, symbolic link or
   submodule at a changed path fails the call.
 

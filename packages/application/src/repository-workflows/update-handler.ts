@@ -9,10 +9,13 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import type { PersistedCourse } from "@repo-edu/domain/types"
 import type {
+  PersistedCourse,
+  RepositoryTemplate,
+} from "@repo-edu/domain/types"
+import type {
+  GitConnectionDraft,
   GitProviderClient,
-  PatchFile,
 } from "@repo-edu/integrations-git-contract"
 import {
   commandRefusal,
@@ -28,6 +31,7 @@ import {
   resolveCourseSnapshot,
   resolveGitDraft,
 } from "../workflow-helpers.js"
+import { withTemplateCheckout } from "./clone-execution.js"
 import { requireGitOrganization } from "./common.js"
 import {
   computeLocalTemplateDiff,
@@ -35,6 +39,7 @@ import {
 } from "./git-helpers.js"
 import {
   collectRepositoryGroups,
+  describeTemplate,
   resolveAssignment,
   resolveAssignmentRepositoryTemplate,
   uniqueRepositoryNames,
@@ -74,15 +79,52 @@ function formatTemplateUpdateBody(
     "",
     "Changed files:",
   ]
-  const lines =
-    files.length === 0
-      ? ["- (No changed files reported by provider)"]
-      : files.map((file) =>
-          file.status === "renamed" && file.previousPath
-            ? `- ${file.status}: ${file.previousPath} -> ${file.path}`
-            : `- ${file.status}: ${file.path}`,
-        )
+  const lines = files.map((file) =>
+    file.status === "renamed" && file.previousPath
+      ? `- ${file.status}: ${file.previousPath} -> ${file.path}`
+      : `- ${file.status}: ${file.path}`,
+  )
   return header.concat(lines).join("\n")
+}
+
+/** A local template's head is its checked-out commit. A remote template's
+ * head is its default branch on the Git server, read without a download so an
+ * unchanged template needs none. */
+async function readTemplateHead(
+  ports: RepositoryWorkflowPorts,
+  gitDraft: GitConnectionDraft,
+  template: RepositoryTemplate,
+  signal: AbortSignal | undefined,
+): Promise<string> {
+  if (template.kind === "local") {
+    const sha = await resolveLocalTemplateSha(
+      ports.gitCommand,
+      template.path,
+      signal,
+    )
+    if (!sha.ok) {
+      throw createValidationAppError(
+        `Local template at '${template.path}' could not be read.`,
+        [{ path: "template.path", message: sha.detail }],
+      )
+    }
+    return sha.stdout
+  }
+  const head = await ports.git.getRepositoryDefaultBranchHead(
+    gitDraft,
+    { owner: template.owner, repositoryName: template.name },
+    signal,
+  )
+  if (head === null) {
+    throw commandRefusal({
+      type: "provider",
+      message: `Template repository '${template.owner}/${template.name}' was not found or has no commit on its default branch.`,
+      provider: gitDraft.provider,
+      operation: "getRepositoryDefaultBranchHead",
+      retryable: true,
+    } satisfies AppError)
+  }
+  return head.sha
 }
 
 export function createRepoUpdateHandler(
@@ -196,171 +238,17 @@ export function createRepoUpdateHandler(
           totalSteps,
           label: "Resolving template head and changed files.",
         })
+        const currentSha = await readTemplateHead(
+          ports,
+          gitDraft,
+          template,
+          options?.signal,
+        )
 
-        let currentSha: string
-        let diffFiles: PatchFile[]
-
-        if (template.kind === "local") {
-          // Local template: compute SHA and diff locally.
-          const sha = await resolveLocalTemplateSha(
-            ports.gitCommand,
-            template.path,
-            options?.signal,
-          )
-          if (!sha.ok) {
-            throw createValidationAppError(
-              `Local template at '${template.path}' has no readable commit.`,
-              [{ path: "template.path", message: sha.detail }],
-            )
-          }
-          currentSha = sha.stdout
-
-          const fromSha = assignment.templateCommitSha ?? null
-          if (fromSha === null || fromSha.trim() === "") {
-            options?.onOutput?.({
-              channel: "warn",
-              message:
-                "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
-            })
-            options?.onProgress?.({
-              step: totalSteps,
-              totalSteps,
-              label: "Repository update workflow complete.",
-            })
-            return {
-              repositoriesPlanned: plannedRepositoryNames.length,
-              prsCreated: 0,
-              prsSkipped: plannedRepositoryNames.length,
-              prsFailed: 0,
-              templateCommitSha: currentSha,
-              recordedRepositories,
-              completedAt: new Date().toISOString(),
-            }
-          }
-
-          if (fromSha === currentSha) {
-            options?.onOutput?.({
-              channel: "info",
-              message: "Template unchanged since the stored baseline SHA.",
-            })
-            options?.onProgress?.({
-              step: totalSteps,
-              totalSteps,
-              label: "Repository update workflow complete.",
-            })
-            return {
-              repositoriesPlanned: plannedRepositoryNames.length,
-              prsCreated: 0,
-              prsSkipped: plannedRepositoryNames.length,
-              prsFailed: 0,
-              templateCommitSha: currentSha,
-              recordedRepositories,
-              completedAt: new Date().toISOString(),
-            }
-          }
-
-          diffFiles = await computeLocalTemplateDiff(
-            ports.gitCommand,
-            template.path,
-            fromSha,
-            currentSha,
-            options?.signal,
-          )
-        } else {
-          // Remote template: use Git provider API.
-          const templateHead = await ports.git.getRepositoryDefaultBranchHead(
-            gitDraft,
-            {
-              owner: template.owner,
-              repositoryName: template.name,
-            },
-            options?.signal,
-          )
-          if (templateHead === null) {
-            throw commandRefusal({
-              type: "provider",
-              message: `Template repository '${template.owner}/${template.name}' was not found.`,
-              provider: providerForError,
-              operation: "getRepositoryDefaultBranchHead",
-              retryable: true,
-            } satisfies AppError)
-          }
-          currentSha = templateHead.sha
-
-          const fromSha = assignment.templateCommitSha ?? null
-          if (fromSha === null || fromSha.trim() === "") {
-            options?.onOutput?.({
-              channel: "warn",
-              message:
-                "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
-            })
-            options?.onProgress?.({
-              step: totalSteps,
-              totalSteps,
-              label: "Repository update workflow complete.",
-            })
-            return {
-              repositoriesPlanned: plannedRepositoryNames.length,
-              prsCreated: 0,
-              prsSkipped: plannedRepositoryNames.length,
-              prsFailed: 0,
-              templateCommitSha: currentSha,
-              recordedRepositories,
-              completedAt: new Date().toISOString(),
-            }
-          }
-
-          if (fromSha === currentSha) {
-            options?.onOutput?.({
-              channel: "info",
-              message: "Template unchanged since the stored baseline SHA.",
-            })
-            options?.onProgress?.({
-              step: totalSteps,
-              totalSteps,
-              label: "Repository update workflow complete.",
-            })
-            return {
-              repositoriesPlanned: plannedRepositoryNames.length,
-              prsCreated: 0,
-              prsSkipped: plannedRepositoryNames.length,
-              prsFailed: 0,
-              templateCommitSha: currentSha,
-              recordedRepositories,
-              completedAt: new Date().toISOString(),
-            }
-          }
-
-          const templateDiff = await ports.git.getTemplateDiff(
-            gitDraft,
-            {
-              owner: template.owner,
-              repositoryName: template.name,
-              fromSha,
-              toSha: currentSha,
-            },
-            options?.signal,
-          )
-          if (templateDiff === null) {
-            throw commandRefusal({
-              type: "provider",
-              message:
-                "Template diff could not be resolved from the Git provider.",
-              provider: providerForError,
-              operation: "getTemplateDiff",
-              retryable: true,
-            } satisfies AppError)
-          }
-          diffFiles = templateDiff.files
-        }
-
-        const fromSha = assignment.templateCommitSha ?? ""
-        if (diffFiles.length === 0) {
-          options?.onOutput?.({
-            channel: "info",
-            message:
-              "Template compare reported no file changes; skipping pull request creation.",
-          })
+        const finishWithoutPullRequests = (
+          output: DiagnosticOutput,
+        ): RepositoryUpdateResult => {
+          options?.onOutput?.(output)
           options?.onProgress?.({
             step: totalSteps,
             totalSteps,
@@ -375,6 +263,51 @@ export function createRepoUpdateHandler(
             recordedRepositories,
             completedAt: new Date().toISOString(),
           }
+        }
+
+        const fromSha = assignment.templateCommitSha ?? ""
+        if (fromSha.trim() === "") {
+          return finishWithoutPullRequests({
+            channel: "warn",
+            message:
+              "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
+          })
+        }
+        if (fromSha === currentSha) {
+          return finishWithoutPullRequests({
+            channel: "info",
+            message: "Template unchanged since the stored baseline SHA.",
+          })
+        }
+
+        const diffFiles = await withTemplateCheckout({
+          ports,
+          gitDraft,
+          template,
+          signal: options?.signal,
+          onOutput: options?.onOutput,
+          read: async (checkout) => {
+            if (!checkout.ok) {
+              throw commandRefusal({
+                type: "effect",
+                message: `Could not clone template '${describeTemplate(template)}': ${checkout.detail}`,
+              })
+            }
+            return computeLocalTemplateDiff(
+              ports.gitCommand,
+              checkout.path,
+              fromSha,
+              currentSha,
+              options?.signal,
+            )
+          },
+        })
+        if (diffFiles.length === 0) {
+          return finishWithoutPullRequests({
+            channel: "info",
+            message:
+              "Template diff lists no changed files; skipping pull request creation.",
+          })
         }
 
         const branchName = `template-update-${currentSha.slice(0, 7)}`

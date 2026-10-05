@@ -11,7 +11,6 @@ const expectedDispatchMethods: Record<keyof GitProviderClient, true> = {
   createTeam: true,
   assignRepositoriesToTeam: true,
   getRepositoryDefaultBranchHead: true,
-  getTemplateDiff: true,
   createBranch: true,
   createPullRequest: true,
   resolveRepositoryCloneUrls: true,

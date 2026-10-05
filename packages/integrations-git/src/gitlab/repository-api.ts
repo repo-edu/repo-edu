@@ -1,9 +1,6 @@
 import type { Gitlab } from "@gitbeaker/rest"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
-import type {
-  GitConnectionDraft,
-  PatchFile,
-} from "@repo-edu/integrations-git-contract"
+import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
 import { gitLabRestGet } from "./transport.js"
 
@@ -72,15 +69,6 @@ export async function resolveProjectId(
   return id
 }
 
-export function toBase64FromGitLabFile(data: unknown): string | null {
-  if (typeof data !== "object" || data === null) return null
-  const record = data as { content?: unknown; encoding?: unknown }
-  if (typeof record.content !== "string") return null
-  return record.encoding === "base64"
-    ? record.content.replace(/\n/g, "")
-    : Buffer.from(record.content, "utf8").toString("base64")
-}
-
 export async function fileExistsInBranch(
   http: HttpPort,
   draft: GitConnectionDraft,
@@ -101,13 +89,4 @@ export async function fileExistsInBranch(
     if (!isGitReply(error, 404)) throw error
     return false
   }
-}
-
-export function normalizeTemplateDiffStatus(
-  diff: Record<string, unknown>,
-): PatchFile["status"] {
-  if (diff.deleted_file === true) return "removed"
-  if (diff.renamed_file === true) return "renamed"
-  if (diff.new_file === true) return "added"
-  return "modified"
 }

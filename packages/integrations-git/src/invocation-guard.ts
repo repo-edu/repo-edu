@@ -178,8 +178,6 @@ export function guardGitProviderClient(
       invoke(signal, () =>
         client.getRepositoryDefaultBranchHead(draft, request, signal),
       ),
-    getTemplateDiff: (draft, request, signal) =>
-      invoke(signal, () => client.getTemplateDiff(draft, request, signal)),
     createBranch: (draft, request, signal) =>
       invokeEffect(signal, () => client.createBranch(draft, request, signal)),
     createPullRequest: (draft, request, signal) =>

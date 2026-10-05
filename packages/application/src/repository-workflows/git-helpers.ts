@@ -1,13 +1,13 @@
 import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type {
   GitCommandPort,
-  GitCommandRequest,
+  ProcessOutputEncoding,
 } from "@repo-edu/host-runtime-contract"
 import type {
   PatchFile,
   PatchFileStatus,
 } from "@repo-edu/integrations-git-contract"
-import { commandRefusal } from "../command-outcomes.js"
+import { commandRefusal, commandValidationError } from "../command-outcomes.js"
 
 /** Only a completed exit 0 yields output; every other answer carries Git's
  * own reason, so no caller can read a failure as a value. */
@@ -15,17 +15,32 @@ export type GitRunResult =
   | { readonly ok: true; readonly stdout: string }
   | { readonly ok: false; readonly detail: string }
 
+type GitRun = {
+  readonly args: readonly string[]
+  /** The folder Git works in. Git receives it as `-C`, so a missing folder is
+   * Git's own reason instead of a failed start. */
+  readonly folder?: string
+  readonly stdoutEncoding?: ProcessOutputEncoding
+  readonly signal?: AbortSignal
+}
+
 /** Every local Git command runs here. A read changes nothing outside the app,
  * so its lost result is a failed run. A write that loses its result stays
  * unknown, and confirmation expiry stays unknown for both. */
 async function runGit(
   gitCommand: GitCommandPort,
   effect: "read" | "write",
-  request: GitCommandRequest,
+  run: GitRun,
 ): Promise<GitRunResult> {
+  const args =
+    run.folder === undefined ? [...run.args] : ["-C", run.folder, ...run.args]
   let result: Awaited<ReturnType<GitCommandPort["run"]>>
   try {
-    result = await gitCommand.run(request)
+    result = await gitCommand.run({
+      args,
+      stdoutEncoding: run.stdoutEncoding,
+      signal: run.signal,
+    })
   } catch (error) {
     if (
       effect === "read" &&
@@ -35,7 +50,7 @@ async function runGit(
     ) {
       return {
         ok: false,
-        detail: `git ${request.args[0]} lost its result: ${error.message}`,
+        detail: `git ${run.args[0]} lost its result: ${error.message}`,
       }
     }
     throw error
@@ -45,7 +60,7 @@ async function runGit(
     ok: false,
     detail:
       result.stderr.trim() ||
-      `git ${request.args[0]} exited with ${result.exitCode ?? result.signal}.`,
+      `git ${run.args[0]} exited with ${result.exitCode ?? result.signal}.`,
   }
 }
 
@@ -64,17 +79,32 @@ function isMissingRemoteHead(detail: string): boolean {
   )
 }
 
-/** A failed probe means the path is not a readable work tree. */
-export async function isGitRepositoryPath(
+/** A folder holds an existing repository only at the top of its own work
+ * tree. A folder inside another repository's work tree holds none. */
+export async function checkRepositoryFolder(
   gitCommand: GitCommandPort,
   path: string,
   signal?: AbortSignal,
-): Promise<boolean> {
+): Promise<
+  { readonly ok: true } | { readonly ok: false; readonly detail: string }
+> {
   const result = await runGit(gitCommand, "read", {
-    args: ["-C", path, "rev-parse", "--is-inside-work-tree"],
+    args: ["rev-parse", "--is-inside-work-tree", "--show-prefix"],
+    folder: path,
     signal,
   })
-  return result.ok
+  if (!result.ok) return result
+  const [insideWorkTree, prefix] = result.stdout.split(/\r?\n/)
+  if (insideWorkTree !== "true") {
+    return { ok: false, detail: "Git finds no work tree there." }
+  }
+  if (prefix !== "") {
+    return {
+      ok: false,
+      detail: `Git reads it as folder '${prefix}' of an enclosing repository.`,
+    }
+  }
+  return { ok: true }
 }
 
 /** A failed probe means the path is not inside a readable work tree. */
@@ -84,7 +114,8 @@ export async function resolveGitRepositoryRoot(
   signal?: AbortSignal,
 ): Promise<string | null> {
   const result = await runGit(gitCommand, "read", {
-    args: ["-C", path, "rev-parse", "--show-toplevel"],
+    args: ["rev-parse", "--show-toplevel"],
+    folder: path,
     signal,
   })
   if (!result.ok) return null
@@ -107,14 +138,14 @@ export async function initPullClone(
 
   const pull = await runGit(gitCommand, "write", {
     args: ["pull", authUrl],
-    cwd: destPath,
+    folder: destPath,
     signal,
   })
   if (!pull.ok && !isMissingRemoteHead(pull.detail)) return pull
 
   return runGit(gitCommand, "write", {
     args: ["remote", "add", "origin", stripCredentials(authUrl)],
-    cwd: destPath,
+    folder: destPath,
     signal,
   })
 }
@@ -133,7 +164,7 @@ export async function pushTemplateToRepo(
       `${template.sha}:refs/heads/${template.branchName}`,
       "--force",
     ],
-    cwd: templateLocalPath,
+    folder: templateLocalPath,
     signal,
   })
 }
@@ -145,7 +176,7 @@ export async function resolveLocalTemplateSha(
 ): Promise<GitRunResult> {
   const result = await runGit(gitCommand, "read", {
     args: ["rev-parse", "HEAD"],
-    cwd: templatePath,
+    folder: templatePath,
     signal,
   })
   if (!result.ok) return result
@@ -174,7 +205,7 @@ export async function resolveLocalTemplateHead(
   if (!sha.ok) return sha
   const branch = await runGit(gitCommand, "read", {
     args: ["symbolic-ref", "--short", "HEAD"],
-    cwd: templatePath,
+    folder: templatePath,
     signal,
   })
   if (!branch.ok) return branch
@@ -197,43 +228,62 @@ export async function cloneRemoteTemplateToTmpdir(
   })
 }
 
-type NameStatusEntry = Omit<PatchFile, "contentBase64">
+type TemplateChange = {
+  readonly file: Omit<PatchFile, "contentBase64">
+  readonly modes: readonly [before: string, after: string]
+  readonly blob: string
+}
 
-// `-z` leaves paths unquoted and ends every field with NUL. A rename or copy
-// status carries a similarity score and is followed by both paths.
-function parseGitDiffNameStatus(output: string): NameStatusEntry[] {
+// `git diff-tree -r -z` ends every field with NUL and leaves paths unquoted. A
+// header reads `:<old mode> <new mode> <old blob> <new blob> <status>`. A
+// rename status carries a score and is followed by both paths. Without `-C`
+// and outside a merge, Git lists no other status.
+const changeHeader = /^:(\d{6}) (\d{6}) [0-9a-f]+ ([0-9a-f]+) ([ADMRT])\d*$/
+const changeStatus: Record<string, PatchFileStatus> = {
+  A: "added",
+  D: "removed",
+  M: "modified",
+  R: "renamed",
+  T: "modified",
+}
+
+function parseTemplateChanges(output: string): TemplateChange[] | null {
   const fields = output.split("\0")
-  const entries: NameStatusEntry[] = []
+  const changes: TemplateChange[] = []
   let index = 0
-
   while (index < fields.length && fields[index] !== "") {
-    const statusChar = fields[index][0]
-    if (statusChar === "R" || statusChar === "C") {
-      const previousPath = fields[index + 1]
-      const path = fields[index + 2]
-      entries.push(
-        statusChar === "R"
-          ? { status: "renamed", path, previousPath }
-          : { status: "added", path, previousPath: null },
-      )
-      index += 3
-      continue
-    }
-
-    let status: PatchFileStatus
-    if (statusChar === "A") status = "added"
-    else if (statusChar === "D") status = "removed"
-    else status = "modified"
-    entries.push({ status, path: fields[index + 1], previousPath: null })
-    index += 2
+    const header = changeHeader.exec(fields[index])
+    if (header === null) return null
+    const [, before, after, blob, letter] = header
+    const status = changeStatus[letter]
+    const renamed = status === "renamed"
+    const path = fields[index + (renamed ? 2 : 1)]
+    if (path === undefined || path === "") return null
+    changes.push({
+      file: { status, path, previousPath: renamed ? fields[index + 1] : null },
+      modes: [before, after],
+      blob,
+    })
+    index += renamed ? 3 : 2
   }
+  return changes
+}
 
-  return entries
+/** The kind of a side Git does not record as a plain file. An absent side
+ * reads `000000`, and every plain file mode starts with `100`. */
+function nonPlainKind(mode: string): string | null {
+  if (mode === "000000" || mode.startsWith("100")) return null
+  if (mode === "120000") return "symbolic link"
+  if (mode === "160000") return "submodule"
+  return `entry of mode ${mode}`
 }
 
 /** The update reads the template before it writes any repository, so a Git
- * failure here refuses the command instead of dropping changed files. File
- * content is read as base64 so binary files reach the branch intact. */
+ * failure here refuses the command instead of dropping changed files. Every
+ * file mode is read before any content, and a changed symbolic link or
+ * submodule refuses the whole update, because a template update carries plain
+ * files only. File content is read as base64 so binary files reach the branch
+ * intact. */
 export async function computeLocalTemplateDiff(
   gitCommand: GitCommandPort,
   templatePath: string,
@@ -241,37 +291,63 @@ export async function computeLocalTemplateDiff(
   toSha: string,
   signal?: AbortSignal,
 ): Promise<PatchFile[]> {
-  const nameStatus = await runGit(gitCommand, "read", {
-    args: ["diff", "--name-status", "-z", `${fromSha}..${toSha}`],
-    cwd: templatePath,
+  const range = `${fromSha.slice(0, 7)} to ${toSha.slice(0, 7)}`
+  const listed = await runGit(gitCommand, "read", {
+    args: ["diff-tree", "-r", "-z", "-M", fromSha, toSha],
+    folder: templatePath,
     signal,
   })
-  if (!nameStatus.ok) {
+  if (!listed.ok) {
     throw commandRefusal({
       type: "effect",
-      message: `Template changes from ${fromSha.slice(0, 7)} to ${toSha.slice(0, 7)} could not be listed in '${templatePath}': ${nameStatus.detail}`,
+      message: `Template changes from ${range} could not be listed in '${templatePath}': ${listed.detail}`,
+    })
+  }
+  const changes = parseTemplateChanges(listed.stdout)
+  if (changes === null) {
+    throw commandRefusal({
+      type: "effect",
+      message: `Git listed the template changes from ${range} in a form the update cannot read.`,
     })
   }
 
+  const nonPlain = changes.flatMap((change) => {
+    const kind = nonPlainKind(change.modes[1]) ?? nonPlainKind(change.modes[0])
+    return kind === null
+      ? []
+      : [
+          {
+            path: "template",
+            message: `Changed template entry '${change.file.path}' is a ${kind}.`,
+          },
+        ]
+  })
+  if (nonPlain.length > 0) {
+    throw commandValidationError(
+      `Template changes from ${range} include entries that are not plain files, and a template update carries plain files only.`,
+      nonPlain,
+    )
+  }
+
   const files: PatchFile[] = []
-  for (const entry of parseGitDiffNameStatus(nameStatus.stdout)) {
-    if (entry.status === "removed") {
-      files.push({ ...entry, contentBase64: null })
+  for (const { file, blob } of changes) {
+    if (file.status === "removed") {
+      files.push({ ...file, contentBase64: null })
       continue
     }
-    const show = await runGit(gitCommand, "read", {
-      args: ["show", `${toSha}:${entry.path}`],
-      cwd: templatePath,
+    const content = await runGit(gitCommand, "read", {
+      args: ["cat-file", "blob", blob],
+      folder: templatePath,
       stdoutEncoding: "base64",
       signal,
     })
-    if (!show.ok) {
+    if (!content.ok) {
       throw commandRefusal({
         type: "effect",
-        message: `Template file '${entry.path}' could not be read in '${templatePath}': ${show.detail}`,
+        message: `Template file '${file.path}' could not be read in '${templatePath}': ${content.detail}`,
       })
     }
-    files.push({ ...entry, contentBase64: show.stdout })
+    files.push({ ...file, contentBase64: content.stdout })
   }
 
   return files

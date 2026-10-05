@@ -72,13 +72,6 @@ export function createGitProviderDispatch(http: HttpPort): GitProviderClient {
         signal,
       )
     },
-    getTemplateDiff(draft, request, signal) {
-      return resolveClient(draft.provider).getTemplateDiff(
-        draft,
-        request,
-        signal,
-      )
-    },
     createBranch(draft, request, signal) {
       return resolveClient(draft.provider).createBranch(draft, request, signal)
     },

@@ -10,11 +10,14 @@ import type {
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import { CommandOutcomeError } from "@repo-edu/application-contract"
-import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import type { RepositoryTemplate } from "@repo-edu/domain/types"
+import type {
+  CreatedRepository,
+  GitProviderClient,
+} from "@repo-edu/integrations-git-contract"
 import {
   commandRefusal,
   commandValidationError as createValidationAppError,
-  isCompletedCommandFailure,
   isCompletedGitEffectFailure,
   rethrowGitEffectFailure,
   commandThrowIfAborted as throwIfAborted,
@@ -26,9 +29,10 @@ import {
   resolveCourseSnapshot,
   resolveGitDraft,
 } from "../workflow-helpers.js"
+import { withTemplateCheckout } from "./clone-execution.js"
 import { requireGitOrganization } from "./common.js"
 import {
-  cloneRemoteTemplateToTmpdir,
+  type LocalTemplateHead,
   mapConcurrent,
   pushTemplateToRepo,
   resolveLocalTemplateHead,
@@ -42,6 +46,56 @@ import {
   templateKey,
 } from "./planning.js"
 import type { RepositoryWorkflowPorts } from "./ports.js"
+
+/** The commit pushed and the commit recorded are the one head read before any
+ * push. A template without a readable commit on a branch is pushed nowhere. */
+async function pushTemplate(request: {
+  ports: RepositoryWorkflowPorts
+  templatePath: string
+  template: RepositoryTemplate
+  repositories: readonly CreatedRepository[]
+  options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>
+}): Promise<LocalTemplateHead | null> {
+  const { ports, templatePath, template, repositories, options } = request
+  const templateHead = await resolveLocalTemplateHead(
+    ports.gitCommand,
+    templatePath,
+    options?.signal,
+  )
+  if (!templateHead.ok) {
+    options?.onOutput?.({
+      channel: "warn",
+      message: `Template '${describeTemplate(template)}' has no readable commit on a branch to push: ${templateHead.detail}`,
+    })
+    return null
+  }
+
+  const pushResults = await mapConcurrent(
+    [...repositories],
+    async (repository) => {
+      const pushed = await pushTemplateToRepo(
+        ports.gitCommand,
+        templatePath,
+        repository.cloneUrl,
+        templateHead.head,
+        options?.signal,
+      )
+      if (!pushed.ok) {
+        options?.onOutput?.({
+          channel: "warn",
+          message: `Failed to push template to '${repository.repositoryName}': ${pushed.detail}`,
+        })
+      }
+      return pushed.ok
+    },
+    8,
+  )
+  options?.onOutput?.({
+    channel: "info",
+    message: `Pushed template '${describeTemplate(template)}' to ${pushResults.filter(Boolean).length}/${repositories.length} repositories.`,
+  })
+  return templateHead.head
+}
 
 export function createRepoCreateHandler(
   ports: RepositoryWorkflowPorts,
@@ -225,117 +279,43 @@ export function createRepoCreateHandler(
         })
 
         const templateCommitShas: Record<string, string> = {}
-        const templateBatches = batches.filter(
-          (batch) => batch.template !== null,
-        )
-
         const createdByRepositoryName = new Map(
           created.map((repository) => [repository.repositoryName, repository]),
         )
-        const tmpDirsToCleanup: string[] = []
 
-        for (const batch of templateBatches) {
+        for (const batch of batches) {
           const template = batch.template
           if (template === null) continue
           const reposToPopulate = batch.repositoryNames.flatMap((name) => {
             const repository = createdByRepositoryName.get(name)
             return repository === undefined ? [] : [repository]
           })
+          if (reposToPopulate.length === 0) continue
 
-          if (reposToPopulate.length === 0) {
-            continue
-          }
-
-          let templateLocalPath: string
-
-          if (template.kind === "local") {
-            templateLocalPath = template.path
-          } else {
-            // Clone remote template to tmpdir.
-            const tmpDir =
-              await ports.fileSystem.createTempDirectory("repo-edu-template-")
-            tmpDirsToCleanup.push(tmpDir)
-
-            const templateAuthUrl = (
-              await ports.git.resolveRepositoryCloneUrls(
-                gitDraft,
-                {
-                  organization: template.owner,
-                  repositoryNames: [template.name],
-                },
-                options?.signal,
-              )
-            ).resolved[0]?.cloneUrl
-
-            if (!templateAuthUrl) {
-              options?.onOutput?.({
-                channel: "warn",
-                message: `Could not resolve clone URL for template '${describeTemplate(template)}'.`,
-              })
-              continue
-            }
-
-            const cloned = await cloneRemoteTemplateToTmpdir(
-              ports.gitCommand,
-              templateAuthUrl,
-              tmpDir,
-              options?.signal,
-            )
-            if (!cloned.ok) {
-              options?.onOutput?.({
-                channel: "warn",
-                message: `Failed to clone template '${describeTemplate(template)}': ${cloned.detail}`,
-              })
-              continue
-            }
-
-            templateLocalPath = tmpDir
-          }
-
-          const templateHead = await resolveLocalTemplateHead(
-            ports.gitCommand,
-            templateLocalPath,
-            options?.signal,
-          )
-          if (!templateHead.ok) {
-            options?.onOutput?.({
-              channel: "warn",
-              message: `Template '${describeTemplate(template)}' has no commit on a branch to push: ${templateHead.detail}`,
-            })
-            continue
-          }
-
-          const pushItems = reposToPopulate.map((repository) => ({
-            repoName: repository.repositoryName,
-            authUrl: repository.cloneUrl,
-          }))
-
-          const pushResults = await mapConcurrent(
-            pushItems,
-            async (item) => {
-              const pushed = await pushTemplateToRepo(
-                ports.gitCommand,
-                templateLocalPath,
-                item.authUrl,
-                templateHead.head,
-                options?.signal,
-              )
-              if (!pushed.ok) {
-                options?.onOutput?.({
-                  channel: "warn",
-                  message: `Failed to push template to '${item.repoName}': ${pushed.detail}`,
+          const pushedHead = await withTemplateCheckout({
+            ports,
+            gitDraft,
+            template,
+            signal: options?.signal,
+            onOutput: options?.onOutput,
+            read: async (checkout) => {
+              if (checkout.ok) {
+                return pushTemplate({
+                  ports,
+                  templatePath: checkout.path,
+                  template,
+                  repositories: reposToPopulate,
+                  options,
                 })
               }
-              return pushed.ok
+              options?.onOutput?.({
+                channel: "warn",
+                message: `Could not clone template '${describeTemplate(template)}': ${checkout.detail}`,
+              })
+              return null
             },
-            8,
-          )
-
-          const pushSuccessCount = pushResults.filter(Boolean).length
-          options?.onOutput?.({
-            channel: "info",
-            message: `Pushed template '${describeTemplate(template)}' to ${pushSuccessCount}/${pushItems.length} repositories.`,
           })
+          if (pushedHead === null) continue
 
           for (const entry of plannedWithTemplates.value) {
             if (
@@ -343,24 +323,8 @@ export function createRepoCreateHandler(
               templateKey(entry.template) === templateKey(template) &&
               successfulRepositoryNames.has(entry.group.repoName)
             ) {
-              templateCommitShas[entry.group.assignmentId] =
-                templateHead.head.sha
+              templateCommitShas[entry.group.assignmentId] = pushedHead.sha
             }
-          }
-        }
-
-        // Cleanup temporary directories.
-        for (const tmpDir of tmpDirsToCleanup) {
-          try {
-            await ports.fileSystem.applyBatch({
-              operations: [{ kind: "delete-path", path: tmpDir }],
-            })
-          } catch (error) {
-            if (!isCompletedCommandFailure(error)) throw error
-            options?.onOutput?.({
-              channel: "warn",
-              message: `Could not remove the temporary template folder '${tmpDir}': ${error.message}`,
-            })
           }
         }
 

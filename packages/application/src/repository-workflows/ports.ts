@@ -11,7 +11,6 @@ export type RepositoryWorkflowPorts = {
     | "createTeam"
     | "assignRepositoriesToTeam"
     | "getRepositoryDefaultBranchHead"
-    | "getTemplateDiff"
     | "createBranch"
     | "createPullRequest"
     | "resolveRepositoryCloneUrls"

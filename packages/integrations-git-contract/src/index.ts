@@ -103,17 +103,6 @@ export type PatchFile = {
   contentBase64: string | null
 }
 
-export type GetTemplateDiffRequest = {
-  owner: string
-  repositoryName: string
-  fromSha: string
-  toSha: string
-}
-
-export type GetTemplateDiffResult = {
-  files: PatchFile[]
-}
-
 export type CreateBranchRequest = {
   owner: string
   repositoryName: string
@@ -207,11 +196,6 @@ export type GitProviderClient = {
     request: RepositoryHeadRequest,
     signal?: AbortSignal,
   ): Promise<RepositoryHead | null>
-  getTemplateDiff(
-    draft: GitConnectionDraft,
-    request: GetTemplateDiffRequest,
-    signal?: AbortSignal,
-  ): Promise<GetTemplateDiffResult | null>
   createBranch(
     draft: GitConnectionDraft,
     request: CreateBranchRequest,

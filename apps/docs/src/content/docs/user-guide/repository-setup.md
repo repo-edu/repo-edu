@@ -149,6 +149,9 @@ redu repo update --assignment "Project 1" --course <course-id>
 This creates a pull request in each repository with the latest template content. The PR title and
 body describe what changed. Repositories that already have a pending update PR are skipped.
 
+An update carries plain files only. When a changed template entry is a symbolic link or a submodule,
+Update stops before it writes to any repository and names the entry.
+
 You can override the template source:
 
 ```bash

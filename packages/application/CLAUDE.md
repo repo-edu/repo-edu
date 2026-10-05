@@ -53,11 +53,18 @@ It composes:
 - Repository workflows live in `src/repository-workflows/` (also re-exported
   from `src/repository-workflows.ts`):
   `repo.create|clone|update|listNamespace|bulkClone`. `clone-execution.ts` is
-  the single owner for target admission and temporary clone execution across
-  planned and bulk cloning. `paths.ts` owns portable local names, clone paths
-  and collision detection. Every local Git command runs through `runGit` in
-  `git-helpers.ts`, which returns either output or Git's own reason, never a
-  default value. A read-only command's lost result is a failed result there.
+  the single owner for target admission, temporary clone execution across
+  planned and bulk cloning, and the template checkout Create and Update read
+  from. It removes every temporary folder on each ending except an unknown
+  one. `paths.ts` owns portable local names, clone paths and collision
+  detection. Every local Git command runs through `runGit` in `git-helpers.ts`,
+  which returns either output or Git's own reason, never a default value. It
+  hands Git its working folder as `-C`, so a missing folder is Git's own
+  reason. A read-only command's lost result is a failed result there.
+- Update reads the changes of a local or remote template with local Git, a
+  remote one from a temporary clone. It reads every changed entry's file mode
+  before any content and refuses a changed symbolic link or submodule before
+  any write.
 - Analysis workflows are in `src/analysis-workflows/`, assembled by `analysis-workflows.ts`
   (`createAnalysisWorkflowHandlers`): `analysis-handler.ts` (`analysis.run`),
   `snapshot-head-handler.ts` (`analysis.resolveSnapshotHead`), `blame-handler.ts`
@@ -91,8 +98,9 @@ It composes:
 - Admit selected relative file paths before passing them to filesystem ports. The Node filesystem
   adapter remains responsible for real-path containment.
 - Reject clone-path collisions before filesystem clone execution. Existing Git
-  repositories are admitted as existing results. Files and non-Git directories
-  at target paths are validation failures.
+  repositories are admitted as existing results only at the top of their own
+  work tree. Files, non-Git directories and folders inside another
+  repository's work tree at target paths are validation failures.
 - Filesystem tests must derive paths through `node:path` and `node:os`.
   Do not use Unix-only `/tmp` literals in cross-platform workflow fixtures.
 

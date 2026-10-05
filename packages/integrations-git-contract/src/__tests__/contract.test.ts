@@ -47,13 +47,12 @@ describe("integrations-git-contract", () => {
       "createTeam",
       "assignRepositoriesToTeam",
       "getRepositoryDefaultBranchHead",
-      "getTemplateDiff",
       "createBranch",
       "createPullRequest",
       "resolveRepositoryCloneUrls",
       "listRepositories",
     ]
-    assert.equal(methodNames.length, 11)
+    assert.equal(methodNames.length, 10)
 
     // Verify the interface is structurally implementable
     const client: GitProviderClient = {
@@ -72,7 +71,6 @@ describe("integrations-git-contract", () => {
       }),
       assignRepositoriesToTeam: async () => {},
       getRepositoryDefaultBranchHead: async () => null,
-      getTemplateDiff: async () => null,
       createBranch: async () => {},
       createPullRequest: async () => ({ url: "", created: true }),
       resolveRepositoryCloneUrls: async () => ({

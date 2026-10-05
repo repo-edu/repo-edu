@@ -5,7 +5,22 @@ import { describe, it } from "node:test"
 import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
+import type {
+  FileSystemBatchRequest,
+  FileSystemBatchResult,
+  FileSystemEntryStatus,
+  ProcessResult,
+} from "@repo-edu/host-runtime-contract"
+import type { RepositoryWorkflowPorts } from "../repository-workflows.js"
+import {
+  createRepoHarness,
+  gitAnswer,
+  gitEffect,
+  hasDisposition,
+  knownPortFailure,
+  lostGitResult,
+  readGitCall,
+} from "./helpers/repo-workflow-harness.js"
 
 const cloneTargetDirectory = join(tmpdir(), "repo-edu-clone-target")
 
@@ -39,7 +54,7 @@ describe("application repository clone workflow helpers", () => {
       },
       gitCommand: {
         run: async (request) => {
-          cloneCommands.push(request.args)
+          cloneCommands.push(readGitCall(request).args)
           return {
             exitCode: 0,
             signal: null,
@@ -125,8 +140,8 @@ describe("application repository clone workflow helpers", () => {
       },
       gitCommand: {
         run: async (request) => {
-          cloneCommands.push(request.args)
-          if (request.args[0] === "pull") {
+          cloneCommands.push(readGitCall(request).args)
+          if (readGitCall(request).args[0] === "pull") {
             return {
               exitCode: 1,
               signal: null,
@@ -190,7 +205,7 @@ describe("application repository clone workflow helpers", () => {
       },
       gitCommand: {
         run: async (request) => {
-          if (request.args[0] === "-C") {
+          if (readGitCall(request).args[0] === "rev-parse") {
             return {
               exitCode: 1,
               signal: null,
@@ -263,8 +278,8 @@ describe("application repository clone workflow helpers", () => {
       },
       gitCommand: {
         run: async (request) => {
-          cloneCommands.push(request.args)
-          if (request.args[0] === "pull") {
+          cloneCommands.push(readGitCall(request).args)
+          if (readGitCall(request).args[0] === "pull") {
             return {
               exitCode: 1,
               signal: null,
@@ -339,8 +354,8 @@ describe("application repository clone workflow helpers", () => {
       },
       gitCommand: {
         run: async (request) => {
-          if (request.args[0] === "pull") {
-            pullPaths.push(request.cwd ?? "")
+          if (readGitCall(request).args[0] === "pull") {
+            pullPaths.push(readGitCall(request).folder ?? "")
             controller.abort()
             throw new CommandOutcomeError({
               disposition: "stopped",
@@ -478,5 +493,295 @@ describe("application repository clone workflow helpers", () => {
       },
     )
     assert.equal(providerCalls, 0)
+  })
+})
+
+type GitCall = { folder: string | undefined; args: string[] }
+
+function setUpClone(
+  setup: {
+    git?: Partial<RepositoryWorkflowPorts["git"]>
+    existing?: FileSystemEntryStatus["kind"]
+    inspect?: () => Promise<FileSystemEntryStatus[]>
+    answer?: (call: GitCall) => ProcessResult | undefined
+    applyBatch?: (
+      request: FileSystemBatchRequest,
+    ) => FileSystemBatchResult | undefined
+  } = {},
+) {
+  const gitCalls: GitCall[] = []
+  const deleted: string[] = []
+  const copied: string[] = []
+  const warnings: string[] = []
+  const { course, settings, handlers } = createRepoHarness({
+    git: {
+      resolveRepositoryCloneUrls: async (_draft, request) => ({
+        resolved: request.repositoryNames.map((repositoryName) => ({
+          repositoryName,
+          cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+        })),
+        missing: [],
+      }),
+      ...setup.git,
+    },
+    gitCommand: {
+      run: async (request) => {
+        const call = readGitCall(request)
+        gitCalls.push(call)
+        return setup.answer?.(call) ?? gitAnswer("")
+      },
+    },
+    fileSystem: {
+      inspect:
+        setup.inspect ??
+        (async (request) =>
+          request.paths.map((path) => ({
+            path,
+            kind: setup.existing ?? ("missing" as const),
+          }))),
+      applyBatch: async (request) => {
+        for (const operation of request.operations) {
+          if (operation.kind === "delete-path") deleted.push(operation.path)
+          if (operation.kind === "copy-directory")
+            copied.push(operation.destinationPath)
+        }
+        return (
+          setup.applyBatch?.(request) ?? { completed: [...request.operations] }
+        )
+      },
+    },
+  })
+  const run = () =>
+    handlers["repo.clone"](
+      {
+        course,
+        credentials: settings,
+        assignmentId: "a1",
+        template: null,
+        targetDirectory: cloneTargetDirectory,
+        directoryLayout: "flat",
+      },
+      {
+        onOutput: (output) => {
+          if (output.channel === "warn") warnings.push(output.message)
+        },
+      },
+    )
+  const planned = planForAssignment(course, "a1").groups.length
+  const pulledFolders = () =>
+    gitCalls
+      .filter((call) => call.args[0] === "pull")
+      .map((call) => call.folder ?? "")
+  return {
+    run,
+    planned,
+    gitCalls,
+    pulledFolders,
+    deleted,
+    copied,
+    warnings,
+  }
+}
+
+function refusalIssues(error: unknown): string[] {
+  assert.ok(error instanceof CommandOutcomeError)
+  assert.equal(error.outcome.disposition, "refused")
+  if (error.outcome.disposition !== "refused") return []
+  const failure = error.outcome.error
+  return failure.type === "validation"
+    ? failure.issues.map((issue) => ("message" in issue ? issue.message : ""))
+    : []
+}
+
+describe("repo.clone answers every outside call", () => {
+  it("admits an existing folder only at the top of its own work tree", async () => {
+    const top = setUpClone({
+      existing: "directory",
+      answer: (call) =>
+        call.args[0] === "rev-parse" ? gitAnswer("true\n\n") : undefined,
+    })
+
+    const result = await top.run()
+
+    assert.equal(result.repositoriesCloned, 0)
+    assert.equal(result.repositoriesFailed, 0)
+    assert.deepEqual(
+      top.gitCalls.map((call) => call.args),
+      Array.from({ length: top.planned }, () => [
+        "rev-parse",
+        "--is-inside-work-tree",
+        "--show-prefix",
+      ]),
+    )
+    assert.ok(
+      top.gitCalls.every((call) =>
+        call.folder?.startsWith(cloneTargetDirectory),
+      ),
+    )
+
+    const cases: Array<{
+      answer: () => ProcessResult
+      detail: string
+    }> = [
+      {
+        answer: () => gitAnswer("true\nnested/\n"),
+        detail: "Git reads it as folder 'nested/' of an enclosing repository.",
+      },
+      {
+        answer: () => gitAnswer("false\n\n"),
+        detail: "Git finds no work tree there.",
+      },
+      {
+        answer: () =>
+          gitAnswer("", "fatal: not a git repository (or any parent)", 128),
+        detail: "fatal: not a git repository (or any parent)",
+      },
+      {
+        answer: () => {
+          throw lostGitResult()
+        },
+        detail: "git rev-parse lost its result",
+      },
+    ]
+    for (const { answer, detail } of cases) {
+      const clone = setUpClone({
+        existing: "directory",
+        answer: (call) => (call.args[0] === "rev-parse" ? answer() : undefined),
+      })
+
+      await assert.rejects(clone.run(), (error: unknown) => {
+        const issues = refusalIssues(error)
+        assert.equal(issues.length, clone.planned)
+        assert.ok(issues.every((issue) => issue.includes(detail)))
+        return true
+      })
+      assert.equal(
+        clone.gitCalls.some((call) => call.args[0] === "init"),
+        false,
+      )
+    }
+  })
+
+  it("removes the temporary checkout after a failed copy", async () => {
+    const clone = setUpClone({
+      applyBatch: (request) => {
+        if (request.operations[0]?.kind === "copy-directory")
+          throw knownPortFailure("EACCES: permission denied")
+        return undefined
+      },
+    })
+
+    await assert.rejects(
+      clone.run(),
+      hasDisposition("completed", "EACCES: permission denied"),
+    )
+    assert.ok(clone.pulledFolders().length > 0)
+    for (const folder of clone.pulledFolders()) {
+      assert.equal(clone.deleted.filter((path) => path === folder).length, 2)
+    }
+  })
+
+  it("keeps a temporary checkout whose pull lost its result", async () => {
+    const clone = setUpClone({
+      answer: (call) => {
+        if (call.args[0] === "pull") throw lostGitResult()
+        return undefined
+      },
+    })
+
+    await assert.rejects(clone.run(), hasDisposition("uncertain"))
+    assert.ok(clone.pulledFolders().length > 0)
+    for (const folder of clone.pulledFolders()) {
+      assert.equal(clone.deleted.filter((path) => path === folder).length, 1)
+    }
+  })
+
+  it("counts a clone whose remote cannot be added as failed", async () => {
+    const clone = setUpClone({
+      answer: (call) =>
+        call.args[0] === "remote"
+          ? gitAnswer("", "error: remote origin already exists.", 3)
+          : undefined,
+    })
+
+    const result = await clone.run()
+
+    assert.equal(result.repositoriesCloned, 0)
+    assert.equal(result.repositoriesFailed, clone.planned)
+    assert.deepEqual(clone.copied, [])
+    assert.equal(clone.warnings.length, clone.planned)
+    assert.ok(
+      clone.warnings.every((warning) =>
+        warning.includes("error: remote origin already exists."),
+      ),
+    )
+  })
+
+  it("answers a clone URL lookup the Git server refuses or stops, and counts missing repositories as failed", async () => {
+    for (const disposition of ["completed", "stopped"] as const) {
+      const clone = setUpClone({
+        git: {
+          resolveRepositoryCloneUrls: async () => {
+            throw gitEffect(disposition, "GET /repos answered 500")
+          },
+        },
+      })
+
+      await assert.rejects(clone.run(), hasDisposition(disposition))
+    }
+
+    const clone = setUpClone({
+      git: {
+        resolveRepositoryCloneUrls: async (_draft, request) => ({
+          resolved: [],
+          missing: request.repositoryNames,
+        }),
+      },
+    })
+
+    const result = await clone.run()
+
+    assert.equal(result.repositoriesCloned, 0)
+    assert.equal(result.repositoriesFailed, clone.planned)
+    assert.deepEqual(clone.gitCalls, [])
+  })
+
+  it("warns when a temporary checkout cannot be removed and keeps the clone", async () => {
+    const clone = setUpClone({
+      applyBatch: (request) => {
+        if (request.operations[0]?.kind === "delete-path")
+          throw knownPortFailure("EBUSY: resource busy")
+        return undefined
+      },
+    })
+
+    const result = await clone.run()
+
+    assert.equal(result.repositoriesCloned, clone.planned)
+    assert.equal(clone.warnings.length, 2 * clone.planned)
+    assert.ok(
+      clone.warnings.every((warning) =>
+        warning.startsWith("Could not remove the temporary folder"),
+      ),
+    )
+  })
+
+  it("passes on a target folder the host cannot inspect or create", async () => {
+    const inspected = setUpClone({
+      inspect: async () => {
+        throw knownPortFailure("EACCES: permission denied")
+      },
+    })
+    await assert.rejects(inspected.run(), hasDisposition("completed"))
+
+    const created = setUpClone({
+      applyBatch: (request) => {
+        if (request.operations[0]?.kind === "ensure-directory")
+          throw knownPortFailure("EACCES: permission denied")
+        return undefined
+      },
+    })
+    await assert.rejects(created.run(), hasDisposition("completed"))
+    assert.deepEqual(created.gitCalls, [])
   })
 })

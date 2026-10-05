@@ -550,17 +550,6 @@ describe("error handling consistency across git providers", () => {
           controller.signal,
         ),
       (client, draft) =>
-        client.getTemplateDiff(
-          draft,
-          {
-            owner: "course-org",
-            repositoryName: "repo-1",
-            fromSha: "old",
-            toSha: "new",
-          },
-          controller.signal,
-        ),
-      (client, draft) =>
         client.resolveRepositoryCloneUrls(
           draft,
           { organization: "course-org", repositoryNames: ["repo-1"] },
@@ -987,62 +976,6 @@ describe("error handling consistency across git providers", () => {
           controller.signal,
         ),
         { type: "git-effect", disposition: "stopped" },
-      )
-    }
-  })
-
-  it("all providers refuse a template diff whose changed file has no content", async () => {
-    const http: HttpPort = {
-      async fetch(request: HttpRequest): Promise<HttpResponse> {
-        if (request.url.includes("/compare")) {
-          return {
-            status: 200,
-            statusText: "OK",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              files: [{ filename: "README.md", status: "modified" }],
-              diffs: [{ new_path: "README.md", old_path: "README.md" }],
-            }),
-          }
-        }
-        return {
-          status: 404,
-          statusText: "Not Found",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ message: "Not Found" }),
-        }
-      },
-    }
-    for (const providerClient of providerClients) {
-      const [client, draft] = providerClient(http)
-      await assert.rejects(
-        client.getTemplateDiff(draft, {
-          owner: "course-org",
-          repositoryName: "template",
-          fromSha: "1111111aaaa",
-          toSha: "2222222bbbb",
-        }),
-        {
-          message:
-            "Template file 'README.md' has no file content at 2222222, so the update cannot carry it.",
-          type: "git-effect",
-          disposition: "completed",
-        },
-      )
-    }
-  })
-
-  it("all providers refuse a template compare answered without its changed files", async () => {
-    for (const providerClient of providerClients) {
-      const [client, draft] = providerClient(createStatusHttpPort(200, "{}"))
-      await assert.rejects(
-        client.getTemplateDiff(draft, {
-          owner: "course-org",
-          repositoryName: "template",
-          fromSha: "1111111aaaa",
-          toSha: "2222222bbbb",
-        }),
-        { type: "git-effect", disposition: "completed" },
       )
     }
   })
