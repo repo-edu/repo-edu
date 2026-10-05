@@ -27,6 +27,10 @@ The user never reads or edits machine artifacts such as the area model,
 ledgers or generated files. Do not justify a feature or proposal by their
 upkeep or readability.
 
+Rule text, `CLAUDE.md` files included, states each decision and its reason,
+never who directed it or when. The plan doctrine's
+[Mechanism cases](../plan/CLAUDE.md#mechanism-cases) owns this rule.
+
 Before adding a tracked source file under `apps/*/src`, `packages/*/src` or
 `tools/*/src`, assign it to one primary area from the area model. If no existing
 primary area owns it, update the area model in the same change.
@@ -283,8 +287,7 @@ file-changing commit except a plan step. The
 Use the shared
 [finding metadata and record bullets](.agents/references/round-protocol.md#finding-metadata) for
 every graded concern, D included, including off-plan work. The primary area owns supporting
-documentation too. Steps and markers carry no graded bullets. The user directed the body record on
-2026-09-20 and its extension to every graded concern on 2026-09-21.
+documentation too. Steps and markers carry no graded bullets.
 
 The shared [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) grade a
 concern's severity whether the AI surfaced it formally in a review or only addressed it in the

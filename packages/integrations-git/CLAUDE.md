@@ -55,8 +55,8 @@ absence rules.
   submodule at a changed path fails the call. GitHub has one exception: its
   content read answers a symbolic link to a normal file with that file. The
   update then writes to the link's path, and GitHub decides whether to refuse
-  the write or replace the link. The user accepted this exception on 2026-10-05 over
-  reading the branch's whole file tree first.
+  the write or replace the link. The update lands on a pull request branch, so a
+  replaced link shows in its diff.
 
 ## Adding Git Capabilities
 

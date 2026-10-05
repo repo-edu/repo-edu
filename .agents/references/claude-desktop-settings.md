@@ -42,7 +42,7 @@ the [shared round protocol](round-protocol.md#writer-tags). Apply its
 missing-setting stop only if this lookup cannot establish them or the effort
 cannot be spelled.
 
-The user requested this lookup on 2026-09-18 after a desktop vet spelled its
-effort as low from a guess while the session ran at high. The lookup lives
+Without this lookup, a desktop vet spelled its effort as low from a guess while
+the session ran at high. The lookup lives
 here, beside the Codex one, so other protocol readers need only one link per
 assistant.

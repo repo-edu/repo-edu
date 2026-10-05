@@ -22,7 +22,7 @@ workflow answers those verdicts in the `-4-rebut.<tag>.md` twin. The answers com
 auditor. Session selection follows the shared protocol's **Writer tags**. A hand-run
 reply may use the audit session while it still holds the round. In either route, ground answers as
 the shared round protocol requires under **Rebuttal grounding**. The fix phase then reads all three
-files. The user directed this chain on 2026-09-09 to give the fix phase both assistants' views.
+files, so it has both assistants' views.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. Only a hand-run rebuttal writes its `-4-rebut.<tag>.md` twin.

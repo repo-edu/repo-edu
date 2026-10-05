@@ -83,8 +83,7 @@ last graded, the grade and the written date. The grade selects a fixed limit
 owned by the glance. It lives
 outside both repositories, in the audit-round runner's shared cache, because it
 is machine state about when the watch ran and not part of either repository's
-history. The user directed this on 2026-09-13, replacing a watch run on
-intuition.
+history. A counted cadence replaces a watch run on intuition.
 
 Before running the watch the runner runs a glance: a cheap read of the
 plan log for a planning round or the Repo Edu log for an implementation round
@@ -102,8 +101,8 @@ the other's history position.
 Only file-changing audit correction commits for the selected plan advance the
 green or amber count. Step scopes share that count. Off-plan work and other
 plans' audits remain evidence for the watch's judgement but cannot trigger it
-through the count. The user directed this distinction on 2026-10-01 after
-maintenance work helped trigger a watch on the first audit of a new step scope.
+through the count. Otherwise maintenance work can trigger a watch on the first
+audit of a new step scope.
 
 A round that stopped for the user's ruling runs no watch. Its work has not
 provably landed, so the record it would grade may be missing that round's own
@@ -150,8 +149,7 @@ could address the cause across its affected scope, suggest a targeted fix plan.
 That is a small peer plan that owns this part of the parent step, with steps and
 audits of its own. A correction made without a plan has no stated scope and no
 stem. Its commits and their later fixes then cannot be told apart from other
-work, so no audit can find where it starts. The user directed this on
-2026-10-04, after a correction pass for one step left its audits with neither.
+work, so no audit can find where it starts.
 
 On red, and whenever it suggests a targeted fix plan, the watch states how
 certain it is that such a plan fits. It grounds the level in evidence it cites:

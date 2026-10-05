@@ -43,12 +43,11 @@ It consumes:
 - `src/analysis/analysis-query-client.ts`: Query cache for analysis results. Analysis results
   are aggregates and stay for the session. Blame results carry every source line with its
   author and commit summary, so they are kept up to a line budget and the oldest unobserved
-  ones are evicted first; the constant states its reason in course terms. The user ruled on
-  2026-09-12 that the log-based analysis is prefetched across the cohort, so a selected
-  repository shows at once, and that blame runs on demand for the selected repository only,
-  because it is the heavier pass over the same files. The user replaced the earlier 1 GB byte
-  budget on 2026-09-14 because its number was never measured and its estimator serialised
-  every result as it landed.
+  ones are evicted first; the constant states its reason in course terms. The log-based analysis
+  is prefetched across the cohort, so a selected repository shows at once. Blame runs on demand
+  for the selected repository only, because it is the heavier pass over the same files. The line
+  budget replaced a 1 GB byte budget whose number was never measured and whose estimator
+  serialised every result as it landed.
 - `src/analysis/analysis-query-coordinator.tsx`: starts bodies and observes their cached
   results. `App.tsx` installs its `AnalysisCoordinatorProvider` inside `QueryClientProvider`.
 - `src/analysis/analysis-source-runner.ts`: owns snapshot-head, repository analysis and blame

@@ -37,6 +37,5 @@ the [shared round protocol](round-protocol.md#writer-tags). Apply its
 missing-setting stop only if this lookup cannot establish them or the effort
 cannot be spelled.
 
-The user requested this lookup on 2026-09-18 after a desktop audit stopped at
-empty environment variables despite both settings being present in its task
-record. The lookup lives here so other protocol readers need only one link.
+Without this lookup, a desktop audit stopped at empty environment variables although both settings
+were present in its task record. The lookup lives here so other protocol readers need only one link.

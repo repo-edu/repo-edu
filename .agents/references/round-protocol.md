@@ -228,8 +228,8 @@ Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.
 ## Direct clean completion
 
 An audit with no findings completes without vet, rebuttal, fix, brief, glance
-or watch. The user directed this route on 2026-09-23 to avoid a fresh fix
-session whose only work would be an empty record.
+or watch. This route avoids a fresh fix session whose only work would be an
+empty record.
 
 - Unattended: return the complete report under [Runner result](#runner-result).
   The runner retains it and lands the clean record for a plan target.
@@ -251,7 +251,8 @@ completion instead.
 ## History reads
 
 Cross-round scans belong to glance and watch. Other phases read history when
-needed to establish a specific finding, prior ruling or implementation departure.
+needed to establish a specific finding, prior ruling, a rule's origin or an
+implementation departure.
 Lifecycle, scope discovery and handoff lookups remain required. This keeps
 current-work review separate from trajectory judgement without withholding
 the evidence a finding needs.
@@ -354,17 +355,14 @@ the finding token `[complexity:...]` run that one measurement, so they translate
 exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
 `[complexity:minus-high]` and `growth-none` is `[complexity:none]`.
 
-The marks read the same in both repos. Until 2026-10-01 plan-repo records kept
-an unmarked uppercase sequence, on the reasoning that the marks describe
-shipped code, which a plan document has not reached. The user directed one form
-for both repos: the case and the `!` derive from reach tokens every plan bullet
-already carries, and a plan-repo doctrine or workflow fix changes the
-instructions the burden measurement is defined over, so the plan log hid a
-burden trajectory it had the evidence to show.
+The marks read the same in both repos. The case and the `!` derive from reach
+tokens every plan bullet already carries. A plan-repo doctrine or workflow fix
+changes the instructions the burden measurement is defined over, so an
+unmarked plan log would hide a burden trajectory it has the evidence to show.
 
 ## Finding metadata
 
-The metadata tokens are user-directed. Every graded concern carries its title and metadata into the
+Every graded concern carries its title and metadata into the
 report and the round's record. The record is durable after the chat and report are gone. Every
 finding includes `[growth-pattern:...]`, `[reach:...]` and `[complexity:...]`, including the floor
 values `none`, `developer` and `none`. Their meanings live under
@@ -540,8 +538,8 @@ clean report also finishes. The runner replaces only the supplied output path.
 Reports from other rounds do not block the run.
 
 A clean audit follows [Direct clean completion](#direct-clean-completion). A vet that accepts
-every finding without conditions skips the rebuttal. The user directed this
-skip on 2026-09-20 so the fix starts sooner. A ruling resumes the same
+every finding without conditions skips the rebuttal, so the fix starts sooner.
+A ruling resumes the same
 fix session. [Later files](#later-files) owns the supplied paths.
 
 Required work still blocked by a permission refusal or another error means
@@ -552,8 +550,7 @@ call failed earlier. A missing input or unmet workflow gate also means
 `failed`; reserve `needs-ruling` for the fix workflow's open items. This rule
 grants no permission to bypass a gate or make the user's decision.
 
-The user directed explicit results and successful permitted retries on
-2026-09-10. Workflows own the phase outcome; the runner validates the report,
+Workflows own the phase outcome; the runner validates the report,
 vet twin and landed subjects without judging tool failures.
 
 ## Completed commit metadata
@@ -714,10 +711,8 @@ commit-body bullet. Readers and auditors must check it, and disputes can add
 findings, rounds and user reading or ruling time. It adds no separate report,
 gate or hook check.
 
-This scale reverses the 2026-09-22 ruling that kept kind-based commit grades
-alongside burden-based yield grades. The new evidence was `d80b85ce`: its high
-mark identified an ownership change but did not answer the user's size
-question. One burden scale gives up that kind signal. It is a deliberate
+One burden scale serves commit marks, findings and yield reports. It gives up
+the kind signal a kind-based commit grade carried. It is a deliberate
 exception to the plan doctrine's mechanical-grading principle: scope, evidence
 and output remain prescribed, while burden size is judged. The account makes
 disagreement inspectable; it does not make the scale mechanical.
@@ -736,9 +731,10 @@ pair fires that test on every finding, so a cross-round run of `[reach:developer
 `[reach:very-rare]` or `[reach:rare]` beside `low`, `medium` or `high` `[complexity:...]` values on
 the same machinery is the unpriced trade shown in the log for the watch to judge. A `minus-` value
 is the opposite signal: the correction removed more burden than it added, which counts in its favour
-and never joins a priced run. The tokens describe reach and net burden, not worth, and like the
-growth-pattern tag they block nothing: a finding tagged `[reach:rare] [complexity:high]` still
-lands. The vocabulary has one spelling across both logs. A run can also supply evidence for a new
+and never joins a priced run. The tokens describe reach and net burden, not worth. Like the
+growth-pattern tag they block nothing on their own. Their one use in settling a choice is the
+second case under [Real choices](#real-choices): on a rare finding, the option with the least upkeep
+wins. The vocabulary has one spelling across both logs. A run can also supply evidence for a new
 growth pattern, including work no listed pattern matches. The tokens rate facts rather than worth: a
 round that scored its own proposed correction would be grading its own work.
 
@@ -754,8 +750,6 @@ the answer or correction against those files at HEAD.
 Judge against HEAD even when the tree has moved. A quote mismatch explained
 by that diff is a claim about earlier text, not a grounding failure. Each
 phase owns its response when the current text changes or resolves a finding.
-The user directed judging against HEAD on 2026-08-23; this origin note stands
-in place of a case.
 
 ## Vet checks
 
@@ -779,24 +773,34 @@ correction is the simplest mechanism, verify that claim and the cited boundary
 or decision against the sources. When that claim cites a plan decision, reopen
 it only with evidence that the decision is wrong; otherwise accept it.
 
-Check the audit-finding's rarity against its cited evidence. A real choice
-about cost under [Real choices](#real-choices) goes to the user's ruling; the
-vet never settles it. When one option is at least as good on every cost, the
-vet-verdict carries that option as the correction instead.
+Check the audit-finding's rarity against its cited evidence. A choice about
+cost that is real under [Real choices](#real-choices) goes to the user's
+ruling; the vet never settles it. When the choice is settled there, the
+vet-verdict carries the winning option as the correction instead.
 
 ## Real choices
 
 A choice about cost goes to the user's ruling only when it is real. Weigh each
 option on every cost the evidence shows: build and upkeep, what people using or
 developing the app meet and any risk, such as an extra provider charge. Doing
-nothing counts as an option. Check each cost against its sources first. A cost
-that is the same in every option does not count.
+nothing counts as an option. An option that breaks a boundary entry drops out.
+Check each cost against its sources first. A cost that is the same in every
+option does not count.
 
-The choice is settled when one option is at least as good as every other on
-every cost. That option becomes the audit-finding's correction. Otherwise the
-choice is real. It also stays real when the evidence leaves a cost unclear. A
-boundary entry or recorded user decision still settles a real choice, under
-[Finding shape](#finding-shape).
+The choice is settled in two cases:
+
+1. One option is at least as good as every other on every cost. A cost the
+   evidence leaves unclear rules this case out.
+2. The audit-finding's reach is `rare` or `very-rare`. The option with the
+   least upkeep wins: the lowest net burden under
+   [Reach and complexity](#reach-and-complexity). Doing nothing and changing
+   only the wording count as options. On equal upkeep, the option better for
+   people using the app wins. Waiting for a ruling on a rare case costs more
+   than its answer is worth.
+
+The winning option becomes the audit-finding's correction. Any other choice is
+real. A boundary entry or recorded user decision still settles a real choice,
+under [Finding shape](#finding-shape).
 
 Every phase that grounds the item applies this test: the vet before it refers
 an item, the rebuttal when it answers a referral and the fix during
@@ -863,8 +867,8 @@ use a few short sentences. Every rebut-answer is one of three kinds.
   vet-verdict should have been. Contest only on evidence the vet can go and
   read. A disagreement of taste is not a contest; it is an agree with a
   note. Contest a referral to the user's ruling when the choice is settled
-  under [Real choices](#real-choices). Name the option that is at least as
-  good on every cost and the evidence for each cost.
+  under [Real choices](#real-choices). Name the option that settles it and
+  the evidence for each cost.
 - For user's ruling. The vet sent the item to the user under its
   recorded-decision or trade rules, and the choice is real under
   [Real choices](#real-choices). State the auditor's position and its
@@ -941,10 +945,9 @@ the deferral and apply the settled audit-findings.
 ## Round yield
 
 This tally applies to implementation audit reports and to every round record
-in both repos, planning records included. Plan-repo records carried no tally
-until 2026-10-01, when the user directed the same record body in both repos:
-the lines count the reach and complexity tokens every record's bullets already
-carry.
+in both repos, planning records included. The lines count the reach and
+complexity tokens every record's bullets already carry, so both repos keep the
+same record body.
 
 After the coverage line, close the round with two more lines that tally the
 findings the audit reports:
@@ -998,8 +1001,8 @@ Those parts are the whole account of the round's checking. The coverage table
 shows what an implementation round inspected, and an empty finding field is the
 verdict that its checks passed. So a report lists no passed checks, files read
 or verified claims, and it narrates no other verification. Evidence appears only
-inside the finding it supports. The user directed this on 2026-10-01: no phase
-reads such an account, and it repeats the coverage table.
+inside the finding it supports. No phase reads such an account, and it repeats
+the coverage table.
 
 Chat carries nothing about the judged work that the report or handoff does
 not. Setup and tooling problems are not about the judged work and stay in chat.
@@ -1086,7 +1089,8 @@ situation and concrete outcome. A planning finding also states how often a perso
 situation. When the cost is only rework or re-derivation, state that cost and use
 `[reach:developer]`. A D-tier finding derives its consequence for grading but need not report it. A
 tier claim without a consequence does not stand; drop a finding whose trace ends with the same
-behaviour shipping. Reach supports the user's ruling on the outcome and never changes the tier.
+behaviour shipping. Reach can settle a choice under [Real choices](#real-choices) and never changes
+the tier.
 
 At tiers A to C, explain the trade when a finding's growth-pattern tag is not `none`,
 its reach is not `ordinary` and its complexity is `low`, `medium` or `high`.
@@ -1101,7 +1105,6 @@ Keep this in the finding's explanation; a separate `Trade:` block is optional.
 When the correction is itself the simplest mechanism, one sentence saying so
 and naming the boundary or decision that settles it is enough. Expand only for
 a real unresolved choice. D-tier findings need no trade explanation.
-The user directed this shorter form on 2026-09-09.
 
 Check the simpler mechanism against the plan's recorded reasons and the code.
 When a reason still rules it out, say no simpler mechanism works. When the reason

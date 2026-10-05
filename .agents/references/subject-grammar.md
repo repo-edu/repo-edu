@@ -193,10 +193,9 @@ O1           abx growth-low c1d1 fix(repo):
 O1           ath growth-none !B1C1c2d1 fix(renderer-app):
 ```
 
-## Rulings
+## Settled questions
 
-Three questions the owning sections left open were ruled on 2026-09-20 and are
-fixed here:
+Three questions the owning sections left open are fixed here:
 
 1. An off-plan plan-repo commit may carry a `<sequence>`. The sequence is
    evidence the trajectory reads, and an off-plan fix can close a graded
@@ -204,8 +203,8 @@ fixed here:
 2. A `<growth>` mark appears beside every `<sequence>` except a deferral
    record's, and nowhere else. A step is where burden grows by design, and the
    audit rounds that follow grade what it did. A deferral record changes no
-   code, so it has nothing to measure. The floor is written as `growth-none`,
-   ruled on 2026-10-01: an absent mark could not be told from a forgotten one,
+   code, so it has nothing to measure. The floor is written as `growth-none`:
+   an absent mark could not be told from a forgotten one,
    and a floor is countable in the log only when it is on the page.
 3. `<conventional>` is a closed list, the Angular set plus `redesign`. A scan
    by kind can only count what is on the list.

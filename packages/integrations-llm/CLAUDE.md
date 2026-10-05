@@ -33,8 +33,8 @@ Provider adapters for the `LlmTextClient` contract from
   `refused`.
 - API-key Claude changes nothing outside the app, and no reply is used after it
   fails. A caller abort therefore throws `AbortError`, and every other ending
-  before the final event is a `completed` failure. The user ruled this on
-  2026-10-04, so Cancel and a lost connection never end the desktop.
+  before the final event is a `completed` failure, so Cancel and a lost
+  connection never end the desktop.
 - Subscription Claude keeps prompt, stream and terminal-result meaning here.
   On Windows it discovers the native `claude.exe`; it never launches a command
   shim through a shell.

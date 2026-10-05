@@ -303,7 +303,6 @@ consumers.
   user's spelling, so a rewrite changes only which entries remain. The runner reads the file only
   between rounds, so an edit made during a round applies from the next one. A missing file reads as
   an empty queue. A malformed entry stops the sequence with an error naming the file and the entry.
-  The user asked on 2026-10-04 for an editable file of remaining rounds.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -342,7 +341,7 @@ either checkout. Changes apply to the next invocation. This local file is
 gitignored. When it is missing, the runner creates it from
 [default-settings.json](default-settings.json), the version-controlled
 defaults. An invalid file stops the command with a validation error and is
-left unchanged. The user supplied the defaults on 2026-09-23.
+left unchanged.
 
 - `defaultAuditor` selects Claude or Codex when `--auditor` is absent.
 - `strengthModels` maps each assistant's base and top tiers to a model name.
@@ -374,11 +373,9 @@ Run from either checkout with authenticated `claude` and `codex`
 commands available. Terminal Markdown rendering is bundled with the runner and needs no separate
 executable. Set `NO_COLOR=1` to disable colour. Redirected output retains the original Markdown.
 
-The terminal renderer is `@earendil-works/pi-tui`, replacing Glow. On 2026-09-24,
-the user confirmed a strong preference for its output in a live audit round.
-The accepted presentation keeps tables aligned, preserves paragraph and nested-list
-spacing and uses cyan code references without heavy background blocks. Preserve
-these qualities when changing terminal rendering.
+The terminal renderer is `@earendil-works/pi-tui`, replacing Glow. The accepted presentation keeps
+tables aligned, preserves paragraph and nested-list spacing and uses cyan code references without
+heavy background blocks. Preserve these qualities when changing terminal rendering.
 
 ```bash
 pnpm audit-round example 1-3

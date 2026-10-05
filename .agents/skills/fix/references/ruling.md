@@ -51,9 +51,8 @@ Before returning, check that the ruling stands alone, keeps settled matters
 settled and supports its recommendation with verified evidence. Check that
 each open item is a real choice under the shared
 [Real choices](../../../references/round-protocol.md#real-choices). An item
-whose recommended option is at least as good on every cost is settled: apply
-it and drop it from the ruling. Revise any unclear or unsupported claim in
-this session.
+that section settles is not open: apply its winning option and drop it from
+the ruling. Revise any unclear or unsupported claim in this session.
 
 After a user reply, answer any questions before acting. If a decision remains
 open, replace the ruling with the current choices and return `needs-ruling`
