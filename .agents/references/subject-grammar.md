@@ -1,7 +1,7 @@
 # Commit subject grammar
 
 This reference owns the shape of every commit subject in Repo Edu and the
-sibling plan repo. It states the shape only. What each part means and why it
+sibling plan repo except a merge commit's. It states the shape only. What each part means and why it
 exists stays where it is owned: Repo Edu's `CLAUDE.md` owns the capability tag
 and the model record under **Commit Capability Tag** and **Commit Model Record**.
 The [shared round protocol](round-protocol.md#severity-sequence) owns severity
@@ -15,6 +15,10 @@ Repo Edu's `.husky/commit-msg` hook and the plan repo's `hooks/commit-msg`
 hook enforce this grammar, and the audit-round runner's subject parser reads
 it. A change to the shape lands in
 this file, the parser and its tests in one commit.
+
+Git writes a merge commit's subject, and no capability tag names Git, so both
+hooks admit a commit unchecked while `MERGE_HEAD` exists. The parser refuses a
+merge subject, so history readers count nothing from it.
 
 ## Notation
 

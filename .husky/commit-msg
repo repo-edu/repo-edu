@@ -1,5 +1,7 @@
 # Derives the severity slot from graded bullets and stamps the capability tag
 # and model record. Refuses subjects outside the grammar in
 # .agents/references/subject-grammar.md. The parser in
-# tools/audit-round/src/subject.ts is the grammar's one reader.
+# tools/audit-round/src/subject.ts is the grammar's one reader. Git writes a
+# merge's subject, so a merge commit is admitted unchecked.
+if git rev-parse -q --verify MERGE_HEAD >/dev/null; then exit 0; fi
 node --import tsx tools/audit-round/src/commit-msg-main.ts repo-edu "$1"

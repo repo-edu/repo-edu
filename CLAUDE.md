@@ -387,8 +387,8 @@ its own writes its own line: it knows the model it was told to run and reads its
 effort from the environment.
 
 Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the
-record when a round supplies it. Each hook refuses any commit whose body does
-not open with a model record. It checks the line's shape rather than a list of
+record when a round supplies it. Each hook refuses any non-merge commit whose
+body does not open with a model record. It checks the line's shape rather than a list of
 model names, so a new model family needs no edit here. It also refuses a
 single-model record whose effort disagrees with the subject's tag.
 
