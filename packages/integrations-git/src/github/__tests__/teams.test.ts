@@ -8,6 +8,15 @@ import type {
 import { createGitHubClient } from "../github-client.js"
 import { baseDraft, createMockHttpPort } from "./harness.js"
 
+/** GitHub's REST reference answers a refused team with 422 "Validation
+ * failed" in its validation-error shape. */
+const validationFailed = {
+  message: "Validation Failed",
+  errors: [{ resource: "Team", code: "already_exists", field: "name" }],
+  documentation_url: "https://docs.github.com/rest/teams/teams#create-a-team",
+  status: "422",
+}
+
 describe("github teams", () => {
   describe("createTeam", () => {
     it("creates a team and adds members", async () => {
@@ -52,7 +61,7 @@ describe("github teams", () => {
           method: "POST",
           urlPattern: "/orgs/test-org/teams",
           status: 422,
-          body: { message: "Validation Failed" },
+          body: validationFailed,
         },
         {
           method: "GET",
@@ -72,6 +81,92 @@ describe("github teams", () => {
 
       assert.equal(result.created, false)
       assert.equal(result.teamSlug, "hw1-team")
+    })
+  })
+
+  describe("createTeam failures", () => {
+    const teamRequest = {
+      organization: "test-org",
+      teamName: "hw1-team",
+      memberUsernames: ["alice"],
+      permission: "push" as const,
+    }
+
+    it("reports a team answered without its slug as a known failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/teams",
+          status: 201,
+          body: { id: 1, name: "hw1-team" },
+        },
+      ])
+
+      await assert.rejects(
+        createGitHubClient(http).createTeam(baseDraft, teamRequest),
+        {
+          message: "GitHub answered team 'hw1-team' without its slug.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
+
+    it("reports a refused team whose slug finds no team as the refusal", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/teams",
+          status: 422,
+          body: {
+            message: "Validation Failed",
+            errors: [{ resource: "Team", code: "invalid", field: "privacy" }],
+            status: "422",
+          },
+        },
+        {
+          method: "GET",
+          urlPattern: "/orgs/test-org/teams/hw1-team",
+          status: 404,
+          body: { message: "Not Found", status: "404" },
+        },
+      ])
+
+      await assert.rejects(
+        createGitHubClient(http).createTeam(baseDraft, teamRequest),
+        {
+          message:
+            'POST /orgs/test-org/teams answered 422: Validation Failed: {"resource":"Team","code":"invalid","field":"privacy"}',
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
+
+    it("reports a refused member as a known failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/teams",
+          status: 201,
+          body: { id: 1, slug: "hw1-team" },
+        },
+        {
+          method: "PUT",
+          urlPattern: "/orgs/test-org/teams/hw1-team/memberships/alice",
+          status: 403,
+          body: {
+            message:
+              "Team membership is managed by an identity provider and cannot be changed here.",
+            status: "403",
+          },
+        },
+      ])
+
+      await assert.rejects(
+        createGitHubClient(http).createTeam(baseDraft, teamRequest),
+        { type: "git-effect", disposition: "completed" },
+      )
     })
   })
 

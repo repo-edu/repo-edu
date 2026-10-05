@@ -11,11 +11,12 @@ export const baseDraft: GitConnectionDraft = {
   token: "token",
 }
 
-type MockRoute = {
+/** A route without a body answers an empty one, as a 204 reply does. */
+export type MockRoute = {
   method: string
   urlPattern: string | RegExp
   status: number
-  body: unknown
+  body?: unknown
 }
 
 export function findUserAgent(
@@ -28,9 +29,14 @@ export function findUserAgent(
   return undefined
 }
 
-export function createMockHttpPort(routes: MockRoute[]): HttpPort {
+/** Every request is appended to `requests`, so a test can read what was sent. */
+export function createMockHttpPort(
+  routes: MockRoute[],
+  requests: HttpRequest[] = [],
+): HttpPort {
   return {
     async fetch(request: HttpRequest): Promise<HttpResponse> {
+      requests.push(request)
       for (const route of routes) {
         const methodMatches =
           request.method === route.method ||
@@ -44,7 +50,7 @@ export function createMockHttpPort(routes: MockRoute[]): HttpPort {
             status: route.status,
             statusText: route.status === 200 ? "OK" : "Error",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(route.body),
+            body: route.body === undefined ? "" : JSON.stringify(route.body),
           }
         }
       }

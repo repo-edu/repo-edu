@@ -69,6 +69,52 @@ export async function readExistingRepositoryUrls(
   )
 }
 
+/** The blob of a plain file on the branch, or `null` on an explicit 404. A
+ * folder, symbolic link or submodule at the path fails the read, because a
+ * branch update writes plain files only. */
+export async function readFileSha(
+  http: HttpPort,
+  draft: GitConnectionDraft,
+  owner: string,
+  repositoryName: string,
+  path: string,
+  branchName: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  let data: unknown
+  try {
+    data = await giteaRequest(
+      http,
+      draft,
+      "GET",
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repositoryName)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branchName)}`,
+      undefined,
+      signal,
+    )
+  } catch (error) {
+    if (!isGitReply(error, 404)) throw error
+    return null
+  }
+  // A folder answers its entry list.
+  const entry = (Array.isArray(data) ? {} : (data ?? {})) as {
+    type?: unknown
+    sha?: unknown
+  }
+  if (entry.type !== "file") {
+    throw gitEffectFailure(
+      "completed",
+      `'${path}' on branch '${branchName}' is not a plain file, so the update cannot write it.`,
+    )
+  }
+  if (typeof entry.sha !== "string") {
+    throw gitEffectFailure(
+      "completed",
+      `Gitea answered file '${path}' on branch '${branchName}' without its blob.`,
+    )
+  }
+  return entry.sha
+}
+
 type RepositoryFile = { sha: string | null; contentBase64: string | null }
 
 /** An explicit 404 is the only absent answer. */

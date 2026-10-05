@@ -4,7 +4,7 @@ import type {
   GitConnectionDraft,
   PatchFile,
 } from "@repo-edu/integrations-git-contract"
-import { isGitReply } from "../invocation-guard.js"
+import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
 import { gitLabRestGet } from "./transport.js"
 
 export type GitLabProjectUrls = {
@@ -62,8 +62,14 @@ export async function resolveProjectId(
     if (!isGitReply(error, 404)) throw error
     return null
   }
-  const id = (project as { id?: unknown }).id
-  return typeof id === "number" ? id : null
+  const id = (project as { id?: unknown } | null)?.id
+  if (typeof id !== "number") {
+    throw gitEffectFailure(
+      "completed",
+      `GitLab answered project '${projectPath}' without its id.`,
+    )
+  }
+  return id
 }
 
 export function toBase64FromGitLabFile(data: unknown): string | null {

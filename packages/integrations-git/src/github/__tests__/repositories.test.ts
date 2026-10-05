@@ -103,7 +103,20 @@ describe("github repositories", () => {
           method: "POST",
           urlPattern: "/orgs/test-org/repos",
           status: 422,
-          body: { message: "Repository name already exists on this owner" },
+          body: {
+            message: "Repository creation failed.",
+            errors: [
+              {
+                resource: "Repository",
+                code: "custom",
+                field: "name",
+                message: "name already exists on this account",
+              },
+            ],
+            documentation_url:
+              "https://docs.github.com/rest/repos/repos#create-an-organization-repository",
+            status: "422",
+          },
         },
         {
           method: "GET",
@@ -134,6 +147,119 @@ describe("github repositories", () => {
         },
       ])
       assert.deepStrictEqual(result.failed, [])
+    })
+  })
+
+  describe("createRepositories failures", () => {
+    const request = {
+      organization: "test-org",
+      repositoryNames: ["repo-1"],
+      visibility: "private" as const,
+      autoInit: true,
+    }
+
+    it("records a refused create as that repository's failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/repos",
+          status: 422,
+          body: {
+            message: "Repository creation failed.",
+            errors: [
+              {
+                resource: "Repository",
+                code: "custom",
+                field: "name",
+                message: "name is too long (maximum is 100 characters)",
+              },
+            ],
+            documentation_url:
+              "https://docs.github.com/rest/repos/repos#create-an-organization-repository",
+            status: "422",
+          },
+        },
+      ])
+
+      const result = await createGitHubClient(http).createRepositories(
+        baseDraft,
+        request,
+      )
+
+      assert.deepStrictEqual(result.created, [])
+      assert.deepStrictEqual(result.alreadyExisted, [])
+      assert.equal(result.failed.length, 1)
+      assert.match(
+        result.failed[0]?.reason ?? "",
+        /^POST \/orgs\/test-org\/repos answered 422: Repository creation failed\./,
+      )
+    })
+
+    it("records a repository answered without its URLs as that repository's failure", async () => {
+      const created = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/repos",
+          status: 201,
+          body: { id: 1, name: "repo-1" },
+        },
+      ])
+      assert.deepStrictEqual(
+        (
+          await createGitHubClient(created).createRepositories(
+            baseDraft,
+            request,
+          )
+        ).failed,
+        [
+          {
+            repositoryName: "repo-1",
+            reason:
+              "GitHub created the repository but answered without its web or clone URL.",
+          },
+        ],
+      )
+
+      const existing = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/repos",
+          status: 422,
+          body: {
+            message: "Repository creation failed.",
+            errors: [
+              {
+                resource: "Repository",
+                code: "custom",
+                field: "name",
+                message: "name already exists on this account",
+              },
+            ],
+            status: "422",
+          },
+        },
+        {
+          method: "GET",
+          urlPattern: "/repos/test-org/repo-1",
+          status: 200,
+          body: { id: 1, name: "repo-1" },
+        },
+      ])
+      assert.deepStrictEqual(
+        (
+          await createGitHubClient(existing).createRepositories(
+            baseDraft,
+            request,
+          )
+        ).failed,
+        [
+          {
+            repositoryName: "repo-1",
+            reason:
+              "Repository exists but GitHub answered without its web or clone URL.",
+          },
+        ],
+      )
     })
   })
 

@@ -217,6 +217,7 @@ describe("gitea repositories", () => {
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 message: "The repository with the same name already exists.",
+                url: "https://gitea.example.com/api/swagger",
               }),
             }
           }
@@ -264,6 +265,139 @@ describe("gitea repositories", () => {
     })
   })
 
+  describe("createRepositories failures", () => {
+    const request = {
+      organization: "course-org",
+      repositoryNames: ["repo-1"],
+      visibility: "private" as const,
+      autoInit: true,
+    }
+
+    it("records a refused create as that repository's failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/api/v1/orgs/course-org/repos",
+          status: 422,
+          body: {
+            message: "name is reserved [name: repo-1]",
+            url: "https://gitea.example.com/api/swagger",
+          },
+        },
+      ])
+
+      const result = await createGiteaClient(http).createRepositories(
+        baseDraft,
+        request,
+      )
+
+      assert.deepStrictEqual(result, {
+        created: [],
+        alreadyExisted: [],
+        failed: [
+          {
+            repositoryName: "repo-1",
+            reason:
+              "POST /api/v1/orgs/course-org/repos answered 422: name is reserved [name: repo-1]",
+          },
+        ],
+      })
+    })
+
+    it("records a created repository answered without its URLs as that repository's failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/api/v1/orgs/course-org/repos",
+          status: 201,
+          body: { id: 7, name: "repo-1" },
+        },
+      ])
+
+      const result = await createGiteaClient(http).createRepositories(
+        baseDraft,
+        request,
+      )
+
+      assert.deepStrictEqual(result.failed, [
+        {
+          repositoryName: "repo-1",
+          reason:
+            "Gitea created the repository but answered without its web or clone URL.",
+        },
+      ])
+    })
+
+    it("records a refused lookup of an existing repository as that repository's failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/api/v1/orgs/course-org/repos",
+          status: 409,
+          body: {
+            message: "The repository with the same name already exists.",
+            url: "https://gitea.example.com/api/swagger",
+          },
+        },
+        {
+          method: "GET",
+          urlPattern: "/api/v1/repos/course-org/repo-1",
+          status: 403,
+          body: {
+            message: "token does not have at least one of required scope(s)",
+            url: "https://gitea.example.com/api/swagger",
+          },
+        },
+      ])
+
+      const result = await createGiteaClient(http).createRepositories(
+        baseDraft,
+        request,
+      )
+
+      assert.deepStrictEqual(result.failed, [
+        {
+          repositoryName: "repo-1",
+          reason:
+            "Repository exists but lookup failed: GET /api/v1/repos/course-org/repo-1 answered 403: token does not have at least one of required scope(s)",
+        },
+      ])
+    })
+
+    it("records an existing repository answered without its URLs as that repository's failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/api/v1/orgs/course-org/repos",
+          status: 409,
+          body: {
+            message: "The repository with the same name already exists.",
+            url: "https://gitea.example.com/api/swagger",
+          },
+        },
+        {
+          method: "GET",
+          urlPattern: "/api/v1/repos/course-org/repo-1",
+          status: 200,
+          body: { id: 7, name: "repo-1" },
+        },
+      ])
+
+      const result = await createGiteaClient(http).createRepositories(
+        baseDraft,
+        request,
+      )
+
+      assert.deepStrictEqual(result.failed, [
+        {
+          repositoryName: "repo-1",
+          reason:
+            "Repository exists but Gitea answered without its web or clone URL.",
+        },
+      ])
+    })
+  })
+
   describe("resolveRepositoryCloneUrls", () => {
     it("returns authenticated clone URLs and missing repositories", async () => {
       const http = createMockHttpPort([
@@ -279,7 +413,10 @@ describe("gitea repositories", () => {
           method: "GET",
           urlPattern: "/api/v1/repos/course-org/repo-missing",
           status: 404,
-          body: { message: "Not Found" },
+          body: {
+            message: "not found",
+            url: "https://gitea.example.com/api/swagger",
+          },
         },
       ])
 

@@ -35,16 +35,16 @@ export function toGitHubReplyError(error: unknown, method: string): unknown {
   )
 }
 
+/** GitHub answers a refused create with 422 "Validation Failed". Its REST
+ * guide names the `already_exists` error code for a taken unique value, and
+ * some routes answer with their own "already exists" wording instead. */
 export function isAlreadyExistsError(error: unknown): boolean {
-  return (
-    isGitReply(error, 409, 422) &&
-    /already exists|name already exists/i.test(error.detail)
-  )
+  return isGitReply(error, 422) && /already[ _]exists/i.test(error.detail)
 }
 
 export function isNoChangesError(error: unknown): boolean {
   return (
     isGitReply(error, 422) &&
-    /no commits between|no changes|already exists/i.test(error.detail)
+    /no commits between|already[ _]exists/i.test(error.detail)
   )
 }

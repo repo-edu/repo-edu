@@ -7,7 +7,7 @@ import {
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
 import { withGitLabToken } from "./auth.js"
-import { isAlreadyExistsError } from "./errors.js"
+import { isNameTaken } from "./errors.js"
 import { resolveGroupId } from "./namespace.js"
 import {
   createProject,
@@ -56,7 +56,8 @@ export function createGitLabRepositories(
           if (urls === null) {
             failed.push({
               repositoryName,
-              reason: "Provider returned incomplete repository URLs.",
+              reason:
+                "GitLab created the repository but answered without its web or clone URL.",
             })
           } else {
             created.push({
@@ -67,7 +68,7 @@ export function createGitLabRepositories(
           }
         } catch (error) {
           if (!isGitReply(error)) throw error
-          if (isAlreadyExistsError(error)) {
+          if (isNameTaken(error)) {
             try {
               const project = await api.Projects.show(
                 `${request.organization}/${repositoryName}`,
@@ -76,7 +77,8 @@ export function createGitLabRepositories(
               if (urls === null) {
                 failed.push({
                   repositoryName,
-                  reason: "Repository exists but URLs could not be resolved.",
+                  reason:
+                    "Repository exists but GitLab answered without its web or clone URL.",
                 })
               } else {
                 alreadyExisted.push({

@@ -27,14 +27,28 @@ export function createGitHubTemplateChanges(
           repo: request.repositoryName,
           request: { signal },
         })
-        const branchName = repository.data.default_branch
+        const branchName: unknown = repository.data.default_branch
+        if (typeof branchName !== "string") {
+          throw gitEffectFailure(
+            "completed",
+            `GitHub answered repository '${request.owner}/${request.repositoryName}' without its default branch.`,
+          )
+        }
+        // An empty repository answers its default branch with a 404.
         const branch = await octokit.repos.getBranch({
           owner: request.owner,
           repo: request.repositoryName,
           branch: branchName,
           request: { signal },
         })
-        return { sha: branch.data.commit.sha, branchName }
+        const sha: unknown = branch.data.commit?.sha
+        if (typeof sha !== "string") {
+          throw gitEffectFailure(
+            "completed",
+            `GitHub answered branch '${branchName}' of '${request.owner}/${request.repositoryName}' without its commit.`,
+          )
+        }
+        return { sha, branchName }
       } catch (error) {
         if (isGitReply(error, 404)) return null
         throw error

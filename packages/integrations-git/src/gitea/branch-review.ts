@@ -3,9 +3,13 @@ import type {
   GitConnectionDraft,
   GitProviderClient,
 } from "@repo-edu/integrations-git-contract"
-import { isGitReply, throwIfGitEffectAborted } from "../invocation-guard.js"
-import { isNoChanges } from "./errors.js"
-import { readRepositoryFile } from "./repository-api.js"
+import {
+  gitEffectFailure,
+  isGitReply,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
+import { isBranchAlreadyExists, isPullRequestAlreadyExists } from "./errors.js"
+import { readFileSha } from "./repository-api.js"
 import { giteaRequest } from "./transport.js"
 
 type BranchReviewCapability = Pick<
@@ -44,8 +48,8 @@ export function createGiteaBranchReview(
   return {
     async createBranch(draft, request, signal) {
       const route = `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}`
-      const readBranchFile = (path: string) =>
-        readRepositoryFile(
+      const readBranchFileSha = (path: string) =>
+        readFileSha(
           http,
           draft,
           request.owner,
@@ -62,57 +66,60 @@ export function createGiteaBranchReview(
           `${route}/branches`,
           JSON.stringify({
             new_branch_name: request.branchName,
-            old_ref: request.baseSha,
+            old_ref_name: request.baseSha,
           }),
           signal,
         )
       } catch (error) {
-        if (!isNoChanges(error)) throw error
+        if (!isBranchAlreadyExists(error)) throw error
       }
       for (const file of request.files) {
         throwIfGitEffectAborted(signal)
         if (file.status === "removed") {
-          const existing = await readBranchFile(file.path)
-          if (existing.sha === null) continue
+          const sha = await readBranchFileSha(file.path)
+          if (sha === null) continue
           await deleteBranchFile(
             http,
             draft,
             route,
             file.path,
-            existing.sha,
+            sha,
             request.branchName,
             request.commitMessage,
             signal,
           )
-        } else if (file.contentBase64 !== null) {
-          const existing = await readBranchFile(file.path)
-          try {
-            await giteaRequest(
-              http,
-              draft,
-              "PUT",
-              `${route}/contents/${encodeURIComponent(file.path)}`,
-              JSON.stringify({
-                branch: request.branchName,
-                message: request.commitMessage,
-                content: file.contentBase64,
-                ...(existing.sha ? { sha: existing.sha } : {}),
-              }),
-              signal,
+        } else {
+          if (file.contentBase64 === null) {
+            throw gitEffectFailure(
+              "completed",
+              `Changed file '${file.path}' has no content to write.`,
             )
-          } catch (error) {
-            if (!isNoChanges(error)) throw error
           }
+          // Without a blob the write creates the file.
+          const sha = await readBranchFileSha(file.path)
+          await giteaRequest(
+            http,
+            draft,
+            "PUT",
+            `${route}/contents/${encodeURIComponent(file.path)}`,
+            JSON.stringify({
+              branch: request.branchName,
+              message: request.commitMessage,
+              content: file.contentBase64,
+              ...(sha === null ? {} : { sha }),
+            }),
+            signal,
+          )
         }
         if (file.previousPath && file.previousPath !== file.path) {
-          const previous = await readBranchFile(file.previousPath)
-          if (previous.sha !== null) {
+          const previousSha = await readBranchFileSha(file.previousPath)
+          if (previousSha !== null) {
             await deleteBranchFile(
               http,
               draft,
               route,
               file.previousPath,
-              previous.sha,
+              previousSha,
               request.branchName,
               request.commitMessage,
               signal,
@@ -122,13 +129,13 @@ export function createGiteaBranchReview(
       }
     },
     async createPullRequest(draft, request, signal) {
-      const route = `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}/pulls`
+      let created: unknown
       try {
-        const created = await giteaRequest(
+        created = await giteaRequest(
           http,
           draft,
           "POST",
-          route,
+          `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}/pulls`,
           JSON.stringify({
             head: request.headBranch,
             base: request.baseBranch,
@@ -137,38 +144,18 @@ export function createGiteaBranchReview(
           }),
           signal,
         )
-        const url = (created as { html_url?: unknown } | null)?.html_url
-        return { url: typeof url === "string" ? url : "", created: true }
       } catch (error) {
-        if (!isNoChanges(error)) throw error
+        if (!isPullRequestAlreadyExists(error)) throw error
+        return { created: false }
       }
-      const open = await giteaRequest(
-        http,
-        draft,
-        "GET",
-        `${route}?state=open`,
-        undefined,
-        signal,
-      )
-      const pullRequest = Array.isArray(open)
-        ? open.find((entry) => {
-            if (typeof entry !== "object" || entry === null) return false
-            const candidate = entry as {
-              head?: { label?: unknown } | null
-              base?: { ref?: unknown } | null
-            }
-            return (
-              candidate.base?.ref === request.baseBranch &&
-              typeof candidate.head?.label === "string" &&
-              candidate.head.label.endsWith(`:${request.headBranch}`)
-            )
-          })
-        : null
-      const url =
-        typeof pullRequest === "object" && pullRequest !== null
-          ? (pullRequest as { html_url?: unknown }).html_url
-          : null
-      return { url: typeof url === "string" ? url : "", created: false }
+      const url = (created as { html_url?: unknown } | null)?.html_url
+      if (typeof url !== "string") {
+        throw gitEffectFailure(
+          "completed",
+          `Gitea opened a pull request in '${request.owner}/${request.repositoryName}' but answered without its URL.`,
+        )
+      }
+      return { created: true, url }
     },
   }
 }

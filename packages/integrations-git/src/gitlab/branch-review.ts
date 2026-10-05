@@ -4,9 +4,9 @@ import {
   gitEffectFailure,
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
-import { isNoChangesError } from "./errors.js"
+import { isBranchAlreadyExists, isMergeRequestAlreadyExists } from "./errors.js"
 import { fileExistsInBranch, resolveProjectId } from "./repository-api.js"
-import { createGitLabApi, gitLabRestGet, gitLabRestPost } from "./transport.js"
+import { createGitLabApi, gitLabRestPost } from "./transport.js"
 
 type BranchReviewCapability = Pick<
   GitProviderClient,
@@ -36,7 +36,7 @@ export function createGitLabBranchReview(
           signal,
         )
       } catch (error) {
-        if (!isNoChangesError(error)) throw error
+        if (!isBranchAlreadyExists(error)) throw error
       }
 
       const existsInBranch = (path: string) =>
@@ -57,7 +57,12 @@ export function createGitLabBranchReview(
           }
           continue
         }
-        if (file.contentBase64 === null) continue
+        if (file.contentBase64 === null) {
+          throw gitEffectFailure(
+            "completed",
+            `Changed file '${file.path}' has no content to write.`,
+          )
+        }
         actions.push({
           action: (await existsInBranch(file.path)) ? "update" : "create",
           filePath: file.path,
@@ -73,21 +78,17 @@ export function createGitLabBranchReview(
         }
       }
       if (actions.length === 0) return
-      try {
-        await gitLabRestPost(
-          http,
-          draft,
-          `/projects/${projectId}/repository/commits`,
-          {
-            branch: request.branchName,
-            commitMessage: request.commitMessage,
-            actions,
-          },
-          signal,
-        )
-      } catch (error) {
-        if (!isNoChangesError(error)) throw error
-      }
+      await gitLabRestPost(
+        http,
+        draft,
+        `/projects/${projectId}/repository/commits`,
+        {
+          branch: request.branchName,
+          commitMessage: request.commitMessage,
+          actions,
+        },
+        signal,
+      )
     },
     async createPullRequest(draft, request, signal) {
       const api = createGitLabApi(http, draft, signal)
@@ -99,8 +100,9 @@ export function createGitLabBranchReview(
           `GitLab project '${projectPath}' was not found.`,
         )
       }
+      let created: unknown
       try {
-        const created = await gitLabRestPost(
+        created = await gitLabRestPost(
           http,
           draft,
           `/projects/${projectId}/merge_requests`,
@@ -112,23 +114,18 @@ export function createGitLabBranchReview(
           },
           signal,
         )
-        const url = (created as { web_url?: unknown } | null)?.web_url
-        return { url: typeof url === "string" ? url : "", created: true }
       } catch (error) {
-        if (!isNoChangesError(error)) throw error
+        if (!isMergeRequestAlreadyExists(error)) throw error
+        return { created: false }
       }
-      const open = await gitLabRestGet(
-        http,
-        draft,
-        `/projects/${projectId}/merge_requests?state=opened&source_branch=${encodeURIComponent(request.headBranch)}&target_branch=${encodeURIComponent(request.baseBranch)}`,
-        signal,
-      )
-      const first = Array.isArray(open) ? open[0] : null
-      const url =
-        typeof first === "object" && first !== null
-          ? (first as { web_url?: unknown }).web_url
-          : null
-      return { url: typeof url === "string" ? url : "", created: false }
+      const url = (created as { web_url?: unknown } | null)?.web_url
+      if (typeof url !== "string") {
+        throw gitEffectFailure(
+          "completed",
+          `GitLab opened a merge request in '${projectPath}' but answered without its URL.`,
+        )
+      }
+      return { created: true, url }
     },
   }
 }

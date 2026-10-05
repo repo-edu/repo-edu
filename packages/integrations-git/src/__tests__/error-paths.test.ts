@@ -6,6 +6,7 @@ import type {
   HttpResponse,
 } from "@repo-edu/host-runtime-contract"
 import type {
+  CreateRepositoriesResult,
   GitConnectionDraft,
   GitProviderClient,
 } from "@repo-edu/integrations-git-contract"
@@ -91,19 +92,119 @@ function createSignalObeyingHttpPort(
   }
 }
 
-/** One body every provider reads as a created repository or its group. */
-const createdRepositoryResponse: HttpResponse = {
+/** One success body every provider reads as the repository, team, group,
+ * plain file, branch or pull request a write or lookup asked for. */
+const writeAnswer: HttpResponse = {
   status: 201,
   statusText: "Created",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({
     id: 7,
+    slug: "team-1",
+    type: "file",
+    sha: "blob",
     html_url: "https://example.test/course-org/repo-1",
     clone_url: "https://example.test/course-org/repo-1.git",
     web_url: "https://example.test/course-org/repo-1",
     http_url_to_repo: "https://example.test/course-org/repo-1.git",
   }),
 }
+
+/** Reads succeed, with an active account for a GitLab user search, and every
+ * write gets `answerWrite`'s reply. */
+function createWriteHttpPort(
+  answerWrite: (request: HttpRequest) => HttpResponse,
+): HttpPort {
+  return {
+    async fetch(request: HttpRequest): Promise<HttpResponse> {
+      if (request.method !== "GET") return answerWrite(request)
+      const username = new URL(request.url).searchParams.get("username")
+      if (username === null) return writeAnswer
+      return {
+        ...writeAnswer,
+        status: 200,
+        body: JSON.stringify([{ id: 5, username, state: "active" }]),
+      }
+    },
+  }
+}
+
+/** Every write an exclusive command makes, each with more than one step
+ * except the pull request. */
+const writes: Array<
+  (
+    client: GitProviderClient,
+    draft: GitConnectionDraft,
+    signal?: AbortSignal,
+  ) => Promise<unknown>
+> = [
+  (client, draft, signal) =>
+    client.createRepositories(
+      draft,
+      {
+        organization: "course-org",
+        repositoryNames: ["repo-1", "repo-2"],
+        visibility: "private",
+        autoInit: true,
+      },
+      signal,
+    ),
+  (client, draft, signal) =>
+    client.createTeam(
+      draft,
+      {
+        organization: "course-org",
+        teamName: "team-1",
+        memberUsernames: ["alice", "bob"],
+        permission: "push",
+      },
+      signal,
+    ),
+  (client, draft, signal) =>
+    client.assignRepositoriesToTeam(
+      draft,
+      {
+        organization: "course-org",
+        teamSlug: "7",
+        repositoryNames: ["repo-1", "repo-2"],
+        permission: "push",
+      },
+      signal,
+    ),
+  (client, draft, signal) =>
+    client.createBranch(
+      draft,
+      {
+        owner: "course-org",
+        repositoryName: "repo-1",
+        branchName: "template-update",
+        baseSha: "base",
+        commitMessage: "Update template",
+        files: [
+          {
+            path: "README.md",
+            previousPath: null,
+            status: "modified",
+            contentBase64: "VXBkYXRlZA==",
+          },
+        ],
+      },
+      signal,
+    ),
+  (client, draft, signal) =>
+    client.createPullRequest(
+      draft,
+      {
+        owner: "course-org",
+        repositoryName: "repo-1",
+        headBranch: "template-update",
+        baseBranch: "main",
+        title: "Template update",
+        body: "",
+      },
+      signal,
+    ),
+]
 
 const providerClients: Array<
   (http: HttpPort) => [GitProviderClient, GitConnectionDraft]
@@ -575,7 +676,7 @@ describe("error handling consistency across git providers", () => {
             writeSignals.push(request.signal)
             controller.abort()
           }
-          return createdRepositoryResponse
+          return writeAnswer
         }),
       )
       const result = await client.createRepositories(
@@ -593,28 +694,123 @@ describe("error handling consistency across git providers", () => {
     }
   })
 
-  it("Gitea and GitLab report a failed file lookup during branch creation as a known failure", async () => {
-    const http: HttpPort = {
-      async fetch(request: HttpRequest): Promise<HttpResponse> {
-        if (
-          request.url.includes("/contents/") ||
-          request.url.includes("/repository/files/")
-        ) {
-          return {
-            status: 500,
-            statusText: "Error",
-            headers: { "content-type": "application/json" },
-            body: "{}",
-          }
-        }
-        return createdRepositoryResponse
-      },
-    }
-    const clients: Array<[GitProviderClient, GitConnectionDraft]> = [
-      [createGitLabClient(http), gitlabDraft],
-      [createGiteaClient(http), giteaDraft],
+  it("every read reports a lost request or an unnamed error reply as a known failure", async () => {
+    const reads: Array<
+      (client: GitProviderClient, draft: GitConnectionDraft) => Promise<unknown>
+    > = [
+      (client, draft) => client.verifyGitUsernames(draft, ["alice"]),
+      (client, draft) =>
+        client.resolveRepositoryCloneUrls(draft, {
+          organization: "course-org",
+          repositoryNames: ["repo-1"],
+        }),
+      (client, draft) =>
+        client.getRepositoryDefaultBranchHead(draft, {
+          owner: "course-org",
+          repositoryName: "repo-1",
+        }),
     ]
-    for (const [client, draft] of clients) {
+    const ports = [
+      createNetworkErrorHttpPort(),
+      createStatusHttpPort(500, JSON.stringify({ message: "Internal error" })),
+    ]
+    for (const http of ports) {
+      for (const providerClient of providerClients) {
+        const [client, draft] = providerClient(http)
+        for (const read of reads) {
+          await assert.rejects(read(client, draft), {
+            type: "git-effect",
+            disposition: "completed",
+          })
+        }
+      }
+    }
+  })
+
+  it("every write leaves a lost response unknown", async () => {
+    const lost = new Error("Response lost.")
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(
+        createWriteHttpPort(() => {
+          throw lost
+        }),
+      )
+      for (const write of writes) {
+        // Octokit wraps a lost response in its own error.
+        await assert.rejects(
+          write(client, draft),
+          (error) =>
+            error instanceof Error &&
+            error.message === lost.message &&
+            !("type" in error),
+        )
+      }
+    }
+  })
+
+  it("every write reports an unnamed error reply as a known failure", async () => {
+    const refused: HttpResponse = {
+      status: 500,
+      statusText: "Error",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: "Internal error" }),
+    }
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient(createWriteHttpPort(() => refused))
+      // A refused repository is that repository's failed entry.
+      const [createRepositories, ...others] = writes
+      const result = (await createRepositories(
+        client,
+        draft,
+      )) as CreateRepositoriesResult
+      assert.deepStrictEqual(
+        result.failed.map((entry) => entry.repositoryName),
+        ["repo-1", "repo-2"],
+      )
+      for (const write of others) {
+        await assert.rejects(write(client, draft), {
+          type: "git-effect",
+          disposition: "completed",
+        })
+      }
+    }
+  })
+
+  it("every write with several steps stops before the next one once Cancel arrives", async () => {
+    // A pull request is a single write, which runs to its response.
+    for (const write of writes.slice(0, -1)) {
+      for (const providerClient of providerClients) {
+        const controller = new AbortController()
+        let writeCount = 0
+        const [client, draft] = providerClient(
+          createWriteHttpPort(() => {
+            writeCount++
+            controller.abort()
+            return writeAnswer
+          }),
+        )
+        await assert.rejects(write(client, draft, controller.signal), {
+          type: "git-effect",
+          disposition: "stopped",
+        })
+        assert.equal(writeCount, 1)
+      }
+    }
+  })
+
+  it("all providers report a lost file read during branch creation as a known failure", async () => {
+    for (const providerClient of providerClients) {
+      const [client, draft] = providerClient({
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.url.includes("/contents/") ||
+            request.url.includes("/repository/files/")
+          ) {
+            throw new Error("Connection reset")
+          }
+          return writeAnswer
+        },
+      })
       await assert.rejects(
         client.createBranch(draft, {
           owner: "course-org",
@@ -631,7 +827,11 @@ describe("error handling consistency across git providers", () => {
             },
           ],
         }),
-        { type: "git-effect", disposition: "completed" },
+        {
+          message: "Connection reset",
+          type: "git-effect",
+          disposition: "completed",
+        },
       )
     }
   })
@@ -644,7 +844,10 @@ describe("error handling consistency across git providers", () => {
             status: 403,
             statusText: "Forbidden",
             headers: { "content-type": "application/json" },
-            body: "{}",
+            body: JSON.stringify({
+              message: "user does not have permission to write",
+              url: "https://gitea.example.com/api/swagger",
+            }),
           }
         }
         if (request.method === "GET" && request.url.includes("/contents/")) {
@@ -652,10 +855,10 @@ describe("error handling consistency across git providers", () => {
             status: 200,
             statusText: "OK",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ sha: "previous-sha" }),
+            body: JSON.stringify({ type: "file", sha: "previous-sha" }),
           }
         }
-        return createdRepositoryResponse
+        return writeAnswer
       },
     }
     await assert.rejects(
@@ -676,7 +879,7 @@ describe("error handling consistency across git providers", () => {
       }),
       {
         message:
-          "DELETE /api/v1/repos/course-org/repo-1/contents/README.md answered 403",
+          "DELETE /api/v1/repos/course-org/repo-1/contents/README.md answered 403: user does not have permission to write",
         type: "git-effect",
         disposition: "completed",
       },
@@ -717,23 +920,61 @@ describe("error handling consistency across git providers", () => {
   })
 
   it("all providers stop when Cancel interrupts the lookup of an existing repository", async () => {
+    // Each provider answers a taken repository name in its own way.
+    const repositoryExists: Record<
+      GitConnectionDraft["provider"],
+      HttpResponse
+    > = {
+      github: {
+        status: 422,
+        statusText: "Unprocessable Entity",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: "Repository creation failed.",
+          errors: [
+            {
+              resource: "Repository",
+              code: "custom",
+              field: "name",
+              message: "name already exists on this account",
+            },
+          ],
+          status: "422",
+        }),
+      },
+      gitlab: {
+        status: 400,
+        statusText: "Bad Request",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: {
+            name: ["has already been taken"],
+            path: ["has already been taken"],
+          },
+        }),
+      },
+      gitea: {
+        status: 409,
+        statusText: "Conflict",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: "The repository with the same name already exists.",
+          url: "https://gitea.example.com/api/swagger",
+        }),
+      },
+    }
     for (const providerClient of providerClients) {
       const controller = new AbortController()
+      let provider: GitConnectionDraft["provider"] = "github"
       const [client, draft] = providerClient(
         createSignalObeyingHttpPort((request) => {
-          if (request.method === "POST") {
-            return {
-              status: 422,
-              statusText: "Unprocessable Entity",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ message: "name already exists" }),
-            }
-          }
-          if (request.url.includes("/groups/")) return createdRepositoryResponse
+          if (request.method === "POST") return repositoryExists[provider]
+          if (request.url.includes("/groups/")) return writeAnswer
           controller.abort()
           return null
         }),
       )
+      provider = draft.provider
       await assert.rejects(
         client.createRepositories(
           draft,
@@ -746,50 +987,6 @@ describe("error handling consistency across git providers", () => {
           controller.signal,
         ),
         { type: "git-effect", disposition: "stopped" },
-      )
-    }
-  })
-
-  it("all providers report a failed lookup of an existing pull request as a known failure", async () => {
-    const http: HttpPort = {
-      async fetch(request: HttpRequest): Promise<HttpResponse> {
-        if (request.method === "POST") {
-          return {
-            status: 422,
-            statusText: "Unprocessable Entity",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              message:
-                "A pull request already exists for course-org:template-update.",
-            }),
-          }
-        }
-        if (
-          request.url.includes("/pulls") ||
-          request.url.includes("/merge_requests")
-        ) {
-          return {
-            status: 500,
-            statusText: "Error",
-            headers: { "content-type": "application/json" },
-            body: "{}",
-          }
-        }
-        return createdRepositoryResponse
-      },
-    }
-    for (const providerClient of providerClients) {
-      const [client, draft] = providerClient(http)
-      await assert.rejects(
-        client.createPullRequest(draft, {
-          owner: "course-org",
-          repositoryName: "repo-1",
-          headBranch: "template-update",
-          baseBranch: "main",
-          title: "Template update",
-          body: "",
-        }),
-        { type: "git-effect", disposition: "completed" },
       )
     }
   })
@@ -846,23 +1043,6 @@ describe("error handling consistency across git providers", () => {
           toSha: "2222222bbbb",
         }),
         { type: "git-effect", disposition: "completed" },
-      )
-    }
-  })
-
-  it("all providers report a failed read as a known failure", async () => {
-    for (const providerClient of providerClients) {
-      const [client, draft] = providerClient(createNetworkErrorHttpPort())
-      await assert.rejects(
-        client.resolveRepositoryCloneUrls(draft, {
-          organization: "course-org",
-          repositoryNames: ["repo-1"],
-        }),
-        {
-          message: "Connection refused",
-          type: "git-effect",
-          disposition: "completed",
-        },
       )
     }
   })

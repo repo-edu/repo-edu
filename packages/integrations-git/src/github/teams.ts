@@ -3,7 +3,11 @@ import type {
   CreateTeamRequest,
   GitProviderClient,
 } from "@repo-edu/integrations-git-contract"
-import { isGitReply, throwIfGitEffectAborted } from "../invocation-guard.js"
+import {
+  gitEffectFailure,
+  isGitReply,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
 import { createOctokit } from "./transport.js"
 
 function mapTeamPermission(permission: CreateTeamRequest["permission"]) {
@@ -36,7 +40,7 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
     async createTeam(draft, request, signal) {
       const octokit = createOctokit(http, draft)
       let created = true
-      let teamSlug = ""
+      let team: { slug?: unknown }
       try {
         const response = await octokit.teams.create({
           org: request.organization,
@@ -45,17 +49,30 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
           privacy: "closed",
           request: { signal },
         })
-        teamSlug = response.data.slug
+        team = response.data
       } catch (error) {
+        // GitHub answers an existing team name with 422 "Validation Failed",
+        // so the refusal names an existing team only when its slug finds one.
         if (!isGitReply(error, 422)) throw error
         created = false
-        const response = await octokit.teams.getByName({
-          org: request.organization,
-          team_slug: teamSlugFromName(request.teamName),
-          request: { signal },
-        })
-        teamSlug = response.data.slug
+        try {
+          const response = await octokit.teams.getByName({
+            org: request.organization,
+            team_slug: teamSlugFromName(request.teamName),
+            request: { signal },
+          })
+          team = response.data
+        } catch (lookupError) {
+          throw isGitReply(lookupError, 404) ? error : lookupError
+        }
       }
+      if (typeof team.slug !== "string") {
+        throw gitEffectFailure(
+          "completed",
+          `GitHub answered team '${request.teamName}' without its slug.`,
+        )
+      }
+      const teamSlug = team.slug
       const membersAdded: string[] = []
       const membersNotFound: string[] = []
       for (const username of request.memberUsernames) {
@@ -70,6 +87,8 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
           })
           membersAdded.push(username)
         } catch (error) {
+          // GitHub answers a missing account with 404, which its REST
+          // troubleshooting guide documents for every missing resource.
           if (!isGitReply(error, 404)) throw error
           membersNotFound.push(username)
         }

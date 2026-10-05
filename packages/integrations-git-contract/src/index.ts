@@ -132,10 +132,11 @@ export type CreatePullRequestRequest = {
   body: string
 }
 
-export type CreatePullRequestResult = {
-  url: string
-  created: boolean
-}
+/** `created: false` answers a provider that already has a pull request for
+ * these branches or, on GitHub, no commits between them. */
+export type CreatePullRequestResult =
+  | { created: true; url: string }
+  | { created: false }
 
 export type ResolveRepositoryCloneUrlsRequest = {
   organization: string
@@ -199,6 +200,8 @@ export type GitProviderClient = {
     request: AssignRepositoriesToTeamRequest,
     signal?: AbortSignal,
   ): Promise<void>
+  /** `null` when the provider answers that the repository or its default
+   * branch does not exist, as for an empty repository. */
   getRepositoryDefaultBranchHead(
     draft: GitConnectionDraft,
     request: RepositoryHeadRequest,

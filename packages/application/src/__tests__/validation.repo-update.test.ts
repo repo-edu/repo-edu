@@ -204,10 +204,7 @@ describe("application repository update workflow helpers", () => {
           return { files: [] }
         },
         createBranch: async () => {},
-        createPullRequest: async () => ({
-          url: "",
-          created: false,
-        }),
+        createPullRequest: async () => ({ created: false }),
         resolveRepositoryCloneUrls: async () => ({
           resolved: [],
           missing: [],

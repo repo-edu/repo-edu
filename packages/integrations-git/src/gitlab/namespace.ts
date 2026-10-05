@@ -1,5 +1,5 @@
 import type { Gitlab } from "@gitbeaker/rest"
-import { isGitReply } from "../invocation-guard.js"
+import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
 
 export async function resolveGroupId(
   api: Gitlab,
@@ -12,6 +12,12 @@ export async function resolveGroupId(
     if (!isGitReply(error, 404)) throw error
     return null
   }
-  const id = (group as { id?: unknown }).id
-  return typeof id === "number" ? id : null
+  const id = (group as { id?: unknown } | null)?.id
+  if (typeof id !== "number") {
+    throw gitEffectFailure(
+      "completed",
+      `GitLab answered group '${groupPath}' without its id.`,
+    )
+  }
+  return id
 }

@@ -2,9 +2,13 @@ import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import {
   gitEffectFailure,
-  isGitReply,
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
+import {
+  isAlreadySharedWithGroup,
+  isMemberAlreadyExists,
+  isNameTaken,
+} from "./errors.js"
 import { resolveGroupId } from "./namespace.js"
 import { resolveProjectId } from "./repository-api.js"
 import { createGitLabApi, gitLabRestPost } from "./transport.js"
@@ -38,7 +42,7 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
       const teamSlug = toTeamPathSlug(request.teamName)
       const teamPath = `${request.organization}/${teamSlug}`
       let created = false
-      let teamId: number | null = null
+      let teamId: number | null
       try {
         const group = await gitLabRestPost(
           http,
@@ -53,18 +57,22 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
           signal,
         )
         const id = (group as { id?: unknown } | null)?.id
-        if (typeof id === "number") {
-          teamId = id
-          created = true
+        if (typeof id !== "number") {
+          throw gitEffectFailure(
+            "completed",
+            `GitLab created team group '${teamPath}' but answered without its id.`,
+          )
         }
+        teamId = id
+        created = true
       } catch (error) {
-        if (!isGitReply(error, 400, 409)) throw error
+        if (!isNameTaken(error)) throw error
         teamId = await resolveGroupId(api, teamPath)
       }
       if (teamId === null) {
         throw gitEffectFailure(
           "completed",
-          `Failed to resolve GitLab team '${teamPath}'.`,
+          `GitLab answered that team '${request.teamName}' is taken, but no group exists at '${teamPath}'.`,
         )
       }
 
@@ -92,7 +100,7 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
             signal,
           )
         } catch (error) {
-          if (!isGitReply(error, 409)) throw error
+          if (!isMemberAlreadyExists(error)) throw error
         }
         membersAdded.push(username)
       }
@@ -133,7 +141,7 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
             signal,
           )
         } catch (error) {
-          if (!isGitReply(error, 409)) throw error
+          if (!isAlreadySharedWithGroup(error)) throw error
         }
       }
     },

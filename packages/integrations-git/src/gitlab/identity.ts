@@ -1,7 +1,7 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import { createGitLabApi } from "./transport.js"
-import { isActiveExactMatch } from "./users.js"
+import { isUsableGitLabUser } from "./users.js"
 
 type IdentityCapability = Pick<
   GitProviderClient,
@@ -27,11 +27,10 @@ export function createGitLabIdentity(http: HttpPort): IdentityCapability {
       const results = []
       for (const username of usernames) {
         if (signal?.aborted) break
-        // The search answers absence with no active exact match.
-        const users = await api.Users.all({ username })
+        // The search answers absence with no matching account.
         results.push({
           username,
-          exists: users.some((user) => isActiveExactMatch(user, username)),
+          exists: await isUsableGitLabUser(api, username),
         })
       }
       return results

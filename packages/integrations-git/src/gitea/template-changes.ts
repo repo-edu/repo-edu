@@ -32,7 +32,13 @@ export function createGiteaTemplateChanges(
         )
         const branchName = (repository as { default_branch?: unknown } | null)
           ?.default_branch
-        if (typeof branchName !== "string") return null
+        if (typeof branchName !== "string") {
+          throw gitEffectFailure(
+            "completed",
+            `Gitea answered repository '${request.owner}/${request.repositoryName}' without its default branch.`,
+          )
+        }
+        // An empty repository answers its default branch with a 404.
         const branch = await giteaRequest(
           http,
           draft,
@@ -43,9 +49,13 @@ export function createGiteaTemplateChanges(
         )
         const commitId = (branch as { commit?: { id?: unknown } | null } | null)
           ?.commit?.id
-        return typeof commitId === "string"
-          ? { sha: commitId, branchName }
-          : null
+        if (typeof commitId !== "string") {
+          throw gitEffectFailure(
+            "completed",
+            `Gitea answered branch '${branchName}' of '${request.owner}/${request.repositoryName}' without its commit.`,
+          )
+        }
+        return { sha: commitId, branchName }
       } catch (error) {
         if (isGitReply(error, 404)) return null
         throw error

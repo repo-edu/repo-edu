@@ -1,6 +1,6 @@
 import type { Octokit } from "@octokit/rest"
 import type { PatchFile } from "@repo-edu/integrations-git-contract"
-import { isGitReply } from "../invocation-guard.js"
+import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
 
 function toBase64FromUnknown(
   content: unknown,
@@ -43,32 +43,48 @@ export async function readRepositoryFileBase64(
   }
 }
 
+/** The blob of a plain file on the branch, or `null` on an explicit 404. A
+ * folder, symbolic link or submodule at the path fails the read, because a
+ * branch update writes plain files only. */
 export async function readRepositoryFileSha(
   octokit: Octokit,
   owner: string,
   repositoryName: string,
   path: string,
-  ref: string,
+  branchName: string,
   signal?: AbortSignal,
 ): Promise<string | null> {
+  let response: Awaited<ReturnType<Octokit["repos"]["getContent"]>>
   try {
-    const response = await octokit.repos.getContent({
+    response = await octokit.repos.getContent({
       owner,
       repo: repositoryName,
       path,
-      ref,
+      ref: branchName,
       request: { signal },
     })
-    if (Array.isArray(response.data) || response.data.type !== "file") {
-      return null
-    }
-    return typeof response.data.sha === "string" ? response.data.sha : null
   } catch (error) {
-    if (isGitReply(error, 404)) {
-      return null
-    }
+    if (isGitReply(error, 404)) return null
     throw error
   }
+  // A folder answers its entry list.
+  const entry = (Array.isArray(response.data) ? {} : response.data) as {
+    type?: unknown
+    sha?: unknown
+  }
+  if (entry.type !== "file") {
+    throw gitEffectFailure(
+      "completed",
+      `'${path}' on branch '${branchName}' is not a plain file, so the update cannot write it.`,
+    )
+  }
+  if (typeof entry.sha !== "string") {
+    throw gitEffectFailure(
+      "completed",
+      `GitHub answered file '${path}' on branch '${branchName}' without its blob.`,
+    )
+  }
+  return entry.sha
 }
 
 export function normalizeTemplateDiffStatus(
@@ -78,24 +94,4 @@ export function normalizeTemplateDiffStatus(
     return status
   }
   return "modified"
-}
-
-export async function resolveExistingPullRequestUrl(
-  octokit: Octokit,
-  owner: string,
-  repositoryName: string,
-  headBranch: string,
-  baseBranch: string,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  const response = await octokit.pulls.list({
-    owner,
-    repo: repositoryName,
-    state: "open",
-    head: `${owner}:${headBranch}`,
-    base: baseBranch,
-    request: { signal },
-  })
-  const first = response.data[0]
-  return first && typeof first.html_url === "string" ? first.html_url : null
 }

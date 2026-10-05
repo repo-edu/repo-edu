@@ -98,32 +98,100 @@ describe("gitlab repositories", () => {
       assert.ok(capturedBody.includes('"visibility":"internal"'))
     })
 
-    it("reports every repository as failed when the group has no namespace id", async () => {
+    it("reports a group answered without its id as a known failure", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
           urlPattern: "/groups/my-group",
           status: 200,
-          body: { path: "my-group" }, // no id
+          body: { path: "my-group" },
         },
       ])
 
       const client = createGitLabClient(http)
-      const result = await client.createRepositories(baseDraft, {
-        organization: "my-group",
-        repositoryNames: ["repo-1"],
-        visibility: "private",
-        autoInit: true,
-      })
-
-      assert.deepStrictEqual(result.created, [])
-      assert.deepStrictEqual(result.alreadyExisted, [])
-      assert.deepStrictEqual(result.failed, [
+      await assert.rejects(
+        client.createRepositories(baseDraft, {
+          organization: "my-group",
+          repositoryNames: ["repo-1"],
+          visibility: "private",
+          autoInit: true,
+        }),
         {
-          repositoryName: "repo-1",
-          reason: "GitLab group 'my-group' was not found.",
+          message: "GitLab answered group 'my-group' without its id.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
+
+    it("records a refused or incompletely answered create as that repository's failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/groups/my-group",
+          status: 200,
+          body: { id: 42, path: "my-group" },
+        },
+        {
+          method: "POST",
+          urlPattern: /\/projects$/,
+          status: 400,
+          body: {
+            message: {
+              path: [
+                "can contain only letters, digits, '_', '-' and '.'. Cannot start with '-', end in '.git' or end in '.atom'",
+              ],
+            },
+          },
         },
       ])
+
+      const result = await createGitLabClient(http).createRepositories(
+        baseDraft,
+        {
+          organization: "my-group",
+          repositoryNames: ["repo 1"],
+          visibility: "private",
+          autoInit: true,
+        },
+      )
+      assert.equal(result.failed.length, 1)
+      assert.match(
+        result.failed[0]?.reason ?? "",
+        /^POST \/api\/v4\/projects answered 400: /,
+      )
+
+      const incomplete = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/groups/my-group",
+          status: 200,
+          body: { id: 42, path: "my-group" },
+        },
+        {
+          method: "POST",
+          urlPattern: /\/projects$/,
+          status: 201,
+          body: { id: 100, path: "repo-1" },
+        },
+      ])
+      assert.deepStrictEqual(
+        (
+          await createGitLabClient(incomplete).createRepositories(baseDraft, {
+            organization: "my-group",
+            repositoryNames: ["repo-1"],
+            visibility: "private",
+            autoInit: true,
+          })
+        ).failed,
+        [
+          {
+            repositoryName: "repo-1",
+            reason:
+              "GitLab created the repository but answered without its web or clone URL.",
+          },
+        ],
+      )
     })
 
     it("reports every repository as failed when the group is missing", async () => {
@@ -217,7 +285,7 @@ describe("gitlab repositories", () => {
   })
 
   describe("createRepositories alreadyExisted", () => {
-    it("classifies HTTP 400 already-exists as alreadyExisted", async () => {
+    it("classifies a taken name as alreadyExisted", async () => {
       let projectPostCalled = false
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
@@ -239,7 +307,10 @@ describe("gitlab repositories", () => {
               statusText: "Bad Request",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
-                message: { name: ["has already been taken"] },
+                message: {
+                  name: ["has already been taken"],
+                  path: ["has already been taken"],
+                },
               }),
             }
           }

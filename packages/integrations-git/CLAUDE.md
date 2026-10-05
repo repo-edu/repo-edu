@@ -46,14 +46,22 @@ absence rules.
   absent when the provider reports its account inactive or blocked. Network,
   timeout, authentication, rate-limit and other provider failures must
   propagate to the application layer.
-- A reply that lacks a field its answer depends on, such as a clone URL, a
-  compare's file list or a changed template file's content, fails the call.
-  It never reads as absence, an empty result or a skipped entry.
+- A reply that lacks a field its answer depends on, such as a clone URL, an
+  account state, a default branch or a compare's file list, fails the call. In
+  a repository batch create it fails that repository's entry. It never reads
+  as absence, an empty result or a skipped entry.
+- A branch update writes plain files only. A folder, symbolic link or
+  submodule at a changed path fails the call.
 
 ## Adding Git Capabilities
 
 1. Extend interfaces/types in `@repo-edu/integrations-git-contract`.
 2. Assign the operation to one capability owner in each provider.
-3. Implement GitHub, GitLab, and Gitea behavior (or document intentional
+3. Implement GitHub, GitLab and Gitea behaviour (or document intentional
    provider gaps).
-4. Add behavior tests to the matching provider capability suite.
+4. Add behaviour and failure-path tests to the matching provider capability
+   suite. The suites name every call an exclusive command makes with each
+   answer its failures give. Fake replies follow the provider's own API
+   definition: Gitea and GitLab at the versions
+   `packages/integration-tests/docker-compose.yml` pins, and GitHub's REST
+   reference.

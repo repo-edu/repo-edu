@@ -207,13 +207,14 @@ describe("gitlab identity", () => {
   })
 
   describe("verifyGitUsernames", () => {
-    it("returns mixed results", async () => {
+    it("answers each account by its existence and state", async () => {
+      // GitLab matches the username filter without regard to case.
       const http = createMockHttpPort([
         {
           method: "GET",
-          urlPattern: /username=alice/,
+          urlPattern: /username=Alice/,
           status: 200,
-          body: [{ username: "alice", state: "active" }],
+          body: [{ id: 1, username: "alice", state: "active" }],
         },
         {
           method: "GET",
@@ -221,33 +222,63 @@ describe("gitlab identity", () => {
           status: 200,
           body: [],
         },
-      ])
-
-      const client = createGitLabClient(http)
-      const result = await client.verifyGitUsernames(baseDraft, [
-        "alice",
-        "nobody",
-      ])
-
-      assert.equal(result.length, 2)
-      assert.deepStrictEqual(result[0], { username: "alice", exists: true })
-      assert.deepStrictEqual(result[1], { username: "nobody", exists: false })
-    })
-
-    it("treats blocked users as not existing", async () => {
-      const http = createMockHttpPort([
         {
           method: "GET",
           urlPattern: /username=blocked/,
           status: 200,
-          body: [{ username: "blocked", state: "blocked" }],
+          body: [{ id: 2, username: "blocked", state: "blocked" }],
+        },
+        {
+          method: "GET",
+          urlPattern: /username=banned/,
+          status: 200,
+          body: [{ id: 3, username: "banned", state: "banned" }],
+        },
+        {
+          method: "GET",
+          urlPattern: /username=dormant/,
+          status: 200,
+          body: [{ id: 4, username: "dormant", state: "deactivated" }],
         },
       ])
 
       const client = createGitLabClient(http)
-      const result = await client.verifyGitUsernames(baseDraft, ["blocked"])
+      const result = await client.verifyGitUsernames(baseDraft, [
+        "Alice",
+        "nobody",
+        "blocked",
+        "banned",
+        "dormant",
+      ])
 
-      assert.deepStrictEqual(result[0], { username: "blocked", exists: false })
+      assert.deepStrictEqual(result, [
+        { username: "Alice", exists: true },
+        { username: "nobody", exists: false },
+        { username: "blocked", exists: false },
+        { username: "banned", exists: false },
+        { username: "dormant", exists: false },
+      ])
+    })
+
+    it("reports an account answered without its state as a known failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: /username=alice/,
+          status: 200,
+          body: [{ id: 1, username: "alice" }],
+        },
+      ])
+
+      await assert.rejects(
+        createGitLabClient(http).verifyGitUsernames(baseDraft, ["alice"]),
+        {
+          message:
+            "GitLab answered user 'alice' without its id or account state.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
     })
   })
 })

@@ -7,7 +7,7 @@ import {
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
 import { withGiteaToken } from "./auth.js"
-import { isAlreadyExists } from "./errors.js"
+import { isRepositoryAlreadyExists } from "./errors.js"
 import {
   extractRepositoryCloneUrl,
   extractRepositoryUrls,
@@ -46,7 +46,7 @@ export function createGiteaRepositories(
           )
         } catch (error) {
           if (!isGitReply(error)) throw error
-          if (!isAlreadyExists(error)) {
+          if (!isRepositoryAlreadyExists(error)) {
             failed.push({ repositoryName, reason: error.message })
             continue
           }
@@ -70,7 +70,8 @@ export function createGiteaRepositories(
           if (urls === null) {
             failed.push({
               repositoryName,
-              reason: "Repository exists but URLs could not be resolved.",
+              reason:
+                "Repository exists but Gitea answered without its web or clone URL.",
             })
           } else {
             alreadyExisted.push({
@@ -85,7 +86,8 @@ export function createGiteaRepositories(
         if (urls === null) {
           failed.push({
             repositoryName,
-            reason: "Provider returned incomplete repository URLs.",
+            reason:
+              "Gitea created the repository but answered without its web or clone URL.",
           })
           continue
         }
