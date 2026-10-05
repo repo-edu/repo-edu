@@ -175,7 +175,7 @@ function phaseModel(
       ? config.phases[configuredPhase][assistant]
       : config.phases[configuredPhase]
   const field = (value: string | null): PinnedField | null =>
-    value === null ? null : { value, source: "settings.json" }
+    value === null ? null : { value, source: "audit-round settings" }
   if (configuredPhase !== "audit")
     return { model: field(pin.model), effort: field(pin.effort) }
   if (override === "cli") return unpinned
@@ -220,6 +220,25 @@ export function roundPhases(
     // The watch reads the commit record, never the round, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
   }
+}
+
+/**
+ * Every model a round's phases may name for one assistant, whoever audits:
+ * each phase's own pin and each tier `--auditor` can ask for.
+ */
+export function namedModels(
+  assistant: Assistant,
+  config: RoundSettings,
+): ReadonlySet<string> {
+  const names = new Set<string>()
+  for (const auditor of ["claude", "codex"] as const)
+    for (const strength of [null, ...strengths])
+      for (const run of Object.values(
+        roundPhases(auditor, { strength, effort: null }, config),
+      ))
+        if (run.assistant === assistant && run.model.model !== null)
+          names.add(run.model.model.value)
+  return names
 }
 
 /**

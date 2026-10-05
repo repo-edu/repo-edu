@@ -1,5 +1,5 @@
 import { split } from "shellwords"
-import type { Feedback, ModelSelection } from "./feedback.js"
+import type { CliModels, Feedback, ModelSelection } from "./feedback.js"
 import {
   type Assistant,
   assistantLetters,
@@ -14,29 +14,33 @@ import type { RoundSettings } from "./settings.js"
 
 export type Context = Extract<Feedback, { type: "context" }>
 
+function effortText(effort: string | null): string {
+  return effort === "xhigh" ? "extra high" : (effort ?? "effort unavailable")
+}
+
 export function modelText(selection: ModelSelection): string {
-  const effort = selection.effort === "xhigh" ? "extra high" : selection.effort
-  return `${selection.model} ${effort ?? "effort unavailable"}`
+  return `${selection.model} ${effortText(selection.effort)}`
 }
 
 /**
  * What one phase runs on, and what named it. A field the phase did not name
- * follows the assistant's own configuration, so a phase that took only its
- * model from the command line names both sources, model first.
+ * follows the CLI default, so a phase that took only its model from the
+ * command line names both sources, model first.
  */
 export function phaseText(
-  { model, effort }: PinnedModel,
-  configured: ModelSelection,
-  assistant: Assistant,
-): { readonly model: string; readonly source: string } {
-  const own = `${assistant} settings`
-  const modelSource = model?.source ?? own
-  const effortSource = effort?.source ?? own
+  pinned: PinnedModel,
+  cli: CliModels,
+): {
+  readonly model: string
+  readonly effort: string
+  readonly source: string
+} {
+  const { model, effort } = phaseSelection(pinned, cli)
+  const modelSource = pinned.model?.source ?? "CLI default"
+  const effortSource = pinned.effort?.source ?? "CLI default"
   return {
-    model: modelText({
-      model: model?.value ?? configured.model,
-      effort: effort?.value ?? configured.effort,
-    }),
+    model,
+    effort: effortText(effort),
     source:
       modelSource === effortSource
         ? modelSource
@@ -44,13 +48,19 @@ export function phaseText(
   }
 }
 
-/** What a phase requests before its own CLI reports the applied selection. */
+/**
+ * What a phase requests before its own CLI reports the applied selection. A
+ * named model reads as the release its CLI resolved it to at startup.
+ */
 export function phaseSelection(
   { model, effort }: PinnedModel,
-  configured: ModelSelection,
+  { configured, releases }: CliModels,
 ): ModelSelection {
   return {
-    model: model?.value ?? configured.model,
+    model:
+      model === null
+        ? configured.model
+        : (releases.get(model.value) ?? model.value),
     effort: effort?.value ?? configured.effort,
   }
 }
@@ -89,12 +99,12 @@ export function commitPhaseLines(
  */
 export function capabilityTag(
   entry: RunEntry,
-  configured: ModelSelection,
+  cli: CliModels,
   settings: RoundSettings,
 ): string | null {
   return selectionTag(
     entry.assistant,
-    phaseSelection(entry.model, configured),
+    phaseSelection(entry.model, cli),
     settings,
   )
 }

@@ -7,6 +7,15 @@ export const selectionSchema = z.object({
 })
 export type ModelSelection = z.infer<typeof selectionSchema>
 
+/**
+ * What one CLI answered at startup: the selection a phase that names nothing
+ * runs on, and the release each model name the settings may pin resolves to.
+ */
+export type CliModels = {
+  readonly configured: ModelSelection
+  readonly releases: ReadonlyMap<string, string>
+}
+
 export type Feedback =
   | { readonly type: "session"; readonly sessionId: string }
   | { readonly type: "model"; readonly selection: ModelSelection }

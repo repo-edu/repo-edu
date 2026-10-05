@@ -56,12 +56,12 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
   const phases = roundPhases("codex", { strength: "top", effort: null }, config)
   assert.deepEqual(phases.audit.model, {
     model: { value: "custom-top-model", source: "--auditor" },
-    effort: { value: "medium", source: "settings.json" },
+    effort: { value: "medium", source: "audit-round settings" },
   })
   assert.deepEqual(phases.rebut, phases.audit)
   assert.deepEqual(phases.watch.model, {
     model: null,
-    effort: { value: "low", source: "settings.json" },
+    effort: { value: "low", source: "audit-round settings" },
   })
   assert.deepEqual(codexArguments(null, phases.watch.model), [
     "exec",
@@ -78,7 +78,7 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
     config,
   )
   assert.deepEqual(effortOnly.audit.model, {
-    model: { value: "configured-auditor", source: "settings.json" },
+    model: { value: "configured-auditor", source: "audit-round settings" },
     effort: { value: "high", source: "--auditor" },
   })
 })
@@ -93,8 +93,8 @@ test("fix and watch follow their configured assistants independently of the audi
       assert.deepEqual(phases.fix, {
         assistant,
         model: {
-          model: { value: "custom-fixer", source: "settings.json" },
-          effort: { value: "high", source: "settings.json" },
+          model: { value: "custom-fixer", source: "audit-round settings" },
+          effort: { value: "high", source: "audit-round settings" },
         },
       })
       assert.deepEqual(phases.watch, {

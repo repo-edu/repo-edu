@@ -121,12 +121,20 @@ if (assistant === "claude") {
   if (args.includes("--no-session-persistence")) {
     if (scenario.settingsMode === "exit") process.exit(3)
     if (scenario.settingsMode === "missing") process.exit(0)
+    // A named model applies as the release the scenario resolves it to.
+    const named = args.includes("--model")
+      ? args[args.indexOf("--model") + 1]
+      : undefined
+    const model =
+      named === undefined
+        ? "claude-model"
+        : (scenario.releases?.[named] ?? named)
     send({
       type: "control_response",
       response: {
         request_id: "audit-round-settings",
         subtype: scenario.settingsMode === "error" ? "error" : "success",
-        response: { applied: { model: "claude-model", effort: "high" } },
+        response: { applied: { model, effort: "high" } },
       },
     })
     process.exit(0)

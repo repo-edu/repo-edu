@@ -176,7 +176,10 @@ consumers.
   successful only when a fresh version read reaches the checked release or a newer one. Installer
   output is retained for failure diagnostics, since its success banner does not prove a version
   change. Failed checks and unverified updates leave the date unstamped so the next run retries.
-  Claude control requests and the short-lived Codex settings connection start no LLM turn.
+  Settings discovery reads each CLI's default selection. It also asks Claude for the release of each
+  model a round's phases may pin, as `namedModels` derives them from `roundPhases`, because a family
+  alias names whichever release is current. Codex runs a named model under that name. Claude control
+  requests and the short-lived Codex settings connection start no LLM turn.
   `requests.ts` owns headless and manual recovery arguments, including `--approve-for-me` on every
   Codex phase and resume command and a named model and reasoning effort: Codex takes them before any
   subcommand, so a resumed phase keeps them, and Claude takes `--model` and `--effort`. A fix
@@ -200,38 +203,39 @@ consumers.
   phase tags before `run-files.ts` exclusively creates the tagless claim, then opens the transcript
   and log. The claim remains after success or failure, and a conflict stops without retrying. Each
   entry carries its phase, so the settings header reports the model and effort that phase will run
-  on and names what set each of them: a command-line flag, the phase's own pin, or the assistant's
-  settings. A phase whose two fields came from different places names both, model first. The output
-  holds only the run start, current phase timing, context observations and each started phase's
-  model selection. A phase starts with its launch selection, then its CLI's model feedback replaces
-  it. Commit stamps use those phase selections; requested aliases remain in the settings header and
-  file tags. Every status stamp shows the phase's elapsed time and the round's total. Every logged
-  tool line opens with its step's own time, the assistant time since the previous tool line or since
-  the phase start for the first, followed by the round's total assistant time. `run-clock.ts` owns
-  what those readings count. A round measures its assistants, so time the user holds is not the
-  run's. Displaying the ruling opens a wait and submitting or cancelling the reply closes it. Each
-  phase and the run read the same waiting total through their own mark, so one rule serves every
-  reading. Two baselines measure context growth: a written status stamp reports the tokens added
-  since the previous written stamp, and a logged tool line reports the tokens added since the
-  previous tool line, beside the time since it. Both chain into the totals beside them; a fresh
-  phase starts its stamp baseline at zero and a resumed phase reports no first change.
-  `run-files.ts` completes each required write before returning to the invocation; no complete
-  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
-  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
-  source finding numbers. It uses cyan for inline code without background blocks and honours
-  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
-  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
-  log records each tool invocation once, with shell wrappers removed and no event envelopes or
-  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
-  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
-  line; the transcript retains it. `showBrief` renders the saved brief after validation and appends
-  it to the log, keeping it out of the transcript it retells. The brief's assistant text is not
-  displayed, so a writer echo cannot duplicate the saved document. Both full rounds and standalone
-  briefs use this route. `beginRuling` releases the live status display and renders the fix's
-  ruling. `endRuling` excludes the user's waiting time and records a submitted reply in the log and
-  transcript before any resumed process starts. Assistant replies use the normal phase output, so
-  launch prompts stay in the log and never reach the terminal. Supplied instruction files appear
-  there by path only; their full contents go to the assistant.
+  on, each in its own aligned column. It names what set each of them: `--auditor`,
+  `audit-round settings` for the phase's own pin, or `CLI default` when the phase names nothing. A
+  phase whose two fields came from different places names both, model first. A pinned model reads as
+  the release its CLI resolved it to at startup, so every row names a release. The output holds only
+  the run start, current phase timing, context observations and each started phase's model
+  selection. A phase starts with its launch selection, then its CLI's model feedback replaces it.
+  Commit stamps use those phase selections. Every status stamp shows the phase's elapsed time and
+  the round's total. Every logged tool line opens with its step's own time, the assistant time since
+  the previous tool line or since the phase start for the first, followed by the round's total
+  assistant time. `run-clock.ts` owns what those readings count. A round measures its assistants, so
+  time the user holds is not the run's. Displaying the ruling opens a wait and submitting or
+  cancelling the reply closes it. Each phase and the run read the same waiting total through their
+  own mark, so one rule serves every reading. Two baselines measure context growth: a written status
+  stamp reports the tokens added since the previous written stamp, and a logged tool line reports
+  the tokens added since the previous tool line, beside the time since it. Both chain into the
+  totals beside them; a fresh phase starts its stamp baseline at zero and a resumed phase reports no
+  first change. `run-files.ts` completes each required write before returning to the invocation; no
+  complete transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the
+  `pi-tui` Markdown component at the current terminal width, preserving paragraph spacing, nested
+  lists and source finding numbers. It uses cyan for inline code without background blocks and
+  honours `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live
+  status line, so permanent text is not wrapped twice. Redirected output retains the original
+  Markdown. The log records each tool invocation once, with shell wrappers removed and no event
+  envelopes or result payloads. Invocation lines stay complete in the log; assistant texts stay
+  complete in Markdown. Only terminal tool lines shorten. The terminal omits the final
+  `PHASE RESULT` control line; the transcript retains it. `showBrief` renders the saved brief after
+  validation and appends it to the log, keeping it out of the transcript it retells. The brief's
+  assistant text is not displayed, so a writer echo cannot duplicate the saved document. Both full
+  rounds and standalone briefs use this route. `beginRuling` releases the live status display and
+  renders the fix's ruling. `endRuling` excludes the user's waiting time and records a submitted
+  reply in the log and transcript before any resumed process starts. Assistant replies use the
+  normal phase output, so launch prompts stay in the log and never reach the terminal. Supplied
+  instruction files appear there by path only; their full contents go to the assistant.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates,
   existing document resolution and report closure for both entry routes. It resolves `HEAD`
   in commit targets and scans the plan root for the next target-wide number. Automated rounds
@@ -344,6 +348,7 @@ left unchanged. The user supplied the defaults on 2026-09-23.
 - `strengthModels` maps each assistant's base and top tiers to a model name.
   The same names classify reported models for capability tags. A family alias
   such as `opus` follows the CLI's current release; a full model name pins it.
+  The settings header shows the release either one resolves to.
 - `phases` sets each phase's model and effort. A `null` field inherits the
   assistant CLI's effective setting. A named model must suit the selected CLI.
 - Audit and vet each have separate Claude and Codex selections, so changing

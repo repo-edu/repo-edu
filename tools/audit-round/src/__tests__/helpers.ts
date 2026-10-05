@@ -37,8 +37,14 @@ export function testContext(
 
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
 export const selections = {
-  claude: { model: "claude-opus-5", effort: "xhigh" },
-  codex: { model: "gpt-6-astra", effort: "high" },
+  claude: {
+    configured: { model: "claude-opus-5", effort: "xhigh" },
+    releases: new Map([["opus", "claude-opus-5"]]),
+  },
+  codex: {
+    configured: { model: "gpt-6-astra", effort: "high" },
+    releases: new Map<string, string>(),
+  },
 }
 export const recorded = async (name: string) =>
   readFile(join(fixtureRoot, name), "utf8")

@@ -5,12 +5,13 @@ import { test } from "node:test"
 import { readClaudeSettings } from "../claude.js"
 import { readCodexSettings } from "../codex-settings.js"
 import { prepareAssistants, updateClis } from "../startup.js"
+import { testSettings } from "./configured-runner.js"
 import { fixture } from "./helpers.js"
 
 const now = () => new Date(2026, 8, 11, 12)
 
 test("startup finishes daily updates before read-only settings discovery", async (t) => {
-  const f = await fixture(t)
+  const f = await fixture(t, { releases: { opus: "claude-opus-5-5" } })
   const messages: string[] = []
   const output = {
     message: async (text: string) => {
@@ -21,21 +22,39 @@ test("startup finishes daily updates before read-only settings discovery", async
     },
   }
   const cacheRoot = join(f.root, "cache")
-  const selections = await prepareAssistants(f.runtime, output, {
+  const selections = await prepareAssistants(f.runtime, output, testSettings, {
     cacheRoot,
     now,
   })
+  // Each Claude model the settings may pin reads as the release it resolves to.
   assert.deepEqual(selections, {
-    claude: { model: "claude-model", effort: "high" },
-    codex: { model: "chosen-model", effort: "high" },
+    claude: {
+      configured: { model: "claude-model", effort: "high" },
+      releases: new Map([
+        ["opus", "claude-opus-5-5"],
+        ["claude-fable-5-1", "claude-fable-5-1"],
+      ]),
+    },
+    codex: {
+      configured: { model: "chosen-model", effort: "high" },
+      releases: new Map(),
+    },
   })
   assert.deepEqual(
-    (await f.calls()).map((call) => [call.assistant, call.args[0]]),
+    (await f.calls()).map((call) => [
+      call.assistant,
+      call.args[0],
+      call.args.includes("--model")
+        ? call.args[call.args.indexOf("--model") + 1]
+        : null,
+    ]),
     [
-      ["claude", "update"],
-      ["codex", "--version"],
-      ["claude", "-p"],
-      ["codex", "app-server"],
+      ["claude", "update", null],
+      ["codex", "--version", null],
+      ["claude", "-p", null],
+      ["claude", "-p", "opus"],
+      ["claude", "-p", "claude-fable-5-1"],
+      ["codex", "app-server", null],
     ],
   )
   assert.equal(
@@ -43,7 +62,7 @@ test("startup finishes daily updates before read-only settings discovery", async
     "2026-09-11\n",
   )
   assert.equal(await readFile(join(cacheRoot, "codex"), "utf8"), "2026-09-11\n")
-  await prepareAssistants(f.runtime, output, { cacheRoot, now })
+  await prepareAssistants(f.runtime, output, testSettings, { cacheRoot, now })
   assert.equal(
     (await f.calls()).filter((call) => call.args[0] === "update").length,
     1,

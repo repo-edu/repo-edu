@@ -522,28 +522,35 @@ test("the settings header groups phases by assistant in aligned columns", async 
     )
     t.after(() => output.close())
     output.models({
-      claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
-      codex: { model: "gpt-6-astra", effort: "high" },
+      claude: {
+        configured: { model: "claude-opus-5[1m]", effort: "xhigh" },
+        releases: new Map(),
+      },
+      codex: {
+        configured: { model: "gpt-6-astra", effort: "high" },
+        releases: new Map(),
+      },
     })
     return visible.at(-1)
   }
+  // Model, effort and source each start in their own column.
   const codexHeader = [
-    "audit  codex   gpt-6-astra high              codex settings",
-    "rebut  codex   gpt-6-astra high              codex settings",
-    "fix    codex   gpt-6-astra high              codex settings",
-    "brief  codex   gpt-5.6-terra low             settings.json",
-    "watch  codex   gpt-6-astra high              codex settings",
-    "vet    claude  claude-opus-5[1m] extra high  claude settings",
+    "audit  codex   gpt-6-astra       high        CLI default",
+    "rebut  codex   gpt-6-astra       high        CLI default",
+    "fix    codex   gpt-6-astra       high        CLI default",
+    "brief  codex   gpt-5.6-terra     low         audit-round settings",
+    "watch  codex   gpt-6-astra       high        CLI default",
+    "vet    claude  claude-opus-5[1m] extra high  CLI default",
   ]
   assert.equal(
     await header("claude"),
     [
-      "audit  claude  claude-opus-5[1m] extra high  claude settings",
-      "rebut  claude  claude-opus-5[1m] extra high  claude settings",
-      "vet    codex   gpt-6-astra high              codex settings",
-      "fix    codex   gpt-6-astra high              codex settings",
-      "brief  codex   gpt-5.6-terra low             settings.json",
-      "watch  codex   gpt-6-astra high              codex settings",
+      "audit  claude  claude-opus-5[1m] extra high  CLI default",
+      "rebut  claude  claude-opus-5[1m] extra high  CLI default",
+      "vet    codex   gpt-6-astra       high        CLI default",
+      "fix    codex   gpt-6-astra       high        CLI default",
+      "brief  codex   gpt-5.6-terra     low         audit-round settings",
+      "watch  codex   gpt-6-astra       high        CLI default",
     ].join("\n"),
   )
   assert.equal(await header("codex"), codexHeader.join("\n"))
@@ -554,7 +561,10 @@ test("the settings header groups phases by assistant in aligned columns", async 
 })
 
 test("the settings header names what set each phase's model and effort", async (t) => {
-  const header = async (override: AuditorOverride) => {
+  const header = async (
+    override: AuditorOverride,
+    auditor: Assistant = "codex",
+  ) => {
     const f = await fixture(t)
     const visible: string[] = []
     const output = new RoundOutput(
@@ -563,6 +573,7 @@ test("the settings header names what set each phase's model and effort", async (
           ...testContext(f.root),
           plan: "example.md",
           scope: "all",
+          auditor,
           override,
           brief: true,
         },
@@ -586,33 +597,47 @@ test("the settings header names what set each phase's model and effort", async (
     )
     t.after(() => output.close())
     output.models({
-      claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
-      codex: { model: "gpt-5.6-sol", effort: "high" },
+      claude: {
+        configured: { model: "claude-opus-5[1m]", effort: "xhigh" },
+        releases: new Map([["opus", "claude-opus-5-5"]]),
+      },
+      codex: {
+        configured: { model: "gpt-5.6-sol", effort: "high" },
+        releases: new Map(),
+      },
     })
     return (visible.at(-1) as string).split("\n")
   }
-  // Both flags name the whole selection, and the fix keeps the CLI's own.
+  // Both flags name the whole selection, and the fix keeps the CLI default.
   assert.deepEqual(await header({ strength: "top", effort: "xhigh" }), [
-    "audit  codex   gpt-6-astra extra high        --auditor",
-    "rebut  codex   gpt-6-astra extra high        --auditor",
-    "fix    codex   gpt-5.6-sol high              codex settings",
-    "brief  codex   gpt-5.6-terra low             settings.json",
-    "watch  codex   gpt-5.6-sol high              codex settings",
-    "vet    claude  claude-opus-5[1m] extra high  claude settings",
+    "audit  codex   gpt-6-astra       extra high  --auditor",
+    "rebut  codex   gpt-6-astra       extra high  --auditor",
+    "fix    codex   gpt-5.6-sol       high        CLI default",
+    "brief  codex   gpt-5.6-terra     low         audit-round settings",
+    "watch  codex   gpt-5.6-sol       high        CLI default",
+    "vet    claude  claude-opus-5[1m] extra high  CLI default",
   ])
   // One flag names one field, so the row reports both sources, model first.
   assert.deepEqual(
     (await header({ strength: "top", effort: null })).slice(0, 2),
     [
-      "audit  codex   gpt-6-astra high              --auditor/codex settings",
-      "rebut  codex   gpt-6-astra high              --auditor/codex settings",
+      "audit  codex   gpt-6-astra       high        --auditor/CLI default",
+      "rebut  codex   gpt-6-astra       high        --auditor/CLI default",
     ],
   )
   assert.deepEqual(
     (await header({ strength: null, effort: "medium" })).slice(0, 2),
     [
-      "audit  codex   gpt-5.6-sol medium            codex settings/--auditor",
-      "rebut  codex   gpt-5.6-sol medium            codex settings/--auditor",
+      "audit  codex   gpt-5.6-sol       medium      CLI default/--auditor",
+      "rebut  codex   gpt-5.6-sol       medium      CLI default/--auditor",
+    ],
+  )
+  // A family alias reads as the release the CLI resolved it to.
+  assert.deepEqual(
+    (await header({ strength: "base", effort: "xhigh" }, "claude")).slice(0, 2),
+    [
+      "audit  claude  claude-opus-5-5 extra high  --auditor",
+      "rebut  claude  claude-opus-5-5 extra high  --auditor",
     ],
   )
 })
@@ -694,11 +719,11 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     /^Brief of example-step-all-01-1-round\.oth\.md\n/,
   )
   assert.doesNotMatch(visible[1] as string, /Texts:/)
-  output.models({
-    claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
-    codex: { model: "gpt-6-astra", effort: "high" },
-  })
-  assert.equal(visible.at(-1), "brief  codex  gpt-5.6-terra low  settings.json")
+  output.models(selections)
+  assert.equal(
+    visible.at(-1),
+    "brief  codex  gpt-5.6-terra low  audit-round settings",
+  )
   assert.deepEqual(markdown, [])
   output.finish({
     status: "finished",

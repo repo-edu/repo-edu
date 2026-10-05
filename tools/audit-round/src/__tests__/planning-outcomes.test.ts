@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { split } from "shellwords"
-import { runCommand } from "./configured-runner.js"
+import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
@@ -57,10 +57,11 @@ for (const auditor of ["codex", "claude"] as const) {
       const visible = f.visible.join("\n")
       assert.match(visible, /Auditor sequence finished after 3 rounds/)
       const calls = await f.calls()
+      // One startup: Claude's default and one release per pinnable model.
       assert.equal(
         calls.filter((call) => call.args.includes("--no-session-persistence"))
           .length,
-        1,
+        1 + namedModels("claude", testSettings).size,
       )
       for (const call of calls) assert.equal(call.cwd, f.planRoot)
       const fixes = (await f.prompts()).filter(

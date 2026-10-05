@@ -37,8 +37,8 @@ import { testContext } from "./helpers.js"
 
 /** The brief names its own model, so its seat is the one a round never overrides. */
 const briefPin: PinnedModel = {
-  model: { value: "gpt-5.6-terra", source: "settings.json" },
-  effort: { value: "low", source: "settings.json" },
+  model: { value: "gpt-5.6-terra", source: "audit-round settings" },
+  effort: { value: "low", source: "audit-round settings" },
 }
 
 const repoRoot = "/workspace/repo-edu"

@@ -150,7 +150,11 @@ export async function recordContracts(
           name: "CLI contract",
           title: `CLI contract for ${assistant}`,
           phases: [{ phase: "fix", assistant, model: unpinned }],
-          selections: { claude: selection, codex: selection },
+          // The recorded phase names no model, so no release is resolved.
+          selections: {
+            claude: { configured: selection, releases: new Map() },
+            codex: { configured: selection, releases: new Map() },
+          },
           paths: {
             claim: null,
             log: join(scratch, `${assistant}.log`),

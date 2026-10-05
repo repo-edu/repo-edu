@@ -5,7 +5,12 @@ import { VFile } from "vfile"
 import { matter } from "vfile-matter"
 import { z } from "zod"
 import { peerRoot } from "./context.js"
-import type { InteractiveSession, PhaseInput, PinnedModel } from "./phase.js"
+import type {
+  InteractiveSession,
+  PhaseInput,
+  PinnedField,
+  PinnedModel,
+} from "./phase.js"
 import { phaseLauncher, phaseWorkflow } from "./phase.js"
 
 export const claudeSettingsRequest = {
@@ -14,8 +19,13 @@ export const claudeSettingsRequest = {
   request: { subtype: "get_settings" },
 } as const
 
+/** What a CLI is told to run on. What named each field stays with the round. */
+export type ModelRequest = {
+  readonly [Field in keyof PinnedModel]: Pick<PinnedField, "value"> | null
+}
+
 /** How Claude names a phase's model and effort. An unnamed field is left out. */
-function claudePin(model: PinnedModel): string[] {
+function claudePin(model: ModelRequest): string[] {
   return [
     ...(model.model === null ? [] : ["--model", model.model.value]),
     ...(model.effort === null ? [] : ["--effort", model.effort.value]),
@@ -26,7 +36,7 @@ function claudePin(model: PinnedModel): string[] {
  * How Codex names them. A pin precedes any subcommand, where `codex exec` and
  * `codex resume` take their own options, so a resumed session keeps it.
  */
-function codexPin(model: PinnedModel): string[] {
+function codexPin(model: ModelRequest): string[] {
   return [
     ...(model.model === null ? [] : ["-m", model.model.value]),
     ...(model.effort === null
@@ -38,7 +48,7 @@ function codexPin(model: PinnedModel): string[] {
 export function claudeArguments(
   additionalDirectory: string | null,
   sessionId: string | null,
-  model: PinnedModel,
+  model: ModelRequest,
 ): string[] {
   return [
     "-p",
@@ -57,7 +67,7 @@ export function claudeArguments(
 
 export function codexArguments(
   sessionId: string | null,
-  model: PinnedModel,
+  model: ModelRequest,
 ): string[] {
   const pin = codexPin(model)
   return sessionId === null

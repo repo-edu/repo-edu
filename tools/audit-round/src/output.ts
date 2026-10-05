@@ -1,6 +1,11 @@
 import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
-import type { Feedback, ModelSelection, PhaseOutput } from "./feedback.js"
+import type {
+  CliModels,
+  Feedback,
+  ModelSelection,
+  PhaseOutput,
+} from "./feedback.js"
 import {
   type Context,
   capabilityTag,
@@ -62,7 +67,7 @@ export type Run = {
   readonly name: string
   readonly title: string
   readonly phases: readonly RunEntry[]
-  readonly selections: Record<Assistant, ModelSelection>
+  readonly selections: Record<Assistant, CliModels>
   readonly paths: RunPaths
   /** The reading that dates the run files; the timers count from it too. */
   readonly started: number
@@ -71,7 +76,7 @@ export type Run = {
 /** A tag must be known before any file reserves or records the round. */
 function fileTag(
   entry: RunEntry,
-  selections: Record<Assistant, ModelSelection>,
+  selections: Record<Assistant, CliModels>,
   settings: RoundSettings,
 ): string {
   const tag = capabilityTag(entry, selections[entry.assistant], settings)
@@ -88,7 +93,7 @@ function fileTag(
 export async function roundRun(
   setup: RoundSetup,
   started: number,
-  selections: Record<Assistant, ModelSelection>,
+  selections: Record<Assistant, CliModels>,
   settings: RoundSettings,
   /**
    * The round's place in a chain, for the title only. Disk claims own filenames.
@@ -152,7 +157,7 @@ export async function roundRun(
 export function briefRun(
   transcript: string,
   started: number,
-  selections: Record<Assistant, ModelSelection>,
+  selections: Record<Assistant, CliModels>,
   settings: RoundSettings,
 ): Run & { readonly brief: string } {
   const phase = {
@@ -250,7 +255,7 @@ export class RoundOutput<R extends Run = Run> {
     this.say(`Warning: ${text}`)
   }
 
-  models(selections: Record<Assistant, ModelSelection>): void {
+  models(selections: Record<Assistant, CliModels>): void {
     const { phases } = this.run
     const lead = phases[0]?.assistant
     // Phases are grouped by assistant so one assistant's model reads as one block.
@@ -259,21 +264,22 @@ export class RoundOutput<R extends Run = Run> {
         (first, second) =>
           Number(first.assistant !== lead) - Number(second.assistant !== lead),
       )
-      // A named field reports itself; the rest reports the CLI's own selection.
+      // A named field reports itself; the rest reports the CLI default.
       .map(({ phase, assistant, model }) => ({
         phase,
         assistant,
-        ...phaseText(model, selections[assistant], assistant),
+        ...phaseText(model, selections[assistant]),
       }))
-    const phaseWidth = Math.max(...rows.map(({ phase }) => phase.length))
-    const assistantWidth = Math.max(
-      ...rows.map(({ assistant }) => assistant.length),
-    )
-    const modelWidth = Math.max(...rows.map(({ model }) => model.length))
+    const width = (column: (row: (typeof rows)[number]) => string) =>
+      Math.max(...rows.map((row) => column(row).length))
+    const phaseWidth = width(({ phase }) => phase)
+    const assistantWidth = width(({ assistant }) => assistant)
+    const modelWidth = width(({ model }) => model)
+    const effortWidth = width(({ effort }) => effort)
     const text = rows
       .map(
-        ({ phase, assistant, model, source }) =>
-          `${phase.padEnd(phaseWidth)}  ${assistant.padEnd(assistantWidth)}  ${model.padEnd(modelWidth)}  ${source}`,
+        ({ phase, assistant, model, effort, source }) =>
+          `${phase.padEnd(phaseWidth)}  ${assistant.padEnd(assistantWidth)}  ${model.padEnd(modelWidth)} ${effort.padEnd(effortWidth)}  ${source}`,
       )
       .join("\n")
     this.say(text)

@@ -13,7 +13,7 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { split } from "shellwords"
 import { openRunFiles } from "../run-files.js"
-import { runCommand, testSettings } from "./configured-runner.js"
+import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
@@ -627,8 +627,8 @@ test("one supplied configuration controls default auditor, phase arguments and o
   )
   const { log, transcript } = await f.records()
   assert.ok(transcript.endsWith("-1-round.aul.md"))
-  assert.match(log, /audit +claude +chosen-auditor low +settings\.json/)
-  assert.match(log, /watch +codex +chosen-watch medium +settings\.json/)
+  assert.match(log, /audit +claude +chosen-auditor +low +audit-round settings/)
+  assert.match(log, /watch +codex +chosen-watch +medium +audit-round settings/)
   assert.doesNotMatch(log, /watch-edit/)
   const watchCall = (await f.prompts()).find(
     (call) =>
@@ -736,8 +736,8 @@ for (const auditor of ["claude", "codex"] as const) {
             log,
             /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C audit correction commits since\. No area reached the green limit of 3/,
           )
-        assert.match(log, /fix +codex +chosen-model high/)
-        assert.match(log, /brief +codex +gpt-5\.6-terra low/)
+        assert.match(log, /fix +codex +chosen-model +high/)
+        assert.match(log, /brief +codex +gpt-5\.6-terra +low/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
           const text = {
@@ -1062,7 +1062,7 @@ test("startup writes only to the terminal before the models table opens the run 
     f.errors.join("\n"),
   )
   const { log } = await f.records()
-  assert.match(log, /^audit +codex +chosen-model high/)
+  assert.match(log, /^audit +codex +chosen-model +high/)
   assert.doesNotMatch(
     log,
     /Checking .* updates|claude update output|Codex is up to date/,
@@ -1136,12 +1136,12 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.match(
       log,
       auditor === "codex"
-        ? /audit +codex +gpt-6-astra extra high +--auditor/
-        : /audit +claude +claude-fable-5-1 extra high +--auditor/,
+        ? /audit +codex +gpt-6-astra +extra high +--auditor/
+        : /audit +claude +claude-fable-5-1 +extra high +--auditor/,
     )
-    assert.match(log, /fix +codex +chosen-model high +codex settings/)
-    assert.match(log, /brief +codex +gpt-5\.6-terra low +settings\.json/)
-    // The requested alias and effort stay in the arguments and header above.
+    assert.match(log, /fix +codex +chosen-model +high +CLI default/)
+    assert.match(log, /brief +codex +gpt-5\.6-terra +low +audit-round settings/)
+    // The requested model and effort stay in the arguments above.
     // The fix receives the release and effort reported by each phase instead.
     assert.deepEqual(
       { phases: invocations[3].phases, auditor: invocations[3].auditor },
@@ -1195,7 +1195,7 @@ for (const auditor of ["codex", "claude"] as const) {
       assert.match(
         log,
         new RegExp(
-          `${phase} +${auditor} +${auditor === "claude" ? "claude-model" : "chosen-model"} high +${auditor} settings`,
+          `${phase} +${auditor} +${auditor === "claude" ? "claude-model" : "chosen-model"} +high +CLI default`,
         ),
       )
     assert.ok(
@@ -1491,7 +1491,7 @@ test("a brief on its own retells the named transcript without a new round pair",
       `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
     ),
   )
-  assert.match(log, /brief +codex +gpt-5\.6-terra low/)
+  assert.match(log, /brief +codex +gpt-5\.6-terra +low/)
   assert.doesNotMatch(log, /audit +codex|fix +codex/)
   const visible = f.visible.join("\n")
   assert.equal(visible.includes("Complete brief text."), false)
@@ -1626,19 +1626,20 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
   assert.match(visible, /Auditor sequence finished after 4 rounds\./)
   // Updates and settings are read once for the run; later rounds still seat
-  // their roles from the selections that first round discovered.
+  // their roles from the selections that first round discovered. Claude's read
+  // is its default plus one release for each model the settings may pin.
   assert.equal(
     (await f.calls()).filter((call) =>
       call.args.includes("--no-session-persistence"),
     ).length,
-    1,
+    1 + namedModels("claude", testSettings).size,
   )
   const second = await readFile(join(f.planRoot, names[2]), "utf8")
   assert.match(
     second,
     /Audit round of implementation .*example\.md 3 \(round 2\)/,
   )
-  assert.match(second, /audit +codex +chosen-model high/)
+  assert.match(second, /audit +codex +chosen-model +high/)
 })
 
 test("a clean fix record does not skip later entries for the same auditor", async (t) => {

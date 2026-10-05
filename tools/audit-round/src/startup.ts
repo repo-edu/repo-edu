@@ -4,11 +4,12 @@ import { join } from "node:path"
 import { ExecaError } from "execa"
 import { compare, valid } from "semver"
 import { z } from "zod"
-import { readClaudeSettings } from "./claude.js"
+import { readClaudeSettings, resolveClaudeModel } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { readCodexSettings } from "./codex-settings.js"
-import { errorMessage, type ModelSelection } from "./feedback.js"
-import type { Assistant } from "./phase.js"
+import { type CliModels, errorMessage } from "./feedback.js"
+import { type Assistant, namedModels } from "./phase.js"
+import type { RoundSettings } from "./settings.js"
 
 export type StartupOutput = {
   readonly message: (text: string) => Promise<void>
@@ -218,12 +219,25 @@ export function resolveCacheRoot(
 export async function prepareAssistants(
   runtime: CliRuntime,
   output: StartupOutput,
+  settings: RoundSettings,
   options: { readonly cacheRoot?: string; readonly now?: () => Date } = {},
-): Promise<Record<Assistant, ModelSelection>> {
+): Promise<Record<Assistant, CliModels>> {
   const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
   await updateClis(runtime, output, cacheRoot, options.now)
-  // Both update attempts finish before settings are read. Neither request starts an LLM turn.
+  // Both update attempts finish before settings are read. No request starts an LLM turn.
   const claude = await readClaudeSettings(runtime, output.message)
+  // Claude resolves a family alias to its current release, so the settings
+  // header can name what each pinned phase runs on before it starts.
+  const releases = new Map<string, string>()
+  for (const model of namedModels("claude", settings))
+    releases.set(
+      model,
+      await resolveClaudeModel(runtime, output.message, model),
+    )
   const codex = await readCodexSettings(runtime, output.message)
-  return { claude, codex }
+  return {
+    claude: { configured: claude, releases },
+    // Codex runs a named model under the name it was given.
+    codex: { configured: codex, releases: new Map() },
+  }
 }

@@ -187,7 +187,7 @@ Auditor selection (--auditor <selections>):
       <assistant>  a = Claude, o = Codex
       <tier>       b = base model, t = top model
       <effort>     l = low, m = medium, h = high, x = xhigh
-      Omitted fields use settings.json, then the CLI's settings.
+      Omitted fields use settings.json, then the CLI default.
 
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
@@ -529,6 +529,7 @@ export async function runCommand(
         message: async (text) => options.terminal.write(text),
         warning: async (text) => options.terminal.write(`Warning: ${text}`),
       },
+      settings,
       { cacheRoot: options.cacheRoot },
     )
     runtime.signal?.throwIfAborted()

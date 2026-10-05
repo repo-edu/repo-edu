@@ -9,7 +9,11 @@ import {
 } from "./feedback.js"
 import { toolInputText } from "./output-format.js"
 import { unpinned } from "./phase.js"
-import { claudeArguments, claudeSettingsRequest } from "./requests.js"
+import {
+  claudeArguments,
+  claudeSettingsRequest,
+  type ModelRequest,
+} from "./requests.js"
 
 const settingsResponse = z.object({
   response: z.object({
@@ -143,15 +147,37 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
   }
 }
 
+/** The selection Claude applies to a phase that names nothing. */
 export async function readClaudeSettings(
   runtime: CliRuntime,
   diagnostic: (text: string) => Promise<void>,
 ): Promise<ModelSelection> {
+  return readApplied(runtime, diagnostic, unpinned)
+}
+
+/**
+ * The release Claude runs for a model name. A family alias such as `opus`
+ * names whichever release is current, so only the CLI can answer.
+ */
+export async function resolveClaudeModel(
+  runtime: CliRuntime,
+  diagnostic: (text: string) => Promise<void>,
+  model: string,
+): Promise<string> {
+  const request = { model: { value: model }, effort: null }
+  return (await readApplied(runtime, diagnostic, request)).model
+}
+
+/** What Claude applies to a request, read from its settings without an LLM turn. */
+async function readApplied(
+  runtime: CliRuntime,
+  diagnostic: (text: string) => Promise<void>,
+  request: ModelRequest,
+): Promise<ModelSelection> {
   return withCliProcess(
     runtime,
     "claude",
-    // The settings read reports the CLI's own selection, so it names none.
-    [...claudeArguments(null, null, unpinned), "--no-session-persistence"],
+    [...claudeArguments(null, null, request), "--no-session-persistence"],
     `${JSON.stringify(claudeSettingsRequest)}\n`,
     async (child) => {
       let selection: ModelSelection | undefined

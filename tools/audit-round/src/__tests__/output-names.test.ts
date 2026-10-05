@@ -239,7 +239,10 @@ test("unspellable phase efforts fail before any claim or output is created", asy
     for (const assistant of ["codex", "claude"] as const) {
       const chosen = {
         ...selections,
-        [assistant]: { ...selections[assistant], effort },
+        [assistant]: {
+          ...selections[assistant],
+          configured: { ...selections[assistant].configured, effort },
+        },
       }
       await assert.rejects(
         roundRun(
@@ -263,7 +266,13 @@ test("unspellable phase efforts fail before any claim or output is created", asy
         override: { strength: "top", effort: "high" },
       },
       0,
-      { ...selections, codex: { model: "gpt-6-astra", effort: null } },
+      {
+        ...selections,
+        codex: {
+          ...selections.codex,
+          configured: { model: "gpt-6-astra", effort: null },
+        },
+      },
     ),
     /codex fix.*CLI settings/,
   )
