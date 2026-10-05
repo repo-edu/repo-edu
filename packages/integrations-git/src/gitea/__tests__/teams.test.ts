@@ -116,6 +116,30 @@ describe("gitea teams", () => {
       )
     })
 
+    it("reports an unreadable team list or a listed team without its id as a known failure", async () => {
+      const cases: Array<[unknown, string]> = [
+        [
+          { message: "unexpected" },
+          "Gitea answered an unreadable team list for 'course-org'.",
+        ],
+        [
+          [{ name: "hw1-team" }],
+          "Gitea answered team 'hw1-team' without its id.",
+        ],
+      ]
+      for (const [page, message] of cases) {
+        const http = createMockHttpPort([
+          teamExists,
+          { ...teamPage(1, []), body: page },
+        ])
+
+        await assert.rejects(
+          createGiteaClient(http).createTeam(baseDraft, teamRequest),
+          { message, type: "git-effect", disposition: "completed" },
+        )
+      }
+    })
+
     it("reports a refused team name as a known failure", async () => {
       const http = createMockHttpPort([
         {

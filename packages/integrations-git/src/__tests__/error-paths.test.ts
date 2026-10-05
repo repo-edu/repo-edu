@@ -793,7 +793,7 @@ describe("error handling consistency across git providers", () => {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
           if (
             request.url.includes("/contents/") ||
-            request.url.includes("/repository/files/")
+            request.url.includes("/repository/tree")
           ) {
             throw new Error("Connection reset")
           }

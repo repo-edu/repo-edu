@@ -6,7 +6,7 @@ import type {
   HttpResponse,
 } from "@repo-edu/host-runtime-contract"
 import { createGitLabClient } from "../gitlab-client.js"
-import { baseDraft, createMockHttpPort } from "./harness.js"
+import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
 
 describe("gitlab repositories", () => {
   describe("createRepositories", () => {
@@ -357,6 +357,58 @@ describe("gitlab repositories", () => {
         },
       ])
       assert.deepStrictEqual(result.failed, [])
+    })
+
+    it("records a refused or incompletely answered lookup of an existing repository as that repository's failure", async () => {
+      const createAnswersTaken: MockRoute[] = [
+        {
+          method: "GET",
+          urlPattern: "/groups/my-group",
+          status: 200,
+          body: { id: 42, path: "my-group" },
+        },
+        {
+          method: "POST",
+          urlPattern: /\/projects$/,
+          status: 400,
+          body: {
+            message: {
+              name: ["has already been taken"],
+              path: ["has already been taken"],
+            },
+          },
+        },
+      ]
+      const lookup = (status: number, body: unknown): MockRoute => ({
+        method: "GET",
+        urlPattern: "/projects/my-group%2Frepo-1",
+        status,
+        body,
+      })
+      const cases: Array<[MockRoute, RegExp]> = [
+        [
+          lookup(404, { message: "404 Project Not Found" }),
+          /^Repository exists but lookup failed: GET \/api\/v4\/projects\/my-group\/repo-1 answered 404: 404 Project Not Found$/,
+        ],
+        [
+          lookup(200, { id: 100, path: "repo-1" }),
+          /^Repository exists but GitLab answered without its web or clone URL\.$/,
+        ],
+      ]
+      for (const [reply, reason] of cases) {
+        const result = await createGitLabClient(
+          createMockHttpPort([...createAnswersTaken, reply]),
+        ).createRepositories(baseDraft, {
+          organization: "my-group",
+          repositoryNames: ["repo-1"],
+          visibility: "private",
+          autoInit: true,
+        })
+
+        assert.deepStrictEqual(result.alreadyExisted, [])
+        assert.equal(result.failed.length, 1)
+        assert.match(result.failed[0]?.reason ?? "", reason)
+      }
     })
   })
 

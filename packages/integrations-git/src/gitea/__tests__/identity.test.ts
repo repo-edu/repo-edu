@@ -88,33 +88,23 @@ describe("gitea identity", () => {
       message: "not found",
       url: "https://gitea.example.com/api/swagger",
     }
-    const user = (login: string, active: boolean, prohibitLogin: boolean) => ({
+    /** Gitea fills `active` and `prohibit_login` only for a site admin or
+     * the account itself; every other caller reads `false` for both. */
+    const user = (login: string) => ({
       id: 1,
       login,
       username: login,
-      active,
-      prohibit_login: prohibitLogin,
+      active: false,
+      prohibit_login: false,
     })
 
-    it("answers each account by its existence and state", async () => {
+    it("answers each account by its existence", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
           urlPattern: "/api/v1/users/alice",
           status: 200,
-          body: user("alice", true, false),
-        },
-        {
-          method: "GET",
-          urlPattern: "/api/v1/users/inactive",
-          status: 200,
-          body: user("inactive", false, false),
-        },
-        {
-          method: "GET",
-          urlPattern: "/api/v1/users/blocked",
-          status: 200,
-          body: user("blocked", true, true),
+          body: user("alice"),
         },
         {
           method: "GET",
@@ -127,15 +117,11 @@ describe("gitea identity", () => {
       const client = createGiteaClient(http)
       const result = await client.verifyGitUsernames(baseDraft, [
         "alice",
-        "inactive",
-        "blocked",
         "missing",
       ])
 
       assert.deepStrictEqual(result, [
         { username: "alice", exists: true },
-        { username: "inactive", exists: false },
-        { username: "blocked", exists: false },
         { username: "missing", exists: false },
       ])
     })
@@ -147,7 +133,7 @@ describe("gitea identity", () => {
           method: "GET",
           urlPattern: "/api/v1/users/Alice",
           status: 200,
-          body: user("alice", true, false),
+          body: user("alice"),
         },
       ])
 
@@ -157,26 +143,6 @@ describe("gitea identity", () => {
       )
 
       assert.deepStrictEqual(result, [{ username: "Alice", exists: true }])
-    })
-
-    it("reports an account answered without its state as a known failure", async () => {
-      const http = createMockHttpPort([
-        {
-          method: "GET",
-          urlPattern: "/api/v1/users/alice",
-          status: 200,
-          body: { id: 1, login: "alice", username: "alice" },
-        },
-      ])
-
-      await assert.rejects(
-        createGiteaClient(http).verifyGitUsernames(baseDraft, ["alice"]),
-        {
-          message: "Gitea answered user 'alice' without its account state.",
-          type: "git-effect",
-          disposition: "completed",
-        },
-      )
     })
 
     it("rejects username lookup when baseUrl is missing", async () => {

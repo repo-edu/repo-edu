@@ -42,10 +42,11 @@ absence rules.
   or provider wording it names as an answer, through `isGitReply` or a
   provider's message predicate. Never read a status or a reply body by hand.
 - Translate only an explicit provider 404 into `null`, an empty listing, a
-  per-repository missing result or an absent username. A username is also
-  absent when the provider reports its account inactive or blocked. Network,
-  timeout, authentication, rate-limit and other provider failures must
-  propagate to the application layer.
+  per-repository missing result or an absent username. On GitLab a username is
+  also absent when its account is inactive or blocked. Gitea shows an
+  account's state only to a site admin or to the account itself, so every
+  account Gitea finds is present. Network, timeout, authentication, rate-limit
+  and other provider failures must propagate to the application layer.
 - A reply that lacks a field its answer depends on, such as a clone URL, an
   account state or a default branch, fails the call. In a repository batch
   create it fails that repository's entry. It never reads as absence, an empty

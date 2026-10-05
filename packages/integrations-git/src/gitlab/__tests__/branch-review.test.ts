@@ -19,21 +19,39 @@ const branchCreated: MockRoute = {
   body: { name: "template-update", commit: { id: "abc123" } },
 }
 
-function fileOnBranch(path: string): MockRoute {
+type TreeEntry = { type: string; path: string; mode: string }
+
+const plainFile = (path: string): TreeEntry => ({
+  type: "blob",
+  path,
+  mode: "100644",
+})
+
+function treeQuery(folder: string): string {
+  const path = folder === "" ? "" : `&path=${encodeURIComponent(folder)}`
+  return `/projects/100/repository/tree?ref=template-update${path}&pagination=keyset`
+}
+
+/** GitLab lists a folder's entries; each carries its type and file mode. */
+function folderOnBranch(folder: string, entries: TreeEntry[]): MockRoute {
   return {
     method: "GET",
-    urlPattern: `/projects/100/repository/files/${encodeURIComponent(path)}?ref=template-update`,
+    urlPattern: treeQuery(folder),
     status: 200,
-    body: { file_name: path, file_path: path, blob_id: "blob" },
+    body: entries.map((entry) => ({
+      id: "a1e8f8d745cc87e3a9248358d9352bb7f9a0aeba",
+      name: entry.path.split("/").at(-1),
+      ...entry,
+    })),
   }
 }
 
-function fileMissing(path: string): MockRoute {
+function folderMissing(folder: string): MockRoute {
   return {
     method: "GET",
-    urlPattern: `/projects/100/repository/files/${encodeURIComponent(path)}?ref=template-update`,
+    urlPattern: treeQuery(folder),
     status: 404,
-    body: { message: "404 File Not Found" },
+    body: { message: "404 invalid revision or path Not Found" },
   }
 }
 
@@ -88,11 +106,12 @@ describe("gitlab branch-review", () => {
         [
           project,
           branchCreated,
-          fileOnBranch("README.md"),
-          fileMissing("docs/new.md"),
-          fileOnBranch("new.md"),
-          fileOnBranch("old.txt"),
-          fileMissing("gone.txt"),
+          folderOnBranch("", [
+            plainFile("README.md"),
+            plainFile("new.md"),
+            plainFile("old.txt"),
+          ]),
+          folderMissing("docs"),
           {
             method: "POST",
             urlPattern: "/projects/100/repository/commits",
@@ -170,7 +189,7 @@ describe("gitlab branch-review", () => {
         [
           project,
           branchCreated,
-          fileOnBranch("README.md"),
+          folderOnBranch("", [plainFile("README.md")]),
           {
             method: "POST",
             urlPattern: "/projects/100/repository/commits",
@@ -204,6 +223,71 @@ describe("gitlab branch-review", () => {
         createGitLabClient(http).createBranch(baseDraft, branchRequest),
         {
           message: "GitLab project 'my-org/repo-1' was not found.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
+
+    it("refuses to write over a path that is not a plain file", async () => {
+      const entries: TreeEntry[] = [
+        { type: "tree", path: "docs/README.md", mode: "040000" },
+        { type: "blob", path: "docs/README.md", mode: "120000" },
+        { type: "commit", path: "docs/README.md", mode: "160000" },
+      ]
+      const files: CreateBranchRequest["files"] = [
+        {
+          path: "docs/README.md",
+          previousPath: null,
+          status: "modified",
+          contentBase64: "dXBkYXRlZA==",
+        },
+        {
+          path: "docs/README.md",
+          previousPath: null,
+          status: "removed",
+          contentBase64: null,
+        },
+      ]
+      for (const entry of entries) {
+        for (const file of files) {
+          const requests: HttpRequest[] = []
+          const http = createMockHttpPort(
+            [project, branchCreated, folderOnBranch("docs", [entry])],
+            requests,
+          )
+          await assert.rejects(
+            createGitLabClient(http).createBranch(baseDraft, {
+              ...branchRequest,
+              files: [file],
+            }),
+            {
+              message:
+                "'docs/README.md' on branch 'template-update' is not a plain file, so the update cannot write it.",
+              type: "git-effect",
+              disposition: "completed",
+            },
+          )
+          assert.equal(sent(requests).length, 1)
+        }
+      }
+    })
+
+    it("reports an unreadable folder listing as a known failure", async () => {
+      const http = createMockHttpPort([
+        project,
+        branchCreated,
+        { ...folderOnBranch("", []), body: { message: "unexpected" } },
+      ])
+
+      await assert.rejects(
+        createGitLabClient(http).createBranch(baseDraft, {
+          ...branchRequest,
+          files: branchRequest.files.slice(0, 1),
+        }),
+        {
+          message:
+            "GitLab answered an unreadable folder listing for 'README.md' on branch 'template-update'.",
           type: "git-effect",
           disposition: "completed",
         },

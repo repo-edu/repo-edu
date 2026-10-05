@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import { createGitHubClient } from "../github-client.js"
-import { baseDraft, createMockHttpPort } from "./harness.js"
+import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
 
 describe("github repositories", () => {
   describe("createRepositories", () => {
@@ -157,6 +157,23 @@ describe("github repositories", () => {
       visibility: "private" as const,
       autoInit: true,
     }
+    const createAnswersExisting: MockRoute = {
+      method: "POST",
+      urlPattern: "/orgs/test-org/repos",
+      status: 422,
+      body: {
+        message: "Repository creation failed.",
+        errors: [
+          {
+            resource: "Repository",
+            code: "custom",
+            field: "name",
+            message: "name already exists on this account",
+          },
+        ],
+        status: "422",
+      },
+    }
 
     it("records a refused create as that repository's failure", async () => {
       const http = createMockHttpPort([
@@ -221,23 +238,7 @@ describe("github repositories", () => {
       )
 
       const existing = createMockHttpPort([
-        {
-          method: "POST",
-          urlPattern: "/orgs/test-org/repos",
-          status: 422,
-          body: {
-            message: "Repository creation failed.",
-            errors: [
-              {
-                resource: "Repository",
-                code: "custom",
-                field: "name",
-                message: "name already exists on this account",
-              },
-            ],
-            status: "422",
-          },
-        },
+        createAnswersExisting,
         {
           method: "GET",
           urlPattern: "/repos/test-org/repo-1",
@@ -259,6 +260,35 @@ describe("github repositories", () => {
               "Repository exists but GitHub answered without its web or clone URL.",
           },
         ],
+      )
+    })
+
+    it("records a refused lookup of an existing repository as that repository's failure", async () => {
+      const http = createMockHttpPort([
+        createAnswersExisting,
+        {
+          method: "GET",
+          urlPattern: "/repos/test-org/repo-1",
+          status: 403,
+          body: {
+            message: "Resource not accessible by integration",
+            documentation_url:
+              "https://docs.github.com/rest/repos/repos#get-a-repository",
+            status: "403",
+          },
+        },
+      ])
+
+      const result = await createGitHubClient(http).createRepositories(
+        baseDraft,
+        request,
+      )
+
+      assert.deepStrictEqual(result.alreadyExisted, [])
+      assert.equal(result.failed.length, 1)
+      assert.match(
+        result.failed[0]?.reason ?? "",
+        /^Repository exists but lookup failed: GET \/repos\/test-org\/repo-1 answered 403/,
       )
     })
   })

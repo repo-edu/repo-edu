@@ -2,7 +2,6 @@ import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import { isGitReply } from "../invocation-guard.js"
 import { giteaRequest } from "./transport.js"
-import { isUsableAccount } from "./users.js"
 
 type IdentityCapability = Pick<
   GitProviderClient,
@@ -23,9 +22,8 @@ export function createGiteaIdentity(http: HttpPort): IdentityCapability {
       const results = []
       for (const username of usernames) {
         if (signal?.aborted) break
-        let user: unknown
         try {
-          user = await giteaRequest(
+          await giteaRequest(
             http,
             draft,
             "GET",
@@ -33,12 +31,13 @@ export function createGiteaIdentity(http: HttpPort): IdentityCapability {
             undefined,
             signal,
           )
+          // Gitea shows an account's state only to a site admin or to the
+          // account itself, so every account it finds counts.
+          results.push({ username, exists: true })
         } catch (error) {
           if (!isGitReply(error, 404)) throw error
           results.push({ username, exists: false })
-          continue
         }
-        results.push({ username, exists: isUsableAccount(user, username) })
       }
       return results
     },

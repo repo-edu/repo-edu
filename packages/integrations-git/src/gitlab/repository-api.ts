@@ -1,8 +1,5 @@
 import type { Gitlab } from "@gitbeaker/rest"
-import type { HttpPort } from "@repo-edu/host-runtime-contract"
-import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 import { gitEffectFailure, isGitReply } from "../invocation-guard.js"
-import { gitLabRestGet } from "./transport.js"
 
 export type GitLabProjectUrls = {
   repositoryUrl: string
@@ -69,24 +66,49 @@ export async function resolveProjectId(
   return id
 }
 
-export async function fileExistsInBranch(
-  http: HttpPort,
-  draft: GitConnectionDraft,
+/** Whether a plain file sits at `path` on the branch. GitLab's file reply has
+ * no file mode, so the entry is read from its folder's listing. A missing path
+ * or folder reads as absent. A folder, symbolic link or submodule fails the
+ * call, because a branch update writes plain files only. Every plain file mode
+ * starts with `100`. */
+export async function plainFileExistsInBranch(
+  api: Gitlab,
   projectId: number,
   path: string,
   branchName: string,
-  signal?: AbortSignal,
 ): Promise<boolean> {
+  const slash = path.lastIndexOf("/")
+  let entries: unknown
   try {
-    await gitLabRestGet(
-      http,
-      draft,
-      `/projects/${projectId}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(branchName)}`,
-      signal,
-    )
-    return true
+    entries = await api.Repositories.allRepositoryTrees(projectId, {
+      ref: branchName,
+      ...(slash === -1 ? {} : { path: path.slice(0, slash) }),
+      pagination: "keyset",
+      perPage: 100,
+    })
   } catch (error) {
     if (!isGitReply(error, 404)) throw error
     return false
   }
+  if (!Array.isArray(entries)) {
+    throw gitEffectFailure(
+      "completed",
+      `GitLab answered an unreadable folder listing for '${path}' on branch '${branchName}'.`,
+    )
+  }
+  const entry = entries.find(
+    (candidate) => (candidate as { path?: unknown } | null)?.path === path,
+  ) as { type?: unknown; mode?: unknown } | undefined
+  if (entry === undefined) return false
+  if (
+    entry.type !== "blob" ||
+    typeof entry.mode !== "string" ||
+    !entry.mode.startsWith("100")
+  ) {
+    throw gitEffectFailure(
+      "completed",
+      `'${path}' on branch '${branchName}' is not a plain file, so the update cannot write it.`,
+    )
+  }
+  return true
 }

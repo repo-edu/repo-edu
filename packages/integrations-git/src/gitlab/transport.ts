@@ -308,34 +308,6 @@ export function createGitLabApi(
 }
 
 /** Answers only a 2xx reply, like the Gitbeaker requester above. */
-async function gitLabRestRequest(
-  http: HttpPort,
-  draft: GitConnectionDraft,
-  method: "GET" | "POST",
-  path: string,
-  body: Record<string, unknown> | undefined,
-  signal?: AbortSignal,
-): Promise<unknown> {
-  const response = await sendGitHttpRequest(
-    http,
-    {
-      url: `${toApiBaseUrl(draft)}${path}`,
-      method,
-      headers: {
-        "User-Agent": resolveUserAgent(draft),
-        "PRIVATE-TOKEN": draft.token,
-        accept: "application/json",
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
-      },
-      body:
-        body === undefined ? undefined : JSON.stringify(decamelizeValue(body)),
-    },
-    signal,
-    replyDetail,
-  )
-  return parseJson(response.body)
-}
-
 export async function gitLabRestPost(
   http: HttpPort,
   draft: GitConnectionDraft,
@@ -343,14 +315,21 @@ export async function gitLabRestPost(
   body: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<unknown> {
-  return gitLabRestRequest(http, draft, "POST", path, body, signal)
-}
-
-export async function gitLabRestGet(
-  http: HttpPort,
-  draft: GitConnectionDraft,
-  path: string,
-  signal?: AbortSignal,
-): Promise<unknown> {
-  return gitLabRestRequest(http, draft, "GET", path, undefined, signal)
+  const response = await sendGitHttpRequest(
+    http,
+    {
+      url: `${toApiBaseUrl(draft)}${path}`,
+      method: "POST",
+      headers: {
+        "User-Agent": resolveUserAgent(draft),
+        "PRIVATE-TOKEN": draft.token,
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(decamelizeValue(body)),
+    },
+    signal,
+    replyDetail,
+  )
+  return parseJson(response.body)
 }

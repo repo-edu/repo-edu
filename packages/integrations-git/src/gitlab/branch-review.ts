@@ -5,7 +5,7 @@ import {
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
 import { isBranchAlreadyExists, isMergeRequestAlreadyExists } from "./errors.js"
-import { fileExistsInBranch, resolveProjectId } from "./repository-api.js"
+import { plainFileExistsInBranch, resolveProjectId } from "./repository-api.js"
 import { createGitLabApi, gitLabRestPost } from "./transport.js"
 
 type BranchReviewCapability = Pick<
@@ -40,14 +40,7 @@ export function createGitLabBranchReview(
       }
 
       const existsInBranch = (path: string) =>
-        fileExistsInBranch(
-          http,
-          draft,
-          projectId,
-          path,
-          request.branchName,
-          signal,
-        )
+        plainFileExistsInBranch(api, projectId, path, request.branchName)
       const actions: Array<Record<string, unknown>> = []
       for (const file of request.files) {
         throwIfGitEffectAborted(signal)

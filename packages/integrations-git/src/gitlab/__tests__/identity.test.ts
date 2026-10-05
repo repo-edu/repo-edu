@@ -280,5 +280,25 @@ describe("gitlab identity", () => {
         },
       )
     })
+
+    it("reports an unreadable user search as a known failure", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: /username=alice/,
+          status: 200,
+          body: { message: "unexpected" },
+        },
+      ])
+
+      await assert.rejects(
+        createGitLabClient(http).verifyGitUsernames(baseDraft, ["alice"]),
+        {
+          message: "GitLab answered an unreadable user search for 'alice'.",
+          type: "git-effect",
+          disposition: "completed",
+        },
+      )
+    })
   })
 })
