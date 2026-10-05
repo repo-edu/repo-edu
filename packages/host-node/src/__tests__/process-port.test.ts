@@ -9,6 +9,7 @@ import { CommandOutcomeError } from "@repo-edu/application-contract"
 import {
   type ChildProcessLifetimePlatformAdapter,
   ChildProcessTreeUnconfirmedError,
+  createChildProcessLaunchAbortError,
   createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
 import { createNodeProcessPort } from "../index.js"
@@ -41,6 +42,26 @@ function createProcessPort() {
     windowsAdapter: windowsPlatformAdapter,
   })
   return createNodeProcessPort(controller)
+}
+
+function createAdapterProcessPort(
+  adapter: ChildProcessLifetimePlatformAdapter,
+) {
+  return createNodeProcessPort(
+    createChildProcessLifetimeController({
+      diagnosticSink() {},
+      warnUnconfirmedTree() {},
+      runtimePlatform: "win32",
+      windowsAdapter: adapter,
+    }),
+  )
+}
+
+function isUncertain(reason: "confirmation-expired" | "proof-lost") {
+  return (error: unknown) =>
+    error instanceof CommandOutcomeError &&
+    error.outcome.disposition === "uncertain" &&
+    error.outcome.reason === reason
 }
 
 async function waitForMarker(path: string, pattern: RegExp): Promise<void> {
@@ -77,10 +98,12 @@ describe("createNodeProcessPort", () => {
       `repo-edu-missing-folder-${process.pid}-${Date.now()}`,
     )
 
+    // On POSIX a missing program or folder arrives as an event and a file as
+    // the working folder makes `spawn` throw. On Windows all three run
+    // through the launcher, which reports either route as a refusal.
     for (const request of [
       { command: "repo-edu-missing-program" },
       { command: process.execPath, args: ["-e", ""], cwd: missingFolder },
-      // `spawn` throws this refusal at once instead of sending an event.
       { command: process.execPath, args: ["-e", ""], cwd: childTreeFixture },
     ]) {
       await assert.rejects(
@@ -96,22 +119,104 @@ describe("createNodeProcessPort", () => {
 
   it("keeps every other launch failure a fault", async () => {
     const fault = new Error("The platform adapter failed.")
-    const processPort = createNodeProcessPort(
-      createChildProcessLifetimeController({
-        diagnosticSink() {},
-        warnUnconfirmedTree() {},
-        runtimePlatform: "win32",
-        windowsAdapter: {
-          async launch() {
-            throw fault
-          },
-        },
-      }),
-    )
+    const processPort = createAdapterProcessPort({
+      async launch() {
+        throw fault
+      },
+    })
 
     await assert.rejects(
       processPort.run({ command: "faulty-target" }),
       (error) => error === fault,
+    )
+  })
+
+  it("settles a launch whose cleanup was not confirmed as an unknown outcome", async () => {
+    const processPort = createAdapterProcessPort({
+      async launch() {
+        throw new ChildProcessTreeUnconfirmedError("not gone")
+      },
+    })
+
+    await assert.rejects(
+      processPort.run({ command: "unconfirmed-launch" }),
+      isUncertain("confirmation-expired"),
+    )
+  })
+
+  it("settles a stop during launch as a proven stop", async () => {
+    const abortController = new AbortController()
+    const processPort = createAdapterProcessPort({
+      async launch(request) {
+        abortController.abort()
+        throw request.signal?.aborted
+          ? createChildProcessLaunchAbortError()
+          : new Error("The launch did not see the stop.")
+      },
+    })
+
+    await assert.rejects(
+      processPort.run({
+        command: "stopped-launch",
+        signal: abortController.signal,
+      }),
+      (error) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "stopped",
+    )
+  })
+
+  it("settles a lost result proof as an unknown outcome", async () => {
+    const processPort = createAdapterProcessPort({
+      async launch() {
+        return {
+          stdin: new PassThrough(),
+          stdout: new PassThrough().end(),
+          stderr: new PassThrough().end(),
+          result: Promise.resolve({
+            outcome: "proof-lost" as const,
+            failure: new Error("The launcher was lost."),
+          }),
+          async stopAndConfirm() {
+            return { outcome: "confirmed" as const }
+          },
+        }
+      },
+    })
+
+    await assert.rejects(
+      processPort.run({ command: "lost-target" }),
+      isUncertain("proof-lost"),
+    )
+  })
+
+  it("answers output lost after the outcome as a lost result instead of short output", async () => {
+    const stdout = new PassThrough()
+    const stderr = new PassThrough()
+    const processPort = createAdapterProcessPort({
+      async launch() {
+        stdout.write("partial output")
+        return {
+          stdin: new PassThrough(),
+          stdout,
+          stderr,
+          // The exit arrives after the port has started reading.
+          result: new Promise((resolve) => {
+            setImmediate(() => resolve({ exitCode: 0, signal: null }))
+          }),
+          async stopAndConfirm() {
+            // The tree is gone, but output the port has not read yet is lost.
+            stdout.destroy()
+            stderr.end()
+            return { outcome: "confirmed" as const }
+          },
+        }
+      },
+    })
+
+    await assert.rejects(
+      processPort.run({ command: "short-output" }),
+      isUncertain("proof-lost"),
     )
   })
 
@@ -216,14 +321,7 @@ describe("createNodeProcessPort", () => {
         }
       },
     }
-    const processPort = createNodeProcessPort(
-      createChildProcessLifetimeController({
-        diagnosticSink() {},
-        warnUnconfirmedTree() {},
-        runtimePlatform: "win32",
-        windowsAdapter: adapter,
-      }),
-    )
+    const processPort = createAdapterProcessPort(adapter)
     const run = processPort.run({ command: "unconfirmed-target" })
     await new Promise((resolve) => setImmediate(resolve))
 

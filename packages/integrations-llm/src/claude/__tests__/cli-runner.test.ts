@@ -593,6 +593,64 @@ describe("runClaudeCliStream", () => {
     assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
   })
 
+  it("settles a launch failure without an outcome as a known failure", async () => {
+    let workingFolder: string | undefined
+    const launch: ClaudeCliLaunch = async (request) => {
+      workingFolder = request.cwd
+      throw new Error("The child-process lifetime controller is stopped.")
+    }
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.context.provider === "claude" &&
+        error.context.authMode === "subscription" &&
+        error.context.outcome === "completed" &&
+        error.message ===
+          "Could not start the Claude CLI: The child-process lifetime controller is stopped.",
+    )
+    assert.equal(existsSync(String(workingFolder)), false)
+  })
+
+  it("settles a stream line it cannot read as a known failure", async () => {
+    const { launch, calls } = fakeLaunch([
+      '{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}}\n',
+      "not stream-json\n",
+      '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
+    ])
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) => error instanceof LlmError && isLostTurnFailure(error),
+    )
+    assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
+  })
+
   it("refuses a turn whose working folder cannot be created", async () => {
     const { launch, calls } = fakeLaunch([])
     const saved = {

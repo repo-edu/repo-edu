@@ -59,6 +59,33 @@ describe("createNodeHttpPort", () => {
     }
   })
 
+  it("returns every reply status as a value and passes a transport failure through unchanged", async () => {
+    // The Git adapter owns both answers: it reads the statuses it names and
+    // decides whether a failed request changed anything.
+    const originalFetch = globalThis.fetch
+    const transportFailure = new TypeError("fetch failed")
+    let fail = false
+    ;(globalThis as { fetch: typeof globalThis.fetch }).fetch = (async () => {
+      if (fail) throw transportFailure
+      return new Response("missing", { status: 404, statusText: "Not Found" })
+    }) as typeof globalThis.fetch
+
+    try {
+      const httpPort = createNodeHttpPort()
+      const reply = await httpPort.fetch({ url: "https://example.test/repo" })
+      fail = true
+
+      assert.equal(reply.status, 404)
+      assert.equal(reply.body, "missing")
+      await assert.rejects(
+        httpPort.fetch({ url: "https://example.test/repo", method: "POST" }),
+        (error) => error === transportFailure,
+      )
+    } finally {
+      ;(globalThis as { fetch: typeof globalThis.fetch }).fetch = originalFetch
+    }
+  })
+
   it("defaults the method to GET when request.method is omitted", async () => {
     const originalFetch = globalThis.fetch
     let capturedMethod: string | undefined

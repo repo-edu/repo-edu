@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readlink, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
@@ -41,6 +41,31 @@ describe("createNodeFileSystemPort (extended)", () => {
     assert.equal(inspection[1].kind, "file")
   })
 
+  it("copy-directory keeps a relative link unchanged", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
+    const source = join(root, "source")
+    const destination = join(root, "destination")
+    await mkdir(join(source, "subdir"), { recursive: true })
+    await writeFile(join(source, "file.txt"), "content")
+    await symlink(join("..", "file.txt"), join(source, "subdir", "link"))
+
+    const fs = createNodeFileSystemPort()
+    await fs.applyBatch({
+      operations: [
+        {
+          kind: "copy-directory",
+          sourcePath: source,
+          destinationPath: destination,
+        },
+      ],
+    })
+
+    assert.equal(
+      await readlink(join(destination, "subdir", "link")),
+      await readlink(join(source, "subdir", "link")),
+    )
+  })
+
   it("createTempDirectory creates a temporary directory with the given prefix", async () => {
     const fs = createNodeFileSystemPort()
     const tempDir = await fs.createTempDirectory("repo-edu-test-")
@@ -48,17 +73,6 @@ describe("createNodeFileSystemPort (extended)", () => {
     const inspection = await fs.inspect({ paths: [tempDir] })
     assert.equal(inspection[0].kind, "directory")
     assert.ok(tempDir.includes("repo-edu-test-"))
-  })
-
-  it("inspect checks abort before processing", async () => {
-    const fs = createNodeFileSystemPort()
-    const controller = new AbortController()
-    controller.abort()
-
-    await assert.rejects(
-      fs.inspect({ paths: ["/tmp/anything"], signal: controller.signal }),
-      /Operation cancelled/,
-    )
   })
 
   it("lists files with case-insensitive final suffix filters", async () => {

@@ -56,7 +56,9 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 - `src/codex-sdk-host-command.ts`: fixed Codex SDK host command. Electron runs
   the bundled `codex-sdk-host.js` entry in Node mode through the shared
   child-process lifetime controller.
-- `src/desktop-host.ts`: file and directory dialogs with opaque file handles.
+- `src/desktop-host.ts`: file and directory dialogs.
+  `src/desktop-user-files.ts` keeps the picked files behind opaque references
+  and owns the user-file port. It reads UTF-8 text only and refuses other bytes.
 - `src/desktop-bootstrap.ts`: loads the shared `host-node` course database,
   settings and examination archive before creating the renderer session.
   `src/settings-store.ts` wraps the shared settings owner for desktop recovery.

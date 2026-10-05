@@ -18,7 +18,7 @@ its port interface.
   `git`
 - `createNodeFileSystemPort()` — `FileSystemPort` using `node:fs/promises`
   (inspect/stat, batch operations, temp directories, directory/file listing and
-  contained reads)
+  contained reads). A directory copy keeps each link's target text unchanged.
 - `createNodeLlmPort(childProcessLifetimeController, config?)` — `LlmPort` that
   delegates to the `createLlmTextClient` dispatcher in
   `@repo-edu/integrations-llm` and gives subscription Claude the shared
@@ -127,7 +127,11 @@ its port interface.
   throws others from `spawn`, so both routes become that error. The process
   port settles only that launch failure as a known failed completion. The
   Claude CLI and Codex SDK host launches report it as a refusal. Every other
-  launch failure stays a fault.
+  launch failure stays a fault for the process port. The language model
+  launches pass it on, and their runners settle it as a known failure.
+- The process port returns output only when it read both output streams in
+  full. A stream it loses after the controller chose the outcome gets the
+  same unknown answer as a proof loss reported in time, never short output.
 - The controller owns one five-second graceful stop allowance and one
   five-second confirmation deadline after a forced stop. Both platform
   adapters apply those periods. Confirmation expiry returns unknown for an

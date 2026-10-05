@@ -18,6 +18,9 @@ data.
 Format support is validated at the workflow level — requesting an unsupported format produces a
 validation error.
 
+Imported files must be UTF-8 text. A file with other bytes is refused before anything changes, so
+save a CSV from a spreadsheet program as UTF-8.
+
 ## CSV formats
 
 ### Roster export

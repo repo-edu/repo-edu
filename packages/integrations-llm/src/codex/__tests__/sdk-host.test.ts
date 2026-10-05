@@ -331,6 +331,25 @@ describe("Codex SDK host process", () => {
     assert.equal(startupSignal?.aborted, true)
   })
 
+  it("settles a launch failure without an outcome as a known failure", async () => {
+    const client = createCodexLlmTextClient(undefined, {
+      launch: async () => {
+        throw new Error("The child-process lifetime controller is stopped.")
+      },
+    })
+
+    await assert.rejects(
+      () => client.generateText(request(codexSpec)),
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.context.provider === "codex" &&
+        error.context.authMode !== undefined &&
+        error.context.outcome === "completed" &&
+        error.message ===
+          "Could not start the Codex SDK host process: The child-process lifetime controller is stopped.",
+    )
+  })
+
   it("reports a confirmed Codex SDK host process loss as a known failure", async () => {
     const facts: ReportedFact[] = []
     const client = createCodexLlmTextClient(undefined, {

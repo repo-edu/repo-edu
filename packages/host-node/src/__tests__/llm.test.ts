@@ -214,45 +214,64 @@ describe("createNodeLlmTextClient", () => {
     assert.equal(launches.length, 0)
   })
 
-  it("reports a Claude CLI or Codex SDK host launch the system refuses as a refusal", async () => {
-    const client = createNodeLlmTextClient(
-      createChildProcessLifetimeController({
-        diagnosticSink() {},
-        warnUnconfirmedTree() {},
-        runtimePlatform: "win32",
-        windowsAdapter: {
-          async launch() {
-            throw new ChildProcessLaunchRefusedError("spawn claude ENOENT")
-          },
-        },
-      }),
-      { claude: { authMode: "subscription", env: {} }, codex: {} },
-      {
-        claudeCliExecutable: "/bin/claude",
-        codexSdkHost: {
-          command: "/fixed/electron",
-          args: ["/fixed/codex-sdk-host.js"],
-          runAsNode: true,
-        },
-      },
-    )
+  it("labels each Claude CLI and Codex SDK host launch failure by its outcome", async () => {
     const codexSpec = {
       provider: "codex" as const,
       family: "gpt-5.4",
       modelId: "gpt-5.4",
       effort: "medium" as const,
     }
+    // Both runs change nothing outside the app, so only a tree the
+    // controller could not confirm gone leaves the outcome unknown.
+    const launchFailures = [
+      {
+        failure: new ChildProcessLaunchRefusedError("spawn claude ENOENT"),
+        outcome: "refused",
+      },
+      {
+        failure: new ChildProcessTreeUnconfirmedError("launch not gone"),
+        outcome: "confirmation-expired",
+      },
+      {
+        failure: new Error("The Windows launcher failed: bad command"),
+        outcome: "completed",
+      },
+    ] as const
 
-    for (const spec of [claudeSpec, codexSpec]) {
-      await assert.rejects(
-        client.generateText({ spec, prompt: "Reply ok." }),
-        (error: unknown) =>
-          error instanceof LlmError &&
-          error.context.provider === spec.provider &&
-          error.context.authMode !== undefined &&
-          error.context.outcome === "refused" &&
-          error.message.includes("spawn claude ENOENT"),
+    for (const { failure, outcome } of launchFailures) {
+      const client = createNodeLlmTextClient(
+        createChildProcessLifetimeController({
+          diagnosticSink() {},
+          warnUnconfirmedTree() {},
+          runtimePlatform: "win32",
+          windowsAdapter: {
+            async launch() {
+              throw failure
+            },
+          },
+        }),
+        { claude: { authMode: "subscription", env: {} }, codex: {} },
+        {
+          claudeCliExecutable: "/bin/claude",
+          codexSdkHost: {
+            command: "/fixed/electron",
+            args: ["/fixed/codex-sdk-host.js"],
+            runAsNode: true,
+          },
+        },
       )
+
+      for (const spec of [claudeSpec, codexSpec]) {
+        await assert.rejects(
+          client.generateText({ spec, prompt: "Reply ok." }),
+          (error: unknown) =>
+            error instanceof LlmError &&
+            error.context.provider === spec.provider &&
+            error.context.authMode !== undefined &&
+            error.context.outcome === outcome &&
+            error.message.includes(failure.message),
+        )
+      }
     }
   })
 

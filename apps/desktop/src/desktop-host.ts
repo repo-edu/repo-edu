@@ -1,13 +1,5 @@
-import { randomUUID } from "node:crypto"
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
-import { basename, dirname, extname } from "node:path"
-import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { FileFormat } from "@repo-edu/domain/types"
-import type {
-  UserFilePort,
-  UserFileReadRef,
-  UserSaveTargetWriteRef,
-} from "@repo-edu/host-runtime-contract"
+import type { UserFilePort } from "@repo-edu/host-runtime-contract"
 import type {
   OpenUserFileDialogOptions,
   RendererOpenUserFileRef,
@@ -20,19 +12,10 @@ import {
   type OpenDialogOptions,
   type SaveDialogOptions,
 } from "electron"
-
-type ReadReferenceRecord = {
-  path: string
-  displayName: string
-  mediaType: string | null
-  byteLength: number | null
-}
-
-type WriteReferenceRecord = {
-  path: string
-  displayName: string
-  suggestedFormat: FileFormat | null
-}
+import {
+  createDesktopUserFiles,
+  inferFormatFromPath,
+} from "./desktop-user-files"
 
 const openDialogFilterByFormat: Record<
   FileFormat,
@@ -52,44 +35,6 @@ const saveDialogFilterByFormat: Record<
   xlsx: { name: "Excel", extensions: ["xlsx"] },
   json: { name: "JSON", extensions: ["json"] },
   txt: { name: "Text", extensions: ["txt"] },
-}
-
-function inferFormatFromPath(filePath: string): FileFormat | null {
-  const extension = extname(filePath).toLowerCase()
-
-  if (extension === ".csv") {
-    return "csv"
-  }
-  if (extension === ".xlsx") {
-    return "xlsx"
-  }
-  if (extension === ".json") {
-    return "json"
-  }
-  if (extension === ".txt") {
-    return "txt"
-  }
-
-  return null
-}
-
-function mediaTypeForFormat(format: FileFormat | null): string | null {
-  switch (format) {
-    case "csv":
-      return "text/csv"
-    case "xlsx":
-      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    case "json":
-      return "application/json"
-    case "txt":
-      return "text/plain"
-    default:
-      return null
-  }
-}
-
-function byteLengthFor(text: string): number {
-  return new TextEncoder().encode(text).byteLength
 }
 
 function toOpenDialogFilters(options?: OpenUserFileDialogOptions) {
@@ -134,153 +79,9 @@ type DesktopHostOptions = {
 export function createDesktopHostEnvironment(
   options: DesktopHostOptions = {},
 ): DesktopHostEnvironment {
-  const readableReferences = new Map<string, ReadReferenceRecord>()
-  const writableReferences = new Map<string, WriteReferenceRecord>()
+  const userFiles = createDesktopUserFiles()
   const queuedUserFilePaths = [...(options.queuedUserFilePaths ?? [])]
   const queuedSaveTargetPaths = [...(options.queuedSaveTargetPaths ?? [])]
-
-  const registerReadable = async (
-    filePath: string,
-  ): Promise<RendererOpenUserFileRef> => {
-    const referenceId = randomUUID()
-    const displayName = basename(filePath)
-    const format = inferFormatFromPath(filePath)
-    const mediaType = mediaTypeForFormat(format)
-
-    let byteLength: number | null = null
-    try {
-      const fileStats = await stat(filePath)
-      byteLength = fileStats.size
-    } catch {
-      byteLength = null
-    }
-
-    readableReferences.set(referenceId, {
-      path: filePath,
-      displayName,
-      mediaType,
-      byteLength,
-    })
-
-    return {
-      kind: "user-file-ref",
-      referenceId,
-      displayName,
-      mediaType,
-      byteLength,
-    }
-  }
-
-  const registerWritable = (
-    filePath: string,
-    suggestedFormat: FileFormat | null,
-  ): RendererSaveTargetRef => {
-    const referenceId = randomUUID()
-    const displayName = basename(filePath)
-
-    writableReferences.set(referenceId, {
-      path: filePath,
-      displayName,
-      suggestedFormat,
-    })
-
-    return {
-      kind: "user-save-target-ref",
-      referenceId,
-      displayName,
-      suggestedFormat,
-    }
-  }
-
-  const userFilePort: UserFilePort = {
-    async readText(reference: UserFileReadRef, signal?: AbortSignal) {
-      if (signal?.aborted) {
-        throw new CommandOutcomeError({ disposition: "stopped", result: null })
-      }
-
-      const file = readableReferences.get(reference.referenceId)
-      if (!file) {
-        throw new CommandOutcomeError({
-          disposition: "refused",
-          error: {
-            type: "effect",
-            message: `Unknown user-file reference: ${reference.referenceId}`,
-          },
-        })
-      }
-
-      const text = await readFile(file.path, "utf8").catch((error: unknown) => {
-        throw new CommandOutcomeError({
-          disposition: "refused",
-          error: {
-            type: "effect",
-            message: error instanceof Error ? error.message : String(error),
-          },
-        })
-      })
-
-      if (signal?.aborted) {
-        throw new CommandOutcomeError({ disposition: "stopped", result: null })
-      }
-
-      return {
-        displayName: file.displayName,
-        mediaType: file.mediaType,
-        byteLength: byteLengthFor(text),
-        text,
-      }
-    },
-
-    async writeText(
-      reference: UserSaveTargetWriteRef,
-      text: string,
-      signal?: AbortSignal,
-    ) {
-      if (signal?.aborted) {
-        throw new CommandOutcomeError({ disposition: "stopped", result: null })
-      }
-
-      const file = writableReferences.get(reference.referenceId)
-      if (!file) {
-        throw new CommandOutcomeError({
-          disposition: "refused",
-          error: {
-            type: "effect",
-            message: `Unknown save-target reference: ${reference.referenceId}`,
-          },
-        })
-      }
-
-      try {
-        await mkdir(dirname(file.path), { recursive: true })
-        await writeFile(file.path, text, "utf8")
-      } catch (error) {
-        // The write call has ended and nothing keeps running, so the failure
-        // is known even though the file may hold part of the text.
-        const reason = error instanceof Error ? error.message : String(error)
-        throw new CommandOutcomeError({
-          disposition: "completed",
-          completion: {
-            status: "failed",
-            error: {
-              type: "effect",
-              message: `Could not write ${file.displayName}; the file may be incomplete. ${reason}`,
-            },
-            result: null,
-          },
-        })
-      }
-
-      return {
-        displayName: file.displayName,
-        mediaType: mediaTypeForFormat(
-          file.suggestedFormat ?? inferFormatFromPath(file.path),
-        ),
-        byteLength: byteLengthFor(text),
-        savedAt: new Date().toISOString(),
-      }
-    },
-  }
 
   const popQueuedUserFilePath = (
     acceptFormats?: readonly FileFormat[],
@@ -311,7 +112,7 @@ export function createDesktopHostEnvironment(
   }
 
   return {
-    userFilePort,
+    userFilePort: userFiles.userFilePort,
     queueUserFilePath(path) {
       queuedUserFilePaths.push(path)
     },
@@ -322,7 +123,7 @@ export function createDesktopHostEnvironment(
     async pickUserFile(parentWindow, options) {
       const queuedPath = popQueuedUserFilePath(options?.acceptFormats)
       if (queuedPath) {
-        return await registerReadable(queuedPath)
+        return await userFiles.registerReadable(queuedPath)
       }
 
       const dialogOptions: OpenDialogOptions = {
@@ -338,14 +139,14 @@ export function createDesktopHostEnvironment(
         return null
       }
 
-      return await registerReadable(result.filePaths[0])
+      return await userFiles.registerReadable(result.filePaths[0])
     },
 
     async pickSaveTarget(parentWindow, options) {
       const suggestedFormat = options?.defaultFormat ?? null
       const queuedPath = popQueuedSaveTargetPath()
       if (queuedPath) {
-        return registerWritable(queuedPath, suggestedFormat)
+        return userFiles.registerWritable(queuedPath, suggestedFormat)
       }
 
       const dialogOptions: SaveDialogOptions = {
@@ -361,7 +162,7 @@ export function createDesktopHostEnvironment(
         return null
       }
 
-      return registerWritable(result.filePath, suggestedFormat)
+      return userFiles.registerWritable(result.filePath, suggestedFormat)
     },
 
     async pickDirectory(parentWindow, options) {

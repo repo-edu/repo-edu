@@ -39,6 +39,7 @@ export type UserFileWriteReceipt = {
 }
 
 export type UserFilePort = {
+  /** Refuses a file whose bytes are not UTF-8 text. */
   readText(
     reference: UserFileReadRef,
     signal?: AbortSignal,

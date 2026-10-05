@@ -99,17 +99,18 @@ export function createNodeProcessPort(
       const failStream = (error: unknown): void => {
         child.reportProofLost(error)
       }
+      // `null` marks output the port could not read in full.
       const stdout = collectOutput(
         child.stdout,
         request.stdoutEncoding ?? "utf8",
       ).catch((error: unknown) => {
         failStream(error)
-        return ""
+        return null
       })
       const stderr = collectOutput(child.stderr, "utf8").catch(
         (error: unknown) => {
           failStream(error)
-          return ""
+          return null
         },
       )
       const input = writeInput(child.stdin, request.stdinText).catch(failStream)
@@ -129,6 +130,16 @@ export function createNodeProcessPort(
       }
       if (outcome.outcome === "cancelled") {
         throw new CommandOutcomeError({ disposition: "stopped", result: null })
+      }
+      // The controller makes a run unknown when a stream fails before it
+      // chooses the outcome. Output lost after that choice is still no
+      // result, so the port gives the same answer instead of short output.
+      if (capturedStdout === null || capturedStderr === null) {
+        throw new CommandOutcomeError({
+          disposition: "uncertain",
+          reason: "proof-lost",
+          message: "The command output could not be read in full.",
+        })
       }
       return {
         ...outcome.value,

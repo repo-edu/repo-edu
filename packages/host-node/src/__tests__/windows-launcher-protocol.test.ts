@@ -2,6 +2,8 @@ import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
 import { once } from "node:events"
 import { access } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { createInterface } from "node:readline"
 import type { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
@@ -170,10 +172,22 @@ describe("Windows launcher protocol", () => {
   it("reports a target the system refuses to start as refused", {
     timeout: 5_000,
   }, async (context) => {
-    // A missing program arrives as an event; a file as the working folder
-    // makes `spawn` throw on POSIX.
+    // A missing program or working folder arrives as an event; a file as the
+    // working folder makes `spawn` throw on POSIX. Windows may send a bad
+    // working folder by either route, so both must report a refusal.
     const targets = [
       { target: { command: "repo-edu-missing-program" }, message: /ENOENT/ },
+      {
+        target: {
+          command: process.execPath,
+          args: ["-e", ""],
+          cwd: join(
+            tmpdir(),
+            `repo-edu-missing-folder-${process.pid}-${Date.now()}`,
+          ),
+        },
+        message: /./,
+      },
       {
         target: {
           command: process.execPath,

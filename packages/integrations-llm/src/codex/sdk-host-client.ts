@@ -159,7 +159,16 @@ async function launchSdkHostForRequest(
     if (requestSignal?.aborted) {
       throw abortError("Operation cancelled.", error)
     }
-    throw error
+    // The host confirms a started tree gone before a launch fails, and Codex
+    // changes nothing outside the app, so the failure is known.
+    throw new LlmError(
+      "other",
+      `Could not start the Codex SDK host process: ${error instanceof Error ? error.message : String(error)}`,
+      {
+        cause: error,
+        context: { provider: "codex", authMode, outcome: "completed" },
+      },
+    )
   } finally {
     requestSignal?.removeEventListener("abort", stopStartup)
   }

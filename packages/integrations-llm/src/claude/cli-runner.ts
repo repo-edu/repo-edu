@@ -18,7 +18,6 @@ import type {
   ClaudeCliProcess,
 } from "./cli-process"
 import { claudeNativeEffort } from "./effort"
-import { toClaudeLlmError } from "./errors"
 import {
   type ClaudeStreamJsonState,
   createClaudeStreamJsonState,
@@ -151,7 +150,20 @@ export async function* runClaudeCliStream(
     if (options.signal?.aborted || isAbortLikeError(error)) {
       throw claudeAbortError(error)
     }
-    throw toClaudeLlmError(error, "subscription")
+    // The host confirms a started tree gone before a launch fails, and the
+    // CLI changes nothing outside the app, so the failure is known.
+    throw new LlmError(
+      "other",
+      `Could not start the Claude CLI: ${error instanceof Error ? error.message : String(error)}`,
+      {
+        cause: error,
+        context: {
+          provider: "claude",
+          authMode: "subscription",
+          outcome: "completed",
+        },
+      },
+    )
   }
   child.stderr.setEncoding("utf8")
   const errorOutputSettled = collectErrorOutput(child.stderr).catch(

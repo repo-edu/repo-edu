@@ -54,6 +54,8 @@ Provider adapters for the `LlmTextClient` contract from
   without tools or a saved session, and Codex runs read-only without network.
   So both adapters label their endings the same way:
   - A launch the operating system refused is `refused`.
+  - Any other launch failure is a `completed` failure, because the host
+    confirms a started tree gone before the launch fails.
   - A proof loss the controller confirmed is a `completed` failure.
   - Confirmation expiry stays unknown, because only it leaves work that may
     still run.

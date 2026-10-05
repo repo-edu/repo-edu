@@ -277,10 +277,13 @@ async function applyFileSystemOperation(operation: FileSystemBatchOperation) {
   }
 
   if (operation.kind === "copy-directory") {
+    // Without `verbatimSymlinks`, a relative link would point back into the
+    // source, which is often a temporary folder removed right after the copy.
     await cp(operation.sourcePath, operation.destinationPath, {
       recursive: true,
       force: false,
       errorOnExist: true,
+      verbatimSymlinks: true,
     })
     return
   }
