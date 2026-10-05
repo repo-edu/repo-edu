@@ -6,14 +6,12 @@ import { createGitLabDiscovery } from "./discovery.js"
 import { createGitLabIdentity } from "./identity.js"
 import { createGitLabRepositories } from "./repositories.js"
 import { createGitLabTeams } from "./teams.js"
-import { createGitLabTemplateChanges } from "./template-changes.js"
 
 export function createGitLabClient(http: HttpPort): GitProviderClient {
   return guardGitProviderClient({
     ...createGitLabIdentity(http),
     ...createGitLabRepositories(http),
     ...createGitLabTeams(http),
-    ...createGitLabTemplateChanges(http),
     ...createGitLabBranchReview(http),
     ...createGitLabDiscovery(http),
   })

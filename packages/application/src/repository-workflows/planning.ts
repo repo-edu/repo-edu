@@ -19,7 +19,9 @@ type RepositoryCreateBatch = {
 
 type PlannedTeamSetup = {
   groupId: string
-  teamName: string
+  groupName: string
+  /** The group's name, or its ID for a team of usernames, for messages. */
+  label: string
   gitUsernames: string[]
   repositoryNames: string[]
 }
@@ -181,15 +183,13 @@ export function planTeamSetup(
   const teamsByGroupId = new Map<
     string,
     {
-      teamName: string
+      groupName: string
       gitUsernames: Set<string>
       repositoryNames: Set<string>
     }
   >()
 
   for (const group of groups) {
-    const resolvedTeamName =
-      group.groupName.trim().length > 0 ? group.groupName : group.groupId
     const existing = teamsByGroupId.get(group.groupId)
     if (existing) {
       group.gitUsernames.forEach((username) => {
@@ -200,7 +200,7 @@ export function planTeamSetup(
     }
 
     teamsByGroupId.set(group.groupId, {
-      teamName: resolvedTeamName,
+      groupName: group.groupName,
       gitUsernames: new Set(group.gitUsernames),
       repositoryNames: new Set([group.repoName]),
     })
@@ -208,7 +208,8 @@ export function planTeamSetup(
 
   return Array.from(teamsByGroupId.entries()).map(([groupId, team]) => ({
     groupId,
-    teamName: team.teamName,
+    groupName: team.groupName,
+    label: team.groupName.trim().length > 0 ? team.groupName : groupId,
     gitUsernames: Array.from(team.gitUsernames).sort((a, b) =>
       a.localeCompare(b),
     ),

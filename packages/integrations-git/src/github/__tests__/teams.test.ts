@@ -5,8 +5,11 @@ import type {
   HttpRequest,
   HttpResponse,
 } from "@repo-edu/host-runtime-contract"
+import { separateTeamGroups } from "../../__tests__/team-groups.js"
 import { createGitHubClient } from "../github-client.js"
 import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
+
+const group = { groupId: "g_0001", groupName: "Group 1" }
 
 /** GitHub's REST reference answers a refused team with 422 "Validation
  * failed" in its validation-error shape. */
@@ -35,36 +38,44 @@ function teamPage(page: number, teams: unknown[]): MockRoute {
 
 describe("github teams", () => {
   describe("createTeam", () => {
-    it("creates a team and adds members", async () => {
-      const http = createMockHttpPort([
-        {
-          method: "POST",
-          urlPattern: "/orgs/test-org/teams",
-          status: 201,
-          body: { slug: "hw1-team" },
-        },
-        {
-          method: "PUT",
-          urlPattern: "/orgs/test-org/teams/hw1-team/memberships/alice",
-          status: 200,
-          body: { state: "active" },
-        },
-        {
-          method: "PUT",
-          urlPattern: "/orgs/test-org/teams/hw1-team/memberships/nobody",
-          status: 404,
-          body: { message: "Not Found" },
-        },
-      ])
+    it("creates a team named after its group and adds members", async () => {
+      const requests: HttpRequest[] = []
+      const http = createMockHttpPort(
+        [
+          {
+            method: "POST",
+            urlPattern: "/orgs/test-org/teams",
+            status: 201,
+            body: { slug: "hw1-team" },
+          },
+          {
+            method: "PUT",
+            urlPattern: "/orgs/test-org/teams/hw1-team/memberships/alice",
+            status: 200,
+            body: { state: "active" },
+          },
+          {
+            method: "PUT",
+            urlPattern: "/orgs/test-org/teams/hw1-team/memberships/nobody",
+            status: 404,
+            body: { message: "Not Found" },
+          },
+        ],
+        requests,
+      )
 
       const client = createGitHubClient(http)
       const result = await client.createTeam(baseDraft, {
         organization: "test-org",
-        teamName: "hw1-team",
+        ...group,
         memberUsernames: ["alice", "nobody"],
         permission: "push",
       })
 
+      assert.equal(
+        JSON.parse(requests[0]?.body ?? "{}").name,
+        "team-group-1-g_0001",
+      )
       assert.equal(result.created, true)
       assert.equal(result.teamSlug, "hw1-team")
       assert.deepStrictEqual(result.membersAdded, ["alice"])
@@ -72,8 +83,8 @@ describe("github teams", () => {
     })
 
     it("reuses an existing team found on a later page of the team list", async () => {
-      // GitHub's teams reference turns "My TEam Näme" into the slug
-      // "my-team-name", a rule the app cannot rebuild from the name.
+      // GitHub builds the slug by its own rule, so it is read from the
+      // listed team rather than rebuilt from the name.
       const firstPage = Array.from({ length: 100 }, (_, index) => ({
         id: index + 1,
         name: `other-${index}`,
@@ -82,26 +93,59 @@ describe("github teams", () => {
       const http = createMockHttpPort([
         teamRefused,
         teamPage(1, firstPage),
-        teamPage(2, [{ id: 142, name: "My TEam Näme", slug: "my-team-name" }]),
+        teamPage(2, [
+          { id: 142, name: "team-group-1-g_0001", slug: "team-group-1-g-0001" },
+        ]),
       ])
 
       const client = createGitHubClient(http)
       const result = await client.createTeam(baseDraft, {
         organization: "test-org",
-        teamName: "My TEam Näme",
+        ...group,
         memberUsernames: [],
         permission: "push",
       })
 
       assert.equal(result.created, false)
-      assert.equal(result.teamSlug, "my-team-name")
+      assert.equal(result.teamSlug, "team-group-1-g-0001")
+    })
+
+    it("gives every group its own team", async () => {
+      const requests: HttpRequest[] = []
+      const client = createGitHubClient(
+        createMockHttpPort(
+          [
+            {
+              method: "POST",
+              urlPattern: "/orgs/test-org/teams",
+              status: 201,
+              body: { slug: "team" },
+            },
+          ],
+          requests,
+        ),
+      )
+      for (const { groupId, groupName } of separateTeamGroups) {
+        await client.createTeam(baseDraft, {
+          organization: "test-org",
+          groupId,
+          groupName,
+          memberUsernames: [],
+          permission: "push",
+        })
+      }
+
+      assert.deepStrictEqual(
+        requests.map((request) => JSON.parse(request.body ?? "{}").name),
+        separateTeamGroups.map((group) => group.teamName),
+      )
     })
   })
 
   describe("createTeam failures", () => {
     const teamRequest = {
       organization: "test-org",
-      teamName: "hw1-team",
+      ...group,
       memberUsernames: ["alice"],
       permission: "push" as const,
     }
@@ -112,14 +156,15 @@ describe("github teams", () => {
           method: "POST",
           urlPattern: "/orgs/test-org/teams",
           status: 201,
-          body: { id: 1, name: "hw1-team" },
+          body: { id: 1, name: "team-group-1-g_0001" },
         },
       ])
 
       await assert.rejects(
         createGitHubClient(http).createTeam(baseDraft, teamRequest),
         {
-          message: "GitHub answered team 'hw1-team' without its slug.",
+          message:
+            "GitHub answered team 'team-group-1-g_0001' without its slug.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -158,8 +203,8 @@ describe("github teams", () => {
           "GitHub answered an unreadable team list for 'test-org'.",
         ],
         [
-          [{ id: 1, name: "hw1-team" }],
-          "GitHub answered team 'hw1-team' without its slug.",
+          [{ id: 1, name: "team-group-1-g_0001" }],
+          "GitHub answered team 'team-group-1-g_0001' without its slug.",
         ],
       ]
       for (const [page, message] of cases) {

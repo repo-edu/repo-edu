@@ -5,6 +5,7 @@ import type {
   HttpRequest,
   HttpResponse,
 } from "@repo-edu/host-runtime-contract"
+import { separateTeamGroups } from "../../__tests__/team-groups.js"
 import { createGitLabClient } from "../gitlab-client.js"
 import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
 
@@ -83,13 +84,14 @@ describe("gitlab teams", () => {
       const client = createGitLabClient(http)
       const result = await client.createTeam(baseDraft, {
         organization: "my-org",
-        teamName: "hw1-team",
+        groupId: "g_0001",
+        groupName: "Group 1",
         memberUsernames: ["alice", "nobody"],
         permission: "push",
       })
 
       assert.equal(result.created, true)
-      assert.equal(result.teamSlug, "team-hw1-team")
+      assert.equal(result.teamSlug, "team-group-1-g_0001")
       assert.deepStrictEqual(result.membersAdded, ["alice"])
       assert.deepStrictEqual(result.membersNotFound, ["nobody"])
     })
@@ -110,7 +112,8 @@ describe("gitlab teams", () => {
       await assert.rejects(
         client.createTeam(baseDraft, {
           organization: "ghost-org",
-          teamName: "hw1-team",
+          groupId: "g_0001",
+          groupName: "Group 1",
           memberUsernames: [],
           permission: "push",
         }),
@@ -122,7 +125,8 @@ describe("gitlab teams", () => {
   describe("createTeam answers", () => {
     const teamRequest = {
       organization: "my-org",
-      teamName: "hw1-team",
+      groupId: "g_0001",
+      groupName: "Group 1",
       memberUsernames: [] as string[],
       permission: "push" as const,
     }
@@ -148,9 +152,9 @@ describe("gitlab teams", () => {
         groupTaken,
         {
           method: "GET",
-          urlPattern: "/groups/my-org%2Fteam-hw1-team",
+          urlPattern: "/groups/my-org%2Fteam-group-1-g_0001",
           status: 200,
-          body: { id: 77, path: "team-hw1-team" },
+          body: { id: 77, path: "team-group-1-g_0001" },
         },
       ])
 
@@ -160,7 +164,42 @@ describe("gitlab teams", () => {
       )
 
       assert.equal(result.created, false)
-      assert.equal(result.teamSlug, "team-hw1-team")
+      assert.equal(result.teamSlug, "team-group-1-g_0001")
+    })
+
+    it("gives every group its own team group", async () => {
+      const requests: HttpRequest[] = []
+      const client = createGitLabClient(
+        createMockHttpPort(
+          [
+            organization,
+            {
+              method: "POST",
+              urlPattern: /\/api\/v4\/groups$/,
+              status: 201,
+              body: { id: 77 },
+            },
+          ],
+          requests,
+        ),
+      )
+      for (const { groupId, groupName } of separateTeamGroups) {
+        await client.createTeam(baseDraft, {
+          ...teamRequest,
+          groupId,
+          groupName,
+        })
+      }
+
+      assert.deepStrictEqual(
+        requests
+          .filter((request) => request.method === "POST")
+          .map((request) => {
+            const body = JSON.parse(request.body ?? "{}")
+            return [body.name, body.path]
+          }),
+        separateTeamGroups.map((group) => [group.teamName, group.teamName]),
+      )
     })
 
     it("reports a taken team without a group at its path as a known failure", async () => {
@@ -169,7 +208,7 @@ describe("gitlab teams", () => {
         groupTaken,
         {
           method: "GET",
-          urlPattern: "/groups/my-org%2Fteam-hw1-team",
+          urlPattern: "/groups/my-org%2Fteam-group-1-g_0001",
           status: 404,
           body: { message: "404 Group Not Found" },
         },
@@ -179,7 +218,7 @@ describe("gitlab teams", () => {
         createGitLabClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "GitLab answered that team 'hw1-team' is taken, but no group exists at 'my-org/team-hw1-team'.",
+            "GitLab answered that team 'team-group-1-g_0001' is taken, but no group exists at 'my-org/team-group-1-g_0001'.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -193,7 +232,7 @@ describe("gitlab teams", () => {
           method: "POST",
           urlPattern: /\/api\/v4\/groups$/,
           status: 201,
-          body: { path: "team-hw1-team" },
+          body: { path: "team-group-1-g_0001" },
         },
       ])
 
@@ -201,7 +240,7 @@ describe("gitlab teams", () => {
         createGitLabClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "GitLab created team group 'my-org/team-hw1-team' but answered without its id.",
+            "GitLab created team group 'my-org/team-group-1-g_0001' but answered without its id.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -215,7 +254,7 @@ describe("gitlab teams", () => {
           method: "POST",
           urlPattern: /\/api\/v4\/groups$/,
           status: 201,
-          body: { id: 77, path: "team-hw1-team" },
+          body: { id: 77, path: "team-group-1-g_0001" },
         },
         {
           method: "GET",

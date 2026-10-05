@@ -342,7 +342,8 @@ export function createRepoCreateHandler(
               gitDraft,
               {
                 organization,
-                teamName: team.teamName,
+                groupId: team.groupId,
+                groupName: team.groupName,
                 memberUsernames: team.gitUsernames,
                 permission: "push",
               },
@@ -352,7 +353,7 @@ export function createRepoCreateHandler(
             if (!isCompletedGitEffectFailure(error)) throw error
             options?.onOutput?.({
               channel: "warn",
-              message: `Failed to create team '${team.teamName}': ${error.message}`,
+              message: `Failed to create team '${team.label}': ${error.message}`,
             })
             continue
           }
@@ -360,12 +361,12 @@ export function createRepoCreateHandler(
           if (result.membersNotFound.length > 0) {
             options?.onOutput?.({
               channel: "warn",
-              message: `Team '${team.teamName}' missing members: ${result.membersNotFound.join(", ")}.`,
+              message: `Team '${team.label}' missing members: ${result.membersNotFound.join(", ")}.`,
             })
           }
           options?.onOutput?.({
             channel: "info",
-            message: `Team '${team.teamName}' ${result.created ? "created" : "reused"} with ${result.membersAdded.length} members added.`,
+            message: `Team '${team.label}' ${result.created ? "created" : "reused"} with ${result.membersAdded.length} members added.`,
           })
         }
 
@@ -401,13 +402,13 @@ export function createRepoCreateHandler(
             if (!isCompletedGitEffectFailure(error)) throw error
             options?.onOutput?.({
               channel: "warn",
-              message: `Failed to assign repositories to team '${team.teamName}': ${error.message}`,
+              message: `Failed to assign repositories to team '${team.label}': ${error.message}`,
             })
             continue
           }
           options?.onOutput?.({
             channel: "info",
-            message: `Assigned ${repositoryNames.length} repositories to team '${team.teamName}'.`,
+            message: `Assigned ${repositoryNames.length} repositories to team '${team.label}'.`,
           })
         }
 

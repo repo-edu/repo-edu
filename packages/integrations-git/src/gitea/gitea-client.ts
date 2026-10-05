@@ -6,14 +6,12 @@ import { createGiteaDiscovery } from "./discovery.js"
 import { createGiteaIdentity } from "./identity.js"
 import { createGiteaRepositories } from "./repositories.js"
 import { createGiteaTeams } from "./teams.js"
-import { createGiteaTemplateChanges } from "./template-changes.js"
 
 export function createGiteaClient(http: HttpPort): GitProviderClient {
   return guardGitProviderClient({
     ...createGiteaIdentity(http),
     ...createGiteaRepositories(http),
     ...createGiteaTeams(http),
-    ...createGiteaTemplateChanges(http),
     ...createGiteaBranchReview(http),
     ...createGiteaDiscovery(http),
   })

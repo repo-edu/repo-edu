@@ -10,7 +10,10 @@ import {
   type PersistedAppSettings,
   splitAppSettings,
 } from "@repo-edu/domain/settings"
-import type { PersistedCourse } from "@repo-edu/domain/types"
+import type {
+  PersistedCourse,
+  PlannedRepositoryGroup,
+} from "@repo-edu/domain/types"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
@@ -18,7 +21,10 @@ import {
   createNodeProcessPort,
 } from "@repo-edu/host-node"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
-import { createGitProviderClient } from "@repo-edu/integrations-git"
+import {
+  buildTeamName,
+  createGitProviderClient,
+} from "@repo-edu/integrations-git"
 import {
   collectExpectedRepoNames,
   collectFixtureGitUsernames,
@@ -29,21 +35,10 @@ import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 function plannedTeamsForExpected(
   teams: IntegrationTeam[],
-  expectedGroupNames: string[],
+  groups: PlannedRepositoryGroup[],
 ): IntegrationTeam[] {
-  const normalize = (value: string) =>
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-
-  const expectedByName = new Set(expectedGroupNames)
-  const expectedBySlug = new Set(expectedGroupNames.map(normalize))
-  return teams.filter(
-    (team) =>
-      expectedByName.has(team.name) || expectedBySlug.has(normalize(team.name)),
-  )
+  const expectedNames = new Set(groups.map(buildTeamName))
+  return teams.filter((team) => expectedNames.has(team.name))
 }
 
 const harnesses = resolveHarnessesFromEnvironment()
@@ -139,7 +134,7 @@ for (const harness of harnesses) {
         )
 
         const teams = await harness.verifyTeams(organization)
-        const plannedTeams = plannedTeamsForExpected(teams, expected.groupNames)
+        const plannedTeams = plannedTeamsForExpected(teams, expected.groups)
         assert.ok(plannedTeams.length > 0, "planned teams should be created")
 
         const team = plannedTeams[0] as IntegrationTeam

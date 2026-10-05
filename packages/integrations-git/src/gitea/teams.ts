@@ -9,6 +9,7 @@ import {
   isGitReply,
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
+import { buildTeamName } from "../team-name.js"
 import { isTeamAlreadyExists } from "./errors.js"
 import { giteaRequest } from "./transport.js"
 
@@ -93,6 +94,7 @@ type TeamsCapability = Pick<
 export function createGiteaTeams(http: HttpPort): TeamsCapability {
   return {
     async createTeam(draft, request, signal) {
+      const teamName = buildTeamName(request)
       let created = false
       let teamId: number
       try {
@@ -102,7 +104,7 @@ export function createGiteaTeams(http: HttpPort): TeamsCapability {
           "POST",
           `/orgs/${encodeURIComponent(request.organization)}/teams`,
           JSON.stringify({
-            name: request.teamName,
+            name: teamName,
             permission: mapTeamPermission(request.permission),
             units: defaultTeamUnits,
           }),
@@ -112,7 +114,7 @@ export function createGiteaTeams(http: HttpPort): TeamsCapability {
         if (id === null) {
           throw gitEffectFailure(
             "completed",
-            `Gitea created team '${request.teamName}' but answered without its id.`,
+            `Gitea created team '${teamName}' but answered without its id.`,
           )
         }
         teamId = id
@@ -123,7 +125,7 @@ export function createGiteaTeams(http: HttpPort): TeamsCapability {
           http,
           draft,
           request.organization,
-          request.teamName,
+          teamName,
           signal,
         )
       }

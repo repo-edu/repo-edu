@@ -12,6 +12,7 @@ export const workspaceDependencies = [contractPackageId] as const
 export { createGiteaClient } from "./gitea/index.js"
 export { createGitHubClient } from "./github/index.js"
 export { createGitLabClient } from "./gitlab/index.js"
+export { buildTeamName } from "./team-name.js"
 
 export function createGitProviderClient(
   provider: GitProviderKind,

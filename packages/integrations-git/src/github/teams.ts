@@ -9,6 +9,7 @@ import {
   isGitReply,
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
+import { buildTeamName } from "../team-name.js"
 import { createOctokit } from "./transport.js"
 
 function mapTeamPermission(permission: CreateTeamRequest["permission"]) {
@@ -67,12 +68,13 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
   return {
     async createTeam(draft, request, signal) {
       const octokit = createOctokit(http, draft)
+      const teamName = buildTeamName(request)
       let created = true
       let team: { slug?: unknown }
       try {
         const response = await octokit.teams.create({
           org: request.organization,
-          name: request.teamName,
+          name: teamName,
           permission: request.permission === "pull" ? "pull" : "push",
           privacy: "closed",
           request: { signal },
@@ -85,7 +87,7 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
         const existing = await findTeamByName(
           octokit,
           request.organization,
-          request.teamName,
+          teamName,
           signal,
         )
         if (existing === null) throw error
@@ -95,7 +97,7 @@ export function createGitHubTeams(http: HttpPort): TeamsCapability {
       if (typeof team.slug !== "string") {
         throw gitEffectFailure(
           "completed",
-          `GitHub answered team '${request.teamName}' without its slug.`,
+          `GitHub answered team '${teamName}' without its slug.`,
         )
       }
       const teamSlug = team.slug

@@ -154,7 +154,8 @@ const writes: Array<
       draft,
       {
         organization: "course-org",
-        teamName: "team-1",
+        groupId: "g_0001",
+        groupName: "Team 1",
         memberUsernames: ["alice", "bob"],
         permission: "push",
       },
@@ -577,7 +578,8 @@ describe("error handling consistency across git providers", () => {
           draft,
           {
             organization: "course-org",
-            teamName: "team-1",
+            groupId: "g_0001",
+            groupName: "Team 1",
             memberUsernames: ["alice"],
             permission: "push",
           },

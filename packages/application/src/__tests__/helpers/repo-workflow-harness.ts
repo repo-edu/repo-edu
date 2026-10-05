@@ -66,7 +66,7 @@ export function createRepoHarness(options?: {
         options?.git?.createTeam ??
         (async (_draft, request) => ({
           created: true,
-          teamSlug: request.teamName,
+          teamSlug: request.groupId,
           membersAdded: request.memberUsernames,
           membersNotFound: [],
         })),

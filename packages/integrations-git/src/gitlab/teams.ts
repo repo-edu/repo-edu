@@ -4,6 +4,7 @@ import {
   gitEffectFailure,
   throwIfGitEffectAborted,
 } from "../invocation-guard.js"
+import { buildTeamName } from "../team-name.js"
 import {
   isAlreadySharedWithGroup,
   isMemberAlreadyExists,
@@ -13,15 +14,6 @@ import { resolveGroupId } from "./namespace.js"
 import { resolveProjectId } from "./repository-api.js"
 import { createGitLabApi, gitLabRestPost } from "./transport.js"
 import { resolveGitLabUserId } from "./users.js"
-
-function toTeamPathSlug(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-  return slug.startsWith("team-") ? slug : `team-${slug}`
-}
 
 type TeamsCapability = Pick<
   GitProviderClient,
@@ -39,7 +31,9 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
           `Organization '${request.organization}' was not found on GitLab.`,
         )
       }
-      const teamSlug = toTeamPathSlug(request.teamName)
+      // GitLab refuses a sibling group with the same name or path, so both
+      // carry the team's name.
+      const teamSlug = buildTeamName(request)
       const teamPath = `${request.organization}/${teamSlug}`
       let created = false
       let teamId: number | null
@@ -49,7 +43,7 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
           draft,
           "/groups",
           {
-            name: request.teamName,
+            name: teamSlug,
             path: teamSlug,
             parentId: organizationId,
             visibility: "private",
@@ -72,7 +66,7 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
       if (teamId === null) {
         throw gitEffectFailure(
           "completed",
-          `GitLab answered that team '${request.teamName}' is taken, but no group exists at '${teamPath}'.`,
+          `GitLab answered that team '${teamSlug}' is taken, but no group exists at '${teamPath}'.`,
         )
       }
 

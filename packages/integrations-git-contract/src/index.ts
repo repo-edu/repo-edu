@@ -65,7 +65,12 @@ export type TeamPermission = "push" | "pull" | "admin"
 
 export type CreateTeamRequest = {
   organization: string
-  teamName: string
+  /** The group's stable ID in its course, made of lowercase letters, digits
+   * and `_`. The team's name on the server carries it, so two groups never
+   * share a team. */
+  groupId: string
+  /** Empty for a team of usernames, which has no name of its own. */
+  groupName: string
   memberUsernames: string[]
   permission: TeamPermission
 }

@@ -376,7 +376,7 @@ describe("application repository create workflow helpers", () => {
             if (failedOperation === "create") abort()
             return {
               created: true,
-              teamSlug: request.teamName,
+              teamSlug: request.groupId,
               membersAdded: request.memberUsernames,
               membersNotFound: [],
             }
@@ -408,7 +408,7 @@ describe("application repository create workflow helpers", () => {
 
   it("goes on past one refused team write and records every repository", async () => {
     for (const failedOperation of ["create", "assign"] as const) {
-      const teamNames: string[] = []
+      const teamGroups: Array<{ groupId: string; groupName: string }> = []
       const assignedTeams: string[] = []
       const warnings: string[] = []
       const refuse = () => {
@@ -420,11 +420,12 @@ describe("application repository create workflow helpers", () => {
       const { course, settings, handlers } = createRepoHarness({
         git: {
           createTeam: async (_draft, request) => {
-            teamNames.push(request.teamName)
-            if (failedOperation === "create" && teamNames.length === 1) refuse()
+            teamGroups.push(request)
+            if (failedOperation === "create" && teamGroups.length === 1)
+              refuse()
             return {
               created: true,
-              teamSlug: request.teamName,
+              teamSlug: request.groupId,
               membersAdded: request.memberUsernames,
               membersNotFound: [],
             }
@@ -432,7 +433,7 @@ describe("application repository create workflow helpers", () => {
           assignRepositoriesToTeam: async (_draft, request) => {
             if (
               failedOperation === "assign" &&
-              request.teamSlug === teamNames[0]
+              request.teamSlug === teamGroups[0]?.groupId
             )
               refuse()
             assignedTeams.push(request.teamSlug)
@@ -455,19 +456,59 @@ describe("application repository create workflow helpers", () => {
       )
       const plan = planForAssignment(course, "a1")
 
-      assert.equal(teamNames.length > 1, true)
-      assert.deepStrictEqual(assignedTeams, teamNames.slice(1))
+      assert.equal(teamGroups.length > 1, true)
+      assert.deepStrictEqual(
+        assignedTeams,
+        teamGroups.slice(1).map((group) => group.groupId),
+      )
       assert.equal(
         Object.keys(result.recordedRepositories.a1 ?? {}).length,
         plan.groups.length,
       )
       assert.equal(
         warnings.some((message) =>
-          message.includes(`'${teamNames[0]}': Team name is rejected.`),
+          message.includes(
+            `'${teamGroups[0]?.groupName}': Team name is rejected.`,
+          ),
         ),
         true,
       )
     }
+  })
+
+  it("sends each group's ID and name with its team", async () => {
+    const teamGroups: Array<{ groupId: string; groupName: string }> = []
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        createTeam: async (_draft, request) => {
+          teamGroups.push({
+            groupId: request.groupId,
+            groupName: request.groupName,
+          })
+          return {
+            created: true,
+            teamSlug: request.groupId,
+            membersAdded: request.memberUsernames,
+            membersNotFound: [],
+          }
+        },
+      },
+    })
+
+    await handlers["repo.create"]({
+      course,
+      credentials: settings,
+      assignmentId: "a1",
+      template: null,
+    })
+
+    assert.deepStrictEqual(
+      teamGroups,
+      planForAssignment(course, "a1").groups.map((group) => ({
+        groupId: group.groupId,
+        groupName: group.groupName,
+      })),
+    )
   })
 
   it("forwards the normalized user-agent from git connection into the adapter draft", async () => {
@@ -594,10 +635,10 @@ function setUpCreate(
         missing: [],
       }),
       createTeam: async (_draft, request) => {
-        teams.push(request.teamName)
+        teams.push(request.groupId)
         return {
           created: true,
-          teamSlug: request.teamName,
+          teamSlug: request.groupId,
           membersAdded: request.memberUsernames,
           membersNotFound: [],
         }
@@ -883,7 +924,7 @@ describe("repo.create answers every outside call", () => {
             if (failedOperation === "create") stop()
             return {
               created: true,
-              teamSlug: request.teamName,
+              teamSlug: request.groupId,
               membersAdded: request.memberUsernames,
               membersNotFound: [],
             }

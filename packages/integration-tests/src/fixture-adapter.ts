@@ -70,7 +70,6 @@ export function collectExpectedRepoNames(
   assignmentId: string,
 ): {
   repoNames: string[]
-  groupNames: string[]
   groups: PlannedRepositoryGroup[]
 } {
   const plan = planRepositoryOperation(course, assignmentId, "create")
@@ -82,7 +81,6 @@ export function collectExpectedRepoNames(
 
   return {
     repoNames: plan.value.groups.map((group) => group.repoName),
-    groupNames: plan.value.groups.map((group) => group.groupName),
     groups: plan.value.groups,
   }
 }

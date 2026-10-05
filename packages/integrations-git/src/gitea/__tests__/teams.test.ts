@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { HttpRequest } from "@repo-edu/host-runtime-contract"
+import { separateTeamGroups } from "../../__tests__/team-groups.js"
 import { createGiteaClient } from "../gitea-client.js"
 import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
 
@@ -8,7 +9,8 @@ const swaggerUrl = "https://gitea.example.com/api/swagger"
 
 const teamRequest = {
   organization: "course-org",
-  teamName: "hw1-team",
+  groupId: "g_0001",
+  groupName: "Group 1",
   memberUsernames: [] as string[],
   permission: "push" as const,
 }
@@ -19,7 +21,7 @@ const teamExists: MockRoute = {
   urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
   status: 422,
   body: {
-    message: "team already exists [org_id: 3, name: hw1-team]",
+    message: "team already exists [org_id: 3, name: team-group-1-g_0001]",
     url: swaggerUrl,
   },
 }
@@ -35,7 +37,7 @@ function teamPage(page: number, teams: unknown[]): MockRoute {
 
 describe("gitea teams", () => {
   describe("createTeam", () => {
-    it("creates a team and adds members", async () => {
+    it("creates a team named after its group and adds members", async () => {
       const requests: HttpRequest[] = []
       const http = createMockHttpPort(
         [
@@ -43,7 +45,7 @@ describe("gitea teams", () => {
             method: "POST",
             urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
             status: 201,
-            body: { id: 42, name: "hw1-team" },
+            body: { id: 42, name: "team-group-1-g_0001" },
           },
           {
             method: "PUT",
@@ -73,6 +75,7 @@ describe("gitea teams", () => {
         membersNotFound: ["nobody"],
       })
       const capturedBody = requests[0]?.body ?? ""
+      assert.ok(capturedBody.includes('"name":"team-group-1-g_0001"'))
       assert.ok(capturedBody.includes('"permission":"write"'))
       assert.ok(capturedBody.includes('"units":["repo.code"'))
       assert.ok(capturedBody.includes('"repo.packages"'))
@@ -86,7 +89,7 @@ describe("gitea teams", () => {
       const http = createMockHttpPort([
         teamExists,
         teamPage(1, firstPage),
-        teamPage(2, [{ id: 142, name: "HW1-Team" }]),
+        teamPage(2, [{ id: 142, name: "TEAM-GROUP-1-G_0001" }]),
       ])
 
       const result = await createGiteaClient(http).createTeam(
@@ -96,6 +99,35 @@ describe("gitea teams", () => {
 
       assert.equal(result.created, false)
       assert.equal(result.teamSlug, "142")
+    })
+
+    it("gives every group its own team", async () => {
+      const requests: HttpRequest[] = []
+      const client = createGiteaClient(
+        createMockHttpPort(
+          [
+            {
+              method: "POST",
+              urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
+              status: 201,
+              body: { id: 42 },
+            },
+          ],
+          requests,
+        ),
+      )
+      for (const { groupId, groupName } of separateTeamGroups) {
+        await client.createTeam(baseDraft, {
+          ...teamRequest,
+          groupId,
+          groupName,
+        })
+      }
+
+      assert.deepStrictEqual(
+        requests.map((request) => JSON.parse(request.body ?? "{}").name),
+        separateTeamGroups.map((group) => group.teamName),
+      )
     })
 
     it("reports an existing team missing from the team list as a known failure", async () => {
@@ -109,7 +141,7 @@ describe("gitea teams", () => {
         createGiteaClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "Gitea answered that team 'hw1-team' exists but does not list it.",
+            "Gitea answered that team 'team-group-1-g_0001' exists but does not list it.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -123,8 +155,8 @@ describe("gitea teams", () => {
           "Gitea answered an unreadable team list for 'course-org'.",
         ],
         [
-          [{ name: "hw1-team" }],
-          "Gitea answered team 'hw1-team' without its id.",
+          [{ name: "team-group-1-g_0001" }],
+          "Gitea answered team 'team-group-1-g_0001' without its id.",
         ],
       ]
       for (const [page, message] of cases) {
@@ -167,14 +199,15 @@ describe("gitea teams", () => {
           method: "POST",
           urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
           status: 201,
-          body: { name: "hw1-team" },
+          body: { name: "team-group-1-g_0001" },
         },
       ])
 
       await assert.rejects(
         createGiteaClient(http).createTeam(baseDraft, teamRequest),
         {
-          message: "Gitea created team 'hw1-team' but answered without its id.",
+          message:
+            "Gitea created team 'team-group-1-g_0001' but answered without its id.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -188,7 +221,7 @@ describe("gitea teams", () => {
           method: "POST",
           urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
           status: 201,
-          body: { id: 42, name: "hw1-team" },
+          body: { id: 42, name: "team-group-1-g_0001" },
         },
         {
           method: "PUT",

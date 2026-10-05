@@ -154,7 +154,8 @@ describe("gitlab identity", () => {
         },
         {
           organization: "my-org",
-          teamName: "hw1-team",
+          groupId: "g_0001",
+          groupName: "hw1",
           memberUsernames: [],
           permission: "push",
         },
