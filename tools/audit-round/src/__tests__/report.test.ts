@@ -62,6 +62,7 @@ test("plain judged-repos lines survive formatted neighbours in the same paragrap
     "Plan: `../plan/example.md`\nJudged repos: repo-edu@def456",
     "**Audit**\nJudged repos: repo-edu@def456\n[Plan](../plan/example.md)",
     "Plan: `first\nsecond`\nJudged repos: repo-edu@def456",
+    "Planning round workflow  \nArtifact: `example.md`  \nPhase: detailing  \nJudged repos: repo-edu@def456",
   ])
     assert.deepEqual(
       readAuditReport(
