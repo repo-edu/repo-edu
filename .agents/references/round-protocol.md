@@ -189,12 +189,14 @@ A manual planning reply in the original audit session uses the same rebuttal
 resolution. A manual fix asks for any open ruling in chat; it needs no ruling
 output path. `pnpm audit-round brief [transcript]` remains the separate command
 that starts a brief session itself; without a transcript it retells the most
-recently modified one at the plan root. The home `/brief [stem]` and
-`$brief [stem]` summarise a plan from either checkout and are outside this round
-protocol.
-The round brief and watch have no chat commands. The runner
-supplies their workflow and its listed files, including the `simple` definition,
-without a launcher.
+recently modified one at the plan root. The home `/brief-round [transcript]`
+and `$brief-round [transcript]` retell the same transcript in chat and write
+no file. The home `/brief-plan [stem]` and `$brief-plan [stem]` summarise a
+plan from either checkout and are outside this round protocol.
+The runner supplies the round brief's and the watch's workflow and its listed
+files, including the `simple` definition, without a launcher. Their home
+launchers, `/brief-round` and `/watch` with their Codex forms, serve only
+hand-run sessions.
 
 ### Omitted targets
 
@@ -211,7 +213,7 @@ commit decides:
   The user then names the scope. Moving on to the next audit unit is the user's
   call.
 
-The home plan brief given no stem reads the same plan.
+The home `/brief-plan` given no stem reads the same plan.
 `pnpm audit-round plan` prints it from either checkout.
 
 ## Closing reports

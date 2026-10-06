@@ -12,7 +12,12 @@ import type { TestContext } from "node:test"
 import { fileURLToPath } from "node:url"
 import type { AssistantRuntime } from "../assistant.js"
 import type { Feedback, PhaseOutput } from "../feedback.js"
-import type { Assistant, PhaseInput, PhaseResult } from "../phase.js"
+import {
+  type Assistant,
+  type PhaseInput,
+  type PhaseResult,
+  phaseSkills,
+} from "../phase.js"
 import type { RoundContext, RoundKind } from "../target.js"
 
 export function testContext(
@@ -56,8 +61,8 @@ export async function writePhaseInstructions(
   planRoot: string,
 ) {
   for (const root of [repoEduRoot, planRoot]) {
-    for (const phase of ["audit", "vet", "rebut", "fix", "brief", "watch"]) {
-      const skill = join(root, ".agents/skills", phase)
+    for (const [phase, name] of Object.entries(phaseSkills)) {
+      const skill = join(root, ".agents/skills", name)
       await mkdir(join(skill, "references"), { recursive: true })
       await writeFile(
         join(skill, "references/workflow.md"),

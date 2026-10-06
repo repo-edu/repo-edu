@@ -8,10 +8,15 @@ reads:
 # Round brief workflow
 
 The header's files are part of this workflow. Paths are relative to this file.
-The runner supplies them whole. Read each file once. Apply the `simple`
-requirement to the whole session and skip its confirm-and-wait step.
+The runner supplies them whole; in a hand-run session, read them whole. Read
+each file once. Apply the `simple` requirement to the whole session and
+skip its confirm-and-wait step.
 
-The runner starts this phase directly from this workflow. It has no chat command.
+The runner starts its `brief` phase directly from this workflow. The two
+hand-run launchers, Claude's `/brief-round` and Codex's `$brief-round`, use it
+too; **Hand-run entry** owns their route. The home `/brief-plan` and
+`$brief-plan` retell a plan, not a round, under their own workflow in the plan
+repo.
 
 The brief is the plain-words twin of one round transcript, written for the
 user. The transcript is the `*-1-round.<tag>.md` file the audit-round runner writes
@@ -24,6 +29,21 @@ says the same things in words the user does not have to decode. In an automated
 round it runs only after the full fix has completed, including all rulings and
 resumed fix invocations. A standalone invocation may retell an earlier incomplete round.
 
+## Hand-run entry
+
+For `help`, `-h`, `--help` or `?`, show usage for the invoking
+`/brief-round` or `$brief-round` command and stop: an optional transcript at
+the plan root selects the round, and omission takes the most recently modified
+transcript there.
+
+Resolve the plan root as `../plan` from either checkout. An argument names a
+transcript the way `pnpm audit-round brief` accepts it. Read that transcript
+under **Input**, then write the brief in chat under **Voice** and **Shape**, as
+ordinary chat Markdown. The brief is the whole reply: no line before it and no
+notes after it. A hand-run brief writes no file, so the saved brief beside a
+transcript stays the runner's. Later questions about the round in the same
+session are answered from the transcript under the same rules.
+
 ## Input
 
 The shared [round protocol](../../../references/round-protocol.md) owns file names, writer tags and
@@ -32,8 +52,8 @@ or a transcript outside the shared grammar fails under the result rule when unat
 `pnpm audit-round brief [transcript]` starts a separate brief session, on the most recently
 modified transcript at the plan root when none is named.
 
-Resolve workflow references from Repo Edu. The transcript and output live at
-the plan root; use the supplied output path.
+Resolve workflow references from Repo Edu. The transcript and any output live
+at the plan root; use the supplied output path.
 
 Read the whole transcript. The supplied growth patterns explain its pattern labels.
 Read nothing else about the round: no code, no
@@ -44,12 +64,13 @@ already checked it.
 
 ## Output
 
-Write the brief to the supplied output path, replacing an existing file.
-The brief is the one file this workflow writes; the transcript stays as it is.
-Confirm the saved path in the final reply. Under the runner, add the required
-result line; the runner displays the saved file after this phase succeeds.
+Under the runner, write the brief to the supplied output path, replacing an
+existing file. The brief is the one file this workflow writes; the transcript
+stays as it is. Confirm the saved path in the final reply and add the required
+result line; the runner displays the saved file after this phase succeeds. A
+hand-run brief goes to chat under **Hand-run entry**.
 
-The brief is Markdown for a person reading in a Markdown viewer. Use
+The brief is Markdown for a person reading in a Markdown viewer or in chat. Use
 headings, numbered lists and tables where they help. Bold the first words of
 a paragraph or bullet, never a whole sentence.
 

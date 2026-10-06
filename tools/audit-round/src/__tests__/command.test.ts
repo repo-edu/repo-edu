@@ -773,7 +773,7 @@ for (const auditor of ["claude", "codex"] as const) {
         )
         assert.equal(
           log.includes(
-            join(repoRoot, ".agents/skills/brief/references/workflow.md"),
+            join(repoRoot, ".agents/skills/brief-round/references/workflow.md"),
           ),
           !ruling,
         )
@@ -1953,7 +1953,7 @@ for (const auditor of ["codex", "claude"] as const) {
       }
       assert.equal(
         log.includes(
-          join(f.repoRoot, ".agents/skills/brief/references/workflow.md"),
+          join(f.repoRoot, ".agents/skills/brief-round/references/workflow.md"),
         ),
         !ruling,
       )
@@ -2077,10 +2077,10 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.ok(
         log.includes(
-          join(f.repoRoot, ".agents/skills/brief/references/workflow.md"),
+          join(f.repoRoot, ".agents/skills/brief-round/references/workflow.md"),
         ),
       )
-      assert.doesNotMatch(log, /Source file: .*\/brief\/SKILL\.md/)
+      assert.doesNotMatch(log, /Source file: .*\/brief-round\/SKILL\.md/)
       assert.ok(
         log.includes(
           `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,

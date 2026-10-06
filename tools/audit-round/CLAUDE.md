@@ -267,12 +267,12 @@ consumers.
   resolution and inclusive-range admission. The runner passes references
   unchanged and rejects multiple auditor entries for commit targets, which run once without
   a trajectory glance or watch.
-- `default-target.ts` owns the target of a round or `name` given none, under the shared
-  protocol's [Omitted targets](../../.agents/references/round-protocol.md#omitted-targets). It
-  reads both histories through `stemCommits`, the same newest-first order the hand-run episode
-  uses, skips plans without an active artifact and parses the newest remaining commit strictly.
-  The selected target passes through `auditTarget` as a typed one would. `defaultPlan` applies the
-  same plan rule alone for the `plan` command, which the home plan brief runs for an omitted stem.
+- `default-target.ts` owns the target of a round or `name` given none, under the shared protocol's
+  [Omitted targets](../../.agents/references/round-protocol.md#omitted-targets). It reads both
+  histories through `stemCommits`, the same newest-first order the hand-run episode uses, skips
+  plans without an active artifact and parses the newest remaining commit strictly. The selected
+  target passes through `auditTarget` as a typed one would. `defaultPlan` applies the same plan rule
+  alone for the `plan` command, which the home `/brief-plan` runs for an omitted stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor`
   option. It reads that value with the queue's entry grammar and refuses a list with no entries. The
   round is the command itself, taking the target as its own arguments. Its subcommands are `brief`,
@@ -324,6 +324,8 @@ the invocation owner must release its resources before rejecting.
 `phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal and fix use the single
 launcher set under the plan checkout's `home/`; their workflow follows the round's kind. Brief
 and watch have no launchers; the runner supplies their Repo Edu workflows directly.
+`phaseSkills` names each phase's skill folder and launchers. The brief phase's skill is
+`brief-round`, so its name stays apart from the home `/brief-plan`.
 Planning sessions work in the plan checkout; implementation and commit sessions work in Repo Edu.
 Every round file lives at the plan root. The runner names all input and output paths before the
 audit. The runner saves audit, vet and rebuttal final responses; brief and watch sessions write

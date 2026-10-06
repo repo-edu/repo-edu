@@ -16,10 +16,28 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
 
 export type Phase = "audit" | "vet" | "rebut" | "fix" | "brief" | "watch"
 
+/**
+ * Each phase's skill name, which names its workflow folder and launchers. The
+ * brief's name keeps the round brief apart from the home plan brief.
+ */
+export const phaseSkills: Record<Phase, string> = {
+  audit: "audit",
+  vet: "vet",
+  rebut: "rebut",
+  fix: "fix",
+  brief: "brief-round",
+  watch: "watch",
+}
+
 /** Manual and automated phases share one workflow selection. */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root = transcribed(input.phase) ? input.cwd : input.repoEduRoot
-  return join(root, ".agents/skills", input.phase, "references/workflow.md")
+  return join(
+    root,
+    ".agents/skills",
+    phaseSkills[input.phase],
+    "references/workflow.md",
+  )
 }
 
 export function phaseLauncher(
@@ -27,9 +45,10 @@ export function phaseLauncher(
 ): string | null {
   if (!transcribed(input.phase)) return null
   const root = join(input.planRoot, "home")
+  const skill = phaseSkills[input.phase]
   return input.assistant === "claude"
-    ? join(root, "claude", "commands", `${input.phase}.md`)
-    : join(root, "agents", "skills", input.phase, "SKILL.md")
+    ? join(root, "claude", "commands", `${skill}.md`)
+    : join(root, "agents", "skills", skill, "SKILL.md")
 }
 
 /** The model tiers a round may ask its auditor for, as the command line names them. */

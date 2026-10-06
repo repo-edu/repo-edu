@@ -597,9 +597,10 @@ for (const auditor of ["claude", "codex"] as const) {
       ])
       for (const call of round.calls) {
         const root = call.phase === "brief" ? repoRoot : ownerRoot
+        const skill = call.phase === "brief" ? "brief-round" : call.phase
         assert.equal(
           phaseWorkflow(call),
-          join(root, ".agents/skills", call.phase, "references/workflow.md"),
+          join(root, ".agents/skills", skill, "references/workflow.md"),
         )
       }
       assert.deepEqual(round.rulings, [])
