@@ -102,7 +102,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     await writeFile(
       f.report,
-      `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
+      `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\nStop recommendation: stop. The clean audit ends this setting.\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
       await runCommand(["example.md", "all"], f.runtime, f.options),
@@ -146,7 +146,7 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
   assert.match(markdown, /Clean audit\. Report retained/)
 })
 
-test("two clean audits skip all remaining entries for both assistants regardless of tags", async (t) => {
+test("a clean audit prunes its resolved setting and preserves another setting", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -159,7 +159,7 @@ test("two clean audits skip all remaining entries for both assistants regardless
   )
   assert.equal(
     await runCommand(
-      ["example.md", "--auditor", "codex,otl,claude,atx,codex"],
+      ["example.md", "--auditor", "codex,o,otl,codex"],
       f.runtime,
       f.options,
     ),
@@ -173,74 +173,21 @@ test("two clean audits skip all remaining entries for both assistants regardless
   )
   assert.deepEqual(
     calls.map((call) => call.assistant),
-    ["codex", "claude"],
+    ["codex", "codex"],
   )
-  const subjects = (
-    await execa("git", ["log", "-2", "--format=%s"], { cwd: f.planRoot })
-  ).stdout
-  assert.match(subjects, /^example\/audit ath clean:/)
-  assert.match(subjects, /\nexample\/audit oth clean:/)
+  for (const argument of [
+    "-m",
+    "gpt-6-astra",
+    "-c",
+    "model_reasoning_effort=low",
+  ])
+    assert.ok(calls[1].args.includes(argument), calls[1].args.join(" "))
   assert.equal((await f.roundFiles()).length, 4)
-  assert.match(f.visible.join("\n"), /skipping all remaining entries for codex/)
   assert.match(
     f.visible.join("\n"),
-    /skipping all remaining entries for claude/,
+    /Clean audit by codex on chosen-model high; skipped 2 queued entries with the same setting\./,
   )
 })
-
-for (const cleanAssistant of ["codex", "claude"] as const) {
-  for (const includePeer of [false, true]) {
-    test(`a clean ${cleanAssistant} audit skips its later tags with peer rounds=${includePeer}`, async (t) => {
-      const peer = cleanAssistant === "codex" ? "claude" : "codex"
-      const laterTag = cleanAssistant === "codex" ? "otl" : "atx"
-      const f = await roundFixture(t, cleanAssistant)
-      await f.configure({
-        phases: f.phases,
-        assistants: {
-          [cleanAssistant]: {
-            phases: {
-              ...f.phases,
-              audit: {
-                ...(f.phases.audit as object),
-                document: {
-                  text: `Judged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
-                },
-              },
-            },
-          },
-        },
-      })
-      assert.equal(
-        await runCommand(
-          [
-            "example.md",
-            "all",
-            "--auditor",
-            includePeer
-              ? `${cleanAssistant},${peer},${laterTag},${peer}`
-              : `${cleanAssistant},${laterTag}`,
-          ],
-          f.runtime,
-          f.options,
-        ),
-        0,
-        f.errors.join("\n"),
-      )
-      const audits = (await f.prompts()).filter((call) =>
-        call.prompt.startsWith("Run the audit phase "),
-      )
-      assert.deepEqual(
-        audits.map((call) => call.assistant),
-        includePeer ? [cleanAssistant, peer, peer] : [cleanAssistant],
-      )
-      assert.equal((await f.roundFiles()).length, includePeer ? 6 : 2)
-      assert.match(
-        f.visible.join("\n"),
-        new RegExp(`skipping all remaining entries for ${cleanAssistant}`),
-      )
-    })
-  }
-}
 
 test("a refused clean commit fails without starting a fix or deleting the evidence", async (t) => {
   const f = await roundFixture(

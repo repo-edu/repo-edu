@@ -45,9 +45,11 @@ consumers.
   the watch finishes, `runWatch` reads back the grade it recorded; a watch that leaves no readable
   entry fails its phase. A finished round reports that grade, and the command runner ends the
   auditor sequence on red, so no queued round starts before the user acts on the watch. A
-  finished round reports whether its audit had no findings, independently of any clean record the
-  fix lands. The command runner uses that result to skip later auditor entries for the same
-  assistant. The round records both repositories' HEADs before the fix and validates every landed
+  finished round reports whether its audit had no findings and carries the report's stop
+  recommendation, independently of any clean record the fix lands. The command runner prints every
+  completed implementation recommendation. A clean audit or stop recommendation skips later
+  entries that resolve to the same assistant, model and effort; a continue recommendation skips
+  none. The round records both repositories' HEADs before the fix and validates every landed
   subject under its repository's grammar. A plan target fails when a finished fix landed no commit.
   A commit target may land nothing. Reader failures retain the owning phase and its session for
   recovery. As soon as a fix returns `finished`, the coordinator closes the report set through its
@@ -61,10 +63,12 @@ consumers.
   existing handoffs untouched. Completion failures stop the run without a
   fictitious fix session or resume command. `target.ts` supplies the plan stem
   shared by output naming and clean records, including archived plans.
-- `report.ts` uses `mdast-util-from-markdown` to read the document-level finding fields. Planning
-  reports have Excess functionality and Missing functionality fields; implementation reports have
-  one Findings field including deferred findings. Each holds numbered finding blocks or its exact
-  empty-field sentence. Quoted evidence and code blocks supply no findings. `vet.ts` reads the
+- `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
+  It reads the implementation report's one plain stop-or-continue recommendation and reason beside
+  its judged repos. Planning reports have Excess functionality and Missing functionality fields;
+  implementation reports have one Findings field including deferred findings. Each holds numbered
+  finding blocks or its exact empty-field sentence. Quoted evidence and code blocks supply no
+  findings. `vet.ts` reads the
   fixed verdict lines and requires the report's finding numbers in order. Only Accept verdicts
   with no following conditions skip the rebuttal.
   Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
@@ -287,9 +291,11 @@ consumers.
   The first `--auditor` entry, or the configured default when the option is absent, runs first. For
   a plan target the remaining entries seed the target's queue file, which the user may edit while
   rounds run. Between rounds the sequence takes the queue's first entry, so the queue is the only
-  round limit. Only an audit with no findings first removes all queued entries for that assistant,
-  across model and effort tags. A fix that lands a clean record removes none. Failure, a round
-  requiring a ruling, a red watch or an empty queue stops the sequence, and the queue file is
+  round limit. Every completed implementation round prints the stop-or-continue recommendation and
+  its reason. An audit with no findings or a stop recommendation removes queued entries that resolve
+  to that round's assistant, model and effort. Other settings remain, and a continue recommendation
+  removes nothing. A fix that lands a clean record removes none. Failure, a round requiring a
+  ruling, a red watch or an empty queue stops the sequence, and the queue file is
   deleted however the sequence ends. A commit target runs once and keeps no queue. Each round prints
   the queue's path and contents when it opens. Each round records its own file pair and the
   coordinator has no filesystem side effects: it opens one output per round, retires the previous
@@ -298,9 +304,11 @@ consumers.
   carries its place in its title and independently claims the next number for its target. Required
   write failures stop phase progression. If recording itself fails, the emergency channel still
   reports the known session and recovery command.
-- `queue.ts` owns the queue file's contents and the entry grammar `--auditor` shares: names or
-  tags separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries keep the
-  user's spelling, so a rewrite changes only which entries remain. The runner reads the file only
+- `queue.ts` owns the queue file's contents and the entry grammar `--auditor` shares: names or tags
+  separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries keep the user's
+  spelling, so a rewrite changes only which entries remain. It resolves each entry through the same
+  phase settings and startup model selection as the round, so ending signals compare the exact
+  assistant, model and effort rather than the entry's spelling. The runner reads the file only
   between rounds, so an edit made during a round applies from the next one. A missing file reads as
   an empty queue. A malformed entry stops the sequence with an error naming the file and the entry.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
@@ -441,10 +449,12 @@ number and overwrites its standalone log on each run. `--auditor` accepts one se
 sequence on the named plan scope, separated by commas or spaces. Repeated entries request separate
 rounds. The entries after the current round wait in `<target>-queue.md` at the plan root. Edit it
 to add, remove or reorder rounds; the runner reads it between rounds and deletes it when the
-sequence ends. An empty or deleted file ends the sequence after the current round. A clean audit
-skips all queued entries for its assistant. Failure or leaving a ruling without a reply stops the
-sequence. A submitted reply resumes the fix, then the queue after the round completes. Each header
-records the round's start time; filenames carry no timestamp.
+sequence ends. An empty or deleted file ends the sequence after the current round. Every completed
+implementation round prints its recommendation and reason. A clean audit or stop recommendation
+skips queued entries with the same resolved assistant, model and effort; other settings remain. A
+continue recommendation skips none. Failure or leaving a ruling without a reply stops the sequence.
+A submitted reply resumes the fix, then the queue after the round completes. Each header records
+the round's start time; filenames carry no timestamp.
 
 ## Verification
 

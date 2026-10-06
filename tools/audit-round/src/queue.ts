@@ -1,9 +1,32 @@
 import { readFile, rm, writeFile } from "node:fs/promises"
+import type { CliModels, ModelSelection } from "./feedback.js"
 import { errorMessage } from "./feedback.js"
-import { type Assistant, type AuditorSeat, parseAuditor } from "./phase.js"
+import { phaseSelection } from "./output-format.js"
+import {
+  type Assistant,
+  type AuditorSeat,
+  parseAuditor,
+  roundPhases,
+} from "./phase.js"
+import type { RoundSettings } from "./settings.js"
 
 /** One selection as written, so rewriting the queue keeps the user's spelling. */
 export type AuditorEntry = AuditorSeat & { readonly text: string }
+
+export type AuditorSetting = ModelSelection & { readonly assistant: Assistant }
+
+/** The exact auditor setting an entry asks the current runner invocation to use. */
+export function auditorSetting(
+  entry: AuditorSeat,
+  selections: Record<Assistant, CliModels>,
+  settings: RoundSettings,
+): AuditorSetting {
+  const audit = roundPhases(entry.assistant, entry.override, settings).audit
+  return {
+    assistant: entry.assistant,
+    ...phaseSelection(audit.model, selections[entry.assistant]),
+  }
+}
 
 /**
  * Names or tags in round order, separated by commas, spaces or line breaks.
@@ -51,20 +74,30 @@ async function readQueue(path: string): Promise<AuditorEntry[]> {
 }
 
 /**
- * Take the next round's auditor between rounds. A clean audit by `cleared`
- * first drops that assistant's queued entries, whatever tier or effort they
- * name. The rest go back to the file for the user to keep editing.
+ * Take the next round's auditor between rounds. An ending signal first drops
+ * entries that resolve to its exact assistant, model and effort. The rest go
+ * back to the file for the user to keep editing.
  */
 export async function takeNext(
   path: string,
-  cleared: Assistant | null,
+  ended: AuditorSetting | null,
+  selections: Record<Assistant, CliModels>,
+  settings: RoundSettings,
 ): Promise<{
   readonly next: AuditorEntry | null
   readonly rest: readonly AuditorEntry[]
   readonly skipped: number
 }> {
   const queued = await readQueue(path)
-  const kept = queued.filter((entry) => entry.assistant !== cleared)
+  const kept = queued.filter((entry) => {
+    if (ended === null) return true
+    const setting = auditorSetting(entry, selections, settings)
+    return !(
+      setting.assistant === ended.assistant &&
+      setting.model === ended.model &&
+      setting.effort === ended.effort
+    )
+  })
   const [next = null, ...rest] = kept
   await writeQueue(path, rest)
   return { next, rest, skipped: queued.length - kept.length }

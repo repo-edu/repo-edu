@@ -36,7 +36,7 @@ function finding(
   return `${number}. **B: Preserve the evidence**\n\n   ${location} ${ratings}\n\n   ${evidence}\n`
 }
 const implementation = (body: string) =>
-  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
+  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\nStop recommendation: continue. The next round is still worth its cost.\n\nOpening and coverage.\n\n## Findings\n\n${body}`
 const planning = (excess: string, missing: string) =>
   `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
 
@@ -48,10 +48,17 @@ test("the report opening identifies the judged repos independently of evidence",
   ] as const) {
     assert.deepEqual(
       readAuditReport(
-        `# Audit\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
+        `# Audit\n\nJudged repos: ${line}\nStop recommendation: stop. The series has converged.\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
-      { findings: [], judgedRepos },
+      {
+        findings: [],
+        judgedRepos,
+        recommendation: {
+          decision: "stop",
+          reason: "The series has converged.",
+        },
+      },
     )
   }
 })
@@ -66,10 +73,17 @@ test("plain judged-repos lines survive formatted neighbours in the same paragrap
   ])
     assert.deepEqual(
       readAuditReport(
-        `${opening}\n\n## Findings\n\nNo findings.`,
+        `${opening}\nStop recommendation: continue. More yield is likely.\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
-      { findings: [], judgedRepos: ["repo-edu"] },
+      {
+        findings: [],
+        judgedRepos: ["repo-edu"],
+        recommendation: {
+          decision: "continue",
+          reason: "More yield is likely.",
+        },
+      },
     )
 })
 
@@ -92,10 +106,50 @@ test("missing, duplicate, quoted and malformed judged-repos openings fail", () =
     assert.throws(
       () =>
         readAuditReport(
-          `${opening}\n\n## Findings\n\nNo findings.`,
+          `${opening}\nStop recommendation: continue. More yield is likely.\n\n## Findings\n\nNo findings.`,
           "implementation",
         ),
       /Judged repos/,
+    )
+})
+
+test("implementation reports read one plain stop recommendation and its reason", () => {
+  for (const [decision, reason] of [
+    ["stop", "The last round found too little yield."],
+    ["continue", "An ordinary B finding suggests more yield."],
+  ] as const)
+    assert.deepEqual(
+      readAuditReport(
+        implementation("No findings.").replace(
+          "continue. The next round is still worth its cost.",
+          `${decision}. ${reason}`,
+        ),
+        "implementation",
+      ).recommendation,
+      { decision, reason },
+    )
+})
+
+test("missing, duplicate, formatted and malformed stop recommendations fail", () => {
+  const report = implementation("No findings.")
+  for (const opening of [
+    "",
+    "Stop recommendation: continue.",
+    "Stop recommendation: maybe. More yield is likely.",
+    "**Stop recommendation:** continue. More yield is likely.",
+    "> Stop recommendation: continue. More yield is likely.",
+    "Stop recommendation: stop. Enough yield.\nStop recommendation: continue. More yield is likely.",
+  ])
+    assert.throws(
+      () =>
+        readAuditReport(
+          report.replace(
+            "Stop recommendation: continue. The next round is still worth its cost.",
+            opening,
+          ),
+          "implementation",
+        ),
+      /Stop recommendation/,
     )
 })
 

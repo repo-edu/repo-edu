@@ -47,6 +47,10 @@ const brief = `${repoRoot}/example-step-all-01-6-brief.oul.md`
 const ruling = `${repoRoot}/example-step-all-01-7-ruling.abx.md`
 const watch = `${repoRoot}/example-step-all-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
+const recommendation = {
+  decision: "continue",
+  reason: "Another round is worth its cost.",
+} as const
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   ...testContext(repoRoot),
@@ -146,9 +150,10 @@ function controlledRound(
     completeClean: async (input) => {
       completions.push(input)
     },
-    readReport: async () => ({
+    readReport: async (_file, kind) => ({
       findings: evidence.findings,
       judgedRepos: ["repo-edu"],
+      recommendation: kind === "implementation" ? recommendation : null,
     }),
     readVet: async () => evidence.accepted,
     readHead: async (root) => `before-${root}`,
@@ -242,6 +247,7 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     status: "finished",
     report: files.documents.report,
     cleanAudit: false,
+    recommendation,
     watch: "green",
   })
   const fixes = round.calls.filter((call) => call.phase === "fix")
@@ -369,6 +375,7 @@ for (const grade of ["green", "amber"] as const) {
         readReport: async () => ({
           findings: [1],
           judgedRepos: ["plan", "repo-edu"],
+          recommendation,
         }),
         readSubjects: async (root) =>
           root === files.planRoot ? [landed.subject] : [],
@@ -527,6 +534,7 @@ for (const auditor of ["claude", "codex"] as const) {
         status: "finished",
         report,
         cleanAudit: false,
+        recommendation,
         watch: null,
       })
       assert.deepEqual(round.calls, [
@@ -678,6 +686,7 @@ test("a due glance completes the watch in one fresh session", async () => {
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
+    recommendation,
     watch: "green",
   })
   // The watch reads the commit record, so it receives none of the round's files.
@@ -785,6 +794,7 @@ test("a round asked for no watch consults no glance, whatever the record says", 
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
+    recommendation,
     watch: null,
   })
   assert.deepEqual(round.glances, [])
@@ -994,6 +1004,7 @@ for (const auditor of ["claude", "codex"] as const) {
       status: "finished",
       report,
       cleanAudit: true,
+      recommendation,
       watch: null,
     })
     assert.deepEqual(
@@ -1065,6 +1076,7 @@ for (const auditor of ["claude", "codex"] as const) {
       status: "finished",
       report,
       cleanAudit: false,
+      recommendation,
       watch: null,
     })
     // Every verdict is an unconditional accept, so the auditor has nothing to answer.
@@ -1199,7 +1211,11 @@ test("the round reads each supplied file and records both heads immediately befo
       ...round.dependencies,
       async readReport(file, kind) {
         reads.push([file, kind])
-        return { findings: [1, 2], judgedRepos: ["repo-edu"] }
+        return {
+          findings: [1, 2],
+          judgedRepos: ["repo-edu"],
+          recommendation,
+        }
       },
       async readVet(file, findings) {
         reads.push([file, findings])
@@ -1235,6 +1251,7 @@ test("the round reads each supplied file and records both heads immediately befo
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
+    recommendation,
     watch: null,
   })
 })

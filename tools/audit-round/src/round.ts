@@ -14,7 +14,7 @@ import {
   type RoundDependencies,
   roundPhases,
 } from "./phase.js"
-import type { AuditReport } from "./report.js"
+import type { AuditReport, StopRecommendation } from "./report.js"
 import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
@@ -62,6 +62,8 @@ export type RoundResult =
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
+      /** The implementation auditor's advice; planning rounds have none. */
+      readonly recommendation: StopRecommendation | null
       /** The grade the watch that followed the round recorded; null when none ran. */
       readonly watch: WatchGrade | null
     }
@@ -266,7 +268,13 @@ export async function runRound(
         report,
         judgedRepos: evidence.judgedRepos,
       })
-      return { status: "finished", report, cleanAudit: true, watch: null }
+      return {
+        status: "finished",
+        report,
+        cleanAudit: true,
+        recommendation: evidence.recommendation,
+        watch: null,
+      }
     } catch (error) {
       return {
         status: "failed",
@@ -433,6 +441,7 @@ export async function runRound(
         status: "finished",
         report,
         cleanAudit: false,
+        recommendation: evidence.recommendation,
         watch: watched.grade,
       }
     }

@@ -29,6 +29,7 @@ import {
 } from "./phase.js"
 import {
   type AuditorEntry,
+  auditorSetting,
   parseAuditors,
   removeQueue,
   takeNext,
@@ -222,8 +223,11 @@ Round sequence:
 
   Skipping rounds and stopping:
     - If the audit finds nothing, the round ends before vet or any later phase.
-      All queued entries for that assistant are skipped,
-      even if they specify a different model tier or effort.
+    - Every completed implementation round prints its stop-or-continue
+      recommendation and reason.
+    - A clean audit or stop recommendation skips queued entries that resolve
+      to the same assistant, model and effort. Other settings still run.
+    - A continue recommendation leaves the queue unchanged.
     - A fix that records a clean result does not skip later rounds.
     - A failure stops the sequence. A decision asks for your reply in the runner.
       A submitted reply resumes the fix and sequence. Leaving without a reply
@@ -680,6 +684,10 @@ export async function runCommand(
           result = round
           active.finish(round)
           completed += 1
+          if (round.status === "finished" && round.recommendation !== null)
+            await active.message(
+              `Stop recommendation: ${round.recommendation.decision}. ${round.recommendation.reason}`,
+            )
           if (queue === null) break
           if (round.status !== "finished") {
             await active.message(
@@ -696,13 +704,17 @@ export async function runCommand(
             )
             break
           }
-          const taken = await takeNext(
-            queue,
-            round.cleanAudit ? seat.assistant : null,
-          )
+          const ending = round.cleanAudit
+            ? "Clean audit"
+            : round.recommendation?.decision === "stop"
+              ? "Stop recommendation"
+              : null
+          const ended =
+            ending === null ? null : auditorSetting(seat, selections, settings)
+          const taken = await takeNext(queue, ended, selections, settings)
           if (taken.skipped > 0)
             await active.message(
-              `Clean audit by ${seat.assistant}; skipping all remaining entries for ${seat.assistant}.`,
+              `${ending} by ${ended?.assistant} on ${ended?.model} ${ended?.effort ?? "effort unavailable"}; skipped ${taken.skipped} queued ${taken.skipped === 1 ? "entry" : "entries"} with the same setting.`,
             )
           seat = taken.next
           rest = taken.rest

@@ -128,7 +128,10 @@ export async function roundFixture(
     `1. **B: Fixture finding**\n\n   ${location} [growth-pattern:none] [reach:developer] [complexity:none]\n\n   Correct the fixture.\n`
   await writeFile(
     report,
-    `Judged repos: ${owner}@${heads[owner]}\n\n` +
+    `Judged repos: ${owner}@${heads[owner]}\n` +
+      (working === "plan"
+        ? "\n"
+        : "Stop recommendation: continue. Another round is worth its cost.\n\n") +
       (working === "plan"
         ? `## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\n${clean ? "No missing findings.\n" : finding("[field:missing] [section:decisions]")}`
         : `## Findings\n\n${clean ? "No findings.\n" : finding("[area:tool-audit-round]")}`),

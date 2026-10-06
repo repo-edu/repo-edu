@@ -1642,6 +1642,71 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   assert.match(second, /audit +codex +chosen-model +high/)
 })
 
+test("a stop recommendation prunes its resolved setting and preserves another setting", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+  await writeFile(
+    f.report,
+    (await readFile(f.report, "utf8")).replace(
+      "Stop recommendation: continue. Another round is worth its cost.",
+      "Stop recommendation: stop. Another round is unlikely to repay its cost.",
+    ),
+  )
+  assert.equal(
+    await runCommand(
+      ["example.md", "all", "--auditor", "codex,o,otl,codex"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.equal(audits.length, 2)
+  for (const argument of [
+    "-m",
+    "gpt-6-astra",
+    "-c",
+    "model_reasoning_effort=low",
+  ])
+    assert.ok(audits[1].args.includes(argument), audits[1].args.join(" "))
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Stop recommendation: stop\. Another round is unlikely to repay its cost\./,
+  )
+  assert.match(
+    visible,
+    /Stop recommendation by codex on chosen-model high; skipped 2 queued entries with the same setting\./,
+  )
+  assert.match(visible, /Next round: codex; 1 auditor entries remain\./)
+})
+
+test("a continue recommendation preserves queued entries with the same setting", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+  assert.equal(
+    await runCommand(
+      ["example.md", "all", "--auditor", "codex,o"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.equal(audits.length, 2)
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Stop recommendation: continue\. Another round is worth its cost\./,
+  )
+  assert.doesNotMatch(visible, /skipped .* queued entr/)
+  assert.match(visible, /Next round: codex; 1 auditor entries remain\./)
+})
+
 test("a clean fix record does not skip later entries for the same auditor", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null)
   assert.equal(

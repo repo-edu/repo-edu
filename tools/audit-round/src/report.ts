@@ -34,14 +34,19 @@ export type ReportFindings = readonly number[]
 export type AuditReport = {
   readonly findings: ReportFindings
   readonly judgedRepos: readonly Repository[]
+  readonly recommendation: StopRecommendation | null
 }
 
-function judgedRepos(children: readonly Block[]): readonly Repository[] {
-  const opening = children.slice(
-    0,
-    children.findIndex((node) => node.type === "heading" && node.depth === 2),
+export type StopRecommendation = {
+  readonly decision: "stop" | "continue"
+  readonly reason: string
+}
+
+function openingLines(children: readonly Block[]): readonly string[] {
+  const end = children.findIndex(
+    (node) => node.type === "heading" && node.depth === 2,
   )
-  const lines = opening.flatMap((node) =>
+  return children.slice(0, end === -1 ? undefined : end).flatMap((node) =>
     node.type === "paragraph"
       ? node.children
           // Mark formatted spans so only complete plain lines can match.
@@ -54,8 +59,13 @@ function judgedRepos(children: readonly Block[]): readonly Repository[] {
           )
           .join("")
           .split("\n")
-          .filter((line) => line.startsWith("Judged repos:"))
       : [],
+  )
+}
+
+function judgedRepos(children: readonly Block[]): readonly Repository[] {
+  const lines = openingLines(children).filter((line) =>
+    line.startsWith("Judged repos:"),
   )
   if (
     lines.length !== 1 ||
@@ -70,6 +80,28 @@ function judgedRepos(children: readonly Block[]): readonly Repository[] {
     .slice("Judged repos: ".length)
     .split(", ")
     .map((entry) => entry.split("@")[0] as Repository)
+}
+
+function stopRecommendation(
+  children: readonly Block[],
+  kind: RoundKind,
+): StopRecommendation | null {
+  if (kind === "planning") return null
+  const lines = openingLines(children).filter((line) =>
+    line.startsWith("Stop recommendation:"),
+  )
+  const match =
+    lines.length === 1
+      ? /^Stop recommendation: (stop|continue)\. (.+)$/.exec(lines[0])
+      : null
+  if (match === null)
+    throw new Error(
+      'Implementation report needs one plain "Stop recommendation: stop. <reason>" or "Stop recommendation: continue. <reason>" opening line',
+    )
+  return {
+    decision: match[1] as StopRecommendation["decision"],
+    reason: match[2],
+  }
 }
 
 function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
@@ -199,5 +231,9 @@ export function readReport(source: string, kind: RoundKind): AuditReport {
     throw new Error(
       "Report finding numbers must run from 1 without gaps or duplicates",
     )
-  return { findings, judgedRepos: judgedRepos(children) }
+  return {
+    findings,
+    judgedRepos: judgedRepos(children),
+    recommendation: stopRecommendation(children, kind),
+  }
 }
