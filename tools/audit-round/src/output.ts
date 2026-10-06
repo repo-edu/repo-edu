@@ -141,7 +141,7 @@ export async function roundRun(
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
-    title: `Audit round of ${title}${round === undefined ? "" : ` (round ${round})`}`,
+    title: `${title}${round === undefined ? "" : ` (round ${round})`}`,
     phases: [
       entry("audit"),
       entry("vet"),

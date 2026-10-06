@@ -76,6 +76,7 @@ for (const working of ["repo-edu", "plan"] as const) {
 
 for (const working of ["repo-edu", "plan"] as const) {
   test(`manual phases at ${working} continue from one report with each session's actual tag`, async (t) => {
+    // The plan has no landed step, so its name alone claims a planning round.
     const f = await roundFixture(
       t,
       "codex",
@@ -84,6 +85,9 @@ for (const working of ["repo-edu", "plan"] as const) {
       null,
       false,
       working,
+      false,
+      false,
+      false,
     )
     const root = f.planRoot
     const invoke = async (args: string[]) => {
@@ -173,7 +177,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       await writeFile(
         file,
         file.includes("1-round")
-          ? "# Audit round of plan example"
+          ? "# Planning round of example"
           : "# Implementation audit workflow\n\nJudged repos: plan@abc123",
       )
     await mkdir(join(root, "directory-09-2-audit.atx.md"))

@@ -54,9 +54,9 @@ explicitly says to.
 
 ## Round strategy
 
-The user sets the step range, or omits the target so the command repeats a
-range under the shared protocol's
-[Omitted targets](../../../references/round-protocol.md#omitted-targets).
+The user sets the step range, or gives the plan alone or no target so the
+command resolves one under the shared protocol's
+[Plan targets](../../../references/round-protocol.md#plan-targets).
 Follow the resolved range exactly. Never select, propose or replace it. The
 plan's **Execution and audits** subsection is guidance for the user, not
 instructions for the workflow.

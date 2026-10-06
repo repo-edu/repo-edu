@@ -189,7 +189,7 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
       selections,
     )
     assert.equal(basename(run.paths.markdown), `${target}-01-1-round.oth.md`)
-    assert.equal(run.title, `Audit round of commits ${commits.join(" ")}`)
+    assert.equal(run.title, `Commit audit of ${commits.join(" ")}`)
   }
 })
 

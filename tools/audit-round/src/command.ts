@@ -10,7 +10,7 @@ import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { completeClean } from "./clean.js"
 import { executionContext } from "./context.js"
-import { defaultPlan, defaultTarget } from "./default-target.js"
+import { defaultPlan, resolveTarget } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { readWatchGrade, runGlance } from "./glance.js"
@@ -61,12 +61,7 @@ import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-import {
-  auditTarget,
-  closingPlan,
-  resolvePlan,
-  roundContext,
-} from "./target.js"
+import { closingPlan, roundContext, targetRequest } from "./target.js"
 import { readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
@@ -75,7 +70,7 @@ type Invocation =
   | { readonly kind: "plan" }
   | {
       readonly kind: "name"
-      /** Absent when the runner repeats the newest unfinished audit. */
+      /** Absent when the runner takes the newest plan. */
       readonly first?: string
       readonly rest: readonly string[]
       readonly auditor: string
@@ -91,7 +86,7 @@ type Invocation =
   | { readonly kind: "delete-reports"; readonly nameStart: string }
   | {
       readonly kind: "round"
-      /** Absent when the runner repeats the newest unfinished audit. */
+      /** Absent when the runner takes the newest plan. */
       readonly first?: string
       readonly rest: readonly string[]
       readonly auditor?: readonly AuditorEntry[]
@@ -180,17 +175,21 @@ function parseInvocation(
       "after",
       `
 Targets and scope:
-  Plan     A stem alone audits the plan document in the sibling plan repo.
-           .md and -widen are ignored. Paths are refused. Active plans precede archives.
-           A stem shaped like a commit reference keeps .md to identify it as a plan.
+  Plan     A stem names a plan in the sibling plan repo. .md and -widen are ignored.
+           Paths are refused. Active plans precede archives. A stem shaped like a
+           commit reference keeps .md to identify it as a plan.
+           Alone, the stem runs the audit the plan's history calls for:
+             - no step has landed: a planning round of the plan document
+             - its newest audit was not clean: that audit's scope again
+             - every repo with a landed step has its implemented marker: all steps
+           Anything else stops and names the landed steps.
   Scope    One step (3), an increasing range (1-3) or all audits implementation.
+           A scope is refused until a step has landed.
   Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to> in Repo Edu.
            HEAD-1 is the previous first-parent commit. Ranges include both ends.
-  Omitted  Options without a target repeat the newest unfinished audit. The plan is
-           the active one with the newest stem commit in either repo, which
-           audit-round plan prints. A planning commit repeats the planning audit;
-           an implementation audit that was not clean repeats its scope. Anything
-           else stops: name the next scope.
+  Omitted  Options without a target take the active plan with the newest stem
+           commit in either repo, which audit-round plan prints, as if named alone.
+  The first line of every run names the round it resolved.
 
 Auditor selection (--auditor <selections>):
   <selections> is a list of names or tags, separated by commas or spaces.
@@ -271,7 +270,7 @@ Examples (from either checkout):
 
      $ pnpm audit-round HEAD-2..HEAD
 
-  4. Repeat the newest unfinished audit with Codex.
+  4. Run the audit the newest plan calls for with Codex.
 
      $ pnpm audit-round --auditor codex
 
@@ -299,7 +298,7 @@ Use pnpm audit-round brief --help or close --help for their arguments and option
     )
     .argument(
       "[target]",
-      "the same plan or commit target accepted by a round, or none to repeat the newest unfinished audit",
+      "the same plan or commit target accepted by a round, or none for the newest plan",
     )
     .argument(
       "[scope-or-commits...]",
@@ -529,10 +528,12 @@ export async function runCommand(
             }
           : {
               ...invocation,
-              target:
+              target: await resolveTarget(
+                context,
                 invocation.first === undefined
-                  ? await defaultTarget(context)
-                  : auditTarget(invocation.first, invocation.rest),
+                  ? null
+                  : targetRequest(invocation.first, invocation.rest),
+              ),
             }
     if (
       prepared.kind === "round" &&
@@ -542,14 +543,6 @@ export async function runCommand(
       throw new InvalidArgumentError(
         "Commit audits run once. Multiple auditors require a plan target.",
       )
-    if (
-      (prepared.kind === "round" || prepared.kind === "name") &&
-      "plan" in prepared.target
-    )
-      prepared.target = {
-        ...prepared.target,
-        plan: await resolvePlan(context.planRoot, prepared.target.plan),
-      }
     if (prepared.kind === "name") {
       const { nameStart } = await roundIdentity({
         ...context,

@@ -2,17 +2,16 @@ import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { auditTarget, resolvePlan } from "../target.js"
+import { resolvePlan, targetRequest } from "../target.js"
 import { fixture } from "./helpers.js"
 
-test("a stem alone selects planning and an explicit scope selects implementation", () => {
-  assert.deepEqual(auditTarget("example", []), {
-    roundKind: "planning",
+test("a plan request carries its scope, or none for the plan's history to decide", () => {
+  assert.deepEqual(targetRequest("example", []), {
     plan: "example",
+    scope: null,
   })
   for (const scope of ["1", "2-4", "all"])
-    assert.deepEqual(auditTarget("example.md", [scope]), {
-      roundKind: "implementation",
+    assert.deepEqual(targetRequest("example.md", [scope]), {
       plan: "example",
       scope,
     })
@@ -25,17 +24,17 @@ test("plan arguments discard the extension and widening postfix", () => {
     "example-widen",
     "example-widen.md",
   ])
-    assert.deepEqual(auditTarget(name, []), {
-      roundKind: "planning",
+    assert.deepEqual(targetRequest(name, []), {
       plan: "example",
+      scope: null,
     })
 })
 
-test("commit-shaped stems keep .md to select planning", () => {
+test("commit-shaped stems keep .md to name a plan", () => {
   for (const first of ["HEAD", "HEAD-1", "abcdef", "HEAD-2..HEAD"])
-    assert.deepEqual(auditTarget(`${first}.md`, []), {
-      roundKind: "planning",
+    assert.deepEqual(targetRequest(`${first}.md`, []), {
       plan: first,
+      scope: null,
     })
 })
 
@@ -53,7 +52,7 @@ test("commit targets preserve references for the workflow to resolve", () => {
     ["abcdef..23674f"],
     ["HEAD-2", "23674f", "HEAD"],
   ])
-    assert.deepEqual(auditTarget(commits[0], commits.slice(1)), {
+    assert.deepEqual(targetRequest(commits[0], commits.slice(1)), {
       commits,
       roundKind: "implementation",
     })
@@ -84,7 +83,7 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["archive/example/plan.md"],
     ["example", "all", "2"],
   ])
-    assert.throws(() => auditTarget(args[0], args.slice(1)))
+    assert.throws(() => targetRequest(args[0], args.slice(1)))
 })
 
 test("stem resolution prefers active plans then resolves closed plans and archived peers", async (t) => {

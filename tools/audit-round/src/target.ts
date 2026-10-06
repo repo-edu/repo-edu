@@ -20,6 +20,11 @@ export function roundContext(
   }
 }
 
+type CommitTarget = {
+  readonly roundKind: "implementation"
+  readonly commits: readonly [string, ...string[]]
+}
+
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =
   | { readonly roundKind: "planning"; readonly plan: string }
@@ -28,10 +33,15 @@ export type AuditTarget =
       readonly plan: string
       readonly scope: string
     }
-  | {
-      readonly roundKind: "implementation"
-      readonly commits: readonly [string, ...string[]]
-    }
+  | CommitTarget
+
+/**
+ * What a command line names. Commits are a complete target; a plan's round
+ * waits for its history, which `default-target.ts` reads.
+ */
+export type TargetRequest =
+  | CommitTarget
+  | { readonly plan: string; readonly scope: string | null }
 
 /** Active and archived plan paths share one identity for files and records. */
 export function planStem(plan: string): string {
@@ -91,18 +101,18 @@ function refusePath(value: string): void {
 }
 
 /** Git resolution and inclusive-range admission belong to the audit workflow. */
-export function auditTarget(
+export function targetRequest(
   first: string,
   rest: readonly string[],
-): AuditTarget {
+): TargetRequest {
   refusePath(first)
   if (!commitShaped(first)) {
     if (rest.length > 1)
       throw new InvalidArgumentError("A plan accepts at most one step scope.")
-    const plan = planStem(first)
-    return rest[0] === undefined
-      ? { roundKind: "planning", plan }
-      : { roundKind: "implementation", plan, scope: stepScope(rest[0]) }
+    return {
+      plan: planStem(first),
+      scope: rest[0] === undefined ? null : stepScope(rest[0]),
+    }
   }
   const commits: [string, ...string[]] = [first, ...rest]
   const endpoints = first.split("..")

@@ -3,13 +3,25 @@ import type { ExecutionContext } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
-import { parseSubject, type Repository, type Subject } from "./subject.js"
-import { type AuditTarget, activePlan, auditTarget } from "./target.js"
+import {
+  looseForm,
+  parseSubject,
+  type Repository,
+  stemTopic,
+} from "./subject.js"
+import {
+  type AuditTarget,
+  activePlan,
+  planStem,
+  resolvePlan,
+  type TargetRequest,
+} from "./target.js"
 
-/** Both histories at their current heads, which every omitted argument reads. */
-async function readLogs(
-  context: ExecutionContext,
-): Promise<Record<Repository, LogCommit[]>> {
+type Logs = Readonly<Record<Repository, readonly LogCommit[]>>
+type StemCommit = ReturnType<typeof stemCommits>[number]
+
+/** Both histories at their current heads, which every plan target reads. */
+async function readLogs(context: ExecutionContext): Promise<Logs> {
   const [plan, repoEdu] = await Promise.all([
     readLog(context.planRoot),
     readLog(context.repoEduRoot),
@@ -17,83 +29,113 @@ async function readLogs(
   return { plan, "repo-edu": repoEdu }
 }
 
-/** The plan an omitted stem names, for the plan brief as for an omitted target. */
+/** The plan an omitted stem names, for the plan brief and close as for an omitted target. */
 export async function defaultPlan(context: ExecutionContext): Promise<string> {
   return (await newestPlan(await readLogs(context), context.planRoot)).path
 }
 
-export async function defaultTarget(
+/** The audit a command line asks for, with no target meaning the newest plan. */
+export async function resolveTarget(
   context: ExecutionContext,
+  request: TargetRequest | null,
 ): Promise<AuditTarget> {
-  return selectTarget(await readLogs(context), context.planRoot)
+  if (request !== null && "commits" in request) return request
+  return selectTarget(await readLogs(context), context.planRoot, request)
 }
 
 /**
- * Repeat the newest unfinished audit of the newest plan. Moving on to another
- * scope is the user's call, so any other newest commit stops with its reason.
+ * A plan's own history decides what its name alone audits, so the shortest
+ * command runs the audit the plan's state calls for. Moving on to another
+ * scope is the user's call, so a plan between its steps stops with its reason.
  */
 export async function selectTarget(
-  logs: Readonly<Record<Repository, readonly LogCommit[]>>,
+  logs: Logs,
   planRoot: string,
+  request: { readonly plan: string; readonly scope: string | null } | null,
 ): Promise<AuditTarget> {
-  const { topic, commit, repository } = await newestPlan(logs, planRoot)
-  return repeatedTarget(topic, readNewest(topic, commit, repository))
+  const plan =
+    request === null
+      ? (await newestPlan(logs, planRoot)).path
+      : await resolvePlan(planRoot, request.plan)
+  const topic = stemTopic(planStem(plan))
+  const history = stemCommits(logs).filter((entry) => entry.topic === topic)
+  const { steps, unmarked } = progress(history)
+  const implementation = (scope: string): AuditTarget => ({
+    roundKind: "implementation",
+    plan,
+    scope,
+  })
+  if (request?.scope != null) {
+    if (steps.length === 0)
+      throw new InvalidArgumentError(
+        `No step of ${topic} has landed, so it has no implementation to audit. Name the plan alone for a planning round.`,
+      )
+    return implementation(request.scope)
+  }
+  if (steps.length === 0) return { roundKind: "planning", plan }
+  const unfinished = unfinishedScope(topic, history[0])
+  if (unfinished !== null) return implementation(unfinished)
+  if (unmarked.length === 0) return implementation("all")
+  throw new InvalidArgumentError(
+    `${topic} is still being implemented. Landed steps: ${steps.join(", ")}. The implemented marker is missing in ${unmarked.join(" and ")}. Name a step scope, such as ${topic} ${steps.at(-1)}.`,
+  )
 }
 
-/** The active plan whose stem commit is newest in either history, with that commit. */
-async function newestPlan(
-  logs: Readonly<Record<Repository, readonly LogCommit[]>>,
-  planRoot: string,
-) {
+/**
+ * The steps that have landed and the repos hosting one without its
+ * `implemented` marker. Loose forms reach subjects older than the grammar.
+ */
+function progress(history: readonly StemCommit[]): {
+  readonly steps: readonly number[]
+  readonly unmarked: readonly string[]
+} {
+  const steps = new Set<number>()
+  const hosts = new Set<Repository>()
+  const marked = new Set<Repository>()
+  for (const { repository, commit } of history) {
+    const role = looseForm(commit.subject)?.role ?? ""
+    const step = /^impl-([1-9]\d*)$/.exec(role)
+    if (step !== null) {
+      steps.add(Number(step[1]))
+      hosts.add(repository)
+    }
+    if (role === "implemented") marked.add(repository)
+  }
+  return {
+    steps: [...steps].sort((first, second) => first - second),
+    unmarked: [...hosts]
+      .filter((repository) => !marked.has(repository))
+      .map((repository) =>
+        repository === "repo-edu" ? "Repo Edu" : "the plan repo",
+      ),
+  }
+}
+
+/** The scope of a newest implementation-audit record that was not clean. */
+function unfinishedScope(topic: string, newest: StemCommit): string | null {
+  if (!looseForm(newest.commit.subject)?.role.startsWith("impl-audit-"))
+    return null
+  let subject: ReturnType<typeof parseSubject>
+  try {
+    subject = parseSubject(newest.commit.subject, newest.repository)
+  } catch (error) {
+    throw new InvalidArgumentError(
+      `The newest ${topic} commit ${newest.commit.sha.slice(0, 8)} does not parse: ${errorMessage(error)}. Name a step scope.`,
+    )
+  }
+  return subject.severity === "clean" ? null : (subject.form?.scope ?? null)
+}
+
+/** The active plan whose stem commit is newest in either history. */
+async function newestPlan(logs: Logs, planRoot: string) {
   const inactive = new Set<string>()
-  for (const { repository, commit, topic } of stemCommits(logs)) {
+  for (const { topic } of stemCommits(logs)) {
     if (inactive.has(topic)) continue
     const path = await activePlan(planRoot, topic)
-    if (path !== null) return { repository, commit, topic, path }
+    if (path !== null) return { topic, path }
     inactive.add(topic)
   }
   throw new InvalidArgumentError(
     "No active plan at the plan root has a stem commit. Name one.",
-  )
-}
-
-function readNewest(
-  topic: string,
-  commit: LogCommit,
-  repository: Repository,
-): Subject {
-  try {
-    return parseSubject(commit.subject, repository)
-  } catch (error) {
-    throw new InvalidArgumentError(
-      `The newest ${topic} commit ${commit.sha.slice(0, 8)} does not parse: ${errorMessage(error)}. Name a target.`,
-    )
-  }
-}
-
-function repeatedTarget(
-  topic: string,
-  { form, severity }: Subject,
-): AuditTarget {
-  // The `.md` keeps a commit-shaped stem a plan, as it does for a typed target.
-  const plan = `${topic}.md`
-  switch (form?.role) {
-    case "init":
-    case "audit":
-    case "settle":
-    case "ready":
-      return auditTarget(plan, [])
-    case "impl-audit":
-      if (severity !== "clean" && form.scope !== null)
-        return auditTarget(plan, [form.scope])
-  }
-  const reason =
-    form?.role === "impl-audit"
-      ? `its last audit of ${form.scope} was clean`
-      : form?.role === "impl"
-        ? `its newest commit lands step ${form.scope}`
-        : `its newest commit is the ${form?.role} marker`
-  throw new InvalidArgumentError(
-    `No audit to repeat for ${topic}: ${reason}. Name a target, such as ${topic} <steps|all>.`,
   )
 }

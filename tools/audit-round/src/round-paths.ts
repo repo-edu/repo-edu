@@ -96,21 +96,25 @@ async function targetDescription(target: NamingTarget): Promise<{
     // Keep list filenames bounded; the title and phase arguments carry every reference.
     return {
       label: `${first.replaceAll("HEAD", head)}${target.commits.length === 1 ? "" : `-plus-${target.commits.length - 1}`}`,
-      title: `commits ${target.commits.join(" ")}`,
+      title: `Commit audit of ${target.commits.join(" ")}`,
     }
   }
   const stem = planStem(target.plan)
   if (target.roundKind === "planning")
-    return { label: stem, title: `plan ${target.plan}` }
+    return { label: stem, title: `Planning round of ${target.plan}` }
   // Padded `first..last` scopes sort the same in `ls` and Finder and keep the
   // round and phase numbers aligned, since a single step is a one-step range.
   const [first, last = first] = target.scope
     .split("-")
     .map((step) => step.padStart(2, "0"))
   const scope = target.scope === "all" ? "all" : `${first}..${last}`
+  const steps =
+    target.scope === "all"
+      ? "all steps"
+      : `${target.scope.includes("-") ? "steps" : "step"} ${target.scope}`
   return {
     label: `${stem}-step-${scope}`,
-    title: `implementation ${target.plan} ${target.scope}`,
+    title: `Implementation audit of ${target.plan}, ${steps}`,
   }
 }
 
@@ -172,8 +176,8 @@ export function transcriptNameStart(transcript: string): string {
 /** The runner's transcript title records the kind independently of its file name. */
 export async function transcriptKind(transcript: string): Promise<RoundKind> {
   const title = (await readFile(transcript, "utf8")).split("\n", 1)[0]
-  if (title.startsWith("# Audit round of plan ")) return "planning"
-  if (/^# Audit round of (implementation|commits) /.test(title))
+  if (title.startsWith("# Planning round of ")) return "planning"
+  if (/^# (Implementation|Commit) audit of /.test(title))
     return "implementation"
   throw new Error(`Missing round kind in transcript title: ${transcript}`)
 }

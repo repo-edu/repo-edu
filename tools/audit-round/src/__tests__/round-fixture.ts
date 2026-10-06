@@ -75,6 +75,11 @@ export async function roundFixture(
   clean = false,
   /** Whether the vet accepts every finding, which sends the round past the rebuttal. */
   accepted = false,
+  /**
+   * Whether Repo Edu's history has landed step 1, which an implementation
+   * scope needs and a plan's name alone then no longer plans.
+   */
+  landed = working === "repo-edu",
 ) {
   const f = await fixture(t)
   await mkdir(join(f.root, "repo-edu/.agents/skills/audit/references"), {
@@ -108,7 +113,10 @@ export async function roundFixture(
   const planRoot = await realpath(planDirectory)
   const outputRoot = planRoot
   const heads = {
-    "repo-edu": await commitFixture(repoRoot),
+    "repo-edu": await commitFixture(
+      repoRoot,
+      landed ? "example/impl-1 ath feat(audit-round): fixture" : undefined,
+    ),
     plan: await commitFixture(planRoot),
   }
   const cacheRoot = join(f.root, "cache")

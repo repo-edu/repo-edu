@@ -524,7 +524,18 @@ test("name requires a complete session tag before any assistant or claim", async
 })
 
 test("name preserves the hand-run implementation-step route at the plan root", async (t) => {
-  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    null,
+    false,
+    "plan",
+    false,
+    false,
+    true,
+  )
   assert.equal(
     await runCommand(
       ["name", "example.md", "2-3", "--auditor", "oux"],
@@ -1345,7 +1356,14 @@ test("argument errors and help start no assistant processes", async (t) => {
     visible,
     /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
-  assert.match(visible, /Omitted +Options without a target repeat the newest/)
+  assert.match(
+    visible,
+    /Alone, the stem runs the audit the plan's history calls for/,
+  )
+  assert.match(
+    visible,
+    /Omitted +Options without a target take the active plan/,
+  )
   // Hand-run launchers call the housekeeping commands; help shows what a user runs.
   assert.doesNotMatch(visible, /^\s+(name|paths|episode|delete-reports)\s/m)
   for (const name of ["brief", "close", "plan"])
@@ -1413,9 +1431,7 @@ for (const auditor of ["codex", "claude"] as const) {
         `Phase arguments (JSON array): ${JSON.stringify([f.report, ...commits])}`,
       ),
     )
-    assert.ok(
-      markdown.startsWith(`# Audit round of commits ${commits.join(" ")}\n`),
-    )
+    assert.ok(markdown.startsWith(`# Commit audit of ${commits.join(" ")}\n`))
     assert.ok(transcript.includes(commits[0].replaceAll("HEAD", head)))
     for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
       assert.ok(log.includes(`[${phase}] finished`))
@@ -1441,8 +1457,8 @@ test("a brief without a transcript retells the newest round at the plan root", a
   const [older, newer] = ["example-02", "example-step-07..07-01"].map((start) =>
     join(f.planRoot, `${start}-1-round.abx.md`),
   )
-  await writeFile(older, "# Audit round of plan example.md\n")
-  await writeFile(newer, "# Audit round of implementation example.md 7\n")
+  await writeFile(older, "# Planning round of example.md\n")
+  await writeFile(newer, "# Implementation audit of example.md, step 7\n")
   // The later name carries the earlier date, so the date decides rather than the name.
   await utimes(older, 1_000, 1_000)
   assert.equal(await brief(), 0, f.errors.join("\n"))
@@ -1577,7 +1593,7 @@ test("close refuses paths and plans without an active artifact before any assist
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
   const f = await roundFixture(t)
   const transcript = join(f.planRoot, "example-step-07..07-01-1-round.abx.md")
-  await writeFile(transcript, "# Audit round of implementation example.md 7\n")
+  await writeFile(transcript, "# Implementation audit of example.md, step 7\n")
   assert.equal(
     await runCommand(
       ["brief", "example-step-07..07-01-1-round.abx.md"],
@@ -1626,7 +1642,7 @@ test("a brief on its own retells the named transcript without a new round pair",
   assert.match(visible, /Brief finished\./)
   assert.equal(
     await readFile(transcript, "utf8"),
-    "# Audit round of implementation example.md 7\n",
+    "# Implementation audit of example.md, step 7\n",
   )
 })
 
@@ -1645,7 +1661,8 @@ test("a plan named without its extension runs as its .md file", async (t) => {
   )
 })
 
-test("options without a target repeat the newest unfinished audit", async (t) => {
+test("options without a target run the audit the newest plan's history calls for", async (t) => {
+  // The fixture's Repo Edu history has landed step 1 without its marker.
   const f = await roundFixture(t)
   const nextDay = Math.floor(Date.now() / 1000) + 86_400
   const commit = (cwd: string, subject: string, offset: number) =>
@@ -1655,19 +1672,18 @@ test("options without a target repeat the newest unfinished audit", async (t) =>
     f.errors.length = 0
     return runCommand(["name", "--auditor", "oth"], f.runtime, f.options)
   }
-  await commit(f.planRoot, "example/audit ath growth-none c1: round", 0)
-  assert.equal(await name(), 0, f.errors.join("\n"))
-  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
-    join(f.planRoot, "example-01-2-audit.oth.md"),
-    join(f.planRoot, "example.md"),
-  ])
-  await commit(f.repoRoot, "example/impl-audit-2-3 ath clean: record", 1)
   assert.equal(await name(), 2)
-  assert.match(f.errors[0], /last audit of 2-3 was clean/)
+  assert.match(
+    f.errors[0],
+    /Landed steps: 1\. The implemented marker is missing in Repo Edu\./,
+  )
+  await commit(f.repoRoot, "example/impl-audit-2-3 ath clean: record", 0)
+  assert.equal(await name(), 2)
+  assert.match(f.errors[0], /Landed steps: 1\./)
   await commit(
     f.repoRoot,
     "example/impl-audit-2-3 ath growth-none c1 fix(x): correction",
-    2,
+    1,
   )
   assert.equal(
     await runCommand(["--no-watch"], f.runtime, f.options),
@@ -1680,6 +1696,15 @@ test("options without a target repeat the newest unfinished audit", async (t) =>
       `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3"])}`,
     ),
   )
+  // A plan round after the marker no longer decides; the finished steps do.
+  await commit(f.repoRoot, "example/implemented ath: marker", 2)
+  await commit(f.planRoot, "example/audit ath clean: plan round", 3)
+  assert.equal(await name(), 0, f.errors.join("\n"))
+  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
+    join(f.planRoot, "example-step-all-01-2-audit.oth.md"),
+    join(f.planRoot, "example.md"),
+    "all",
+  ])
 })
 
 test("a missing plan file is refused before any assistant starts", async (t) => {
@@ -1763,7 +1788,7 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   const second = await readFile(join(f.planRoot, names[2]), "utf8")
   assert.match(
     second,
-    /Audit round of implementation .*example\.md 3 \(round 2\)/,
+    /Implementation audit of .*example\.md, step 3 \(round 2\)/,
   )
   assert.match(second, /audit +codex +chosen-model +high/)
 })
@@ -2053,7 +2078,7 @@ for (const auditor of ["codex", "claude"] as const) {
           `example-01-1-round.${auditor === "codex" ? "ouh" : "auh"}.md`,
         ),
       )
-      assert.match(log, /Audit round of plan .*example\.md/)
+      assert.match(log, /Planning round of .*example\.md/)
       assert.ok(
         log.includes(
           `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md")])}`,
@@ -2138,24 +2163,27 @@ for (const working of ["repo-edu", "plan"] as const) {
       null,
       false,
       working,
+      false,
+      false,
+      false,
     )
+    const name = (args: readonly string[]) =>
+      runCommand(["name", ...args, "--auditor", "oth"], f.runtime, f.options)
+    // Before any step lands, the name alone plans; afterwards a scope audits.
+    assert.equal(await name(["example"]), 0, f.errors.join("\n"))
+    assert.equal(
+      JSON.parse(f.visible[0]).claim,
+      join(f.planRoot, "example-01-0-claim.md"),
+    )
+    await commitFixture(f.repoRoot, "example/impl-1 ath feat(x): step")
     for (const [args, target] of [
-      [["example"], "example"],
       [["example", "all"], "example-step-all"],
       [["example", "1-2"], "example-step-01..02"],
       [["example", "9-12"], "example-step-09..12"],
       [["abcdef"], "abcdef"],
     ] as const) {
       f.visible.length = 0
-      assert.equal(
-        await runCommand(
-          ["name", ...args, "--auditor", "oth"],
-          f.runtime,
-          f.options,
-        ),
-        0,
-        f.errors.join("\n"),
-      )
+      assert.equal(await name(args), 0, f.errors.join("\n"))
       assert.equal(
         JSON.parse(f.visible[0]).claim,
         join(f.planRoot, `${target}-01-0-claim.md`),
@@ -2183,8 +2211,8 @@ for (const working of ["repo-edu", "plan"] as const) {
       const transcript = join(outputRoot, "example-01-1-round.oth.md")
       const title =
         owner === "plan"
-          ? "# Audit round of plan example.md\n"
-          : "# Audit round of implementation example.md all\n"
+          ? "# Planning round of example.md\n"
+          : "# Implementation audit of example.md, all steps\n"
       await writeFile(transcript, title)
       const argument = "example-01-1-round.oth.md"
       assert.equal(
@@ -2230,7 +2258,7 @@ test("discovery accepts aliases, subdirectories and unrelated directories", asyn
   for (const cwd of [nested, unrelated, alias]) {
     assert.equal(
       await runCommand(
-        ["name", "example", "--auditor", "oth"],
+        ["name", "example", "1", "--auditor", "oth"],
         { ...f.runtime, cwd },
         f.options,
       ),

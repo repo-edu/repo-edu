@@ -33,7 +33,7 @@ test("long commit lists record every reference without exceeding filename limits
   })
   output.close()
   const transcript = await readFile(run.paths.markdown, "utf8")
-  assert.ok(transcript.includes(`Audit round of commits ${commits.join(" ")}`))
+  assert.ok(transcript.includes(`Commit audit of ${commits.join(" ")}`))
 })
 
 test("commit stamps retain each phase's reported selection across later phases", async (t) => {

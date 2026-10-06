@@ -146,20 +146,21 @@ assistant and scope checks.
 A hand-run audit runs
 `pnpm audit-round name [target] [scope-or-commits...] --auditor <full tag>`
 before auditing. It passes its own resolved three-letter tag, including `u` for
-an unlisted model. Without a target, the command follows
-[Omitted targets](#omitted-targets). It claims the next number
+an unlisted model. A plan argument or no target resolves under
+[Plan targets](#plan-targets). It claims the next number
 and prints one JSON object:
 `cwd` is the working checkout, `workflow` is the owning workflow, `claim` is the
 reserved claim path and `arguments` holds the report path followed by the resolved
 audit target and scope. It creates only the claim and starts no assistant or
 settings discovery. It does not name later writers' files.
 
-The target grammar is the same from either checkout. A plan stem alone selects
-a planning audit. A stem with a step number, an inclusive range or `all`
-selects an implementation audit. Commit references select a Repo Edu commit
-audit. Plan arguments accept `.md` and `-widen` but no path; lookup prefers the
-active artifact at the plan root, then its archive. A commit-shaped stem keeps
-`.md` to identify it as a plan.
+The target grammar is the same from either checkout. Commit references select
+a Repo Edu commit audit. Any other first argument names a plan, alone or with a
+step number, an inclusive range or `all`, and
+[Plan targets](#plan-targets) decides the round it runs. Plan arguments accept
+`.md` and `-widen` but no path; lookup prefers the active artifact at the plan
+root, then its archive. A commit-shaped stem keeps `.md` to identify it as a
+plan.
 
 For later phases, use complete runner-supplied paths when present. Hand-run
 commands take bare file names and resolve them at the plan repo root:
@@ -198,20 +199,31 @@ files, including the `simple` definition, without a launcher. Their home
 launchers, `/brief-round` and `/watch` with their Codex forms, serve only
 hand-run sessions.
 
-### Omitted targets
+### Plan targets
 
-When `name` or an automated round gets no target, it repeats the newest
-unfinished audit. A bare `pnpm audit-round` with no arguments at all still
-prints help. The plan is the active artifact at the plan root, never an
-archived one, whose stem commit is newest in either repo by commit date. That
-commit decides:
+The plan's history decides which round its name alone runs, so the shortest
+command runs the audit the plan's state calls for. Without a target, `name` and
+an automated round take the active artifact at the plan root, never an archived
+one, whose stem commit is newest in either repo by commit date. A bare
+`pnpm audit-round` with no arguments at all still prints help. The joined stem
+history of both repos decides:
 
-- A planning commit, `init`, `audit`, `settle` or `ready`, selects a planning
-  audit of the plan.
-- An implementation-audit record that is not clean selects its scope again.
-- Any other commit stops with its reason: a clean record, a step or a marker.
-  The user then names the scope. Moving on to the next audit unit is the user's
-  call.
+- No `impl-<n>` step has landed: a planning audit of the plan.
+- The newest stem commit is an implementation-audit record that is not clean:
+  that scope again.
+- Every repo with a landed step carries its `implemented` marker: an
+  implementation audit of all steps.
+- Otherwise the command stops and names the landed steps. The user then names
+  the scope. Moving on to the next audit unit is the user's call.
+
+A named step scope selects an implementation audit of that scope. It is refused
+while no step has landed, because there is no implementation to judge. No
+argument selects a planning audit once a step has landed: the plan's decisions
+are then carried out, and only their implementation remains to judge.
+
+The first line of every run names what it resolved: `Planning round of <plan>`,
+`Implementation audit of <plan>, <steps>` or `Commit audit of <commits>`.
+`pnpm audit-round brief` reads a transcript's kind from that title.
 
 The home `/brief-plan` given no stem reads the same plan.
 `pnpm audit-round plan` prints it from either checkout.
@@ -613,9 +625,10 @@ settlement. The final whole-plan round expects an `implemented` marker in every
 judged repo under the plan doctrine's
 [Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms).
 When a marker is missing, name it once and continue on the user's word. That round
-uses the audit's read-only evidence rules. The final round is advice, not a gate.
-When asked to treat the implementation as done without that round, name the
-missing round once and continue on the user's word.
+uses the audit's read-only evidence rules. Later rounds do not wait for it.
+Loop-close asks before archiving a plan with no whole-plan implementation-audit
+record after its last step and continues only on the user's answer, because the
+close is the last point where the missing audit can still be noticed.
 
 Loop-close follows on the user's word, given as `/close` or `$close` or asked
 for in the final round's fix session. Either way the session follows the

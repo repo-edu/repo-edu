@@ -247,7 +247,9 @@ consumers.
   reach the terminal. Supplied instruction files appear there by path only; their full contents go
   to the assistant.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
-  document resolution and report deletion for both entry routes. It resolves `HEAD` in commit
+  document resolution and report deletion for both entry routes. A round's title opens with its
+  kind and scope, such as `Implementation audit of <plan>, all steps`, and `transcriptKind` reads
+  the kind back from it. It resolves `HEAD` in commit
   targets and scans the plan root for the next target-wide number. Automated rounds supply every
   phase path. A manual audit names only its claim and report; later manual phases retain that
   report's round and name their output with the current session's writer tag. `manualPhasePaths`
@@ -262,22 +264,24 @@ consumers.
   keeps editing the file the runner reads.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
-- `target.ts` owns the argument grammar for automated rounds and `name`. A plan stem alone selects
-  planning; a stem with a step, an increasing range or `all` selects implementation. Commit
-  references select a Repo Edu commit audit. A commit-shaped plan stem keeps `.md` to identify it as
-  a plan. Plan arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan`
-  prefers the active artifact at the plan root, then looks in the archive. It supplies the absolute
-  plan path before any assistant starts. `closingPlan` accepts only the active artifact, because an
-  archived plan is already closed. The audit workflow owns Git resolution and inclusive-range
-  admission. The runner passes references unchanged and rejects multiple auditor entries for commit
-  targets, which run once without a trajectory glance or watch.
-- `default-target.ts` owns the target of a round or `name` given none, under the shared protocol's
-  [Omitted targets](../../.agents/references/round-protocol.md#omitted-targets). It reads both
-  histories through `stemCommits`, the same newest-first order the hand-run episode uses, skips
-  plans without an active artifact and parses the newest remaining commit strictly. The selected
-  target passes through `auditTarget` as a typed one would. `defaultPlan` applies the same plan rule
-  alone for the `plan` command and a `close` given no stem. The home `/brief-plan` and `/close` run
-  `plan` for an omitted stem.
+- `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
+  plan stem with an optional step, increasing range or `all`, or Repo Edu commit references, which
+  are a complete target. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
+  arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` prefers the
+  active artifact at the plan root, then looks in the archive. `closingPlan` accepts only the active
+  artifact, because an archived plan is already closed. The audit workflow owns Git resolution and
+  inclusive-range admission. The runner passes references unchanged and rejects multiple auditor
+  entries for commit targets, which run once without a trajectory glance or watch.
+- `default-target.ts` owns the round a plan argument or no target selects, under the shared
+  protocol's [Plan targets](../../.agents/references/round-protocol.md#plan-targets), so the plan's
+  history rather than a typed word decides between planning and implementation. It reads both
+  histories through `stemCommits`, the same newest-first order the hand-run episode uses. Without a
+  target it skips plans without an active artifact. It resolves the plan file before reading its
+  history, so a missing plan says so, and supplies the absolute plan path before any assistant
+  starts. Landed steps and `implemented` markers are read through the loose form; only a newest
+  implementation-audit record is parsed strictly, for its severity. `defaultPlan` applies the same
+  plan rule alone for the `plan` command and a `close` given no stem. The home `/brief-plan` and
+  `/close` run `plan` for an omitted stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor`
   option. It reads that value with the queue's entry grammar and refuses a list with no entries. The
   round is the command itself, taking the target as its own arguments. Its subcommands are `brief`,
@@ -438,9 +442,9 @@ Each phase receives the complete paths it reads and writes in protocol order.
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved target and scope.
 It creates only the claim. It does not load settings or start an assistant. Its argument grammar
-is the same as the automated round, from either checkout. Without a target, both repeat the newest
-unfinished audit under the shared protocol's
-[Omitted targets](../../.agents/references/round-protocol.md#omitted-targets).
+is the same as the automated round, from either checkout. A plan argument or no target resolves
+under the shared protocol's
+[Plan targets](../../.agents/references/round-protocol.md#plan-targets).
 
 `paths <vet|rebut|fix> [input]` resolves a later manual phase and prints its working checkout,
 workflow and arguments as one JSON object. Vet and rebuttal take `--writer <full tag>` from

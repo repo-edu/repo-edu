@@ -99,6 +99,8 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       working,
       true,
+      false,
+      true,
     )
     await writeFile(
       f.report,
