@@ -130,6 +130,33 @@ test("implementation reports read one plain stop recommendation and its reason",
     )
 })
 
+test("a stop reason keeps its formatted words as written", () => {
+  for (const [written, reason] of [
+    [
+      "Entry 5 of `STOP-CONDITIONS.md` applies.",
+      "Entry 5 of `STOP-CONDITIONS.md` applies.",
+    ],
+    [
+      "`report.ts` and *one* [record](../plan/example.md) agree.",
+      "`report.ts` and *one* [record](../plan/example.md) agree.",
+    ],
+    [
+      "The `first\nsecond` span stays whole.",
+      "The `first second` span stays whole.",
+    ],
+  ] as const)
+    assert.deepEqual(
+      readAuditReport(
+        implementation("No findings.").replace(
+          "The next round is still worth its cost.",
+          written,
+        ),
+        "implementation",
+      ).recommendation,
+      { decision: "continue", reason },
+    )
+})
+
 test("missing, duplicate, formatted and malformed stop recommendations fail", () => {
   const report = implementation("No findings.")
   for (const opening of [

@@ -67,14 +67,14 @@ consumers.
   fictitious fix session or resume command. `target.ts` supplies the plan stem
   shared by output naming and clean records, including archived plans.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
-  It reads the implementation report's one plain stop-or-continue recommendation and reason beside
-  its judged repos. Planning reports have Excess functionality and Missing functionality fields;
-  implementation reports have one Findings field including deferred findings. Each holds numbered
-  finding blocks or its exact empty-field sentence. Quoted evidence and code blocks supply no
-  findings. `vet.ts` reads the
-  fixed verdict lines and requires the report's finding numbers in order. Only Accept verdicts
-  with no following conditions skip the rebuttal.
-  Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
+  It reads the implementation report's one stop-or-continue recommendation beside its judged repos.
+  Its prefix must be plain text; its reason keeps formatted words as written. Planning reports have
+  Excess functionality and Missing functionality fields; implementation reports have one Findings
+  field including deferred findings. Each holds numbered finding blocks or its exact empty-field
+  sentence. Quoted evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict
+  lines and requires the report's finding numbers in order. Only Accept verdicts with no following
+  conditions skip the rebuttal. Both readers are supplied through `RoundDependencies`, alongside the
+  HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list. Assistant names bypass audit

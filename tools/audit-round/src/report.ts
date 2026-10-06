@@ -42,31 +42,55 @@ export type StopRecommendation = {
   readonly reason: string
 }
 
-function openingLines(children: readonly Block[]): readonly string[] {
+type OpeningLine = {
+  /** Formatted spans read as a marker, so only plain text can match. */
+  readonly plain: string
+  /** Formatted spans keep their source, so a reason loses no words. */
+  readonly text: string
+}
+
+function openingLines(
+  children: readonly Block[],
+  source: string,
+): readonly OpeningLine[] {
   const end = children.findIndex(
     (node) => node.type === "heading" && node.depth === 2,
   )
-  return children.slice(0, end === -1 ? undefined : end).flatMap((node) =>
-    node.type === "paragraph"
-      ? node.children
-          // Mark formatted spans so only complete plain lines can match.
-          .map((child) =>
-            child.type === "text"
-              ? child.value
-              : child.type === "break"
-                ? "\n"
-                : "\0",
-          )
-          .join("")
-          .split("\n")
-      : [],
-  )
+  return children.slice(0, end === -1 ? undefined : end).flatMap((node) => {
+    if (node.type !== "paragraph") return []
+    // Only text and breaks end lines, so both readings split alike.
+    const lines = (
+      formatted: (child: Paragraph["children"][number]) => string,
+    ) =>
+      node.children
+        .map((child) =>
+          child.type === "text"
+            ? child.value
+            : child.type === "break"
+              ? "\n"
+              : formatted(child),
+        )
+        .join("")
+        .split("\n")
+    const text = lines((child) =>
+      source
+        .slice(child.position?.start.offset, child.position?.end.offset)
+        .replace(/\s*\n\s*/g, " "),
+    )
+    return lines(() => "\0").map((plain, index) => ({
+      plain,
+      text: text[index],
+    }))
+  })
 }
 
-function judgedRepos(children: readonly Block[]): readonly Repository[] {
-  const lines = openingLines(children).filter((line) =>
-    line.startsWith("Judged repos:"),
-  )
+function judgedRepos(
+  children: readonly Block[],
+  source: string,
+): readonly Repository[] {
+  const lines = openingLines(children, source)
+    .map((line) => line.plain)
+    .filter((line) => line.startsWith("Judged repos:"))
   if (
     lines.length !== 1 ||
     !/^Judged repos: (?:plan@[0-9a-f]+(?:, repo-edu@[0-9a-f]+)?|repo-edu@[0-9a-f]+)$/.test(
@@ -84,23 +108,25 @@ function judgedRepos(children: readonly Block[]): readonly Repository[] {
 
 function stopRecommendation(
   children: readonly Block[],
+  source: string,
   kind: RoundKind,
 ): StopRecommendation | null {
   if (kind === "planning") return null
-  const lines = openingLines(children).filter((line) =>
-    line.startsWith("Stop recommendation:"),
+  const lines = openingLines(children, source).filter((line) =>
+    line.plain.startsWith("Stop recommendation:"),
   )
+  // The prefix must be plain; the reason may format names and paths.
   const match =
     lines.length === 1
-      ? /^Stop recommendation: (stop|continue)\. (.+)$/.exec(lines[0])
+      ? /^Stop recommendation: (stop|continue)\. (?=.)/.exec(lines[0].plain)
       : null
   if (match === null)
     throw new Error(
-      'Implementation report needs one plain "Stop recommendation: stop. <reason>" or "Stop recommendation: continue. <reason>" opening line',
+      'Implementation report needs one opening line with a plain "Stop recommendation: stop. " or "Stop recommendation: continue. " prefix and a reason',
     )
   return {
     decision: match[1] as StopRecommendation["decision"],
-    reason: match[2],
+    reason: lines[0].text.slice(match[0].length),
   }
 }
 
@@ -233,7 +259,7 @@ export function readReport(source: string, kind: RoundKind): AuditReport {
     )
   return {
     findings,
-    judgedRepos: judgedRepos(children),
-    recommendation: stopRecommendation(children, kind),
+    judgedRepos: judgedRepos(children, source),
+    recommendation: stopRecommendation(children, source, kind),
   }
 }
