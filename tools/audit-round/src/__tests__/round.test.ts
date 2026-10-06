@@ -86,7 +86,7 @@ function controlledRound(
   settle: (input: PhaseInput) => Promise<void> = async () => {},
 ) {
   const calls: PhaseInput[] = []
-  const closed: { cwd: string; nameStart: string }[] = []
+  const deletedReports: { cwd: string; nameStart: string }[] = []
   const completions: CleanInput[] = []
   const glances: GlanceInput[] = []
   const watchEvidence: WatchEvidenceInput[] = []
@@ -139,9 +139,10 @@ function controlledRound(
       watchGrades.push({ cacheRoot, stem })
       return grade
     },
-    closeRound: async (cwd, nameStart) => {
+    deleteRoundReports: async (cwd, nameStart) => {
       assert.equal(calls.at(-1)?.phase, "fix")
-      closed.push({ cwd, nameStart })
+      deletedReports.push({ cwd, nameStart })
+      return []
     },
     checkFile: async () => {},
     showBrief: async (document) => {
@@ -195,7 +196,7 @@ function controlledRound(
   }
   return {
     calls,
-    closed,
+    deletedReports,
     completions,
     glances,
     watchEvidence,
@@ -239,7 +240,7 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     round.calls.map((call) => call.phase),
     rulingPhases,
   )
-  assert.equal(round.closed.length, 0)
+  assert.equal(round.deletedReports.length, 0)
   assert.deepEqual(round.briefs, [])
   round.results.fix = { status: "finished", sessionId: "fix-session" }
   reply.resolve("Choose option 1.")
@@ -257,7 +258,7 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     sessionId: "fix-session",
     rulingReply: "Choose option 1.",
   })
-  assert.equal(round.closed.length, 1)
+  assert.equal(round.deletedReports.length, 1)
   assert.equal(round.glances.length, 1)
   assert.deepEqual(round.briefs, [brief])
   assert.equal(round.calls.filter((call) => call.phase === "brief").length, 1)
@@ -299,7 +300,7 @@ test("clarification can leave a decision open without creating a new fix session
       .map((call) => call.sessionId),
     [null, "fix-session", "fix-session"],
   )
-  assert.equal(round.closed.length, 1)
+  assert.equal(round.deletedReports.length, 1)
 })
 
 test("a resumed fix failure retains the session and never closes the reports", async () => {
@@ -324,7 +325,7 @@ test("a resumed fix failure retains the session and never closes the reports", a
     assert.equal(result.phase, "fix")
     assert.equal(result.sessionId, "fix-session")
   }
-  assert.equal(round.closed.length, 0)
+  assert.equal(round.deletedReports.length, 0)
   assert.equal(round.glances.length, 0)
   assert.deepEqual(round.briefs, [])
   assert.equal(
@@ -424,7 +425,7 @@ for (const accepted of [false, true]) {
     test(`a finished ${"plan" in target ? "plan" : "commit"} fix closes once before the brief with accepted=${accepted}`, async () => {
       const round = controlledRound(async (input) => {
         if (input.phase === "brief")
-          assert.deepEqual(round.closed, [
+          assert.deepEqual(round.deletedReports, [
             { cwd: files.planRoot, nameStart: "example-step-all-01" },
           ])
       })
@@ -433,7 +434,7 @@ for (const accepted of [false, true]) {
         (await runRound({ ...files, ...target }, round.dependencies)).status,
         "finished",
       )
-      assert.equal(round.closed.length, 1)
+      assert.equal(round.deletedReports.length, 1)
     })
   }
 }
@@ -455,7 +456,7 @@ test("clean audits, failed fixes and rulings retain the report set", async () =>
       { ...files, plan: "example.md", scope: "all" },
       round.dependencies,
     )
-    assert.deepEqual(round.closed, [])
+    assert.deepEqual(round.deletedReports, [])
   }
 })
 
@@ -1178,7 +1179,7 @@ test("a missing ruling fails the fix before the brief or user input", async () =
     ["audit", "vet", "rebut", "fix"],
   )
   assert.deepEqual(round.rulings, [])
-  assert.deepEqual(round.closed, [])
+  assert.deepEqual(round.deletedReports, [])
 })
 
 test("a brief on its own runs only the brief phase over the named transcript", async () => {
@@ -1275,7 +1276,12 @@ test("landed plan corrections do not make an audit clean", async () => {
 })
 
 for (const [reader, phase, sessionId, called] of [
-  ["closeRound", "fix", "fix-session", ["audit", "vet", "rebut", "fix"]],
+  [
+    "deleteRoundReports",
+    "fix",
+    "fix-session",
+    ["audit", "vet", "rebut", "fix"],
+  ],
   ["readReport", "audit", "audit-session", ["audit"]],
   ["readVet", "vet", "vet-session", ["audit", "vet"]],
   ["readHead", "fix", null, ["audit", "vet", "rebut"]],

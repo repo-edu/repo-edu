@@ -57,20 +57,27 @@ async function phaseDocuments(root: string, kind: FileKind) {
   })
 }
 
-/** Close exactly one round's reports, using their recorded names, not today's settings. */
-export async function closeRound(
+/**
+ * Delete exactly one round's reports, using their recorded names, not today's settings.
+ * Returns the deleted filenames.
+ */
+export async function deleteRoundReports(
   cwd: string,
   nameStart: string,
-): Promise<void> {
+): Promise<readonly string[]> {
+  const deleted: string[] = []
   for (const file of await readdir(cwd, { withFileTypes: true })) {
     const parsed = readPhaseFilename(file.name)
     if (
       file.isFile() &&
       parsed?.nameStart === nameStart &&
       ["audit", "vet", "rebut"].includes(parsed.kind)
-    )
+    ) {
       await unlink(join(cwd, file.name))
+      deleted.push(file.name)
+    }
   }
+  return deleted
 }
 
 async function targetDescription(target: NamingTarget): Promise<{

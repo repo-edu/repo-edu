@@ -367,7 +367,10 @@ export type InteractiveSession = PhaseRun &
   }
 
 export type RoundDependencies = {
-  readonly closeRound: (cwd: string, nameStart: string) => Promise<void>
+  readonly deleteRoundReports: (
+    cwd: string,
+    nameStart: string,
+  ) => Promise<readonly string[]>
   readonly checkFile: (file: string) => Promise<void>
   /** Prints the saved brief after its phase and output validation have completed. */
   readonly showBrief: (document: string) => Promise<void>

@@ -44,7 +44,7 @@ import {
   runRound,
 } from "./round.js"
 import {
-  closeRound,
+  deleteRoundReports,
   type ManualPhase,
   manualPhasePaths,
   newestTranscript,
@@ -80,7 +80,7 @@ type Invocation =
       readonly vet?: string
       readonly rebut?: string
     }
-  | { readonly kind: "close"; readonly nameStart: string }
+  | { readonly kind: "delete-reports"; readonly nameStart: string }
   | {
       readonly kind: "round"
       /** Absent when the runner repeats the newest unfinished audit. */
@@ -360,9 +360,9 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
       invocation = { kind: "plan" }
     })
   command
-    .command("close", { hidden: true })
+    .command("delete-reports", { hidden: true })
     .description(
-      "Delete one round's audit, vet and rebuttal reports at the plan root.",
+      "Delete one round's audit, vet and rebuttal reports at the plan root and list them.",
     )
     .argument(
       "<target-round>",
@@ -376,7 +376,7 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
       },
     )
     .action((nameStart: string) => {
-      invocation = { kind: "close", nameStart }
+      invocation = { kind: "delete-reports", nameStart }
     })
   command
     .command("brief")
@@ -433,8 +433,18 @@ export async function runCommand(
       )
       return 0
     }
-    if (invocation.kind === "close") {
-      await closeRound(context.planRoot, invocation.nameStart)
+    if (invocation.kind === "delete-reports") {
+      const deleted = await deleteRoundReports(
+        context.planRoot,
+        invocation.nameStart,
+      )
+      if (deleted.length === 0)
+        throw new Error(
+          `No audit, vet or rebuttal report of ${invocation.nameStart} at ${context.planRoot}.`,
+        )
+      options.terminal.write(
+        deleted.map((name) => `Deleted ${name}`).join("\n"),
+      )
       return 0
     }
     if (invocation.kind === "paths") {
@@ -560,7 +570,7 @@ export async function runCommand(
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
       watchEvidence: readWatchEvidence,
       watchGrade: readWatchGrade,
-      closeRound,
+      deleteRoundReports,
       checkFile: async (file) => {
         if (!(await readFile(file, "utf8")).trim())
           throw new Error(`Phase output is empty: ${file}`)

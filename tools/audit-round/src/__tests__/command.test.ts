@@ -548,7 +548,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
 })
 
 for (const working of ["repo-edu", "plan"] as const) {
-  test(`close at ${working} removes only the exact round's numbered report kinds without assistant startup`, async (t) => {
+  test(`delete-reports at ${working} removes and lists only the exact round's numbered report kinds without assistant startup`, async (t) => {
     const f = await roundFixture(
       t,
       "codex",
@@ -592,15 +592,32 @@ for (const working of ["repo-edu", "plan"] as const) {
       "example-1",
     ])
       assert.equal(
-        await runCommand(["close", invalid], f.runtime, f.options),
+        await runCommand(["delete-reports", invalid], f.runtime, f.options),
         2,
       )
-    assert.equal(await runCommand(["close", target], f.runtime, f.options), 0)
+    assert.equal(
+      await runCommand(["delete-reports", target], f.runtime, f.options),
+      0,
+      f.errors.join("\n"),
+    )
+    assert.deepEqual(
+      f.visible.at(-1)?.split("\n").sort(),
+      removed.map((name) => `Deleted ${name}`).sort(),
+    )
     const names = await readdir(root)
     for (const name of removed) assert.equal(names.includes(name), false, name)
     for (const name of retained) assert.ok(names.includes(name), name)
     assert.equal(await readFile(peerFile, "utf8"), "Peer report")
-    assert.equal(await runCommand(["close", target], f.runtime, f.options), 0)
+    assert.equal(
+      await runCommand(["delete-reports", target], f.runtime, f.options),
+      1,
+    )
+    assert.ok(
+      f.errors
+        .at(-1)
+        ?.includes(`No audit, vet or rebuttal report of ${target}`),
+      f.errors.join("\n"),
+    )
     await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
       code: "ENOENT",
     })

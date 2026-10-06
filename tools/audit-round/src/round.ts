@@ -390,7 +390,7 @@ export async function runRound(
 
     if (fix.status === "finished") {
       try {
-        await dependencies.closeRound(
+        await dependencies.deleteRoundReports(
           planRoot,
           transcriptNameStart(input.transcript),
         )

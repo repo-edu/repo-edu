@@ -137,7 +137,7 @@ because no stem scan reads one for a commit target.
 ## Settlement
 
 A commit-scoped round is one-shot. The range is the scope, and the round ends at its report. The fix
-lands its record and follows the shared protocol's **Closing reports**. There is no episode, no
+lands its record and follows the shared protocol's **Deleting reports**. There is no episode, no
 `implemented:` or `closed:` marker and no trajectory watch. A later round over later commits is a
 new round, not a continuation of this one.
 

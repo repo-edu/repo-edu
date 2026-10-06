@@ -101,7 +101,7 @@ round's file set still asks.
 
 After all required corrections, checks and records are complete, follow the
 plan doctrine's [Handoff](../../../../../plan/CLAUDE.md#handoff), then the
-shared protocol's **Closing reports** and **Runner result**.
+shared protocol's **Deleting reports** and **Runner result**.
 
 ## Closing the episode
 

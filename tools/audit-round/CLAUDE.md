@@ -25,7 +25,7 @@ consumers.
   returning `needs-ruling`. The runner checks that file, then displays it and collects a reply
   without running the brief. A missing or empty ruling fails the fix with its recovery session. The
   same fix session resumes in the background with that reply. Further open decisions repeat this
-  route. A completed fix follows the same report closure, commit checks, brief and watch as an
+  route. A completed fix follows the same report deletion, commit checks, brief and watch as an
   uninterrupted fix. Stopping without a reply retains the round files and reports the fix's recovery
   command and ends the auditor sequence. A submitted reply lets a completed round continue any
   remaining auditor entries. Further open decisions replace the ruling in that same session under
@@ -52,7 +52,7 @@ consumers.
   none. The round records both repositories' HEADs before the fix and validates every landed
   subject under its repository's grammar. A plan target fails when a finished fix landed no commit.
   A commit target may land nothing. Reader failures retain the owning phase and its session for
-  recovery. As soon as a fix returns `finished`, the coordinator closes the report set through its
+  recovery. As soon as a fix returns `finished`, the coordinator deletes the report set through its
   dependency, before reading landed subjects or running the brief. Other outcomes retain the set.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
@@ -240,21 +240,20 @@ consumers.
   reply in the log and transcript before any resumed process starts. Assistant replies use the
   normal phase output, so launch prompts stay in the log and never reach the terminal. Supplied
   instruction files appear there by path only; their full contents go to the assistant.
-- `round-paths.ts` owns the file-name grammar, target names, round allocation candidates,
-  existing document resolution and report closure for both entry routes. It resolves `HEAD`
-  in commit targets and scans the plan root for the next target-wide number. Automated rounds
-  supply every phase path. A manual audit names only its claim and report; later manual phases
-  retain that report's round and name their output with the current session's writer tag.
-  `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
-  the exact round at the report's root. With no input, it selects the most recently modified
-  eligible document at the plan root: the other assistant's audit for vet, the current
-  assistant's audit for rebuttal or either assistant's audit for fix. Several reviews of one round
-  resolve the same way unless one is selected.
-  `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
-  filenames without consulting model settings. `queueFile` names a plan target's
-  `<target>-queue.md` beside its rounds. It carries no round number because it belongs to the
-  whole sequence: one path stays valid across rounds, so an editor holding it open keeps editing
-  the file the runner reads.
+- `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
+  document resolution and report deletion for both entry routes. It resolves `HEAD` in commit
+  targets and scans the plan root for the next target-wide number. Automated rounds supply every
+  phase path. A manual audit names only its claim and report; later manual phases retain that
+  report's round and name their output with the current session's writer tag. `manualPhasePaths`
+  returns the ordinary phase arguments and finds review inputs only within the exact round at the
+  report's root. With no input, it selects the most recently modified eligible document at the plan
+  root: the other assistant's audit for vet, the current assistant's audit for rebuttal or either
+  assistant's audit for fix. Several reviews of one round resolve the same way unless one is
+  selected. `deleteRoundReports` deletes only audit, vet and rebuttal files for that exact round,
+  using recorded filenames without consulting model settings, and returns their names. `queueFile`
+  names a plan target's `<target>-queue.md` beside its rounds. It carries no round number because it
+  belongs to the whole sequence: one path stays valid across rounds, so an editor holding it open
+  keeps editing the file the runner reads.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. A plan
@@ -276,34 +275,34 @@ consumers.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor`
   option. It reads that value with the queue's entry grammar and refuses a list with no entries. The
   round is the command itself, taking the target as its own arguments. Its subcommands are `brief`,
-  `name`, `paths`, `close`, `episode` and `plan`. `plan` prints the plan an omitted target selects,
-  as JSON, and writes nothing. The `episode` command prints joined watch evidence from the shared
-  reader and formatter without settings discovery, assistant startup or file writes. The `name`
-  command claims a round and prints its claim, workflow, working checkout and audit arguments. Its
-  required `--auditor` is the hand-run session's full tag, including `u`, checked separately from a
-  round's model request. The `paths` command prints the workflow, working checkout and argument
-  paths for an existing report as a JSON object. It reads the report opening's named workflow to
-  select its kind. Both commands bypass assistant startup and settings discovery; `paths` writes
-  nothing. The `close` command uses the same closing function as the coordinator and starts no
-  assistant or settings discovery. So the program carries an action handler, Commander adds no
-  `help` command, and each command's own `-h` prints its help. A bare command line prints that help;
-  options without a target take `defaultTarget`. It also owns the round sequence and its counter.
-  The first `--auditor` entry, or the configured default when the option is absent, runs first. For
-  a plan target the remaining entries seed the target's queue file, which the user may edit while
-  rounds run. Between rounds the sequence takes the queue's first entry, so the queue is the only
-  round limit. Every completed implementation round prints the stop-or-continue recommendation and
-  its reason. An audit with no findings or a stop recommendation removes queued entries that resolve
-  to that round's assistant, model and effort. Other settings remain, and a continue recommendation
-  removes nothing. A fix that lands a clean record removes none. Failure, a round requiring a
-  ruling, a red watch or an empty queue stops the sequence, and the queue file is
-  deleted however the sequence ends. A commit target runs once and keeps no queue. Each round prints
-  the queue's path and contents when it opens. Each round records its own file pair and the
-  coordinator has no filesystem side effects: it opens one output per round, retires the previous
-  one first, and reads updates and settings once for the whole run before opening any files. Startup
-  messages go only to the terminal; the run log begins with the models table. A chained round
-  carries its place in its title and independently claims the next number for its target. Required
-  write failures stop phase progression. If recording itself fails, the emergency channel still
-  reports the known session and recovery command.
+  `name`, `paths`, `delete-reports`, `episode` and `plan`. `plan` prints the plan an omitted target
+  selects, as JSON, and writes nothing. The `episode` command prints joined watch evidence from the
+  shared reader and formatter without settings discovery, assistant startup or file writes. The
+  `name` command claims a round and prints its claim, workflow, working checkout and audit
+  arguments. Its required `--auditor` is the hand-run session's full tag, including `u`, checked
+  separately from a round's model request. The `paths` command prints the workflow, working checkout
+  and argument paths for an existing report as a JSON object. It reads the report opening's named
+  workflow to select its kind. Both commands bypass assistant startup and settings discovery;
+  `paths` writes nothing. The `delete-reports` command uses the same deletion function as the
+  coordinator and starts no assistant or settings discovery. So the program carries an action
+  handler, Commander adds no `help` command, and each command's own `-h` prints its help. A bare
+  command line prints that help; options without a target take `defaultTarget`. It also owns the
+  round sequence and its counter. The first `--auditor` entry, or the configured default when the
+  option is absent, runs first. For a plan target the remaining entries seed the target's queue
+  file, which the user may edit while rounds run. Between rounds the sequence takes the queue's
+  first entry, so the queue is the only round limit. Every completed implementation round prints the
+  stop-or-continue recommendation and its reason. An audit with no findings or a stop recommendation
+  removes queued entries that resolve to that round's assistant, model and effort. Other settings
+  remain, and a continue recommendation removes nothing. A fix that lands a clean record removes
+  none. Failure, a round requiring a ruling, a red watch or an empty queue stops the sequence, and
+  the queue file is deleted however the sequence ends. A commit target runs once and keeps no queue.
+  Each round prints the queue's path and contents when it opens. Each round records its own file
+  pair and the coordinator has no filesystem side effects: it opens one output per round, retires
+  the previous one first, and reads updates and settings once for the whole run before opening any
+  files. Startup messages go only to the terminal; the run log begins with the models table. A
+  chained round carries its place in its title and independently claims the next number for its
+  target. Required write failures stop phase progression. If recording itself fails, the emergency
+  channel still reports the known session and recovery command.
 - `queue.ts` owns the queue file's contents and the entry grammar `--auditor` shares: names or tags
   separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries keep the user's
   spelling, so a rewrite changes only which entries remain. It resolves each entry through the same
@@ -408,7 +407,7 @@ pnpm audit-round name --auditor oth
 pnpm audit-round paths vet example-step-03..03-01-2-audit.oth.md --writer abx
 pnpm audit-round paths rebut example-step-03..03-01-2-audit.oth.md --writer otm
 pnpm audit-round paths fix example-step-03..03-01-2-audit.oth.md
-pnpm audit-round close example-step-03..03-01
+pnpm audit-round delete-reports example-step-03..03-01
 pnpm audit-round episode example
 pnpm audit-round episode HEAD-2
 pnpm audit-round:contract
@@ -436,8 +435,9 @@ that round resolve to the newest unless `--vet <file>` or `--rebut <file>` selec
 command writes nothing and never
 claims another number. The shared round protocol owns manual invocation details.
 
-`close` deletes the audit and twins for its exact target and round at the
-plan root. Claims and runner documents remain.
+`delete-reports` deletes the audit and twins for its exact target and round at the
+plan root and lists each deleted file. It fails when no report matches. Claims and runner
+documents remain.
 
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
 document in the terminal. Only `--brief` runs it, for every round, without changing the watch. A

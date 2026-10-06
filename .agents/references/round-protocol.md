@@ -216,16 +216,21 @@ commit decides:
 The home `/brief-plan` given no stem reads the same plan.
 `pnpm audit-round plan` prints it from either checkout.
 
-## Closing reports
+## Deleting reports
 
 An unattended phase deletes no round files, including a fix resumed after a
-ruling. Report closure belongs to the runner so completion has one owner.
+ruling. Report deletion belongs to the runner so completion has one owner.
 The runner deletes the audit, vet and rebuttal reports as soon as a fix returns
 `finished`. Other outcomes retain them. After a hand-run fix lands its records
 or a hand-run audit lands its direct clean record,
-`pnpm audit-round close <target>-<round>` deletes those
-same numbered report kinds for that exact round, regardless of writer tag.
+`pnpm audit-round delete-reports <target>-<round>` deletes those
+same numbered report kinds for that exact round, regardless of writer tag. It
+uses the runner's own filename parser, so a hand-run round deletes exactly what
+the runner would. It lists each deleted file and fails when no report matches.
 Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.
+Loop-close is a separate step that archives a plan; the
+[loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md)
+owns it.
 
 ## Direct clean completion
 
@@ -237,7 +242,7 @@ empty record.
   The runner retains it and lands the clean record for a plan target.
 - Hand-run: deliver the report under [Audit delivery](#audit-delivery), land
   the plan target's clean record immediately and follow
-  [Closing reports](#closing-reports), then stop.
+  [Deleting reports](#deleting-reports), then stop.
 - A commit target lands no clean record and retains its report in either route.
 
 Use the plan doctrine's
@@ -533,7 +538,7 @@ tier from both repositories' commit logs.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
-| `finished` | The phase completed its required work. A fix landed its records. A brief wrote its file beside the transcript. | Close a finished fix's reports under **Closing reports**, then continue, or finish the run after the watch. |
+| `finished` | The phase completed its required work. A fix landed its records. A brief wrote its file beside the transcript. | Delete a finished fix's reports under **Deleting reports**, then continue, or finish the run after the watch. |
 | `needs-ruling` | The fix phase wrote the final ruling for its open decisions. | Check and display the ruling file, collect the user's reply and resume the same fix in the background. Only a completed fix proceeds through the normal checks, brief and watch; stopping without a reply retains the round files. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
@@ -612,9 +617,12 @@ uses the audit's read-only evidence rules. The final round is advice, not a gate
 When asked to treat the implementation as done without that round, name the
 missing round once and continue on the user's word.
 
-On the user's word, the fix writes each repo's closing form under that doctrine.
-The stem scans already show every round, so no compiled history belongs in
-either closing body. Commit-scoped rounds use their separate settlement rule.
+Loop-close follows on the user's word, given as `/close` or `$close` or asked
+for in the final round's fix session. Either way the session follows the
+[loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md),
+which writes each repo's closing form under that doctrine. The stem scans
+already show every round, so no compiled history belongs in either closing
+body. Commit-scoped rounds use their separate settlement rule.
 
 ## Growth-pattern tags
 
