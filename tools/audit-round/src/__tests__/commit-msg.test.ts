@@ -318,13 +318,14 @@ test("round stamps compose with the derived sequence and retain every finding", 
   )
 })
 
-test("round stamps replace the whole opening model record without changing on a second stamp", () => {
+test("round stamps replace the whole opening model record and time line without changing on a second stamp", () => {
   const stamps = {
     auditor: "ath",
-    phases: "audit: claude-fable-5-1 high\nvet, fix: gpt-6-astra high",
+    phases:
+      "audit: claude-fable-5-1 high\nvet, fix: gpt-6-astra high\nAudit and vet took 7 min.",
   }
   const previous =
-    "audit: claude-fable-5-1 medium\nvet, fix: gpt-6-astra medium"
+    "audit: claude-fable-5-1 medium\nvet, fix: gpt-6-astra medium\nAudit and vet took 9 min."
   for (const repository of ["repo-edu", "plan"] as const) {
     const finding = repository === "repo-edu" ? codeFinding : planFinding
     for (const body of [

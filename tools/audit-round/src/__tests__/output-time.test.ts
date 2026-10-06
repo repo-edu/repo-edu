@@ -1,7 +1,13 @@
 import assert from "node:assert/strict"
 import { basename } from "node:path"
 import { test } from "node:test"
-import { RoundOutput, roundRun, unpinned } from "./configured-runner.js"
+import {
+  noOverride,
+  RoundOutput,
+  roundPhases,
+  roundRun,
+  unpinned,
+} from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
 
 for (const { zone, instant, timestamp } of [
@@ -161,6 +167,66 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   output.endRuling(null)
   output.finish({ status: "awaiting-ruling", report: "REPORT.md", session })
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
+})
+
+test("commit stamps time the finished audit, vet and rebuttal and never the fix", async (t) => {
+  const f = await fixture(t)
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
+  const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
+  const phases = roundPhases("codex", noOverride)
+  const output = new RoundOutput(
+    await roundRun(setup, Date.now(), selections),
+    {
+      terminal: { write: () => {}, status: () => {}, clear: () => {} },
+      openFiles: () => ({ log: () => {}, markdown: () => {}, close: () => {} }),
+    },
+  )
+  t.after(() => output.close())
+  const time = () => output.commitStamps()?.phases.split("\n").at(-1)
+  const start = (phase: "audit" | "vet" | "rebut" | "fix") =>
+    output.phase.start(
+      {
+        ...setup,
+        ...phases[phase],
+        ...(phase === "audit"
+          ? { phase, arguments: ["example-impl-all-01", "example.md"] as const }
+          : phase === "rebut"
+            ? {
+                phase,
+                arguments: ["/report.md", "/vet.md", "/rebut.md"] as const,
+              }
+            : phase === "fix"
+              ? {
+                  phase,
+                  arguments: ["/report.md"] as const,
+                  rulingFile: "/ruling.md",
+                }
+              : { phase, arguments: ["/report.md", "/vet.md"] as const }),
+        sessionId: null,
+      },
+      "prompt",
+    )
+  const finish = () =>
+    output.phase.finish({ status: "finished", sessionId: "session" })
+
+  await start("audit")
+  t.mock.timers.tick(4 * 60_000)
+  // A running audit has taken no time a commit could state yet.
+  assert.equal(time(), "audit: gpt-6-astra high")
+  await finish()
+  assert.equal(time(), "Audit took 4 min.")
+  await start("vet")
+  t.mock.timers.tick(2 * 60_000 + 50_000)
+  await finish()
+  assert.equal(time(), "Audit and vet took 7 min.")
+  await start("rebut")
+  t.mock.timers.tick(60_000)
+  await finish()
+  await start("fix")
+  t.mock.timers.tick(10 * 60_000)
+  await finish()
+  // The fix commits while it runs, so the line never counts it.
+  assert.equal(time(), "Audit, vet and rebuttal took 8 min.")
 })
 
 test("tool lines report step and total assistant time, excluding user waits", async (t) => {

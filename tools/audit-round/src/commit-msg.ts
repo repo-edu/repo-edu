@@ -10,8 +10,9 @@ import {
 
 /**
  * What a round hands the commit hook through the environment: the auditor's
- * tag for a record's subject and the body's phase lines. A session committing
- * on its own hands it nothing and writes both itself.
+ * tag for a record's subject and the body's phase lines with their time line.
+ * A session committing on its own hands it nothing and writes its own tag and
+ * model line.
  */
 export type CommitStamps = {
   readonly auditor: string | null
@@ -32,6 +33,13 @@ const efforts = {
  */
 const modelLine =
   /^([a-z]+(, [a-z]+)*: )?[A-Za-z0-9][^ ]*( (low|medium|high|xhigh))?$/
+
+/**
+ * The round's time line, which follows its phase lines. It belongs to the
+ * stamped opening, so a second stamp replaces it rather than repeating it.
+ */
+const timeLine =
+  /^(Audit|Audit and vet|Audit, vet and rebuttal) took \d+ min\.$/
 
 /**
  * Stamp and check one commit message. Returns the message to commit, or
@@ -118,7 +126,11 @@ export function stampCommitMessage(
   else {
     output.push("", stamps.phases)
     let at = first === -1 ? lines.length : first
-    while (at < lines.length && modelLine.test(lines[at])) at += 1
+    while (
+      at < lines.length &&
+      (modelLine.test(lines[at]) || timeLine.test(lines[at]))
+    )
+      at += 1
     while (at < lines.length && lines[at] === "") at += 1
     if (at < lines.length) output.push("")
     output.push(...lines.slice(at))

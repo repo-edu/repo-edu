@@ -72,23 +72,61 @@ export type RunEntry = {
   readonly model: PinnedModel
 }
 
+/** One started phase: what it ran on and the assistant time it took. */
+export type RanPhase = {
+  readonly selection: ModelSelection
+  /** The finished invocations' total; null until one finishes. */
+  readonly spent: number | null
+}
+
 /**
  * The commit body's leading lines: the phases that carried out the round,
  * grouped by what they ran on. Phases keep round order within a line and lines
  * keep the order of their first phase, so one reading runs top to bottom.
  */
-export function commitPhaseLines(
-  selections: ReadonlyMap<Phase, ModelSelection>,
-): string {
+export function commitPhaseLines(ran: ReadonlyMap<Phase, RanPhase>): string {
   const lines = new Map<string, Phase[]>()
-  for (const [phase, { model, effort }] of selections) {
+  for (const [phase, { selection }] of ran) {
     if (!transcribed(phase)) continue
-    const ran = effort === null ? model : `${model} ${effort}`
-    lines.set(ran, [...(lines.get(ran) ?? []), phase])
+    const { model, effort } = selection
+    const runsOn = effort === null ? model : `${model} ${effort}`
+    lines.set(runsOn, [...(lines.get(runsOn) ?? []), phase])
   }
   return [...lines]
-    .map(([ran, phases]) => `${phases.join(", ")}: ${ran}`)
+    .map(([runsOn, phases]) => `${phases.join(", ")}: ${runsOn}`)
     .join("\n")
+}
+
+/** The phases whose time a round spends whatever it finds, with their prose names. */
+const reviewPhases = [
+  ["audit", "audit"],
+  ["vet", "vet"],
+  ["rebut", "rebuttal"],
+] as const
+
+/**
+ * The line after the phase lines: how long the finished audit, vet and
+ * rebuttal took, as `Audit, vet and rebuttal took 7 min.`. They take that time
+ * whatever the round finds, so a later stop recommendation weighs it as the
+ * cost of a round. The fix commits while it runs, so its time is never known.
+ */
+export function reviewTimeLine(
+  ran: ReadonlyMap<Phase, RanPhase>,
+): string | null {
+  const finished = reviewPhases.flatMap(([phase, name]) => {
+    const spent = ran.get(phase)?.spent ?? null
+    return spent === null ? [] : [{ name, spent }]
+  })
+  if (finished.length === 0) return null
+  const names = finished.map(({ name }) => name)
+  const list =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+  const minutes = Math.round(
+    finished.reduce((total, { spent }) => total + spent, 0) / 60_000,
+  )
+  return `${list[0].toUpperCase()}${list.slice(1)} took ${minutes} min.`
 }
 
 /**
@@ -121,20 +159,24 @@ function selectionTag(
 }
 
 /**
- * What a round stamps into a commit its fix lands: the body's phase lines and
- * the auditor's subject mark. A run with no audit phase stamps neither.
+ * What a round stamps into a commit its fix lands: the body's phase lines with
+ * their time line and the auditor's subject mark. A run with no audit phase
+ * stamps neither.
  */
 export function commitStamps(
   entries: readonly RunEntry[],
-  selections: ReadonlyMap<Phase, ModelSelection>,
+  ran: ReadonlyMap<Phase, RanPhase>,
   settings: RoundSettings,
 ): { readonly phases: string; readonly auditor: string | null } | undefined {
   const audit = entries.find(({ phase }) => phase === "audit")
-  const selection = selections.get("audit")
-  if (audit === undefined || selection === undefined) return undefined
+  const run = ran.get("audit")
+  if (audit === undefined || run === undefined) return undefined
+  const time = reviewTimeLine(ran)
   return {
-    phases: commitPhaseLines(selections),
-    auditor: selectionTag(audit.assistant, selection, settings),
+    phases: [commitPhaseLines(ran), ...(time === null ? [] : [time])].join(
+      "\n",
+    ),
+    auditor: selectionTag(audit.assistant, run.selection, settings),
   }
 }
 

@@ -146,7 +146,8 @@ consumers.
   episode scoping and auditor stamping need nothing else from them. `commit-msg.ts` is the hook's
   rule: it replaces a record's auditor tag with `COMMIT_AUDITOR` when the runner supplies it. It
   derives severity from the graded bullets before parsing the subject. It replaces the body's
-  opening with `COMMIT_PHASES` when a round supplies it and requires a model line otherwise. It
+  opening phase lines and time line with `COMMIT_PHASES` when a round supplies it, so a second
+  stamp repeats neither, and requires a model line otherwise. It
   refuses a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the
   entry both repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar
   file.
@@ -214,8 +215,11 @@ consumers.
   pin, or `CLI default` when the phase names nothing. A phase whose two fields came from different
   places names both, model first. A pinned model reads as the release its CLI resolved it to at
   startup, so every row names a release. The output holds only the run start, current phase timing,
-  context observations and each started phase's model selection. A phase starts with its launch
-  selection, then its CLI's model feedback replaces it. Commit stamps use those phase selections.
+  context observations and each started phase's model selection and time. A phase starts with its
+  launch selection, then its CLI's model feedback replaces it. Each finished invocation adds its
+  elapsed time to the phase's time. Commit stamps use those phase selections and add a time line
+  for the audit, vet and rebuttal that finished, because a later stop recommendation weighs that
+  time as the cost of a round.
   Every status stamp shows the phase's elapsed time and the round's total. Every logged tool line
   opens with its step's own time, the assistant time since the previous tool line or since the phase
   start for the first, followed by the round's total assistant time. `run-clock.ts` owns what those

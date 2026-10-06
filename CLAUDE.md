@@ -368,11 +368,12 @@ claude-opus-5 xhigh
 ```
 
 A commit an automated planning or implementation-audit round lands opens with one line per model,
-each naming the phases that ran on it:
+each naming the phases that ran on it, then one time line:
 
 ```text
 audit, rebut, fix: gpt-6-astra medium
 vet: claude-opus-5 xhigh
+Audit, vet and rebuttal took 7 min.
 ```
 
 The phases listed are the four that carry out a round: audit, vet, rebut and
@@ -380,6 +381,12 @@ fix. The brief and watch phases write documents rather than
 landing work, so they stay out. Phases keep round order inside a line, lines
 keep the order of their first phase, and two phases share a line when their
 model and their effort both match.
+
+The time line states the assistant time of the audit, vet and rebuttal that
+finished before the commit, naming only those. A clean record names the audit
+alone. These phases take that time whatever the round finds, so a later
+implementation audit weighs it as the cost of a round on the same scope. The
+fix lands the record while it runs, so its own time is never counted.
 
 The model is the one the CLI reported running, never the one the round asked
 for: `claude-opus-5`, not `opus`. An alias names whichever release is current,

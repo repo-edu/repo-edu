@@ -272,9 +272,9 @@ completion instead.
 ## History reads
 
 Cross-round scans belong to glance and watch. The narrow exception is an
-implementation audit's stop recommendation: it reads the subjects and **Round
-yield** lines of earlier implementation-audit records for the same step scope.
-It uses them only to judge whether the next round on that scope is likely to
+implementation audit's stop recommendation: it reads the subjects, **Round
+yield** lines and time lines of earlier implementation-audit records for the
+same step scope. It uses them only to judge whether the next round on that scope is likely to
 find something worth its cost. It does not compute the episode or classify its
 trajectory. Other phases read history when needed to establish a specific
 finding, prior ruling, a rule's origin or an implementation departure.

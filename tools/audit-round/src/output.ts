@@ -1,11 +1,6 @@
 import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
-import type {
-  CliModels,
-  Feedback,
-  ModelSelection,
-  PhaseOutput,
-} from "./feedback.js"
+import type { CliModels, Feedback, PhaseOutput } from "./feedback.js"
 import {
   type Context,
   capabilityTag,
@@ -16,6 +11,7 @@ import {
   modelText,
   phaseSelection,
   phaseText,
+  type RanPhase,
   type RunEntry,
   toolText,
 } from "./output-format.js"
@@ -252,11 +248,13 @@ export class RoundOutput<R extends Run = Run> {
     | undefined
   private timer: ReturnType<typeof setInterval> | undefined
   /**
-   * Started phases in order, with each CLI's applied selection. Before a
-   * phase reports, its launch selection lets that child identify itself.
-   * Feedback replaces that selection without changing another phase's record.
+   * Started phases in order, with each CLI's applied selection and the
+   * assistant time the phase took. Before a phase reports, its launch
+   * selection lets that child identify itself. Feedback replaces that
+   * selection without changing another phase's record. A resumed phase adds
+   * each finished invocation's time to what it already took.
    */
-  private readonly ran = new Map<Phase, ModelSelection>()
+  private readonly ran = new Map<Phase, RanPhase>()
 
   constructor(
     private readonly run: R,
@@ -335,8 +333,9 @@ export class RoundOutput<R extends Run = Run> {
 
   /**
    * What the commit-msg hook stamps into a commit this run's work lands, read
-   * when a child starts so it names only the phases that ran by then. A clean
-   * round that skipped the vet and the rebuttal stamps neither.
+   * when a child starts so it names only the phases that ran by then and times
+   * only those that finished. A clean round that skipped the vet and the
+   * rebuttal stamps neither.
    */
   commitStamps = (): ReturnType<typeof commitStamps> =>
     commitStamps(this.run.phases, this.ran, this.run.settings)
@@ -378,10 +377,13 @@ export class RoundOutput<R extends Run = Run> {
       // A fresh session starts empty, so its first stamp reports the startup context.
       statusTokens: input.sessionId === null ? 0 : null,
     }
-    this.ran.set(
-      input.phase,
-      phaseSelection(input.model, this.run.selections[input.assistant]),
-    )
+    this.ran.set(input.phase, {
+      selection: phaseSelection(
+        input.model,
+        this.run.selections[input.assistant],
+      ),
+      spent: this.ran.get(input.phase)?.spent ?? null,
+    })
     const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
       `\n${separator}\n[${input.phase}] starting ${input.assistant} (${mode})`,
@@ -411,7 +413,10 @@ export class RoundOutput<R extends Run = Run> {
         )
         break
       case "model":
-        this.ran.set(active.input.phase, feedback.selection)
+        this.ran.set(active.input.phase, {
+          selection: feedback.selection,
+          spent: this.ran.get(active.input.phase)?.spent ?? null,
+        })
         this.say(
           `${prefix} ${active.input.assistant} ${modelText(feedback.selection)}`,
         )
@@ -455,9 +460,18 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   private finishPhase(result: PhaseResult): void {
+    const active = this.active
+    const run = active && this.ran.get(active.input.phase)
+    if (active === undefined || run === undefined)
+      throw new Error("A phase finished without starting")
     this.say(this.report())
+    const { phase } = active.input
+    this.ran.set(phase, {
+      selection: run.selection,
+      spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
+    })
     const detail = result.status === "failed" ? `: ${result.reason}` : ""
-    this.say(`[${this.active?.input.phase}] ${result.status}${detail}`)
+    this.say(`[${phase}] ${result.status}${detail}`)
   }
 
   showBrief(text: string): void {

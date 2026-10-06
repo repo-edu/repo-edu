@@ -720,8 +720,8 @@ for (const auditor of ["claude", "codex"] as const) {
         const stamps = {
           phases:
             auditor === "codex"
-              ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+              ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min."
+              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.",
           auditor: auditor === "codex" ? "oth" : "ath",
         }
         assert.deepEqual(
@@ -944,8 +944,8 @@ for (const auditor of ["claude", "codex"] as const) {
       {
         phases:
           auditor === "codex"
-            ? "audit: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-            : "audit: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+            ? "audit: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high\nAudit and vet took 0 min."
+            : "audit: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high\nAudit and vet took 0 min.",
         auditor: auditor === "codex" ? "oth" : "ath",
       },
     )
@@ -1176,8 +1176,8 @@ for (const auditor of ["codex", "claude"] as const) {
       {
         phases:
           auditor === "codex"
-            ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-            : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+            ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min."
+            : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.",
         auditor: auditor === "codex" ? "oth" : "ath",
       },
     )
@@ -2124,8 +2124,8 @@ for (const auditor of ["codex", "claude"] as const) {
         {
           phases:
             auditor === "codex"
-              ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+              ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min."
+              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.",
           auditor: auditor === "codex" ? "oth" : "ath",
         },
       )
