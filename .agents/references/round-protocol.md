@@ -20,13 +20,15 @@ and the runner deletes it when the sequence ends. The runner
 claims at the plan repository root; a hand-run audit claims there too.
 The plan repo's handoff rule owns that six-character sha.
 
-- **Target** names what was audited. A planning-artifact audit uses its bare
-  stem, without `.md` or `-widen`. For an archived `plan.md`, use the archive
-  folder's name. An implementation audit adds `-step-<a>..<b>` or `-step-all`
-  to that stem. A single step is the range from itself to itself, such as
-  `-step-07..07`, and step numbers are padded to at least two digits. The
-  explicit step word disambiguates a plan name ending in a number when reading
-  a filename from the right. One word, padding and the `..` range keep `ls` and
+- **Target** names what was audited. The stem is the plan's name without
+  `.md` or `-widen`; for an archived `plan.md`, it is the archive folder's name.
+  A plan audit adds `-plan` to the stem and an implementation audit adds
+  `-impl-<a>..<b>` or `-impl-all`, the same words as the `plan-audit` and
+  `impl-audit-<scope>` commit roles, so a name says which audit it holds. A
+  single step is the range from itself to itself, such as `-impl-07..07`, and
+  step numbers are padded to at least two digits. The kind word also
+  disambiguates a plan name ending in a number when reading a filename from the
+  right. One word, padding and the `..` range keep `ls` and
   Finder in step order, with a range after every round of its first step. The
   equal width keeps round and phase numbers aligned across scopes.
 - **Commit targets** preserve the references as typed, replacing `HEAD` with
@@ -64,8 +66,8 @@ then split the remaining name at its last hyphen into target and round.
 The tagless claim, handoff and queue file are the three exceptions above. Do not read repo
 names or audited heads from a filename; they belong in the report opening.
 
-For example, one round can contain `example-step-02..02-01-2-audit.otm.md` and
-`example-step-02..02-01-3-vet.abx.md`. Their target and round match; their writer tags
+For example, one round can contain `example-impl-02..02-01-2-audit.otm.md` and
+`example-impl-02..02-01-3-vet.abx.md`. Their target and round match; their writer tags
 differ. Automated sessions receive complete paths. Manual sessions resolve their
 paths through the shared command below.
 
@@ -221,7 +223,7 @@ while no step has landed, because there is no implementation to judge. No
 argument selects a planning audit once a step has landed: the plan's decisions
 are then carried out, and only their implementation remains to judge.
 
-The first line of every run names what it resolved: `Planning round of <plan>`,
+The first line of every run names what it resolved: `Plan audit of <plan>`,
 `Implementation audit of <plan>, <steps>` or `Commit audit of <commits>`.
 `pnpm audit-round brief` reads a transcript's kind from that title.
 
@@ -439,7 +441,7 @@ them.
 Repo Edu bullets use a bracketed uppercase tier, followed by the location,
 growth, reach and complexity tokens: `- [C] [area:<primary-id>] ...`.
 Plan-repo implementation and off-plan bullets use an unbracketed tier:
-`- C [section:<heading>] ...`. Only a planning `audit` record carries a
+`- C [section:<heading>] ...`. Only a `plan-audit` record carries a
 `[field:]` token; other plan-repo records refuse it.
 
 Each accepted graded concern, D included, gets one bullet. A carried decision
@@ -464,12 +466,12 @@ effort, scope and findings with the round's values.
 
 ### Planning record
 
-Planning records use `audit`. Each finding carries `[field:]` and a section
+Planning records use `plan-audit`. Each finding carries `[field:]` and a section
 location under [Finding metadata](#finding-metadata). Recount the accepted
 findings for the closing yield lines. For one missing C finding:
 
 ```text
-example/audit ath growth-none: align the report location
+example/plan-audit ath growth-none: align the report location
 
 gpt-6-astra high
 

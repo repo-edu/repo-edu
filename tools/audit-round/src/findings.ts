@@ -79,7 +79,7 @@ export function readFindings(
     }
     for (const area of [...values("area"), ...values("cover")])
       if (!label.safeParse(area).success) fail(`invalid area ID: ${area}`)
-    const planning = repository === "plan" && role === "audit"
+    const planning = repository === "plan" && role === "plan-audit"
     for (const token of [
       "growth-pattern",
       "reach",

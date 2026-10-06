@@ -145,12 +145,15 @@ test("every subject class derives only the severity its role admits", () => {
     )
   }
   assert.equal(
-    stamp(message("example/audit oth: s"), "plan"),
-    message("example/audit oth clean: s"),
+    stamp(message("example/plan-audit oth: s"), "plan"),
+    message("example/plan-audit oth clean: s"),
   )
   assert.equal(
-    stamp(message("example/audit oth growth-none: s", planningFinding), "plan"),
-    message("example/audit oth growth-none c1: s", planningFinding),
+    stamp(
+      message("example/plan-audit oth growth-none: s", planningFinding),
+      "plan",
+    ),
+    message("example/plan-audit oth growth-none c1: s", planningFinding),
   )
   assert.equal(
     stamp(message("oth C9 docs(x): s"), "plan"),
@@ -165,8 +168,11 @@ test("only planning-audit findings carry a search direction", () => {
     for (const field of ["excess", "missing"]) {
       const planning = finding.replace("- C ", `- C [field:${field}] `)
       assert.equal(
-        stamp(message("example/audit oth growth-none: s", planning), "plan"),
-        message("example/audit oth growth-none c1: s", planning),
+        stamp(
+          message("example/plan-audit oth growth-none: s", planning),
+          "plan",
+        ),
+        message("example/plan-audit oth growth-none c1: s", planning),
       )
       for (const subject of [
         "example/impl-audit-all oth growth-none docs(x)",
@@ -191,7 +197,7 @@ test("only planning-audit findings carry a search direction", () => {
         () =>
           stamp(
             message(
-              "example/audit oth: s",
+              "example/plan-audit oth: s",
               finding.replace("- C ", `- C ${fields}`),
             ),
             "plan",
@@ -221,14 +227,18 @@ test("a refused subject, missing model and disagreeing effort still stop the com
       /not on the list/,
     ],
     [message("c1 docs(repo): s", codeFinding), "repo-edu", /capability tag/],
-    [message("example/audit oth growth-low: s"), "plan", /beside a severity/],
+    [
+      message("example/plan-audit oth growth-low: s"),
+      "plan",
+      /beside a severity/,
+    ],
     [
       message("example/impl-0 oth feat(x): s"),
       "repo-edu",
       /step .*not a number/,
     ],
     [
-      message("example/audit oth docs(x): s", planningFinding),
+      message("example/plan-audit oth docs(x): s", planningFinding),
       "plan",
       /no conventional kind/,
     ],
@@ -270,8 +280,8 @@ test("round stamps compose with the derived sequence and retain every finding", 
     ),
   )
   assert.equal(
-    stampCommitMessage("example/audit o: s\n", "plan", stamps, areaKinds),
-    message("example/audit otx clean: s", "", stamps.phases),
+    stampCommitMessage("example/plan-audit o: s\n", "plan", stamps, areaKinds),
+    message("example/plan-audit otx clean: s", "", stamps.phases),
   )
   assert.equal(
     stampCommitMessage(
@@ -369,7 +379,7 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
       )
     await writeFile(
       file,
-      `example/audit o growth-none !a9: s\n\n${planningFinding}\n`,
+      `example/plan-audit o growth-none !a9: s\n\n${planningFinding}\n`,
     )
     const result = await run("plan", {
       COMMIT_AUDITOR: "otx",
@@ -379,7 +389,7 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
     assert.equal(
       await readFile(file, "utf8"),
       message(
-        "example/audit otx growth-none c1: s",
+        "example/plan-audit otx growth-none c1: s",
         planningFinding,
         "audit: gpt-6-astra xhigh",
       ),

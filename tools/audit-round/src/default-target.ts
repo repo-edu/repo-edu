@@ -3,12 +3,7 @@ import type { ExecutionContext } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
-import {
-  looseForm,
-  parseSubject,
-  type Repository,
-  stemTopic,
-} from "./subject.js"
+import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
@@ -57,7 +52,7 @@ export async function selectTarget(
     request === null
       ? (await newestPlan(logs, planRoot)).path
       : await resolvePlan(planRoot, request.plan)
-  const topic = stemTopic(planStem(plan))
+  const topic = planStem(plan)
   const history = stemCommits(logs).filter((entry) => entry.topic === topic)
   const { steps, unmarked } = progress(history)
   const implementation = (scope: string): AuditTarget => ({

@@ -45,12 +45,10 @@ the user must decide an open item.
 
 ## Ready gate
 
-Before any audit work, run the stem scan in `../plan`: `git log --oneline`
-filtered to the topic's joined bare, `plan-<topic>` and `topology-<topic>`
-subject stems. The gate passes when that scan contains a `ready:` marker, which
-stands until loop-close. When the gate fails, name the newest joined-stem
-commit, state that the plan is not ready and stop. Continue only when the user
-explicitly says to.
+Before any audit work, run the stem scan in `../plan`: `git log --oneline` filtered to the topic's
+`<stem>/` subjects. The gate passes when that scan contains a `<stem>/ready` marker, which stands
+until loop-close. When the gate fails, name the newest stem commit, state that the plan is not ready
+and stop. Continue only when the user explicitly says to.
 
 ## Round strategy
 
@@ -171,7 +169,7 @@ plan never carried forward. Absence of an older source is normal, not an error.
 Every deferral traces to the files this round inspected or to a choice the user
 made in the round's fix phase. The round tells the user that follow-up in the
 undirected repo rests with them. A later user-directed round in that repo
-collects open deferrals from the other repo's joined-stem scan, cites the
+collects open deferrals from the other repo's stem scan, cites the
 commits it applies and leaves already-corrected text alone.
 
 ## Episode settlement

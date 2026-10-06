@@ -76,7 +76,7 @@ for (const { zone, instant, timestamp } of [
     t.after(() => output.close())
 
     const logName = basename(output.paths.log)
-    assert.equal(logName, "example-step-all-01-1-round.oth.log")
+    assert.equal(logName, "example-impl-all-01-1-round.oth.log")
     assert.doesNotMatch(logName, /[:<>"|?*]/)
     assert.equal(
       output.paths.markdown,

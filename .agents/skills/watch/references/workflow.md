@@ -178,9 +178,7 @@ re-run them. The runner supplies Git evidence, never the round's reasoning.
 
 Read the supplied plan-side and implementation-side trajectories together,
 including reactive off-plan rework: the stem marks planned work and often
-omits the rework where drift shows. An episode begun under the retired
-two-artifact lifecycle reads its historical forms as bridge evidence, not as
-a reset.
+omits the rework where drift shows.
 
 Finding bullets carry the tokens the shared round protocol's finding metadata
 prescribes. Read `[section:<heading>]` as the cluster key on plan-side rounds

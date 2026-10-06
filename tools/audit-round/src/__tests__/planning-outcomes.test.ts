@@ -42,10 +42,10 @@ for (const auditor of ["codex", "claude"] as const) {
           index === 0 ? auditor : auditor === "codex" ? "claude" : "codex"
         assert.equal(
           file,
-          `example-0${index + 1}-1-round.${writer === "codex" ? "ouh" : "auh"}.log`,
+          `example-plan-0${index + 1}-1-round.${writer === "codex" ? "ouh" : "auh"}.log`,
         )
         const log = await readFile(join(f.planRoot, file), "utf8")
-        assert.match(log, /Planning round of .*example\.md/)
+        assert.match(log, /Plan audit of .*example\.md/)
         assert.ok(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, file.replace("-1-round.", "-2-audit.").replace(".log", ".md")), join(f.planRoot, "example.md")])}`,

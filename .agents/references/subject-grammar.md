@@ -47,7 +47,7 @@ under [Classes](#classes).
 <form>      ::= <stem>/<role>
 <stem>      ::= <stem-char>+                ; the plan file's name without .md and without a -widen postfix
 <stem-char> ::= any character except / and space
-<role>      ::= init | audit | settle | ready | impl-<n> | impl-audit-<scope> | implemented | closed
+<role>      ::= init | plan-audit | settle | ready | impl-<n> | impl-audit-<scope> | implemented | closed
 <scope>     ::= <n> | <n>-<n> | all
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -101,8 +101,8 @@ Plan-file commits, plan repo only. No `<kind>`:
 
 ```text
 <P1 init>    ::= <stem>/init <tag>: <S>
-<P2 audit>   ::= <stem>/audit <tag> <growth> <sequence>: <S>
-               | <stem>/audit <tag> clean: <S>
+<P2 audit>   ::= <stem>/plan-audit <tag> <growth> <sequence>: <S>
+               | <stem>/plan-audit <tag> clean: <S>
 <P3 marker>  ::= <stem>/settle <tag>: <S>
                | <stem>/ready <tag>: <S>
                | <stem>/closed <tag>: <S>
@@ -145,7 +145,7 @@ Rules across the classes:
 | `<role>` | Repo | Meaning |
 | --- | --- | --- |
 | `init` | plan | first commit recording the plan's initial solution |
-| `audit` | plan | one planning round |
+| `plan-audit` | plan | one planning round; its name pairs it with `impl-audit-<scope>`, so a record says which audit it was |
 | `settle` | plan | rename onto the bare topic name, correcting only text the rename makes false |
 | `ready` | plan | plan declared ready for implementation, no file change |
 | `impl-<n>` | either | one implementation step, exactly one step per commit |
@@ -163,9 +163,9 @@ Plan repo:
 
 ```text
 P1        planning-rounds/init ath:
-P2        planning-rounds/audit ath growth-none B2C2:
-P2        planning-rounds/audit ath pruning-low c2d1:
-P2        round-file-naming/audit ath clean:
+P2        planning-rounds/plan-audit ath growth-none B2C2:
+P2        planning-rounds/plan-audit ath pruning-low c2d1:
+P2        round-file-naming/plan-audit ath clean:
 P3        planning-rounds/ready ath:
 P3        planning-rounds/closed oth:
 I1        planning-rounds/impl-3 oth feat(audit-round):

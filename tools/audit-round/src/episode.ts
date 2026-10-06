@@ -15,7 +15,6 @@ import {
   parseSubject,
   type Repository,
   type Subject,
-  stemTopic,
 } from "./subject.js"
 import { commitShaped, planStem } from "./target.js"
 
@@ -64,7 +63,7 @@ export type Episode = {
 
 export function commitTopic(commit: LogCommit): string | null {
   const form = looseForm(commit.subject)
-  return form === null ? null : stemTopic(form.stem)
+  return form?.stem ?? null
 }
 
 export function historyTopic(log: readonly LogCommit[]): string | null {
@@ -192,16 +191,15 @@ export function computeEpisode(
   areas: readonly Area[],
   explicitAnchor?: string,
 ): Episode {
-  const joinedTopic = topic === null ? null : stemTopic(topic)
   const named = log.filter(
-    (commit) => joinedTopic !== null && commitTopic(commit) === joinedTopic,
+    (commit) => topic !== null && commitTopic(commit) === topic,
   )
   const artifacts = new Set(named.flatMap((commit) => commit.files))
   const anchor =
     explicitAnchor === undefined
-      ? joinedTopic === null
+      ? topic === null
         ? log.length - 1
-        : log.findLastIndex((commit) => commitTopic(commit) === joinedTopic)
+        : log.findLastIndex((commit) => commitTopic(commit) === topic)
       : log.findIndex((commit) => sameHead(commit.sha, explicitAnchor))
   if (explicitAnchor !== undefined && anchor === -1)
     throw new Error(
@@ -211,14 +209,14 @@ export function computeEpisode(
     .slice(0, anchor + 1)
     .filter(
       (commit) =>
-        joinedTopic === null ||
-        commitTopic(commit) === joinedTopic ||
+        topic === null ||
+        commitTopic(commit) === topic ||
         commit.files.some((file) => artifacts.has(file)),
     )
   const commits = members.map((commit) => readCommit(commit, repository, areas))
   return {
     repository,
-    topic: joinedTopic,
+    topic,
     head: log[0]?.sha ?? null,
     anchor: log[anchor]?.sha ?? null,
     history: log.map((commit) => commit.sha),
@@ -262,7 +260,7 @@ export function joinedEpisode(
     })),
   )
   return {
-    topic: topic === null ? null : stemTopic(topic),
+    topic,
     repositories,
     tokens: tokenCounts(commits.flatMap((commit) => commit.findings)),
     growthPatterns: repeatedGrowthPatterns(commits),

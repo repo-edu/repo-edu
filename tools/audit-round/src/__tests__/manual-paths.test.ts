@@ -26,7 +26,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       working,
     )
     for (const [opening, name, cwd] of [
-      ["Planning round workflow", "example-step-01..01", f.planRoot],
+      ["Planning round workflow", "example-impl-01..01", f.planRoot],
       ["Implementation audit workflow", "example", f.repoRoot],
     ]) {
       const report = `${name}-01-2-audit.oth.md`
@@ -177,7 +177,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       await writeFile(
         file,
         file.includes("1-round")
-          ? "# Planning round of example"
+          ? "# Plan audit of example"
           : "# Implementation audit workflow\n\nJudged repos: plan@abc123",
       )
     await mkdir(join(root, "directory-09-2-audit.atx.md"))
@@ -292,7 +292,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
 
 test("several twins resolve to the round's newest unless one is selected", async (t) => {
   const f = await roundFixture(t)
-  const report = join(f.planRoot, "example-step-all-01-2-audit.oth.md")
+  const report = join(f.planRoot, "example-impl-all-01-2-audit.oth.md")
   await writeFile(report, "# Implementation audit workflow")
   const invoke = async (args: string[]) => {
     f.visible.length = 0
@@ -304,16 +304,16 @@ test("several twins resolve to the round's newest unless one is selected", async
   assert.equal(await invoke(["rebut", basename(report), "--writer", "oth"]), 1)
   assert.match(f.errors[0], /No vet file/)
   const vets = ["abl", "ath"].map((tag) =>
-    join(f.planRoot, `example-step-all-01-3-vet.${tag}.md`),
+    join(f.planRoot, `example-impl-all-01-3-vet.${tag}.md`),
   )
   const rebuts = ["otm", "oux"].map((tag) =>
-    join(f.planRoot, `example-step-all-01-4-rebut.${tag}.md`),
+    join(f.planRoot, `example-impl-all-01-4-rebut.${tag}.md`),
   )
   for (const file of [...vets, ...rebuts]) await writeFile(file, "Review")
   // The later names carry the earlier dates, so the date decides rather than the name.
   for (const file of [vets[1], rebuts[1]]) await utimes(file, 1_000, 1_000)
   // A newer review of another round never joins this one.
-  const other = join(f.planRoot, "example-step-all-02-3-vet.ath.md")
+  const other = join(f.planRoot, "example-impl-all-02-3-vet.ath.md")
   await writeFile(other, "Other round")
   assert.equal(
     await invoke(["rebut", basename(report), "--writer", "oth"]),

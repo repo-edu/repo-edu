@@ -233,7 +233,7 @@ test("maintenance and other plans' audits remain evidence without triggering a w
       repository === "repo-edu"
         ? correction()
         : commit(
-            "example/audit ath growth-none c1: correct the plan",
+            "example/plan-audit ath growth-none c1: correct the plan",
             `- C [field:missing] [section:decisions] ${ratings} Correct.`,
           )
     const maintenance = commit(
@@ -274,7 +274,7 @@ test("maintenance and other plans' audits remain evidence without triggering a w
 test("plan rounds count sections independently and ignore D findings", () => {
   const plan = (section: string) =>
     commit(
-      "example/audit ath growth-none C1D1: correct the plan",
+      "example/plan-audit ath growth-none C1D1: correct the plan",
       `- C [field:missing] [section:${section}] ${ratings} Correct.\n- D [field:missing] [section:wording] ${ratings} Words.`,
       ["example.md"],
     )
@@ -321,16 +321,14 @@ test("plan commits count local sections without counting deferred Repo Edu findi
   )
 })
 
-test("historical stems and different step scopes share the plan's count", () => {
+test("different step scopes share the plan's count", () => {
   const a = {
     ...correction(),
-    subject:
-      "topology-example/impl-audit-1-2 ath growth-none c1 fix(x): correction",
+    subject: "example/impl-audit-1-2 ath growth-none c1 fix(x): correction",
   }
   const b = {
     ...correction(),
-    subject:
-      "plan-example/impl-audit-3-4 ath growth-none c1 fix(x): correction",
+    subject: "example/impl-audit-3-4 ath growth-none c1 fix(x): correction",
   }
   assert.equal(
     glanceDecision(history(a, b), record("amber"), "repo-edu").due,

@@ -177,7 +177,7 @@ for (const auditor of ["codex", "claude"] as const) {
         : "B [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Preserve the decision."
       await writeFile(
         message,
-        `example/audit ${auditor === "codex" ? "o" : "a"} ${suffix}\n\ngpt-6-astra high\n\n- ${bullet}\n`,
+        `example/plan-audit ${auditor === "codex" ? "o" : "a"} ${suffix}\n\ngpt-6-astra high\n\n- ${bullet}\n`,
       )
       await execa(
         "sh",
@@ -189,7 +189,7 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       assert.equal(
         await readFile(message, "utf8"),
-        `example/audit ${call.auditor} ${suffix}\n\n${call.phases}\n\n- ${bullet}\n`,
+        `example/plan-audit ${call.auditor} ${suffix}\n\n${call.phases}\n\n- ${bullet}\n`,
       )
     })
   }

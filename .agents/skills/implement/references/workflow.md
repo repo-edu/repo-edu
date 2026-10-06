@@ -16,10 +16,9 @@ implements its one step directly; it does not delegate another implementer.
 ## Ready gate
 
 Before any implementation work, run the stem scan in `../plan`: `git log
---oneline` filtered to the topic's joined bare, `plan-<topic>` and
-`topology-<topic>` subject stems. The gate passes when that scan contains a
-`ready:` marker. It stands until loop-close. When the gate fails, name the
-newest joined-stem commit, state that the plan is not ready and stop. Continue
+--oneline` filtered to the topic's `<stem>/` subjects. The gate passes when
+that scan contains a `<stem>/ready` marker. It stands until loop-close. When the
+gate fails, name the newest stem commit, state that the plan is not ready and stop. Continue
 only when the user explicitly says to.
 
 ## Scope
@@ -36,7 +35,7 @@ say the plan may predate it and stop for the user's ruling.
 Derive each candidate step's repo set from the files its plan text says to
 change. A step may belong to Repo Edu, the plan repo or both. Treat the files a
 step changes in one repo as that repo's share of the step. In each repo in the
-set, use `git log` to find subjects under the topic's joined stems. Collect the
+set, use `git log` to find subjects under the topic's stem. Collect the
 step numbers from its `impl-<n>` forms. A repo's share is landed only when that
 repo's log carries the step form. A both-repo step remains until both shares
 have landed.

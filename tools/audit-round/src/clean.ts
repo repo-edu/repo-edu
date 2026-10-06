@@ -32,7 +32,7 @@ export async function completeClean(
     )
   const repository = cwd === input.planRoot ? "plan" : "repo-edu"
   const role =
-    input.roundKind === "planning" ? "audit" : `impl-audit-${input.scope}`
+    input.roundKind === "planning" ? "plan-audit" : `impl-audit-${input.scope}`
   const subject = `${planStem(input.plan)}/${role} ${stamps.auditor} clean: record audit with no findings`
   parseSubject(subject, repository)
   const body = `${stamps.phases}\n\nRound yield: 0 ordinary; 0 rare; 0 developer.\nStructure: 0 removing, 0 adding, 0 flat.`

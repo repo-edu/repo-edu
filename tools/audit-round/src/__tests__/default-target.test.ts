@@ -44,7 +44,7 @@ const implemented = logs(
   ["repo-edu", 3, "example/impl-2 obx feat(x): step"],
   ["plan", 4, "example/implemented obx: plan share"],
   ["repo-edu", 5, "example/implemented obx: Repo Edu share"],
-  ["plan", 6, "example/audit abx clean: plan round after the steps"],
+  ["plan", 6, "example/plan-audit abx clean: plan round after the steps"],
 )
 
 test("the plan's history selects what its name or no target audits", async (t) => {
@@ -64,13 +64,9 @@ test("the plan's history selects what its name or no target audits", async (t) =
       logs(
         ["plan", 1, "example/init ath: start"],
         ["plan", 3, "archived/closed ath: archived and newest"],
-        ["plan", 2, "widened/audit oth growth-none B1: widening round"],
+        ["plan", 2, "widened/plan-audit oth growth-none B1: widening round"],
       ),
       { roundKind: "planning", plan: join(root, "widened-widen.md") },
-    ],
-    [
-      logs(["plan", 1, "plan-example/ready oth: historical stem"]),
-      { roundKind: "planning", plan: join(root, "example.md") },
     ],
     [
       logs(

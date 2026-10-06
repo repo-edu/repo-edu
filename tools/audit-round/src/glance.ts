@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { z } from "zod"
 import { type Episode, readEpisode, sameHead } from "./episode.js"
-import { type Repository, stemTopic } from "./subject.js"
+import type { Repository } from "./subject.js"
 
 /**
  * The glance that follows a finished plan round whose audit had findings.
@@ -133,7 +133,7 @@ export function glanceDecision(
     if (
       subject === null ||
       subject.form === null ||
-      stemTopic(subject.form.stem) !== stem ||
+      subject.form.stem !== stem ||
       (subject.class !== "P2" && subject.class !== "I2") ||
       subject.severity === null ||
       subject.severity === "clean"

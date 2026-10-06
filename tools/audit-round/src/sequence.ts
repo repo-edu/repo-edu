@@ -1,5 +1,6 @@
 import type { Finding } from "./findings.js"
 import {
+  isAuditRole,
   locateSubjectSlots,
   looseForm,
   type Repository,
@@ -60,11 +61,11 @@ export function stampSequence(
   const form = looseForm(line)
   if (hasSeverity) tags.splice(slot, 1)
   const sequence = findingSequence(findings)
-  const audit = form?.role === "audit" || form?.role.startsWith("impl-audit-")
+  const audit = isAuditRole(form?.role ?? "")
   const hasKind = kind !== null
   if (audit || form === null) {
     if (sequence !== "clean") tags.splice(slot, 0, printSequence(sequence))
-    else if (form?.role === "audit" || (audit && !hasKind))
+    else if (form?.role === "plan-audit" || (audit && !hasKind))
       tags.splice(slot, 0, "clean")
     else if (audit || repository === "repo-edu")
       throw new SubjectError(

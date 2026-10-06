@@ -54,7 +54,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.match(
         message,
         new RegExp(
-          `^example/${working === "plan" ? "audit" : "impl-audit-2-3"} oth clean:`,
+          `^example/${working === "plan" ? "plan-audit" : "impl-audit-2-3"} oth clean:`,
         ),
       )
       assert.equal(

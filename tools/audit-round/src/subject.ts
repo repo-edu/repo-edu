@@ -10,7 +10,7 @@ export type Repository = "repo-edu" | "plan"
 
 export const roles = [
   "init",
-  "audit",
+  "plan-audit",
   "settle",
   "ready",
   "impl",
@@ -250,7 +250,7 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (repository !== "plan") fail(`${where} belongs to the plan repository`)
       if (!empty) fail(`${where} carries nothing after its tag`)
       return form.role === "init" ? "P1" : "P3"
-    case "audit":
+    case "plan-audit":
       if (repository !== "plan") fail(`${where} belongs to the plan repository`)
       if (severity === null) fail(`${where} needs a severity sequence or clean`)
       if (kind !== null) fail(`${where} carries no conventional kind`)
@@ -327,11 +327,6 @@ export function parseSubject(line: string, repository: Repository): Subject {
   return { class: classify(slots, repository), ...slots }
 }
 
-/** The topic a stem names, reading the historical `plan-` and `topology-` prefixes as one topic. */
-export function stemTopic(stem: string): string {
-  return stem.replace(/^(?:plan|topology)-/, "")
-}
-
 /** A form read loosely: the stem and the role token as written, unchecked. */
 export type LooseForm = {
   readonly stem: string
@@ -354,5 +349,5 @@ export function looseForm(line: string): LooseForm | null {
 
 /** Whether a loosely read role is an audit record's: a plan round or an implementation-audit round. */
 export function isAuditRole(role: string): boolean {
-  return role === "audit" || role.startsWith("impl-audit-")
+  return role === "plan-audit" || role.startsWith("impl-audit-")
 }

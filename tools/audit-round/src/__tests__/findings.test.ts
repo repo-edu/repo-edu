@@ -3,7 +3,7 @@ import { test } from "node:test"
 import { readFindings } from "../findings.js"
 import { findingSequence, printSequence } from "../sequence.js"
 
-const strict = "audit"
+const strict = "plan-audit"
 const rating = "[growth-pattern:none] [reach:developer] [complexity:none]"
 
 test("both bullet forms derive sorted tier counts, all reach cases and D findings", () => {

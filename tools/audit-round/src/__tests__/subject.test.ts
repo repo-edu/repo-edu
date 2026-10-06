@@ -9,7 +9,6 @@ import {
   type Repository,
   type SubjectClass,
   SubjectError,
-  stemTopic,
 } from "../subject.js"
 
 const grammar = fileURLToPath(
@@ -105,7 +104,7 @@ const refusals: [Repository, string, RegExp][] = [
   ["repo-edu", "c1 docs(repo): s", /capability tag/],
   ["repo-edu", "adx c1 docs(repo): s", /capability tag/],
   ["repo-edu", "docs(repo): s", /capability tag/],
-  ["plan", "example/audit C1: s", /capability tag/],
+  ["plan", "example/plan-audit C1: s", /capability tag/],
   // The colon and the sentence.
   ["repo-edu", "atx growth-none c1 docs(repo) s", /colon/],
   ["repo-edu", "atx growth-none c1 docs(repo):", /sentence/],
@@ -130,7 +129,7 @@ const refusals: [Repository, string, RegExp][] = [
     "example/impl-audit-all atx growth-low clean: s",
     /beside a severity/,
   ],
-  ["plan", "example/audit atx growth-low clean: s", /beside a severity/],
+  ["plan", "example/plan-audit atx growth-low clean: s", /beside a severity/],
   ["plan", "atx growth-low docs(claude): s", /beside a severity/],
   [
     "repo-edu",
@@ -139,7 +138,7 @@ const refusals: [Repository, string, RegExp][] = [
   ],
   // Every other sequence carries a mark, and the floor has no direction.
   ["repo-edu", "atx c1 docs(repo): s", /carries a growth or pruning mark/],
-  ["plan", "example/audit atx B1: s", /carries a growth or pruning mark/],
+  ["plan", "example/plan-audit atx B1: s", /carries a growth or pruning mark/],
   ["plan", "atx c1 docs(claude): s", /carries a growth or pruning mark/],
   ["repo-edu", "atx pruning-none c1 docs(repo): s", /write growth-none/],
   // The kind.
@@ -148,12 +147,12 @@ const refusals: [Repository, string, RegExp][] = [
   ["repo-edu", "atx c1 docs: s", /fits no slot/],
   // The roles and where they belong.
   ["repo-edu", "example/init atx: s", /belongs to the plan/],
-  ["repo-edu", "example/audit atx B1: s", /belongs to the plan/],
+  ["repo-edu", "example/plan-audit atx B1: s", /belongs to the plan/],
   ["repo-edu", "example/ready atx: s", /belongs to the plan/],
-  ["plan", "example/audit atx: s", /needs a severity/],
+  ["plan", "example/plan-audit atx: s", /needs a severity/],
   [
     "plan",
-    "example/audit atx growth-none B1 docs(x): s",
+    "example/plan-audit atx growth-none B1 docs(x): s",
     /no conventional kind/,
   ],
   ["plan", "example/init atx docs(x): s", /nothing after its tag/],
@@ -217,10 +216,8 @@ test("the loose form read reaches subjects older than the settled grammar", () =
   )
   assert.equal(looseForm("abx growth-none c1 fix(repo): x"), null)
   assert.equal(looseForm("/impl-3 abx fix(repo): x"), null)
-  assert.equal(stemTopic("plan-lexer"), "lexer")
-  assert.equal(stemTopic("topology-lexer"), "lexer")
-  assert.equal(stemTopic("lexer"), "lexer")
-  assert.equal(isAuditRole("audit"), true)
+  assert.equal(isAuditRole("plan-audit"), true)
+  assert.equal(isAuditRole("audit"), false)
   assert.equal(isAuditRole("impl-audit-2-3"), true)
   assert.equal(isAuditRole("impl-audit-all/C4D1"), true)
   assert.equal(isAuditRole("impl-3"), false)

@@ -179,7 +179,7 @@ Targets and scope:
            Paths are refused. Active plans precede archives. A stem shaped like a
            commit reference keeps .md to identify it as a plan.
            Alone, the stem runs the audit the plan's history calls for:
-             - no step has landed: a planning round of the plan document
+             - no step has landed: a plan audit of the plan document
              - its newest audit was not clean: that audit's scope again
              - every repo with a landed step has its implemented marker: all steps
            Anything else stops and names the landed steps.
@@ -382,11 +382,11 @@ Use pnpm audit-round brief --help or close --help for their arguments and option
     )
     .argument(
       "<target-round>",
-      "exact target and round, such as example-step-02..02-01",
+      "exact target and round, such as example-impl-02..02-01",
       (value: string) => {
         if (!/^[^/]+-\d{2,}$/.test(value))
           throw new InvalidArgumentError(
-            "Expected a target and round, such as example-step-02..02-01.",
+            "Expected a target and round, such as example-impl-02..02-01.",
           )
         return value
       },

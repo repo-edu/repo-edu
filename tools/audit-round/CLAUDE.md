@@ -97,22 +97,19 @@ consumers.
   return only after accounting for the process, streams and required record writes. A failure
   retains the known session identity, including a resumed session whose new invocation reported no
   identity.
-- `episode.ts` owns episode membership and history facts for the glance and
-  joined watch evidence. It joins historical stems, includes rework touching
-  the topic's artifacts and retains both repositories' heads and anchors.
-  `episode-log.ts` reads Git's commit dates, bodies, touched paths and renames.
-  `episode-facts.ts` derives severity, token counts and repeated-growth evidence
-  without grading them. Every member keeps its complete findings or an
-  unreadable reason; unreadable findings contribute no partial counts. Current
-  areas resolve directly, retired areas resolve through `splitFrom` and unknown
-  areas remain listed on their findings. Redesigns and widening renames identify
-  possible new graded windows for the watch to judge. `readWatchEvidence`
-  joins both histories and `formatWatchEvidence` serialises the evidence for
-  the runner and hand-run command. It resolves a hand-run commit target as an
-  explicit anchor in whichever repo holds its SHA; HEAD forms mean Repo Edu.
-  The peer keeps its own anchor. Without a target it takes the newest stem
-  commit across both histories by commit date. No episode
-  file is written.
+- `episode.ts` owns episode membership and history facts for the glance and joined watch evidence.
+  It joins both repos' commits under the plan's stem, includes rework touching the topic's artifacts
+  and retains both repositories' heads and anchors. `episode-log.ts` reads Git's commit dates,
+  bodies, touched paths and renames. `episode-facts.ts` derives severity, token counts and
+  repeated-growth evidence without grading them. Every member keeps its complete findings or an
+  unreadable reason; unreadable findings contribute no partial counts. Current areas resolve
+  directly, retired areas resolve through `splitFrom` and unknown areas remain listed on their
+  findings. Redesigns and widening renames identify possible new graded windows for the watch to
+  judge. `readWatchEvidence` joins both histories and `formatWatchEvidence` serialises the evidence
+  for the runner and hand-run command. It resolves a hand-run commit target as an explicit anchor in
+  whichever repo holds its SHA; HEAD forms mean Repo Edu. The peer keeps its own anchor. Without a
+  target it takes the newest stem commit across both histories by commit date. No episode file is
+  written.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
   topic from the audited plan for every runner glance. The episode reader
@@ -247,21 +244,22 @@ consumers.
   reach the terminal. Supplied instruction files appear there by path only; their full contents go
   to the assistant.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
-  document resolution and report deletion for both entry routes. A round's title opens with its
-  kind and scope, such as `Implementation audit of <plan>, all steps`, and `transcriptKind` reads
-  the kind back from it. It resolves `HEAD` in commit
-  targets and scans the plan root for the next target-wide number. Automated rounds supply every
-  phase path. A manual audit names only its claim and report; later manual phases retain that
-  report's round and name their output with the current session's writer tag. `manualPhasePaths`
-  returns the ordinary phase arguments and finds review inputs only within the exact round at the
-  report's root. With no input, it selects the most recently modified eligible document at the plan
-  root: the other assistant's audit for vet, the current assistant's audit for rebuttal or either
-  assistant's audit for fix. Several reviews of one round resolve the same way unless one is
-  selected. `deleteRoundReports` deletes only audit, vet and rebuttal files for that exact round,
-  using recorded filenames without consulting model settings, and returns their names. `queueFile`
-  names a plan target's `<target>-queue.md` beside its rounds. It carries no round number because it
-  belongs to the whole sequence: one path stays valid across rounds, so an editor holding it open
-  keeps editing the file the runner reads.
+  document resolution and report deletion for both entry routes. A plan target's name carries
+  `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
+  commit roles. A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
+  `Implementation audit of <plan>, all steps`, and `transcriptKind` reads the kind back from it. It
+  resolves `HEAD` in commit targets and scans the plan root for the next target-wide number.
+  Automated rounds supply every phase path. A manual audit names only its claim and report; later
+  manual phases retain that report's round and name their output with the current session's writer
+  tag. `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
+  the exact round at the report's root. With no input, it selects the most recently modified
+  eligible document at the plan root: the other assistant's audit for vet, the current assistant's
+  audit for rebuttal or either assistant's audit for fix. Several reviews of one round resolve the
+  same way unless one is selected. `deleteRoundReports` deletes only audit, vet and rebuttal files
+  for that exact round, using recorded filenames without consulting model settings, and returns
+  their names. `queueFile` names a plan target's `<target>-queue.md` beside its rounds. It carries
+  no round number because it belongs to the whole sequence: one path stays valid across rounds, so
+  an editor holding it open keeps editing the file the runner reads.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
@@ -415,7 +413,7 @@ pnpm audit-round example 3 --brief
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
 pnpm audit-round --auditor codex
-pnpm audit-round brief example-step-03..03-01-1-round.otm.md
+pnpm audit-round brief example-impl-03..03-01-1-round.otm.md
 pnpm audit-round brief
 pnpm audit-round plan
 pnpm audit-round close example
@@ -423,10 +421,10 @@ pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
 pnpm audit-round name example 3 --auditor oth
 pnpm audit-round name --auditor oth
-pnpm audit-round paths vet example-step-03..03-01-2-audit.oth.md --writer abx
-pnpm audit-round paths rebut example-step-03..03-01-2-audit.oth.md --writer otm
-pnpm audit-round paths fix example-step-03..03-01-2-audit.oth.md
-pnpm audit-round delete-reports example-step-03..03-01
+pnpm audit-round paths vet example-impl-03..03-01-2-audit.oth.md --writer abx
+pnpm audit-round paths rebut example-impl-03..03-01-2-audit.oth.md --writer otm
+pnpm audit-round paths fix example-impl-03..03-01-2-audit.oth.md
+pnpm audit-round delete-reports example-impl-03..03-01
 pnpm audit-round episode example
 pnpm audit-round episode HEAD-2
 pnpm audit-round:contract

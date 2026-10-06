@@ -65,7 +65,7 @@ test("different auditors cannot open the same candidate and the next run advance
   const setup = { ...testContext(f.root), plan: "example.md", scope: "2-4" }
   const codex = await roundRun({ ...setup, auditor: "codex" }, 0, selections)
   const claude = await roundRun({ ...setup, auditor: "claude" }, 0, selections)
-  assert.equal(codex.nameStart, "example-step-02..04-01")
+  assert.equal(codex.nameStart, "example-impl-02..04-01")
   assert.equal(claude.nameStart, codex.nameStart)
   new RoundOutput(codex, options).close()
   assert.throws(() => new RoundOutput(claude, options), { code: "EEXIST" })
@@ -73,12 +73,12 @@ test("different auditors cannot open the same candidate and the next run advance
   await assert.rejects(readFile(claude.paths.log), { code: "ENOENT" })
   await assert.rejects(readFile(claude.paths.markdown), { code: "ENOENT" })
   const next = await roundRun({ ...setup, auditor: "claude" }, 0, selections)
-  assert.equal(next.nameStart, "example-step-02..04-02")
+  assert.equal(next.nameStart, "example-impl-02..04-02")
   assert.equal(
     basename(next.paths.markdown),
-    "example-step-02..04-02-1-round.abx.md",
+    "example-impl-02..04-02-1-round.abx.md",
   )
-  assert.equal(basename(next.watch), "example-step-02..04-02-9-watch.oth.md")
+  assert.equal(basename(next.watch), "example-impl-02..04-02-9-watch.oth.md")
   new RoundOutput(next, options).close()
 })
 
@@ -98,24 +98,24 @@ test("only retained round files at the plan root reserve numbers across auditors
       "7-ruling.oth.md",
       "9-watch.abx.md",
     ]) {
-      const path = join(root, `example-step-all-09-${suffix}`)
+      const path = join(root, `example-impl-all-09-${suffix}`)
       await writeFile(path, "")
       const run = await roundRun(setup, 0, selections)
       assert.equal(
         run.nameStart,
-        root === setup.planRoot ? "example-step-all-10" : "example-step-all-01",
+        root === setup.planRoot ? "example-impl-all-10" : "example-impl-all-01",
         path,
       )
       await rm(path)
     }
   }
-  await writeFile(join(f.root, "ROUND-example-step-all-codex-old.md"), "")
-  await writeFile(join(f.root, "example-step-all-99-otm-unknown.md"), "")
-  await writeFile(join(f.root, "example-step-all-other-99-2-audit.otm.md"), "")
-  await mkdir(join(f.root, "example-step-all-99-1-round.otm.md"))
+  await writeFile(join(f.root, "ROUND-example-impl-all-codex-old.md"), "")
+  await writeFile(join(f.root, "example-impl-all-99-otm-unknown.md"), "")
+  await writeFile(join(f.root, "example-impl-all-other-99-2-audit.otm.md"), "")
+  await mkdir(join(f.root, "example-impl-all-99-1-round.otm.md"))
   assert.equal(
     (await roundRun(setup, 0, selections)).nameStart,
-    "example-step-all-01",
+    "example-impl-all-01",
   )
 })
 
@@ -130,12 +130,12 @@ test("a plan-root report survives partial cleanup and full cleanup restarts numb
     await rm(path as string)
   assert.equal(
     (await roundRun(setup, 0, selections)).nameStart,
-    "example-step-all-02",
+    "example-impl-all-02",
   )
   await rm(report)
   assert.equal(
     (await roundRun(setup, 0, selections)).nameStart,
-    "example-step-all-01",
+    "example-impl-all-01",
   )
 })
 
@@ -148,7 +148,7 @@ test("a failed tagged-file open retains the number's claim", async (t) => {
   assert.equal(await readFile(run.paths.claim as string, "utf8"), "")
   assert.equal(
     (await roundRun(setup, 0, selections)).nameStart,
-    "example-step-all-02",
+    "example-impl-all-02",
   )
 })
 
@@ -196,9 +196,9 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
 test("archived plans use their folder and scopes keep separate numbering", async (t) => {
   const f = await fixture(t)
   for (const [scope, target] of [
-    ["all", "step-all"],
-    ["3", "step-03..03"],
-    ["2-4", "step-02..04"],
+    ["all", "impl-all"],
+    ["3", "impl-03..03"],
+    ["2-4", "impl-02..04"],
   ] as const) {
     const run = await roundRun(
       {
@@ -216,10 +216,10 @@ test("archived plans use their folder and scopes keep separate numbering", async
 
 test("a standalone brief reuses the number and overwrites only its pinned writer's log", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-step-all-09-1-round.abx.md")
+  const transcript = join(f.root, "example-impl-all-09-1-round.abx.md")
   await writeFile(transcript, "Original transcript")
   const run = briefRun(transcript, 0, selections)
-  assert.equal(basename(run.paths.log), "example-step-all-09-6-brief.oul.log")
+  assert.equal(basename(run.paths.log), "example-impl-all-09-6-brief.oul.log")
   const first = new RoundOutput(run, options)
   await first.message("First brief")
   first.close()
@@ -282,23 +282,29 @@ test("unspellable phase efforts fail before any claim or output is created", asy
 test("planning rounds number their bare target at the plan root and write there", async (t) => {
   const f = await fixture(t)
   const context = testContext(f.root, "planning")
-  await writeFile(join(context.planRoot, "example-05-0-claim.md"), "")
+  await writeFile(join(context.planRoot, "example-plan-05-0-claim.md"), "")
   const run = await roundRun(
     { ...context, plan: "example-widen.md" },
     0,
     selections,
   )
-  assert.equal(run.nameStart, "example-06")
-  assert.equal(run.paths.claim, join(context.planRoot, "example-06-0-claim.md"))
+  assert.equal(run.nameStart, "example-plan-06")
+  assert.equal(
+    run.paths.claim,
+    join(context.planRoot, "example-plan-06-0-claim.md"),
+  )
   assert.equal(
     run.paths.markdown,
-    join(context.planRoot, "example-06-1-round.oth.md"),
+    join(context.planRoot, "example-plan-06-1-round.oth.md"),
   )
-  assert.equal(run.watch, join(context.planRoot, "example-06-9-watch.oth.md"))
+  assert.equal(
+    run.watch,
+    join(context.planRoot, "example-plan-06-9-watch.oth.md"),
+  )
   const archived = await roundRun(
     { ...context, plan: "archive/topic/plan.md" },
     0,
     selections,
   )
-  assert.equal(archived.nameStart, "topic-01")
+  assert.equal(archived.nameStart, "topic-plan-01")
 })

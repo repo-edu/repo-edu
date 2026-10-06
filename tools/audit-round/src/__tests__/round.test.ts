@@ -43,10 +43,10 @@ const briefPin: PinnedModel = {
 }
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/example-step-all-01-1-round.oth.md`
-const brief = `${repoRoot}/example-step-all-01-6-brief.oul.md`
-const ruling = `${repoRoot}/example-step-all-01-7-ruling.abx.md`
-const watch = `${repoRoot}/example-step-all-01-9-watch.abx.md`
+const transcript = `${repoRoot}/example-impl-all-01-1-round.oth.md`
+const brief = `${repoRoot}/example-impl-all-01-6-brief.oul.md`
+const ruling = `${repoRoot}/example-impl-all-01-7-ruling.abx.md`
+const watch = `${repoRoot}/example-impl-all-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 const recommendation = {
   decision: "continue",
@@ -441,7 +441,7 @@ for (const accepted of [false, true]) {
       const round = controlledRound(async (input) => {
         if (input.phase === "brief")
           assert.deepEqual(round.deletedReports, [
-            { cwd: files.planRoot, nameStart: "example-step-all-01" },
+            { cwd: files.planRoot, nameStart: "example-impl-all-01" },
           ])
       })
       round.evidence.accepted = accepted
@@ -1339,7 +1339,7 @@ test("the round reads each supplied file and records both heads immediately befo
               "example/impl-2 oth feat(audit-round): deliver",
             ]
           : [
-              "example/audit ath growth-none B1: correct the plan",
+              "example/plan-audit ath growth-none B1: correct the plan",
               "example/ready ath: ready",
             ]
       },
@@ -1369,7 +1369,7 @@ test("landed plan corrections do not make an audit clean", async () => {
           ? [
               "example/impl-audit-all oth growth-none d1 fix(audit-round): polish",
             ]
-          : ["example/audit ath growth-none A1C2: correct the plan"],
+          : ["example/plan-audit ath growth-none A1C2: correct the plan"],
     },
   )
   assert.equal(result.status === "finished" && result.cleanAudit, false)
@@ -1450,7 +1450,7 @@ test("every landed subject must parse under its repository's grammar", async () 
         root === repoRoot
           ? ["example/impl-audit-all oth clean: done"]
           : [
-              "example/audit ath growth-none B1 docs(x): a kind on a planning record",
+              "example/plan-audit ath growth-none B1 docs(x): a kind on a planning record",
             ],
     },
   )

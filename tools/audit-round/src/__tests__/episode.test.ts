@@ -17,12 +17,12 @@ import {
 } from "./episode-fixture.js"
 import { commitFixture } from "./round-fixture.js"
 
-test("membership joins historical stems and admits only touched-file rework after the anchor", () => {
+test("membership admits only touched-file rework after the anchor", () => {
   const log = history(
     commit("oth growth-none c1 fix(x): rework", bullet()),
     commit("oth growth-none c1 fix(x): unrelated", bullet(), ["other.ts"]),
-    commit("topology-example/impl-audit-all old C1: older subject", bullet()),
-    commit("plan-example/impl-1 ath feat(x): earlier step", "", ["src/b.ts"]),
+    commit("example/impl-audit-all old C1: older subject", bullet()),
+    commit("example/impl-1 ath feat(x): earlier step", "", ["src/b.ts"]),
   )
   const before = {
     ...correction(),
@@ -37,7 +37,7 @@ test("membership joins historical stems and admits only touched-file rework afte
   )
   assert.equal(data.commits[1].parsed, null)
   assert.deepEqual(data.commits[1].loose, {
-    stem: "topology-example",
+    stem: "example",
     role: "impl-audit-all",
   })
   assert.equal(data.tokens.reach.developer, 2)
@@ -48,13 +48,13 @@ test("joined evidence keeps both heads and applies an explicit anchor only in it
     "repo-edu": history(correction(), correction()),
     plan: history(
       commit(
-        "plan-example/audit ath growth-none C1: change",
+        "example/plan-audit ath growth-none C1: change",
         `- C [field:missing] [section:decisions] ${ratings} Correct.`,
         ["example.md"],
       ),
     ),
   }
-  const data = joinedEpisode(logs, "topology-example", areas, {
+  const data = joinedEpisode(logs, "example", areas, {
     repository: "repo-edu",
     sha: "c000002",
   })
@@ -123,7 +123,7 @@ test("joined totals and repeated growth include findings from both repositories"
       ),
       plan: history(
         commit(
-          "example/audit ath growth-none C1: plan",
+          "example/plan-audit ath growth-none C1: plan",
           `- C [field:missing] [section:decisions] ${tokens} Correct.`,
         ),
       ),
@@ -271,7 +271,7 @@ test("a missing or malformed bullet makes the whole commit unreadable, D include
 
 test("widening candidates require an actual rename back to the widening artifact", () => {
   const widened = commit(
-    "example/audit ath clean: reopen",
+    "example/plan-audit ath clean: reopen",
     "",
     ["example.md", "example-widen.md"],
     [{ from: "example.md", to: "example-widen.md" }],
@@ -303,7 +303,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
       ["commit-tree", tree, "-p", "HEAD"],
       {
         cwd,
-        input: `example/audit ath growth-none C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct.\n`,
+        input: `example/plan-audit ath growth-none C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct.\n`,
       },
     )
     await execa("git", ["update-ref", "HEAD", added], { cwd })
@@ -312,7 +312,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
     await commitFixture(cwd, "example/settle ath: name")
     await rename(join(cwd, "example.md"), join(cwd, "example-widen.md"))
     await execa("git", ["add", "-A"], { cwd })
-    await commitFixture(cwd, "example/audit ath clean: reopen")
+    await commitFixture(cwd, "example/plan-audit ath clean: reopen")
     await commitFixture(cwd, "example/ready ath: empty")
     const log = await readLog(cwd)
     assert.equal(log.length, 5)
