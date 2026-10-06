@@ -146,7 +146,7 @@ Rules across the classes:
 | --- | --- | --- |
 | `init` | plan | first commit recording the plan's initial solution |
 | `audit` | plan | one planning round |
-| `settle` | plan | rename onto the bare topic name, no content change |
+| `settle` | plan | rename onto the bare topic name, correcting only text the rename makes false |
 | `ready` | plan | plan declared ready for implementation, no file change |
 | `impl-<n>` | either | one implementation step, exactly one step per commit |
 | `impl-audit-<scope>` | either | an implementation-audit fix commit or record |
