@@ -250,9 +250,13 @@ completion instead.
 
 ## History reads
 
-Cross-round scans belong to glance and watch. Other phases read history when
-needed to establish a specific finding, prior ruling, a rule's origin or an
-implementation departure.
+Cross-round scans belong to glance and watch. The narrow exception is an
+implementation audit's stop recommendation: it reads the subjects and **Round
+yield** lines of earlier implementation-audit records for the same step scope.
+It uses them only to judge whether the next round on that scope is likely to
+find something worth its cost. It does not compute the episode or classify its
+trajectory. Other phases read history when needed to establish a specific
+finding, prior ruling, a rule's origin or an implementation departure.
 Lifecycle, scope discovery and handoff lookups remain required. This keeps
 current-work review separate from trajectory judgement without withholding
 the evidence a finding needs.
@@ -1015,9 +1019,16 @@ Open by naming `Implementation audit workflow` and include exactly one plain lin
 `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's short audited HEAD. Repos read
 only as evidence stay outside that line. It selects the repos for vet, rebuttal, fix and clean
 completion. The filename holds the writer tag; do not repeat or look up that tag for the opening.
-Then name the plan file, its ready commit and the implementation commits inspected. State the
-round's user-set scope: the whole plan, one step or one step range. Then report the coverage table,
-its coverage line and the **Round yield** lines, followed by the finding field.
+Follow it with exactly one plain line in one of these forms:
+`Stop recommendation: stop. <reason>` or
+`Stop recommendation: continue. <reason>`. The reason judges whether the next
+round on the same scope is likely to find something worth its cost. It weighs
+this round's findings and earlier same-scope records against the supplied stop
+conditions, gives one answer rather than a menu and never replaces the user's
+stop decision. Then name the plan file, its ready commit and the implementation
+commits inspected. State the round's user-set scope: the whole plan, one step or
+one step range. Then report the coverage table, its coverage line and the
+**Round yield** lines, followed by the finding field.
 
 Every finding, including a cross-repo finding, belongs in one `## Findings`
 field. A field with no findings contains exactly `No findings.` instead of

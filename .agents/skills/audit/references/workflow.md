@@ -5,6 +5,7 @@ reads:
   - commit-scope.md
   - ../../../../../plan/GROWTH-PATTERNS.md
   - ../../../../../plan/BOUNDARIES.md
+  - ../../../../../plan/STOP-CONDITIONS.md
 ---
 
 # Implementation audit workflow
@@ -78,14 +79,22 @@ tokens on each finding, including cross-repo deferrals.
 
 ## Evidence
 
-Assess the implementation and draft findings against the supplied growth patterns.
+Assess the implementation and draft findings against the supplied growth
+patterns. Judge the report's stop-or-continue recommendation against the
+supplied stop conditions.
 
 In every judged repo, locate the implementation commits for the user-named
 steps through the joined topic stems. Follow later corrections and the history
 of the files those steps changed, including off-plan corrections, to find the
 evidence needed to judge their current behaviour and recorded departures.
 Read both repos for a both-repo round. This discovers scope evidence; it does
-not compute the watch episode or classify its trajectory.
+not compute the watch episode or classify its trajectory. For the stop
+recommendation only, read the subjects and **Round yield** lines of earlier
+implementation-audit records for the same step scope across the joined topic
+stems. Use them with this round's findings to judge whether the next round on
+this scope is likely to find something worth its cost. Do not extend that
+judgement into an episode grade or a targeted response; those remain the
+watch's work.
 
 When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
 same folder when it exists. It records later outcomes that the frozen plan
@@ -174,8 +183,10 @@ Follow the shared protocol's
 
 Follow the shared round protocol's
 [Report format](../../../references/round-protocol.md#report-format) for the opening, coverage and
-findings. Supply the plan, ready commit, implementation commits and user-set scope from this audit's
-evidence. Deliver the complete report under [Report file](#report-file).
+findings. Supply the plan, ready commit, implementation commits and user-set
+scope from this audit's evidence. Open the report with the one stop-or-continue
+recommendation and its reason in the protocol's exact form. Give one answer,
+not a menu. Deliver the complete report under [Report file](#report-file).
 
 ## Report file
 
