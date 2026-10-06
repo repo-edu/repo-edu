@@ -1321,11 +1321,21 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "--unknown"],
     ["example.md", "--no-brief"],
     ["brief", "ROUND-example.md", "extra"],
+    ["close", "example", "extra"],
+    ["close", "example", "--aborted"],
+    ["close", "example", "--aborted", " "],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
   // A bare command line, -h and --help all reach the same help.
   assert.match(f.errors.join("\n"), /Auditor entry 2 \(other\): expected/)
-  for (const argv of [[], ["-h"], ["--help"], ["brief", "--help"]])
+  for (const argv of [
+    [],
+    ["-h"],
+    ["--help"],
+    ["brief", "--help"],
+    ["close", "--help"],
+    ["plan", "--help"],
+  ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 0)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
@@ -1333,11 +1343,14 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round brief \[options\] \[transcript\]/,
+    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(visible, /Omitted +Options without a target repeat the newest/)
-  assert.doesNotMatch(visible, /^\s+(name|paths|episode|close)\s/m)
-  assert.match(visible, /^\s+brief\s/m)
+  // Hand-run launchers call the housekeeping commands; help shows what a user runs.
+  assert.doesNotMatch(visible, /^\s+(name|paths|episode|delete-reports)\s/m)
+  for (const name of ["brief", "close", "plan"])
+    assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
+  assert.match(visible, /--aborted <reason>/)
   assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /assistant set in settings\.json\s+fixes/)
   assert.match(visible, /plain-words brief/)
@@ -1459,10 +1472,106 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
     0,
     f.errors.join("\n"),
   )
-  assert.deepEqual(JSON.parse(f.visible[0]), {
-    plan: join(f.planRoot, "example.md"),
-  })
+  assert.deepEqual(f.visible, [join(f.planRoot, "example.md")])
   assert.deepEqual(await readdir(f.planRoot), before)
+})
+
+test("close archives the named plan through one close session from the plan checkout", async (t) => {
+  const f = await roundFixture(t)
+  const before = await readdir(f.planRoot)
+  assert.equal(
+    await runCommand(["close", "example-widen.md"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const invocations = (await f.calls()).filter(
+    (call) =>
+      call.args[0] === "exec" ||
+      (call.args[0] === "-p" &&
+        !call.args.includes("--no-session-persistence")),
+  )
+  assert.deepEqual(
+    invocations.map((call) => [call.assistant, call.cwd]),
+    [["codex", f.planRoot]],
+  )
+  // The close writes only its log, under the plan's stem and its own tag.
+  assert.deepEqual(
+    (await readdir(f.planRoot)).filter((name) => !before.includes(name)),
+    ["example-close.ouh.log"],
+  )
+  const log = await readFile(join(f.planRoot, "example-close.ouh.log"), "utf8")
+  assert.match(log, /Close of plan example\.md\n/)
+  assert.match(log, /\[close\] starting codex \(fresh\)/)
+  assert.ok(
+    log.includes(
+      "Run the close phase, the unattended loop-close of one plan, in this fresh session.",
+    ),
+  )
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "ouh", "chosen-model high"])}`,
+    ),
+  )
+  assert.ok(
+    log.includes(
+      `Workflow: ${join(f.planRoot, ".agents/skills/close/references/workflow.md")}`,
+    ),
+  )
+  assert.doesNotMatch(log, /audit +codex|fix +codex|brief +codex/)
+  assert.match(f.visible.join("\n"), /Close finished\./)
+})
+
+test("a finished close that left its plan at the root fails with a resume command", async (t) => {
+  const f = await roundFixture(t)
+  f.phases.close = { ...(f.phases.close as object), remove: [] }
+  await f.configure({ phases: f.phases })
+  assert.equal(await runCommand(["close"], f.runtime, f.options), 1)
+  const log = await readFile(join(f.planRoot, "example-close.ouh.log"), "utf8")
+  assert.match(
+    log,
+    /\[close\] failed: The finished close left .+example\.md at the plan root/,
+  )
+  assert.match(log, /Resume: .*codex .*resume .*close-session/)
+})
+
+test("close without a stem takes the plan that plan prints and passes an abort reason", async (t) => {
+  const f = await roundFixture(t)
+  assert.equal(
+    await runCommand(
+      ["close", "--aborted", "The check cost more than it gave."],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const log = await readFile(join(f.planRoot, "example-close.ouh.log"), "utf8")
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "ouh", "chosen-model high", "The check cost more than it gave."])}`,
+    ),
+  )
+})
+
+test("close refuses paths and plans without an active artifact before any assistant starts", async (t) => {
+  const f = await roundFixture(t)
+  await mkdir(join(f.planRoot, "archive/old"), { recursive: true })
+  await writeFile(join(f.planRoot, "archive/old/plan.md"), "# Old plan\n")
+  assert.equal(
+    await runCommand(["close", "../example"], f.runtime, f.options),
+    2,
+  )
+  for (const stem of ["old", "missing"]) {
+    f.errors.length = 0
+    assert.equal(await runCommand(["close", stem], f.runtime, f.options), 1)
+    assert.match(
+      f.errors.join("\n"),
+      new RegExp(`No active plan named ${stem} .+ already closed`),
+    )
+  }
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
 })
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {

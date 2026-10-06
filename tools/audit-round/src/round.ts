@@ -78,6 +78,18 @@ export type BriefResult =
   | { readonly status: "finished"; readonly brief: string }
   | RoundFailure
 
+export type CloseInput = RoundContext & {
+  /** The active plan the close archives. */
+  readonly plan: string
+  /** The close session's own capability tag and model record for its commits. */
+  readonly tag: string
+  readonly record: string
+  /** Why an episode that never shipped is abandoned; null for a completed plan. */
+  readonly reason: string | null
+}
+
+export type CloseResult = { readonly status: "finished" } | RoundFailure
+
 /** A completed report phase must have written its supplied output. */
 async function reportPhase<R extends PhaseResult>(
   invoke: () => Promise<R>,
@@ -139,6 +151,50 @@ export async function runBrief(
     }
   }
   return { status: "finished", brief: input.brief }
+}
+
+/**
+ * Loop-close runs alone, on its own settings, and belongs to no round. The
+ * session cannot tell its own capability, so it receives the tag and model
+ * record its commits carry; its workflow owns the move, the commits and the
+ * sidecars it deletes.
+ */
+export async function runClose(
+  input: CloseInput,
+  dependencies: Pick<RoundDependencies, "runPhase" | "fileExists">,
+  settings: RoundSettings,
+): Promise<CloseResult> {
+  const run = roundPhases(settings.defaultAuditor, noOverride, settings).close
+  const { cwd, repoEduRoot, planRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const close = await dependencies.runPhase.close({
+    phase: "close",
+    ...run,
+    ...context,
+    arguments:
+      input.reason === null
+        ? [input.plan, input.tag, input.record]
+        : [input.plan, input.tag, input.record, input.reason],
+    sessionId: null,
+  })
+  if (close.status === "failed")
+    return { ...close, phase: "close", ...run, ...context }
+  // The move is the close; a session that finished without it closed nothing.
+  const failed = (reason: string): CloseResult => ({
+    status: "failed",
+    sessionId: close.sessionId,
+    phase: "close",
+    ...run,
+    ...context,
+    reason,
+  })
+  try {
+    if (await dependencies.fileExists(input.plan))
+      return failed(`The finished close left ${input.plan} at the plan root`)
+  } catch (error) {
+    return failed(errorMessage(error))
+  }
+  return { status: "finished" }
 }
 
 /**

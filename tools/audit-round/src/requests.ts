@@ -164,7 +164,12 @@ function formatPhasePrompt(
 ): string {
   const { phase, repoEduRoot, cwd } = input
   const launcher = phaseLauncher(input)
-  const prompt = `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
+  const session = input.sessionId === null ? "fresh" : "resumed"
+  const opening =
+    phase === "close"
+      ? `Run the close phase, the unattended loop-close of one plan, in this ${session} session.`
+      : `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${session} session.`
+  const prompt = `${opening}
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}

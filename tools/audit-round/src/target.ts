@@ -82,15 +82,20 @@ export function commitShaped(value: string): boolean {
   )
 }
 
+/** A plan argument names a stem, never a path. */
+function refusePath(value: string): void {
+  if (/[\\/]/.test(value))
+    throw new InvalidArgumentError(
+      `Name the plan by its stem, such as ${planStem(value.replaceAll("\\", "/"))}, without a path.`,
+    )
+}
+
 /** Git resolution and inclusive-range admission belong to the audit workflow. */
 export function auditTarget(
   first: string,
   rest: readonly string[],
 ): AuditTarget {
-  if (/[\\/]/.test(first))
-    throw new InvalidArgumentError(
-      `Name the plan by its stem, such as ${planStem(first.replaceAll("\\", "/"))}, without a path.`,
-    )
+  refusePath(first)
   if (!commitShaped(first)) {
     if (rest.length > 1)
       throw new InvalidArgumentError("A plan accepts at most one step scope.")
@@ -160,4 +165,19 @@ export async function resolvePlan(
       `Several archived plans have the stem ${stem}:\n${matches.sort().join("\n")}`,
     )
   throw new Error(`No plan named ${stem} at ${planRoot} or in its archive.`)
+}
+
+/** The active plan a close archives. An archived plan is already closed. */
+export async function closingPlan(
+  planRoot: string,
+  value: string,
+): Promise<string> {
+  refusePath(value)
+  const stem = planStem(value)
+  const plan = await activePlan(planRoot, stem)
+  if (plan === null)
+    throw new Error(
+      `No active plan named ${stem} at ${planRoot}. An archived plan is already closed.`,
+    )
+  return plan
 }

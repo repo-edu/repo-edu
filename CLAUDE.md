@@ -348,7 +348,9 @@ reads off a clean one.
 The role token right before the tag says which kind of subject it is, and a
 reader needs that token anyway for the scope and the severity.
 
-The session writes its own tag for work outside a round. A round's fix writes
+The session writes its own tag for work outside a round. A session the runner
+starts cannot read its own effort, so the runner's standalone close receives
+its tag in its phase arguments. A round's fix writes
 the full auditor tag from the report filename. The commit hook, this repo's
 `.husky/commit-msg` or the plan repo's `hooks/commit-msg`, replaces it with
 `COMMIT_AUDITOR` when the runner supplies that value.
@@ -385,9 +387,10 @@ so it would stop being true of the commit it sits in. The effort is one of
 `low`, `medium`, `high` and `xhigh`.
 
 `audit-round` passes the record to the phase that commits, because it holds
-every phase's reported model and that session does not. A session committing on
-its own writes its own line: it knows the model it was told to run and reads its
-effort from the environment.
+every phase's reported model and that session does not. The standalone close is
+no round, so it receives its one-line record in its phase arguments and writes
+it itself. A hand-run session committing on its own writes its own line: it
+knows the model it was told to run and reads its effort from the environment.
 
 Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the
 record when a round supplies it. Each hook refuses any non-merge commit whose

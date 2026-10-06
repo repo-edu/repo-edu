@@ -32,6 +32,13 @@ export const briefRun = (
   selections: Parameters<typeof output.briefRun>[2],
 ) => output.briefRun(transcript, started, selections, testSettings)
 
+export const closeRun = (
+  plan: string,
+  planRoot: string,
+  started: number,
+  selections: Parameters<typeof output.closeRun>[3],
+) => output.closeRun(plan, planRoot, started, selections, testSettings)
+
 export const runRound = (
   input: round.RoundInput,
   dependencies: Parameters<typeof round.runRound>[1],
@@ -41,6 +48,11 @@ export const runBrief = (
   input: round.BriefInput,
   dependencies: Parameters<typeof round.runBrief>[1],
 ) => round.runBrief(input, dependencies, testSettings)
+
+export const runClose = (
+  input: round.CloseInput,
+  dependencies: Parameters<typeof round.runClose>[1],
+) => round.runClose(input, dependencies, testSettings)
 
 export const roundPhases = (
   auditor: phase.Assistant,

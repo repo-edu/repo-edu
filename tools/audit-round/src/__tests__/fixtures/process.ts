@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { appendFile, readFile, writeFile } from "node:fs/promises"
+import { appendFile, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createInterface } from "node:readline"
 import { setTimeout } from "node:timers/promises"
@@ -151,7 +151,7 @@ await appendFile(
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
-  const phase = /^Run the (audit|vet|rebut|fix|brief|watch) phase /.exec(
+  const phase = /^Run the (audit|vet|rebut|fix|brief|watch|close) phase\b/.exec(
     prompt ?? "",
   )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
@@ -235,6 +235,9 @@ for (const commit of scenario.commits ?? [])
     ],
     { cwd: commit.cwd },
   )
+
+// A close moves its plan out of the plan root.
+for (const file of scenario.remove ?? []) await rm(file, { force: true })
 
 if (scenario.usage !== undefined)
   await appendFile(scenario.usage.path, scenario.usage.text)

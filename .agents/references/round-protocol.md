@@ -516,11 +516,11 @@ Audits with no findings use [Direct clean completion](#direct-clean-completion).
 
 ## Runner result
 
-When the prompt identifies an unattended round phase, planning or implementation, follow this rule
-for every ending, including an early stop. It is shared by audit, vet, rebuttal, fix, brief and
-watch. Planning workflows read this whole reference from its Repo Edu home; their
-planning rules stay in the plan repo. Implementation routes may supply local substitutions. Ordinary
-interactive invocations do not add a result line.
+When the prompt identifies an unattended runner phase, a planning or implementation round's or the
+standalone close, follow this rule for every ending, including an early stop. It is shared by audit,
+vet, rebuttal, fix, brief, watch and close. Planning workflows read this whole reference from its
+Repo Edu home; their planning rules stay in the plan repo. Implementation routes may supply local
+substitutions. Ordinary interactive invocations do not add a result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
 Keep it outside any code fence. Audit, vet and rebuttal supply their complete
@@ -538,7 +538,7 @@ tier from both repositories' commit logs.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
-| `finished` | The phase completed its required work. A fix landed its records. A brief wrote its file beside the transcript. | Delete a finished fix's reports under **Deleting reports**, then continue, or finish the run after the watch. |
+| `finished` | The phase completed its required work. A fix landed its records. A brief wrote its file beside the transcript. A close moved its plan and landed its closing commits. | Delete a finished fix's reports under **Deleting reports**, then continue, or finish the run after the watch. |
 | `needs-ruling` | The fix phase wrote the final ruling for its open decisions. | Check and display the ruling file, collect the user's reply and resume the same fix in the background. Only a completed fix proceeds through the normal checks, brief and watch; stopping without a reply retains the round files. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 

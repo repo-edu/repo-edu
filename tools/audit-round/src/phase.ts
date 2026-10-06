@@ -14,7 +14,18 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
   codex: "o",
 }
 
-export type Phase = "audit" | "vet" | "rebut" | "fix" | "brief" | "watch"
+/**
+ * The phases an assistant session can run. All but `close` belong to a round;
+ * `close` runs on its own and closes a plan's loop.
+ */
+export type Phase =
+  | "audit"
+  | "vet"
+  | "rebut"
+  | "fix"
+  | "brief"
+  | "watch"
+  | "close"
 
 /**
  * Each phase's skill name, which names its workflow folder and launchers. The
@@ -27,11 +38,20 @@ export const phaseSkills: Record<Phase, string> = {
   fix: "fix",
   brief: "brief-round",
   watch: "watch",
+  close: "close",
 }
 
-/** Manual and automated phases share one workflow selection. */
+/**
+ * Manual and automated phases share one workflow selection. Loop-close is plan
+ * doctrine, so its workflow lives in the plan checkout beside its launchers.
+ */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
-  const root = transcribed(input.phase) ? input.cwd : input.repoEduRoot
+  const root =
+    input.phase === "close"
+      ? input.planRoot
+      : transcribed(input.phase)
+        ? input.cwd
+        : input.repoEduRoot
   return join(
     root,
     ".agents/skills",
@@ -214,9 +234,9 @@ function phaseModel(
 }
 
 /**
- * The single owner of who runs each phase of a round and on what. The runner
- * invokes from this value and the run's settings header prints it, so what a
- * round says it ran on is what it ran with.
+ * The single owner of who runs each phase and on what, a round's phases and
+ * the close that runs alone. The runner invokes from this value and the run's
+ * settings header prints it, so what a run says it ran on is what it ran with.
  */
 export function roundPhases(
   auditor: Assistant,
@@ -238,6 +258,8 @@ export function roundPhases(
     brief: run("brief", config.phases.brief.assistant),
     // The watch reads the commit record, never the round, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
+    // Loop-close is no part of a round; it runs alone on its own settings.
+    close: run("close", config.phases.close.assistant),
   }
 }
 
@@ -308,6 +330,13 @@ type PhaseArguments = {
     readonly arguments: readonly [watch: string, cacheRoot: string]
     readonly sessionId: null
   }
+  close: {
+    /** An abort reason closes an episode that never shipped. */
+    readonly arguments:
+      | readonly [plan: string, tag: string, record: string]
+      | readonly [plan: string, tag: string, record: string, reason: string]
+    readonly sessionId: null
+  }
 }
 
 type PhaseInputs = {
@@ -350,6 +379,7 @@ type PhaseResults = {
   fix: FixResult
   brief: ReportResult
   watch: ReportResult
+  close: ReportResult
 }
 
 /** Internal results, admitted only after the complete invocation has settled. */
@@ -378,6 +408,8 @@ export type RoundDependencies = {
   readonly readReport: (file: string, kind: RoundKind) => Promise<AuditReport>
   readonly readVet: (file: string, findings: ReportFindings) => Promise<boolean>
   readonly readHead: (root: string) => Promise<string>
+  /** Whether a file exists, which tells a finished close that left its plan in place. */
+  readonly fileExists: (file: string) => Promise<boolean>
   readonly readSubjects: (
     root: string,
     before: string,

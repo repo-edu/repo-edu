@@ -30,7 +30,12 @@ import {
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
 import { recoveryCommand } from "./requests.js"
-import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
+import type {
+  BriefResult,
+  CloseResult,
+  RoundResult,
+  RoundSetup,
+} from "./round.js"
 import {
   type FileKind,
   phaseFilename,
@@ -40,6 +45,7 @@ import {
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { RoundSettings } from "./settings.js"
+import { planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
@@ -115,8 +121,10 @@ export async function roundRun(
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: Phase): string =>
     fileTag(entry(phase), selections, settings)
+  // The close runs alone, so a round never needs its tag.
   for (const phase of Object.keys(phases) as Phase[]) {
-    if (phase !== "brief" || setup.brief === true) tag(phase)
+    if (phase !== "close" && (phase !== "brief" || setup.brief === true))
+      tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
   const path = (kind: FileKind, phase: Phase) =>
@@ -182,6 +190,44 @@ export function briefRun(
     paths: {
       claim: null,
       log: `${base}.log`,
+      markdown: null,
+    },
+    started,
+  }
+}
+
+/**
+ * A close logs at the plan root under the plan's stem and keeps no transcript.
+ * Its session cannot tell its own capability, so the run hands it the tag and
+ * model record its commits carry.
+ */
+export function closeRun(
+  plan: string,
+  planRoot: string,
+  started: number,
+  selections: Record<Assistant, CliModels>,
+  settings: RoundSettings,
+): Run & { readonly tag: string; readonly record: string } {
+  const phase = {
+    phase: "close",
+    ...roundPhases(settings.defaultAuditor, noOverride, settings).close,
+  } as const
+  const tag = fileTag(phase, selections, settings)
+  const { model, effort } = phaseSelection(
+    phase.model,
+    selections[phase.assistant],
+  )
+  return {
+    tag,
+    record: `${model} ${effort}`,
+    name: "Close",
+    title: `Close of plan ${basename(plan)}`,
+    phases: [phase],
+    settings,
+    selections,
+    paths: {
+      claim: null,
+      log: join(planRoot, `${planStem(plan)}-close.${tag}.log`),
       markdown: null,
     },
     started,
@@ -437,7 +483,7 @@ export class RoundOutput<R extends Run = Run> {
     this.transcribe(`## User ruling\n\n${reply}\n`)
   }
 
-  finish(result: RoundResult | BriefResult): void {
+  finish(result: RoundResult | BriefResult | CloseResult): void {
     this.release()
     if (result.status === "failed") {
       const resume =

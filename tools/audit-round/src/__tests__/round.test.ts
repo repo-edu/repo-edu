@@ -22,6 +22,7 @@ import {
   type PinnedModel,
   type RoundDependencies,
   runBrief,
+  runClose,
   runRound,
   unpinned,
 } from "./configured-runner.js"
@@ -96,6 +97,8 @@ function controlledRound(
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
   let grade: WatchGrade = "green"
+  // A close that finished moved its plan unless a test leaves it in place.
+  let planRemains = false
   const results: { [P in Phase]: PhaseResult<P> } = {
     audit: {
       status: "finished",
@@ -117,6 +120,10 @@ function controlledRound(
     watch: {
       status: "finished",
       sessionId: "watch-session",
+    },
+    close: {
+      status: "finished",
+      sessionId: "close-session",
     },
   }
   async function record(input: PhaseInput) {
@@ -158,6 +165,7 @@ function controlledRound(
     }),
     readVet: async () => evidence.accepted,
     readHead: async (root) => `before-${root}`,
+    fileExists: async () => planRemains,
     readSubjects: async (root) => (root === repoRoot ? evidence.subjects : []),
     runPhase: {
       async audit(input) {
@@ -183,6 +191,10 @@ function controlledRound(
       async watch(input) {
         await record(input)
         return results.watch
+      },
+      async close(input) {
+        await record(input)
+        return results.close
       },
     },
     async glance(input) {
@@ -211,6 +223,9 @@ function controlledRound(
     },
     grade(recorded: WatchGrade) {
       grade = recorded
+    },
+    leavePlan() {
+      planRemains = true
     },
   }
 }
@@ -303,7 +318,7 @@ test("clarification can leave a decision open without creating a new fix session
   assert.equal(round.deletedReports.length, 1)
 })
 
-test("a resumed fix failure retains the session and never closes the reports", async () => {
+test("a resumed fix failure retains the session and never deletes the reports", async () => {
   const round = controlledRound()
   round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
   const result = await runRound(
@@ -422,7 +437,7 @@ for (const accepted of [false, true]) {
     { plan: "example.md", scope: "all" },
     { commits: ["HEAD"] as const },
   ]) {
-    test(`a finished ${"plan" in target ? "plan" : "commit"} fix closes once before the brief with accepted=${accepted}`, async () => {
+    test(`a finished ${"plan" in target ? "plan" : "commit"} fix deletes its reports once before the brief with accepted=${accepted}`, async () => {
       const round = controlledRound(async (input) => {
         if (input.phase === "brief")
           assert.deepEqual(round.deletedReports, [
@@ -1202,6 +1217,91 @@ test("a brief on its own runs only the brief phase over the named transcript", a
     },
   ])
   assert.deepEqual(round.rulings, [])
+})
+
+for (const reason of [null, "The check cost more than it gave."]) {
+  test(`a close${reason === null ? "" : " with an abort reason"} runs only the close phase from the plan checkout`, async () => {
+    const round = controlledRound()
+    const context = testContext(repoRoot, "planning")
+    const plan = join(context.planRoot, "example.md")
+
+    const result = await runClose(
+      { ...context, plan, tag: "obh", record: "gpt-6-astra high", reason },
+      round.dependencies,
+    )
+
+    assert.deepEqual(result, { status: "finished" })
+    assert.deepEqual(round.calls, [
+      {
+        phase: "close",
+        assistant: "codex",
+        model: unpinned,
+        ...context,
+        arguments:
+          reason === null
+            ? [plan, "obh", "gpt-6-astra high"]
+            : [plan, "obh", "gpt-6-astra high", reason],
+        sessionId: null,
+      },
+    ])
+    assert.equal(
+      phaseWorkflow(round.calls[0]),
+      join(context.planRoot, ".agents/skills/close/references/workflow.md"),
+    )
+  })
+}
+
+test("a failed close keeps its session for recovery", async () => {
+  const round = controlledRound()
+  round.results.close = {
+    status: "failed",
+    sessionId: "close-session",
+    reason: "No shared folder for the peer plan",
+  }
+  const context = testContext(repoRoot, "planning")
+
+  const result = await runClose(
+    {
+      ...context,
+      plan: join(context.planRoot, "example.md"),
+      tag: "obh",
+      record: "gpt-6-astra high",
+      reason: null,
+    },
+    round.dependencies,
+  )
+
+  assert.deepEqual(result, {
+    status: "failed",
+    sessionId: "close-session",
+    reason: "No shared folder for the peer plan",
+    phase: "close",
+    assistant: "codex",
+    model: unpinned,
+    ...context,
+  })
+})
+
+test("a finished close that left its plan at the root fails with its session", async () => {
+  const round = controlledRound()
+  round.leavePlan()
+  const context = testContext(repoRoot, "planning")
+  const plan = join(context.planRoot, "example.md")
+
+  const result = await runClose(
+    { ...context, plan, tag: "obh", record: "gpt-6-astra high", reason: null },
+    round.dependencies,
+  )
+
+  assert.deepEqual(result, {
+    status: "failed",
+    sessionId: "close-session",
+    phase: "close",
+    assistant: "codex",
+    model: unpinned,
+    ...context,
+    reason: `The finished close left ${plan} at the plan root`,
+  })
 })
 
 test("the round reads each supplied file and records both heads immediately before the fix", async () => {

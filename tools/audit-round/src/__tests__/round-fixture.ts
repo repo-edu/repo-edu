@@ -148,8 +148,9 @@ export async function roundFixture(
     "fix",
     "brief",
     "watch",
+    "close",
   ] as const) {
-    const assistant = ["fix", "brief", "watch"].includes(phase)
+    const assistant = ["fix", "brief", "watch", "close"].includes(phase)
       ? "codex"
       : phase === "vet"
         ? auditor === "codex"
@@ -169,7 +170,9 @@ export async function roundFixture(
               ? ruling
                 ? { text: "Written ruling by fix" }
                 : undefined
-              : { text: `Written ${phase}` },
+              : phase === "close"
+                ? undefined
+                : { text: `Written ${phase}` },
       commits:
         phase === "fix" && !ruling
           ? [
@@ -182,6 +185,7 @@ export async function roundFixture(
               },
             ]
           : [],
+      remove: phase === "close" ? [join(planRoot, "example.md")] : [],
       stream: await phaseStream(assistant, final, sessionId),
       // Either CLI may run a phase when the next auditor changes, so both answer.
       assistants: {

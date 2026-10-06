@@ -45,6 +45,11 @@
       "assistant": "codex",
       "model": null,
       "effort": null
+    },
+    "close": {
+      "assistant": "codex",
+      "model": null,
+      "effort": null
     }
   }
 }

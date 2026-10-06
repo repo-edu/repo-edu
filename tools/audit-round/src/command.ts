@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { readFile, stat } from "node:fs/promises"
 import { join } from "node:path"
 import {
   Command,
@@ -16,6 +16,7 @@ import { errorMessage } from "./feedback.js"
 import { readWatchGrade, runGlance } from "./glance.js"
 import {
   briefRun,
+  closeRun,
   type OutputOptions,
   RoundOutput,
   type Run,
@@ -39,8 +40,10 @@ import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
+  type CloseResult,
   type RoundResult,
   runBrief,
+  runClose,
   runRound,
 } from "./round.js"
 import {
@@ -58,7 +61,12 @@ import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-import { auditTarget, resolvePlan, roundContext } from "./target.js"
+import {
+  auditTarget,
+  closingPlan,
+  resolvePlan,
+  roundContext,
+} from "./target.js"
 import { readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
@@ -99,6 +107,14 @@ type Invocation =
       readonly transcript?: string
       readonly verbose?: boolean
     }
+  | {
+      readonly kind: "close"
+      /** Absent when the close takes the plan `plan` prints. */
+      readonly stem?: string
+      /** Present when the episode never shipped, carrying why. */
+      readonly aborted?: string
+      readonly verbose?: boolean
+    }
 
 function sessionTag(value: string): string {
   if (!/^[ao][btu][lmhx]$/.test(value))
@@ -123,7 +139,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round brief [options] [transcript]",
+      "[options] [target] [scope-or-commits...]\n       audit-round brief [options] [transcript]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -171,9 +187,10 @@ Targets and scope:
   Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to> in Repo Edu.
            HEAD-1 is the previous first-parent commit. Ranges include both ends.
   Omitted  Options without a target repeat the newest unfinished audit. The plan is
-           the active one with the newest stem commit in either repo. A planning
-           commit repeats the planning audit; an implementation audit that was not
-           clean repeats its scope. Anything else stops: name the next scope.
+           the active one with the newest stem commit in either repo, which
+           audit-round plan prints. A planning commit repeats the planning audit;
+           an implementation audit that was not clean repeats its scope. Anything
+           else stops: name the next scope.
 
 Auditor selection (--auditor <selections>):
   <selections> is a list of names or tags, separated by commas or spaces.
@@ -258,7 +275,7 @@ Examples (from either checkout):
 
      $ pnpm audit-round --auditor codex
 
-Use pnpm audit-round brief --help for the brief's arguments and options.`,
+Use pnpm audit-round brief --help or close --help for their arguments and options.`,
     )
     .action(
       (
@@ -352,9 +369,9 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
       invocation = { kind: "episode", target }
     })
   command
-    .command("plan", { hidden: true })
+    .command("plan")
     .description(
-      "Print the plan an omitted stem names, as a round given no target selects it.",
+      "Print the plan a round or close given no stem takes: the active plan with the newest stem commit.",
     )
     .action(() => {
       invocation = { kind: "plan" }
@@ -391,6 +408,33 @@ Use pnpm audit-round brief --help for the brief's arguments and options.`,
     .action((transcript: string | undefined, flags: { verbose?: boolean }) => {
       invocation = { kind: "brief", transcript, ...flags }
     })
+  command
+    .command("close")
+    .description(
+      "Close a plan's loop: archive the plan, write each repo's closed commit and delete its sidecars.",
+    )
+    .argument(
+      "[stem]",
+      "the active plan to close; defaults to the plan audit-round plan prints",
+    )
+    .option(
+      "--aborted <reason>",
+      "archive an episode that never shipped under archive/aborted/, recording why",
+      (value: string) => {
+        if (value.trim().length === 0)
+          throw new InvalidArgumentError("Expected the reason for the abort.")
+        return value
+      },
+    )
+    .option("-v, --verbose", "show tool calls as well as assistant text")
+    .action(
+      (
+        stem: string | undefined,
+        flags: { aborted?: string; verbose?: boolean },
+      ) => {
+        invocation = { kind: "close", stem, ...flags }
+      },
+    )
   try {
     // A bare command line asks for help rather than reporting a missing plan.
     command.parse(argv.length === 0 ? ["--help"] : [...argv], { from: "user" })
@@ -416,7 +460,7 @@ export async function runCommand(
   const invocation = parseInvocation(argv, options)
   if (typeof invocation === "number") return invocation
   let output: RoundOutput | undefined
-  let result: RoundResult | BriefResult | undefined
+  let result: RoundResult | BriefResult | CloseResult | undefined
   let code = 1
   const now = options.now ?? Date.now
   try {
@@ -428,9 +472,7 @@ export async function runCommand(
       return 0
     }
     if (invocation.kind === "plan") {
-      options.terminal.write(
-        JSON.stringify({ plan: await defaultPlan(context) }),
-      )
+      options.terminal.write(await defaultPlan(context))
       return 0
     }
     if (invocation.kind === "delete-reports") {
@@ -477,13 +519,21 @@ export async function runCommand(
                 : (await roundDocument(context, invocation.transcript, "round"))
                     .path,
           }
-        : {
-            ...invocation,
-            target:
-              invocation.first === undefined
-                ? await defaultTarget(context)
-                : auditTarget(invocation.first, invocation.rest),
-          }
+        : invocation.kind === "close"
+          ? {
+              ...invocation,
+              plan:
+                invocation.stem === undefined
+                  ? await defaultPlan(context)
+                  : await closingPlan(context.planRoot, invocation.stem),
+            }
+          : {
+              ...invocation,
+              target:
+                invocation.first === undefined
+                  ? await defaultTarget(context)
+                  : auditTarget(invocation.first, invocation.rest),
+            }
     if (
       prepared.kind === "round" &&
       "commits" in prepared.target &&
@@ -492,7 +542,10 @@ export async function runCommand(
       throw new InvalidArgumentError(
         "Commit audits run once. Multiple auditors require a plan target.",
       )
-    if (prepared.kind !== "brief" && "plan" in prepared.target)
+    if (
+      (prepared.kind === "round" || prepared.kind === "name") &&
+      "plan" in prepared.target
+    )
       prepared.target = {
         ...prepared.target,
         plan: await resolvePlan(context.planRoot, prepared.target.plan),
@@ -529,11 +582,14 @@ export async function runCommand(
       )
       return 0
     }
+    // The close moves the plan and commits in the plan checkout first.
     const session = roundContext(
       context,
       prepared.kind === "brief"
         ? await transcriptKind(prepared.transcript)
-        : prepared.target.roundKind,
+        : prepared.kind === "close"
+          ? "planning"
+          : prepared.target.roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
@@ -589,6 +645,15 @@ export async function runCommand(
         readVet(await readFile(file, "utf8"), findings),
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
+      fileExists: async (file) => {
+        try {
+          await stat(file)
+          return true
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return false
+          throw error
+        }
+      },
       readSubjects: async (cwd, before) => {
         const { stdout } = await execa(
           "git",
@@ -635,6 +700,27 @@ export async function runCommand(
           ...session,
           transcript,
           brief: run.brief,
+        },
+        dependenciesFor(active),
+        settings,
+      )
+      active.finish(result)
+    } else if (prepared.kind === "close") {
+      const run = closeRun(
+        prepared.plan,
+        context.planRoot,
+        now(),
+        selections,
+        settings,
+      )
+      const active = open(run)
+      result = await runClose(
+        {
+          ...session,
+          plan: prepared.plan,
+          tag: run.tag,
+          record: run.record,
+          reason: prepared.aborted ?? null,
         },
         dependenciesFor(active),
         settings,
