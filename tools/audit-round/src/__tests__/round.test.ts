@@ -16,7 +16,6 @@ import {
 import { phaseWorkflow } from "../phase.js"
 import {
   type Assistant,
-  type FinalRecommendationInput,
   type Phase,
   type PhaseInput,
   type PhaseResult,
@@ -99,7 +98,6 @@ function controlledRound(
   const watchEvidence: WatchEvidenceInput[] = []
   const rulings: string[] = []
   const briefs: string[] = []
-  const finalRecommendations: FinalRecommendationInput[] = []
   const watchGrades: { cacheRoot: string; stem: string }[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
@@ -182,14 +180,11 @@ function controlledRound(
             message: subject,
           }))
         : [],
-    finalRecommendation: async (input) => {
-      finalRecommendations.push(input)
-      return {
-        status: "finished",
-        sessionId: input.sessionId,
-        recommendation,
-      }
-    },
+    finalRecommendation: async (input) => ({
+      status: "finished",
+      sessionId: input.sessionId,
+      recommendation,
+    }),
     runPhase: {
       async audit(input) {
         await record(input)
@@ -238,7 +233,6 @@ function controlledRound(
     watchGrades,
     rulings,
     briefs,
-    finalRecommendations,
     results,
     dependencies,
     evidence,

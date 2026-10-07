@@ -277,9 +277,9 @@ and time lines of earlier records for its own target. An implementation audit
 reads implementation-audit records for the same step scope. A detailing audit
 reads this plan's planning records after the latest `settle` commit, or after
 `init` when the plan started at the bare name. It reads no widening records and
-no records for another plan. The audit uses this history only to judge whether
-the next round on that target is likely to find something worth its cost and
-which assistant should run it. It does not compute the episode or classify its
+no records for another plan. The audit uses this history only to choose
+between a Claude round, a Codex round and stopping on that target. It does not
+compute the episode or classify its
 trajectory. Other phases read history when needed to establish a specific
 finding, prior ruling, a rule's origin or an implementation departure.
 Lifecycle, scope discovery and handoff lookups remain required. This keeps
@@ -301,11 +301,14 @@ Recommendation: continue with Claude. <reason>
 Recommendation: continue with Codex. <reason>
 ```
 
-The reason judges whether the next round on the same target is likely to find
-something worth its cost. It weighs this round's findings and the target
-history allowed by [History reads](#history-reads) against
-`STOP-CONDITIONS.md`. When continuing, it explains why the named assistant is
-the better next check. Give one answer rather than a menu. In an automatic
+The line picks one of three options for the same target: a Claude round, a
+Codex round or stop. The auditor estimates each round's likely yield and cost
+separately, from this round's findings and the target history allowed by
+[History reads](#history-reads), against `STOP-CONDITIONS.md`. It continues
+with the round whose yield is most worth its cost and stops when neither round
+is worth its cost. A stop needs no clean round. The reason states both
+estimates and why the chosen option beats the other two. Give one answer rather
+than a menu. In an automatic
 series, the assistant name selects that assistant's audit model and effort from
 the runner settings; the recommendation never chooses a model or effort itself.
 It advises the user's stop decision and does not replace it.

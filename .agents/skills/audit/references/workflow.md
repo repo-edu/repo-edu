@@ -89,9 +89,9 @@ Read both repos for a both-repo round. This discovers scope evidence; it does
 not compute the watch episode or classify its trajectory. For the
 recommendation only, read the subjects, **Round yield** lines and time lines of
 earlier implementation-audit records for the same step scope across the joined
-topic stems. Use them with this round's findings to judge whether the next round
-on this scope is likely to find something worth its cost and whether Claude or
-Codex is the better next check. The time lines measure that cost; Repo Edu's
+topic stems. Use them with this round's findings to estimate the yield and cost
+of a Claude round and of a Codex round on this scope and to choose between them
+and stopping. The time lines measure that cost; Repo Edu's
 `CLAUDE.md` **Commit Model Record** defines them. Do not extend that judgement
 into an episode grade or a targeted response; those remain the watch's work.
 
