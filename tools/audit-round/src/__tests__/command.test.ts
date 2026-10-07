@@ -294,6 +294,57 @@ test("an automatic series follows the recommended switch and ends on stop withou
   )
 })
 
+test("an automatic series continues on an archived plan", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    "b",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  const source = await readFile(f.report, "utf8")
+  const codex = join(f.root, "codex-report.md")
+  const claude = join(f.root, "claude-report.md")
+  await writeFile(
+    codex,
+    source.replace(
+      "Recommendation: continue with Codex. Another round is worth its cost.",
+      "Recommendation: continue with Claude. Claude should check the archived plan.",
+    ),
+  )
+  await writeFile(
+    claude,
+    source.replace(
+      "Recommendation: continue with Codex. Another round is worth its cost.",
+      "Recommendation: stop. The archived plan needs no further round.",
+    ),
+  )
+  await configureAuditReports(f, { claude, codex })
+  const archive = join(f.planRoot, "archive/example")
+  const archivedPlan = join(archive, "plan.md")
+  await mkdir(archive, { recursive: true })
+  await rm(join(f.planRoot, "example-widen.md"))
+  await rename(join(f.planRoot, "example.md"), archivedPlan)
+
+  assert.equal(
+    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["codex", "claude"],
+  )
+  assert.ok(audits.every((call) => call.prompt.includes(archivedPlan)))
+})
+
 test("--first replaces the default auditor's first round and the series still follows recommendations", async (t) => {
   const f = await roundFixture(
     t,

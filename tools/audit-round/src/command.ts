@@ -63,9 +63,9 @@ import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
-  activePlan,
   closingPlan,
   planStem,
+  resolvePlan,
   roundContext,
   targetRequest,
 } from "./target.js"
@@ -804,11 +804,7 @@ export async function runCommand(
         do {
           if (completed > 0 && "plan" in target) {
             const stem = planStem(target.plan)
-            const plan = await activePlan(context.planRoot, stem)
-            if (plan === null)
-              throw new Error(
-                `No active plan named ${stem} at ${context.planRoot}.`,
-              )
+            const plan = await resolvePlan(context.planRoot, stem)
             target = { ...target, plan }
             if (automatic && basename(plan).endsWith("-widen.md")) {
               await output?.message(
