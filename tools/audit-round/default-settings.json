@@ -1,5 +1,6 @@
 {
     "defaultAuditor": "claude",
+    "maximumAutomaticRounds": 10,
     "strengthModels": {
         "claude": {
             "base": "opus",

@@ -1,3 +1,4 @@
+import { basename } from "node:path"
 import { errorMessage } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
 import type { RoundDocuments } from "./output.js"
@@ -14,7 +15,7 @@ import {
   type RoundDependencies,
   roundPhases,
 } from "./phase.js"
-import type { AuditReport, StopRecommendation } from "./report.js"
+import type { AuditReport, RoundRecommendation } from "./report.js"
 import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
@@ -27,6 +28,8 @@ export type RoundSetup = RoundContext & {
   readonly override?: AuditorOverride
   /** True adds the brief to every round in the command; absent runs none. */
   readonly brief?: boolean
+  /** True only when this round belongs to the recommendation-led series. */
+  readonly automatic?: boolean
 } & AuditTarget
 
 /** Where a watch that follows the round writes, and where it keeps its history. */
@@ -62,8 +65,8 @@ export type RoundResult =
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
-      /** The implementation auditor's advice; planning rounds have none. */
-      readonly recommendation: StopRecommendation | null
+      /** The settled auditor's advice; widening rounds have none. */
+      readonly recommendation: RoundRecommendation | null
       /** The grade the watch that followed the round recorded; null when none ran. */
       readonly watch: WatchGrade | null
     }
@@ -280,20 +283,20 @@ export async function runRound(
   )
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const auditInput: PhaseInput<"audit"> = {
+    phase: "audit",
+    ...phases.audit,
+    ...context,
+    arguments:
+      "commits" in input
+        ? [input.documents.report, ...input.commits]
+        : input.roundKind === "planning"
+          ? [input.documents.report, input.plan]
+          : [input.documents.report, input.plan, input.scope],
+    sessionId: null,
+  }
   const audit = await reportPhase(
-    () =>
-      dependencies.runPhase.audit({
-        phase: "audit",
-        ...phases.audit,
-        ...context,
-        arguments:
-          "commits" in input
-            ? [input.documents.report, ...input.commits]
-            : input.roundKind === "planning"
-              ? [input.documents.report, input.plan]
-              : [input.documents.report, input.plan, input.scope],
-        sessionId: null,
-      }),
+    () => dependencies.runPhase.audit(auditInput),
     input.documents.report,
     dependencies,
   )
@@ -304,7 +307,14 @@ export async function runRound(
   const report = input.documents.report
   let evidence: AuditReport
   try {
-    evidence = await dependencies.readReport(report, roundKind)
+    evidence = await dependencies.readReport(
+      report,
+      roundKind === "implementation"
+        ? "implementation"
+        : basename(input.plan).endsWith("-widen.md")
+          ? "widening"
+          : "detailing",
+    )
   } catch (error) {
     return {
       status: "failed",
@@ -343,6 +353,7 @@ export async function runRound(
     }
   }
   const twins = [input.documents.vet]
+  let rebutted = false
   {
     const vet = await reportPhase(
       () =>
@@ -393,6 +404,7 @@ export async function runRound(
         return { ...rebut, phase: "rebut", ...phases.rebut, ...context }
       }
       twins.push(input.documents.rebut)
+      rebutted = true
     }
   }
 
@@ -446,25 +458,58 @@ export async function runRound(
 
     if (fix.status === "finished") {
       try {
+        const landed = await Promise.all(
+          repositories.map(({ root, repository }, index) =>
+            dependencies.readRecords(root, before[index], repository),
+          ),
+        )
+        if ("plan" in input && landed.every((records) => records.length === 0))
+          throw new Error("The finished fix landed no commit for a plan target")
+        for (const [index, records] of landed.entries()) {
+          for (const { subject } of records) {
+            parseSubject(subject, repositories[index].repository)
+          }
+        }
+        if (input.automatic === true && rebutted) {
+          let vet: string
+          let rebuttal: string
+          try {
+            const documents = await Promise.all([
+              dependencies.readDocument(input.documents.vet),
+              dependencies.readDocument(input.documents.rebut),
+            ])
+            vet = documents[0]
+            rebuttal = documents[1]
+          } catch (error) {
+            return {
+              status: "failed",
+              sessionId: audit.sessionId,
+              phase: "audit",
+              ...phases.audit,
+              ...context,
+              reason: errorMessage(error),
+            }
+          }
+          const final = await dependencies.finalRecommendation({
+            ...auditInput,
+            sessionId: audit.sessionId,
+            vet,
+            rebuttal,
+            records: landed.flat(),
+          })
+          if (final.status === "failed")
+            return {
+              ...final,
+              phase: "audit",
+              ...phases.audit,
+              ...context,
+            }
+          evidence = { ...evidence, recommendation: final.recommendation }
+        }
         await dependencies.deleteRoundReports(
           planRoot,
           transcriptNameStart(input.transcript),
         )
-        const landed = await Promise.all(
-          repositories.map(({ root }, index) =>
-            dependencies.readSubjects(root, before[index]),
-          ),
-        )
-        if (
-          "plan" in input &&
-          landed.every((subjects) => subjects.length === 0)
-        )
-          throw new Error("The finished fix landed no commit for a plan target")
-        for (const [index, subjects] of landed.entries()) {
-          for (const subject of subjects) {
-            parseSubject(subject, repositories[index].repository)
-          }
-        }
       } catch (error) {
         return {
           status: "failed",

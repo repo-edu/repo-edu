@@ -45,15 +45,17 @@ consumers.
   the watch finishes, `runWatch` reads back the grade it recorded; a watch that leaves no readable
   entry fails its phase. A finished round reports that grade, and the command runner ends the
   auditor sequence on red, so no queued round starts before the user acts on the watch. A
-  finished round reports whether its audit had no findings and carries the report's stop
+  finished round reports whether its audit had no findings and carries the settled report's
   recommendation, independently of any clean record the fix lands. The command runner prints every
-  completed implementation recommendation. A clean audit or stop recommendation skips later
-  entries that resolve to the same assistant, model and effort; a continue recommendation skips
-  none. The round records both repositories' HEADs before the fix and validates every landed
+  completed detailing or implementation recommendation. In an automatic round whose rebuttal ran,
+  the coordinator resumes the audit session after the fix with the vet, rebuttal and full landed
+  commit records. The auditor returns one final recommendation without reading or writing files,
+  and that recommendation replaces the report's. A `--auditor` round runs no final turn. The round
+  records both repositories' HEADs before the fix, reads the landed records and validates every
   subject under its repository's grammar. A plan target fails when a finished fix landed no commit.
   A commit target may land nothing. Reader failures retain the owning phase and its session for
-  recovery. As soon as a fix returns `finished`, the coordinator deletes the report set through its
-  dependency, before reading landed subjects or running the brief. Other outcomes retain the set.
+  recovery. The coordinator deletes the report set only after these checks and any final
+  recommendation, then runs the brief. Other outcomes retain the set.
   `runClose` runs the loop-close phase alone on its own settings. It passes the active plan, the
   capability tag and model record its commits carry and any abort reason. A finished close that
   left its plan at the root fails, because the move is the close.
@@ -67,8 +69,9 @@ consumers.
   fictitious fix session or resume command. `target.ts` supplies the plan stem
   shared by output naming and clean records, including archived plans.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
-  It reads the implementation report's one stop-or-continue recommendation beside its judged repos.
-  Its prefix must be plain text; its reason keeps formatted words as written. Planning reports have
+  It reads the one recommendation from detailing and implementation reports and skips it for
+  widening reports. Its prefix must be plain text; its reason keeps formatted words as written. It
+  also admits the resumed auditor's exact one-line final recommendation. Planning reports have
   Excess functionality and Missing functionality fields; implementation reports have one Findings
   field including deferred findings. Each holds numbered finding blocks or its exact empty-field
   sentence. Quoted evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict
@@ -303,22 +306,22 @@ consumers.
   assistant or settings discovery. So the program carries an action handler, Commander adds no
   `help` command, and each command's own `-h` prints its help. A bare command line prints that help;
   options without a target take `defaultTarget`. It also owns the round sequence and its counter.
-  The first `--auditor` entry, or the configured default when the option is absent, runs first. For
-  a plan target the remaining entries seed the target's queue file, which the user may edit while
-  rounds run. Between rounds the sequence takes the queue's first entry, so the queue is the only
-  round limit. Every completed implementation round prints the stop-or-continue recommendation and
-  its reason. An audit with no findings or a stop recommendation removes queued entries that resolve
-  to that round's assistant, model and effort. Other settings remain, and a continue recommendation
-  removes nothing. A fix that lands a clean record removes none. Failure, a round requiring a
-  ruling, a red watch or an empty queue stops the sequence, and the queue file is deleted however
-  the sequence ends. A commit target runs once and keeps no queue. Each round prints the queue's
-  path and contents when it opens. Each round records its own file pair and the coordinator has no
-  filesystem side effects: it opens one output per round, retires the previous one first, and reads
-  updates and settings once for the whole run before opening any files. Startup messages go only to
-  the terminal; the run log begins with the models table. A chained round carries its place in its
-  title and independently claims the next number for its target. Required write failures stop phase
-  progression. If recording itself fails, the emergency channel still reports the known session and
-  recovery command.
+  Without `--auditor`, a settled plan target runs an automatic series. The configured default runs
+  first, then each continue recommendation names the next assistant. The series writes no queue and
+  ends on a stop, the configured maximum, a failure, an unanswered ruling or a red watch. Widening
+  and commit targets run once. With `--auditor`, the first entry runs first and the remaining
+  entries on a plan target seed its editable queue. A clean audit or stop recommendation removes
+  queued entries that resolve to that round's assistant, model and effort. Other settings remain and
+  a continue recommendation removes nothing. A fix that lands a clean record removes none. Failure,
+  a round requiring a ruling, a red watch or an empty queue stops the manual sequence, and the queue
+  file is deleted however the sequence ends. Each manual round prints the queue's path and contents
+  when it opens. Every settled round prints its recommendation and reason. Each round records its
+  own file pair and the coordinator has no filesystem side effects: it opens one output per round,
+  retires the previous one first, and reads updates and settings once for the whole run before
+  opening any files. Startup messages go only to the terminal; the run log begins with the models
+  table. A chained round carries its place in its title and independently claims the next number for
+  its target. Required write failures stop phase progression. If recording itself fails, the
+  emergency channel still reports the known session and recovery command.
 - `queue.ts` owns the queue file's contents and the entry grammar `--auditor` shares: names or tags
   separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries keep the user's
   spelling, so a rewrite changes only which entries remain. It resolves each entry through the same
@@ -371,6 +374,8 @@ defaults. An invalid file stops the command with a validation error and is
 left unchanged.
 
 - `defaultAuditor` selects Claude or Codex when `--auditor` is absent.
+- `maximumAutomaticRounds` limits a settled plan's automatic series, counting
+  its first round.
 - `strengthModels` maps each assistant's base and top tiers to a model name.
   The same names classify reported models for capability tags. A family alias
   such as `opus` follows the CLI's current release; a full model name pins it.
@@ -478,16 +483,18 @@ at the commit record, and a due glance adds a `-watch.md` document. The watch ke
 in the shared cache, which is how its cadence survives between rounds, and `--no-watch` skips both.
 `brief` accepts an earlier transcript at the plan root, or takes the most recently modified one when
 none is named. It reads its kind from the transcript title, writes beside it without claiming a new
-number and overwrites its standalone log on each run. `--auditor` accepts one selection or a
-sequence on the named plan scope, separated by commas or spaces. Repeated entries request separate
-rounds. The entries after the current round wait in `<target>-queue.md` at the plan root. Edit it
-to add, remove or reorder rounds; the runner reads it between rounds and deletes it when the
-sequence ends. An empty or deleted file ends the sequence after the current round. Every completed
-implementation round prints its recommendation and reason. A clean audit or stop recommendation
-skips queued entries with the same resolved assistant, model and effort; other settings remain. A
-continue recommendation skips none. Failure or leaving a ruling without a reply stops the sequence.
-A submitted reply resumes the fix, then the queue after the round completes. Each header records
-the round's start time; filenames carry no timestamp.
+number and overwrites its standalone log on each run. Without `--auditor`, a settled plan runs an
+automatic series from the configured default, follows each recommendation and stops at its maximum
+without writing a queue. Widening and commit targets run once. `--auditor` accepts one selection or
+a sequence on the named plan scope, separated by commas or spaces. Repeated entries request separate
+rounds. The entries after the current round wait in `<target>-queue.md` at the plan root. Edit it to
+add, remove or reorder rounds; the runner reads it between rounds and deletes it when the sequence
+ends. An empty or deleted file ends the sequence after the current round. Every completed settled
+round prints its recommendation and reason. In a manual series, a clean audit or stop
+recommendation skips queued entries with the same resolved assistant, model and effort; other
+settings remain. A continue recommendation skips none. Failure or leaving a ruling without a reply
+stops either sequence. A submitted reply resumes the fix, then the sequence after the round
+completes. Each header records the round's start time; filenames carry no timestamp.
 
 ## Verification
 

@@ -14,6 +14,7 @@ const strengths = z.strictObject({ base: model, top: model })
 
 export const settingsSchema = z.strictObject({
   defaultAuditor: assistant,
+  maximumAutomaticRounds: z.number().int().positive(),
   strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   phases: z.strictObject({
     audit: alternatingPhase,

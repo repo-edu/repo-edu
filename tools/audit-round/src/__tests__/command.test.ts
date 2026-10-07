@@ -215,6 +215,242 @@ test("a commit audit keeps no queue file", async (t) => {
   )
 })
 
+async function configureAuditReports(
+  f: Awaited<ReturnType<typeof roundFixture>>,
+  reports: { readonly claude: string; readonly codex: string },
+) {
+  const audit = f.phases.audit as {
+    readonly assistants: Record<string, Record<string, unknown>>
+  }
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...audit,
+        documents: {
+          claude: { source: reports.claude },
+          codex: { source: reports.codex },
+        },
+      },
+    },
+  })
+}
+
+test("an automatic series follows the recommended switch and ends on stop without a queue", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    "b",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  const source = await readFile(f.report, "utf8")
+  const codex = join(f.root, "codex-report.md")
+  const claude = join(f.root, "claude-report.md")
+  await writeFile(
+    codex,
+    source.replace(
+      "Recommendation: continue with Codex. Another round is worth its cost.",
+      "Recommendation: continue with Claude. Claude should check the remaining concern.",
+    ),
+  )
+  await writeFile(
+    claude,
+    source.replace(
+      "Recommendation: continue with Codex. Another round is worth its cost.",
+      "Recommendation: stop. The cross-check found no reason for another round.",
+    ),
+  )
+  await configureAuditReports(f, { claude, codex })
+
+  assert.equal(
+    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["codex", "claude"],
+  )
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Recommendation: continue with Claude\./)
+  assert.match(visible, /Next round: claude, as recommended;/)
+  assert.match(visible, /Recommendation: stop\./)
+  assert.match(
+    visible,
+    /Automatic auditor series stopped on the round recommendation after 2 rounds\./,
+  )
+  await assert.rejects(
+    readFile(join(f.planRoot, "example-impl-all-queue.md")),
+    { code: "ENOENT" },
+  )
+})
+
+test("an automatic series stops at its configured maximum", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    "b",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  const source = await readFile(f.report, "utf8")
+  const codex = join(f.root, "codex-report.md")
+  const claude = join(f.root, "claude-report.md")
+  await writeFile(
+    codex,
+    source.replace("continue with Codex", "continue with Claude"),
+  )
+  await writeFile(
+    claude,
+    source.replace("continue with Codex", "continue with Codex"),
+  )
+  await configureAuditReports(f, { claude, codex })
+  const settings = structuredClone(testSettings)
+  settings.maximumAutomaticRounds = 2
+
+  assert.equal(
+    await runCommand(["example.md", "all", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings,
+    }),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.equal(
+    (await f.prompts()).filter((call) =>
+      call.prompt.startsWith("Run the audit phase "),
+    ).length,
+    2,
+  )
+  assert.match(
+    f.visible.join("\n"),
+    /Automatic auditor series reached its maximum of 2 rounds\./,
+  )
+})
+
+test("a clean automatic audit follows its recommendation", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  const source = await readFile(f.report, "utf8")
+  const codex = join(f.root, "codex-report.md")
+  const claude = join(f.root, "claude-report.md")
+  await writeFile(
+    codex,
+    source.replace("continue with Codex", "continue with Claude"),
+  )
+  await writeFile(
+    claude,
+    source.replace(
+      "Recommendation: continue with Codex. Another round is worth its cost.",
+      "Recommendation: stop. The other assistant confirmed the clean audit.",
+    ),
+  )
+  await configureAuditReports(f, { claude, codex })
+
+  assert.equal(
+    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const prompts = await f.prompts()
+  assert.deepEqual(
+    prompts
+      .filter((call) => call.prompt.startsWith("Run the audit phase "))
+      .map((call) => call.assistant),
+    ["codex", "claude"],
+  )
+  assert.equal(
+    prompts.some((call) => /^Run the (vet|rebut|fix) phase /.test(call.prompt)),
+    false,
+  )
+})
+
+test("a widening target without --auditor ends after one round", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    "b",
+    false,
+    "plan",
+    false,
+    true,
+    false,
+  )
+  await rm(join(f.planRoot, "example.md"))
+  await writeFile(
+    f.report,
+    (await readFile(f.report, "utf8"))
+      .replace("Phase: detailing", "Phase: widening")
+      .replace(
+        "Recommendation: continue with Codex. Another round is worth its cost.",
+        "Settling recommendation: keep widening. The shape still has an open question.",
+      ),
+  )
+
+  assert.equal(
+    await runCommand(["example-widen.md", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.equal(
+    (await f.prompts()).filter((call) =>
+      call.prompt.startsWith("Run the audit phase "),
+    ).length,
+    1,
+  )
+  assert.doesNotMatch(f.visible.join("\n"), /Automatic auditor series/)
+})
+
+test("an automatic rebuttal round logs the resumed auditor's final recommendation", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+  assert.equal(
+    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const recommendation = (await f.prompts()).find((call) =>
+    call.prompt.startsWith(
+      "Resume the audit session for the final recommendation",
+    ),
+  )
+  assert.ok(recommendation)
+  assert.equal(recommendation.assistant, "codex")
+  assert.ok(recommendation.args.includes("audit-session"))
+  assert.match(recommendation.prompt, /1\. \[B\] Revise/)
+  assert.match(recommendation.prompt, /Written rebut/)
+  assert.match(
+    recommendation.prompt,
+    /example\/impl-audit-all oth growth-none b1/,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Audit round finished\.\nRecommendation: stop\. The reconciled round has converged\./,
+  )
+})
+
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", true)
   const settings = structuredClone(testSettings)
@@ -635,7 +871,7 @@ for (const working of ["repo-edu", "plan"] as const) {
   })
 }
 
-test("one supplied configuration controls default auditor, phase arguments and output tags", async (t) => {
+test("one supplied configuration controls auditor phase arguments and output tags", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", false, null, true)
   const settings = structuredClone(testSettings)
   settings.defaultAuditor = "claude"
@@ -647,7 +883,7 @@ test("one supplied configuration controls default auditor, phase arguments and o
   }
   settings.strengthModels.codex.top = "chosen-watch"
   assert.equal(
-    await runCommand(["example.md", "3"], f.runtime, {
+    await runCommand(["example.md", "3", "--auditor", "a"], f.runtime, {
       ...f.options,
       settings,
     }),
@@ -677,7 +913,8 @@ for (const auditor of ["claude", "codex"] as const) {
           "example.md",
           "2-3",
           "--brief",
-          ...(auditor === "claude" ? ["--auditor", "a"] : []),
+          "--auditor",
+          auditor === "claude" ? "a" : "o",
         ]
         assert.equal(
           await runCommand(argv, { ...f.runtime, cwd: f.planRoot }, f.options),
@@ -856,7 +1093,8 @@ for (const auditor of ["claude", "codex"] as const) {
     const argv = [
       "example.md",
       "2-3",
-      ...(auditor === "claude" ? ["--auditor", "a"] : []),
+      "--auditor",
+      auditor === "claude" ? "a" : "o",
     ]
     assert.equal(
       await runCommand(argv, f.runtime, f.options),
@@ -918,7 +1156,8 @@ for (const auditor of ["claude", "codex"] as const) {
       "example.md",
       "2-3",
       "--brief",
-      ...(auditor === "claude" ? ["--auditor", "a"] : []),
+      "--auditor",
+      auditor === "claude" ? "a" : "o",
     ]
     assert.equal(
       await runCommand(argv, f.runtime, f.options),
@@ -970,7 +1209,11 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     f.phases[phase] = { stream: "", exitCode: 7 }
     await f.configure({ phases: f.phases })
     assert.equal(
-      await runCommand(["example.md", "all", "--brief"], f.runtime, f.options),
+      await runCommand(
+        ["example.md", "all", "--brief", "--auditor", "o"],
+        f.runtime,
+        f.options,
+      ),
       1,
     )
     const log = (await f.records()).log
@@ -1032,7 +1275,7 @@ test("an unavailable writer still prints the known session to the emergency chan
   const f = await roundFixture(t)
   let failed = false
   assert.equal(
-    await runCommand(["example.md", "all"], f.runtime, {
+    await runCommand(["example.md", "all", "--auditor", "o"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         const files = openRunFiles(paths)
@@ -1057,7 +1300,7 @@ test("an unavailable writer still prints the known session to the emergency chan
 test("a terminal failure during startup stops before any round file is created", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md", "all"], f.runtime, {
+    await runCommand(["example.md", "all", "--auditor", "o"], f.runtime, {
       ...f.options,
       terminal: {
         ...f.options.terminal,
@@ -1078,7 +1321,7 @@ test("a terminal failure during startup stops before any round file is created",
 test("startup writes only to the terminal before the models table opens the run log", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md", "all"], f.runtime, {
+    await runCommand(["example.md", "all", "--auditor", "o"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         assert.ok(f.visible.includes("Checking claude updates..."))
@@ -1649,7 +1892,11 @@ test("a brief on its own retells the named transcript without a new round pair",
 test("a plan named without its extension runs as its .md file", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example", "2-3"], f.runtime, f.options),
+    await runCommand(
+      ["example", "2-3", "--auditor", "o"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1686,7 +1933,7 @@ test("options without a target run the audit the newest plan's history calls for
     1,
   )
   assert.equal(
-    await runCommand(["--no-watch"], f.runtime, f.options),
+    await runCommand(["--no-watch", "--auditor", "o"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
@@ -1798,8 +2045,8 @@ test("a stop recommendation prunes its resolved setting and preserves another se
   await writeFile(
     f.report,
     (await readFile(f.report, "utf8")).replace(
-      "Stop recommendation: continue. Another round is worth its cost.",
-      "Stop recommendation: stop. Another round is unlikely to repay its cost.",
+      "Recommendation: continue with Codex. Another round is worth its cost.",
+      "Recommendation: stop. Another round is unlikely to repay its cost.",
     ),
   )
   assert.equal(
@@ -1825,7 +2072,7 @@ test("a stop recommendation prunes its resolved setting and preserves another se
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Stop recommendation: stop\. Another round is unlikely to repay its cost\./,
+    /Recommendation: stop\. Another round is unlikely to repay its cost\./,
   )
   assert.match(
     visible,
@@ -1852,7 +2099,7 @@ test("a continue recommendation preserves queued entries with the same setting",
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Stop recommendation: continue\. Another round is worth its cost\./,
+    /Recommendation: continue with Codex\. Another round is worth its cost\./,
   )
   assert.doesNotMatch(visible, /skipped .* queued entr/)
   assert.match(visible, /Next round: codex; 1 auditor entries remain\./)
@@ -2000,7 +2247,11 @@ for (const target of ["implementation", "planning", "commits"] as const) {
 test("--no-watch skips the glance and the watch, whatever the record says", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
   assert.equal(
-    await runCommand(["example.md", "3", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["example.md", "3", "--no-watch", "--auditor", "o"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -2027,10 +2278,14 @@ test("a chained run stops when the ruling receives no reply", async (t) => {
   )
 })
 
-test("an unchained run claims its round number and says nothing about a chain", async (t) => {
+test("a single explicit auditor claims one round", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
-    await runCommand(["example.md", "3"], f.runtime, f.options),
+    await runCommand(
+      ["example.md", "3", "--auditor", "o"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )

@@ -5,13 +5,23 @@ import { decodeCodex } from "./codex.js"
 import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
 import { errorMessage, type PhaseOutput } from "./feedback.js"
 import type {
+  AssistantTurnInput,
+  FinalRecommendationInput,
+  FinalRecommendationResult,
   Phase,
+  PhaseFailure,
   PhaseInput,
   PhaseResult,
   RoundDependencies,
 } from "./phase.js"
 import { phaseResult, withoutPhaseResult } from "./phase-result.js"
-import { type AssistantPrompt, phasePrompt, phaseRequest } from "./requests.js"
+import { readFinalRecommendation } from "./report.js"
+import {
+  type AssistantPrompt,
+  finalRecommendationPrompt,
+  phasePrompt,
+  phaseRequest,
+} from "./requests.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
 
@@ -36,13 +46,74 @@ export function runAssistantInvocation<P extends Phase>(
   runtime: AssistantRuntime,
   record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult<P>>
-export async function runAssistantInvocation(
+export function runAssistantInvocation(
   input: PhaseInput,
   prompt: AssistantPrompt,
   output: PhaseOutput,
   runtime: AssistantRuntime,
   record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult> {
+  return runAssistantTurn(
+    input,
+    prompt,
+    output,
+    runtime,
+    async (sessionId, finalText) => {
+      const result = phaseResult(input.phase, sessionId, finalText)
+      if (result.status === "finished") {
+        const report =
+          input.phase === "audit"
+            ? input.arguments[0]
+            : input.phase === "vet"
+              ? input.arguments[1]
+              : input.phase === "rebut"
+                ? input.arguments[2]
+                : null
+        if (report !== null)
+          await writeFile(report, `${withoutPhaseResult(finalText)}\n`, "utf8")
+      }
+      return { phaseResult: result, value: result }
+    },
+    record,
+  )
+}
+
+/** Resume the auditor without a phase result or report write. */
+export function runFinalRecommendation(
+  input: FinalRecommendationInput,
+  output: PhaseOutput,
+  runtime: AssistantRuntime,
+): Promise<FinalRecommendationResult> {
+  return runAssistantTurn(
+    input,
+    finalRecommendationPrompt(input),
+    output,
+    runtime,
+    async (sessionId, finalText) => {
+      const value = {
+        status: "finished",
+        sessionId,
+        recommendation: readFinalRecommendation(finalText),
+      } as const
+      return {
+        phaseResult: { status: "finished", sessionId },
+        value,
+      }
+    },
+  )
+}
+
+async function runAssistantTurn<T>(
+  input: AssistantTurnInput,
+  prompt: AssistantPrompt,
+  output: PhaseOutput,
+  runtime: AssistantRuntime,
+  admit: (
+    sessionId: string,
+    finalText: string,
+  ) => Promise<{ readonly phaseResult: PhaseResult; readonly value: T }>,
+  record?: (value: unknown) => Promise<void>,
+): Promise<T | PhaseFailure> {
   let sessionId = input.sessionId
   let finalText: string | undefined
   let completed = false
@@ -96,21 +167,9 @@ export async function runAssistantInvocation(
           "CLI ended without a completed turn, session identity or final text",
         )
       await usage?.read(sessionId, observe, true)
-      const result = phaseResult(input.phase, sessionId, finalText)
-      if (result.status === "finished") {
-        const report =
-          input.phase === "audit"
-            ? input.arguments[0]
-            : input.phase === "vet"
-              ? input.arguments[1]
-              : input.phase === "rebut"
-                ? input.arguments[2]
-                : null
-        if (report !== null)
-          await writeFile(report, `${withoutPhaseResult(finalText)}\n`, "utf8")
-      }
-      await output.finish(result)
-      return result
+      const admitted = await admit(sessionId, finalText)
+      await output.finish(admitted.phaseResult)
+      return admitted.value
     } finally {
       await usage?.close()
     }
@@ -124,8 +183,10 @@ export async function runAssistantInvocation(
 export function assistantDependencies(
   runtime: AssistantRuntime,
   output: PhaseOutput,
-): Pick<RoundDependencies, "runPhase"> {
+): Pick<RoundDependencies, "runPhase" | "finalRecommendation"> {
   return {
+    finalRecommendation: (input) =>
+      runFinalRecommendation(input, output, runtime),
     runPhase: {
       audit: (input) => runAssistantPhase(input, output, runtime),
       vet: (input) => runAssistantPhase(input, output, runtime),

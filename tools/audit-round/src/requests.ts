@@ -6,6 +6,8 @@ import { matter } from "vfile-matter"
 import { z } from "zod"
 import { peerRoot } from "./context.js"
 import type {
+  AssistantTurnInput,
+  FinalRecommendationInput,
   InteractiveSession,
   PhaseInput,
   PinnedField,
@@ -130,6 +132,38 @@ export type AssistantPrompt = {
   readonly log: string
 }
 
+/** A resumed auditor already has its workflow, scope, history and report. */
+export function finalRecommendationPrompt(
+  input: FinalRecommendationInput,
+): AssistantPrompt {
+  const records = input.records
+    .map(
+      (record) =>
+        `Repository: ${record.repository}\nSubject: ${record.subject}\n\n${record.message}`,
+    )
+    .join("\n\n---\n\n")
+  const prompt = `Resume the audit session for the final recommendation of this automatic series. The vet changed the audit's findings and the fix has finished.
+
+Use the vet twin, rebuttal twin and landed records below with the scope, target history, stop conditions and report already in this session. Read no files and write none. Return exactly one recommendation line in one of these forms and no other text:
+
+Recommendation: stop. <reason>
+Recommendation: continue with Claude. <reason>
+Recommendation: continue with Codex. <reason>
+
+Vet twin:
+
+${input.vet}
+
+Rebuttal twin:
+
+${input.rebuttal}
+
+Landed records:
+
+${records}`
+  return { text: prompt, log: prompt }
+}
+
 export function phasePrompt(input: PhaseInput): AssistantPrompt {
   const launcher = phaseLauncher(input)
   const files =
@@ -184,7 +218,7 @@ For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents
   return `${fixPrompt}\n\nThe runner displayed your ruling and collected the user's reply below. Continue this fix session. Do not repeat the internal launch instructions.\n\nUser reply:\n${input.rulingReply}`
 }
 
-export function phaseRequest(input: PhaseInput, prompt: string) {
+export function phaseRequest(input: AssistantTurnInput, prompt: string) {
   const { assistant, sessionId, model } = input
   return assistant === "codex"
     ? {

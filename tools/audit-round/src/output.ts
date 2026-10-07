@@ -17,9 +17,9 @@ import {
 } from "./output-format.js"
 import {
   type Assistant,
+  type AssistantTurnInput,
   noOverride,
   type Phase,
-  type PhaseInput,
   type PhaseResult,
   roundPhases,
   transcribed,
@@ -237,7 +237,7 @@ export class RoundOutput<R extends Run = Run> {
   private readonly clock: RunClock
   private active:
     | {
-        input: Pick<PhaseInput, "phase" | "assistant">
+        input: Pick<AssistantTurnInput, "phase" | "assistant">
         started: RunMark
         context: Context | null
         /** Where the next tool line's step time counts from: the previous tool line, else the phase start. */
@@ -364,7 +364,7 @@ export class RoundOutput<R extends Run = Run> {
     return stamp
   }
 
-  private start(input: PhaseInput, prompt: string): void {
+  private start(input: AssistantTurnInput, prompt: string): void {
     this.release()
     this.clock.active()
     const started = this.clock.mark()

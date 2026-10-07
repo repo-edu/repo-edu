@@ -38,7 +38,9 @@ for (const working of ["plan", "repo-edu"] as const) {
       const report = await readFile(f.report, "utf8")
       assert.equal(
         await runCommand(
-          working === "plan" ? ["example-widen.md"] : ["example", "2-3"],
+          working === "plan"
+            ? ["example-widen.md", "--auditor", "o"]
+            : ["example", "2-3", "--auditor", "o"],
           f.runtime,
           f.options,
         ),
@@ -105,7 +107,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     await writeFile(
       f.report,
-      `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\nStop recommendation: stop. The clean audit ends this setting.\n\n## Findings\n\nNo findings.\n`,
+      `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\nRecommendation: stop. The clean audit ends this setting.\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
       await runCommand(["example.md", "all"], f.runtime, f.options),

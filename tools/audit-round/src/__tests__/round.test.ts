@@ -16,6 +16,7 @@ import {
 import { phaseWorkflow } from "../phase.js"
 import {
   type Assistant,
+  type FinalRecommendationInput,
   type Phase,
   type PhaseInput,
   type PhaseResult,
@@ -50,8 +51,13 @@ const watch = `${repoRoot}/example-impl-all-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 const recommendation = {
   decision: "continue",
+  assistant: "codex",
   reason: "Another round is worth its cost.",
 } as const
+const landedRecords = (
+  repository: "repo-edu" | "plan",
+  subjects: readonly string[],
+) => subjects.map((subject) => ({ repository, subject, message: subject }))
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   ...testContext(repoRoot),
@@ -93,6 +99,7 @@ function controlledRound(
   const watchEvidence: WatchEvidenceInput[] = []
   const rulings: string[] = []
   const briefs: string[] = []
+  const finalRecommendations: FinalRecommendationInput[] = []
   const watchGrades: { cacheRoot: string; stem: string }[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
@@ -161,12 +168,28 @@ function controlledRound(
     readReport: async (_file, kind) => ({
       findings: evidence.findings,
       judgedRepos: ["repo-edu"],
-      recommendation: kind === "implementation" ? recommendation : null,
+      recommendation: kind === "widening" ? null : recommendation,
     }),
     readVet: async () => evidence.accepted,
+    readDocument: async (file) => `Contents of ${file}`,
     readHead: async (root) => `before-${root}`,
     fileExists: async () => planRemains,
-    readSubjects: async (root) => (root === repoRoot ? evidence.subjects : []),
+    readRecords: async (root, _before, repository) =>
+      root === repoRoot
+        ? evidence.subjects.map((subject) => ({
+            repository,
+            subject,
+            message: subject,
+          }))
+        : [],
+    finalRecommendation: async (input) => {
+      finalRecommendations.push(input)
+      return {
+        status: "finished",
+        sessionId: input.sessionId,
+        recommendation,
+      }
+    },
     runPhase: {
       async audit(input) {
         await record(input)
@@ -215,6 +238,7 @@ function controlledRound(
     watchGrades,
     rulings,
     briefs,
+    finalRecommendations,
     results,
     dependencies,
     evidence,
@@ -393,8 +417,10 @@ for (const grade of ["green", "amber"] as const) {
           judgedRepos: ["plan", "repo-edu"],
           recommendation,
         }),
-        readSubjects: async (root) =>
-          root === files.planRoot ? [landed.subject] : [],
+        readRecords: async (root, _before, repository) =>
+          root === files.planRoot
+            ? landedRecords(repository, [landed.subject])
+            : [],
         glance: async (input) => {
           assert.equal(input.stem, "example")
           const result = glanceDecision(
@@ -1001,6 +1027,79 @@ test("the rebuttal starts fresh for either auditor with the audit selection", as
   }
 })
 
+test("an automatic rebuttal round replaces the report recommendation before deleting review files", async () => {
+  const round = controlledRound()
+  const finalRecommendation = {
+    decision: "stop",
+    reason: "The reconciled findings have converged.",
+  } as const
+  const result = await runRound(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "all",
+      auditor: "codex",
+      automatic: true,
+    },
+    {
+      ...round.dependencies,
+      finalRecommendation: async (input) => {
+        assert.equal(round.deletedReports.length, 0)
+        assert.equal(input.sessionId, "audit-session")
+        assert.equal(input.vet, `Contents of ${files.documents.vet}`)
+        assert.equal(input.rebuttal, `Contents of ${files.documents.rebut}`)
+        assert.deepEqual(input.records, [
+          {
+            repository: "repo-edu",
+            subject: round.evidence.subjects[0],
+            message: round.evidence.subjects[0],
+          },
+        ])
+        return {
+          status: "finished",
+          sessionId: input.sessionId,
+          recommendation: finalRecommendation,
+        }
+      },
+    },
+  )
+
+  assert.equal(round.deletedReports.length, 1)
+  assert.deepEqual(result, {
+    status: "finished",
+    report: files.documents.report,
+    cleanAudit: false,
+    recommendation: finalRecommendation,
+    watch: null,
+  })
+})
+
+test("a final recommendation input failure retains the audit session and review files", async () => {
+  const round = controlledRound()
+  const result = await runRound(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "all",
+      auditor: "codex",
+      automatic: true,
+    },
+    {
+      ...round.dependencies,
+      readDocument: async () => {
+        throw new Error("Cannot read the review twins")
+      },
+    },
+  )
+
+  assert.equal(round.deletedReports.length, 0)
+  assert.equal(result.status, "failed")
+  if (result.status !== "failed") return
+  assert.equal(result.sessionId, "audit-session")
+  assert.equal(result.phase, "audit")
+  assert.equal(result.reason, "Cannot read the review twins")
+})
+
 for (const auditor of ["claude", "codex"] as const) {
   test(`a clean ${auditor} audit completes without another assistant even when watch is due`, async () => {
     const report = files.documents.report
@@ -1330,18 +1429,21 @@ test("the round reads each supplied file and records both heads immediately befo
         )
         return `head-${root}`
       },
-      async readSubjects(root, before) {
+      async readRecords(root, before, repository) {
         assert.equal(round.calls.at(-1)?.phase, "fix")
         assert.equal(before, `head-${root}`)
-        return root === files.repoEduRoot
-          ? [
-              "example/impl-audit-all oth growth-none !C1a1 fix(audit-round): repair",
-              "example/impl-2 oth feat(audit-round): deliver",
-            ]
-          : [
-              "example/plan-audit ath growth-none B1: correct the plan",
-              "example/ready ath: ready",
-            ]
+        return landedRecords(
+          repository,
+          root === files.repoEduRoot
+            ? [
+                "example/impl-audit-all oth growth-none !C1a1 fix(audit-round): repair",
+                "example/impl-2 oth feat(audit-round): deliver",
+              ]
+            : [
+                "example/plan-audit ath growth-none B1: correct the plan",
+                "example/ready ath: ready",
+              ],
+        )
       },
     },
   )
@@ -1364,12 +1466,15 @@ test("landed plan corrections do not make an audit clean", async () => {
     { ...files, plan: "example.md", scope: "all" },
     {
       ...round.dependencies,
-      readSubjects: async (root) =>
-        root === repoRoot
-          ? [
-              "example/impl-audit-all oth growth-none d1 fix(audit-round): polish",
-            ]
-          : ["example/plan-audit ath growth-none A1C2: correct the plan"],
+      readRecords: async (root, _before, repository) =>
+        landedRecords(
+          repository,
+          root === repoRoot
+            ? [
+                "example/impl-audit-all oth growth-none d1 fix(audit-round): polish",
+              ]
+            : ["example/plan-audit ath growth-none A1C2: correct the plan"],
+        ),
     },
   )
   assert.equal(result.status === "finished" && result.cleanAudit, false)
@@ -1385,7 +1490,7 @@ for (const [reader, phase, sessionId, called] of [
   ["readReport", "audit", "audit-session", ["audit"]],
   ["readVet", "vet", "vet-session", ["audit", "vet"]],
   ["readHead", "fix", null, ["audit", "vet", "rebut"]],
-  ["readSubjects", "fix", "fix-session", ["audit", "vet", "rebut", "fix"]],
+  ["readRecords", "fix", "fix-session", ["audit", "vet", "rebut", "fix"]],
 ] as const) {
   test(`${reader} failure stops the round with the owning phase and recovery session`, async () => {
     const round = controlledRound()
@@ -1446,12 +1551,15 @@ test("every landed subject must parse under its repository's grammar", async () 
     { ...files, plan: "example.md", scope: "all" },
     {
       ...round.dependencies,
-      readSubjects: async (root) =>
-        root === repoRoot
-          ? ["example/impl-audit-all oth clean: done"]
-          : [
-              "example/plan-audit ath growth-none B1 docs(x): a kind on a planning record",
-            ],
+      readRecords: async (root, _before, repository) =>
+        landedRecords(
+          repository,
+          root === repoRoot
+            ? ["example/impl-audit-all oth clean: done"]
+            : [
+                "example/plan-audit ath growth-none B1 docs(x): a kind on a planning record",
+              ],
+        ),
     },
   )
   assert.equal(result.status, "failed")
@@ -1469,7 +1577,7 @@ test("a fix needing a ruling is not graded or required to have landed work", asy
     { ...files, plan: "example.md", scope: "all" },
     {
       ...round.dependencies,
-      readSubjects: async () => {
+      readRecords: async () => {
         throw new Error("No grade before the ruling")
       },
     },

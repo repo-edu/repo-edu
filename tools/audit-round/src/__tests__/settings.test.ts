@@ -173,4 +173,9 @@ test("settings reject unsupported effort, misspelt fields and independent rebutt
     }).success,
     false,
   )
+  for (const maximumAutomaticRounds of [0, -1, 1.5])
+    assert.equal(
+      settingsSchema.safeParse({ ...settings, maximumAutomaticRounds }).success,
+      false,
+    )
 })

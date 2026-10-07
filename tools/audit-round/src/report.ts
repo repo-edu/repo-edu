@@ -34,13 +34,18 @@ export type ReportFindings = readonly number[]
 export type AuditReport = {
   readonly findings: ReportFindings
   readonly judgedRepos: readonly Repository[]
-  readonly recommendation: StopRecommendation | null
+  readonly recommendation: RoundRecommendation | null
 }
 
-export type StopRecommendation = {
-  readonly decision: "stop" | "continue"
-  readonly reason: string
-}
+export type RoundRecommendation =
+  | { readonly decision: "stop"; readonly reason: string }
+  | {
+      readonly decision: "continue"
+      readonly assistant: "claude" | "codex"
+      readonly reason: string
+    }
+
+export type ReportClass = "widening" | "detailing" | "implementation"
 
 type OpeningLine = {
   /** Formatted spans read as a marker, so only plain text can match. */
@@ -71,7 +76,7 @@ function openingLines(
               : formatted(child),
         )
         .join("")
-        .split("\n")
+        .split(/\r?\n/)
     const text = lines((child) =>
       source
         .slice(child.position?.start.offset, child.position?.end.offset)
@@ -106,28 +111,67 @@ function judgedRepos(
     .map((entry) => entry.split("@")[0] as Repository)
 }
 
-function stopRecommendation(
+function recommendationFromLine(line: OpeningLine): RoundRecommendation | null {
+  const match =
+    /^Recommendation: (?:(stop)|(continue with (Claude|Codex)))\. (?=.)/.exec(
+      line.plain,
+    )
+  if (match === null) return null
+  const reason = line.text.slice(match[0].length)
+  const assistant = match[3]
+  if (match[1] !== "stop" && assistant === undefined) return null
+  return match[1] === "stop"
+    ? { decision: "stop", reason }
+    : {
+        decision: "continue",
+        assistant: assistant === "Claude" ? "claude" : "codex",
+        reason,
+      }
+}
+
+function reportRecommendation(
   children: readonly Block[],
   source: string,
-  kind: RoundKind,
-): StopRecommendation | null {
-  if (kind === "planning") return null
+  reportClass: ReportClass,
+): RoundRecommendation | null {
+  if (reportClass === "widening") return null
   const lines = openingLines(children, source).filter((line) =>
-    line.plain.startsWith("Stop recommendation:"),
+    line.plain.startsWith("Recommendation:"),
   )
-  // The prefix must be plain; the reason may format names and paths.
-  const match =
-    lines.length === 1
-      ? /^Stop recommendation: (stop|continue)\. (?=.)/.exec(lines[0].plain)
-      : null
-  if (match === null)
+  const recommendation =
+    lines.length === 1 ? recommendationFromLine(lines[0]) : null
+  if (recommendation === null)
     throw new Error(
-      'Implementation report needs one opening line with a plain "Stop recommendation: stop. " or "Stop recommendation: continue. " prefix and a reason',
+      `${reportClass === "detailing" ? "Detailing" : "Implementation"} report needs one opening line with a plain "Recommendation: stop. ", "Recommendation: continue with Claude. " or "Recommendation: continue with Codex. " prefix and a reason`,
     )
-  return {
-    decision: match[1] as StopRecommendation["decision"],
-    reason: lines[0].text.slice(match[0].length),
-  }
+  return recommendation
+}
+
+/** The resumed auditor returns this one line without a runner-result suffix. */
+export function readFinalRecommendation(source: string): RoundRecommendation {
+  const children = fromMarkdown(source).children
+  const lines = openingLines(children, source)
+  const recommendation =
+    children.length === 1 &&
+    children[0]?.type === "paragraph" &&
+    lines.length === 1
+      ? recommendationFromLine(lines[0])
+      : null
+  if (recommendation === null)
+    throw new Error(
+      "Final recommendation must contain exactly one recommendation line and no other text",
+    )
+  return recommendation
+}
+
+export function formatRecommendation(
+  recommendation: RoundRecommendation,
+): string {
+  const decision =
+    recommendation.decision === "stop"
+      ? "stop"
+      : `continue with ${recommendation.assistant === "claude" ? "Claude" : "Codex"}`
+  return `Recommendation: ${decision}. ${recommendation.reason}`
 }
 
 function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
@@ -194,10 +238,14 @@ function findingNumber(
 }
 
 /** Read only document-level fields and lists; quoted evidence and code are not findings. */
-export function readReport(source: string, kind: RoundKind): AuditReport {
+export function readReport(
+  source: string,
+  reportClass: ReportClass,
+): AuditReport {
   const definitions =
-    kind === "planning"
-      ? [
+    reportClass === "implementation"
+      ? [{ heading: "Findings", empty: "No findings.", field: null }]
+      : [
           {
             heading: "Excess functionality",
             empty: "No excess findings.",
@@ -209,7 +257,6 @@ export function readReport(source: string, kind: RoundKind): AuditReport {
             field: "missing",
           },
         ]
-      : [{ heading: "Findings", empty: "No findings.", field: null }]
   const children = fromMarkdown(source).children
   const findings: number[] = []
   for (const definition of definitions) {
@@ -260,6 +307,6 @@ export function readReport(source: string, kind: RoundKind): AuditReport {
   return {
     findings,
     judgedRepos: judgedRepos(children, source),
-    recommendation: stopRecommendation(children, source, kind),
+    recommendation: reportRecommendation(children, source, reportClass),
   }
 }

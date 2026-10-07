@@ -151,9 +151,13 @@ await appendFile(
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
-  const phase = /^Run the (audit|vet|rebut|fix|brief|watch|close) phase\b/.exec(
-    prompt ?? "",
-  )?.[1]
+  const phase = (prompt ?? "").startsWith(
+    "Resume the audit session for the final recommendation",
+  )
+    ? "recommendation"
+    : /^Run the (audit|vet|rebut|fix|brief|watch|close) phase\b/.exec(
+        prompt ?? "",
+      )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
   // A chained round changes who audits, so a phase may answer as either CLI.
@@ -161,7 +165,8 @@ if (scenario.phases !== undefined) {
   const phaseArguments = JSON.parse(
     /^Phase arguments \(JSON array\): (.+)$/m.exec(prompt ?? "")?.[1] ?? "[]",
   )
-  if (selected?.document !== undefined) {
+  const document = selected?.documents?.[assistant] ?? selected?.document
+  if (document !== undefined) {
     const outputIndex = {
       audit: 0,
       vet: 1,
@@ -181,9 +186,9 @@ if (scenario.phases !== undefined) {
           : phaseArguments[outputIndex]
     if (output !== null) {
       const text =
-        selected.document.source === undefined
-          ? selected.document.text
-          : await readFile(selected.document.source, "utf8")
+        document.source === undefined
+          ? document.text
+          : await readFile(document.source, "utf8")
       if (["audit", "vet", "rebut"].includes(phase)) {
         // Report assistants return text; only the runner writes their output.
         const final = (value: string) =>

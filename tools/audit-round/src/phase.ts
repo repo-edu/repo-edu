@@ -2,9 +2,14 @@ import { join } from "node:path"
 import type { CleanInput } from "./clean.js"
 import type { WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
-import type { AuditReport, ReportFindings } from "./report.js"
+import type {
+  AuditReport,
+  ReportClass,
+  ReportFindings,
+  RoundRecommendation,
+} from "./report.js"
 import type { RoundSettings } from "./settings.js"
-import type { RoundContext, RoundKind } from "./target.js"
+import type { RoundContext } from "./target.js"
 
 export type Assistant = "claude" | "codex"
 
@@ -349,6 +354,27 @@ type PhaseInputs = {
 
 export type PhaseInput<P extends Phase = Phase> = PhaseInputs[P]
 
+/** One commit record a finished fix landed, with its hosting repository. */
+export type LandedRecord = {
+  readonly repository: "repo-edu" | "plan"
+  readonly subject: string
+  readonly message: string
+}
+
+/** The resumed audit session's inputs for the non-phase final recommendation step. */
+export type FinalRecommendationInput = Omit<
+  PhaseInput<"audit">,
+  "sessionId"
+> & {
+  readonly sessionId: string
+  readonly vet: string
+  readonly rebuttal: string
+  readonly records: readonly LandedRecord[]
+}
+
+/** Fields shared by fresh phases and the resumed recommendation turn. */
+export type AssistantTurnInput = PhaseInput | FinalRecommendationInput
+
 export type PhaseFailure = {
   readonly status: "failed"
   readonly reason: string
@@ -387,6 +413,14 @@ export type PhaseResult<P extends Phase = Phase> =
   | PhaseFailure
   | PhaseResults[P]
 
+export type FinalRecommendationResult =
+  | PhaseFailure
+  | {
+      readonly status: "finished"
+      readonly sessionId: string
+      readonly recommendation: RoundRecommendation
+    }
+
 /**
  * A session the user is handed or told how to resume. It carries its phase's run, so
  * a resumed session continues on the model the round ran it on.
@@ -405,15 +439,23 @@ export type RoundDependencies = {
   /** Prints the saved brief after its phase and output validation have completed. */
   readonly showBrief: (document: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<void>
-  readonly readReport: (file: string, kind: RoundKind) => Promise<AuditReport>
+  readonly readReport: (
+    file: string,
+    reportClass: ReportClass,
+  ) => Promise<AuditReport>
   readonly readVet: (file: string, findings: ReportFindings) => Promise<boolean>
+  readonly readDocument: (file: string) => Promise<string>
   readonly readHead: (root: string) => Promise<string>
   /** Whether a file exists, which tells a finished close that left its plan in place. */
   readonly fileExists: (file: string) => Promise<boolean>
-  readonly readSubjects: (
+  readonly readRecords: (
     root: string,
     before: string,
-  ) => Promise<readonly string[]>
+    repository: LandedRecord["repository"],
+  ) => Promise<readonly LandedRecord[]>
+  readonly finalRecommendation: (
+    input: FinalRecommendationInput,
+  ) => Promise<FinalRecommendationResult>
   readonly runPhase: {
     readonly [P in Phase]: (input: PhaseInput<P>) => Promise<PhaseResult<P>>
   }

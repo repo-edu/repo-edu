@@ -1,5 +1,5 @@
 import { readFile, stat } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import {
   Command,
   CommanderError,
@@ -36,7 +36,7 @@ import {
   takeNext,
   writeQueue,
 } from "./queue.js"
-import { readReport, reportKind } from "./report.js"
+import { formatRecommendation, readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
@@ -209,12 +209,19 @@ Auditor selection (--auditor <selections>):
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor comes from settings.json.
-  Without --auditor, the first round uses that default.
+  Without --auditor, a settled plan starts an automatic series with that default.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
 
-  Round order (--auditor):
+  Automatic series (settled plan without --auditor):
+    - The configured default auditor runs first.
+    - A continue recommendation names the next assistant. A stop recommendation
+      ends the series. No queue file is written.
+    - settings.json sets the maximum round count, including the first round.
+    - Widening plans and commit targets still run once.
+
+  Manual order (--auditor):
     - Every round runs on the same target and step scope.
     - Repeat a name or tag to run another round with that auditor.
     - Multiple rounds require a plan target. Commit audits run once.
@@ -234,16 +241,19 @@ Round sequence:
     3. Rebuttal  The auditor answers the vet's objections or conditions.
                  Skipped if the vet accepts every finding unconditionally.
     4. Fix       The assistant set in settings.json fixes the accepted findings.
-    5. Brief     A plain-words summary follows the fix.
+    5. Final recommendation
+                 In an automatic round whose rebuttal ran, the auditor resumes
+                 after the fix and replaces the report's recommendation.
+    6. Brief     A plain-words summary follows the fix.
                  Runs only with --brief.
 
   Skipping rounds and stopping:
     - If the audit finds nothing, the round ends before vet or any later phase.
-    - Every completed implementation round prints its stop-or-continue
-      recommendation and reason.
-    - A clean audit or stop recommendation skips queued entries that resolve
-      to the same assistant, model and effort. Other settings still run.
-    - A continue recommendation leaves the queue unchanged.
+    - Every completed detailing or implementation round prints its recommendation
+      and reason, including the named assistant for a continuation.
+    - In a manual queue, a clean audit or stop recommendation skips entries that
+      resolve to the same assistant, model and effort. Other settings still run.
+    - A continue recommendation leaves a manual queue unchanged.
     - A fix that records a clean result does not skip later rounds.
     - A failure stops the sequence. A decision asks for your reply in the runner.
       A submitted reply resumes the fix and sequence. Leaving without a reply
@@ -636,6 +646,7 @@ export async function runCommand(
         readReport(await readFile(file, "utf8"), kind),
       readVet: async (file, findings) =>
         readVet(await readFile(file, "utf8"), findings),
+      readDocument: (file) => readFile(file, "utf8"),
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
       fileExists: async (file) => {
@@ -647,13 +658,26 @@ export async function runCommand(
           throw error
         }
       },
-      readSubjects: async (cwd, before) => {
+      readRecords: async (cwd, before, repository) => {
         const { stdout } = await execa(
           "git",
-          ["log", `${before}..HEAD`, "--format=%s"],
+          ["rev-list", "--reverse", `${before}..HEAD`],
           { cwd },
         )
-        return stdout.length === 0 ? [] : stdout.split("\n")
+        const shas = stdout.length === 0 ? [] : stdout.split("\n")
+        return Promise.all(
+          shas.map(async (sha) => {
+            const [subject, message] = await Promise.all([
+              execa("git", ["show", "-s", "--format=%s", sha], { cwd }),
+              execa("git", ["show", "-s", "--format=%B", sha], { cwd }),
+            ])
+            return {
+              repository,
+              subject: subject.stdout,
+              message: message.stdout,
+            }
+          }),
+        )
       },
       ...assistantDependencies(
         { ...runtime, cwd: session.cwd, commit: active.commitStamps },
@@ -721,10 +745,14 @@ export async function runCommand(
       active.finish(result)
     } else {
       const [first, ...queued] = prepared.auditor ?? []
-      // A plan target keeps the auditors after the current round in a file the
-      // user may edit while rounds run; a commit target runs once.
+      const automatic =
+        prepared.auditor === undefined &&
+        "plan" in prepared.target &&
+        !basename(prepared.target.plan).endsWith("-widen.md")
+      // Only an explicit auditor list owns an editable queue. Automatic series
+      // keep their next seat in this invocation, and other targets run once.
       const queue =
-        "plan" in prepared.target
+        prepared.auditor !== undefined && "plan" in prepared.target
           ? await queueFile({ ...session, ...prepared.target })
           : null
       let rest: readonly AuditorEntry[] = queued
@@ -742,13 +770,16 @@ export async function runCommand(
             auditor: seat.assistant,
             override: seat.override,
             brief: prepared.brief,
+            automatic,
           }
           const run = await roundRun(
             setup,
             now(),
             selections,
             settings,
-            completed > 0 || rest.length > 0 ? completed + 1 : undefined,
+            automatic || completed > 0 || rest.length > 0
+              ? completed + 1
+              : undefined,
           )
           const active = open(run)
           if (queue !== null)
@@ -774,10 +805,8 @@ export async function runCommand(
           active.finish(round)
           completed += 1
           if (round.status === "finished" && round.recommendation !== null)
-            await active.message(
-              `Stop recommendation: ${round.recommendation.decision}. ${round.recommendation.reason}`,
-            )
-          if (queue === null) break
+            await active.message(formatRecommendation(round.recommendation))
+          if (!automatic && queue === null) break
           if (round.status !== "finished") {
             await active.message(
               round.status === "failed"
@@ -793,6 +822,33 @@ export async function runCommand(
             )
             break
           }
+          if (automatic) {
+            const recommendation = round.recommendation
+            if (recommendation === null)
+              throw new Error(
+                "Automatic settled round finished without a recommendation",
+              )
+            if (recommendation.decision === "stop") {
+              await active.message(
+                `Automatic auditor series stopped on the round recommendation after ${completed} round${completed === 1 ? "" : "s"}.`,
+              )
+              break
+            }
+            if (completed >= settings.maximumAutomaticRounds) {
+              await active.message(
+                `Automatic auditor series reached its maximum of ${settings.maximumAutomaticRounds} rounds.`,
+              )
+              break
+            }
+            seat = {
+              assistant: recommendation.assistant,
+              override: noOverride,
+            }
+            await active.message(
+              `Next round: ${seat.assistant}, as recommended; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
+            )
+            continue
+          }
           const ending = round.cleanAudit
             ? "Clean audit"
             : round.recommendation?.decision === "stop"
@@ -800,6 +856,7 @@ export async function runCommand(
               : null
           const ended =
             ending === null ? null : auditorSetting(seat, selections, settings)
+          if (queue === null) break
           const taken = await takeNext(queue, ended, selections, settings)
           if (taken.skipped > 0)
             await active.message(

@@ -14,7 +14,7 @@ import type { AssistantRuntime } from "../assistant.js"
 import type { Feedback, PhaseOutput } from "../feedback.js"
 import {
   type Assistant,
-  type PhaseInput,
+  type AssistantTurnInput,
   type PhaseResult,
   phaseSkills,
 } from "../phase.js"
@@ -141,7 +141,7 @@ export async function fixture(
     executables: { claude: executable("claude"), codex: executable("codex") },
   }
   const feedback: Feedback[] = []
-  const starts: { input: PhaseInput; prompt: string }[] = []
+  const starts: { input: AssistantTurnInput; prompt: string }[] = []
   const finishes: PhaseResult[] = []
   let releases = 0
   const output: PhaseOutput = {

@@ -1,5 +1,9 @@
 import { z } from "zod"
-import type { PhaseInput, PhaseResult, SessionContext } from "./phase.js"
+import type {
+  AssistantTurnInput,
+  PhaseResult,
+  SessionContext,
+} from "./phase.js"
 
 export const selectionSchema = z.object({
   model: z.string().min(1),
@@ -37,7 +41,7 @@ export type AssistantEvent =
   | { readonly type: "complete" }
 
 export type PhaseOutput = {
-  readonly start: (input: PhaseInput, prompt: string) => Promise<void>
+  readonly start: (input: AssistantTurnInput, prompt: string) => Promise<void>
   readonly observe: (feedback: Feedback) => Promise<void>
   readonly finish: (result: PhaseResult) => Promise<void>
   /** Releases transient terminal output even after a required write fails. */

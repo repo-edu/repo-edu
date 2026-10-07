@@ -136,10 +136,11 @@ export async function roundFixture(
     `1. **B: Fixture finding**\n\n   ${location} [growth-pattern:none] [reach:developer] [complexity:none]\n\n   Correct the fixture.\n`
   await writeFile(
     report,
-    `Judged repos: ${owner}@${heads[owner]}\n` +
-      (working === "plan"
-        ? "\n"
-        : "Stop recommendation: continue. Another round is worth its cost.\n\n") +
+    (working === "plan"
+      ? "Planning round workflow\nArtifact: `example.md`\nPhase: detailing\n"
+      : "") +
+      `Judged repos: ${owner}@${heads[owner]}\n` +
+      "Recommendation: continue with Codex. Another round is worth its cost.\n\n" +
       (working === "plan"
         ? `## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\n${clean ? "No missing findings.\n" : finding("[field:missing] [section:decisions]")}`
         : `## Findings\n\n${clean ? "No findings.\n" : finding("[area:tool-audit-round]")}`),
@@ -157,6 +158,7 @@ export async function roundFixture(
     "brief",
     "watch",
     "close",
+    "recommendation",
   ] as const) {
     const assistant = ["fix", "brief", "watch", "close"].includes(phase)
       ? "codex"
@@ -165,9 +167,13 @@ export async function roundFixture(
           ? "claude"
           : "codex"
         : auditor
-    const sessionId = `${phase}-session`
+    const sessionId =
+      phase === "recommendation" ? "audit-session" : `${phase}-session`
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
-    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
+    const final =
+      phase === "recommendation"
+        ? "Recommendation: stop. The reconciled round has converged."
+        : `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
     phases[phase] = {
       document:
         phase === "audit"
@@ -178,7 +184,7 @@ export async function roundFixture(
               ? ruling
                 ? { text: "Written ruling by fix" }
                 : undefined
-              : phase === "close"
+              : phase === "close" || phase === "recommendation"
                 ? undefined
                 : { text: `Written ${phase}` },
       commits:
