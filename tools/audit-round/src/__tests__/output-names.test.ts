@@ -251,7 +251,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
           chosen,
         ),
         assistant === "codex"
-          ? /codex audit.*full --auditor tag/
+          ? /codex audit.*full --auditor or --first tag/
           : /claude vet.*CLI settings/,
       )
     }
@@ -263,7 +263,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
         ...testContext(f.root),
         plan: "example.md",
         scope: "all",
-        override: { strength: "top", effort: "high" },
+        override: { option: "--auditor", strength: "top", effort: "high" },
       },
       0,
       {

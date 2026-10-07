@@ -14,13 +14,13 @@ consumers.
   that accepted every finding without a condition skips the rebuttal the same way, because the
   auditor has nothing to answer; the fix then reads the report with its vet twin alone. The
   coordinator reads the twin through `vet.ts` to decide whether every finding was accepted
-  unconditionally. Rebuttal uses the audit's resolved model and effort, including `--auditor`
-  fields, because it is the auditor's answer. Its workflow grounds answers in current sources. The
-  settings file selects the default auditor, the fixer and the assistants that write documents.
-  The brief follows only a finished fix, after all rulings and resumed fix invocations have
-  completed. Only `--brief` adds that phase and its settings row to every round. Its input is the
-  round transcript, never the report, and its workflow belongs to the Repo Edu root. `runBrief` runs
-  that one phase on its own over an earlier transcript. The fix receives a ruling output path
+  unconditionally. Rebuttal uses the audit's resolved model and effort, including `--auditor` or
+  `--first` fields, because it is the auditor's answer. Its workflow grounds answers in current
+  sources. The settings file selects the default auditor, the fixer and the assistants that write
+  documents. The brief follows only a finished fix, after all rulings and resumed fix invocations
+  have completed. Only `--brief` adds that phase and its settings row to every round. Its input is
+  the round transcript, never the report, and its workflow belongs to the Repo Edu root. `runBrief`
+  runs that one phase on its own over an earlier transcript. The fix receives a ruling output path
   separately from its report arguments. It writes the final ruling and checks it for clarity before
   returning `needs-ruling`. The runner checks that file, then displays it and collects a reply
   without running the brief. A missing or empty ruling fails the fix with its recovery session. The
@@ -44,21 +44,21 @@ consumers.
   the commit record and never the round, so `runWatch` passes it no transcript and no report. After
   the watch finishes, `runWatch` reads back the grade it recorded; a watch that leaves no readable
   entry fails its phase. A finished round reports that grade, and the command runner ends the
-  auditor sequence on red, so no queued round starts before the user acts on the watch. A
-  finished round reports whether its audit had no findings and carries the settled report's
-  recommendation, independently of any clean record the fix lands. The command runner prints every
-  completed detailing or implementation recommendation. In an automatic round whose rebuttal ran,
-  the coordinator resumes the audit session after the fix with the vet, rebuttal and full landed
-  commit records. The auditor returns one final recommendation without reading or writing files,
-  and that recommendation replaces the report's. A `--auditor` round runs no final turn. The round
-  records both repositories' HEADs before the fix, reads the landed records and validates every
-  subject under its repository's grammar. A plan target fails when a finished fix landed no commit.
-  A commit target may land nothing. Reader failures retain the owning phase and its session for
-  recovery. The coordinator deletes the report set only after these checks and any final
-  recommendation, then runs the brief. Other outcomes retain the set.
-  `runClose` runs the loop-close phase alone on its own settings. It passes the active plan, the
-  capability tag and model record its commits carry and any abort reason. A finished close that
-  left its plan at the root fails, because the move is the close.
+  auditor sequence on red, so no queued round starts before the user acts on the watch. A finished
+  round reports whether its audit had no findings and carries the settled report's recommendation,
+  independently of any clean record the fix lands. The command runner prints every completed
+  detailing or implementation recommendation. In an automatic round whose rebuttal ran, the
+  coordinator resumes the audit session after the fix with the vet, rebuttal and full landed commit
+  records. The auditor returns one final recommendation without reading or writing files, and that
+  recommendation replaces the report's. A `--auditor` round runs no final turn. The round records
+  both repositories' HEADs before the fix, reads the landed records and validates every subject
+  under its repository's grammar. A plan target fails when a finished fix landed no commit. A commit
+  target may land nothing. Reader failures retain the owning phase and its session for recovery. The
+  coordinator deletes the report set only after these checks and any final recommendation, then runs
+  the brief. Other outcomes retain the set. `runClose` runs the loop-close phase alone on its own
+  settings. It passes the active plan, the capability tag and model record its commits carry and any
+  abort reason. A finished close that left its plan at the root fails, because the move is the
+  close.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -80,26 +80,26 @@ consumers.
   HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
-  reads each assistant name or partial tag in the `--auditor` list. Assistant names bypass audit
-  model and effort pins to inherit the CLI settings. The three alphabets share no letter, so a
-  partial tag says which fields it named. `roundPhases` is the one owner of the round's phases: the
-  runner invokes from the value it returns and the run's settings header prints the same value, so
-  what a round says it ran on is what it ran with. A phase names a model, an effort, both or
-  neither; a named field runs on what it names whatever the CLI is configured to use, and an unnamed
-  one follows that configuration. `settings.json` owns phase selections and the model tier table.
-  `settings.ts` loads and validates it once at command entry, independently of the working
-  directory. That configuration is passed through routing, output naming and commit stamps.
-  `--auditor` overrides each field it names, using the configured tier table for its model. Both
-  audit settings and command-line overrides bind the audit and rebuttal together, because the
-  rebuttal is the auditor's answer. Each named field carries what named it, so the report never
-  guesses, and either CLI accepts one. It also defines the private inputs and results for assistant
-  invocations, and the shared workflow and launcher selectors, and owns which phases' texts enter
-  the round transcript: only audit, vet, rebuttal and fix. The brief, ruling and watch are separate
-  documents. The fix writes the ruling; the brief and watch run once the transcript holds the round.
-  Assistant boundaries own processes, stream validation, session observations and phase output. They
-  return only after accounting for the process, streams and required record writes. A failure
-  retains the known session identity, including a resumed session whose new invocation reported no
-  identity.
+  reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.
+  Assistant names bypass audit model and effort pins to inherit the CLI settings. The three
+  alphabets share no letter, so a partial tag says which fields it named. `roundPhases` is the one
+  owner of the round's phases: the runner invokes from the value it returns and the run's settings
+  header prints the same value, so what a round says it ran on is what it ran with. A phase names a
+  model, an effort, both or neither; a named field runs on what it names whatever the CLI is
+  configured to use, and an unnamed one follows that configuration. `settings.json` owns phase
+  selections and the model tier table. `settings.ts` loads and validates it once at command entry,
+  independently of the working directory. That configuration is passed through routing, output
+  naming and commit stamps. `--auditor` and `--first` override each field they name, using the
+  configured tier table for its model. Both audit settings and command-line overrides bind the audit
+  and rebuttal together, because the rebuttal is the auditor's answer. Each named field carries what
+  named it, including which of the two options a tag came from, so the report never guesses, and
+  either CLI accepts one. It also defines the private inputs and results for assistant invocations,
+  and the shared workflow and launcher selectors, and owns which phases' texts enter the round
+  transcript: only audit, vet, rebuttal and fix. The brief, ruling and watch are separate documents.
+  The fix writes the ruling; the brief and watch run once the transcript holds the round. Assistant
+  boundaries own processes, stream validation, session observations and phase output. They return
+  only after accounting for the process, streams and required record writes. A failure retains the
+  known session identity, including a resumed session whose new invocation reported no identity.
 - `episode.ts` owns episode membership and history facts for the glance and joined watch evidence.
   It joins both repos' commits under the plan's stem, includes rework touching the topic's artifacts
   and retains both repositories' heads and anchors. `episode-log.ts` reads Git's commit dates,
@@ -214,42 +214,41 @@ consumers.
   exclusively creates the tagless claim, then opens the transcript and log. The claim remains after
   success or failure, and a conflict stops without retrying. Each entry carries its phase, so the
   settings header reports the model and effort that phase will run on, each in its own aligned
-  column. It names what set each of them: `--auditor`, `audit-round settings` for the phase's own
-  pin, or `CLI default` when the phase names nothing. A phase whose two fields came from different
-  places names both, model first. A pinned model reads as the release its CLI resolved it to at
-  startup, so every row names a release. The output holds only the run start, current phase timing,
-  context observations and each started phase's model selection and time. A phase starts with its
-  launch selection, then its CLI's model feedback replaces it. Each finished invocation adds its
-  elapsed time to the phase's time. Commit stamps use those phase selections and add a time line
-  for the audit, vet and rebuttal that finished, because a later stop recommendation weighs that
-  time as the cost of a round.
-  Every status stamp shows the phase's elapsed time and the round's total. Every logged tool line
-  opens with its step's own time, the assistant time since the previous tool line or since the phase
-  start for the first, followed by the round's total assistant time. `run-clock.ts` owns what those
-  readings count. A round measures its assistants, so time the user holds is not the run's.
-  Displaying the ruling opens a wait and submitting or cancelling the reply closes it. Each phase
-  and the run read the same waiting total through their own mark, so one rule serves every reading.
-  Two baselines measure context growth: a written status stamp reports the tokens added since the
-  previous written stamp, and a logged tool line reports the tokens added since the previous tool
-  line, beside the time since it. Both chain into the totals beside them; a fresh phase starts its
-  stamp baseline at zero and a resumed phase reports no first change. `run-files.ts` completes each
-  required write before returning to the invocation; no complete transcript accumulates in memory.
-  `terminal.ts` renders assistant Markdown through the `pi-tui` Markdown component at the current
-  terminal width, preserving paragraph spacing, nested lists and source finding numbers. It uses
-  cyan for inline code without background blocks and honours `NO_COLOR`. It writes the rendered
-  document directly and uses log-update only for the live status line, so permanent text is not
-  wrapped twice. Redirected output retains the original Markdown. The log records each tool
-  invocation once, with shell wrappers removed and no event envelopes or result payloads. Invocation
-  lines stay complete in the log; assistant texts stay complete in Markdown. Only terminal tool
-  lines shorten. The terminal omits the final `PHASE RESULT` control line; the transcript retains
-  it. `showBrief` renders the saved brief after validation and appends it to the log, keeping it out
-  of the transcript it retells. The brief's assistant text is not displayed, so a writer echo cannot
-  duplicate the saved document. Both full rounds and standalone briefs use this route. `beginRuling`
-  releases the live status display and renders the fix's ruling. `endRuling` excludes the user's
-  waiting time and records a submitted reply in the log and transcript before any resumed process
-  starts. Assistant replies use the normal phase output, so launch prompts stay in the log and never
-  reach the terminal. Supplied instruction files appear there by path only; their full contents go
-  to the assistant.
+  column. It names what set each of them: `--auditor` or `--first`, `audit-round settings` for the
+  phase's own pin, or `CLI default` when the phase names nothing. A phase whose two fields came from
+  different places names both, model first. A pinned model reads as the release its CLI resolved it
+  to at startup, so every row names a release. The output holds only the run start, current phase
+  timing, context observations and each started phase's model selection and time. A phase starts
+  with its launch selection, then its CLI's model feedback replaces it. Each finished invocation
+  adds its elapsed time to the phase's time. Commit stamps use those phase selections and add a time
+  line for the audit, vet and rebuttal that finished, because a later stop recommendation weighs
+  that time as the cost of a round. Every status stamp shows the phase's elapsed time and the
+  round's total. Every logged tool line opens with its step's own time, the assistant time since the
+  previous tool line or since the phase start for the first, followed by the round's total assistant
+  time. `run-clock.ts` owns what those readings count. A round measures its assistants, so time the
+  user holds is not the run's. Displaying the ruling opens a wait and submitting or cancelling the
+  reply closes it. Each phase and the run read the same waiting total through their own mark, so one
+  rule serves every reading. Two baselines measure context growth: a written status stamp reports
+  the tokens added since the previous written stamp, and a logged tool line reports the tokens added
+  since the previous tool line, beside the time since it. Both chain into the totals beside them; a
+  fresh phase starts its stamp baseline at zero and a resumed phase reports no first change.
+  `run-files.ts` completes each required write before returning to the invocation; no complete
+  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
+  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
+  source finding numbers. It uses cyan for inline code without background blocks and honours
+  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
+  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
+  log records each tool invocation once, with shell wrappers removed and no event envelopes or
+  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
+  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
+  line; the transcript retains it. `showBrief` renders the saved brief after validation and appends
+  it to the log, keeping it out of the transcript it retells. The brief's assistant text is not
+  displayed, so a writer echo cannot duplicate the saved document. Both full rounds and standalone
+  briefs use this route. `beginRuling` releases the live status display and renders the fix's
+  ruling. `endRuling` excludes the user's waiting time and records a submitted reply in the log and
+  transcript before any resumed process starts. Assistant replies use the normal phase output, so
+  launch prompts stay in the log and never reach the terminal. Supplied instruction files appear
+  there by path only; their full contents go to the assistant.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -288,7 +287,9 @@ consumers.
   plan rule alone for the `plan` command and a `close` given no stem. The home `/brief-plan` and
   `/close` run `plan` for an omitted stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor`
-  option. It reads that value with the queue's entry grammar and refuses a list with no entries. The
+  and `--first` options. It reads both values with the queue's entry grammar and refuses a list
+  with no entries. `--first` takes exactly one entry and is refused beside `--auditor`, because
+  the list's first entry already names the first round. The
   round is the command itself, taking the target as its own arguments. Its subcommands are `brief`,
   `close`, `plan`, `name`, `paths`, `delete-reports` and `episode`. Help lists the round, `brief`,
   `close` and `plan`, the commands a user runs. The hand-run launchers call `name`, `paths`,
@@ -306,10 +307,12 @@ consumers.
   assistant or settings discovery. So the program carries an action handler, Commander adds no
   `help` command, and each command's own `-h` prints its help. A bare command line prints that help;
   options without a target take `defaultTarget`. It also owns the round sequence and its counter.
-  Without `--auditor`, a settled plan target runs an automatic series. The configured default runs
-  first, then each continue recommendation names the next assistant. The series writes no queue and
+  Without `--auditor`, a settled plan target runs an automatic series. The `--first` selection runs
+  first, or the configured default without it, then each continue recommendation names the next
+  assistant. Only that first round carries the selection's fields. The series writes no queue and
   ends on a stop, the configured maximum, a failure, an unanswered ruling or a red watch. Widening
-  and commit targets run once. With `--auditor`, the first entry runs first and the remaining
+  and commit targets run once, on the `--first` selection when given. With `--auditor`, the first
+  entry runs first and the remaining
   entries on a plan target seed its editable queue. A clean audit or stop recommendation removes
   queued entries that resolve to that round's assistant, model and effort. Other settings remain and
   a continue recommendation removes nothing. A fix that lands a clean record removes none. Failure,
@@ -322,13 +325,14 @@ consumers.
   table. A chained round carries its place in its title and independently claims the next number for
   its target. Required write failures stop phase progression. If recording itself fails, the
   emergency channel still reports the known session and recovery command.
-- `queue.ts` owns the queue file's contents and the entry grammar `--auditor` shares: names or tags
-  separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries keep the user's
-  spelling, so a rewrite changes only which entries remain. It resolves each entry through the same
-  phase settings and startup model selection as the round, so ending signals compare the exact
-  assistant, model and effort rather than the entry's spelling. The runner reads the file only
-  between rounds, so an edit made during a round applies from the next one. A missing file reads as
-  an empty queue. A malformed entry stops the sequence with an error naming the file and the entry.
+- `queue.ts` owns the queue file's contents and the entry grammar `--auditor` and `--first` share:
+  names or tags separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries
+  keep the user's spelling, so a rewrite changes only which entries remain. It resolves each entry
+  through the same phase settings and startup model selection as the round, so ending signals
+  compare the exact assistant, model and effort rather than the entry's spelling. The runner reads
+  the file only between rounds, so an edit made during a round applies from the next one. A missing
+  file reads as an empty queue. A malformed entry stops the sequence with an error naming the file
+  and the entry.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -373,7 +377,7 @@ gitignored. When it is missing, the runner creates it from
 defaults. An invalid file stops the command with a validation error and is
 left unchanged.
 
-- `defaultAuditor` selects Claude or Codex when `--auditor` is absent.
+- `defaultAuditor` selects Claude or Codex when neither `--auditor` nor `--first` is given.
 - `maximumAutomaticRounds` limits a settled plan's automatic series, counting
   its first round.
 - `strengthModels` maps each assistant's base and top tiers to a model name.
@@ -386,13 +390,14 @@ left unchanged.
   auditor in a chain keeps each CLI on its own model. Rebuttal shares the
   audit selection. The vet uses the other assistant. Fix, the document
   phases and the close each select their assistant, whoever audited.
-- A field supplied by `--auditor` wins over the corresponding audit setting.
-  Other fields use this file, then the CLI when the file says `null`.
-- `--auditor claude` and `--auditor codex` inherit the selected CLI's current
-  model and effort for audit and rebuttal, bypassing both audit pins in this
-  file. Each list entry selects its own settings independently. Other phases
-  keep their configured selections. Letter tags such as `a` and `o` still
-  follow this file.
+- A field supplied by `--auditor` or `--first` wins over the corresponding
+  audit setting. Other fields use this file, then the CLI when the file says
+  `null`.
+- The names `claude` and `codex`, given to `--auditor` or `--first`, inherit
+  the selected CLI's current model and effort for audit and rebuttal, bypassing
+  both audit pins in this file. Each list entry selects its own settings
+  independently. Other phases keep their configured selections. Letter tags
+  such as `a` and `o` still follow this file.
 
 Tests supply an independent configuration through `configured-runner.ts` and
 `fixtures/settings.json`. Neither changes to the local file nor changes to
@@ -417,6 +422,7 @@ pnpm audit-round task-modifier all --auditor claude
 pnpm audit-round task-modifier --auditor codex
 pnpm audit-round example 3 --auditor codex,claude,claude
 pnpm audit-round example 3 --auditor "atx, obm"
+pnpm audit-round example all --first codex
 pnpm audit-round example 3 --no-watch
 pnpm audit-round example 3 --brief
 pnpm audit-round HEAD-1
@@ -484,7 +490,8 @@ in the shared cache, which is how its cadence survives between rounds, and `--no
 `brief` accepts an earlier transcript at the plan root, or takes the most recently modified one when
 none is named. It reads its kind from the transcript title, writes beside it without claiming a new
 number and overwrites its standalone log on each run. Without `--auditor`, a settled plan runs an
-automatic series from the configured default, follows each recommendation and stops at its maximum
+automatic series from the `--first` selection or the configured default, follows each
+recommendation and stops at its maximum
 without writing a queue. Widening and commit targets run once. `--auditor` accepts one selection or
 a sequence on the named plan scope, separated by commas or spaces. Repeated entries request separate
 rounds. The entries after the current round wait in `<target>-queue.md` at the plan root. Edit it to

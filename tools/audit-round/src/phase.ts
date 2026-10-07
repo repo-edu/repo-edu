@@ -84,20 +84,27 @@ export type Strength = (typeof strengths)[number]
 export const efforts = ["low", "medium", "high", "xhigh"] as const
 export type Effort = (typeof efforts)[number]
 
+/** The command-line option an auditor selection came from. */
+export type AuditorOption = "--auditor" | "--first"
+
 /**
- * What the command line asked of the auditor's phases. `cli` bypasses phase
- * settings; a null tag field follows settings.json, then the CLI. The override
- * binds audit and rebuttal because the rebuttal is the auditor's answer.
+ * What the command line asked of the auditor's phases. `none` asks nothing and
+ * `cli` bypasses phase settings. A tag names its option, so the settings header
+ * says which one set a field; a null tag field follows settings.json, then the
+ * CLI. The override binds audit and rebuttal because the rebuttal is the
+ * auditor's answer.
  */
 export type AuditorOverride =
+  | "none"
   | "cli"
   | {
+      readonly option: AuditorOption
       readonly strength: Strength | null
       readonly effort: Effort | null
     }
 
 /** An auditor the command line said nothing about, which every other phase is. */
-export const noOverride: AuditorOverride = { strength: null, effort: null }
+export const noOverride: AuditorOverride = "none"
 
 /**
  * The letter a capability tag gives a strength: `b` for the base tier and `t`
@@ -116,7 +123,7 @@ const effortLetters: Record<Effort, "l" | "m" | "h" | "x"> = {
   xhigh: "x",
 }
 
-/** What `--auditor` names: who audits, and whatever it pinned of the model. */
+/** What `--auditor` or `--first` names: who audits, and whatever it pinned of the model. */
 export type AuditorSeat = {
   readonly assistant: Assistant
   readonly override: AuditorOverride
@@ -138,7 +145,10 @@ function named<K extends string>(
  * which fields it named. The `u` a subject may carry says the model is on
  * neither tier, which is a reading and not a request, so it is not accepted.
  */
-export function parseAuditor(value: string): AuditorSeat | null {
+export function parseAuditor(
+  value: string,
+  option: AuditorOption,
+): AuditorSeat | null {
   if (value === "claude" || value === "codex")
     return { assistant: value, override: "cli" }
   const match = /^([ao])([bt])?([lmhx])?$/.exec(value)
@@ -148,6 +158,7 @@ export function parseAuditor(value: string): AuditorSeat | null {
   return {
     assistant,
     override: {
+      option,
       strength: named(strengthLetters, match[2]),
       effort: named(effortLetters, match[3]),
     },
@@ -220,7 +231,7 @@ function phaseModel(
       : config.phases[configuredPhase]
   const field = (value: string | null): PinnedField | null =>
     value === null ? null : { value, source: "audit-round settings" }
-  if (configuredPhase !== "audit")
+  if (configuredPhase !== "audit" || override === "none")
     return { model: field(pin.model), effort: field(pin.effort) }
   if (override === "cli") return unpinned
   return {
@@ -228,12 +239,12 @@ function phaseModel(
       override.strength !== null
         ? {
             value: config.strengthModels[assistant][override.strength],
-            source: "--auditor",
+            source: override.option,
           }
         : field(pin.model),
     effort:
       override.effort !== null
-        ? { value: override.effort, source: "--auditor" }
+        ? { value: override.effort, source: override.option }
         : field(pin.effort),
   }
 }
@@ -270,7 +281,7 @@ export function roundPhases(
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * each phase's own pin and each tier `--auditor` can ask for.
+ * each phase's own pin and each tier a tag can ask for.
  */
 export function namedModels(
   assistant: Assistant,
@@ -280,7 +291,11 @@ export function namedModels(
   for (const auditor of ["claude", "codex"] as const)
     for (const strength of [null, ...strengths])
       for (const run of Object.values(
-        roundPhases(auditor, { strength, effort: null }, config),
+        roundPhases(
+          auditor,
+          { option: "--auditor", strength, effort: null },
+          config,
+        ),
       ))
         if (run.assistant === assistant && run.model.model !== null)
           names.add(run.model.model.value)

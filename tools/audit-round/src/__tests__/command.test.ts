@@ -294,6 +294,70 @@ test("an automatic series follows the recommended switch and ends on stop withou
   )
 })
 
+test("--first replaces the default auditor's first round and the series still follows recommendations", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    "b",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  const source = await readFile(f.report, "utf8")
+  const codex = join(f.root, "codex-report.md")
+  await writeFile(
+    codex,
+    source.replace(
+      "Recommendation: continue with Codex. Another round is worth its cost.",
+      "Recommendation: stop. The cross-check found no reason for another round.",
+    ),
+  )
+  await configureAuditReports(f, { claude: f.report, codex })
+
+  assert.equal(
+    await runCommand(
+      ["example.md", "all", "--first", "atx", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["claude", "codex"],
+  )
+  // Only the first round carries the selection; the recommended round names no tier.
+  for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
+    assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
+  for (const flag of ["-m", "-c"])
+    assert.equal(audits[1].args.includes(flag), false)
+  const firstLog = (await f.roundFiles()).find((name) =>
+    /-01-1-round\..+\.log$/.test(name),
+  )
+  assert.ok(firstLog)
+  assert.match(
+    await readFile(join(f.planRoot, firstLog), "utf8"),
+    /audit +claude +claude-fable-5-1 +extra high +--first/,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Next round: codex, as recommended;/)
+  assert.match(
+    visible,
+    /Automatic auditor series stopped on the round recommendation after 2 rounds\./,
+  )
+  await assert.rejects(
+    readFile(join(f.planRoot, "example-impl-all-queue.md")),
+    { code: "ENOENT" },
+  )
+})
+
 test("an automatic series stops when its fix reopens the plan", async (t) => {
   const f = await roundFixture(
     t,
@@ -1445,7 +1509,10 @@ for (const effort of [null, "max"]) {
       await runCommand(["example.md", "all"], f.runtime, f.options),
       1,
     )
-    assert.match(f.errors.join("\n"), /codex audit.*full --auditor tag/)
+    assert.match(
+      f.errors.join("\n"),
+      /codex audit.*full --auditor or --first tag/,
+    )
     assert.deepEqual(await readdir(f.repoRoot), before)
     assert.equal(
       (await f.calls()).filter((call) => call.args[0] === "exec").length,
@@ -1657,6 +1724,10 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "all", "--auditor", ","],
     ["example.md", "all", "--auditor", " , "],
     ["example.md", "all", "--auditor", "codex,other"],
+    // --first names one round, and --auditor already names the first.
+    ["example.md", "all", "--first", "codex,claude"],
+    ["example.md", "all", "--first", "other"],
+    ["example.md", "all", "--first", "codex", "--auditor", "claude"],
     ["example.md", "--chain"],
     ["name", "example.md", "--auditor", "oth,ath"],
     // A tag names its fields by letter, in order, and never asks for `u`.

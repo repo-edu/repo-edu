@@ -87,13 +87,13 @@ Under the runner, audit, vet, rebuttal and fix read their own selection from
 sessions resolve them through [task settings](codex-desktop-settings.md) and
 Claude sessions through [session settings](claude-desktop-settings.md).
 The automated rebuttal starts fresh with the audit's resolved model and effort,
-including any `--auditor` fields. The runner resolves file tags from its
+including any `--auditor` or `--first` fields. The runner resolves file tags from its
 configured phase selections. A hand-run
 session resolves its own tag before naming the file it writes. When the effort is missing or
 cannot be spelled, stop and name the assistant and phase. For a runner audit,
-advise a full `--auditor` tag; for another phase following CLI settings,
-advise setting that assistant's effort there, since `--auditor` controls only
-the audit and rebuttal.
+advise a full `--auditor` or `--first` tag; for another phase following CLI
+settings, advise setting that assistant's effort there, since those options
+control only the audit and rebuttal.
 
 The runner resolves the tags of every file-writing phase it may invoke before
 opening any output. Startup updates and settings discovery write only to the

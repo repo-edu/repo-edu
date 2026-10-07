@@ -53,7 +53,11 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
   config.strengthModels.codex.top = "custom-top-model"
   config.phases.audit.codex = { model: "configured-auditor", effort: "medium" }
   config.phases.watch = { assistant: "codex", model: null, effort: "low" }
-  const phases = roundPhases("codex", { strength: "top", effort: null }, config)
+  const phases = roundPhases(
+    "codex",
+    { option: "--auditor", strength: "top", effort: null },
+    config,
+  )
   assert.deepEqual(phases.audit.model, {
     model: { value: "custom-top-model", source: "--auditor" },
     effort: { value: "medium", source: "audit-round settings" },
@@ -72,14 +76,15 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
   ])
   assert.equal(modelStrength("codex", "custom-top-model", config), "top")
   assert.equal(modelStrength("codex", "gpt-6-astra", config), null)
+  // A field names the option its tag came from.
   const effortOnly = roundPhases(
     "codex",
-    { strength: null, effort: "high" },
+    { option: "--first", strength: null, effort: "high" },
     config,
   )
   assert.deepEqual(effortOnly.audit.model, {
     model: { value: "configured-auditor", source: "audit-round settings" },
-    effort: { value: "high", source: "--auditor" },
+    effort: { value: "high", source: "--first" },
   })
 })
 
@@ -115,7 +120,7 @@ test("assistant names bypass audit pins while letter tags retain them across cha
   config.phases.audit.claude = { model: "claude-auditor", effort: "high" }
   config.phases.audit.codex = { model: "codex-auditor", effort: "medium" }
   for (const value of ["claude", "codex", "a", "o"]) {
-    const seat = parseAuditor(value)
+    const seat = parseAuditor(value, "--auditor")
     assert.ok(seat)
     assert.equal(
       seat.assistant,

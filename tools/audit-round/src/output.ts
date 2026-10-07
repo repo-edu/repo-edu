@@ -85,7 +85,7 @@ function fileTag(
   if (tag !== null) return tag
   const advice =
     entry.phase === "audit" || entry.phase === "rebut"
-      ? "Supply a full --auditor tag."
+      ? "Supply a full --auditor or --first tag."
       : `Set ${entry.assistant}'s effort in its CLI settings; --auditor does not control this phase.`
   throw new Error(
     `Cannot name ${entry.assistant} ${entry.phase} output: its effort is missing or unsupported. ${advice}`,

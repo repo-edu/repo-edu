@@ -23,6 +23,7 @@ import {
   roundRun,
 } from "./output.js"
 import {
+  type AuditorOption,
   type AuditorSeat,
   noOverride,
   phaseWorkflow,
@@ -96,6 +97,8 @@ type Invocation =
       readonly first?: string
       readonly rest: readonly string[]
       readonly auditor?: readonly AuditorEntry[]
+      /** The `--first` selection, which replaces the default auditor's first round. */
+      readonly firstAuditor?: AuditorEntry
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
       /** True when `--brief` was given; rounds run no brief otherwise. */
@@ -123,6 +126,19 @@ function sessionTag(value: string): string {
       "Expected a full session tag, such as oth or oux.",
     )
   return value
+}
+
+/** One option's entries in the queue's grammar; an empty list is refused. */
+function auditorEntries(value: string, option: AuditorOption): AuditorEntry[] {
+  let entries: AuditorEntry[]
+  try {
+    entries = parseAuditors(value, option)
+  } catch (error) {
+    throw new InvalidArgumentError(errorMessage(error))
+  }
+  if (entries.length === 0)
+    throw new InvalidArgumentError("Expected at least one auditor.")
+  return entries
 }
 
 function parseInvocation(
@@ -159,17 +175,22 @@ function parseInvocation(
       new Option(
         "--auditor <selections>",
         "auditors in round order (see below)",
-      ).argParser((value) => {
-        let entries: AuditorEntry[]
-        try {
-          entries = parseAuditors(value)
-        } catch (error) {
-          throw new InvalidArgumentError(errorMessage(error))
-        }
-        if (entries.length === 0)
-          throw new InvalidArgumentError("Expected at least one auditor.")
-        return entries
-      }),
+      ).argParser((value) => auditorEntries(value, "--auditor")),
+    )
+    .addOption(
+      new Option(
+        "--first <selection>",
+        "first auditor of an automatic series (see below)",
+      )
+        .argParser((value) => {
+          const [entry, ...more] = auditorEntries(value, "--first")
+          if (more.length > 0)
+            throw new InvalidArgumentError(
+              "Expected one auditor. Use --auditor for a list.",
+            )
+          return entry
+        })
+        .conflicts("auditor"),
     )
     .option(
       "--no-watch",
@@ -216,12 +237,14 @@ Auditor selection (--auditor <selections>):
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor comes from settings.json.
   Without --auditor, a settled plan starts an automatic series with that default.
+  --first <selection> takes one entry in the same form and runs it instead of the
+  default for the first round. It cannot be combined with --auditor.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
 
   Automatic series (settled plan without --auditor):
-    - The configured default auditor runs first.
+    - The configured default auditor runs first, or the --first selection.
     - A continue recommendation names the next assistant. A stop recommendation
       ends the series. No queue file is written.
     - settings.json sets the maximum round count, including the first round.
@@ -290,6 +313,10 @@ Examples (from either checkout):
 
      $ pnpm audit-round --auditor codex
 
+  5. Start an automatic series on all steps with Codex instead of the default.
+
+     $ pnpm audit-round example all --first codex
+
 Use pnpm audit-round brief --help or close --help for their arguments and options.`,
     )
     .action(
@@ -298,12 +325,15 @@ Use pnpm audit-round brief --help or close --help for their arguments and option
         rest: string[],
         flags: {
           auditor?: readonly AuditorEntry[]
+          first?: AuditorEntry
           watch: boolean
           brief?: boolean
           verbose?: boolean
         },
       ) => {
-        invocation = { kind: "round", first, rest, ...flags }
+        // The target's first argument already holds the name `first`.
+        const { first: firstAuditor, ...rounds } = flags
+        invocation = { kind: "round", first, rest, firstAuditor, ...rounds }
       },
     )
   // The program owns the round, so Commander adds no `help` command of its own.
@@ -763,10 +793,11 @@ export async function runCommand(
           : null
       let rest: readonly AuditorEntry[] = queued
       if (queue !== null) await writeQueue(queue, rest)
-      let seat: AuditorSeat | null = first ?? {
-        assistant: settings.defaultAuditor,
-        override: noOverride,
-      }
+      let seat: AuditorSeat | null = first ??
+        prepared.firstAuditor ?? {
+          assistant: settings.defaultAuditor,
+          override: noOverride,
+        }
       let target = prepared.target
       let completed = 0
       try {

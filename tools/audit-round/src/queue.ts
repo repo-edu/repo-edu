@@ -4,6 +4,7 @@ import { errorMessage } from "./feedback.js"
 import { phaseSelection } from "./output-format.js"
 import {
   type Assistant,
+  type AuditorOption,
   type AuditorSeat,
   parseAuditor,
   roundPhases,
@@ -30,14 +31,17 @@ export function auditorSetting(
 
 /**
  * Names or tags in round order, separated by commas, spaces or line breaks.
- * `--auditor` and the queue file share this grammar.
+ * `--auditor`, `--first` and the queue file share this grammar.
  */
-export function parseAuditors(text: string): AuditorEntry[] {
+export function parseAuditors(
+  text: string,
+  option: AuditorOption,
+): AuditorEntry[] {
   return text
     .split(/[\s,]+/)
     .filter((entry) => entry.length > 0)
     .map((entry, index) => {
-      const seat = parseAuditor(entry)
+      const seat = parseAuditor(entry, option)
       if (seat === null)
         throw new Error(
           `Auditor entry ${index + 1} (${entry}): expected claude, codex or a capability tag, such as o, at or otx.`,
@@ -66,8 +70,9 @@ async function readQueue(path: string): Promise<AuditorEntry[]> {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
     throw error
   }
+  // The queue holds the rest of an `--auditor` list.
   try {
-    return parseAuditors(text)
+    return parseAuditors(text, "--auditor")
   } catch (error) {
     throw new Error(`${path}: ${errorMessage(error)}`)
   }

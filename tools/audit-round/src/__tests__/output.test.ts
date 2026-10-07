@@ -43,7 +43,11 @@ test("commit stamps retain each phase's reported selection across later phases",
     plan: "example.md",
     scope: "all",
     auditor: "claude" as const,
-    override: { strength: "top", effort: "xhigh" } as const,
+    override: {
+      option: "--auditor",
+      strength: "top",
+      effort: "xhigh",
+    } as const,
   }
   const phases = roundPhases(setup.auditor, setup.override)
   const output = new RoundOutput(await roundRun(setup, 0, selections), {
@@ -609,32 +613,54 @@ test("the settings header names what set each phase's model and effort", async (
     return (visible.at(-1) as string).split("\n")
   }
   // Both flags name the whole selection, and the fix keeps the CLI default.
-  assert.deepEqual(await header({ strength: "top", effort: "xhigh" }), [
-    "audit  codex   gpt-6-astra       extra high  --auditor",
-    "rebut  codex   gpt-6-astra       extra high  --auditor",
-    "fix    codex   gpt-5.6-sol       high        CLI default",
-    "brief  codex   gpt-5.6-terra     low         audit-round settings",
-    "watch  codex   gpt-5.6-sol       high        CLI default",
-    "vet    claude  claude-opus-5[1m] extra high  CLI default",
-  ])
+  assert.deepEqual(
+    await header({ option: "--auditor", strength: "top", effort: "xhigh" }),
+    [
+      "audit  codex   gpt-6-astra       extra high  --auditor",
+      "rebut  codex   gpt-6-astra       extra high  --auditor",
+      "fix    codex   gpt-5.6-sol       high        CLI default",
+      "brief  codex   gpt-5.6-terra     low         audit-round settings",
+      "watch  codex   gpt-5.6-sol       high        CLI default",
+      "vet    claude  claude-opus-5[1m] extra high  CLI default",
+    ],
+  )
   // One flag names one field, so the row reports both sources, model first.
   assert.deepEqual(
-    (await header({ strength: "top", effort: null })).slice(0, 2),
+    (
+      await header({ option: "--auditor", strength: "top", effort: null })
+    ).slice(0, 2),
     [
       "audit  codex   gpt-6-astra       high        --auditor/CLI default",
       "rebut  codex   gpt-6-astra       high        --auditor/CLI default",
     ],
   )
   assert.deepEqual(
-    (await header({ strength: null, effort: "medium" })).slice(0, 2),
+    (
+      await header({ option: "--auditor", strength: null, effort: "medium" })
+    ).slice(0, 2),
     [
       "audit  codex   gpt-5.6-sol       medium      CLI default/--auditor",
       "rebut  codex   gpt-5.6-sol       medium      CLI default/--auditor",
     ],
   )
+  // A --first tag names its own option.
+  assert.deepEqual(
+    (
+      await header({ option: "--first", strength: "top", effort: "xhigh" })
+    ).slice(0, 2),
+    [
+      "audit  codex   gpt-6-astra       extra high  --first",
+      "rebut  codex   gpt-6-astra       extra high  --first",
+    ],
+  )
   // A family alias reads as the release the CLI resolved it to.
   assert.deepEqual(
-    (await header({ strength: "base", effort: "xhigh" }, "claude")).slice(0, 2),
+    (
+      await header(
+        { option: "--auditor", strength: "base", effort: "xhigh" },
+        "claude",
+      )
+    ).slice(0, 2),
     [
       "audit  claude  claude-opus-5-5 extra high  --auditor",
       "rebut  claude  claude-opus-5-5 extra high  --auditor",
