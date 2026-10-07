@@ -271,11 +271,15 @@ completion instead.
 
 ## History reads
 
-Cross-round scans belong to glance and watch. The narrow exception is an
-implementation audit's stop recommendation: it reads the subjects, **Round
-yield** lines and time lines of earlier implementation-audit records for the
-same step scope. It uses them only to judge whether the next round on that scope is likely to
-find something worth its cost. It does not compute the episode or classify its
+Cross-round scans belong to glance and watch. The narrow exception is a
+settled audit's recommendation: it reads the subjects, **Round yield** lines
+and time lines of earlier records for its own target. An implementation audit
+reads implementation-audit records for the same step scope. A detailing audit
+reads this plan's planning records after the latest `settle` commit, or after
+`init` when the plan started at the bare name. It reads no widening records and
+no records for another plan. The audit uses this history only to judge whether
+the next round on that target is likely to find something worth its cost and
+which assistant should run it. It does not compute the episode or classify its
 trajectory. Other phases read history when needed to establish a specific
 finding, prior ruling, a rule's origin or an implementation departure.
 Lifecycle, scope discovery and handoff lookups remain required. This keeps
@@ -285,6 +289,50 @@ the evidence a finding needs.
 The plan doctrine's [Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff
 for both round kinds. The phase landing the record writes it. The next audit
 reads it under that section's read gate.
+
+## Settled-round recommendations
+
+Every detailing and implementation audit report, including a clean report,
+opens with exactly one of these plain lines:
+
+```text
+Recommendation: stop. <reason>
+Recommendation: continue with Claude. <reason>
+Recommendation: continue with Codex. <reason>
+```
+
+The reason judges whether the next round on the same target is likely to find
+something worth its cost. It weighs this round's findings and the target
+history allowed by [History reads](#history-reads) against
+`STOP-CONDITIONS.md`. When continuing, it explains why the named assistant is
+the better next check. Give one answer rather than a menu. In an automatic
+series, the assistant name selects that assistant's audit model and effort from
+the runner settings; the recommendation never chooses a model or effort itself.
+It advises the user's stop decision and does not replace it.
+
+A widening report carries only its settling recommendation. It has no
+settled-round recommendation because widening does not run an automatic
+series. A commit target still carries the implementation report's line, but
+the runner runs that target only once.
+
+The report recommendation rests on the audit's own findings before vetting. It
+remains the round's recommendation when no rebuttal ran and throughout a
+`--auditor` series. An automatic series whose rebuttal ran follows the final
+recommendation contract below instead.
+
+### Final recommendation
+
+After the fix finishes in an automatic series whose rebuttal ran, the runner
+resumes the audit session before deleting the review files. It supplies the vet
+and rebuttal twins and every record the fix landed in either repo. The auditor
+uses those results with the scope, history, stop conditions and report already
+in its context, reads no new files and writes none. It returns exactly one
+recommendation line in the forms above and no other text. That line replaces
+the report recommendation as the round's recommendation.
+
+No final turn runs when there was no rebuttal or when `--auditor` supplied the
+series. In those cases the report recommendation remains the round's
+recommendation.
 
 ## Finding tiers
 
@@ -535,6 +583,10 @@ standalone close, follow this rule for every ending, including an early stop. It
 vet, rebuttal, fix, brief, watch and close. Planning workflows read this whole reference from its
 Repo Edu home; their planning rules stay in the plan repo. Implementation routes may supply local
 substitutions. Ordinary interactive invocations do not add a result line.
+
+The resumed final-recommendation step is not a phase. It follows
+[Final recommendation](#final-recommendation) and returns only its one
+recommendation line, with no result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
 Keep it outside any code fence. Audit, vet and rebuttal supply their complete
@@ -1044,16 +1096,12 @@ Open by naming `Implementation audit workflow` and include exactly one plain lin
 `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's short audited HEAD. Repos read
 only as evidence stay outside that line. It selects the repos for vet, rebuttal, fix and clean
 completion. The filename holds the writer tag; do not repeat or look up that tag for the opening.
-Follow it with exactly one plain line in one of these forms:
-`Stop recommendation: stop. <reason>` or
-`Stop recommendation: continue. <reason>`. The reason judges whether the next
-round on the same scope is likely to find something worth its cost. It weighs
-this round's findings and earlier same-scope records against the supplied stop
-conditions, gives one answer rather than a menu and never replaces the user's
-stop decision. Then name the plan file, its ready commit and the implementation
-commits inspected. State the round's user-set scope: the whole plan, one step or
-one step range. Then report the coverage table, its coverage line and the
-**Round yield** lines, followed by the finding field.
+Follow it with the one line owned by
+[Settled-round recommendations](#settled-round-recommendations). Then name the
+plan file, its ready commit and the implementation commits inspected. State the
+round's user-set scope: the whole plan, one step or one step range. Then report
+the coverage table, its coverage line and the **Round yield** lines, followed by
+the finding field.
 
 Every finding, including a cross-repo finding, belongs in one `## Findings`
 field. A field with no findings contains exactly `No findings.` instead of
@@ -1064,8 +1112,11 @@ finding blocks. A report with only deferred findings still has findings.
 Open by naming `Planning round workflow`, the artifact and widening or detailing phase.
 Include exactly one plain line `Judged repos: plan@<sha>` with the audited
 short HEAD. Evidence-only repos stay outside it. Do not repeat the writer tag
-from the filename. The planning workflow supplies current-shape advice for a
-widening report and the premise-error route for an early stop.
+from the filename. After that line, the planning workflow supplies
+current-shape advice for a widening report. A detailing report instead carries
+the one line owned by
+[Settled-round recommendations](#settled-round-recommendations). The planning
+workflow owns the premise-error route for an early stop.
 
 Present the graded findings in two fields, both present in every report:
 `## Excess functionality` first, for what the artifact can shed or simplify,
