@@ -61,7 +61,13 @@ import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-import { closingPlan, roundContext, targetRequest } from "./target.js"
+import {
+  activePlan,
+  closingPlan,
+  planStem,
+  roundContext,
+  targetRequest,
+} from "./target.js"
 import { readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
@@ -761,12 +767,37 @@ export async function runCommand(
         assistant: settings.defaultAuditor,
         override: noOverride,
       }
+      let target = prepared.target
       let completed = 0
       try {
         do {
+          if (completed > 0 && "plan" in target) {
+            const stem = planStem(target.plan)
+            const plan = await activePlan(context.planRoot, stem)
+            if (plan === null)
+              throw new Error(
+                `No active plan named ${stem} at ${context.planRoot}.`,
+              )
+            target = { ...target, plan }
+            if (automatic && basename(plan).endsWith("-widen.md")) {
+              await output?.message(
+                `Automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"}: ${plan} is now widening.`,
+              )
+              if (result === undefined)
+                throw new Error(
+                  "Automatic auditor series changed phase before completing a round",
+                )
+              code = result.status === "failed" ? 1 : 0
+              return code
+            }
+            if (automatic)
+              await output?.message(
+                `Next round: ${seat.assistant}, as recommended; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
+              )
+          }
           const setup = {
             ...session,
-            ...prepared.target,
+            ...target,
             auditor: seat.assistant,
             override: seat.override,
             brief: prepared.brief,
@@ -844,9 +875,6 @@ export async function runCommand(
               assistant: recommendation.assistant,
               override: noOverride,
             }
-            await active.message(
-              `Next round: ${seat.assistant}, as recommended; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
-            )
             continue
           }
           const ending = round.cleanAudit

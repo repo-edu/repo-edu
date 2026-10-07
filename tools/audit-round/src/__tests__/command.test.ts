@@ -3,6 +3,7 @@ import {
   mkdir,
   readdir,
   readFile,
+  rename,
   rm,
   symlink,
   utimes,
@@ -291,6 +292,98 @@ test("an automatic series follows the recommended switch and ends on stop withou
     readFile(join(f.planRoot, "example-impl-all-queue.md")),
     { code: "ENOENT" },
   )
+})
+
+test("an automatic series stops when its fix reopens the plan", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    true,
+    "b",
+    false,
+    "plan",
+    false,
+    true,
+    false,
+  )
+  const settled = join(f.planRoot, "example.md")
+  const widening = join(f.planRoot, "example-widen.md")
+
+  assert.equal(
+    await runCommand(["example.md", "--no-watch"], f.runtime, {
+      ...f.options,
+      readReply: async () => {
+        await rm(widening)
+        await rename(settled, widening)
+        await finishFixOnReply(f)
+        return "Reopen the plan."
+      },
+    }),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.equal(audits.length, 1)
+  assert.match(
+    f.visible.join("\n"),
+    /Automatic auditor series stopped after 1 round: .*example-widen\.md is now widening\./,
+  )
+})
+
+test("a manual queue follows a plan reopened by its fix", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    true,
+    "b",
+    false,
+    "plan",
+    false,
+    true,
+    false,
+  )
+  const reportSource = f.report
+  const detailingReport = await readFile(reportSource, "utf8")
+  const settled = join(f.planRoot, "example.md")
+  const widening = join(f.planRoot, "example-widen.md")
+
+  assert.equal(
+    await runCommand(
+      ["example.md", "--auditor", "codex,claude", "--no-watch"],
+      f.runtime,
+      {
+        ...f.options,
+        readReply: async () => {
+          await rm(widening)
+          await rename(settled, widening)
+          await writeFile(
+            reportSource,
+            detailingReport
+              .replace("Phase: detailing", "Phase: widening")
+              .replace(
+                "Recommendation: continue with Codex. Another round is worth its cost.",
+                "Settling recommendation: keep widening. The shape still has an open question.",
+              ),
+          )
+          await finishFixOnReply(f)
+          return "Reopen the plan."
+        },
+      },
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.equal(audits.length, 2)
+  assert.ok(audits[1].prompt.includes(widening))
 })
 
 test("an automatic series stops at its configured maximum", async (t) => {
