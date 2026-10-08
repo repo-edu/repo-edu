@@ -113,6 +113,7 @@ export async function roundRun(
     setup.auditor ?? settings.defaultAuditor,
     setup.override ?? noOverride,
     settings,
+    setup.auditSlot,
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: Phase): string =>

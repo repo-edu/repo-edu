@@ -82,9 +82,11 @@ consumers.
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.
   Assistant names bypass audit model and effort pins to inherit the CLI settings. The three
-  alphabets share no letter, so a partial tag says which fields it named. `roundPhases` is the one
-  owner of the round's phases: the runner invokes from the value it returns and the run's settings
-  header prints the same value, so what a round says it ran on is what it ran with. A phase names a
+  alphabets share no letter, so a partial tag says which fields it named. `auditPair` identifies the
+  two-member form which `command.ts` turns through. `roundPhases` is the one owner of the round's
+  phases: it resolves the chosen member once for audit and rebuttal, the runner invokes from the
+  value it returns and the run's settings header prints the same value, so what a round says it ran
+  on is what it ran with. A phase names a
   model, an effort, both or neither; a named field runs on what it names whatever the CLI is
   configured to use, and an unnamed one follows that configuration. `settings.json` owns phase
   selections and the model tier table. `settings.ts` loads and validates it once at command entry,
@@ -312,7 +314,10 @@ consumers.
   options without a target take `defaultTarget`. It also owns the round sequence and its counter.
   Without `--auditor`, a settled plan target runs an automatic series. The `--first` selection runs
   first, or the configured default without it, then each continue recommendation names the next
-  assistant. Only that first round carries the selection's fields. The series writes no queue and
+  assistant. Only that first round carries the selection's fields. When the selected assistant has
+  an audit pair, settings-chosen rounds take turns between its members and a coin flip chooses the
+  first. Each assistant keeps its own turn inside this command. A command-line choice takes no turn.
+  The series writes no queue and
   ends on a stop, the configured maximum, a failure, an unanswered ruling, a red watch or a fix
   that reopens the plan. Widening and commit targets run once, on the `--first` selection when
   given. With `--auditor`, the first
@@ -335,8 +340,9 @@ consumers.
   through the same phase settings and startup model selection as the round, so ending signals
   compare the exact assistant, model and effort rather than the entry's spelling. The runner reads
   the file only between rounds, so an edit made during a round applies from the next one. A missing
-  file reads as an empty queue. A malformed entry stops the sequence with an error naming the file
-  and the entry.
+  file reads as an empty queue. When an assistant has an audit pair, its command-line or queue entry
+  must be the assistant's full name or a full tag; a partial tag is refused with the pair named. A
+  malformed entry stops the sequence with an error naming the file and the entry.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -388,20 +394,22 @@ left unchanged.
   The same names classify reported models for capability tags. A family alias
   such as `opus` follows the CLI's current release; a full model name pins it.
   The settings header shows the release either one resolves to.
-- `phases` sets each phase's model and effort. A `null` field inherits the
-  assistant CLI's effective setting. A named model must suit the selected CLI.
+- `phases` sets each phase's model and effort. Each assistant's audit selection
+  is either one `{ model, effort }` object or a two-object array. A `null` field
+  inherits the assistant CLI's effective setting. A named model must suit the
+  selected CLI.
 - Audit and vet each have separate Claude and Codex selections, so changing
   auditor in a chain keeps each CLI on its own model. Rebuttal shares the
   audit selection. The vet uses the other assistant. Fix, the document
   phases and the close each select their assistant, whoever audited.
 - A field supplied by `--auditor` or `--first` wins over the corresponding
   audit setting. Other fields use this file, then the CLI when the file says
-  `null`.
+  `null`. When the audit setting is a pair, a tag must supply both fields.
 - The names `claude` and `codex`, given to `--auditor` or `--first`, inherit
   the selected CLI's current model and effort for audit and rebuttal, bypassing
   both audit pins in this file. Each list entry selects its own settings
   independently. Other phases keep their configured selections. Letter tags
-  such as `a` and `o` still follow this file.
+  may omit fields only when that assistant has one audit selection.
 
 Tests supply an independent configuration through `configured-runner.ts` and
 `fixtures/settings.json`. Neither changes to the local file nor changes to
@@ -503,18 +511,19 @@ in the shared cache, which is how its cadence survives between rounds, and `--no
 `brief` accepts an earlier transcript at the plan root, or takes the most recently modified one when
 none is named. It reads its kind from the transcript title, writes beside it without claiming a new
 number and overwrites its standalone log on each run. Without `--auditor`, a settled plan runs an
-automatic series from the `--first` selection or the configured default, follows each
-recommendation and stops at its maximum
-without writing a queue. Widening and commit targets run once. `--auditor` accepts one selection or
-a sequence on the named plan scope, separated by commas or spaces. Repeated entries request separate
-rounds. The entries after the current round wait in `<target>-queue.md` at the plan root. Edit it to
-add, remove or reorder rounds; the runner reads it between rounds and deletes it when the sequence
-ends. An empty or deleted file ends the sequence after the current round. Every completed settled
-round prints its recommendation and reason. In a manual series, a clean audit or stop
-recommendation skips queued entries with the same resolved assistant, model and effort; other
-settings remain. A continue recommendation skips none. Failure or leaving a ruling without a reply
-stops either sequence. A submitted reply resumes the fix, then the sequence after the round
-completes. Each header records the round's start time; filenames carry no timestamp.
+automatic series from the `--first` selection or the configured default, follows each recommendation
+and stops at its maximum without writing a queue. Widening and commit targets run once. `--auditor`
+accepts one selection or a sequence on the named plan scope, separated by commas or spaces. Repeated
+entries request separate rounds. The entries after the current round wait in `<target>-queue.md` at
+the plan root. Edit it to add, remove or reorder rounds; the runner reads it between rounds and
+deletes it when the sequence ends. An empty or deleted file ends the sequence after the current
+round. Every completed settled round prints its recommendation and reason. In a manual series, a
+clean audit or stop recommendation skips queued entries with the same resolved assistant, model and
+effort; other settings remain. A continue recommendation skips none. Failure or leaving a ruling
+without a reply stops either sequence. A submitted reply resumes the fix, then the sequence after
+the round completes. A settings pair takes turns only in rounds the automatic pick chose. Its first
+picked round uses a coin flip. A `--first`, `--auditor` or queue choice bypasses the pair and takes
+no turn. Each header records the round's start time; filenames carry no timestamp.
 
 ## Verification
 

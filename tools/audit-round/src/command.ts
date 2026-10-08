@@ -23,8 +23,11 @@ import {
   roundRun,
 } from "./output.js"
 import {
+  type Assistant,
   type AuditorOption,
   type AuditorSeat,
+  type AuditSlot,
+  auditPair,
   noOverride,
   phaseWorkflow,
   type RoundDependencies,
@@ -35,6 +38,7 @@ import {
   parseAuditors,
   removeQueue,
   takeNext,
+  validateAuditorEntries,
   writeQueue,
 } from "./queue.js"
 import { formatRecommendation, readReport, reportKind } from "./report.js"
@@ -242,6 +246,8 @@ Auditor selection (--auditor <selections>):
       <tier>       b = base model, t = top model
       <effort>     l = low, m = medium, h = high, x = xhigh
       Omitted fields use settings.json, then the CLI default.
+      When that assistant's audit setting is a pair, supply both fields. A
+      partial tag is refused because it does not name one member of the pair.
 
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
@@ -257,6 +263,8 @@ Round sequence:
     - The configured default auditor runs first, or the --first selection.
     - A continue recommendation names the next assistant. A stop recommendation
       ends the series. No queue file is written.
+    - A configured audit pair takes turns within this command. A coin flip picks
+      its first member. --first and other command-line choices take no turn.
     - settings.json sets the maximum round count, including the first round.
     - Widening plans and commit targets still run once.
 
@@ -528,6 +536,8 @@ export async function runCommand(
     readonly repoEduRoot?: string
     readonly settings?: RoundSettings
     readonly readReply?: () => Promise<string | null>
+    /** Supplies the first member of each configured pair in deterministic tests. */
+    readonly coin?: () => AuditSlot
   },
 ): Promise<number> {
   const invocation = parseInvocation(argv, options)
@@ -676,6 +686,16 @@ export async function runCommand(
           : prepared.target.roundKind,
     )
     const settings = options.settings ?? (await readSettings())
+    if (prepared.kind === "round") {
+      try {
+        if (prepared.auditor !== undefined)
+          validateAuditorEntries(prepared.auditor, settings)
+        if (prepared.firstAuditor !== undefined)
+          validateAuditorEntries([prepared.firstAuditor], settings)
+      } catch (error) {
+        throw new InvalidArgumentError(errorMessage(error))
+      }
+    }
     runtime.signal?.throwIfAborted()
     const selections = await prepareAssistants(
       { ...runtime, cwd: session.cwd },
@@ -843,6 +863,18 @@ export async function runCommand(
           assistant: settings.defaultAuditor,
           override: noOverride,
         }
+      const nextPairSlots: Partial<Record<Assistant, AuditSlot>> = {}
+      const coin = options.coin ?? (() => (Math.random() < 0.5 ? 0 : 1))
+      const takeAuditSlot = (current: AuditorSeat): AuditSlot => {
+        if (
+          current.override !== noOverride ||
+          auditPair(current.assistant, settings) === null
+        )
+          return 0
+        const slot = nextPairSlots[current.assistant] ?? coin()
+        nextPairSlots[current.assistant] = slot === 0 ? 1 : 0
+        return slot
+      }
       let target = prepared.target
       let completed = 0
       try {
@@ -872,6 +904,7 @@ export async function runCommand(
             ...target,
             auditor: seat.assistant,
             override: seat.override,
+            auditSlot: takeAuditSlot(seat),
             brief: prepared.brief,
             automatic,
           }

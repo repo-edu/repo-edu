@@ -294,6 +294,72 @@ test("an automatic series follows the recommended switch and ends on stop withou
   )
 })
 
+test("an audit pair takes turns from a fixed first coin and keeps each rebuttal on that pick", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    "b",
+    false,
+    "repo-edu",
+    false,
+    false,
+    true,
+  )
+  const settings = structuredClone(testSettings)
+  settings.maximumAutomaticRounds = 3
+  settings.phases.audit.codex = [
+    { model: "gpt-5.6-sol", effort: "medium" },
+    { model: "gpt-6-astra", effort: "xhigh" },
+  ]
+  const recommendation = f.phases.recommendation as Record<string, unknown>
+  const stream = await phaseStream(
+    "codex",
+    "Recommendation: continue with Codex. Keep comparing the pair.",
+    "audit-session",
+  )
+  await f.configure({
+    phases: {
+      ...f.phases,
+      recommendation: {
+        ...recommendation,
+        stream,
+        assistants: { codex: { stream } },
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(["example.md", "all", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings,
+      coin: () => 1,
+    }),
+    0,
+    f.errors.join("\n"),
+  )
+  const prompts = await f.prompts()
+  const expected = [
+    ["gpt-6-astra", "model_reasoning_effort=xhigh"],
+    ["gpt-5.6-sol", "model_reasoning_effort=medium"],
+    ["gpt-6-astra", "model_reasoning_effort=xhigh"],
+  ]
+  for (const phase of ["audit", "rebut"]) {
+    const calls = prompts.filter((call) =>
+      call.prompt.startsWith(`Run the ${phase} phase `),
+    )
+    assert.equal(calls.length, 3)
+    for (const [index, call] of calls.entries())
+      for (const argument of expected[index])
+        assert.ok(call.args.includes(argument), call.args.join(" "))
+  }
+  assert.match(
+    f.visible.join("\n"),
+    /Automatic auditor series reached its maximum of 3 rounds\./,
+  )
+})
+
 test("an automatic series continues on an archived plan", async (t) => {
   const f = await roundFixture(
     t,
@@ -1620,6 +1686,11 @@ for (const effort of [null, "max"]) {
 for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
+    const settings = structuredClone(testSettings)
+    settings.phases.audit[auditor] = [
+      { model: "first-pair-member", effort: "low" },
+      { model: "second-pair-member", effort: "medium" },
+    ]
     assert.equal(
       await runCommand(
         [
@@ -1630,7 +1701,7 @@ for (const auditor of ["codex", "claude"] as const) {
           auditor === "codex" ? "otx" : "atx",
         ],
         f.runtime,
-        f.options,
+        { ...f.options, settings },
       ),
       0,
       f.errors.join("\n"),
@@ -1682,6 +1753,31 @@ for (const auditor of ["codex", "claude"] as const) {
     )
   })
 }
+
+test("a configured pair refuses partial --auditor and --first tags before startup", async (t) => {
+  const f = await roundFixture(t)
+  const settings = structuredClone(testSettings)
+  settings.phases.audit.codex = [
+    { model: "gpt-5.6-sol", effort: "medium" },
+    { model: "gpt-6-astra", effort: "xhigh" },
+  ]
+  for (const argv of [
+    ["example.md", "all", "--auditor", "o"],
+    ["example.md", "all", "--first", "oh"],
+  ])
+    assert.equal(
+      await runCommand(argv, f.runtime, { ...f.options, settings }),
+      2,
+    )
+  const errors = f.errors.join("\n")
+  assert.match(errors, /codex's audit selection is the pair/)
+  assert.match(errors, /gpt-5\.6-sol at medium/)
+  assert.match(errors, /gpt-6-astra at xhigh/)
+  assert.match(errors, /Use codex or a full tag with both tier and effort/)
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
 
 for (const auditor of ["codex", "claude"] as const) {
   test(`--auditor ${auditor} inherits CLI settings for audit and rebuttal despite phase pins`, async (t) => {

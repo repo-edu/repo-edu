@@ -8,7 +8,7 @@ import type {
   ReportFindings,
   RoundRecommendation,
 } from "./report.js"
-import type { RoundSettings } from "./settings.js"
+import type { PhaseSelection, RoundSettings } from "./settings.js"
 import type { RoundContext } from "./target.js"
 
 export type Assistant = "claude" | "codex"
@@ -129,6 +129,18 @@ export type AuditorSeat = {
   readonly override: AuditorOverride
 }
 
+/** Which member of a configured audit pair this round runs. */
+export type AuditSlot = 0 | 1
+
+/** Whether an assistant's audit setting is a pair. */
+export function auditPair(
+  assistant: Assistant,
+  config: RoundSettings,
+): readonly [PhaseSelection, PhaseSelection] | null {
+  const configured = config.phases.audit[assistant]
+  return Array.isArray(configured) ? configured : null
+}
+
 function named<K extends string>(
   letters: Record<K, string>,
   letter: string | undefined,
@@ -223,12 +235,18 @@ function phaseModel(
   assistant: Assistant,
   override: AuditorOverride,
   config: RoundSettings,
+  auditSlot: AuditSlot,
 ): PinnedModel {
   const configuredPhase = phase === "rebut" ? "audit" : phase
-  const pin =
-    configuredPhase === "audit" || configuredPhase === "vet"
-      ? config.phases[configuredPhase][assistant]
-      : config.phases[configuredPhase]
+  let pin: PhaseSelection
+  if (configuredPhase === "audit") {
+    const configured = config.phases.audit[assistant]
+    pin = Array.isArray(configured) ? configured[auditSlot] : configured
+  } else if (configuredPhase === "vet") {
+    pin = config.phases.vet[assistant]
+  } else {
+    pin = config.phases[configuredPhase]
+  }
   const field = (value: string | null): PinnedField | null =>
     value === null ? null : { value, source: "audit-round settings" }
   if (configuredPhase !== "audit" || override === "none")
@@ -258,10 +276,11 @@ export function roundPhases(
   auditor: Assistant,
   override: AuditorOverride,
   config: RoundSettings,
+  auditSlot: AuditSlot = 0,
 ): Record<Phase, PhaseRun> {
   const run = (phase: Phase, assistant: Assistant): PhaseRun => ({
     assistant,
-    model: phaseModel(phase, assistant, override, config),
+    model: phaseModel(phase, assistant, override, config, auditSlot),
   })
   return {
     audit: run("audit", auditor),
@@ -289,16 +308,18 @@ export function namedModels(
 ): ReadonlySet<string> {
   const names = new Set<string>()
   for (const auditor of ["claude", "codex"] as const)
-    for (const strength of [null, ...strengths])
-      for (const run of Object.values(
-        roundPhases(
-          auditor,
-          { option: "--auditor", strength, effort: null },
-          config,
-        ),
-      ))
-        if (run.assistant === assistant && run.model.model !== null)
-          names.add(run.model.model.value)
+    for (const auditSlot of [0, 1] as const)
+      for (const strength of [null, ...strengths])
+        for (const run of Object.values(
+          roundPhases(
+            auditor,
+            { option: "--auditor", strength, effort: null },
+            config,
+            auditSlot,
+          ),
+        ))
+          if (run.assistant === assistant && run.model.model !== null)
+            names.add(run.model.model.value)
   return names
 }
 

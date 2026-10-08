@@ -8,7 +8,13 @@ const selection = z.strictObject({
   model: model.nullable(),
   effort: z.enum(["low", "medium", "high", "xhigh"]).nullable(),
 })
+export type PhaseSelection = z.infer<typeof selection>
 const assignedPhase = selection.extend({ assistant })
+const auditSelection = z.union([selection, z.tuple([selection, selection])])
+const auditPhase = z.strictObject({
+  claude: auditSelection,
+  codex: auditSelection,
+})
 const alternatingPhase = z.strictObject({ claude: selection, codex: selection })
 const strengths = z.strictObject({ base: model, top: model })
 
@@ -17,7 +23,7 @@ export const settingsSchema = z.strictObject({
   maximumAutomaticRounds: z.number().int().positive(),
   strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   phases: z.strictObject({
-    audit: alternatingPhase,
+    audit: auditPhase,
     vet: alternatingPhase,
     fix: assignedPhase,
     brief: assignedPhase,

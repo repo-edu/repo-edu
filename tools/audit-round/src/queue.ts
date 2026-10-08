@@ -6,6 +6,7 @@ import {
   type Assistant,
   type AuditorOption,
   type AuditorSeat,
+  auditPair,
   parseAuditor,
   roundPhases,
 } from "./phase.js"
@@ -15,6 +16,36 @@ import type { RoundSettings } from "./settings.js"
 export type AuditorEntry = AuditorSeat & { readonly text: string }
 
 export type AuditorSetting = ModelSelection & { readonly assistant: Assistant }
+
+function pairText(pair: NonNullable<ReturnType<typeof auditPair>>): string {
+  return pair
+    .map(
+      ({ model, effort }) =>
+        `${model ?? "CLI default model"} at ${effort ?? "CLI default effort"}`,
+    )
+    .join(" and ")
+}
+
+/**
+ * A partial tag inherits from settings, which is ambiguous when those settings
+ * hold two members. Names bypass the pair and full tags replace both fields.
+ */
+export function validateAuditorEntries(
+  entries: readonly AuditorEntry[],
+  settings: RoundSettings,
+): void {
+  entries.forEach((entry, index) => {
+    const pair = auditPair(entry.assistant, settings)
+    if (
+      pair !== null &&
+      typeof entry.override === "object" &&
+      (entry.override.strength === null || entry.override.effort === null)
+    )
+      throw new Error(
+        `Auditor entry ${index + 1} (${entry.text}) is a partial tag, but ${entry.assistant}'s audit selection is the pair ${pairText(pair)}. Use ${entry.assistant} or a full tag with both tier and effort.`,
+      )
+  })
+}
 
 /** The exact auditor setting an entry asks the current runner invocation to use. */
 export function auditorSetting(
@@ -36,8 +67,9 @@ export function auditorSetting(
 export function parseAuditors(
   text: string,
   option: AuditorOption,
+  settings?: RoundSettings,
 ): AuditorEntry[] {
-  return text
+  const entries = text
     .split(/[\s,]+/)
     .filter((entry) => entry.length > 0)
     .map((entry, index) => {
@@ -48,6 +80,8 @@ export function parseAuditors(
         )
       return { ...seat, text: entry }
     })
+  if (settings !== undefined) validateAuditorEntries(entries, settings)
+  return entries
 }
 
 /**
@@ -62,7 +96,10 @@ export async function writeQueue(
 }
 
 /** A missing file is an empty queue, so deleting it also ends the sequence. */
-async function readQueue(path: string): Promise<AuditorEntry[]> {
+async function readQueue(
+  path: string,
+  settings: RoundSettings,
+): Promise<AuditorEntry[]> {
   let text: string
   try {
     text = await readFile(path, "utf8")
@@ -72,7 +109,7 @@ async function readQueue(path: string): Promise<AuditorEntry[]> {
   }
   // The queue holds the rest of an `--auditor` list.
   try {
-    return parseAuditors(text, "--auditor")
+    return parseAuditors(text, "--auditor", settings)
   } catch (error) {
     throw new Error(`${path}: ${errorMessage(error)}`)
   }
@@ -93,7 +130,7 @@ export async function takeNext(
   readonly rest: readonly AuditorEntry[]
   readonly skipped: number
 }> {
-  const queued = await readQueue(path)
+  const queued = await readQueue(path, settings)
   const kept = queued.filter((entry) => {
     if (ended === null) return true
     const setting = auditorSetting(entry, selections, settings)

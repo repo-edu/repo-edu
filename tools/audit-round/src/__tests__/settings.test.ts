@@ -88,6 +88,47 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
   })
 })
 
+test("audit settings accept one setting or an exact pair", () => {
+  const config = structuredClone(settings)
+  config.phases.audit.codex = [
+    { model: "first-auditor", effort: "medium" },
+    { model: "second-auditor", effort: "xhigh" },
+  ]
+  assert.equal(settingsSchema.safeParse(config).success, true)
+  const first = roundPhases("codex", noOverride, config, 0)
+  assert.deepEqual(first.audit.model, {
+    model: { value: "first-auditor", source: "audit-round settings" },
+    effort: { value: "medium", source: "audit-round settings" },
+  })
+  assert.deepEqual(first.rebut, first.audit)
+  const second = roundPhases("codex", noOverride, config, 1)
+  assert.deepEqual(second.audit.model, {
+    model: { value: "second-auditor", source: "audit-round settings" },
+    effort: { value: "xhigh", source: "audit-round settings" },
+  })
+  assert.deepEqual(second.rebut, second.audit)
+
+  for (const audit of [
+    [],
+    [{ model: "only", effort: "high" }],
+    [
+      { model: "one", effort: "high" },
+      { model: "two", effort: "high" },
+      { model: "three", effort: "high" },
+    ],
+  ])
+    assert.equal(
+      settingsSchema.safeParse({
+        ...settings,
+        phases: {
+          ...settings.phases,
+          audit: { ...settings.phases.audit, codex: audit },
+        },
+      }).success,
+      false,
+    )
+})
+
 test("fix and watch follow their configured assistants independently of the auditor", () => {
   for (const auditor of ["claude", "codex"] as const) {
     for (const assistant of ["claude", "codex"] as const) {
