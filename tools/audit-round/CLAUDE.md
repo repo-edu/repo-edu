@@ -265,6 +265,17 @@ consumers.
   starts. Assistant replies use the normal phase output, so launch prompts stay in the log and never
   reach the terminal. Supplied instruction files appear there by path only; their full contents go
   to the assistant.
+- `trial.ts` owns the read-only trial read-out. It reads checked round data at
+  the plan root, ignores command-line-selected rounds, then takes the newest
+  uninterrupted run with one settings snapshot. It resolves each completed
+  round's landed commits through the existing subject, model-record and finding
+  readers. The Markdown output names both audit selections, their configured
+  pairs, both vets and the fixer. Its rows show the previous completed round by
+  the same assistant on the same target, phase time, accepted findings and
+  tokens. Totals group the whole round cost and accepted findings by audit
+  setting. Incomplete rounds contribute time and tokens but do not form a
+  cross-check pair. The command starts no assistant, reads no live settings and
+  writes nothing.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -308,9 +319,10 @@ consumers.
   and `--first` options. It reads both values with the queue's entry grammar and refuses a list
   with no entries. `--first` takes exactly one entry and is refused beside `--auditor`, because
   the list's first entry already names the first round. The
-  round is the command itself, taking the target as its own arguments. Its subcommands are `brief`,
-  `close`, `plan`, `name`, `paths`, `delete-reports`, `mark` and `episode`. Help lists the round,
-  `brief`, `close` and `plan`, the commands a user runs. The hand-run launchers call `name`,
+  round is the command itself, taking the target as its own arguments. Its subcommands are `trial`,
+  `brief`, `close`, `plan`, `name`, `paths`, `delete-reports`, `mark` and `episode`. Help lists the
+  round, `trial`, `brief`, `close` and `plan`, the commands a user runs. `trial` reads its retained
+  data before assistant startup or settings discovery. The hand-run launchers call `name`,
   `paths`, `delete-reports` and `episode`, and the settle and reopen steps call `mark`, so help
   hides them. `plan` prints the plan an omitted target
   selects, as its absolute path, and writes nothing, so a user can see it before a round or close
@@ -459,6 +471,7 @@ pnpm audit-round HEAD-2..HEAD
 pnpm audit-round --auditor codex
 pnpm audit-round brief example-impl-03..03-01-1-round.otm.md
 pnpm audit-round brief
+pnpm audit-round trial
 pnpm audit-round plan
 pnpm audit-round close example
 pnpm audit-round close
@@ -482,6 +495,16 @@ audit starts. It writes the tagless claim, transcript, log and round data at the
 root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
 the shared round protocol, with the transcript, log and JSON data sharing `1-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
+
+`trial` prints the newest unchanged-settings run across targets and series. It
+includes only rounds whose audit setting came from `settings.json`. Its header
+names both audit selections, every configured pair, both vet selections and the
+fixer. Round rows show the previous completed round by the same assistant on the
+same target, time by phase, accepted finding tiers, reaches and titles and token
+use by model. Totals group those measurements by audit setting and show how many
+rounds support each total. A round with no landed commit is marked incomplete;
+its time and tokens count, but it supplies no accepted findings or cross-check.
+The command renders Markdown, starts no assistant and writes nothing.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved target and scope.

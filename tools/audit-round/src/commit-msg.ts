@@ -41,6 +41,20 @@ const modelLine =
 const timeLine =
   /^(Audit|Audit and vet|Audit, vet and rebuttal) took \d+ min\.$/
 
+/** Read the leading model lines which identify what produced a commit. */
+export function readModelRecord(body: string): readonly string[] {
+  const lines = body.split("\n")
+  const first = lines.findIndex((line) => line !== "" && !line.startsWith("#"))
+  if (first === -1 || !modelLine.test(lines[first]))
+    throw new SubjectError(
+      `the body must open with a model line${first === -1 ? "" : `, not ${lines[first]}`}`,
+    )
+  const record: string[] = []
+  for (let at = first; at < lines.length && modelLine.test(lines[at]); at += 1)
+    record.push(lines[at])
+  return record
+}
+
 /**
  * Stamp and check one commit message. Returns the message to commit, or
  * throws a `SubjectError` naming what the subject grammar or the model record
@@ -97,14 +111,15 @@ export function stampCommitMessage(
   // A round states what every phase ran on, so its record replaces whatever the
   // session opened the body with.
   if (stamps.phases === null) {
-    if (first === -1)
-      throw new SubjectError(
-        "the body must open with the model the commit ran on",
-      )
-    if (!modelLine.test(lines[first]))
-      throw new SubjectError(
-        `the body must open with a model line, not ${lines[first]}`,
-      )
+    try {
+      readModelRecord(lines.slice(1).join("\n"))
+    } catch (error) {
+      if (first === -1)
+        throw new SubjectError(
+          "the body must open with the model the commit ran on",
+        )
+      throw error
+    }
   }
   const modelRecord = stamps.phases ?? lines[first]
   // One unprefixed record line describes this commit alone, so the two must

@@ -77,11 +77,13 @@ import {
   roundContext,
   targetRequest,
 } from "./target.js"
+import { trialReport } from "./trial.js"
 import { readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
   | { readonly kind: "episode"; readonly target?: string }
+  | { readonly kind: "trial" }
   | { readonly kind: "plan" }
   | {
       readonly kind: "name"
@@ -170,7 +172,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round brief [options] [transcript]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] [target] [scope-or-commits...]\n       audit-round trial\n       audit-round brief [options] [transcript]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -335,7 +337,8 @@ Examples (from either checkout):
 
      $ pnpm audit-round example all --first codex
 
-Use pnpm audit-round brief --help or close --help for their arguments and options.`,
+Use pnpm audit-round trial to read the newest trial.
+Use brief --help or close --help for their arguments and options.`,
     )
     .action(
       (
@@ -430,6 +433,14 @@ Use pnpm audit-round brief --help or close --help for their arguments and option
     )
     .action((target?: string) => {
       invocation = { kind: "episode", target }
+    })
+  command
+    .command("trial")
+    .description(
+      "Read the newest unchanged-settings auditor trial without writing files or starting assistants.",
+    )
+    .action(() => {
+      invocation = { kind: "trial" }
     })
   command
     .command("plan")
@@ -552,6 +563,10 @@ export async function runCommand(
       options.terminal.write(
         await readWatchEvidence({ ...context, target: invocation.target }),
       )
+      return 0
+    }
+    if (invocation.kind === "trial") {
+      options.terminal.write(await trialReport(context), "markdown")
       return 0
     }
     if (invocation.kind === "plan") {

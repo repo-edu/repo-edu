@@ -1944,6 +1944,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["--help"],
     ["brief", "--help"],
     ["close", "--help"],
+    ["trial", "--help"],
     ["plan", "--help"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 0)
@@ -1953,7 +1954,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round trial\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -1965,7 +1966,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   )
   // Hand-run launchers call the housekeeping commands; help shows what a user runs.
   assert.doesNotMatch(visible, /^\s+(name|paths|episode|delete-reports)\s/m)
-  for (const name of ["brief", "close", "plan"])
+  for (const name of ["trial", "brief", "close", "plan"])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
   assert.match(visible, /--aborted <reason>/)
   assert.match(visible, /HEAD-<n>/)

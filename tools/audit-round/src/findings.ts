@@ -30,6 +30,18 @@ export type Finding = Omit<z.infer<typeof ratings>, "growth-pattern"> & {
   readonly line: number
 }
 
+/** The short title before a record bullet's explanatory colon. */
+export function findingTitle(finding: Pick<Finding, "text">): string {
+  const match = /^(?:- \[[A-D]\]|- [A-D]) (?:\[[^\]]+\] )+(.+)$/.exec(
+    finding.text,
+  )
+  if (match === null)
+    throw new SubjectError(
+      `finding bullet has no readable title: ${finding.text}`,
+    )
+  return match[1].split(": ", 1)[0]
+}
+
 /** Read the current fixed bullet form. Area existence is a write-time rule. */
 export function readFindings(
   body: string,
