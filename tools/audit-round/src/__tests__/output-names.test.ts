@@ -23,6 +23,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   const names = [
     run.paths.claim,
     run.paths.markdown,
+    run.data?.path,
     ...Object.values(run.documents),
     run.watch,
   ].map((file) => {
@@ -31,6 +32,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   })
   assert.deepEqual(names.toSorted(), [
     "abcdef..123abc-01-0-claim.md",
+    "abcdef..123abc-01-1-round.oth.json",
     "abcdef..123abc-01-1-round.oth.md",
     "abcdef..123abc-01-2-audit.oth.md",
     "abcdef..123abc-01-3-vet.abx.md",
@@ -91,6 +93,7 @@ test("only retained round files at the plan root reserve numbers across auditors
       "0-settle.md",
       "0-reopen.md",
       "1-round.abx.md",
+      "1-round.abx.json",
       "1-round.otm.log",
       "2-audit.abx.md",
       "3-vet.otm.md",

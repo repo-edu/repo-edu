@@ -10,6 +10,7 @@ import {
   strengthLetters,
   transcribed,
 } from "./phase.js"
+import type { ModelTokenUsage } from "./round-data.js"
 import type { RoundSettings } from "./settings.js"
 
 export type Context = Extract<Feedback, { type: "context" }>
@@ -77,6 +78,8 @@ export type RanPhase = {
   readonly selection: ModelSelection
   /** The finished invocations' total; null until one finishes. */
   readonly spent: number | null
+  /** Tokens attributed to this phase, grouped by the model that spent them. */
+  readonly tokens: readonly ModelTokenUsage[]
 }
 
 /**
@@ -184,6 +187,16 @@ export function tokenText(tokens: number, decimals = 0): string {
   const magnitude = Math.round(Math.abs(tokens) / (decimals === 0 ? 1000 : 100))
   const number = (magnitude / 10 ** decimals).toFixed(decimals)
   return `${tokens < 0 && magnitude > 0 ? "-" : ""}${number}k`
+}
+
+/** A phase's per-model token totals, compact enough to sit beside its time. */
+export function phaseTokenText(tokens: readonly ModelTokenUsage[]): string {
+  return tokens
+    .map(
+      (usage) =>
+        `${usage.model}: input ${tokenText(usage.input, 1)}, cached ${tokenText(usage.cached, 1)}, output ${tokenText(usage.output, 1)}`,
+    )
+    .join("; ")
 }
 
 export function contextChange(

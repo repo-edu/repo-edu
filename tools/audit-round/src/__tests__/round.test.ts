@@ -56,7 +56,13 @@ const recommendation = {
 const landedRecords = (
   repository: "repo-edu" | "plan",
   subjects: readonly string[],
-) => subjects.map((subject) => ({ repository, subject, message: subject }))
+) =>
+  subjects.map((subject, index) => ({
+    repository,
+    sha: String(index + 1).padStart(40, "0"),
+    subject,
+    message: subject,
+  }))
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   ...testContext(repoRoot),
@@ -162,6 +168,7 @@ function controlledRound(
     },
     completeClean: async (input) => {
       completions.push(input)
+      return { message: "Clean audit recorded", commits: [] }
     },
     readReport: async (_file, kind) => ({
       findings: evidence.findings,
@@ -173,13 +180,7 @@ function controlledRound(
     readHead: async (root) => `before-${root}`,
     fileExists: async () => planRemains,
     readRecords: async (root, _before, repository) =>
-      root === repoRoot
-        ? evidence.subjects.map((subject) => ({
-            repository,
-            subject,
-            message: subject,
-          }))
-        : [],
+      root === repoRoot ? landedRecords(repository, evidence.subjects) : [],
     finalRecommendation: async (input) => ({
       status: "finished",
       sessionId: input.sessionId,
@@ -283,6 +284,9 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     cleanAudit: false,
     recommendation,
     watch: "green",
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
   })
   const fixes = round.calls.filter((call) => call.phase === "fix")
   assert.equal(fixes.length, 2)
@@ -572,6 +576,9 @@ for (const auditor of ["claude", "codex"] as const) {
         cleanAudit: false,
         recommendation,
         watch: null,
+        commits: landedRecords("repo-edu", round.evidence.subjects).map(
+          ({ repository, sha }) => ({ repository, sha }),
+        ),
       })
       assert.deepEqual(round.calls, [
         {
@@ -673,6 +680,7 @@ for (const auditor of ["claude", "codex"] as const) {
       status: "awaiting-ruling",
       report: `${repoRoot}/AUDIT-example.md`,
       session,
+      commits: [],
     })
   })
 
@@ -704,6 +712,12 @@ for (const auditor of ["claude", "codex"] as const) {
           assistant: runner(phase, auditor, vetAssistant),
           model: phase === "brief" ? briefPin : unpinned,
           ...testContext(repoRoot),
+          commits:
+            phase === "brief" || phase === "watch"
+              ? landedRecords("repo-edu", round.evidence.subjects).map(
+                  ({ repository, sha }) => ({ repository, sha }),
+                )
+              : [],
         })
       })
     }
@@ -725,6 +739,9 @@ test("a due glance completes the watch in one fresh session", async () => {
     cleanAudit: false,
     recommendation,
     watch: "green",
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
   })
   // The watch reads the commit record, so it receives none of the round's files.
   assert.equal(round.glances.length, 1)
@@ -778,6 +795,9 @@ test("a watch that leaves no readable record fails its phase", async () => {
     model: unpinned,
     ...testContext(repoRoot),
     reason: "The watch left no readable record for example",
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
   })
 })
 
@@ -833,6 +853,9 @@ test("a round asked for no watch consults no glance, whatever the record says", 
     cleanAudit: false,
     recommendation,
     watch: null,
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
   })
   assert.deepEqual(round.glances, [])
   assert.deepEqual(
@@ -912,6 +935,7 @@ test("retains a failure before the assistant establishes a session", async () =>
     assistant: "codex",
     model: unpinned,
     ...testContext(repoRoot),
+    commits: [],
   })
   assert.equal(round.calls.length, 1)
 })
@@ -1000,6 +1024,7 @@ for (const operation of ["requestRuling"] as const) {
       sessionId: "fix-session",
       ...testContext(repoRoot),
       reason: "Ruling input unavailable",
+      commits: [],
     })
   })
 }
@@ -1045,6 +1070,7 @@ test("an automatic rebuttal round replaces the report recommendation before dele
         assert.deepEqual(input.records, [
           {
             repository: "repo-edu",
+            sha: "0000000000000000000000000000000000000001",
             subject: round.evidence.subjects[0],
             message: round.evidence.subjects[0],
           },
@@ -1065,6 +1091,9 @@ test("an automatic rebuttal round replaces the report recommendation before dele
     cleanAudit: false,
     recommendation: finalRecommendation,
     watch: null,
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
   })
 })
 
@@ -1116,6 +1145,7 @@ for (const auditor of ["claude", "codex"] as const) {
       cleanAudit: true,
       recommendation,
       watch: null,
+      commits: [],
     })
     assert.deepEqual(
       round.calls.map((call) => call.phase),
@@ -1188,6 +1218,9 @@ for (const auditor of ["claude", "codex"] as const) {
       cleanAudit: false,
       recommendation,
       watch: null,
+      commits: landedRecords("repo-edu", round.evidence.subjects).map(
+        ({ repository, sha }) => ({ repository, sha }),
+      ),
     })
     // Every verdict is an unconditional accept, so the auditor has nothing to answer.
     assert.deepEqual(
@@ -1236,6 +1269,9 @@ test("a failed brief after a completed fix stops the round before the watch", as
     sessionId: "brief-session",
     ...testContext(repoRoot),
     reason: "The transcript could not be read",
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
   })
 })
 
@@ -1281,6 +1317,7 @@ test("a missing ruling fails the fix before the brief or user input", async () =
     model: unpinned,
     ...testContext(repoRoot),
     reason: "Missing ruling",
+    commits: [],
   })
   assert.deepEqual(
     round.calls.map((call) => call.phase),
@@ -1451,6 +1488,16 @@ test("the round reads each supplied file and records both heads immediately befo
     cleanAudit: false,
     recommendation,
     watch: null,
+    commits: [
+      ...landedRecords("repo-edu", [
+        "example/impl-audit-all oth growth-none !C1a1 fix(audit-round): repair",
+        "example/impl-2 oth feat(audit-round): deliver",
+      ]),
+      ...landedRecords("plan", [
+        "example/plan-audit ath growth-none B1: correct the plan",
+        "example/ready ath: ready",
+      ]),
+    ].map(({ repository, sha }) => ({ repository, sha })),
   })
 })
 

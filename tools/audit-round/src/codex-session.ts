@@ -51,7 +51,7 @@ export async function findSessionFile(
 
 export function decodeCodexUsage(
   record: unknown,
-): Extract<Feedback, { type: "model" | "context" }>[] {
+): Extract<Feedback, { type: "model" | "context" | "tokens" }>[] {
   const event = eventSchema.parse(record)
   if (event.type === "turn_context") {
     return [{ type: "model", selection: selectionSchema.parse(event.payload) }]
@@ -65,6 +65,13 @@ export function decodeCodexUsage(
       info: z.object({
         last_token_usage: z.object({ input_tokens: tokenSchema }),
         model_context_window: tokenSchema.positive(),
+        total_token_usage: z
+          .object({
+            input_tokens: tokenSchema,
+            cached_input_tokens: tokenSchema,
+            output_tokens: tokenSchema,
+          })
+          .optional(),
       }),
     })
     .parse(payload)
@@ -74,6 +81,21 @@ export function decodeCodexUsage(
       tokens: info.last_token_usage.input_tokens,
       window: info.model_context_window,
     },
+    ...(info.total_token_usage === undefined
+      ? []
+      : [
+          {
+            type: "tokens" as const,
+            update: {
+              kind: "total" as const,
+              tokens: {
+                input: info.total_token_usage.input_tokens,
+                cached: info.total_token_usage.cached_input_tokens,
+                output: info.total_token_usage.output_tokens,
+              },
+            },
+          },
+        ]),
   ]
 }
 

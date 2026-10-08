@@ -17,6 +17,7 @@ import {
   roundPhases,
 } from "./phase.js"
 import type { AuditReport, RoundRecommendation } from "./report.js"
+import type { LandedCommit } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
@@ -62,7 +63,7 @@ type RoundFailure = PhaseFailure &
     readonly phase: Phase | "ruling-input" | "complete"
   }
 
-export type RoundResult =
+export type RoundResult = (
   | {
       readonly status: "finished"
       readonly report: string
@@ -79,6 +80,7 @@ export type RoundResult =
       readonly session: InteractiveSession
     }
   | RoundFailure
+) & { readonly commits: readonly LandedCommit[] }
 
 export type BriefResult =
   | { readonly status: "finished"; readonly brief: string }
@@ -305,7 +307,13 @@ export async function runRound(
     dependencies,
   )
   if (audit.status === "failed") {
-    return { ...audit, phase: "audit", ...phases.audit, ...context }
+    return {
+      ...audit,
+      phase: "audit",
+      ...phases.audit,
+      ...context,
+      commits: [],
+    }
   }
 
   const report = input.documents.report
@@ -327,13 +335,14 @@ export async function runRound(
       ...phases.audit,
       ...context,
       reason: errorMessage(error),
+      commits: [],
     }
   }
   // Zero findings complete in the runner. No later assistant or historical
   // watch can add anything needed to close this audit.
   if (evidence.findings.length === 0) {
     try {
-      await dependencies.completeClean({
+      const completion = await dependencies.completeClean({
         ...input,
         report,
         judgedRepos: evidence.judgedRepos,
@@ -344,6 +353,7 @@ export async function runRound(
         cleanAudit: true,
         recommendation: evidence.recommendation,
         watch: null,
+        commits: completion.commits,
       }
     } catch (error) {
       return {
@@ -353,6 +363,7 @@ export async function runRound(
         ...phases.audit,
         ...context,
         reason: errorMessage(error),
+        commits: [],
       }
     }
   }
@@ -372,7 +383,13 @@ export async function runRound(
       dependencies,
     )
     if (vet.status === "failed") {
-      return { ...vet, phase: "vet", ...phases.vet, ...context }
+      return {
+        ...vet,
+        phase: "vet",
+        ...phases.vet,
+        ...context,
+        commits: [],
+      }
     }
 
     let accepted: boolean
@@ -389,6 +406,7 @@ export async function runRound(
         ...phases.vet,
         ...context,
         reason: errorMessage(error),
+        commits: [],
       }
     }
     if (!accepted) {
@@ -405,7 +423,13 @@ export async function runRound(
         dependencies,
       )
       if (rebut.status === "failed") {
-        return { ...rebut, phase: "rebut", ...phases.rebut, ...context }
+        return {
+          ...rebut,
+          phase: "rebut",
+          ...phases.rebut,
+          ...context,
+          commits: [],
+        }
       }
       twins.push(input.documents.rebut)
       rebutted = true
@@ -429,6 +453,7 @@ export async function runRound(
       ...phases.fix,
       ...context,
       reason: errorMessage(error),
+      commits: [],
     }
   }
   let fixInput: PhaseInput<"fix"> = {
@@ -439,10 +464,11 @@ export async function runRound(
     rulingFile: input.documents.ruling,
     sessionId: null,
   }
+  let commits: readonly LandedCommit[] = []
   while (true) {
     const fix = await dependencies.runPhase.fix(fixInput)
     if (fix.status === "failed") {
-      return { ...fix, phase: "fix", ...phases.fix, ...context }
+      return { ...fix, phase: "fix", ...phases.fix, ...context, commits }
     }
 
     if (fix.status === "needs-ruling") {
@@ -456,6 +482,7 @@ export async function runRound(
           ...phases.fix,
           ...context,
           reason: errorMessage(error),
+          commits,
         }
       }
     }
@@ -467,6 +494,9 @@ export async function runRound(
             dependencies.readRecords(root, before[index], repository),
           ),
         )
+        commits = landed
+          .flat()
+          .map(({ repository, sha }) => ({ repository, sha }))
         if ("plan" in input && landed.every((records) => records.length === 0))
           throw new Error("The finished fix landed no commit for a plan target")
         for (const [index, records] of landed.entries()) {
@@ -492,6 +522,7 @@ export async function runRound(
               ...phases.audit,
               ...context,
               reason: errorMessage(error),
+              commits,
             }
           }
           const final = await dependencies.finalRecommendation({
@@ -507,6 +538,7 @@ export async function runRound(
               phase: "audit",
               ...phases.audit,
               ...context,
+              commits,
             }
           evidence = { ...evidence, recommendation: final.recommendation }
         }
@@ -522,6 +554,7 @@ export async function runRound(
           ...phases.fix,
           ...context,
           reason: errorMessage(error),
+          commits,
         }
       }
       // Retell the complete fix, including every ruling and resumed invocation.
@@ -535,19 +568,20 @@ export async function runRound(
           dependencies,
           settings,
         )
-        if (brief.status === "failed") return brief
+        if (brief.status === "failed") return { ...brief, commits }
       }
       const watched =
         "plan" in input
           ? await runWatch(input, dependencies, settings)
           : { grade: null }
-      if ("status" in watched) return watched
+      if ("status" in watched) return { ...watched, commits }
       return {
         status: "finished",
         report,
         cleanAudit: false,
         recommendation: evidence.recommendation,
         watch: watched.grade,
+        commits,
       }
     }
 
@@ -558,7 +592,8 @@ export async function runRound(
     }
     try {
       const reply = await dependencies.requestRuling(input.documents.ruling)
-      if (reply === null) return { status: "awaiting-ruling", report, session }
+      if (reply === null)
+        return { status: "awaiting-ruling", report, session, commits }
       fixInput = {
         ...fixInput,
         sessionId: fix.sessionId,
@@ -570,6 +605,7 @@ export async function runRound(
         phase: "ruling-input",
         ...session,
         reason: error instanceof Error ? error.message : String(error),
+        commits,
       }
     }
   }

@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import type { CleanInput } from "./clean.js"
+import type { CleanCompletion, CleanInput } from "./clean.js"
 import type { WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type {
@@ -8,6 +8,7 @@ import type {
   ReportFindings,
   RoundRecommendation,
 } from "./report.js"
+import type { LandedCommit } from "./round-data.js"
 import type { PhaseSelection, RoundSettings } from "./settings.js"
 import type { RoundContext } from "./target.js"
 
@@ -391,8 +392,7 @@ type PhaseInputs = {
 export type PhaseInput<P extends Phase = Phase> = PhaseInputs[P]
 
 /** One commit record a finished fix landed, with its hosting repository. */
-export type LandedRecord = {
-  readonly repository: "repo-edu" | "plan"
+export type LandedRecord = LandedCommit & {
   readonly subject: string
   readonly message: string
 }
@@ -474,7 +474,7 @@ export type RoundDependencies = {
   readonly checkFile: (file: string) => Promise<void>
   /** Prints the saved brief after its phase and output validation have completed. */
   readonly showBrief: (document: string) => Promise<void>
-  readonly completeClean: (input: CleanInput) => Promise<void>
+  readonly completeClean: (input: CleanInput) => Promise<CleanCompletion>
   readonly readReport: (
     file: string,
     reportClass: ReportClass,

@@ -4,6 +4,7 @@ import type {
   PhaseResult,
   SessionContext,
 } from "./phase.js"
+import type { ModelTokenUsage } from "./round-data.js"
 
 export const selectionSchema = z.object({
   model: z.string().min(1),
@@ -26,6 +27,19 @@ export type Feedback =
   | ({ readonly type: "context" } & SessionContext)
   | { readonly type: "text"; readonly text: string }
   | { readonly type: "diagnostic"; readonly text: string }
+  | {
+      readonly type: "tokens"
+      /** Claude reports one invocation; Codex reports the session running total. */
+      readonly update:
+        | {
+            readonly kind: "add"
+            readonly models: readonly ModelTokenUsage[]
+          }
+        | {
+            readonly kind: "total"
+            readonly tokens: Omit<ModelTokenUsage, "model">
+          }
+    }
   | {
       readonly type: "tool"
       /** Present once per invocation, including completed file changes. */

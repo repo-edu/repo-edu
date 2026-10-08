@@ -37,20 +37,26 @@ function readPhaseFilename(name: string): {
   nameStart: string
   kind: FileKind
   tag: string
-  extension: string
+  extension: "md" | "log" | "json"
 } | null {
   const match =
-    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|brief|ruling|watch)\.([ao][btu][lmhx])\.(md|log)$/.exec(
+    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|brief|ruling|watch)\.([ao][btu][lmhx])\.(md|log|json)$/.exec(
       name,
     )
   if (match === null) return null
   const kind = match[3] as FileKind
   if (
     Number(match[2]) !== phaseOrder[kind] ||
-    (match[5] === "log" && kind !== "round" && kind !== "brief")
+    (match[5] === "log" && kind !== "round" && kind !== "brief") ||
+    (match[5] === "json" && kind !== "round")
   )
     return null
-  return { nameStart: match[1], kind, tag: match[4], extension: match[5] }
+  return {
+    nameStart: match[1],
+    kind,
+    tag: match[4],
+    extension: match[5] as "md" | "log" | "json",
+  }
 }
 
 async function phaseDocuments(root: string, kind: FileKind) {

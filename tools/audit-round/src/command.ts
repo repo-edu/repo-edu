@@ -741,7 +741,9 @@ export async function runCommand(
       completeClean: async (input) => {
         const stamps = active.commitStamps()
         if (stamps === undefined) throw new Error("Missing audit model record")
-        active.cleanCompletion(await completeClean(input, stamps))
+        const completion = await completeClean(input, stamps)
+        active.cleanCompletion(completion.message)
+        return completion
       },
       readReport: async (file, kind) =>
         readReport(await readFile(file, "utf8"), kind),
@@ -774,6 +776,7 @@ export async function runCommand(
             ])
             return {
               repository,
+              sha,
               subject: subject.stdout,
               message: message.stdout,
             }

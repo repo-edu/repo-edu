@@ -3,18 +3,24 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { decodeCodexUsage } from "../codex-session.js"
-import { contractPrompt, recordContracts } from "../contract.js"
+import {
+  contractPrompt,
+  contractResumePrompt,
+  recordContracts,
+} from "../contract.js"
 import { phaseResult } from "../phase-result.js"
 import { fixture, phaseStream, recorded } from "./helpers.js"
 
 const terminal = { write: () => {}, status: () => {}, clear: () => {} }
 
 test("the contract prompt requests a valid finished phase result", () => {
-  const result = contractPrompt.slice(contractPrompt.indexOf("PHASE RESULT: "))
-  assert.deepEqual(phaseResult("fix", "probe-session", result), {
-    status: "finished",
-    sessionId: "probe-session",
-  })
+  for (const prompt of [contractPrompt, contractResumePrompt]) {
+    const result = prompt.slice(prompt.indexOf("PHASE RESULT: "))
+    assert.deepEqual(phaseResult("fix", "probe-session", result), {
+      status: "finished",
+      sessionId: "probe-session",
+    })
+  }
 })
 
 test("contract recorder validates both real boundaries before replacing only its fixtures", async (t) => {
@@ -26,8 +32,11 @@ test("contract recorder validates both real boundaries before replacing only its
       const event = JSON.parse(line)
       if (event.type === "event_msg") {
         event.payload.rate_limits = { plan_type: "unused-account-plan" }
-        event.payload.info.total_token_usage = { input_tokens: 999999 }
-        event.payload.info.last_token_usage.output_tokens = 123
+        event.payload.info.total_token_usage = {
+          input_tokens: 999999,
+          cached_input_tokens: 777777,
+          output_tokens: 123,
+        }
       }
       return JSON.stringify(event)
     })
@@ -53,8 +62,11 @@ test("contract recorder validates both real boundaries before replacing only its
   await recordContracts("both", f.runtime, destination, terminal)
   assert.deepEqual((await readdir(destination)).sort(), [
     "README.md",
+    "claude-resume.jsonl",
     "claude-version.txt",
     "claude.jsonl",
+    "codex-resume.jsonl",
+    "codex-rollout-resume.jsonl",
     "codex-rollout.jsonl",
     "codex-version.txt",
     "codex.jsonl",
@@ -70,7 +82,11 @@ test("contract recorder validates both real boundaries before replacing only its
   )
   assert.doesNotMatch(
     await readFile(join(destination, "codex-rollout.jsonl"), "utf8"),
-    /instructions|cwd|sandbox_policy|rate_limits|total_token_usage|output_tokens/,
+    /instructions|cwd|sandbox_policy|rate_limits/,
+  )
+  assert.match(
+    await readFile(join(destination, "codex-rollout.jsonl"), "utf8"),
+    /total_token_usage.*cached_input_tokens.*output_tokens/,
   )
   assert.deepEqual(
     (await readFile(join(destination, "codex-rollout.jsonl"), "utf8"))
@@ -80,7 +96,7 @@ test("contract recorder validates both real boundaries before replacing only its
     usage.split("\n").flatMap((line) => decodeCodexUsage(JSON.parse(line))),
   )
   const calls = await f.calls()
-  assert.equal(calls.filter((call) => call.args[0] === "exec").length, 1)
+  assert.equal(calls.filter((call) => call.args[0] === "exec").length, 2)
   assert.ok(
     calls
       .find((call) => call.args[0] === "exec")
@@ -94,6 +110,11 @@ test("contract recorder validates both real boundaries before replacing only its
     (await f.prompts())
       .find((call) => call.args[0] === "exec")
       .prompt.includes("Do not read or edit repository files"),
+  )
+  assert.ok(
+    (await f.prompts())
+      .filter((call) => call.args[0] === "exec")
+      .some((call) => call.args.includes("resume")),
   )
 })
 

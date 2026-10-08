@@ -159,8 +159,13 @@ consumers.
 - `assistant.ts` owns one invocation's session identity, final text and completion evidence.
   After validating completion, it saves audit, vet and rebuttal reports
   from the final text without the result line. A failed write fails the phase before progression.
-  Context measurements pass directly to the terminal display's observer.
-  Claude and Codex decoders validate the fields they consume.
+  Context and token measurements pass directly to the output observer. Claude
+  adds each invocation's final per-model usage. Codex replaces the phase total
+  with the session's newest running total. Claude and Codex decoders validate
+  the fields they consume.
+  `claude.ts` reads `modelUsage` from the final result. Its input is
+  `inputTokens + cacheReadInputTokens + cacheCreationInputTokens`, its cached
+  input is `cacheReadInputTokens` and its output is `outputTokens`.
   `cli-process.ts` owns the child's environment and stops the child before unwinding a failed line
   consumer, because Execa's iterator return awaits the child. It then awaits all readers and the
   process. Process output is never accumulated by Execa. Every child carries the round's commit
@@ -171,7 +176,9 @@ consumers.
 - `codex-session.ts` reads the current session's appended records. A resumed
   fix starts at the file's pre-invocation end. An
   incomplete record stays with the reader until more bytes arrive; a final
-  incomplete record fails the invocation.
+  incomplete record fails the invocation. Its token reading uses
+  `total_token_usage`: input already includes cached input, cached remains
+  separate and output already includes reasoning.
 - `ruling-input.ts` owns the reply reader through Node's `readline`. A blank line
   sends a non-empty multiline reply. Ctrl-C, end of input and cancellation discard
   an unfinished reply. Non-terminal input supplies no ruling. The assistant never
@@ -208,49 +215,56 @@ consumers.
   limited by the operating system's per-argument size. The same collected file list produces a
   separate log prompt containing source paths with an omission notice in place of file contents.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
-  run, lists the phases it may run and locates its files: a round records a log and transcript pair,
-  a brief on its own records a log beside the transcript it retells and keeps no transcript of its
-  own, and a close records only `<stem>-close.<tag>.log` at the plan root. The close's run also
-  yields the tag and model record its session hands its commits. It uses `round-paths.ts` for file
-  names and round identity. It validates all file-writing phase tags before `run-files.ts`
-  exclusively creates the tagless claim, then opens the transcript and log. The claim remains after
-  success or failure, and a conflict stops without retrying. Each entry carries its phase, so the
-  settings header reports the model and effort that phase will run on, each in its own aligned
-  column. It names what set each of them: `--auditor` or `--first`, `audit-round settings` for the
-  phase's own pin, or `CLI default` when the phase names nothing. A phase whose two fields came from
-  different places names both, model first. A pinned model reads as the release its CLI resolved it
-  to at startup, so every row names a release. The output holds only the run start, current phase
-  timing, context observations and each started phase's model selection and time. A phase starts
-  with its launch selection, then its CLI's model feedback replaces it. Each finished invocation
-  adds its elapsed time to the phase's time. Commit stamps use those phase selections and add a time
-  line for the audit, vet and rebuttal that finished, because a later stop recommendation weighs
-  that time as the cost of a round. Every status stamp shows the phase's elapsed time and the
-  round's total. Every logged tool line opens with its step's own time, the assistant time since the
-  previous tool line or since the phase start for the first, followed by the round's total assistant
-  time. `run-clock.ts` owns what those readings count. A round measures its assistants, so time the
-  user holds is not the run's. Displaying the ruling opens a wait and submitting or cancelling the
-  reply closes it. Each phase and the run read the same waiting total through their own mark, so one
-  rule serves every reading. Two baselines measure context growth: a written status stamp reports
-  the tokens added since the previous written stamp, and a logged tool line reports the tokens added
+  run, lists the phases it may run and locates its files: a round records a log, transcript and
+  machine-readable data file, a brief on its own records a log beside the transcript it retells and
+  keeps no transcript of its own, and a close records only `<stem>-close.<tag>.log` at the plan
+  root. The close's run also yields the tag and model record its session hands its commits. It uses
+  `round-paths.ts` for file names and round identity. It validates all file-writing phase tags
+  before `run-files.ts` exclusively creates the tagless claim, then opens the transcript and log.
+  The claim remains after success or failure, and a conflict stops without retrying. Each entry
+  carries its phase, so the settings header reports the model and effort that phase will run on,
+  each in its own aligned column. It names what set each of them: `--auditor` or `--first`,
+  `audit-round settings` for the phase's own pin, or `CLI default` when the phase names nothing. A
+  phase whose two fields came from different places names both, model first. A pinned model reads as
+  the release its CLI resolved it to at startup, so every row names a release. The output holds only
+  the run start, current phase timing, context observations and each started phase's model
+  selection, time and tokens. A phase starts with its launch selection, then its CLI's model
+  feedback replaces it. Each finished invocation adds its elapsed time to the phase's time. Claude
+  invocation totals add by model; Codex session totals replace the earlier reading, so a resumed fix
+  counts each token once. Each phase prints its per-model input, cached input and output totals
+  beside its elapsed time. Commit stamps use those phase selections and add a time line for the
+  audit, vet and rebuttal that finished, because a later stop recommendation weighs that time as the
+  cost of a round. Every status stamp shows the phase's elapsed time and the round's total. Every
+  logged tool line opens with its step's own time, the assistant time since the previous tool line
+  or since the phase start for the first, followed by the round's total assistant time.
+  `run-clock.ts` owns what those readings count. A round measures its assistants, so time the user
+  holds is not the run's. Displaying the ruling opens a wait and submitting or cancelling the reply
+  closes it. Each phase and the run read the same waiting total through their own mark, so one rule
+  serves every reading. Two baselines measure context growth: a written status stamp reports the
+  tokens added since the previous written stamp, and a logged tool line reports the tokens added
   since the previous tool line, beside the time since it. Both chain into the totals beside them; a
   fresh phase starts its stamp baseline at zero and a resumed phase reports no first change.
-  `run-files.ts` completes each required write before returning to the invocation; no complete
-  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
-  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
-  source finding numbers. It uses cyan for inline code without background blocks and honours
-  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
-  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
-  log records each tool invocation once, with shell wrappers removed and no event envelopes or
-  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
-  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
-  line; the transcript retains it. `showBrief` renders the saved brief after validation and appends
-  it to the log, keeping it out of the transcript it retells. The brief's assistant text is not
-  displayed, so a writer echo cannot duplicate the saved document. Both full rounds and standalone
-  briefs use this route. `beginRuling` releases the live status display and renders the fix's
-  ruling. `endRuling` excludes the user's waiting time and records a submitted reply in the log and
-  transcript before any resumed process starts. Assistant replies use the normal phase output, so
-  launch prompts stay in the log and never reach the terminal. Supplied instruction files appear
-  there by path only; their full contents go to the assistant.
+  `round-data.ts` owns the checked JSON schema and exclusive final write. The file records the
+  unchanged settings snapshot, chosen audit setting and source, phase measurements and landed repo
+  and SHA pairs. It is written when the round ends, including failure or an unanswered ruling; a
+  process crash before that write leaves no file. `run-files.ts` completes each required write
+  before returning to the invocation; no complete transcript accumulates in memory. `terminal.ts`
+  renders assistant Markdown through the `pi-tui` Markdown component at the current terminal width,
+  preserving paragraph spacing, nested lists and source finding numbers. It uses cyan for inline
+  code without background blocks and honours `NO_COLOR`. It writes the rendered document directly
+  and uses log-update only for the live status line, so permanent text is not wrapped twice.
+  Redirected output retains the original Markdown. The log records each tool invocation once, with
+  shell wrappers removed and no event envelopes or result payloads. Invocation lines stay complete
+  in the log; assistant texts stay complete in Markdown. Only terminal tool lines shorten. The
+  terminal omits the final `PHASE RESULT` control line; the transcript retains it. `showBrief`
+  renders the saved brief after validation and appends it to the log, keeping it out of the
+  transcript it retells. The brief's assistant text is not displayed, so a writer echo cannot
+  duplicate the saved document. Both full rounds and standalone briefs use this route. `beginRuling`
+  releases the live status display and renders the fix's ruling. `endRuling` excludes the user's
+  waiting time and records a submitted reply in the log and transcript before any resumed process
+  starts. Assistant replies use the normal phase output, so launch prompts stay in the log and never
+  reach the terminal. Supplied instruction files appear there by path only; their full contents go
+  to the assistant.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -265,9 +279,11 @@ consumers.
   audit for rebuttal or either assistant's audit for fix. Several reviews of one round resolve the
   same way unless one is selected. `deleteRoundReports` deletes only audit, vet and rebuttal files
   for that exact round, using recorded filenames without consulting model settings, and returns
-  their names. `queueFile` names a plan target's `<target>-queue.md` beside its rounds. It carries
-  no round number because it belongs to the whole sequence: one path stays valid across rounds, so
-  an editor holding it open keeps editing the file the runner reads.
+  their names. A retained `-1-round.<tag>.json` data file reserves its round
+  number like the transcript and log. `queueFile` names a plan target's
+  `<target>-queue.md` beside its rounds. It carries no round number because it
+  belongs to the whole sequence: one path stays valid across rounds, so an
+  editor holding it open keeps editing the file the runner reads.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
@@ -345,8 +361,9 @@ consumers.
   malformed entry stops the sequence with an error naming the file and the entry.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
-  replacing any selected fixtures. It invokes no workflow and refreshes only
-  this package's recordings.
+  replacing any selected fixtures. A second probe resumes the first session
+  and requires token usage from both invocations. It invokes no workflow and
+  refreshes only this package's recordings.
 
 The coordinator has no process, filesystem or terminal side effects of its own.
 Its dependencies supply those operations explicitly. A returned phase failure
@@ -461,9 +478,9 @@ pnpm audit-round:contract codex
 ```
 
 The round names the report, vet, rebuttal, brief, ruling and watch before the
-audit starts. It writes the tagless claim, transcript and log at the plan
+audit starts. It writes the tagless claim, transcript, log and round data at the plan
 root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
-the shared round protocol, with the transcript and log sharing `1-round`.
+the shared round protocol, with the transcript, log and JSON data sharing `1-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.

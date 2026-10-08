@@ -11,6 +11,7 @@ import {
   modelText,
   phaseSelection,
   phaseText,
+  phaseTokenText,
   type RanPhase,
   type RunEntry,
   toolText,
@@ -21,6 +22,7 @@ import {
   noOverride,
   type Phase,
   type PhaseResult,
+  type PhaseRun,
   roundPhases,
   transcribed,
 } from "./phase.js"
@@ -32,6 +34,12 @@ import type {
   RoundResult,
   RoundSetup,
 } from "./round.js"
+import {
+  type ModelTokenUsage,
+  type RoundData,
+  roundDataIdentity,
+  writeRoundData,
+} from "./round-data.js"
 import {
   type FileKind,
   phaseFilename,
@@ -71,8 +79,58 @@ export type Run = {
   readonly phases: readonly RunEntry[]
   readonly selections: Record<Assistant, CliModels>
   readonly paths: RunPaths
+  /** Present only for an automated round, whose retained JSON is written at the end. */
+  readonly data?: {
+    readonly path: string
+    readonly target: string
+    readonly round: number
+    readonly settings: RoundData["settings"]
+    readonly auditor: RoundData["auditor"]
+  }
   /** The reading that dates the run files; the timers count from it too. */
   readonly started: number
+}
+
+function resolvedRun(run: PhaseRun, selections: Record<Assistant, CliModels>) {
+  return phaseSelection(run.model, selections[run.assistant])
+}
+
+/** Settings that split trials, resolved once with the same phase owner as execution. */
+function roundSettingsData(
+  selections: Record<Assistant, CliModels>,
+  settings: RoundSettings,
+): RoundData["settings"] {
+  const audit = (
+    assistant: Assistant,
+  ): RoundData["settings"]["audit"][Assistant] => {
+    const first = resolvedRun(
+      roundPhases(assistant, noOverride, settings, 0).audit,
+      selections,
+    )
+    if (!Array.isArray(settings.phases.audit[assistant])) return first
+    return [
+      first,
+      resolvedRun(
+        roundPhases(assistant, noOverride, settings, 1).audit,
+        selections,
+      ),
+    ]
+  }
+  const vet = (assistant: Assistant) =>
+    resolvedRun(
+      roundPhases(
+        assistant === "claude" ? "codex" : "claude",
+        noOverride,
+        settings,
+      ).vet,
+      selections,
+    )
+  const fix = roundPhases("codex", noOverride, settings).fix
+  return {
+    audit: { claude: audit("claude"), codex: audit("codex") },
+    vet: { claude: vet("claude"), codex: vet("codex") },
+    fix: { assistant: fix.assistant, ...resolvedRun(fix, selections) },
+  }
 }
 
 /** A tag must be known before any file reserves or records the round. */
@@ -124,9 +182,11 @@ export async function roundRun(
       tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
+  const identity = roundDataIdentity(nameStart)
   const path = (kind: FileKind, phase: Phase) =>
     join(setup.planRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
+  const audit = entry("audit")
   return {
     nameStart,
     watch: `${path("watch", "watch")}.md`,
@@ -151,6 +211,19 @@ export async function roundRun(
       claim: join(setup.planRoot, `${nameStart}-0-claim.md`),
       log: `${base}.log`,
       markdown: `${base}.md`,
+    },
+    data: {
+      path: `${base}.json`,
+      ...identity,
+      settings: roundSettingsData(selections, settings),
+      auditor: {
+        assistant: audit.assistant,
+        ...resolvedRun(audit, selections),
+        chosenBy:
+          setup.override === undefined || setup.override === noOverride
+            ? "settings"
+            : "command-line",
+      },
     },
     selections,
     settings,
@@ -384,6 +457,7 @@ export class RoundOutput<R extends Run = Run> {
         this.run.selections[input.assistant],
       ),
       spent: this.ran.get(input.phase)?.spent ?? null,
+      tokens: this.ran.get(input.phase)?.tokens ?? [],
     })
     const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
@@ -417,6 +491,7 @@ export class RoundOutput<R extends Run = Run> {
         this.ran.set(active.input.phase, {
           selection: feedback.selection,
           spent: this.ran.get(active.input.phase)?.spent ?? null,
+          tokens: this.ran.get(active.input.phase)?.tokens ?? [],
         })
         this.say(
           `${prefix} ${active.input.assistant} ${modelText(feedback.selection)}`,
@@ -425,6 +500,21 @@ export class RoundOutput<R extends Run = Run> {
       case "context":
         active.context = feedback
         break
+      case "tokens": {
+        const run = this.ran.get(active.input.phase)
+        if (run === undefined)
+          throw new Error("Token usage arrived before its phase started")
+        const additions: readonly ModelTokenUsage[] =
+          feedback.update.kind === "total"
+            ? [{ model: run.selection.model, ...feedback.update.tokens }]
+            : feedback.update.models
+        const totals =
+          feedback.update.kind === "total"
+            ? additions
+            : addTokenUsage(run.tokens, additions)
+        this.ran.set(active.input.phase, { ...run, tokens: totals })
+        break
+      }
       case "text":
         // The saved brief is displayed once after validation, even if its writer echoes it.
         if (active.input.phase === "brief") break
@@ -465,14 +555,16 @@ export class RoundOutput<R extends Run = Run> {
     const run = active && this.ran.get(active.input.phase)
     if (active === undefined || run === undefined)
       throw new Error("A phase finished without starting")
-    this.say(this.report())
+    this.say(`${this.report()}${tokenSuffix(run.tokens)}`)
     const { phase } = active.input
     this.ran.set(phase, {
       selection: run.selection,
       spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
+      tokens: run.tokens,
     })
     const detail = result.status === "failed" ? `: ${result.reason}` : ""
     this.say(`[${phase}] ${result.status}${detail}`)
+    this.active = undefined
   }
 
   showBrief(text: string): void {
@@ -499,6 +591,41 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   finish(result: RoundResult | BriefResult | CloseResult): void {
+    const unsettledReport =
+      this.active === undefined
+        ? ""
+        : `${this.report()}${tokenSuffix(this.ran.get(this.active.input.phase)?.tokens ?? [])}`
+    this.finishUnsettledInvocation()
+    if (this.run.data !== undefined) {
+      if (!("commits" in result))
+        throw new Error("A round ended without its landed commit account")
+      writeRoundData(this.run.data.path, {
+        target: this.run.data.target,
+        round: this.run.data.round,
+        started: new Date(this.run.started).toISOString(),
+        settings: this.run.data.settings,
+        auditor: this.run.data.auditor,
+        phases: [...this.ran].flatMap(([phase, ran]) => {
+          if (phase === "close" || ran.spent === null) return []
+          const entry = this.run.phases.find(
+            (candidate) => candidate.phase === phase,
+          )
+          if (entry === undefined)
+            throw new Error(`Run data has no ${phase} phase owner`)
+          return [
+            {
+              phase,
+              assistant: entry.assistant,
+              model: ran.selection.model,
+              effort: ran.selection.effort,
+              milliseconds: Math.round(ran.spent),
+              tokens: [...ran.tokens],
+            },
+          ]
+        }),
+        commits: [...result.commits],
+      })
+    }
     this.release()
     if (result.status === "failed") {
       const resume =
@@ -506,7 +633,7 @@ export class RoundOutput<R extends Run = Run> {
           ? ""
           : `\nResume: ${recoveryCommand({ ...result, sessionId: result.sessionId })}`
       this.say(
-        `${this.report()}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
+        `${unsettledReport}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )
     } else {
       this.say(
@@ -530,8 +657,49 @@ export class RoundOutput<R extends Run = Run> {
       this.files.close()
     }
   }
+
+  /** A rejected invocation still contributes the time and tokens spent before it failed. */
+  private finishUnsettledInvocation(): void {
+    const active = this.active
+    if (active === undefined) return
+    const run = this.ran.get(active.input.phase)
+    if (run === undefined) return
+    this.ran.set(active.input.phase, {
+      selection: run.selection,
+      spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
+      tokens: run.tokens,
+    })
+    this.active = undefined
+  }
 }
 
 function changeSince(context: Context | null, baseline: number | null): string {
   return context === null ? "--" : contextChange(context, baseline)
+}
+
+function tokenSuffix(tokens: readonly ModelTokenUsage[]): string {
+  const text = phaseTokenText(tokens)
+  return text.length === 0 ? "" : `  tokens  ${text}`
+}
+
+function addTokenUsage(
+  current: readonly ModelTokenUsage[],
+  additions: readonly ModelTokenUsage[],
+): readonly ModelTokenUsage[] {
+  const totals = new Map(current.map((usage) => [usage.model, usage]))
+  for (const usage of additions) {
+    const prior = totals.get(usage.model)
+    totals.set(
+      usage.model,
+      prior === undefined
+        ? usage
+        : {
+            model: usage.model,
+            input: prior.input + usage.input,
+            cached: prior.cached + usage.cached,
+            output: prior.output + usage.output,
+          },
+    )
+  }
+  return [...totals.values()]
 }

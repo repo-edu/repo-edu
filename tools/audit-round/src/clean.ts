@@ -1,5 +1,6 @@
 import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
+import type { LandedCommit } from "./round-data.js"
 import { parseSubject, type Repository } from "./subject.js"
 import { type AuditTarget, planStem, type RoundContext } from "./target.js"
 
@@ -9,6 +10,11 @@ export type CleanInput = RoundContext &
     readonly judgedRepos: readonly Repository[]
   }
 
+export type CleanCompletion = {
+  readonly message: string
+  readonly commits: readonly LandedCommit[]
+}
+
 /**
  * Record a report with no findings without starting another assistant. Keep
  * the report as evidence and leave handoffs untouched: no correction consumed
@@ -17,8 +23,12 @@ export type CleanInput = RoundContext &
 export async function completeClean(
   input: CleanInput,
   stamps: CommitStamps,
-): Promise<string> {
-  if ("commits" in input) return `Clean audit. Report retained: ${input.report}`
+): Promise<CleanCompletion> {
+  if ("commits" in input)
+    return {
+      message: `Clean audit. Report retained: ${input.report}`,
+      commits: [],
+    }
 
   const cwd =
     input.judgedRepos.length === 1
@@ -46,5 +56,9 @@ export async function completeClean(
       env: { COMMIT_AUDITOR: stamps.auditor, COMMIT_PHASES: stamps.phases },
     },
   )
-  return `Clean audit recorded. Report retained: ${input.report}`
+  const sha = (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout
+  return {
+    message: `Clean audit recorded. Report retained: ${input.report}`,
+    commits: [{ repository, sha }],
+  }
 }

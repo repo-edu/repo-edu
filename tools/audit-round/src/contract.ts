@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readFile,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -30,6 +31,7 @@ import { defaultSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
 
 export const contractPrompt = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
+export const contractResumePrompt = `This is the resumed half of a CLI contract recording, not a repository task. Use your shell tool once to run printf audit-round-resume-probe. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
 
 /** Keep consumed events while excluding unrelated initialisation and configuration. */
 function selectRecord(
@@ -89,36 +91,54 @@ async function recordUsage(
   runtime: AssistantRuntime,
   sessionId: string,
   destination: string,
-): Promise<void> {
+  start = 0,
+): Promise<number> {
   const path = await findSessionFile(codexSessionsRoot(runtime), sessionId)
   if (path === undefined) throw new Error("Contract session file is missing")
-  const stream = createReadStream(path)
+  const size = (await stat(path)).size
+  const stream = createReadStream(path, { start })
   const lines = createInterface({ input: stream, crlfDelay: Infinity })
   try {
     for await (const line of lines) {
       const event = eventSchema.parse(JSON.parse(line))
       const feedback = decodeCodexUsage(event)
-      for (const item of feedback) {
-        const selected =
-          item.type === "model"
-            ? { type: "turn_context", payload: item.selection }
-            : {
-                type: "event_msg",
-                payload: {
-                  type: "token_count",
-                  info: {
-                    last_token_usage: { input_tokens: item.tokens },
-                    model_context_window: item.window,
-                  },
-                },
-              }
-        await appendFile(destination, `${JSON.stringify(selected)}\n`)
-      }
+      const model = feedback.find((item) => item.type === "model")
+      if (model?.type === "model")
+        await appendFile(
+          destination,
+          `${JSON.stringify({ type: "turn_context", payload: model.selection })}\n`,
+        )
+      const context = feedback.find((item) => item.type === "context")
+      const tokens = feedback.find((item) => item.type === "tokens")
+      if (context?.type === "context")
+        await appendFile(
+          destination,
+          `${JSON.stringify({
+            type: "event_msg",
+            payload: {
+              type: "token_count",
+              info: {
+                last_token_usage: { input_tokens: context.tokens },
+                model_context_window: context.window,
+                ...(tokens?.type === "tokens" && tokens.update.kind === "total"
+                  ? {
+                      total_token_usage: {
+                        input_tokens: tokens.update.tokens.input,
+                        cached_input_tokens: tokens.update.tokens.cached,
+                        output_tokens: tokens.update.tokens.output,
+                      },
+                    }
+                  : {}),
+              },
+            },
+          })}\n`,
+        )
     }
   } finally {
     lines.close()
     stream.destroy()
   }
+  return size
 }
 
 export async function recordContracts(
@@ -172,6 +192,7 @@ export async function recordContracts(
           text: false,
           model: false,
           context: false,
+          tokens: false,
           tool: false,
           failure: false,
           success: false,
@@ -180,6 +201,7 @@ export async function recordContracts(
           if (event.type === "text") seen.text = true
           if (event.type === "model") seen.model = true
           if (event.type === "context" && event.tokens > 0) seen.context = true
+          if (event.type === "tokens") seen.tokens = true
           if (event.type === "tool") {
             if (event.stage === "started") seen.tool = true
             if (event.stage === "completed") {
@@ -229,6 +251,15 @@ export async function recordContracts(
           throw new Error(
             `${assistant} contract failed: ${result.status === "failed" ? result.reason : result.status}`,
           )
+        let usageOffset = 0
+        if (assistant === "codex") {
+          usageOffset = await recordUsage(
+            runtime,
+            result.sessionId,
+            join(scratch, "codex-rollout.jsonl"),
+          )
+          files.push("codex-rollout.jsonl")
+        }
         const missing = Object.entries(seen)
           .filter(([, present]) => !present)
           .map(([name]) => name)
@@ -236,13 +267,50 @@ export async function recordContracts(
           throw new Error(
             `${assistant} contract missing evidence: ${missing.join(", ")}`,
           )
+        let resumedTokens = false
+        const resumed = await runAssistantInvocation(
+          {
+            phase: "fix",
+            rulingFile: join(scratch, "ruling.md"),
+            assistant,
+            model: unpinned,
+            ...context,
+            arguments: ["CLI contract probe"],
+            sessionId: result.sessionId,
+            rulingReply: "Resume the CLI contract probe.",
+          },
+          { text: contractResumePrompt, log: contractResumePrompt },
+          {
+            ...output.phase,
+            observe: async (event) => {
+              if (event.type === "tokens") resumedTokens = true
+              await output.phase.observe(event)
+            },
+          },
+          runtime,
+          async (record) => {
+            const event = selectRecord(assistant, record)
+            if (event !== undefined)
+              await appendFile(
+                join(scratch, `${assistant}-resume.jsonl`),
+                `${JSON.stringify(event)}\n`,
+              )
+          },
+        )
+        if (resumed.status !== "finished")
+          throw new Error(
+            `${assistant} resumed contract failed: ${resumed.status === "failed" ? resumed.reason : resumed.status}`,
+          )
+        if (!resumedTokens)
+          throw new Error(`${assistant} resumed contract missing token usage`)
         if (assistant === "codex") {
           await recordUsage(
             runtime,
-            result.sessionId,
-            join(scratch, "codex-rollout.jsonl"),
+            resumed.sessionId,
+            join(scratch, "codex-rollout-resume.jsonl"),
+            usageOffset,
           )
-          files.push("codex-rollout.jsonl")
+          files.push("codex-rollout-resume.jsonl")
         }
         await withCliProcess(
           runtime,
@@ -265,7 +333,11 @@ export async function recordContracts(
           ).trim()
         )
           throw new Error(`${assistant} did not report a version`)
-        files.push(`${assistant}.jsonl`, `${assistant}-version.txt`)
+        files.push(
+          `${assistant}.jsonl`,
+          `${assistant}-resume.jsonl`,
+          `${assistant}-version.txt`,
+        )
       } finally {
         output.close()
       }

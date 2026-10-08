@@ -1,11 +1,15 @@
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
 import { basename } from "node:path"
 import { test } from "node:test"
+import { roundRun as buildRoundRun } from "../output.js"
+import { roundDataSchema } from "../round-data.js"
 import {
   noOverride,
   RoundOutput,
   roundPhases,
   roundRun,
+  testSettings,
   unpinned,
 } from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
@@ -98,23 +102,21 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const log: string[] = []
-  const output = new RoundOutput(
-    await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "all" },
-      Date.now(),
-      selections,
-    ),
-    {
-      terminal: { write: () => {}, status: () => {}, clear: () => {} },
-      openFiles: () => ({
-        log: (text) => {
-          log.push(text)
-        },
-        markdown: () => {},
-        close: () => {},
-      }),
-    },
+  const run = await roundRun(
+    { ...testContext(f.root), plan: "example.md", scope: "all" },
+    Date.now(),
+    selections,
   )
+  const output = new RoundOutput(run, {
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+    openFiles: () => ({
+      log: (text) => {
+        log.push(text)
+      },
+      markdown: () => {},
+      close: () => {},
+    }),
+  })
   t.after(() => output.close())
   const stamp = () => log.filter((text) => text.startsWith("\n[fix]")).at(-1)
 
@@ -134,6 +136,10 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   t.mock.timers.tick(60_000)
   await output.phase.observe({ type: "text", text: "A ruling is needed." })
   assert.equal(stamp(), "\n[fix] 01:00  total 01:05")
+  await output.phase.finish({
+    status: "needs-ruling",
+    sessionId: "session",
+  })
 
   const session = {
     assistant: "codex" as const,
@@ -165,9 +171,162 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   output.beginRuling("RULING.md", "Another choice.")
   t.mock.timers.tick(10 * 60_000)
   output.endRuling(null)
-  output.finish({ status: "awaiting-ruling", report: "REPORT.md", session })
+  output.finish({
+    status: "awaiting-ruling",
+    report: "REPORT.md",
+    session,
+    commits: [],
+  })
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
+  assert.ok(run.data)
+  assert.equal(
+    roundDataSchema.parse(JSON.parse(await readFile(run.data.path, "utf8")))
+      .phases[0]?.milliseconds,
+    180_000,
+  )
 })
+
+for (const assistant of ["claude", "codex"] as const) {
+  test(`${assistant} fix tokens span a ruling resume exactly once in retained round data`, async (t) => {
+    const f = await fixture(t)
+    t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
+    const settings = {
+      ...testSettings,
+      phases: {
+        ...testSettings.phases,
+        fix: { ...testSettings.phases.fix, assistant },
+      },
+    }
+    const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
+    const run = await buildRoundRun(setup, Date.now(), selections, settings)
+    const log: string[] = []
+    const output = new RoundOutput(run, {
+      terminal: { write: () => {}, status: () => {}, clear: () => {} },
+      openFiles: () => ({
+        log: (text) => {
+          log.push(text)
+        },
+        markdown: () => {},
+        close: () => {},
+      }),
+    })
+    t.after(() => output.close())
+    const turn = {
+      ...setup,
+      phase: "fix" as const,
+      rulingFile: "RULING.md",
+      assistant,
+      model: unpinned,
+      arguments: ["REPORT.md"] as const,
+    }
+    const tokens = (input: number, cached: number, outputTokens: number) =>
+      assistant === "claude"
+        ? ({
+            type: "tokens",
+            update: {
+              kind: "add",
+              models: [
+                {
+                  model: selections.claude.configured.model,
+                  input,
+                  cached,
+                  output: outputTokens,
+                },
+              ],
+            },
+          } as const)
+        : ({
+            type: "tokens",
+            update: {
+              kind: "total",
+              tokens: { input, cached, output: outputTokens },
+            },
+          } as const)
+
+    await output.phase.start({ ...turn, sessionId: null }, "Start the fix")
+    await output.phase.observe(tokens(100, 50, 10))
+    t.mock.timers.tick(1000)
+    await output.phase.finish({
+      status: "needs-ruling",
+      sessionId: "fix-session",
+    })
+    output.beginRuling("RULING.md", "Choose a design.")
+    t.mock.timers.tick(60_000)
+    output.endRuling("Use the single owner.")
+    await output.phase.start(
+      {
+        ...turn,
+        sessionId: "fix-session",
+        rulingReply: "Use the single owner.",
+      },
+      "Resume the fix",
+    )
+    await output.phase.observe(
+      assistant === "claude" ? tokens(20, 10, 2) : tokens(120, 60, 12),
+    )
+    t.mock.timers.tick(2000)
+    await output.phase.finish({
+      status: "finished",
+      sessionId: "fix-session",
+    })
+    output.finish({
+      status: "finished",
+      report: "REPORT.md",
+      cleanAudit: false,
+      recommendation: null,
+      watch: null,
+      commits: [
+        {
+          repository: "repo-edu",
+          sha: "0123456789abcdef0123456789abcdef01234567",
+        },
+      ],
+    })
+
+    assert.ok(run.data)
+    const data = roundDataSchema.parse(
+      JSON.parse(await readFile(run.data.path, "utf8")),
+    )
+    assert.equal(data.target, "example-impl-all")
+    assert.equal(data.round, 1)
+    assert.equal(data.started, "1970-01-01T00:00:10.000Z")
+    assert.equal(data.settings.fix.assistant, assistant)
+    assert.deepEqual(data.auditor, {
+      assistant: "codex",
+      model: selections.codex.configured.model,
+      effort: selections.codex.configured.effort,
+      chosenBy: "settings",
+    })
+    assert.deepEqual(data.phases, [
+      {
+        phase: "fix",
+        assistant,
+        model: selections[assistant].configured.model,
+        effort: selections[assistant].configured.effort,
+        milliseconds: 3000,
+        tokens: [
+          {
+            model: selections[assistant].configured.model,
+            input: 120,
+            cached: 60,
+            output: 12,
+          },
+        ],
+      },
+    ])
+    assert.deepEqual(data.commits, [
+      {
+        repository: "repo-edu",
+        sha: "0123456789abcdef0123456789abcdef01234567",
+      },
+    ])
+    assert.ok(
+      log.some(
+        (line) => line.includes("tokens  ") && line.includes("input 0.1k"),
+      ),
+    )
+  })
+}
 
 test("commit stamps time the finished audit, vet and rebuttal and never the fix", async (t) => {
   const f = await fixture(t)

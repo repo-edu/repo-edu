@@ -33,6 +33,15 @@ const assistantMessage = z.object({
     }),
   }),
 })
+const modelUsage = z.record(
+  z.string().min(1),
+  z.object({
+    inputTokens: tokenSchema,
+    cacheReadInputTokens: tokenSchema,
+    cacheCreationInputTokens: tokenSchema,
+    outputTokens: tokenSchema,
+  }),
+)
 
 export function decodeClaude(record: unknown): AssistantEvent[] {
   const event = eventSchema.parse(record)
@@ -132,6 +141,7 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
           result: z.string().optional(),
           errors: z.array(z.string()).optional(),
           subtype: z.string(),
+          modelUsage: modelUsage.optional(),
         })
         .parse(event)
       if (result.is_error)
@@ -140,7 +150,27 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
         )
       if (result.result === undefined)
         throw new Error("Claude completed without final text")
-      return [{ type: "final", text: result.result }, { type: "complete" }]
+      if (result.modelUsage === undefined)
+        throw new Error("Claude completed without token usage")
+      return [
+        {
+          type: "tokens",
+          update: {
+            kind: "add",
+            models: Object.entries(result.modelUsage).map(([model, usage]) => ({
+              model,
+              input:
+                usage.inputTokens +
+                usage.cacheReadInputTokens +
+                usage.cacheCreationInputTokens,
+              cached: usage.cacheReadInputTokens,
+              output: usage.outputTokens,
+            })),
+          },
+        },
+        { type: "final", text: result.result },
+        { type: "complete" },
+      ]
     }
     default:
       return []

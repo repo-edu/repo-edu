@@ -35,6 +35,30 @@ const input = (
   sessionId: null,
 })
 
+async function codexUsageWithTotals(): Promise<string> {
+  let count = 0
+  return `${(await recorded("codex-rollout.jsonl"))
+    .trim()
+    .split("\n")
+    .map((line) => {
+      const event = JSON.parse(line)
+      if (
+        event.type === "event_msg" &&
+        event.payload?.type === "token_count" &&
+        event.payload.info !== null
+      ) {
+        count += 1
+        event.payload.info.total_token_usage = {
+          input_tokens: count * 1000,
+          cached_input_tokens: count * 100,
+          output_tokens: count * 50,
+        }
+      }
+      return JSON.stringify(event)
+    })
+    .join("\n")}\n`
+}
+
 for (const assistant of ["claude", "codex"] as const) {
   test(`${assistant} saves only completed final report text and retains write failures`, async (t) => {
     const f = await fixture(t)
@@ -86,7 +110,7 @@ for (const assistant of ["claude", "codex"] as const) {
       stream: await phaseStream(assistant),
       chunkSize: 73,
       stderr: "CLI diagnostic\n",
-      usage: { path: usagePath, text: await recorded("codex-rollout.jsonl") },
+      usage: { path: usagePath, text: await codexUsageWithTotals() },
     })
     const result = await runAssistantPhase(
       input(assistant, f.root),
@@ -113,6 +137,31 @@ for (const assistant of ["claude", "codex"] as const) {
       ),
     )
     assert.ok(f.feedback.some((event) => event.type === "model"))
+    assert.deepEqual(
+      f.feedback.filter((event) => event.type === "tokens").at(-1),
+      assistant === "claude"
+        ? {
+            type: "tokens",
+            update: {
+              kind: "add",
+              models: [
+                {
+                  model: "claude-fable-5-1",
+                  input: 124811,
+                  cached: 95585,
+                  output: 290,
+                },
+              ],
+            },
+          }
+        : {
+            type: "tokens",
+            update: {
+              kind: "total",
+              tokens: { input: 3000, cached: 300, output: 150 },
+            },
+          },
+    )
     assert.ok(
       f.feedback.some((event) => event.type === "context" && event.tokens > 0),
     )
