@@ -12,7 +12,8 @@ it at `../repo-edu/.agents/references/round-protocol.md`.
 Round documents and logs use `<target>-<round>-<order>-<kind>.<tag>.<ext>`.
 The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
-The runner's machine-readable round data uses `.json` with the `round` kind.
+The runner's machine-readable plan-target round data uses `.json` with the
+`round` kind.
 Five files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
 number, the empty `<stem>-plan-<round>-0-settle.md` and
 `<stem>-plan-<round>-0-reopen.md` markers take a number to record a phase
@@ -49,7 +50,7 @@ The plan repo's handoff rule owns that six-character sha.
   Every later phase keeps it exactly, even when another assistant writes the next file. A later
   phase never allocates another round.
 - **Tag** names the file's writer under [Writer tags](#writer-tags). The
-  transcript, its log and its round data use the auditor's tag. All other
+  transcript, its log and any plan-target round data use the auditor's tag. All other
   tagged files use their own writer's tag.
 
 The shared `tools/audit-round/src/round-paths.ts` owns the fixed order numbers:
@@ -58,7 +59,7 @@ The shared `tools/audit-round/src/round-paths.ts` owns the fixed order numbers:
 | --- | --- | --- |
 | 0 | claim | Empty reservation, no tag |
 | 0 | settle, reopen | Empty phase-change markers of a plan target, no tag |
-| 1 | round | Transcript, log and round data |
+| 1 | round | Transcript, log and plan-target round data |
 | 2 | audit | Report |
 | 3 | vet | Vet twin |
 | 4 | rebut | Rebuttal twin |
@@ -126,13 +127,14 @@ sessions and the fix's ruling write directly to their supplied output paths.
 Use the supplied paths without reconstructing a name or adding an opening writer tag.
 A standalone brief reuses the transcript's target
 and round. Its document and log share `6-brief.<tag>`; the log is opened for
-overwrite without another claim. The round transcript, log and data share
-`1-round.<tag>`; their extensions are `.md`, `.log` and `.json` respectively.
-The runner writes the data when the round ends, including after a failure or a
-ruling left without a reply. It records the target, round, start time,
-unchanged settings, selected audit setting and source, each started phase's
-assistant, model, effort, time and tokens per model and every landed commit by
-repository and full SHA. A crash before that final write leaves no data file.
+overwrite without another claim. The round transcript and log share
+`1-round.<tag>`; their extensions are `.md` and `.log` respectively. A
+plan-target round's data shares that name with a `.json` extension. The runner
+writes the data when a plan-target round ends, including after a failure or a
+ruling left without a reply. It records the target, round, start time, unchanged
+settings, selected audit setting and source, each started phase's assistant,
+model, effort, time and tokens per model and every landed commit by repository
+and full SHA. A crash before that final write leaves no data file.
 
 The fix receives the ruling output path separately from its report arguments.
 It writes the final ruling at that path before returning `needs-ruling`, using

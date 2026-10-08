@@ -87,7 +87,7 @@ export function decodeCodexUsage(
           {
             type: "tokens" as const,
             update: {
-              kind: "total" as const,
+              kind: "selected-model" as const,
               tokens: {
                 input: info.total_token_usage.input_tokens,
                 cached: info.total_token_usage.cached_input_tokens,

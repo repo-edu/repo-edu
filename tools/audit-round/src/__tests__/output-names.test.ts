@@ -23,7 +23,6 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   const names = [
     run.paths.claim,
     run.paths.markdown,
-    run.data?.path,
     ...Object.values(run.documents),
     run.watch,
   ].map((file) => {
@@ -32,7 +31,6 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   })
   assert.deepEqual(names.toSorted(), [
     "abcdef..123abc-01-0-claim.md",
-    "abcdef..123abc-01-1-round.oth.json",
     "abcdef..123abc-01-1-round.oth.md",
     "abcdef..123abc-01-2-audit.oth.md",
     "abcdef..123abc-01-3-vet.abx.md",
@@ -41,6 +39,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     "abcdef..123abc-01-7-ruling.oth.md",
     "abcdef..123abc-01-9-watch.oth.md",
   ])
+  assert.equal(run.data, undefined)
   assert.equal(run.paths.log, run.paths.markdown.replace(/\.md$/, ".log"))
   assert.equal(transcriptNameStart(run.paths.markdown), "abcdef..123abc-01")
   const brief = briefRun(run.paths.markdown, 0, selections)
@@ -293,6 +292,7 @@ test("planning rounds number their bare target at the plan root and write there"
     0,
     selections,
   )
+  assert.ok(run.data)
   assert.equal(run.nameStart, "example-plan-06")
   assert.equal(
     run.paths.claim,
@@ -301,6 +301,10 @@ test("planning rounds number their bare target at the plan root and write there"
   assert.equal(
     run.paths.markdown,
     join(context.planRoot, "example-plan-06-1-round.oth.md"),
+  )
+  assert.equal(
+    run.data.path,
+    join(context.planRoot, "example-plan-06-1-round.oth.json"),
   )
   assert.equal(
     run.watch,

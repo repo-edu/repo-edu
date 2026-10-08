@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"01a11df0-c53d-7e32-a5d5-1915388a35b6"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Running the resumed contract probe."}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'printf audit-round-resume-probe'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'printf audit-round-resume-probe'","aggregated_output":"audit-round-resume-probe","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"PHASE RESULT: {\"status\":\"finished\",\"reason\":null}"}}
+{"type":"turn.completed","usage":{"input_tokens":136607,"cached_input_tokens":120448,"cache_write_input_tokens":0,"output_tokens":342,"reasoning_output_tokens":90}}

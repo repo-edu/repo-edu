@@ -35,28 +35,73 @@ const input = (
   sessionId: null,
 })
 
-async function codexUsageWithTotals(): Promise<string> {
-  let count = 0
-  return `${(await recorded("codex-rollout.jsonl"))
+async function recordedTokenUpdate(assistant: Assistant, recording: string) {
+  if (assistant === "claude") {
+    const result = (await recorded(`${recording}.jsonl`))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line))
+      .find((event) => event.type === "result")
+    assert.ok(result?.modelUsage)
+    return {
+      kind: "models" as const,
+      models: Object.entries(result.modelUsage).map(([model, value]) => {
+        const usage = value as {
+          inputTokens: number
+          cacheReadInputTokens: number
+          cacheCreationInputTokens: number
+          outputTokens: number
+        }
+        return {
+          model,
+          input:
+            usage.inputTokens +
+            usage.cacheReadInputTokens +
+            usage.cacheCreationInputTokens,
+          cached: usage.cacheReadInputTokens,
+          output: usage.outputTokens,
+        }
+      }),
+    }
+  }
+  const rollout = recording.endsWith("-resume")
+    ? "codex-rollout-resume.jsonl"
+    : "codex-rollout.jsonl"
+  const total = (await recorded(rollout))
     .trim()
     .split("\n")
-    .map((line) => {
-      const event = JSON.parse(line)
-      if (
-        event.type === "event_msg" &&
-        event.payload?.type === "token_count" &&
-        event.payload.info !== null
-      ) {
-        count += 1
-        event.payload.info.total_token_usage = {
-          input_tokens: count * 1000,
-          cached_input_tokens: count * 100,
-          output_tokens: count * 50,
-        }
-      }
-      return JSON.stringify(event)
-    })
-    .join("\n")}\n`
+    .map((line) => JSON.parse(line).payload?.info?.total_token_usage)
+    .filter(Boolean)
+    .at(-1)
+  assert.ok(total)
+  return {
+    kind: "selected-model" as const,
+    tokens: {
+      input: total.input_tokens,
+      cached: total.cached_input_tokens,
+      output: total.output_tokens,
+    },
+  }
+}
+
+async function recordedCodexContexts(recording: string): Promise<number[]> {
+  return (await recorded(recording))
+    .trim()
+    .split("\n")
+    .map(
+      (line) => JSON.parse(line).payload?.info?.last_token_usage?.input_tokens,
+    )
+    .filter((tokens): tokens is number => typeof tokens === "number")
+}
+
+async function recordedCodexModel(recording: string): Promise<string> {
+  const selection = (await recorded(recording))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line))
+    .find((event) => event.type === "turn_context")?.payload
+  assert.equal(typeof selection?.model, "string")
+  return selection.model
 }
 
 for (const assistant of ["claude", "codex"] as const) {
@@ -110,7 +155,7 @@ for (const assistant of ["claude", "codex"] as const) {
       stream: await phaseStream(assistant),
       chunkSize: 73,
       stderr: "CLI diagnostic\n",
-      usage: { path: usagePath, text: await codexUsageWithTotals() },
+      usage: { path: usagePath, text: await recorded("codex-rollout.jsonl") },
     })
     const result = await runAssistantPhase(
       input(assistant, f.root),
@@ -139,28 +184,10 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.ok(f.feedback.some((event) => event.type === "model"))
     assert.deepEqual(
       f.feedback.filter((event) => event.type === "tokens").at(-1),
-      assistant === "claude"
-        ? {
-            type: "tokens",
-            update: {
-              kind: "add",
-              models: [
-                {
-                  model: "claude-fable-5-1",
-                  input: 124811,
-                  cached: 95585,
-                  output: 290,
-                },
-              ],
-            },
-          }
-        : {
-            type: "tokens",
-            update: {
-              kind: "total",
-              tokens: { input: 3000, cached: 300, output: 150 },
-            },
-          },
+      {
+        type: "tokens",
+        update: await recordedTokenUpdate(assistant, assistant),
+      },
     )
     assert.ok(
       f.feedback.some((event) => event.type === "context" && event.tokens > 0),
@@ -191,6 +218,75 @@ for (const assistant of ["claude", "codex"] as const) {
       )
       assert.equal(call.args.includes("--resume"), false)
     }
+  })
+
+  test(`${assistant} reads fresh and resumed session totals from the contract recordings`, async (t) => {
+    const f = await fixture(t)
+    const usagePath = join(f.root, "rollout-test-session.jsonl")
+    await f.configure({
+      stream: await phaseStream(assistant),
+      ...(assistant === "codex"
+        ? {
+            usage: {
+              path: usagePath,
+              text: await recorded("codex-rollout.jsonl"),
+            },
+          }
+        : {}),
+    })
+    const fresh = await runAssistantPhase(
+      input(assistant, f.root),
+      f.output,
+      f.runtime,
+    )
+    assert.deepEqual(fresh, { status: "finished", sessionId: "test-session" })
+    const freshFeedbackEnd = f.feedback.length
+
+    await f.configure({
+      stream: await phaseStream(
+        assistant,
+        finishedText,
+        "test-session",
+        `${assistant}-resume`,
+      ),
+      ...(assistant === "codex"
+        ? {
+            usage: {
+              path: usagePath,
+              text: await recorded("codex-rollout-resume.jsonl"),
+            },
+          }
+        : {}),
+    })
+    const resumed = await runAssistantPhase(
+      {
+        ...input(assistant, f.root),
+        sessionId: "test-session",
+        rulingReply: "Resume the contract probe.",
+      },
+      f.output,
+      f.runtime,
+    )
+    assert.deepEqual(resumed, {
+      status: "finished",
+      sessionId: "test-session",
+    })
+    const freshTokens = f.feedback
+      .slice(0, freshFeedbackEnd)
+      .filter((event) => event.type === "tokens")
+      .at(-1)
+    const resumedTokens = f.feedback
+      .slice(freshFeedbackEnd)
+      .filter((event) => event.type === "tokens")
+      .at(-1)
+    assert.deepEqual(freshTokens, {
+      type: "tokens",
+      update: await recordedTokenUpdate(assistant, assistant),
+    })
+    assert.deepEqual(resumedTokens, {
+      type: "tokens",
+      update: await recordedTokenUpdate(assistant, `${assistant}-resume`),
+    })
   })
 
   for (const problem of [
@@ -402,17 +498,18 @@ test("Codex fix excludes all pre-invocation usage and retains the new selection"
   })
   assert.deepEqual(
     f.feedback.filter((event) => event.type === "context"),
-    [28065, 28180, 28286].map((tokens) => ({
+    (await recordedCodexContexts("codex-rollout.jsonl")).map((tokens) => ({
       type: "context",
       tokens,
       window: 258400,
     })),
   )
   assert.equal(f.feedback.filter((event) => event.type === "model").length, 1)
+  const recordedModel = await recordedCodexModel("codex-rollout.jsonl")
   assert.ok(
     f.feedback.some(
       (event) =>
-        event.type === "model" && event.selection.model === "gpt-6-astra",
+        event.type === "model" && event.selection.model === recordedModel,
     ),
   )
 })

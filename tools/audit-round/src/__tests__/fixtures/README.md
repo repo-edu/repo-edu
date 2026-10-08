@@ -13,11 +13,11 @@ independently. Append `claude` or `codex` to record one assistant. This exercise
 the actual invocation, validation and output code with trivial shell probes,
 including an intentional tool failure. It then resumes that session and
 requires fresh token evidence from both invocations. Claude recordings retain
-each invocation's result usage. Codex recordings retain each invocation's new
-session-file records, including the running total. A failed contract replaces
-no selected fixtures. The adjacent version files and `recorded-at.txt`
-identify the latest successful recording. Generate streams with this command,
-never by hand.
+each invocation's latest session total. Codex recordings retain each
+invocation's new session-file records, including that total. A failed contract
+replaces no selected fixtures. The adjacent version files and
+`recorded-at.txt` identify the latest successful recording. Generate streams
+with this command, never by hand.
 
 During step 2 on 2026-09-11, live Codex CLI 0.154.0 fresh and resumed probes
 both recorded `approval_policy = "on-request"`,

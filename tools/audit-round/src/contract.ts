@@ -120,7 +120,8 @@ async function recordUsage(
               info: {
                 last_token_usage: { input_tokens: context.tokens },
                 model_context_window: context.window,
-                ...(tokens?.type === "tokens" && tokens.update.kind === "total"
+                ...(tokens?.type === "tokens" &&
+                tokens.update.kind === "selected-model"
                   ? {
                       total_token_usage: {
                         input_tokens: tokens.update.tokens.input,

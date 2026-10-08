@@ -156,7 +156,7 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
         {
           type: "tokens",
           update: {
-            kind: "add",
+            kind: "models",
             models: Object.entries(result.modelUsage).map(([model, usage]) => ({
               model,
               input:

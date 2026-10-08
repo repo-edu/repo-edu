@@ -182,11 +182,26 @@ export async function roundRun(
       tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
-  const identity = roundDataIdentity(nameStart)
   const path = (kind: FileKind, phase: Phase) =>
     join(setup.planRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
   const audit = entry("audit")
+  const data =
+    "plan" in setup
+      ? {
+          path: `${base}.json`,
+          ...roundDataIdentity(nameStart),
+          settings: roundSettingsData(selections, settings),
+          auditor: {
+            assistant: audit.assistant,
+            ...resolvedRun(audit, selections),
+            chosenBy:
+              setup.override === undefined || setup.override === noOverride
+                ? ("settings" as const)
+                : ("command-line" as const),
+          },
+        }
+      : undefined
   return {
     nameStart,
     watch: `${path("watch", "watch")}.md`,
@@ -212,19 +227,7 @@ export async function roundRun(
       log: `${base}.log`,
       markdown: `${base}.md`,
     },
-    data: {
-      path: `${base}.json`,
-      ...identity,
-      settings: roundSettingsData(selections, settings),
-      auditor: {
-        assistant: audit.assistant,
-        ...resolvedRun(audit, selections),
-        chosenBy:
-          setup.override === undefined || setup.override === noOverride
-            ? "settings"
-            : "command-line",
-      },
-    },
+    ...(data === undefined ? {} : { data }),
     selections,
     settings,
     started,
@@ -326,7 +329,8 @@ export class RoundOutput<R extends Run = Run> {
    * assistant time the phase took. Before a phase reports, its launch
    * selection lets that child identify itself. Feedback replaces that
    * selection without changing another phase's record. A resumed phase adds
-   * each finished invocation's time to what it already took.
+   * each finished invocation's time and replaces tokens with the latest
+   * session total.
    */
   private readonly ran = new Map<Phase, RanPhase>()
 
@@ -504,14 +508,10 @@ export class RoundOutput<R extends Run = Run> {
         const run = this.ran.get(active.input.phase)
         if (run === undefined)
           throw new Error("Token usage arrived before its phase started")
-        const additions: readonly ModelTokenUsage[] =
-          feedback.update.kind === "total"
+        const totals: readonly ModelTokenUsage[] =
+          feedback.update.kind === "selected-model"
             ? [{ model: run.selection.model, ...feedback.update.tokens }]
             : feedback.update.models
-        const totals =
-          feedback.update.kind === "total"
-            ? additions
-            : addTokenUsage(run.tokens, additions)
         this.ran.set(active.input.phase, { ...run, tokens: totals })
         break
       }
@@ -680,26 +680,4 @@ function changeSince(context: Context | null, baseline: number | null): string {
 function tokenSuffix(tokens: readonly ModelTokenUsage[]): string {
   const text = phaseTokenText(tokens)
   return text.length === 0 ? "" : `  tokens  ${text}`
-}
-
-function addTokenUsage(
-  current: readonly ModelTokenUsage[],
-  additions: readonly ModelTokenUsage[],
-): readonly ModelTokenUsage[] {
-  const totals = new Map(current.map((usage) => [usage.model, usage]))
-  for (const usage of additions) {
-    const prior = totals.get(usage.model)
-    totals.set(
-      usage.model,
-      prior === undefined
-        ? usage
-        : {
-            model: usage.model,
-            input: prior.input + usage.input,
-            cached: prior.cached + usage.cached,
-            output: prior.output + usage.output,
-          },
-    )
-  }
-  return [...totals.values()]
 }

@@ -224,7 +224,7 @@ for (const assistant of ["claude", "codex"] as const) {
         ? ({
             type: "tokens",
             update: {
-              kind: "add",
+              kind: "models",
               models: [
                 {
                   model: selections.claude.configured.model,
@@ -238,7 +238,7 @@ for (const assistant of ["claude", "codex"] as const) {
         : ({
             type: "tokens",
             update: {
-              kind: "total",
+              kind: "selected-model",
               tokens: { input, cached, output: outputTokens },
             },
           } as const)
@@ -261,9 +261,7 @@ for (const assistant of ["claude", "codex"] as const) {
       },
       "Resume the fix",
     )
-    await output.phase.observe(
-      assistant === "claude" ? tokens(20, 10, 2) : tokens(120, 60, 12),
-    )
+    await output.phase.observe(tokens(120, 60, 12))
     t.mock.timers.tick(2000)
     await output.phase.finish({
       status: "finished",

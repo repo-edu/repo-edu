@@ -89,8 +89,9 @@ export async function phaseStream(
   assistant: Assistant,
   final = finishedText,
   sessionId = "test-session",
+  recording: string = assistant,
 ): Promise<string> {
-  const lines = (await recorded(`${assistant}.jsonl`))
+  const lines = (await recorded(`${recording}.jsonl`))
     .trim()
     .split("\n")
     .map((line) => {

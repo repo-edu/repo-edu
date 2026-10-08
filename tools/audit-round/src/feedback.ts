@@ -29,14 +29,14 @@ export type Feedback =
   | { readonly type: "diagnostic"; readonly text: string }
   | {
       readonly type: "tokens"
-      /** Claude reports one invocation; Codex reports the session running total. */
+      /** Both CLIs report the session's latest running total. */
       readonly update:
         | {
-            readonly kind: "add"
+            readonly kind: "models"
             readonly models: readonly ModelTokenUsage[]
           }
         | {
-            readonly kind: "total"
+            readonly kind: "selected-model"
             readonly tokens: Omit<ModelTokenUsage, "model">
           }
     }
