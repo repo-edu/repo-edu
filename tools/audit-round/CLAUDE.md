@@ -310,8 +310,9 @@ consumers.
   Without `--auditor`, a settled plan target runs an automatic series. The `--first` selection runs
   first, or the configured default without it, then each continue recommendation names the next
   assistant. Only that first round carries the selection's fields. The series writes no queue and
-  ends on a stop, the configured maximum, a failure, an unanswered ruling or a red watch. Widening
-  and commit targets run once, on the `--first` selection when given. With `--auditor`, the first
+  ends on a stop, the configured maximum, a failure, an unanswered ruling, a red watch or a fix
+  that reopens the plan. Widening and commit targets run once, on the `--first` selection when
+  given. With `--auditor`, the first
   entry runs first and the remaining
   entries on a plan target seed its editable queue. A clean audit or stop recommendation removes
   queued entries that resolve to that round's assistant, model and effort. Other settings remain and
