@@ -20,6 +20,11 @@ const phaseOrder = {
 
 export type FileKind = Exclude<keyof typeof phaseOrder, "fix" | "glance">
 
+/** Tagless phase-change markers that take a round number so they sort among the rounds. */
+export const markerKinds = ["settle", "reopen"] as const
+
+export type MarkerKind = (typeof markerKinds)[number]
+
 export function phaseFilename(
   nameStart: string,
   kind: FileKind,
@@ -130,7 +135,7 @@ async function nextNameStart(
     .filter((name) => name.startsWith(`${target}-`))
     .map((name) => {
       const suffix = name.slice(target.length + 1)
-      const claim = /^(\d{2,})-0-claim\.md$/.exec(suffix)
+      const claim = /^(\d{2,})-0-(claim|settle|reopen)\.md$/.exec(suffix)
       if (claim !== null) return Number(claim[1])
       const parsed = readPhaseFilename(name)
       const number = parsed?.nameStart.slice(target.length + 1)
@@ -153,6 +158,23 @@ export async function roundIdentity(
     nameStart: await nextNameStart(setup, target.label),
     title: target.title,
   }
+}
+
+/**
+ * A phase-change marker claims the plan target's next number, so the file list
+ * shows where a settle or reopen fell among the rounds without opening a file.
+ */
+export async function markerPath(
+  context: ExecutionContext,
+  plan: string,
+  kind: MarkerKind,
+): Promise<string> {
+  const { nameStart } = await roundIdentity({
+    ...context,
+    roundKind: "planning",
+    plan,
+  })
+  return join(context.planRoot, `${nameStart}-0-${kind}.md`)
 }
 
 /** The editable list of auditors still to run on this target, beside its rounds. */

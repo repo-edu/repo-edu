@@ -291,9 +291,10 @@ consumers.
   with no entries. `--first` takes exactly one entry and is refused beside `--auditor`, because
   the list's first entry already names the first round. The
   round is the command itself, taking the target as its own arguments. Its subcommands are `brief`,
-  `close`, `plan`, `name`, `paths`, `delete-reports` and `episode`. Help lists the round, `brief`,
-  `close` and `plan`, the commands a user runs. The hand-run launchers call `name`, `paths`,
-  `delete-reports` and `episode`, so help hides them. `plan` prints the plan an omitted target
+  `close`, `plan`, `name`, `paths`, `delete-reports`, `mark` and `episode`. Help lists the round,
+  `brief`, `close` and `plan`, the commands a user runs. The hand-run launchers call `name`,
+  `paths`, `delete-reports` and `episode`, and the settle and reopen steps call `mark`, so help
+  hides them. `plan` prints the plan an omitted target
   selects, as its absolute path, and writes nothing, so a user can see it before a round or close
   takes it. `close` resolves its plan before startup, then runs the close phase alone with its own
   log. The `episode` command prints joined watch evidence from the shared reader and formatter
@@ -304,7 +305,9 @@ consumers.
   report as a JSON object. It reads the report opening's named workflow to select its kind. Both
   commands bypass assistant startup and settings discovery; `paths` writes nothing. The
   `delete-reports` command uses the same deletion function as the coordinator and starts no
-  assistant or settings discovery. So the program carries an action handler, Commander adds no
+  assistant or settings discovery. The `mark` command claims an active plan's next round number
+  for an empty `settle` or `reopen` marker and prints its path, with no settings discovery or
+  assistant. So the program carries an action handler, Commander adds no
   `help` command, and each command's own `-h` prints its help. A bare command line prints that help;
   options without a target take `defaultTarget`. It also owns the round sequence and its counter.
   Without `--auditor`, a settled plan target runs an automatic series. The `--first` selection runs
@@ -441,6 +444,8 @@ pnpm audit-round paths vet example-impl-03..03-01-2-audit.oth.md --writer abx
 pnpm audit-round paths rebut example-impl-03..03-01-2-audit.oth.md --writer otm
 pnpm audit-round paths fix example-impl-03..03-01-2-audit.oth.md
 pnpm audit-round delete-reports example-impl-03..03-01
+pnpm audit-round mark settle example
+pnpm audit-round mark reopen
 pnpm audit-round episode example
 pnpm audit-round episode HEAD-2
 pnpm audit-round:contract
@@ -479,8 +484,15 @@ need the user's answer, it fails with the question, and its printed resume comma
 session.
 
 `delete-reports` deletes the audit and twins for its exact target and round at the
-plan root and lists each deleted file. It fails when no report matches. Claims and runner
-documents remain.
+plan root and lists each deleted file. It fails when no report matches. Claims, markers and
+runner documents remain.
+
+`mark <settle|reopen> [stem]` claims the next plan-round number of an active plan, or of the
+plan `plan` prints when none is named, writes the empty `<stem>-plan-<round>-0-<marker>.md`
+at the plan root and prints its path. The marker takes a number so a file list shows where the
+settle or reopen fell among the rounds. The plan repo's
+[Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle) owns when each marker is
+written; the command loads no settings and starts no assistant.
 
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
 document in the terminal. Only `--brief` runs it, for every round, without changing the watch. A

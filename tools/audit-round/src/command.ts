@@ -50,7 +50,10 @@ import {
 import {
   deleteRoundReports,
   type ManualPhase,
+  type MarkerKind,
   manualPhasePaths,
+  markerKinds,
+  markerPath,
   newestTranscript,
   phaseFilename,
   queueFile,
@@ -63,6 +66,7 @@ import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
+  activePlan,
   closingPlan,
   planStem,
   resolvePlan,
@@ -91,6 +95,12 @@ type Invocation =
       readonly rebut?: string
     }
   | { readonly kind: "delete-reports"; readonly nameStart: string }
+  | {
+      readonly kind: "mark"
+      readonly marker: MarkerKind
+      /** Absent when the marker takes the plan `plan` prints. */
+      readonly stem?: string
+    }
   | {
       readonly kind: "round"
       /** Absent when the runner takes the newest plan. */
@@ -441,6 +451,24 @@ Use pnpm audit-round brief --help or close --help for their arguments and option
       invocation = { kind: "delete-reports", nameStart }
     })
   command
+    .command("mark", { hidden: true })
+    .description(
+      "Claim the plan's next round number for an empty settle or reopen marker and print its path.",
+    )
+    .argument(
+      "<marker>",
+      "settle or reopen, the phase change the marker records",
+      (value: string) => {
+        if (!(markerKinds as readonly string[]).includes(value))
+          throw new InvalidArgumentError("Expected settle or reopen.")
+        return value as MarkerKind
+      },
+    )
+    .argument("[stem]", "an active plan, or none for the newest plan")
+    .action((marker: MarkerKind, stem: string | undefined) => {
+      invocation = { kind: "mark", marker, stem }
+    })
+  command
     .command("brief")
     .description(
       "Write the plain-words brief of a finished round from its *-1-round.<tag>.md transcript.",
@@ -532,6 +560,23 @@ export async function runCommand(
       options.terminal.write(
         deleted.map((name) => `Deleted ${name}`).join("\n"),
       )
+      return 0
+    }
+    if (invocation.kind === "mark") {
+      let plan: string
+      if (invocation.stem === undefined) plan = await defaultPlan(context)
+      else {
+        const stem = planStem(invocation.stem)
+        const active = await activePlan(context.planRoot, stem)
+        if (active === null)
+          throw new Error(
+            `No active plan named ${stem} at ${context.planRoot}. A marker records a phase change of an active plan.`,
+          )
+        plan = active
+      }
+      const marker = await markerPath(context, plan, invocation.marker)
+      claimRound(marker)
+      options.terminal.write(marker)
       return 0
     }
     if (invocation.kind === "paths") {

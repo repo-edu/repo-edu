@@ -12,12 +12,19 @@ it at `../repo-edu/.agents/references/round-protocol.md`.
 Round documents and logs use `<target>-<round>-<order>-<kind>.<tag>.<ext>`.
 The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
-Three files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
-number, `<stem>-handoff.<sha>.md` briefs the commit it names and the runner's
+Five files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
+number, the empty `<stem>-plan-<round>-0-settle.md` and
+`<stem>-plan-<round>-0-reopen.md` markers take a number to record a phase
+change, `<stem>-handoff.<sha>.md` briefs the commit it names and the runner's
 `<target>-queue.md` holds the auditors a running sequence has yet to start. The
 queue file carries no round number because it belongs to the whole sequence,
 and the runner deletes it when the sequence ends. The runner
-claims at the plan repository root; a hand-run audit claims there too.
+claims at the plan repository root; a hand-run audit claims there too. A marker
+claims the plan target's next number through `pnpm audit-round mark
+<settle|reopen> [stem]`, so it sorts among the plan rounds in a file list and
+shows where one settled span ends and the next begins without opening a file.
+The plan repo's [Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle)
+owns when a marker is written.
 The plan repo's handoff rule owns that six-character sha.
 
 - **Target** names what was audited. The stem is the plan's name without
@@ -49,6 +56,7 @@ The shared `tools/audit-round/src/round-paths.ts` owns the fixed order numbers:
 | Order | Kind | Files |
 | --- | --- | --- |
 | 0 | claim | Empty reservation, no tag |
+| 0 | settle, reopen | Empty phase-change markers of a plan target, no tag |
 | 1 | round | Transcript and log |
 | 2 | audit | Report |
 | 3 | vet | Vet twin |
@@ -63,7 +71,7 @@ Skipped phases leave gaps. Every round file lives at the plan repo root.
 
 Read a name from the right: remove the extension, three-letter tag, kind and order,
 then split the remaining name at its last hyphen into target and round.
-The tagless claim, handoff and queue file are the three exceptions above. Do not read repo
+The tagless claim, markers, handoff and queue file are the exceptions above. Do not read repo
 names or audited heads from a filename; they belong in the report opening.
 
 For example, one round can contain `example-impl-02..02-01-2-audit.otm.md` and
@@ -241,7 +249,8 @@ or a hand-run audit lands its direct clean record,
 same numbered report kinds for that exact round, regardless of writer tag. It
 uses the runner's own filename parser, so a hand-run round deletes exactly what
 the runner would. It lists each deleted file and fails when no report matches.
-Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.
+Claims, markers, transcripts, logs, briefs, rulings, watches and other rounds
+remain.
 Loop-close is a separate step that archives a plan; the
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md)
 owns it.

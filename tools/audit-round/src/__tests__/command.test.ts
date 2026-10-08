@@ -1002,6 +1002,51 @@ test("name preserves the hand-run implementation-step route at the plan root", a
   )
 })
 
+test("mark claims the plan's next number for an empty settle or reopen marker that later rounds skip", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const root = f.planRoot
+  await writeFile(join(root, "example-plan-03-2-audit.oth.md"), "Peer report")
+  const before = await readdir(root)
+  assert.equal(
+    await runCommand(["mark", "settle", "example"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const settle = join(root, "example-plan-04-0-settle.md")
+  assert.equal(f.visible[0], settle)
+  assert.deepEqual(
+    (await readdir(root)).filter((name) => !before.includes(name)),
+    ["example-plan-04-0-settle.md"],
+  )
+  assert.equal(await readFile(settle, "utf8"), "")
+  assert.equal(
+    await runCommand(["mark", "reopen"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.equal(f.visible[1], join(root, "example-plan-05-0-reopen.md"))
+  assert.equal(
+    await runCommand(
+      ["name", "example.md", "--auditor", "oux"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+  )
+  assert.equal(
+    JSON.parse(f.visible[2]).claim,
+    join(root, "example-plan-06-0-claim.md"),
+  )
+  for (const args of [
+    ["mark", "close", "example"],
+    ["mark", "settle", "missing"],
+  ])
+    assert.notEqual(await runCommand(args, f.runtime, f.options), 0, args[1])
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
 for (const working of ["repo-edu", "plan"] as const) {
   test(`delete-reports at ${working} removes and lists only the exact round's numbered report kinds without assistant startup`, async (t) => {
     const f = await roundFixture(

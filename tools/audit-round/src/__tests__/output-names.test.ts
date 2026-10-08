@@ -88,6 +88,8 @@ test("only retained round files at the plan root reserve numbers across auditors
   for (const root of [f.root, join(f.root, "../plan")]) {
     for (const suffix of [
       "0-claim.md",
+      "0-settle.md",
+      "0-reopen.md",
       "1-round.abx.md",
       "1-round.otm.log",
       "2-audit.abx.md",
