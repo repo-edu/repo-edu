@@ -152,7 +152,7 @@ async function roundFindings(
   data: RoundData,
   dependencies: TrialDependencies,
 ): Promise<Finding[]> {
-  return (
+  const findings = (
     await Promise.all(
       data.commits.map(async ({ repository, sha }) => {
         const root =
@@ -164,6 +164,12 @@ async function roundFindings(
       }),
     )
   ).flat()
+  const unique = new Map<string, Finding>()
+  for (const finding of findings) {
+    const key = `${finding.tier}\0${findingTitle(finding)}`
+    if (!unique.has(key)) unique.set(key, finding)
+  }
+  return [...unique.values()]
 }
 
 async function trialRounds(

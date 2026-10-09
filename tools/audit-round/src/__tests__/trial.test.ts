@@ -17,7 +17,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root)
   const planRoot = join(f.root, "../plan")
+  await commitFixture(planRoot)
   const record = async (
+    repository: "repo-edu" | "plan",
     tag: string,
     title: string | null,
     reach = "developer",
@@ -32,7 +34,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ...(title === null
         ? []
         : [
-            `- [B] [area:tool-audit-round] [growth-pattern:none] [reach:${reach}] [complexity:none] ${title}: Fixture explanation.`,
+            repository === "repo-edu"
+              ? `- [B] [area:tool-audit-round] [growth-pattern:none] [reach:${reach}] [complexity:none] ${title}: Fixture explanation.`
+              : `- B [section:decisions] [growth-pattern:none] [reach:${reach}] [complexity:none] ${title}: Fixture explanation.`,
             "",
           ]),
       `Round yield: ${reach === "ordinary" && title !== null ? 1 : 0} ordinary; ${reach === "rare" && title !== null ? 1 : 0} rare; ${reach === "developer" && title !== null ? 1 : 0} developer.`,
@@ -42,18 +46,22 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       "git",
       ["commit", "--allow-empty", "-q", "-m", subject, "-m", body],
       {
-        cwd: f.root,
+        cwd: repository === "repo-edu" ? f.root : planRoot,
       },
     )
-    const sha = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.root }))
-      .stdout
+    const sha = (
+      await execa("git", ["rev-parse", "HEAD"], {
+        cwd: repository === "repo-edu" ? f.root : planRoot,
+      })
+    ).stdout
     return sha
   }
-  const earlier = await record("otx", "Earlier yield", "rare")
-  const other = await record("atx", "Other assistant yield")
-  const later = await record("obx", "Later yield", "ordinary")
-  const clean = await record("otx", null)
-  const sameSetting = await record("obx", "Same-setting yield")
+  const earlier = await record("repo-edu", "otx", "Earlier yield", "rare")
+  const other = await record("repo-edu", "atx", "Other assistant yield")
+  const later = await record("repo-edu", "obx", "Later yield", "ordinary")
+  const laterPlan = await record("plan", "obx", "Later yield", "ordinary")
+  const clean = await record("repo-edu", "otx", null)
+  const sameSetting = await record("repo-edu", "obx", "Same-setting yield")
 
   const settings: RoundData["settings"] = {
     audit: {
@@ -91,7 +99,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     started: string,
     auditor: RoundData["auditor"],
     roundSettings: RoundData["settings"],
-    commit?: string,
+    commits: RoundData["commits"] = [],
   ): RoundData => ({
     target,
     round,
@@ -99,8 +107,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     settings: roundSettings,
     auditor,
     phases: [phase(auditor.assistant, auditor.model, round * 1000)],
-    commits:
-      commit === undefined ? [] : [{ repository: "repo-edu", sha: commit }],
+    commits,
   })
   const rounds: readonly [string, RoundData][] = [
     [
@@ -115,7 +122,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "settings",
         },
         oldSettings,
-        sha40,
+        [{ repository: "repo-edu", sha: sha40 }],
       ),
     ],
     [
@@ -130,7 +137,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "settings",
         },
         settings,
-        earlier,
+        [{ repository: "repo-edu", sha: earlier }],
       ),
     ],
     [
@@ -145,7 +152,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "command-line",
         },
         oldSettings,
-        sha40,
+        [{ repository: "repo-edu", sha: sha40 }],
       ),
     ],
     [
@@ -160,7 +167,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "settings",
         },
         settings,
-        other,
+        [{ repository: "repo-edu", sha: other }],
       ),
     ],
     [
@@ -175,7 +182,10 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "settings",
         },
         settings,
-        later,
+        [
+          { repository: "repo-edu", sha: later },
+          { repository: "plan", sha: laterPlan },
+        ],
       ),
     ],
     [
@@ -190,7 +200,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "settings",
         },
         settings,
-        clean,
+        [{ repository: "repo-edu", sha: clean }],
       ),
     ],
     [
@@ -205,7 +215,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "settings",
         },
         settings,
-        sameSetting,
+        [{ repository: "repo-edu", sha: sameSetting }],
       ),
     ],
     [
