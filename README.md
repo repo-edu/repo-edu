@@ -101,6 +101,7 @@ pnpm docs:dev
 | `pnpm fix`       | Biome auto-fix                                               |
 | `pnpm check`     | fix + typecheck + build:types + check:fixtures + architecture |
 | `pnpm test`      | Run all package tests workspace-wide                         |
+| `pnpm test tools/audit-round` | Run tests for one workspace package              |
 | `pnpm validate`  | `check` + `test` (full validation)                           |
 | `pnpm dev`       | Run desktop Electron app                                     |
 | `pnpm docs:dev`  | Run docs dev server                                          |

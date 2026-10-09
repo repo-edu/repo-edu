@@ -50,6 +50,7 @@ pnpm fmt
 pnpm fix
 pnpm check
 pnpm test
+pnpm test tools/audit-round
 ```
 
 `pnpm audit-round example 3` runs an implementation-audit round for
@@ -63,7 +64,8 @@ and manual phase paths.
 - `fix` — markdown auto-fix + Biome auto-fix
 - `check` — fix + typecheck + build:types + check:fixtures +
   check:architecture
-- `test` — runs all package tests workspace-wide
+- `test` — runs all package tests workspace-wide, or one package when given its
+  workspace-relative path
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
 

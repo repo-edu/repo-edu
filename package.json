@@ -26,7 +26,7 @@
         "generate:session-starts": "tsx tools/architecture-check/src/generate-session-starts.ts",
         "check": "pnpm fix && pnpm typecheck && pnpm build:types && pnpm check:fixtures && pnpm check:architecture",
         "// ---- test ----": "",
-        "test": "pnpm -r --stream --if-present run test",
+        "test": "node scripts/run-tests.mjs",
         "test:runtime": "pnpm --filter @repo-edu/desktop run validate:runtime",
         "test:all": "pnpm test && pnpm test:runtime",
         "// ---- test git integration using docker ----": "",

@@ -31,6 +31,13 @@ pnpm check       # fix + typecheck + build:types + check:fixtures + check:archit
 pnpm test        # all package-level tests
 ```
 
+During development, pass one workspace-relative package path to run only that
+package's tests:
+
+```bash
+pnpm test tools/audit-round
+```
+
 For changes touching desktop, also run:
 
 ```bash

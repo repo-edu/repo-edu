@@ -21,7 +21,7 @@ All scripts run from the workspace root. Use `pnpm <script>` to run them.
 | `fmt` | Format Markdown with rumdl |
 | `fix` | Auto-fix Markdown with rumdl and TypeScript/TSX with Biome |
 | `check` | Full source validation: fix + typecheck + build:types + check:fixtures + check:architecture |
-| `test` | Run all package-level tests workspace-wide |
+| `test` | Run all package-level tests workspace-wide, or one package when given its workspace-relative path |
 | `test:runtime` | Desktop runtime validation (preload bridge and tRPC wiring checks) |
 | `test:all` | `test` + `test:runtime` |
 | `validate` | `check` + `test:all` — the full pre-release validation |
@@ -33,6 +33,12 @@ All scripts run from the workspace root. Use `pnpm <script>` to run them.
 
 For day-to-day development, run `pnpm fix` after small changes and `pnpm check` before committing.
 Run `pnpm validate` when the change needs the full test and desktop-runtime pass.
+
+To run only one package's tests, pass its workspace-relative path:
+
+```bash
+pnpm test tools/audit-round
+```
 
 ## Per-app commands
 
