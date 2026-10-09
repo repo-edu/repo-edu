@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { split } from "shellwords"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
-import { phaseStream } from "./helpers.js"
+import { phaseStream, recordedTag } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
 for (const auditor of ["codex", "claude"] as const) {
@@ -70,7 +70,9 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       assert.deepEqual(
         fixes.map((call) => call.auditor),
-        files.map((name) => (name.includes(".ouh.") ? "oth" : "ath")),
+        files.map((name) =>
+          recordedTag(name.includes(".ouh.") ? "codex" : "claude"),
+        ),
       )
     })
   }
@@ -155,7 +157,7 @@ for (const auditor of ["codex", "claude"] as const) {
       false,
     )
     assert.ok(f.visible.includes("Written ruling by fix"))
-    assert.equal(session.auditor, auditor === "codex" ? "oth" : "ath")
+    assert.equal(session.auditor, recordedTag(auditor))
   })
 }
 

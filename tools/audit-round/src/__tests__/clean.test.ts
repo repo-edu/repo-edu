@@ -7,6 +7,7 @@ import { completeClean } from "../clean.js"
 import { stampCommitMessage } from "../commit-msg.js"
 import { planStem } from "../target.js"
 import { runCommand } from "./configured-runner.js"
+import { recordedTag } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
 for (const working of ["plan", "repo-edu"] as const) {
@@ -56,7 +57,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.match(
         message,
         new RegExp(
-          `^example/${working === "plan" ? "plan-audit" : "impl-audit-2-3"} oth clean:`,
+          `^example/${working === "plan" ? "plan-audit" : "impl-audit-2-3"} ${recordedTag("codex")} clean:`,
         ),
       )
       assert.equal(

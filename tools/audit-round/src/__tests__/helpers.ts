@@ -11,7 +11,12 @@ import { join } from "node:path"
 import type { TestContext } from "node:test"
 import { fileURLToPath } from "node:url"
 import type { AssistantRuntime } from "../assistant.js"
-import type { Feedback, PhaseOutput } from "../feedback.js"
+import {
+  type Feedback,
+  type ModelSelection,
+  type PhaseOutput,
+  selectionSchema,
+} from "../feedback.js"
 import {
   type Assistant,
   type AssistantTurnInput,
@@ -19,6 +24,7 @@ import {
   phaseSkills,
 } from "../phase.js"
 import type { RoundContext, RoundKind } from "../target.js"
+import { capabilityTag } from "./configured-runner.js"
 
 export function testContext(
   repoEduRoot: string,
@@ -53,6 +59,47 @@ export const selections = {
 }
 export const recorded = async (name: string) =>
   readFile(join(fixtureRoot, name), "utf8")
+
+const recordedEvents = async (name: string) =>
+  (await recorded(name))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line))
+
+/**
+ * The model and effort each recorded session reports, which a round's record
+ * carries whatever its settings asked for. Reading them from the recordings
+ * keeps every expectation true after the contract is re-recorded under
+ * another CLI configuration.
+ */
+export const recordedSelections: Record<Assistant, ModelSelection> = {
+  claude: selectionSchema.parse(
+    (await recordedEvents("claude.jsonl")).find(
+      (event) => event.type === "control_response",
+    )?.response.response.applied,
+  ),
+  codex: selectionSchema.parse(
+    (await recordedEvents("codex-rollout.jsonl")).find(
+      (event) => event.type === "turn_context",
+    )?.payload,
+  ),
+}
+
+/** The model line a record carries for the phases a recorded session ran. */
+export function recordedText(assistant: Assistant): string {
+  const { model, effort } = recordedSelections[assistant]
+  return `${model} ${effort}`
+}
+
+/** The capability tag the recorded session's audit stamps under the test settings. */
+export function recordedTag(assistant: Assistant): string {
+  const tag = capabilityTag(
+    { phase: "audit", assistant, model: { model: null, effort: null } },
+    { configured: recordedSelections[assistant], releases: new Map() },
+  )
+  if (tag === null) throw new Error(`${assistant} recording names no effort`)
+  return tag
+}
 export const finishedText =
   'Résumé complete\nPHASE RESULT: {"status":"finished","reason":null}'
 
