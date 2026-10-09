@@ -77,11 +77,15 @@ escalation rule. A correction those rules turn into a
 structural change is applied as that structural change, never narrowed to
 fit.
 
-Then format only the fixed files, typecheck only the packages a fix touched
-and run only the test files that exercise the fixed behaviour. Run a
+Then format only the fixed files, and typecheck and run
+`pnpm test <package path>` for each workspace package whose source a fix
+changed. A fix that changes only documents runs no suite. A failing test in
+such a package blocks the record. A failure the fix believes unrelated becomes
+a finding in its own right and is never left out of the round's scope. Run a
 validation tool only when the fix concerns the rule it enforces, and the
 plan repo's Markdown format only on the files a fix changed. This replaces
-the root verification default of `pnpm fix`, `pnpm check` and `pnpm test`.
+the root verification default of `pnpm fix`, `pnpm check` and `pnpm test`
+with the same checks on the packages a fix touched.
 Run writing commands only while no other fix is running in either directed
 working tree.
 
