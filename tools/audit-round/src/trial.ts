@@ -252,7 +252,7 @@ export async function trialReport(
     "",
     "## Rounds",
     "",
-    "| Started | Target | Tag | Audit setting | Previous same-assistant round on target | Phase time | Accepted findings | Tokens per model |",
+    "| Started | Target | Tag | Audit setting | Previous other-setting round on target | Phase time | Accepted findings | Tokens per model |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
   ]
   const previous = new Map<string, TrialRound>()
@@ -264,7 +264,9 @@ export async function trialReport(
       ? "not paired: incomplete"
       : earlier === undefined
         ? "none"
-        : `${earlier.tag}: ${findingsText(earlier.findings)}`
+        : auditorKey(earlier) === auditorKey(round)
+          ? "not paired: same setting"
+          : `${earlier.tag}: ${findingsText(earlier.findings)}`
     lines.push(
       `| ${escapeCell(round.data.started)} | ${escapeCell(`${round.data.target} #${round.data.round}`)} | ${round.tag} | ${escapeCell(`${round.data.auditor.assistant} ${settingText(round.data.auditor)}`)} | ${escapeCell(comparison)} | ${escapeCell(phaseTimes(round.data.phases))} | ${escapeCell(complete ? findingsText(round.findings) : "incomplete")} | ${escapeCell(tokenTotalsText(tokenTotals(round.data.phases)))} |`,
     )

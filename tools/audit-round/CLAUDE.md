@@ -270,11 +270,11 @@ consumers.
   round's landed commits through the existing subject, model-record and finding
   readers. The Markdown output names both audit selections, their configured
   pairs, both vets and the fixer. Its rows show the previous completed round by
-  the same assistant on the same target, phase time, accepted findings and
-  tokens. Totals group the whole round cost and accepted findings by audit
-  setting. Incomplete rounds contribute time and tokens but do not form a
-  cross-check pair. The command starts no assistant, reads no live settings and
-  writes nothing.
+  the same assistant on the same target only when its audit setting differs,
+  plus phase time, accepted findings and tokens. Totals group the whole round
+  cost and accepted findings by audit setting. Same-setting and incomplete
+  rounds contribute time and tokens but do not form a cross-check pair. The
+  command starts no assistant, reads no live settings and writes nothing.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -500,11 +500,13 @@ Each phase receives the complete paths it reads and writes in protocol order.
 includes only rounds whose audit setting came from `settings.json`. Its header
 names both audit selections, every configured pair, both vet selections and the
 fixer. Round rows show the previous completed round by the same assistant on the
-same target, time by phase, accepted finding tiers, reaches and titles and token
-use by model. Totals group those measurements by audit setting and show how many
-rounds support each total. A round with no landed commit is marked incomplete;
-its time and tokens count, but it supplies no accepted findings or cross-check.
-The command renders Markdown, starts no assistant and writes nothing.
+same target only when its audit setting differs. They also show time by phase,
+accepted finding tiers, reaches and titles and token use by model. Totals group
+those measurements by audit setting and show how many rounds support each total.
+A same-setting round is marked unpaired. A round with no landed commit is marked
+incomplete; its time and tokens count, but it supplies no accepted findings or
+cross-check. The command renders Markdown, starts no assistant and writes
+nothing.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved target and scope.

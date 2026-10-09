@@ -53,6 +53,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   const other = await record("atx", "Other assistant yield")
   const later = await record("obx", "Later yield", "ordinary")
   const clean = await record("otx", null)
+  const sameSetting = await record("obx", "Same-setting yield")
 
   const settings: RoundData["settings"] = {
     audit: {
@@ -193,11 +194,26 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-07-1-round.otx.json",
+      "target-impl-all-07-1-round.obx.json",
       data(
         "target-impl-all",
         7,
         "2026-10-07T10:00:00.000Z",
+        {
+          assistant: "codex",
+          ...selection("gpt-base", "xhigh"),
+          chosenBy: "settings",
+        },
+        settings,
+        sameSetting,
+      ),
+    ],
+    [
+      "target-impl-all-08-1-round.otx.json",
+      data(
+        "target-impl-all",
+        8,
+        "2026-10-08T10:00:00.000Z",
         {
           assistant: "codex",
           ...selection("gpt-top", "xhigh"),
@@ -225,7 +241,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
-  assert.match(output, /Newest unchanged-settings run: 5 rounds/)
+  assert.match(output, /Newest unchanged-settings run: 6 rounds/)
   assert.match(output, /codex: gpt-top xhigh versus gpt-base xhigh/)
   assert.doesNotMatch(
     output,
@@ -237,7 +253,11 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   )
   assert.match(
     output,
-    /target-impl-all #7 .*not paired: incomplete.*incomplete/,
+    /target-impl-all #7 \| obx \| codex gpt-base xhigh \| not paired: same setting/,
+  )
+  assert.match(
+    output,
+    /target-impl-all #8 .*not paired: incomplete.*incomplete/,
   )
   assert.match(output, /codex gpt-top xhigh \| 3 \|/)
   assert.match(output, /B ordinary 1/)
