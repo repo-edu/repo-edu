@@ -104,7 +104,16 @@ async function reportPhase<R extends PhaseResult>(
   file: string,
   dependencies: Pick<RoundDependencies, "checkFile">,
 ): Promise<R | PhaseFailure> {
-  const result = await invoke()
+  let result: R
+  try {
+    result = await invoke()
+  } catch (error) {
+    return {
+      status: "failed",
+      sessionId: null,
+      reason: errorMessage(error),
+    }
+  }
   if (result.status === "failed") return result
   try {
     await dependencies.checkFile(file)
@@ -237,37 +246,48 @@ async function runWatch(
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
   const stem = planStem(input.plan)
-  const glance = await dependencies.glance({
-    cwd,
-    repoEduRoot,
-    repository: roundKind === "planning" ? "plan" : "repo-edu",
-    cacheRoot: target.cacheRoot,
-    stem,
-  })
-  if (!glance.due) return { grade: null }
-  const evidence = await dependencies.watchEvidence({ ...context, stem })
+  try {
+    const glance = await dependencies.glance({
+      cwd,
+      repoEduRoot,
+      repository: roundKind === "planning" ? "plan" : "repo-edu",
+      cacheRoot: target.cacheRoot,
+      stem,
+    })
+    if (!glance.due) return { grade: null }
+    const evidence = await dependencies.watchEvidence({ ...context, stem })
 
-  const watch = await reportPhase(
-    () =>
-      dependencies.runPhase.watch({
+    const watch = await reportPhase(
+      () =>
+        dependencies.runPhase.watch({
+          phase: "watch",
+          ...phases.watch,
+          ...context,
+          arguments: [target.file, target.cacheRoot],
+          evidence,
+          sessionId: null,
+        }),
+      target.file,
+      dependencies,
+    )
+    if (watch.status === "failed")
+      return { ...watch, phase: "watch", ...phases.watch, ...context }
+    try {
+      return { grade: await dependencies.watchGrade(target.cacheRoot, stem) }
+    } catch (error) {
+      return {
+        status: "failed",
+        sessionId: watch.sessionId,
         phase: "watch",
         ...phases.watch,
         ...context,
-        arguments: [target.file, target.cacheRoot],
-        evidence,
-        sessionId: null,
-      }),
-    target.file,
-    dependencies,
-  )
-  if (watch.status === "failed")
-    return { ...watch, phase: "watch", ...phases.watch, ...context }
-  try {
-    return { grade: await dependencies.watchGrade(target.cacheRoot, stem) }
+        reason: errorMessage(error),
+      }
+    }
   } catch (error) {
     return {
       status: "failed",
-      sessionId: watch.sessionId,
+      sessionId: null,
       phase: "watch",
       ...phases.watch,
       ...context,
@@ -466,7 +486,20 @@ export async function runRound(
   }
   let commits: readonly LandedCommit[] = []
   while (true) {
-    const fix = await dependencies.runPhase.fix(fixInput)
+    let fix: PhaseResult<"fix">
+    try {
+      fix = await dependencies.runPhase.fix(fixInput)
+    } catch (error) {
+      return {
+        status: "failed",
+        sessionId: fixInput.sessionId,
+        phase: "fix",
+        ...phases.fix,
+        ...context,
+        reason: errorMessage(error),
+        commits,
+      }
+    }
     if (fix.status === "failed") {
       return { ...fix, phase: "fix", ...phases.fix, ...context, commits }
     }

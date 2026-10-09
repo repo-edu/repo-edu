@@ -501,10 +501,11 @@ title, then the prose after a colon:
 
 The title is required, and it is the same title the report's finding block leads
 with. It gives a later round a handle to group and refer to a finding by, and a
-finding that cannot be titled in a few words is usually two findings. The report
-leads with the title and puts the tokens on their own line, because a person
-scans it; the commit bullet leads with the tokens, because a fresh round parses
-them.
+finding that cannot be titled in a few words is usually two findings. Within one
+round, finding titles are distinct inside each tier because the trial counts one
+accepted finding per tier and title across repository records. The report leads
+with the title and puts the tokens on their own line, because a person scans it;
+the commit bullet leads with the tokens, because a fresh round parses them.
 
 Repo Edu bullets use a bracketed uppercase tier, followed by the location,
 growth, reach and complexity tokens: `- [C] [area:<primary-id>] ...`.

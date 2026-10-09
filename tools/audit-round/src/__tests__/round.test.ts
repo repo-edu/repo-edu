@@ -868,18 +868,27 @@ test("a glance that cannot read the record stops the round before any watch pass
   const round = controlledRound()
   const failure = new Error("git log failed")
 
-  await assert.rejects(
-    runRound(
-      { ...files, plan: "example.md", scope: "all" },
-      {
-        ...round.dependencies,
-        async glance() {
-          throw failure
-        },
+  const result = await runRound(
+    { ...files, plan: "example.md", scope: "all" },
+    {
+      ...round.dependencies,
+      async glance() {
+        throw failure
       },
-    ),
-    (error) => error === failure,
+    },
   )
+  assert.deepEqual(result, {
+    status: "failed",
+    sessionId: null,
+    phase: "watch",
+    assistant: "codex",
+    model: unpinned,
+    ...testContext(repoRoot),
+    reason: failure.message,
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
+  })
   assert.deepEqual(
     round.calls.map((call) => call.phase),
     phases,
@@ -949,13 +958,27 @@ for (const [ending, sequence] of endings) {
       })
       arrange(round, ending)
 
-      await assert.rejects(
-        runRound(
-          { ...files, plan: "example.md", scope: "all" },
-          round.dependencies,
-        ),
-        (error) => error === failure,
+      const result = await runRound(
+        { ...files, plan: "example.md", scope: "all" },
+        round.dependencies,
       )
+      const call = round.calls.at(-1)
+      assert.ok(call)
+      assert.deepEqual(result, {
+        status: "failed",
+        sessionId: null,
+        phase,
+        assistant: call.assistant,
+        model: call.model,
+        ...testContext(repoRoot),
+        reason: failure.message,
+        commits:
+          phase === "brief" || phase === "watch"
+            ? landedRecords("repo-edu", round.evidence.subjects).map(
+                ({ repository, sha }) => ({ repository, sha }),
+              )
+            : [],
+      })
       assert.deepEqual(
         round.calls.map((call) => call.phase),
         sequence.slice(0, sequence.indexOf(phase) + 1),

@@ -13,6 +13,7 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { split } from "shellwords"
+import { roundDataSchema } from "../round-data.js"
 import { openRunFiles } from "../run-files.js"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
@@ -1586,6 +1587,15 @@ for (const target of ["log", "markdown"] as const) {
     const calls = await f.calls()
     assert.equal(calls.filter((call) => call.args[0] === "exec").length, 1)
     assert.throws(() => process.kill(calls.at(-1).pid, 0), { code: "ESRCH" })
+    const dataName = (await readdir(f.planRoot)).find((name) =>
+      /-1-round\.[ao][btu][lmhx]\.json$/.test(name),
+    )
+    assert.ok(dataName)
+    const data = roundDataSchema.parse(
+      JSON.parse(await readFile(join(f.planRoot, dataName), "utf8")),
+    )
+    assert.deepEqual(data.commits, [])
+    assert.equal(data.phases.at(-1)?.phase, "audit")
     assert.ok(f.clears() > 0)
   })
 }
