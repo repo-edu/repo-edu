@@ -14,6 +14,7 @@ import {
   type WatchGrade,
 } from "../glance.js"
 import { phaseWorkflow } from "../phase.js"
+import type { ReportFinding } from "../round-data.js"
 import {
   type Assistant,
   type Phase,
@@ -23,7 +24,7 @@ import {
   type RoundDependencies,
   runBrief,
   runClose,
-  runRound,
+  runRound as runRoundWithAccount,
   unpinned,
 } from "./configured-runner.js"
 import {
@@ -53,6 +54,21 @@ const recommendation = {
   assistant: "codex",
   reason: "Another round is worth its cost.",
 } as const
+const reportFinding: ReportFinding = {
+  number: 1,
+  title: "Fixture finding",
+  tier: "B",
+  reach: "developer",
+  complexity: "none",
+  growthPattern: "none",
+  location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+}
+const secondReportFinding: ReportFinding = {
+  ...reportFinding,
+  number: 2,
+  title: "Second fixture finding",
+  tier: "C",
+}
 const landedRecords = (
   repository: "repo-edu" | "plan",
   subjects: readonly string[],
@@ -81,6 +97,18 @@ const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 const rulingPhases = ["audit", "vet", "rebut", "fix"] as const
 /** Every phase in order when the round finishes and the glance calls a watch due. */
 const watchPhases = [...phases, "watch"] as const
+
+function withoutAccount<T extends object>(result: T): Omit<T, "account"> {
+  const { account: _account, ...rest } = result as T & {
+    readonly account?: unknown
+  }
+  return rest
+}
+
+const runRound: typeof runRoundWithAccount = async (...arguments_) =>
+  withoutAccount(await runRoundWithAccount(...arguments_)) as Awaited<
+    ReturnType<typeof runRoundWithAccount>
+  >
 
 /**
  * The fix either leaves an open item for the user or finishes through the brief
@@ -142,7 +170,7 @@ function controlledRound(
     await settle(input)
   }
   const evidence = {
-    findings: [1],
+    findings: [reportFinding],
     accepted: false,
     subjects: ["example/impl-audit-all oth clean: settled"],
   }
@@ -175,7 +203,16 @@ function controlledRound(
       judgedRepos: ["repo-edu"],
       recommendation: kind === "widening" ? null : recommendation,
     }),
-    readVet: async () => evidence.accepted,
+    readVet: async () => ({
+      reviews: evidence.findings.map((finding) => ({
+        number: finding.number,
+        tier: finding.tier,
+        verdict: evidence.accepted ? "accept" : "revise",
+      })),
+      allAccepted: evidence.accepted,
+    }),
+    readRebuttal: async () =>
+      evidence.accepted ? [] : [{ number: 1, tier: "B", answer: "agree" }],
     readDocument: async (file) => `Contents of ${file}`,
     readHead: async (root) => `before-${root}`,
     fileExists: async () => planRemains,
@@ -340,6 +377,28 @@ test("clarification can leave a decision open without creating a new fix session
   assert.equal(round.deletedReports.length, 1)
 })
 
+test("the round account retains review, rebuttal and settlement outcomes", async () => {
+  const round = controlledRound()
+  const result = await runRoundWithAccount(
+    { ...files, plan: "example.md", scope: "all" },
+    round.dependencies,
+  )
+  assert.equal(result.status, "finished")
+  assert.deepEqual(result.account, {
+    judgedRepos: ["repo-edu"],
+    findings: [
+      {
+        ...reportFinding,
+        vetVerdict: "revise",
+        rebuttalAnswer: "agree",
+        outcome: "dropped",
+        finalTier: null,
+        finalReach: null,
+      },
+    ],
+  })
+})
+
 test("a resumed fix failure retains the session and never deletes the reports", async () => {
   const round = controlledRound()
   round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
@@ -411,7 +470,7 @@ for (const grade of ["green", "amber"] as const) {
       {
         ...round.dependencies,
         readReport: async () => ({
-          findings: [1],
+          findings: [reportFinding],
           judgedRepos: ["plan", "repo-edu"],
           recommendation,
         }),
@@ -1467,14 +1526,20 @@ test("the round reads each supplied file and records both heads immediately befo
       async readReport(file, kind) {
         reads.push([file, kind])
         return {
-          findings: [1, 2],
+          findings: [reportFinding, secondReportFinding],
           judgedRepos: ["repo-edu"],
           recommendation,
         }
       },
       async readVet(file, findings) {
         reads.push([file, findings])
-        return false
+        return {
+          reviews: [
+            { number: 1, tier: "B", verdict: "revise" },
+            { number: 2, tier: "C", verdict: "accept" },
+          ],
+          allAccepted: false,
+        }
       },
       async readHead(root) {
         assert.deepEqual(
@@ -1503,7 +1568,7 @@ test("the round reads each supplied file and records both heads immediately befo
   )
   assert.deepEqual(reads, [
     [`${repoRoot}/AUDIT-example.md`, "implementation"],
-    ["/distinct-twins/VET-example.md", [1, 2]],
+    ["/distinct-twins/VET-example.md", [reportFinding, secondReportFinding]],
   ])
   assert.deepEqual(result, {
     status: "finished",
@@ -1585,7 +1650,7 @@ test("a finished fix on a plan target requires a landed commit; clean audits use
     { plan: "example.md", scope: "all" },
     { commits: ["HEAD"] as const },
   ]) {
-    for (const findings of [[], [1]]) {
+    for (const findings of [[], [reportFinding]]) {
       const round = controlledRound()
       round.evidence.findings = findings
       round.evidence.subjects = []

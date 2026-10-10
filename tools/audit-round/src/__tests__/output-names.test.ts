@@ -83,7 +83,7 @@ test("different auditors cannot open the same candidate and the next run advance
   new RoundOutput(next, options).close()
 })
 
-test("only retained round files at the plan root reserve numbers across auditors", async (t) => {
+test("only retained numbered files at the plan root reserve numbers across auditors", async (t) => {
   const f = await fixture(t)
   const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
   for (const root of [f.root, join(f.root, "../plan")]) {
@@ -107,7 +107,9 @@ test("only retained round files at the plan root reserve numbers across auditors
       const run = await roundRun(setup, 0, selections)
       assert.equal(
         run.nameStart,
-        root === setup.planRoot ? "example-impl-all-10" : "example-impl-all-01",
+        root === setup.planRoot && suffix !== "1-round.abx.json"
+          ? "example-impl-all-10"
+          : "example-impl-all-01",
         path,
       )
       await rm(path)
@@ -304,7 +306,7 @@ test("planning rounds number their bare target at the plan root and write there"
   )
   assert.equal(
     run.data.path,
-    join(context.planRoot, "example-plan-06-1-round.oth.json"),
+    join(context.planRoot, "example-plan-rounds.json"),
   )
   assert.equal(
     run.watch,

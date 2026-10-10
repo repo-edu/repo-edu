@@ -1,12 +1,48 @@
 import type { ReportFindings } from "./report.js"
+import type {
+  FindingRebuttal,
+  FindingReview,
+  RebuttalAnswer,
+  VetVerdict,
+} from "./round-data.js"
+
+const vetVerdicts = {
+  Accept: "accept",
+  Revise: "revise",
+  Drop: "drop",
+  "Needs user's ruling": "needs-user-ruling",
+} as const satisfies Record<string, VetVerdict>
+
+const rebuttalAnswers = {
+  Agree: "agree",
+  Contest: "contest",
+  "For user's ruling": "for-user-ruling",
+} as const satisfies Record<string, RebuttalAnswer>
+
+export type VetReading = {
+  readonly reviews: readonly FindingReview[]
+  readonly allAccepted: boolean
+}
+
+function checkFindingIdentity(
+  number: number,
+  tier: string,
+  findings: ReportFindings,
+): void {
+  const finding = findings.find((candidate) => candidate.number === number)
+  if (finding === undefined || finding.tier !== tier)
+    throw new Error(
+      "Review finding numbers and tiers must match the report exactly",
+    )
+}
 
 /**
  * Verdicts have a fixed line grammar. Any following prose is a condition.
  * Trailing whitespace, such as a Markdown hard break, carries no content.
  */
-export function readVet(source: string, findings: ReportFindings): boolean {
-  const numbers: number[] = []
-  let accepted = true
+export function readVet(source: string, findings: ReportFindings): VetReading {
+  const reviews: FindingReview[] = []
+  let conditional = false
   for (const line of source.split(/\r?\n/)) {
     if (line.trim().length === 0) continue
     const verdict =
@@ -14,18 +50,54 @@ export function readVet(source: string, findings: ReportFindings): boolean {
         line.trimEnd(),
       )
     if (verdict !== null) {
-      numbers.push(Number(verdict[1]))
-      if (verdict[3] !== "Accept") accepted = false
-    } else if (numbers.length > 0) {
-      accepted = false
+      const number = Number(verdict[1])
+      checkFindingIdentity(number, verdict[2], findings)
+      reviews.push({
+        number,
+        tier: verdict[2] as FindingReview["tier"],
+        verdict: vetVerdicts[verdict[3] as keyof typeof vetVerdicts],
+      })
+    } else if (reviews.length > 0) {
+      conditional = true
     }
   }
   if (
-    numbers.length !== findings.length ||
-    numbers.some((number, index) => number !== findings[index])
+    reviews.length !== findings.length ||
+    reviews.some((review, index) => review.number !== findings[index]?.number)
   )
     throw new Error(
       "Vet verdict numbers must match the report's finding numbers exactly",
     )
-  return accepted
+  return {
+    reviews,
+    allAccepted:
+      !conditional && reviews.every((review) => review.verdict === "accept"),
+  }
+}
+
+/** Read the numbered subset of findings the auditor answered after vetting. */
+export function readRebuttal(
+  source: string,
+  findings: ReportFindings,
+): readonly FindingRebuttal[] {
+  const rebuttals: FindingRebuttal[] = []
+  for (const line of source.split(/\r?\n/)) {
+    const answer =
+      /^([1-9]\d*)\. \[([A-D])\] (Agree|Contest|For user's ruling)$/.exec(
+        line.trimEnd(),
+      )
+    if (answer === null) continue
+    const number = Number(answer[1])
+    checkFindingIdentity(number, answer[2], findings)
+    if (rebuttals.some((rebuttal) => rebuttal.number === number))
+      throw new Error(`Rebuttal answers finding ${number} more than once`)
+    if ((rebuttals.at(-1)?.number ?? 0) >= number)
+      throw new Error("Rebuttal answers must follow report order")
+    rebuttals.push({
+      number,
+      tier: answer[2] as FindingRebuttal["tier"],
+      answer: rebuttalAnswers[answer[3] as keyof typeof rebuttalAnswers],
+    })
+  }
+  return rebuttals
 }

@@ -78,7 +78,7 @@ import {
   targetRequest,
 } from "./target.js"
 import { trialReport } from "./trial.js"
-import { readVet } from "./vet.js"
+import { readRebuttal, readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
@@ -815,6 +815,8 @@ export async function runCommand(
         readReport(await readFile(file, "utf8"), kind),
       readVet: async (file, findings) =>
         readVet(await readFile(file, "utf8"), findings),
+      readRebuttal: async (file, findings) =>
+        readRebuttal(await readFile(file, "utf8"), findings),
       readDocument: (file) => readFile(file, "utf8"),
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,

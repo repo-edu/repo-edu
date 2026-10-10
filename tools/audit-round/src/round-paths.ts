@@ -35,25 +35,24 @@ function readPhaseFilename(name: string): {
   nameStart: string
   kind: FileKind
   tag: string
-  extension: "md" | "log" | "json"
+  extension: "md" | "log"
 } | null {
   const match =
-    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|brief|ruling|watch)\.([ao][btu][lmhx])\.(md|log|json)$/.exec(
+    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|brief|ruling|watch)\.([ao][btu][lmhx])\.(md|log)$/.exec(
       name,
     )
   if (match === null) return null
   const kind = match[3] as FileKind
   if (
     Number(match[2]) !== phaseOrder[kind] ||
-    (match[5] === "log" && kind !== "round" && kind !== "brief") ||
-    (match[5] === "json" && kind !== "round")
+    (match[5] === "log" && kind !== "round" && kind !== "brief")
   )
     return null
   return {
     nameStart: match[1],
     kind,
     tag: match[4],
-    extension: match[5] as "md" | "log" | "json",
+    extension: match[5] as "md" | "log",
   }
 }
 
@@ -127,7 +126,7 @@ async function targetDescription(target: NamingTarget): Promise<{
   }
 }
 
-/** Read every retained kind at the plan root; opening the run claims this candidate. */
+/** Read every retained numbered kind at the plan root; opening the run claims this candidate. */
 async function nextNameStart(
   context: ExecutionContext,
   target: string,

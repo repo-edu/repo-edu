@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import { basename } from "node:path"
 import { test } from "node:test"
 import { roundRun as buildRoundRun } from "../output.js"
-import { roundDataSchema } from "../round-data.js"
+import { parseRoundDataFile } from "../round-data.js"
 import {
   noOverride,
   RoundOutput,
@@ -176,12 +176,13 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     report: "REPORT.md",
     session,
     commits: [],
+    account: { judgedRepos: ["repo-edu"], findings: [] },
   })
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
   assert.ok(run.data)
   assert.equal(
-    roundDataSchema.parse(JSON.parse(await readFile(run.data.path, "utf8")))
-      .phases[0]?.milliseconds,
+    parseRoundDataFile(run.data.path, await readFile(run.data.path, "utf8"))[0]
+      ?.phases[0]?.milliseconds,
     180_000,
   )
 })
@@ -279,12 +280,15 @@ for (const assistant of ["claude", "codex"] as const) {
           sha: "0123456789abcdef0123456789abcdef01234567",
         },
       ],
+      account: { judgedRepos: ["repo-edu"], findings: [] },
     })
 
     assert.ok(run.data)
-    const data = roundDataSchema.parse(
-      JSON.parse(await readFile(run.data.path, "utf8")),
-    )
+    const data = parseRoundDataFile(
+      run.data.path,
+      await readFile(run.data.path, "utf8"),
+    )[0]
+    assert.ok(data)
     assert.equal(data.target, "example-impl-all")
     assert.equal(data.round, 1)
     assert.equal(data.started, "1970-01-01T00:00:10.000Z")

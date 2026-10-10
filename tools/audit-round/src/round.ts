@@ -17,7 +17,14 @@ import {
   roundPhases,
 } from "./phase.js"
 import type { AuditReport, RoundRecommendation } from "./report.js"
-import type { LandedCommit } from "./round-data.js"
+import {
+  type FindingRebuttal,
+  type FindingReview,
+  type LandedCommit,
+  type RoundAccount,
+  reviewedRoundFindings,
+  settleRoundFindings,
+} from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
@@ -80,7 +87,10 @@ export type RoundResult = (
       readonly session: InteractiveSession
     }
   | RoundFailure
-) & { readonly commits: readonly LandedCommit[] }
+) & {
+  readonly commits: readonly LandedCommit[]
+  readonly account: RoundAccount
+}
 
 export type BriefResult =
   | { readonly status: "finished"; readonly brief: string }
@@ -301,6 +311,7 @@ export async function runRound(
   dependencies: RoundDependencies,
   settings: RoundSettings,
 ): Promise<RoundResult> {
+  let account: RoundAccount = { judgedRepos: [], findings: [] }
   const phases = roundPhases(
     input.auditor ?? settings.defaultAuditor,
     input.override ?? noOverride,
@@ -333,6 +344,7 @@ export async function runRound(
       ...phases.audit,
       ...context,
       commits: [],
+      account,
     }
   }
 
@@ -356,7 +368,12 @@ export async function runRound(
       ...context,
       reason: errorMessage(error),
       commits: [],
+      account,
     }
+  }
+  account = {
+    judgedRepos: evidence.judgedRepos,
+    findings: reviewedRoundFindings(evidence.findings),
   }
   // Zero findings complete in the runner. No later assistant or historical
   // watch can add anything needed to close this audit.
@@ -374,6 +391,7 @@ export async function runRound(
         recommendation: evidence.recommendation,
         watch: null,
         commits: completion.commits,
+        account,
       }
     } catch (error) {
       return {
@@ -384,11 +402,14 @@ export async function runRound(
         ...context,
         reason: errorMessage(error),
         commits: [],
+        account,
       }
     }
   }
   const twins = [input.documents.vet]
   let rebutted = false
+  let reviews: readonly FindingReview[] = []
+  let rebuttals: readonly FindingRebuttal[] = []
   {
     const vet = await reportPhase(
       () =>
@@ -409,15 +430,22 @@ export async function runRound(
         ...phases.vet,
         ...context,
         commits: [],
+        account,
       }
     }
 
     let accepted: boolean
     try {
-      accepted = await dependencies.readVet(
+      const reading = await dependencies.readVet(
         input.documents.vet,
         evidence.findings,
       )
+      accepted = reading.allAccepted
+      reviews = reading.reviews
+      account = {
+        ...account,
+        findings: reviewedRoundFindings(evidence.findings, reviews),
+      }
     } catch (error) {
       return {
         status: "failed",
@@ -427,6 +455,7 @@ export async function runRound(
         ...context,
         reason: errorMessage(error),
         commits: [],
+        account,
       }
     }
     if (!accepted) {
@@ -449,6 +478,32 @@ export async function runRound(
           ...phases.rebut,
           ...context,
           commits: [],
+          account,
+        }
+      }
+      try {
+        rebuttals = await dependencies.readRebuttal(
+          input.documents.rebut,
+          evidence.findings,
+        )
+        account = {
+          ...account,
+          findings: reviewedRoundFindings(
+            evidence.findings,
+            reviews,
+            rebuttals,
+          ),
+        }
+      } catch (error) {
+        return {
+          status: "failed",
+          sessionId: rebut.sessionId,
+          phase: "rebut",
+          ...phases.rebut,
+          ...context,
+          reason: errorMessage(error),
+          commits: [],
+          account,
         }
       }
       twins.push(input.documents.rebut)
@@ -474,6 +529,7 @@ export async function runRound(
       ...context,
       reason: errorMessage(error),
       commits: [],
+      account,
     }
   }
   let fixInput: PhaseInput<"fix"> = {
@@ -498,10 +554,18 @@ export async function runRound(
         ...context,
         reason: errorMessage(error),
         commits,
+        account,
       }
     }
     if (fix.status === "failed") {
-      return { ...fix, phase: "fix", ...phases.fix, ...context, commits }
+      return {
+        ...fix,
+        phase: "fix",
+        ...phases.fix,
+        ...context,
+        commits,
+        account,
+      }
     }
 
     if (fix.status === "needs-ruling") {
@@ -516,6 +580,7 @@ export async function runRound(
           ...context,
           reason: errorMessage(error),
           commits,
+          account,
         }
       }
     }
@@ -537,6 +602,10 @@ export async function runRound(
             parseSubject(subject, repositories[index].repository)
           }
         }
+        account = {
+          ...account,
+          findings: settleRoundFindings(account.findings, landed.flat()),
+        }
         if (input.automatic === true && rebutted) {
           let vet: string
           let rebuttal: string
@@ -556,6 +625,7 @@ export async function runRound(
               ...context,
               reason: errorMessage(error),
               commits,
+              account,
             }
           }
           const final = await dependencies.finalRecommendation({
@@ -572,6 +642,7 @@ export async function runRound(
               ...phases.audit,
               ...context,
               commits,
+              account,
             }
           evidence = { ...evidence, recommendation: final.recommendation }
         }
@@ -588,6 +659,7 @@ export async function runRound(
           ...context,
           reason: errorMessage(error),
           commits,
+          account,
         }
       }
       // Retell the complete fix, including every ruling and resumed invocation.
@@ -601,13 +673,13 @@ export async function runRound(
           dependencies,
           settings,
         )
-        if (brief.status === "failed") return { ...brief, commits }
+        if (brief.status === "failed") return { ...brief, commits, account }
       }
       const watched =
         "plan" in input
           ? await runWatch(input, dependencies, settings)
           : { grade: null }
-      if ("status" in watched) return { ...watched, commits }
+      if ("status" in watched) return { ...watched, commits, account }
       return {
         status: "finished",
         report,
@@ -615,6 +687,7 @@ export async function runRound(
         recommendation: evidence.recommendation,
         watch: watched.grade,
         commits,
+        account,
       }
     }
 
@@ -626,7 +699,13 @@ export async function runRound(
     try {
       const reply = await dependencies.requestRuling(input.documents.ruling)
       if (reply === null)
-        return { status: "awaiting-ruling", report, session, commits }
+        return {
+          status: "awaiting-ruling",
+          report,
+          session,
+          commits,
+          account,
+        }
       fixInput = {
         ...fixInput,
         sessionId: fix.sessionId,
@@ -639,6 +718,7 @@ export async function runRound(
         ...session,
         reason: error instanceof Error ? error.message : String(error),
         commits,
+        account,
       }
     }
   }

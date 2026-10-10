@@ -5,12 +5,12 @@ import {
   readFinalRecommendation,
   reportKind,
 } from "../report.js"
-import { readVet } from "../vet.js"
+import { readRebuttal, readVet } from "../vet.js"
 
 const readReport = (
   source: string,
   kind: "widening" | "detailing" | "implementation",
-) => readAuditReport(source, kind).findings
+) => readAuditReport(source, kind).findings.map((finding) => finding.number)
 
 test("report routing reads the named workflow only in the opening", () => {
   assert.equal(
@@ -256,7 +256,10 @@ test("reports read explicit empty fields and count both planning fields", () => 
     readReport(
       planning(
         finding(1, "[field:excess] [section:decisions]"),
-        finding(2, "[field:missing] [section:implementation-plan]"),
+        finding(2, "[field:missing] [section:implementation-plan]").replace(
+          "Preserve the evidence",
+          "Keep the implementation steps",
+        ),
       ),
       "detailing",
     ),
@@ -266,7 +269,7 @@ test("reports read explicit empty fields and count both planning fields", () => 
     readReport(
       planning(
         "No excess findings.",
-        finding(1, "[field:missing] [area:tool-audit-round]"),
+        finding(1, "[field:missing] [section:decisions]"),
       ),
       "detailing",
     ),
@@ -289,7 +292,10 @@ test("implementation reports count deferred findings at either repository's root
   )
   assert.deepEqual(
     readReport(
-      implementation(finding(1, "[plan:../plan/example.md#decisions]")),
+      implementation(finding(1, "[plan:../plan/example.md#decisions]")).replace(
+        "plan@abc123, repo-edu@def456",
+        "repo-edu@def456",
+      ),
       "implementation",
     ),
     [1],
@@ -300,6 +306,79 @@ test("implementation reports count deferred findings at either repository's root
       "implementation",
     ),
     [1],
+  )
+})
+
+test("reports retain every finding location and both deferral directions", () => {
+  const planningFinding = readAuditReport(
+    planning(
+      finding(1, "[field:excess] [section:decisions]"),
+      "No missing findings.",
+    ),
+    "detailing",
+  ).findings[0]
+  const planFinding = readAuditReport(
+    implementation(finding(1, "[section:decisions]")).replace(
+      "plan@abc123, repo-edu@def456",
+      "plan@abc123",
+    ),
+    "implementation",
+  ).findings[0]
+  const repoFinding = readAuditReport(
+    implementation(
+      finding(1, "[area:tool-audit-round] [cover:analysis-workflows]"),
+    ).replace("plan@abc123, repo-edu@def456", "repo-edu@def456"),
+    "implementation",
+  ).findings[0]
+  const planDeferral = readAuditReport(
+    implementation(finding(1, "[plan:../plan/example.md#decisions]")).replace(
+      "plan@abc123, repo-edu@def456",
+      "repo-edu@def456",
+    ),
+    "implementation",
+  ).findings[0]
+  const repoDeferral = readAuditReport(
+    implementation(
+      finding(1, "[area:tool-audit-round] [cover:analysis-workflows]"),
+    ).replace("plan@abc123, repo-edu@def456", "plan@abc123"),
+    "implementation",
+  ).findings[0]
+
+  assert.deepEqual(planningFinding?.location, {
+    kind: "planning",
+    field: "excess",
+    section: "decisions",
+  })
+  assert.deepEqual(planFinding?.location, {
+    kind: "plan",
+    section: "decisions",
+  })
+  assert.deepEqual(repoFinding?.location, {
+    kind: "repo-edu",
+    area: "tool-audit-round",
+    covers: ["analysis-workflows"],
+  })
+  assert.deepEqual(planDeferral?.location, {
+    kind: "deferred",
+    repository: "plan",
+    plan: "../plan/example.md#decisions",
+  })
+  assert.deepEqual(repoDeferral?.location, {
+    kind: "deferred",
+    repository: "repo-edu",
+    area: "tool-audit-round",
+    covers: ["analysis-workflows"],
+  })
+})
+
+test("report finding titles are unique across tiers", () => {
+  assert.throws(
+    () =>
+      readAuditReport(
+        implementation(`${finding()}\n${finding(2).replace("**B:", "**C:")}`),
+        "implementation",
+      ),
+    /title appears more than once/,
   )
 })
 
@@ -340,7 +419,7 @@ test("opening metadata stays independent of nested list evidence", () => {
     assert.deepEqual(
       readReport(
         implementation(
-          `${finding(1, "[area:tool-audit-round]", evidence)}\n${finding(2)}`,
+          `${finding(1, "[area:tool-audit-round]", evidence)}\n${finding(2).replace("Preserve the evidence", "Keep the second finding")}`,
         ),
         "implementation",
       ),
@@ -360,7 +439,7 @@ test("opening metadata stays independent of nested list evidence", () => {
   const body = Array.from({ length: 10 }, (_, index) => {
     const number = index + 1
     const indent = " ".repeat(String(number).length + 2)
-    return `${number}. **C: Preserve opening metadata**\n\n${indent}[area:tool-audit-round] ${ratings}\n\n${indent}- Evidence.\n`
+    return `${number}. **C: Preserve opening metadata ${number}**\n\n${indent}[area:tool-audit-round] ${ratings}\n\n${indent}- Evidence.\n`
   }).join("\n")
   assert.deepEqual(
     readReport(implementation(body), "implementation"),
@@ -420,7 +499,12 @@ test("comments between a finding title and its metadata do not change the findin
       )
       const report = planning(
         annotate(finding(1, "[field:excess] [section:user-summary]")),
-        annotate(finding(2, "[field:missing] [section:decisions]")),
+        annotate(
+          finding(2, "[field:missing] [section:decisions]").replace(
+            "Preserve the evidence",
+            "Keep the second finding",
+          ),
+        ),
       )
       for (const source of [report, report.replaceAll("\n", "\r\n")])
         assert.deepEqual(readReport(source, "detailing"), [1, 2])
@@ -468,10 +552,20 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
       Error,
       body,
     )
-  assert.throws(() => readReport("No findings.", "implementation"), /Findings/)
   assert.throws(
     () =>
-      readReport("## Excess functionality\n\nNo excess findings.", "detailing"),
+      readReport(
+        "# Audit\n\nJudged repos: repo-edu@abc123\nRecommendation: stop. Enough.\n\nNo findings.",
+        "implementation",
+      ),
+    /Findings/,
+  )
+  assert.throws(
+    () =>
+      readReport(
+        "# Audit\n\nJudged repos: plan@abc123\nRecommendation: stop. Enough.\n\n## Excess functionality\n\nNo excess findings.",
+        "detailing",
+      ),
     /Missing functionality/,
   )
   assert.throws(
@@ -487,33 +581,52 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
         ),
         "detailing",
       ),
-    /tokens/,
+    /planning location/,
   )
 })
+
+const twoFindings = readAuditReport(
+  implementation(
+    `${finding()}\n${finding(2).replace("**B: Preserve the evidence", "**C: Keep the record")}`,
+  ),
+  "implementation",
+).findings
 
 test("vet reads unconditional accepts with preamble notes", () => {
   assert.equal(
     readVet(
       "Drift since the audit.\n\n1. [B] Accept\n\n2. [C] Accept\n",
-      [1, 2],
-    ),
+      twoFindings,
+    ).allAccepted,
     true,
   )
-  assert.equal(readVet("1. [B] Accept\r\n", [1]), true)
-  assert.equal(readVet("1. [B] Accept  \n", [1]), true)
-  assert.equal(readVet("No findings to vet.", []), true)
+  assert.equal(
+    readVet("1. [B] Accept\r\n", twoFindings.slice(0, 1)).allAccepted,
+    true,
+  )
+  assert.equal(
+    readVet("1. [B] Accept  \n", twoFindings.slice(0, 1)).allAccepted,
+    true,
+  )
+  assert.equal(readVet("No findings to vet.", []).allAccepted, true)
 })
 
 test("vet reads a verdict line that ends in a Markdown hard break", () => {
   assert.equal(
-    readVet("1. [B] Revise  \nUse the tree entry.\n\n2. [B] Accept", [1, 2]),
+    readVet(
+      "1. [B] Revise  \nUse the tree entry.\n\n2. [C] Accept",
+      twoFindings,
+    ).allAccepted,
     false,
   )
 })
 
 test("every other verdict or line after a verdict prevents skipping the rebuttal", () => {
   for (const verdict of ["Revise", "Drop", "Needs user's ruling"])
-    assert.equal(readVet(`1. [B] ${verdict}`, [1]), false)
+    assert.equal(
+      readVet(`1. [B] ${verdict}`, twoFindings.slice(0, 1)).allAccepted,
+      false,
+    )
   for (const condition of [
     "unique",
     "corroborated",
@@ -524,7 +637,11 @@ test("every other verdict or line after a verdict prevents skipping the rebuttal
     " unique",
     "corroborated: note",
   ])
-    assert.equal(readVet(`1. [B] Accept\n${condition}`, [1]), false)
+    assert.equal(
+      readVet(`1. [B] Accept\n${condition}`, twoFindings.slice(0, 1))
+        .allAccepted,
+      false,
+    )
 })
 
 test("vet refuses missing, duplicate, out-of-order and malformed verdict numbers", () => {
@@ -537,6 +654,26 @@ test("vet refuses missing, duplicate, out-of-order and malformed verdict numbers
     "1. [B] Accept with a condition\n2. [C] Accept",
     "1. [b] Accept\n2. [C] Accept",
   ])
-    assert.throws(() => readVet(source, [1, 2]), /numbers/, source)
-  assert.throws(() => readVet("1. [B] Accept\n2. [C] Accept", [1]), /numbers/)
+    assert.throws(() => readVet(source, twoFindings), /numbers/, source)
+  assert.throws(
+    () => readVet("1. [B] Accept\n2. [C] Accept", twoFindings.slice(0, 1)),
+    /numbers/,
+  )
+})
+
+test("rebuttal reads an ordered subset and retains each answer", () => {
+  assert.deepEqual(
+    readRebuttal(
+      "1. [B] Agree\nExplanation.\n\n2. [C] For user's ruling\n",
+      twoFindings,
+    ),
+    [
+      { number: 1, tier: "B", answer: "agree" },
+      { number: 2, tier: "C", answer: "for-user-ruling" },
+    ],
+  )
+  assert.throws(
+    () => readRebuttal("2. [C] Contest\n1. [B] Agree", twoFindings),
+    /order/,
+  )
 })

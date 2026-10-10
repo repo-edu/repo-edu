@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import type { RoundData } from "../round-data.js"
+import type { RoundData, RoundFinding } from "../round-data.js"
 import { writeRoundData } from "../round-data.js"
 import { runCommand } from "./configured-runner.js"
 import { fixture } from "./helpers.js"
@@ -93,6 +93,29 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     milliseconds,
     tokens: [{ model, input: 1000, cached: 500, output: 100 }],
   })
+  const finding = (
+    title: string,
+    reach: RoundFinding["reach"] = "developer",
+  ): RoundFinding => ({
+    number: 1,
+    title,
+    tier: "B",
+    reach,
+    complexity: "none",
+    growthPattern: "none",
+    location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+    vetVerdict: "accept",
+    rebuttalAnswer: null,
+    outcome: "kept",
+    finalTier: null,
+    finalReach: null,
+  })
+  const findings = new Map<string, readonly RoundFinding[]>([
+    ["target-impl-all#2", [finding("Earlier yield", "rare")]],
+    ["target-impl-all#4", [finding("Other assistant yield")]],
+    ["target-impl-all#5", [finding("Later yield", "ordinary")]],
+    ["target-impl-all#7", [finding("Same-setting yield")]],
+  ])
   const data = (
     target: string,
     round: number,
@@ -103,11 +126,24 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   ): RoundData => ({
     target,
     round,
+    tag:
+      auditor.chosenBy === "command-line"
+        ? "oux"
+        : auditor.assistant === "claude"
+          ? "atx"
+          : auditor.model === "gpt-base"
+            ? "obx"
+            : "otx",
     started,
+    status: round === 8 ? "in-progress" : "finished",
     settings: roundSettings,
     auditor,
     phases: [phase(auditor.assistant, auditor.model, round * 1000)],
     commits,
+    findings: [...(findings.get(`${target}#${round}`) ?? [])],
+    judge: null,
+    scope: "all",
+    judgedRepos: ["repo-edu"],
   })
   const rounds: readonly [string, RoundData][] = [
     [
@@ -233,8 +269,8 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
   ]
-  for (const [name, round] of rounds)
-    writeRoundData(join(planRoot, name), round)
+  for (const [, round] of rounds)
+    writeRoundData(join(planRoot, "trial-impl-rounds.json"), round)
 
   const visible: { readonly text: string; readonly format?: "markdown" }[] = []
   const errors: string[] = []

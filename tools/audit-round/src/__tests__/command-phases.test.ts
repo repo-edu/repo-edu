@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { roundDataSchema } from "../round-data.js"
+import { parseRoundDataFile } from "../round-data.js"
 import { openRunFiles } from "../run-files.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { recordedTag, recordedText } from "./helpers.js"
@@ -403,12 +403,12 @@ for (const target of ["log", "markdown"] as const) {
     assert.equal(calls.filter((call) => call.args[0] === "exec").length, 1)
     assert.throws(() => process.kill(calls.at(-1).pid, 0), { code: "ESRCH" })
     const dataName = (await readdir(f.planRoot)).find((name) =>
-      /-1-round\.[ao][btu][lmhx]\.json$/.test(name),
+      name.endsWith("-impl-rounds.json"),
     )
     assert.ok(dataName)
-    const data = roundDataSchema.parse(
-      JSON.parse(await readFile(join(f.planRoot, dataName), "utf8")),
-    )
+    const path = join(f.planRoot, dataName)
+    const data = parseRoundDataFile(path, await readFile(path, "utf8"))[0]
+    assert.ok(data)
     assert.deepEqual(data.commits, [])
     assert.equal(data.phases.at(-1)?.phase, "audit")
     assert.ok(f.clears() > 0)

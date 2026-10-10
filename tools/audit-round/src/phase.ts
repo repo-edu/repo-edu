@@ -8,9 +8,10 @@ import type {
   ReportFindings,
   RoundRecommendation,
 } from "./report.js"
-import type { LandedCommit } from "./round-data.js"
+import type { FindingRebuttal, LandedCommit } from "./round-data.js"
 import type { PhaseSelection, RoundSettings } from "./settings.js"
 import type { RoundContext } from "./target.js"
+import type { VetReading } from "./vet.js"
 
 export type Assistant = "claude" | "codex"
 
@@ -486,7 +487,14 @@ export type RoundDependencies = {
     file: string,
     reportClass: ReportClass,
   ) => Promise<AuditReport>
-  readonly readVet: (file: string, findings: ReportFindings) => Promise<boolean>
+  readonly readVet: (
+    file: string,
+    findings: ReportFindings,
+  ) => Promise<VetReading>
+  readonly readRebuttal: (
+    file: string,
+    findings: ReportFindings,
+  ) => Promise<readonly FindingRebuttal[]>
   readonly readDocument: (file: string) => Promise<string>
   readonly readHead: (root: string) => Promise<string>
   /** Whether a file exists, which tells a finished close that left its plan in place. */

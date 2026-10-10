@@ -1,49 +1,24 @@
 import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { execa } from "execa"
-import { readModelRecord } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
-import { type Finding, findingTitle, readFindings } from "./findings.js"
 import { elapsedText, tokenText } from "./output-format.js"
 import {
   type ModelTokenUsage,
+  parseRoundDataFile,
   type RoundData,
-  roundDataSchema,
+  type RoundFinding,
 } from "./round-data.js"
-import { parseSubject } from "./subject.js"
 
-const dataName = /-1-round\.([ao][btu][lmhx])\.json$/
+const dataName = /-(?:plan|impl)-rounds\.json$/
 const phaseOrder = ["audit", "vet", "rebut", "fix", "brief", "watch"] as const
 const reachOrder = ["ordinary", "rare", "very-rare", "developer"] as const
-
-type TrialRecord = { readonly subject: string; readonly body: string }
-
-export type TrialDependencies = {
-  readonly readRecord: (root: string, sha: string) => Promise<TrialRecord>
-}
 
 type TrialRound = {
   readonly file: string
   readonly tag: string
   readonly data: RoundData
-  readonly findings: readonly Finding[]
+  readonly findings: readonly RoundFinding[]
 }
-
-async function gitRecord(root: string, sha: string): Promise<TrialRecord> {
-  const { stdout } = await execa(
-    "git",
-    ["show", "-s", "--format=%s%x00%b", sha],
-    { cwd: root },
-  )
-  const divider = stdout.indexOf("\0")
-  if (divider === -1) throw new Error(`Git returned no body for ${sha}`)
-  return {
-    subject: stdout.slice(0, divider),
-    body: stdout.slice(divider + 1),
-  }
-}
-
-const defaultDependencies: TrialDependencies = { readRecord: gitRecord }
 
 function settingText(selection: {
   readonly model: string
@@ -113,20 +88,28 @@ function tokenTotalsText(
     .join("; ")
 }
 
-function findingsText(findings: readonly Finding[]): string {
+function finalTier(finding: RoundFinding): RoundFinding["tier"] {
+  return finding.finalTier ?? finding.tier
+}
+
+function finalReach(finding: RoundFinding): RoundFinding["reach"] {
+  return finding.finalReach ?? finding.reach
+}
+
+function findingsText(findings: readonly RoundFinding[]): string {
   if (findings.length === 0) return "none"
   return findings
     .map(
       (finding) =>
-        `${finding.tier.toUpperCase()} ${finding.reach.replace("-", " ")} — ${findingTitle(finding)}`,
+        `${finalTier(finding)} ${finalReach(finding).replace("-", " ")} — ${finding.title}`,
     )
     .join("; ")
 }
 
-function findingCounts(findings: readonly Finding[]): string {
+function findingCounts(findings: readonly RoundFinding[]): string {
   const counts = new Map<string, number>()
   for (const finding of findings) {
-    const key = `${finding.tier}|${finding.reach}`
+    const key = `${finalTier(finding).toLowerCase()}|${finalReach(finding)}`
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
   if (counts.size === 0) return "none"
@@ -147,57 +130,35 @@ function auditorKey(round: TrialRound): string {
   return JSON.stringify({ assistant, model, effort })
 }
 
-async function roundFindings(
-  context: ExecutionContext,
-  data: RoundData,
-  dependencies: TrialDependencies,
-): Promise<Finding[]> {
-  const findings = (
-    await Promise.all(
-      data.commits.map(async ({ repository, sha }) => {
-        const root =
-          repository === "repo-edu" ? context.repoEduRoot : context.planRoot
-        const record = await dependencies.readRecord(root, sha)
-        const subject = parseSubject(record.subject, repository)
-        readModelRecord(record.body)
-        return readFindings(record.body, repository, subject.form?.role ?? null)
-      }),
-    )
-  ).flat()
-  const unique = new Map<string, Finding>()
-  for (const finding of findings) {
-    const key = `${finding.tier}\0${findingTitle(finding)}`
-    if (!unique.has(key)) unique.set(key, finding)
-  }
-  return [...unique.values()]
-}
-
-async function trialRounds(
-  context: ExecutionContext,
-  dependencies: TrialDependencies,
-): Promise<TrialRound[]> {
+async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
   const files = (await readdir(context.planRoot)).filter((name) =>
     dataName.test(name),
   )
-  const rounds = await Promise.all(
-    files.map(async (file) => {
-      const match = dataName.exec(file)
-      if (match === null)
-        throw new Error(`Invalid round data file name: ${file}`)
-      let data: RoundData
-      try {
-        data = roundDataSchema.parse(
-          JSON.parse(await readFile(join(context.planRoot, file), "utf8")),
-        )
-      } catch (error) {
-        throw new Error(
-          `Invalid round data in ${file}: ${error instanceof Error ? error.message : String(error)}`,
-          { cause: error },
-        )
-      }
-      return { file, tag: match[1], data }
-    }),
-  )
+  const rounds = (
+    await Promise.all(
+      files.map(async (file) => {
+        try {
+          return parseRoundDataFile(
+            join(context.planRoot, file),
+            await readFile(join(context.planRoot, file), "utf8"),
+          ).map((data) => ({
+            file,
+            tag: data.tag,
+            data,
+            findings: data.findings.filter(
+              (finding) =>
+                finding.outcome === "kept" || finding.outcome === "unmatched",
+            ),
+          }))
+        } catch (error) {
+          throw new Error(
+            `Invalid round data in ${file}: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error },
+          )
+        }
+      }),
+    )
+  ).flat()
   const picked = rounds
     .filter(({ data }) => data.auditor.chosenBy === "settings")
     .sort(
@@ -215,23 +176,12 @@ async function trialRounds(
     JSON.stringify(picked[start - 1].data.settings) === settings
   )
     start -= 1
-  return Promise.all(
-    picked.slice(start).map(async (round) => ({
-      ...round,
-      findings:
-        round.data.commits.length === 0
-          ? []
-          : await roundFindings(context, round.data, dependencies),
-    })),
-  )
+  return picked.slice(start)
 }
 
 /** Read and render the newest unchanged-settings trial without changing either checkout. */
-export async function trialReport(
-  context: ExecutionContext,
-  dependencies: TrialDependencies = defaultDependencies,
-): Promise<string> {
-  const rounds = await trialRounds(context, dependencies)
+export async function trialReport(context: ExecutionContext): Promise<string> {
+  const rounds = await trialRounds(context)
   const settings = rounds.at(-1)?.data.settings
   if (settings === undefined) throw new Error("Trial has no rounds")
   const pairs = (["claude", "codex"] as const).flatMap((assistant) => {
@@ -263,7 +213,7 @@ export async function trialReport(
   ]
   const previous = new Map<string, TrialRound>()
   for (const round of rounds) {
-    const complete = round.data.commits.length > 0
+    const complete = round.data.status === "finished"
     const key = `${round.data.auditor.assistant}\0${round.data.target}`
     const earlier = complete ? previous.get(key) : undefined
     const comparison = !complete
@@ -295,7 +245,7 @@ export async function trialReport(
     const first = grouped[0]
     const phaseMilliseconds = new Map<string, number>()
     const tokens = new Map<string, Omit<ModelTokenUsage, "model">>()
-    const findings: Finding[] = []
+    const findings: RoundFinding[] = []
     for (const round of grouped) {
       for (const phase of round.data.phases)
         phaseMilliseconds.set(

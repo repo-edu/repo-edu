@@ -1,4 +1,5 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
+import type { ReportFinding, RoundFindingLocation } from "./round-data.js"
 import type { Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
@@ -28,8 +29,8 @@ export function reportKind(source: string): RoundKind {
   return planning ? "planning" : "implementation"
 }
 
-/** Finding identities survive the fix consuming the report and its twins. */
-export type ReportFindings = readonly number[]
+/** Finding identities and metadata survive the fix consuming the report and its twins. */
+export type ReportFindings = readonly ReportFinding[]
 
 export type AuditReport = {
   readonly findings: ReportFindings
@@ -207,34 +208,137 @@ function openingTokens(item: List["children"][number]): string {
     .trimEnd()
 }
 
-function findingNumber(
+const label = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const growthPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:,[a-z0-9]+(?:-[a-z0-9]+)*)*$/
+const reaches = ["developer", "very-rare", "rare", "ordinary"] as const
+const complexities = [
+  "minus-high",
+  "minus-medium",
+  "minus-low",
+  "none",
+  "low",
+  "medium",
+  "high",
+] as const
+
+function findingData(
   item: List["children"][number],
   source: string,
   field: string | null,
-): number {
+  reportClass: ReportClass,
+  repositories: readonly Repository[],
+): ReportFinding {
   const start = item.children[0]
   const title = start?.type === "paragraph" ? start.children[0] : undefined
   const lines = source
     .slice(item.position?.start.offset, item.position?.end.offset)
     .split("\n")
-  const number = /^([1-9]\d*)\. \*\*[A-D]: .+\*\*\s*$/.exec(lines[0])
-  const tokens = openingTokens(item)
+  const heading = /^([1-9]\d*)\. \*\*([A-D]): (.+)\*\*\s*$/.exec(lines[0])
+  const tokenLine = openingTokens(item)
   if (
-    number === null ||
+    heading === null ||
     title?.type !== "strong" ||
-    !/^(?:\[[a-z-]+:[^\]\n]+\])(?: \[[a-z-]+:[^\]\n]+\])*$/.test(tokens)
+    !/^(?:\[[a-z-]+:[^\]\n]+\])(?: \[[a-z-]+:[^\]\n]+\])*$/.test(tokenLine)
   )
     throw new Error(
       `Malformed finding at report line ${item.position?.start.line}: expected a bold tier title followed by a token line`,
     )
-  const has = (key: string) => tokens.includes(`[${key}:`)
+  const tokens = [...tokenLine.matchAll(/\[([^:\]]+):([^\]]+)\]/g)]
+  const values = (key: string) =>
+    tokens.filter((token) => token[1] === key).map((token) => token[2])
+  const one = (key: string): string => {
+    const found = values(key)
+    if (found.length !== 1)
+      throw new Error(
+        `Finding ${heading[1]} needs exactly one [${key}:...] token`,
+      )
+    return found[0]
+  }
+  const foundReach = one("reach")
+  const foundComplexity = one("complexity")
+  const foundGrowth = one("growth-pattern")
   if (
-    !["growth-pattern", "reach", "complexity"].every(has) ||
-    !["area", "section", "plan"].some(has) ||
-    (field !== null && !tokens.includes(`[field:${field}]`))
+    !reaches.includes(foundReach as (typeof reaches)[number]) ||
+    !complexities.includes(foundComplexity as (typeof complexities)[number]) ||
+    !growthPattern.test(foundGrowth)
   )
-    throw new Error(`Finding ${number[1]} lacks its location or rating tokens`)
-  return Number(number[1])
+    throw new Error(`Finding ${heading[1]} has an invalid rating token`)
+
+  let location: RoundFindingLocation
+  if (reportClass !== "implementation") {
+    const foundField = one("field")
+    const section = one("section")
+    if (
+      foundField !== field ||
+      !label.test(section) ||
+      values("area").length > 0 ||
+      values("cover").length > 0 ||
+      values("plan").length > 0
+    )
+      throw new Error(`Finding ${heading[1]} lacks its planning location`)
+    location = {
+      kind: "planning",
+      field: foundField as "excess" | "missing",
+      section,
+    }
+  } else {
+    if (values("field").length > 0)
+      throw new Error(`Finding ${heading[1]} cannot use [field:...]`)
+    const areas = values("area")
+    const sections = values("section")
+    const plans = values("plan")
+    const covers = values("cover")
+    const locationCount =
+      Number(areas.length > 0) +
+      Number(sections.length > 0) +
+      Number(plans.length > 0)
+    if (
+      locationCount !== 1 ||
+      areas.length > 1 ||
+      sections.length > 1 ||
+      plans.length > 1 ||
+      [...areas, ...covers].some((value) => !label.test(value)) ||
+      sections.some((value) => !label.test(value))
+    )
+      throw new Error(`Finding ${heading[1]} lacks one implementation location`)
+    if (plans.length === 1) {
+      if (
+        covers.length > 0 ||
+        repositories.includes("plan") ||
+        !repositories.includes("repo-edu")
+      )
+        throw new Error(`Finding ${heading[1]} has an invalid plan deferral`)
+      location = {
+        kind: "deferred",
+        repository: "plan",
+        plan: plans[0],
+      }
+    } else if (sections.length === 1) {
+      if (covers.length > 0 || !repositories.includes("plan"))
+        throw new Error(`Finding ${heading[1]} has an invalid plan location`)
+      location = { kind: "plan", section: sections[0] }
+    } else if (repositories.includes("repo-edu")) {
+      location = { kind: "repo-edu", area: areas[0], covers }
+    } else if (repositories.includes("plan")) {
+      location = {
+        kind: "deferred",
+        repository: "repo-edu",
+        area: areas[0],
+        covers,
+      }
+    } else {
+      throw new Error(`Finding ${heading[1]} has no judged repository`)
+    }
+  }
+  return {
+    number: Number(heading[1]),
+    title: heading[3],
+    tier: heading[2] as ReportFinding["tier"],
+    reach: foundReach as ReportFinding["reach"],
+    complexity: foundComplexity as ReportFinding["complexity"],
+    growthPattern: foundGrowth,
+    location,
+  }
 }
 
 /** Read only document-level fields and lists; quoted evidence and code are not findings. */
@@ -258,7 +362,8 @@ export function readReport(
           },
         ]
   const children = fromMarkdown(source).children
-  const findings: number[] = []
+  const repositories = judgedRepos(children, source)
+  const findings: ReportFinding[] = []
   for (const definition of definitions) {
     const headings = children.flatMap((node, index) =>
       node.type === "heading" &&
@@ -276,7 +381,7 @@ export function readReport(
     )
     const nodes = children.slice(start, next === -1 ? undefined : next)
     let empty = 0
-    const numbers: number[] = []
+    const fieldFindings: ReportFinding[] = []
     for (const node of nodes) {
       if (node.type === "paragraph" && plain(node).trim() === definition.empty)
         empty += 1
@@ -286,27 +391,43 @@ export function readReport(
             `${definition.heading} findings must be numbered blocks`,
           )
         for (const item of node.children)
-          numbers.push(findingNumber(item, source, definition.field))
+          fieldFindings.push(
+            findingData(
+              item,
+              source,
+              definition.field,
+              reportClass,
+              repositories,
+            ),
+          )
       }
     }
     if (
       !(
-        (empty === 1 && numbers.length === 0) ||
-        (empty === 0 && numbers.length > 0)
+        (empty === 1 && fieldFindings.length === 0) ||
+        (empty === 0 && fieldFindings.length > 0)
       )
     )
       throw new Error(
         `${definition.heading} needs findings or exactly "${definition.empty}", never both`,
       )
-    findings.push(...numbers)
+    findings.push(...fieldFindings)
   }
-  if (findings.some((number, index) => number !== index + 1))
+  if (findings.some((finding, index) => finding.number !== index + 1))
     throw new Error(
       "Report finding numbers must run from 1 without gaps or duplicates",
     )
+  const titles = new Set<string>()
+  for (const finding of findings) {
+    if (titles.has(finding.title))
+      throw new Error(
+        `Report finding title appears more than once: ${finding.title}`,
+      )
+    titles.add(finding.title)
+  }
   return {
     findings,
-    judgedRepos: judgedRepos(children, source),
+    judgedRepos: repositories,
     recommendation: reportRecommendation(children, source, reportClass),
   }
 }

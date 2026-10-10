@@ -90,9 +90,13 @@ export type Run = {
     readonly path: string
     readonly target: string
     readonly round: number
+    readonly tag: string
     readonly settings: RoundData["settings"]
     readonly auditor: RoundData["auditor"]
-  }
+  } & (
+    | { readonly phase: "widening" | "detailing" }
+    | { readonly scope: string }
+  )
   /** The reading that dates the run files; the timers count from it too. */
   readonly started: number
 }
@@ -195,8 +199,12 @@ export async function roundRun(
   const data =
     "plan" in setup
       ? {
-          path: `${base}.json`,
+          path: join(
+            setup.planRoot,
+            `${planStem(setup.plan)}-${setup.roundKind === "planning" ? "plan" : "impl"}-rounds.json`,
+          ),
           ...roundDataIdentity(nameStart),
+          tag: tag("audit"),
           settings: roundSettingsData(selections, settings),
           auditor: {
             assistant: audit.assistant,
@@ -206,6 +214,13 @@ export async function roundRun(
                 ? ("settings" as const)
                 : ("command-line" as const),
           },
+          ...(setup.roundKind === "planning"
+            ? {
+                phase: basename(setup.plan).endsWith("-widen.md")
+                  ? ("widening" as const)
+                  : ("detailing" as const),
+              }
+            : { scope: setup.scope }),
         }
       : undefined
   return {
@@ -614,7 +629,16 @@ export class RoundOutput<R extends Run = Run> {
       writeRoundData(this.run.data.path, {
         target: this.run.data.target,
         round: this.run.data.round,
+        tag: this.run.data.tag,
         started: new Date(this.run.started).toISOString(),
+        status:
+          result.status === "finished"
+            ? "finished"
+            : result.status === "awaiting-ruling"
+              ? "awaiting-ruling"
+              : result.reason === "Interrupted"
+                ? "interrupted"
+                : "failed",
         settings: this.run.data.settings,
         auditor: this.run.data.auditor,
         phases: [...this.ran].flatMap(([phase, ran]) => {
@@ -636,6 +660,14 @@ export class RoundOutput<R extends Run = Run> {
           ]
         }),
         commits: [...result.commits],
+        findings: [...result.account.findings],
+        judge: null,
+        ...("phase" in this.run.data
+          ? { phase: this.run.data.phase }
+          : {
+              scope: this.run.data.scope,
+              judgedRepos: [...result.account.judgedRepos],
+            }),
       })
     }
     this.release()
