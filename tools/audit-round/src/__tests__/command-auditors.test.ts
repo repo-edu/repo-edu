@@ -349,6 +349,8 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "--unknown"],
     ["example.md", "--no-brief"],
     ["brief", "ROUND-example.md", "extra"],
+    ["settle", "example", "extra"],
+    ["ready", "example", "extra"],
     ["close", "example", "extra"],
     ["close", "example", "--aborted"],
     ["close", "example", "--aborted", " "],
@@ -361,6 +363,8 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["-h"],
     ["--help"],
     ["brief", "--help"],
+    ["settle", "--help"],
+    ["ready", "--help"],
     ["close", "--help"],
     ["trial", "--help"],
     ["plan", "--help"],
@@ -372,7 +376,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round trial\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round trial\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -384,7 +388,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   )
   // Hand-run launchers call the housekeeping commands; help shows what a user runs.
   assert.doesNotMatch(visible, /^\s+(name|paths|episode|delete-reports)\s/m)
-  for (const name of ["trial", "brief", "close", "plan"])
+  for (const name of ["trial", "brief", "settle", "ready", "close", "plan"])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
   assert.match(visible, /--aborted <reason>/)
   assert.match(visible, /HEAD-<n>/)

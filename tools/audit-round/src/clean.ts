@@ -1,5 +1,5 @@
-import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
+import { commitOnly } from "./lifecycle.js"
 import type { LandedCommit } from "./round-data.js"
 import { parseSubject, type Repository } from "./subject.js"
 import { type AuditTarget, planStem, type RoundContext } from "./target.js"
@@ -46,17 +46,7 @@ export async function completeClean(
   const subject = `${planStem(input.plan)}/${role} ${stamps.auditor} clean: record audit with no findings`
   parseSubject(subject, repository)
   const body = `${stamps.phases}\n\nRound yield: 0 ordinary; 0 rare; 0 developer.\nStructure: 0 removing, 0 adding, 0 flat.`
-  // --only with --allow-empty records HEAD's tree even when the user has
-  // staged changes. Git still runs the normal hooks and signing configuration.
-  await execa(
-    "git",
-    ["commit", "--only", "--allow-empty", "-m", subject, "-m", body],
-    {
-      cwd,
-      env: { COMMIT_AUDITOR: stamps.auditor, COMMIT_PHASES: stamps.phases },
-    },
-  )
-  const sha = (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout
+  const { sha } = await commitOnly({ cwd, subject, body, stamps })
   return {
     message: `Clean audit recorded. Report retained: ${input.report}`,
     commits: [{ repository, sha }],

@@ -22,11 +22,13 @@ change, `<stem>-handoff.<sha>.md` briefs the commit it names and the runner's
 queue file carries no round number because it belongs to the whole sequence,
 and the runner deletes it when the sequence ends. The runner
 claims at the plan repository root; a hand-run audit claims there too. A marker
-claims the plan target's next number through `pnpm audit-round mark
-<settle|reopen> [stem]`, so it sorts among the plan rounds in a file list and
-shows where one settled span ends and the next begins without opening a file.
-The plan repo's [Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle)
-owns when a marker is written.
+claims the plan target's next number, so it sorts among the plan rounds in a
+file list and shows where one settled span ends and the next begins without
+opening a file. `pnpm audit-round settle [stem]` claims the settle marker after
+its rename commit lands. The session applying a reopen runs
+`pnpm audit-round mark reopen [stem]` after its fix commit lands. The plan
+repo's [Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle) owns
+when each marker is written.
 The plan repo's handoff rule owns that six-character sha.
 
 - **Target** names what was audited. The stem is the plan's name without

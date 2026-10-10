@@ -21,9 +21,7 @@ const phaseOrder = {
 export type FileKind = Exclude<keyof typeof phaseOrder, "fix" | "glance">
 
 /** Tagless phase-change markers that take a round number so they sort among the rounds. */
-export const markerKinds = ["settle", "reopen"] as const
-
-export type MarkerKind = (typeof markerKinds)[number]
+export type MarkerKind = "settle" | "reopen"
 
 export function phaseFilename(
   nameStart: string,

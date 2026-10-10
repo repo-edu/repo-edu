@@ -1,10 +1,46 @@
 import assert from "node:assert/strict"
-import { readdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
+
+type Fixture = Awaited<ReturnType<typeof roundFixture>>
+
+async function lifecyclePlan(
+  fixture: Fixture,
+  phase: "settled" | "widening",
+  tracked = true,
+) {
+  const name = phase === "settled" ? "example.md" : "example-widen.md"
+  const other = phase === "settled" ? "example-widen.md" : "example.md"
+  await rm(join(fixture.planRoot, other), { force: true })
+  await writeFile(join(fixture.planRoot, name), "# Example plan\n")
+  if (tracked) {
+    await execa("git", ["add", "--", name], { cwd: fixture.planRoot })
+    await commitFixture(
+      fixture.planRoot,
+      "example/plan-audit ath clean: track the active plan",
+    )
+  }
+  return join(fixture.planRoot, name)
+}
+
+async function enableLifecycleHook(fixture: Fixture) {
+  const hooks = join(fixture.root, "lifecycle-hooks")
+  const signal = join(fixture.root, "lifecycle-hook-ran")
+  await mkdir(hooks)
+  await writeFile(
+    join(hooks, "pre-commit"),
+    `#!/bin/sh\nprintf 'ran\\n' >> '${signal}'\n`,
+    { mode: 0o755 },
+  )
+  await execa("git", ["config", "core.hooksPath", hooks], {
+    cwd: fixture.planRoot,
+  })
+  return signal
+}
 
 for (const working of ["repo-edu", "plan"] as const) {
   test(`episode at ${working} prints shared evidence and resolves stems and explicit anchors without writes`, async (t) => {
@@ -295,29 +331,217 @@ test("name preserves the hand-run implementation-step route at the plan root", a
   )
 })
 
-test("mark claims the plan's next number for an empty settle or reopen marker that later rounds skip", async (t) => {
+test("settle commits only the widening rename through hooks and then leaves its marker", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const plan = await lifecyclePlan(f, "widening")
+  const hook = await enableLifecycleHook(f)
+  await writeFile(
+    join(f.planRoot, "example-plan-03-2-audit.oth.md"),
+    "Peer report",
+  )
+  await writeFile(join(f.planRoot, "staged.txt"), "Staged work\n")
+  await execa("git", ["add", "staged.txt"], { cwd: f.planRoot })
+  await writeFile(join(f.planRoot, "untracked.txt"), "Untracked work\n")
+
+  assert.equal(
+    await runCommand(["settle", "example-widen.md"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const settled = join(f.planRoot, "example.md")
+  const marker = join(f.planRoot, "example-plan-04-0-settle.md")
+  await assert.rejects(readFile(plan), { code: "ENOENT" })
+  assert.equal(await readFile(settled, "utf8"), "# Example plan\n")
+  assert.equal(await readFile(marker, "utf8"), "")
+  assert.equal(
+    (
+      await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
+    ).stdout.trim(),
+    "example/settle: settle the plan's shape",
+  )
+  assert.match(
+    (
+      await execa(
+        "git",
+        [
+          "diff-tree",
+          "--no-commit-id",
+          "--name-status",
+          "--find-renames",
+          "-r",
+          "HEAD",
+        ],
+        { cwd: f.planRoot },
+      )
+    ).stdout,
+    /^R100\texample-widen\.md\texample\.md$/,
+  )
+  assert.equal(
+    (
+      await execa("git", ["diff", "--cached", "--name-only"], {
+        cwd: f.planRoot,
+      })
+    ).stdout,
+    "staged.txt",
+  )
+  assert.equal(
+    await readFile(join(f.planRoot, "untracked.txt"), "utf8"),
+    "Untracked work\n",
+  )
+  assert.equal(await readFile(hook, "utf8"), "ran\n")
+  const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
+    .stdout
+  assert.match(f.visible.at(-1) ?? "", new RegExp(`${head}.*${marker}`, "s"))
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
+test("ready lands one empty commit through hooks and refuses a second marker", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(f, "settled")
+  const hook = await enableLifecycleHook(f)
+  await writeFile(join(f.planRoot, "staged.txt"), "Staged work\n")
+  await execa("git", ["add", "staged.txt"], { cwd: f.planRoot })
+  const parentTree = (
+    await execa("git", ["rev-parse", "HEAD^{tree}"], { cwd: f.planRoot })
+  ).stdout
+
+  assert.equal(
+    await runCommand(["ready"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
+    .stdout
+  assert.equal(
+    (
+      await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
+    ).stdout.trim(),
+    "example/ready: declare the plan ready for implementation",
+  )
+  assert.equal(
+    (await execa("git", ["rev-parse", "HEAD^{tree}"], { cwd: f.planRoot }))
+      .stdout,
+    parentTree,
+  )
+  assert.equal(
+    (
+      await execa("git", ["diff", "--cached", "--name-only"], {
+        cwd: f.planRoot,
+      })
+    ).stdout,
+    "staged.txt",
+  )
+  assert.equal(await readFile(hook, "utf8"), "ran\n")
+  assert.match(f.visible.at(-1) ?? "", new RegExp(head))
+
+  assert.equal(await runCommand(["ready", "example"], f.runtime, f.options), 1)
+  assert.match(
+    f.errors.at(-1) ?? "",
+    /already has ready marker .+example\/ready:/,
+  )
+  assert.equal(
+    (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+    head,
+  )
+  assert.equal(await readFile(hook, "utf8"), "ran\n")
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
+for (const [command, phase, pattern] of [
+  ["settle", "settled", /active plan is not at example-widen\.md/],
+  ["ready", "widening", /still widening/],
+] as const) {
+  test(`${command} refuses a plan in the wrong lifecycle phase`, async (t) => {
+    const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+    await lifecyclePlan(f, phase)
+    const head = (
+      await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
+    ).stdout
+    assert.equal(
+      await runCommand([command, "example"], f.runtime, f.options),
+      1,
+    )
+    assert.match(f.errors.at(-1) ?? "", pattern)
+    assert.equal(
+      (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+      head,
+    )
+  })
+}
+
+for (const command of ["settle", "ready"] as const) {
+  for (const state of ["unstaged", "staged", "untracked"] as const) {
+    test(`${command} refuses a plan with ${state} state`, async (t) => {
+      const f = await roundFixture(
+        t,
+        "codex",
+        "plan",
+        false,
+        null,
+        false,
+        "plan",
+      )
+      const plan = await lifecyclePlan(
+        f,
+        command === "settle" ? "widening" : "settled",
+        state !== "untracked",
+      )
+      await writeFile(plan, `# ${state} plan\n`)
+      if (state === "staged")
+        await execa("git", ["add", "--", plan], { cwd: f.planRoot })
+      const head = (
+        await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
+      ).stdout
+
+      assert.equal(
+        await runCommand([command, "example"], f.runtime, f.options),
+        1,
+      )
+      assert.match(
+        f.errors.at(-1) ?? "",
+        new RegExp(
+          state === "unstaged"
+            ? "unstaged changes"
+            : state === "staged"
+              ? "staged changes"
+              : "untracked",
+        ),
+      )
+      assert.equal(
+        (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+        head,
+      )
+      assert.equal(await readFile(plan, "utf8"), `# ${state} plan\n`)
+      await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+        code: "ENOENT",
+      })
+    })
+  }
+}
+
+test("mark claims the plan's next number only for an empty reopen marker that later rounds skip", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   const root = f.planRoot
   await writeFile(join(root, "example-plan-03-2-audit.oth.md"), "Peer report")
   const before = await readdir(root)
   assert.equal(
-    await runCommand(["mark", "settle", "example"], f.runtime, f.options),
+    await runCommand(["mark", "reopen", "example"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
-  const settle = join(root, "example-plan-04-0-settle.md")
-  assert.equal(f.visible[0], settle)
+  const reopen = join(root, "example-plan-04-0-reopen.md")
+  assert.equal(f.visible[0], reopen)
   assert.deepEqual(
     (await readdir(root)).filter((name) => !before.includes(name)),
-    ["example-plan-04-0-settle.md"],
+    ["example-plan-04-0-reopen.md"],
   )
-  assert.equal(await readFile(settle, "utf8"), "")
-  assert.equal(
-    await runCommand(["mark", "reopen"], f.runtime, f.options),
-    0,
-    f.errors.join("\n"),
-  )
-  assert.equal(f.visible[1], join(root, "example-plan-05-0-reopen.md"))
+  assert.equal(await readFile(reopen, "utf8"), "")
   assert.equal(
     await runCommand(
       ["name", "example.md", "--auditor", "oux"],
@@ -327,12 +551,13 @@ test("mark claims the plan's next number for an empty settle or reopen marker th
     0,
   )
   assert.equal(
-    JSON.parse(f.visible[2]).claim,
-    join(root, "example-plan-06-0-claim.md"),
+    JSON.parse(f.visible[1]).claim,
+    join(root, "example-plan-05-0-claim.md"),
   )
   for (const args of [
     ["mark", "close", "example"],
-    ["mark", "settle", "missing"],
+    ["mark", "settle", "example"],
+    ["mark", "reopen", "missing"],
   ])
     assert.notEqual(await runCommand(args, f.runtime, f.options), 0, args[1])
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {

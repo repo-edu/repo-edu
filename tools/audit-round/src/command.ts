@@ -14,6 +14,7 @@ import { defaultPlan, resolveTarget } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { readWatchGrade, runGlance } from "./glance.js"
+import { readyPlan, settlePlan } from "./lifecycle.js"
 import {
   briefRun,
   closeRun,
@@ -56,7 +57,6 @@ import {
   type ManualPhase,
   type MarkerKind,
   manualPhasePaths,
-  markerKinds,
   markerPath,
   newestTranscript,
   phaseFilename,
@@ -101,6 +101,16 @@ type Invocation =
       readonly rebut?: string
     }
   | { readonly kind: "delete-reports"; readonly nameStart: string }
+  | {
+      readonly kind: "settle"
+      /** Absent when the lifecycle command takes the plan `plan` prints. */
+      readonly stem?: string
+    }
+  | {
+      readonly kind: "ready"
+      /** Absent when the lifecycle command takes the plan `plan` prints. */
+      readonly stem?: string
+    }
   | {
       readonly kind: "mark"
       readonly marker: MarkerKind
@@ -172,7 +182,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round trial\n       audit-round brief [options] [transcript]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] [target] [scope-or-commits...]\n       audit-round trial\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -338,6 +348,7 @@ Examples (from either checkout):
      $ pnpm audit-round example all --first codex
 
 Use pnpm audit-round trial to read the newest trial.
+Use settle, ready or close to record the corresponding plan lifecycle call.
 Use brief --help or close --help for their arguments and options.`,
     )
     .action(
@@ -472,14 +483,14 @@ Use brief --help or close --help for their arguments and options.`,
   command
     .command("mark", { hidden: true })
     .description(
-      "Claim the plan's next round number for an empty settle or reopen marker and print its path.",
+      "Claim the plan's next round number for an empty reopen marker and print its path.",
     )
     .argument(
       "<marker>",
-      "settle or reopen, the phase change the marker records",
+      "reopen, the phase change the marker records",
       (value: string) => {
-        if (!(markerKinds as readonly string[]).includes(value))
-          throw new InvalidArgumentError("Expected settle or reopen.")
+        if (value !== "reopen")
+          throw new InvalidArgumentError("Expected reopen.")
         return value as MarkerKind
       },
     )
@@ -487,6 +498,22 @@ Use brief --help or close --help for their arguments and options.`,
     .action((marker: MarkerKind, stem: string | undefined) => {
       invocation = { kind: "mark", marker, stem }
     })
+  for (const kind of ["settle", "ready"] as const) {
+    command
+      .command(kind)
+      .description(
+        kind === "settle"
+          ? "Rename a widening plan onto its settled name, commit the rename and leave its marker."
+          : "Record that a settled plan is ready for implementation with an empty commit.",
+      )
+      .argument(
+        "[stem]",
+        `the active plan to ${kind}; defaults to the plan audit-round plan prints`,
+      )
+      .action((stem: string | undefined) => {
+        invocation = { kind, stem }
+      })
+  }
   command
     .command("brief")
     .description(
@@ -602,6 +629,22 @@ export async function runCommand(
       const marker = await markerPath(context, plan, invocation.marker)
       claimRound(marker)
       options.terminal.write(marker)
+      return 0
+    }
+    if (invocation.kind === "settle" || invocation.kind === "ready") {
+      const plan =
+        invocation.stem === undefined
+          ? await defaultPlan(context)
+          : await closingPlan(context.planRoot, invocation.stem)
+      if (invocation.kind === "settle") {
+        const result = await settlePlan(context, plan)
+        options.terminal.write(
+          `Committed ${result.sha}: ${result.subject}\nMarker: ${result.marker}`,
+        )
+      } else {
+        const result = await readyPlan(context, plan)
+        options.terminal.write(`Committed ${result.sha}: ${result.subject}`)
+      }
       return 0
     }
     if (invocation.kind === "paths") {
