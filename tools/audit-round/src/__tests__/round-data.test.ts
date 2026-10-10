@@ -4,9 +4,11 @@ import { join } from "node:path"
 import { test } from "node:test"
 import {
   type ImplementationRoundData,
+  type PlanningRoundData,
   parseRoundDataFile,
   type ReportFinding,
   type RoundFinding,
+  readPlanRoundData,
   reviewedRoundFindings,
   settleRoundFindings,
   writeRoundData,
@@ -102,6 +104,68 @@ test("round data admits every end state", async (t) => {
     ),
     statuses,
   )
+})
+
+test("a plan's watch evidence reads both round kinds and their trajectory fields", async (t) => {
+  const f = await fixture(t)
+  const {
+    scope: _scope,
+    judgedRepos: _judgedRepos,
+    ...common
+  } = entry("example-plan", 1, "finished")
+  const planning: PlanningRoundData = {
+    ...common,
+    phase: "detailing",
+    findings: [
+      {
+        ...reportFinding(1, "Dropped plan finding"),
+        location: {
+          kind: "planning",
+          field: "missing",
+          section: "Decisions",
+        },
+        vetVerdict: "drop",
+        rebuttalAnswer: "agree",
+        outcome: "dropped",
+        finalTier: null,
+        finalReach: null,
+      },
+    ],
+  }
+  const implementation: ImplementationRoundData = {
+    ...entry("example-impl-all", 2, "failed"),
+    phases: [
+      {
+        phase: "audit",
+        assistant: "codex",
+        model: "gpt-6.1-sol",
+        effort: "high",
+        milliseconds: 1200,
+        tokens: [],
+        peakContext: { tokens: 90_000, window: 100_000 },
+        compactions: 1,
+      },
+    ],
+  }
+  writeRoundData(join(f.root, "example-plan-rounds.json"), planning)
+  writeRoundData(join(f.root, "example-impl-rounds.json"), implementation)
+
+  const evidence = await readPlanRoundData(f.root, "example")
+  assert.equal(evidence.planning?.[0]?.findings[0]?.outcome, "dropped")
+  assert.equal(evidence.implementation?.[0]?.status, "failed")
+  assert.equal(evidence.implementation?.[0]?.phases[0]?.compactions, 1)
+})
+
+test("a plan's watch evidence omits a round kind whose file is absent", async (t) => {
+  const f = await fixture(t)
+  writeRoundData(
+    join(f.root, "example-impl-rounds.json"),
+    entry("example-impl-all", 1),
+  )
+
+  assert.deepEqual(await readPlanRoundData(f.root, "example"), {
+    implementation: [entry("example-impl-all", 1)],
+  })
 })
 
 test("review and rebuttal outcomes stay attached to report finding identity", () => {

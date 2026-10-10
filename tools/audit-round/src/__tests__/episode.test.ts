@@ -4,7 +4,12 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { computeEpisode, joinedEpisode, readEpisode } from "../episode.js"
+import {
+  computeEpisode,
+  formatWatchEvidence,
+  joinedEpisode,
+  readEpisode,
+} from "../episode.js"
 import { readLog } from "../episode-log.js"
 import {
   areas,
@@ -135,6 +140,23 @@ test("joined totals and repeated growth include findings from both repositories"
   assert.deepEqual(data.growthPatterns, [
     { label: "recurrence", commits: ["repo-edu@c000002", "plan@c000002"] },
   ])
+})
+
+test("joined watch evidence keeps planning and implementation round data beside Git", () => {
+  const evidence = JSON.parse(
+    formatWatchEvidence(
+      joinedEpisode(
+        { "repo-edu": history(correction()), plan: history() },
+        "example",
+        areas,
+      ),
+      { planning: [], implementation: [] },
+    ),
+  )
+
+  assert.equal(evidence.topic, "example")
+  assert.deepEqual(evidence.roundData, { planning: [], implementation: [] })
+  assert.equal(evidence.repositories.length, 2)
 })
 
 test("each finding resolves current, split and unknown areas while all other tokens still count", () => {

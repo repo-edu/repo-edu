@@ -10,6 +10,7 @@ import {
 } from "./episode-facts.js"
 import { type LogCommit, readLog } from "./episode-log.js"
 import { type Finding, readFindings } from "./findings.js"
+import { type PlanRoundData, readPlanRoundData } from "./round-data.js"
 import {
   looseForm,
   parseSubject,
@@ -341,18 +342,23 @@ export async function readWatchEvidence(
       topic = planStem(input.target)
     }
   }
+  const roundData =
+    topic === null ? {} : await readPlanRoundData(input.planRoot, topic)
   return formatWatchEvidence(
     joinedEpisode(logs, topic, loadAreaModel(input.repoEduRoot).areas, anchor),
+    roundData,
   )
 }
 
-/** One serialisation for the command and watch writer's prompt; no episode file. */
+/** One serialisation for Git and round-data evidence; no episode file. */
 export function formatWatchEvidence(
   evidence: ReturnType<typeof joinedEpisode>,
+  roundData: PlanRoundData = {},
 ): string {
   return JSON.stringify(
     {
       ...evidence,
+      roundData,
       repositories: evidence.repositories.map(
         ({ history: _history, ...episode }) => episode,
       ),

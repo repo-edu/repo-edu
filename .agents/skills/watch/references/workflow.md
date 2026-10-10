@@ -63,11 +63,13 @@ The runner's watch phase runs after the round's own work is done, so there is
 nothing in flight to block. A red grade from that phase ends the auditor
 sequence, so no queued round starts before the user decides.
 
-The shared episode module in Repo Edu computes membership and counts from Git. The runner supplies
-the audited plan's topic and formats joined evidence only after a finished fix when glance says
-watch is due. The writer receives that evidence, including the two graded heads, and owns both the
-judgement and the finished wording. A hand-run watch obtains the same evidence under
-**Hand-run entry**. No route writes an episode file or computes an episode before audit.
+The shared episode module in Repo Edu computes membership and counts from Git.
+The runner supplies the audited plan's topic and formats joined evidence only
+after a finished fix when glance says watch is due. The evidence carries the Git
+episode, including the two graded heads, and each of the plan's two round data
+files that exists. The writer owns both the judgement and the finished wording.
+A hand-run watch obtains the same evidence under **Hand-run entry**. No route
+writes an episode file or computes an episode before audit.
 
 The evidence is bounded to commits reachable from each repository's HEAD.
 Other branches and refs are outside it. The watch may inspect named commits
@@ -173,8 +175,9 @@ only its `clean` record. The watch reads the sequence of rounds for trajectory
 and reads the artifact only at the area that sequence points to, to ground why
 that area drifts, landing nothing but its document and its own record. They stay
 independent where it matters: the watch consumes the audits' commit record
-after the fact, never their reports, transcripts or sessions, and it does not
-re-run them. The runner supplies Git evidence, never the round's reasoning.
+and retained round data after the fact, never their reports, transcripts or
+sessions, and it does not re-run them. The runner supplies settled outcomes,
+never the round's reasoning.
 
 Read the supplied plan-side and implementation-side trajectories together,
 including reactive off-plan rework: the stem marks planned work and often
@@ -191,6 +194,22 @@ net burden removed and never joins such a run. On Repo Edu commits the
 subject's leading mark gives the same reading over whole commits, so
 `git log --oneline` shows a `growth-medium` or `growth-high` run without
 opening a single body.
+
+Use only three parts of the round data beside that Git evidence:
+
+- Dropped findings show what an audit raised but its review did not retain. Use
+  them to recognise a concern that keeps returning. They are not accepted
+  findings and do not add to the commit record's severity or area counts.
+- Round status distinguishes completed reads from failed, interrupted,
+  awaiting-ruling and still in-progress rounds. Keep their findings visible,
+  but do not describe an unfinished round as completed evidence.
+- A phase whose `compactions` value is above zero resumed from a summary. State
+  that limit when relying on its audit, and discount the completeness of the
+  read. Compaction alone does not change the grade or suggest a response.
+
+Do not use the other round data fields to take over the judge's stop decision,
+the trial's comparison or Git's ownership of episode membership and accepted
+records.
 
 Bullets outside the current token form are listed as unreadable and supply
 no partial counts. Their subjects still supply independent severity evidence.
@@ -351,17 +370,20 @@ the doer's reasoning. So:
 - The watch is read-only except for the watch file and the watch record.
   Change no code, run no writing command and land no commit.
 
-The round that just ran is evidence only through the commits it landed, the
-same as every earlier round.
+The round that just ran is evidence through the commits it landed and its
+retained entry, the same as every earlier round. Its reports and session remain
+outside the watch.
 
 ## Input
 
 Use the shared protocol's **Later files** for the watch and cache-root
-arguments. The prompt separately supplies joined Git evidence for the audited
-plan. Take the topic and both graded heads from that evidence; do not
-select a topic from HEAD or reread current heads to replace the supplied ones.
-The runner computes this snapshot after the fix, only when glance says watch
-is due.
+arguments. The prompt separately supplies one JSON value. Its episode fields
+hold the joined Git evidence and its `roundData` object holds the existing
+`planning` and `implementation` round-kind files. An absent key means that
+round kind has no file. Take the topic and both graded heads from the episode
+evidence; do not select a topic from HEAD or reread current heads to replace the
+supplied ones. The runner computes this snapshot after the fix, only when glance
+says watch is due.
 
 No route reads or writes an episode file.
 

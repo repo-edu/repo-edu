@@ -33,15 +33,16 @@ consumers.
   `runWatch` owns the watch that follows a round: the glance decides from the commit record and the
   watch's own history whether a watch is due, and only a due glance runs `watch` to write the
   finished document. The audited plan's stem comes from `planStem` and selects both the glance
-  record and joined watch evidence. Only a due glance computes and formats that evidence, once after
-  the fix. Only the writer's prompt receives the snapshot separately from its file arguments. The
+  record and joined watch evidence. Only a due glance computes and formats the Git episode and the
+  plan's existing round-kind data files, once after the fix. Only the writer's prompt receives the
+  snapshot separately from its file arguments. The
   glance is a dependency the runner supplies from `glance.ts`, not a phase, so a not-due round
   starts no session for it. The watch writer owns both the judgement and final wording. Its model
   and effort live in `settings.json`, beside the brief's settings. The watch runs only after a plan
   round with audit findings that finished, because a round awaiting a ruling has not proved its work
   landed; nothing is lost, since the glance counts audit correction commits and not rounds. A round
   given no watch target, which is what `--no-watch` does, consults no glance at all. The watch reads
-  the commit record and never the round, so `runWatch` passes it no transcript and no report. After
+  the Git record and retained round data, so `runWatch` passes it no transcript or report. After
   the watch finishes, `runWatch` reads back the grade it recorded; a watch that leaves no readable
   entry fails its phase. A finished round reports that grade, and the command runner ends the
   auditor sequence on red, so no queued round starts before the user acts on the watch. A finished
@@ -116,8 +117,9 @@ consumers.
   unreadable reason; unreadable findings contribute no partial counts. Current areas resolve
   directly, retired areas resolve through `splitFrom` and unknown areas remain listed on their
   findings. Redesigns and widening renames identify possible new graded windows for the watch to
-  judge. `readWatchEvidence` joins both histories and `formatWatchEvidence` serialises the evidence
-  for the runner and hand-run command. It resolves a hand-run commit target as an explicit anchor in
+  judge. `readWatchEvidence` joins both histories with the plan's existing planning and
+  implementation round data, and `formatWatchEvidence` serialises the evidence for the runner and
+  hand-run command. It resolves a hand-run commit target as an explicit anchor in
   whichever repo holds its SHA; HEAD forms mean Repo Edu. The peer keeps its own anchor. Without a
   target it takes the newest stem commit across both histories by commit date. No episode file is
   written.
@@ -249,7 +251,8 @@ consumers.
   tokens added since the previous written stamp, and a logged tool line reports the tokens added
   since the previous tool line, beside the time since it. Both chain into the totals beside them; a
   fresh phase starts its stamp baseline at zero and a resumed phase reports no first change.
-  `round-data.ts` owns the checked JSON schema and exclusive final write. The file records the
+  `round-data.ts` owns the checked JSON schema, exclusive final write and the read of one plan's
+  existing round-kind files from the active root or closed-plan archive. The file records the
   unchanged settings snapshot, chosen audit setting and source, phase measurements and landed repo
   and SHA pairs. It is written when a plan-target round ends, including failure or an unanswered
   ruling; a process crash before that write leaves no file. `run-files.ts` completes each required

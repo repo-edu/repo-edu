@@ -125,7 +125,7 @@ test("watch receives Repo Edu's workflow and joined evidence without a launcher"
       `Source file: ${join(f.root, ".agents/skills/watch/references/workflow.md")}`,
     ),
   )
-  assert.ok(writer.endsWith("Git episode evidence:\nJoined episode facts"))
+  assert.ok(writer.endsWith("Joined watch evidence:\nJoined episode facts"))
 })
 
 for (const phase of [

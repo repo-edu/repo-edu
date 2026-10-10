@@ -1,5 +1,5 @@
 import { readFileSync, renameSync, writeFileSync } from "node:fs"
-import { readdir } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { z } from "zod"
 import { type Finding, findingTitle, readFindings } from "./findings.js"
@@ -198,6 +198,10 @@ export type PlanningRoundData = z.infer<typeof planningRoundDataSchema>
 export type ImplementationRoundData = z.infer<
   typeof implementationRoundDataSchema
 >
+export type PlanRoundData = {
+  readonly planning?: readonly PlanningRoundData[]
+  readonly implementation?: readonly ImplementationRoundData[]
+}
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
 
@@ -239,6 +243,46 @@ export async function roundDataFiles(planRoot: string): Promise<string[]> {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
   return [...active, ...closed].sort()
+}
+
+/** Read the two round-kind files that exist for one active or closed plan. */
+export async function readPlanRoundData(
+  planRoot: string,
+  stem: string,
+): Promise<PlanRoundData> {
+  const files = await roundDataFiles(planRoot)
+  const selected = {
+    planning: files.filter(
+      (file) => basename(file) === `${stem}-plan-rounds.json`,
+    ),
+    implementation: files.filter(
+      (file) => basename(file) === `${stem}-impl-rounds.json`,
+    ),
+  }
+  const duplicate = Object.entries(selected).find(
+    ([, matches]) => matches.length > 1,
+  )
+  if (duplicate !== undefined)
+    throw new Error(
+      `More than one ${duplicate[0]} round data file exists for ${stem}`,
+    )
+
+  const [planning, implementation] = await Promise.all([
+    selected.planning[0] === undefined
+      ? undefined
+      : readFile(selected.planning[0], "utf8").then((source) =>
+          planningRoundFileSchema.parse(JSON.parse(source)),
+        ),
+    selected.implementation[0] === undefined
+      ? undefined
+      : readFile(selected.implementation[0], "utf8").then((source) =>
+          implementationRoundFileSchema.parse(JSON.parse(source)),
+        ),
+  ])
+  return {
+    ...(planning === undefined ? {} : { planning }),
+    ...(implementation === undefined ? {} : { implementation }),
+  }
 }
 
 /** Split the allocated name into the target-wide identity stored in JSON. */

@@ -515,6 +515,40 @@ for (const grade of ["green", "amber"] as const) {
   })
 }
 
+test("a due watch receives the current round's dropped findings from joined evidence", async () => {
+  const round = controlledRound()
+  round.decide(dueDecision)
+  const joined = JSON.stringify({
+    topic: "example",
+    roundData: {
+      implementation: [
+        {
+          target: "example-impl-all",
+          round: 1,
+          findings: [{ title: reportFinding.title, outcome: "dropped" }],
+        },
+      ],
+    },
+  })
+  const result = await runRoundWithAccount(
+    { ...files, plan: "example.md", scope: "all" },
+    {
+      ...round.dependencies,
+      watchEvidence: async () => joined,
+    },
+  )
+
+  assert.equal(result.status, "finished")
+  assert.equal(result.account.findings[0]?.outcome, "dropped")
+  const writer = round.calls.find((call) => call.phase === "watch")
+  assert.equal(writer?.phase, "watch")
+  if (writer?.phase !== "watch") return
+  assert.equal(
+    JSON.parse(writer.evidence).roundData.implementation[0].findings[0].outcome,
+    "dropped",
+  )
+})
+
 for (const accepted of [false, true]) {
   for (const target of [
     { plan: "example.md", scope: "all" },
@@ -802,7 +836,7 @@ test("a due glance completes the watch in one fresh session", async () => {
       ({ repository, sha }) => ({ repository, sha }),
     ),
   })
-  // The watch reads the commit record, so it receives none of the round's files.
+  // The watch reads retained evidence, so it receives none of the round's session files.
   assert.equal(round.glances.length, 1)
   assert.deepEqual(round.watchGrades, [{ cacheRoot, stem: "example" }])
   assert.deepEqual(round.calls.slice(5), [

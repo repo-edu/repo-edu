@@ -225,12 +225,12 @@ export async function runClose(
 }
 
 /**
- * The watch that follows a round. It reads the commit record and never the
- * round, so nothing it is given comes from the round's own files: the glance
- * decides from the log and the watch's own history alone, and the watch
- * grounds itself in the code the log points at. The glance exists because the
- * watch is expensive and most rounds do not move the record far enough to
- * change its reading; `glance.ts` owns its rule.
+ * The watch that follows a round. It reads the Git record and retained round
+ * data, never the round's reports or transcript. The glance decides from the
+ * log and the watch's own history alone, and the watch grounds itself in the
+ * code the log points at. The glance exists because the watch is expensive and
+ * most rounds do not move the record far enough to change its reading;
+ * `glance.ts` owns its rule.
  *
  * Only a round that finished runs it. A round awaiting a ruling has not proved
  * that its work landed, so the record it would grade may be missing its own

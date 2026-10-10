@@ -170,7 +170,7 @@ test("a red watch stops the auditor sequence before the next queued round", asyn
   await assert.rejects(readFile(queue), { code: "ENOENT" })
 })
 
-test("a due glance sends the watch the record and the cache, never the round", async (t) => {
+test("a due glance sends the watch joined evidence and the cache, never round session files", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
   assert.equal(
     await runCommand(["example.md", "3"], f.runtime, f.options),

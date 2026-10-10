@@ -32,8 +32,8 @@ test("watch evidence reaches the assistant but is omitted from the log prompt", 
     arguments: ["watch.md", f.root],
     evidence,
   })
-  assert.ok(text.endsWith(`Git episode evidence:\n${evidence}`))
-  assert.ok(log.endsWith("Git episode evidence:\n(contents omitted from log)"))
+  assert.ok(text.endsWith(`Joined watch evidence:\n${evidence}`))
+  assert.ok(log.endsWith("Joined watch evidence:\n(contents omitted from log)"))
   assert.ok(!log.includes(evidence))
 })
 

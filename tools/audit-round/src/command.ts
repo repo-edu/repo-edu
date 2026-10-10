@@ -436,7 +436,7 @@ Use brief --help or close --help for their arguments and options.`,
   command
     .command("episode", { hidden: true })
     .description(
-      "Print joined Git evidence for a hand-run watch without writing files.",
+      "Print joined Git and round data evidence for a hand-run watch without writing files.",
     )
     .argument(
       "[stem-or-commit]",

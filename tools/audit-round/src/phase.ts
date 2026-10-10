@@ -293,7 +293,7 @@ export function roundPhases(
     // Settings choose the fixer whoever audited; unlike the vetter, it may be the auditor.
     fix: run("fix", config.phases.fix.assistant),
     brief: run("brief", config.phases.brief.assistant),
-    // The watch reads the commit record, never the round, so the auditor does not select it.
+    // The watch reads joined trajectory evidence, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
     // Loop-close is no part of a round; it runs alone on its own settings.
     close: run("close", config.phases.close.assistant),
