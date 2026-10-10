@@ -1,5 +1,5 @@
 import { split } from "shellwords"
-import type { CliModels, Feedback, ModelSelection } from "./feedback.js"
+import type { CliModels, ModelSelection } from "./feedback.js"
 import {
   type Assistant,
   assistantLetters,
@@ -7,13 +7,14 @@ import {
   modelStrength,
   type Phase,
   type PinnedModel,
+  type SessionContext,
   strengthLetters,
   transcribed,
 } from "./phase.js"
 import type { ModelTokenUsage } from "./round-data.js"
 import type { RoundSettings } from "./settings.js"
 
-export type Context = Extract<Feedback, { type: "context" }>
+export type Context = SessionContext
 
 function effortText(effort: string | null): string {
   return effort === "xhigh" ? "extra high" : (effort ?? "effort unavailable")
@@ -80,6 +81,10 @@ export type RanPhase = {
   readonly spent: number | null
   /** Tokens attributed to this phase, grouped by the model that spent them. */
   readonly tokens: readonly ModelTokenUsage[]
+  /** The fullest context observed across every invocation of this phase. */
+  readonly peakContext: Context | null
+  /** Compaction events observed across every invocation of this phase. */
+  readonly compactions: number
 }
 
 /**

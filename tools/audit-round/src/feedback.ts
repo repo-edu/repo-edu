@@ -25,6 +25,7 @@ export type Feedback =
   | { readonly type: "session"; readonly sessionId: string }
   | { readonly type: "model"; readonly selection: ModelSelection }
   | ({ readonly type: "context" } & SessionContext)
+  | { readonly type: "compaction" }
   | { readonly type: "text"; readonly text: string }
   | { readonly type: "diagnostic"; readonly text: string }
   | {

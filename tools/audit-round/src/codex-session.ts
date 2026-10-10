@@ -51,8 +51,12 @@ export async function findSessionFile(
 
 export function decodeCodexUsage(
   record: unknown,
-): Extract<Feedback, { type: "model" | "context" | "tokens" }>[] {
+): Extract<
+  Feedback,
+  { type: "model" | "context" | "tokens" | "compaction" }
+>[] {
   const event = eventSchema.parse(record)
+  if (event.type === "compacted") return [{ type: "compaction" }]
   if (event.type === "turn_context") {
     return [{ type: "model", selection: selectionSchema.parse(event.payload) }]
   }

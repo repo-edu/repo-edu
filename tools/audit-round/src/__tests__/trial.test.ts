@@ -92,6 +92,8 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     effort: "xhigh",
     milliseconds,
     tokens: [{ model, input: 1000, cached: 500, output: 100 }],
+    peakContext: { tokens: 10_000, window: 100_000 },
+    compactions: 0,
   })
   const finding = (
     title: string,

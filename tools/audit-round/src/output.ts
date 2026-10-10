@@ -480,13 +480,16 @@ export class RoundOutput<R extends Run = Run> {
       // A fresh session starts empty, so its first stamp reports the startup context.
       statusTokens: input.sessionId === null ? 0 : null,
     }
+    const earlier = this.ran.get(input.phase)
     this.ran.set(input.phase, {
       selection: phaseSelection(
         input.model,
         this.run.selections[input.assistant],
       ),
-      spent: this.ran.get(input.phase)?.spent ?? null,
-      tokens: this.ran.get(input.phase)?.tokens ?? [],
+      spent: earlier?.spent ?? null,
+      tokens: earlier?.tokens ?? [],
+      peakContext: earlier?.peakContext ?? null,
+      compactions: earlier?.compactions ?? 0,
     })
     const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
@@ -518,21 +521,36 @@ export class RoundOutput<R extends Run = Run> {
         break
       case "model":
         this.ran.set(active.input.phase, {
+          ...this.phaseRun(active.input.phase),
           selection: feedback.selection,
-          spent: this.ran.get(active.input.phase)?.spent ?? null,
-          tokens: this.ran.get(active.input.phase)?.tokens ?? [],
         })
         this.say(
           `${prefix} ${active.input.assistant} ${modelText(feedback.selection)}`,
         )
         break
-      case "context":
+      case "context": {
+        const run = this.phaseRun(active.input.phase)
         active.context = feedback
+        this.ran.set(active.input.phase, {
+          ...run,
+          peakContext: fullerContext(run.peakContext, feedback),
+        })
         break
+      }
+      case "compaction": {
+        const run = this.phaseRun(active.input.phase)
+        this.ran.set(active.input.phase, {
+          ...run,
+          compactions: run.compactions + 1,
+        })
+        if (run.compactions === 0)
+          this.say(
+            `Warning: The ${active.input.phase} phase compacted. Use a narrower step or step range instead of a larger context window.`,
+          )
+        break
+      }
       case "tokens": {
-        const run = this.ran.get(active.input.phase)
-        if (run === undefined)
-          throw new Error("Token usage arrived before its phase started")
+        const run = this.phaseRun(active.input.phase)
         const totals: readonly ModelTokenUsage[] =
           feedback.update.kind === "selected-model"
             ? [{ model: run.selection.model, ...feedback.update.tokens }]
@@ -585,9 +603,8 @@ export class RoundOutput<R extends Run = Run> {
     this.say(`${this.report()}${tokenSuffix(run.tokens)}`)
     const { phase } = active.input
     this.ran.set(phase, {
-      selection: run.selection,
+      ...run,
       spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
-      tokens: run.tokens,
     })
     const detail = result.status === "failed" ? `: ${result.reason}` : ""
     this.say(`[${phase}] ${result.status}${detail}`)
@@ -656,6 +673,8 @@ export class RoundOutput<R extends Run = Run> {
               effort: ran.selection.effort,
               milliseconds: Math.round(ran.spent),
               tokens: [...ran.tokens],
+              peakContext: ran.peakContext,
+              compactions: ran.compactions,
             },
           ]
         }),
@@ -712,12 +731,30 @@ export class RoundOutput<R extends Run = Run> {
     const run = this.ran.get(active.input.phase)
     if (run === undefined) return
     this.ran.set(active.input.phase, {
-      selection: run.selection,
+      ...run,
       spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
-      tokens: run.tokens,
     })
     this.active = undefined
   }
+
+  private phaseRun(phase: Phase): RanPhase {
+    const run = this.ran.get(phase)
+    if (run === undefined)
+      throw new Error("Phase feedback arrived before its phase started")
+    return run
+  }
+}
+
+function fullerContext(current: Context | null, next: Context): Context {
+  const measurement = { tokens: next.tokens, window: next.window }
+  if (current === null || next.tokens > current.tokens) return measurement
+  if (
+    next.tokens === current.tokens &&
+    current.window === null &&
+    next.window !== null
+  )
+    return measurement
+  return current
 }
 
 function changeSince(context: Context | null, baseline: number | null): string {

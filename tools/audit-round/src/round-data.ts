@@ -149,6 +149,13 @@ const commonRoundData = z.strictObject({
       effort: z.string().min(1).nullable(),
       milliseconds: z.number().int().nonnegative(),
       tokens: z.array(tokenUsage),
+      peakContext: z
+        .strictObject({
+          tokens: z.number().int().nonnegative(),
+          window: z.number().int().positive().nullable(),
+        })
+        .nullable(),
+      compactions: z.number().int().nonnegative(),
     }),
   ),
   commits: z.array(

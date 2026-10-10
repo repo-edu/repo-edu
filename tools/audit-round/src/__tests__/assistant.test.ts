@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { split } from "shellwords"
 import { runAssistantPhase } from "../assistant.js"
+import { decodeClaude } from "../claude.js"
 import {
   interactiveArguments,
   phaseRequest,
@@ -33,6 +34,13 @@ const input = (
   ...testContext(cwd),
   arguments: ["/peer plan/AUDIT.md"],
   sessionId: null,
+})
+
+test("Claude compact boundaries become phase feedback", () => {
+  assert.deepEqual(
+    decodeClaude({ type: "system", subtype: "compact_boundary" }),
+    [{ type: "compaction" }],
+  )
 })
 
 async function recordedTokenUpdate(assistant: Assistant, recording: string) {

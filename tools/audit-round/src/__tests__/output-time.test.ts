@@ -314,6 +314,8 @@ for (const assistant of ["claude", "codex"] as const) {
             output: 12,
           },
         ],
+        peakContext: null,
+        compactions: 0,
       },
     ])
     assert.deepEqual(data.commits, [
@@ -326,6 +328,83 @@ for (const assistant of ["claude", "codex"] as const) {
       log.some(
         (line) => line.includes("tokens  ") && line.includes("input 0.1k"),
       ),
+    )
+  })
+}
+
+for (const assistant of ["claude", "codex"] as const) {
+  test(`${assistant} phase retains peak context and warns once after compaction`, async (t) => {
+    const f = await fixture(t)
+    const visible: string[] = []
+    const settings = {
+      ...testSettings,
+      phases: {
+        ...testSettings.phases,
+        fix: { ...testSettings.phases.fix, assistant },
+      },
+    }
+    const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
+    const run = await buildRoundRun(setup, Date.now(), selections, settings)
+    const output = new RoundOutput(run, {
+      terminal: {
+        write: (text) => visible.push(text),
+        status: () => {},
+        clear: () => {},
+      },
+    })
+    t.after(() => output.close())
+    await output.phase.start(
+      {
+        ...setup,
+        phase: "fix",
+        rulingFile: "RULING.md",
+        assistant,
+        model: unpinned,
+        arguments: ["REPORT.md"],
+        sessionId: null,
+      },
+      "Run the fix",
+    )
+    await output.phase.observe({
+      type: "context",
+      tokens: 240_000,
+      window: assistant === "codex" ? 258_400 : null,
+    })
+    await output.phase.observe({ type: "compaction" })
+    await output.phase.observe({
+      type: "context",
+      tokens: 12_000,
+      window: null,
+    })
+    await output.phase.observe({ type: "compaction" })
+    await output.phase.finish({ status: "finished", sessionId: "session" })
+    output.finish({
+      status: "finished",
+      report: "REPORT.md",
+      cleanAudit: false,
+      recommendation: null,
+      watch: null,
+      commits: [],
+      account: { judgedRepos: ["repo-edu"], findings: [] },
+    })
+
+    assert.ok(run.data)
+    const phase = parseRoundDataFile(
+      run.data.path,
+      await readFile(run.data.path, "utf8"),
+    )[0]?.phases[0]
+    assert.deepEqual(phase?.peakContext, {
+      tokens: 240_000,
+      window: assistant === "codex" ? 258_400 : null,
+    })
+    assert.equal(phase?.compactions, 2)
+    assert.equal(
+      visible.filter((text) => text.includes("phase compacted")).length,
+      1,
+    )
+    assert.match(
+      visible.join("\n"),
+      /Use a narrower step or step range instead of a larger context window\./,
     )
   })
 }

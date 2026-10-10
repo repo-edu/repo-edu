@@ -4,7 +4,26 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { CodexSessionReader } from "../codex-session.js"
 import type { Feedback } from "../feedback.js"
-import { fixture } from "./helpers.js"
+import { fixture, recorded } from "./helpers.js"
+
+test("usage reads a captured Codex compacted item as phase feedback", async (t) => {
+  const f = await fixture(t)
+  await writeFile(
+    join(f.root, "rollout-session.jsonl"),
+    await recorded("codex-compacted.jsonl"),
+  )
+  const usage = new CodexSessionReader(f.root)
+  t.after(() => usage.close())
+  const feedback: Feedback[] = []
+  await usage.read(
+    "session",
+    async (value) => {
+      feedback.push(value)
+    },
+    true,
+  )
+  assert.deepEqual(feedback, [{ type: "compaction" }])
+})
 
 test("usage reads keep an incomplete UTF-8 tail and never replay old measurements", async (t) => {
   const f = await fixture(t)

@@ -66,6 +66,7 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
     }
     case "system": {
       const { subtype } = z.object({ subtype: z.string() }).parse(event)
+      if (subtype === "compact_boundary") return [{ type: "compaction" }]
       if (subtype !== "init") return []
       const { session_id } = z
         .object({ session_id: z.string().min(1) })
