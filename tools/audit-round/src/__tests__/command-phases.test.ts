@@ -131,7 +131,12 @@ for (const auditor of ["claude", "codex"] as const) {
         }
         const visible = f.visible.join("\n")
         assert.doesNotMatch(visible, /PHASE RESULT:/)
-        assert.match(log, /\nStarted \d{4}-/)
+        // The run's rule is heavier than the phase rule and boxes the run in,
+        // whether the round finished or handed over for a ruling.
+        assert.match(log, /\n═{72}\n[^\n]+\nStarted \d{4}-/)
+        assert.match(log, /(finished\.|retained\.\n[^\n]+)\n═{72}\n/)
+        assert.equal(log.match(/═{72}/g)?.length, 2)
+        assert.doesNotMatch(log, /─{72}\n[^\n]*\nStarted /)
         // A round that handed over has not proved its work landed, so it never glances.
         assert.equal(log.includes("[glance]"), !ruling)
         if (!ruling)

@@ -63,6 +63,11 @@ export type RoundDocuments = {
 
 /** The rule that sets a phase start or a glance off from what came before. */
 const separator = "─".repeat(72)
+/**
+ * The rule that boxes a whole run in. A chain prints rounds back to back, so
+ * the run boundary needs a heavier mark than the phase boundaries inside it.
+ */
+const runRule = "═".repeat(72)
 
 export type OutputOptions = {
   readonly terminal: Terminal
@@ -353,8 +358,12 @@ export class RoundOutput<R extends Run = Run> {
       const texts =
         this.paths.markdown === null ? "" : `\nTexts: ${this.paths.markdown}`
       this.transcribe(`# ${run.title}\n\n${started}\n`)
+      // The heavy rule sits directly above the title so the run opening is
+      // the first thing a reader sees after the previous run's closing rule.
+      this.say(
+        `\n${runRule}\n${run.title}\n${started}\nLog: ${this.paths.log}${texts}`,
+      )
       this.models(run.selections)
-      this.say(`${run.title}\n${started}\nLog: ${this.paths.log}${texts}`)
     } catch (error) {
       this.files.close()
       throw error
@@ -645,6 +654,9 @@ export class RoundOutput<R extends Run = Run> {
           : `Stopped without a ruling. The round files are retained.\nResume: ${recoveryCommand(result.session)}`,
       )
     }
+    // The closing rule pairs with the opening one, so the chain's messages
+    // between rounds sit outside both boxes.
+    this.say(runRule)
   }
 
   release(): void {

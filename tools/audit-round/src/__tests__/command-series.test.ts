@@ -709,7 +709,7 @@ test("an automatic rebuttal round logs the resumed auditor's final recommendatio
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Audit round finished\.\nRecommendation: stop\. The reconciled round has converged\./,
+    /Recommendation: stop\. The reconciled round has converged\.\nAudit round finished\.\n═{72}\n/,
   )
   assert.equal(
     visible.match(

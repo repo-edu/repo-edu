@@ -70,7 +70,7 @@ test("startup writes only to the terminal before the models table opens the run 
     f.errors.join("\n"),
   )
   const { log } = await f.records()
-  assert.match(log, /^audit +codex +chosen-model +high/)
+  assert.match(log, /^\n═{72}\nImplementation audit of /)
   assert.doesNotMatch(
     log,
     /Checking .* updates|claude update output|Codex is up to date/,

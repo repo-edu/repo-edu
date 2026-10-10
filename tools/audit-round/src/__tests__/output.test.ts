@@ -741,10 +741,10 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
   assert.match(output.paths.log, /example-impl-all-01-6-brief\.oul\.log$/)
   assert.equal(output.paths.markdown, null)
   assert.match(
-    visible[1] as string,
-    /^Brief of example-impl-all-01-1-round\.oth\.md\n/,
+    visible[0] as string,
+    /^\n═{72}\nBrief of example-impl-all-01-1-round\.oth\.md\n/,
   )
-  assert.doesNotMatch(visible[1] as string, /Texts:/)
+  assert.doesNotMatch(visible[0] as string, /Texts:/)
   output.models(selections)
   assert.equal(
     visible.at(-1),
@@ -755,7 +755,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     status: "finished",
     brief: `${transcript.slice(0, -3)}-brief.md`,
   })
-  assert.equal(visible.at(-1), "Brief finished.")
+  assert.deepEqual(visible.slice(-2), ["Brief finished.", "═".repeat(72)])
 })
 
 test("shell display decoding retains unrecognised commands without evaluating them", () => {

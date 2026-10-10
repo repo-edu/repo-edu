@@ -956,10 +956,12 @@ export async function runCommand(
             settings,
           )
           result = round
-          active.finish(round)
-          completed += 1
+          // The recommendation is the round's own output, so it prints inside
+          // the round's box, before the closing line and rule.
           if (round.status === "finished" && round.recommendation !== null)
             await active.message(formatRecommendation(round.recommendation))
+          active.finish(round)
+          completed += 1
           if (!automatic && queue === null) break
           if (round.status !== "finished") {
             await active.message(
