@@ -99,6 +99,31 @@ test("the parser reads every slot of a marked subject", () => {
   )
 })
 
+test("settle and ready omit the capability tag only in the plan repository", () => {
+  for (const role of ["settle", "ready"] as const) {
+    assert.deepEqual(
+      parseSubject(`example/${role}: record the marker`, "plan"),
+      {
+        class: "P3",
+        form: { stem: "example", role, scope: null },
+        tag: null,
+        burden: null,
+        severity: null,
+        kind: null,
+        sentence: "record the marker",
+      },
+    )
+    assert.throws(
+      () => parseSubject(`example/${role}: record the marker`, "repo-edu"),
+      /belongs to the plan repository/,
+    )
+    assert.throws(
+      () => parseSubject(`example/${role} atx: record the marker`, "plan"),
+      /carries no capability tag/,
+    )
+  }
+})
+
 const refusals: [Repository, string, RegExp][] = [
   // The tag.
   ["repo-edu", "c1 docs(repo): s", /capability tag/],

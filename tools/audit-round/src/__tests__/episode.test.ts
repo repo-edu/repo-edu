@@ -313,7 +313,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
     await rename(join(cwd, "example.md"), join(cwd, "example-widen.md"))
     await execa("git", ["add", "-A"], { cwd })
     await commitFixture(cwd, "example/plan-audit ath clean: reopen")
-    await commitFixture(cwd, "example/ready ath: empty")
+    await commitFixture(cwd, "example/ready: empty")
     const log = await readLog(cwd)
     assert.equal(log.length, 5)
     assert.ok(log[4].sha.startsWith(first))

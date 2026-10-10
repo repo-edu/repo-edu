@@ -60,8 +60,9 @@ export function readModelRecord(body: string): readonly string[] {
  * throws a `SubjectError` naming what the subject grammar or the model record
  * refused. Mirrors what the hook guarantees: a record's subject names the
  * auditor the round holds, every subject parses under the repository's form,
- * the body opens with the model the work ran on, and a single-model record
- * agrees with the tag on the effort.
+ * a tagged subject's body opens with the model the work ran on, and a
+ * single-model record agrees with the tag on the effort. Runner-written settle
+ * and ready markers have neither.
  */
 export function stampCommitMessage(
   text: string,
@@ -110,7 +111,7 @@ export function stampCommitMessage(
   )
   // A round states what every phase ran on, so its record replaces whatever the
   // session opened the body with.
-  if (stamps.phases === null) {
+  if (subject.tag !== null && stamps.phases === null) {
     try {
       readModelRecord(lines.slice(1).join("\n"))
     } catch (error) {
@@ -121,20 +122,22 @@ export function stampCommitMessage(
       throw error
     }
   }
-  const modelRecord = stamps.phases ?? lines[first]
-  // One unprefixed record line describes this commit alone, so the two must
-  // agree on the effort. A round lists several and states each phase itself,
-  // and an audit record names its audit while the record names the fix.
-  const said = modelRecord.split(" ").at(-1) ?? ""
-  if (
-    !record &&
-    !modelRecord.includes(":") &&
-    Object.values(efforts).some((effort) => effort === said) &&
-    said !== efforts[subject.tag.effort]
-  )
-    throw new SubjectError(
-      "the subject tag and the model record disagree on the effort",
+  if (subject.tag !== null) {
+    const modelRecord = stamps.phases ?? lines[first]
+    // One unprefixed record line describes this commit alone, so the two must
+    // agree on the effort. A round lists several and states each phase itself,
+    // and an audit record names its audit while the record names the fix.
+    const said = modelRecord.split(" ").at(-1) ?? ""
+    if (
+      !record &&
+      !modelRecord.includes(":") &&
+      Object.values(efforts).some((effort) => effort === said) &&
+      said !== efforts[subject.tag.effort]
     )
+      throw new SubjectError(
+        "the subject tag and the model record disagree on the effort",
+      )
+  }
 
   const output = [subjectLine]
   if (stamps.phases === null) output.push(...lines.slice(1))

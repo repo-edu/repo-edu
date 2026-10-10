@@ -1495,7 +1495,7 @@ test("the round reads each supplied file and records both heads immediately befo
               ]
             : [
                 "example/plan-audit ath growth-none B1: correct the plan",
-                "example/ready ath: ready",
+                "example/ready: ready",
               ],
         )
       },
@@ -1518,7 +1518,7 @@ test("the round reads each supplied file and records both heads immediately befo
       ]),
       ...landedRecords("plan", [
         "example/plan-audit ath growth-none B1: correct the plan",
-        "example/ready ath: ready",
+        "example/ready: ready",
       ]),
     ].map(({ repository, sha }) => ({ repository, sha })),
   })

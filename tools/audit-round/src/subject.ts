@@ -99,7 +99,7 @@ export type SubjectClass =
 export type Subject = {
   readonly class: SubjectClass
   readonly form: Form | null
-  readonly tag: Tag
+  readonly tag: Tag | null
   readonly burden: Burden | null
   readonly severity: Severity | null
   readonly kind: Kind | null
@@ -225,7 +225,7 @@ function classify(slots: Slots, repository: Repository): SubjectClass {
 }
 
 function classOf(slots: Slots, repository: Repository): SubjectClass {
-  const { form, burden, severity, kind } = slots
+  const { form, tag, burden, severity, kind } = slots
   const sequence = severity === null || severity === "clean" ? null : severity
   const empty = burden === null && severity === null && kind === null
   const where =
@@ -235,6 +235,7 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
   if (burden !== null && sequence === null)
     fail("a growth or pruning mark appears only beside a severity sequence")
   if (form === null) {
+    if (tag === null) fail(`${where} needs a capability tag`)
     if (kind === null) fail(`${where} needs a conventional kind`)
     if (severity === "clean")
       fail(`${where} carries a severity sequence or nothing, never clean`)
@@ -245,27 +246,37 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
   }
   switch (form.role) {
     case "init":
+      if (tag === null) fail(`${where} needs a capability tag`)
+      if (repository !== "plan") fail(`${where} belongs to the plan repository`)
+      if (!empty) fail(`${where} carries nothing after its tag`)
+      return "P1"
     case "settle":
     case "ready":
       if (repository !== "plan") fail(`${where} belongs to the plan repository`)
-      if (!empty) fail(`${where} carries nothing after its tag`)
-      return form.role === "init" ? "P1" : "P3"
+      if (tag !== null) fail(`${where} carries no capability tag`)
+      if (!empty) fail(`${where} carries nothing after its form`)
+      return "P3"
     case "plan-audit":
+      if (tag === null) fail(`${where} needs a capability tag`)
       if (repository !== "plan") fail(`${where} belongs to the plan repository`)
       if (severity === null) fail(`${where} needs a severity sequence or clean`)
       if (kind !== null) fail(`${where} carries no conventional kind`)
       return "P2"
     case "closed":
+      if (tag === null) fail(`${where} needs a capability tag`)
       if (!empty) fail(`${where} carries nothing after its tag`)
       return repository === "plan" ? "P3" : "I5"
     case "implemented":
+      if (tag === null) fail(`${where} needs a capability tag`)
       if (!empty) fail(`${where} carries nothing after its tag`)
       return "I5"
     case "impl":
+      if (tag === null) fail(`${where} needs a capability tag`)
       if (severity !== null) fail("a step subject carries no severity")
       if (kind === null) fail(`${where} needs a conventional kind`)
       return "I1"
     case "impl-audit":
+      if (tag === null) fail(`${where} needs a capability tag`)
       if (severity === null) fail(`${where} needs a severity sequence or clean`)
       if (kind !== null) {
         if (severity === "clean") fail("a clean record carries no kind")
@@ -285,14 +296,27 @@ export function locateSubjectSlots(line: string) {
   const tags = tokens.slice(0, colon + 1)
   tags[colon] = tags[colon].slice(0, -1)
   const sentence = tokens.slice(colon + 1).join(" ")
-  const tag = tags[0]?.includes("/") ? 1 : 0
-  let at = tag + 1
+  const form = tags[0]?.includes("/") ? 0 : null
+  const tag = form === null ? 0 : 1
+  const hasTag = tagPattern.test(tags[tag] ?? "")
+  let at = tag + (hasTag ? 1 : 0)
   const burden = burdenPattern.test(tags[at] ?? "") ? at++ : null
   const severity = at
   const hasSeverity = authoredSeverityPattern.test(tags[at] ?? "")
   if (hasSeverity) at += 1
   const kind = kindPattern.test(tags[at] ?? "") ? at++ : null
-  return { tags, sentence, tag, burden, severity, hasSeverity, kind, end: at }
+  return {
+    tags,
+    sentence,
+    form,
+    tag,
+    hasTag,
+    burden,
+    severity,
+    hasSeverity,
+    kind,
+    end: at,
+  }
 }
 
 /**
@@ -305,8 +329,13 @@ export function parseSubject(line: string, repository: Repository): Subject {
   if (sentence.trim().length === 0) fail("the subject needs a sentence")
   if (tags.some((token) => token.length === 0))
     fail("the tags are separated by single spaces")
-  const form = located.tag === 1 ? parseForm(tags[0]) : null
-  const tag = parseTag(tags[located.tag])
+  const form = located.form === null ? null : parseForm(tags[located.form])
+  const tag = located.hasTag ? parseTag(tags[located.tag]) : null
+  if (
+    tag === null &&
+    (form === null || (form.role !== "settle" && form.role !== "ready"))
+  )
+    parseTag(tags[located.tag])
   const burden =
     located.burden === null ? null : parseBurden(tags[located.burden])
   const severity = located.hasSeverity

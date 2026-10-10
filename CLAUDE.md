@@ -322,8 +322,11 @@ deferrals and directed plan-file fixes.
 
 ## Commit Capability Tag
 
-Every commit subject carries a three-character tag naming what produced it: the
-assistant, the strength and the effort, one letter each.
+Every commit subject except the runner-written `settle` and `ready` plan
+markers carries a three-character tag naming what produced it: the assistant,
+the strength and the effort, one letter each. Those two markers record the
+user's call without running an assistant, so attributing them to one would be
+false.
 
 - `a` for Claude and `o` for Codex, naming the vendor rather than the product,
   because both products start with a C.
@@ -337,9 +340,9 @@ default tier and medium effort. The three alphabets share no character, so every
 letter decodes without counting positions, and the tag holds no digit, which a
 subject already spends on the severity sequence's counts.
 
-The tag opens the subject, after the plan form when the subject has one, as
-`abx growth-none c1d1 fix(audit-round): align the recorder result`. Its place in every
-subject class is fixed by
+The tag opens a tagged subject, after the plan form when the subject has one,
+as `abx growth-none c1d1 fix(audit-round): align the recorder result`. Its
+place in every subject class is fixed by
 [the subject grammar](.agents/references/subject-grammar.md).
 
 The tag names the assistant whose work the subject reports. On a
@@ -359,8 +362,10 @@ the full auditor tag from the report filename. The commit hook, this repo's
 
 ## Commit Model Record
 
-Every commit body opens with the model the work ran on, so the log says what
-produced a change without spending subject width on it.
+Every commit body except a runner-written `settle` or `ready` marker opens with
+the model the work ran on, so the log says what produced a change without
+spending subject width on it. Those two commits run no model and carry no model
+record.
 
 A commit no round produced opens with one line, the model and the reasoning
 effort:
@@ -403,9 +408,10 @@ knows the model it was told to run and reads its effort from the environment.
 
 Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the
 record when a round supplies it. Each hook refuses any non-merge commit whose
-body does not open with a model record. It checks the line's shape rather than a list of
-model names, so a new model family needs no edit here. It also refuses a
-single-model record whose effort disagrees with the subject's tag.
+body does not open with a model record, except the tag-free `settle` and `ready`
+forms. It checks the line's shape rather than a list of model names, so a new
+model family needs no edit here. It also refuses a single-model record whose
+effort disagrees with the subject's tag.
 
 ## Vocabulary
 

@@ -111,9 +111,7 @@ test("every subject class derives only the severity its role admits", () => {
       "example/impl-1 oth feat(x)",
       "example/implemented oth",
       "example/closed oth",
-      ...(repository === "plan"
-        ? ["example/init oth", "example/settle oth", "example/ready oth"]
-        : []),
+      ...(repository === "plan" ? ["example/init oth"] : []),
     ]) {
       assert.equal(
         stamp(message(`${subject}: s`), repository),
@@ -160,6 +158,21 @@ test("every subject class derives only the severity its role admits", () => {
     message("oth docs(x): s"),
   )
   assert.throws(() => stamp(message("oth docs(x): s")), /graded finding bullet/)
+})
+
+test("the hook accepts only plan-repo settle and ready subjects without attribution", () => {
+  for (const role of ["settle", "ready"] as const) {
+    const input = `example/${role}: record the marker\n`
+    assert.equal(stamp(input, "plan"), input)
+    assert.throws(
+      () => stamp(input, "repo-edu"),
+      /belongs to the plan repository/,
+    )
+  }
+  assert.throws(
+    () => stamp(message("example/settle oth: record the marker"), "plan"),
+    /carries no capability tag/,
+  )
 })
 
 test("only planning-audit findings carry a search direction", () => {

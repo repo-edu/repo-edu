@@ -39,7 +39,7 @@ const named = { plan: "example", scope: null }
 
 /** Both repos host a step and carry their markers, and plan rounds followed. */
 const implemented = logs(
-  ["plan", 1, "example/ready abx: ready"],
+  ["plan", 1, "example/ready: ready"],
   ["plan", 2, "example/impl-1 obx docs(audit): step"],
   ["repo-edu", 3, "example/impl-2 obx feat(x): step"],
   ["plan", 4, "example/implemented obx: plan share"],
@@ -70,7 +70,7 @@ test("the plan's history selects what its name or no target audits", async (t) =
     ],
     [
       logs(
-        ["plan", 1, "example/ready oth: ready"],
+        ["plan", 1, "example/ready: ready"],
         ["repo-edu", 2, "example/impl-3 oth feat(x): step"],
         [
           "repo-edu",
@@ -136,7 +136,7 @@ test("a named scope audits implementation once a step has landed", async (t) => 
     { roundKind: "implementation", plan: join(root, "example.md"), scope: "2" },
   )
   await assert.rejects(
-    selectTarget(logs(["plan", 1, "example/ready oth: ready"]), root, {
+    selectTarget(logs(["plan", 1, "example/ready: ready"]), root, {
       plan: "example",
       scope: "all",
     }),

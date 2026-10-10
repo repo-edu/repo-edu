@@ -33,13 +33,14 @@ literal, including spaces inside a production.
 
 ```text
 <subject>   ::= <tags>: <sentence>
-<tags>      ::= [<form> ]<tag>[ <growth>][ <severity>][ <kind>]
+<tags>      ::= [<form> ][<tag>][ <growth>][ <severity>][ <kind>]
 <sentence>  ::= free text on one line
 ```
 
 The five slots of `<tags>` keep this order and only the last filled slot is
 followed by the colon. Which slots a subject fills is decided by its class
-under [Classes](#classes).
+under [Classes](#classes). Only the P3 `settle` and `ready` productions omit
+the `<tag>` slot.
 
 ## Terminals and small non-terminals
 
@@ -103,8 +104,8 @@ Plan-file commits, plan repo only. No `<kind>`:
 <P1 init>    ::= <stem>/init <tag>: <S>
 <P2 audit>   ::= <stem>/plan-audit <tag> <growth> <sequence>: <S>
                | <stem>/plan-audit <tag> clean: <S>
-<P3 marker>  ::= <stem>/settle <tag>: <S>
-               | <stem>/ready <tag>: <S>
+<P3 marker>  ::= <stem>/settle: <S>
+               | <stem>/ready: <S>
                | <stem>/closed <tag>: <S>
 ```
 
@@ -129,8 +130,9 @@ Off-plan commits, no `<form>`:
 
 Rules across the classes:
 
-- Every subject carries exactly one `<tag>`, attributed under Repo Edu's
-  **Commit Capability Tag** rule.
+- Every subject except the P3 `settle` and `ready` forms carries exactly one
+  `<tag>`, attributed under Repo Edu's **Commit Capability Tag** rule. Those two
+  runner-written markers report no assistant work.
 - I1 carries no `<severity>`, under the plan doctrine's **Shared implementation
   forms**.
 - Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
@@ -166,7 +168,8 @@ P1        planning-rounds/init ath:
 P2        planning-rounds/plan-audit ath growth-none B2C2:
 P2        planning-rounds/plan-audit ath pruning-low c2d1:
 P2        round-file-naming/plan-audit ath clean:
-P3        planning-rounds/ready ath:
+P3        planning-rounds/settle:
+P3        planning-rounds/ready:
 P3        planning-rounds/closed oth:
 I1        planning-rounds/impl-3 oth feat(audit-round):
 I2        round-file-naming/impl-audit-all oth growth-none d1 docs(vet):
