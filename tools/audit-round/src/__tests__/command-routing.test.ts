@@ -12,9 +12,10 @@ async function lifecyclePlan(
   fixture: Fixture,
   phase: "settled" | "widening",
   tracked = true,
+  stem = "example",
 ) {
-  const name = phase === "settled" ? "example.md" : "example-widen.md"
-  const other = phase === "settled" ? "example-widen.md" : "example.md"
+  const name = phase === "settled" ? `${stem}.md` : `${stem}-widen.md`
+  const other = phase === "settled" ? `${stem}-widen.md` : `${stem}.md`
   await rm(join(fixture.planRoot, other), { force: true })
   await writeFile(join(fixture.planRoot, name), "# Example plan\n")
   if (tracked) {
@@ -493,7 +494,7 @@ for (const command of ["settle", "ready"] as const) {
     })
   })
 
-  for (const state of ["unstaged", "staged", "untracked"] as const) {
+  for (const state of ["unstaged", "staged", "untracked", "ignored"] as const) {
     test(`${command} refuses a plan with ${state} state`, async (t) => {
       const f = await roundFixture(
         t,
@@ -504,10 +505,20 @@ for (const command of ["settle", "ready"] as const) {
         false,
         "plan",
       )
+      const stem = state === "ignored" ? "implementation-audit" : "example"
+      if (state === "ignored") {
+        await writeFile(join(f.planRoot, ".gitignore"), "/*-audit.md\n")
+        await execa("git", ["add", ".gitignore"], { cwd: f.planRoot })
+        await commitFixture(
+          f.planRoot,
+          "fixture/init ath: ignore audit-named plans",
+        )
+      }
       const plan = await lifecyclePlan(
         f,
         command === "settle" ? "widening" : "settled",
-        state !== "untracked",
+        state !== "untracked" && state !== "ignored",
+        stem,
       )
       await writeFile(plan, `# ${state} plan\n`)
       if (state === "staged")
@@ -516,10 +527,7 @@ for (const command of ["settle", "ready"] as const) {
         await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
       ).stdout
 
-      assert.equal(
-        await runCommand([command, "example"], f.runtime, f.options),
-        1,
-      )
+      assert.equal(await runCommand([command, stem], f.runtime, f.options), 1)
       assert.match(
         f.errors.at(-1) ?? "",
         new RegExp(

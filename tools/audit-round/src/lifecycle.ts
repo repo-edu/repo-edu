@@ -62,7 +62,14 @@ async function requireCommittedPlan(planRoot: string, plan: string) {
   const path = relative(planRoot, plan)
   const { stdout } = await execa(
     "git",
-    ["status", "--porcelain=v1", "--untracked-files=all", "--", path],
+    [
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all",
+      "--ignored",
+      "--",
+      path,
+    ],
     { cwd: planRoot },
   )
   if (stdout.length === 0) return
@@ -70,7 +77,7 @@ async function requireCommittedPlan(planRoot: string, plan: string) {
   const states = new Set<string>()
   for (const line of stdout.split("\n")) {
     const status = line.slice(0, 2)
-    if (status === "??") {
+    if (status === "??" || status === "!!") {
       states.add("untracked")
       continue
     }
