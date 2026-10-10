@@ -171,6 +171,8 @@ function findingData(
     throw new Error(
       `Malformed finding at report line ${item.position?.start.line}: expected a bold tier title followed by a token line`,
     )
+  if (heading[3].includes(": "))
+    throw new Error(`Finding ${heading[1]} title cannot contain ": "`)
   const tokens = [...tokenLine.matchAll(/\[([^:\]]+):([^\]]+)\]/g)]
   const values = (key: string) =>
     tokens.filter((token) => token[1] === key).map((token) => token[2])

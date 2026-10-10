@@ -151,7 +151,7 @@ for (const auditor of ["claude", "codex"] as const) {
           const text = {
             audit: "Judged repos:",
             vet: "1. [B] Revise",
-            rebut: "Written rebut",
+            rebut: "1. [B] Agree",
             fix: "Complete fix text.",
           }[phase]
           assert.ok(markdown.includes(text))

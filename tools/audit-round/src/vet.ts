@@ -42,7 +42,6 @@ function checkFindingIdentity(
  */
 export function readVet(source: string, findings: ReportFindings): VetReading {
   const reviews: FindingReview[] = []
-  let conditional = false
   for (const line of source.split(/\r?\n/)) {
     if (line.trim().length === 0) continue
     const verdict =
@@ -56,9 +55,11 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
         number,
         tier: verdict[2] as FindingReview["tier"],
         verdict: vetVerdicts[verdict[3] as keyof typeof vetVerdicts],
+        conditional: false,
       })
     } else if (reviews.length > 0) {
-      conditional = true
+      const index = reviews.length - 1
+      reviews[index] = { ...reviews[index], conditional: true }
     }
   }
   if (
@@ -70,8 +71,9 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
     )
   return {
     reviews,
-    allAccepted:
-      !conditional && reviews.every((review) => review.verdict === "accept"),
+    allAccepted: reviews.every(
+      (review) => review.verdict === "accept" && !review.conditional,
+    ),
   }
 }
 
@@ -79,6 +81,7 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
 export function readRebuttal(
   source: string,
   findings: ReportFindings,
+  reviews: readonly FindingReview[],
 ): readonly FindingRebuttal[] {
   const rebuttals: FindingRebuttal[] = []
   for (const line of source.split(/\r?\n/)) {
@@ -99,5 +102,12 @@ export function readRebuttal(
       answer: rebuttalAnswers[answer[3] as keyof typeof rebuttalAnswers],
     })
   }
+  const missing = reviews.find(
+    (review) =>
+      (review.verdict !== "accept" || review.conditional) &&
+      !rebuttals.some((rebuttal) => rebuttal.number === review.number),
+  )
+  if (missing !== undefined)
+    throw new Error(`Rebuttal needs an answer for finding ${missing.number}`)
   return rebuttals
 }

@@ -212,6 +212,7 @@ function controlledRound(
         number: finding.number,
         tier: finding.tier,
         verdict: evidence.accepted ? "accept" : "revise",
+        conditional: !evidence.accepted,
       })),
       allAccepted: evidence.accepted,
     }),
@@ -1581,8 +1582,18 @@ test("the round reads each supplied file and records both heads immediately befo
         reads.push([file, findings])
         return {
           reviews: [
-            { number: 1, tier: "B", verdict: "revise" },
-            { number: 2, tier: "C", verdict: "accept" },
+            {
+              number: 1,
+              tier: "B",
+              verdict: "revise",
+              conditional: true,
+            },
+            {
+              number: 2,
+              tier: "C",
+              verdict: "accept",
+              conditional: false,
+            },
           ],
           allAccepted: false,
         }

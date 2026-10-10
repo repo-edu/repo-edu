@@ -172,7 +172,14 @@ test("review and rebuttal outcomes stay attached to report finding identity", ()
   assert.deepEqual(
     reviewedRoundFindings(
       [reportFinding(1, "Reviewed finding")],
-      [{ number: 1, tier: "B", verdict: "revise" }],
+      [
+        {
+          number: 1,
+          tier: "B",
+          verdict: "revise",
+          conditional: true,
+        },
+      ],
       [{ number: 1, tier: "B", answer: "contest" }],
     ),
     [
@@ -185,6 +192,51 @@ test("review and rebuttal outcomes stay attached to report finding identity", ()
         finalReach: null,
       },
     ],
+  )
+})
+
+test("one finding recorded in both repositories settles once from the first record", () => {
+  const findings = reviewedRoundFindings([
+    reportFinding(1, "Shared correction", "B", "ordinary"),
+  ])
+  const settled = settleRoundFindings(findings, [
+    {
+      repository: "repo-edu",
+      subject:
+        "example/impl-audit-all oth growth-none B1 fix(audit-round): settle findings",
+      message:
+        "- [B] [area:tool-audit-round] [growth-pattern:none] [reach:rare] [complexity:none] Shared correction: Apply the code correction.",
+    },
+    {
+      repository: "plan",
+      subject:
+        "example/impl-audit-all oth growth-none c1 docs(audit): settle findings",
+      message:
+        "- C [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Shared correction: Apply the plan correction.",
+    },
+  ])
+
+  assert.deepEqual(settled, [
+    {
+      ...findings[0],
+      outcome: "kept",
+      finalTier: null,
+      finalReach: "rare",
+    },
+  ])
+})
+
+test("one repository cannot record the same finding title twice", () => {
+  const record = {
+    repository: "repo-edu" as const,
+    subject:
+      "example/impl-audit-all oth growth-none B1 fix(audit-round): settle findings",
+    message:
+      "- [B] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Repeated correction: Apply the correction.",
+  }
+  assert.throws(
+    () => settleRoundFindings([], [record, record]),
+    /title appears more than once/,
   )
 })
 

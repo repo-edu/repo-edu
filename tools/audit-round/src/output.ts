@@ -649,7 +649,10 @@ export class RoundOutput<R extends Run = Run> {
     this.writeRoundData("in-progress", commits, account, null)
   }
 
-  finish(result: RoundResult | BriefResult | CloseResult): void {
+  finish(
+    result: RoundResult | BriefResult | CloseResult,
+    signal?: AbortSignal,
+  ): void {
     const unsettledReport =
       this.active === undefined
         ? ""
@@ -663,7 +666,9 @@ export class RoundOutput<R extends Run = Run> {
           ? "finished"
           : result.status === "awaiting-ruling"
             ? "awaiting-ruling"
-            : result.reason === "Interrupted"
+            : signal?.aborted === true &&
+                signal.reason instanceof Error &&
+                signal.reason.message === "Interrupted"
               ? "interrupted"
               : "failed",
         result.commits,

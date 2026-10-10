@@ -181,13 +181,15 @@ export async function roundFixture(
           ? { source: report }
           : phase === "vet"
             ? { source: join(f.root, owner, "VET-example.md") }
-            : phase === "fix"
-              ? ruling
-                ? { text: "Written ruling by fix" }
-                : undefined
-              : phase === "close" || phase === "judge"
-                ? undefined
-                : { text: `Written ${phase}` },
+            : phase === "rebut"
+              ? { text: "1. [B] Agree\n" }
+              : phase === "fix"
+                ? ruling
+                  ? { text: "Written ruling by fix" }
+                  : undefined
+                : phase === "close" || phase === "judge"
+                  ? undefined
+                  : { text: `Written ${phase}` },
       commits:
         phase === "fix" && !ruling
           ? [

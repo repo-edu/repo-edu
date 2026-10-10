@@ -815,8 +815,8 @@ export async function runCommand(
         readReport(await readFile(file, "utf8"), kind),
       readVet: async (file, findings) =>
         readVet(await readFile(file, "utf8"), findings),
-      readRebuttal: async (file, findings) =>
-        readRebuttal(await readFile(file, "utf8"), findings),
+      readRebuttal: async (file, findings, reviews) =>
+        readRebuttal(await readFile(file, "utf8"), findings, reviews),
       judgeEvidence: readJudgeEvidence,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
@@ -895,7 +895,7 @@ export async function runCommand(
         dependenciesFor(active),
         settings,
       )
-      active.finish(result)
+      active.finish(result, runtime.signal)
     } else if (prepared.kind === "close") {
       const run = closeRun(
         prepared.plan,
@@ -916,7 +916,7 @@ export async function runCommand(
         dependenciesFor(active),
         settings,
       )
-      active.finish(result)
+      active.finish(result, runtime.signal)
     } else {
       const [first, ...queued] = prepared.auditor ?? []
       const automatic =
@@ -1011,7 +1011,7 @@ export async function runCommand(
             settings,
           )
           result = round
-          active.finish(round)
+          active.finish(round, runtime.signal)
           completed += 1
           if (!automatic && queue === null) break
           if (round.status !== "finished") {

@@ -536,6 +536,7 @@ export async function runRound(
         rebuttals = await dependencies.readRebuttal(
           input.documents.rebut,
           evidence.findings,
+          reviews,
         )
         account = {
           ...account,

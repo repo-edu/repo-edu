@@ -218,6 +218,7 @@ export type FindingReview = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
   readonly verdict: VetVerdict
+  readonly conditional: boolean
 }
 
 export type FindingRebuttal = {
@@ -363,27 +364,45 @@ function recordLocation(
 }
 
 function recordFindings(records: readonly FindingRecord[]): RoundFinding[] {
-  return records.flatMap((record) => {
+  const byTitle = new Map<
+    string,
+    { finding: RoundFinding; repositories: Set<Repository> }
+  >()
+  for (const record of records) {
     const subject = parseSubject(record.subject, record.repository)
-    return readFindings(
+    for (const finding of readFindings(
       record.message,
       record.repository,
       subject.form?.role ?? null,
-    ).map((finding) => ({
-      number: null,
-      title: findingTitle(finding),
-      tier: finding.tier.toUpperCase() as RoundFinding["tier"],
-      reach: finding.reach,
-      complexity: finding.complexity,
-      growthPattern: finding.growthPattern,
-      location: recordLocation(finding, record.repository),
-      vetVerdict: null,
-      rebuttalAnswer: null,
-      outcome: "unmatched" as const,
-      finalTier: null,
-      finalReach: null,
-    }))
-  })
+    )) {
+      const title = findingTitle(finding)
+      const existing = byTitle.get(title)
+      if (existing?.repositories.has(record.repository) === true)
+        throw new Error(`Record finding title appears more than once: ${title}`)
+      if (existing !== undefined) {
+        existing.repositories.add(record.repository)
+        continue
+      }
+      byTitle.set(title, {
+        finding: {
+          number: null,
+          title,
+          tier: finding.tier.toUpperCase() as RoundFinding["tier"],
+          reach: finding.reach,
+          complexity: finding.complexity,
+          growthPattern: finding.growthPattern,
+          location: recordLocation(finding, record.repository),
+          vetVerdict: null,
+          rebuttalAnswer: null,
+          outcome: "unmatched",
+          finalTier: null,
+          finalReach: null,
+        },
+        repositories: new Set([record.repository]),
+      })
+    }
+  }
+  return [...byTitle.values()].map(({ finding }) => finding)
 }
 
 /** Join the fix's durable record bullets to report findings by whole-round title. */
@@ -392,14 +411,7 @@ export function settleRoundFindings(
   records: readonly FindingRecord[],
 ): readonly RoundFinding[] {
   const recorded = recordFindings(records)
-  const byTitle = new Map<string, RoundFinding>()
-  for (const finding of recorded) {
-    if (byTitle.has(finding.title))
-      throw new Error(
-        `Record finding title appears more than once: ${finding.title}`,
-      )
-    byTitle.set(finding.title, finding)
-  }
+  const byTitle = new Map(recorded.map((finding) => [finding.title, finding]))
   const matched = new Set<string>()
   const settled = findings.map((finding): RoundFinding => {
     const final = byTitle.get(finding.title)

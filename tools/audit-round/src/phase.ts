@@ -6,6 +6,7 @@ import type { JudgeEvidence, JudgeEvidenceInput } from "./judge.js"
 import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
 import type {
   FindingRebuttal,
+  FindingReview,
   JudgeAnswer,
   LandedCommit,
   RoundAccount,
@@ -487,6 +488,7 @@ export type RoundDependencies = {
   readonly readRebuttal: (
     file: string,
     findings: ReportFindings,
+    reviews: readonly FindingReview[],
   ) => Promise<readonly FindingRebuttal[]>
   readonly readHead: (root: string) => Promise<string>
   /** Whether a file exists, which tells a finished close that left its plan in place. */

@@ -296,6 +296,49 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
   assert.equal(entry?.judge, null)
 })
 
+for (const [name, abortReason, status] of [
+  ["Ctrl-C cancellation", "Interrupted", "interrupted"],
+  ["stdout failure cancellation", "stdout failed", "failed"],
+] as const) {
+  test(`${name} writes the matching retained status`, async (t) => {
+    const f = await fixture(t)
+    const run = await buildRoundRun(
+      { ...testContext(f.root), plan: "example.md", scope: "all" },
+      Date.now(),
+      selections,
+      testSettings,
+    )
+    const output = new RoundOutput(run, {
+      terminal: { write: () => {}, status: () => {}, clear: () => {} },
+    })
+    t.after(() => output.close())
+    const account = { judgedRepos: ["repo-edu"] as const, findings: [] }
+    const interruption = new AbortController()
+    interruption.abort(new Error(abortReason))
+    output.finish(
+      {
+        status: "failed",
+        phase: "audit",
+        sessionId: "audit-session",
+        assistant: "codex",
+        model: unpinned,
+        ...testContext(f.root),
+        reason: "Command was canceled",
+        commits: [],
+        account,
+      },
+      interruption.signal,
+    )
+
+    assert.ok(run.data)
+    const [entry] = parseRoundDataFile(
+      run.data.path,
+      await readFile(run.data.path, "utf8"),
+    )
+    assert.equal(entry?.status, status)
+  })
+}
+
 for (const assistant of ["claude", "codex"] as const) {
   test(`${assistant} fix tokens span a ruling resume exactly once in retained round data`, async (t) => {
     const f = await fixture(t)

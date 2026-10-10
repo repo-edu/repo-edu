@@ -263,6 +263,19 @@ test("report finding titles are unique across tiers", () => {
   )
 })
 
+test("report finding titles cannot contain the record bullet delimiter", () => {
+  assert.throws(
+    () =>
+      readReport(
+        implementation(
+          finding().replace("Preserve the evidence", "Head drift: stale sha"),
+        ),
+        "implementation",
+      ),
+    /title cannot contain ": "/,
+  )
+})
+
 test("Markdown quotes, nested evidence and code cannot introduce findings or empty-field sentences", () => {
   const examples = `${finding(27)}\nNo findings.`
   const quoted = examples
@@ -502,6 +515,19 @@ test("vet reads a verdict line that ends in a Markdown hard break", () => {
   )
 })
 
+test("vet retains conditions on the finding they follow", () => {
+  assert.deepEqual(
+    readVet(
+      "1. [B] Accept\nUse the narrower correction.\n\n2. [C] Accept",
+      twoFindings,
+    ).reviews,
+    [
+      { number: 1, tier: "B", verdict: "accept", conditional: true },
+      { number: 2, tier: "C", verdict: "accept", conditional: false },
+    ],
+  )
+})
+
 test("every other verdict or line after a verdict prevents skipping the rebuttal", () => {
   for (const verdict of ["Revise", "Drop", "Needs user's ruling"])
     assert.equal(
@@ -543,10 +569,15 @@ test("vet refuses missing, duplicate, out-of-order and malformed verdict numbers
 })
 
 test("rebuttal reads an ordered subset and retains each answer", () => {
+  const reviews = readVet(
+    "1. [B] Revise\nUse the tree entry.\n\n2. [C] Needs user's ruling",
+    twoFindings,
+  ).reviews
   assert.deepEqual(
     readRebuttal(
       "1. [B] Agree\nExplanation.\n\n2. [C] For user's ruling\n",
       twoFindings,
+      reviews,
     ),
     [
       { number: 1, tier: "B", answer: "agree" },
@@ -554,7 +585,20 @@ test("rebuttal reads an ordered subset and retains each answer", () => {
     ],
   )
   assert.throws(
-    () => readRebuttal("2. [C] Contest\n1. [B] Agree", twoFindings),
+    () => readRebuttal("2. [C] Contest\n1. [B] Agree", twoFindings, reviews),
     /order/,
   )
+})
+
+test("rebuttal requires answers for changed verdicts and conditional accepts", () => {
+  for (const source of [
+    "1. [B] Revise\nUse the tree entry.\n\n2. [C] Accept",
+    "1. [B] Accept\nUse the tree entry.\n\n2. [C] Accept",
+  ]) {
+    const reviews = readVet(source, twoFindings).reviews
+    assert.throws(
+      () => readRebuttal("Unrecognised answer form", twoFindings, reviews),
+      /answer for finding 1/,
+    )
+  }
 })
