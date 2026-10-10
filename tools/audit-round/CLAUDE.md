@@ -306,10 +306,11 @@ consumers.
   plan stem with an optional step, increasing range or `all`, or Repo Edu commit references, which
   are a complete target. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
   arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` prefers the
-  active artifact at the plan root, then looks in the archive. `closingPlan` accepts only the active
-  artifact, because an archived plan is already closed. The audit workflow owns Git resolution and
-  inclusive-range admission. The runner passes references unchanged and rejects multiple auditor
-  entries for commit targets, which run once without a trajectory glance or watch.
+  active artifact at the plan root, then looks in the archive. `requiredActivePlan` accepts only the
+  active artifact. It keeps path validation common while `close`, `settle` and `ready` supply their
+  own reason when no active plan exists. The audit workflow owns Git resolution and inclusive-range
+  admission. The runner passes references unchanged and rejects multiple auditor entries for commit
+  targets, which run once without a trajectory glance or watch.
 - `default-target.ts` owns the round a plan argument or no target selects, under the shared
   protocol's [Plan targets](../../.agents/references/round-protocol.md#plan-targets), so the plan's
   history rather than a typed word decides between planning and implementation. It reads both

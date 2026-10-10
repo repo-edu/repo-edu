@@ -177,17 +177,21 @@ export async function resolvePlan(
   throw new Error(`No plan named ${stem} at ${planRoot} or in its archive.`)
 }
 
-/** The active plan a close archives. An archived plan is already closed. */
-export async function closingPlan(
+/** Resolve the active plan a lifecycle command names. */
+export async function requiredActivePlan(
   planRoot: string,
   value: string,
+  command: "close" | "ready" | "settle",
 ): Promise<string> {
   refusePath(value)
   const stem = planStem(value)
   const plan = await activePlan(planRoot, stem)
-  if (plan === null)
-    throw new Error(
-      `No active plan named ${stem} at ${planRoot}. An archived plan is already closed.`,
-    )
+  if (plan === null) {
+    const reason =
+      command === "close"
+        ? "An archived plan is already closed."
+        : `The ${command} command requires an active plan.`
+    throw new Error(`No active plan named ${stem} at ${planRoot}. ${reason}`)
+  }
   return plan
 }

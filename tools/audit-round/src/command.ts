@@ -71,8 +71,8 @@ import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
   activePlan,
-  closingPlan,
   planStem,
+  requiredActivePlan,
   resolvePlan,
   roundContext,
   targetRequest,
@@ -635,7 +635,11 @@ export async function runCommand(
       const plan =
         invocation.stem === undefined
           ? await defaultPlan(context)
-          : await closingPlan(context.planRoot, invocation.stem)
+          : await requiredActivePlan(
+              context.planRoot,
+              invocation.stem,
+              invocation.kind,
+            )
       if (invocation.kind === "settle") {
         const result = await settlePlan(context, plan)
         options.terminal.write(
@@ -683,7 +687,11 @@ export async function runCommand(
               plan:
                 invocation.stem === undefined
                   ? await defaultPlan(context)
-                  : await closingPlan(context.planRoot, invocation.stem),
+                  : await requiredActivePlan(
+                      context.planRoot,
+                      invocation.stem,
+                      "close",
+                    ),
             }
           : {
               ...invocation,

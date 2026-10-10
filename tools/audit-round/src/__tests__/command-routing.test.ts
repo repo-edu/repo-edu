@@ -476,6 +476,23 @@ for (const [command, phase, pattern] of [
 }
 
 for (const command of ["settle", "ready"] as const) {
+  test(`${command} reports its own missing active plan`, async (t) => {
+    const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+
+    assert.equal(
+      await runCommand([command, "missing"], f.runtime, f.options),
+      1,
+    )
+    assert.match(
+      f.errors.at(-1) ?? "",
+      new RegExp(`The ${command} command requires an active plan\\.`),
+    )
+    assert.doesNotMatch(f.errors.at(-1) ?? "", /already closed/)
+    await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+      code: "ENOENT",
+    })
+  })
+
   for (const state of ["unstaged", "staged", "untracked"] as const) {
     test(`${command} refuses a plan with ${state} state`, async (t) => {
       const f = await roundFixture(
