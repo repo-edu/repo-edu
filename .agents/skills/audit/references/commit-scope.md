@@ -11,7 +11,7 @@ the **Ready gate**, **Round strategy**, **Coverage** and **Episode settlement**
 sections of `workflow.md`, and the plan reads in its
 **Evidence** section. Read the rest of `workflow.md` as written. The
 [shared round protocol](../../../references/round-protocol.md) owns the tiers,
-finding metadata tokens, growth-pattern tags, trade pricing, round yield and twins.
+finding metadata tokens, growth-pattern tags, trade pricing and twins.
 
 The round's repo set is the repo the round runs in. The plan repo is read as a
 source of standing rules, never as a source of intent.
@@ -128,8 +128,8 @@ protocol's **File names** and **Manual phases**.
 
 A commit-scoped round has no plan stem, so its fix commit takes this repo's ordinary
 severity-prefixed conventional subject, the form `CLAUDE.md` gives a commit unattached to a plan. It
-carries no `impl-audit-` role token. The body follows the shared protocol's **Record bullets** and
-**Round yield**.
+carries no `impl-audit-` role token. The body follows the shared protocol's
+**Record bullets**.
 
 Direct clean completion follows the shared protocol. It creates no record
 because no stem scan reads one for a commit target.

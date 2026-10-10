@@ -5,7 +5,6 @@ reads:
   - commit-scope.md
   - ../../../../../plan/GROWTH-PATTERNS.md
   - ../../../../../plan/BOUNDARIES.md
-  - ../../../../../plan/STOP-CONDITIONS.md
 ---
 
 # Implementation audit workflow
@@ -20,7 +19,8 @@ The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
 The shared [round protocol](../../../references/round-protocol.md) owns
-file names, writer tags, evidence rules, finding shape, yield, rating tokens and runner results.
+file names, round data, writer tags, evidence rules, finding shape, rating
+tokens and runner results.
 Follow its **Manual phases** and **Later files** for target resolution and
 argument order. Count the supplied step scope against the plan's
 **Implementation plan** numbering.
@@ -78,22 +78,14 @@ tokens on each finding, including cross-repo deferrals.
 ## Evidence
 
 Assess the implementation and draft findings against the supplied growth
-patterns. Judge the report's recommendation against the supplied stop
-conditions.
+patterns.
 
 In every judged repo, locate the implementation commits for the user-named
 steps through the joined topic stems. Follow later corrections and the history
 of the files those steps changed, including off-plan corrections, to find the
 evidence needed to judge their current behaviour and recorded departures.
 Read both repos for a both-repo round. This discovers scope evidence; it does
-not compute the watch episode or classify its trajectory. For the
-recommendation only, read the subjects, **Round yield** lines and time lines of
-earlier implementation-audit records for the same step scope across the joined
-topic stems. Use them with this round's findings to estimate the yield and cost
-of a Claude round and of a Codex round on this scope and to choose between them
-and stopping. The time lines measure that cost; Repo Edu's
-`CLAUDE.md` **Commit Model Record** defines them. Do not extend that judgement
-into an episode grade or a targeted response; those remain the watch's work.
+not compute the watch episode or classify its trajectory.
 
 When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
 same folder when it exists. It records later outcomes that the frozen plan
@@ -181,12 +173,10 @@ Follow the shared protocol's
 ## Report order
 
 Follow the shared round protocol's
-[Report format](../../../references/round-protocol.md#report-format) for the opening, coverage and
-findings. Supply the plan, ready commit, implementation commits and user-set
-scope from this audit's evidence. Open the report with the one recommendation
-and its reason under the protocol's **Settled-round recommendations**. Give one
-answer, not a menu. Deliver the complete report under
-[Report file](#report-file).
+[Report format](../../../references/round-protocol.md#report-format) for the
+opening, coverage and findings. Supply the plan, ready commit, implementation
+commits and user-set scope from this audit's evidence. Deliver the complete
+report under [Report file](#report-file).
 
 ## Report file
 
@@ -198,12 +188,3 @@ Follow the shared protocol's
 
 Follow the shared protocol's
 [Direct clean completion](../../../references/round-protocol.md#direct-clean-completion).
-
-## Final recommendation after a fix
-
-Follow the shared protocol's **Final recommendation** when the runner resumes
-this audit session after a finished fix and identifies an automatic series
-whose rebuttal ran. Use the supplied vet twin, rebuttal twin and landed records
-with the evidence already in this session. Read no new files and write none.
-Return only the final recommendation line in the protocol's exact form. This
-turn does not revise the report or its findings.

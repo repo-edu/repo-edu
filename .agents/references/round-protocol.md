@@ -1,19 +1,17 @@
 # Shared round protocol
 
 This reference owns the protocol shared by round phases in Repo Edu and the sibling plan repo: file
-names, finding tiers, severity sequences, metadata, report and record formats, runner results,
-evidence rules and reconciliation. Read the whole file alongside the phase workflow. Rules labelled
-for implementation apply only to implementation rounds. Shared code owns round allocation and file
-naming for both entry routes. Read this file from the Repo Edu checkout; plan-repo workflows reach
-it at `../repo-edu/.agents/references/round-protocol.md`.
+names, round data, finding tiers, severity sequences, metadata, report and record formats, runner
+results, evidence rules and reconciliation. Read the whole file alongside the phase workflow. Rules
+labelled for implementation apply only to implementation rounds. Shared code owns round allocation
+and file naming for both entry routes. Read this file from the Repo Edu checkout; plan-repo
+workflows reach it at `../repo-edu/.agents/references/round-protocol.md`.
 
 ## File names
 
 Round documents and logs use `<target>-<round>-<order>-<kind>.<tag>.<ext>`.
 The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
-The runner's machine-readable plan-target round data uses `.json` with the
-`round` kind.
 Five files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
 number, the empty `<stem>-plan-<round>-0-settle.md` and
 `<stem>-plan-<round>-0-reopen.md` markers take a number to record a phase
@@ -52,8 +50,8 @@ The plan repo's handoff rule owns that six-character sha.
   Every later phase keeps it exactly, even when another assistant writes the next file. A later
   phase never allocates another round.
 - **Tag** names the file's writer under [Writer tags](#writer-tags). The
-  transcript, its log and any plan-target round data use the auditor's tag. All other
-  tagged files use their own writer's tag.
+  transcript and its log use the auditor's tag. All other tagged files use
+  their own writer's tag.
 
 The shared `tools/audit-round/src/round-paths.ts` owns the fixed order numbers:
 
@@ -61,7 +59,7 @@ The shared `tools/audit-round/src/round-paths.ts` owns the fixed order numbers:
 | --- | --- | --- |
 | 0 | claim | Empty reservation, no tag |
 | 0 | settle, reopen | Empty phase-change markers of a plan target, no tag |
-| 1 | round | Transcript, log and plan-target round data |
+| 1 | round | Transcript and log |
 | 2 | audit | Report |
 | 3 | vet | Vet twin |
 | 4 | rebut | Rebuttal twin |
@@ -131,16 +129,51 @@ A standalone brief reuses the transcript's target
 and round. Its document and log share `6-brief.<tag>`; the log is opened for
 overwrite without another claim. The round transcript and log share
 `1-round.<tag>`; their extensions are `.md` and `.log` respectively. A
-plan-target round's data shares that name with a `.json` extension. The runner
-writes the data when a plan-target round ends, including after a failure or a
-ruling left without a reply. It records the target, round, start time, unchanged
-settings, selected audit setting and source, each started phase's assistant,
-model, effort, time and tokens per model and every landed commit by repository
-and full SHA. A crash before that final write leaves no data file.
+plan-target round writes its machine account under [Round data](#round-data).
 
 The fix receives the ruling output path separately from its report arguments.
 It writes the final ruling at that path before returning `needs-ruling`, using
 the fix writer's tag. A resumed fix receives the same path and the user's reply.
+
+## Round data
+
+Each plan may have two machine-readable files at the plan repo root while
+active: `<stem>-plan-rounds.json` for planning rounds and
+`<stem>-impl-rounds.json` for implementation rounds. Loop-close moves each
+existing file into the plan's archive folder without renaming it. Every reader
+opens the one location where the plan lives. The files are gitignored machine
+artifacts and are never edited by hand.
+
+Each file is a time-ordered JSON array with one entry per round. A planning
+entry carries the artifact phase. An implementation entry carries the step
+scope and judged repos. Every entry carries its target, round number, writer
+tag, start time, status, settings snapshot, selected auditor and selection
+source, started phases, landed commits, findings and judge answer. A phase
+records its assistant, model, effort, time, token use, peak context and
+compaction count. A judge answer records `stop`, `claude` or `codex` and its
+one-line reason. Manual rounds have no judge answer.
+
+The entry status is `in-progress`, `finished`, `failed`, `interrupted` or
+`awaiting-ruling`. After the fix or direct clean record settles the findings,
+the runner writes `in-progress` before any brief, watch or judge. The watch and
+judge therefore read the current settled findings. At round end the runner
+replaces that entry with its final state, later phases and judge answer. A
+failure in a later phase is recorded as `failed`. A process crash can leave the
+entry `in-progress`; readers treat it as incomplete.
+
+The key is target plus round number. A repeated key replaces its entry and a
+new key appends. The writer checks the complete array, writes it to a temporary
+file and renames it over the destination. The data file does not reserve a
+round number; the claim and other retained numbered files do. Two concurrent
+runs on one plan are unsupported and may overwrite each other's collection.
+
+Each finding records its report number and title, original tier and reach,
+complexity, growth-pattern value, location, vet verdict, rebuttal answer and
+outcome. The outcome is `kept`, `dropped` or `unmatched`. A kept finding also
+records a changed final tier or reach. An unmatched finding is a record bullet
+the fix added without a report match; it has no report number. The fix joins
+record bullets to report findings by title, so titles are distinct across the
+whole round. [Finding metadata](#finding-metadata) owns the location forms.
 
 ## Manual phases
 
@@ -259,7 +292,7 @@ or a hand-run audit lands its direct clean record,
 same numbered report kinds for that exact round, regardless of writer tag. It
 uses the runner's own filename parser, so a hand-run round deletes exactly what
 the runner would. It lists each deleted file and fails when no report matches.
-Claims, markers, transcripts, logs, round data, briefs, rulings, watches and other rounds
+Claims, markers, transcripts, logs, retained round data, briefs, rulings, watches and other rounds
 remain.
 Loop-close is a separate step that archives a plan; the
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md)
@@ -268,8 +301,8 @@ owns it.
 ## Direct clean completion
 
 An audit with no findings completes without vet, rebuttal, fix, brief, glance
-or watch. This route avoids a fresh fix session whose only work would be an
-empty record.
+or watch. An automatic series still runs its judge after the clean record. This
+route avoids a fresh fix session whose only work would be an empty record.
 
 - Unattended: return the complete report under [Runner result](#runner-result).
   The runner retains it and lands the clean record for a plan target.
@@ -283,78 +316,21 @@ Use the plan doctrine's
 [planning clean-record mandate](../../../plan/CLAUDE.md#commit-message-convention). Those standing
 rules grant the empty record without separate permission. The subject follows
 [the subject grammar](subject-grammar.md), with the auditing session's capability tag. Its body
-opens with that session's actual model and effort and closes with both [Round yield](#round-yield)
-lines at zero. The plan doctrine's [Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff
-exception for this route. A round made clean through reconciliation follows its ordinary fix
-completion instead.
+opens with that session's actual model and effort. The plan doctrine's
+[Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff exception for this route. A round made
+clean through reconciliation follows its ordinary fix completion instead.
 
 ## History reads
 
-Cross-round scans belong to glance and watch. The narrow exception is a
-settled audit's recommendation: it reads the subjects, **Round yield** lines
-and time lines of earlier records for its own target. An implementation audit
-reads implementation-audit records for the same step scope. A detailing audit
-reads this plan's planning records after the latest `settle` commit, or after
-`init` when the plan started at the bare name. It reads no widening records and
-no records for another plan. The audit uses this history only to choose
-between a Claude round, a Codex round and stopping on that target. It does not
-compute the episode or classify its
-trajectory. Other phases read history when needed to establish a specific
-finding, prior ruling, a rule's origin or an implementation departure.
-Lifecycle, scope discovery and handoff lookups remain required. This keeps
-current-work review separate from trajectory judgement without withholding
-the evidence a finding needs.
+Cross-round scans belong to the judge, glance and watch. Other phases read
+history when needed to establish a specific finding, prior ruling, a rule's
+origin or an implementation departure. Lifecycle, scope discovery and handoff
+lookups remain required. This keeps current-work review separate from series
+and trajectory judgement without withholding the evidence a finding needs.
 
 The plan doctrine's [Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff
 for both round kinds. The phase landing the record writes it. The next audit
 reads it under that section's read gate.
-
-## Settled-round recommendations
-
-Every detailing and implementation audit report, including a clean report,
-opens with exactly one of these plain lines:
-
-```text
-Recommendation: stop. <reason>
-Recommendation: continue with Claude. <reason>
-Recommendation: continue with Codex. <reason>
-```
-
-The line picks one of three options for the same target: a Claude round, a
-Codex round or stop. The auditor estimates each round's likely yield and cost
-separately, from this round's findings and the target history allowed by
-[History reads](#history-reads), against `STOP-CONDITIONS.md`. It continues
-with the round whose yield is most worth its cost and stops when neither round
-is worth its cost. A stop needs no clean round. The reason states both
-estimates and why the chosen option beats the other two. Give one answer rather
-than a menu. In an automatic
-series, the assistant name selects that assistant's audit model and effort from
-the runner settings; the recommendation never chooses a model or effort itself.
-It advises the user's stop decision and does not replace it.
-
-A widening report carries only its settling recommendation. It has no
-settled-round recommendation because widening does not run an automatic
-series. A commit target still carries the implementation report's line, but
-the runner runs that target only once.
-
-The report recommendation rests on the audit's own findings before vetting. It
-remains the round's recommendation when no rebuttal ran and throughout a
-`--auditor` series. An automatic series whose rebuttal ran follows the final
-recommendation contract below instead.
-
-### Final recommendation
-
-After the fix finishes in an automatic series whose rebuttal ran, the runner
-resumes the audit session before deleting the review files. It supplies the vet
-and rebuttal twins and every record the fix landed in either repo. The auditor
-uses those results with the scope, history, stop conditions and report already
-in its context, reads no new files and writes none. It returns exactly one
-recommendation line in the forms above and no other text. That line replaces
-the report recommendation as the round's recommendation.
-
-No final turn runs when there was no rebuttal or when `--auditor` supplied the
-series. In those cases the report recommendation remains the round's
-recommendation.
 
 ## Finding tiers
 
@@ -492,6 +468,16 @@ tokens. A finding deferred from Repo Edu to the plan repo uses
 from the plan repo to Repo Edu uses `[area:]` instead of `[section:]`.
 Growth, reach and complexity stay on every form.
 
+Round data stores those locations without parsing the token spelling again:
+
+- A planning finding stores `kind: planning`, its `field` and its `section`.
+- A plan-repo implementation finding stores `kind: plan` and its `section`.
+- A Repo Edu finding stores `kind: repo-edu`, its primary `area` and ordered
+  `covers`.
+- A deferred finding stores `kind: deferred` and its destination repository.
+  A plan destination carries its `plan` reference. A Repo Edu destination
+  carries the primary area and ordered cover areas.
+
 ### Record bullets
 
 In a planning audit commit bullet the tier letter comes first, then the tokens, then a short
@@ -504,10 +490,11 @@ title, then the prose after a colon:
 The title is required, and it is the same title the report's finding block leads
 with. It gives a later round a handle to group and refer to a finding by, and a
 finding that cannot be titled in a few words is usually two findings. Within one
-round, finding titles are distinct inside each tier because the trial counts one
-accepted finding per tier and title across repository records. The report leads
-with the title and puts the tokens on their own line, because a person scans it;
-the commit bullet leads with the tokens, because a fresh round parses them.
+round, finding titles are distinct across every tier and field because the
+round-data writer joins report findings to repository records by title. The
+report leads with the title and puts the tokens on their own line, because a
+person scans it; the commit bullet leads with the tokens, because a fresh round
+parses them.
 
 Repo Edu bullets use a bracketed uppercase tier, followed by the location,
 growth, reach and complexity tokens: `- [C] [area:<primary-id>] ...`.
@@ -538,8 +525,7 @@ effort, scope and findings with the round's values.
 ### Planning record
 
 Planning records use `plan-audit`. Each finding carries `[field:]` and a section
-location under [Finding metadata](#finding-metadata). Recount the accepted
-findings for the closing yield lines. For one missing C finding:
+location under [Finding metadata](#finding-metadata). For one missing C finding:
 
 ```text
 example/plan-audit ath growth-none: align the report location
@@ -547,9 +533,6 @@ example/plan-audit ath growth-none: align the report location
 gpt-6-astra high
 
 - C [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Report location: the decision names the plan repo root.
-
-Round yield: 0 ordinary; 0 rare; 1 developer.
-Structure: 0 removing, 0 adding, 1 flat.
 ```
 
 The hook inserts `c1` before the colon. Author the growth or pruning mark
@@ -561,8 +544,7 @@ record form below except the deferral record, which changes no code.
 
 Implementation records use `impl-audit-<scope>`, where the scope is `<n>`,
 `<a>-<b>` or `all`. Repo Edu finding bullets use bracketed tiers and primary
-areas. Recount the accepted findings in this record for its closing yield lines,
-using their final reach and complexity values. For one C finding in step 2:
+areas. For one C finding in step 2:
 
 ```text
 example/impl-audit-2 ath growth-none docs(audit-round): align the report location
@@ -570,9 +552,6 @@ example/impl-audit-2 ath growth-none docs(audit-round): align the report locatio
 gpt-6-astra high
 
 - [C] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
-
-Round yield: 0 ordinary; 0 rare; 1 developer.
-Structure: 0 removing, 0 adding, 1 flat.
 ```
 
 The hook inserts `c1` before `docs(audit-round)` and derives the severity
@@ -581,8 +560,7 @@ sequence, its case and its `!` from the finding bullets.
 ### Implementation record in the plan repo
 
 The role still uses `impl-audit-<scope>`. Local finding bullets use unbracketed
-tiers and `[section:]`, without `[field:]`. The record closes with the same
-yield lines:
+tiers and `[section:]`, without `[field:]`:
 
 ```text
 example/impl-audit-2 ath growth-none docs(audit): align the report location
@@ -590,9 +568,6 @@ example/impl-audit-2 ath growth-none docs(audit): align the report location
 gpt-6-astra high
 
 - C [section:report-file] [growth-pattern:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
-
-Round yield: 0 ordinary; 0 rare; 1 developer.
-Structure: 0 removing, 0 adding, 1 flat.
 ```
 
 The hook inserts `c1` before `docs(audit)`. The plan doctrine owns record
@@ -606,10 +581,6 @@ standalone close, follow this rule for every ending, including an early stop. It
 vet, rebuttal, fix, brief, watch and close. Planning workflows read this whole reference from its
 Repo Edu home; their planning rules stay in the plan repo. Implementation routes may supply local
 substitutions. Ordinary interactive invocations do not add a result line.
-
-The resumed final-recommendation step is not a phase. It follows
-[Final recommendation](#final-recommendation) and returns only its one
-recommendation line, with no result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
 Keep it outside any code fence. Audit, vet and rebuttal supply their complete
@@ -1046,40 +1017,6 @@ item blocking this fix. Its outcome follows the deferral above, so it holds
 no settled correction back. Keep it open in
 the deferral and apply the settled audit-findings.
 
-## Round yield
-
-This tally applies to implementation audit reports and to every round record
-in both repos, planning records included. The lines count the reach and
-complexity tokens every record's bullets already carry, so both repos keep the
-same record body.
-
-After the coverage line, close the round with two more lines that tally the
-findings the audit reports:
-
-```text
-Round yield: <n> ordinary; <n> rare; <n> developer.
-Structure: <n> removing, <n> adding, <n> flat.
-```
-
-The first line counts the reported findings by their `[reach:...]` value,
-treating `very-rare` as rare. The second counts them by the sign of their
-`[complexity:...]` value: `minus-` levels remove, `low`, `medium` and `high` add
-and `none` is flat. A clean round writes both lines with zeroes.
-
-For a round record, recount only the accepted findings in that record using
-their final reach and complexity values. Put both lines at the end of its
-body. The report is removed after completion, so the record is the durable
-home for that yield. A clean record carries zeroes in either repo.
-
-The tally exists because the decision to run another round needs the round's
-yield, and reading it out of per-finding tokens means re-reading the whole log
-by hand. It answers what a round bought: findings an end user can meet, and
-whether the corrections left the code with more maintenance burden or less.
-Both lines are counts over the findings, unlike the commit subject's leading
-`growth-<level>` or `pruning-<level>`, which measures one commit's own code
-before and after.
-The two answer different questions and neither replaces the other.
-
 ## Report format
 
 ### Audit delivery
@@ -1119,12 +1056,10 @@ Open by naming `Implementation audit workflow` and include exactly one plain lin
 `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's short audited HEAD. Repos read
 only as evidence stay outside that line. It selects the repos for vet, rebuttal, fix and clean
 completion. The filename holds the writer tag; do not repeat or look up that tag for the opening.
-Follow it with the one line owned by
-[Settled-round recommendations](#settled-round-recommendations). Then name the
-plan file, its ready commit and the implementation commits inspected. State the
-round's user-set scope: the whole plan, one step or one step range. Then report
-the coverage table, its coverage line and the **Round yield** lines, followed by
-the finding field.
+Then name the plan file, its ready commit and the implementation commits
+inspected. State the round's user-set scope: the whole plan, one step or one
+step range. Then report the coverage table, its coverage line and the finding
+field.
 
 Every finding, including a cross-repo finding, belongs in one `## Findings`
 field. A field with no findings contains exactly `No findings.` instead of
@@ -1136,10 +1071,9 @@ Open by naming `Planning round workflow`, the artifact and widening or detailing
 Include exactly one plain line `Judged repos: plan@<sha>` with the audited
 short HEAD. Evidence-only repos stay outside it. Do not repeat the writer tag
 from the filename. After that line, the planning workflow supplies
-current-shape advice for a widening report. A detailing report instead carries
-the one line owned by
-[Settled-round recommendations](#settled-round-recommendations). The planning
-workflow owns the premise-error route for an early stop.
+current-shape advice for a widening report. A detailing report has no
+recommendation line. The planning workflow owns the premise-error route for an
+early stop.
 
 Present the graded findings in two fields, both present in every report:
 `## Excess functionality` first, for what the artifact can shed or simplify,

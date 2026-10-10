@@ -94,8 +94,8 @@ working tree.
 Land records under the plan doctrine's
 [Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms),
 which owns placement and its reasons. Use the shared protocol's
-**Worked record forms**, **Record bullets** and **Round yield** for their
-contents, including a clean record reached through reconciliation.
+**Worked record forms** and **Record bullets** for their contents, including a
+clean record reached through reconciliation.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed
