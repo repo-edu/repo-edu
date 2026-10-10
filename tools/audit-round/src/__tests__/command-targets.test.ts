@@ -1,5 +1,12 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, readFile, utimes, writeFile } from "node:fs/promises"
+import {
+  access,
+  mkdir,
+  readdir,
+  readFile,
+  utimes,
+  writeFile,
+} from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "./configured-runner.js"
@@ -53,6 +60,18 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
 
 test("close archives the named plan through one close session from the plan checkout", async (t) => {
   const f = await roundFixture(t)
+  const archive = join(f.planRoot, "archive/example")
+  await mkdir(archive, { recursive: true })
+  const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
+  for (const file of dataFiles) await writeFile(join(f.planRoot, file), "[]\n")
+  f.phases.close = {
+    ...(f.phases.close as object),
+    moves: dataFiles.map((file) => ({
+      from: join(f.planRoot, file),
+      to: join(archive, file),
+    })),
+  }
+  await f.configure({ phases: f.phases })
   const before = await readdir(f.planRoot)
   assert.equal(
     await runCommand(["close", "example-widen.md"], f.runtime, f.options),
@@ -94,6 +113,10 @@ test("close archives the named plan through one close session from the plan chec
   )
   assert.doesNotMatch(log, /audit +codex|fix +codex|brief +codex/)
   assert.match(f.visible.join("\n"), /Close finished\./)
+  for (const file of dataFiles) {
+    assert.equal(await readFile(join(archive, file), "utf8"), "[]\n")
+    await assert.rejects(access(join(f.planRoot, file)), { code: "ENOENT" })
+  }
 })
 
 test("a finished close that left its plan at the root fails with a resume command", async (t) => {

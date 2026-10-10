@@ -216,6 +216,7 @@ test("archived plans use their folder and scopes keep separate numbering", async
       selections,
     )
     assert.equal(run.nameStart, `example-${target}-01`)
+    assert.equal(run.data, undefined)
     new RoundOutput(run, options).close()
   }
 })
@@ -318,4 +319,5 @@ test("planning rounds number their bare target at the plan root and write there"
     selections,
   )
   assert.equal(archived.nameStart, "topic-plan-01")
+  assert.equal(archived.data, undefined)
 })

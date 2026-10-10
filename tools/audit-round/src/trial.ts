@@ -1,5 +1,5 @@
-import { readdir, readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { readFile } from "node:fs/promises"
+import { relative } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import { elapsedText, tokenText } from "./output-format.js"
 import {
@@ -7,9 +7,9 @@ import {
   parseRoundDataFile,
   type RoundData,
   type RoundFinding,
+  roundDataFiles,
 } from "./round-data.js"
 
-const dataName = /-(?:plan|impl)-rounds\.json$/
 const phaseOrder = ["audit", "vet", "rebut", "fix", "brief", "watch"] as const
 const reachOrder = ["ordinary", "rare", "very-rare", "developer"] as const
 
@@ -131,28 +131,26 @@ function auditorKey(round: TrialRound): string {
 }
 
 async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
-  const files = (await readdir(context.planRoot)).filter((name) =>
-    dataName.test(name),
-  )
+  const files = await roundDataFiles(context.planRoot)
   const rounds = (
     await Promise.all(
       files.map(async (file) => {
+        const display = relative(context.planRoot, file)
         try {
-          return parseRoundDataFile(
-            join(context.planRoot, file),
-            await readFile(join(context.planRoot, file), "utf8"),
-          ).map((data) => ({
-            file,
-            tag: data.tag,
-            data,
-            findings: data.findings.filter(
-              (finding) =>
-                finding.outcome === "kept" || finding.outcome === "unmatched",
-            ),
-          }))
+          return parseRoundDataFile(file, await readFile(file, "utf8")).map(
+            (data) => ({
+              file: display,
+              tag: data.tag,
+              data,
+              findings: data.findings.filter(
+                (finding) =>
+                  finding.outcome === "kept" || finding.outcome === "unmatched",
+              ),
+            }),
+          )
         } catch (error) {
           throw new Error(
-            `Invalid round data in ${file}: ${error instanceof Error ? error.message : String(error)}`,
+            `Invalid round data in ${display}: ${error instanceof Error ? error.message : String(error)}`,
             { cause: error },
           )
         }

@@ -1,4 +1,4 @@
-import { basename, dirname, join } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import { format } from "date-fns"
 import type { CliModels, Feedback, PhaseOutput } from "./feedback.js"
 import {
@@ -196,8 +196,11 @@ export async function roundRun(
     join(setup.planRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
   const audit = entry("audit")
+  const activePlan =
+    "plan" in setup &&
+    dirname(resolve(setup.planRoot, setup.plan)) === resolve(setup.planRoot)
   const data =
-    "plan" in setup
+    "plan" in setup && activePlan
       ? {
           path: join(
             setup.planRoot,

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -273,6 +273,25 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   ]
   for (const [, round] of rounds)
     writeRoundData(join(planRoot, "trial-impl-rounds.json"), round)
+  const archivedData = join(
+    planRoot,
+    "archive/archived/archived-impl-rounds.json",
+  )
+  await mkdir(join(planRoot, "archive/archived"), { recursive: true })
+  writeRoundData(
+    archivedData,
+    data(
+      "archived-impl-all",
+      1,
+      "2026-10-06T12:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("gpt-base", "xhigh"),
+        chosenBy: "settings",
+      },
+      settings,
+    ),
+  )
 
   const visible: { readonly text: string; readonly format?: "markdown" }[] = []
   const errors: string[] = []
@@ -289,7 +308,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
-  assert.match(output, /Newest unchanged-settings run: 6 rounds/)
+  assert.match(output, /Newest unchanged-settings run: 7 rounds/)
   assert.match(output, /codex: gpt-top xhigh versus gpt-base xhigh/)
   assert.doesNotMatch(
     output,
@@ -307,6 +326,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     output,
     /target-impl-all #8 .*not paired: incomplete.*incomplete/,
   )
+  assert.match(output, /archived-impl-all #1/)
   assert.match(output, /codex gpt-top xhigh \| 3 \|/)
   assert.match(output, /B ordinary 1/)
   assert.match(output, /gpt-top: input 3\.0k, cached 1\.5k, output 0\.3k/)

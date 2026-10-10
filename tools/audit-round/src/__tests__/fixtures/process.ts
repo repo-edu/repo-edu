@@ -1,6 +1,13 @@
 import { execFile } from "node:child_process"
-import { appendFile, readFile, rm, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import {
+  appendFile,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises"
+import { dirname, join } from "node:path"
 import { createInterface } from "node:readline"
 import { setTimeout } from "node:timers/promises"
 import { promisify } from "node:util"
@@ -242,6 +249,10 @@ for (const commit of scenario.commits ?? [])
   )
 
 // A close moves its plan out of the plan root.
+for (const move of scenario.moves ?? []) {
+  await mkdir(dirname(move.to), { recursive: true })
+  await rename(move.from, move.to)
+}
 for (const file of scenario.remove ?? []) await rm(file, { force: true })
 
 if (scenario.usage !== undefined)

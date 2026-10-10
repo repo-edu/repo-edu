@@ -1,4 +1,6 @@
 import { readFileSync, renameSync, writeFileSync } from "node:fs"
+import { readdir } from "node:fs/promises"
+import { basename, join } from "node:path"
 import { z } from "zod"
 import { type Finding, findingTitle, readFindings } from "./findings.js"
 import { parseSubject, type Repository } from "./subject.js"
@@ -181,6 +183,7 @@ export const roundDataSchema = z.union([
 ])
 const planningRoundFileSchema = z.array(planningRoundDataSchema)
 const implementationRoundFileSchema = z.array(implementationRoundDataSchema)
+const roundDataFilename = /-(?:plan|impl)-rounds\.json$/
 
 export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
 export type RoundFinding = z.infer<typeof roundFindingSchema>
@@ -219,6 +222,23 @@ type FindingRecord = {
   readonly repository: Repository
   readonly subject: string
   readonly message: string
+}
+
+/** Find retained round data beside active plans and inside closed-plan archives. */
+export async function roundDataFiles(planRoot: string): Promise<string[]> {
+  const active = (await readdir(planRoot))
+    .filter((entry) => roundDataFilename.test(entry))
+    .map((entry) => join(planRoot, entry))
+  const archive = join(planRoot, "archive")
+  let closed: string[] = []
+  try {
+    closed = (await readdir(archive, { recursive: true }))
+      .filter((entry) => roundDataFilename.test(basename(entry)))
+      .map((entry) => join(archive, entry))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+  }
+  return [...active, ...closed].sort()
 }
 
 /** Split the allocated name into the target-wide identity stored in JSON. */
