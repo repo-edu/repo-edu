@@ -711,6 +711,13 @@ test("an automatic rebuttal round logs the resumed auditor's final recommendatio
     visible,
     /Audit round finished\.\nRecommendation: stop\. The reconciled round has converged\./,
   )
+  assert.equal(
+    visible.match(
+      /Recommendation: stop\. The reconciled round has converged\./g,
+    )?.length,
+    1,
+    "the resumed auditor's reply is not echoed beside the round's own print",
+  )
 })
 
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {

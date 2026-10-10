@@ -19,6 +19,7 @@ import {
 import {
   type Assistant,
   type AssistantTurnInput,
+  isFinalRecommendation,
   noOverride,
   type Phase,
   type PhaseResult,
@@ -314,7 +315,7 @@ export class RoundOutput<R extends Run = Run> {
   private readonly clock: RunClock
   private active:
     | {
-        input: Pick<AssistantTurnInput, "phase" | "assistant">
+        input: AssistantTurnInput
         started: RunMark
         context: Context | null
         /** Where the next tool line's step time counts from: the previous tool line, else the phase start. */
@@ -523,6 +524,8 @@ export class RoundOutput<R extends Run = Run> {
           if (transcribed(active.input.phase)) {
             this.transcribe(`${feedback.text}\n`)
           }
+          // The round prints the final recommendation once it is read, so its reply is not echoed.
+          if (isFinalRecommendation(active.input)) break
           const text = withoutPhaseResult(feedback.text)
           if (text.length > 0) terminal?.write(text, "markdown")
         }

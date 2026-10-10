@@ -411,6 +411,13 @@ export type FinalRecommendationInput = Omit<
 /** Fields shared by fresh phases and the resumed recommendation turn. */
 export type AssistantTurnInput = PhaseInput | FinalRecommendationInput
 
+/** Whether a turn is the resumed auditor's final recommendation rather than a phase. */
+export function isFinalRecommendation(
+  input: AssistantTurnInput,
+): input is FinalRecommendationInput {
+  return "rebuttal" in input
+}
+
 export type PhaseFailure = {
   readonly status: "failed"
   readonly reason: string
