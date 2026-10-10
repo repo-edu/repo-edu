@@ -192,28 +192,12 @@ export function computeEpisode(
   areas: readonly Area[],
   explicitAnchor?: string,
 ): Episode {
-  const named = log.filter(
-    (commit) => topic !== null && commitTopic(commit) === topic,
+  const { anchor, artifacts, members } = episodeMembers(
+    log,
+    repository,
+    topic,
+    explicitAnchor,
   )
-  const artifacts = new Set(named.flatMap((commit) => commit.files))
-  const anchor =
-    explicitAnchor === undefined
-      ? topic === null
-        ? log.length - 1
-        : log.findLastIndex((commit) => commitTopic(commit) === topic)
-      : log.findIndex((commit) => sameHead(commit.sha, explicitAnchor))
-  if (explicitAnchor !== undefined && anchor === -1)
-    throw new Error(
-      `Episode anchor ${explicitAnchor} is not on ${repository}'s history.`,
-    )
-  const members = log
-    .slice(0, anchor + 1)
-    .filter(
-      (commit) =>
-        topic === null ||
-        commitTopic(commit) === topic ||
-        commit.files.some((file) => artifacts.has(file)),
-    )
   const commits = members.map((commit) => readCommit(commit, repository, areas))
   return {
     repository,
@@ -235,6 +219,49 @@ export function computeEpisode(
         ? []
         : [{ sha: commit.sha, kind: commit.windowStart }],
     ),
+  }
+}
+
+/**
+ * Select one episode's commits without deriving watch-only finding facts. The
+ * judge uses the same membership as the watch but receives only commit dates,
+ * subjects and roles.
+ */
+export function episodeMembers(
+  log: readonly LogCommit[],
+  repository: Repository,
+  topic: string | null,
+  explicitAnchor?: string,
+): {
+  readonly anchor: number
+  readonly artifacts: ReadonlySet<string>
+  readonly members: readonly LogCommit[]
+} {
+  const named = log.filter(
+    (commit) => topic !== null && commitTopic(commit) === topic,
+  )
+  const artifacts = new Set(named.flatMap((commit) => commit.files))
+  const anchor =
+    explicitAnchor === undefined
+      ? topic === null
+        ? log.length - 1
+        : log.findLastIndex((commit) => commitTopic(commit) === topic)
+      : log.findIndex((commit) => sameHead(commit.sha, explicitAnchor))
+  if (explicitAnchor !== undefined && anchor === -1)
+    throw new Error(
+      `Episode anchor ${explicitAnchor} is not on ${repository}'s history.`,
+    )
+  return {
+    anchor,
+    artifacts,
+    members: log
+      .slice(0, anchor + 1)
+      .filter(
+        (commit) =>
+          topic === null ||
+          commitTopic(commit) === topic ||
+          commit.files.some((file) => artifacts.has(file)),
+      ),
   }
 }
 

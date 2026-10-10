@@ -115,8 +115,8 @@ const reviewPhases = [
 /**
  * The line after the phase lines: how long the finished audit, vet and
  * rebuttal took, as `Audit, vet and rebuttal took 7 min.`. They take that time
- * whatever the round finds, so a later stop recommendation weighs it as the
- * cost of a round. The fix commits while it runs, so its time is never known.
+ * whatever the round finds, so a later judge weighs it as the cost of a round.
+ * The fix commits while it runs, so its time is never known.
  */
 export function reviewTimeLine(
   ran: ReadonlyMap<Phase, RanPhase>,

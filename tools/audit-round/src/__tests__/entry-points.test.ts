@@ -37,6 +37,29 @@ test("watch evidence reaches the assistant but is omitted from the log prompt", 
   assert.ok(!log.includes(evidence))
 })
 
+test("the judge sees only the gate's two options and retained evidence", async (t) => {
+  const f = await fixture(t)
+  const evidence = {
+    roundData: { file: "example-impl-rounds.json", rounds: [] },
+    commits: [],
+    latestWatch: null,
+  }
+  const { text, log } = phasePrompt({
+    ...testContext(f.root),
+    phase: "judge",
+    assistant: "codex",
+    model: unpinned,
+    sessionId: null,
+    arguments: [],
+    evidence,
+    canStop: false,
+  })
+  assert.match(text, /Permitted judge options: Claude or Codex\./)
+  assert.doesNotMatch(text, /Permitted judge options: stop/)
+  assert.match(text, /"file": "example-impl-rounds\.json"/)
+  assert.match(log, /Judge evidence:\n"\(contents omitted from log\)"$/)
+})
+
 for (const working of ["repo-edu", "plan"] as const) {
   test(`published ${working} workflow headers supply every phase's current instructions`, {
     skip: checkoutRequirement,
@@ -53,6 +76,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         "fix",
         "brief",
         "watch",
+        "judge",
       ] as const) {
         const { text: prompt } = phasePrompt({
           ...context,

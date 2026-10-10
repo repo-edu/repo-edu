@@ -116,7 +116,7 @@ const roundStatus = z.enum([
   "interrupted",
   "awaiting-ruling",
 ])
-const judgeAnswer = z
+export const judgeAnswerSchema = z
   .strictObject({
     answer: z.enum(["stop", "claude", "codex"]),
     reason: z.string().min(1),
@@ -145,7 +145,15 @@ const commonRoundData = z.strictObject({
   }),
   phases: z.array(
     z.strictObject({
-      phase: z.enum(["audit", "vet", "rebut", "fix", "brief", "watch"]),
+      phase: z.enum([
+        "audit",
+        "vet",
+        "rebut",
+        "fix",
+        "brief",
+        "watch",
+        "judge",
+      ]),
       assistant,
       model: z.string().min(1),
       effort: z.string().min(1).nullable(),
@@ -167,7 +175,7 @@ const commonRoundData = z.strictObject({
     }),
   ),
   findings: z.array(roundFindingSchema),
-  judge: judgeAnswer,
+  judge: judgeAnswerSchema,
 })
 
 export const planningRoundDataSchema = commonRoundData.extend({
@@ -187,6 +195,7 @@ const roundDataFilename = /-(?:plan|impl)-rounds\.json$/
 
 export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
 export type RoundFinding = z.infer<typeof roundFindingSchema>
+export type JudgeAnswer = NonNullable<z.infer<typeof judgeAnswerSchema>>
 export type ReportFinding = Omit<
   RoundFinding,
   "vetVerdict" | "rebuttalAnswer" | "outcome" | "finalTier" | "finalReach"

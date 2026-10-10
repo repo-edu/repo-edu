@@ -19,7 +19,6 @@ import {
 import {
   type Assistant,
   type AssistantTurnInput,
-  isFinalRecommendation,
   noOverride,
   type Phase,
   type PhaseResult,
@@ -36,7 +35,9 @@ import type {
   RoundSetup,
 } from "./round.js"
 import {
+  type JudgeAnswer,
   type ModelTokenUsage,
+  type RoundAccount,
   type RoundData,
   roundDataIdentity,
   writeRoundData,
@@ -188,7 +189,11 @@ export async function roundRun(
     fileTag(entry(phase), selections, settings)
   // The close runs alone, so a round never needs its tag.
   for (const phase of Object.keys(phases) as Phase[]) {
-    if (phase !== "close" && (phase !== "brief" || setup.brief === true))
+    if (
+      phase !== "close" &&
+      (phase !== "brief" || setup.brief === true) &&
+      (phase !== "judge" || setup.automatic === true)
+    )
       tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
@@ -245,6 +250,7 @@ export async function roundRun(
       entry("fix"),
       ...(setup.brief === true ? [entry("brief")] : []),
       ...("plan" in setup ? [entry("watch")] : []),
+      ...(setup.automatic === true ? [entry("judge")] : []),
     ],
     paths: {
       claim: join(setup.planRoot, `${nameStart}-0-claim.md`),
@@ -569,8 +575,6 @@ export class RoundOutput<R extends Run = Run> {
           if (transcribed(active.input.phase)) {
             this.transcribe(`${feedback.text}\n`)
           }
-          // The round prints the final recommendation once it is read, so its reply is not echoed.
-          if (isFinalRecommendation(active.input)) break
           const text = withoutPhaseResult(feedback.text)
           if (text.length > 0) terminal?.write(text, "markdown")
         }
@@ -637,6 +641,14 @@ export class RoundOutput<R extends Run = Run> {
     this.transcribe(`## User ruling\n\n${reply}\n`)
   }
 
+  /** Publish the settled account before the watch and judge read this round. */
+  writeSettledRound(
+    commits: readonly RoundData["commits"][number][],
+    account: RoundAccount,
+  ): void {
+    this.writeRoundData("in-progress", commits, account, null)
+  }
+
   finish(result: RoundResult | BriefResult | CloseResult): void {
     const unsettledReport =
       this.active === undefined
@@ -646,51 +658,18 @@ export class RoundOutput<R extends Run = Run> {
     if (this.run.data !== undefined) {
       if (!("commits" in result))
         throw new Error("A round ended without its landed commit account")
-      writeRoundData(this.run.data.path, {
-        target: this.run.data.target,
-        round: this.run.data.round,
-        tag: this.run.data.tag,
-        started: new Date(this.run.started).toISOString(),
-        status:
-          result.status === "finished"
-            ? "finished"
-            : result.status === "awaiting-ruling"
-              ? "awaiting-ruling"
-              : result.reason === "Interrupted"
-                ? "interrupted"
-                : "failed",
-        settings: this.run.data.settings,
-        auditor: this.run.data.auditor,
-        phases: [...this.ran].flatMap(([phase, ran]) => {
-          if (phase === "close" || ran.spent === null) return []
-          const entry = this.run.phases.find(
-            (candidate) => candidate.phase === phase,
-          )
-          if (entry === undefined)
-            throw new Error(`Run data has no ${phase} phase owner`)
-          return [
-            {
-              phase,
-              assistant: entry.assistant,
-              model: ran.selection.model,
-              effort: ran.selection.effort,
-              milliseconds: Math.round(ran.spent),
-              tokens: [...ran.tokens],
-              peakContext: ran.peakContext,
-              compactions: ran.compactions,
-            },
-          ]
-        }),
-        commits: [...result.commits],
-        findings: [...result.account.findings],
-        judge: null,
-        ...("phase" in this.run.data
-          ? { phase: this.run.data.phase }
-          : {
-              scope: this.run.data.scope,
-              judgedRepos: [...result.account.judgedRepos],
-            }),
-      })
+      this.writeRoundData(
+        result.status === "finished"
+          ? "finished"
+          : result.status === "awaiting-ruling"
+            ? "awaiting-ruling"
+            : result.reason === "Interrupted"
+              ? "interrupted"
+              : "failed",
+        result.commits,
+        result.account,
+        result.status === "finished" ? result.judge : null,
+      )
     }
     this.release()
     if (result.status === "failed") {
@@ -745,6 +724,53 @@ export class RoundOutput<R extends Run = Run> {
     if (run === undefined)
       throw new Error("Phase feedback arrived before its phase started")
     return run
+  }
+
+  private writeRoundData(
+    status: RoundData["status"],
+    commits: readonly RoundData["commits"][number][],
+    account: RoundAccount,
+    judge: JudgeAnswer | null,
+  ): void {
+    if (this.run.data === undefined) return
+    writeRoundData(this.run.data.path, {
+      target: this.run.data.target,
+      round: this.run.data.round,
+      tag: this.run.data.tag,
+      started: new Date(this.run.started).toISOString(),
+      status,
+      settings: this.run.data.settings,
+      auditor: this.run.data.auditor,
+      phases: [...this.ran].flatMap(([phase, ran]) => {
+        if (phase === "close" || ran.spent === null) return []
+        const entry = this.run.phases.find(
+          (candidate) => candidate.phase === phase,
+        )
+        if (entry === undefined)
+          throw new Error(`Run data has no ${phase} phase owner`)
+        return [
+          {
+            phase,
+            assistant: entry.assistant,
+            model: ran.selection.model,
+            effort: ran.selection.effort,
+            milliseconds: Math.round(ran.spent),
+            tokens: [...ran.tokens],
+            peakContext: ran.peakContext,
+            compactions: ran.compactions,
+          },
+        ]
+      }),
+      commits: [...commits],
+      findings: [...account.findings],
+      judge,
+      ...("phase" in this.run.data
+        ? { phase: this.run.data.phase }
+        : {
+            scope: this.run.data.scope,
+            judgedRepos: [...account.judgedRepos],
+          }),
+    })
   }
 }
 

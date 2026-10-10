@@ -4,10 +4,10 @@ import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
 import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
 import { errorMessage, type PhaseOutput } from "./feedback.js"
+import { readJudgeAnswer } from "./judge.js"
 import type {
   AssistantTurnInput,
-  FinalRecommendationInput,
-  FinalRecommendationResult,
+  JudgeResult,
   Phase,
   PhaseFailure,
   PhaseInput,
@@ -15,13 +15,7 @@ import type {
   RoundDependencies,
 } from "./phase.js"
 import { phaseResult, withoutPhaseResult } from "./phase-result.js"
-import { readFinalRecommendation } from "./report.js"
-import {
-  type AssistantPrompt,
-  finalRecommendationPrompt,
-  phasePrompt,
-  phaseRequest,
-} from "./requests.js"
+import { type AssistantPrompt, phasePrompt, phaseRequest } from "./requests.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
 
@@ -78,25 +72,28 @@ export function runAssistantInvocation(
   )
 }
 
-/** Resume the auditor without a phase result or report write. */
-export function runFinalRecommendation(
-  input: FinalRecommendationInput,
+/** Run the fresh judge turn and admit its one-line answer. */
+export function runJudge(
+  input: PhaseInput<"judge">,
   output: PhaseOutput,
   runtime: AssistantRuntime,
-): Promise<FinalRecommendationResult> {
-  return runAssistantTurn(
+): Promise<JudgeResult> {
+  return runAssistantTurn<JudgeResult>(
     input,
-    finalRecommendationPrompt(input),
+    phasePrompt(input),
     output,
     runtime,
     async (sessionId, finalText) => {
+      const result = phaseResult(input.phase, sessionId, finalText)
+      if (result.status !== "finished")
+        return { phaseResult: result, value: result }
       const value = {
         status: "finished",
         sessionId,
-        recommendation: readFinalRecommendation(finalText),
+        answer: readJudgeAnswer(withoutPhaseResult(finalText), input.canStop),
       } as const
       return {
-        phaseResult: { status: "finished", sessionId },
+        phaseResult: result,
         value,
       }
     },
@@ -183,10 +180,9 @@ async function runAssistantTurn<T>(
 export function assistantDependencies(
   runtime: AssistantRuntime,
   output: PhaseOutput,
-): Pick<RoundDependencies, "runPhase" | "finalRecommendation"> {
+): Pick<RoundDependencies, "runPhase" | "runJudge"> {
   return {
-    finalRecommendation: (input) =>
-      runFinalRecommendation(input, output, runtime),
+    runJudge: (input) => runJudge(input, output, runtime),
     runPhase: {
       audit: (input) => runAssistantPhase(input, output, runtime),
       vet: (input) => runAssistantPhase(input, output, runtime),

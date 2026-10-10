@@ -1,6 +1,7 @@
 import { basename } from "node:path"
 import { errorMessage } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
+import { judgeCanStop } from "./judge.js"
 import type { RoundDocuments } from "./output.js"
 import {
   type Assistant,
@@ -16,13 +17,15 @@ import {
   type RoundDependencies,
   roundPhases,
 } from "./phase.js"
-import type { AuditReport, RoundRecommendation } from "./report.js"
+import type { AuditReport } from "./report.js"
 import {
   type FindingRebuttal,
   type FindingReview,
+  type JudgeAnswer,
   type LandedCommit,
   type RoundAccount,
   reviewedRoundFindings,
+  roundDataIdentity,
   settleRoundFindings,
 } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
@@ -39,7 +42,7 @@ export type RoundSetup = RoundContext & {
   readonly auditSlot?: AuditSlot
   /** True adds the brief to every round in the command; absent runs none. */
   readonly brief?: boolean
-  /** True only when this round belongs to the recommendation-led series. */
+  /** True only when this round belongs to the judge-led series. */
   readonly automatic?: boolean
 } & AuditTarget
 
@@ -76,8 +79,8 @@ export type RoundResult = (
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
-      /** The settled auditor's advice; widening rounds have none. */
-      readonly recommendation: RoundRecommendation | null
+      /** The fresh judge's answer; manual and red-watch rounds have none. */
+      readonly judge: JudgeAnswer | null
       /** The grade the watch that followed the round recorded; null when none ran. */
       readonly watch: WatchGrade | null
     }
@@ -306,6 +309,48 @@ async function runWatch(
   }
 }
 
+/** Run the fresh evidence-only turn that decides an automatic series. */
+async function runSeriesJudge(
+  input: RoundInput & { readonly plan: string },
+  dependencies: Pick<RoundDependencies, "judgeEvidence" | "runJudge">,
+  settings: RoundSettings,
+): Promise<RoundFailure | { readonly answer: JudgeAnswer }> {
+  const phases = roundPhases("codex", noOverride, settings)
+  const { cwd, repoEduRoot, planRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  try {
+    const evidence = await dependencies.judgeEvidence({
+      ...context,
+      stem: planStem(input.plan),
+    })
+    const target = roundDataIdentity(
+      transcriptNameStart(input.transcript),
+    ).target
+    const canStop = judgeCanStop(evidence, target)
+    const judged = await dependencies.runJudge({
+      phase: "judge",
+      ...phases.judge,
+      ...context,
+      arguments: [],
+      evidence,
+      canStop,
+      sessionId: null,
+    })
+    if (judged.status === "failed")
+      return { ...judged, phase: "judge", ...phases.judge, ...context }
+    return { answer: judged.answer }
+  } catch (error) {
+    return {
+      status: "failed",
+      sessionId: null,
+      phase: "judge",
+      ...phases.judge,
+      ...context,
+      reason: errorMessage(error),
+    }
+  }
+}
+
 export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
@@ -384,11 +429,18 @@ export async function runRound(
         report,
         judgedRepos: evidence.judgedRepos,
       })
+      dependencies.writeSettledRound(completion.commits, account)
+      const judged =
+        input.automatic === true && "plan" in input
+          ? await runSeriesJudge(input, dependencies, settings)
+          : { answer: null }
+      if ("status" in judged)
+        return { ...judged, commits: completion.commits, account }
       return {
         status: "finished",
         report,
         cleanAudit: true,
-        recommendation: evidence.recommendation,
+        judge: judged.answer,
         watch: null,
         commits: completion.commits,
         account,
@@ -407,7 +459,6 @@ export async function runRound(
     }
   }
   const twins = [input.documents.vet]
-  let rebutted = false
   let reviews: readonly FindingReview[] = []
   let rebuttals: readonly FindingRebuttal[] = []
   {
@@ -507,7 +558,6 @@ export async function runRound(
         }
       }
       twins.push(input.documents.rebut)
-      rebutted = true
     }
   }
 
@@ -606,46 +656,6 @@ export async function runRound(
           ...account,
           findings: settleRoundFindings(account.findings, landed.flat()),
         }
-        if (input.automatic === true && rebutted) {
-          let vet: string
-          let rebuttal: string
-          try {
-            const documents = await Promise.all([
-              dependencies.readDocument(input.documents.vet),
-              dependencies.readDocument(input.documents.rebut),
-            ])
-            vet = documents[0]
-            rebuttal = documents[1]
-          } catch (error) {
-            return {
-              status: "failed",
-              sessionId: audit.sessionId,
-              phase: "audit",
-              ...phases.audit,
-              ...context,
-              reason: errorMessage(error),
-              commits,
-              account,
-            }
-          }
-          const final = await dependencies.finalRecommendation({
-            ...auditInput,
-            sessionId: audit.sessionId,
-            vet,
-            rebuttal,
-            records: landed.flat(),
-          })
-          if (final.status === "failed")
-            return {
-              ...final,
-              phase: "audit",
-              ...phases.audit,
-              ...context,
-              commits,
-              account,
-            }
-          evidence = { ...evidence, recommendation: final.recommendation }
-        }
         await dependencies.deleteRoundReports(
           planRoot,
           transcriptNameStart(input.transcript),
@@ -655,6 +665,20 @@ export async function runRound(
           status: "failed",
           sessionId: fix.sessionId,
           phase: "fix",
+          ...phases.fix,
+          ...context,
+          reason: errorMessage(error),
+          commits,
+          account,
+        }
+      }
+      try {
+        dependencies.writeSettledRound(commits, account)
+      } catch (error) {
+        return {
+          status: "failed",
+          sessionId: null,
+          phase: "complete",
           ...phases.fix,
           ...context,
           reason: errorMessage(error),
@@ -680,11 +704,16 @@ export async function runRound(
           ? await runWatch(input, dependencies, settings)
           : { grade: null }
       if ("status" in watched) return { ...watched, commits, account }
+      const judged =
+        input.automatic === true && "plan" in input && watched.grade !== "red"
+          ? await runSeriesJudge(input, dependencies, settings)
+          : { answer: null }
+      if ("status" in judged) return { ...judged, commits, account }
       return {
         status: "finished",
         report,
         cleanAudit: false,
-        recommendation: evidence.recommendation,
+        judge: judged.answer,
         watch: watched.grade,
         commits,
         account,

@@ -69,9 +69,7 @@ for (const working of ["plan", "repo-edu"] as const) {
         ),
         message,
       )
-      assert.ok(
-        message.includes("Round yield: 0 ordinary; 0 rare; 0 developer."),
-      )
+      assert.doesNotMatch(message, /Round yield:|Structure:/)
       assert.match(message, /\nAudit took \d+ min\.\n/)
       assert.equal(await readFile(f.report, "utf8"), report)
       assert.equal(dirname(f.report), f.planRoot)

@@ -47,6 +47,11 @@
             "model": null,
             "effort": null
         },
+        "judge": {
+            "assistant": "codex",
+            "model": "gpt-5.6-terra",
+            "effort": "low"
+        },
         "close": {
             "assistant": "codex",
             "model": null,

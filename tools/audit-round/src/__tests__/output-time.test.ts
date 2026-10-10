@@ -187,6 +187,115 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   )
 })
 
+test("stopping between retained writes leaves the settled entry in progress", async (t) => {
+  const f = await fixture(t)
+  const run = await buildRoundRun(
+    {
+      ...testContext(f.root),
+      plan: "example.md",
+      scope: "all",
+      automatic: true,
+    },
+    Date.now(),
+    selections,
+    testSettings,
+  )
+  const output = new RoundOutput(run, {
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+  })
+  output.writeSettledRound([], { judgedRepos: ["repo-edu"], findings: [] })
+  output.close()
+
+  assert.ok(run.data)
+  const [entry] = parseRoundDataFile(
+    run.data.path,
+    await readFile(run.data.path, "utf8"),
+  )
+  assert.equal(entry?.status, "in-progress")
+  assert.equal(entry?.judge, null)
+})
+
+test("the final retained write stores the judge answer", async (t) => {
+  const f = await fixture(t)
+  const run = await buildRoundRun(
+    {
+      ...testContext(f.root),
+      plan: "example.md",
+      scope: "all",
+      automatic: true,
+    },
+    Date.now(),
+    selections,
+    testSettings,
+  )
+  const output = new RoundOutput(run, {
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+  })
+  t.after(() => output.close())
+  const account = { judgedRepos: ["repo-edu"] as const, findings: [] }
+  output.writeSettledRound([], account)
+  output.finish({
+    status: "finished",
+    report: "REPORT.md",
+    cleanAudit: true,
+    judge: { answer: "claude", reason: "Cross-check the retained result." },
+    watch: null,
+    commits: [],
+    account,
+  })
+
+  assert.ok(run.data)
+  const [entry] = parseRoundDataFile(
+    run.data.path,
+    await readFile(run.data.path, "utf8"),
+  )
+  assert.equal(entry?.status, "finished")
+  assert.deepEqual(entry?.judge, {
+    answer: "claude",
+    reason: "Cross-check the retained result.",
+  })
+})
+
+test("a later judge failure replaces the settled entry with failure", async (t) => {
+  const f = await fixture(t)
+  const run = await buildRoundRun(
+    {
+      ...testContext(f.root),
+      plan: "example.md",
+      scope: "all",
+      automatic: true,
+    },
+    Date.now(),
+    selections,
+    testSettings,
+  )
+  const output = new RoundOutput(run, {
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+  })
+  t.after(() => output.close())
+  const account = { judgedRepos: ["repo-edu"] as const, findings: [] }
+  output.writeSettledRound([], account)
+  output.finish({
+    status: "failed",
+    phase: "judge",
+    sessionId: "judge-session",
+    assistant: "codex",
+    model: unpinned,
+    ...testContext(f.root),
+    reason: "Judge process stopped",
+    commits: [],
+    account,
+  })
+
+  assert.ok(run.data)
+  const [entry] = parseRoundDataFile(
+    run.data.path,
+    await readFile(run.data.path, "utf8"),
+  )
+  assert.equal(entry?.status, "failed")
+  assert.equal(entry?.judge, null)
+})
+
 for (const assistant of ["claude", "codex"] as const) {
   test(`${assistant} fix tokens span a ruling resume exactly once in retained round data`, async (t) => {
     const f = await fixture(t)
@@ -272,7 +381,7 @@ for (const assistant of ["claude", "codex"] as const) {
       status: "finished",
       report: "REPORT.md",
       cleanAudit: false,
-      recommendation: null,
+      judge: null,
       watch: null,
       commits: [
         {
@@ -382,7 +491,7 @@ for (const assistant of ["claude", "codex"] as const) {
       status: "finished",
       report: "REPORT.md",
       cleanAudit: false,
-      recommendation: null,
+      judge: null,
       watch: null,
       commits: [],
       account: { judgedRepos: ["repo-edu"], findings: [] },

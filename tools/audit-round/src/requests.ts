@@ -7,7 +7,6 @@ import { z } from "zod"
 import { peerRoot } from "./context.js"
 import type {
   AssistantTurnInput,
-  FinalRecommendationInput,
   InteractiveSession,
   PhaseInput,
   PinnedField,
@@ -132,38 +131,6 @@ export type AssistantPrompt = {
   readonly log: string
 }
 
-/** A resumed auditor already has its workflow, scope, history and report. */
-export function finalRecommendationPrompt(
-  input: FinalRecommendationInput,
-): AssistantPrompt {
-  const records = input.records
-    .map(
-      (record) =>
-        `Repository: ${record.repository}\nSubject: ${record.subject}\n\n${record.message}`,
-    )
-    .join("\n\n---\n\n")
-  const prompt = `Resume the audit session for the final recommendation of this automatic series. The vet changed the audit's findings and the fix has finished.
-
-Use the vet twin, rebuttal twin and landed records below with the scope, target history, stop conditions and report already in this session. Read no files and write none. Return exactly one recommendation line in one of these forms and no other text:
-
-Recommendation: stop. <reason>
-Recommendation: continue with Claude. <reason>
-Recommendation: continue with Codex. <reason>
-
-Vet twin:
-
-${input.vet}
-
-Rebuttal twin:
-
-${input.rebuttal}
-
-Landed records:
-
-${records}`
-  return { text: prompt, log: prompt }
-}
-
 export function phasePrompt(input: PhaseInput): AssistantPrompt {
   const launcher = phaseLauncher(input)
   const files =
@@ -180,14 +147,13 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
             .join("\n\n"),
     ),
     log: formatPhasePrompt(
-      input.phase === "watch"
-        ? { ...input, evidence: "(contents omitted from log)" }
-        : input,
+      input,
       files === null
         ? null
         : [...files.keys()]
             .map((path) => `Source file: ${path} (contents omitted from log)`)
             .join("\n"),
+      true,
     ),
   }
 }
@@ -195,6 +161,7 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
 function formatPhasePrompt(
   input: PhaseInput,
   instructions: string | null,
+  omitEvidence = false,
 ): string {
   const { phase, repoEduRoot, cwd } = input
   const launcher = phaseLauncher(input)
@@ -211,7 +178,7 @@ ${instructions === null ? `Read and follow this launcher: ${launcher}` : `Follow
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Workflow: ${phaseWorkflow(input)}
 The supplied workflow and phase arguments are already resolved. Do not run name or paths again. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
-For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.${input.phase === "watch" ? `\n\nJoined watch evidence:\n${input.evidence}` : ""}`
+For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : input.phase === "judge" ? `\n\nPermitted judge options: ${input.canStop ? "stop, Claude or Codex" : "Claude or Codex"}.\n\nJudge evidence:\n${JSON.stringify(omitEvidence ? "(contents omitted from log)" : input.evidence, null, 2)}` : ""}`
   if (input.phase !== "fix") return prompt
   const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md at that path.`
   if (input.rulingReply === undefined) return fixPrompt

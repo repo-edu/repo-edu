@@ -244,6 +244,23 @@ async function newestDocument(
   return dated.sort((first, second) => second.time - first.time)[0]?.path
 }
 
+/** The newest watch for one episode, across its planning and step scopes. */
+export async function newestWatch(
+  planRoot: string,
+  stem: string,
+): Promise<string | undefined> {
+  const prefix = `${stem}-`
+  return newestDocument(
+    (await phaseDocuments(planRoot, "watch"))
+      .filter((document) => {
+        if (!document.nameStart.startsWith(prefix)) return false
+        const target = document.nameStart.slice(prefix.length)
+        return target.startsWith("plan-") || target.startsWith("impl-")
+      })
+      .map((document) => document.path),
+  )
+}
+
 /** A brief given no transcript retells the most recent round at the plan root. */
 export async function newestTranscript(
   context: ExecutionContext,

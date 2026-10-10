@@ -140,7 +140,7 @@ export async function roundFixture(
       ? "Planning round workflow\nArtifact: `example.md`\nPhase: detailing\n"
       : "") +
       `Judged repos: ${owner}@${heads[owner]}\n` +
-      "Recommendation: continue with Codex. Another round is worth its cost.\n\n" +
+      "\n" +
       (working === "plan"
         ? `## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\n${clean ? "No missing findings.\n" : finding("[field:missing] [section:decisions]")}`
         : `## Findings\n\n${clean ? "No findings.\n" : finding("[area:tool-audit-round]")}`),
@@ -157,22 +157,23 @@ export async function roundFixture(
     "fix",
     "brief",
     "watch",
+    "judge",
     "close",
-    "recommendation",
   ] as const) {
-    const assistant = ["fix", "brief", "watch", "close"].includes(phase)
+    const assistant = ["fix", "brief", "watch", "judge", "close"].includes(
+      phase,
+    )
       ? "codex"
       : phase === "vet"
         ? auditor === "codex"
           ? "claude"
           : "codex"
         : auditor
-    const sessionId =
-      phase === "recommendation" ? "audit-session" : `${phase}-session`
+    const sessionId = `${phase}-session`
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
     const final =
-      phase === "recommendation"
-        ? "Recommendation: stop. The reconciled round has converged."
+      phase === "judge"
+        ? 'Judge: stop. The retained evidence has converged.\n\nPHASE RESULT: {"status":"finished","reason":null}'
         : `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
     phases[phase] = {
       document:
@@ -184,7 +185,7 @@ export async function roundFixture(
               ? ruling
                 ? { text: "Written ruling by fix" }
                 : undefined
-              : phase === "close" || phase === "recommendation"
+              : phase === "close" || phase === "judge"
                 ? undefined
                 : { text: `Written ${phase}` },
       commits:

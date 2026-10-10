@@ -14,6 +14,7 @@ import { defaultPlan, resolveTarget } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { readWatchGrade, runGlance } from "./glance.js"
+import { readJudgeEvidence } from "./judge.js"
 import { readyPlan, settlePlan } from "./lifecycle.js"
 import {
   briefRun,
@@ -42,7 +43,7 @@ import {
   validateAuditorEntries,
   writeQueue,
 } from "./queue.js"
-import { formatRecommendation, readReport, reportKind } from "./report.js"
+import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
@@ -273,8 +274,9 @@ Round sequence:
 
   Automatic series (settled plan without --auditor):
     - The configured default auditor runs first, or the --first selection.
-    - A continue recommendation names the next assistant. A stop recommendation
-      ends the series. No queue file is written.
+    - After each non-red round, a fresh judge picks the next assistant or stops.
+      A settled A or B finding removes stop from the judge's options.
+    - No queue file is written.
     - A configured audit pair takes turns within this command. A coin flip picks
       its first member. --first and other command-line choices take no turn.
     - settings.json sets the maximum round count, including the first round.
@@ -300,19 +302,17 @@ Round sequence:
     3. Rebuttal  The auditor answers the vet's objections or conditions.
                  Skipped if the vet accepts every finding unconditionally.
     4. Fix       The assistant set in settings.json fixes the accepted findings.
-    5. Final recommendation
-                 In an automatic round whose rebuttal ran, the auditor resumes
-                 after the fix and replaces the report's recommendation.
-    6. Brief     A plain-words summary follows the fix.
+    5. Brief     A plain-words summary follows the fix.
                  Runs only with --brief.
+    6. Watch     The trajectory watch runs when its glance says it is due.
+    7. Judge     A fresh evidence-only turn ends or continues an automatic series.
 
   Skipping rounds and stopping:
-    - If the audit finds nothing, the round ends before vet or any later phase.
-    - Every completed detailing or implementation round prints its recommendation
-      and reason, including the named assistant for a continuation.
-    - In a manual queue, a clean audit or stop recommendation skips entries that
-      resolve to the same assistant, model and effort. Other settings still run.
-    - A continue recommendation leaves a manual queue unchanged.
+    - If the audit finds nothing, it skips vet, rebuttal, fix and watch. An
+      automatic series still runs the judge.
+    - The judge prints its answer and reason inside the round.
+    - In a manual queue, a clean audit skips entries that resolve to the same
+      assistant, model and effort. Other settings still run.
     - A fix that records a clean result does not skip later rounds.
     - A failure stops the sequence. A decision asks for your reply in the runner.
       A submitted reply resumes the fix and sequence. Leaving without a reply
@@ -817,7 +817,7 @@ export async function runCommand(
         readVet(await readFile(file, "utf8"), findings),
       readRebuttal: async (file, findings) =>
         readRebuttal(await readFile(file, "utf8"), findings),
-      readDocument: (file) => readFile(file, "utf8"),
+      judgeEvidence: readJudgeEvidence,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
       fileExists: async (file) => {
@@ -855,6 +855,8 @@ export async function runCommand(
         { ...runtime, cwd: session.cwd, commit: active.commitStamps },
         active.phase,
       ),
+      writeSettledRound: (commits, account) =>
+        active.writeSettledRound(commits, account),
       requestRuling: async (document) => {
         active.beginRuling(document, await readFile(document, "utf8"))
         let reply: string | null = null
@@ -967,7 +969,7 @@ export async function runCommand(
             }
             if (automatic)
               await output?.message(
-                `Next round: ${seat.assistant}, as recommended; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
+                `Next round: ${seat.assistant}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
               )
           }
           const setup = {
@@ -1009,10 +1011,6 @@ export async function runCommand(
             settings,
           )
           result = round
-          // The recommendation is the round's own output, so it prints inside
-          // the round's box, before the closing line and rule.
-          if (round.status === "finished" && round.recommendation !== null)
-            await active.message(formatRecommendation(round.recommendation))
           active.finish(round)
           completed += 1
           if (!automatic && queue === null) break
@@ -1032,14 +1030,14 @@ export async function runCommand(
             break
           }
           if (automatic) {
-            const recommendation = round.recommendation
-            if (recommendation === null)
+            const judge = round.judge
+            if (judge === null)
               throw new Error(
-                "Automatic settled round finished without a recommendation",
+                "Automatic settled round finished without a judge answer",
               )
-            if (recommendation.decision === "stop") {
+            if (judge.answer === "stop") {
               await active.message(
-                `Automatic auditor series stopped on the round recommendation after ${completed} round${completed === 1 ? "" : "s"}.`,
+                `Automatic auditor series stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
               )
               break
             }
@@ -1050,16 +1048,12 @@ export async function runCommand(
               break
             }
             seat = {
-              assistant: recommendation.assistant,
+              assistant: judge.answer,
               override: noOverride,
             }
             continue
           }
-          const ending = round.cleanAudit
-            ? "Clean audit"
-            : round.recommendation?.decision === "stop"
-              ? "Stop recommendation"
-              : null
+          const ending = round.cleanAudit ? "Clean audit" : null
           const ended =
             ending === null ? null : auditorSetting(seat, selections, settings)
           if (queue === null) break

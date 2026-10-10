@@ -1,10 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import {
-  readReport as readAuditReport,
-  readFinalRecommendation,
-  reportKind,
-} from "../report.js"
+import { readReport as readAuditReport, reportKind } from "../report.js"
 import { readRebuttal, readVet } from "../vet.js"
 
 const readReport = (
@@ -42,9 +38,9 @@ function finding(
   return `${number}. **B: Preserve the evidence**\n\n   ${location} ${ratings}\n\n   ${evidence}\n`
 }
 const implementation = (body: string) =>
-  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\nRecommendation: continue with Codex. The next round is still worth its cost.\n\nOpening and coverage.\n\n## Findings\n\n${body}`
+  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
 const planning = (excess: string, missing: string) =>
-  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\nRecommendation: continue with Claude. Another detailing round is worthwhile.\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
+  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
 
 test("the report opening identifies the judged repos independently of evidence", () => {
   for (const [line, judgedRepos] of [
@@ -54,16 +50,12 @@ test("the report opening identifies the judged repos independently of evidence",
   ] as const) {
     assert.deepEqual(
       readAuditReport(
-        `# Audit\n\nJudged repos: ${line}\nRecommendation: stop. The series has converged.\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
+        `# Audit\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
       {
         findings: [],
         judgedRepos,
-        recommendation: {
-          decision: "stop",
-          reason: "The series has converged.",
-        },
       },
     )
   }
@@ -79,17 +71,12 @@ test("plain judged-repos lines survive formatted neighbours in the same paragrap
   ])
     assert.deepEqual(
       readAuditReport(
-        `${opening}\nRecommendation: continue with Claude. More yield is likely.\n\n## Findings\n\nNo findings.`,
+        `${opening}\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
       {
         findings: [],
         judgedRepos: ["repo-edu"],
-        recommendation: {
-          decision: "continue",
-          assistant: "claude",
-          reason: "More yield is likely.",
-        },
       },
     )
 })
@@ -113,131 +100,25 @@ test("missing, duplicate, quoted and malformed judged-repos openings fail", () =
     assert.throws(
       () =>
         readAuditReport(
-          `${opening}\nRecommendation: continue with Claude. More yield is likely.\n\n## Findings\n\nNo findings.`,
+          `${opening}\n\n## Findings\n\nNo findings.`,
           "implementation",
         ),
       /Judged repos/,
     )
 })
 
-test("settled reports read one plain recommendation and its reason", () => {
-  for (const [written, expected] of [
-    [
-      "stop. The last round found too little yield.",
-      {
-        decision: "stop",
-        reason: "The last round found too little yield.",
-      },
-    ],
-    [
-      "continue with Claude. An ordinary B finding suggests more yield.",
-      {
-        decision: "continue",
-        assistant: "claude",
-        reason: "An ordinary B finding suggests more yield.",
-      },
-    ],
-  ] as const)
-    assert.deepEqual(
-      readAuditReport(
-        implementation("No findings.").replace(
-          "continue with Codex. The next round is still worth its cost.",
-          written,
-        ),
-        "implementation",
-      ).recommendation,
-      expected,
-    )
-})
-
-test("a stop reason keeps its formatted words as written", () => {
-  for (const [written, reason] of [
-    [
-      "Entry 5 of `STOP-CONDITIONS.md` applies.",
-      "Entry 5 of `STOP-CONDITIONS.md` applies.",
-    ],
-    [
-      "`report.ts` and *one* [record](../plan/example.md) agree.",
-      "`report.ts` and *one* [record](../plan/example.md) agree.",
-    ],
-    [
-      "The `first\nsecond` span stays whole.",
-      "The `first second` span stays whole.",
-    ],
-  ] as const)
-    assert.deepEqual(
-      readAuditReport(
-        implementation("No findings.").replace(
-          "The next round is still worth its cost.",
-          written,
-        ),
-        "implementation",
-      ).recommendation,
-      { decision: "continue", assistant: "codex", reason },
-    )
-})
-
-test("missing, duplicate, formatted and malformed recommendations fail", () => {
-  const report = implementation("No findings.")
-  for (const opening of [
-    "",
-    "Recommendation: continue with Claude.",
-    "Recommendation: continue. More yield is likely.",
-    "Recommendation: continue with Gemini. More yield is likely.",
-    "**Recommendation:** continue with Claude. More yield is likely.",
-    "> Recommendation: continue with Claude. More yield is likely.",
-    "Recommendation: stop. Enough yield.\nRecommendation: continue with Claude. More yield is likely.",
-  ])
-    assert.throws(
-      () =>
-        readAuditReport(
-          report.replace(
-            "Recommendation: continue with Codex. The next round is still worth its cost.",
-            opening,
-          ),
-          "implementation",
-        ),
-      /recommendation/i,
-    )
-})
-
-test("detailing reports require recommendations while widening reports skip them", () => {
-  const report = planning("No excess findings.", "No missing findings.")
-  assert.deepEqual(readAuditReport(report, "detailing").recommendation, {
-    decision: "continue",
-    assistant: "claude",
-    reason: "Another detailing round is worthwhile.",
-  })
-  assert.equal(
-    readAuditReport(
-      report.replace(
-        "Recommendation: continue with Claude. Another detailing round is worthwhile.\n",
-        "Settling recommendation: keep widening. The shape remains open.\n",
-      ),
-      "widening",
-    ).recommendation,
-    null,
-  )
-})
-
-test("a final recommendation is exactly one line", () => {
+test("settled reports carry findings and judged repositories without routing", () => {
   assert.deepEqual(
-    readFinalRecommendation(
-      "Recommendation: continue with Codex. The reconciled findings justify another pass.\n",
-    ),
-    {
-      decision: "continue",
-      assistant: "codex",
-      reason: "The reconciled findings justify another pass.",
-    },
+    readAuditReport(implementation("No findings."), "implementation"),
+    { findings: [], judgedRepos: ["plan", "repo-edu"] },
   )
-  for (const source of [
-    "Recommendation: continue. More work remains.",
-    "Recommendation: stop.",
-    "Preface.\n\nRecommendation: stop. Enough.",
-    "Recommendation: stop. Enough.\n\nMore text.",
-  ])
-    assert.throws(() => readFinalRecommendation(source), /exactly one/)
+  assert.deepEqual(
+    readAuditReport(
+      planning("No excess findings.", "No missing findings."),
+      "detailing",
+    ),
+    { findings: [], judgedRepos: ["plan", "repo-edu"] },
+  )
 })
 
 test("reports read explicit empty fields and count both planning fields", () => {

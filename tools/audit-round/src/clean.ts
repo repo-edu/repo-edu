@@ -45,7 +45,7 @@ export async function completeClean(
     input.roundKind === "planning" ? "plan-audit" : `impl-audit-${input.scope}`
   const subject = `${planStem(input.plan)}/${role} ${stamps.auditor} clean: record audit with no findings`
   parseSubject(subject, repository)
-  const body = `${stamps.phases}\n\nRound yield: 0 ordinary; 0 rare; 0 developer.\nStructure: 0 removing, 0 adding, 0 flat.`
+  const body = stamps.phases
   const { sha } = await commitOnly({ cwd, subject, body, stamps })
   return {
     message: `Clean audit recorded. Report retained: ${input.report}`,

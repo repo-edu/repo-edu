@@ -158,17 +158,28 @@ await appendFile(
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
-  const phase = (prompt ?? "").startsWith(
-    "Resume the audit session for the final recommendation",
-  )
-    ? "recommendation"
-    : /^Run the (audit|vet|rebut|fix|brief|watch|close) phase\b/.exec(
-        prompt ?? "",
-      )?.[1]
+  const phase =
+    /^Run the (audit|vet|rebut|fix|brief|watch|judge|close) phase\b/.exec(
+      prompt ?? "",
+    )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
   // A chained round changes who audits, so a phase may answer as either CLI.
   scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
+  if (phase === "judge" && selected?.streams !== undefined) {
+    const counter = join(root, "judge-count")
+    let index = 0
+    try {
+      index = Number(await readFile(counter, "utf8"))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    }
+    await writeFile(counter, String(index + 1))
+    scenario = {
+      ...scenario,
+      stream: selected.streams[index] ?? selected.streams.at(-1),
+    }
+  }
   const phaseArguments = JSON.parse(
     /^Phase arguments \(JSON array\): (.+)$/m.exec(prompt ?? "")?.[1] ?? "[]",
   )

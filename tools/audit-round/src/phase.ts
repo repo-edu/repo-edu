@@ -2,13 +2,14 @@ import { join } from "node:path"
 import type { CleanCompletion, CleanInput } from "./clean.js"
 import type { WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
+import type { JudgeEvidence, JudgeEvidenceInput } from "./judge.js"
+import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
 import type {
-  AuditReport,
-  ReportClass,
-  ReportFindings,
-  RoundRecommendation,
-} from "./report.js"
-import type { FindingRebuttal, LandedCommit } from "./round-data.js"
+  FindingRebuttal,
+  JudgeAnswer,
+  LandedCommit,
+  RoundAccount,
+} from "./round-data.js"
 import type { PhaseSelection, RoundSettings } from "./settings.js"
 import type { RoundContext } from "./target.js"
 import type { VetReading } from "./vet.js"
@@ -32,6 +33,7 @@ export type Phase =
   | "fix"
   | "brief"
   | "watch"
+  | "judge"
   | "close"
 
 /**
@@ -45,6 +47,7 @@ export const phaseSkills: Record<Phase, string> = {
   fix: "fix",
   brief: "brief-round",
   watch: "watch",
+  judge: "judge",
   close: "close",
 }
 
@@ -54,7 +57,7 @@ export const phaseSkills: Record<Phase, string> = {
  */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root =
-    input.phase === "close"
+    input.phase === "close" || input.phase === "judge"
       ? input.planRoot
       : transcribed(input.phase)
         ? input.cwd
@@ -295,6 +298,8 @@ export function roundPhases(
     brief: run("brief", config.phases.brief.assistant),
     // The watch reads joined trajectory evidence, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
+    // The judge reads retained evidence and uses its own cheap setting.
+    judge: run("judge", config.phases.judge.assistant),
     // Loop-close is no part of a round; it runs alone on its own settings.
     close: run("close", config.phases.close.assistant),
   }
@@ -373,6 +378,12 @@ type PhaseArguments = {
     readonly arguments: readonly [watch: string, cacheRoot: string]
     readonly sessionId: null
   }
+  judge: {
+    readonly evidence: JudgeEvidence
+    readonly canStop: boolean
+    readonly arguments: readonly []
+    readonly sessionId: null
+  }
   close: {
     /** An abort reason closes an episode that never shipped. */
     readonly arguments:
@@ -392,31 +403,12 @@ type PhaseInputs = {
 
 export type PhaseInput<P extends Phase = Phase> = PhaseInputs[P]
 
+export type AssistantTurnInput = PhaseInput
+
 /** One commit record a finished fix landed, with its hosting repository. */
 export type LandedRecord = LandedCommit & {
   readonly subject: string
   readonly message: string
-}
-
-/** The resumed audit session's inputs for the non-phase final recommendation step. */
-export type FinalRecommendationInput = Omit<
-  PhaseInput<"audit">,
-  "sessionId"
-> & {
-  readonly sessionId: string
-  readonly vet: string
-  readonly rebuttal: string
-  readonly records: readonly LandedRecord[]
-}
-
-/** Fields shared by fresh phases and the resumed recommendation turn. */
-export type AssistantTurnInput = PhaseInput | FinalRecommendationInput
-
-/** Whether a turn is the resumed auditor's final recommendation rather than a phase. */
-export function isFinalRecommendation(
-  input: AssistantTurnInput,
-): input is FinalRecommendationInput {
-  return "rebuttal" in input
 }
 
 export type PhaseFailure = {
@@ -449,6 +441,7 @@ type PhaseResults = {
   fix: FixResult
   brief: ReportResult
   watch: ReportResult
+  judge: ReportResult
   close: ReportResult
 }
 
@@ -457,12 +450,12 @@ export type PhaseResult<P extends Phase = Phase> =
   | PhaseFailure
   | PhaseResults[P]
 
-export type FinalRecommendationResult =
+export type JudgeResult =
   | PhaseFailure
   | {
       readonly status: "finished"
       readonly sessionId: string
-      readonly recommendation: RoundRecommendation
+      readonly answer: JudgeAnswer
     }
 
 /**
@@ -495,7 +488,6 @@ export type RoundDependencies = {
     file: string,
     findings: ReportFindings,
   ) => Promise<readonly FindingRebuttal[]>
-  readonly readDocument: (file: string) => Promise<string>
   readonly readHead: (root: string) => Promise<string>
   /** Whether a file exists, which tells a finished close that left its plan in place. */
   readonly fileExists: (file: string) => Promise<boolean>
@@ -504,11 +496,11 @@ export type RoundDependencies = {
     before: string,
     repository: LandedRecord["repository"],
   ) => Promise<readonly LandedRecord[]>
-  readonly finalRecommendation: (
-    input: FinalRecommendationInput,
-  ) => Promise<FinalRecommendationResult>
+  readonly runJudge: (input: PhaseInput<"judge">) => Promise<JudgeResult>
   readonly runPhase: {
-    readonly [P in Phase]: (input: PhaseInput<P>) => Promise<PhaseResult<P>>
+    readonly [P in Exclude<Phase, "judge">]: (
+      input: PhaseInput<P>,
+    ) => Promise<PhaseResult<P>>
   }
   /**
    * The glance that decides whether the watch runs. It reads the commit record
@@ -517,6 +509,12 @@ export type RoundDependencies = {
    */
   readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
   readonly watchEvidence: (input: WatchEvidenceInput) => Promise<string>
+  readonly judgeEvidence: (input: JudgeEvidenceInput) => Promise<JudgeEvidence>
+  /** Publish settled findings before the watch and judge read the current entry. */
+  readonly writeSettledRound: (
+    commits: readonly LandedCommit[],
+    account: RoundAccount,
+  ) => void
   /** The grade a finished watch recorded; rejects when it left no readable record. */
   readonly watchGrade: (cacheRoot: string, stem: string) => Promise<WatchGrade>
   /** Displays the ruling and records a reply; null stops without submitting a draft. */

@@ -28,6 +28,7 @@ export const settingsSchema = z.strictObject({
     fix: assignedPhase,
     brief: assignedPhase,
     watch: assignedPhase,
+    judge: assignedPhase,
     close: assignedPhase,
   }),
 })

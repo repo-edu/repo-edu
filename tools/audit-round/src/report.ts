@@ -35,16 +35,7 @@ export type ReportFindings = readonly ReportFinding[]
 export type AuditReport = {
   readonly findings: ReportFindings
   readonly judgedRepos: readonly Repository[]
-  readonly recommendation: RoundRecommendation | null
 }
-
-export type RoundRecommendation =
-  | { readonly decision: "stop"; readonly reason: string }
-  | {
-      readonly decision: "continue"
-      readonly assistant: "claude" | "codex"
-      readonly reason: string
-    }
 
 export type ReportClass = "widening" | "detailing" | "implementation"
 
@@ -110,69 +101,6 @@ function judgedRepos(
     .slice("Judged repos: ".length)
     .split(", ")
     .map((entry) => entry.split("@")[0] as Repository)
-}
-
-function recommendationFromLine(line: OpeningLine): RoundRecommendation | null {
-  const match =
-    /^Recommendation: (?:(stop)|(continue with (Claude|Codex)))\. (?=.)/.exec(
-      line.plain,
-    )
-  if (match === null) return null
-  const reason = line.text.slice(match[0].length)
-  const assistant = match[3]
-  if (match[1] !== "stop" && assistant === undefined) return null
-  return match[1] === "stop"
-    ? { decision: "stop", reason }
-    : {
-        decision: "continue",
-        assistant: assistant === "Claude" ? "claude" : "codex",
-        reason,
-      }
-}
-
-function reportRecommendation(
-  children: readonly Block[],
-  source: string,
-  reportClass: ReportClass,
-): RoundRecommendation | null {
-  if (reportClass === "widening") return null
-  const lines = openingLines(children, source).filter((line) =>
-    line.plain.startsWith("Recommendation:"),
-  )
-  const recommendation =
-    lines.length === 1 ? recommendationFromLine(lines[0]) : null
-  if (recommendation === null)
-    throw new Error(
-      `${reportClass === "detailing" ? "Detailing" : "Implementation"} report needs one opening line with a plain "Recommendation: stop. ", "Recommendation: continue with Claude. " or "Recommendation: continue with Codex. " prefix and a reason`,
-    )
-  return recommendation
-}
-
-/** The resumed auditor returns this one line without a runner-result suffix. */
-export function readFinalRecommendation(source: string): RoundRecommendation {
-  const children = fromMarkdown(source).children
-  const lines = openingLines(children, source)
-  const recommendation =
-    children.length === 1 &&
-    children[0]?.type === "paragraph" &&
-    lines.length === 1
-      ? recommendationFromLine(lines[0])
-      : null
-  if (recommendation === null)
-    throw new Error(
-      "Final recommendation must contain exactly one recommendation line and no other text",
-    )
-  return recommendation
-}
-
-export function formatRecommendation(
-  recommendation: RoundRecommendation,
-): string {
-  const decision =
-    recommendation.decision === "stop"
-      ? "stop"
-      : `continue with ${recommendation.assistant === "claude" ? "Claude" : "Codex"}`
-  return `Recommendation: ${decision}. ${recommendation.reason}`
 }
 
 function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
@@ -428,6 +356,5 @@ export function readReport(
   return {
     findings,
     judgedRepos: repositories,
-    recommendation: reportRecommendation(children, source, reportClass),
   }
 }

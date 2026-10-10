@@ -129,12 +129,13 @@ test("audit settings accept one setting or an exact pair", () => {
     )
 })
 
-test("fix and watch follow their configured assistants independently of the auditor", () => {
+test("assigned phases follow their configured assistants independently of the auditor", () => {
   for (const auditor of ["claude", "codex"] as const) {
     for (const assistant of ["claude", "codex"] as const) {
       const config = structuredClone(settings)
       config.phases.fix = { assistant, model: "custom-fixer", effort: "high" }
       config.phases.watch = { assistant, model: null, effort: null }
+      config.phases.judge = { assistant, model: "cheap-judge", effort: "low" }
       const phases = roundPhases(auditor, noOverride, config)
       assert.deepEqual(phases.fix, {
         assistant,
@@ -146,6 +147,13 @@ test("fix and watch follow their configured assistants independently of the audi
       assert.deepEqual(phases.watch, {
         assistant,
         model: { model: null, effort: null },
+      })
+      assert.deepEqual(phases.judge, {
+        assistant,
+        model: {
+          model: { value: "cheap-judge", source: "audit-round settings" },
+          effort: { value: "low", source: "audit-round settings" },
+        },
       })
       assert.equal(
         phases.vet.assistant,
@@ -177,7 +185,7 @@ test("assistant names bypass audit pins while letter tags retain them across cha
           : configured.audit.model,
       )
       assert.deepEqual(phases.rebut, phases.audit)
-      for (const phase of ["vet", "fix", "brief", "watch"] as const)
+      for (const phase of ["vet", "fix", "brief", "watch", "judge"] as const)
         assert.deepEqual(phases[phase], configured[phase])
     }
   }

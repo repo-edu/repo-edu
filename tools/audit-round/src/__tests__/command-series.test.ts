@@ -92,7 +92,10 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
 })
 
 /** The ruling pause lets a test act as the user editing the queue mid-round. */
-async function finishFixOnReply(f: Awaited<ReturnType<typeof roundFixture>>) {
+async function finishFixOnReply(
+  f: Awaited<ReturnType<typeof roundFixture>>,
+  judgeAnswers?: readonly string[],
+) {
   const stream = await phaseStream(
     "codex",
     'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
@@ -112,6 +115,9 @@ async function finishFixOnReply(f: Awaited<ReturnType<typeof roundFixture>>) {
           },
         ],
       },
+      ...(judgeAnswers === undefined
+        ? {}
+        : { judge: await judgePhase(f, judgeAnswers) }),
     },
   })
 }
@@ -204,62 +210,53 @@ test("a commit audit keeps no queue file", async (t) => {
   )
 })
 
-async function configureAuditReports(
+async function judgePhase(
   f: Awaited<ReturnType<typeof roundFixture>>,
-  reports: { readonly claude: string; readonly codex: string },
+  answers: readonly string[],
+): Promise<Record<string, unknown>> {
+  const judge = f.phases.judge as Record<string, unknown>
+  const streams = await Promise.all(
+    answers.map((answer) =>
+      phaseStream(
+        "codex",
+        `${answer}\n\nPHASE RESULT: {"status":"finished","reason":null}`,
+        "judge-session",
+      ),
+    ),
+  )
+  return { ...judge, streams }
+}
+
+async function configureJudgeAnswers(
+  f: Awaited<ReturnType<typeof roundFixture>>,
+  answers: readonly string[],
 ) {
-  const audit = f.phases.audit as {
-    readonly assistants: Record<string, Record<string, unknown>>
-  }
   await f.configure({
-    phases: {
-      ...f.phases,
-      audit: {
-        ...audit,
-        documents: {
-          claude: { source: reports.claude },
-          codex: { source: reports.codex },
-        },
-      },
-    },
+    phases: { ...f.phases, judge: await judgePhase(f, answers) },
   })
 }
 
-test("an automatic series follows the recommended switch and ends on stop without a queue", async (t) => {
+test("an automatic series follows the judged switch and ends on stop without a queue", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
     "repo-edu",
     false,
-    "b",
+    "c",
     false,
     "repo-edu",
     false,
     true,
   )
-  const source = await readFile(f.report, "utf8")
-  const codex = join(f.root, "codex-report.md")
-  const claude = join(f.root, "claude-report.md")
-  await writeFile(
-    codex,
-    source.replace(
-      "Recommendation: continue with Codex. Another round is worth its cost.",
-      "Recommendation: continue with Claude. Claude should check the remaining concern.",
-    ),
-  )
-  await writeFile(
-    claude,
-    source.replace(
-      "Recommendation: continue with Codex. Another round is worth its cost.",
-      "Recommendation: stop. The cross-check found no reason for another round.",
-    ),
-  )
-  await configureAuditReports(f, { claude, codex })
+  await configureJudgeAnswers(f, [
+    "Judge: continue with Claude. Claude should check the remaining concern.",
+    "Judge: stop. The cross-check found no reason for another round.",
+  ])
 
   assert.equal(
     await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
     0,
-    f.errors.join("\n"),
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
   const audits = (await f.prompts()).filter((call) =>
     call.prompt.startsWith("Run the audit phase "),
@@ -269,12 +266,25 @@ test("an automatic series follows the recommended switch and ends on stop withou
     ["codex", "claude"],
   )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Recommendation: continue with Claude\./)
-  assert.match(visible, /Next round: claude, as recommended;/)
-  assert.match(visible, /Recommendation: stop\./)
+  assert.match(visible, /Judge: continue with Claude\./)
+  assert.match(visible, /Next round: claude, as judged;/)
+  assert.match(visible, /Judge: stop\./)
   assert.match(
     visible,
-    /Automatic auditor series stopped on the round recommendation after 2 rounds\./,
+    /Automatic auditor series stopped on the judge answer after 2 rounds\./,
+  )
+  const stored = JSON.parse(
+    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { status: string; judge: { answer: string } | null }[]
+  assert.deepEqual(
+    stored.map((entry) => ({
+      status: entry.status,
+      answer: entry.judge?.answer,
+    })),
+    [
+      { status: "finished", answer: "claude" },
+      { status: "finished", answer: "stop" },
+    ],
   )
   await assert.rejects(
     readFile(join(f.planRoot, "example-impl-all-queue.md")),
@@ -301,22 +311,11 @@ test("an audit pair takes turns from a fixed first coin and keeps each rebuttal 
     { model: "gpt-5.6-sol", effort: "medium" },
     { model: "gpt-6-astra", effort: "xhigh" },
   ]
-  const recommendation = f.phases.recommendation as Record<string, unknown>
-  const stream = await phaseStream(
-    "codex",
-    "Recommendation: continue with Codex. Keep comparing the pair.",
-    "audit-session",
-  )
-  await f.configure({
-    phases: {
-      ...f.phases,
-      recommendation: {
-        ...recommendation,
-        stream,
-        assistants: { codex: { stream } },
-      },
-    },
-  })
+  await configureJudgeAnswers(f, [
+    "Judge: continue with Codex. Keep comparing the pair.",
+    "Judge: continue with Codex. Keep comparing the pair.",
+    "Judge: continue with Codex. Keep comparing the pair.",
+  ])
 
   assert.equal(
     await runCommand(["example.md", "all", "--no-watch"], f.runtime, {
@@ -325,7 +324,7 @@ test("an audit pair takes turns from a fixed first coin and keeps each rebuttal 
       coin: () => 1,
     }),
     0,
-    f.errors.join("\n"),
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
   const prompts = await f.prompts()
   const expected = [
@@ -354,30 +353,16 @@ test("an automatic series continues on an archived plan", async (t) => {
     "codex",
     "repo-edu",
     false,
-    "b",
+    "c",
     false,
     "repo-edu",
     false,
     true,
   )
-  const source = await readFile(f.report, "utf8")
-  const codex = join(f.root, "codex-report.md")
-  const claude = join(f.root, "claude-report.md")
-  await writeFile(
-    codex,
-    source.replace(
-      "Recommendation: continue with Codex. Another round is worth its cost.",
-      "Recommendation: continue with Claude. Claude should check the archived plan.",
-    ),
-  )
-  await writeFile(
-    claude,
-    source.replace(
-      "Recommendation: continue with Codex. Another round is worth its cost.",
-      "Recommendation: stop. The archived plan needs no further round.",
-    ),
-  )
-  await configureAuditReports(f, { claude, codex })
+  await configureJudgeAnswers(f, [
+    "Judge: continue with Claude. Claude should check the archived plan.",
+    "Judge: stop. The archived plan needs no further round.",
+  ])
   const archive = join(f.planRoot, "archive/example")
   const archivedPlan = join(archive, "plan.md")
   await mkdir(archive, { recursive: true })
@@ -399,28 +384,22 @@ test("an automatic series continues on an archived plan", async (t) => {
   assert.ok(audits.every((call) => call.prompt.includes(archivedPlan)))
 })
 
-test("--first replaces the default auditor's first round and the series still follows recommendations", async (t) => {
+test("--first replaces the default auditor's first round and the series still follows judges", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
     "repo-edu",
     false,
-    "b",
+    "c",
     false,
     "repo-edu",
     false,
     true,
   )
-  const source = await readFile(f.report, "utf8")
-  const codex = join(f.root, "codex-report.md")
-  await writeFile(
-    codex,
-    source.replace(
-      "Recommendation: continue with Codex. Another round is worth its cost.",
-      "Recommendation: stop. The cross-check found no reason for another round.",
-    ),
-  )
-  await configureAuditReports(f, { claude: f.report, codex })
+  await configureJudgeAnswers(f, [
+    "Judge: continue with Codex. Codex should check the first round.",
+    "Judge: stop. The cross-check found no reason for another round.",
+  ])
 
   assert.equal(
     await runCommand(
@@ -438,7 +417,7 @@ test("--first replaces the default auditor's first round and the series still fo
     audits.map((call) => call.assistant),
     ["claude", "codex"],
   )
-  // Only the first round carries the selection; the recommended round names no tier.
+  // Only the first round carries the selection; the judged round names no tier.
   for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
   for (const flag of ["-m", "-c"])
@@ -452,10 +431,10 @@ test("--first replaces the default auditor's first round and the series still fo
     /audit +claude +claude-fable-5-1 +extra high +--first/,
   )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Next round: codex, as recommended;/)
+  assert.match(visible, /Next round: codex, as judged;/)
   assert.match(
     visible,
-    /Automatic auditor series stopped on the round recommendation after 2 rounds\./,
+    /Automatic auditor series stopped on the judge answer after 2 rounds\./,
   )
   await assert.rejects(
     readFile(join(f.planRoot, "example-impl-all-queue.md")),
@@ -485,12 +464,14 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
       readReply: async () => {
         await rm(widening)
         await rename(settled, widening)
-        await finishFixOnReply(f)
+        await finishFixOnReply(f, [
+          "Judge: continue with Codex. The reopened shape needs a widening round.",
+        ])
         return "Reopen the plan."
       },
     }),
     0,
-    f.errors.join("\n"),
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
 
   const audits = (await f.prompts()).filter((call) =>
@@ -567,18 +548,10 @@ test("an automatic series stops at its configured maximum", async (t) => {
     false,
     true,
   )
-  const source = await readFile(f.report, "utf8")
-  const codex = join(f.root, "codex-report.md")
-  const claude = join(f.root, "claude-report.md")
-  await writeFile(
-    codex,
-    source.replace("continue with Codex", "continue with Claude"),
-  )
-  await writeFile(
-    claude,
-    source.replace("continue with Codex", "continue with Codex"),
-  )
-  await configureAuditReports(f, { claude, codex })
+  await configureJudgeAnswers(f, [
+    "Judge: continue with Claude. Cross-check the first result.",
+    "Judge: continue with Codex. Continue after the cross-check.",
+  ])
   const settings = structuredClone(testSettings)
   settings.maximumAutomaticRounds = 2
 
@@ -602,7 +575,7 @@ test("an automatic series stops at its configured maximum", async (t) => {
   )
 })
 
-test("a clean automatic audit follows its recommendation", async (t) => {
+test("a clean automatic audit follows its judge", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -613,21 +586,10 @@ test("a clean automatic audit follows its recommendation", async (t) => {
     "repo-edu",
     true,
   )
-  const source = await readFile(f.report, "utf8")
-  const codex = join(f.root, "codex-report.md")
-  const claude = join(f.root, "claude-report.md")
-  await writeFile(
-    codex,
-    source.replace("continue with Codex", "continue with Claude"),
-  )
-  await writeFile(
-    claude,
-    source.replace(
-      "Recommendation: continue with Codex. Another round is worth its cost.",
-      "Recommendation: stop. The other assistant confirmed the clean audit.",
-    ),
-  )
-  await configureAuditReports(f, { claude, codex })
+  await configureJudgeAnswers(f, [
+    "Judge: continue with Claude. Claude should confirm the clean audit.",
+    "Judge: stop. The other assistant confirmed the clean audit.",
+  ])
 
   assert.equal(
     await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
@@ -685,39 +647,25 @@ test("a widening target without --auditor ends after one round", async (t) => {
   assert.doesNotMatch(f.visible.join("\n"), /Automatic auditor series/)
 })
 
-test("an automatic rebuttal round logs the resumed auditor's final recommendation", async (t) => {
-  const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+test("an automatic rebuttal round gives the fresh judge retained evidence", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "c")
   assert.equal(
     await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
-  const recommendation = (await f.prompts()).find((call) =>
-    call.prompt.startsWith(
-      "Resume the audit session for the final recommendation",
-    ),
+  const judge = (await f.prompts()).find((call) =>
+    call.prompt.startsWith("Run the judge phase"),
   )
-  assert.ok(recommendation)
-  assert.equal(recommendation.assistant, "codex")
-  assert.ok(recommendation.args.includes("audit-session"))
-  assert.match(recommendation.prompt, /1\. \[B\] Revise/)
-  assert.match(recommendation.prompt, /Written rebut/)
-  assert.match(
-    recommendation.prompt,
-    /example\/impl-audit-all oth growth-none b1/,
-  )
+  assert.ok(judge)
+  assert.equal(judge.assistant, "codex")
+  assert.equal(judge.args.includes("audit-session"), false)
+  assert.match(judge.prompt, /"status": "in-progress"/)
+  assert.match(judge.prompt, /"outcome": "dropped"/)
+  assert.match(judge.prompt, /example\/impl-audit-all oth growth-none c1/)
   const visible = f.visible.join("\n")
-  assert.match(
-    visible,
-    /Recommendation: stop\. The reconciled round has converged\.\nAudit round finished\.\n═{72}\n/,
-  )
-  assert.equal(
-    visible.match(
-      /Recommendation: stop\. The reconciled round has converged\./g,
-    )?.length,
-    1,
-    "the resumed auditor's reply is not echoed beside the round's own print",
-  )
+  assert.match(visible, /Judge: stop\. The retained evidence has converged\./)
+  assert.match(visible, /Automatic auditor series stopped on the judge answer/)
 })
 
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {

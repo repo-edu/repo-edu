@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readdir, readFile, writeFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
@@ -57,15 +57,8 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   assert.match(second, /audit +codex +chosen-model +high/)
 })
 
-test("a stop recommendation prunes its resolved setting and preserves another setting", async (t) => {
+test("manual queues do not prune a setting from report prose", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
-  await writeFile(
-    f.report,
-    (await readFile(f.report, "utf8")).replace(
-      "Recommendation: continue with Codex. Another round is worth its cost.",
-      "Recommendation: stop. Another round is unlikely to repay its cost.",
-    ),
-  )
   assert.equal(
     await runCommand(
       ["example.md", "all", "--auditor", "codex,o,otl,codex"],
@@ -78,27 +71,13 @@ test("a stop recommendation prunes its resolved setting and preserves another se
   const audits = (await f.prompts()).filter((call) =>
     call.prompt.startsWith("Run the audit phase "),
   )
-  assert.equal(audits.length, 2)
-  for (const argument of [
-    "-m",
-    "gpt-6-astra",
-    "-c",
-    "model_reasoning_effort=low",
-  ])
-    assert.ok(audits[1].args.includes(argument), audits[1].args.join(" "))
+  assert.equal(audits.length, 4)
   const visible = f.visible.join("\n")
-  assert.match(
-    visible,
-    /Recommendation: stop\. Another round is unlikely to repay its cost\./,
-  )
-  assert.match(
-    visible,
-    /Stop recommendation by codex on chosen-model high; skipped 2 queued entries with the same setting\./,
-  )
-  assert.match(visible, /Next round: codex; 1 auditor entries remain\./)
+  assert.doesNotMatch(visible, /skipped .* queued entr/)
+  assert.match(visible, /Next round: codex; 3 auditor entries remain\./)
 })
 
-test("a continue recommendation preserves queued entries with the same setting", async (t) => {
+test("manual queues preserve repeated non-clean settings", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
     await runCommand(
@@ -114,10 +93,6 @@ test("a continue recommendation preserves queued entries with the same setting",
   )
   assert.equal(audits.length, 2)
   const visible = f.visible.join("\n")
-  assert.match(
-    visible,
-    /Recommendation: continue with Codex\. Another round is worth its cost\./,
-  )
   assert.doesNotMatch(visible, /skipped .* queued entr/)
   assert.match(visible, /Next round: codex; 1 auditor entries remain\./)
 })

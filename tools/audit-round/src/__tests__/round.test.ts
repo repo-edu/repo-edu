@@ -13,6 +13,7 @@ import {
   glanceDecision,
   type WatchGrade,
 } from "../glance.js"
+import type { JudgeEvidence } from "../judge.js"
 import { phaseWorkflow } from "../phase.js"
 import type { ReportFinding } from "../round-data.js"
 import {
@@ -49,9 +50,8 @@ const brief = `${repoRoot}/example-impl-all-01-6-brief.oul.md`
 const ruling = `${repoRoot}/example-impl-all-01-7-ruling.abx.md`
 const watch = `${repoRoot}/example-impl-all-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
-const recommendation = {
-  decision: "continue",
-  assistant: "codex",
+const judgeAnswer = {
+  answer: "codex",
   reason: "Another round is worth its cost.",
 } as const
 const reportFinding: ReportFinding = {
@@ -133,6 +133,7 @@ function controlledRound(
   const rulings: string[] = []
   const briefs: string[] = []
   const watchGrades: { cacheRoot: string; stem: string }[] = []
+  const settledWrites: unknown[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
   let grade: WatchGrade = "green"
@@ -159,6 +160,10 @@ function controlledRound(
     watch: {
       status: "finished",
       sessionId: "watch-session",
+    },
+    judge: {
+      status: "finished",
+      sessionId: "judge-session",
     },
     close: {
       status: "finished",
@@ -198,10 +203,9 @@ function controlledRound(
       completions.push(input)
       return { message: "Clean audit recorded", commits: [] }
     },
-    readReport: async (_file, kind) => ({
+    readReport: async () => ({
       findings: evidence.findings,
       judgedRepos: ["repo-edu"],
-      recommendation: kind === "widening" ? null : recommendation,
     }),
     readVet: async () => ({
       reviews: evidence.findings.map((finding) => ({
@@ -213,16 +217,25 @@ function controlledRound(
     }),
     readRebuttal: async () =>
       evidence.accepted ? [] : [{ number: 1, tier: "B", answer: "agree" }],
-    readDocument: async (file) => `Contents of ${file}`,
     readHead: async (root) => `before-${root}`,
     fileExists: async () => planRemains,
     readRecords: async (root, _before, repository) =>
       root === repoRoot ? landedRecords(repository, evidence.subjects) : [],
-    finalRecommendation: async (input) => ({
-      status: "finished",
-      sessionId: input.sessionId,
-      recommendation,
+    runJudge: async (input) => {
+      await record(input)
+      return {
+        ...results.judge,
+        answer: judgeAnswer,
+      }
+    },
+    judgeEvidence: async (): Promise<JudgeEvidence> => ({
+      roundData: { file: "example-impl-rounds.json", rounds: [] },
+      commits: [],
+      latestWatch: null,
     }),
+    writeSettledRound: (commits, account) => {
+      settledWrites.push({ commits, account })
+    },
     runPhase: {
       async audit(input) {
         await record(input)
@@ -269,6 +282,7 @@ function controlledRound(
     glances,
     watchEvidence,
     watchGrades,
+    settledWrites,
     rulings,
     briefs,
     results,
@@ -319,7 +333,7 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     status: "finished",
     report: files.documents.report,
     cleanAudit: false,
-    recommendation,
+    judge: null,
     watch: "green",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
@@ -472,7 +486,6 @@ for (const grade of ["green", "amber"] as const) {
         readReport: async () => ({
           findings: [reportFinding],
           judgedRepos: ["plan", "repo-edu"],
-          recommendation,
         }),
         readRecords: async (root, _before, repository) =>
           root === files.planRoot
@@ -667,7 +680,7 @@ for (const auditor of ["claude", "codex"] as const) {
         status: "finished",
         report,
         cleanAudit: false,
-        recommendation,
+        judge: null,
         watch: null,
         commits: landedRecords("repo-edu", round.evidence.subjects).map(
           ({ repository, sha }) => ({ repository, sha }),
@@ -830,7 +843,7 @@ test("a due glance completes the watch in one fresh session", async () => {
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
-    recommendation,
+    judge: null,
     watch: "green",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
@@ -944,7 +957,7 @@ test("a round asked for no watch consults no glance, whatever the record says", 
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
-    recommendation,
+    judge: null,
     watch: null,
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
@@ -1162,10 +1175,10 @@ test("the rebuttal starts fresh for either auditor with the audit selection", as
   }
 })
 
-test("an automatic rebuttal round replaces the report recommendation before deleting review files", async () => {
+test("an automatic round publishes its settled entry before the fresh judge", async () => {
   const round = controlledRound()
-  const finalRecommendation = {
-    decision: "stop",
+  const answer = {
+    answer: "stop",
     reason: "The reconciled findings have converged.",
   } as const
   const result = await runRound(
@@ -1178,23 +1191,22 @@ test("an automatic rebuttal round replaces the report recommendation before dele
     },
     {
       ...round.dependencies,
-      finalRecommendation: async (input) => {
-        assert.equal(round.deletedReports.length, 0)
-        assert.equal(input.sessionId, "audit-session")
-        assert.equal(input.vet, `Contents of ${files.documents.vet}`)
-        assert.equal(input.rebuttal, `Contents of ${files.documents.rebut}`)
-        assert.deepEqual(input.records, [
-          {
-            repository: "repo-edu",
-            sha: "0000000000000000000000000000000000000001",
-            subject: round.evidence.subjects[0],
-            message: round.evidence.subjects[0],
-          },
-        ])
+      judgeEvidence: async () => {
+        assert.equal(round.deletedReports.length, 1)
+        assert.equal(round.settledWrites.length, 1)
+        return {
+          roundData: { file: "example-impl-rounds.json", rounds: [] },
+          commits: [],
+          latestWatch: null,
+        }
+      },
+      runJudge: async (input) => {
+        assert.equal(input.sessionId, null)
+        assert.equal(input.canStop, true)
         return {
           status: "finished",
-          sessionId: input.sessionId,
-          recommendation: finalRecommendation,
+          sessionId: "judge-session",
+          answer,
         }
       },
     },
@@ -1205,7 +1217,7 @@ test("an automatic rebuttal round replaces the report recommendation before dele
     status: "finished",
     report: files.documents.report,
     cleanAudit: false,
-    recommendation: finalRecommendation,
+    judge: answer,
     watch: null,
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
@@ -1213,7 +1225,7 @@ test("an automatic rebuttal round replaces the report recommendation before dele
   })
 })
 
-test("a final recommendation input failure retains the audit session and review files", async () => {
+test("a judge evidence failure follows the first retained write", async () => {
   const round = controlledRound()
   const result = await runRound(
     {
@@ -1225,18 +1237,19 @@ test("a final recommendation input failure retains the audit session and review 
     },
     {
       ...round.dependencies,
-      readDocument: async () => {
-        throw new Error("Cannot read the review twins")
+      judgeEvidence: async () => {
+        assert.equal(round.settledWrites.length, 1)
+        throw new Error("Cannot read the retained evidence")
       },
     },
   )
 
-  assert.equal(round.deletedReports.length, 0)
+  assert.equal(round.deletedReports.length, 1)
   assert.equal(result.status, "failed")
   if (result.status !== "failed") return
-  assert.equal(result.sessionId, "audit-session")
-  assert.equal(result.phase, "audit")
-  assert.equal(result.reason, "Cannot read the review twins")
+  assert.equal(result.sessionId, null)
+  assert.equal(result.phase, "judge")
+  assert.equal(result.reason, "Cannot read the retained evidence")
 })
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -1259,7 +1272,7 @@ for (const auditor of ["claude", "codex"] as const) {
       status: "finished",
       report,
       cleanAudit: true,
-      recommendation,
+      judge: null,
       watch: null,
       commits: [],
     })
@@ -1332,7 +1345,7 @@ for (const auditor of ["claude", "codex"] as const) {
       status: "finished",
       report,
       cleanAudit: false,
-      recommendation,
+      judge: null,
       watch: null,
       commits: landedRecords("repo-edu", round.evidence.subjects).map(
         ({ repository, sha }) => ({ repository, sha }),
@@ -1562,7 +1575,6 @@ test("the round reads each supplied file and records both heads immediately befo
         return {
           findings: [reportFinding, secondReportFinding],
           judgedRepos: ["repo-edu"],
-          recommendation,
         }
       },
       async readVet(file, findings) {
@@ -1608,7 +1620,7 @@ test("the round reads each supplied file and records both heads immediately befo
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
     cleanAudit: false,
-    recommendation,
+    judge: null,
     watch: null,
     commits: [
       ...landedRecords("repo-edu", [

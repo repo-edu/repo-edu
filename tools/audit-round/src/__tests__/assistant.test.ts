@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { split } from "shellwords"
-import { runAssistantPhase } from "../assistant.js"
+import { runAssistantPhase, runJudge } from "../assistant.js"
 import { decodeClaude } from "../claude.js"
 import {
   interactiveArguments,
@@ -563,6 +563,41 @@ test("cancellation stops and awaits an active CLI", async (t) => {
   const [call] = await f.calls()
   assert.throws(() => process.kill(call.pid, 0), { code: "ESRCH" })
   // Windows terminates the process without running its signal handler.
+  if (process.platform !== "win32")
+    assert.equal(await readFile(join(f.root, "stopped"), "utf8"), "SIGTERM")
+})
+
+test("judge cancellation stops and awaits its fresh CLI", async (t) => {
+  const f = await fixture(t, {
+    stream: '{"type":"thread.started","thread_id":"judge-session"}\n',
+    wait: true,
+  })
+  const abort = new AbortController()
+  const result = await runJudge(
+    {
+      phase: "judge",
+      assistant: "codex",
+      model: unpinned,
+      ...testContext(f.root),
+      arguments: [],
+      evidence: {
+        roundData: { file: "example-impl-rounds.json", rounds: [] },
+        commits: [],
+        latestWatch: null,
+      },
+      canStop: true,
+      sessionId: null,
+    },
+    {
+      ...f.output,
+      observe: async () => abort.abort(),
+    },
+    { ...f.runtime, signal: abort.signal },
+  )
+  assert.equal(result.status, "failed")
+  assert.equal(f.releases(), 1)
+  const [call] = await f.calls()
+  assert.throws(() => process.kill(call.pid, 0), { code: "ESRCH" })
   if (process.platform !== "win32")
     assert.equal(await readFile(join(f.root, "stopped"), "utf8"), "SIGTERM")
 })
