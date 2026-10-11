@@ -513,12 +513,7 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
           await rename(settled, widening)
           await writeFile(
             reportSource,
-            detailingReport
-              .replace("Phase: detailing", "Phase: widening")
-              .replace(
-                "Recommendation: continue with Codex. Another round is worth its cost.",
-                "Settling recommendation: keep widening. The shape still has an open question.",
-              ),
+            detailingReport.replace("Phase: detailing", "Phase: widening"),
           )
           await finishFixOnReply(f)
           return "Reopen the plan."
@@ -625,12 +620,10 @@ test("a widening target without --auditor ends after one round", async (t) => {
   await rm(join(f.planRoot, "example.md"))
   await writeFile(
     f.report,
-    (await readFile(f.report, "utf8"))
-      .replace("Phase: detailing", "Phase: widening")
-      .replace(
-        "Recommendation: continue with Codex. Another round is worth its cost.",
-        "Settling recommendation: keep widening. The shape still has an open question.",
-      ),
+    (await readFile(f.report, "utf8")).replace(
+      "Phase: detailing",
+      "Phase: widening",
+    ),
   )
 
   assert.equal(

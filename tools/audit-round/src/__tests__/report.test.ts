@@ -468,7 +468,7 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
   assert.throws(
     () =>
       readReport(
-        "# Audit\n\nJudged repos: repo-edu@abc123\nRecommendation: stop. Enough.\n\nNo findings.",
+        "# Audit\n\nJudged repos: repo-edu@abc123\n\nNo findings.",
         "implementation",
       ),
     /Findings/,
@@ -476,7 +476,7 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
   assert.throws(
     () =>
       readReport(
-        "# Audit\n\nJudged repos: plan@abc123\nRecommendation: stop. Enough.\n\n## Excess functionality\n\nNo excess findings.",
+        "# Audit\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\nNo excess findings.",
         "detailing",
       ),
     /Missing functionality/,

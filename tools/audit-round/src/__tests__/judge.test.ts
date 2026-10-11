@@ -18,6 +18,7 @@ function round(
     readonly status?: RoundData["status"]
     readonly tier?: "A" | "B" | "C" | "D"
     readonly phase?: "widening" | "detailing"
+    readonly landed?: boolean
   } = {},
 ): RoundData {
   const tier = options.tier
@@ -38,7 +39,10 @@ function round(
       ...selection,
     },
     phases: [],
-    commits: [],
+    commits:
+      options.landed === false
+        ? []
+        : [{ repository: "plan", sha: "f".repeat(40) }],
     findings:
       tier === undefined
         ? []
@@ -118,6 +122,30 @@ test("an earlier assistant's unconfirmed A blocks stop", () => {
     judgeCanStop(evidence([claude, codex, confirmed]), confirmed.target),
     true,
   )
+})
+
+test("a failed round with a landed B still removes stop", () => {
+  const failed = round("claude", "2026-10-11T10:00:00Z", {
+    status: "failed",
+    tier: "B",
+  })
+  assert.equal(judgeCanStop(evidence([failed]), failed.target), false)
+
+  const failedBeforeRecord = round("claude", "2026-10-11T10:00:00Z", {
+    status: "failed",
+    tier: "B",
+    landed: false,
+  })
+  assert.equal(
+    judgeCanStop(evidence([failedBeforeRecord]), failedBeforeRecord.target),
+    true,
+  )
+})
+
+test("detailing without an init or settle uses the full history", () => {
+  const claude = round("claude", "2026-10-11T10:00:00Z", { tier: "B" })
+  const codex = round("codex", "2026-10-11T11:00:00Z", { round: 2 })
+  assert.equal(judgeCanStop(evidence([claude, codex], []), codex.target), false)
 })
 
 test("a widening A before the settle cutoff does not block detailing stop", () => {

@@ -84,7 +84,7 @@ export async function readJudgeEvidence(
 
 function settled(entry: RoundData): boolean {
   return (
-    (entry.status === "finished" || entry.status === "in-progress") &&
+    entry.commits.length > 0 &&
     entry.findings.every((finding) => finding.outcome !== null)
   )
 }
@@ -123,12 +123,12 @@ export function judgeCanStop(evidence: JudgeEvidence, target: string): boolean {
     const cutoff =
       planCommits.findLast((commit) => commit.role === "settle") ??
       planCommits.findLast((commit) => commit.role === "init")
-    if (cutoff === undefined)
-      throw new Error(
-        `Cannot find the current settled span for ${evidence.roundData.file}`,
+    if (cutoff !== undefined) {
+      const cutoffTime = Date.parse(cutoff.committed)
+      entries = entries.filter(
+        (entry) => Date.parse(entry.started) >= cutoffTime,
       )
-    const cutoffTime = Date.parse(cutoff.committed)
-    entries = entries.filter((entry) => Date.parse(entry.started) >= cutoffTime)
+    }
   }
   const latest = new Map<RoundData["auditor"]["assistant"], RoundData>()
   for (const entry of entries.toSorted(

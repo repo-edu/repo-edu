@@ -106,7 +106,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     await writeFile(
       f.report,
-      `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\nRecommendation: stop. The clean audit ends this setting.\n\n## Findings\n\nNo findings.\n`,
+      `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
       await runCommand(["example.md", "all"], f.runtime, f.options),
