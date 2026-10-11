@@ -111,22 +111,32 @@ async function targetDescription(target: NamingTarget): Promise<{
     }
   }
   const stem = planStem(target.plan)
-  if (target.roundKind === "planning")
-    return { label: `${stem}-plan`, title: `Plan audit of ${target.plan}` }
+  const title = roundSubject(target, target.plan)
+  if (target.roundKind === "planning") return { label: `${stem}-plan`, title }
   // Padded `first..last` scopes sort the same in `ls` and Finder and keep the
   // round and phase numbers aligned, since a single step is a one-step range.
   const [first, last = first] = target.scope
     .split("-")
     .map((step) => step.padStart(2, "0"))
   const scope = target.scope === "all" ? "all" : `${first}..${last}`
+  return { label: `${stem}-impl-${scope}`, title }
+}
+
+/**
+ * The round's kind and scope around one plan name. The transcript title names
+ * the plan by its path and a series message by its stem, through this one
+ * phrase so the two cannot drift.
+ */
+export function roundSubject(
+  target: Exclude<AuditTarget, { commits: unknown }>,
+  plan: string,
+): string {
+  if (target.roundKind === "planning") return `Plan audit of ${plan}`
   const steps =
     target.scope === "all"
       ? "all steps"
       : `${target.scope.includes("-") ? "steps" : "step"} ${target.scope}`
-  return {
-    label: `${stem}-impl-${scope}`,
-    title: `Implementation audit of ${target.plan}, ${steps}`,
-  }
+  return `Implementation audit of ${plan}, ${steps}`
 }
 
 /** Read every retained numbered kind at the plan root; opening the run claims this candidate. */

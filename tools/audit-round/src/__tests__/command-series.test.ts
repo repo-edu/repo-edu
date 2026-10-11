@@ -271,7 +271,7 @@ test("an automatic series follows the judged switch and ends on stop without a q
   assert.match(visible, /Judge: stop\./)
   assert.match(
     visible,
-    /Automatic auditor series stopped on the judge answer after 2 rounds\./,
+    /Implementation audit of example, all steps: automatic auditor series stopped on the judge answer after 2 rounds\./,
   )
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
@@ -343,7 +343,7 @@ test("an audit pair takes turns from a fixed first coin and keeps each rebuttal 
   }
   assert.match(
     f.visible.join("\n"),
-    /Automatic auditor series reached its maximum of 3 rounds\./,
+    /Implementation audit of example, all steps: automatic auditor series reached its maximum of 3 rounds\./,
   )
 })
 
@@ -384,7 +384,7 @@ test("an archived plan without --auditor runs once", async (t) => {
     ),
     false,
   )
-  assert.doesNotMatch(f.visible.join("\n"), /Automatic auditor series/)
+  assert.doesNotMatch(f.visible.join("\n"), /automatic auditor series/)
 })
 
 test("--first replaces the default auditor's first round and the series still follows judges", async (t) => {
@@ -437,7 +437,7 @@ test("--first replaces the default auditor's first round and the series still fo
   assert.match(visible, /Next round: codex, as judged;/)
   assert.match(
     visible,
-    /Automatic auditor series stopped on the judge answer after 2 rounds\./,
+    /Implementation audit of example, all steps: automatic auditor series stopped on the judge answer after 2 rounds\./,
   )
   await assert.rejects(
     readFile(join(f.planRoot, "example-impl-all-queue.md")),
@@ -487,7 +487,7 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
   )
   assert.match(
     f.visible.join("\n"),
-    /Automatic auditor series stopped after 1 round: .*example-widen\.md is now widening\./,
+    /Plan audit of example: automatic auditor series stopped after 1 round because the plan is now widening\./,
   )
   const [stored] = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
@@ -580,7 +580,7 @@ test("an automatic series stops at its configured maximum", async (t) => {
   )
   assert.match(
     f.visible.join("\n"),
-    /Automatic auditor series reached its maximum of 2 rounds\./,
+    /Implementation audit of example, all steps: automatic auditor series reached its maximum of 2 rounds\./,
   )
 })
 
@@ -651,7 +651,7 @@ test("a widening target without --auditor ends after one round", async (t) => {
     ).length,
     1,
   )
-  assert.doesNotMatch(f.visible.join("\n"), /Automatic auditor series/)
+  assert.doesNotMatch(f.visible.join("\n"), /automatic auditor series/)
 })
 
 test("an automatic rebuttal round gives the fresh judge retained evidence", async (t) => {
@@ -672,7 +672,10 @@ test("an automatic rebuttal round gives the fresh judge retained evidence", asyn
   assert.match(judge.prompt, /example\/impl-audit-all oth growth-none c1/)
   const visible = f.visible.join("\n")
   assert.match(visible, /Judge: stop\. The retained evidence has converged\./)
-  assert.match(visible, /Automatic auditor series stopped on the judge answer/)
+  assert.match(
+    visible,
+    /Implementation audit of example, all steps: automatic auditor series stopped on the judge answer/,
+  )
 })
 
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {

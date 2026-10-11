@@ -64,6 +64,7 @@ import {
   queueFile,
   roundDocument,
   roundIdentity,
+  roundSubject,
   transcriptKind,
 } from "./round-paths.js"
 import { readRulingReply } from "./ruling-input.js"
@@ -1030,7 +1031,7 @@ export async function runCommand(
             target = { ...target, plan }
             if (basename(plan).endsWith("-widen.md")) {
               await active.message(
-                `Automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"}: ${plan} is now widening.`,
+                `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan is now widening.`,
               )
               break
             }
@@ -1042,7 +1043,8 @@ export async function runCommand(
             )
             break
           }
-          if (automatic) {
+          if (automatic && "plan" in target) {
+            const series = `${roundSubject(target, planStem(target.plan))}: automatic auditor series`
             const judge = round.judge
             if (judge === null)
               throw new Error(
@@ -1050,13 +1052,13 @@ export async function runCommand(
               )
             if (judge.answer === "stop") {
               await active.message(
-                `Automatic auditor series stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
+                `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
               )
               break
             }
             if (completed >= settings.maximumAutomaticRounds) {
               await active.message(
-                `Automatic auditor series reached its maximum of ${settings.maximumAutomaticRounds} rounds.`,
+                `${series} reached its maximum of ${settings.maximumAutomaticRounds} rounds.`,
               )
               break
             }
