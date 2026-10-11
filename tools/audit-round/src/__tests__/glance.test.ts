@@ -119,9 +119,9 @@ test("corrections in separate areas never add together", () => {
 
 test("D-only work, clean records, deferrals, steps and empty commits do not advance counts", () => {
   const skipped = [
-    commit("example/impl-audit-all ath growth-none D2d1 docs(x): polish"),
-    commit("example/impl-audit-all ath clean: clear"),
-    commit("example/impl-audit-all ath B1: deferred"),
+    commit("example/impl-audit-1 ath growth-none D2d1 docs(x): polish"),
+    commit("example/impl-audit-1 ath clean: clear"),
+    commit("example/impl-audit-1 ath B1: deferred"),
     commit("example/impl-2 ath feat(x): step"),
     commit("example/implemented ath: finished"),
     commit("ath growth-none d1 fix(x): polish"),
@@ -140,7 +140,7 @@ test("D-only work, clean records, deferrals, steps and empty commits do not adva
 
 test("mixed tiers count only areas with A-C corrections, once per commit", () => {
   const mixed = commit(
-    "example/impl-audit-all ath growth-none C2d1 fix(x): mixed corrections",
+    "example/impl-audit-1 ath growth-none C2d1 fix(x): mixed corrections",
     [bullet(), bullet(), bullet("area:area-b", "D")].join("\n"),
   )
   const decision = glanceDecision(
@@ -162,7 +162,7 @@ test("mixed tiers count only areas with A-C corrections, once per commit", () =>
 
 test("a commit can correct two areas without merging their counts", () => {
   const mixed = commit(
-    "example/impl-audit-all ath growth-none c2 fix(x): two areas",
+    "example/impl-audit-1 ath growth-none c2 fix(x): two areas",
     [bullet(), bullet("area:area-b")].join("\n"),
   )
   assert.equal(
@@ -177,7 +177,7 @@ test("a commit can correct two areas without merging their counts", () => {
 
 test("severity, reach and growth have no early trigger; both cases count", () => {
   const severe = commit(
-    "example/impl-audit-all ath growth-none A1 redesign(x): proper correction",
+    "example/impl-audit-1 ath growth-none A1 redesign(x): proper correction",
     bullet("area:area-a", "A"),
   )
   assert.equal(
@@ -192,7 +192,7 @@ test("severity, reach and growth have no early trigger; both cases count", () =>
   const growth = {
     ...correction(),
     subject:
-      "example/impl-audit-all ath growth-high c1 redesign(x): correct the owner",
+      "example/impl-audit-1 ath growth-high c1 redesign(x): correct the owner",
   }
   assert.equal(
     glanceDecision(history(growth, growth), record("green"), "repo-edu").due,
@@ -296,11 +296,11 @@ test("plan rounds count sections independently and ignore D findings", () => {
 
 test("plan commits count local sections without counting deferred Repo Edu findings", () => {
   const mixed = commit(
-    "example/impl-audit-all ath growth-none C2 docs(x): correct the plan and defer the code",
+    "example/impl-audit-1 ath growth-none C2 docs(x): correct the plan and defer the code",
     `- C [section:decisions] ${ratings} Correct: it.\n- C [area:tool-audit-round] ${ratings} Defer: it.`,
   )
   const deferred = commit(
-    "example/impl-audit-all ath growth-none C1 docs(x): record the deferred code fix",
+    "example/impl-audit-1 ath growth-none C1 docs(x): record the deferred code fix",
     `- C [area:tool-audit-round] ${ratings} Defer: it.`,
   )
   const decision = glanceDecision(
@@ -347,7 +347,7 @@ test("different step scopes share the plan's count", () => {
 test("unreadable corrections stay in episode evidence without contributing partial counts", () => {
   const data = episode(
     history(
-      commit("example/impl-audit-all ath growth-none c1 fix(x): correction"),
+      commit("example/impl-audit-1 ath growth-none c1 fix(x): correction"),
     ),
   )
   assert.equal(data.unreadable.length, 1)
@@ -380,7 +380,7 @@ test("real Git history carries finding bodies and touched files into the decisio
       await execa("git", ["add", "."], { cwd })
       await commitFixture(
         cwd,
-        `example/impl-audit-all ath growth-none c1 fix(x): correction\n\n${body}`,
+        `example/impl-audit-1 ath growth-none c1 fix(x): correction\n\n${body}`,
       )
     }
     const commits = await readLog(cwd)

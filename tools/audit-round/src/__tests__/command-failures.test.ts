@@ -161,7 +161,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     await commitFixture(f.repoRoot, "example/impl-1 ath feat(x): step")
     for (const [args, target] of [
-      [["example", "all"], "example-impl-all"],
+      [["example", "1"], "example-impl-01..01"],
       [["example", "1-2"], "example-impl-01..02"],
       [["example", "9-12"], "example-impl-09..12"],
       [["abcdef"], "abcdef"],
@@ -196,7 +196,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       const title =
         owner === "plan"
           ? "# Plan audit of example.md\n"
-          : "# Implementation audit of example.md, all steps\n"
+          : "# Implementation audit of example.md, step 1\n"
       await writeFile(transcript, title)
       const argument = "example-01-1-round.oth.md"
       assert.equal(
@@ -258,10 +258,7 @@ for (const phase of ["audit", "vet"] as const) {
     const file =
       phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
     await writeFile(file, "Malformed evidence")
-    assert.equal(
-      await runCommand(["example.md", "all"], f.runtime, f.options),
-      1,
-    )
+    assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
     const { log } = await f.records()
     assert.ok(log.includes(`[${phase}] failed:`))
     assert.ok(log.includes(`${phase}-session`))
@@ -286,7 +283,7 @@ for (const phase of [
     }
     await f.configure({ phases: f.phases })
     assert.equal(
-      await runCommand(["example.md", "all", "--brief"], f.runtime, f.options),
+      await runCommand(["example.md", "1", "--brief"], f.runtime, f.options),
       1,
     )
     const { log } = await f.records()
@@ -299,7 +296,7 @@ test("a fix cannot request a ruling without writing its supplied document", asyn
   const f = await roundFixture(t, "codex", "repo-edu", true)
   f.phases.fix = { ...(f.phases.fix as object), document: undefined }
   await f.configure({ phases: f.phases })
-  assert.equal(await runCommand(["example.md", "all"], f.runtime, f.options), 1)
+  assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
   const { log } = await f.records()
   assert.match(log, /\[fix\] failed:/)
   assert.match(log, /Session: fix-session/)
@@ -311,7 +308,7 @@ test("a finished fix with no actual commit cannot complete a plan round with fin
   const f = await roundFixture(t)
   f.phases.fix = { ...(f.phases.fix as object), commits: [] }
   await f.configure({ phases: f.phases })
-  assert.equal(await runCommand(["example.md", "all"], f.runtime, f.options), 1)
+  assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
   const { log } = await f.records()
   assert.match(log, /\[fix\] failed:.*landed no commit/)
   assert.doesNotMatch(log, /\[brief\] starting|\[glance\]/)

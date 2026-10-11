@@ -1,9 +1,10 @@
+import { readFile } from "node:fs/promises"
 import { InvalidArgumentError } from "commander"
 import type { ExecutionContext } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog } from "./episode-log.js"
-import { errorMessage } from "./feedback.js"
-import { looseForm, parseSubject, type Repository } from "./subject.js"
+import { type PlanStep, readPlanSteps } from "./plan-steps.js"
+import { looseForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
@@ -54,71 +55,110 @@ export async function selectTarget(
       : await resolvePlan(planRoot, request.plan)
   const topic = planStem(plan)
   const history = stemCommits(logs).filter((entry) => entry.topic === topic)
-  const { steps, unmarked } = progress(history)
+  const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
+  const status = progress(history, listedSteps)
   const implementation = (scope: string): AuditTarget => ({
     roundKind: "implementation",
     plan,
     scope,
   })
   if (request?.scope != null) {
-    if (steps.length === 0)
+    if (status.landed.length === 0)
       throw new InvalidArgumentError(
         `No step of ${topic} has landed, so it has no implementation to audit. Name the plan alone for a planning round.`,
       )
     return implementation(request.scope)
   }
-  if (steps.length === 0) return { roundKind: "planning", plan }
-  const unfinished = unfinishedScope(topic, history[0])
-  if (unfinished !== null) return implementation(unfinished)
-  if (unmarked.length === 0) return implementation("all")
+  if (status.landed.length === 0) return { roundKind: "planning", plan }
+  if (
+    status.repositories.every(
+      ({ pending, marker }) => pending.length === 0 && marker === "current",
+    )
+  ) {
+    const last = listedSteps.length
+    return implementation(last === 1 ? "1" : `1-${last}`)
+  }
+  const pending = status.repositories.flatMap(({ name, pending }) =>
+    pending.length === 0
+      ? []
+      : [`Pending steps in ${name}: ${pending.join(", ")}.`],
+  )
+  const markers = status.repositories.flatMap(({ name, marker }) =>
+    marker === "current"
+      ? []
+      : [
+          `The implemented marker is ${marker === "missing" ? "missing" : "stale"} in ${name}.`,
+        ],
+  )
   throw new InvalidArgumentError(
-    `${topic} is still being implemented. Landed steps: ${steps.join(", ")}. The implemented marker is missing in ${unmarked.join(" and ")}. Name a step scope, such as ${topic} ${steps.at(-1)}.`,
+    `${topic} is still being implemented. ${[...pending, ...markers].join(" ")} Name a step scope, such as ${topic} ${status.landed.at(-1)}.`,
   )
 }
 
-/**
- * The steps that have landed and the repos hosting one without its
- * `implemented` marker. Loose forms reach subjects older than the grammar.
- */
-function progress(history: readonly StemCommit[]): {
-  readonly steps: readonly number[]
-  readonly unmarked: readonly string[]
+type MarkerStatus = "current" | "missing" | "stale"
+
+/** Listed-step completion and marker freshness in each hosting repository. */
+function progress(
+  history: readonly StemCommit[],
+  listedSteps: readonly PlanStep[],
+): {
+  readonly landed: readonly number[]
+  readonly repositories: readonly {
+    readonly name: string
+    readonly pending: readonly number[]
+    readonly marker: MarkerStatus
+  }[]
 } {
-  const steps = new Set<number>()
-  const hosts = new Set<Repository>()
-  const marked = new Set<Repository>()
-  for (const { repository, commit } of history) {
+  const repositoryOrder = ["repo-edu", "plan"] as const
+  const expected = new Map<Repository, Set<number>>()
+  for (const step of listedSteps)
+    for (const repository of step.repositories) {
+      const steps = expected.get(repository) ?? new Set<number>()
+      steps.add(step.number)
+      expected.set(repository, steps)
+    }
+  const landed = new Map<Repository, Set<number>>()
+  const newestStep = new Map<Repository, number>()
+  const newestMarker = new Map<Repository, number>()
+  history.forEach(({ repository, commit }, index) => {
     const role = looseForm(commit.subject)?.role ?? ""
     const step = /^impl-([1-9]\d*)$/.exec(role)
-    if (step !== null) {
-      steps.add(Number(step[1]))
-      hosts.add(repository)
+    const number = step === null ? null : Number(step[1])
+    if (number !== null && expected.get(repository)?.has(number)) {
+      const steps = landed.get(repository) ?? new Set<number>()
+      steps.add(number)
+      landed.set(repository, steps)
+      if (!newestStep.has(repository)) newestStep.set(repository, index)
     }
-    if (role === "implemented") marked.add(repository)
-  }
+    if (role === "implemented" && !newestMarker.has(repository))
+      newestMarker.set(repository, index)
+  })
+  const repositories = repositoryOrder.flatMap((repository) => {
+    const hosted = expected.get(repository)
+    if (hosted === undefined) return []
+    const completed = landed.get(repository) ?? new Set<number>()
+    const markerIndex = newestMarker.get(repository)
+    const stepIndex = newestStep.get(repository)
+    const marker: MarkerStatus =
+      markerIndex === undefined
+        ? "missing"
+        : stepIndex !== undefined && markerIndex > stepIndex
+          ? "stale"
+          : "current"
+    return [
+      {
+        name: repository === "repo-edu" ? "Repo Edu" : "the plan repo",
+        pending: [...hosted].filter((step) => !completed.has(step)),
+        marker,
+      },
+    ]
+  })
   return {
-    steps: [...steps].sort((first, second) => first - second),
-    unmarked: [...hosts]
-      .filter((repository) => !marked.has(repository))
-      .map((repository) =>
-        repository === "repo-edu" ? "Repo Edu" : "the plan repo",
-      ),
+    landed: [
+      ...new Set([...landed.values()].flatMap((steps) => [...steps])),
+    ].sort((first, second) => first - second),
+    repositories,
   }
-}
-
-/** The scope of a newest implementation-audit record that was not clean. */
-function unfinishedScope(topic: string, newest: StemCommit): string | null {
-  if (!looseForm(newest.commit.subject)?.role.startsWith("impl-audit-"))
-    return null
-  let subject: ReturnType<typeof parseSubject>
-  try {
-    subject = parseSubject(newest.commit.subject, newest.repository)
-  } catch (error) {
-    throw new InvalidArgumentError(
-      `The newest ${topic} commit ${newest.commit.sha.slice(0, 8)} does not parse: ${errorMessage(error)}. Name a step scope.`,
-    )
-  }
-  return subject.severity === "clean" ? null : (subject.form?.scope ?? null)
 }
 
 /** The active plan whose stem commit is newest in either history. */

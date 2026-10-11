@@ -41,7 +41,7 @@ test("commit stamps retain each phase's reported selection across later phases",
   const setup = {
     ...testContext(f.root),
     plan: "example.md",
-    scope: "all",
+    scope: "1",
     auditor: "claude" as const,
     override: {
       option: "--auditor",
@@ -67,7 +67,10 @@ test("commit stamps retain each phase's reported selection across later phases",
         ...setup,
         ...phases[phase],
         ...(phase === "audit"
-          ? { phase, arguments: ["example-impl-all-01", "example.md"] as const }
+          ? {
+              phase,
+              arguments: ["example-impl-01..01-01", "example.md"] as const,
+            }
           : phase === "rebut"
             ? {
                 phase,
@@ -103,7 +106,7 @@ test("output records complete invocations incrementally and refreshes only while
   let clears = 0
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "all" },
+      { ...testContext(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),
@@ -131,7 +134,7 @@ test("output records complete invocations incrementally and refreshes only while
         assistant: "codex",
         model: unpinned,
         ...testContext(f.root),
-        arguments: ["example-impl-all-01", "example.md"],
+        arguments: ["example-impl-01..01-01", "example.md"],
         sessionId: null,
       },
       "Full prompt\nMore prompt",
@@ -229,7 +232,7 @@ test("written status stamps chain into the running total", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "all" },
+      { ...testContext(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),
@@ -254,7 +257,7 @@ test("written status stamps chain into the running total", async (t) => {
       assistant: "codex",
       model: unpinned,
       ...testContext(f.root),
-      arguments: ["example-impl-all-01", "example.md"],
+      arguments: ["example-impl-01..01-01", "example.md"],
       sessionId: null,
     },
     "Prompt",
@@ -295,7 +298,7 @@ for (const assistant of ["claude", "codex"] as const) {
       const visible: string[] = []
       const output = new RoundOutput(
         await roundRun(
-          { ...testContext(f.root), plan: "example.md", scope: "all" },
+          { ...testContext(f.root), plan: "example.md", scope: "1" },
           Date.now(),
           selections,
         ),
@@ -317,7 +320,7 @@ for (const assistant of ["claude", "codex"] as const) {
           assistant,
           model: unpinned,
           ...testContext(f.root),
-          arguments: ["example-impl-all-01", "example.md"],
+          arguments: ["example-impl-01..01-01", "example.md"],
           sessionId: null,
         },
         "prompt",
@@ -459,7 +462,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "all" },
+      { ...testContext(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),
@@ -502,7 +505,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
         {
           ...testContext(f.root),
           plan: "example.md",
-          scope: "all",
+          scope: "1",
           auditor,
           brief: true,
         },
@@ -576,7 +579,7 @@ test("the settings header names what set each phase's model and effort", async (
         {
           ...testContext(f.root),
           plan: "example.md",
-          scope: "all",
+          scope: "1",
           auditor,
           override,
           brief: true,
@@ -673,7 +676,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "all" },
+      { ...testContext(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),
@@ -714,7 +717,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
 
 test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-impl-all-01-1-round.oth.md")
+  const transcript = join(f.root, "example-impl-01..01-01-1-round.oth.md")
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
@@ -738,11 +741,11 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     },
   )
   t.after(() => output.close())
-  assert.match(output.paths.log, /example-impl-all-01-6-brief\.oul\.log$/)
+  assert.match(output.paths.log, /example-impl-01..01-01-6-brief\.oul\.log$/)
   assert.equal(output.paths.markdown, null)
   assert.match(
     visible[0] as string,
-    /^\n═{72}\nBrief of example-impl-all-01-1-round\.oth\.md\n/,
+    /^\n═{72}\nBrief of example-impl-01..01-01-1-round\.oth\.md\n/,
   )
   assert.doesNotMatch(visible[0] as string, /Texts:/)
   output.models(selections)

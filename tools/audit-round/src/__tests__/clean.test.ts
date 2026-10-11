@@ -109,7 +109,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
-      await runCommand(["example.md", "all"], f.runtime, f.options),
+      await runCommand(["example.md", "1"], f.runtime, f.options),
       0,
       f.errors.join("\n"),
     )

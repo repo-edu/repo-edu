@@ -199,7 +199,7 @@ function parseInvocation(
     )
     .argument(
       "[scope-or-commits...]",
-      "plan step scope, all or more commit references",
+      "plan step scope or more commit references",
     )
     .addOption(
       new Option(
@@ -233,14 +233,14 @@ function parseInvocation(
       `
 Targets and scope:
   Plan     A stem names a plan in the sibling plan repo. .md and -widen are ignored.
-           Paths are refused. Active plans precede archives. A stem shaped like a
-           commit reference keeps .md to identify it as a plan.
+           Paths and archived plans are refused. A stem shaped like a commit
+           reference keeps .md to identify it as a plan.
            Alone, the stem runs the audit the plan's history calls for:
              - no step has landed: a plan audit of the plan document
-             - its newest audit was not clean: that audit's scope again
-             - every repo with a landed step has its implemented marker: all steps
-           Anything else stops and names the landed steps.
-  Scope    One step (3), an increasing range (1-3) or all audits implementation.
+             - every listed step has landed in each hosting repo and each repo's
+               implemented marker follows its newest hosted step: the listed range
+             - otherwise: stop and name pending steps and missing or stale markers
+  Scope    One step (3) or an increasing range (1-3) audits implementation.
            A scope is refused until a step has landed.
   Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to>.
            plan@ on the first reference selects the plan repo for the whole target;
@@ -286,7 +286,7 @@ Round sequence:
     - A configured audit pair takes turns within this command. A coin flip picks
       its first member. --first and other command-line choices take no turn.
     - settings.json sets the maximum round count, including the first round.
-    - Widening plans, archived plans and commit targets still run once.
+    - Widening plans and commit targets still run once.
 
   Manual order (--auditor):
     - Every round runs on the same target and step scope.
@@ -349,9 +349,9 @@ Examples (from either checkout):
 
      $ pnpm audit-round --auditor codex
 
-  5. Start an automatic series on all steps with Codex instead of the default.
+  5. Start an automatic series on steps 1-4 with Codex instead of the default.
 
-     $ pnpm audit-round example all --first codex
+     $ pnpm audit-round example 1-4 --first codex
 
 Use pnpm audit-round trial to read the newest trial.
 Use settle, ready or close to record the corresponding plan lifecycle call.

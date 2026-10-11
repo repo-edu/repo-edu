@@ -117,7 +117,7 @@ const authoredSeverityPattern = /^(?:clean|!?(?:[A-Da-d]\d+)+)$/
 const runPattern = /([A-Da-d])([1-9]\d*)/g
 const kindPattern = /^([a-z]+)\(([a-z0-9-]+)\)$/
 const stepPattern = /^[1-9]\d*$/
-const auditScopePattern = /^(?:[1-9]\d*|[1-9]\d*-[1-9]\d*|all)$/
+const auditScopePattern = /^(?:[1-9]\d*|[1-9]\d*-[1-9]\d*)$/
 
 function fail(message: string): never {
   throw new SubjectError(message)
@@ -131,7 +131,7 @@ function parseForm(token: string): Form {
   if (role.startsWith("impl-audit-")) {
     const scope = role.slice("impl-audit-".length)
     if (!auditScopePattern.test(scope))
-      fail(`the audit scope ${scope} is not <n>, <n>-<n> or all`)
+      fail(`the audit scope ${scope} is not <n> or <n>-<n>`)
     return { stem, role: "impl-audit", scope }
   }
   if (role.startsWith("impl-")) {

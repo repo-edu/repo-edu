@@ -109,7 +109,15 @@ export async function roundFixture(
   // the plan and its widening artifact.
   for (const root of [repoRoot, planDirectory])
     for (const name of ["example.md", "example-widen.md"])
-      await writeFile(join(root, name), "# Example plan\n")
+      await writeFile(
+        join(root, name),
+        `# Example plan
+
+## Implementation plan
+
+1. **Fixture step.** Hosted in Repo Edu.
+`,
+      )
   const planRoot = await realpath(planDirectory)
   const outputRoot = planRoot
   const heads = {
@@ -197,8 +205,8 @@ export async function roundFixture(
                 cwd: owner === "plan" ? planRoot : repoRoot,
                 subject:
                   tier === null
-                    ? "example/impl-audit-all oth clean: fixture"
-                    : `example/impl-audit-all oth growth-none ${tier}1 fix(audit-round): fixture`,
+                    ? "example/impl-audit-1 oth clean: fixture"
+                    : `example/impl-audit-1 oth growth-none ${tier}1 fix(audit-round): fixture`,
               },
             ]
           : [],

@@ -259,37 +259,26 @@ test("options without a target run the audit the newest plan's history calls for
     return runCommand(["name", "--auditor", "oth"], f.runtime, f.options)
   }
   assert.equal(await name(), 2)
-  assert.match(
-    f.errors[0],
-    /Landed steps: 1\. The implemented marker is missing in Repo Edu\./,
-  )
+  assert.match(f.errors[0], /implemented marker is missing in Repo Edu/)
   await commit(f.repoRoot, "example/impl-audit-2-3 ath clean: record", 0)
   assert.equal(await name(), 2)
-  assert.match(f.errors[0], /Landed steps: 1\./)
+  assert.match(f.errors[0], /implemented marker is missing in Repo Edu/)
   await commit(
     f.repoRoot,
     "example/impl-audit-2-3 ath growth-none c1 fix(x): correction",
     1,
   )
-  assert.equal(
-    await runCommand(["--no-watch", "--auditor", "o"], f.runtime, f.options),
-    0,
-    f.errors.join("\n"),
-  )
-  const { log } = await f.records()
-  assert.ok(
-    log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3"])}`,
-    ),
-  )
-  // A plan round after the marker no longer decides; the finished steps do.
+  assert.equal(await name(), 2)
+  assert.match(f.errors[0], /implemented marker is missing in Repo Edu/)
+  // Audit records and a later plan round do not choose the target. The listed
+  // steps and the current marker do.
   await commit(f.repoRoot, "example/implemented ath: marker", 2)
   await commit(f.planRoot, "example/plan-audit ath clean: plan round", 3)
   assert.equal(await name(), 0, f.errors.join("\n"))
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
-    join(f.planRoot, "example-impl-all-01-2-audit.oth.md"),
+    join(f.planRoot, "example-impl-01..01-01-2-audit.oth.md"),
     join(f.planRoot, "example.md"),
-    "all",
+    "1",
   ])
 })
 
@@ -297,8 +286,23 @@ test("a missing plan file is refused before any assistant starts", async (t) => 
   const f = await roundFixture(t)
   for (const name of ["missing", "missing.md"]) {
     assert.equal(await runCommand([name, "3"], f.runtime, f.options), 1)
-    assert.match(f.errors.at(-1) as string, /No plan named missing/)
+    assert.match(f.errors.at(-1) as string, /No active plan named missing/)
   }
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
+test("an archived plan is refused before any assistant starts", async (t) => {
+  const f = await roundFixture(t)
+  const archive = join(f.planRoot, "archive/old")
+  await mkdir(archive, { recursive: true })
+  await writeFile(join(archive, "plan.md"), "# Old plan\n")
+  assert.equal(await runCommand(["old", "1"], f.runtime, f.options), 1)
+  assert.match(
+    f.errors.at(-1) as string,
+    /Archived plans are not audit targets/,
+  )
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })

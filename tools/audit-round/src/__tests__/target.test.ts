@@ -15,7 +15,7 @@ test("a plan request carries its scope, or none for the plan's history to decide
     plan: "example",
     scope: null,
   })
-  for (const scope of ["1", "2-4", "all"])
+  for (const scope of ["1", "2-4"])
     assert.deepEqual(targetRequest("example.md", [scope]), {
       plan: "example",
       scope,
@@ -103,6 +103,7 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["example.md", "HEAD"],
     ["example.md", "0"],
     ["example.md", "3-1"],
+    ["example.md", "all"],
     ["example.md", "9007199254740992"],
     ["example.md", "1", "2"],
     ["phase-arguments", "1", "2"],
@@ -110,12 +111,16 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["../plan/example.md"],
     ["/tmp/example.md"],
     ["archive/example/plan.md"],
-    ["example", "all", "2"],
+    ["example", "1", "2"],
   ])
     assert.throws(() => targetRequest(args[0], args.slice(1)))
+  assert.throws(
+    () => targetRequest("example", ["all"]),
+    /positive step number or an increasing range/,
+  )
 })
 
-test("stem resolution prefers active plans then resolves closed plans and archived peers", async (t) => {
+test("stem resolution accepts active plans and refuses archived targets", async (t) => {
   const f = await fixture(t)
   const planRoot = join(f.root, "../plan")
   for (const file of [
@@ -137,16 +142,10 @@ test("stem resolution prefers active plans then resolves closed plans and archiv
     await resolvePlan(planRoot, "example"),
     join(planRoot, "example.md"),
   )
-  assert.equal(
-    await resolvePlan(planRoot, "peer"),
-    join(planRoot, "archive/group/peer.md"),
-  )
-  assert.equal(
-    await resolvePlan(planRoot, "closed"),
-    join(planRoot, "archive/closed/plan.md"),
-  )
+  await assert.rejects(resolvePlan(planRoot, "peer"), /not audit targets/)
+  await assert.rejects(resolvePlan(planRoot, "closed"), /not audit targets/)
   await assert.rejects(
     resolvePlan(planRoot, "missing"),
-    /No plan named missing/,
+    /No active plan named missing/,
   )
 })

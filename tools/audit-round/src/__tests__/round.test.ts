@@ -49,10 +49,10 @@ const briefPin: PinnedModel = {
 }
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/example-impl-all-01-1-round.oth.md`
-const brief = `${repoRoot}/example-impl-all-01-6-brief.oul.md`
-const ruling = `${repoRoot}/example-impl-all-01-7-ruling.abx.md`
-const watch = `${repoRoot}/example-impl-all-01-9-watch.abx.md`
+const transcript = `${repoRoot}/example-impl-01..01-01-1-round.oth.md`
+const brief = `${repoRoot}/example-impl-01..01-01-6-brief.oul.md`
+const ruling = `${repoRoot}/example-impl-01..01-01-7-ruling.abx.md`
+const watch = `${repoRoot}/example-impl-01..01-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 const judgeAnswer = {
   answer: "codex",
@@ -184,7 +184,7 @@ function controlledRound(
   const evidence = {
     findings: [reportFinding],
     accepted: false,
-    subjects: ["example/impl-audit-all oth clean: settled"],
+    subjects: ["example/impl-audit-1 oth clean: settled"],
   }
   const dependencies: RoundDependencies = {
     watchEvidence: async (input) => {
@@ -325,7 +325,7 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     return reply.promise
   }
   const running = runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     { ...round.dependencies, requestRuling },
   )
   await shown.promise
@@ -370,7 +370,7 @@ test("clarification can leave a decision open without creating a new fix session
   const replies = ["Explain option 2.", "Choose option 1."]
   const requested: string[] = []
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       requestRuling: async (document) => {
@@ -402,7 +402,7 @@ test("clarification can leave a decision open without creating a new fix session
 test("the round account retains review, rebuttal and settlement outcomes", async () => {
   const round = controlledRound()
   const result = await runRoundWithAccount(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     round.dependencies,
   )
   assert.equal(result.status, "finished")
@@ -425,7 +425,7 @@ test("a resumed fix failure retains the session and never deletes the reports", 
   const round = controlledRound()
   round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       requestRuling: async () => {
@@ -476,7 +476,7 @@ for (const grade of ["green", "amber"] as const) {
     }
     const landed = {
       ...commit(
-        "example/impl-audit-all oth growth-none C1 docs(x): finished fix",
+        "example/impl-audit-1 oth growth-none C1 docs(x): finished fix",
         bullet("section:decisions"),
         ["example.md"],
       ),
@@ -488,7 +488,7 @@ for (const grade of ["green", "amber"] as const) {
     })
     let computations = 0
     const result = await runRound(
-      { ...files, plan: "../plan/archive/example/plan.md", scope: "all" },
+      { ...files, plan: "../plan/archive/example/plan.md", scope: "1" },
       {
         ...round.dependencies,
         readReport: async () => ({
@@ -540,7 +540,7 @@ test("a due watch receives the current round's dropped findings from joined evid
   const round = controlledRound()
   round.decide(dueDecision)
   const result = await runRoundWithAccount(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       watchEvidence: async () => {
@@ -553,7 +553,7 @@ test("a due watch receives the current round's dropped findings from joined evid
           roundData: {
             implementation: [
               {
-                target: "example-impl-all",
+                target: "example-impl-01..01",
                 round: 1,
                 findings: settled.account.findings,
               },
@@ -577,14 +577,14 @@ test("a due watch receives the current round's dropped findings from joined evid
 
 for (const accepted of [false, true]) {
   for (const target of [
-    { plan: "example.md", scope: "all" },
+    { plan: "example.md", scope: "1" },
     { commits: ["HEAD"] as const, repository: "repo-edu" as const },
   ]) {
     test(`a finished ${"plan" in target ? "plan" : "commit"} fix deletes its reports once before the brief with accepted=${accepted}`, async () => {
       const round = controlledRound(async (input) => {
         if (input.phase === "brief")
           assert.deepEqual(round.deletedReports, [
-            { cwd: files.planRoot, nameStart: "example-impl-all-01" },
+            { cwd: files.planRoot, nameStart: "example-impl-01..01-01" },
           ])
       })
       round.evidence.accepted = accepted
@@ -611,7 +611,7 @@ test("clean audits, failed fixes and rulings retain the report set", async () =>
             }
           : { status: ending, sessionId: "fix-session" }
     await runRound(
-      { ...files, plan: "example.md", scope: "all" },
+      { ...files, plan: "example.md", scope: "1" },
       round.dependencies,
     )
     assert.deepEqual(round.deletedReports, [])
@@ -624,7 +624,7 @@ for (const [ending, sequence] of endings) {
       const round = controlledRound()
       arrange(round, ending)
       const result = await runRound(
-        { ...files, plan: "example.md", scope: "all" },
+        { ...files, plan: "example.md", scope: "1" },
         {
           ...round.dependencies,
           async checkFile(file) {
@@ -777,7 +777,7 @@ for (const auditor of ["claude", "codex"] as const) {
     }
 
     const result = await runRound(
-      { ...files, plan: "example.md", scope: "all", auditor },
+      { ...files, plan: "example.md", scope: "1", auditor },
       round.dependencies,
     )
 
@@ -816,7 +816,7 @@ for (const auditor of ["claude", "codex"] as const) {
         round.results[phase] = failure
 
         const result = await runRound(
-          { ...files, plan: "example.md", scope: "all", auditor },
+          { ...files, plan: "example.md", scope: "1", auditor },
           round.dependencies,
         )
 
@@ -848,7 +848,7 @@ test("a due glance completes the watch in one fresh session", async () => {
   arrange(round, "watch")
 
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     round.dependencies,
   )
 
@@ -885,7 +885,7 @@ test("a red watch reaches the round result for the sequence to stop on", async (
   round.grade("red")
 
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     round.dependencies,
   )
 
@@ -897,7 +897,7 @@ test("a watch that leaves no readable record fails its phase", async () => {
   arrange(round, "watch")
 
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       watchGrade: async () => {
@@ -926,7 +926,7 @@ test("a round that hands over runs no watch, because its work has not landed", a
   round.decide(dueDecision)
 
   await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     round.dependencies,
   )
 
@@ -962,7 +962,7 @@ test("a round asked for no watch consults no glance, whatever the record says", 
   round.decide(dueDecision)
 
   const result = await runRound(
-    { ...files, watch: null, plan: "example.md", scope: "all" },
+    { ...files, watch: null, plan: "example.md", scope: "1" },
     round.dependencies,
   )
 
@@ -988,7 +988,7 @@ test("a glance that cannot read the record stops the round before any watch pass
   const failure = new Error("git log failed")
 
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       async glance() {
@@ -1057,7 +1057,7 @@ test("retains a failure before the assistant establishes a session", async () =>
     reason: "Unable to start the CLI",
   }
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     round.dependencies,
   )
   assert.deepEqual(result, {
@@ -1081,7 +1081,7 @@ for (const [ending, sequence] of endings) {
       arrange(round, ending)
 
       const result = await runRound(
-        { ...files, plan: "example.md", scope: "all" },
+        { ...files, plan: "example.md", scope: "1" },
         round.dependencies,
       )
       const call = round.calls.at(-1)
@@ -1123,7 +1123,7 @@ for (const [ending, sequence] of endings) {
     })
     arrange(round, ending)
     const running = runRound(
-      { ...files, plan: "example.md", scope: "all" },
+      { ...files, plan: "example.md", scope: "1" },
       round.dependencies,
     )
 
@@ -1149,7 +1149,7 @@ for (const operation of ["requestRuling"] as const) {
     }
     let attempts = 0
     const result = await runRound(
-      { ...files, plan: "example.md", scope: "all" },
+      { ...files, plan: "example.md", scope: "1" },
       {
         ...round.dependencies,
         async [operation]() {
@@ -1179,7 +1179,7 @@ test("the rebuttal starts fresh for either auditor with the audit selection", as
     const round = controlledRound()
 
     const result = await runRound(
-      { ...files, plan: "example.md", scope: "all", auditor },
+      { ...files, plan: "example.md", scope: "1", auditor },
       round.dependencies,
     )
 
@@ -1201,7 +1201,7 @@ test("an automatic round publishes its settled entry before the fresh judge", as
     {
       ...files,
       plan: "example.md",
-      scope: "all",
+      scope: "1",
       auditor: "codex",
       automatic: true,
     },
@@ -1247,7 +1247,7 @@ test("a judge evidence failure follows the first retained write", async () => {
     {
       ...files,
       plan: "example.md",
-      scope: "all",
+      scope: "1",
       auditor: "codex",
       automatic: true,
     },
@@ -1280,7 +1280,7 @@ for (const auditor of ["claude", "codex"] as const) {
     round.evidence.findings = []
     round.decide(dueDecision)
     const result = await runRound(
-      { ...files, plan: "../plan/example.md", scope: "all", auditor },
+      { ...files, plan: "../plan/example.md", scope: "1", auditor },
       round.dependencies,
     )
 
@@ -1302,7 +1302,7 @@ for (const auditor of ["claude", "codex"] as const) {
         plan: "../plan/example.md",
         auditor,
         report,
-        scope: "all",
+        scope: "1",
         judgedRepos: ["repo-edu"],
       },
     ])
@@ -1315,7 +1315,7 @@ test("failed clean bookkeeping stops the round without a fictitious fix session"
   const round = controlledRound()
   round.evidence.findings = []
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       completeClean: async () => {
@@ -1350,10 +1350,10 @@ for (const auditor of ["claude", "codex"] as const) {
 
     round.evidence.accepted = true
     round.evidence.subjects = [
-      "example/impl-audit-all oth growth-none c1 fix(audit-round): correct",
+      "example/impl-audit-1 oth growth-none c1 fix(audit-round): correct",
     ]
     const result = await runRound(
-      { ...files, plan: "../plan/example.md", scope: "all", auditor },
+      { ...files, plan: "../plan/example.md", scope: "1", auditor },
       round.dependencies,
     )
 
@@ -1395,7 +1395,7 @@ test("a failed brief after a completed fix stops the round before the watch", as
   }
 
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     round.dependencies,
   )
 
@@ -1446,7 +1446,7 @@ test("a missing ruling fails the fix before the brief or user input", async () =
   const round = controlledRound()
   arrange(round, "ruling")
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       async checkFile(file) {
@@ -1583,7 +1583,7 @@ test("the round reads each supplied file and records both heads immediately befo
   const round = controlledRound()
   const reads: unknown[] = []
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       async readReport(file, kind) {
@@ -1625,7 +1625,7 @@ test("the round reads each supplied file and records both heads immediately befo
           repository,
           root === files.repoEduRoot
             ? [
-                "example/impl-audit-all oth growth-none !C1a1 fix(audit-round): repair",
+                "example/impl-audit-1 oth growth-none !C1a1 fix(audit-round): repair",
                 "example/impl-2 oth feat(audit-round): deliver",
               ]
             : [
@@ -1648,7 +1648,7 @@ test("the round reads each supplied file and records both heads immediately befo
     watch: null,
     commits: [
       ...landedRecords("repo-edu", [
-        "example/impl-audit-all oth growth-none !C1a1 fix(audit-round): repair",
+        "example/impl-audit-1 oth growth-none !C1a1 fix(audit-round): repair",
         "example/impl-2 oth feat(audit-round): deliver",
       ]),
       ...landedRecords("plan", [
@@ -1662,7 +1662,7 @@ test("the round reads each supplied file and records both heads immediately befo
 test("landed plan corrections do not make an audit clean", async () => {
   const round = controlledRound()
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       readRecords: async (root, _before, repository) =>
@@ -1670,7 +1670,7 @@ test("landed plan corrections do not make an audit clean", async () => {
           repository,
           root === repoRoot
             ? [
-                "example/impl-audit-all oth growth-none d1 fix(audit-round): polish",
+                "example/impl-audit-1 oth growth-none d1 fix(audit-round): polish",
               ]
             : ["example/plan-audit ath growth-none A1C2: correct the plan"],
         ),
@@ -1694,7 +1694,7 @@ for (const [reader, phase, sessionId, called] of [
   test(`${reader} failure stops the round with the owning phase and recovery session`, async () => {
     const round = controlledRound()
     const result = await runRound(
-      { ...files, plan: "example.md", scope: "all" },
+      { ...files, plan: "example.md", scope: "1" },
       {
         ...round.dependencies,
         [reader]: async () => {
@@ -1717,7 +1717,7 @@ for (const [reader, phase, sessionId, called] of [
 
 test("a finished fix on a plan target requires a landed commit; clean audits use direct completion", async () => {
   for (const target of [
-    { plan: "example.md", scope: "all" },
+    { plan: "example.md", scope: "1" },
     { commits: ["HEAD"] as const, repository: "repo-edu" as const },
   ]) {
     for (const findings of [[], [reportFinding]]) {
@@ -1747,14 +1747,14 @@ test("a finished fix on a plan target requires a landed commit; clean audits use
 test("every landed subject must parse under its repository's grammar", async () => {
   const round = controlledRound()
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       readRecords: async (root, _before, repository) =>
         landedRecords(
           repository,
           root === repoRoot
-            ? ["example/impl-audit-all oth clean: done"]
+            ? ["example/impl-audit-1 oth clean: done"]
             : [
                 "example/plan-audit ath growth-none B1 docs(x): a kind on a planning record",
               ],
@@ -1773,7 +1773,7 @@ test("a fix needing a ruling is not graded or required to have landed work", asy
   const round = controlledRound()
   arrange(round, "ruling")
   const result = await runRound(
-    { ...files, plan: "example.md", scope: "all" },
+    { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
       readRecords: async () => {

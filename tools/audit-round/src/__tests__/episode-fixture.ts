@@ -31,7 +31,7 @@ export function commit(
 export const base = commit("example/impl-1 ath feat(x): step")
 export const correction = (area = "area-a", severity = "c1", tier = "C") =>
   commit(
-    `example/impl-audit-all ath growth-none ${severity} fix(x): correction`,
+    `example/impl-audit-1-3 ath growth-none ${severity} fix(x): correction`,
     bullet(`area:${area}`, tier),
   )
 

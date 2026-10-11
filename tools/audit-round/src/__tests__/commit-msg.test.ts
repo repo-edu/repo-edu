@@ -123,8 +123,8 @@ test("every subject class derives only the severity its role admits", () => {
       )
     }
     assert.equal(
-      stamp(message("example/impl-audit-all oth: s"), repository),
-      message("example/impl-audit-all oth clean: s"),
+      stamp(message("example/impl-audit-1 oth: s"), repository),
+      message("example/impl-audit-1 oth clean: s"),
     )
     assert.equal(
       stamp(message("example/impl-audit-1 oth clean: s", finding), repository),
@@ -138,7 +138,7 @@ test("every subject class derives only the severity its role admits", () => {
       message("example/impl-audit-1-2 oth growth-none c1 fix(x): s", finding),
     )
     assert.throws(
-      () => stamp(message("example/impl-audit-all oth fix(x): s"), repository),
+      () => stamp(message("example/impl-audit-1 oth fix(x): s"), repository),
       /graded finding bullet/,
     )
   }
@@ -188,7 +188,7 @@ test("only planning-audit findings carry a search direction", () => {
         message("example/plan-audit oth growth-none c1: s", planning),
       )
       for (const subject of [
-        "example/impl-audit-all oth growth-none docs(x)",
+        "example/impl-audit-1 oth growth-none docs(x)",
         "example/impl-audit-1-2 oth",
         "oth growth-none docs(x)",
       ]) {
@@ -279,7 +279,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
   assert.equal(
     stampCommitMessage(
       message(
-        "example/impl-audit-all o growth-none clean fix(x): s",
+        "example/impl-audit-1 o growth-none clean fix(x): s",
         codeFinding,
       ),
       "repo-edu",
@@ -287,7 +287,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
       areaKinds,
     ),
     message(
-      "example/impl-audit-all otx growth-none c1 fix(x): s",
+      "example/impl-audit-1 otx growth-none c1 fix(x): s",
       codeFinding,
       stamps.phases,
     ),
@@ -345,9 +345,9 @@ test("round stamps replace the whole opening model record and time line without 
       "",
       `${finding}\n\nRecord details\n\ngpt-6-astra low`,
     ]) {
-      const input = message("example/impl-audit-all ath: s", body, previous)
+      const input = message("example/impl-audit-1 ath: s", body, previous)
       const expected = message(
-        `example/impl-audit-all ath ${body === "" ? "clean" : "c1"}: s`,
+        `example/impl-audit-1 ath ${body === "" ? "clean" : "c1"}: s`,
         body,
         stamps.phases,
       )
@@ -363,15 +363,15 @@ test("round stamps replace the whole opening model record and time line without 
 })
 
 test("an amendment recalculates removed and regraded findings", () => {
-  const original = message("example/impl-audit-all oth: s", codeFinding)
+  const original = message("example/impl-audit-1 oth: s", codeFinding)
   const first = stamp(original)
   const regraded = first
     .replace("[C]", "[D]")
     .replace("reach:developer", "reach:ordinary")
-  assert.match(stamp(regraded), /^example\/impl-audit-all oth !D1: s/)
+  assert.match(stamp(regraded), /^example\/impl-audit-1 oth !D1: s/)
   assert.equal(
     stamp(first.replace(`\n${codeFinding}\n`, "")),
-    "example/impl-audit-all oth clean: s\n\ngpt-6-astra high\n",
+    "example/impl-audit-1 oth clean: s\n\ngpt-6-astra high\n",
   )
 })
 
@@ -409,8 +409,8 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
       ),
     )
     for (const subject of [
-      "example/impl-audit-all oth growth-none docs(x)",
-      "example/impl-audit-all oth",
+      "example/impl-audit-1 oth growth-none docs(x)",
+      "example/impl-audit-1 oth",
       "oth growth-none docs(x)",
     ]) {
       await writeFile(file, message(`${subject}: s`, planFinding))

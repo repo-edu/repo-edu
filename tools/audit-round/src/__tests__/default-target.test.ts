@@ -11,8 +11,27 @@ import { type AuditTarget, planStem } from "../target.js"
 async function planRoot(t: TestContext): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "default-target-"))
   t.after(() => rm(root, { recursive: true, force: true }))
-  for (const name of ["example.md", "widened-widen.md"])
-    await writeFile(join(root, name), "# Plan\n")
+  await writeFile(
+    join(root, "example.md"),
+    `# Plan
+
+## Implementation plan
+
+1. **First Repo Edu step.** Hosted in Repo Edu.
+2. **Second Repo Edu step.** Hosted in Repo Edu.
+3. **Plan step.** Hosted in the plan repo.
+`,
+  )
+  for (const name of ["one.md", "widened-widen.md"])
+    await writeFile(
+      join(root, name),
+      `# Plan
+
+## Implementation plan
+
+1. **Only step.** Hosted in Repo Edu.
+`,
+    )
   return root
 }
 
@@ -37,14 +56,19 @@ function logs(
 
 const named = { plan: "example", scope: null }
 
-/** Both repos host a step and carry their markers, and plan rounds followed. */
+/** Every listed share has landed and both markers follow their hosted steps. */
 const implemented = logs(
   ["plan", 1, "example/ready: ready"],
-  ["plan", 2, "example/impl-1 obx docs(audit): step"],
+  ["repo-edu", 2, "example/impl-1 obx feat(x): step"],
   ["repo-edu", 3, "example/impl-2 obx feat(x): step"],
-  ["plan", 4, "example/implemented obx: plan share"],
+  ["plan", 4, "example/impl-3 obx docs(audit): step"],
   ["repo-edu", 5, "example/implemented obx: Repo Edu share"],
-  ["plan", 6, "example/plan-audit abx clean: plan round after the steps"],
+  ["plan", 6, "example/implemented obx: plan share"],
+  [
+    "repo-edu",
+    7,
+    "example/impl-audit-2 ath growth-none c1 fix(x): newest unfinished record",
+  ],
 )
 
 test("the plan's history selects what its name or no target audits", async (t) => {
@@ -69,51 +93,22 @@ test("the plan's history selects what its name or no target audits", async (t) =
       { roundKind: "planning", plan: join(root, "widened-widen.md") },
     ],
     [
-      logs(
-        ["plan", 1, "example/ready: ready"],
-        ["repo-edu", 2, "example/impl-3 oth feat(x): step"],
-        [
-          "repo-edu",
-          3,
-          "example/impl-audit-3-4 ath growth-none c1 fix(x): fix",
-        ],
-      ),
-      {
-        roundKind: "implementation",
-        plan: join(root, "example.md"),
-        scope: "3-4",
-      },
-    ],
-    [
-      logs(
-        ["repo-edu", 1, "example/impl-1 oth feat(x): step"],
-        ["repo-edu", 2, "example/implemented oth: marker"],
-        ["repo-edu", 3, "example/impl-audit-1 ath growth-none c1 fix(x): x"],
-      ),
-      {
-        roundKind: "implementation",
-        plan: join(root, "example.md"),
-        scope: "1",
-      },
-    ],
-    [
       implemented,
       {
         roundKind: "implementation",
         plan: join(root, "example.md"),
-        scope: "all",
+        scope: "1-3",
       },
     ],
     [
       logs(
-        ["repo-edu", 1, "example/impl-1 oth feat(x): step"],
-        ["repo-edu", 2, "example/implemented oth: marker"],
-        ["repo-edu", 3, "example/impl-audit-all oth clean: clean record"],
+        ["repo-edu", 1, "one/impl-1 oth feat(x): step"],
+        ["repo-edu", 2, "one/implemented oth: marker"],
       ),
       {
         roundKind: "implementation",
-        plan: join(root, "example.md"),
-        scope: "all",
+        plan: join(root, "one.md"),
+        scope: "1",
       },
     ],
   ]
@@ -129,46 +124,53 @@ test("the plan's history selects what its name or no target audits", async (t) =
   }
 })
 
-test("a named scope audits implementation once a step has landed", async (t) => {
+test("a named step or range audits implementation once a step has landed", async (t) => {
   const root = await planRoot(t)
   assert.deepEqual(
-    await selectTarget(implemented, root, { plan: "example", scope: "2" }),
-    { roundKind: "implementation", plan: join(root, "example.md"), scope: "2" },
+    await selectTarget(implemented, root, { plan: "example", scope: "1-2" }),
+    {
+      roundKind: "implementation",
+      plan: join(root, "example.md"),
+      scope: "1-2",
+    },
   )
   await assert.rejects(
     selectTarget(logs(["plan", 1, "example/ready: ready"]), root, {
       plan: "example",
-      scope: "all",
+      scope: "1",
     }),
     /No step of example has landed/,
   )
 })
 
-test("a plan between its steps and markers stops with its reason", async (t) => {
+test("a plan between its listed steps and current markers stops with its reason", async (t) => {
   const root = await planRoot(t)
   const cases: [Record<Repository, LogCommit[]>, RegExp][] = [
     [
       logs(
         ["repo-edu", 1, "example/impl-1 oth feat(x): step"],
         ["repo-edu", 2, "example/impl-2 oth feat(x): step"],
-        ["repo-edu", 3, "example/impl-audit-1-2 oth clean: clean record"],
+        ["repo-edu", 3, "example/implemented oth: marker"],
       ),
-      /Landed steps: 1, 2\. The implemented marker is missing in Repo Edu\. Name a step scope, such as example 2/,
+      /Pending steps in the plan repo: 3\. The implemented marker is missing in the plan repo/,
     ],
     [
       logs(
-        ["plan", 1, "example/impl-1 obx docs(audit): step"],
-        ["repo-edu", 2, "example/impl-2 obx feat(x): step"],
-        ["repo-edu", 3, "example/implemented obx: Repo Edu share"],
+        ["repo-edu", 1, "example/impl-1 obx feat(x): first step"],
+        ["repo-edu", 2, "example/implemented obx: old marker"],
+        ["repo-edu", 3, "example/impl-2 obx feat(x): later step"],
+        ["plan", 4, "example/impl-3 obx docs(audit): plan step"],
+        ["plan", 5, "example/implemented obx: plan marker"],
       ),
-      /missing in the plan repo/,
+      /implemented marker is stale in Repo Edu/,
     ],
     [
       logs(
-        ["repo-edu", 1, "example/impl-1 oth feat(x): step"],
-        ["repo-edu", 2, "example/impl-audit-1 oth: no severity"],
+        ["repo-edu", 1, "example/impl-1 obx feat(x): first step"],
+        ["repo-edu", 2, "example/impl-2 obx feat(x): second step"],
+        ["plan", 3, "example/impl-3 obx docs(audit): plan step"],
       ),
-      /does not parse/,
+      /implemented marker is missing in Repo Edu\. The implemented marker is missing in the plan repo/,
     ],
   ]
   for (const [history, reason] of cases) {

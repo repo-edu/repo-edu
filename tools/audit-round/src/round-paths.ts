@@ -123,8 +123,7 @@ async function targetDescription(target: NamingTarget): Promise<{
   const [first, last = first] = target.scope
     .split("-")
     .map((step) => step.padStart(2, "0"))
-  const scope = target.scope === "all" ? "all" : `${first}..${last}`
-  return { label: `${stem}-impl-${scope}`, title }
+  return { label: `${stem}-impl-${first}..${last}`, title }
 }
 
 /**
@@ -137,10 +136,7 @@ export function roundSubject(
   plan: string,
 ): string {
   if (target.roundKind === "planning") return `Plan audit of ${plan}`
-  const steps =
-    target.scope === "all"
-      ? "all steps"
-      : `${target.scope.includes("-") ? "steps" : "step"} ${target.scope}`
+  const steps = `${target.scope.includes("-") ? "steps" : "step"} ${target.scope}`
   return `Implementation audit of ${plan}, ${steps}`
 }
 

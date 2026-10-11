@@ -213,7 +213,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       await writeFile(record, history)
       assert.equal(
         await runCommand(
-          ["example", ...(working === "plan" ? [] : ["all"])],
+          ["example", ...(working === "plan" ? [] : ["1"])],
           f.runtime,
           f.options,
         ),

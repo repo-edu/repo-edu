@@ -47,15 +47,23 @@ async function examples(): Promise<Example[]> {
   return found
 }
 
-test("every example in the subject grammar parses under the class it names", async () => {
+test("range examples parse and obsolete all examples are refused", async () => {
   const lines = await examples()
   assert.ok(lines.length >= 19)
-  for (const { repository, class: expected, subject } of lines)
-    assert.equal(
-      parseSubject(`${subject} the sentence`, repository).class,
-      expected,
-      subject,
-    )
+  for (const { repository, class: expected, subject } of lines) {
+    if (subject.includes("/impl-audit-all ")) {
+      assert.throws(
+        () => parseSubject(`${subject} the sentence`, repository),
+        /audit scope/,
+      )
+    } else {
+      assert.equal(
+        parseSubject(`${subject} the sentence`, repository).class,
+        expected,
+        subject,
+      )
+    }
+  }
 })
 
 test("the parser reads every slot of a marked subject", () => {
@@ -151,14 +159,14 @@ const refusals: [Repository, string, RegExp][] = [
   ["repo-edu", "example/impl-3 atx growth-low feat(x): s", /beside a severity/],
   [
     "repo-edu",
-    "example/impl-audit-all atx growth-low clean: s",
+    "example/impl-audit-1 atx growth-low clean: s",
     /beside a severity/,
   ],
   ["plan", "example/plan-audit atx growth-low clean: s", /beside a severity/],
   ["plan", "atx growth-low docs(claude): s", /beside a severity/],
   [
     "repo-edu",
-    "example/impl-audit-all atx growth-low B1: s",
+    "example/impl-audit-1 atx growth-low B1: s",
     /no growth or pruning mark/,
   ],
   // Every other sequence carries a mark, and the floor has no direction.
@@ -189,13 +197,18 @@ const refusals: [Repository, string, RegExp][] = [
     /step subject carries no severity/,
   ],
   ["repo-edu", "example/impl-3 atx: s", /needs a conventional kind/],
-  ["repo-edu", "example/impl-audit-all atx feat(x): s", /needs a severity/],
+  ["repo-edu", "example/impl-audit-1 atx feat(x): s", /needs a severity/],
   [
     "repo-edu",
-    "example/impl-audit-all atx clean feat(x): s",
+    "example/impl-audit-1 atx clean feat(x): s",
     /clean record carries no kind/,
   ],
-  ["repo-edu", "example/impl-audit-all atx: s", /needs a severity/],
+  ["repo-edu", "example/impl-audit-1 atx: s", /needs a severity/],
+  [
+    "repo-edu",
+    "example/impl-audit-all atx growth-none c1 fix(x): s",
+    /audit scope/,
+  ],
   [
     "repo-edu",
     "example/impl-audit-0 atx growth-none c1 fix(x): s",

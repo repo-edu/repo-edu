@@ -61,7 +61,7 @@ test("manual queues do not prune a setting from report prose", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
     await runCommand(
-      ["example.md", "all", "--auditor", "codex,o,otl,codex"],
+      ["example.md", "1", "--auditor", "codex,o,otl,codex"],
       f.runtime,
       f.options,
     ),
@@ -81,7 +81,7 @@ test("manual queues preserve repeated non-clean settings", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
     await runCommand(
-      ["example.md", "all", "--auditor", "codex,o"],
+      ["example.md", "1", "--auditor", "codex,o"],
       f.runtime,
       f.options,
     ),
@@ -101,7 +101,7 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   const f = await roundFixture(t, "codex", "repo-edu", false, null)
   assert.equal(
     await runCommand(
-      ["example.md", "all", "--auditor", "codex,codex,claude"],
+      ["example.md", "1", "--auditor", "codex,codex,claude"],
       f.runtime,
       f.options,
     ),
@@ -110,12 +110,12 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-impl-all-01-1-round.ouh.log",
-    "example-impl-all-01-1-round.ouh.md",
-    "example-impl-all-02-1-round.ouh.log",
-    "example-impl-all-02-1-round.ouh.md",
-    "example-impl-all-03-1-round.auh.log",
-    "example-impl-all-03-1-round.auh.md",
+    "example-impl-01..01-01-1-round.ouh.log",
+    "example-impl-01..01-01-1-round.ouh.md",
+    "example-impl-01..01-02-1-round.ouh.log",
+    "example-impl-01..01-02-1-round.ouh.md",
+    "example-impl-01..01-03-1-round.auh.log",
+    "example-impl-01..01-03-1-round.auh.md",
   ])
   const visible = f.visible.join("\n")
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
@@ -125,10 +125,10 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
 test("a red watch stops the auditor sequence before the next queued round", async (t) => {
   // The fixture's record is red, and the watch leaves it red.
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
-  const queue = join(f.planRoot, "example-impl-all-queue.md")
+  const queue = join(f.planRoot, "example-impl-01..01-queue.md")
   assert.equal(
     await runCommand(
-      ["example.md", "all", "--auditor", "codex,claude"],
+      ["example.md", "1", "--auditor", "codex,claude"],
       f.runtime,
       f.options,
     ),
@@ -196,7 +196,7 @@ for (const target of ["implementation", "planning", "commits"] as const) {
         ? ["HEAD", "--no-watch"]
         : [
             "example.md",
-            ...(target === "planning" ? [] : ["all"]),
+            ...(target === "planning" ? [] : ["1"]),
             "--auditor",
             "codex,claude",
           ]
@@ -256,7 +256,7 @@ test("a chained run stops when the ruling receives no reply", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   assert.equal(
     await runCommand(
-      ["example.md", "all", "--auditor", "codex,claude"],
+      ["example.md", "1", "--auditor", "codex,claude"],
       f.runtime,
       f.options,
     ),

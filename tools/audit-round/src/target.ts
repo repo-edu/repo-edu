@@ -54,17 +54,16 @@ export function planStem(plan: string): string {
   ).replace(/-widen$/, "")
 }
 
-/** An active plan sits directly at the plan root; archived plans sit below it. */
+/** An active plan sits directly at the plan root. */
 export function isActivePlanPath(planRoot: string, plan: string): boolean {
   return dirname(resolve(planRoot, plan)) === resolve(planRoot)
 }
 
 function stepScope(value: string): string {
-  if (value === "all") return value
   const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
   if (match === null)
     throw new InvalidArgumentError(
-      "Use all, a positive step number or an increasing range, such as 2-4.",
+      "Use a positive step number or an increasing range, such as 2 or 2-4.",
     )
   const first = Number(match[1])
   const last = Number(match[2] ?? match[1])
@@ -168,7 +167,7 @@ export async function activePlan(
   return null
 }
 
-/** Resolve one plan identity, preferring the active artifact over its archive. */
+/** Resolve one active plan identity and refuse an archived target. */
 export async function resolvePlan(
   planRoot: string,
   stem: string,
@@ -183,7 +182,7 @@ export async function resolvePlan(
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
     files = []
   }
-  const matches = []
+  const matches: string[] = []
   for (const file of files) {
     const path = join(archive, file)
     if (
@@ -193,12 +192,11 @@ export async function resolvePlan(
     )
       matches.push(path)
   }
-  if (matches.length === 1) return matches[0]
-  if (matches.length > 1)
+  if (matches.length > 0)
     throw new Error(
-      `Several archived plans have the stem ${stem}:\n${matches.sort().join("\n")}`,
+      `The plan ${stem} is archived. Archived plans are not audit targets.`,
     )
-  throw new Error(`No plan named ${stem} at ${planRoot} or in its archive.`)
+  throw new Error(`No active plan named ${stem} at ${planRoot}.`)
 }
 
 /** Resolve the active plan a lifecycle command names. */

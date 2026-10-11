@@ -12,7 +12,7 @@ test("an unavailable writer still prints the known session to the emergency chan
   const f = await roundFixture(t)
   let failed = false
   assert.equal(
-    await runCommand(["example.md", "all", "--auditor", "o"], f.runtime, {
+    await runCommand(["example.md", "1", "--auditor", "o"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         const files = openRunFiles(paths)
@@ -37,7 +37,7 @@ test("an unavailable writer still prints the known session to the emergency chan
 test("a terminal failure during startup stops before any round file is created", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md", "all", "--auditor", "o"], f.runtime, {
+    await runCommand(["example.md", "1", "--auditor", "o"], f.runtime, {
       ...f.options,
       terminal: {
         ...f.options.terminal,
@@ -58,7 +58,7 @@ test("a terminal failure during startup stops before any round file is created",
 test("startup writes only to the terminal before the models table opens the run log", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md", "all", "--auditor", "o"], f.runtime, {
+    await runCommand(["example.md", "1", "--auditor", "o"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         assert.ok(f.visible.includes("Checking claude updates..."))
@@ -85,10 +85,7 @@ for (const effort of [null, "max"]) {
       config: { model: "unlisted-model", model_reasoning_effort: effort },
     })
     const before = await readdir(f.repoRoot)
-    assert.equal(
-      await runCommand(["example.md", "all"], f.runtime, f.options),
-      1,
-    )
+    assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
     assert.match(
       f.errors.join("\n"),
       /codex audit.*full --auditor or --first tag/,
@@ -180,8 +177,8 @@ test("a configured pair refuses partial --auditor and --first tags before startu
     { model: "gpt-6-astra", effort: "xhigh" },
   ]
   for (const argv of [
-    ["example.md", "all", "--auditor", "o"],
-    ["example.md", "all", "--first", "oh"],
+    ["example.md", "1", "--auditor", "o"],
+    ["example.md", "1", "--first", "oh"],
   ])
     assert.equal(
       await runCommand(argv, f.runtime, { ...f.options, settings }),
@@ -209,7 +206,7 @@ for (const auditor of ["codex", "claude"] as const) {
       effort: "medium",
     }
     assert.equal(
-      await runCommand(["example.md", "all", "--auditor", auditor], f.runtime, {
+      await runCommand(["example.md", "1", "--auditor", auditor], f.runtime, {
         ...f.options,
         settings,
       }),
@@ -329,22 +326,22 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "HEAD"],
     ["example.md", "3-1"],
     ["example.md", "0"],
-    ["example.md", "all", "--auditor", "other"],
-    ["example.md", "all", "--auditor", ""],
-    ["example.md", "all", "--auditor", ","],
-    ["example.md", "all", "--auditor", " , "],
-    ["example.md", "all", "--auditor", "codex,other"],
+    ["example.md", "1", "--auditor", "other"],
+    ["example.md", "1", "--auditor", ""],
+    ["example.md", "1", "--auditor", ","],
+    ["example.md", "1", "--auditor", " , "],
+    ["example.md", "1", "--auditor", "codex,other"],
     // --first names one round, and --auditor already names the first.
-    ["example.md", "all", "--first", "codex,claude"],
-    ["example.md", "all", "--first", "other"],
-    ["example.md", "all", "--first", "codex", "--auditor", "claude"],
+    ["example.md", "1", "--first", "codex,claude"],
+    ["example.md", "1", "--first", "other"],
+    ["example.md", "1", "--first", "codex", "--auditor", "claude"],
     ["example.md", "--chain"],
     ["name", "example.md", "--auditor", "oth,ath"],
     // A tag names its fields by letter, in order, and never asks for `u`.
-    ["example.md", "all", "--auditor", "claudex"],
-    ["example.md", "all", "--auditor", "xa"],
-    ["example.md", "all", "--auditor", "aux"],
-    ["example.md", "all", "--auditor", "atxx"],
+    ["example.md", "1", "--auditor", "claudex"],
+    ["example.md", "1", "--auditor", "xa"],
+    ["example.md", "1", "--auditor", "aux"],
+    ["example.md", "1", "--auditor", "atxx"],
     ["example.md", "--chain", "extra", "3"],
     ["example.md", "--unknown"],
     ["example.md", "--no-brief"],

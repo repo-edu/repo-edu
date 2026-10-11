@@ -26,8 +26,8 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   ) => {
     const subject =
       title === null
-        ? `trial/impl-audit-all ${tag} clean: clean fixture`
-        : `trial/impl-audit-all ${tag} growth-none ${reach === "developer" ? "b1" : "B1"} fix(audit-round): fixture finding`
+        ? `trial/impl-audit-1 ${tag} clean: clean fixture`
+        : `trial/impl-audit-1 ${tag} growth-none ${reach === "developer" ? "b1" : "B1"} fix(audit-round): fixture finding`
     const body = [
       "gpt-6.1-sol xhigh",
       "",
@@ -114,14 +114,14 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     finalReach: null,
   })
   const findings = new Map<string, readonly RoundFinding[]>([
-    ["target-impl-all#2", [finding("Earlier yield", "rare")]],
-    ["target-impl-all#4", [finding("Other assistant yield")]],
-    ["target-impl-all#5", [finding("Later yield", "ordinary")]],
-    ["target-impl-all#7", [finding("Same-setting yield")]],
-    ["target-impl-all#8", [finding("In-progress yield")]],
-    ["target-impl-all#9", [finding("Awaiting ruling yield")]],
-    ["target-impl-all#10", [finding("Unsettled yield", "developer", null)]],
-    ["archived-impl-all#1", [finding("Interrupted yield")]],
+    ["target-impl-01..01#2", [finding("Earlier yield", "rare")]],
+    ["target-impl-01..01#4", [finding("Other assistant yield")]],
+    ["target-impl-01..01#5", [finding("Later yield", "ordinary")]],
+    ["target-impl-01..01#7", [finding("Same-setting yield")]],
+    ["target-impl-01..01#8", [finding("In-progress yield")]],
+    ["target-impl-01..01#9", [finding("Awaiting ruling yield")]],
+    ["target-impl-01..01#10", [finding("Unsettled yield", "developer", null)]],
+    ["archived-impl-01..01#1", [finding("Interrupted yield")]],
   ])
   const data = (
     target: string,
@@ -155,14 +155,14 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     commits,
     findings: [...(findings.get(`${target}#${round}`) ?? [])],
     judge: null,
-    scope: "all",
+    scope: "1",
     judgedRepos: ["repo-edu"],
   })
   const rounds: readonly [string, RoundData][] = [
     [
-      "old-impl-all-01-1-round.otx.json",
+      "old-impl-01..01-01-1-round.otx.json",
       data(
-        "old-impl-all",
+        "old-impl-01..01",
         1,
         "2026-10-01T10:00:00.000Z",
         {
@@ -175,9 +175,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-02-1-round.otx.json",
+      "target-impl-01..01-02-1-round.otx.json",
       data(
-        "target-impl-all",
+        "target-impl-01..01",
         2,
         "2026-10-02T10:00:00.000Z",
         {
@@ -190,9 +190,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "manual-impl-all-03-1-round.oux.json",
+      "manual-impl-01..01-03-1-round.oux.json",
       data(
-        "manual-impl-all",
+        "manual-impl-01..01",
         3,
         "2026-10-03T10:00:00.000Z",
         {
@@ -205,9 +205,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-04-1-round.atx.json",
+      "target-impl-01..01-04-1-round.atx.json",
       data(
-        "target-impl-all",
+        "target-impl-01..01",
         4,
         "2026-10-04T10:00:00.000Z",
         {
@@ -220,9 +220,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-05-1-round.obx.json",
+      "target-impl-01..01-05-1-round.obx.json",
       data(
-        "target-impl-all",
+        "target-impl-01..01",
         5,
         "2026-10-05T10:00:00.000Z",
         {
@@ -238,9 +238,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "other-impl-all-06-1-round.otx.json",
+      "other-impl-01..01-06-1-round.otx.json",
       data(
-        "other-impl-all",
+        "other-impl-01..01",
         6,
         "2026-10-06T10:00:00.000Z",
         {
@@ -254,9 +254,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-07-1-round.obx.json",
+      "target-impl-01..01-07-1-round.obx.json",
       data(
-        "target-impl-all",
+        "target-impl-01..01",
         7,
         "2026-10-07T10:00:00.000Z",
         {
@@ -269,9 +269,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-08-1-round.otx.json",
+      "target-impl-01..01-08-1-round.otx.json",
       data(
-        "target-impl-all",
+        "target-impl-01..01",
         8,
         "2026-10-08T10:00:00.000Z",
         {
@@ -285,9 +285,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-09-1-round.obx.json",
+      "target-impl-01..01-09-1-round.obx.json",
       data(
-        "target-impl-all",
+        "target-impl-01..01",
         9,
         "2026-10-09T10:00:00.000Z",
         {
@@ -301,9 +301,9 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
       ),
     ],
     [
-      "target-impl-all-10-1-round.otx.json",
+      "target-impl-01..01-10-1-round.otx.json",
       data(
-        "target-impl-all",
+        "target-impl-01..01",
         10,
         "2026-10-10T10:00:00.000Z",
         {
@@ -327,7 +327,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   writeRoundData(
     archivedData,
     data(
-      "archived-impl-all",
+      "archived-impl-01..01",
       1,
       "2026-10-06T12:00:00.000Z",
       {
@@ -360,30 +360,33 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   assert.match(output, /codex: gpt-top xhigh versus gpt-base xhigh/)
   assert.doesNotMatch(
     output,
-    /old-impl-all|old-auditor|manual-impl-all|manual-model/,
+    /old-impl-01..01|old-auditor|manual-impl-01..01|manual-model/,
   )
   assert.match(
     output,
-    /target-impl-all #5 \| obx \| codex gpt-base xhigh \| otx: B rare — Earlier yield/,
+    /target-impl-01..01 #5 \| obx \| codex gpt-base xhigh \| otx: B rare — Earlier yield/,
   )
   assert.match(
     output,
-    /target-impl-all #7 \| obx \| codex gpt-base xhigh \| not paired: same setting/,
+    /target-impl-01..01 #7 \| obx \| codex gpt-base xhigh \| not paired: same setting/,
   )
   assert.match(
     output,
-    /target-impl-all #8 .*not paired: incomplete.*incomplete/,
+    /target-impl-01..01 #8 .*not paired: incomplete.*incomplete/,
   )
   assert.match(
     output,
-    /target-impl-all #9 .*not paired: incomplete.*incomplete/,
+    /target-impl-01..01 #9 .*not paired: incomplete.*incomplete/,
   )
   assert.match(
     output,
-    /target-impl-all #10 .*not paired: incomplete.*incomplete/,
+    /target-impl-01..01 #10 .*not paired: incomplete.*incomplete/,
   )
-  assert.match(output, /archived-impl-all #1 .*B developer — Interrupted yield/)
-  assert.doesNotMatch(output, /other-impl-all #6 [^\n]*incomplete/)
+  assert.match(
+    output,
+    /archived-impl-01..01 #1 .*B developer — Interrupted yield/,
+  )
+  assert.doesNotMatch(output, /other-impl-01..01 #6 [^\n]*incomplete/)
   assert.doesNotMatch(
     output,
     /In-progress yield|Awaiting ruling yield|Unsettled yield/,
@@ -393,7 +396,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     output,
     /codex gpt-base xhigh \| 4 \| 00:23 \| audit 00:22; judge 00:01/,
   )
-  assert.match(output, /archived-impl-all #1/)
+  assert.match(output, /archived-impl-01..01 #1/)
   assert.match(output, /codex gpt-top xhigh \| 4 \|/)
   assert.match(output, /B ordinary 1/)
   assert.match(output, /gpt-top: input 4\.0k, cached 2\.0k, output 0\.4k/)

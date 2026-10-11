@@ -345,7 +345,7 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     await f.configure({ phases: f.phases })
     assert.equal(
       await runCommand(
-        ["example.md", "all", "--brief", "--auditor", "o"],
+        ["example.md", "1", "--brief", "--auditor", "o"],
         f.runtime,
         f.options,
       ),
@@ -378,7 +378,7 @@ for (const target of ["log", "markdown"] as const) {
       audit: { ...(f.phases.audit as object), wait: true },
     }
     await f.configure({ phases })
-    const code = await runCommand(["example.md", "all"], f.runtime, {
+    const code = await runCommand(["example.md", "1"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         const files = openRunFiles(paths)

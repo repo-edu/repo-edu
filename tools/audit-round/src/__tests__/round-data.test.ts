@@ -64,16 +64,16 @@ const entry = (
   commits: [],
   findings: [],
   judge: null,
-  scope: "all",
+  scope: "1",
   judgedRepos: ["repo-edu"],
 })
 
 test("per-plan data replaces a target round in place and appends new identities", async (t) => {
   const f = await fixture(t)
   const path = join(f.root, "example-impl-rounds.json")
-  writeRoundData(path, entry("example-impl-all", 1, "in-progress"))
-  writeRoundData(path, entry("example-impl-all", 2))
-  writeRoundData(path, entry("example-impl-all", 1, "failed"))
+  writeRoundData(path, entry("example-impl-01..01", 1, "in-progress"))
+  writeRoundData(path, entry("example-impl-01..01", 2))
+  writeRoundData(path, entry("example-impl-01..01", 1, "failed"))
 
   const rounds = parseRoundDataFile(path, await readFile(path, "utf8"))
   assert.deepEqual(
@@ -134,7 +134,7 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
     ],
   }
   const implementation: ImplementationRoundData = {
-    ...entry("example-impl-all", 2, "failed"),
+    ...entry("example-impl-01..01", 2, "failed"),
     phases: [
       {
         phase: "audit",
@@ -161,11 +161,11 @@ test("a plan's watch evidence omits a round kind whose file is absent", async (t
   const f = await fixture(t)
   writeRoundData(
     join(f.root, "example-impl-rounds.json"),
-    entry("example-impl-all", 1),
+    entry("example-impl-01..01", 1),
   )
 
   assert.deepEqual(await readPlanRoundData(f.root, "example"), {
-    implementation: [entry("example-impl-all", 1)],
+    implementation: [entry("example-impl-01..01", 1)],
   })
 })
 
@@ -175,7 +175,7 @@ test("round data discovery ignores archive directories with data-file names", as
   const path = join(archive, "example", "example-impl-rounds.json")
   await mkdir(join(archive, "sample-plan-rounds.json"), { recursive: true })
   await mkdir(join(archive, "example"), { recursive: true })
-  writeRoundData(path, entry("example-impl-all", 1))
+  writeRoundData(path, entry("example-impl-01..01", 1))
 
   assert.deepEqual(await roundDataFiles(f.root), [path])
 })
@@ -214,14 +214,14 @@ test("one finding recorded in both repositories settles once from the first reco
     {
       repository: "repo-edu",
       subject:
-        "example/impl-audit-all oth growth-none B1 fix(audit-round): settle findings",
+        "example/impl-audit-1 oth growth-none B1 fix(audit-round): settle findings",
       message:
         "- [B] [area:tool-audit-round] [growth-pattern:none] [reach:rare] [complexity:none] Shared correction: Apply the code correction.",
     },
     {
       repository: "plan",
       subject:
-        "example/impl-audit-all oth growth-none c1 docs(audit): settle findings",
+        "example/impl-audit-1 oth growth-none c1 docs(audit): settle findings",
       message:
         "- C [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Shared correction: Apply the plan correction.",
     },
@@ -241,7 +241,7 @@ test("one repository cannot record the same finding title twice", () => {
   const record = {
     repository: "repo-edu" as const,
     subject:
-      "example/impl-audit-all oth growth-none B1 fix(audit-round): settle findings",
+      "example/impl-audit-1 oth growth-none B1 fix(audit-round): settle findings",
     message:
       "- [B] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Repeated correction: Apply the correction.",
   }
@@ -257,13 +257,13 @@ test("unmatched deferred bullets keep the other repository's location", () => {
     [
       {
         repository: "repo-edu",
-        subject: "example/impl-audit-all oth c1: defer the plan correction",
+        subject: "example/impl-audit-1 oth c1: defer the plan correction",
         message:
           "- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Plan deferral: Record the plan correction.",
       },
       {
         repository: "plan",
-        subject: "example/impl-audit-all oth c1: defer the code correction",
+        subject: "example/impl-audit-1 oth c1: defer the code correction",
         message:
           "- C [area:tool-audit-round] [cover:cover-x] [growth-pattern:none] [reach:developer] [complexity:none] Code deferral: Record the code correction.",
       },
@@ -346,7 +346,7 @@ test("record titles settle kept, dropped, narrowed and unmatched findings", () =
     {
       repository: "repo-edu" as const,
       subject:
-        "example/impl-audit-all oth growth-none B1C1d1 fix(audit-round): settle findings",
+        "example/impl-audit-1 oth growth-none B1C1d1 fix(audit-round): settle findings",
       message: [
         "- [B] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Kept finding: Retain the correction.",
         "- [C] [area:tool-audit-round] [growth-pattern:none] [reach:ordinary] [complexity:none] Narrowed finding: Keep the narrower result.",

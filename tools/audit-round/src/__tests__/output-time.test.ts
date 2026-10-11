@@ -59,7 +59,7 @@ for (const { zone, instant, timestamp } of [
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { ...testContext(f.root), plan: "example.md", scope: "all" },
+        { ...testContext(f.root), plan: "example.md", scope: "1" },
         Date.parse(instant),
         selections,
       ),
@@ -86,7 +86,7 @@ for (const { zone, instant, timestamp } of [
     t.after(() => output.close())
 
     const logName = basename(output.paths.log)
-    assert.equal(logName, "example-impl-all-01-1-round.oth.log")
+    assert.equal(logName, "example-impl-01..01-01-1-round.oth.log")
     assert.doesNotMatch(logName, /[:<>"|?*]/)
     assert.equal(
       output.paths.markdown,
@@ -103,7 +103,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const log: string[] = []
   const run = await roundRun(
-    { ...testContext(f.root), plan: "example.md", scope: "all" },
+    { ...testContext(f.root), plan: "example.md", scope: "1" },
     Date.now(),
     selections,
   )
@@ -193,7 +193,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
     {
       ...testContext(f.root),
       plan: "example.md",
-      scope: "all",
+      scope: "1",
       automatic: true,
     },
     Date.now(),
@@ -221,7 +221,7 @@ test("the final retained write stores the judge answer", async (t) => {
     {
       ...testContext(f.root),
       plan: "example.md",
-      scope: "all",
+      scope: "1",
       automatic: true,
     },
     Date.now(),
@@ -262,7 +262,7 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
     {
       ...testContext(f.root),
       plan: "example.md",
-      scope: "all",
+      scope: "1",
       automatic: true,
     },
     Date.now(),
@@ -303,7 +303,7 @@ for (const [name, abortReason, status] of [
   test(`${name} writes the matching retained status`, async (t) => {
     const f = await fixture(t)
     const run = await buildRoundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "all" },
+      { ...testContext(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
       testSettings,
@@ -350,7 +350,7 @@ for (const assistant of ["claude", "codex"] as const) {
         fix: { ...testSettings.phases.fix, assistant },
       },
     }
-    const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
+    const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
     const run = await buildRoundRun(setup, Date.now(), selections, settings)
     const log: string[] = []
     const output = new RoundOutput(run, {
@@ -441,7 +441,7 @@ for (const assistant of ["claude", "codex"] as const) {
       await readFile(run.data.path, "utf8"),
     )[0]
     assert.ok(data)
-    assert.equal(data.target, "example-impl-all")
+    assert.equal(data.target, "example-impl-01..01")
     assert.equal(data.round, 1)
     assert.equal(data.started, "1970-01-01T00:00:10.000Z")
     assert.equal(data.settings.fix.assistant, assistant)
@@ -495,7 +495,7 @@ for (const assistant of ["claude", "codex"] as const) {
         fix: { ...testSettings.phases.fix, assistant },
       },
     }
-    const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
+    const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
     const run = await buildRoundRun(setup, Date.now(), selections, settings)
     const output = new RoundOutput(run, {
       terminal: {
@@ -564,7 +564,7 @@ for (const assistant of ["claude", "codex"] as const) {
 test("commit stamps time the finished audit, vet and rebuttal and never the fix", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
-  const setup = { ...testContext(f.root), plan: "example.md", scope: "all" }
+  const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
   const phases = roundPhases("codex", noOverride)
   const output = new RoundOutput(
     await roundRun(setup, Date.now(), selections),
@@ -581,7 +581,10 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
         ...setup,
         ...phases[phase],
         ...(phase === "audit"
-          ? { phase, arguments: ["example-impl-all-01", "example.md"] as const }
+          ? {
+              phase,
+              arguments: ["example-impl-01..01-01", "example.md"] as const,
+            }
           : phase === "rebut"
             ? {
                 phase,
@@ -627,7 +630,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   const log: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "all" },
+      { ...testContext(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),

@@ -11,7 +11,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   const reply = "Choose option 1.\nKeep the existing range."
   let requests = 0
   const code = await runCommand(
-    ["example.md", "all", "--auditor", "codex,claude", "--no-watch", "--brief"],
+    ["example.md", "1", "--auditor", "codex,claude", "--no-watch", "--brief"],
     f.runtime,
     {
       ...f.options,
@@ -37,7 +37,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
                 {
                   cwd: f.repoRoot,
                   subject:
-                    "example/impl-audit-all oth growth-none c1 fix(audit-round): apply ruling",
+                    "example/impl-audit-1 oth growth-none c1 fix(audit-round): apply ruling",
                 },
               ],
             },
@@ -111,7 +111,7 @@ async function finishFixOnReply(
           {
             cwd: f.repoRoot,
             subject:
-              "example/impl-audit-all oth growth-none c1 fix(audit-round): apply ruling",
+              "example/impl-audit-1 oth growth-none c1 fix(audit-round): apply ruling",
           },
         ],
       },
@@ -139,9 +139,9 @@ for (const { auditors, seeded, edit, rounds } of [
 ]) {
   test(`the queue file seeded with ${JSON.stringify(seeded)} takes ${JSON.stringify(edit)} before the next round`, async (t) => {
     const f = await roundFixture(t, "codex", "repo-edu", true)
-    const queue = join(f.planRoot, "example-impl-all-queue.md")
+    const queue = join(f.planRoot, "example-impl-01..01-queue.md")
     const code = await runCommand(
-      ["example.md", "all", "--auditor", auditors, "--no-watch"],
+      ["example.md", "1", "--auditor", auditors, "--no-watch"],
       f.runtime,
       {
         ...f.options,
@@ -174,9 +174,9 @@ for (const { auditors, seeded, edit, rounds } of [
 
 test("a malformed queue edit stops the sequence and names the entry", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
-  const queue = join(f.planRoot, "example-impl-all-queue.md")
+  const queue = join(f.planRoot, "example-impl-01..01-queue.md")
   const code = await runCommand(
-    ["example.md", "all", "--auditor", "codex,claude", "--no-watch"],
+    ["example.md", "1", "--auditor", "codex,claude", "--no-watch"],
     f.runtime,
     {
       ...f.options,
@@ -254,7 +254,7 @@ test("an automatic series follows the judged switch and ends on stop without a q
   ])
 
   assert.equal(
-    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -271,7 +271,7 @@ test("an automatic series follows the judged switch and ends on stop without a q
   assert.match(visible, /Judge: stop\./)
   assert.match(
     visible,
-    /Implementation audit of example, all steps: automatic auditor series stopped on the judge answer after 2 rounds\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\./,
   )
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
@@ -287,7 +287,7 @@ test("an automatic series follows the judged switch and ends on stop without a q
     ],
   )
   await assert.rejects(
-    readFile(join(f.planRoot, "example-impl-all-queue.md")),
+    readFile(join(f.planRoot, "example-impl-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -318,7 +318,7 @@ test("an audit pair takes turns from a fixed first coin and keeps each rebuttal 
   ])
 
   assert.equal(
-    await runCommand(["example.md", "all", "--no-watch"], f.runtime, {
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
       settings,
       coin: () => 1,
@@ -343,11 +343,11 @@ test("an audit pair takes turns from a fixed first coin and keeps each rebuttal 
   }
   assert.match(
     f.visible.join("\n"),
-    /Implementation audit of example, all steps: automatic auditor series reached its maximum of 3 rounds\./,
+    /Implementation audit of example, step 1: automatic auditor series reached its maximum of 3 rounds\./,
   )
 })
 
-test("an archived plan without --auditor runs once", async (t) => {
+test("an archived plan without --auditor is refused", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -366,25 +366,11 @@ test("an archived plan without --auditor runs once", async (t) => {
   await rename(join(f.planRoot, "example.md"), archivedPlan)
 
   assert.equal(
-    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
-    0,
-    f.errors.join("\n"),
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    1,
   )
-  const audits = (await f.prompts()).filter((call) =>
-    call.prompt.startsWith("Run the audit phase "),
-  )
-  assert.deepEqual(
-    audits.map((call) => call.assistant),
-    ["codex"],
-  )
-  assert.ok(audits.every((call) => call.prompt.includes(archivedPlan)))
-  assert.equal(
-    (await f.prompts()).some((call) =>
-      call.prompt.startsWith("Run the judge phase"),
-    ),
-    false,
-  )
-  assert.doesNotMatch(f.visible.join("\n"), /automatic auditor series/)
+  assert.match(f.errors.join("\n"), /Archived plans are not audit targets/)
+  await assert.rejects(f.prompts())
 })
 
 test("--first replaces the default auditor's first round and the series still follows judges", async (t) => {
@@ -406,7 +392,7 @@ test("--first replaces the default auditor's first round and the series still fo
 
   assert.equal(
     await runCommand(
-      ["example.md", "all", "--first", "atx", "--no-watch"],
+      ["example.md", "1", "--first", "atx", "--no-watch"],
       f.runtime,
       f.options,
     ),
@@ -437,10 +423,10 @@ test("--first replaces the default auditor's first round and the series still fo
   assert.match(visible, /Next round: codex, as judged;/)
   assert.match(
     visible,
-    /Implementation audit of example, all steps: automatic auditor series stopped on the judge answer after 2 rounds\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\./,
   )
   await assert.rejects(
-    readFile(join(f.planRoot, "example-impl-all-queue.md")),
+    readFile(join(f.planRoot, "example-impl-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -565,7 +551,7 @@ test("an automatic series stops at its configured maximum", async (t) => {
   settings.maximumAutomaticRounds = 2
 
   assert.equal(
-    await runCommand(["example.md", "all", "--no-watch"], f.runtime, {
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
       settings,
     }),
@@ -580,7 +566,7 @@ test("an automatic series stops at its configured maximum", async (t) => {
   )
   assert.match(
     f.visible.join("\n"),
-    /Implementation audit of example, all steps: automatic auditor series reached its maximum of 2 rounds\./,
+    /Implementation audit of example, step 1: automatic auditor series reached its maximum of 2 rounds\./,
   )
 })
 
@@ -601,7 +587,7 @@ test("a clean automatic audit follows its judge", async (t) => {
   ])
 
   assert.equal(
-    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
@@ -657,7 +643,7 @@ test("a widening target without --auditor ends after one round", async (t) => {
 test("an automatic rebuttal round gives the fresh judge retained evidence", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")
   assert.equal(
-    await runCommand(["example.md", "all", "--no-watch"], f.runtime, f.options),
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
@@ -669,12 +655,12 @@ test("an automatic rebuttal round gives the fresh judge retained evidence", asyn
   assert.equal(judge.args.includes("audit-session"), false)
   assert.match(judge.prompt, /"status": "in-progress"/)
   assert.match(judge.prompt, /"outcome": "dropped"/)
-  assert.match(judge.prompt, /example\/impl-audit-all oth growth-none c1/)
+  assert.match(judge.prompt, /example\/impl-audit-1 oth growth-none c1/)
   const visible = f.visible.join("\n")
   assert.match(visible, /Judge: stop\. The retained evidence has converged\./)
   assert.match(
     visible,
-    /Implementation audit of example, all steps: automatic auditor series stopped on the judge answer/,
+    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer/,
   )
 })
 
@@ -683,7 +669,7 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
   const settings = structuredClone(testSettings)
   settings.phases.fix.assistant = "claude"
   const code = await runCommand(
-    ["example.md", "all", "--auditor", "a", "--no-watch"],
+    ["example.md", "1", "--auditor", "a", "--no-watch"],
     f.runtime,
     {
       ...f.options,
@@ -704,7 +690,7 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
                 {
                   cwd: f.repoRoot,
                   subject:
-                    "example/impl-audit-all ath growth-none c1 fix(audit-round): apply ruling",
+                    "example/impl-audit-1 ath growth-none c1 fix(audit-round): apply ruling",
                 },
               ],
             },

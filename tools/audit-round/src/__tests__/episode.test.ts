@@ -352,7 +352,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
     await execa("git", ["add", "."], { cwd })
     await commitFixture(
       cwd,
-      `example/impl-audit-all oth growth-none c1 fix(x): code\n\n${bullet()}`,
+      `example/impl-audit-1 oth growth-none c1 fix(x): code\n\n${bullet()}`,
     )
     const modelDirectory = join(cwd, "tools/architecture-check/src")
     await mkdir(modelDirectory, { recursive: true })
