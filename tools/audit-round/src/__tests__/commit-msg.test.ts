@@ -15,8 +15,8 @@ const areaKinds = new Map([
   ["cover-llm-runtime", "cover"],
 ])
 const ratings = "[growth-pattern:none] [reach:developer] [complexity:none]"
-const codeFinding = `- [C] [area:tool-audit-round] ${ratings} Correct the record.`
-const planFinding = `- C [section:decisions] ${ratings} Correct the record.`
+const codeFinding = `- [C] [area:tool-audit-round] ${ratings} Correct: the record.`
+const planFinding = `- C [section:decisions] ${ratings} Correct: the record.`
 const planningFinding = planFinding.replace("- C ", "- C [field:missing] ")
 const message = (subject: string, body = "", model = "gpt-6-astra high") =>
   `${subject}\n\n${model}\n${body === "" ? "" : `\n${body}\n`}`

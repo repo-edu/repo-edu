@@ -19,8 +19,8 @@ test("both bullet forms derive sorted tier counts, all reach cases and D finding
     const body = cases
       .map(([tier, reach]) =>
         repository === "repo-edu"
-          ? `- [${tier}] [area:area-a] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern.`
-          : `- ${tier} [field:missing] [section:decisions] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern.`,
+          ? `- [${tier}] [area:area-a] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern: Explanation.`
+          : `- ${tier} [field:missing] [section:decisions] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern: Explanation.`,
       )
       .join("\n")
     const findings = readFindings(body, repository, strict)
@@ -29,7 +29,7 @@ test("both bullet forms derive sorted tier counts, all reach cases and D finding
     assert.equal(printSequence(findingSequence([])), "clean")
   }
   const rare = readFindings(
-    `- [D] [area:area-a] ${rating.replace("developer", "very-rare")} Wording.`,
+    `- [D] [area:area-a] ${rating.replace("developer", "very-rare")} Wording: Explanation.`,
     "repo-edu",
     strict,
   )
@@ -37,7 +37,7 @@ test("both bullet forms derive sorted tier counts, all reach cases and D finding
 })
 
 test("strict reads require each token and name the offending bullet", () => {
-  const valid = `- [C] [area:area-a] ${rating} Correct the record.`
+  const valid = `- [C] [area:area-a] ${rating} Correct: the record.`
   for (const [body, reason] of [
     ["- [C]", /needs location/],
     [valid.replace("[area:area-a] ", ""), /location/],
@@ -67,7 +67,10 @@ test("strict reads require each token and name the offending bullet", () => {
       valid.replace("growth-pattern:none", "growth-pattern:bad label"),
       /invalid \[growth/,
     ],
-    [valid.replace(" Correct the record.", ""), /followed by prose/],
+    [valid.replace(" Correct: the record.", ""), /followed by prose/],
+    [valid.replace("Correct: the", "Correct the"), /Title: prose/],
+    [valid.replace("Correct: the", ": the"), /Title: prose/],
+    [valid.replace("Correct: the record.", "Correct: "), /Title: prose/],
     [valid.replace("[C]", "[D]").replace("[reach:developer] ", ""), /reach/],
   ] as const) {
     assert.throws(
@@ -88,14 +91,14 @@ test("strict reads require each token and name the offending bullet", () => {
     assert.throws(
       () =>
         readFindings(
-          `- C ${field}[section:decisions] ${rating} Correct.`,
+          `- C ${field}[section:decisions] ${rating} Correct: it.`,
           "plan",
           strict,
         ),
       /field/,
     )
   }
-  const plan = `- C [field:missing] [section:decisions] ${rating} Correct.`
+  const plan = `- C [field:missing] [section:decisions] ${rating} Correct: it.`
   for (const key of ["section", "growth-pattern", "reach", "complexity"]) {
     assert.throws(
       () =>
@@ -112,13 +115,13 @@ test("strict reads require each token and name the offending bullet", () => {
 test("a Repo Edu tier opening cannot hide a finding as prose", () => {
   for (const tier of ["A", "B", "C", "D"]) {
     for (const remainder of [
-      `[area:area-a] ${rating} Missing space.`,
+      `[area:area-a] ${rating} Missing: space.`,
       "Prose without tokens.",
     ]) {
       assert.throws(
         () =>
           readFindings(
-            `- [C] [area:area-a] ${rating} Valid.\n- [${tier}]${remainder}`,
+            `- [C] [area:area-a] ${rating} Valid: bullet.\n- [${tier}]${remainder}`,
             "repo-edu",
             strict,
           ),
@@ -131,7 +134,7 @@ test("a Repo Edu tier opening cannot hide a finding as prose", () => {
 test("strict reads retain retired area and cover IDs without consulting the model", () => {
   for (const repository of ["repo-edu", "plan"] as const) {
     const opening = repository === "repo-edu" ? "- [C]" : "- C [field:missing]"
-    const valid = `${opening} [area:area-a] [cover:cover-x] [cover:cover-y] ${rating} Correct.`
+    const valid = `${opening} [area:area-a] [cover:cover-x] [cover:cover-y] ${rating} Correct: it.`
     assert.equal(readFindings(valid, repository, strict).length, 1)
     for (const [from, to] of [
       ["area:area-a", "area:retired-area"],
@@ -149,9 +152,10 @@ test("deferred findings retain ratings but contribute no local corrections", () 
   for (const repository of ["repo-edu", "plan"] as const) {
     const body =
       repository === "repo-edu"
-        ? `- [B] [plan:../plan/example.md#decisions] ${rating} Defer.\n- [C] [area:area-a] [cover:cover-x] ${rating} Correct.`
-        : `- B [field:excess] [area:area-a] ${rating} Defer.\n- C [field:missing] [section:decisions] ${rating} Correct.`
+        ? `- [B] [plan:../plan/example.md#decisions] ${rating} Defer: it.\n- [C] [area:area-a] [cover:cover-x] ${rating} Correct: it.`
+        : `- B [field:excess] [area:area-a] ${rating} Defer: it.\n- C [field:missing] [section:decisions] ${rating} Correct: it.`
     const findings = readFindings(body, repository, strict)
+    assert.equal(findings[0].title, "Defer")
     assert.equal(findings[0].deferred, true)
     assert.equal(findings[0].reach, "developer")
     assert.equal(findings[1].deferred, false)

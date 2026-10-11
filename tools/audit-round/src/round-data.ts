@@ -2,7 +2,7 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { z } from "zod"
-import { type Finding, findingTitle, readFindings } from "./findings.js"
+import { type Finding, readFindings } from "./findings.js"
 import { parseSubject, type Repository } from "./subject.js"
 
 const assistant = z.enum(["claude", "codex"])
@@ -375,7 +375,7 @@ function recordFindings(records: readonly FindingRecord[]): RoundFinding[] {
       record.repository,
       subject.form?.role ?? null,
     )) {
-      const title = findingTitle(finding)
+      const title = finding.title
       const existing = byTitle.get(title)
       if (existing?.repositories.has(record.repository) === true)
         throw new Error(`Record finding title appears more than once: ${title}`)

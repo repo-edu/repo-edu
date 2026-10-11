@@ -140,7 +140,12 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     status: round === 8 ? "in-progress" : "finished",
     settings: roundSettings,
     auditor,
-    phases: [phase(auditor.assistant, auditor.model, round * 1000)],
+    phases: [
+      phase(auditor.assistant, auditor.model, round * 1000),
+      ...(round === 5
+        ? [{ ...phase("codex", "gpt-judge", 1000), phase: "judge" as const }]
+        : []),
+    ],
     commits,
     findings: [...(findings.get(`${target}#${round}`) ?? [])],
     judge: null,
@@ -325,6 +330,11 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   assert.match(
     output,
     /target-impl-all #8 .*not paired: incomplete.*incomplete/,
+  )
+  assert.match(output, /total 00:06; audit 00:05; judge 00:01/)
+  assert.match(
+    output,
+    /codex gpt-base xhigh \| 3 \| 00:14 \| audit 00:13; judge 00:01/,
   )
   assert.match(output, /archived-impl-all #1/)
   assert.match(output, /codex gpt-top xhigh \| 3 \|/)

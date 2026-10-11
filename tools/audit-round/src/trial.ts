@@ -10,7 +10,15 @@ import {
   roundDataFiles,
 } from "./round-data.js"
 
-const phaseOrder = ["audit", "vet", "rebut", "fix", "brief", "watch"] as const
+const phaseOrder = [
+  "audit",
+  "vet",
+  "rebut",
+  "fix",
+  "brief",
+  "watch",
+  "judge",
+] as const
 const reachOrder = ["ordinary", "rare", "very-rare", "developer"] as const
 
 type TrialRound = {

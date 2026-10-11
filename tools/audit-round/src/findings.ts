@@ -22,24 +22,14 @@ export type Finding = Omit<z.infer<typeof ratings>, "growth-pattern"> & {
   /** The growth-pattern labels the flagged work could violate, comma-joined, or `none`. */
   readonly growthPattern: string
   readonly tier: TierLetter
+  /** The short title before the bullet's explanatory colon, the round-wide join key. */
+  readonly title: string
   readonly location: { readonly key: string; readonly value: string }
   readonly deferred: boolean
   readonly field: string | null
   readonly covers: readonly string[]
   readonly text: string
   readonly line: number
-}
-
-/** The short title before a record bullet's explanatory colon. */
-export function findingTitle(finding: Pick<Finding, "text">): string {
-  const match = /^(?:- \[[A-D]\]|- [A-D]) (?:\[[^\]]+\] )+(.+)$/.exec(
-    finding.text,
-  )
-  if (match === null)
-    throw new SubjectError(
-      `finding bullet has no readable title: ${finding.text}`,
-    )
-  return match[1].split(": ", 1)[0]
 }
 
 /** Read the current fixed bullet form. Area existence is a write-time rule. */
@@ -115,11 +105,15 @@ export function readFindings(
       fail("[field:...] must be excess or missing")
     if (repository === "plan" && !planning && values("field").length > 0)
       fail("[field:...] belongs only to a planning audit")
+    const separator = prefix[2].indexOf(": ")
+    if (separator < 1 || prefix[2].slice(separator + 2).trim().length === 0)
+      fail('needs the `Title: prose` form, a title before the first ": "')
     findings.push({
       growthPattern: checked.data["growth-pattern"],
       reach: checked.data.reach,
       complexity: checked.data.complexity,
       tier: start[1].toLowerCase() as TierLetter,
+      title: prefix[2].slice(0, separator),
       location,
       deferred,
       field: values("field")[0] ?? null,

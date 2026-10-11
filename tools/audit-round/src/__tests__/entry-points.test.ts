@@ -198,7 +198,7 @@ for (const auditor of ["codex", "claude"] as const) {
         : "growth-none b1: correct the plan"
       const bullet = clean
         ? "Preserve the decision."
-        : "B [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Preserve the decision."
+        : "B [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Preserve: the decision."
       await writeFile(
         message,
         `example/plan-audit ${auditor === "codex" ? "o" : "a"} ${suffix}\n\ngpt-6-astra high\n\n- ${bullet}\n`,

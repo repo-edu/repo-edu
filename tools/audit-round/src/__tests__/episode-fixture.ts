@@ -17,7 +17,7 @@ export const bullet = (
   location = "area:area-a",
   tier = "C",
   tokens = ratings,
-) => `- [${tier}] [${location}] ${tokens} Correct the behaviour.`
+) => `- [${tier}] [${location}] ${tokens} Correct: the behaviour.`
 
 export function commit(
   subject: string,

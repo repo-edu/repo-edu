@@ -54,7 +54,7 @@ test("joined evidence keeps both heads and applies an explicit anchor only in it
     plan: history(
       commit(
         "example/plan-audit ath growth-none C1: change",
-        `- C [field:missing] [section:decisions] ${ratings} Correct.`,
+        `- C [field:missing] [section:decisions] ${ratings} Correct: it.`,
         ["example.md"],
       ),
     ),
@@ -129,7 +129,7 @@ test("joined totals and repeated growth include findings from both repositories"
       plan: history(
         commit(
           "example/plan-audit ath growth-none C1: plan",
-          `- C [field:missing] [section:decisions] ${tokens} Correct.`,
+          `- C [field:missing] [section:decisions] ${tokens} Correct: it.`,
         ),
       ),
     },
@@ -325,7 +325,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
       ["commit-tree", tree, "-p", "HEAD"],
       {
         cwd,
-        input: `example/plan-audit ath growth-none C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct.\n`,
+        input: `example/plan-audit ath growth-none C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct: it.\n`,
       },
     )
     await execa("git", ["update-ref", "HEAD", added], { cwd })

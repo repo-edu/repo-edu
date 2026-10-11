@@ -240,6 +240,54 @@ test("one repository cannot record the same finding title twice", () => {
   )
 })
 
+test("unmatched deferred bullets keep the other repository's location", () => {
+  const settled = settleRoundFindings(
+    [],
+    [
+      {
+        repository: "repo-edu",
+        subject: "example/impl-audit-all oth c1: defer the plan correction",
+        message:
+          "- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Plan deferral: Record the plan correction.",
+      },
+      {
+        repository: "plan",
+        subject: "example/impl-audit-all oth c1: defer the code correction",
+        message:
+          "- C [area:tool-audit-round] [cover:cover-x] [growth-pattern:none] [reach:developer] [complexity:none] Code deferral: Record the code correction.",
+      },
+    ],
+  )
+  assert.deepEqual(
+    settled.map((finding) => [
+      finding.title,
+      finding.outcome,
+      finding.location,
+    ]),
+    [
+      [
+        "Plan deferral",
+        "unmatched",
+        {
+          kind: "deferred",
+          repository: "plan",
+          plan: "../plan/example.md#decisions",
+        },
+      ],
+      [
+        "Code deferral",
+        "unmatched",
+        {
+          kind: "deferred",
+          repository: "repo-edu",
+          area: "tool-audit-round",
+          covers: ["cover-x"],
+        },
+      ],
+    ],
+  )
+})
+
 test("record titles settle kept, dropped, narrowed and unmatched findings", () => {
   const findings = reviewedRoundFindings([
     reportFinding(1, "Kept finding"),

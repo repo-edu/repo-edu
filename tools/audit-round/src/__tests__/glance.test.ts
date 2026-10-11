@@ -234,13 +234,13 @@ test("maintenance and other plans' audits remain evidence without triggering a w
         ? correction()
         : commit(
             "example/plan-audit ath growth-none c1: correct the plan",
-            `- C [field:missing] [section:decisions] ${ratings} Correct.`,
+            `- C [field:missing] [section:decisions] ${ratings} Correct: it.`,
           )
     const maintenance = commit(
       "ath growth-none c1 fix(x): maintenance",
       repository === "repo-edu"
         ? bullet()
-        : `- C [section:decisions] ${ratings} Correct.`,
+        : `- C [section:decisions] ${ratings} Correct: it.`,
     )
     const otherAudit = {
       ...audit,
@@ -275,7 +275,7 @@ test("plan rounds count sections independently and ignore D findings", () => {
   const plan = (section: string) =>
     commit(
       "example/plan-audit ath growth-none C1D1: correct the plan",
-      `- C [field:missing] [section:${section}] ${ratings} Correct.\n- D [field:missing] [section:wording] ${ratings} Words.`,
+      `- C [field:missing] [section:${section}] ${ratings} Correct: it.\n- D [field:missing] [section:wording] ${ratings} Words: polish.`,
       ["example.md"],
     )
   const saved = record("amber", "c000001", "plan")
@@ -297,11 +297,11 @@ test("plan rounds count sections independently and ignore D findings", () => {
 test("plan commits count local sections without counting deferred Repo Edu findings", () => {
   const mixed = commit(
     "example/impl-audit-all ath growth-none C2 docs(x): correct the plan and defer the code",
-    `- C [section:decisions] ${ratings} Correct.\n- C [area:tool-audit-round] ${ratings} Defer.`,
+    `- C [section:decisions] ${ratings} Correct: it.\n- C [area:tool-audit-round] ${ratings} Defer: it.`,
   )
   const deferred = commit(
     "example/impl-audit-all ath growth-none C1 docs(x): record the deferred code fix",
-    `- C [area:tool-audit-round] ${ratings} Defer.`,
+    `- C [area:tool-audit-round] ${ratings} Defer: it.`,
   )
   const decision = glanceDecision(
     history(mixed, deferred),

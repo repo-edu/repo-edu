@@ -151,13 +151,13 @@ consumers.
   watch by being first. The decision's sentence opens its own section of the
   log and the terminal as `[glance]`. `readWatchGrade` reads back the grade a finished watch
   recorded for the runner's sequence decision.
-- `findings.ts` reads the complete current bullet form for commit hooks and
-  episodes, D included. It validates token values without consulting the area
-  model. `commit-msg.ts` checks primary and cover IDs against the current model
-  at write time. `sequence.ts` derives severity from the strict read and
-  fills the subject's severity slot under its role and repository rules. The
-  growth mark remains authored and is required beside every sequence outside a
-  deferral record.
+- `findings.ts` reads the complete current bullet form for commit hooks and episodes, D included. It
+  validates token values without consulting the area model. It requires the `Title: prose` form and
+  carries the title, the mirror of the report reader's title rule, so the hook refuses a bullet with
+  no title separator before the round-data join can misread it. `commit-msg.ts` checks primary and
+  cover IDs against the current model at write time. `sequence.ts` derives severity from the strict
+  read and fills the subject's severity slot under its role and repository rules. The growth mark
+  remains authored and is required beside every sequence outside a deferral record.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
   either repository's form, names the class it matched and refuses with the first slot that does not
