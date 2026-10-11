@@ -19,9 +19,11 @@ function round(
     readonly tier?: "A" | "B" | "C" | "D"
     readonly phase?: "widening" | "detailing"
     readonly landed?: boolean
+    readonly outcome?: "kept" | "unmatched"
   } = {},
 ): RoundData {
   const tier = options.tier
+  const outcome = options.outcome ?? "kept"
   return {
     target: "example-plan",
     round: options.round ?? 1,
@@ -48,7 +50,7 @@ function round(
         ? []
         : [
             {
-              number: 1,
+              number: outcome === "unmatched" ? null : 1,
               title: `${assistant} ${tier} finding`,
               tier,
               reach: "developer",
@@ -59,9 +61,9 @@ function round(
                 field: "missing",
                 section: "decisions",
               },
-              vetVerdict: "accept",
+              vetVerdict: outcome === "unmatched" ? null : "accept",
               rebuttalAnswer: null,
-              outcome: "kept",
+              outcome,
               finalTier: null,
               finalReach: null,
             },
@@ -114,6 +116,15 @@ test("the current in-progress settled B removes stop from the judge", () => {
       reason: "Cross-check the accepted finding.",
     },
   )
+})
+
+test("an unmatched landed B removes stop from the judge", () => {
+  const current = round("codex", "2026-10-11T10:00:00Z", {
+    tier: "B",
+    outcome: "unmatched",
+  })
+
+  assert.equal(judgeCanStop(evidence([current]), identity(current)), false)
 })
 
 test("an earlier assistant's unconfirmed A blocks stop", () => {

@@ -100,7 +100,7 @@ function settled(entry: RoundData, current: CurrentRound): boolean {
 function acceptedRealBug(entry: RoundData): boolean {
   return entry.findings.some(
     (finding) =>
-      finding.outcome === "kept" &&
+      (finding.outcome === "kept" || finding.outcome === "unmatched") &&
       ["A", "B"].includes(finding.finalTier ?? finding.tier),
   )
 }
