@@ -288,6 +288,43 @@ test("unmatched deferred bullets keep the other repository's location", () => {
   )
 })
 
+test("a planning record can defer an unmatched finding to Repo Edu", () => {
+  const settled = settleRoundFindings(
+    [],
+    [
+      {
+        repository: "plan",
+        subject:
+          "example/plan-audit oth growth-none B1: defer the code correction",
+        message:
+          "- B [field:excess] [area:tool-audit-round] [cover:cover-x] [growth-pattern:none] [reach:developer] [complexity:none] Code deferral: Record the code correction.",
+      },
+    ],
+  )
+
+  assert.deepEqual(settled, [
+    {
+      number: null,
+      title: "Code deferral",
+      tier: "B",
+      reach: "developer",
+      complexity: "none",
+      growthPattern: "none",
+      location: {
+        kind: "deferred",
+        repository: "repo-edu",
+        area: "tool-audit-round",
+        covers: ["cover-x"],
+      },
+      vetVerdict: null,
+      rebuttalAnswer: null,
+      outcome: "unmatched",
+      finalTier: null,
+      finalReach: null,
+    },
+  ])
+})
+
 test("record titles settle kept, dropped, narrowed and unmatched findings", () => {
   const findings = reviewedRoundFindings([
     reportFinding(1, "Kept finding"),

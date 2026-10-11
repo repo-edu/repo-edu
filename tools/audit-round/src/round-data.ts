@@ -331,15 +331,6 @@ function recordLocation(
   finding: Finding,
   repository: Repository,
 ): RoundFindingLocation {
-  if (finding.field !== null) {
-    if (finding.location.key !== "section")
-      throw new Error("A planning record finding needs a section")
-    return {
-      kind: "planning",
-      field: finding.field as "excess" | "missing",
-      section: finding.location.value,
-    }
-  }
   if (finding.deferred) {
     return repository === "repo-edu"
       ? {
@@ -353,6 +344,15 @@ function recordLocation(
           area: finding.location.value,
           covers: [...finding.covers],
         }
+  }
+  if (finding.field !== null) {
+    if (finding.location.key !== "section")
+      throw new Error("A planning record finding needs a section")
+    return {
+      kind: "planning",
+      field: finding.field as "excess" | "missing",
+      section: finding.location.value,
+    }
   }
   return repository === "repo-edu"
     ? {
