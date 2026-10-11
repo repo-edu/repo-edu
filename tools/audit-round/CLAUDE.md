@@ -299,8 +299,9 @@ consumers.
   Markdown output names both audit selections, their configured pairs, both
   vets and the fixer. Its rows show the previous completed round by the same
   assistant on the same target only when its audit setting differs, plus phase
-  time, accepted findings and tokens. Totals group the whole round cost and
-  accepted findings by audit setting. Same-setting and incomplete rounds
+  time, accepted findings and tokens. A closing table gives each audit setting's
+  means per round: time and tokens over every round, accepted findings over
+  complete rounds only. Same-setting and incomplete rounds
   contribute time and tokens but do not form a cross-check pair. The command
   starts no assistant, reads no live settings and writes nothing.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
@@ -541,9 +542,12 @@ includes only rounds whose audit setting came from `settings.json`. Its header
 names both audit selections, every configured pair, both vet selections and the
 fixer. Round rows show the previous completed round by the same assistant on the
 same target only when its audit setting differs. They also show time by phase,
-accepted finding tiers, reaches and titles and token use by model. Totals group
-those measurements by audit setting and show how many rounds support each total.
-A same-setting round is marked unpaired. An entry is incomplete unless its
+accepted finding tiers, reaches and titles and token use by model. A closing
+table gives each audit setting's means per round, with the round and
+complete-round counts behind them: time and tokens divide by every round,
+accepted finding counts by complete rounds only. Means rather than totals keep
+a setting that ran more rounds from looking more expensive and more productive
+on that count alone. A same-setting round is marked unpaired. An entry is incomplete unless its
 status is finished, failed or interrupted, it names a landed commit and every
 finding has an outcome. Its time and tokens count, but it supplies no accepted
 findings or cross-check. The command renders Markdown, starts no assistant and

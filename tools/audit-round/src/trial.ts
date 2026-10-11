@@ -128,7 +128,11 @@ function findingsText(findings: readonly RoundFinding[]): string {
     .join("; ")
 }
 
-function findingCounts(findings: readonly RoundFinding[]): string {
+function findingRates(
+  findings: readonly RoundFinding[],
+  completeRounds: number,
+): string {
+  if (completeRounds === 0) return "no complete rounds"
   const counts = new Map<string, number>()
   for (const finding of findings) {
     const key = `${finalTier(finding).toLowerCase()}|${finalReach(finding)}`
@@ -141,7 +145,9 @@ function findingCounts(findings: readonly RoundFinding[]): string {
         const count = counts.get(`${tier}|${reach}`)
         return count === undefined
           ? []
-          : [`${tier.toUpperCase()} ${reach.replace("-", " ")} ${count}`]
+          : [
+              `${tier.toUpperCase()} ${reach.replace("-", " ")} ${(count / completeRounds).toFixed(1)}`,
+            ]
       }),
     )
     .join("; ")
@@ -247,10 +253,12 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
 
   lines.push(
     "",
-    "## Totals by audit setting",
+    "## Means per round by audit setting",
     "",
-    "| Audit setting | Rounds | Time | Phase time | Accepted findings | Tokens per model |",
-    "| --- | ---: | --- | --- | --- | --- |",
+    "Time and tokens divide by every round. Accepted findings divide by complete rounds only, because an incomplete round supplies none.",
+    "",
+    "| Audit setting | Rounds | Complete | Time per round | Phase time per round | Accepted findings per complete round | Tokens per model per round |",
+    "| --- | ---: | ---: | --- | --- | --- | --- |",
   )
   const groups = new Map<string, TrialRound[]>()
   for (const round of rounds) {
@@ -259,6 +267,9 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
   }
   for (const grouped of groups.values()) {
     const first = grouped[0]
+    const completeRounds = grouped.filter((round) =>
+      trialRoundComplete(round.data),
+    ).length
     const phaseMilliseconds = new Map<string, number>()
     const tokens = new Map<string, Omit<ModelTokenUsage, "model">>()
     const findings: RoundFinding[] = []
@@ -280,10 +291,22 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
     )
     const perPhase = phaseOrder.flatMap((phase) => {
       const value = phaseMilliseconds.get(phase)
-      return value === undefined ? [] : [`${phase} ${elapsedText(value)}`]
+      return value === undefined
+        ? []
+        : [`${phase} ${elapsedText(value / grouped.length)}`]
     })
+    const tokensPerRound = new Map(
+      [...tokens].map(([model, usage]) => [
+        model,
+        {
+          input: usage.input / grouped.length,
+          cached: usage.cached / grouped.length,
+          output: usage.output / grouped.length,
+        },
+      ]),
+    )
     lines.push(
-      `| ${escapeCell(`${first.data.auditor.assistant} ${settingText(first.data.auditor)}`)} | ${grouped.length} | ${elapsedText(total)} | ${escapeCell(perPhase.join("; ") || "none")} | ${escapeCell(findingCounts(findings))} | ${escapeCell(tokenTotalsText(tokens))} |`,
+      `| ${escapeCell(`${first.data.auditor.assistant} ${settingText(first.data.auditor)}`)} | ${grouped.length} | ${completeRounds} | ${elapsedText(total / grouped.length)} | ${escapeCell(perPhase.join("; ") || "none")} | ${escapeCell(findingRates(findings, completeRounds))} | ${escapeCell(tokenTotalsText(tokensPerRound))} |`,
     )
   }
   return `${lines.join("\n")}\n`

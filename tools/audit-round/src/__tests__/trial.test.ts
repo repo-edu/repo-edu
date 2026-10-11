@@ -12,7 +12,7 @@ import { commitFixture } from "./round-fixture.js"
 const sha40 = "0123456789abcdef0123456789abcdef01234567"
 const selection = (model: string, effort: string | null) => ({ model, effort })
 
-test("trial reads the newest settings run, cross-checks completed rounds and totals incomplete work", async (t) => {
+test("trial reads the newest settings run, cross-checks completed rounds and averages incomplete work", async (t) => {
   const f = await fixture(t)
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root)
@@ -394,12 +394,17 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   assert.match(output, /total 00:06; audit 00:05; judge 00:01/)
   assert.match(
     output,
-    /codex gpt-base xhigh \| 4 \| 00:23 \| audit 00:22; judge 00:01/,
+    /codex gpt-base xhigh \| 4 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B ordinary 0\.3; B developer 0\.7 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
   )
   assert.match(output, /archived-impl-01..01 #1/)
-  assert.match(output, /codex gpt-top xhigh \| 4 \|/)
-  assert.match(output, /B ordinary 1/)
-  assert.match(output, /gpt-top: input 4\.0k, cached 2\.0k, output 0\.4k/)
+  assert.match(
+    output,
+    /codex gpt-top xhigh \| 4 \| 2 \| 00:06 \| audit 00:06 \| B rare 0\.5 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k/,
+  )
+  assert.match(
+    output,
+    /claude claude-opus-5 xhigh \| 1 \| 1 \| 00:04 \| audit 00:04 \| B developer 1\.0 \|/,
+  )
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
