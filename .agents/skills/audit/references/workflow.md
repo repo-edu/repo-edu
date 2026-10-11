@@ -60,11 +60,10 @@ Follow the resolved range exactly. Never select, propose or replace it. The
 plan's **Execution and audits** subsection is guidance for the user, not
 instructions for the workflow.
 
-The step range decides the repo set. Derive each in-range step's hosting repo
-from the files its plan text says to change. A step may be hosted by Repo Edu,
-the plan repo or both. The round's repo set is the union of those hosts; a
-whole-plan round derives it from every step. When a host is unclear, stop for a
-plan correction.
+The step range decides the repo set. Read each in-range step's host sentence in
+the plan's **Implementation plan**. A step may be hosted by Repo Edu, the plan
+repo or both. The round's repo set is the union of those hosts. When a host
+sentence does not use the fixed form, stop for a plan correction.
 
 ## Round
 
@@ -88,11 +87,6 @@ evidence needed to judge their current behaviour and recorded departures.
 Read both repos for a both-repo round. This discovers scope evidence; it does
 not compute the watch episode or classify its trajectory.
 
-When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
-same folder when it exists. It records later outcomes that the frozen plan
-cannot carry. Treat a recorded correct departure under the shared protocol's
-deviation rules, not as a strict conformance failure.
-
 Read the plan end to end. Read the current files that implement every in-scope step
 in every judged repo, including files added or moved by later corrections.
 
@@ -113,12 +107,15 @@ run its scripts. For plan-repo files, read that repo's `CLAUDE.md` for its rules
 
 ## Coverage
 
-Before drafting findings, build a coverage table with one row per in-scope
-**Implementation plan** step, its implementing commits or code and one
-disposition: implemented, deviated, incomplete or dropped. A whole-plan round
-covers every step; a scoped round covers only the user-named steps. Steps the
+Before drafting findings, build a coverage table from the parsed
+**Implementation plan**, with one row per step in the concrete range. Give each
+row its implementing commits or code and one disposition: implemented,
+deviated, incomplete or dropped. A range from step 1 through the plan's last
+listed step is whole-plan. It expects an `implemented` marker in every repo
+that hosts a listed step, newer than that repo's latest hosted step. Apply the
+shared protocol's settlement rule when a marker is missing or stale. Steps the
 episode has visibly not reached yet stay incomplete rows, not graded findings.
-Both routes inspect the complete in-scope implementation and check every
+Every round inspects the complete in-range implementation and checks every
 binding **Decisions** entry without adding decision rows. Violations land as
 findings.
 
@@ -176,7 +173,7 @@ Follow the shared protocol's
 Follow the shared round protocol's
 [Report format](../../../references/round-protocol.md#report-format) for the
 opening, coverage and findings. Supply the plan, ready commit, implementation
-commits and user-set scope from this audit's evidence. Deliver the complete
+commits and resolved range from this audit's evidence. Deliver the complete
 report under [Report file](#report-file).
 
 ## Report file

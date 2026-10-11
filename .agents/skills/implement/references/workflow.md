@@ -4,9 +4,7 @@ Name a plan by its stem with an optional step number or inclusive range,
 counted against its **Implementation plan**. No range selects all steps.
 Drop a typed `.md` or `-widen`, then resolve `<stem>.md` or `<stem>-widen.md`
 at the plan root before looking in its archive. Refuse paths and show the
-stem form. Unlike `audit-round`, implementation needs no `all` word because
-it always acts on implementation steps. When no plan is named, ask which plan
-to implement and wait.
+stem form. When no plan is named, ask which plan to implement and wait.
 
 Follow the `CLAUDE.md` of every repo whose files the run changes. The invoking
 chat coordinates the run. It delegates each step to a fresh sub-agent and

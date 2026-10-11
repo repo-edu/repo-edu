@@ -29,13 +29,13 @@ repo's [Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle) owns
 when each marker is written.
 The plan repo's handoff rule owns that six-character sha.
 
-- **Target** names what was audited. The stem is the plan's name without
-  `.md` or `-widen`; for an archived `plan.md`, it is the archive folder's name.
-  A plan audit adds `-plan` to the stem and an implementation audit adds
-  `-impl-<a>..<b>` or `-impl-all`, the same words as the `plan-audit` and
-  `impl-audit-<scope>` commit roles, so a name says which audit it holds. A
-  single step is the range from itself to itself, such as `-impl-07..07`, and
-  step numbers are padded to at least two digits. The kind word also
+- **Target** names what was audited. The stem is the active plan's name without
+  `.md` or `-widen`. A plan audit adds `-plan` to the stem and an
+  implementation audit adds `-impl-<a>..<b>`. The subject writes the same
+  endpoints as `impl-audit-<a>-<b>`, or the one endpoint as `impl-audit-<n>`,
+  so a name says which audit it holds. A single step is the range from itself
+  to itself, such as `-impl-07..07`, and step numbers are padded to at least
+  two digits. The kind word also
   disambiguates a plan name ending in a number when reading a filename from the
   right. One word, padding and the `..` range keep `ls` and
   Finder in step order, with a range after every round of its first step. The
@@ -213,11 +213,11 @@ settings discovery. It does not name later writers' files.
 The target grammar is the same from either checkout. Bare commit references
 select a Repo Edu commit audit. A `plan@` prefix on the first reference selects
 the plan repo for the whole commit target. Any other first argument names a
-plan, alone or with a step number, an inclusive range or `all`, and
+plan, alone or with a step number or an inclusive range, and
 [Plan targets](#plan-targets) decides the round it runs. Plan arguments accept
-`.md` and `-widen` but no path; lookup prefers the active artifact at the plan
-root, then its archive. A commit-shaped stem keeps `.md` to identify it as a
-plan.
+`.md` and `-widen` but no path. Lookup uses the active artifact at the plan root
+only. A stem found only under `archive/` is refused because archived plans are
+not audit targets. A commit-shaped stem keeps `.md` to identify it as a plan.
 
 For later phases, use complete runner-supplied paths when present. Hand-run
 commands take bare file names and resolve them at the plan repo root:
@@ -258,20 +258,24 @@ hand-run sessions.
 
 ### Plan targets
 
-The plan's history decides which round its name alone runs, so the shortest
-command runs the audit the plan's state calls for. Without a target, `name` and
-an automated round take the active artifact at the plan root, never an archived
-one, whose stem commit is newest in either repo by commit date. A bare
-`pnpm audit-round` with no arguments at all still prints help. The joined stem
-history of both repos decides:
+The plan's history and listed steps decide which round its name alone runs, so
+the shortest command runs the audit the plan's state calls for. Without a
+target, `name` and an automated round take the active artifact at the plan root
+whose stem commit is newest in either repo by commit date. A bare
+`pnpm audit-round` with no arguments at all still prints help. The runner reads
+the first ordered list below the plan's depth-2 `Implementation plan` heading.
+Each item opens with a bold title followed by `Hosted in Repo Edu.`, `Hosted in
+the plan repo.` or `Hosted in both repos.` The joined stem history of both repos
+then decides:
 
 - No `impl-<n>` step has landed: a planning audit of the plan.
-- The newest stem commit is an implementation-audit record that is not clean:
-  that scope again.
-- Every repo with a landed step carries its `implemented` marker: an
-  implementation audit of all steps.
-- Otherwise the command stops and names the landed steps. The user then names
-  the scope. Moving on to the next audit unit is the user's call.
+- Every listed step has landed in each repo that hosts it, and each hosting
+  repo's newest `implemented` marker is newer than its newest hosted step: an
+  implementation audit of the concrete range from step 1 through the last
+  listed step. A one-step plan uses scope `1`.
+- Otherwise the command stops and names the pending steps in each hosting repo
+  and each missing or stale `implemented` marker. The user names a step or
+  range to run an implementation audit before those conditions hold.
 
 A named step scope selects an implementation audit of that scope. It is refused
 while no step has landed, because there is no implementation to judge. No
@@ -546,9 +550,9 @@ record form below except the deferral record, which changes no code.
 
 ### Implementation record in Repo Edu
 
-Implementation records use `impl-audit-<scope>`, where the scope is `<n>`,
-`<a>-<b>` or `all`. Repo Edu finding bullets use bracketed tiers and primary
-areas. For one C finding in step 2:
+Implementation records use `impl-audit-<scope>`, where the scope is `<n>` or
+`<a>-<b>`. Repo Edu finding bullets use bracketed tiers and primary areas. For
+one C finding in step 2:
 
 ```text
 example/impl-audit-2 ath growth-none docs(audit-round): align the report location
@@ -664,22 +668,26 @@ quality evidence, never on taste.
 
 ## Implementation settlement
 
-Scoped rounds never settle the episode, even when their ranges tile every
-step. Each scoped verdict describes the HEAD it ran on, and later steps age it.
-The proof that the implementation is settled is whole-plan rounds on the
-finished code whose severity has stabilised at C or below with no new A, each
-round's table classifying every row. A round that finds nothing is not required.
-Prior audit commits inform those rounds, ranking their reports and naming the
-fixes to re-verify. They never excuse a row from inspection.
+An implementation-audit round is whole-plan when its range starts at step 1
+and ends at the number of steps in the plan's current **Implementation plan**.
+A plan that gains a step makes an earlier whole-plan round partial because that
+round judged the smaller range. The proof that the implementation is settled
+is whole-plan rounds on the finished code whose severity has stabilised at C or
+below with no new A, each round's table classifying every row. A round that
+finds nothing is not required. Prior audit commits inform those rounds, ranking
+their reports and naming the fixes to re-verify. They never excuse a row from
+inspection.
 
 The watch judges convergence and repeated structural growth; the user owns
 settlement. The final whole-plan round expects an `implemented` marker in every
-judged repo under the plan doctrine's
+repo that hosts a listed step under the plan doctrine's
 [Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms).
-When a marker is missing, name it once and continue on the user's word. That round
-uses the audit's read-only evidence rules. Later rounds do not wait for it.
-Loop-close asks before archiving a plan with no whole-plan implementation-audit
-record after its last step and continues only on the user's answer, because the
+Each repo's newest marker must be newer than its newest hosted step. When a
+marker is missing or stale, name it once and continue on the user's word. That
+round uses the audit's read-only evidence rules. Later rounds do not wait for
+it. Loop-close asks before archiving unless either repo holds a whole-plan
+implementation-audit record newer than the plan's latest `impl-<n>` commit. It
+continues only on the user's answer when that record is absent, because the
 close is the last point where the missing audit can still be noticed.
 
 Loop-close follows on the user's word, given as `/close` or `$close` or asked
@@ -1058,9 +1066,8 @@ Open by naming `Implementation audit workflow` and include exactly one plain lin
 only as evidence stay outside that line. It selects the repos for vet, rebuttal, fix and clean
 completion. The filename holds the writer tag; do not repeat or look up that tag for the opening.
 Then name the plan file, its ready commit and the implementation commits
-inspected. State the round's user-set scope: the whole plan, one step or one
-step range. Then report the coverage table, its coverage line and the finding
-field.
+inspected. State the round's concrete step range. Then report the coverage
+table, its coverage line and the finding field.
 
 Every finding, including a cross-repo finding, belongs in one `## Findings`
 field. A field with no findings contains exactly `No findings.` instead of

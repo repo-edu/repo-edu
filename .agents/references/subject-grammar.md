@@ -49,7 +49,7 @@ the `<tag>` slot.
 <stem>      ::= <stem-char>+                ; the plan file's name without .md and without a -widen postfix
 <stem-char> ::= any character except / and space
 <role>      ::= init | plan-audit | settle | ready | impl-<n> | impl-audit-<scope> | implemented | closed
-<scope>     ::= <n> | <n>-<n> | all
+<scope>     ::= <n> | <n>-<n>
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
@@ -76,10 +76,10 @@ the `<tag>` slot.
 ```
 
 A slash ends the stem and hyphens stay inside the role token, so scope numbers
-cannot be mistaken for an address. Use `all` rather than `complete`, which
-would read as an outcome. The role already identifies steps, so the scope
-needs no `step` word. One planned step is one commit; `implemented` records
-completion, so there is no `impl-all`.
+cannot be mistaken for an address. An implementation-audit scope always names
+one concrete step or an inclusive range. The role already identifies steps, so
+the scope needs no `step` word. One planned step is one commit; `implemented`
+records completion, so there is no implementation-wide step role.
 
 The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
 `<conventional>` is the Angular set that Conventional Commits recommends, plus `redesign`; a new
@@ -172,10 +172,10 @@ P3        planning-rounds/settle:
 P3        planning-rounds/ready:
 P3        planning-rounds/closed oth:
 I1        planning-rounds/impl-3 oth feat(audit-round):
-I2        round-file-naming/impl-audit-all oth growth-none d1 docs(vet):
-I2        round-file-naming/impl-audit-all oth pruning-low c3 docs(audit):
-I3        planning-rounds/impl-audit-all oth B1:
-I4        planning-rounds/impl-audit-all otm clean:
+I2        round-file-naming/impl-audit-1-4 oth growth-none d1 docs(vet):
+I2        round-file-naming/impl-audit-2-3 oth pruning-low c3 docs(audit):
+I3        planning-rounds/impl-audit-1-6 oth B1:
+I4        planning-rounds/impl-audit-1-6 otm clean:
 I5        planning-rounds/implemented oth:
 O2        ath chore(repo):
 O2        ath growth-none c1 docs(claude):
@@ -186,9 +186,9 @@ Repo Edu:
 
 ```text
 I1           planning-rounds/impl-4 oth test(audit-round):
-I2           round-file-naming/impl-audit-all oth growth-medium c1 fix(audit-round):
-I3           planning-rounds/impl-audit-all oth B1:
-I4           planning-rounds/impl-audit-all ath clean:
+I2           round-file-naming/impl-audit-1-4 oth growth-medium c1 fix(audit-round):
+I3           planning-rounds/impl-audit-1-6 oth B1:
+I4           planning-rounds/impl-audit-1-6 ath clean:
 I5           planning-rounds/closed oth:
 O1           ath growth-medium c1 feat(audit-round):
 O1           abx pruning-low c1 redesign(audit-round):
