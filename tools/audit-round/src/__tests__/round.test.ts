@@ -226,6 +226,7 @@ function controlledRound(
     readRebuttal: async () =>
       evidence.accepted ? [] : [{ number: 1, tier: "B", answer: "agree" }],
     readHead: async (root) => `before-${root}`,
+    resolvePlan: async (planRoot, stem) => join(planRoot, `${stem}.md`),
     fileExists: async () => planRemains,
     readRecords: async (root, _before, repository) =>
       root === repoRoot ? landedRecords(repository, evidence.subjects) : [],

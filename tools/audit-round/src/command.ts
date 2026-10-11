@@ -822,6 +822,7 @@ export async function runCommand(
       judgeEvidence: readJudgeEvidence,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
+      resolvePlan,
       fileExists: async (file) => {
         try {
           await stat(file)
@@ -956,19 +957,12 @@ export async function runCommand(
       try {
         do {
           if (completed > 0 && "plan" in target) {
-            const stem = planStem(target.plan)
-            const plan = await resolvePlan(context.planRoot, stem)
-            target = { ...target, plan }
-            if (automatic && basename(plan).endsWith("-widen.md")) {
-              await output?.message(
-                `Automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"}: ${plan} is now widening.`,
+            if (!automatic) {
+              const plan = await resolvePlan(
+                context.planRoot,
+                planStem(target.plan),
               )
-              if (result === undefined)
-                throw new Error(
-                  "Automatic auditor series changed phase before completing a round",
-                )
-              code = result.status === "failed" ? 1 : 0
-              return code
+              target = { ...target, plan }
             }
             if (automatic)
               await output?.message(
@@ -1024,6 +1018,19 @@ export async function runCommand(
                 : "Auditor sequence stopped: this round required your ruling.",
             )
             break
+          }
+          if (automatic && "plan" in target) {
+            const plan = await resolvePlan(
+              context.planRoot,
+              planStem(target.plan),
+            )
+            target = { ...target, plan }
+            if (basename(plan).endsWith("-widen.md")) {
+              await active.message(
+                `Automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"}: ${plan} is now widening.`,
+              )
+              break
+            }
           }
           // A red watch asks the user to act now, so no queued round starts first.
           if (round.watch === "red") {

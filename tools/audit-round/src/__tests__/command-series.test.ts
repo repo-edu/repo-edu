@@ -467,9 +467,7 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
       readReply: async () => {
         await rm(widening)
         await rename(settled, widening)
-        await finishFixOnReply(f, [
-          "Judge: continue with Codex. The reopened shape needs a widening round.",
-        ])
+        await finishFixOnReply(f)
         return "Reopen the plan."
       },
     }),
@@ -481,9 +479,22 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
     call.prompt.startsWith("Run the audit phase "),
   )
   assert.equal(audits.length, 1)
+  assert.equal(
+    (await f.prompts()).some((call) =>
+      call.prompt.startsWith("Run the judge phase"),
+    ),
+    false,
+  )
   assert.match(
     f.visible.join("\n"),
     /Automatic auditor series stopped after 1 round: .*example-widen\.md is now widening\./,
+  )
+  const [stored] = JSON.parse(
+    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+  ) as { status: string; judge: unknown }[]
+  assert.deepEqual(
+    { status: stored.status, judge: stored.judge },
+    { status: "finished", judge: null },
   )
 })
 

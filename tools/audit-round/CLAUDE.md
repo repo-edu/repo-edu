@@ -47,9 +47,11 @@ consumers.
   grade it recorded; a watch that leaves no readable entry fails its phase. A finished round reports
   that grade, and the command runner ends the auditor sequence on red, so no queued round starts
   before the user acts on the watch. Before the brief and watch, `round.ts` publishes the settled
-  findings as the current `in-progress` round-data entry. After any non-red round in an active
-  plan's automatic series, it starts a fresh judge turn over the plan's round-kind data, episode
-  commits, stop conditions and latest watch. The runner's real-bug gate removes stop while either
+  findings as the current `in-progress` round-data entry. After the fix, it resolves the plan's
+  current filename. The watch still runs when the fix reopened the plan, but the judge does not.
+  After any other non-red round in an active plan's automatic series, it starts a fresh judge turn
+  over the plan's round-kind data, episode commits, stop conditions and latest watch. The runner's
+  real-bug gate removes stop while either
   assistant's latest settled read of the scope carries an accepted A or B. The judge then chooses
   stop, Claude or Codex and the output stores its answer in the final entry. Manual queues and
   one-shot rounds run no judge. The round records both repositories' HEADs before the fix, reads the
@@ -369,7 +371,8 @@ consumers.
   first. Each assistant keeps its own turn inside this command. A command-line choice takes no turn.
   The series writes no queue and
   ends on a stop, the configured maximum, a failure, an unanswered ruling, a red watch or a fix
-  that reopens the plan. Widening plans, archived plans and commit targets run once, on the
+  that reopens the plan. A reopened plan finishes the current round without a judge answer.
+  Widening plans, archived plans and commit targets run once, on the
   `--first` selection when given. With `--auditor`, the first
   entry runs first and the remaining
   entries on a plan target seed its editable queue. A clean audit removes queued entries that

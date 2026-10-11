@@ -687,6 +687,26 @@ export async function runRound(
           account,
         }
       }
+      let currentPlan = "plan" in input ? input.plan : null
+      if (input.automatic === true && currentPlan !== null) {
+        try {
+          currentPlan = await dependencies.resolvePlan(
+            planRoot,
+            planStem(currentPlan),
+          )
+        } catch (error) {
+          return {
+            status: "failed",
+            sessionId: null,
+            phase: "complete",
+            ...phases.fix,
+            ...context,
+            reason: errorMessage(error),
+            commits,
+            account,
+          }
+        }
+      }
       // Retell the complete fix, including every ruling and resumed invocation.
       if (input.documents.brief !== null) {
         const brief = await runBrief(
@@ -706,7 +726,11 @@ export async function runRound(
           : { grade: null }
       if ("status" in watched) return { ...watched, commits, account }
       const judged =
-        input.automatic === true && "plan" in input && watched.grade !== "red"
+        input.automatic === true &&
+        "plan" in input &&
+        currentPlan !== null &&
+        !basename(currentPlan).endsWith("-widen.md") &&
+        watched.grade !== "red"
           ? await runSeriesJudge(input, dependencies, settings)
           : { answer: null }
       if ("status" in judged) return { ...judged, commits, account }

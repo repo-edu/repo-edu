@@ -491,6 +491,8 @@ export type RoundDependencies = {
     reviews: readonly FindingReview[],
   ) => Promise<readonly FindingRebuttal[]>
   readonly readHead: (root: string) => Promise<string>
+  /** Resolve the plan's current file after a fix may have changed its phase. */
+  readonly resolvePlan: (planRoot: string, stem: string) => Promise<string>
   /** Whether a file exists, which tells a finished close that left its plan in place. */
   readonly fileExists: (file: string) => Promise<boolean>
   readonly readRecords: (
