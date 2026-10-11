@@ -597,8 +597,8 @@ exactly these fields:
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
 
 The runner reads whether the audit is clean from the report, whether every
-finding was accepted unconditionally from the vet twin and the highest landed
-tier from both repositories' commit logs.
+finding's vet-verdict is `Accept` and the highest landed tier from both
+repositories' commit logs.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
@@ -612,8 +612,8 @@ An audit finishes when its required evidence and final report are complete. A
 clean report also finishes. The runner replaces only the supplied output path.
 Reports from other rounds do not block the run.
 
-A clean audit follows [Direct clean completion](#direct-clean-completion). A vet that accepts
-every finding without conditions skips the rebuttal, so the fix starts sooner.
+A clean audit follows [Direct clean completion](#direct-clean-completion). A vet whose verdict for
+every finding is `Accept` skips the rebuttal, so the fix starts sooner.
 A ruling resumes the same
 fix session. [Later files](#later-files) owns the supplied paths.
 
@@ -896,13 +896,10 @@ states why. Keep each vet-verdict to a few short sentences.
 Every vet-verdict starts with exactly `<audit-finding number>. [<tier>] <vet-verdict>`. Use the
 report's audit-finding number and A/B/C/D tier. The vet-verdict is exactly one of `Accept`,
 `Revise`, `Drop` or `Needs user's ruling`. The first line contains nothing else, for example
-`1. [B] Accept`. Conditions, notes and required explanations follow on separate lines. Prose before
-the first vet-verdict is free; put drift notes there. After the first vet-verdict, every non-empty
-line is a vet-verdict or a condition. Any other line counts as a condition, including a narrowing
-note. The vet-verdict numbers must match the report exactly. An unconditional Accept with no
-additional notes ends after the first line; do not repeat the audit-finding title, evidence or
-reasoning. Required narrowing notes count as additional notes. This format applies in both chat and
-the `-3-vet.<tag>.md` twin.
+`1. [B] Accept`. Every line that does not match this grammar is free text for the fix phase and
+never changes a verdict's kind. Put drift notes before the first vet-verdict. Write a condition as
+`Revise` and state the revision on later lines. The vet-verdict numbers must match the report
+exactly. This format applies in both chat and the `-3-vet.<tag>.md` twin.
 
 Return the complete vet-verdicts in the final response. When hand-run, also
 write the same text to the supplied vet path. The twin is untracked and
@@ -913,9 +910,8 @@ gitignored, so that write keeps the vet's read-only rule intact.
 Read the report end to end, then the supplied vet twin. Follow
 [Head drift](#head-drift) and say where a moved file changes an answer.
 
-Carry unconditional accepts forward without fresh source reads or individual
-answers. For revisions, drops, conditional accepts and ruling items, read the
-source the verdict rests on yourself: the file
+Carry accepts forward without fresh source reads or individual answers. For
+revisions, drops and ruling items, read the source the verdict rests on yourself: the file
 path the finding names, the test that covers it, the plan decision or
 boundary the vet cites, and the episode's commit bodies where the vet calls
 a departure unrecorded. Do not trust the report's quotes or the vet's; the
@@ -924,24 +920,23 @@ answer stands on what you read now. Read `../plan/BOUNDARIES.md` and
 
 ## Rebuttal answers
 
-Answer only revisions, drops, conditional accepts and ruling items, in the
-report's order. Unconditional accepts need no entry; the fix reads them from
-the numbered vet-verdicts.
+Answer only revisions, drops and ruling items, in the report's order. Accepts
+need no entry; the fix reads them from the numbered vet-verdicts.
 Every rebut-answer starts with exactly `<audit-finding number>. [<tier>] <rebut-answer>`.
 Use the report's audit-finding number and A/B/C/D tier. The header keeps the report's tier even
 when the answer agrees with a revised tier; the new tier belongs in the note, and the fix records
 it. The rebut-answer is exactly one of `Agree`, `Contest` or `For user's ruling`.
 The first line contains nothing else, for example `1. [B] Agree`.
-Conditions, notes and required explanations follow on separate lines.
-An unconditional Agree with no additional notes ends after the first line;
-do not repeat the audit-finding title, evidence or reasoning. Other rebut-answers
-use a few short sentences. Every rebut-answer is one of three kinds.
+Every line that does not match this grammar is free text for the fix phase and
+never changes the rebut-answer's kind. An `Agree` with no useful note ends
+after the first line; do not repeat the audit-finding title, evidence or
+reasoning. Other rebut-answers use a few short sentences. Every rebut-answer is
+one of three kinds.
 
-- Agree. The vet-verdict stands. Add further information only when agreement is
-  conditional or there are additional notes. Agreement with a revise carries
-  the revised correction in full as a note so the fix phase has one text to
-  apply. Agreement with a drop needs no explanation unless there is a condition
-  or an additional note.
+- Agree. The vet-verdict stands. Add further information only when it helps the
+  fix. Agreement with a revise carries the revised correction in full as a note
+  so the fix phase has one text to apply. Agreement with a drop needs no
+  explanation unless there is an additional note.
 - Contest. The vet-verdict rests on something the vet misread. Quote the
   evidence, name its file and line or its plan section, and state what the
   vet-verdict should have been. Contest only on evidence the vet can go and
@@ -962,7 +957,7 @@ read-only.
 ## Reconciliation
 
 Build the outcome from the numbered vet-verdicts and rebut-answers, accounting
-for every audit-finding. An unconditional accept stays agreed without a rebut-answer.
+for every audit-finding. An accept stays agreed without a rebut-answer.
 Present agreed vet-verdicts, your decisions on contested vet-verdicts and items
 for the user's ruling. For each contested vet-verdict, read the evidence yourself,
 decide the outcome and state your decision and reason. Ask the user only when
@@ -970,12 +965,13 @@ the evidence leaves the answer unclear; disagreement alone needs no ruling.
 Never re-argue an agreed vet-verdict.
 
 When the report has a vet twin and no rebuttal, and every vet-verdict is an
-unconditional accept, the runner skipped the rebuttal because the auditor had
-nothing to answer. Present the audit-findings as agreed by both assistants, say
-that the vet accepted every audit-finding, and do not re-answer the vet-verdicts. When
-the vet twin holds any other vet-verdict and no rebuttal exists, answer each
-vet-verdict here: agreement carries it into the outcome, disagreement names the
-evidence the vet misread. Present the same three groups. Without a twin,
+`Accept`, the runner skipped the rebuttal because the auditor had nothing to
+answer. Present the audit-findings as agreed by both assistants, say that the
+vet accepted every audit-finding, and do not re-answer the vet-verdicts. When
+the vet twin holds any revision, drop or ruling item and no rebuttal exists,
+answer those items here: agreement carries each one into the outcome and
+disagreement names the evidence the vet misread. Carry accepts into the agreed
+group without answering them. Present the same three groups. Without a twin,
 present the report's audit-findings in their numbered order with any drift
 corrections from the fix phase's current-source grounding.
 
