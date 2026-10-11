@@ -288,7 +288,9 @@ consumers.
 - `trial.ts` owns the read-only trial read-out. It reads checked round data at
   the plan root and closed-plan archives, ignores command-line-selected rounds,
   then takes the newest uninterrupted run with one settings snapshot. It
-  reads accepted findings from each completed entry's stored outcomes. The
+  reads accepted findings from each complete entry's stored outcomes. A
+  complete entry has a finished, failed or interrupted status, at least one
+  landed commit and an outcome for every finding. The
   Markdown output names both audit selections, their configured pairs, both
   vets and the fixer. Its rows show the previous completed round by the same
   assistant on the same target only when its audit setting differs, plus phase
@@ -537,10 +539,11 @@ fixer. Round rows show the previous completed round by the same assistant on the
 same target only when its audit setting differs. They also show time by phase,
 accepted finding tiers, reaches and titles and token use by model. Totals group
 those measurements by audit setting and show how many rounds support each total.
-A same-setting round is marked unpaired. A round with no landed commit is marked
-incomplete; its time and tokens count, but it supplies no accepted findings or
-cross-check. The command renders Markdown, starts no assistant and writes
-nothing.
+A same-setting round is marked unpaired. An entry is incomplete unless its
+status is finished, failed or interrupted, it names a landed commit and every
+finding has an outcome. Its time and tokens count, but it supplies no accepted
+findings or cross-check. The command renders Markdown, starts no assistant and
+writes nothing.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved target and scope.

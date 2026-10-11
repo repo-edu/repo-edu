@@ -25,7 +25,21 @@ type TrialRound = {
   readonly file: string
   readonly tag: string
   readonly data: RoundData
-  readonly findings: readonly RoundFinding[]
+}
+
+function trialRoundComplete(round: RoundData): boolean {
+  return (
+    ["finished", "failed", "interrupted"].includes(round.status) &&
+    round.commits.length > 0 &&
+    round.findings.every((finding) => finding.outcome !== null)
+  )
+}
+
+function acceptedFindings(round: TrialRound): readonly RoundFinding[] {
+  if (!trialRoundComplete(round.data)) return []
+  return round.data.findings.filter(
+    (finding) => finding.outcome === "kept" || finding.outcome === "unmatched",
+  )
 }
 
 function settingText(selection: {
@@ -150,10 +164,6 @@ async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
               file: display,
               tag: data.tag,
               data,
-              findings: data.findings.filter(
-                (finding) =>
-                  finding.outcome === "kept" || finding.outcome === "unmatched",
-              ),
             }),
           )
         } catch (error) {
@@ -219,7 +229,7 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
   ]
   const previous = new Map<string, TrialRound>()
   for (const round of rounds) {
-    const complete = round.data.status === "finished"
+    const complete = trialRoundComplete(round.data)
     const key = `${round.data.auditor.assistant}\0${round.data.target}`
     const earlier = complete ? previous.get(key) : undefined
     const comparison = !complete
@@ -228,9 +238,9 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
         ? "none"
         : auditorKey(earlier) === auditorKey(round)
           ? "not paired: same setting"
-          : `${earlier.tag}: ${findingsText(earlier.findings)}`
+          : `${earlier.tag}: ${findingsText(acceptedFindings(earlier))}`
     lines.push(
-      `| ${escapeCell(round.data.started)} | ${escapeCell(`${round.data.target} #${round.data.round}`)} | ${round.tag} | ${escapeCell(`${round.data.auditor.assistant} ${settingText(round.data.auditor)}`)} | ${escapeCell(comparison)} | ${escapeCell(phaseTimes(round.data.phases))} | ${escapeCell(complete ? findingsText(round.findings) : "incomplete")} | ${escapeCell(tokenTotalsText(tokenTotals(round.data.phases)))} |`,
+      `| ${escapeCell(round.data.started)} | ${escapeCell(`${round.data.target} #${round.data.round}`)} | ${round.tag} | ${escapeCell(`${round.data.auditor.assistant} ${settingText(round.data.auditor)}`)} | ${escapeCell(comparison)} | ${escapeCell(phaseTimes(round.data.phases))} | ${escapeCell(complete ? findingsText(acceptedFindings(round)) : "incomplete")} | ${escapeCell(tokenTotalsText(tokenTotals(round.data.phases)))} |`,
     )
     if (complete) previous.set(key, round)
   }
@@ -262,7 +272,7 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
         tokens,
         round.data.phases.flatMap((phase) => phase.tokens),
       )
-      findings.push(...round.findings)
+      findings.push(...acceptedFindings(round))
     }
     const total = [...phaseMilliseconds.values()].reduce(
       (sum, value) => sum + value,

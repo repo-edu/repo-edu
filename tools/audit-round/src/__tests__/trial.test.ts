@@ -98,6 +98,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   const finding = (
     title: string,
     reach: RoundFinding["reach"] = "developer",
+    outcome: RoundFinding["outcome"] = "kept",
   ): RoundFinding => ({
     number: 1,
     title,
@@ -108,7 +109,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
     vetVerdict: "accept",
     rebuttalAnswer: null,
-    outcome: "kept",
+    outcome,
     finalTier: null,
     finalReach: null,
   })
@@ -117,6 +118,10 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     ["target-impl-all#4", [finding("Other assistant yield")]],
     ["target-impl-all#5", [finding("Later yield", "ordinary")]],
     ["target-impl-all#7", [finding("Same-setting yield")]],
+    ["target-impl-all#8", [finding("In-progress yield")]],
+    ["target-impl-all#9", [finding("Awaiting ruling yield")]],
+    ["target-impl-all#10", [finding("Unsettled yield", "developer", null)]],
+    ["archived-impl-all#1", [finding("Interrupted yield")]],
   ])
   const data = (
     target: string,
@@ -125,6 +130,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     auditor: RoundData["auditor"],
     roundSettings: RoundData["settings"],
     commits: RoundData["commits"] = [],
+    status: RoundData["status"] = "finished",
   ): RoundData => ({
     target,
     round,
@@ -137,7 +143,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
             ? "obx"
             : "otx",
     started,
-    status: round === 8 ? "in-progress" : "finished",
+    status,
     settings: roundSettings,
     auditor,
     phases: [
@@ -244,6 +250,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
         },
         settings,
         [{ repository: "repo-edu", sha: clean }],
+        "failed",
       ),
     ],
     [
@@ -273,6 +280,40 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
           chosenBy: "settings",
         },
         settings,
+        [{ repository: "repo-edu", sha: clean }],
+        "in-progress",
+      ),
+    ],
+    [
+      "target-impl-all-09-1-round.obx.json",
+      data(
+        "target-impl-all",
+        9,
+        "2026-10-09T10:00:00.000Z",
+        {
+          assistant: "codex",
+          ...selection("gpt-base", "xhigh"),
+          chosenBy: "settings",
+        },
+        settings,
+        [{ repository: "repo-edu", sha: clean }],
+        "awaiting-ruling",
+      ),
+    ],
+    [
+      "target-impl-all-10-1-round.otx.json",
+      data(
+        "target-impl-all",
+        10,
+        "2026-10-10T10:00:00.000Z",
+        {
+          assistant: "codex",
+          ...selection("gpt-top", "xhigh"),
+          chosenBy: "settings",
+        },
+        settings,
+        [{ repository: "repo-edu", sha: clean }],
+        "failed",
       ),
     ],
   ]
@@ -295,6 +336,8 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
         chosenBy: "settings",
       },
       settings,
+      [{ repository: "repo-edu", sha: clean }],
+      "interrupted",
     ),
   )
 
@@ -313,7 +356,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
-  assert.match(output, /Newest unchanged-settings run: 7 rounds/)
+  assert.match(output, /Newest unchanged-settings run: 9 rounds/)
   assert.match(output, /codex: gpt-top xhigh versus gpt-base xhigh/)
   assert.doesNotMatch(
     output,
@@ -331,15 +374,29 @@ test("trial reads the newest settings run, cross-checks completed rounds and tot
     output,
     /target-impl-all #8 .*not paired: incomplete.*incomplete/,
   )
+  assert.match(
+    output,
+    /target-impl-all #9 .*not paired: incomplete.*incomplete/,
+  )
+  assert.match(
+    output,
+    /target-impl-all #10 .*not paired: incomplete.*incomplete/,
+  )
+  assert.match(output, /archived-impl-all #1 .*B developer — Interrupted yield/)
+  assert.doesNotMatch(output, /other-impl-all #6 [^\n]*incomplete/)
+  assert.doesNotMatch(
+    output,
+    /In-progress yield|Awaiting ruling yield|Unsettled yield/,
+  )
   assert.match(output, /total 00:06; audit 00:05; judge 00:01/)
   assert.match(
     output,
-    /codex gpt-base xhigh \| 3 \| 00:14 \| audit 00:13; judge 00:01/,
+    /codex gpt-base xhigh \| 4 \| 00:23 \| audit 00:22; judge 00:01/,
   )
   assert.match(output, /archived-impl-all #1/)
-  assert.match(output, /codex gpt-top xhigh \| 3 \|/)
+  assert.match(output, /codex gpt-top xhigh \| 4 \|/)
   assert.match(output, /B ordinary 1/)
-  assert.match(output, /gpt-top: input 3\.0k, cached 1\.5k, output 0\.3k/)
+  assert.match(output, /gpt-top: input 4\.0k, cached 2\.0k, output 0\.4k/)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
