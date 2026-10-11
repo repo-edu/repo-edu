@@ -301,7 +301,8 @@ consumers.
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
   commit roles. A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
   `Implementation audit of <plan>, all steps`, and `transcriptKind` reads the kind back from it. It
-  resolves `HEAD` in commit targets and scans the plan root for the next target-wide number.
+  resolves `HEAD` in a commit target's named repository, drops its optional `plan@` prefix from the
+  file label and scans the plan root for the next target-wide number.
   Automated rounds supply every phase path. A manual audit names only its claim and report; later
   manual phases retain that report's round and name their output with the current session's writer
   tag. `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
@@ -318,8 +319,10 @@ consumers.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
-  plan stem with an optional step, increasing range or `all`, or Repo Edu commit references, which
-  are a complete target. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
+  plan stem with an optional step, increasing range or `all`, or commit references, which are a
+  complete target. An optional `plan@` prefix on the first reference selects the plan repo for the
+  whole commit target; bare references select Repo Edu. A prefix on a later reference is refused. A
+  commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
   arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` prefers the
   active artifact at the plan root, then looks in the archive. `requiredActivePlan` accepts only the
   active artifact. It keeps path validation common while `close`, `settle` and `ready` supply their

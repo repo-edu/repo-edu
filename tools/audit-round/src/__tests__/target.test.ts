@@ -2,7 +2,12 @@ import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { resolvePlan, targetRequest } from "../target.js"
+import {
+  commitShaped,
+  planRepositoryPrefix,
+  resolvePlan,
+  targetRequest,
+} from "../target.js"
 import { fixture } from "./helpers.js"
 
 test("a plan request carries its scope, or none for the plan's history to decide", () => {
@@ -54,8 +59,27 @@ test("commit targets preserve references for the workflow to resolve", () => {
   ])
     assert.deepEqual(targetRequest(commits[0], commits.slice(1)), {
       commits,
+      repository: "repo-edu",
       roundKind: "implementation",
     })
+})
+
+test("plan-prefixed commit targets preserve the typed prefix and name their repository", () => {
+  for (const commits of [
+    [`${planRepositoryPrefix}HEAD`],
+    [`${planRepositoryPrefix}HEAD-1`],
+    [`${planRepositoryPrefix}23674f`],
+    [`${planRepositoryPrefix}HEAD-2..HEAD`],
+    [`${planRepositoryPrefix}23674f..HEAD`],
+    [`${planRepositoryPrefix}HEAD-2`, "23674f", "HEAD"],
+  ]) {
+    assert.equal(commitShaped(commits[0]), true)
+    assert.deepEqual(targetRequest(commits[0], commits.slice(1)), {
+      commits,
+      repository: "plan",
+      roundKind: "implementation",
+    })
+  }
 })
 
 test("invalid targets and mixed plan/commit scopes are refused", () => {
@@ -69,6 +93,11 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["HEAD.."],
     ["..HEAD"],
     ["HEAD-2..HEAD", "HEAD-3"],
+    ["HEAD", `${planRepositoryPrefix}HEAD-1`],
+    [`${planRepositoryPrefix}HEAD`, `${planRepositoryPrefix}HEAD-1`],
+    [`${planRepositoryPrefix}example`],
+    [planRepositoryPrefix],
+    [`${planRepositoryPrefix}HEAD.md`],
     ["HEAD", "example.md"],
     ["HEAD", "3"],
     ["example.md", "HEAD"],

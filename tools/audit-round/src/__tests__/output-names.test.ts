@@ -2,8 +2,8 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
-import { execa } from "execa"
 import { roundRun as buildRoundRun } from "../output.js"
+import { planRepositoryPrefix } from "../target.js"
 import {
   briefRun,
   RoundOutput,
@@ -12,13 +12,19 @@ import {
   transcriptNameStart,
 } from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
+import { commitFixture } from "./round-fixture.js"
 
 const options = { terminal: { write() {}, status() {}, clear() {} } }
 
 test("phase files sort in fixed order with paired logs and dotted commit-range targets", async (t) => {
   const f = await fixture(t)
   const run = await roundRun(
-    { ...testContext(f.root), commits: ["abcdef..123abc"], brief: true },
+    {
+      ...testContext(f.root),
+      commits: ["abcdef..123abc"],
+      repository: "repo-edu",
+      brief: true,
+    },
     0,
     selections,
   )
@@ -54,7 +60,11 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   assert.equal(
     (
       await roundRun(
-        { ...testContext(f.root), commits: ["abcdef..123abc"] },
+        {
+          ...testContext(f.root),
+          commits: ["abcdef..123abc"],
+          repository: "repo-edu",
+        },
         0,
         selections,
       )
@@ -162,37 +172,22 @@ test("a failed tagged-file open retains the number's claim", async (t) => {
 
 test("commit filenames resolve HEAD once while keeping typed offsets and list counts", async (t) => {
   const f = await fixture(t)
-  await execa("git", ["init", "--quiet"], { ...testContext(f.root) })
-  await execa(
-    "git",
+  const head = await commitFixture(f.root, "Fixture")
+  const planHead = await commitFixture(join(f.root, "../plan"), "Plan fixture")
+  for (const [repository, commits, target] of [
+    ["repo-edu", ["HEAD"], head],
+    ["repo-edu", ["HEAD-4"], `${head}-4`],
+    ["repo-edu", ["HEAD-4..HEAD"], `${head}-4..${head}`],
+    ["repo-edu", ["HEAD-4", "HEAD-1", "HEAD"], `${head}-4-plus-2`],
+    ["repo-edu", ["abcd1234"], "abcd1234"],
     [
-      "-c",
-      "user.name=Test",
-      "-c",
-      "user.email=test@example.test",
-      "-c",
-      "core.hooksPath=/dev/null",
-      "commit",
-      "--allow-empty",
-      "-m",
-      "Fixture",
+      "plan",
+      [`${planRepositoryPrefix}HEAD-4..HEAD`],
+      `${planHead}-4..${planHead}`,
     ],
-    { ...testContext(f.root) },
-  )
-  const { stdout: head } = await execa(
-    "git",
-    ["rev-parse", "--short", "HEAD"],
-    { ...testContext(f.root) },
-  )
-  for (const [commits, target] of [
-    [["HEAD"], head],
-    [["HEAD-4"], `${head}-4`],
-    [["HEAD-4..HEAD"], `${head}-4..${head}`],
-    [["HEAD-4", "HEAD-1", "HEAD"], `${head}-4-plus-2`],
-    [["abcd1234"], "abcd1234"],
   ] as const) {
     const run = await roundRun(
-      { ...testContext(f.root), commits },
+      { ...testContext(f.root), commits, repository },
       0,
       selections,
     )

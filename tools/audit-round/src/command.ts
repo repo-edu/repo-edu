@@ -73,6 +73,7 @@ import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
   activePlan,
   isActivePlanPath,
+  planRepositoryPrefix,
   planStem,
   requiredActivePlan,
   resolvePlan,
@@ -240,8 +241,10 @@ Targets and scope:
            Anything else stops and names the landed steps.
   Scope    One step (3), an increasing range (1-3) or all audits implementation.
            A scope is refused until a step has landed.
-  Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to> in Repo Edu.
-           HEAD-1 is the previous first-parent commit. Ranges include both ends.
+  Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to>.
+           plan@ on the first reference selects the plan repo for the whole target;
+           bare references select Repo Edu. HEAD-1 is the previous first-parent
+           commit. Ranges include both ends.
   Omitted  Options without a target take the active plan with the newest stem
            commit in either repo, which audit-round plan prints, as if named alone.
   The first line of every run names the round it resolved.
@@ -337,9 +340,9 @@ Examples (from either checkout):
 
      $ pnpm audit-round example 3 --auditor atx,obm
 
-  3. Audit an inclusive commit range.
+  3. Audit an inclusive commit range in the plan repo.
 
-     $ pnpm audit-round HEAD-2..HEAD
+     $ pnpm audit-round ${planRepositoryPrefix}HEAD-2..HEAD
 
   4. Run the audit the newest plan calls for with Codex.
 

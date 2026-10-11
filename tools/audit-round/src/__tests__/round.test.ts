@@ -579,7 +579,7 @@ test("a due watch receives the current round's dropped findings from joined evid
 for (const accepted of [false, true]) {
   for (const target of [
     { plan: "example.md", scope: "all" },
-    { commits: ["HEAD"] as const },
+    { commits: ["HEAD"] as const, repository: "repo-edu" as const },
   ]) {
     test(`a finished ${"plan" in target ? "plan" : "commit"} fix deletes its reports once before the brief with accepted=${accepted}`, async () => {
       const round = controlledRound(async (input) => {
@@ -1033,7 +1033,10 @@ for (const ruling of [false, true]) {
     if (ruling) arrange(round, "ruling")
     round.decide(dueDecision)
     const commits = ["HEAD-2", "HEAD-1", "HEAD"] as const
-    const result = await runRound({ ...files, commits }, round.dependencies)
+    const result = await runRound(
+      { ...files, commits, repository: "repo-edu" },
+      round.dependencies,
+    )
     assert.equal(result.status, ruling ? "awaiting-ruling" : "finished")
     assert.deepEqual(round.glances, [])
     assert.deepEqual(round.calls[0].arguments, [
@@ -1718,7 +1721,7 @@ for (const [reader, phase, sessionId, called] of [
 test("a finished fix on a plan target requires a landed commit; clean audits use direct completion", async () => {
   for (const target of [
     { plan: "example.md", scope: "all" },
-    { commits: ["HEAD"] as const },
+    { commits: ["HEAD"] as const, repository: "repo-edu" as const },
   ]) {
     for (const findings of [[], [reportFinding]]) {
       const round = controlledRound()

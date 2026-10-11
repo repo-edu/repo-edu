@@ -24,7 +24,7 @@ test("long commit lists record every reference without exceeding filename limits
     ...Array.from({ length: 9 }, (_, n) => String(n).repeat(40)),
   ] as const
   const run = await roundRun(
-    { ...testContext(f.root), commits },
+    { ...testContext(f.root), commits, repository: "repo-edu" },
     Date.now(),
     selections,
   )

@@ -93,11 +93,14 @@ async function targetDescription(target: NamingTarget): Promise<{
   title: string
 }> {
   if ("commits" in target) {
-    const first = target.commits[0]
+    const first = target.commits[0].replace(/^plan@/, "")
     const head = first.includes("HEAD")
       ? (
           await execa("git", ["rev-parse", "--short", "HEAD"], {
-            cwd: target.repoEduRoot,
+            cwd:
+              target.repository === "plan"
+                ? target.planRoot
+                : target.repoEduRoot,
           })
         ).stdout
       : ""

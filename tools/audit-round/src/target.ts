@@ -2,6 +2,7 @@ import { readdir, stat } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { InvalidArgumentError } from "commander"
 import type { ExecutionContext } from "./context.js"
+import type { Repository } from "./subject.js"
 
 export type RoundKind = "planning" | "implementation"
 export type RoundContext = ExecutionContext & {
@@ -22,6 +23,7 @@ export function roundContext(
 
 type CommitTarget = {
   readonly roundKind: "implementation"
+  readonly repository: Repository
   readonly commits: readonly [string, ...string[]]
 }
 
@@ -83,17 +85,26 @@ function commitReference(value: string): boolean {
   return head !== null && Number.isSafeInteger(Number(head[1] ?? 0))
 }
 
+export const planRepositoryPrefix = "plan@"
+
+function unprefixedCommitReference(value: string): string {
+  return value.startsWith(planRepositoryPrefix)
+    ? value.slice(planRepositoryPrefix.length)
+    : value
+}
+
 /**
  * A reference attempt is judged as commits, so a malformed `HEAD-<n>` or
  * range is refused as one, and a plan whose bare stem reads as a SHA keeps its
  * `.md` to be told apart.
  */
 export function commitShaped(value: string): boolean {
+  const reference = unprefixedCommitReference(value)
   return (
-    !value.endsWith(".md") &&
-    (value.includes("..") ||
-      value.startsWith("HEAD") ||
-      /^[a-fA-F0-9]+$/.test(value))
+    !reference.endsWith(".md") &&
+    (reference.includes("..") ||
+      reference.startsWith("HEAD") ||
+      /^[a-fA-F0-9]+$/.test(reference))
   )
 }
 
@@ -111,7 +122,14 @@ export function targetRequest(
   rest: readonly string[],
 ): TargetRequest {
   refusePath(first)
-  if (!commitShaped(first)) {
+  if (rest.some((reference) => reference.startsWith(planRepositoryPrefix)))
+    throw new InvalidArgumentError(
+      "Use plan@ only on the first commit reference.",
+    )
+  const repository: Repository = first.startsWith(planRepositoryPrefix)
+    ? "plan"
+    : "repo-edu"
+  if (repository === "repo-edu" && !commitShaped(first)) {
     if (rest.length > 1)
       throw new InvalidArgumentError("A plan accepts at most one step scope.")
     return {
@@ -120,14 +138,15 @@ export function targetRequest(
     }
   }
   const commits: [string, ...string[]] = [first, ...rest]
-  const endpoints = first.split("..")
+  const references = [unprefixedCommitReference(first), ...rest]
+  const endpoints = references[0].split("..")
   if (
-    commits.every(commitReference) ||
+    references.every(commitReference) ||
     (rest.length === 0 &&
       endpoints.length === 2 &&
       endpoints.every(commitReference))
   )
-    return { commits, roundKind: "implementation" }
+    return { commits, repository, roundKind: "implementation" }
   throw new InvalidArgumentError(
     "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
   )

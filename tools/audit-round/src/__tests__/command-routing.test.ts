@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
+import { planRepositoryPrefix } from "../target.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
@@ -274,6 +275,39 @@ test("name shares commit range and list targets with the runner", async (t) => {
       join(f.planRoot, `${target}-01-2-audit.oux.md`),
     )
   }
+})
+
+test("a plan-prefixed commit round keeps the typed prefix in its audit arguments", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  const reference = `${planRepositoryPrefix}HEAD-2..HEAD`
+
+  assert.equal(
+    await runCommand([reference], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const { log, markdown, transcript } = await f.records()
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, reference])}`,
+    ),
+  )
+  assert.ok(markdown.startsWith(`# Commit audit of ${reference}\n`))
+  assert.ok(
+    basename(transcript).startsWith(
+      `${f.heads.plan}-2..${f.heads.plan}-01-1-round.`,
+    ),
+  )
 })
 
 test("name requires a complete session tag before any assistant or claim", async (t) => {
