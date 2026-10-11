@@ -106,7 +106,7 @@ what it holds.
    Name the audited scope and say whether the fix landed, stopped for a ruling
    or a phase failed. Follow with the transcript's fenced role table copied
    unchanged, because retelling it in sentences reads worse than the table.
-3. **What the audit checked**: the coverage counts when the round reports them
+3. **What the audit checked**: the coverage counts when the round reports
    them. Condense deviations and their reasons, patterns across rounds and any
    priced trade into what explains the round's outcome. The coverage table and
    evidence trails stay out.
