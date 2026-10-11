@@ -556,7 +556,7 @@ for (const assistant of ["claude", "codex"] as const) {
     )
     assert.match(
       visible.join("\n"),
-      /Use a narrower step or step range instead of a larger context window\./,
+      /Use a narrower scope instead of a larger context window\./,
     )
   })
 }

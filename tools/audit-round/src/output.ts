@@ -554,7 +554,7 @@ export class RoundOutput<R extends Run = Run> {
         })
         if (run.compactions === 0)
           this.say(
-            `Warning: The ${active.input.phase} phase compacted. Use a narrower step or step range instead of a larger context window.`,
+            `Warning: The ${active.input.phase} phase compacted. Use a narrower scope instead of a larger context window.`,
           )
         break
       }

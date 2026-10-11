@@ -241,9 +241,10 @@ consumers.
   each of them: `--auditor` or `--first`, `audit-round settings` for the phase's own pin, or
   `CLI default` when the phase names nothing. A phase whose two fields came from different places
   names both, model first. A pinned model reads as the release its CLI resolved it to at startup, so
-  every row names a release. The output holds only the run start, current phase timing, context
-  observations and each started phase's model selection, time and tokens. A phase starts with its
-  launch selection, then its CLI's model feedback replaces it. Each finished invocation adds its
+  every row names a release. The output holds the run start and current phase timing. It keeps
+  context observations and each started phase's model selection, time, tokens, peak context and
+  compaction count. It warns once when a phase first compacts. A phase starts with its launch
+  selection, then its CLI's model feedback replaces it. Each finished invocation adds its
   elapsed time to the phase's time. Both assistants' latest session totals replace the earlier
   reading, so a resumed fix counts each token once. Each phase prints its per-model input, cached
   input and output totals beside its elapsed time. Commit stamps use those phase selections and add
