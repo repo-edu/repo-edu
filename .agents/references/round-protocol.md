@@ -578,9 +578,9 @@ Audits with no findings use [Direct clean completion](#direct-clean-completion).
 
 When the prompt identifies an unattended runner phase, a planning or implementation round's or the
 standalone close, follow this rule for every ending, including an early stop. It is shared by audit,
-vet, rebuttal, fix, brief, watch and close. Planning workflows read this whole reference from its
-Repo Edu home; their planning rules stay in the plan repo. Implementation routes may supply local
-substitutions. Ordinary interactive invocations do not add a result line.
+vet, rebuttal, fix, brief, watch, judge and close. Planning workflows read this whole reference from
+its Repo Edu home; their planning rules stay in the plan repo. Implementation routes may supply
+local substitutions. Ordinary interactive invocations do not add a result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
 Keep it outside any code fence. Audit, vet and rebuttal supply their complete

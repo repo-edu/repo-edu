@@ -107,9 +107,9 @@ what it holds.
    or a phase failed. Follow with the transcript's fenced role table copied
    unchanged, because retelling it in sentences reads worse than the table.
 3. **What the audit checked**: the coverage counts when the round reports them
-   and the round yield and structure lines in words. Condense deviations and
-   their reasons, patterns across rounds and any priced trade into what explains
-   the round's outcome. The coverage table and evidence trails stay out.
+   them. Condense deviations and their reasons, patterns across rounds and any
+   priced trade into what explains the round's outcome. The coverage table and
+   evidence trails stay out.
 4. **The findings**: one numbered entry per finding, in the report's order,
    opening with the tier letter and a colon before the short title, as in
    `1. **B: A listing starts again after every command**`. Use the tier the
