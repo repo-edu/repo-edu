@@ -230,36 +230,37 @@ consumers.
   separate log prompt containing source paths with an omission notice in place of file contents.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: every round records a log and transcript,
-  a plan-target round also updates one machine-readable per-plan data file, a brief on its own
-  records a log beside the transcript it retells and keeps no transcript of its own, and a close
-  records only `<stem>-close.<tag>.log` at the plan root. The close's run also yields the tag and
-  model record its session hands its commits. It uses `round-paths.ts` for file names and round
-  identity. It validates all file-writing phase tags before `run-files.ts` exclusively creates the
-  tagless claim, then opens the transcript and log. The claim remains after success or failure, and
-  a conflict stops without retrying. Each entry carries its phase, so the settings header reports
-  the model and effort that phase will run on, each in its own aligned column. It names what set
-  each of them: `--auditor` or `--first`, `audit-round settings` for the phase's own pin, or
-  `CLI default` when the phase names nothing. A phase whose two fields came from different places
-  names both, model first. A pinned model reads as the release its CLI resolved it to at startup, so
-  every row names a release. The output holds the run start and current phase timing. It keeps
-  context observations and each started phase's model selection, time, tokens, peak context and
-  compaction count. It warns once when a phase first compacts. A phase starts with its launch
-  selection, then its CLI's model feedback replaces it. Each finished invocation adds its
-  elapsed time to the phase's time. Both assistants' latest session totals replace the earlier
-  reading, so a resumed fix counts each token once. Each phase prints its per-model input, cached
-  input and output totals beside its elapsed time. Commit stamps use those phase selections and add
-  a time line for the audit, vet and rebuttal that finished. Every status stamp shows the phase's
-  elapsed time and the round's total. Every logged tool line opens with its step's own time, the
-  assistant time since the previous tool line or since the phase start for the first, followed by
-  the round's total assistant time. `run-clock.ts` owns what those readings count. A round measures
-  its assistants, so time the user holds is not the run's. Displaying the ruling opens a wait and
-  submitting or cancelling the reply closes it. Each phase and the run read the same waiting total
-  through their own mark, so one rule serves every reading. Two baselines measure context growth: a
-  written status stamp reports the tokens added since the previous written stamp, and a logged tool
-  line reports the tokens added since the previous tool line, beside the time since it. Both chain
-  into the totals beside them; a fresh phase starts its stamp baseline at zero and a resumed phase
-  reports no first change. `round-data.ts` owns the checked JSON schemas, replace-or-append writer
-  and the read of one plan's existing round-kind files from the active root or closed-plan archive.
+  a round on an active plan also updates one machine-readable per-plan data file, and a round on a
+  closed plan writes no data entry. A brief on its own records a log beside the transcript it
+  retells and keeps no transcript of its own, and a close records only `<stem>-close.<tag>.log` at
+  the plan root. The close's run also yields the tag and model record its session hands its commits.
+  It uses `round-paths.ts` for file names and round identity. It validates all file-writing phase
+  tags before `run-files.ts` exclusively creates the tagless claim, then opens the transcript and
+  log. The claim remains after success or failure, and a conflict stops without retrying. Each entry
+  carries its phase, so the settings header reports the model and effort that phase will run on,
+  each in its own aligned column. It names what set each of them: `--auditor` or `--first`,
+  `audit-round settings` for the phase's own pin, or `CLI default` when the phase names nothing. A
+  phase whose two fields came from different places names both, model first. A pinned model reads as
+  the release its CLI resolved it to at startup, so every row names a release. The output holds the
+  run start and current phase timing. It keeps context observations and each started phase's model
+  selection, time, tokens, peak context and compaction count. It warns once when a phase first
+  compacts. A phase starts with its launch selection, then its CLI's model feedback replaces it.
+  Each finished invocation adds its elapsed time to the phase's time. Both assistants' latest
+  session totals replace the earlier reading, so a resumed fix counts each token once. Each phase
+  prints its per-model input, cached input and output totals beside its elapsed time. Commit stamps
+  use those phase selections and add a time line for the audit, vet and rebuttal that finished.
+  Every status stamp shows the phase's elapsed time and the round's total. Every logged tool line
+  opens with its step's own time, the assistant time since the previous tool line or since the phase
+  start for the first, followed by the round's total assistant time. `run-clock.ts` owns what those
+  readings count. A round measures its assistants, so time the user holds is not the run's.
+  Displaying the ruling opens a wait and submitting or cancelling the reply closes it. Each phase
+  and the run read the same waiting total through their own mark, so one rule serves every reading.
+  Two baselines measure context growth: a written status stamp reports the tokens added since the
+  previous written stamp, and a logged tool line reports the tokens added since the previous tool
+  line, beside the time since it. Both chain into the totals beside them; a fresh phase starts its
+  stamp baseline at zero and a resumed phase reports no first change. `round-data.ts` owns the
+  checked JSON schemas, replace-or-append writer and the read of one plan's existing round-kind
+  files from the active root or closed-plan archive.
   The planning and implementation files each hold a time-ordered entry per round. An entry records
   state, settings, chosen auditor and source, phase measurements including peak context and
   compactions, landed commits, finding review and outcome data and any judge answer. `RoundOutput`
@@ -516,8 +517,9 @@ pnpm audit-round:contract codex
 
 The round names the report, vet, rebuttal, brief, ruling and watch before the
 audit starts. It writes the tagless claim, transcript and log at the plan root.
-A plan-target round also updates `<stem>-plan-rounds.json` or
-`<stem>-impl-rounds.json` there. Phase files use
+A round on an active plan also updates `<stem>-plan-rounds.json` or
+`<stem>-impl-rounds.json` there. A round on a closed plan writes no data entry.
+Phase files use
 `<target>-<round>-<order>-<kind>.<tag>.<ext>` under the shared round protocol.
 Each phase receives the complete paths it reads and writes in protocol order.
 
