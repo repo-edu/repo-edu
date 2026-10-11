@@ -26,12 +26,13 @@ argument order. Count the supplied step scope against the plan's
 **Implementation plan** numbering.
 
 An invocation that names no plan file and names commit references, including
-`HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan covers.
-Resolve the references under **Range** in `commit-scope.md` before asking Git
-to resolve them; `HEAD-<n>` is workflow shorthand. Use
-`commit-scope.md` beside this file for that round's scope, gate, baseline,
-coverage, report name, record and settlement, and follow the rest of this
-workflow unchanged.
+`HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan
+covers. A `plan@` prefix on the first reference selects the plan repo for the
+whole target; bare references select Repo Edu. Resolve the references under
+**Range** in `commit-scope.md` before asking Git to resolve them; `HEAD-<n>` is
+workflow shorthand. Use `commit-scope.md` beside this file for that round's
+scope, gate, baseline, coverage, report name, record and settlement, and follow
+the rest of this workflow unchanged.
 
 This procedure also serves implementation-audit rounds on changes hosted by the plan repo. Follow
 the `CLAUDE.md` of every repo the round judges. Use the shared protocol's **Finding metadata** for

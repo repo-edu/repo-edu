@@ -95,7 +95,8 @@ Land records under the plan doctrine's
 [Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms),
 which owns placement and its reasons. Use the shared protocol's
 **Worked record forms** and **Record bullets** for their contents, including a
-clean record reached through reconciliation.
+clean record reached through reconciliation. A plan-repo commit round's record
+takes the plan repo's off-plan form rather than an implementation-audit form.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed

@@ -41,10 +41,13 @@ The plan repo's handoff rule owns that six-character sha.
   Finder in step order, with a range after every round of its first step. The
   equal width keeps round and phase numbers aligned across scopes.
 - **Commit targets** preserve the references as typed, replacing `HEAD` with
-  Repo Edu's short sha at the start of the round. Keep offsets: `HEAD-4..HEAD` becomes
-  `b7ca0b3b-4..b7ca0b3b`. For a list, use its first reference followed by
-  `-plus-<n>`, where `n` counts the remaining references. Never take a word
-  from a commit subject or name a range with two resolved endpoint shas.
+  the named repo's short sha at the start of the round. An optional `plan@`
+  prefix on the first reference names the plan repo and is omitted from the
+  filename; bare references name Repo Edu. Keep offsets: `HEAD-4..HEAD`
+  prefixed by `plan@` becomes `b7ca0b3b-4..b7ca0b3b`. For a list, use its
+  first reference without the prefix followed by `-plus-<n>`, where `n` counts
+  the remaining references. Never take a word from a commit subject or name a
+  range with two resolved endpoint shas.
 - **Round** is the number allocated by the runner, padded to at least two digits.
   A supplied report path already fixes the target and round.
   Every later phase keeps it exactly, even when another assistant writes the next file. A later
@@ -207,9 +210,10 @@ reserved claim path and `arguments` holds the report path followed by the resolv
 audit target and scope. It creates only the claim and starts no assistant or
 settings discovery. It does not name later writers' files.
 
-The target grammar is the same from either checkout. Commit references select
-a Repo Edu commit audit. Any other first argument names a plan, alone or with a
-step number, an inclusive range or `all`, and
+The target grammar is the same from either checkout. Bare commit references
+select a Repo Edu commit audit. A `plan@` prefix on the first reference selects
+the plan repo for the whole commit target. Any other first argument names a
+plan, alone or with a step number, an inclusive range or `all`, and
 [Plan targets](#plan-targets) decides the round it runs. Plan arguments accept
 `.md` and `-widen` but no path; lookup prefers the active artifact at the plan
 root, then its archive. A commit-shaped stem keeps `.md` to identify it as a
