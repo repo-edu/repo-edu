@@ -613,8 +613,8 @@ export class RoundOutput<R extends Run = Run> {
       ...run,
       spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
     })
-    const detail = result.status === "failed" ? `: ${result.reason}` : ""
-    this.say(`[${phase}] ${result.status}${detail}`)
+    // The run's finish line owns the failure reason, session and resume command.
+    this.say(`[${phase}] ${result.status}`)
     this.active = undefined
   }
 
