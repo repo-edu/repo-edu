@@ -48,9 +48,9 @@
             "effort": null
         },
         "judge": {
-            "assistant": "codex",
+            "assistant": "claude",
             "model": null,
-            "effort": "medium"
+            "effort": null
         },
         "close": {
             "assistant": "codex",
