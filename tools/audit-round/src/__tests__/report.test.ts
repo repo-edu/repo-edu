@@ -513,10 +513,10 @@ test("vet reads a verdict line that ends in a Markdown hard break", () => {
   )
 })
 
-test("vet ignores verdict-shaped lines with leading whitespace", () => {
+test("vet reads verdict lines with surrounding whitespace", () => {
   assert.deepEqual(
-    readVet(" 1. [B] Revise\n1. [B] Accept", twoFindings.slice(0, 1)).reviews,
-    [{ number: 1, tier: "B", verdict: "accept" }],
+    readVet(" 1. [B] Revise ", twoFindings.slice(0, 1)).reviews,
+    [{ number: 1, tier: "B", verdict: "revise" }],
   )
 })
 
@@ -565,6 +565,15 @@ test("rebuttal reads an ordered subset and retains each answer", () => {
     () => readRebuttal("2. [C] Contest\n1. [B] Agree", twoFindings, reviews),
     /order/,
   )
+})
+
+test("rebuttal reads answer lines with surrounding whitespace", () => {
+  const findings = twoFindings.slice(0, 1)
+  const reviews = readVet("1. [B] Revise", findings).reviews
+
+  assert.deepEqual(readRebuttal(" 1. [B] Agree ", findings, reviews), [
+    { number: 1, tier: "B", answer: "agree" },
+  ])
 })
 
 test("rebuttal omits accepted findings and answers changed verdicts", () => {

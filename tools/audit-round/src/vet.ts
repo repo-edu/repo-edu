@@ -38,14 +38,14 @@ function checkFindingIdentity(
 
 /**
  * Verdicts have a fixed line grammar. Every other line is ignored.
- * Trailing whitespace, such as a Markdown hard break, carries no content.
+ * Whitespace at either end, such as a Markdown hard break, carries no content.
  */
 export function readVet(source: string, findings: ReportFindings): VetReading {
   const reviews: FindingReview[] = []
   for (const line of source.split(/\r?\n/)) {
     const verdict =
       /^([1-9]\d*)\. \[([A-D])\] (Accept|Revise|Drop|Needs user's ruling)$/.exec(
-        line.trimEnd(),
+        line.trim(),
       )
     if (verdict !== null) {
       const number = Number(verdict[1])
@@ -80,7 +80,7 @@ export function readRebuttal(
   for (const line of source.split(/\r?\n/)) {
     const answer =
       /^([1-9]\d*)\. \[([A-D])\] (Agree|Contest|For user's ruling)$/.exec(
-        line.trimEnd(),
+        line.trim(),
       )
     if (answer === null) continue
     const number = Number(answer[1])
