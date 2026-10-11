@@ -74,8 +74,13 @@ consumers.
   the user-called `settle` and `ready` commands. It refuses an untracked,
   staged or unstaged target plan while leaving unrelated work alone. Settle
   commits only the widening rename before claiming its marker. Ready shares
-  the `git commit --only --allow-empty` route with direct clean completion.
-  Both routes keep the plan checkout's normal hooks enabled.
+  the `git commit --only --allow-empty` route with direct clean completion and
+  validates the committed plan's steps before writing its marker. Both routes
+  keep the plan checkout's normal hooks enabled.
+- `plan-steps.ts` reads the first ordered list below the depth-2
+  `Implementation plan` heading. It requires each item to open with a bold
+  title and one closed host sentence, then returns the steps and their hosting
+  repos in list order.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
   Planning reports have Excess functionality and Missing functionality fields; implementation
   reports have one Findings field including deferred findings. Each holds numbered finding blocks

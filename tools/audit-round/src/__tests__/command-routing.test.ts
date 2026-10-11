@@ -14,11 +14,19 @@ async function lifecyclePlan(
   phase: "settled" | "widening",
   tracked = true,
   stem = "example",
+  source = phase === "settled"
+    ? `# Example plan
+
+## Implementation plan
+
+1. **Example step.** Hosted in Repo Edu.
+`
+    : "# Example plan\n",
 ) {
   const name = phase === "settled" ? `${stem}.md` : `${stem}-widen.md`
   const other = phase === "settled" ? `${stem}-widen.md` : `${stem}.md`
   await rm(join(fixture.planRoot, other), { force: true })
-  await writeFile(join(fixture.planRoot, name), "# Example plan\n")
+  await writeFile(join(fixture.planRoot, name), source)
   if (tracked) {
     await execa("git", ["add", "--", name], { cwd: fixture.planRoot })
     await commitFixture(
@@ -486,6 +494,31 @@ test("ready lands one empty commit through hooks and refuses a second marker", a
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
+})
+
+test("ready refuses a committed plan whose implementation steps do not read", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(
+    f,
+    "settled",
+    true,
+    "example",
+    `# Example plan
+
+## Implementation plan
+
+1. **Example step.** The hosting repo is missing.
+`,
+  )
+  const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
+    .stdout
+
+  assert.equal(await runCommand(["ready"], f.runtime, f.options), 1)
+  assert.match(f.errors.at(-1) ?? "", /Implementation plan item 1/)
+  assert.equal(
+    (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+    head,
+  )
 })
 
 for (const [command, phase, pattern] of [
