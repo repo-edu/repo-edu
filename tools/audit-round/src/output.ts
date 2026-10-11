@@ -86,7 +86,7 @@ export type Run = {
   readonly phases: readonly RunEntry[]
   readonly selections: Record<Assistant, CliModels>
   readonly paths: RunPaths
-  /** Present only for an automated round, whose retained JSON is written at the end. */
+  /** Present for every active plan-target round, with settled and final writes. */
   readonly data?: {
     readonly path: string
     readonly target: string

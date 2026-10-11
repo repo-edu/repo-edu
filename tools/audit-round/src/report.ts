@@ -84,16 +84,16 @@ function openingLines(
 function judgedRepos(
   children: readonly Block[],
   source: string,
+  reportClass: ReportClass,
 ): readonly Repository[] {
   const lines = openingLines(children, source)
     .map((line) => line.plain)
     .filter((line) => line.startsWith("Judged repos:"))
-  if (
-    lines.length !== 1 ||
-    !/^Judged repos: (?:plan@[0-9a-f]+(?:, repo-edu@[0-9a-f]+)?|repo-edu@[0-9a-f]+)$/.test(
-      lines[0],
-    )
-  )
+  const pattern =
+    reportClass === "implementation"
+      ? /^Judged repos: (?:plan@[0-9a-f]+(?:, repo-edu@[0-9a-f]+)?|repo-edu@[0-9a-f]+)$/
+      : /^Judged repos: plan@[0-9a-f]+$/
+  if (lines.length !== 1 || !pattern.test(lines[0]))
     throw new Error(
       "Report needs one Judged repos: opening with each audited head",
     )
@@ -292,7 +292,7 @@ export function readReport(
           },
         ]
   const children = fromMarkdown(source).children
-  const repositories = judgedRepos(children, source)
+  const repositories = judgedRepos(children, source, reportClass)
   const findings: ReportFinding[] = []
   for (const definition of definitions) {
     const headings = children.flatMap((node, index) =>

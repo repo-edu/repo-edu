@@ -284,15 +284,14 @@ consumers.
 - `trial.ts` owns the read-only trial read-out. It reads checked round data at
   the plan root and closed-plan archives, ignores command-line-selected rounds,
   then takes the newest uninterrupted run with one settings snapshot. It
-  resolves each completed
-  round's landed commits through the existing subject, model-record and finding
-  readers. The Markdown output names both audit selections, their configured
-  pairs, both vets and the fixer. Its rows show the previous completed round by
-  the same assistant on the same target only when its audit setting differs,
-  plus phase time, accepted findings and tokens. Totals group the whole round
-  cost and accepted findings by audit setting. Same-setting and incomplete
-  rounds contribute time and tokens but do not form a cross-check pair. The
-  command starts no assistant, reads no live settings and writes nothing.
+  reads accepted findings from each completed entry's stored outcomes. The
+  Markdown output names both audit selections, their configured pairs, both
+  vets and the fixer. Its rows show the previous completed round by the same
+  assistant on the same target only when its audit setting differs, plus phase
+  time, accepted findings and tokens. Totals group the whole round cost and
+  accepted findings by audit setting. Same-setting and incomplete rounds
+  contribute time and tokens but do not form a cross-check pair. The command
+  starts no assistant, reads no live settings and writes nothing.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`

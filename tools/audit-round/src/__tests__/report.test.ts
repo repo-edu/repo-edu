@@ -40,7 +40,7 @@ function finding(
 const implementation = (body: string) =>
   `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
 const planning = (excess: string, missing: string) =>
-  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
+  `# Audit\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
 
 test("the report opening identifies the judged repos independently of evidence", () => {
   for (const [line, judgedRepos] of [
@@ -58,6 +58,25 @@ test("the report opening identifies the judged repos independently of evidence",
         judgedRepos,
       },
     )
+  }
+})
+
+test("planning reports judge only the plan repository", () => {
+  const valid = planning("No excess findings.", "No missing findings.")
+  for (const reportClass of ["widening", "detailing"] as const) {
+    assert.deepEqual(readAuditReport(valid, reportClass).judgedRepos, ["plan"])
+    for (const opening of [
+      "Judged repos: repo-edu@def456",
+      "Judged repos: plan@abc123, repo-edu@def456",
+    ])
+      assert.throws(
+        () =>
+          readAuditReport(
+            valid.replace("Judged repos: plan@abc123", opening),
+            reportClass,
+          ),
+        /Judged repos/,
+      )
   }
 })
 
@@ -117,7 +136,7 @@ test("settled reports carry findings and judged repositories without routing", (
       planning("No excess findings.", "No missing findings."),
       "detailing",
     ),
-    { findings: [], judgedRepos: ["plan", "repo-edu"] },
+    { findings: [], judgedRepos: ["plan"] },
   )
 })
 
