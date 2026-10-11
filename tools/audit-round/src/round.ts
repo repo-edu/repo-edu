@@ -323,10 +323,10 @@ async function runSeriesJudge(
       ...context,
       stem: planStem(input.plan),
     })
-    const target = roundDataIdentity(
+    const currentRound = roundDataIdentity(
       transcriptNameStart(input.transcript),
-    ).target
-    const canStop = judgeCanStop(evidence, target)
+    )
+    const canStop = judgeCanStop(evidence, currentRound)
     const judged = await dependencies.runJudge({
       phase: "judge",
       ...phases.judge,

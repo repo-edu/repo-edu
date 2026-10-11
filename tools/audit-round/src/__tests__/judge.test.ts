@@ -90,12 +90,16 @@ function evidence(
   }
 }
 
+function identity(entry: RoundData): Pick<RoundData, "target" | "round"> {
+  return { target: entry.target, round: entry.round }
+}
+
 test("the current in-progress settled B removes stop from the judge", () => {
   const current = round("codex", "2026-10-11T10:00:00Z", {
     status: "in-progress",
     tier: "B",
   })
-  assert.equal(judgeCanStop(evidence([current]), current.target), false)
+  assert.equal(judgeCanStop(evidence([current]), identity(current)), false)
   assert.throws(
     () => readJudgeAnswer("Judge: stop. The round has converged.", false),
     /offered only Claude or Codex/,
@@ -115,11 +119,11 @@ test("the current in-progress settled B removes stop from the judge", () => {
 test("an earlier assistant's unconfirmed A blocks stop", () => {
   const claude = round("claude", "2026-10-11T10:00:00Z", { tier: "A" })
   const codex = round("codex", "2026-10-11T11:00:00Z", { round: 2 })
-  assert.equal(judgeCanStop(evidence([claude, codex]), codex.target), false)
+  assert.equal(judgeCanStop(evidence([claude, codex]), identity(codex)), false)
 
   const confirmed = round("claude", "2026-10-11T12:00:00Z", { round: 3 })
   assert.equal(
-    judgeCanStop(evidence([claude, codex, confirmed]), confirmed.target),
+    judgeCanStop(evidence([claude, codex, confirmed]), identity(confirmed)),
     true,
   )
 })
@@ -129,7 +133,7 @@ test("a failed round with a landed B still removes stop", () => {
     status: "failed",
     tier: "B",
   })
-  assert.equal(judgeCanStop(evidence([failed]), failed.target), false)
+  assert.equal(judgeCanStop(evidence([failed]), identity(failed)), false)
 
   const failedBeforeRecord = round("claude", "2026-10-11T10:00:00Z", {
     status: "failed",
@@ -137,7 +141,29 @@ test("a failed round with a landed B still removes stop", () => {
     landed: false,
   })
   assert.equal(
-    judgeCanStop(evidence([failedBeforeRecord]), failedBeforeRecord.target),
+    judgeCanStop(evidence([failedBeforeRecord]), identity(failedBeforeRecord)),
+    true,
+  )
+
+  const interrupted = round("claude", "2026-10-11T10:00:00Z", {
+    status: "interrupted",
+    tier: "B",
+  })
+  assert.equal(
+    judgeCanStop(evidence([interrupted]), identity(interrupted)),
+    false,
+  )
+})
+
+test("a stale in-progress entry does not block a later stop", () => {
+  const stale = round("claude", "2026-10-11T10:00:00Z", {
+    status: "in-progress",
+    tier: "B",
+  })
+  const currentRound = round("codex", "2026-10-11T11:00:00Z", { round: 2 })
+
+  assert.equal(
+    judgeCanStop(evidence([stale, currentRound]), identity(currentRound)),
     true,
   )
 })
@@ -145,7 +171,10 @@ test("a failed round with a landed B still removes stop", () => {
 test("detailing without an init or settle uses the full history", () => {
   const claude = round("claude", "2026-10-11T10:00:00Z", { tier: "B" })
   const codex = round("codex", "2026-10-11T11:00:00Z", { round: 2 })
-  assert.equal(judgeCanStop(evidence([claude, codex], []), codex.target), false)
+  assert.equal(
+    judgeCanStop(evidence([claude, codex], []), identity(codex)),
+    false,
+  )
 })
 
 test("a widening A before the settle cutoff does not block detailing stop", () => {
@@ -171,7 +200,7 @@ test("a widening A before the settle cutoff does not block detailing stop", () =
     },
   ]
   assert.equal(
-    judgeCanStop(evidence([widening, detailing], commits), detailing.target),
+    judgeCanStop(evidence([widening, detailing], commits), identity(detailing)),
     true,
   )
 })

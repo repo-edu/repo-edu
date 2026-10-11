@@ -1,4 +1,4 @@
-import { basename, dirname, join, resolve } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
 import type { CliModels, Feedback, PhaseOutput } from "./feedback.js"
 import {
@@ -51,7 +51,7 @@ import {
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { RoundSettings } from "./settings.js"
-import { planStem } from "./target.js"
+import { isActivePlanPath, planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
@@ -202,8 +202,7 @@ export async function roundRun(
   const base = path("round", "audit")
   const audit = entry("audit")
   const activePlan =
-    "plan" in setup &&
-    dirname(resolve(setup.planRoot, setup.plan)) === resolve(setup.planRoot)
+    "plan" in setup && isActivePlanPath(setup.planRoot, setup.plan)
   const data =
     "plan" in setup && activePlan
       ? {

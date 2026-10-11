@@ -82,8 +82,16 @@ export async function readJudgeEvidence(
   }
 }
 
-function settled(entry: RoundData): boolean {
+type CurrentRound = Pick<RoundData, "target" | "round">
+
+function settled(entry: RoundData, current: CurrentRound): boolean {
   return (
+    (entry.status === "finished" ||
+      entry.status === "failed" ||
+      entry.status === "interrupted" ||
+      (entry.status === "in-progress" &&
+        entry.target === current.target &&
+        entry.round === current.round)) &&
     entry.commits.length > 0 &&
     entry.findings.every((finding) => finding.outcome !== null)
   )
@@ -101,9 +109,13 @@ function acceptedRealBug(entry: RoundData): boolean {
  * Stop is available only when each assistant's latest settled read of this
  * scope in the current span has no accepted A or B finding.
  */
-export function judgeCanStop(evidence: JudgeEvidence, target: string): boolean {
+export function judgeCanStop(
+  evidence: JudgeEvidence,
+  currentRound: CurrentRound,
+): boolean {
   let entries = evidence.roundData.rounds.filter(
-    (entry) => entry.target === target && settled(entry),
+    (entry) =>
+      entry.target === currentRound.target && settled(entry, currentRound),
   )
   const current = entries
     .toSorted(

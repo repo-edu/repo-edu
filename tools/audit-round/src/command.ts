@@ -72,6 +72,7 @@ import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
   activePlan,
+  isActivePlanPath,
   planStem,
   requiredActivePlan,
   resolvePlan,
@@ -265,14 +266,15 @@ Auditor selection (--auditor <selections>):
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor comes from settings.json.
-  Without --auditor, a settled plan starts an automatic series with that default.
+  Without --auditor, an active settled plan starts an automatic series with
+  that default.
   --first <selection> takes one entry in the same form and runs it instead of the
   default for the first round. It cannot be combined with --auditor.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
 
-  Automatic series (settled plan without --auditor):
+  Automatic series (active settled plan without --auditor):
     - The configured default auditor runs first, or the --first selection.
     - After each non-red round, a fresh judge picks the next assistant or stops.
       A settled A or B finding removes stop from the judge's options.
@@ -280,7 +282,7 @@ Round sequence:
     - A configured audit pair takes turns within this command. A coin flip picks
       its first member. --first and other command-line choices take no turn.
     - settings.json sets the maximum round count, including the first round.
-    - Widening plans and commit targets still run once.
+    - Widening plans, archived plans and commit targets still run once.
 
   Manual order (--auditor):
     - Every round runs on the same target and step scope.
@@ -922,6 +924,7 @@ export async function runCommand(
       const automatic =
         prepared.auditor === undefined &&
         "plan" in prepared.target &&
+        isActivePlanPath(context.planRoot, prepared.target.plan) &&
         !basename(prepared.target.plan).endsWith("-widen.md")
       // Only an explicit auditor list owns an editable queue. Automatic series
       // keep their next seat in this invocation, and other targets run once.

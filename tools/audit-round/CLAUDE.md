@@ -7,12 +7,11 @@ consumers.
 ## Ownership
 
 - `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the reply a fix's open
-  item needs, the watch that follows a finished planning or plan-scoped implementation round and
-  the fresh judge that routes an automatic series. It
-  retains the audit result and report as local values. Audit, vet, rebuttal, fix and brief start
-  fresh. A clean audit completes directly through `clean.ts` without vet, rebuttal, fix, brief,
-  glance or watch; an automatic series still runs its judge. The coordinator reads the report
-  through `report.ts` to decide whether it is clean. A vet
+  item needs, the watch that follows a finished planning or plan-scoped implementation round and the
+  fresh judge that routes an automatic series. It retains the audit result and report as local
+  values. Audit, vet, rebuttal, fix and brief start fresh. A clean audit completes directly through
+  `clean.ts` without vet, rebuttal, fix, brief, glance or watch; an automatic series still runs its
+  judge. The coordinator reads the report through `report.ts` to decide whether it is clean. A vet
   that accepted every finding without a condition skips the rebuttal the same way, because the
   auditor has nothing to answer; the fix then reads the report with its vet twin alone. The
   coordinator reads the twin through `vet.ts` to decide whether every finding was accepted
@@ -37,31 +36,30 @@ consumers.
   finished document. The audited plan's stem comes from `planStem` and selects both the glance
   record and joined watch evidence. Only a due glance computes and formats the Git episode and the
   plan's existing round-kind data files, once after the fix. Only the writer's prompt receives the
-  snapshot separately from its file arguments. The
-  glance is a dependency the runner supplies from `glance.ts`, not a phase, so a not-due round
-  starts no session for it. The watch writer owns both the judgement and final wording. Its model
-  and effort live in `settings.json`, beside the brief's settings. The watch runs only after a plan
-  round with audit findings that finished, because a round awaiting a ruling has not proved its work
-  landed; nothing is lost, since the glance counts audit correction commits and not rounds. A round
-  given no watch target, which is what `--no-watch` does, consults no glance at all. The watch reads
-  the Git record and retained round data, so `runWatch` passes it no transcript or report. After
-  the watch finishes, `runWatch` reads back the grade it recorded; a watch that leaves no readable
-  entry fails its phase. A finished round reports that grade, and the command runner ends the
-  auditor sequence on red, so no queued round starts before the user acts on the watch. Before the
-  brief and watch, `round.ts` publishes the settled findings as the current `in-progress` round-data
-  entry. After any non-red round in an automatic series, it starts a fresh judge turn over the
-  plan's round-kind data, episode commits, stop conditions and latest watch. The runner's real-bug
-  gate removes stop while either assistant's latest settled read of the scope carries an accepted A
-  or B. The judge then chooses stop, Claude or Codex and the output stores its answer in the final
-  entry. Manual queues and one-shot rounds run no judge. The round records both repositories' HEADs
-  before the fix, reads the landed records and validates every subject under its repository's
-  grammar. A plan target fails when a finished fix landed no commit. A commit target may land
-  nothing. Reader failures retain the owning phase and its session for recovery. The coordinator
-  deletes the report set after these checks, then runs the brief. Other outcomes retain the set.
-  `runClose` runs the loop-close phase alone on its own
-  settings. It passes the active plan, the capability tag and model record its commits carry and any
-  abort reason. A finished close that left its plan at the root fails, because the move is the
-  close.
+  snapshot separately from its file arguments. The glance is a dependency the runner supplies from
+  `glance.ts`, not a phase, so a not-due round starts no session for it. The watch writer owns both
+  the judgement and final wording. Its model and effort live in `settings.json`, beside the brief's
+  settings. The watch runs only after a plan round with audit findings that finished, because a
+  round awaiting a ruling has not proved its work landed; nothing is lost, since the glance counts
+  audit correction commits and not rounds. A round given no watch target, which is what `--no-watch`
+  does, consults no glance at all. The watch reads the Git record and retained round data, so
+  `runWatch` passes it no transcript or report. After the watch finishes, `runWatch` reads back the
+  grade it recorded; a watch that leaves no readable entry fails its phase. A finished round reports
+  that grade, and the command runner ends the auditor sequence on red, so no queued round starts
+  before the user acts on the watch. Before the brief and watch, `round.ts` publishes the settled
+  findings as the current `in-progress` round-data entry. After any non-red round in an active
+  plan's automatic series, it starts a fresh judge turn over the plan's round-kind data, episode
+  commits, stop conditions and latest watch. The runner's real-bug gate removes stop while either
+  assistant's latest settled read of the scope carries an accepted A or B. The judge then chooses
+  stop, Claude or Codex and the output stores its answer in the final entry. Manual queues and
+  one-shot rounds run no judge. The round records both repositories' HEADs before the fix, reads the
+  landed records and validates every subject under its repository's grammar. A plan target fails
+  when a finished fix landed no commit. A commit target may land nothing. Reader failures retain the
+  owning phase and its session for recovery. The coordinator deletes the report set after these
+  checks, then runs the brief. Other outcomes retain the set. `runClose` runs the loop-close phase
+  alone on its own settings. It passes the active plan, the capability tag and model record its
+  commits carry and any abort reason. A finished close that left its plan at the root fails, because
+  the move is the close.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -128,8 +126,10 @@ consumers.
 - `judge.ts` reads one round kind's retained data, the stem's episode commit
   list, `STOP-CONDITIONS.md` and the newest watch. It applies the settled-span
   gate and each assistant's latest settled entry on the scope to decide whether
-  stop is available. It validates the judge's single answer and reason without
-  deriving watch-only facts.
+  stop is available. Only the exact current `in-progress` entry is eligible.
+  Failed or interrupted entries with landed records remain eligible. It
+  validates the judge's single answer and reason without deriving watch-only
+  facts.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
   topic from the audited plan for every runner glance. The episode reader
@@ -361,15 +361,16 @@ consumers.
   discovery or assistant. So the program carries an action handler, Commander adds no
   `help` command, and each command's own `-h` prints its help. A bare command line prints that help;
   options without a target take `defaultTarget`. It also owns the round sequence and its counter.
-  Without `--auditor`, a settled plan target runs an automatic series. The `--first` selection runs
+  Without `--auditor`, an active settled plan target runs an automatic series. An archived plan
+  runs once because its round writes no data entry for a judge. The `--first` selection runs
   first, or the configured default without it, then each judge answer names the next assistant or
   stops. Only that first round carries the selection's fields. When the selected assistant has
   an audit pair, settings-chosen rounds take turns between its members and a coin flip chooses the
   first. Each assistant keeps its own turn inside this command. A command-line choice takes no turn.
   The series writes no queue and
   ends on a stop, the configured maximum, a failure, an unanswered ruling, a red watch or a fix
-  that reopens the plan. Widening and commit targets run once, on the `--first` selection when
-  given. With `--auditor`, the first
+  that reopens the plan. Widening plans, archived plans and commit targets run once, on the
+  `--first` selection when given. With `--auditor`, the first
   entry runs first and the remaining
   entries on a plan target seed its editable queue. A clean audit removes queued entries that
   resolve to that round's assistant, model and effort. Other settings remain. A fix that lands a
@@ -439,7 +440,7 @@ defaults. An invalid file stops the command with a validation error and is
 left unchanged.
 
 - `defaultAuditor` selects Claude or Codex when neither `--auditor` nor `--first` is given.
-- `maximumAutomaticRounds` limits a settled plan's automatic series, counting
+- `maximumAutomaticRounds` limits an active settled plan's automatic series, counting
   its first round.
 - `strengthModels` maps each assistant's base and top tiers to a model name.
   The same names classify reported models for capability tags. A family alias
@@ -591,27 +592,26 @@ written; the command loads no settings and starts no assistant.
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
 document in the terminal. Only `--brief` runs it, for every round, without changing the watch. A
 clean audit records its outcome directly and retains the report, without review or fix sessions. An
-automatic clean round still runs its judge. A fix that
-stops for a ruling adds a ruling twin. A finished plan round with audit findings ends with a glance
-at the commit record, and a due glance adds a `-watch.md` document. The watch keeps its own history
-in the shared cache, which is how its cadence survives between rounds, and `--no-watch` skips both.
-`brief` accepts an earlier transcript at the plan root, or takes the most recently modified one when
-none is named. It reads its kind from the transcript title, writes beside it without claiming a new
-number and overwrites its standalone log on each run. Without `--auditor`, a settled plan runs an
-automatic series from the `--first` selection or the configured default, follows each fresh judge
-answer and stops at its maximum without writing a queue. Widening and commit targets run once.
-`--auditor`
-accepts one selection or a sequence on the named plan scope, separated by commas or spaces. Repeated
-entries request separate rounds. The entries after the current round wait in `<target>-queue.md` at
-the plan root. Edit it to add, remove or reorder rounds; the runner reads it between rounds and
-deletes it when the sequence ends. An empty or deleted file ends the sequence after the current
-round. Every completed automatic round prints its judge answer and reason. In a manual series, a
-clean audit skips queued entries with the same resolved assistant, model and effort; other settings
-remain. Failure or leaving a ruling
-without a reply stops either sequence. A submitted reply resumes the fix, then the sequence after
-the round completes. A settings pair takes turns only in rounds the automatic pick chose. Its first
-picked round uses a coin flip. A `--first`, `--auditor` or queue choice bypasses the pair and takes
-no turn. Each header records the round's start time; filenames carry no timestamp.
+automatic clean round still runs its judge. A fix that stops for a ruling adds a ruling twin. A
+finished plan round with audit findings ends with a glance at the commit record, and a due glance
+adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is how its
+cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an earlier transcript
+at the plan root, or takes the most recently modified one when none is named. It reads its kind from
+the transcript title, writes beside it without claiming a new number and overwrites its standalone
+log on each run. Without `--auditor`, an active settled plan runs an automatic series from the
+`--first` selection or the configured default, follows each fresh judge answer and stops at its
+maximum without writing a queue. Widening plans, archived plans and commit targets run once.
+`--auditor` accepts one selection or a sequence on the named plan scope, separated by commas or
+spaces. Repeated entries request separate rounds. The entries after the current round wait in
+`<target>-queue.md` at the plan root. Edit it to add, remove or reorder rounds; the runner reads it
+between rounds and deletes it when the sequence ends. An empty or deleted file ends the sequence
+after the current round. Every completed automatic round prints its judge answer and reason. In a
+manual series, a clean audit skips queued entries with the same resolved assistant, model and
+effort; other settings remain. Failure or leaving a ruling without a reply stops either sequence. A
+submitted reply resumes the fix, then the sequence after the round completes. A settings pair takes
+turns only in rounds the automatic pick chose. Its first picked round uses a coin flip. A `--first`,
+`--auditor` or queue choice bypasses the pair and takes no turn. Each header records the round's
+start time; filenames carry no timestamp.
 
 ## Verification
 

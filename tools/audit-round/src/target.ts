@@ -1,5 +1,5 @@
 import { readdir, stat } from "node:fs/promises"
-import { basename, dirname, join } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import { InvalidArgumentError } from "commander"
 import type { ExecutionContext } from "./context.js"
 
@@ -50,6 +50,11 @@ export function planStem(plan: string): string {
       ? basename(dirname(plan))
       : basename(plan, ".md")
   ).replace(/-widen$/, "")
+}
+
+/** An active plan sits directly at the plan root; archived plans sit below it. */
+export function isActivePlanPath(planRoot: string, plan: string): boolean {
+  return dirname(resolve(planRoot, plan)) === resolve(planRoot)
 }
 
 function stepScope(value: string): string {

@@ -347,7 +347,7 @@ test("an audit pair takes turns from a fixed first coin and keeps each rebuttal 
   )
 })
 
-test("an automatic series continues on an archived plan", async (t) => {
+test("an archived plan without --auditor runs once", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -359,10 +359,6 @@ test("an automatic series continues on an archived plan", async (t) => {
     false,
     true,
   )
-  await configureJudgeAnswers(f, [
-    "Judge: continue with Claude. Claude should check the archived plan.",
-    "Judge: stop. The archived plan needs no further round.",
-  ])
   const archive = join(f.planRoot, "archive/example")
   const archivedPlan = join(archive, "plan.md")
   await mkdir(archive, { recursive: true })
@@ -379,9 +375,16 @@ test("an automatic series continues on an archived plan", async (t) => {
   )
   assert.deepEqual(
     audits.map((call) => call.assistant),
-    ["codex", "claude"],
+    ["codex"],
   )
   assert.ok(audits.every((call) => call.prompt.includes(archivedPlan)))
+  assert.equal(
+    (await f.prompts()).some((call) =>
+      call.prompt.startsWith("Run the judge phase"),
+    ),
+    false,
+  )
+  assert.doesNotMatch(f.visible.join("\n"), /Automatic auditor series/)
 })
 
 test("--first replaces the default auditor's first round and the series still follows judges", async (t) => {
