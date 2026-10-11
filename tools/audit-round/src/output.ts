@@ -187,12 +187,13 @@ export async function roundRun(
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: Phase): string =>
     fileTag(entry(phase), selections, settings)
-  // The close runs alone, so a round never needs its tag.
+  // The judge writes no file, and the close runs alone, so a round needs
+  // neither tag.
   for (const phase of Object.keys(phases) as Phase[]) {
     if (
       phase !== "close" &&
-      (phase !== "brief" || setup.brief === true) &&
-      (phase !== "judge" || setup.automatic === true)
+      phase !== "judge" &&
+      (phase !== "brief" || setup.brief === true)
     )
       tag(phase)
   }

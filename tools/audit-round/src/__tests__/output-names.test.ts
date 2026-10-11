@@ -3,10 +3,12 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
+import { roundRun as buildRoundRun } from "../output.js"
 import {
   briefRun,
   RoundOutput,
   roundRun,
+  testSettings,
   transcriptNameStart,
 } from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
@@ -284,6 +286,39 @@ test("unspellable phase efforts fail before any claim or output is created", asy
     /codex fix.*CLI settings/,
   )
   assert.deepEqual(await readdir(f.root), before)
+})
+
+test("an automatic judge needs no capability tag because it writes no file", async (t) => {
+  const f = await fixture(t)
+  const run = await buildRoundRun(
+    {
+      ...testContext(f.root),
+      plan: "example.md",
+      scope: "all",
+      automatic: true,
+    },
+    0,
+    {
+      ...selections,
+      claude: {
+        ...selections.claude,
+        configured: { model: "claude-opus-5", effort: null },
+      },
+    },
+    {
+      ...testSettings,
+      phases: {
+        ...testSettings.phases,
+        vet: {
+          ...testSettings.phases.vet,
+          claude: { model: null, effort: "high" },
+        },
+        judge: { assistant: "claude", model: null, effort: null },
+      },
+    },
+  )
+
+  assert.equal(run.phases.at(-1)?.phase, "judge")
 })
 
 test("planning rounds number their bare target at the plan root and write there", async (t) => {
