@@ -2,7 +2,12 @@ import { readdir, readFile, realpath, stat, unlink } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
-import { type AuditTarget, planStem, type RoundKind } from "./target.js"
+import {
+  type AuditTarget,
+  planStem,
+  type RoundKind,
+  unprefixedCommitReference,
+} from "./target.js"
 
 type NamingTarget = ExecutionContext & AuditTarget
 
@@ -93,7 +98,7 @@ async function targetDescription(target: NamingTarget): Promise<{
   title: string
 }> {
   if ("commits" in target) {
-    const first = target.commits[0].replace(/^plan@/, "")
+    const first = unprefixedCommitReference(target.commits[0])
     const head = first.includes("HEAD")
       ? (
           await execa("git", ["rev-parse", "--short", "HEAD"], {

@@ -87,7 +87,7 @@ function commitReference(value: string): boolean {
 
 export const planRepositoryPrefix = "plan@"
 
-function unprefixedCommitReference(value: string): string {
+export function unprefixedCommitReference(value: string): string {
   return value.startsWith(planRepositoryPrefix)
     ? value.slice(planRepositoryPrefix.length)
     : value
