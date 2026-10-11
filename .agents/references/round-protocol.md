@@ -1099,18 +1099,20 @@ Use this block form, with a numbered bold tier and title on the first line and
 the metadata tokens on their own line immediately after the title, before the explanation.
 Separate the title, token line and explanation with blank lines:
 
+```markdown
 1. **C: Conflicting report names**
 
    [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none]
 
    The report rule and its example name different files. The vet cannot resolve
    the example. Align the example with the rule.
+```
 
 Use the same block shape for a planning finding, with its planning metadata:
 
+```markdown
 1. **C: Conflicting report names**
 
-   <!-- rumdl-disable-next-line MD013 -->
    [field:missing] [section:report-file] [growth-pattern:none] [reach:developer] [complexity:none]
 
    The report rule requires the scope in the filename, but the phase argument
@@ -1119,6 +1121,7 @@ Use the same block shape for a planning finding, with its planning metadata:
    doctrine delegates naming to the plan, so an implementation audit has no
    grounds to choose between them. Align both contracts on scoped names so
    reports for different step ranges remain distinct.
+```
 
 Keep numbering continuous from 1 across all finding fields. Order each field
 from A through D. Quoted evidence and code blocks belong inside their finding.

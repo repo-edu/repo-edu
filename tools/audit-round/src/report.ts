@@ -113,14 +113,7 @@ function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
 function openingTokens(item: List["children"][number]): string {
   const start = item.children[0]
   if (start?.type !== "paragraph") return ""
-  // Comments carry formatting directives rather than finding content.
-  const next = item.children
-    .slice(1)
-    .find(
-      (node) =>
-        node.type !== "html" ||
-        node.value.replace(/<!--[\s\S]*?-->/g, "").trim() !== "",
-    )
+  const next = item.children[1]
   // The token line may share the title's paragraph or follow a blank line.
   const children =
     start.children.length > 1
