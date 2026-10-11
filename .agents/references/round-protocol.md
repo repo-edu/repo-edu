@@ -924,8 +924,9 @@ Answer only revisions, drops, conditional accepts and ruling items, in the
 report's order. Unconditional accepts need no entry; the fix reads them from
 the numbered vet-verdicts.
 Every rebut-answer starts with exactly `<audit-finding number>. [<tier>] <rebut-answer>`.
-Use the report's audit-finding number and A/B/C/D tier. The rebut-answer is exactly one
-of `Agree`, `Contest` or `For user's ruling`.
+Use the report's audit-finding number and A/B/C/D tier. The header keeps the report's tier even
+when the answer agrees with a revised tier; the new tier belongs in the note, and the fix records
+it. The rebut-answer is exactly one of `Agree`, `Contest` or `For user's ruling`.
 The first line contains nothing else, for example `1. [B] Agree`.
 Conditions, notes and required explanations follow on separate lines.
 An unconditional Agree with no additional notes ends after the first line;
