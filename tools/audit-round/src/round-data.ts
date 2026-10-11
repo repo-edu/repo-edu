@@ -240,15 +240,15 @@ type FindingRecord = {
 
 /** Find retained round data beside active plans and inside closed-plan archives. */
 export async function roundDataFiles(planRoot: string): Promise<string[]> {
-  const active = (await readdir(planRoot))
-    .filter((entry) => roundDataFilename.test(entry))
-    .map((entry) => join(planRoot, entry))
+  const active = (await readdir(planRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && roundDataFilename.test(entry.name))
+    .map((entry) => join(planRoot, entry.name))
   const archive = join(planRoot, "archive")
   let closed: string[] = []
   try {
-    closed = (await readdir(archive, { recursive: true }))
-      .filter((entry) => roundDataFilename.test(basename(entry)))
-      .map((entry) => join(archive, entry))
+    closed = (await readdir(archive, { recursive: true, withFileTypes: true }))
+      .filter((entry) => entry.isFile() && roundDataFilename.test(entry.name))
+      .map((entry) => join(entry.parentPath, entry.name))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }

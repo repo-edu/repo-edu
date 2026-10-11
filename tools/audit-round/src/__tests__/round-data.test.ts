@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { access, readFile } from "node:fs/promises"
+import { access, mkdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import {
@@ -10,6 +10,7 @@ import {
   type RoundFinding,
   readPlanRoundData,
   reviewedRoundFindings,
+  roundDataFiles,
   settleRoundFindings,
   writeRoundData,
 } from "../round-data.js"
@@ -166,6 +167,17 @@ test("a plan's watch evidence omits a round kind whose file is absent", async (t
   assert.deepEqual(await readPlanRoundData(f.root, "example"), {
     implementation: [entry("example-impl-all", 1)],
   })
+})
+
+test("round data discovery ignores archive directories with data-file names", async (t) => {
+  const f = await fixture(t)
+  const archive = join(f.root, "archive")
+  const path = join(archive, "example", "example-impl-rounds.json")
+  await mkdir(join(archive, "sample-plan-rounds.json"), { recursive: true })
+  await mkdir(join(archive, "example"), { recursive: true })
+  writeRoundData(path, entry("example-impl-all", 1))
+
+  assert.deepEqual(await roundDataFiles(f.root), [path])
 })
 
 test("review and rebuttal outcomes stay attached to report finding identity", () => {
