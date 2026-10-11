@@ -218,7 +218,6 @@ export type FindingReview = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
   readonly verdict: VetVerdict
-  readonly conditional: boolean
 }
 
 export type FindingRebuttal = {

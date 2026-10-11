@@ -37,13 +37,12 @@ function checkFindingIdentity(
 }
 
 /**
- * Verdicts have a fixed line grammar. Any following prose is a condition.
+ * Verdicts have a fixed line grammar. Every other line is ignored.
  * Trailing whitespace, such as a Markdown hard break, carries no content.
  */
 export function readVet(source: string, findings: ReportFindings): VetReading {
   const reviews: FindingReview[] = []
   for (const line of source.split(/\r?\n/)) {
-    if (line.trim().length === 0) continue
     const verdict =
       /^([1-9]\d*)\. \[([A-D])\] (Accept|Revise|Drop|Needs user's ruling)$/.exec(
         line.trimEnd(),
@@ -55,11 +54,7 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
         number,
         tier: verdict[2] as FindingReview["tier"],
         verdict: vetVerdicts[verdict[3] as keyof typeof vetVerdicts],
-        conditional: false,
       })
-    } else if (reviews.length > 0) {
-      const index = reviews.length - 1
-      reviews[index] = { ...reviews[index], conditional: true }
     }
   }
   if (
@@ -71,9 +66,7 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
     )
   return {
     reviews,
-    allAccepted: reviews.every(
-      (review) => review.verdict === "accept" && !review.conditional,
-    ),
+    allAccepted: reviews.every((review) => review.verdict === "accept"),
   }
 }
 
@@ -104,7 +97,7 @@ export function readRebuttal(
   }
   const missing = reviews.find(
     (review) =>
-      (review.verdict !== "accept" || review.conditional) &&
+      review.verdict !== "accept" &&
       !rebuttals.some((rebuttal) => rebuttal.number === review.number),
   )
   if (missing !== undefined)

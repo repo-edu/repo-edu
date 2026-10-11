@@ -189,7 +189,6 @@ test("review and rebuttal outcomes stay attached to report finding identity", ()
           number: 1,
           tier: "B",
           verdict: "revise",
-          conditional: true,
         },
       ],
       [{ number: 1, tier: "B", answer: "contest" }],

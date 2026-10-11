@@ -480,14 +480,18 @@ const twoFindings = readAuditReport(
   "implementation",
 ).findings
 
-test("vet reads unconditional accepts with preamble notes", () => {
-  assert.equal(
-    readVet(
-      "Drift since the audit.\n\n1. [B] Accept\n\n2. [C] Accept\n",
-      twoFindings,
-    ).allAccepted,
-    true,
+test("vet reads accepts from verdict lines alone", () => {
+  const reading = readVet(
+    "Drift since the audit.\n\n1. [B] Accept\nThe finding is well grounded.\n\n2. [C] Accept\n",
+    twoFindings,
   )
+  assert.deepEqual(reading, {
+    reviews: [
+      { number: 1, tier: "B", verdict: "accept" },
+      { number: 2, tier: "C", verdict: "accept" },
+    ],
+    allAccepted: true,
+  })
   assert.equal(
     readVet("1. [B] Accept\r\n", twoFindings.slice(0, 1)).allAccepted,
     true,
@@ -509,38 +513,17 @@ test("vet reads a verdict line that ends in a Markdown hard break", () => {
   )
 })
 
-test("vet retains conditions on the finding they follow", () => {
+test("vet ignores verdict-shaped lines with leading whitespace", () => {
   assert.deepEqual(
-    readVet(
-      "1. [B] Accept\nUse the narrower correction.\n\n2. [C] Accept",
-      twoFindings,
-    ).reviews,
-    [
-      { number: 1, tier: "B", verdict: "accept", conditional: true },
-      { number: 2, tier: "C", verdict: "accept", conditional: false },
-    ],
+    readVet(" 1. [B] Revise\n1. [B] Accept", twoFindings.slice(0, 1)).reviews,
+    [{ number: 1, tier: "B", verdict: "accept" }],
   )
 })
 
-test("every other verdict or line after a verdict prevents skipping the rebuttal", () => {
+test("every verdict that needs an answer prevents skipping the rebuttal", () => {
   for (const verdict of ["Revise", "Drop", "Needs user's ruling"])
     assert.equal(
       readVet(`1. [B] ${verdict}`, twoFindings.slice(0, 1)).allAccepted,
-      false,
-    )
-  for (const condition of [
-    "unique",
-    "corroborated",
-    "Noted as a narrowing",
-    "Explanation.",
-    "## Summary",
-    "`unique`",
-    " unique",
-    "corroborated: note",
-  ])
-    assert.equal(
-      readVet(`1. [B] Accept\n${condition}`, twoFindings.slice(0, 1))
-        .allAccepted,
       false,
     )
 })
@@ -584,14 +567,32 @@ test("rebuttal reads an ordered subset and retains each answer", () => {
   )
 })
 
-test("rebuttal requires answers for changed verdicts and conditional accepts", () => {
-  for (const source of [
-    "1. [B] Revise\nUse the tree entry.\n\n2. [C] Accept",
-    "1. [B] Accept\nUse the tree entry.\n\n2. [C] Accept",
-  ]) {
-    const reviews = readVet(source, twoFindings).reviews
+test("rebuttal omits accepted findings and answers changed verdicts", () => {
+  const reviews = readVet(
+    "1. [B] Accept\nThe finding is well grounded.\n\n2. [C] Revise\nUse the tree entry.",
+    twoFindings,
+  ).reviews
+  assert.deepEqual(
+    readRebuttal(
+      "2. [C] Contest\nKeep the original wording.",
+      twoFindings,
+      reviews,
+    ),
+    [{ number: 2, tier: "C", answer: "contest" }],
+  )
+
+  for (const verdict of ["Revise", "Drop", "Needs user's ruling"]) {
+    const changed = readVet(
+      `1. [B] ${verdict}`,
+      twoFindings.slice(0, 1),
+    ).reviews
     assert.throws(
-      () => readRebuttal("Unrecognised answer form", twoFindings, reviews),
+      () =>
+        readRebuttal(
+          "Unrecognised answer form",
+          twoFindings.slice(0, 1),
+          changed,
+        ),
       /answer for finding 1/,
     )
   }

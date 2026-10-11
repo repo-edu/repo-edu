@@ -12,24 +12,24 @@ consumers.
   values. Audit, vet, rebuttal, fix and brief start fresh. A clean audit completes directly through
   `clean.ts` without vet, rebuttal, fix, brief, glance or watch; an automatic series still runs its
   judge. The coordinator reads the report through `report.ts` to decide whether it is clean. A vet
-  that accepted every finding without a condition skips the rebuttal the same way, because the
-  auditor has nothing to answer; the fix then reads the report with its vet twin alone. The
-  coordinator reads the twin through `vet.ts` to decide whether every finding was accepted
-  unconditionally. Rebuttal uses the audit's resolved model and effort, including `--auditor` or
-  `--first` fields, because it is the auditor's answer. Its workflow grounds answers in current
-  sources. The settings file selects the default auditor, the fixer and the assistants that write
-  documents. The brief follows only a finished fix, after all rulings and resumed fix invocations
-  have completed. Only `--brief` adds that phase and its settings row to every round. Its input is
-  the round transcript, never the report, and its workflow belongs to the Repo Edu root. `runBrief`
-  runs that one phase on its own over an earlier transcript. The fix receives a ruling output path
-  separately from its report arguments. It writes the final ruling and checks it for clarity before
-  returning `needs-ruling`. The runner checks that file, then displays it and collects a reply
-  without running the brief. A missing or empty ruling fails the fix with its recovery session. The
-  same fix session resumes in the background with that reply. Further open decisions repeat this
-  route. A completed fix follows the same report deletion, commit checks, brief and watch as an
-  uninterrupted fix. Stopping without a reply retains the round files and reports the fix's recovery
-  command and ends the auditor sequence. A submitted reply lets a completed round continue any
-  remaining auditor entries. Further open decisions replace the ruling in that same session under
+  that accepted every finding skips the rebuttal the same way, because the auditor has nothing to
+  answer; the fix then reads the report with its vet twin alone. The coordinator reads the twin
+  through `vet.ts` to decide whether every finding was accepted from its verdict lines. Rebuttal
+  uses the audit's resolved model and effort, including `--auditor` or `--first` fields, because it
+  is the auditor's answer. Its workflow grounds answers in current sources. The settings file
+  selects the default auditor, the fixer and the assistants that write documents. The brief follows
+  only a finished fix, after all rulings and resumed fix invocations have completed. Only `--brief`
+  adds that phase and its settings row to every round. Its input is the round transcript, never the
+  report, and its workflow belongs to the Repo Edu root. `runBrief` runs that one phase on its own
+  over an earlier transcript. The fix receives a ruling output path separately from its report
+  arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
+  The runner checks that file, then displays it and collects a reply without running the brief. A
+  missing or empty ruling fails the fix with its recovery session. The same fix session resumes in
+  the background with that reply. Further open decisions repeat this route. A completed fix follows
+  the same report deletion, commit checks, brief and watch as an uninterrupted fix. Stopping without
+  a reply retains the round files and reports the fix's recovery command and ends the auditor
+  sequence. A submitted reply lets a completed round continue any remaining auditor entries. Further
+  open decisions replace the ruling in that same session under
   [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate ruling phases run.
   `runWatch` owns the watch that follows a round: the glance decides from the commit record and the
   watch's own history whether a watch is due, and only a due glance runs `watch` to write the
@@ -51,17 +51,16 @@ consumers.
   current filename. The watch still runs when the fix reopened the plan, but the judge does not.
   After any other non-red round in an active plan's automatic series, it starts a fresh judge turn
   over the plan's round-kind data, episode commits, stop conditions and latest watch. The runner's
-  real-bug gate removes stop while either
-  assistant's latest settled read of the scope carries an accepted A or B. The judge then chooses
-  stop, Claude or Codex and the output stores its answer in the final entry. Manual queues and
-  one-shot rounds run no judge. The round records both repositories' HEADs before the fix, reads the
-  landed records and validates every subject under its repository's grammar. A plan target fails
-  when a finished fix landed no commit. A commit target may land nothing. Reader failures retain the
-  owning phase and its session for recovery. The coordinator deletes the report set after these
-  checks, then runs the brief. Other outcomes retain the set. `runClose` runs the loop-close phase
-  alone on its own settings. It passes the active plan, the capability tag and model record its
-  commits carry and any abort reason. A finished close that left its plan at the root fails, because
-  the move is the close.
+  real-bug gate removes stop while either assistant's latest settled read of the scope carries an
+  accepted A or B. The judge then chooses stop, Claude or Codex and the output stores its answer in
+  the final entry. Manual queues and one-shot rounds run no judge. The round records both
+  repositories' HEADs before the fix, reads the landed records and validates every subject under its
+  repository's grammar. A plan target fails when a finished fix landed no commit. A commit target
+  may land nothing. Reader failures retain the owning phase and its session for recovery. The
+  coordinator deletes the report set after these checks, then runs the brief. Other outcomes retain
+  the set. `runClose` runs the loop-close phase alone on its own settings. It passes the active
+  plan, the capability tag and model record its commits carry and any abort reason. A finished close
+  that left its plan at the root fails, because the move is the close.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -82,10 +81,10 @@ consumers.
   reports have one Findings field including deferred findings. Each holds numbered finding blocks
   or its exact empty-field sentence. Finding titles are distinct across the whole report because
   round data joins them to record bullets by title. Quoted evidence and code blocks supply no
-  findings. `vet.ts` reads the fixed verdict
-  lines and requires the report's finding numbers in order. Only Accept verdicts with no following
-  conditions skip the rebuttal. Both readers are supplied through `RoundDependencies`, alongside the
-  HEAD and subject reads.
+  findings. `vet.ts` reads the fixed verdict and answer lines and ignores every other line. It
+  requires verdicts for the report's finding numbers in order and rebuttal answers for each revise,
+  drop and ruling verdict. Only Accept verdicts skip the rebuttal. Both readers are supplied through
+  `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.
@@ -262,7 +261,8 @@ consumers.
   line, beside the time since it. Both chain into the totals beside them; a fresh phase starts its
   stamp baseline at zero and a resumed phase reports no first change. `round-data.ts` owns the
   checked JSON schemas, replace-or-append writer and the read of one plan's existing round-kind
-  files from the active root or closed-plan archive.
+  files from the active root or closed-plan archive. A finding review carries its report number,
+  tier and verdict; retained finding data stores the verdict word and rebuttal answer.
   The planning and implementation files each hold a time-ordered entry per round. An entry records
   state, settings, chosen auditor and source, phase measurements including peak context and
   compactions, landed commits, finding review and outcome data and any judge answer. `RoundOutput`

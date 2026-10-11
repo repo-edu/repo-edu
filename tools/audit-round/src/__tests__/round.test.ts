@@ -219,7 +219,6 @@ function controlledRound(
         number: finding.number,
         tier: finding.tier,
         verdict: evidence.accepted ? "accept" : "revise",
-        conditional: !evidence.accepted,
       })),
       allAccepted: evidence.accepted,
     }),
@@ -1368,7 +1367,7 @@ for (const auditor of ["claude", "codex"] as const) {
         ({ repository, sha }) => ({ repository, sha }),
       ),
     })
-    // Every verdict is an unconditional accept, so the auditor has nothing to answer.
+    // Every verdict is an accept, so the auditor has nothing to answer.
     assert.deepEqual(
       round.calls.map((call) => call.phase),
       ["audit", "vet", "fix", "brief"],
@@ -1602,13 +1601,11 @@ test("the round reads each supplied file and records both heads immediately befo
               number: 1,
               tier: "B",
               verdict: "revise",
-              conditional: true,
             },
             {
               number: 2,
               tier: "C",
               verdict: "accept",
-              conditional: false,
             },
           ],
           allAccepted: false,
