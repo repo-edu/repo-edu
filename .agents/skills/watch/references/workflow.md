@@ -269,7 +269,7 @@ The runner supplies this workflow directly to its watch session.
 
 ## Trajectory diagnostic
 
-The watch alone applies this diagnostic to the supplied Git evidence for each
+The watch alone applies this diagnostic to the supplied evidence for each
 artifact. The module provides the trajectory facts and candidate window starts;
 the watch judges their meaning against the named commits and current artifact.
 It may read additional evidence for a claim without recomputing the episode.
@@ -360,7 +360,7 @@ where the mismatch surfaces, and which class a problem is in is the user's call.
 The writer's judgement rests on reading the commit record and the code, never
 the doer's reasoning. So:
 
-- The writer reads the supplied Git evidence, the current artifact at the area it points
+- The writer reads the supplied evidence, the current artifact at the area it points
   to, the area model, the named plan and the episode's earlier watch documents
   at the plan root. Inspect named commits as needed to verify a claim; do not
   repeat the episode walk or token counts.

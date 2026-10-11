@@ -15,7 +15,11 @@ import {
 } from "../glance.js"
 import type { JudgeEvidence } from "../judge.js"
 import { phaseWorkflow } from "../phase.js"
-import type { ReportFinding } from "../round-data.js"
+import type {
+  LandedCommit,
+  ReportFinding,
+  RoundAccount,
+} from "../round-data.js"
 import {
   type Assistant,
   type Phase,
@@ -133,7 +137,10 @@ function controlledRound(
   const rulings: string[] = []
   const briefs: string[] = []
   const watchGrades: { cacheRoot: string; stem: string }[] = []
-  const settledWrites: unknown[] = []
+  const settledWrites: {
+    commits: readonly LandedCommit[]
+    account: RoundAccount
+  }[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
   let grade: WatchGrade = "green"
@@ -532,23 +539,28 @@ for (const grade of ["green", "amber"] as const) {
 test("a due watch receives the current round's dropped findings from joined evidence", async () => {
   const round = controlledRound()
   round.decide(dueDecision)
-  const joined = JSON.stringify({
-    topic: "example",
-    roundData: {
-      implementation: [
-        {
-          target: "example-impl-all",
-          round: 1,
-          findings: [{ title: reportFinding.title, outcome: "dropped" }],
-        },
-      ],
-    },
-  })
   const result = await runRoundWithAccount(
     { ...files, plan: "example.md", scope: "all" },
     {
       ...round.dependencies,
-      watchEvidence: async () => joined,
+      watchEvidence: async () => {
+        assert.equal(round.settledWrites.length, 1)
+        const settled = round.settledWrites[0]
+        assert.ok(settled)
+        assert.equal(settled.account.findings[0]?.outcome, "dropped")
+        return JSON.stringify({
+          topic: "example",
+          roundData: {
+            implementation: [
+              {
+                target: "example-impl-all",
+                round: 1,
+                findings: settled.account.findings,
+              },
+            ],
+          },
+        })
+      },
     },
   )
 
