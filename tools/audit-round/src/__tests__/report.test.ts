@@ -6,7 +6,7 @@ import {
   reportLocationTable,
 } from "../finding-tokens.js"
 import { readReport as readAuditReport, reportKind } from "../report.js"
-import { readRebuttal, readVet } from "../vet.js"
+import { readRebuttal, readVet, rebuttalAnswers, vetVerdicts } from "../vet.js"
 import { roundGrammarExample, roundGrammarExamples } from "./round-grammar.js"
 
 const readReport = (
@@ -558,7 +558,19 @@ const twoFindings = readAuditReport(
 
 test("the round grammar's vet examples cover every verdict and named refusal", () => {
   const findings = twoFindings.slice(0, 1)
-  for (const example of roundGrammarExamples("vet/")) {
+  const examples = roundGrammarExamples("vet/")
+  for (const verdict of Object.keys(vetVerdicts))
+    assert.ok(
+      examples.some(
+        (example) =>
+          example.outcome === "parsed" &&
+          example.source
+            .split(/\r?\n/)
+            .some((line) => line.trim().endsWith(`] ${verdict}`)),
+      ),
+      verdict,
+    )
+  for (const example of examples) {
     if (example.outcome === "parsed") {
       assert.equal(readVet(example.source, findings).reviews.length, 1)
     } else {
@@ -573,7 +585,19 @@ test("the round grammar's vet examples cover every verdict and named refusal", (
 test("the round grammar's rebuttal examples cover every answer and named refusal", () => {
   const findings = twoFindings.slice(0, 1)
   const reviews = [{ number: 1, tier: "B", verdict: "revise" }] as const
-  for (const example of roundGrammarExamples("rebuttal/")) {
+  const examples = roundGrammarExamples("rebuttal/")
+  for (const answer of Object.keys(rebuttalAnswers))
+    assert.ok(
+      examples.some(
+        (example) =>
+          example.outcome === "parsed" &&
+          example.source
+            .split(/\r?\n/)
+            .some((line) => line.trim().endsWith(`] ${answer}`)),
+      ),
+      answer,
+    )
+  for (const example of examples) {
     if (example.outcome === "parsed") {
       assert.equal(readRebuttal(example.source, findings, reviews).length, 1)
     } else {

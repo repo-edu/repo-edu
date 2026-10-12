@@ -337,6 +337,24 @@ Judged repos: plan@abc123, repo-edu@def456
    The plan repo is already in the judged set.
 ```
 
+#### `report/empty-plan-target` — refused
+
+Refusal: `Finding 1 has an empty plan target`
+
+```markdown
+# Implementation audit workflow
+
+Judged repos: repo-edu@def456
+
+## Findings
+
+1. **C: Reject an empty plan target**
+
+   [plan:] [growth-pattern:none] [reach:developer] [complexity:none]
+
+   A plan deferral must name its destination.
+```
+
 #### `report/unknown-token` — refused
 
 Refusal: `Finding 1 has unknown [foo:...] token at 2`
@@ -566,7 +584,8 @@ Refusal: `unexpected [reach:...] at 2; expected [growth-pattern:...]`
 ### Production
 
 ```text
-<implementation-plan> ::= "## Implementation plan" BLANK <step-list>
+<implementation-plan> ::= "## Implementation plan" BLANK <step-preface>?<step-list>
+<step-preface>        ::= free Markdown without an ordered list
 <step-list>           ::= <step>+
 <step>                ::= <n>". **"<step-title>".** "<host-sentence><step-detail>
 <step-title>          ::= non-empty text
@@ -610,6 +629,18 @@ sentence open each item.
 ## Implementation plan
 
 1. **Route both workflows.** Hosted in both repos. Update each owning file.
+```
+
+#### `plan-step/preface` — parsed
+
+```markdown
+# Example
+
+## Implementation plan
+
+The steps follow this short preface.
+
+1. **Write the parser.** Hosted in Repo Edu. Add the shared reader.
 ```
 
 ## Phase result

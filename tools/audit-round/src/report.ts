@@ -222,6 +222,8 @@ function findingData(
     const sections = values("section")
     const plans = values("plan")
     const covers = values("cover")
+    if (plans.some((plan) => plan.trim().length === 0))
+      throw new Error(`Finding ${heading[1]} has an empty plan target`)
     const locationCount =
       Number(areas.length > 0) +
       Number(sections.length > 0) +

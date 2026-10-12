@@ -6,14 +6,14 @@ import type {
   VetVerdict,
 } from "./round-data.js"
 
-const vetVerdicts = {
+export const vetVerdicts = {
   Accept: "accept",
   Revise: "revise",
   Drop: "drop",
   "Needs user's ruling": "needs-user-ruling",
 } as const satisfies Record<string, VetVerdict>
 
-const rebuttalAnswers = {
+export const rebuttalAnswers = {
   Agree: "agree",
   Contest: "contest",
   "For user's ruling": "for-user-ruling",
