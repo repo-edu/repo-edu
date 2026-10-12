@@ -196,10 +196,37 @@ export async function updateClis(
   }
 }
 
+const openerStamp = "opener"
+
 /**
- * The one `audit-round` cache. It holds the CLI
- * update dates and the watch's own history, so both runs and watches survive
- * a checkout being cleaned.
+ * The settings-chosen opener whose round last completed in the trial's sense,
+ * or null when none is recorded or the stamp is unreadable. Both mean no
+ * alternation has started here, so neither is an error.
+ */
+export async function readLastOpener(
+  cacheRoot: string,
+): Promise<Assistant | null> {
+  try {
+    const text = (await readFile(join(cacheRoot, openerStamp), "utf8")).trim()
+    return text === "claude" || text === "codex" ? text : null
+  } catch {
+    return null
+  }
+}
+
+/** Record the opener so the next `alternate` command run opens opposite it. */
+export async function writeLastOpener(
+  cacheRoot: string,
+  assistant: Assistant,
+): Promise<void> {
+  await mkdir(cacheRoot, { recursive: true })
+  await writeFile(join(cacheRoot, openerStamp), `${assistant}\n`)
+}
+
+/**
+ * The one `audit-round` cache. It holds the CLI update dates, the last
+ * `alternate` opener and the watch's own history, so runs, openers and watches
+ * survive a checkout being cleaned.
  */
 export function resolveCacheRoot(
   runtime: CliRuntime,

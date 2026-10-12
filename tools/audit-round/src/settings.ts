@@ -19,8 +19,12 @@ const alternatingPhase = z.strictObject({ claude: selection, codex: selection })
 const strengths = z.strictObject({ base: model, top: model })
 
 export const settingsSchema = z.strictObject({
-  /** Who opens a series without a command-line choice; `random` flips a coin per command run. */
-  defaultAuditor: z.enum(["claude", "codex", "random"]),
+  /**
+   * Who opens a series without a command-line choice. `random` flips a coin
+   * per command run; `alternate` opens opposite the last opener whose round
+   * completed in the trial's sense.
+   */
+  defaultAuditor: z.enum(["claude", "codex", "random", "alternate"]),
   maximumAutomaticRounds: z.number().int().positive(),
   strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   phases: z.strictObject({

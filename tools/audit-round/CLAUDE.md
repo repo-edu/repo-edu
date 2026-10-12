@@ -204,37 +204,37 @@ consumers.
   sends a non-empty multiline reply. Ctrl-C, end of input and cancellation discard
   an unfinished reply. Non-terminal input supplies no ruling. The assistant never
   inherits the terminal. Reply recording completes before the fix can resume.
-- `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
-  `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
-  resolve the same way. The watch workflow owns `watch.json`: each episode records both
-  repositories' graded heads beside one grade and written date. The glance counts from the plan head
-  for planning rounds and the Repo Edu head for implementation rounds. Both update checks precede
-  settings discovery. Codex compares its installed version with the standalone installer's release
-  channel before running its updater. A current or newer installation is kept. An update is
-  successful only when a fresh version read reaches the checked release or a newer one. Installer
-  output is retained for failure diagnostics, since its success banner does not prove a version
-  change. Failed checks and unverified updates leave the date unstamped so the next run retries.
-  Settings discovery reads each CLI's default selection. It also asks Claude for the release of each
-  model a round's phases may pin, as `namedModels` derives them from `roundPhases`, because a family
-  alias names whichever release is current. Codex runs a named model under that name. Claude control
-  requests and the short-lived Codex settings connection start no LLM turn.
-  `requests.ts` owns headless and manual recovery arguments, including `--approve-for-me` on every
-  Codex phase and resume command and a named model and reasoning effort: Codex takes them before any
-  subcommand, so a resumed phase keeps them, and Claude takes `--model` and `--effort`. A fix
-  awaiting a ruling and a failure both carry their phase, so continuation and recovery use the model
-  the round ran that phase on. Claude uses `--permission-mode auto` in settings discovery and every
-  session entry, and that discovery names no model of its own. `requests.ts` also supplies each
-  fresh phase's selected workflow and whole files listed by the workflow's
-  `reads` header. Header paths resolve from the workflow file. `vfile-matter` parses the header and
-  `zod` checks its shape. Listed workflows supply their own reads recursively, with each source
-  included once. Audit, vet, rebuttal and fix also receive their home launcher. Brief and watch
-  have no launcher; their workflow headers list the `simple` definition directly. The close has
-  no launcher either, and its prompt names a loop-close rather than a round phase.
-  Resumed sessions receive no files again. Root
-  instructions are not listed. Both assistants receive their phase prompts on standard input. Codex
-  command-line arguments contain no prompt text, including on resume, so joined evidence is not
-  limited by the operating system's per-argument size. The same collected file list produces a
-  separate log prompt containing source paths with an omission notice in place of file contents.
+- `startup.ts` owns where the `audit-round` cache lives and holds its update dates and the
+  `alternate` opener stamp. `resolveCacheRoot` is that one owner, so the update stamps, the opener
+  stamp and the watch record the glance reads resolve the same way. The watch workflow owns
+  `watch.json`: each episode records both repositories' graded heads beside one grade and written
+  date. The glance counts from the plan head for planning rounds and the Repo Edu head for
+  implementation rounds. Both update checks precede settings discovery. Codex compares its installed
+  version with the standalone installer's release channel before running its updater. A current or
+  newer installation is kept. An update is successful only when a fresh version read reaches the
+  checked release or a newer one. Installer output is retained for failure diagnostics, since its
+  success banner does not prove a version change. Failed checks and unverified updates leave the
+  date unstamped so the next run retries. Settings discovery reads each CLI's default selection. It
+  also asks Claude for the release of each model a round's phases may pin, as `namedModels` derives
+  them from `roundPhases`, because a family alias names whichever release is current. Codex runs a
+  named model under that name. Claude control requests and the short-lived Codex settings connection
+  start no LLM turn. `requests.ts` owns headless and manual recovery arguments, including
+  `--approve-for-me` on every Codex phase and resume command and a named model and reasoning effort:
+  Codex takes them before any subcommand, so a resumed phase keeps them, and Claude takes `--model`
+  and `--effort`. A fix awaiting a ruling and a failure both carry their phase, so continuation and
+  recovery use the model the round ran that phase on. Claude uses `--permission-mode auto` in
+  settings discovery and every session entry, and that discovery names no model of its own.
+  `requests.ts` also supplies each fresh phase's selected workflow and whole files listed by the
+  workflow's `reads` header. Header paths resolve from the workflow file. `vfile-matter` parses the
+  header and `zod` checks its shape. Listed workflows supply their own reads recursively, with each
+  source included once. Audit, vet, rebuttal and fix also receive their home launcher. Brief and
+  watch have no launcher; their workflow headers list the `simple` definition directly. The close
+  has no launcher either, and its prompt names a loop-close rather than a round phase. Resumed
+  sessions receive no files again. Root instructions are not listed. Both assistants receive their
+  phase prompts on standard input. Codex command-line arguments contain no prompt text, including on
+  resume, so joined evidence is not limited by the operating system's per-argument size. The same
+  collected file list produces a separate log prompt containing source paths with an omission notice
+  in place of file contents.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: every round records a log and transcript,
   a round on an active plan also updates one machine-readable per-plan data file, and a commit
@@ -381,16 +381,19 @@ consumers.
   and its counter. Without `--auditor`, an active settled plan target runs an automatic series. The
   `--first` selection runs first, or the configured default without it, then each judge answer names
   the next assistant or stops. A `random` default resolves its opener once per command run on the
-  same coin the pairs use. Only that first round carries the selection's fields. When the
-  selected assistant has an audit pair, settings-chosen rounds take turns between its members and a
-  coin flip chooses the first. Each assistant keeps its own turn inside this command. A command-line
-  choice takes no turn. The series writes no queue and ends on a stop, the configured maximum, a
-  failure, an unanswered ruling, a red watch or a fix that reopens the plan. A reopened plan
-  finishes the current round without a judge answer. Widening plans and commit targets run once, on
-  the `--first` selection when given. With `--auditor`, the first entry runs first and the remaining
-  entries on a plan target seed its editable queue. A clean audit removes queued entries that
-  resolve to that round's assistant, model and effort. Other settings remain. A fix that lands a
-  clean record removes none. Failure, a round requiring a ruling, a red watch or an empty queue
+  same coin the pairs use. An `alternate` default opens opposite the opener stamp in the cache and
+  falls back to the coin without one. The stamp moves only when a settings-chosen opener's round is
+  complete in the trial's sense, so an aborted opener retries the same assistant; `--first`,
+  `--auditor` and judged rounds never move it. Only that first round carries the selection's fields.
+  When the selected assistant has an audit pair, settings-chosen rounds take turns between its
+  members and a coin flip chooses the first. Each assistant keeps its own turn inside this command.
+  A command-line choice takes no turn. The series writes no queue and ends on a stop, the configured
+  maximum, a failure, an unanswered ruling, a red watch or a fix that reopens the plan. A reopened
+  plan finishes the current round without a judge answer. Widening plans and commit targets run
+  once, on the `--first` selection when given. With `--auditor`, the first entry runs first and the
+  remaining entries on a plan target seed its editable queue. A clean audit removes queued entries
+  that resolve to that round's assistant, model and effort. Other settings remain. A fix that lands
+  a clean record removes none. Failure, a round requiring a ruling, a red watch or an empty queue
   stops the manual sequence, and the queue file is deleted however the sequence ends. Each manual
   round prints the queue's path and contents when it opens. Each automatic round prints its judge
   answer and reason. Each round records its own file pair and the coordinator has no filesystem side
@@ -567,6 +570,10 @@ left unchanged.
 - `defaultAuditor` selects Claude or Codex when neither `--auditor` nor `--first` is given.
   `random` flips a coin for the opener in each command run, so neither assistant always takes
   the first look at a target; the round data still records that choice as settings-chosen.
+  `alternate` opens opposite the last settings-chosen opener whose round completed in the trial's
+  sense, recorded as `opener` in the `audit-round` cache, so the trial's first looks stay balanced
+  between assistants; an opener that fails before its commit leaves no first-look evidence and the
+  next run retries it. Without a stamp the coin opens.
 - `maximumAutomaticRounds` limits an active settled plan's automatic series, counting
   its first round.
 - `strengthModels` maps each assistant's base and top tiers to a model name.

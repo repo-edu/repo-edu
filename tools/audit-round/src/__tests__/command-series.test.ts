@@ -417,6 +417,81 @@ test("a random default auditor opens the series on the coin and the series still
   )
 })
 
+test("an alternate default opens opposite the last completed opener and records its own", async (t) => {
+  const series = async (stamp: string | null, coin: 0 | 1) => {
+    const f = await roundFixture(
+      t,
+      "claude",
+      "repo-edu",
+      false,
+      "c",
+      false,
+      "repo-edu",
+      false,
+      true,
+    )
+    if (stamp !== null)
+      await writeFile(join(f.options.cacheRoot, "opener"), `${stamp}\n`)
+    const settings = structuredClone(testSettings)
+    settings.defaultAuditor = "alternate"
+    await configureJudgeAnswers(f, [
+      "Judge: stop. The first round found no reason for another round.",
+    ])
+    assert.equal(
+      await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
+        ...f.options,
+        settings,
+        coin: () => coin,
+      }),
+      0,
+      `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+    )
+    const audits = (await f.prompts()).filter((call) =>
+      call.prompt.startsWith("Run the audit phase "),
+    )
+    return {
+      opener: audits.map((call) => call.assistant),
+      stamp: await readFile(join(f.options.cacheRoot, "opener"), "utf8"),
+    }
+  }
+  // Without a stamp the coin opens, and the completed round records the opener.
+  assert.deepEqual(await series(null, 0), {
+    opener: ["claude"],
+    stamp: "claude\n",
+  })
+  // A stamp outranks the coin, and the completed round replaces it.
+  assert.deepEqual(await series("claude", 0), {
+    opener: ["codex"],
+    stamp: "codex\n",
+  })
+})
+
+test("an alternate opener that fails before its commit leaves the stamp for a retry", async (t) => {
+  const f = await roundFixture(t)
+  await writeFile(join(f.options.cacheRoot, "opener"), "claude\n")
+  await writeFile(f.report, "Malformed evidence")
+  const settings = structuredClone(testSettings)
+  settings.defaultAuditor = "alternate"
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings,
+    }),
+    1,
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["codex"],
+  )
+  assert.equal(
+    await readFile(join(f.options.cacheRoot, "opener"), "utf8"),
+    "claude\n",
+  )
+})
+
 test("--first replaces the default auditor's first round and the series still follows judges", async (t) => {
   const f = await roundFixture(
     t,

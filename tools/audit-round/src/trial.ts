@@ -27,7 +27,16 @@ type TrialRound = {
   readonly data: RoundData
 }
 
-function trialRoundComplete(round: RoundData): boolean {
+/**
+ * Whether a round supplies first-look evidence: it ended, landed a commit and
+ * every finding reached an outcome. The `alternate` opener stamp moves on the
+ * same test, so the trial's first rounds stay balanced between assistants.
+ */
+export function trialRoundComplete(round: {
+  readonly status: RoundData["status"]
+  readonly commits: readonly RoundData["commits"][number][]
+  readonly findings: readonly RoundFinding[]
+}): boolean {
   return (
     ["finished", "failed", "interrupted"].includes(round.status) &&
     round.commits.length > 0 &&

@@ -70,7 +70,12 @@ import {
 import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
-import { prepareAssistants, resolveCacheRoot } from "./startup.js"
+import {
+  prepareAssistants,
+  readLastOpener,
+  resolveCacheRoot,
+  writeLastOpener,
+} from "./startup.js"
 import {
   activePlan,
   isActivePlanPath,
@@ -81,7 +86,7 @@ import {
   roundContext,
   targetRequest,
 } from "./target.js"
-import { trialReport } from "./trial.js"
+import { trialReport, trialRoundComplete } from "./trial.js"
 import { readRebuttal, readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
@@ -280,7 +285,9 @@ Round sequence:
 
   Automatic series (active settled plan without --auditor):
     - The configured default auditor runs first, or the --first selection. A
-      random default flips a coin for the opener in each command run.
+      random default flips a coin for the opener in each command run. An
+      alternate default opens opposite the last settings-chosen opener that
+      completed its round, as recorded in the audit-round cache.
     - After each non-red round, a fresh judge picks the next assistant or stops.
       A settled A or B finding removes stop from the judge's options.
     - No queue file is written.
@@ -941,14 +948,52 @@ export async function runCommand(
       let rest: readonly AuditorEntry[] = queued
       if (queue !== null) await writeQueue(queue, rest)
       const coin = options.coin ?? (() => (Math.random() < 0.5 ? 0 : 1))
-      // A random default opens each command run on the coin, so neither
-      // assistant always takes the first look at a target.
-      const opener: Assistant =
-        settings.defaultAuditor === "random"
+      const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
+      // A settings-chosen opener takes the first look at a target, which the
+      // trial reads as the decisive round. A random default opens each command
+      // run on the coin; an alternate default opens opposite the last opener
+      // whose round completed, so the trial's first looks stay balanced.
+      const settingsOpener = async (): Promise<Assistant> => {
+        if (settings.defaultAuditor === "alternate") {
+          const last = await readLastOpener(cacheRoot)
+          if (last !== null) return last === "claude" ? "codex" : "claude"
+        }
+        return settings.defaultAuditor === "random" ||
+          settings.defaultAuditor === "alternate"
           ? (["claude", "codex"] as const)[coin()]
           : settings.defaultAuditor
-      let seat: AuditorSeat | null = first ??
-        prepared.firstAuditor ?? { assistant: opener, override: noOverride }
+      }
+      const opened = first ?? prepared.firstAuditor
+      let seat: AuditorSeat | null = opened ?? {
+        assistant: await settingsOpener(),
+        override: noOverride,
+      }
+      // Only a completed settings-chosen opener moves the stamp: an aborted
+      // opener left no first-look evidence, so the same assistant retries.
+      const recordOpener = async (
+        run: Run,
+        round: RoundResult,
+        output: RoundOutput,
+      ): Promise<void> => {
+        if (
+          settings.defaultAuditor !== "alternate" ||
+          opened !== undefined ||
+          run.data === undefined ||
+          !trialRoundComplete({
+            status: round.status,
+            commits: round.commits,
+            findings: round.account.findings,
+          })
+        )
+          return
+        try {
+          await writeLastOpener(cacheRoot, run.data.auditor.assistant)
+        } catch (error) {
+          await output.message(
+            `Warning: cannot save the opener for alternation: ${errorMessage(error)}`,
+          )
+        }
+      }
       const nextPairSlots: Partial<Record<Assistant, AuditSlot>> = {}
       const takeAuditSlot = (current: AuditorSeat): AuditSlot => {
         if (
@@ -1008,7 +1053,7 @@ export async function runCommand(
               watch: prepared.watch
                 ? {
                     file: run.watch,
-                    cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
+                    cacheRoot,
                   }
                 : null,
             },
@@ -1017,6 +1062,7 @@ export async function runCommand(
           )
           result = round
           active.finish(round, runtime.signal)
+          if (completed === 0) await recordOpener(run, round, active)
           completed += 1
           if (!automatic && queue === null) break
           if (round.status !== "finished") {
