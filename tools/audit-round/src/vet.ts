@@ -24,6 +24,44 @@ export type VetReading = {
   readonly allAccepted: boolean
 }
 
+type Header<Word extends string> = {
+  readonly number: number
+  readonly tier: FindingReview["tier"]
+  readonly word: Word
+}
+
+/**
+ * A verdict or answer header is `<number>. [<tier>] <word>` and nothing else.
+ * A line in that shape whose word is outside the phase's list is refused by
+ * name rather than passed as free text, so a vet word on a rebuttal line, or
+ * the reverse, fails on the line that is wrong instead of as a missing entry.
+ * Every other line is free text for the fix phase. Whitespace at either end,
+ * such as a Markdown hard break, carries no content.
+ */
+function readHeader<const Words extends Record<string, string>>(
+  line: string,
+  phase: string,
+  words: Words,
+): Header<keyof Words & string> | null {
+  const header = /^([1-9]\d*)\. \[([A-D])\] (.+)$/.exec(line.trim())
+  if (header === null) return null
+  const word = header[3] as string
+  if (!Object.hasOwn(words, word))
+    throw new Error(
+      `${phase} ${header[1]} uses the word "${word}"; use ${listWords(words)}`,
+    )
+  return {
+    number: Number(header[1]),
+    tier: header[2] as FindingReview["tier"],
+    word: word as keyof Words & string,
+  }
+}
+
+function listWords(words: Record<string, string>): string {
+  const names = Object.keys(words)
+  return `${names.slice(0, -1).join(", ")} or ${names.at(-1)}`
+}
+
 function checkFindingIdentity(
   number: number,
   tier: string,
@@ -36,26 +74,17 @@ function checkFindingIdentity(
     )
 }
 
-/**
- * Verdicts have a fixed line grammar. Every other line is ignored.
- * Whitespace at either end, such as a Markdown hard break, carries no content.
- */
 export function readVet(source: string, findings: ReportFindings): VetReading {
   const reviews: FindingReview[] = []
   for (const line of source.split(/\r?\n/)) {
-    const verdict =
-      /^([1-9]\d*)\. \[([A-D])\] (Accept|Revise|Drop|Needs user's ruling)$/.exec(
-        line.trim(),
-      )
-    if (verdict !== null) {
-      const number = Number(verdict[1])
-      checkFindingIdentity(number, verdict[2], findings)
-      reviews.push({
-        number,
-        tier: verdict[2] as FindingReview["tier"],
-        verdict: vetVerdicts[verdict[3] as keyof typeof vetVerdicts],
-      })
-    }
+    const header = readHeader(line, "Vet verdict", vetVerdicts)
+    if (header === null) continue
+    checkFindingIdentity(header.number, header.tier, findings)
+    reviews.push({
+      number: header.number,
+      tier: header.tier,
+      verdict: vetVerdicts[header.word],
+    })
   }
   if (
     reviews.length !== findings.length ||
@@ -78,21 +107,19 @@ export function readRebuttal(
 ): readonly FindingRebuttal[] {
   const rebuttals: FindingRebuttal[] = []
   for (const line of source.split(/\r?\n/)) {
-    const answer =
-      /^([1-9]\d*)\. \[([A-D])\] (Agree|Contest|For user's ruling)$/.exec(
-        line.trim(),
+    const header = readHeader(line, "Rebuttal answer", rebuttalAnswers)
+    if (header === null) continue
+    checkFindingIdentity(header.number, header.tier, findings)
+    if (rebuttals.some((rebuttal) => rebuttal.number === header.number))
+      throw new Error(
+        `Rebuttal answers finding ${header.number} more than once`,
       )
-    if (answer === null) continue
-    const number = Number(answer[1])
-    checkFindingIdentity(number, answer[2], findings)
-    if (rebuttals.some((rebuttal) => rebuttal.number === number))
-      throw new Error(`Rebuttal answers finding ${number} more than once`)
-    if ((rebuttals.at(-1)?.number ?? 0) >= number)
+    if ((rebuttals.at(-1)?.number ?? 0) >= header.number)
       throw new Error("Rebuttal answers must follow report order")
     rebuttals.push({
-      number,
-      tier: answer[2] as FindingRebuttal["tier"],
-      answer: rebuttalAnswers[answer[3] as keyof typeof rebuttalAnswers],
+      number: header.number,
+      tier: header.tier,
+      answer: rebuttalAnswers[header.word],
     })
   }
   const missing = reviews.find(

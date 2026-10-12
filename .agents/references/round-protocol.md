@@ -904,10 +904,27 @@ states why. Keep each vet-verdict to a few short sentences.
 Every vet-verdict starts with exactly `<audit-finding number>. [<tier>] <vet-verdict>`. Use the
 report's audit-finding number and A/B/C/D tier. The vet-verdict is exactly one of `Accept`,
 `Revise`, `Drop` or `Needs user's ruling`. The first line contains nothing else, for example
-`1. [B] Accept`. Every line that does not match this grammar is free text for the fix phase and
+`1. [B] Accept`. A line in that shape with any other word, such as a rebuttal word, is refused by
+name. Every other line is free text for the fix phase and
 never changes a verdict's kind. Put drift notes before the first vet-verdict. Write a condition as
 `Revise` and state the revision on later lines. The vet-verdict numbers must match the report
 exactly. This format applies in both chat and the `-3-vet.<tag>.md` twin.
+
+A complete vet twin for a report with three audit-findings:
+
+```text
+Drift since the audit: `src/report.ts` moved to `src/report/read.ts`.
+
+1. [B] Accept
+
+2. [C] Revise
+
+Keep the defect and narrow the correction to the reader; the writer already refuses the value.
+
+3. [D] Drop
+
+The decision names the plan repo root at line 12.
+```
 
 Return the complete vet-verdicts in the final response. When hand-run, also
 write the same text to the supplied vet path. The twin is untracked and
@@ -934,12 +951,25 @@ Every rebut-answer starts with exactly `<audit-finding number>. [<tier>] <rebut-
 Use the report's audit-finding number and A/B/C/D tier. The header keeps the report's tier even
 when the answer agrees with a revised tier; the new tier belongs in the note, and the fix records
 it. The rebut-answer is exactly one of `Agree`, `Contest` or `For user's ruling`.
-The first line contains nothing else, for example `1. [B] Agree`.
-Every line that does not match this grammar is free text for the fix phase and
-never changes the rebut-answer's kind. An `Agree` with no useful note ends
+The first line contains nothing else, for example `1. [B] Agree`. The word is the
+auditor's answer, never the vet-verdict it answers: `2. [C] Drop` on a rebuttal line is refused by
+name, and agreement with a drop is written `2. [C] Agree`. Every other line is free text for the
+fix phase and never changes the rebut-answer's kind. An `Agree` with no useful note ends
 after the first line; do not repeat the audit-finding title, evidence or
 reasoning. Other rebut-answers use a few short sentences. Every rebut-answer is
 one of three kinds.
+
+A complete rebuttal twin answering the vet twin above:
+
+```text
+2. [C] Agree
+
+Revised correction in full: the reader takes the value from the shared list.
+
+3. [D] Contest
+
+The decision at line 12 names the Repo Edu root, not the plan repo root; the vet-verdict should be Accept.
+```
 
 - Agree. The vet-verdict stands. Add further information only when it helps the
   fix. Agreement with a revise carries the revised correction in full as a note

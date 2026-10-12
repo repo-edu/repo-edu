@@ -535,13 +535,29 @@ test("vet refuses missing, duplicate, out-of-order and malformed verdict numbers
     "1. [B] Accept\n1. [B] Accept",
     "2. [B] Accept\n1. [C] Accept",
     "1. [B] Accept\n3. [C] Accept",
-    "1. [B] Accept with a condition\n2. [C] Accept",
     "1. [b] Accept\n2. [C] Accept",
   ])
     assert.throws(() => readVet(source, twoFindings), /numbers/, source)
   assert.throws(
     () => readVet("1. [B] Accept\n2. [C] Accept", twoFindings.slice(0, 1)),
     /numbers/,
+  )
+})
+
+test("vet and rebuttal refuse a header whose word is outside their list by name", () => {
+  for (const source of [
+    "1. [B] Agree\n2. [C] Accept",
+    "1. [B] Accept with a condition\n2. [C] Accept",
+  ])
+    assert.throws(
+      () => readVet(source, twoFindings),
+      /^Error: Vet verdict 1 uses the word ".+"; use Accept, Revise, Drop or Needs user's ruling$/,
+      source,
+    )
+  const reviews = readVet("1. [B] Accept\n2. [C] Drop", twoFindings).reviews
+  assert.throws(
+    () => readRebuttal("2. [C] Drop\n\nAgree.", twoFindings, reviews),
+    /^Error: Rebuttal answer 2 uses the word "Drop"; use Agree, Contest or For user's ruling$/,
   )
 })
 
