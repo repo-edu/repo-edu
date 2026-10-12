@@ -11,7 +11,7 @@ import {
   testSettings,
   transcriptNameStart,
 } from "./configured-runner.js"
-import { fixture, selections, testContext } from "./helpers.js"
+import { fixture, selections, testContext, testSetup } from "./helpers.js"
 import { commitFixture } from "./round-fixture.js"
 
 const options = { terminal: { write() {}, status() {}, clear() {} } }
@@ -20,7 +20,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   const f = await fixture(t)
   const run = await roundRun(
     {
-      ...testContext(f.root),
+      ...testSetup(f.root),
       commits: ["abcdef..123abc"],
       repository: "repo-edu",
       brief: true,
@@ -61,7 +61,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     (
       await roundRun(
         {
-          ...testContext(f.root),
+          ...testSetup(f.root),
           commits: ["abcdef..123abc"],
           repository: "repo-edu",
         },
@@ -97,7 +97,7 @@ test("different auditors cannot open the same candidate and the next run advance
 
 test("only retained numbered files at the plan root reserve numbers across auditors", async (t) => {
   const f = await fixture(t)
-  const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   for (const root of [f.root, join(f.root, "../plan")]) {
     for (const suffix of [
       "0-claim.md",
@@ -142,7 +142,7 @@ test("only retained numbered files at the plan root reserve numbers across audit
 
 test("a plan-root report survives partial cleanup and full cleanup restarts numbering", async (t) => {
   const f = await fixture(t)
-  const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const run = await roundRun(setup, 0, selections)
   new RoundOutput(run, options).close()
   const report = join(f.root, "../plan", `${run.nameStart}-2-audit.oth.md`)
@@ -162,7 +162,7 @@ test("a plan-root report survives partial cleanup and full cleanup restarts numb
 
 test("a failed tagged-file open retains the number's claim", async (t) => {
   const f = await fixture(t)
-  const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const run = await roundRun(setup, 0, selections)
   await mkdir(run.paths.log)
   assert.throws(() => new RoundOutput(run, options))
@@ -190,7 +190,7 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
     ],
   ] as const) {
     const run = await roundRun(
-      { ...testContext(f.root), commits, repository },
+      { ...testSetup(f.root), commits, repository },
       0,
       selections,
     )
@@ -208,7 +208,7 @@ test("single steps and ranges keep separate padded numbering", async (t) => {
   ] as const) {
     const run = await roundRun(
       {
-        ...testContext(f.root),
+        ...testSetup(f.root),
         plan: "example.md",
         scope,
       },
@@ -256,7 +256,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
       }
       await assert.rejects(
         roundRun(
-          { ...testContext(f.root), plan: "example.md", scope: "1" },
+          { ...testSetup(f.root), plan: "example.md", scope: "1" },
           0,
           chosen,
         ),
@@ -270,7 +270,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
   await assert.rejects(
     roundRun(
       {
-        ...testContext(f.root),
+        ...testSetup(f.root),
         plan: "example.md",
         scope: "1",
         override: { option: "--auditor", strength: "top", effort: "high" },
@@ -293,7 +293,7 @@ test("an automatic judge needs no capability tag because it writes no file", asy
   const f = await fixture(t)
   const run = await buildRoundRun(
     {
-      ...testContext(f.root),
+      ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
       automatic: true,
@@ -324,7 +324,7 @@ test("an automatic judge needs no capability tag because it writes no file", asy
 
 test("planning rounds number their bare target at the plan root and write there", async (t) => {
   const f = await fixture(t)
-  const context = testContext(f.root, "planning")
+  const context = testSetup(f.root, "planning")
   await writeFile(join(context.planRoot, "example-plan-05-0-claim.md"), "")
   const run = await roundRun(
     { ...context, plan: "example-widen.md" },

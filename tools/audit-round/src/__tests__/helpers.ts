@@ -46,6 +46,24 @@ export function testContext(
   }
 }
 
+/** A round setup on the fixture's default auditor, for tests that do not choose one. */
+export function testSetup(
+  repoEduRoot: string,
+): RoundContext & {
+  readonly roundKind: "implementation"
+  readonly auditor: "codex"
+}
+export function testSetup<K extends RoundKind>(
+  repoEduRoot: string,
+  roundKind: K,
+): RoundContext & { readonly roundKind: K; readonly auditor: "codex" }
+export function testSetup(
+  repoEduRoot: string,
+  roundKind: RoundKind = "implementation",
+): RoundContext & { readonly auditor: "codex" } {
+  return { ...testContext(repoEduRoot, roundKind), auditor: "codex" }
+}
+
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
 export const selections = {
   claude: {

@@ -12,7 +12,7 @@ import {
   testSettings,
   unpinned,
 } from "./configured-runner.js"
-import { fixture, selections, testContext } from "./helpers.js"
+import { fixture, selections, testContext, testSetup } from "./helpers.js"
 
 for (const { zone, instant, timestamp } of [
   {
@@ -59,7 +59,7 @@ for (const { zone, instant, timestamp } of [
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { ...testContext(f.root), plan: "example.md", scope: "1" },
+        { ...testSetup(f.root), plan: "example.md", scope: "1" },
         Date.parse(instant),
         selections,
       ),
@@ -103,7 +103,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const log: string[] = []
   const run = await roundRun(
-    { ...testContext(f.root), plan: "example.md", scope: "1" },
+    { ...testSetup(f.root), plan: "example.md", scope: "1" },
     Date.now(),
     selections,
   )
@@ -191,7 +191,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
   const f = await fixture(t)
   const run = await buildRoundRun(
     {
-      ...testContext(f.root),
+      ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
       automatic: true,
@@ -219,7 +219,7 @@ test("the final retained write stores the judge answer", async (t) => {
   const f = await fixture(t)
   const run = await buildRoundRun(
     {
-      ...testContext(f.root),
+      ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
       automatic: true,
@@ -260,7 +260,7 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
   const f = await fixture(t)
   const run = await buildRoundRun(
     {
-      ...testContext(f.root),
+      ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
       automatic: true,
@@ -303,7 +303,7 @@ for (const [name, abortReason, status] of [
   test(`${name} writes the matching retained status`, async (t) => {
     const f = await fixture(t)
     const run = await buildRoundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "1" },
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
       testSettings,
@@ -350,7 +350,7 @@ for (const assistant of ["claude", "codex"] as const) {
         fix: { ...testSettings.phases.fix, assistant },
       },
     }
-    const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
+    const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
     const run = await buildRoundRun(setup, Date.now(), selections, settings)
     const log: string[] = []
     const output = new RoundOutput(run, {
@@ -495,7 +495,7 @@ for (const assistant of ["claude", "codex"] as const) {
         fix: { ...testSettings.phases.fix, assistant },
       },
     }
-    const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
+    const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
     const run = await buildRoundRun(setup, Date.now(), selections, settings)
     const output = new RoundOutput(run, {
       terminal: {
@@ -564,7 +564,7 @@ for (const assistant of ["claude", "codex"] as const) {
 test("commit stamps time the finished audit, vet and rebuttal and never the fix", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
-  const setup = { ...testContext(f.root), plan: "example.md", scope: "1" }
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const phases = roundPhases("codex", noOverride)
   const output = new RoundOutput(
     await roundRun(setup, Date.now(), selections),
@@ -630,7 +630,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   const log: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "1" },
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),

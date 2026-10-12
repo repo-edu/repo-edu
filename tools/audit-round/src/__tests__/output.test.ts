@@ -15,7 +15,7 @@ import {
   roundRun,
   unpinned,
 } from "./configured-runner.js"
-import { fixture, selections, testContext } from "./helpers.js"
+import { fixture, selections, testContext, testSetup } from "./helpers.js"
 
 test("long commit lists record every reference without exceeding filename limits", async (t) => {
   const f = await fixture(t)
@@ -24,7 +24,7 @@ test("long commit lists record every reference without exceeding filename limits
     ...Array.from({ length: 9 }, (_, n) => String(n).repeat(40)),
   ] as const
   const run = await roundRun(
-    { ...testContext(f.root), commits, repository: "repo-edu" },
+    { ...testSetup(f.root), commits, repository: "repo-edu" },
     Date.now(),
     selections,
   )
@@ -106,7 +106,7 @@ test("output records complete invocations incrementally and refreshes only while
   let clears = 0
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "1" },
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),
@@ -232,7 +232,7 @@ test("written status stamps chain into the running total", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "1" },
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),
@@ -298,7 +298,7 @@ for (const assistant of ["claude", "codex"] as const) {
       const visible: string[] = []
       const output = new RoundOutput(
         await roundRun(
-          { ...testContext(f.root), plan: "example.md", scope: "1" },
+          { ...testSetup(f.root), plan: "example.md", scope: "1" },
           Date.now(),
           selections,
         ),
@@ -462,7 +462,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "1" },
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),
@@ -676,7 +676,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { ...testContext(f.root), plan: "example.md", scope: "1" },
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
       selections,
     ),

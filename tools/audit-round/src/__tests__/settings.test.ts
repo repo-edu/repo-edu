@@ -21,7 +21,7 @@ test("a missing settings file is generated from the built-in defaults", async (t
   assert.deepEqual(JSON.parse(await readFile(path, "utf8")), defaultSettings)
 
   const edited = structuredClone(settings)
-  edited.defaultAuditor = "claude"
+  edited.defaultAuditor = "random"
   edited.phases.watch = {
     assistant: "claude",
     model: "custom-watch",

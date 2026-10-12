@@ -373,6 +373,50 @@ test("an archived plan without --auditor is refused", async (t) => {
   await assert.rejects(f.prompts())
 })
 
+test("a random default auditor opens the series on the coin and the series still follows judges", async (t) => {
+  const f = await roundFixture(
+    t,
+    "claude",
+    "repo-edu",
+    false,
+    "c",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  const settings = structuredClone(testSettings)
+  settings.defaultAuditor = "random"
+  await configureJudgeAnswers(f, [
+    "Judge: continue with Codex. Codex should cross-check the first round.",
+    "Judge: stop. The cross-check found no reason for another round.",
+  ])
+
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings,
+      coin: () => 0,
+    }),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["claude", "codex"],
+  )
+  const stored = JSON.parse(
+    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { auditor: { assistant: string; chosenBy: string } }[]
+  assert.deepEqual(
+    stored.map((entry) => entry.auditor.chosenBy),
+    ["settings", "settings"],
+  )
+})
+
 test("--first replaces the default auditor's first round and the series still follows judges", async (t) => {
   const f = await roundFixture(
     t,

@@ -19,6 +19,7 @@ import {
 import {
   type Assistant,
   type AssistantTurnInput,
+  closePhase,
   noOverride,
   type Phase,
   type PhaseResult,
@@ -179,7 +180,7 @@ export async function roundRun(
   }
 > {
   const phases = roundPhases(
-    setup.auditor ?? settings.defaultAuditor,
+    setup.auditor,
     setup.override ?? noOverride,
     settings,
     setup.auditSlot,
@@ -311,10 +312,7 @@ export function closeRun(
   selections: Record<Assistant, CliModels>,
   settings: RoundSettings,
 ): Run & { readonly tag: string; readonly record: string } {
-  const phase = {
-    phase: "close",
-    ...roundPhases(settings.defaultAuditor, noOverride, settings).close,
-  } as const
+  const phase = { phase: "close", ...closePhase(settings) } as const
   const tag = fileTag(phase, selections, settings)
   const { model, effort } = phaseSelection(
     phase.model,

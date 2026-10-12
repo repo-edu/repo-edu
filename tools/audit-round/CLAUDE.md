@@ -98,7 +98,8 @@ consumers.
   two-member form which `command.ts` turns through. `roundPhases` is the one owner of the round's
   phases: it resolves the chosen member once for audit and rebuttal, the runner invokes from the
   value it returns and the run's settings header prints the same value, so what a round says it ran
-  on is what it ran with. A phase names a
+  on is what it ran with. `closePhase` names the loop-close on its own settings, because the close
+  belongs to no auditor. A phase names a
   model, an effort, both or neither; a named field runs on what it names whatever the CLI is
   configured to use, and an unnamed one follows that configuration. `settings.json` owns phase
   selections and the model tier table. `settings.ts` loads and validates it once at command entry,
@@ -378,7 +379,8 @@ consumers.
   prints that help; options without a target take `defaultTarget`. It also owns the round sequence
   and its counter. Without `--auditor`, an active settled plan target runs an automatic series. The
   `--first` selection runs first, or the configured default without it, then each judge answer names
-  the next assistant or stops. Only that first round carries the selection's fields. When the
+  the next assistant or stops. A `random` default resolves its opener once per command run on the
+  same coin the pairs use. Only that first round carries the selection's fields. When the
   selected assistant has an audit pair, settings-chosen rounds take turns between its members and a
   coin flip chooses the first. Each assistant keeps its own turn inside this command. A command-line
   choice takes no turn. The series writes no queue and ends on a stop, the configured maximum, a
@@ -453,6 +455,8 @@ defaults. An invalid file stops the command with a validation error and is
 left unchanged.
 
 - `defaultAuditor` selects Claude or Codex when neither `--auditor` nor `--first` is given.
+  `random` flips a coin for the opener in each command run, so neither assistant always takes
+  the first look at a target; the round data still records that choice as settings-chosen.
 - `maximumAutomaticRounds` limits an active settled plan's automatic series, counting
   its first round.
 - `strengthModels` maps each assistant's base and top tiers to a model name.

@@ -40,7 +40,7 @@ import {
   episode,
   history,
 } from "./episode-fixture.js"
-import { testContext } from "./helpers.js"
+import { testContext, testSetup } from "./helpers.js"
 
 /** The brief names its own model, so its seat is the one a round never overrides. */
 const briefPin: PinnedModel = {
@@ -85,7 +85,7 @@ const landedRecords = (
   }))
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
-  ...testContext(repoRoot),
+  ...testSetup(repoRoot),
   transcript,
   watch: { file: watch, cacheRoot },
   documents: {

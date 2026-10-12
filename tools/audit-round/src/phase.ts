@@ -301,8 +301,16 @@ export function roundPhases(
     watch: run("watch", config.phases.watch.assistant),
     // The judge reads retained evidence and uses its own cheap setting.
     judge: run("judge", config.phases.judge.assistant),
-    // Loop-close is no part of a round; it runs alone on its own settings.
-    close: run("close", config.phases.close.assistant),
+    close: closePhase(config),
+  }
+}
+
+/** Loop-close is no part of a round; it runs alone on its own settings, whoever audits. */
+export function closePhase(config: RoundSettings): PhaseRun {
+  const assistant = config.phases.close.assistant
+  return {
+    assistant,
+    model: phaseModel("close", assistant, noOverride, config, 0),
   }
 }
 

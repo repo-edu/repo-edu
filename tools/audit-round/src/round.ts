@@ -7,6 +7,7 @@ import {
   type Assistant,
   type AuditorOverride,
   type AuditSlot,
+  closePhase,
   type InteractiveSession,
   noOverride,
   type Phase,
@@ -35,7 +36,7 @@ import { type AuditTarget, planStem, type RoundContext } from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
 export type RoundSetup = RoundContext & {
-  readonly auditor?: Assistant
+  readonly auditor: Assistant
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
   /** Which member of a configured audit pair this round runs. */
@@ -194,7 +195,7 @@ export async function runClose(
   dependencies: Pick<RoundDependencies, "runPhase" | "fileExists">,
   settings: RoundSettings,
 ): Promise<CloseResult> {
-  const run = roundPhases(settings.defaultAuditor, noOverride, settings).close
+  const run = closePhase(settings)
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
   const close = await dependencies.runPhase.close({
@@ -358,7 +359,7 @@ export async function runRound(
 ): Promise<RoundResult> {
   let account: RoundAccount = { judgedRepos: [], findings: [] }
   const phases = roundPhases(
-    input.auditor ?? settings.defaultAuditor,
+    input.auditor,
     input.override ?? noOverride,
     settings,
     input.auditSlot,

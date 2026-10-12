@@ -11,7 +11,7 @@ import { basename, join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "../command.js"
 import { roundRun } from "./configured-runner.js"
-import { selections, testContext } from "./helpers.js"
+import { selections, testSetup } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
 for (const working of ["repo-edu", "plan"] as const) {
@@ -256,7 +256,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   const f = await roundFixture(t)
   const run = await roundRun(
     {
-      ...testContext(f.repoRoot),
+      ...testSetup(f.repoRoot),
       commits: ["abc123..def456"],
       repository: "repo-edu",
     },

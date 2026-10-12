@@ -1,5 +1,5 @@
 {
-    "defaultAuditor": "claude",
+    "defaultAuditor": "random",
     "maximumAutomaticRounds": 10,
     "strengthModels": {
         "claude": {

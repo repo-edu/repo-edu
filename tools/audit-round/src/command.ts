@@ -279,7 +279,8 @@ Auditor selection (--auditor <selections>):
 Round sequence:
 
   Automatic series (active settled plan without --auditor):
-    - The configured default auditor runs first, or the --first selection.
+    - The configured default auditor runs first, or the --first selection. A
+      random default flips a coin for the opener in each command run.
     - After each non-red round, a fresh judge picks the next assistant or stops.
       A settled A or B finding removes stop from the judge's options.
     - No queue file is written.
@@ -580,7 +581,7 @@ export async function runCommand(
     readonly repoEduRoot?: string
     readonly settings?: RoundSettings
     readonly readReply?: () => Promise<string | null>
-    /** Supplies the first member of each configured pair in deterministic tests. */
+    /** Supplies a random default's opener and each pair's first member in deterministic tests. */
     readonly coin?: () => AuditSlot
   },
 ): Promise<number> {
@@ -939,13 +940,16 @@ export async function runCommand(
           : null
       let rest: readonly AuditorEntry[] = queued
       if (queue !== null) await writeQueue(queue, rest)
-      let seat: AuditorSeat | null = first ??
-        prepared.firstAuditor ?? {
-          assistant: settings.defaultAuditor,
-          override: noOverride,
-        }
-      const nextPairSlots: Partial<Record<Assistant, AuditSlot>> = {}
       const coin = options.coin ?? (() => (Math.random() < 0.5 ? 0 : 1))
+      // A random default opens each command run on the coin, so neither
+      // assistant always takes the first look at a target.
+      const opener: Assistant =
+        settings.defaultAuditor === "random"
+          ? (["claude", "codex"] as const)[coin()]
+          : settings.defaultAuditor
+      let seat: AuditorSeat | null = first ??
+        prepared.firstAuditor ?? { assistant: opener, override: noOverride }
+      const nextPairSlots: Partial<Record<Assistant, AuditSlot>> = {}
       const takeAuditSlot = (current: AuditorSeat): AuditSlot => {
         if (
           current.override !== noOverride ||
