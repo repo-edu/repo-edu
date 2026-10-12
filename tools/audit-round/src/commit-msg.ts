@@ -26,13 +26,12 @@ const efforts = {
   x: "xhigh",
 } as const
 
-/**
- * A model record line: an optional phase list, the model, and an optional
- * effort. The shape is checked rather than a list of model names, so a new
- * model family needs no edit here.
- */
-const modelLine =
-  /^([a-z]+(, [a-z]+)*: )?[A-Za-z0-9][^ ]*( (low|medium|high|xhigh))?$/
+const singleModelLine = /^[A-Za-z0-9][^ ]* (low|medium|high|xhigh)$/
+const phaseModelLine =
+  /^(?:audit|vet|rebut|fix)(?:, (?:audit|vet|rebut|fix))*: [A-Za-z0-9][^ ]* (low|medium|high|xhigh)$/
+const modelLine = new RegExp(
+  `(?:${singleModelLine.source})|(?:${phaseModelLine.source})`,
+)
 
 /**
  * The round's time line, which follows its phase lines. It belongs to the
@@ -41,7 +40,7 @@ const modelLine =
 const timeLine =
   /^(Audit|Audit and vet|Audit, vet and rebuttal) took \d+ min\.$/
 
-/** Read the leading model lines which identify what produced a commit. */
+/** Read the complete leading model record which identifies what produced a commit. */
 export function readModelRecord(body: string): readonly string[] {
   const lines = body.split("\n")
   const first = lines.findIndex((line) => line !== "" && !line.startsWith("#"))
@@ -49,9 +48,14 @@ export function readModelRecord(body: string): readonly string[] {
     throw new SubjectError(
       `the body must open with a model line${first === -1 ? "" : `, not ${lines[first]}`}`,
     )
+  if (singleModelLine.test(lines[first])) return [lines[first]]
   const record: string[] = []
-  for (let at = first; at < lines.length && modelLine.test(lines[at]); at += 1)
+  let at = first
+  for (; at < lines.length && phaseModelLine.test(lines[at]); at += 1)
     record.push(lines[at])
+  if (!timeLine.test(lines[at] ?? ""))
+    throw new SubjectError("a round model record must end with its time line")
+  record.push(lines[at])
   return record
 }
 
@@ -130,7 +134,7 @@ export function stampCommitMessage(
     const said = modelRecord.split(" ").at(-1) ?? ""
     if (
       !record &&
-      !modelRecord.includes(":") &&
+      singleModelLine.test(modelRecord) &&
       Object.values(efforts).some((effort) => effort === said) &&
       said !== efforts[subject.tag.effort]
     )

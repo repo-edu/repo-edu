@@ -2,21 +2,12 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { z } from "zod"
+import { complexitySchema, reachSchema } from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
 import { parseSubject, type Repository } from "./subject.js"
 
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
-const reach = z.enum(["developer", "very-rare", "rare", "ordinary"])
-const complexity = z.enum([
-  "minus-high",
-  "minus-medium",
-  "minus-low",
-  "none",
-  "low",
-  "medium",
-  "high",
-])
 const modelSelection = z.strictObject({
   model: z.string().min(1),
   effort: z.string().min(1).nullable(),
@@ -73,8 +64,8 @@ export const roundFindingSchema = z
     number: z.number().int().positive().nullable(),
     title: z.string().min(1),
     tier,
-    reach,
-    complexity,
+    reach: reachSchema,
+    complexity: complexitySchema,
     growthPattern: z.string().min(1),
     location: roundFindingLocationSchema,
     vetVerdict: z
@@ -83,7 +74,7 @@ export const roundFindingSchema = z
     rebuttalAnswer: z.enum(["agree", "contest", "for-user-ruling"]).nullable(),
     outcome: z.enum(["kept", "dropped", "unmatched"]).nullable(),
     finalTier: tier.nullable(),
-    finalReach: reach.nullable(),
+    finalReach: reachSchema.nullable(),
   })
   .superRefine((finding, context) => {
     if (finding.outcome === "unmatched" && finding.number !== null)

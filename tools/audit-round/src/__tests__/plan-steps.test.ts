@@ -1,6 +1,23 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { readPlanSteps } from "../plan-steps.js"
+import { roundGrammarExamples } from "./round-grammar.js"
+
+test("the round grammar's plan-step examples are parser fixtures", () => {
+  const repositories: Readonly<
+    Record<string, readonly ("plan" | "repo-edu")[]>
+  > = {
+    "plan-step/repo-edu": ["repo-edu"],
+    "plan-step/plan": ["plan"],
+    "plan-step/both": ["plan", "repo-edu"],
+  } as const
+  for (const example of roundGrammarExamples("plan-step/")) {
+    assert.equal(example.outcome, "parsed", example.id)
+    assert.deepEqual(readPlanSteps(example.source), [
+      { number: 1, repositories: repositories[example.id] },
+    ])
+  }
+})
 
 test("reads the three implementation-step host forms in list order", () => {
   assert.deepEqual(

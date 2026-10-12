@@ -7,6 +7,7 @@ import {
   readJudgeAnswer,
 } from "../judge.js"
 import type { RoundData } from "../round-data.js"
+import { roundGrammarExamples } from "./round-grammar.js"
 
 const selection = { model: "fixture-model", effort: "low" }
 
@@ -95,6 +96,25 @@ function evidence(
 function identity(entry: RoundData): Pick<RoundData, "target" | "round"> {
   return { target: entry.target, round: entry.round }
 }
+
+test("the round grammar's judge examples are parser fixtures", () => {
+  for (const example of roundGrammarExamples("judge/")) {
+    const canStop = example.id !== "judge/stop-unavailable"
+    if (example.outcome === "parsed") {
+      assert.doesNotThrow(
+        () => readJudgeAnswer(example.source, canStop),
+        example.id,
+      )
+    } else {
+      assert.throws(
+        () => readJudgeAnswer(example.source, canStop),
+        (error: unknown) =>
+          error instanceof Error && error.message === example.refusal,
+        example.id,
+      )
+    }
+  }
+})
 
 test("the current in-progress settled B removes stop from the judge", () => {
   const current = round("codex", "2026-10-11T10:00:00Z", {

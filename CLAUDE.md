@@ -365,35 +365,12 @@ the full auditor tag from the report filename. The commit hook, this repo's
 Every commit body except a runner-written `settle` or `ready` marker opens with
 the model the work ran on, so the log says what produced a change without
 spending subject width on it. Those two commits run no model and carry no model
-record.
+record. The [subject grammar](.agents/references/subject-grammar.md#commit-model-record)
+owns both record forms and their examples.
 
-A commit no round produced opens with one line, the model and the reasoning
-effort:
-
-```text
-claude-opus-5 xhigh
-```
-
-A commit an automated planning or implementation-audit round lands opens with one line per model,
-each naming the phases that ran on it, then one time line:
-
-```text
-audit, rebut, fix: gpt-6-astra medium
-vet: claude-opus-5 xhigh
-Audit, vet and rebuttal took 7 min.
-```
-
-The phases listed are the four that carry out a round: audit, vet, rebut and
-fix. The brief and watch phases write documents rather than
-landing work, so they stay out. Phases keep round order inside a line, lines
-keep the order of their first phase, and two phases share a line when their
-model and their effort both match.
-
-The time line states the assistant time of the audit, vet and rebuttal that
-finished before the commit, naming only those. A clean record names the audit
-alone. These phases take that time whatever the round finds, so a later
-implementation audit weighs it as the cost of a round on the same scope. The
-fix lands the record while it runs, so its own time is never counted.
+The brief and watch phases stay out because they write documents rather than
+landing work. A later implementation audit uses the recorded audit, vet and
+rebuttal time as the cost of the round on the same scope.
 
 The model is the one the CLI reported running, never the one the round asked
 for: `claude-opus-5`, not `opus`. An alias names whichever release is current,

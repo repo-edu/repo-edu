@@ -1,12 +1,73 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
+import {
+  complexityValues,
+  reachValues,
+  reportLocationTable,
+} from "../finding-tokens.js"
 import { readReport as readAuditReport, reportKind } from "../report.js"
 import { readRebuttal, readVet } from "../vet.js"
+import { roundGrammarExample, roundGrammarExamples } from "./round-grammar.js"
 
 const readReport = (
   source: string,
   kind: "widening" | "detailing" | "implementation",
 ) => readAuditReport(source, kind).findings.map((finding) => finding.number)
+
+function assertNamedRefusal(run: () => unknown, refusal: string | null): void {
+  assert.notEqual(refusal, null)
+  assert.throws(
+    run,
+    (error: unknown) => error instanceof Error && error.message === refusal,
+    refusal ?? undefined,
+  )
+}
+
+test("the round grammar's report examples are parser fixtures", () => {
+  for (const example of roundGrammarExamples("report/")) {
+    const kind = example.source.includes("Planning round workflow")
+      ? "detailing"
+      : "implementation"
+    if (example.outcome === "parsed") {
+      assert.doesNotThrow(
+        () => readAuditReport(example.source, kind),
+        example.id,
+      )
+    } else {
+      assertNamedRefusal(
+        () => readAuditReport(example.source, kind),
+        example.refusal,
+      )
+    }
+  }
+})
+
+test("every shared rating and location-table cell has its labelled report example", () => {
+  const examples = roundGrammarExamples("report/")
+  for (const reach of reachValues)
+    assert.ok(
+      examples.some((example) => example.source.includes(`[reach:${reach}]`)),
+      reach,
+    )
+  for (const complexity of complexityValues)
+    assert.ok(
+      examples.some((example) =>
+        example.source.includes(`[complexity:${complexity}]`),
+      ),
+      complexity,
+    )
+  for (const locations of Object.values(reportLocationTable)) {
+    for (const cell of Object.values(locations)) {
+      const example = roundGrammarExample(cell.caseId)
+      assert.equal(example.outcome, cell.outcome, cell.caseId)
+      assert.equal(
+        example.refusal,
+        cell.outcome === "refused" ? `Finding 1 has an ${cell.refusal}` : null,
+        cell.caseId,
+      )
+    }
+  }
+})
 
 test("report routing reads the named workflow only in the opening", () => {
   assert.equal(
@@ -479,6 +540,35 @@ const twoFindings = readAuditReport(
   ),
   "implementation",
 ).findings
+
+test("the round grammar's vet examples cover every verdict and named refusal", () => {
+  const findings = twoFindings.slice(0, 1)
+  for (const example of roundGrammarExamples("vet/")) {
+    if (example.outcome === "parsed") {
+      assert.equal(readVet(example.source, findings).reviews.length, 1)
+    } else {
+      assertNamedRefusal(
+        () => readVet(example.source, findings),
+        example.refusal,
+      )
+    }
+  }
+})
+
+test("the round grammar's rebuttal examples cover every answer and named refusal", () => {
+  const findings = twoFindings.slice(0, 1)
+  const reviews = [{ number: 1, tier: "B", verdict: "revise" }] as const
+  for (const example of roundGrammarExamples("rebuttal/")) {
+    if (example.outcome === "parsed") {
+      assert.equal(readRebuttal(example.source, findings, reviews).length, 1)
+    } else {
+      assertNamedRefusal(
+        () => readRebuttal(example.source, findings, reviews),
+        example.refusal,
+      )
+    }
+  }
+})
 
 test("vet reads accepts from verdict lines alone", () => {
   const reading = readVet(

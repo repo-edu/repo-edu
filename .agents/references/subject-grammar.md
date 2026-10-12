@@ -1,9 +1,10 @@
 # Commit subject grammar
 
-This reference owns the shape of every commit subject in Repo Edu and the
-sibling plan repo except a merge commit's. It states the shape only. What each part means and why it
-exists stays where it is owned: Repo Edu's `CLAUDE.md` owns the capability tag
-and the model record under **Commit Capability Tag** and **Commit Model Record**.
+This reference owns the shape of every commit subject and commit model record
+in Repo Edu and the sibling plan repo except a merge commit's. It states the
+shape only. What each part means and why it exists stays where it is owned:
+Repo Edu's `CLAUDE.md` owns the capability tag and model-record rules under
+**Commit Capability Tag** and **Commit Model Record**.
 The [shared round protocol](round-protocol.md#severity-sequence) owns severity
 and burden meanings, and the plan repo's
 `CLAUDE.md` owns the roles and the keying rules under **Shared implementation
@@ -41,6 +42,50 @@ The five slots of `<tags>` keep this order and only the last filled slot is
 followed by the colon. Which slots a subject fills is decided by its class
 under [Classes](#classes). Only the P3 `settle` and `ready` productions omit
 the `<tag>` slot.
+
+## Commit model record
+
+The body of every tagged commit opens with one of these records. Blank lines
+and Git comment lines may precede it. The P3 `settle` and `ready` subjects have
+no model record.
+
+```text
+<model-record>       ::= <single-model-record> | <round-model-record>
+<single-model-record> ::= <model>" "<effort-name>
+<round-model-record> ::= <phase-model-line>+
+                         <time-line>
+
+<phase-model-line>   ::= <phase-list>": "<model>" "<effort-name> NL
+<phase-list>         ::= <phase> | <phase>(", "<phase>)+
+<phase>              ::= audit | vet | rebut | fix
+<model>              ::= a non-empty model release name without spaces
+<effort-name>        ::= low | medium | high | xhigh
+<time-line>          ::= "Audit took "<n>" min."
+                       | "Audit and vet took "<n>" min."
+                       | "Audit, vet and rebuttal took "<n>" min."
+```
+
+A hand-run commit uses the single-model record. An automated round groups
+phases that used the same model and effort on one line. Phase names keep round
+order within a line, and lines keep the order of their first phase. The time
+line names the audit, vet and rebuttal phases that finished before the commit;
+the fix is not counted because it lands the record while it runs.
+
+### Model record examples
+
+#### `model-record/single` — parsed
+
+```text
+gpt-6.1-sol low
+```
+
+#### `model-record/round` — parsed
+
+```text
+audit, rebut, fix: gpt-6-astra medium
+vet: claude-opus-5 xhigh
+Audit, vet and rebuttal took 7 min.
+```
 
 ## Terminals and small non-terminals
 
@@ -155,7 +200,7 @@ Rules across the classes:
 | `implemented` | either | every step this repo hosts has landed |
 | `closed` | either | Repo Edu: its audit rounds have settled; plan: the loop-close move to `archive/` |
 
-## Examples
+## Subject examples
 
 Every line below parses under exactly one class, and the parser's tests assert
 that class for each line. The sentence after the colon is free text the grammar

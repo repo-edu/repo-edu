@@ -10,6 +10,27 @@ import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import { unpinned } from "./configured-runner.js"
 import { fixture, testContext } from "./helpers.js"
+import { roundGrammarExamples } from "./round-grammar.js"
+
+test("the round grammar's phase-result examples are parser fixtures", () => {
+  for (const example of roundGrammarExamples("phase-result/")) {
+    const phase =
+      example.id === "phase-result/fix-needs-ruling" ? "fix" : "audit"
+    if (example.outcome === "parsed") {
+      assert.doesNotThrow(
+        () => phaseResult(phase, "session", example.source),
+        example.id,
+      )
+    } else {
+      assert.throws(
+        () => phaseResult(phase, "session", example.source),
+        (error: unknown) =>
+          error instanceof Error && error.message === example.refusal,
+        example.id,
+      )
+    }
+  }
+})
 
 test("a fresh prompt supplies routed workflows and shared files once under their source paths", async (t) => {
   const f = await fixture(t)

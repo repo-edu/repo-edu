@@ -8,6 +8,7 @@ import { type LogCommit, readLog } from "../episode-log.js"
 import {
   glanceDecision as decide,
   readWatchGrade,
+  readWatchRecord,
   readWatchRecords,
   runGlance,
 } from "../glance.js"
@@ -21,6 +22,7 @@ import {
   ratings,
 } from "./episode-fixture.js"
 import { commitFixture } from "./round-fixture.js"
+import { roundGrammarExamples } from "./round-grammar.js"
 
 const glanceDecision = (
   log: readonly LogCommit[],
@@ -32,14 +34,45 @@ const record = (
   head = "c000001",
   repository = "repo-edu",
 ) => ({
-  example: { heads: { [repository]: head }, grade, written: "2026-09-20" },
+  example: {
+    heads: {
+      "repo-edu": repository === "repo-edu" ? head : "repo0001",
+      plan: repository === "plan" ? head : "plan0001",
+    },
+    grade,
+    written: "2026-09-20",
+  },
+})
+
+test("the round grammar's watch examples require both repository heads", () => {
+  for (const example of roundGrammarExamples("watch/")) {
+    if (example.outcome === "parsed") {
+      assert.deepEqual(readWatchRecord(example.source, "example").heads, {
+        "repo-edu": "def456",
+        plan: "abc123",
+      })
+    } else {
+      assert.throws(
+        () => readWatchRecord(example.source, "example"),
+        (error: unknown) =>
+          error instanceof Error && error.message === example.refusal,
+        example.id,
+      )
+    }
+  }
 })
 
 test("missing, invalid and former watch records read green from the episode's anchor", () => {
   for (const records of [
     null,
     {},
-    record("green", "c000001", "plan"),
+    {
+      example: {
+        heads: { plan: "c000001" },
+        grade: "green",
+        written: "2026-09-20",
+      },
+    },
     { example: { sha: "c000001", grade: "green", horizon: 4, written: "x" } },
     { example: { ...record("amber").example, horizon: 6 } },
   ]) {

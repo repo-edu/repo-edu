@@ -2,9 +2,26 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { readFindings } from "../findings.js"
 import { findingSequence, printSequence } from "../sequence.js"
+import { roundGrammarExamples } from "./round-grammar.js"
 
 const strict = "plan-audit"
 const rating = "[growth-pattern:none] [reach:developer] [complexity:none]"
+
+test("the round grammar's record-bullet examples are parser fixtures", () => {
+  for (const example of roundGrammarExamples("record/")) {
+    assert.equal(example.outcome, "parsed", example.id)
+    const repository = example.id.startsWith("record/repo-edu")
+      ? "repo-edu"
+      : "plan"
+    const role =
+      example.id === "record/plan-audit" ? "plan-audit" : "impl-audit-1"
+    assert.equal(
+      readFindings(example.source, repository, role).length,
+      1,
+      example.id,
+    )
+  }
+})
 
 test("both bullet forms derive sorted tier counts, all reach cases and D findings", () => {
   const cases = [

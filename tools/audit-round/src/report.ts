@@ -1,4 +1,13 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
+import {
+  findingLabelSchema,
+  findingRatingsSchema,
+  findingTokenValues,
+  type JudgedRepositorySet,
+  type ReportLocationToken,
+  readFindingTokenPrefix,
+  reportLocationTable,
+} from "./finding-tokens.js"
 import type { ReportFinding, RoundFindingLocation } from "./round-data.js"
 import type { Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
@@ -129,19 +138,6 @@ function openingTokens(item: List["children"][number]): string {
     .trimEnd()
 }
 
-const label = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const growthPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:,[a-z0-9]+(?:-[a-z0-9]+)*)*$/
-const reaches = ["developer", "very-rare", "rare", "ordinary"] as const
-const complexities = [
-  "minus-high",
-  "minus-medium",
-  "minus-low",
-  "none",
-  "low",
-  "medium",
-  "high",
-] as const
-
 function findingData(
   item: List["children"][number],
   source: string,
@@ -156,19 +152,20 @@ function findingData(
     .split("\n")
   const heading = /^([1-9]\d*)\. \*\*([A-D]): (.+)\*\*\s*$/.exec(lines[0])
   const tokenLine = openingTokens(item)
+  const tokenPrefix = readFindingTokenPrefix(tokenLine)
   if (
     heading === null ||
     title?.type !== "strong" ||
-    !/^(?:\[[a-z-]+:[^\]\n]+\])(?: \[[a-z-]+:[^\]\n]+\])*$/.test(tokenLine)
+    tokenPrefix === null ||
+    tokenPrefix.remainder !== ""
   )
     throw new Error(
       `Malformed finding at report line ${item.position?.start.line}: expected a bold tier title followed by a token line`,
     )
   if (heading[3].includes(": "))
     throw new Error(`Finding ${heading[1]} title cannot contain ": "`)
-  const tokens = [...tokenLine.matchAll(/\[([^:\]]+):([^\]]+)\]/g)]
-  const values = (key: string) =>
-    tokens.filter((token) => token[1] === key).map((token) => token[2])
+  const { tokens } = tokenPrefix
+  const values = (key: string) => findingTokenValues(tokens, key)
   const one = (key: string): string => {
     const found = values(key)
     if (found.length !== 1)
@@ -180,11 +177,12 @@ function findingData(
   const foundReach = one("reach")
   const foundComplexity = one("complexity")
   const foundGrowth = one("growth-pattern")
-  if (
-    !reaches.includes(foundReach as (typeof reaches)[number]) ||
-    !complexities.includes(foundComplexity as (typeof complexities)[number]) ||
-    !growthPattern.test(foundGrowth)
-  )
+  const ratings = findingRatingsSchema.safeParse({
+    "growth-pattern": foundGrowth,
+    reach: foundReach,
+    complexity: foundComplexity,
+  })
+  if (!ratings.success)
     throw new Error(`Finding ${heading[1]} has an invalid rating token`)
 
   let location: RoundFindingLocation
@@ -193,7 +191,7 @@ function findingData(
     const section = one("section")
     if (
       foundField !== field ||
-      !label.test(section) ||
+      !findingLabelSchema.safeParse(section).success ||
       values("area").length > 0 ||
       values("cover").length > 0 ||
       values("plan").length > 0
@@ -220,46 +218,53 @@ function findingData(
       areas.length > 1 ||
       sections.length > 1 ||
       plans.length > 1 ||
-      [...areas, ...covers].some((value) => !label.test(value)) ||
-      sections.some((value) => !label.test(value))
+      [...areas, ...covers].some(
+        (value) => !findingLabelSchema.safeParse(value).success,
+      ) ||
+      sections.some((value) => !findingLabelSchema.safeParse(value).success)
     )
       throw new Error(`Finding ${heading[1]} lacks one implementation location`)
-    if (plans.length === 1) {
-      if (
-        covers.length > 0 ||
-        repositories.includes("plan") ||
-        !repositories.includes("repo-edu")
+    const token: ReportLocationToken =
+      plans.length === 1 ? "plan" : sections.length === 1 ? "section" : "area"
+    const judgedSet = repositories.join(", ") as JudgedRepositorySet
+    const admission = reportLocationTable[judgedSet][token]
+    if (covers.length > 0 && token !== "area")
+      throw new Error(
+        `Finding ${heading[1]} has ${token === "plan" ? "an invalid plan deferral" : "an invalid plan location"}`,
       )
-        throw new Error(`Finding ${heading[1]} has an invalid plan deferral`)
-      location = {
-        kind: "deferred",
-        repository: "plan",
-        plan: plans[0],
-      }
-    } else if (sections.length === 1) {
-      if (covers.length > 0 || !repositories.includes("plan"))
-        throw new Error(`Finding ${heading[1]} has an invalid plan location`)
-      location = { kind: "plan", section: sections[0] }
-    } else if (repositories.includes("repo-edu")) {
-      location = { kind: "repo-edu", area: areas[0], covers }
-    } else if (repositories.includes("plan")) {
-      location = {
-        kind: "deferred",
-        repository: "repo-edu",
-        area: areas[0],
-        covers,
-      }
-    } else {
-      throw new Error(`Finding ${heading[1]} has no judged repository`)
+    if (admission.outcome === "refused")
+      throw new Error(`Finding ${heading[1]} has an ${admission.refusal}`)
+    switch (admission.admission) {
+      case "plan":
+        location = { kind: "plan", section: sections[0] }
+        break
+      case "repo-edu":
+        location = { kind: "repo-edu", area: areas[0], covers: [...covers] }
+        break
+      case "deferred-plan":
+        location = {
+          kind: "deferred",
+          repository: "plan",
+          plan: plans[0],
+        }
+        break
+      case "deferred-repo-edu":
+        location = {
+          kind: "deferred",
+          repository: "repo-edu",
+          area: areas[0],
+          covers: [...covers],
+        }
+        break
     }
   }
   return {
     number: Number(heading[1]),
     title: heading[3],
     tier: heading[2] as ReportFinding["tier"],
-    reach: foundReach as ReportFinding["reach"],
-    complexity: foundComplexity as ReportFinding["complexity"],
-    growthPattern: foundGrowth,
+    reach: ratings.data.reach,
+    complexity: ratings.data.complexity,
+    growthPattern: ratings.data["growth-pattern"],
     location,
   }
 }

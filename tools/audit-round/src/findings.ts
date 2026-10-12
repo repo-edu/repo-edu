@@ -1,24 +1,16 @@
 import { z } from "zod"
+import {
+  findingLabelSchema,
+  findingRatingsSchema,
+  findingTokenValues,
+  readFindingTokenPrefix,
+} from "./finding-tokens.js"
 import { type Repository, SubjectError, type TierLetter } from "./subject.js"
 
-const label = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-const ratings = z.object({
-  "growth-pattern": z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*(?:,[a-z0-9]+(?:-[a-z0-9]+)*)*$/),
-  reach: z.enum(["developer", "very-rare", "rare", "ordinary"]),
-  complexity: z.enum([
-    "minus-high",
-    "minus-medium",
-    "minus-low",
-    "none",
-    "low",
-    "medium",
-    "high",
-  ]),
-})
-
-export type Finding = Omit<z.infer<typeof ratings>, "growth-pattern"> & {
+export type Finding = Omit<
+  z.infer<typeof findingRatingsSchema>,
+  "growth-pattern"
+> & {
   /** The growth-pattern labels the flagged work could violate, comma-joined, or `none`. */
   readonly growthPattern: string
   readonly tier: TierLetter
@@ -50,14 +42,15 @@ export function readFindings(
       )
     }
     const remainder = line.slice(start[0].length)
-    const prefix = /^ ((?:\[[^\]\n]+\](?: |$))+)(.*)$/.exec(remainder)
-    if (prefix === null || prefix[2].trim().length === 0)
+    const prefix = remainder.startsWith(" ")
+      ? readFindingTokenPrefix(remainder.slice(1))
+      : null
+    if (prefix === null || prefix.remainder.trim().length === 0)
       fail(
         "needs location, growth-pattern, reach and complexity tokens followed by prose",
       )
-    const tokens = [...prefix[1].matchAll(/\[([^:\]]+):([^\]]*)\]/g)]
-    const values = (key: string) =>
-      tokens.filter((token) => token[1] === key).map((token) => token[2])
+    const { tokens } = prefix
+    const values = (key: string) => findingTokenValues(tokens, key)
     const key = repository === "repo-edu" ? "area" : "section"
     const foreignKey = repository === "repo-edu" ? "plan" : "area"
     const local = values(key)
@@ -67,7 +60,7 @@ export function readFindings(
       ? local.length === 0 &&
         foreign.length === 1 &&
         foreign[0].trim().length > 0
-      : local.length === 1 && label.safeParse(local[0]).success
+      : local.length === 1 && findingLabelSchema.safeParse(local[0]).success
     if (
       !located ||
       values(repository === "repo-edu" ? "section" : "plan").length > 0
@@ -80,7 +73,8 @@ export function readFindings(
       value: (deferred ? foreign : local)[0],
     }
     for (const area of [...values("area"), ...values("cover")])
-      if (!label.safeParse(area).success) fail(`invalid area ID: ${area}`)
+      if (!findingLabelSchema.safeParse(area).success)
+        fail(`invalid area ID: ${area}`)
     const planning = repository === "plan" && role === "plan-audit"
     for (const token of [
       "growth-pattern",
@@ -91,9 +85,11 @@ export function readFindings(
       if (values(token).length !== 1)
         fail(`needs exactly one [${token}:...] token`)
     }
-    const checked = ratings.safeParse(
-      Object.fromEntries(tokens.map((token) => [token[1], token[2]])),
-    )
+    const checked = findingRatingsSchema.safeParse({
+      "growth-pattern": values("growth-pattern")[0],
+      reach: values("reach")[0],
+      complexity: values("complexity")[0],
+    })
     if (!checked.success) {
       const issue = checked.error.issues[0]
       fail(`invalid [${String(issue.path[0])}:...]: ${issue.message}`)
@@ -105,15 +101,18 @@ export function readFindings(
       fail("[field:...] must be excess or missing")
     if (repository === "plan" && !planning && values("field").length > 0)
       fail("[field:...] belongs only to a planning audit")
-    const separator = prefix[2].indexOf(": ")
-    if (separator < 1 || prefix[2].slice(separator + 2).trim().length === 0)
+    const separator = prefix.remainder.indexOf(": ")
+    if (
+      separator < 1 ||
+      prefix.remainder.slice(separator + 2).trim().length === 0
+    )
       fail('needs the `Title: prose` form, a title before the first ": "')
     findings.push({
       growthPattern: checked.data["growth-pattern"],
       reach: checked.data.reach,
       complexity: checked.data.complexity,
       tier: start[1].toLowerCase() as TierLetter,
-      title: prefix[2].slice(0, separator),
+      title: prefix.remainder.slice(0, separator),
       location,
       deferred,
       field: values("field")[0] ?? null,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
+import { readModelRecord } from "../commit-msg.js"
 import {
   isAuditRole,
   looseForm,
@@ -28,7 +29,7 @@ type Example = {
 
 async function examples(): Promise<Example[]> {
   const text = await readFile(grammar, "utf8")
-  const section = text.slice(text.indexOf("## Examples"))
+  const section = text.slice(text.indexOf("## Subject examples"))
   const found: Example[] = []
   for (const [, heading, block] of section.matchAll(
     /\n(Plan repo|Repo Edu):\n\n```text\n([\s\S]*?)```/g,
@@ -46,6 +47,28 @@ async function examples(): Promise<Example[]> {
   }
   return found
 }
+
+test("the subject grammar's model-record examples are parser fixtures", async () => {
+  const text = await readFile(grammar, "utf8")
+  const section = text.slice(
+    text.indexOf("### Model record examples"),
+    text.indexOf("## Terminals and small non-terminals"),
+  )
+  const examples = [
+    ...section.matchAll(
+      /#### `model-record\/([^`]+)` — parsed\n\n```text\n([\s\S]*?)\n```/g,
+    ),
+  ]
+  assert.deepEqual(
+    examples.map((example) => example[1]),
+    ["single", "round"],
+  )
+  for (const [, id, source] of examples) {
+    const lines = readModelRecord(source)
+    assert.equal(lines.length, id === "single" ? 1 : 3, id)
+    assert.equal(source, lines.join("\n"), id)
+  }
+})
 
 test("range examples parse and obsolete all examples are refused", async () => {
   const lines = await examples()

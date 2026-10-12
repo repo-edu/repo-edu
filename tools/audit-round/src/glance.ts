@@ -22,7 +22,10 @@ import type { Repository } from "./subject.js"
  */
 
 const watchRecordSchema = z.strictObject({
-  heads: z.record(z.string(), z.string()),
+  heads: z.strictObject({
+    "repo-edu": z.string(),
+    plan: z.string(),
+  }),
   grade: z.enum(["green", "amber", "red"]),
   written: z.string(),
 })
@@ -31,6 +34,28 @@ const watchRecordSchema = z.strictObject({
 export type WatchRecord = z.infer<typeof watchRecordSchema>
 
 export type WatchGrade = WatchRecord["grade"]
+
+/** Read one strict watch record and name either missing required head. */
+export function parseWatchRecord(value: unknown): WatchRecord {
+  if (typeof value === "object" && value !== null && "heads" in value) {
+    const heads = value.heads
+    if (typeof heads === "object" && heads !== null) {
+      if (!("plan" in heads))
+        throw new Error("Watch record is missing the plan head")
+      if (!("repo-edu" in heads))
+        throw new Error("Watch record is missing the repo-edu head")
+    }
+  }
+  return watchRecordSchema.parse(value)
+}
+
+/** Parse the grammar's complete watch file and select one episode. */
+export function readWatchRecord(source: string, stem: string): WatchRecord {
+  const parsed: unknown = JSON.parse(source)
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+    throw new Error("Watch file must be an object keyed by episode stem")
+  return parseWatchRecord((parsed as Record<string, unknown>)[stem])
+}
 
 export type GlanceInput = {
   readonly cwd: string
@@ -82,8 +107,12 @@ export function glanceDecision(
   const { topic: stem, repository } = data
   const key = stem ?? "-"
   const episode = stem === null ? "the unstemmed history" : `episode ${stem}`
-  const saved = watchRecordSchema.safeParse(records?.[key])
-  const record = saved.success ? saved.data : null
+  let record: WatchRecord | null = null
+  try {
+    record = parseWatchRecord(records?.[key])
+  } catch {
+    // An unreadable or old-format entry is deliberately treated as no record.
+  }
   const head = record?.heads[repository]
   const recorded =
     record === null || head === undefined
@@ -192,14 +221,15 @@ export async function readWatchGrade(
   cacheRoot: string,
   stem: string,
 ): Promise<WatchGrade> {
-  const saved = watchRecordSchema.safeParse(
-    (await readWatchRecords(cacheRoot))?.[stem],
-  )
-  if (!saved.success)
+  let saved: WatchRecord
+  try {
+    saved = parseWatchRecord((await readWatchRecords(cacheRoot))?.[stem])
+  } catch {
     throw new Error(
       `The watch left no readable record for ${stem} in ${join(cacheRoot, "watch.json")}.`,
     )
-  return saved.data.grade
+  }
+  return saved.grade
 }
 
 export async function runGlance(input: GlanceInput): Promise<GlanceDecision> {

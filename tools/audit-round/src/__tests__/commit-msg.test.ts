@@ -94,9 +94,9 @@ test("the hook inserts and overwrites severity while preserving the burden mark,
     stamp(commented),
     commented.replace("oth growth-none docs", "oth growth-none c1 docs"),
   )
-  assert.equal(
-    stamp(message("oth growth-none docs(repo): s", codeFinding, "gpt")),
-    message("oth growth-none c1 docs(repo): s", codeFinding, "gpt"),
+  assert.throws(
+    () => stamp(message("oth growth-none docs(repo): s", codeFinding, "gpt")),
+    /model line/,
   )
   assert.equal(
     stamp(message("oth growth-none docs(repo): s", codeFinding).trimEnd()),

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { relative } from "node:path"
 import type { ExecutionContext } from "./context.js"
+import { reachValues } from "./finding-tokens.js"
 import { elapsedText, tokenText } from "./output-format.js"
 import {
   type ModelTokenUsage,
@@ -19,7 +20,6 @@ const phaseOrder = [
   "watch",
   "judge",
 ] as const
-const reachOrder = ["ordinary", "rare", "very-rare", "developer"] as const
 
 type TrialRound = {
   readonly file: string
@@ -141,7 +141,7 @@ function findingRates(
   if (counts.size === 0) return "none"
   return (["a", "b", "c", "d"] as const)
     .flatMap((tier) =>
-      reachOrder.flatMap((reach) => {
+      reachValues.flatMap((reach) => {
         const count = counts.get(`${tier}|${reach}`)
         return count === undefined
           ? []

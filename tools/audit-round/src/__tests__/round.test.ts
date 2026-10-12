@@ -464,12 +464,12 @@ for (const grade of ["green", "amber"] as const) {
     )
     const records = {
       other: {
-        heads: { "repo-edu": repo[0].sha },
+        heads: { "repo-edu": repo[0].sha, plan: plan[0].sha },
         grade: "red",
         written: "2026-09-23",
       },
       example: {
-        heads: { "repo-edu": repo.at(-1)?.sha },
+        heads: { "repo-edu": repo.at(-1)?.sha, plan: plan[0].sha },
         grade,
         written: "2026-09-23",
       },
