@@ -214,7 +214,7 @@ Judged repos: plan@abc123
 
 1. **C: Defer the implementation correction**
 
-   [area:tool-audit-round] [cover:analysis-workflows] [growth-pattern:none] [reach:ordinary] [complexity:none]
+   [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
 
    The correction belongs in Repo Edu, outside the judged set.
 ```
@@ -266,7 +266,7 @@ Judged repos: repo-edu@def456
 
 1. **B: Correct the report reader**
 
-   [area:tool-audit-round] [cover:analysis-workflows] [growth-pattern:none] [reach:developer] [complexity:low]
+   [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low]
 
    The correction belongs in Repo Edu.
 ```
@@ -314,7 +314,7 @@ Judged repos: plan@abc123, repo-edu@def456
 
 1. **C: Correct the shared reader**
 
-   [area:tool-audit-round] [cover:analysis-workflows] [growth-pattern:none] [reach:ordinary] [complexity:none]
+   [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
 
    The correction belongs in the judged Repo Edu checkout.
 ```
@@ -473,7 +473,7 @@ A Repo Edu deferral replaces the section with one area and any cover areas.
 #### `record/repo-edu-local` — parsed
 
 ```text
-- [B] [area:tool-audit-round] [cover:analysis-workflows] [growth-pattern:none] [reach:developer] [complexity:low] Shared token owner: the report and record readers use one definition.
+- [B] [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low] Shared token owner: the report and record readers use one definition.
 ```
 
 #### `record/repo-edu-plan-deferral` — parsed
@@ -497,7 +497,7 @@ A Repo Edu deferral replaces the section with one area and any cover areas.
 #### `record/plan-repo-edu-deferral` — parsed
 
 ```text
-- B [area:tool-audit-round] [cover:analysis-workflows] [growth-pattern:none] [reach:ordinary] [complexity:medium] Reader correction: Repo Edu owns the parser change.
+- B [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:medium] Reader correction: Repo Edu owns the parser change.
 ```
 
 ## Implementation-plan step

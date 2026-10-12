@@ -274,6 +274,13 @@ export function readReport(
   source: string,
   reportClass: ReportClass,
 ): AuditReport {
+  const namedKind = reportKind(source)
+  const expectedKind =
+    reportClass === "implementation" ? "implementation" : "planning"
+  if (namedKind !== expectedKind)
+    throw new Error(
+      `Report opening names the ${namedKind} workflow but the reader expected ${expectedKind}`,
+    )
   const definitions =
     reportClass === "implementation"
       ? [{ heading: "Findings", empty: "No findings.", field: null }]

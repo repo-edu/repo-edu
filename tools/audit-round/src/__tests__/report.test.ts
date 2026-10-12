@@ -99,9 +99,9 @@ function finding(
   return `${number}. **B: Preserve the evidence**\n\n   ${location} ${ratings}\n\n   ${evidence}\n`
 }
 const implementation = (body: string) =>
-  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
+  `# Implementation audit workflow\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
 const planning = (excess: string, missing: string) =>
-  `# Audit\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
+  `# Planning round workflow\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
 
 test("the report opening identifies the judged repos independently of evidence", () => {
   for (const [line, judgedRepos] of [
@@ -111,7 +111,7 @@ test("the report opening identifies the judged repos independently of evidence",
   ] as const) {
     assert.deepEqual(
       readAuditReport(
-        `# Audit\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
+        `# Implementation audit workflow\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
       {
@@ -147,11 +147,11 @@ test("plain judged-repos lines survive formatted neighbours in the same paragrap
     "Plan: `../plan/example.md`\nJudged repos: repo-edu@def456",
     "**Audit**\nJudged repos: repo-edu@def456\n[Plan](../plan/example.md)",
     "Plan: `first\nsecond`\nJudged repos: repo-edu@def456",
-    "Planning round workflow  \nArtifact: `example.md`  \nPhase: detailing  \nJudged repos: repo-edu@def456",
+    "Implementation audit workflow  \nArtifact: `example.md`  \nPhase: implementation  \nJudged repos: repo-edu@def456",
   ])
     assert.deepEqual(
       readAuditReport(
-        `${opening}\n\n## Findings\n\nNo findings.`,
+        `# Implementation audit workflow\n\n${opening}\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
       {
@@ -180,14 +180,14 @@ test("missing, duplicate, quoted and malformed judged-repos openings fail", () =
     assert.throws(
       () =>
         readAuditReport(
-          `${opening}\n\n## Findings\n\nNo findings.`,
+          `# Implementation audit workflow\n\n${opening}\n\n## Findings\n\nNo findings.`,
           "implementation",
         ),
       /Judged repos/,
     )
 })
 
-test("settled reports carry findings and judged repositories without routing", () => {
+test("settled reports carry findings and judged repositories after routing", () => {
   assert.deepEqual(
     readAuditReport(implementation("No findings."), "implementation"),
     { findings: [], judgedRepos: ["plan", "repo-edu"] },
@@ -198,6 +198,21 @@ test("settled reports carry findings and judged repositories without routing", (
       "detailing",
     ),
     { findings: [], judgedRepos: ["plan"] },
+  )
+})
+
+test("reports require the workflow that matches their class", () => {
+  assert.throws(
+    () =>
+      readAuditReport(
+        planning("No excess findings.", "No missing findings."),
+        "implementation",
+      ),
+    /names the planning workflow but the reader expected implementation/,
+  )
+  assert.throws(
+    () => readAuditReport(implementation("No findings."), "detailing"),
+    /names the implementation workflow but the reader expected planning/,
   )
 })
 
@@ -287,7 +302,7 @@ test("reports retain every finding location and both deferral directions", () =>
   ).findings[0]
   const repoFinding = readAuditReport(
     implementation(
-      finding(1, "[area:tool-audit-round] [cover:analysis-workflows]"),
+      finding(1, "[area:pkg-application] [cover:cover-analysis-workflow]"),
     ).replace("plan@abc123, repo-edu@def456", "repo-edu@def456"),
     "implementation",
   ).findings[0]
@@ -300,7 +315,7 @@ test("reports retain every finding location and both deferral directions", () =>
   ).findings[0]
   const repoDeferral = readAuditReport(
     implementation(
-      finding(1, "[area:tool-audit-round] [cover:analysis-workflows]"),
+      finding(1, "[area:pkg-application] [cover:cover-analysis-workflow]"),
     ).replace("plan@abc123, repo-edu@def456", "plan@abc123"),
     "implementation",
   ).findings[0]
@@ -316,8 +331,8 @@ test("reports retain every finding location and both deferral directions", () =>
   })
   assert.deepEqual(repoFinding?.location, {
     kind: "repo-edu",
-    area: "tool-audit-round",
-    covers: ["analysis-workflows"],
+    area: "pkg-application",
+    covers: ["cover-analysis-workflow"],
   })
   assert.deepEqual(planDeferral?.location, {
     kind: "deferred",
@@ -327,8 +342,8 @@ test("reports retain every finding location and both deferral directions", () =>
   assert.deepEqual(repoDeferral?.location, {
     kind: "deferred",
     repository: "repo-edu",
-    area: "tool-audit-round",
-    covers: ["analysis-workflows"],
+    area: "pkg-application",
+    covers: ["cover-analysis-workflow"],
   })
 })
 
@@ -504,7 +519,7 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
   assert.throws(
     () =>
       readReport(
-        "# Audit\n\nJudged repos: repo-edu@abc123\n\nNo findings.",
+        "# Implementation audit workflow\n\nJudged repos: repo-edu@abc123\n\nNo findings.",
         "implementation",
       ),
     /Findings/,
@@ -512,7 +527,7 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
   assert.throws(
     () =>
       readReport(
-        "# Audit\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\nNo excess findings.",
+        "# Planning round workflow\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\nNo excess findings.",
         "detailing",
       ),
     /Missing functionality/,

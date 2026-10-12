@@ -1,5 +1,8 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
+import areaModel from "../../../architecture-check/src/area-model.json" with {
+  type: "json",
+}
 import { readFindings } from "../findings.js"
 import { findingSequence, printSequence } from "../sequence.js"
 import { roundGrammarExamples } from "./round-grammar.js"
@@ -20,6 +23,24 @@ test("the round grammar's record-bullet examples are parser fixtures", () => {
       1,
       example.id,
     )
+  }
+})
+
+test("the round grammar's area tokens use current area IDs", () => {
+  const areaKinds = new Map(areaModel.areas.map((area) => [area.id, area.kind]))
+  const examples = roundGrammarExamples().filter(
+    (example) =>
+      example.id.startsWith("report/") || example.id.startsWith("record/"),
+  )
+  for (const example of examples) {
+    for (const match of example.source.matchAll(/\[(area|cover):([^\]]+)\]/g)) {
+      const [, token, id] = match
+      assert.equal(
+        areaKinds.get(id),
+        token === "area" ? "partition" : "cover",
+        `${example.id} [${token}:${id}]`,
+      )
+    }
   }
 })
 

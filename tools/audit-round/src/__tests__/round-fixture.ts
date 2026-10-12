@@ -146,7 +146,7 @@ export async function roundFixture(
     report,
     (working === "plan"
       ? "Planning round workflow\nArtifact: `example.md`\nPhase: detailing\n"
-      : "") +
+      : "Implementation audit workflow\n") +
       `Judged repos: ${owner}@${heads[owner]}\n` +
       "\n" +
       (working === "plan"
