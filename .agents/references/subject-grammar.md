@@ -9,8 +9,11 @@ The [shared round protocol](round-protocol.md#severity-sequence) owns severity
 and burden meanings, and the plan repo's
 `CLAUDE.md` owns the roles and the keying rules under **Shared implementation
 forms** and **Commit message convention**. Those sections link here instead of
-restating the shape. Read this file from the Repo Edu checkout; plan-repo
-readers reach it at `../repo-edu/.agents/references/subject-grammar.md`.
+restating the shape. The
+[round document grammar](round-grammar.md#commit-record-bullet) owns the graded
+body bullet that supplies the sequence. Read this file from the Repo Edu
+checkout; plan-repo readers reach it at
+`../repo-edu/.agents/references/subject-grammar.md`.
 
 Repo Edu's `.husky/commit-msg` hook and the plan repo's `hooks/commit-msg`
 hook enforce this grammar, and the audit-round runner's subject parser reads

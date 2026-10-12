@@ -2,6 +2,7 @@
 reads:
   - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
+  - ../../../references/round-grammar.md
   - ../../../../../plan/GROWTH-PATTERNS.md
 ---
 
@@ -46,9 +47,13 @@ session are answered from the transcript under the same rules.
 
 ## Input
 
-The shared [round protocol](../../../references/round-protocol.md) owns file names, writer tags and
-rating meanings. Follow its **Later files** for the transcript and output arguments. A missing input
-or a transcript outside the shared grammar fails under the result rule when unattended.
+The runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files)
+own file names and writer tags. Its
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) owns the
+transcript and output arguments. The shared
+[round protocol](../../../references/round-protocol.md) owns rating meanings. A
+missing input or a transcript outside the shared grammar fails under the result
+rule when unattended.
 `pnpm audit-round brief [transcript]` starts a separate brief session, on the most recently
 modified transcript at the plan root when none is named.
 

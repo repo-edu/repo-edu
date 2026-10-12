@@ -37,10 +37,10 @@ print(json.dumps(settings))
 PY
 ```
 
-Use the returned values with the strength table and effort letters named in
-the [shared round protocol](round-protocol.md#writer-tags). Apply its
-missing-setting stop only if this lookup cannot establish them or the effort
-cannot be spelled.
+Use the returned values with the strength table and the
+[Commit Capability Tag](../../CLAUDE.md#commit-capability-tag). Stop only if
+this lookup cannot establish the model and effort or the effort cannot be
+spelled in that tag.
 
 Without this lookup, a desktop vet spelled its effort as low from a guess while
 the session ran at high. The lookup lives

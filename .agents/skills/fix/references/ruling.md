@@ -1,8 +1,8 @@
 # Writing a ruling
 
 The fix session writes the final ruling when a user decision remains open. Use the supplied output
-path under the shared protocol's [Later files](../../../references/round-protocol.md#later-files)
-and report completion under its
+path under the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
+and report completion under the shared protocol's
 [Runner result](../../../references/round-protocol.md#runner-result). Review it for clarity in this
 same session. No separate drafting or editing session follows. The runner displays the ruling
 directly and collects the user's reply. The brief runs only after the full fix has completed.

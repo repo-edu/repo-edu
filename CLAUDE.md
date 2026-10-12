@@ -56,9 +56,9 @@ pnpm test tools/audit-round
 `pnpm audit-round example 3` runs an implementation-audit round for
 the named plan and step from either checkout. The
 [runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
-options, settings and outcomes. The
-[shared round protocol](.agents/references/round-protocol.md) owns file names
-and manual phase paths.
+options, settings and outcomes. Its [Round files](tools/audit-round/CLAUDE.md#round-files)
+and [Phase routing](tools/audit-round/CLAUDE.md#phase-routing) sections own file
+names and manual phase paths.
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
@@ -274,8 +274,10 @@ When asked to review implementation code, prefix every finding title with an imp
 tier. Use the [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) in
 the shared round protocol.
 
-Use the shared [Finding shape](.agents/references/round-protocol.md#finding-shape)
-for finding order and numbering.
+Use the [audit report grammar](.agents/references/round-grammar.md#audit-report)
+for finding order and numbering and the shared protocol's
+[Finding explanations](.agents/references/round-protocol.md#finding-explanations)
+for their substance.
 
 ## Commit Severity Prefix
 
@@ -286,10 +288,10 @@ owns the counts, reach marks and whole-commit burden marks. Follow it for every
 file-changing commit except a plan step. The
 [subject grammar](.agents/references/subject-grammar.md) owns their placement.
 
-Use the shared
-[finding metadata and record bullets](.agents/references/round-protocol.md#finding-metadata) for
-every graded concern, D included, including off-plan work. The primary area owns supporting
-documentation too. Steps and markers carry no graded bullets.
+Use the shared [finding metadata](.agents/references/round-protocol.md#finding-metadata)
+and the [record bullet grammar](.agents/references/round-grammar.md#commit-record-bullet)
+for every graded concern, D included, including off-plan work. The primary area
+owns supporting documentation too. Steps and markers carry no graded bullets.
 
 The shared [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) grade a
 concern's severity whether the AI surfaced it formally in a review or only addressed it in the

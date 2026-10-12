@@ -1,6 +1,7 @@
 ---
 reads:
   - ../../../references/round-protocol.md
+  - ../../../references/round-grammar.md
   - ../../../references/subject-grammar.md
   - ../../../../../plan/CLAUDE.md
   - ruling.md
@@ -26,7 +27,10 @@ An audit with no findings
 uses the shared protocol's **Direct clean completion**.
 
 The [shared round protocol](../../../references/round-protocol.md)
-owns paths, rating tokens, reconciliation, records and runner results.
+owns rating meanings, reconciliation, record meaning and runner result
+meaning. The [round grammar](../../../references/round-grammar.md) owns parsed
+report, twin, record-bullet and result forms. The runner owns paths under
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Follow its **Reconciliation** rule after grounding the findings below.
 
 When unattended, follow the shared
@@ -38,12 +42,13 @@ Follow the `CLAUDE.md` of every repo a fix touches.
 ## Report discovery
 
 A hand-run invocation may omit the audit report. Resolve it and its existing review files through
-`paths fix` under the
-[shared round protocol](../../../references/round-protocol.md#manual-phases).
+`paths fix` under the runner's
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Automated invocations use their supplied paths unchanged.
 
-Use the shared protocol's **Later files** for arguments and **Report format**
-for the judged repo set and audited heads.
+Use that section for arguments and the
+[audit report grammar](../../../references/round-grammar.md#audit-report) for
+the judged repo set and audited heads.
 
 ## Grounding
 
@@ -94,9 +99,11 @@ working tree.
 Land records under the plan doctrine's
 [Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms),
 which owns placement and its reasons. Use the shared protocol's
-**Worked record forms** and **Record bullets** for their contents, including a
-clean record reached through reconciliation. A plan-repo commit round's record
-takes the plan repo's off-plan form rather than an implementation-audit form.
+[Finding metadata](../../../references/round-protocol.md#finding-metadata) and
+the [record bullet grammar](../../../references/round-grammar.md#commit-record-bullet)
+for their contents, including a clean record reached through reconciliation. A
+plan-repo commit round's record takes the plan repo's off-plan form rather than
+an implementation-audit form.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed
@@ -106,7 +113,8 @@ round's file set still asks.
 
 After all required corrections, checks and records are complete, follow the
 plan doctrine's [Handoff](../../../../../plan/CLAUDE.md#handoff), then the
-shared protocol's **Deleting reports** and **Runner result**.
+runner's [Report lifecycle](../../../../tools/audit-round/CLAUDE.md#report-lifecycle)
+and the shared protocol's **Runner result**.
 
 ## Closing the episode
 

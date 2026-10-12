@@ -1,6 +1,7 @@
 ---
 reads:
   - ../../../references/round-protocol.md
+  - ../../../references/round-grammar.md
   - ../../../../../plan/CLAUDE.md
   - ../../../../../plan/.agents/references/planning-rules.md
   - ../../../../../plan/BOUNDARIES.md
@@ -31,10 +32,12 @@ For a clean report, state that there were no findings to vet.
 
 ## Report discovery
 
-The [shared round protocol](../../../references/round-protocol.md) owns path resolution, evidence
-rules, tiers, rating tokens, verdict formats and runner results. Use **Later files** for argument
-order and **Report format** for the judged repos and heads. The report filename identifies the
-auditor for **Vet checks**.
+The [shared round protocol](../../../references/round-protocol.md) owns evidence
+rules, tiers, rating meanings, verdict meanings and runner result meanings. Use
+the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
+for argument order and the [audit report grammar](../../../references/round-grammar.md#audit-report)
+for the judged repos and heads. The report filename identifies the auditor for
+**Vet checks**.
 
 Follow the shared [Vet checks](../../../references/round-protocol.md#vet-checks)
 for input and output resolution and the other-assistant requirement.
@@ -132,7 +135,9 @@ to the finding's trade and rarity.
 ## Verdicts
 
 Use the shared round protocol's [Vet verdicts](../../../references/round-protocol.md#vet-verdicts)
-for the verdict values, numbering, response format and delivery.
+for verdict meanings and delivery and the
+[vet twin grammar](../../../references/round-grammar.md#vet-twin) for values,
+numbering and response shape.
 
 Use the [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
 for changes to recorded decisions.

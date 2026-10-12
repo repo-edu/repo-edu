@@ -340,8 +340,8 @@ consumers.
   own reason when no active plan exists. The audit workflow owns Git resolution and inclusive-range
   admission. The runner passes references unchanged and rejects multiple auditor entries for commit
   targets, which run once without a trajectory glance or watch.
-- `default-target.ts` owns the round a plan argument or no target selects, under the shared
-  protocol's [Plan targets](../../.agents/references/round-protocol.md#plan-targets), so the plan's
+- `default-target.ts` owns the round a plan argument or no target selects, under
+  [Plan targets](#plan-targets), so the plan's
   history rather than a typed word decides between planning and implementation. It reads both
   histories through `stemCommits`, the same newest-first order the hand-run episode uses. Without a
   target it skips plans without an active artifact. It resolves and reads the active plan before
@@ -444,6 +444,115 @@ vet twins and the fix's landed subjects for routing and completion checks. It al
 resolves the audited scope. Keep assistant adapters independent of the product
 LLM adapters.
 
+## Round files
+
+`round-paths.ts` owns every round filename and order number. Files live at the
+plan repo root and use
+`<target>-<round>-<order>-<kind>.<tag>.<ext>`. Markdown documents use `.md`;
+the transcript and standalone brief logs use `.log`. Five forms omit the tag:
+the number claim, the settle and reopen markers, the handoff and the
+target-wide queue. The plan doctrine owns the handoff's six-character commit
+name.
+
+| Order | Kind | Files |
+| --- | --- | --- |
+| 0 | claim | Empty number reservation, no tag |
+| 0 | settle, reopen | Empty plan phase-change markers, no tag |
+| 1 | round | Transcript and log |
+| 2 | audit | Report |
+| 3 | vet | Vet twin |
+| 4 | rebut | Rebuttal twin |
+| 5 | fix | Reserved, no report |
+| 6 | brief | Brief and standalone log |
+| 7 | ruling | Ruling |
+| 8 | glance | Reserved, no report |
+| 9 | watch | Watch |
+
+Skipped phases leave gaps. A plan audit target ends in `-plan`; an
+implementation target ends in `-impl-<a>..<b>`, with step and round numbers
+padded to at least two digits. A single step repeats its endpoint. Commit
+targets preserve typed references, replace `HEAD` with the selected repo's
+short starting commit and use `-plus-<n>` for a list after its first reference.
+An optional `plan@` prefix selects the plan repo and stays out of the filename.
+
+Later phases preserve the report's target and round. Their tag names their own
+writer under Repo Edu's **Commit Capability Tag**, not the report's auditor.
+The transcript and its log use the auditor tag. A hand-run session resolves its
+own model and effort before asking the runner for a path. The runner resolves
+every file-writing phase's tag before opening output.
+
+`round-data.ts` owns `<stem>-plan-rounds.json` and
+`<stem>-impl-rounds.json`. They are checked, gitignored arrays keyed by target
+and round number. Each entry records the resolved scope, settings, phases,
+landed commits, findings, status and judge answer. The writer publishes a
+complete replacement through a temporary file. Loop-close moves existing files
+beside the archived plan. These are machine artifacts and are never edited by
+hand.
+
+## Phase routing
+
+`requests.ts` resolves every workflow header and supplies its listed files
+whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
+
+- audit: report output, target, scope or commit references
+- vet: report input, vet output
+- rebuttal: report input, vet input, rebuttal output
+- fix: report input, then existing vet and rebuttal inputs
+- brief: transcript input, brief output
+- watch: watch output, cache root
+
+The runner saves audit, vet and rebuttal final text without the parsed phase
+result line. Brief and watch write their supplied outputs. A fix receives its
+ruling path separately and reuses it when the same session resumes.
+
+Hand-run phases use the same resolver. `name [target] [scope-or-commits...]
+--auditor <full tag>` claims a new round and prints `cwd`, `workflow`, `claim`
+and ordered `arguments`. `paths <vet|rebut|fix> [report]` prints `cwd`,
+`workflow` and ordered `arguments` for an existing round. Vet and rebuttal also
+take `--writer <full tag>`. With no input, `paths` selects the most recently
+modified eligible report at the plan root: the other assistant's for vet, the
+current assistant's for rebuttal and either assistant's for fix. It keeps the
+newest matching review twin unless `--vet` or `--rebut` selects one. Neither
+command loads settings or starts an assistant, and `paths` writes nothing.
+
+Work in the printed checkout and follow the printed workflow. Planning phases
+run in the plan checkout; implementation and commit phases run in Repo Edu.
+Never claim a new number to continue an existing round.
+
+## Plan targets
+
+`default-target.ts`, `target.ts` and `plan-steps.ts` resolve plan targets. The
+[round grammar](../../.agents/references/round-grammar.md#implementation-plan-step)
+owns the parsed step form. The plan's first implementation-step list and joined
+stem history decide what a bare plan name means:
+
+- Before any step lands, it selects a planning audit.
+- After every listed share lands and each hosting repo's newest `implemented`
+  marker is newer than its newest hosted step, it selects an implementation
+  audit from step 1 through the last listed step.
+- Otherwise resolution stops and names every pending share and missing or stale
+  marker. The user may name a concrete step or range to audit before whole-plan
+  completion.
+
+A concrete step scope selects an implementation audit and is refused before
+any step lands. Once a step has landed, no unscoped invocation selects a
+planning audit. With no target, the runner selects the active artifact whose
+stem commit is newest across both repos. `plan` prints that selected plan
+without writing anything.
+
+## Report lifecycle
+
+A finished fix causes the coordinator to delete that round's audit, vet and
+rebuttal files after it validates the landed records. Other outcomes retain
+them. `delete-reports <target>-<round>` gives a hand-run completion the same
+deletion owner. It uses the filename parser, lists each deletion and fails when
+no report matches. Claims, markers, transcripts, logs, retained round data,
+briefs, rulings, watches and other rounds remain.
+
+A clean plan-target audit lands its record through `clean.ts` and retains the
+report. A clean commit target lands no record. Loop-close separately archives
+the plan and removes its sidecars under the plan repo workflow.
+
 ## Commands
 
 ### Model settings
@@ -539,8 +648,9 @@ audit starts. It writes the tagless claim, transcript and log at the plan root.
 A round on an active plan also updates `<stem>-plan-rounds.json` or
 `<stem>-impl-rounds.json` there. Closed-plan data remains archive evidence.
 Phase files use
-`<target>-<round>-<order>-<kind>.<tag>.<ext>` under the shared round protocol.
-Each phase receives the complete paths it reads and writes in protocol order.
+`<target>-<round>-<order>-<kind>.<tag>.<ext>` under
+[Round files](#round-files). Each phase receives the complete paths it reads
+and writes under [Phase routing](#phase-routing).
 
 `trial` prints the newest unchanged-settings run across targets and series. It
 includes only rounds whose audit setting came from `settings.json`. Its header
@@ -565,8 +675,7 @@ writes nothing.
 The arguments hold the report path followed by the resolved target and scope.
 It creates only the claim. It does not load settings or start an assistant. Its argument grammar
 is the same as the automated round, from either checkout. A plan argument or no target resolves
-under the shared protocol's
-[Plan targets](../../.agents/references/round-protocol.md#plan-targets).
+under [Plan targets](#plan-targets).
 
 `paths <vet|rebut|fix> [input]` resolves a later manual phase and prints its working checkout,
 workflow and arguments as one JSON object. Vet and rebuttal take `--writer <full tag>` from
@@ -574,7 +683,8 @@ the current session. Fix writes no phase report and needs no writer tag. Without
 command selects the most recently modified eligible file at the plan root. Several reviews of
 that round resolve to the newest unless `--vet <file>` or `--rebut <file>` selects one. The
 command writes nothing and never
-claims another number. The shared round protocol owns manual invocation details.
+claims another number. [Phase routing](#phase-routing) owns the manual
+invocation details.
 
 `settle [stem]` takes an active widening plan, or the plan `plan` prints when
 no stem is named. It refuses any other current filename and a target plan with

@@ -2,6 +2,7 @@
 reads:
   - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
+  - ../../../references/round-grammar.md
   - ../../../../../plan/BOUNDARIES.md
   - ../../../../../plan/GROWTH-PATTERNS.md
 ---
@@ -18,8 +19,10 @@ Its settings select the assistant. Hand-run watches use the launchers below.
 
 This workflow owns the watch's rules for hand-run watches and automated
 planning or plan-scoped implementation-audit rounds. The shared
-[round protocol](../../../references/round-protocol.md) owns file names, writer
-tags, severity sequences and rating tokens.
+[round protocol](../../../references/round-protocol.md) owns severity sequences
+and rating meanings. The runner's
+[Round files](../../../../tools/audit-round/CLAUDE.md#round-files) own file names
+and writer tags.
 
 The round kind sets automated sessions' working directory: plan for planning,
 Repo Edu for implementation. Use the supplied checkout paths.
@@ -376,20 +379,21 @@ outside the watch.
 
 ## Input
 
-Use the shared protocol's **Later files** for the watch and cache-root
-arguments. The prompt separately supplies one JSON value. Its episode fields
-hold the joined Git evidence and its `roundData` object holds the existing
-`planning` and `implementation` round-kind files. An absent key means that
-round kind has no file. Take the topic and both graded heads from the episode
-evidence; do not select a topic from HEAD or reread current heads to replace the
-supplied ones. The runner computes this snapshot after the fix, only when glance
-says watch is due.
+Use the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
+for the watch and cache-root arguments. The prompt separately supplies one JSON
+value. Its episode fields hold the joined Git evidence and its `roundData`
+object holds the existing `planning` and `implementation` round-kind files. An
+absent key means that round kind has no file. Take the topic and both graded
+heads from the episode evidence; do not select a topic from HEAD or reread
+current heads to replace the supplied ones. The runner computes this snapshot
+after the fix, only when glance says watch is due.
 
 No route reads or writes an episode file.
 
 ## Output
 
-Use the supplied output path under the shared protocol's **Later files**.
+Use the supplied output path under the runner's
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 The independence rule also applies when locating output: do not read the
 transcript to derive a path.
 
@@ -397,21 +401,10 @@ Write the finished watch to the named `-9-watch.<tag>.md` file, replacing anythi
 It is Markdown for a person reading in a
 Markdown viewer.
 
-Then write the watch record. It lives at `watch.json` in the named cache root,
-an object keyed by episode stem, and you replace only this episode's entry:
-
-```json
-{
-  "<stem>": {
-    "heads": {
-      "repo-edu": "<graded Repo Edu HEAD sha, short>",
-      "plan": "<graded plan HEAD sha, short>"
-    },
-    "grade": "green | amber | red",
-    "written": "<local date, YYYY-MM-DD>"
-  }
-}
-```
+Then write the watch record. The
+[watch record grammar](../../../references/round-grammar.md#watch-record) owns
+its exact JSON shape and examples. It lives at `watch.json` in the named cache
+root, keyed by episode stem. Replace only this episode's entry.
 
 Write both graded heads, including the peer checkout's head. A glance at either
 root counts from its own entry, never the other repository's history. The grade

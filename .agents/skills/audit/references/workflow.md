@@ -1,6 +1,7 @@
 ---
 reads:
   - ../../../references/round-protocol.md
+  - ../../../references/round-grammar.md
   - ../../../../../plan/CLAUDE.md
   - commit-scope.md
   - ../../../../../plan/GROWTH-PATTERNS.md
@@ -19,11 +20,12 @@ The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
 The shared [round protocol](../../../references/round-protocol.md) owns
-file names, round data, writer tags, evidence rules, finding shape, rating
-tokens and runner results.
-Follow its **Manual phases** and **Later files** for target resolution and
-argument order. Count the supplied step scope against the plan's
-**Implementation plan** numbering.
+evidence rules, finding grades, rating meanings, reconciliation and runner
+result meanings. The [round grammar](../../../references/round-grammar.md)
+owns the report and result forms. The runner's
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) owns
+target resolution and argument order. Count the supplied step scope against
+the plan's **Implementation plan** numbering.
 
 An invocation that names no plan file and names commit references, including
 `HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan
@@ -54,8 +56,8 @@ and stop. Continue only when the user explicitly says to.
 ## Round strategy
 
 The user sets the step range, or gives the plan alone or no target so the
-command resolves one under the shared protocol's
-[Plan targets](../../../references/round-protocol.md#plan-targets).
+command resolves one under the runner's
+[Plan targets](../../../../tools/audit-round/CLAUDE.md#plan-targets).
 Follow the resolved range exactly. Never select, propose or replace it. The
 plan's **Execution and audits** subsection is guidance for the user, not
 instructions for the workflow.
@@ -170,17 +172,18 @@ Follow the shared protocol's
 
 ## Report order
 
-Follow the shared round protocol's
-[Report format](../../../references/round-protocol.md#report-format) for the
-opening, coverage and findings. Supply the plan, ready commit, implementation
-commits and resolved range from this audit's evidence. Deliver the complete
-report under [Report file](#report-file).
+Follow the [audit report grammar](../../../references/round-grammar.md#audit-report)
+for the opening and findings and the shared protocol's
+[Audit reports](../../../references/round-protocol.md#audit-reports) for the
+reporting discipline. Supply the plan, ready commit, implementation commits
+and resolved range from this audit's evidence. Deliver the complete report
+under [Report file](#report-file).
 
 ## Report file
 
 Follow the shared protocol's
-[Audit delivery](../../../references/round-protocol.md#audit-delivery) and
-[Audit notes](../../../references/round-protocol.md#audit-notes).
+[Audit reports](../../../references/round-protocol.md#audit-reports) and the
+runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 
 ## Clean completion
 

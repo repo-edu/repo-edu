@@ -11,7 +11,9 @@ the **Ready gate**, **Round strategy**, **Coverage** and **Episode settlement**
 sections of `workflow.md`, and the plan reads in its
 **Evidence** section. Read the rest of `workflow.md` as written. The
 [shared round protocol](../../../references/round-protocol.md) owns the tiers,
-finding metadata tokens, growth-pattern tags, trade pricing and twins.
+finding metadata meanings, growth-pattern tags and trade pricing. The
+[round grammar](../../../references/round-grammar.md) owns report, twin and
+record-bullet shapes.
 
 The round's repo set is the repo the commit target names. Bare references name
 Repo Edu. A `plan@` prefix on the first reference names the plan repo for the
@@ -131,11 +133,14 @@ it apart from the range's own work.
 
 ## Report
 
-Follow the shared protocol's **Implementation reports** and **Audit delivery**.
+Follow the [audit report grammar](../../../references/round-grammar.md#audit-report)
+and the shared protocol's
+[Audit reports](../../../references/round-protocol.md#audit-reports).
 In place of plan and step evidence, supply the commit references as typed, the
 resolved range with its short shas and the statement that no plan covers the
 work. Use the commit coverage table above. Naming and allocation follow the
-protocol's **File names** and **Manual phases**.
+runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) and
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 
 ## Record
 
@@ -144,7 +149,8 @@ A commit-scoped round has no plan stem, so its fix commit carries no
 severity-prefixed conventional form. A plan-repo record takes the subject
 grammar's O2 off-plan form, `<tag> <growth> <sequence> <kind>: <sentence>`.
 Its body uses unbracketed tiers with `[section:]` locations. Every record follows
-the shared protocol's **Record bullets**.
+the shared protocol's **Finding metadata** and the
+[record bullet grammar](../../../references/round-grammar.md#commit-record-bullet).
 
 Direct clean completion follows the shared protocol. It creates no record
 because no stem scan reads one for a commit target.
@@ -152,7 +158,9 @@ because no stem scan reads one for a commit target.
 ## Settlement
 
 A commit-scoped round is one-shot. The range is the scope, and the round ends at its report. The fix
-lands its record and follows the shared protocol's **Deleting reports**. There is no episode, no
+lands its record and follows the runner's
+[Report lifecycle](../../../../tools/audit-round/CLAUDE.md#report-lifecycle).
+There is no episode, no
 `implemented:` or `closed:` marker and no trajectory watch. A later round over later commits is a
 new round, not a continuation of this one.
 
