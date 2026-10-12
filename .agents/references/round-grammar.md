@@ -337,6 +337,42 @@ Judged repos: plan@abc123, repo-edu@def456
    The plan repo is already in the judged set.
 ```
 
+#### `report/unknown-token` — refused
+
+Refusal: `Finding 1 has unknown [foo:...] token at 2`
+
+```markdown
+# Implementation audit workflow
+
+Judged repos: repo-edu@def456
+
+## Findings
+
+1. **C: Reject an unknown token**
+
+   [area:pkg-application] [foo:bar] [growth-pattern:none] [reach:developer] [complexity:none]
+
+   The token is outside the grammar.
+```
+
+#### `report/misplaced-cover` — refused
+
+Refusal: `Finding 1 has unexpected [cover:...] location at 2; expected [growth-pattern:...]`
+
+```markdown
+# Implementation audit workflow
+
+Judged repos: plan@abc123
+
+## Findings
+
+1. **C: Reject a cover beside a section**
+
+   [section:decisions] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:none]
+
+   A cover belongs only after an area.
+```
+
 ## Vet twin
 
 ### Production
@@ -455,9 +491,11 @@ Refusal: `Rebuttal answer 1 uses the word "Drop"; use Agree, Contest or For user
 <plan-bullet>            ::= "- "<tier>" "<plan-record-location>" "
                              <rating-tokens>" "<title>": "<prose>
 <plan-record-location>   ::= <planning-record-location>
+                           | <planning-deferral-location>
                            | <section-token>
                            | <area-token>(" "<cover-token>)*
 <planning-record-location> ::= <field-token>" "<section-token>
+<planning-deferral-location> ::= <field-token>" "<area-token>(" "<cover-token>)*
 ```
 
 A Repo Edu record uses the bracketed tier. Its local location is one area and
@@ -465,8 +503,9 @@ any cover areas. A plan deferral replaces all area and cover tokens with one
 plan token.
 
 A plan-repo record uses the unbracketed tier. A `plan-audit` record has one
-field and one section. Other local records have one section without a field.
-A Repo Edu deferral replaces the section with one area and any cover areas.
+field followed by its section or its deferred Repo Edu area. Other local
+records have one section without a field. A Repo Edu deferral in any other
+record replaces the section with one area and any cover areas.
 
 ### Examples
 
@@ -494,10 +533,32 @@ A Repo Edu deferral replaces the section with one area and any cover areas.
 - C [section:implementation-plan] [growth-pattern:none] [reach:developer] [complexity:none] Step scope: the step names its hosting repo.
 ```
 
+#### `record/plan-audit-deferral` — parsed
+
+```text
+- B [field:excess] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Parser correction: Repo Edu owns the parser change.
+```
+
 #### `record/plan-repo-edu-deferral` — parsed
 
 ```text
 - B [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:medium] Reader correction: Repo Edu owns the parser change.
+```
+
+#### `record/repo-edu-misplaced-field` — refused
+
+Refusal: `unexpected [field:...] at 2; expected [growth-pattern:...]`
+
+```text
+- [C] [area:tool-audit-round] [field:excess] [growth-pattern:none] [reach:developer] [complexity:none] Field placement: Repo Edu records have no search direction.
+```
+
+#### `record/repo-edu-out-of-order` — refused
+
+Refusal: `unexpected [reach:...] at 2; expected [growth-pattern:...]`
+
+```text
+- [C] [area:tool-audit-round] [reach:developer] [growth-pattern:none] [complexity:none] Token order: Rating tokens keep grammar order.
 ```
 
 ## Implementation-plan step

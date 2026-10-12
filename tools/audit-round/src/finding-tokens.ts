@@ -37,6 +37,33 @@ export type FindingToken = {
   readonly value: string
 }
 
+export const findingTokenKeys = [
+  "field",
+  "section",
+  "area",
+  "cover",
+  "plan",
+  "growth-pattern",
+  "reach",
+  "complexity",
+] as const
+
+export type FindingTokenKey = (typeof findingTokenKeys)[number]
+
+const findingTokenKeySet = new Set<string>(findingTokenKeys)
+const locationTokenKeySet = new Set<string>([
+  "section",
+  "area",
+  "cover",
+  "plan",
+])
+
+export const findingRatingTokenKeys = [
+  "growth-pattern",
+  "reach",
+  "complexity",
+] as const satisfies readonly FindingTokenKey[]
+
 export type FindingTokenPrefix = {
   readonly tokens: readonly FindingToken[]
   readonly remainder: string
@@ -65,6 +92,47 @@ export function findingTokenValues(
   key: string,
 ): readonly string[] {
   return tokens.filter((token) => token.key === key).map((token) => token.value)
+}
+
+/** Name the first token that departs from one exact grammar production. */
+export function findingTokenSequenceIssue(
+  tokens: readonly FindingToken[],
+  expected: readonly FindingTokenKey[],
+): string | null {
+  const unknownIndex = tokens.findIndex(
+    (token) => !findingTokenKeySet.has(token.key),
+  )
+  if (unknownIndex !== -1)
+    return `unknown [${tokens[unknownIndex].key}:...] token at ${unknownIndex + 1}`
+
+  const mismatch = Math.max(tokens.length, expected.length)
+  for (let index = 0; index < mismatch; index += 1) {
+    const actual = tokens[index]?.key
+    const wanted = expected[index]
+    if (actual === wanted) continue
+    if (actual === undefined)
+      return `missing [${wanted}:...] token at ${index + 1}`
+    if (wanted === undefined)
+      return `unexpected [${actual}:...]${locationTokenKeySet.has(actual) ? " location" : ""} token at ${index + 1}`
+    const location = locationTokenKeySet.has(actual)
+      ? " location"
+      : locationTokenKeySet.has(wanted)
+        ? " location"
+        : ""
+    return `unexpected [${actual}:...]${location} at ${index + 1}; expected [${wanted}:...]`
+  }
+  return null
+}
+
+/** Read one area token and the cover tokens directly after it. */
+export function areaLocationTokenKeys(
+  tokens: readonly FindingToken[],
+  areaIndex: number,
+): readonly FindingTokenKey[] {
+  const keys: FindingTokenKey[] = ["area"]
+  for (let index = areaIndex + 1; tokens[index]?.key === "cover"; index += 1)
+    keys.push("cover")
+  return keys
 }
 
 export type ReportLocationToken = "section" | "area" | "plan"

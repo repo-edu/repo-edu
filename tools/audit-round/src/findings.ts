@@ -1,7 +1,10 @@
 import { z } from "zod"
 import {
+  areaLocationTokenKeys,
   findingLabelSchema,
   findingRatingsSchema,
+  findingRatingTokenKeys,
+  findingTokenSequenceIssue,
   findingTokenValues,
   readFindingTokenPrefix,
 } from "./finding-tokens.js"
@@ -50,6 +53,39 @@ export function readFindings(
         "needs location, growth-pattern, reach and complexity tokens followed by prose",
       )
     const { tokens } = prefix
+    const planning = repository === "plan" && role === "plan-audit"
+    const expectedTokenKeys =
+      repository === "repo-edu"
+        ? tokens[0]?.key === "plan"
+          ? (["plan", ...findingRatingTokenKeys] as const)
+          : ([
+              ...areaLocationTokenKeys(tokens, 0),
+              ...findingRatingTokenKeys,
+            ] as const)
+        : planning
+          ? tokens[1]?.key === "area"
+            ? ([
+                "field",
+                ...areaLocationTokenKeys(tokens, 1),
+                ...findingRatingTokenKeys,
+              ] as const)
+            : (["field", "section", ...findingRatingTokenKeys] as const)
+          : tokens[0]?.key === "section"
+            ? (["section", ...findingRatingTokenKeys] as const)
+            : ([
+                ...areaLocationTokenKeys(tokens, 0),
+                ...findingRatingTokenKeys,
+              ] as const)
+    const tokenIssue = findingTokenSequenceIssue(tokens, expectedTokenKeys)
+    if (tokenIssue !== null) {
+      if (
+        repository === "plan" &&
+        !planning &&
+        tokens.some((token) => token.key === "field")
+      )
+        fail("[field:...] belongs only to a planning audit")
+      fail(tokenIssue)
+    }
     const values = (key: string) => findingTokenValues(tokens, key)
     const key = repository === "repo-edu" ? "area" : "section"
     const foreignKey = repository === "repo-edu" ? "plan" : "area"
@@ -75,16 +111,6 @@ export function readFindings(
     for (const area of [...values("area"), ...values("cover")])
       if (!findingLabelSchema.safeParse(area).success)
         fail(`invalid area ID: ${area}`)
-    const planning = repository === "plan" && role === "plan-audit"
-    for (const token of [
-      "growth-pattern",
-      "reach",
-      "complexity",
-      ...(planning ? ["field"] : []),
-    ]) {
-      if (values(token).length !== 1)
-        fail(`needs exactly one [${token}:...] token`)
-    }
     const checked = findingRatingsSchema.safeParse({
       "growth-pattern": values("growth-pattern")[0],
       reach: values("reach")[0],
@@ -99,8 +125,6 @@ export function readFindings(
       !z.enum(["excess", "missing"]).safeParse(values("field")[0]).success
     )
       fail("[field:...] must be excess or missing")
-    if (repository === "plan" && !planning && values("field").length > 0)
-      fail("[field:...] belongs only to a planning audit")
     const separator = prefix.remainder.indexOf(": ")
     if (
       separator < 1 ||

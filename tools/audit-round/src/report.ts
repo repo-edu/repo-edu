@@ -1,7 +1,10 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
 import {
+  areaLocationTokenKeys,
   findingLabelSchema,
   findingRatingsSchema,
+  findingRatingTokenKeys,
+  findingTokenSequenceIssue,
   findingTokenValues,
   type JudgedRepositorySet,
   type ReportLocationToken,
@@ -165,6 +168,18 @@ function findingData(
   if (heading[3].includes(": "))
     throw new Error(`Finding ${heading[1]} title cannot contain ": "`)
   const { tokens } = tokenPrefix
+  const expectedTokenKeys =
+    reportClass !== "implementation"
+      ? (["field", "section", ...findingRatingTokenKeys] as const)
+      : tokens[0]?.key === "section" || tokens[0]?.key === "plan"
+        ? ([tokens[0].key, ...findingRatingTokenKeys] as const)
+        : ([
+            ...areaLocationTokenKeys(tokens, 0),
+            ...findingRatingTokenKeys,
+          ] as const)
+  const tokenIssue = findingTokenSequenceIssue(tokens, expectedTokenKeys)
+  if (tokenIssue !== null)
+    throw new Error(`Finding ${heading[1]} has ${tokenIssue}`)
   const values = (key: string) => findingTokenValues(tokens, key)
   const one = (key: string): string => {
     const found = values(key)
@@ -203,8 +218,6 @@ function findingData(
       section,
     }
   } else {
-    if (values("field").length > 0)
-      throw new Error(`Finding ${heading[1]} cannot use [field:...]`)
     const areas = values("area")
     const sections = values("section")
     const plans = values("plan")
@@ -228,10 +241,6 @@ function findingData(
       plans.length === 1 ? "plan" : sections.length === 1 ? "section" : "area"
     const judgedSet = repositories.join(", ") as JudgedRepositorySet
     const admission = reportLocationTable[judgedSet][token]
-    if (covers.length > 0 && token !== "area")
-      throw new Error(
-        `Finding ${heading[1]} has ${token === "plan" ? "an invalid plan deferral" : "an invalid plan location"}`,
-      )
     if (admission.outcome === "refused")
       throw new Error(`Finding ${heading[1]} has an ${admission.refusal}`)
     switch (admission.admission) {

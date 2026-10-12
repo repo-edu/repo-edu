@@ -12,17 +12,30 @@ const rating = "[growth-pattern:none] [reach:developer] [complexity:none]"
 
 test("the round grammar's record-bullet examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("record/")) {
-    assert.equal(example.outcome, "parsed", example.id)
     const repository = example.id.startsWith("record/repo-edu")
       ? "repo-edu"
       : "plan"
     const role =
-      example.id === "record/plan-audit" ? "plan-audit" : "impl-audit-1"
-    assert.equal(
-      readFindings(example.source, repository, role).length,
-      1,
-      example.id,
-    )
+      example.id === "record/plan-audit" ||
+      example.id === "record/plan-audit-deferral"
+        ? "plan-audit"
+        : "impl-audit-1"
+    if (example.outcome === "parsed") {
+      assert.equal(
+        readFindings(example.source, repository, role).length,
+        1,
+        example.id,
+      )
+    } else {
+      assert.notEqual(example.refusal, null, example.id)
+      assert.throws(
+        () => readFindings(example.source, repository, role),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message.includes(example.refusal as string),
+        example.id,
+      )
+    }
   }
 })
 

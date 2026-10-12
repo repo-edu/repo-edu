@@ -12,6 +12,17 @@ const grammar = fileURLToPath(
   new URL("../../../../.agents/references/round-grammar.md", import.meta.url),
 )
 
+const formPrefixes = [
+  "report/",
+  "vet/",
+  "rebuttal/",
+  "record/",
+  "plan-step/",
+  "phase-result/",
+  "judge/",
+  "watch/",
+] as const
+
 let cached: readonly RoundGrammarExample[] | null = null
 
 /** Read every labelled fenced example from the round grammar. */
@@ -48,6 +59,12 @@ export function roundGrammarExamples(
     }
     if (examples.length === 0)
       throw new Error("Round grammar has no labelled examples")
+    for (const example of examples) {
+      if (!formPrefixes.some((prefix) => example.id.startsWith(prefix)))
+        throw new Error(
+          `Round grammar example ${example.id} does not belong to a tested form`,
+        )
+    }
     cached = examples
   }
   const selected =
