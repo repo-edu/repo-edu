@@ -47,9 +47,7 @@ export function testContext(
 }
 
 /** A round setup on the fixture's default auditor, for tests that do not choose one. */
-export function testSetup(
-  repoEduRoot: string,
-): RoundContext & {
+export function testSetup(repoEduRoot: string): RoundContext & {
   readonly roundKind: "implementation"
   readonly auditor: "codex"
 }

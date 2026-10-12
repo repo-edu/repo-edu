@@ -301,7 +301,8 @@ consumers.
   vets and the fixer. Its rows show the previous completed round by the same
   assistant on the same target only when its audit setting differs, plus phase
   time, accepted findings and tokens. A closing table gives each audit setting's
-  means per round: time and tokens over every round, accepted findings over
+  means per round, for all its rounds and split into first rounds on a target
+  and later ones: time and tokens over every round, accepted findings over
   complete rounds only. Same-setting and incomplete rounds
   contribute time and tokens but do not form a cross-check pair. The command
   starts no assistant, reads no live settings and writes nothing.
@@ -549,7 +550,10 @@ same target only when its audit setting differs. They also show time by phase,
 accepted finding tiers, reaches and titles and token use by model. A closing
 table gives each audit setting's means per round, with the round and
 complete-round counts behind them: time and tokens divide by every round,
-accepted finding counts by complete rounds only. Means rather than totals keep
+accepted finding counts by complete rounds only. Each setting has a row for all
+its rounds, one for first rounds on a target and one for later rounds, because a
+later round audits what earlier rounds already cleaned and finds less whoever
+runs it. Means rather than totals keep
 a setting that ran more rounds from looking more expensive and more productive
 on that count alone. A same-setting round is marked unpaired. An entry is incomplete unless its
 status is finished, failed or interrupted, it names a landed commit and every

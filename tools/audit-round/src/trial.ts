@@ -201,6 +201,63 @@ async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
   return picked.slice(start)
 }
 
+/** The rows each audit setting's means split into, by the round's place on its target. */
+const positions: readonly [string, (round: TrialRound) => boolean][] = [
+  ["all", () => true],
+  ["first", (round) => round.data.round === 1],
+  ["later", (round) => round.data.round > 1],
+]
+
+/** Round count, complete count and the per-round means of one group of rounds, as table cells. */
+function meanCells(grouped: readonly TrialRound[]): string[] {
+  const completeRounds = grouped.filter((round) =>
+    trialRoundComplete(round.data),
+  ).length
+  const phaseMilliseconds = new Map<string, number>()
+  const tokens = new Map<string, Omit<ModelTokenUsage, "model">>()
+  const findings: RoundFinding[] = []
+  for (const round of grouped) {
+    for (const phase of round.data.phases)
+      phaseMilliseconds.set(
+        phase.phase,
+        (phaseMilliseconds.get(phase.phase) ?? 0) + phase.milliseconds,
+      )
+    addTokens(
+      tokens,
+      round.data.phases.flatMap((phase) => phase.tokens),
+    )
+    findings.push(...acceptedFindings(round))
+  }
+  const total = [...phaseMilliseconds.values()].reduce(
+    (sum, value) => sum + value,
+    0,
+  )
+  const perPhase = phaseOrder.flatMap((phase) => {
+    const value = phaseMilliseconds.get(phase)
+    return value === undefined
+      ? []
+      : [`${phase} ${elapsedText(value / grouped.length)}`]
+  })
+  const tokensPerRound = new Map(
+    [...tokens].map(([model, usage]) => [
+      model,
+      {
+        input: usage.input / grouped.length,
+        cached: usage.cached / grouped.length,
+        output: usage.output / grouped.length,
+      },
+    ]),
+  )
+  return [
+    String(grouped.length),
+    String(completeRounds),
+    elapsedText(total / grouped.length),
+    escapeCell(perPhase.join("; ") || "none"),
+    escapeCell(findingRates(findings, completeRounds)),
+    escapeCell(tokenTotalsText(tokensPerRound)),
+  ]
+}
+
 /** Read and render the newest unchanged-settings trial without changing either checkout. */
 export async function trialReport(context: ExecutionContext): Promise<string> {
   const rounds = await trialRounds(context)
@@ -253,12 +310,12 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
 
   lines.push(
     "",
-    "## Means per round by audit setting",
+    "## Means per round by audit setting and position",
     "",
-    "Time and tokens divide by every round. Accepted findings divide by complete rounds only, because an incomplete round supplies none.",
+    "Time and tokens divide by every round. Accepted findings divide by complete rounds only, because an incomplete round supplies none. A first round is the first look at its target; a later round follows other rounds on the same target, which have already removed what they found.",
     "",
-    "| Audit setting | Rounds | Complete | Time per round | Phase time per round | Accepted findings per complete round | Tokens per model per round |",
-    "| --- | ---: | ---: | --- | --- | --- | --- |",
+    "| Audit setting | Position | Rounds | Complete | Time per round | Phase time per round | Accepted findings per complete round | Tokens per model per round |",
+    "| --- | --- | ---: | ---: | --- | --- | --- | --- |",
   )
   const groups = new Map<string, TrialRound[]>()
   for (const round of rounds) {
@@ -266,48 +323,14 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
     groups.set(key, [...(groups.get(key) ?? []), round])
   }
   for (const grouped of groups.values()) {
-    const first = grouped[0]
-    const completeRounds = grouped.filter((round) =>
-      trialRoundComplete(round.data),
-    ).length
-    const phaseMilliseconds = new Map<string, number>()
-    const tokens = new Map<string, Omit<ModelTokenUsage, "model">>()
-    const findings: RoundFinding[] = []
-    for (const round of grouped) {
-      for (const phase of round.data.phases)
-        phaseMilliseconds.set(
-          phase.phase,
-          (phaseMilliseconds.get(phase.phase) ?? 0) + phase.milliseconds,
-        )
-      addTokens(
-        tokens,
-        round.data.phases.flatMap((phase) => phase.tokens),
+    const setting = `${grouped[0].data.auditor.assistant} ${settingText(grouped[0].data.auditor)}`
+    for (const [position, member] of positions) {
+      const selected = grouped.filter(member)
+      if (selected.length === 0) continue
+      lines.push(
+        `| ${escapeCell(setting)} | ${position} | ${meanCells(selected).join(" | ")} |`,
       )
-      findings.push(...acceptedFindings(round))
     }
-    const total = [...phaseMilliseconds.values()].reduce(
-      (sum, value) => sum + value,
-      0,
-    )
-    const perPhase = phaseOrder.flatMap((phase) => {
-      const value = phaseMilliseconds.get(phase)
-      return value === undefined
-        ? []
-        : [`${phase} ${elapsedText(value / grouped.length)}`]
-    })
-    const tokensPerRound = new Map(
-      [...tokens].map(([model, usage]) => [
-        model,
-        {
-          input: usage.input / grouped.length,
-          cached: usage.cached / grouped.length,
-          output: usage.output / grouped.length,
-        },
-      ]),
-    )
-    lines.push(
-      `| ${escapeCell(`${first.data.auditor.assistant} ${settingText(first.data.auditor)}`)} | ${grouped.length} | ${completeRounds} | ${elapsedText(total / grouped.length)} | ${escapeCell(perPhase.join("; ") || "none")} | ${escapeCell(findingRates(findings, completeRounds))} | ${escapeCell(tokenTotalsText(tokensPerRound))} |`,
-    )
   }
   return `${lines.join("\n")}\n`
 }

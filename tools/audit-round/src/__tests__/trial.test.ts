@@ -394,16 +394,25 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
   assert.match(output, /total 00:06; audit 00:05; judge 00:01/)
   assert.match(
     output,
-    /codex gpt-base xhigh \| 4 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B ordinary 0\.3; B developer 0\.7 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
+    /codex gpt-base xhigh \| all \| 4 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B ordinary 0\.3; B developer 0\.7 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
+  )
+  assert.match(
+    output,
+    /codex gpt-base xhigh \| first \| 1 \| 1 \| 00:01 \| audit 00:01 \| B developer 1\.0 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k \|/,
+  )
+  assert.match(
+    output,
+    /codex gpt-base xhigh \| later \| 3 \| 2 \| 00:07 \| audit 00:07; judge 00:00 \| B ordinary 0\.5; B developer 0\.5 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
   )
   assert.match(output, /archived-impl-01..01 #1/)
   assert.match(
     output,
-    /codex gpt-top xhigh \| 4 \| 2 \| 00:06 \| audit 00:06 \| B rare 0\.5 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k/,
+    /codex gpt-top xhigh \| all \| 4 \| 2 \| 00:06 \| audit 00:06 \| B rare 0\.5 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k/,
   )
+  assert.doesNotMatch(output, /codex gpt-top xhigh \| first \|/)
   assert.match(
     output,
-    /claude claude-opus-5 xhigh \| 1 \| 1 \| 00:04 \| audit 00:04 \| B developer 1\.0 \|/,
+    /claude claude-opus-5 xhigh \| all \| 1 \| 1 \| 00:04 \| audit 00:04 \| B developer 1\.0 \|/,
   )
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
