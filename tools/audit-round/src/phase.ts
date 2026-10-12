@@ -93,6 +93,9 @@ export type Effort = (typeof efforts)[number]
 /** The command-line option an auditor selection came from. */
 export type AuditorOption = "--auditor" | "--first"
 
+/** The command route that supplied a round's auditor. */
+export type AuditorSelectionSource = "settings" | AuditorOption
+
 /**
  * What the command line asked of the auditor's phases. `none` asks nothing and
  * `cli` bypasses phase settings. A tag names its option, so the settings header

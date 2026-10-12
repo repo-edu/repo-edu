@@ -132,7 +132,7 @@ const commonRoundData = z.strictObject({
   }),
   auditor: modelSelection.extend({
     assistant,
-    chosenBy: z.enum(["settings", "command-line"]),
+    chosenBy: z.enum(["settings", "--first", "--auditor", "command-line"]),
   }),
   phases: z.array(
     z.strictObject({

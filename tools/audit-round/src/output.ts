@@ -218,10 +218,7 @@ export async function roundRun(
           auditor: {
             assistant: audit.assistant,
             ...resolvedRun(audit, selections),
-            chosenBy:
-              setup.override === undefined || setup.override === noOverride
-                ? ("settings" as const)
-                : ("command-line" as const),
+            chosenBy: setup.auditorSelectionSource,
           },
           ...(setup.roundKind === "planning"
             ? {

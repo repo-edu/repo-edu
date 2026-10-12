@@ -167,6 +167,19 @@ function auditorKey(round: TrialRound): string {
   return JSON.stringify({ assistant, model, effort })
 }
 
+/**
+ * A manual `--auditor` list can make every run look like the first round of a
+ * separate chain, so it supplies no comparable position evidence. Older data
+ * called both command routes `command-line`; only an automatic round reached
+ * the judge, which identifies the retained `--first` records.
+ */
+function trialAdmits(round: TrialRound): boolean {
+  const source = round.data.auditor.chosenBy
+  if (source === "--auditor") return false
+  if (source !== "command-line") return true
+  return round.data.phases.some((phase) => phase.phase === "judge")
+}
+
 async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
   const files = await roundDataFiles(context.planRoot)
   const rounds = (
@@ -191,7 +204,7 @@ async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
     )
   ).flat()
   const picked = rounds
-    .filter(({ data }) => data.auditor.chosenBy === "settings")
+    .filter(trialAdmits)
     .sort(
       (first, second) =>
         first.data.started.localeCompare(second.data.started) ||
@@ -199,7 +212,7 @@ async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
     )
   const newest = picked.at(-1)
   if (newest === undefined)
-    throw new Error(`No settings-chosen round data at ${context.planRoot}.`)
+    throw new Error(`No trial round data at ${context.planRoot}.`)
   const settings = JSON.stringify(newest.data.settings)
   let start = picked.length - 1
   while (
@@ -281,7 +294,7 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
   const lines = [
     "# Auditor trial",
     "",
-    `Newest unchanged-settings run: ${rounds.length} round${rounds.length === 1 ? "" : "s"}, ${rounds[0].data.started} to ${rounds.at(-1)?.data.started}. Command-line choices are excluded.`,
+    `Newest unchanged-settings run: ${rounds.length} round${rounds.length === 1 ? "" : "s"}, ${rounds[0].data.started} to ${rounds.at(-1)?.data.started}. Manual --auditor rounds are excluded.`,
     "",
     "## Settings",
     "",

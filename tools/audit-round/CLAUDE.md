@@ -292,8 +292,10 @@ consumers.
   launch prompts stay in the log and never reach the terminal. Supplied instruction files appear
   there by path only; their full contents go to the assistant.
 - `trial.ts` owns the read-only trial read-out. It reads checked round data at
-  the plan root and closed-plan archives, ignores command-line-selected rounds,
-  then takes the newest uninterrupted run with one settings snapshot. It
+  the plan root and closed-plan archives, excludes manual `--auditor` rounds,
+  then takes the newest uninterrupted run with one settings snapshot. A
+  `--first` round remains part of that run because it opens the ordinary
+  automatic series. It
   reads accepted findings from each complete entry's stored outcomes. A
   complete entry has a finished, failed or interrupted status, at least one
   landed commit and an outcome for every finding. The
@@ -660,11 +662,13 @@ Phase files use
 and writes under [Phase routing](#phase-routing).
 
 `trial` prints the newest unchanged-settings run across targets and series. It
-includes only rounds whose audit setting came from `settings.json`. Its header
-names both audit selections, every configured pair, both vet selections and the
-fixer. Round rows show the previous completed round by the same assistant on the
-same target only when its audit setting differs. They also show time by phase,
-accepted finding tiers, reaches and titles and token use by model. A closing
+excludes rounds started through a manual `--auditor` list, which can make each
+run a separate one-round chain. A `--first` round stays in because it only
+changes the opener of the ordinary automatic chain. Its header names both audit
+selections, every configured pair, both vet selections and the fixer. Round
+rows show the previous completed round by the same assistant on the same target
+only when its audit setting differs. They also show time by phase, accepted
+finding tiers, reaches and titles and token use by model. A closing
 table gives each audit setting's means per round, with the round and
 complete-round counts behind them: time and tokens divide by every round,
 accepted finding counts by complete rounds only. Each setting has a row for all

@@ -135,20 +135,20 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
     target,
     round,
     tag:
-      auditor.chosenBy === "command-line"
-        ? "oux"
-        : auditor.assistant === "claude"
-          ? "atx"
-          : auditor.model === "gpt-base"
-            ? "obx"
-            : "otx",
+      auditor.assistant === "claude"
+        ? "atx"
+        : auditor.model === "gpt-base"
+          ? "obx"
+          : auditor.model === "gpt-top"
+            ? "otx"
+            : "oux",
     started,
     status,
     settings: roundSettings,
     auditor,
     phases: [
       phase(auditor.assistant, auditor.model, round * 1000),
-      ...(round === 5
+      ...(round === 5 || auditor.chosenBy === "--first"
         ? [{ ...phase("codex", "gpt-judge", 1000), phase: "judge" as const }]
         : []),
     ],
@@ -198,10 +198,40 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
         {
           assistant: "codex",
           ...selection("manual-model", "xhigh"),
+          chosenBy: "--auditor",
+        },
+        settings,
+        [{ repository: "repo-edu", sha: sha40 }],
+      ),
+    ],
+    [
+      "legacy-manual-impl-01..01-03-2-round.oux.json",
+      data(
+        "legacy-manual-impl-01..01",
+        1,
+        "2026-10-03T12:00:00.000Z",
+        {
+          assistant: "codex",
+          ...selection("legacy-manual-model", "xhigh"),
           chosenBy: "command-line",
         },
-        oldSettings,
+        settings,
         [{ repository: "repo-edu", sha: sha40 }],
+      ),
+    ],
+    [
+      "first-impl-01..01-03-3-round.otx.json",
+      data(
+        "first-impl-01..01",
+        1,
+        "2026-10-03T14:00:00.000Z",
+        {
+          assistant: "codex",
+          ...selection("gpt-top", "xhigh"),
+          chosenBy: "--first",
+        },
+        settings,
+        [{ repository: "repo-edu", sha: clean }],
       ),
     ],
     [
@@ -228,7 +258,7 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
         {
           assistant: "codex",
           ...selection("gpt-base", "xhigh"),
-          chosenBy: "settings",
+          chosenBy: "command-line",
         },
         settings,
         [
@@ -356,12 +386,14 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
-  assert.match(output, /Newest unchanged-settings run: 9 rounds/)
+  assert.match(output, /Newest unchanged-settings run: 10 rounds/)
   assert.match(output, /codex: gpt-top xhigh versus gpt-base xhigh/)
+  assert.doesNotMatch(output, /old-impl-01..01|old-auditor/)
   assert.doesNotMatch(
     output,
-    /old-impl-01..01|old-auditor|manual-impl-01..01|manual-model/,
+    /manual-impl-01..01|manual-model|legacy-manual-impl-01..01|legacy-manual-model/,
   )
+  assert.match(output, /first-impl-01..01 #1 \| otx \| codex gpt-top xhigh/)
   assert.match(
     output,
     /target-impl-01..01 #5 \| obx \| codex gpt-base xhigh \| otx: B rare — Earlier yield/,
@@ -407,9 +439,12 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
   assert.match(output, /archived-impl-01..01 #1/)
   assert.match(
     output,
-    /codex gpt-top xhigh \| all \| 4 \| 2 \| 00:06 \| audit 00:06 \| B rare 0\.5 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k/,
+    /codex gpt-top xhigh \| all \| 5 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B rare 0\.3 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.2k/,
   )
-  assert.doesNotMatch(output, /codex gpt-top xhigh \| first \|/)
+  assert.match(
+    output,
+    /codex gpt-top xhigh \| first \| 1 \| 1 \| 00:02 \| audit 00:01; judge 00:01 \| none/,
+  )
   assert.match(
     output,
     /claude claude-opus-5 xhigh \| all \| 1 \| 1 \| 00:04 \| audit 00:04 \| B developer 1\.0 \|/,

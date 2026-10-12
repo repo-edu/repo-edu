@@ -50,16 +50,28 @@ export function testContext(
 export function testSetup(repoEduRoot: string): RoundContext & {
   readonly roundKind: "implementation"
   readonly auditor: "codex"
+  readonly auditorSelectionSource: "settings"
 }
 export function testSetup<K extends RoundKind>(
   repoEduRoot: string,
   roundKind: K,
-): RoundContext & { readonly roundKind: K; readonly auditor: "codex" }
+): RoundContext & {
+  readonly roundKind: K
+  readonly auditor: "codex"
+  readonly auditorSelectionSource: "settings"
+}
 export function testSetup(
   repoEduRoot: string,
   roundKind: RoundKind = "implementation",
-): RoundContext & { readonly auditor: "codex" } {
-  return { ...testContext(repoEduRoot, roundKind), auditor: "codex" }
+): RoundContext & {
+  readonly auditor: "codex"
+  readonly auditorSelectionSource: "settings"
+} {
+  return {
+    ...testContext(repoEduRoot, roundKind),
+    auditor: "codex",
+    auditorSelectionSource: "settings",
+  }
 }
 
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))

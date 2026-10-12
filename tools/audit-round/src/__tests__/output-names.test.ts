@@ -75,7 +75,12 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
 
 test("different auditors cannot open the same candidate and the next run advances", async (t) => {
   const f = await fixture(t)
-  const setup = { ...testContext(f.root), plan: "example.md", scope: "2-4" }
+  const setup = {
+    ...testContext(f.root),
+    plan: "example.md",
+    scope: "2-4",
+    auditorSelectionSource: "settings" as const,
+  }
   const codex = await roundRun({ ...setup, auditor: "codex" }, 0, selections)
   const claude = await roundRun({ ...setup, auditor: "claude" }, 0, selections)
   assert.equal(codex.nameStart, "example-impl-02..04-01")

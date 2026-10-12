@@ -6,6 +6,7 @@ import type { RoundDocuments } from "./output.js"
 import {
   type Assistant,
   type AuditorOverride,
+  type AuditorSelectionSource,
   type AuditSlot,
   closePhase,
   type InteractiveSession,
@@ -37,6 +38,8 @@ import { type AuditTarget, planStem, type RoundContext } from "./target.js"
 /** What names a round before it starts: its target, who audits and on what. */
 export type RoundSetup = RoundContext & {
   readonly auditor: Assistant
+  /** The command route that supplied this round's auditor. */
+  readonly auditorSelectionSource: AuditorSelectionSource
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
   /** Which member of a configured audit pair this round runs. */

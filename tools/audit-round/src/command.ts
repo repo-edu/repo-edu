@@ -28,6 +28,7 @@ import {
   type Assistant,
   type AuditorOption,
   type AuditorSeat,
+  type AuditorSelectionSource,
   type AuditSlot,
   auditPair,
   noOverride,
@@ -964,6 +965,12 @@ export async function runCommand(
           : settings.defaultAuditor
       }
       const opened = first ?? prepared.firstAuditor
+      let auditorSelectionSource: AuditorSelectionSource =
+        first !== undefined
+          ? "--auditor"
+          : prepared.firstAuditor !== undefined
+            ? "--first"
+            : "settings"
       let seat: AuditorSeat | null = opened ?? {
         assistant: await settingsOpener(),
         override: noOverride,
@@ -1026,6 +1033,7 @@ export async function runCommand(
             ...session,
             ...target,
             auditor: seat.assistant,
+            auditorSelectionSource,
             override: seat.override,
             auditSlot: takeAuditSlot(seat),
             brief: prepared.brief,
@@ -1116,6 +1124,7 @@ export async function runCommand(
               assistant: judge.answer,
               override: noOverride,
             }
+            auditorSelectionSource = "settings"
             continue
           }
           const ending = round.cleanAudit ? "Clean audit" : null
@@ -1128,6 +1137,7 @@ export async function runCommand(
               `${ending} by ${ended?.assistant} on ${ended?.model} ${ended?.effort ?? "effort unavailable"}; skipped ${taken.skipped} queued ${taken.skipped === 1 ? "entry" : "entries"} with the same setting.`,
             )
           seat = taken.next
+          auditorSelectionSource = "--auditor"
           rest = taken.rest
           await active.message(
             seat === null

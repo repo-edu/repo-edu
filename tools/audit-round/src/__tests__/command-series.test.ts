@@ -62,6 +62,13 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.match(visible, /Next round: claude; 1 auditor entries remain\./)
   assert.match(visible, /Auditor sequence finished after 2 rounds\./)
   assert.doesNotMatch(visible, /Auditor sequence stopped/)
+  const stored = JSON.parse(
+    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { auditor: { chosenBy: string } }[]
+  assert.deepEqual(
+    stored.map((entry) => entry.auditor.chosenBy),
+    ["--auditor", "--auditor"],
+  )
   const calls = await f.calls()
   assert.equal(
     calls.some((call) => call.args[0] === "resume"),
@@ -524,6 +531,13 @@ test("--first replaces the default auditor's first round and the series still fo
   assert.deepEqual(
     audits.map((call) => call.assistant),
     ["claude", "codex"],
+  )
+  const stored = JSON.parse(
+    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { auditor: { chosenBy: string } }[]
+  assert.deepEqual(
+    stored.map((entry) => entry.auditor.chosenBy),
+    ["--first", "settings"],
   )
   // Only the first round carries the selection; the judged round names no tier.
   for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
