@@ -35,7 +35,7 @@ async function planRoot(t: TestContext): Promise<string> {
   return root
 }
 
-/** Each commit names its repository and its commit time. */
+/** Each repository's commits are supplied oldest first and returned in Git order. */
 function logs(
   ...commits: readonly [Repository, number, string][]
 ): Record<Repository, LogCommit[]> {
@@ -50,7 +50,7 @@ function logs(
         files: [],
         renames: [],
       }))
-      .sort((first, second) => second.committedAt - first.committedAt)
+      .reverse()
   return { plan: read("plan"), "repo-edu": read("repo-edu") }
 }
 
@@ -140,6 +140,42 @@ test("a named step or range audits implementation once a step has landed", async
       scope: "1",
     }),
     /No step of example has landed/,
+  )
+})
+
+test("marker freshness follows Git order when commit dates disagree", async (t) => {
+  const root = await planRoot(t)
+  assert.deepEqual(
+    await selectTarget(
+      logs(
+        ["repo-edu", 40, "example/impl-1 obx feat(x): first step"],
+        ["repo-edu", 30, "example/impl-2 obx feat(x): second step"],
+        ["repo-edu", 10, "example/implemented obx: current marker"],
+        ["plan", 20, "example/impl-3 obx docs(audit): plan step"],
+        ["plan", 50, "example/implemented obx: plan marker"],
+      ),
+      root,
+      named,
+    ),
+    {
+      roundKind: "implementation",
+      plan: join(root, "example.md"),
+      scope: "1-3",
+    },
+  )
+  await assert.rejects(
+    selectTarget(
+      logs(
+        ["repo-edu", 90, "example/implemented obx: stale marker"],
+        ["repo-edu", 40, "example/impl-1 obx feat(x): first step"],
+        ["repo-edu", 30, "example/impl-2 obx feat(x): second step"],
+        ["plan", 20, "example/impl-3 obx docs(audit): plan step"],
+        ["plan", 50, "example/implemented obx: plan marker"],
+      ),
+      root,
+      named,
+    ),
+    /implemented marker is stale in Repo Edu/,
   )
 })
 

@@ -14,7 +14,6 @@ import {
 } from "./target.js"
 
 type Logs = Readonly<Record<Repository, readonly LogCommit[]>>
-type StemCommit = ReturnType<typeof stemCommits>[number]
 
 /** Both histories at their current heads, which every plan target reads. */
 async function readLogs(context: ExecutionContext): Promise<Logs> {
@@ -54,9 +53,8 @@ export async function selectTarget(
       ? (await newestPlan(logs, planRoot)).path
       : await resolvePlan(planRoot, request.plan)
   const topic = planStem(plan)
-  const history = stemCommits(logs).filter((entry) => entry.topic === topic)
   const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
-  const status = progress(history, listedSteps)
+  const status = progress(logs, topic, listedSteps)
   const implementation = (scope: string): AuditTarget => ({
     roundKind: "implementation",
     plan,
@@ -99,7 +97,8 @@ type MarkerStatus = "current" | "missing" | "stale"
 
 /** Listed-step completion and marker freshness in each hosting repository. */
 function progress(
-  history: readonly StemCommit[],
+  logs: Logs,
+  topic: string,
   listedSteps: readonly PlanStep[],
 ): {
   readonly landed: readonly number[]
@@ -117,28 +116,29 @@ function progress(
       steps.add(step.number)
       expected.set(repository, steps)
     }
-  const landed = new Map<Repository, Set<number>>()
-  const newestStep = new Map<Repository, number>()
-  const newestMarker = new Map<Repository, number>()
-  history.forEach(({ repository, commit }, index) => {
-    const role = looseForm(commit.subject)?.role ?? ""
-    const step = /^impl-([1-9]\d*)$/.exec(role)
-    const number = step === null ? null : Number(step[1])
-    if (number !== null && expected.get(repository)?.has(number)) {
-      const steps = landed.get(repository) ?? new Set<number>()
-      steps.add(number)
-      landed.set(repository, steps)
-      if (!newestStep.has(repository)) newestStep.set(repository, index)
-    }
-    if (role === "implemented" && !newestMarker.has(repository))
-      newestMarker.set(repository, index)
-  })
+  const landed = new Set<number>()
   const repositories = repositoryOrder.flatMap((repository) => {
     const hosted = expected.get(repository)
     if (hosted === undefined) return []
-    const completed = landed.get(repository) ?? new Set<number>()
-    const markerIndex = newestMarker.get(repository)
-    const stepIndex = newestStep.get(repository)
+    const completed = new Set<number>()
+    let stepIndex: number | undefined
+    let markerIndex: number | undefined
+    logs[repository]
+      .flatMap((commit) => {
+        const form = looseForm(commit.subject)
+        return form?.stem === topic ? [form.role] : []
+      })
+      .forEach((role, index) => {
+        const step = /^impl-([1-9]\d*)$/.exec(role)
+        const number = step === null ? null : Number(step[1])
+        if (number !== null && hosted.has(number)) {
+          completed.add(number)
+          landed.add(number)
+          if (stepIndex === undefined) stepIndex = index
+        }
+        if (role === "implemented" && markerIndex === undefined)
+          markerIndex = index
+      })
     const marker: MarkerStatus =
       markerIndex === undefined
         ? "missing"
@@ -154,9 +154,7 @@ function progress(
     ]
   })
   return {
-    landed: [
-      ...new Set([...landed.values()].flatMap((steps) => [...steps])),
-    ].sort((first, second) => first - second),
+    landed: [...landed].sort((first, second) => first - second),
     repositories,
   }
 }
