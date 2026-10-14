@@ -12,7 +12,7 @@ import { commitFixture } from "./round-fixture.js"
 const sha40 = "0123456789abcdef0123456789abcdef01234567"
 const selection = (model: string, effort: string | null) => ({ model, effort })
 
-test("trial reads the newest settings run, cross-checks completed rounds and averages incomplete work", async (t) => {
+test("trial reads the newest settings run, cross-checks completed rounds, counts their drops and averages incomplete work", async (t) => {
   const f = await fixture(t)
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root)
@@ -97,30 +97,52 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
   })
   const finding = (
     title: string,
-    reach: RoundFinding["reach"] = "developer",
-    outcome: RoundFinding["outcome"] = "kept",
+    fields: Partial<RoundFinding> = {},
   ): RoundFinding => ({
     number: 1,
     title,
     tier: "B",
-    reach,
+    reach: "developer",
     complexity: "none",
     growthPattern: "none",
     location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
     vetVerdict: "accept",
     rebuttalAnswer: null,
-    outcome,
+    outcome: "kept",
     finalTier: null,
     finalReach: null,
+    ...fields,
   })
+  const drop = (
+    title: string,
+    tier: RoundFinding["tier"],
+    reach: RoundFinding["reach"],
+  ): RoundFinding =>
+    finding(title, {
+      number: 2,
+      tier,
+      reach,
+      vetVerdict: "drop",
+      rebuttalAnswer: "agree",
+      outcome: "dropped",
+    })
   const findings = new Map<string, readonly RoundFinding[]>([
-    ["target-impl-01..01#2", [finding("Earlier yield", "rare")]],
+    [
+      "target-impl-01..01#2",
+      [
+        finding("Earlier yield", { reach: "rare" }),
+        drop("Earlier drop", "C", "ordinary"),
+      ],
+    ],
     ["target-impl-01..01#4", [finding("Other assistant yield")]],
-    ["target-impl-01..01#5", [finding("Later yield", "ordinary")]],
+    ["target-impl-01..01#5", [finding("Later yield", { reach: "ordinary" })]],
     ["target-impl-01..01#7", [finding("Same-setting yield")]],
-    ["target-impl-01..01#8", [finding("In-progress yield")]],
+    [
+      "target-impl-01..01#8",
+      [finding("In-progress yield"), drop("In-progress drop", "A", "rare")],
+    ],
     ["target-impl-01..01#9", [finding("Awaiting ruling yield")]],
-    ["target-impl-01..01#10", [finding("Unsettled yield", "developer", null)]],
+    ["target-impl-01..01#10", [finding("Unsettled yield", { outcome: null })]],
     ["archived-impl-01..01#1", [finding("Interrupted yield")]],
   ])
   const data = (
@@ -396,8 +418,10 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
   assert.match(output, /first-impl-01..01 #1 \| otx \| codex gpt-top xhigh/)
   assert.match(
     output,
-    /target-impl-01..01 #5 \| obx \| codex gpt-base xhigh \| otx: B rare — Earlier yield/,
+    /target-impl-01..01 #5 \| obx \| codex gpt-base xhigh \| otx: B rare — Earlier yield \|/,
   )
+  assert.match(output, /target-impl-01..01 #2 .*\| B rare — Earlier yield \|/)
+  assert.doesNotMatch(output, /Earlier drop|In-progress drop/)
   assert.match(
     output,
     /target-impl-01..01 #7 \| obx \| codex gpt-base xhigh \| not paired: same setting/,
@@ -426,28 +450,32 @@ test("trial reads the newest settings run, cross-checks completed rounds and ave
   assert.match(output, /total 00:06; audit 00:05; judge 00:01/)
   assert.match(
     output,
-    /codex gpt-base xhigh \| all \| 4 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B ordinary 0\.3; B developer 0\.7 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
+    /codex gpt-base xhigh \| all \| 4 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B ordinary 0\.3; B developer 0\.7 \| none \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
   )
   assert.match(
     output,
-    /codex gpt-base xhigh \| first \| 1 \| 1 \| 00:01 \| audit 00:01 \| B developer 1\.0 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k \|/,
+    /codex gpt-base xhigh \| first \| 1 \| 1 \| 00:01 \| audit 00:01 \| B developer 1\.0 \| none \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k \|/,
   )
   assert.match(
     output,
-    /codex gpt-base xhigh \| later \| 3 \| 2 \| 00:07 \| audit 00:07; judge 00:00 \| B ordinary 0\.5; B developer 0\.5 \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
+    /codex gpt-base xhigh \| later \| 3 \| 2 \| 00:07 \| audit 00:07; judge 00:00 \| B ordinary 0\.5; B developer 0\.5 \| none \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
   )
   assert.match(output, /archived-impl-01..01 #1/)
   assert.match(
     output,
-    /codex gpt-top xhigh \| all \| 5 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B rare 0\.3 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.2k/,
+    /codex gpt-top xhigh \| all \| 5 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B rare 0\.3 \| C ordinary 0\.3 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.2k/,
   )
   assert.match(
     output,
-    /codex gpt-top xhigh \| first \| 1 \| 1 \| 00:02 \| audit 00:01; judge 00:01 \| none/,
+    /codex gpt-top xhigh \| first \| 1 \| 1 \| 00:02 \| audit 00:01; judge 00:01 \| none \| none \|/,
   )
   assert.match(
     output,
-    /claude claude-opus-5 xhigh \| all \| 1 \| 1 \| 00:04 \| audit 00:04 \| B developer 1\.0 \|/,
+    /codex gpt-top xhigh \| later \| 4 \| 2 \| 00:06 \| audit 00:06 \| B rare 0\.5 \| C ordinary 0\.5 \| gpt-top: input 1\.0k, cached 0\.5k, output 0\.1k \|/,
+  )
+  assert.match(
+    output,
+    /claude claude-opus-5 xhigh \| all \| 1 \| 1 \| 00:04 \| audit 00:04 \| B developer 1\.0 \| none \|/,
   )
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",

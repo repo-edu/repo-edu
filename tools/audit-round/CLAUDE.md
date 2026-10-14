@@ -296,7 +296,8 @@ consumers.
   then takes the newest uninterrupted run with one settings snapshot. A
   `--first` round remains part of that run because it opens the ordinary
   automatic series. It
-  reads accepted findings from each complete entry's stored outcomes. A
+  reads accepted and dropped findings from each complete entry's stored
+  outcomes. A
   complete entry has a finished, failed or interrupted status, at least one
   landed commit and an outcome for every finding. The
   Markdown output names both audit selections, their configured pairs, both
@@ -304,9 +305,11 @@ consumers.
   assistant on the same target only when its audit setting differs, plus phase
   time, accepted findings and tokens. A closing table gives each audit setting's
   means per round, for all its rounds and split into first rounds on a target
-  and later ones: time and tokens over every round, accepted findings over
-  complete rounds only. Same-setting and incomplete rounds
-  contribute time and tokens but do not form a cross-check pair. The command
+  and later ones: time and tokens over every round, accepted and dropped
+  findings over complete rounds only. A dropped finding counts under the tier
+  and reach the audit gave it. Same-setting rounds contribute time, tokens and
+  findings but do not form a cross-check pair. Incomplete rounds contribute
+  only time and tokens. The command
   starts no assistant, reads no live settings and writes nothing.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
@@ -674,7 +677,10 @@ only when its audit setting differs. They also show time by phase, accepted
 finding tiers, reaches and titles and token use by model. A closing
 table gives each audit setting's means per round, with the round and
 complete-round counts behind them: time and tokens divide by every round,
-accepted finding counts by complete rounds only. Each setting has a row for all
+accepted and dropped finding counts by complete rounds only. A dropped finding
+is an audit finding that never reached the record. It counts under the tier and
+reach the audit gave it, so the table shows how much of a setting's audit the
+vet and the rebuttal removed. Each setting has a row for all
 its rounds, one for first rounds on a target and one for later rounds, because a
 later round audits what earlier rounds already cleaned and finds less whoever
 runs it. Means rather than totals keep
@@ -682,7 +688,7 @@ a setting that ran more rounds from looking more expensive and more productive
 on that count alone. A same-setting round is marked unpaired. An entry is incomplete unless its
 status is finished, failed or interrupted, it names a landed commit and every
 finding has an outcome. Its time and tokens count, but it supplies no accepted
-findings or cross-check. The command renders Markdown, starts no assistant and
+or dropped findings and no cross-check. The command renders Markdown, starts no assistant and
 writes nothing.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.

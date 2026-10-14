@@ -44,10 +44,27 @@ export function trialRoundComplete(round: {
   )
 }
 
+/**
+ * An incomplete round's findings never reached a record through the runner,
+ * so it supplies neither accepted nor dropped findings.
+ */
+function completeFindings(round: TrialRound): readonly RoundFinding[] {
+  return trialRoundComplete(round.data) ? round.data.findings : []
+}
+
 function acceptedFindings(round: TrialRound): readonly RoundFinding[] {
-  if (!trialRoundComplete(round.data)) return []
-  return round.data.findings.filter(
+  return completeFindings(round).filter(
     (finding) => finding.outcome === "kept" || finding.outcome === "unmatched",
+  )
+}
+
+/**
+ * Audit findings that never reached the record. A dropped finding records no
+ * final tier or reach, so it counts under the tier and reach the audit gave it.
+ */
+function droppedFindings(round: TrialRound): readonly RoundFinding[] {
+  return completeFindings(round).filter(
+    (finding) => finding.outcome === "dropped",
   )
 }
 
@@ -237,7 +254,8 @@ function meanCells(grouped: readonly TrialRound[]): string[] {
   ).length
   const phaseMilliseconds = new Map<string, number>()
   const tokens = new Map<string, Omit<ModelTokenUsage, "model">>()
-  const findings: RoundFinding[] = []
+  const accepted: RoundFinding[] = []
+  const dropped: RoundFinding[] = []
   for (const round of grouped) {
     for (const phase of round.data.phases)
       phaseMilliseconds.set(
@@ -248,7 +266,8 @@ function meanCells(grouped: readonly TrialRound[]): string[] {
       tokens,
       round.data.phases.flatMap((phase) => phase.tokens),
     )
-    findings.push(...acceptedFindings(round))
+    accepted.push(...acceptedFindings(round))
+    dropped.push(...droppedFindings(round))
   }
   const total = [...phaseMilliseconds.values()].reduce(
     (sum, value) => sum + value,
@@ -275,7 +294,8 @@ function meanCells(grouped: readonly TrialRound[]): string[] {
     String(completeRounds),
     elapsedText(total / grouped.length),
     escapeCell(perPhase.join("; ") || "none"),
-    escapeCell(findingRates(findings, completeRounds)),
+    escapeCell(findingRates(accepted, completeRounds)),
+    escapeCell(findingRates(dropped, completeRounds)),
     escapeCell(tokenTotalsText(tokensPerRound)),
   ]
 }
@@ -334,10 +354,10 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
     "",
     "## Means per round by audit setting and position",
     "",
-    "Time and tokens divide by every round. Accepted findings divide by complete rounds only, because an incomplete round supplies none. A first round is the first look at its target; a later round follows other rounds on the same target, which have already removed what they found.",
+    "Time and tokens divide by every round. Accepted and dropped findings divide by complete rounds only, because an incomplete round supplies neither. A dropped finding is an audit finding that never reached the record, counted by the tier and reach the audit gave it. A first round is the first look at its target; a later round follows other rounds on the same target, which have already removed what they found.",
     "",
-    "| Audit setting | Position | Rounds | Complete | Time per round | Phase time per round | Accepted findings per complete round | Tokens per model per round |",
-    "| --- | --- | ---: | ---: | --- | --- | --- | --- |",
+    "| Audit setting | Position | Rounds | Complete | Time per round | Phase time per round | Accepted findings per complete round | Dropped findings per complete round | Tokens per model per round |",
+    "| --- | --- | ---: | ---: | --- | --- | --- | --- | --- |",
   )
   const groups = new Map<string, TrialRound[]>()
   for (const round of rounds) {
