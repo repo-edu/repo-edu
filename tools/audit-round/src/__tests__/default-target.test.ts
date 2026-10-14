@@ -40,6 +40,15 @@ async function planRoot(t: TestContext): Promise<string> {
 The shape is still open, so no implementation steps exist yet.
 `,
   )
+  await writeFile(
+    join(root, "malformed.md"),
+    `# Plan
+
+## Implementation plan
+
+1. **Title without a full stop** Hosted in Repo Edu.
+`,
+  )
   return root
 }
 
@@ -144,6 +153,18 @@ test("a named step or range audits implementation once a step has landed", async
       roundKind: "implementation",
       plan: join(root, "example.md"),
       scope: "1-2",
+    },
+  )
+  assert.deepEqual(
+    await selectTarget(
+      logs(["repo-edu", 1, "malformed/impl-1 obx feat(x): step"]),
+      root,
+      { plan: "malformed", scope: "1" },
+    ),
+    {
+      roundKind: "implementation",
+      plan: join(root, "malformed.md"),
+      scope: "1",
     },
   )
   await assert.rejects(

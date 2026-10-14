@@ -65,11 +65,11 @@ export async function selectTarget(
       )
     return { roundKind: "planning", plan }
   }
-  const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
-  const status = progress(logs, topic, listedSteps)
   if (request?.scope != null) {
     return implementation(request.scope)
   }
+  const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
+  const status = progress(logs, topic, listedSteps)
   if (
     status.repositories.every(
       ({ pending, marker }) => pending.length === 0 && marker === "current",

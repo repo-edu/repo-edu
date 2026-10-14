@@ -349,14 +349,15 @@ consumers.
   when the runner chooses the newest active plan. Without a target it skips plans without an active
   artifact. It resolves the active plan before reading its step list, so a missing plan says so, and
   supplies the absolute plan path before any assistant starts. Before any step lands, the bare plan
-  selects a planning audit without reading that list. Once a step has landed, `plan-steps.ts`
-  supplies every listed step and hosting repo. Loose forms find each hosted step, its repo's newest
-  step and its newest `implemented` marker. The bare plan resolves to the full listed range only
-  when every hosted share has landed and each marker is newer than its repo's latest hosted step.
-  Otherwise it names pending steps by repo and every missing or stale marker. It never reruns the
-  newest implementation-audit record's scope. `defaultPlan` applies the same plan rule alone for the
-  `plan` command and a `close` given no stem. The home `/brief-plan` and `/close` run `plan` for an
-  omitted stem.
+  selects a planning audit without reading that list. A concrete scope returns after the landed-step
+  check without reading the list. For a bare plan once a step has landed, `plan-steps.ts` supplies
+  every listed step and hosting repo. Loose forms find each hosted step, its repo's newest step and
+  its newest `implemented` marker. The bare plan resolves to the full listed range only when every
+  hosted share has landed and each marker is newer than its repo's latest hosted step. Otherwise it
+  names pending steps by repo and every missing or stale marker. It never reruns the newest
+  implementation-audit record's scope. `defaultPlan` applies the same plan rule alone for the `plan`
+  command and a `close` given no stem. The home `/brief-plan` and `/close` run `plan` for an omitted
+  stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor` and
   `--first` options. It reads both values with the queue's entry grammar and refuses a list with no
   entries. `--first` takes exactly one entry and is refused beside `--auditor`, because the list's
