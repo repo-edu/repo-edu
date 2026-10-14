@@ -7,6 +7,7 @@ import {
   type JudgeAnswer,
   type RoundData,
   readPlanRoundData,
+  roundDataFilename,
 } from "./round-data.js"
 import { newestWatch } from "./round-paths.js"
 import { looseForm, type Repository } from "./subject.js"
@@ -47,7 +48,7 @@ export async function readJudgeEvidence(
     readLog(input.repoEduRoot),
     newestWatch(input.planRoot, input.stem),
   ])
-  const kind = input.roundKind === "planning" ? "planning" : "implementation"
+  const kind = input.roundKind
   const commits = (
     [
       ["plan", planLog],
@@ -71,7 +72,7 @@ export async function readJudgeEvidence(
     )
   return {
     roundData: {
-      file: `${input.stem}-${kind === "planning" ? "plan" : "impl"}-rounds.json`,
+      file: roundDataFilename(input.stem, kind),
       rounds: roundData[kind] ?? [],
     },
     commits,

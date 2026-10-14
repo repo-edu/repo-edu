@@ -10,6 +10,7 @@ import {
   type RoundFinding,
   readPlanRoundData,
   reviewedRoundFindings,
+  roundDataFilename,
   roundDataFiles,
   settleRoundFindings,
   writeRoundData,
@@ -66,6 +67,17 @@ const entry = (
   judge: null,
   scope: "1",
   judgedRepos: ["repo-edu"],
+})
+
+test("round data names both files from the round kind", () => {
+  assert.equal(
+    roundDataFilename("example", "planning"),
+    "example-plan-rounds.json",
+  )
+  assert.equal(
+    roundDataFilename("example", "implementation"),
+    "example-impl-rounds.json",
+  )
 })
 
 test("per-plan data replaces a target round in place and appends new identities", async (t) => {

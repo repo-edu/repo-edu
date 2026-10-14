@@ -5,6 +5,7 @@ import { z } from "zod"
 import { complexitySchema, reachSchema } from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
 import { parseSubject, type Repository } from "./subject.js"
+import type { RoundKind } from "./target.js"
 
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
@@ -182,7 +183,12 @@ export const roundDataSchema = z.union([
 ])
 const planningRoundFileSchema = z.array(planningRoundDataSchema)
 const implementationRoundFileSchema = z.array(implementationRoundDataSchema)
-const roundDataFilename = /-(?:plan|impl)-rounds\.json$/
+const roundDataFilenamePattern = /-(?:plan|impl)-rounds\.json$/
+
+/** The one file name shared by round-data writers and readers. */
+export function roundDataFilename(stem: string, kind: RoundKind): string {
+  return `${stem}-${kind === "planning" ? "plan" : "impl"}-rounds.json`
+}
 
 export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
 export type RoundFinding = z.infer<typeof roundFindingSchema>
@@ -231,13 +237,17 @@ type FindingRecord = {
 /** Find retained round data beside active plans and inside closed-plan archives. */
 export async function roundDataFiles(planRoot: string): Promise<string[]> {
   const active = (await readdir(planRoot, { withFileTypes: true }))
-    .filter((entry) => entry.isFile() && roundDataFilename.test(entry.name))
+    .filter(
+      (entry) => entry.isFile() && roundDataFilenamePattern.test(entry.name),
+    )
     .map((entry) => join(planRoot, entry.name))
   const archive = join(planRoot, "archive")
   let closed: string[] = []
   try {
     closed = (await readdir(archive, { recursive: true, withFileTypes: true }))
-      .filter((entry) => entry.isFile() && roundDataFilename.test(entry.name))
+      .filter(
+        (entry) => entry.isFile() && roundDataFilenamePattern.test(entry.name),
+      )
       .map((entry) => join(entry.parentPath, entry.name))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
@@ -253,10 +263,10 @@ export async function readPlanRoundData(
   const files = await roundDataFiles(planRoot)
   const selected = {
     planning: files.filter(
-      (file) => basename(file) === `${stem}-plan-rounds.json`,
+      (file) => basename(file) === roundDataFilename(stem, "planning"),
     ),
     implementation: files.filter(
-      (file) => basename(file) === `${stem}-impl-rounds.json`,
+      (file) => basename(file) === roundDataFilename(stem, "implementation"),
     ),
   }
   const duplicate = Object.entries(selected).find(

@@ -227,21 +227,6 @@ test("trial reads the newest settings run, cross-checks completed rounds, counts
       ),
     ],
     [
-      "legacy-manual-impl-01..01-03-2-round.oux.json",
-      data(
-        "legacy-manual-impl-01..01",
-        1,
-        "2026-10-03T12:00:00.000Z",
-        {
-          assistant: "codex",
-          ...selection("legacy-manual-model", "xhigh"),
-          chosenBy: "command-line",
-        },
-        settings,
-        [{ repository: "repo-edu", sha: sha40 }],
-      ),
-    ],
-    [
       "first-impl-01..01-03-3-round.otx.json",
       data(
         "first-impl-01..01",
@@ -280,13 +265,29 @@ test("trial reads the newest settings run, cross-checks completed rounds, counts
         {
           assistant: "codex",
           ...selection("gpt-base", "xhigh"),
-          chosenBy: "command-line",
+          chosenBy: "settings",
         },
         settings,
         [
           { repository: "repo-edu", sha: later },
           { repository: "plan", sha: laterPlan },
         ],
+      ),
+    ],
+    [
+      "no-commit-impl-01..01-06-2-round.obx.json",
+      data(
+        "no-commit-impl-01..01",
+        1,
+        "2026-10-06T11:00:00.000Z",
+        {
+          assistant: "codex",
+          ...selection("gpt-base", "xhigh"),
+          chosenBy: "settings",
+        },
+        settings,
+        [],
+        "failed",
       ),
     ],
     [
@@ -408,13 +409,10 @@ test("trial reads the newest settings run, cross-checks completed rounds, counts
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
-  assert.match(output, /Newest unchanged-settings run: 10 rounds/)
+  assert.match(output, /Newest unchanged-settings run: 11 rounds/)
   assert.match(output, /codex: gpt-top xhigh versus gpt-base xhigh/)
   assert.doesNotMatch(output, /old-impl-01..01|old-auditor/)
-  assert.doesNotMatch(
-    output,
-    /manual-impl-01..01|manual-model|legacy-manual-impl-01..01|legacy-manual-model/,
-  )
+  assert.doesNotMatch(output, /manual-impl-01..01|manual-model/)
   assert.match(output, /first-impl-01..01 #1 \| otx \| codex gpt-top xhigh/)
   assert.match(
     output,
@@ -440,6 +438,10 @@ test("trial reads the newest settings run, cross-checks completed rounds, counts
   )
   assert.match(
     output,
+    /no-commit-impl-01..01 #1 .*not paired: incomplete.*incomplete/,
+  )
+  assert.match(
+    output,
     /archived-impl-01..01 #1 .*B developer — Interrupted yield/,
   )
   assert.doesNotMatch(output, /other-impl-01..01 #6 [^\n]*incomplete/)
@@ -450,11 +452,11 @@ test("trial reads the newest settings run, cross-checks completed rounds, counts
   assert.match(output, /total 00:06; audit 00:05; judge 00:01/)
   assert.match(
     output,
-    /codex gpt-base xhigh \| all \| 4 \| 3 \| 00:05 \| audit 00:05; judge 00:00 \| B ordinary 0\.3; B developer 0\.7 \| none \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.3k/,
+    /codex gpt-base xhigh \| all \| 5 \| 3 \| 00:04 \| audit 00:04; judge 00:00 \| B ordinary 0\.3; B developer 0\.7 \| none \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k; gpt-judge: input 0\.2k/,
   )
   assert.match(
     output,
-    /codex gpt-base xhigh \| first \| 1 \| 1 \| 00:01 \| audit 00:01 \| B developer 1\.0 \| none \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k \|/,
+    /codex gpt-base xhigh \| first \| 2 \| 1 \| 00:01 \| audit 00:01 \| B developer 1\.0 \| none \| gpt-base: input 1\.0k, cached 0\.5k, output 0\.1k \|/,
   )
   assert.match(
     output,

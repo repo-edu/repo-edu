@@ -40,6 +40,7 @@ import {
   type ModelTokenUsage,
   type RoundAccount,
   type RoundData,
+  roundDataFilename,
   roundDataIdentity,
   writeRoundData,
 } from "./round-data.js"
@@ -210,7 +211,7 @@ export async function roundRun(
       ? {
           path: join(
             setup.planRoot,
-            `${planStem(setup.plan)}-${setup.roundKind === "planning" ? "plan" : "impl"}-rounds.json`,
+            roundDataFilename(planStem(setup.plan), setup.roundKind),
           ),
           ...roundDataIdentity(nameStart),
           tag: tag("audit"),

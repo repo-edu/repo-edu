@@ -184,17 +184,10 @@ function auditorKey(round: TrialRound): string {
   return JSON.stringify({ assistant, model, effort })
 }
 
-/**
- * A manual `--auditor` list can make every run look like the first round of a
- * separate chain, so it supplies no comparable position evidence. Older data
- * called both command routes `command-line`; only an automatic round reached
- * the judge, which identifies the retained `--first` records.
- */
+/** A manual selection supplies no comparable position evidence. */
 function trialAdmits(round: TrialRound): boolean {
   const source = round.data.auditor.chosenBy
-  if (source === "--auditor") return false
-  if (source !== "command-line") return true
-  return round.data.phases.some((phase) => phase.phase === "judge")
+  return source !== "--auditor" && source !== "command-line"
 }
 
 async function trialRounds(context: ExecutionContext): Promise<TrialRound[]> {
