@@ -13,7 +13,15 @@ test("the round grammar's plan-step examples are parser fixtures", () => {
     "plan-step/preface": ["repo-edu"],
   } as const
   for (const example of roundGrammarExamples("plan-step/")) {
-    assert.equal(example.outcome, "parsed", example.id)
+    if (example.outcome === "refused") {
+      assert.throws(
+        () => readPlanSteps(example.source),
+        (error: unknown) =>
+          error instanceof Error && error.message === example.refusal,
+        example.id,
+      )
+      continue
+    }
     assert.deepEqual(readPlanSteps(example.source), [
       { number: 1, repositories: repositories[example.id] },
     ])

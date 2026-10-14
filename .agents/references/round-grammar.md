@@ -643,6 +643,18 @@ The steps follow this short preface.
 1. **Write the parser.** Hosted in Repo Edu. Add the shared reader.
 ```
 
+#### `plan-step/title-without-full-stop` — refused
+
+Refusal: `Implementation plan item 1 needs a bold title ending in a full stop.`
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the parser** Hosted in Repo Edu. Add the shared reader.
+```
+
 ## Phase result
 
 ### Production

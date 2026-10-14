@@ -66,7 +66,17 @@ export function readPlanSteps(source: string): readonly PlanStep[] {
         ? first.children[1].value.replace(/\s+/g, " ").trimStart()
         : ""
     const host = hostForms.find(({ sentence }) => hostText.startsWith(sentence))
-    if (title?.type !== "strong" || host === undefined)
+    const titleEnd =
+      title?.type === "strong" ? title.children.at(-1) : undefined
+    if (
+      title?.type !== "strong" ||
+      titleEnd?.type !== "text" ||
+      !titleEnd.value.endsWith(".")
+    )
+      throw new Error(
+        `Implementation plan item ${index + 1} needs a bold title ending in a full stop.`,
+      )
+    if (host === undefined)
       throw new Error(
         `Implementation plan item ${index + 1} must open with a bold title followed by "Hosted in Repo Edu.", "Hosted in the plan repo." or "Hosted in both repos."`,
       )

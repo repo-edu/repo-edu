@@ -90,8 +90,13 @@ export async function selectTarget(
           `The implemented marker is ${marker === "missing" ? "missing" : "stale"} in ${name}.`,
         ],
   )
+  const example = status.landed.at(-1)
+  const scopeHint =
+    example === undefined
+      ? "Name a step scope."
+      : `Name a step scope, such as ${topic} ${example}.`
   throw new InvalidArgumentError(
-    `${topic} is still being implemented. ${[...pending, ...markers].join(" ")} Name a step scope, such as ${topic} ${status.landed.at(-1)}.`,
+    `${topic} is still being implemented. ${[...pending, ...markers].join(" ")} ${scopeHint}`,
   )
 }
 

@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { type TestContext, test } from "node:test"
+import { InvalidArgumentError } from "commander"
 import { selectTarget } from "../default-target.js"
 import type { LogCommit } from "../episode-log.js"
 import type { Repository } from "../subject.js"
@@ -231,5 +232,20 @@ test("a plan between its listed steps and current markers stops with its reason"
       null,
     ),
     /No active plan/,
+  )
+})
+
+test("an unfinished plan omits the scope example when no listed step has landed", async (t) => {
+  const root = await planRoot(t)
+  await assert.rejects(
+    selectTarget(
+      logs(["repo-edu", 1, "example/impl-4 obx feat(x): removed step"]),
+      root,
+      named,
+    ),
+    (error: unknown) =>
+      error instanceof InvalidArgumentError &&
+      error.message ===
+        "example is still being implemented. Pending steps in Repo Edu: 1, 2. Pending steps in the plan repo: 3. The implemented marker is missing in Repo Edu. The implemented marker is missing in the plan repo. Name a step scope.",
   )
 })
