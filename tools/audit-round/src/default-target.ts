@@ -53,21 +53,23 @@ export async function selectTarget(
       ? (await newestPlan(logs, planRoot)).path
       : await resolvePlan(planRoot, request.plan)
   const topic = planStem(plan)
-  const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
-  const status = progress(logs, topic, listedSteps)
   const implementation = (scope: string): AuditTarget => ({
     roundKind: "implementation",
     plan,
     scope,
   })
-  if (request?.scope != null) {
-    if (status.landed.length === 0)
+  if (!hasLandedStep(logs, topic)) {
+    if (request?.scope != null)
       throw new InvalidArgumentError(
         `No step of ${topic} has landed, so it has no implementation to audit. Name the plan alone for a planning round.`,
       )
+    return { roundKind: "planning", plan }
+  }
+  const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
+  const status = progress(logs, topic, listedSteps)
+  if (request?.scope != null) {
     return implementation(request.scope)
   }
-  if (status.landed.length === 0) return { roundKind: "planning", plan }
   if (
     status.repositories.every(
       ({ pending, marker }) => pending.length === 0 && marker === "current",
@@ -90,6 +92,16 @@ export async function selectTarget(
   )
   throw new InvalidArgumentError(
     `${topic} is still being implemented. ${[...pending, ...markers].join(" ")} Name a step scope, such as ${topic} ${status.landed.at(-1)}.`,
+  )
+}
+
+/** Whether either repository holds an implementation step for this plan. */
+function hasLandedStep(logs: Logs, topic: string): boolean {
+  return Object.values(logs).some((commits) =>
+    commits.some((commit) => {
+      const form = looseForm(commit.subject)
+      return form?.stem === topic && /^impl-[1-9]\d*$/.test(form.role)
+    }),
   )
 }
 

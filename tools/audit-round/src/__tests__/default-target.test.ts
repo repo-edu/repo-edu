@@ -32,6 +32,13 @@ async function planRoot(t: TestContext): Promise<string> {
 1. **Only step.** Hosted in Repo Edu.
 `,
     )
+  await writeFile(
+    join(root, "unstructured-widen.md"),
+    `# Plan
+
+The shape is still open, so no implementation steps exist yet.
+`,
+  )
   return root
 }
 
@@ -91,6 +98,10 @@ test("the plan's history selects what its name or no target audits", async (t) =
         ["plan", 2, "widened/plan-audit oth growth-none B1: widening round"],
       ),
       { roundKind: "planning", plan: join(root, "widened-widen.md") },
+    ],
+    [
+      logs(["plan", 1, "unstructured/init ath: start"]),
+      { roundKind: "planning", plan: join(root, "unstructured-widen.md") },
     ],
     [
       implemented,
