@@ -1,5 +1,8 @@
 import type { CreateTeamRequest } from "@repo-edu/integrations-git-contract"
 
+const maxTeamNameLength = 255
+const teamPrefix = "team-"
+
 function encodeCourseId(courseId: string): string {
   return Array.from(new TextEncoder().encode(courseId), (byte) =>
     byte.toString(16).padStart(2, "0"),
@@ -12,7 +15,8 @@ function encodeCourseId(courseId: string): string {
  * refuse spaces and most punctuation, so the course ID uses lowercase
  * hexadecimal and the group's name becomes a lowercase slug. GitLab keeps team
  * groups beside the course's projects, and the `team-` prefix keeps their paths
- * apart. */
+ * apart. Gitea and GitLab limit the complete name to 255 characters, so only
+ * the readable group slug is shortened. */
 export function buildTeamName(
   group: Pick<CreateTeamRequest, "courseId" | "groupId" | "groupName">,
 ): string {
@@ -22,6 +26,18 @@ export function buildTeamName(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
   const stableId = `${encodeCourseId(group.courseId)}-${group.groupId}`
-  const name = slug === "" ? stableId : `${slug}-${stableId}`
-  return name.startsWith("team-") ? name : `team-${name}`
+  const readableSlug = slug
+    .slice(
+      0,
+      Math.max(
+        0,
+        maxTeamNameLength -
+          stableId.length -
+          1 -
+          (slug.startsWith(teamPrefix) ? 0 : teamPrefix.length),
+      ),
+    )
+    .replace(/-+$/g, "")
+  const name = readableSlug === "" ? stableId : `${readableSlug}-${stableId}`
+  return name.startsWith(teamPrefix) ? name : `${teamPrefix}${name}`
 }
