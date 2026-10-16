@@ -342,6 +342,7 @@ export function createRepoCreateHandler(
               gitDraft,
               {
                 organization,
+                courseId: course.id,
                 groupId: team.groupId,
                 groupName: team.groupName,
                 memberUsernames: team.gitUsernames,

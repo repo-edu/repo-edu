@@ -476,12 +476,17 @@ describe("application repository create workflow helpers", () => {
     }
   })
 
-  it("sends each group's ID and name with its team", async () => {
-    const teamGroups: Array<{ groupId: string; groupName: string }> = []
+  it("sends each course and group identity with its team", async () => {
+    const teamGroups: Array<{
+      courseId: string
+      groupId: string
+      groupName: string
+    }> = []
     const { course, settings, handlers } = createRepoHarness({
       git: {
         createTeam: async (_draft, request) => {
           teamGroups.push({
+            courseId: request.courseId,
             groupId: request.groupId,
             groupName: request.groupName,
           })
@@ -505,6 +510,7 @@ describe("application repository create workflow helpers", () => {
     assert.deepStrictEqual(
       teamGroups,
       planForAssignment(course, "a1").groups.map((group) => ({
+        courseId: course.id,
         groupId: group.groupId,
         groupName: group.groupName,
       })),

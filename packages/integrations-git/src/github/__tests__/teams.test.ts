@@ -9,7 +9,11 @@ import { separateTeamGroups } from "../../__tests__/team-groups.js"
 import { createGitHubClient } from "../github-client.js"
 import { baseDraft, createMockHttpPort, type MockRoute } from "./harness.js"
 
-const group = { groupId: "g_0001", groupName: "Group 1" }
+const group = {
+  courseId: "Course_A",
+  groupId: "g_0001",
+  groupName: "Group 1",
+}
 
 /** GitHub's REST reference answers a refused team with 422 "Validation
  * failed" in its validation-error shape. */
@@ -74,7 +78,7 @@ describe("github teams", () => {
 
       assert.equal(
         JSON.parse(requests[0]?.body ?? "{}").name,
-        "team-group-1-g_0001",
+        "team-group-1-436f757273655f41-g_0001",
       )
       assert.equal(result.created, true)
       assert.equal(result.teamSlug, "hw1-team")
@@ -94,7 +98,11 @@ describe("github teams", () => {
         teamRefused,
         teamPage(1, firstPage),
         teamPage(2, [
-          { id: 142, name: "team-group-1-g_0001", slug: "team-group-1-g-0001" },
+          {
+            id: 142,
+            name: "team-group-1-436f757273655f41-g_0001",
+            slug: "team-group-1-436f757273655f41-g-0001",
+          },
         ]),
       ])
 
@@ -107,7 +115,7 @@ describe("github teams", () => {
       })
 
       assert.equal(result.created, false)
-      assert.equal(result.teamSlug, "team-group-1-g-0001")
+      assert.equal(result.teamSlug, "team-group-1-436f757273655f41-g-0001")
     })
 
     it("gives every group its own team", async () => {
@@ -125,9 +133,10 @@ describe("github teams", () => {
           requests,
         ),
       )
-      for (const { groupId, groupName } of separateTeamGroups) {
+      for (const { courseId, groupId, groupName } of separateTeamGroups) {
         await client.createTeam(baseDraft, {
           organization: "test-org",
+          courseId,
           groupId,
           groupName,
           memberUsernames: [],
@@ -156,7 +165,7 @@ describe("github teams", () => {
           method: "POST",
           urlPattern: "/orgs/test-org/teams",
           status: 201,
-          body: { id: 1, name: "team-group-1-g_0001" },
+          body: { id: 1, name: "team-group-1-436f757273655f41-g_0001" },
         },
       ])
 
@@ -164,7 +173,7 @@ describe("github teams", () => {
         createGitHubClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "GitHub answered team 'team-group-1-g_0001' without its slug.",
+            "GitHub answered team 'team-group-1-436f757273655f41-g_0001' without its slug.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -203,8 +212,8 @@ describe("github teams", () => {
           "GitHub answered an unreadable team list for 'test-org'.",
         ],
         [
-          [{ id: 1, name: "team-group-1-g_0001" }],
-          "GitHub answered team 'team-group-1-g_0001' without its slug.",
+          [{ id: 1, name: "team-group-1-436f757273655f41-g_0001" }],
+          "GitHub answered team 'team-group-1-436f757273655f41-g_0001' without its slug.",
         ],
       ]
       for (const [page, message] of cases) {

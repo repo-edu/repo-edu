@@ -84,6 +84,7 @@ describe("gitlab teams", () => {
       const client = createGitLabClient(http)
       const result = await client.createTeam(baseDraft, {
         organization: "my-org",
+        courseId: "Course_A",
         groupId: "g_0001",
         groupName: "Group 1",
         memberUsernames: ["alice", "nobody"],
@@ -91,7 +92,7 @@ describe("gitlab teams", () => {
       })
 
       assert.equal(result.created, true)
-      assert.equal(result.teamSlug, "team-group-1-g_0001")
+      assert.equal(result.teamSlug, "team-group-1-436f757273655f41-g_0001")
       assert.deepStrictEqual(result.membersAdded, ["alice"])
       assert.deepStrictEqual(result.membersNotFound, ["nobody"])
     })
@@ -112,6 +113,7 @@ describe("gitlab teams", () => {
       await assert.rejects(
         client.createTeam(baseDraft, {
           organization: "ghost-org",
+          courseId: "Course_A",
           groupId: "g_0001",
           groupName: "Group 1",
           memberUsernames: [],
@@ -125,6 +127,7 @@ describe("gitlab teams", () => {
   describe("createTeam answers", () => {
     const teamRequest = {
       organization: "my-org",
+      courseId: "Course_A",
       groupId: "g_0001",
       groupName: "Group 1",
       memberUsernames: [] as string[],
@@ -152,9 +155,9 @@ describe("gitlab teams", () => {
         groupTaken,
         {
           method: "GET",
-          urlPattern: "/groups/my-org%2Fteam-group-1-g_0001",
+          urlPattern: "/groups/my-org%2Fteam-group-1-436f757273655f41-g_0001",
           status: 200,
-          body: { id: 77, path: "team-group-1-g_0001" },
+          body: { id: 77, path: "team-group-1-436f757273655f41-g_0001" },
         },
       ])
 
@@ -164,7 +167,7 @@ describe("gitlab teams", () => {
       )
 
       assert.equal(result.created, false)
-      assert.equal(result.teamSlug, "team-group-1-g_0001")
+      assert.equal(result.teamSlug, "team-group-1-436f757273655f41-g_0001")
     })
 
     it("gives every group its own team group", async () => {
@@ -183,9 +186,10 @@ describe("gitlab teams", () => {
           requests,
         ),
       )
-      for (const { groupId, groupName } of separateTeamGroups) {
+      for (const { courseId, groupId, groupName } of separateTeamGroups) {
         await client.createTeam(baseDraft, {
           ...teamRequest,
+          courseId,
           groupId,
           groupName,
         })
@@ -208,7 +212,7 @@ describe("gitlab teams", () => {
         groupTaken,
         {
           method: "GET",
-          urlPattern: "/groups/my-org%2Fteam-group-1-g_0001",
+          urlPattern: "/groups/my-org%2Fteam-group-1-436f757273655f41-g_0001",
           status: 404,
           body: { message: "404 Group Not Found" },
         },
@@ -218,7 +222,7 @@ describe("gitlab teams", () => {
         createGitLabClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "GitLab answered that team 'team-group-1-g_0001' is taken, but no group exists at 'my-org/team-group-1-g_0001'.",
+            "GitLab answered that team 'team-group-1-436f757273655f41-g_0001' is taken, but no group exists at 'my-org/team-group-1-436f757273655f41-g_0001'.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -232,7 +236,7 @@ describe("gitlab teams", () => {
           method: "POST",
           urlPattern: /\/api\/v4\/groups$/,
           status: 201,
-          body: { path: "team-group-1-g_0001" },
+          body: { path: "team-group-1-436f757273655f41-g_0001" },
         },
       ])
 
@@ -240,7 +244,7 @@ describe("gitlab teams", () => {
         createGitLabClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "GitLab created team group 'my-org/team-group-1-g_0001' but answered without its id.",
+            "GitLab created team group 'my-org/team-group-1-436f757273655f41-g_0001' but answered without its id.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -254,7 +258,7 @@ describe("gitlab teams", () => {
           method: "POST",
           urlPattern: /\/api\/v4\/groups$/,
           status: 201,
-          body: { id: 77, path: "team-group-1-g_0001" },
+          body: { id: 77, path: "team-group-1-436f757273655f41-g_0001" },
         },
         {
           method: "GET",

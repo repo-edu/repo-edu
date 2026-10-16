@@ -154,6 +154,7 @@ describe("gitlab identity", () => {
         },
         {
           organization: "my-org",
+          courseId: "Course_A",
           groupId: "g_0001",
           groupName: "hw1",
           memberUsernames: [],

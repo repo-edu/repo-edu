@@ -18,12 +18,13 @@ Each provider facade composes the same capability files: `identity.ts`,
 `repositories.ts`, `teams.ts`, `branch-review.ts` and `discovery.ts`. Facades
 compose and guard operations; capability files own provider semantics.
 
-A team's name on the server is built from its group's name and the group's
-stable ID. Group names are unique only inside one group set, so a name alone
-would let two groups share one team and push to each other's repositories. The
-name keeps to lowercase letters, digits, `-` and `_`, because Gitea team names
-and GitLab group paths refuse most other characters. Every provider sends that
-name and reuses an existing team only when it carries that name.
+A team's name on the server is built from its group's name, the course's stable
+ID and the group's stable ID. Group IDs are unique only inside one course, so
+omitting the course would let matching groups from two courses share one team
+and push to each other's repositories. The name keeps to lowercase letters,
+digits, `-` and `_`, because Gitea team names are case-insensitive and Gitea
+team names and GitLab group paths refuse most other characters. Every provider
+sends that name and reuses an existing team only when it carries that name.
 
 GitLab namespace and project resolution live in provider-local infrastructure,
 not in the teams or repositories capability. All capabilities share those

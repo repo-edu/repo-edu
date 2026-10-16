@@ -65,9 +65,12 @@ export type TeamPermission = "push" | "pull" | "admin"
 
 export type CreateTeamRequest = {
   organization: string
+  /** The course's stable ID. The team's name carries its lowercase hexadecimal
+   * encoding so course-local group IDs stay distinct on providers with
+   * case-insensitive team names. */
+  courseId: string
   /** The group's stable ID in its course, made of lowercase letters, digits
-   * and `_`. The team's name on the server carries it, so two groups never
-   * share a team. */
+   * and `_`. */
   groupId: string
   /** Empty for a team of usernames, which has no name of its own. */
   groupName: string

@@ -9,6 +9,7 @@ const swaggerUrl = "https://gitea.example.com/api/swagger"
 
 const teamRequest = {
   organization: "course-org",
+  courseId: "Course_A",
   groupId: "g_0001",
   groupName: "Group 1",
   memberUsernames: [] as string[],
@@ -21,7 +22,8 @@ const teamExists: MockRoute = {
   urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
   status: 422,
   body: {
-    message: "team already exists [org_id: 3, name: team-group-1-g_0001]",
+    message:
+      "team already exists [org_id: 3, name: team-group-1-436f757273655f41-g_0001]",
     url: swaggerUrl,
   },
 }
@@ -45,7 +47,10 @@ describe("gitea teams", () => {
             method: "POST",
             urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
             status: 201,
-            body: { id: 42, name: "team-group-1-g_0001" },
+            body: {
+              id: 42,
+              name: "team-group-1-436f757273655f41-g_0001",
+            },
           },
           {
             method: "PUT",
@@ -75,7 +80,9 @@ describe("gitea teams", () => {
         membersNotFound: ["nobody"],
       })
       const capturedBody = requests[0]?.body ?? ""
-      assert.ok(capturedBody.includes('"name":"team-group-1-g_0001"'))
+      assert.ok(
+        capturedBody.includes('"name":"team-group-1-436f757273655f41-g_0001"'),
+      )
       assert.ok(capturedBody.includes('"permission":"write"'))
       assert.ok(capturedBody.includes('"units":["repo.code"'))
       assert.ok(capturedBody.includes('"repo.packages"'))
@@ -89,7 +96,9 @@ describe("gitea teams", () => {
       const http = createMockHttpPort([
         teamExists,
         teamPage(1, firstPage),
-        teamPage(2, [{ id: 142, name: "TEAM-GROUP-1-G_0001" }]),
+        teamPage(2, [
+          { id: 142, name: "TEAM-GROUP-1-436F757273655F41-G_0001" },
+        ]),
       ])
 
       const result = await createGiteaClient(http).createTeam(
@@ -116,9 +125,10 @@ describe("gitea teams", () => {
           requests,
         ),
       )
-      for (const { groupId, groupName } of separateTeamGroups) {
+      for (const { courseId, groupId, groupName } of separateTeamGroups) {
         await client.createTeam(baseDraft, {
           ...teamRequest,
+          courseId,
           groupId,
           groupName,
         })
@@ -141,7 +151,7 @@ describe("gitea teams", () => {
         createGiteaClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "Gitea answered that team 'team-group-1-g_0001' exists but does not list it.",
+            "Gitea answered that team 'team-group-1-436f757273655f41-g_0001' exists but does not list it.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -155,8 +165,8 @@ describe("gitea teams", () => {
           "Gitea answered an unreadable team list for 'course-org'.",
         ],
         [
-          [{ name: "team-group-1-g_0001" }],
-          "Gitea answered team 'team-group-1-g_0001' without its id.",
+          [{ name: "team-group-1-436f757273655f41-g_0001" }],
+          "Gitea answered team 'team-group-1-436f757273655f41-g_0001' without its id.",
         ],
       ]
       for (const [page, message] of cases) {
@@ -199,7 +209,7 @@ describe("gitea teams", () => {
           method: "POST",
           urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
           status: 201,
-          body: { name: "team-group-1-g_0001" },
+          body: { name: "team-group-1-436f757273655f41-g_0001" },
         },
       ])
 
@@ -207,7 +217,7 @@ describe("gitea teams", () => {
         createGiteaClient(http).createTeam(baseDraft, teamRequest),
         {
           message:
-            "Gitea created team 'team-group-1-g_0001' but answered without its id.",
+            "Gitea created team 'team-group-1-436f757273655f41-g_0001' but answered without its id.",
           type: "git-effect",
           disposition: "completed",
         },
@@ -221,7 +231,10 @@ describe("gitea teams", () => {
           method: "POST",
           urlPattern: /\/api\/v1\/orgs\/course-org\/teams$/,
           status: 201,
-          body: { id: 42, name: "team-group-1-g_0001" },
+          body: {
+            id: 42,
+            name: "team-group-1-436f757273655f41-g_0001",
+          },
         },
         {
           method: "PUT",
