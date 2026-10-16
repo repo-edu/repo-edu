@@ -152,6 +152,77 @@ describe("gitlab branch-review", () => {
       )
     })
 
+    it("reads changed files from a later folder page", async () => {
+      const requests: HttpRequest[] = []
+      const secondPageQuery =
+        "/projects/100/repository/tree?ref=template-update&pagination=keyset&per_page=100&id_after=second-page"
+      const http = createMockHttpPort(
+        [
+          project,
+          branchCreated,
+          {
+            method: "GET",
+            urlPattern:
+              /\/projects\/100\/repository\/tree\?ref=template-update&pagination=keyset&per_page=100$/,
+            status: 200,
+            headers: {
+              link: `<https://gitlab.example.com/api/v4${secondPageQuery}>; rel="next"`,
+            },
+            body: Array.from({ length: 100 }, (_, index) =>
+              plainFile(`first-page-${index}.txt`),
+            ),
+          },
+          {
+            method: "GET",
+            urlPattern: secondPageQuery,
+            status: 200,
+            body: [plainFile("README.md"), plainFile("old.txt")],
+          },
+          {
+            method: "POST",
+            urlPattern: "/projects/100/repository/commits",
+            status: 201,
+            body: { id: "def456" },
+          },
+        ],
+        requests,
+      )
+
+      await createGitLabClient(http).createBranch(baseDraft, {
+        ...branchRequest,
+        files: [branchRequest.files[0], branchRequest.files[2]],
+      })
+
+      const treeQueries = requests
+        .filter((request) => request.url.includes("/repository/tree?"))
+        .map((request) => {
+          const url = new URL(request.url)
+          return `${url.pathname}${url.search}`
+        })
+      assert.deepStrictEqual(treeQueries, [
+        `/api/v4${treeQuery("")}&per_page=100`,
+        `/api/v4${secondPageQuery}`,
+        `/api/v4${treeQuery("")}&per_page=100`,
+        `/api/v4${secondPageQuery}`,
+      ])
+      assert.deepStrictEqual(
+        sent(requests).at(-1),
+        `POST /api/v4/projects/100/repository/commits ${JSON.stringify({
+          branch: "template-update",
+          commit_message: "Template update",
+          actions: [
+            {
+              action: "update",
+              file_path: "README.md",
+              content: "dXBkYXRlZA==",
+              encoding: "base64",
+            },
+            { action: "delete", file_path: "old.txt" },
+          ],
+        })}`,
+      )
+    })
+
     it("reuses a branch that already exists", async () => {
       const requests: HttpRequest[] = []
       const http = createMockHttpPort(

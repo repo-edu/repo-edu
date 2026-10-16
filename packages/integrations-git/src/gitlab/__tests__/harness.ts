@@ -16,6 +16,7 @@ export type MockRoute = {
   method: string
   urlPattern: string | RegExp
   status: number
+  headers?: Record<string, string>
   body?: unknown
 }
 
@@ -45,7 +46,10 @@ export function createMockHttpPort(
           return {
             status: route.status,
             statusText: route.status < 300 ? "OK" : "Error",
-            headers: { "content-type": "application/json" },
+            headers: {
+              "content-type": "application/json",
+              ...route.headers,
+            },
             body: route.body === undefined ? "" : JSON.stringify(route.body),
           }
         }
