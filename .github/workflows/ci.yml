@@ -22,6 +22,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  git-integration:
+    uses: ./.github/workflows/ci-git-integration.yml
+    with:
+      ref: ${{ inputs.ref || github.ref }}
+    secrets: inherit
+
   linux-x64:
     uses: ./.github/workflows/ci-linux-x64.yml
     with:

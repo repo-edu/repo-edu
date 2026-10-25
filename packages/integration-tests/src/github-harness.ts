@@ -61,20 +61,37 @@ async function githubFetch(
   }
 }
 
-function parseUsernamePool(value: string): string[] {
-  return value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
+async function githubFetchPages(
+  apiBase: string,
+  token: string,
+  path: string,
+): Promise<unknown[]> {
+  const entries: unknown[] = []
+  for (let page = 1; page <= 100; page += 1) {
+    const separator = path.includes("?") ? "&" : "?"
+    const result = await githubFetch(
+      apiBase,
+      token,
+      `${path}${separator}per_page=100&page=${page}`,
+    )
+    if (result.status !== 200 || !Array.isArray(result.data)) {
+      throw new Error(
+        `Failed to list GitHub resources at '${path}' (${result.status}): ${JSON.stringify(result.data)}`,
+      )
+    }
+    entries.push(...result.data)
+    if (result.data.length < 100) {
+      return entries
+    }
+  }
+  throw new Error(`GitHub pagination exceeded 100 pages at '${path}'.`)
 }
 
 export function createGitHubHarness(): GitProviderHarness {
   const baseUrl = process.env.INTEGRATION_GITHUB_URL ?? "https://github.com"
   const token = process.env.INTEGRATION_GITHUB_TOKEN ?? ""
   const organization = process.env.INTEGRATION_GITHUB_ORG ?? ""
-  const fixtureGitUsernames = parseUsernamePool(
-    process.env.INTEGRATION_GITHUB_USERNAMES ?? "",
-  )
+  const fixtureGitUsernames: string[] = []
   const apiBase = resolveApiBaseUrl(baseUrl)
 
   const getConnectionDraft = (): GitConnectionDraft => ({
@@ -85,9 +102,12 @@ export function createGitHubHarness(): GitProviderHarness {
 
   return {
     label: "GitHub",
-    isConfigured: token !== "" && organization !== "",
+    missingConfiguration: [
+      ...(token === "" ? ["INTEGRATION_GITHUB_TOKEN"] : []),
+      ...(organization === "" ? ["INTEGRATION_GITHUB_ORG"] : []),
+    ],
     supportsUserProvisioning: false,
-    assertTeamMemberAssignments: fixtureGitUsernames.length > 0,
+    assertTeamMemberAssignments: true,
     fixtureGitUsernames,
     async ensureReady() {
       const rateLimit = await githubFetch(apiBase, token, "/rate_limit")
@@ -96,13 +116,93 @@ export function createGitHubHarness(): GitProviderHarness {
           `GitHub is not ready or token is invalid (${rateLimit.status}): ${JSON.stringify(rateLimit.data)}`,
         )
       }
+
+      const account = await githubFetch(apiBase, token, "/user")
+      const login = (account.data as { login?: unknown } | null)?.login
+      if (account.status !== 200 || typeof login !== "string" || login === "") {
+        throw new Error(
+          `GitHub did not return the token owner's login (${account.status}): ${JSON.stringify(account.data)}`,
+        )
+      }
+
+      const membership = await githubFetch(
+        apiBase,
+        token,
+        `/orgs/${organization}/memberships/${login}`,
+      )
+      const membershipData = membership.data as {
+        role?: unknown
+        state?: unknown
+      } | null
+      if (
+        membership.status !== 200 ||
+        membershipData?.role !== "admin" ||
+        membershipData.state !== "active"
+      ) {
+        throw new Error(
+          `GitHub token owner '${login}' is not an active owner of '${organization}' (${membership.status}): ${JSON.stringify(membership.data)}`,
+        )
+      }
+
+      fixtureGitUsernames.splice(0, fixtureGitUsernames.length, login)
     },
     getConnectionDraft,
     async createOrganization(_orgName: string): Promise<string> {
       return organization
     },
-    async cleanupOrganization(_orgName: string): Promise<void> {
-      // Cleanup in shared GitHub orgs is intentionally best-effort/no-op.
+    async cleanupOrganization(
+      orgName: string,
+      resourcePrefix: string,
+    ): Promise<void> {
+      const repositories = await githubFetchPages(
+        apiBase,
+        token,
+        `/orgs/${orgName}/repos?type=all`,
+      )
+      for (const entry of repositories) {
+        const name = (entry as { name?: unknown }).name
+        if (typeof name !== "string" || !name.startsWith(resourcePrefix)) {
+          continue
+        }
+        const remove = await githubFetch(
+          apiBase,
+          token,
+          `/repos/${orgName}/${name}`,
+          { method: "DELETE" },
+        )
+        if (remove.status !== 204 && remove.status !== 404) {
+          throw new Error(
+            `Failed to delete GitHub repository '${orgName}/${name}' (${remove.status}): ${JSON.stringify(remove.data)}`,
+          )
+        }
+      }
+
+      const teams = await githubFetchPages(
+        apiBase,
+        token,
+        `/orgs/${orgName}/teams`,
+      )
+      for (const entry of teams) {
+        const team = entry as { name?: unknown; slug?: unknown }
+        if (
+          typeof team.name !== "string" ||
+          typeof team.slug !== "string" ||
+          !team.name.startsWith(`team-${resourcePrefix}-`)
+        ) {
+          continue
+        }
+        const remove = await githubFetch(
+          apiBase,
+          token,
+          `/orgs/${orgName}/teams/${team.slug}`,
+          { method: "DELETE" },
+        )
+        if (remove.status !== 204 && remove.status !== 404) {
+          throw new Error(
+            `Failed to delete GitHub team '${team.name}' (${remove.status}): ${JSON.stringify(remove.data)}`,
+          )
+        }
+      }
     },
     async seedUsers(_usernames: string[]): Promise<void> {
       // GitHub.com does not provide user creation via org admin tokens.
@@ -174,17 +274,12 @@ export function createGitHubHarness(): GitProviderHarness {
       return existing
     },
     async verifyTeams(orgName: string): Promise<IntegrationTeam[]> {
-      const teams = await githubFetch(
+      const teams = await githubFetchPages(
         apiBase,
         token,
-        `/orgs/${orgName}/teams?per_page=100`,
+        `/orgs/${orgName}/teams`,
       )
-      if (teams.status !== 200 || !Array.isArray(teams.data)) {
-        throw new Error(
-          `Failed to list GitHub teams for '${orgName}' (${teams.status}).`,
-        )
-      }
-      return teams.data
+      return teams
         .map((entry) => {
           const team = entry as { slug?: unknown; name?: unknown }
           return {
@@ -199,18 +294,13 @@ export function createGitHubHarness(): GitProviderHarness {
       team: IntegrationTeam,
     ): Promise<string[]> {
       const slug = String(team.id)
-      const members = await githubFetch(
+      const members = await githubFetchPages(
         apiBase,
         token,
-        `/orgs/${orgName}/teams/${slug}/members?per_page=100`,
+        `/orgs/${orgName}/teams/${slug}/members`,
       )
-      if (members.status !== 200 || !Array.isArray(members.data)) {
-        throw new Error(
-          `Failed to list GitHub team members for '${slug}' (${members.status}).`,
-        )
-      }
 
-      return members.data
+      return members
         .map((entry) => {
           const member = entry as { login?: unknown }
           return typeof member.login === "string" ? member.login : null
@@ -222,18 +312,13 @@ export function createGitHubHarness(): GitProviderHarness {
       team: IntegrationTeam,
     ): Promise<string[]> {
       const slug = String(team.id)
-      const repos = await githubFetch(
+      const repos = await githubFetchPages(
         apiBase,
         token,
-        `/orgs/${orgName}/teams/${slug}/repos?per_page=100`,
+        `/orgs/${orgName}/teams/${slug}/repos`,
       )
-      if (repos.status !== 200 || !Array.isArray(repos.data)) {
-        throw new Error(
-          `Failed to list GitHub team repositories for '${slug}' (${repos.status}).`,
-        )
-      }
 
-      return repos.data
+      return repos
         .map((entry) => {
           const repo = entry as { name?: unknown }
           return typeof repo.name === "string" ? repo.name : null

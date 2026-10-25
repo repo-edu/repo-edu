@@ -7,14 +7,14 @@ export type IntegrationTeam = {
 
 export type GitProviderHarness = {
   label: string
-  isConfigured: boolean
+  missingConfiguration: readonly string[]
   supportsUserProvisioning: boolean
   assertTeamMemberAssignments: boolean
   fixtureGitUsernames: readonly string[]
   ensureReady(): Promise<void>
   getConnectionDraft(): GitConnectionDraft
   createOrganization(orgName: string): Promise<string>
-  cleanupOrganization(orgName: string): Promise<void>
+  cleanupOrganization(orgName: string, resourcePrefix: string): Promise<void>
   seedUsers(usernames: string[]): Promise<void>
   seedTemplateRepository(orgName: string, repoName: string): Promise<void>
   seedOrganizationRepository(

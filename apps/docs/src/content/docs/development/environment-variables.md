@@ -77,14 +77,16 @@ they never persist.
 ### Integration tests
 
 The live-provider suite in `@repo-edu/integration-tests` reads its endpoints and credentials from
-the environment. Unconfigured providers are skipped.
+the environment. Selecting an unconfigured provider fails before the tests start. Gitea and GitLab
+use their configured administrator access only to seed and clean up; adapter calls run with an
+ordinary teacher token created by the harness.
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
 | `INTEGRATION_GIT_PROVIDERS` | provider matrix | Comma-separated list of providers to run. | `gitea` |
-| `INTEGRATION_GITEA_URL`, `GITEA_PORT` | Gitea harness | Gitea base URL; the admin token is minted at runtime. `GITEA_PORT` composes the default URL. | `http://localhost:3000` |
-| `INTEGRATION_GITHUB_URL`, `INTEGRATION_GITHUB_TOKEN`, `INTEGRATION_GITHUB_ORG`, `INTEGRATION_GITHUB_USERNAMES` | GitHub harness | API base, token, target organisation and the username pool used by tests. | base `https://github.com` |
-| `INTEGRATION_GITLAB_URL`, `INTEGRATION_GITLAB_TOKEN`, `INTEGRATION_GITLAB_PARENT_GROUP` | GitLab harness | API base, token and the parent group that new groups are created under. | parent group `integration-root` |
+| `INTEGRATION_GITEA_URL`, `GITEA_PORT` | Gitea harness | Gitea base URL; the harness mints administrator and ordinary-teacher tokens. `GITEA_PORT` composes the root script's default URL. | no harness URL; root script uses `http://localhost:3000` |
+| `INTEGRATION_GITHUB_URL`, `INTEGRATION_GITHUB_TOKEN`, `INTEGRATION_GITHUB_ORG` | GitHub harness | API base, fine-grained owner token and disposable test organisation. The harness reads the owner's login for present-user cases and removes every prefixed repository and team it creates. | base `https://github.com`; no token or organisation |
+| `INTEGRATION_GITLAB_URL`, `INTEGRATION_GITLAB_TOKEN`, `INTEGRATION_GITLAB_PARENT_GROUP` | GitLab harness | API base, administrator seed token and the parent group the ordinary teacher owns. | parent group `integration-root`; no URL or token |
 
 ### Release license gate
 

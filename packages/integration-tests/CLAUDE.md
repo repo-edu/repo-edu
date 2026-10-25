@@ -30,6 +30,9 @@ Docker lifecycle: `docker:up:gitea` / `docker:up:gitlab` / `docker:down`.
 
 - Each test uses `withIsolatedOrg()` — creates a fresh provider org/group and cleans up in
   `finally`.
-- Unconfigured providers are `describe.skip`'d via `isConfigured` guard.
+- Selecting a provider without its required endpoint or credentials fails before tests start.
 - Default provider when `INTEGRATION_GIT_PROVIDERS` is unset: `gitea`.
+- Product calls use an ordinary teacher token. Gitea and GitLab admin tokens only seed and clean up.
+- GitHub resources carry a per-run prefix and are removed in `finally`; the token owner must own the
+  disposable test organisation.
 - No exports — purely executable test package.

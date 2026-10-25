@@ -27,6 +27,11 @@ export function resolveHarnessesFromEnvironment(): GitProviderHarness[] {
         `Unknown provider '${provider}' in INTEGRATION_GIT_PROVIDERS.`,
       )
     }
+    if (harness.missingConfiguration.length > 0) {
+      throw new Error(
+        `${harness.label} was selected but is missing configuration: ${harness.missingConfiguration.join(", ")}.`,
+      )
+    }
     harnesses.push(harness)
   }
   return harnesses

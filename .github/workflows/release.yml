@@ -30,6 +30,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       ref: ${{ inputs.tag }}
+    secrets: inherit
 
   create-release:
     name: create-release

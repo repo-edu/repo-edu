@@ -6,9 +6,13 @@ import type {
 
 const ADMIN_USERNAME = "test-admin"
 const ADMIN_PASSWORD = "test-admin-pw"
+const TEACHER = {
+  username: "integration-teacher",
+  password: "test-user-pw-00",
+} as const
 
-function basicAuthHeader(): string {
-  return `Basic ${Buffer.from(`${ADMIN_USERNAME}:${ADMIN_PASSWORD}`).toString("base64")}`
+function basicAuthHeader(username: string, password: string): string {
+  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`
 }
 
 function tokenAuthHeader(token: string): string {
@@ -70,13 +74,13 @@ async function ensureGiteaReady(baseUrl: string): Promise<void> {
 }
 
 async function createAdminToken(baseUrl: string): Promise<string> {
-  const tokenName = `integration-${Date.now()}`
+  const tokenName = `integration-admin-${Date.now()}`
   const { status, data } = await giteaFetch(
     baseUrl,
     `/users/${ADMIN_USERNAME}/tokens`,
     {
       method: "POST",
-      auth: basicAuthHeader(),
+      auth: basicAuthHeader(ADMIN_USERNAME, ADMIN_PASSWORD),
       body: {
         name: tokenName,
         scopes: [
@@ -106,40 +110,133 @@ async function createAdminToken(baseUrl: string): Promise<string> {
   return token
 }
 
-export function createGiteaHarness(): GitProviderHarness {
-  const baseUrl = process.env.INTEGRATION_GITEA_URL ?? ""
-  let token: string | null = null
+async function createTeacher(
+  baseUrl: string,
+  adminToken: string,
+): Promise<void> {
+  const { status, data } = await giteaFetch(baseUrl, "/admin/users", {
+    method: "POST",
+    auth: tokenAuthHeader(adminToken),
+    body: {
+      username: TEACHER.username,
+      email: `${TEACHER.username}@test.local`,
+      password: TEACHER.password,
+      must_change_password: false,
+    },
+  })
 
-  const getToken = (): string => {
-    if (token === null) {
-      throw new Error("Gitea admin token is not initialized.")
-    }
-    return token
+  if (status !== 201 && status !== 422) {
+    throw new Error(
+      `Failed to create Gitea teacher (${status}): ${JSON.stringify(data)}`,
+    )
+  }
+}
+
+async function createTeacherToken(baseUrl: string): Promise<string> {
+  const { status, data } = await giteaFetch(
+    baseUrl,
+    `/users/${TEACHER.username}/tokens`,
+    {
+      method: "POST",
+      auth: basicAuthHeader(TEACHER.username, TEACHER.password),
+      body: {
+        name: `integration-teacher-${Date.now()}`,
+        scopes: [
+          "read:organization",
+          "write:organization",
+          "read:repository",
+          "write:repository",
+          "read:user",
+          "write:user",
+        ],
+      },
+    },
+  )
+
+  if (status !== 201) {
+    throw new Error(
+      `Failed to create Gitea teacher token (${status}): ${JSON.stringify(data)}`,
+    )
   }
 
-  const getAuth = (): string => tokenAuthHeader(getToken())
+  const token = (data as { sha1?: string }).sha1
+  if (!token) {
+    throw new Error("Gitea teacher token response did not contain sha1 field.")
+  }
+  return token
+}
+
+async function giteaFetchPages(
+  baseUrl: string,
+  path: string,
+  auth: string,
+): Promise<unknown[]> {
+  const entries: unknown[] = []
+  for (let page = 1; page <= 100; page += 1) {
+    const separator = path.includes("?") ? "&" : "?"
+    const result = await giteaFetch(
+      baseUrl,
+      `${path}${separator}limit=50&page=${page}`,
+      { auth },
+    )
+    if (result.status !== 200 || !Array.isArray(result.data)) {
+      throw new Error(
+        `Failed to list Gitea resources at '${path}' (${result.status}): ${JSON.stringify(result.data)}`,
+      )
+    }
+    entries.push(...result.data)
+    if (result.data.length < 50) {
+      return entries
+    }
+  }
+  throw new Error(`Gitea pagination exceeded 100 pages at '${path}'.`)
+}
+
+export function createGiteaHarness(): GitProviderHarness {
+  const baseUrl = process.env.INTEGRATION_GITEA_URL ?? ""
+  let adminToken: string | null = null
+  let teacherToken: string | null = null
+
+  const getAdminToken = (): string => {
+    if (adminToken === null) {
+      throw new Error("Gitea admin token is not initialized.")
+    }
+    return adminToken
+  }
+
+  const getTeacherToken = (): string => {
+    if (teacherToken === null) {
+      throw new Error("Gitea teacher token is not initialized.")
+    }
+    return teacherToken
+  }
+
+  const getAdminAuth = (): string => tokenAuthHeader(getAdminToken())
+  const getTeacherAuth = (): string => tokenAuthHeader(getTeacherToken())
 
   const getConnectionDraft = (): GitConnectionDraft => ({
     provider: "gitea",
     baseUrl,
-    token: getToken(),
+    token: getTeacherToken(),
   })
 
   return {
     label: "Gitea",
-    isConfigured: baseUrl !== "",
+    missingConfiguration: baseUrl === "" ? ["INTEGRATION_GITEA_URL"] : [],
     supportsUserProvisioning: true,
     assertTeamMemberAssignments: true,
     fixtureGitUsernames: [],
     async ensureReady() {
       await ensureGiteaReady(baseUrl)
-      token = await createAdminToken(baseUrl)
+      adminToken = await createAdminToken(baseUrl)
+      await createTeacher(baseUrl, adminToken)
+      teacherToken = await createTeacherToken(baseUrl)
     },
     getConnectionDraft,
     async createOrganization(orgName: string): Promise<string> {
       const { status } = await giteaFetch(baseUrl, "/orgs", {
         method: "POST",
-        auth: getAuth(),
+        auth: getTeacherAuth(),
         body: { username: orgName, visibility: "private" },
       })
 
@@ -148,51 +245,71 @@ export function createGiteaHarness(): GitProviderHarness {
       }
       return orgName
     },
-    async cleanupOrganization(orgName: string): Promise<void> {
-      const auth = getAuth()
+    async cleanupOrganization(
+      orgName: string,
+      _resourcePrefix: string,
+    ): Promise<void> {
+      const auth = getAdminAuth()
 
-      const reposResult = await giteaFetch(
+      const repositories = await giteaFetchPages(
         baseUrl,
-        `/orgs/${orgName}/repos?limit=50`,
-        { auth },
-      )
-      if (reposResult.status === 200 && Array.isArray(reposResult.data)) {
-        for (const repo of reposResult.data as Array<{ name: string }>) {
-          await giteaFetch(baseUrl, `/repos/${orgName}/${repo.name}`, {
-            method: "DELETE",
-            auth,
-          })
-        }
-      }
-
-      const teamsResult = await giteaFetch(baseUrl, `/orgs/${orgName}/teams`, {
+        `/orgs/${orgName}/repos`,
         auth,
-      })
-      if (teamsResult.status === 200 && Array.isArray(teamsResult.data)) {
-        for (const team of teamsResult.data as Array<{
-          id: number
-          name: string
-        }>) {
-          if (team.name === "Owners") {
-            continue
-          }
-          await giteaFetch(baseUrl, `/teams/${team.id}`, {
+      )
+      for (const repo of repositories as Array<{ name: string }>) {
+        const remove = await giteaFetch(
+          baseUrl,
+          `/repos/${orgName}/${repo.name}`,
+          {
             method: "DELETE",
             auth,
-          })
+          },
+        )
+        if (remove.status !== 204 && remove.status !== 404) {
+          throw new Error(
+            `Failed to delete Gitea repository '${orgName}/${repo.name}' (${remove.status}): ${JSON.stringify(remove.data)}`,
+          )
         }
       }
 
-      await giteaFetch(baseUrl, `/orgs/${orgName}`, {
+      const teams = await giteaFetchPages(
+        baseUrl,
+        `/orgs/${orgName}/teams`,
+        auth,
+      )
+      for (const team of teams as Array<{ id: number; name: string }>) {
+        if (team.name === "Owners") {
+          continue
+        }
+        const remove = await giteaFetch(baseUrl, `/teams/${team.id}`, {
+          method: "DELETE",
+          auth,
+        })
+        if (remove.status !== 204 && remove.status !== 404) {
+          throw new Error(
+            `Failed to delete Gitea team '${team.name}' (${remove.status}): ${JSON.stringify(remove.data)}`,
+          )
+        }
+      }
+
+      const removeOrganization = await giteaFetch(baseUrl, `/orgs/${orgName}`, {
         method: "DELETE",
         auth,
       })
+      if (
+        removeOrganization.status !== 204 &&
+        removeOrganization.status !== 404
+      ) {
+        throw new Error(
+          `Failed to delete Gitea organization '${orgName}' (${removeOrganization.status}): ${JSON.stringify(removeOrganization.data)}`,
+        )
+      }
     },
     async seedUsers(usernames: string[]): Promise<void> {
       for (const username of usernames) {
         const { status } = await giteaFetch(baseUrl, "/admin/users", {
           method: "POST",
-          auth: getAuth(),
+          auth: getAdminAuth(),
           body: {
             username,
             email: `${username}@test.local`,
@@ -209,7 +326,7 @@ export function createGiteaHarness(): GitProviderHarness {
     async seedTemplateRepository(orgName: string, repoName: string) {
       const createResult = await giteaFetch(baseUrl, `/orgs/${orgName}/repos`, {
         method: "POST",
-        auth: getAuth(),
+        auth: getAdminAuth(),
         body: {
           name: repoName,
           auto_init: true,
@@ -229,7 +346,7 @@ export function createGiteaHarness(): GitProviderHarness {
         `/repos/${orgName}/${repoName}`,
         {
           method: "PATCH",
-          auth: getAuth(),
+          auth: getAdminAuth(),
           body: { template: true },
         },
       )
@@ -247,7 +364,7 @@ export function createGiteaHarness(): GitProviderHarness {
     ): Promise<void> {
       const createResult = await giteaFetch(baseUrl, `/orgs/${orgName}/repos`, {
         method: "POST",
-        auth: getAuth(),
+        auth: getAdminAuth(),
         body: {
           name: repoName,
           auto_init: options?.autoInit ?? true,
@@ -271,7 +388,7 @@ export function createGiteaHarness(): GitProviderHarness {
         `/repos/${orgName}/${repoName}`,
         {
           method: "DELETE",
-          auth: getAuth(),
+          auth: getAdminAuth(),
         },
       )
       if (status !== 204 && status !== 404) {
@@ -290,7 +407,7 @@ export function createGiteaHarness(): GitProviderHarness {
           baseUrl,
           `/repos/${orgName}/${name}`,
           {
-            auth: getAuth(),
+            auth: getTeacherAuth(),
           },
         )
         if (status === 200) {
@@ -300,21 +417,13 @@ export function createGiteaHarness(): GitProviderHarness {
       return existing
     },
     async verifyTeams(orgName: string): Promise<IntegrationTeam[]> {
-      const { status, data } = await giteaFetch(
+      const teams = await giteaFetchPages(
         baseUrl,
         `/orgs/${orgName}/teams`,
-        {
-          auth: getAuth(),
-        },
+        getTeacherAuth(),
       )
 
-      if (status !== 200) {
-        throw new Error(
-          `Failed to list teams for org '${orgName}' (${status}).`,
-        )
-      }
-
-      return (data as Array<{ id: number; name: string }>).map((team) => ({
+      return (teams as Array<{ id: number; name: string }>).map((team) => ({
         id: team.id,
         name: team.name,
       }))
@@ -332,7 +441,7 @@ export function createGiteaHarness(): GitProviderHarness {
       const { status, data } = await giteaFetch(
         baseUrl,
         `/teams/${teamId}/members`,
-        { auth: getAuth() },
+        { auth: getTeacherAuth() },
       )
 
       if (status !== 200) {
@@ -357,7 +466,7 @@ export function createGiteaHarness(): GitProviderHarness {
         baseUrl,
         `/teams/${teamId}/repos`,
         {
-          auth: getAuth(),
+          auth: getTeacherAuth(),
         },
       )
 

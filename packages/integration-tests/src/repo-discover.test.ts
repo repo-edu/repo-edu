@@ -16,15 +16,17 @@ import {
 } from "@repo-edu/host-node"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createGitProviderClient } from "@repo-edu/integrations-git"
-import { createGitFixture } from "./fixture-adapter.js"
+import {
+  createGitFixture,
+  createIntegrationResourcePrefix,
+  prefixIntegrationResource,
+} from "./fixture-adapter.js"
 import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 const harnesses = resolveHarnessesFromEnvironment()
 
 for (const harness of harnesses) {
-  const describeIntegration = harness.isConfigured ? describe : describe.skip
-
-  describeIntegration(`repo.discover integration (${harness.label})`, () => {
+  describe(`repo.discover integration (${harness.label})`, () => {
     let handlers: ReturnType<typeof createRepositoryWorkflowHandlers>
 
     before(async () => {
@@ -52,165 +54,202 @@ for (const harness of harnesses) {
       seedNames: readonly string[],
       fn: (ctx: {
         organization: string
+        resourcePrefix: string
         settings: PersistedAppSettings
+        seedNames: string[]
       }) => Promise<void>,
     ): Promise<void> {
-      const scopeSuffix = `${Date.now().toString(36)}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`
-      const requestedOrg = `test-${scopeSuffix}`
-      const organization = await harness.createOrganization(requestedOrg)
-
-      const draft = harness.getConnectionDraft()
-      const { settings } = createGitFixture({
-        provider: draft.provider,
-        baseUrl: draft.baseUrl,
-        token: draft.token,
-        organization,
-        scopeSuffix,
-        fixtureGitUsernames: harness.fixtureGitUsernames,
-      })
+      const resourcePrefix = createIntegrationResourcePrefix()
+      const organization = await harness.createOrganization(resourcePrefix)
+      const scopedSeedNames = seedNames.map((name) =>
+        prefixIntegrationResource(resourcePrefix, name),
+      )
 
       try {
-        for (const repoName of seedNames) {
+        const draft = harness.getConnectionDraft()
+        const { settings } = createGitFixture({
+          provider: draft.provider,
+          baseUrl: draft.baseUrl,
+          token: draft.token,
+          organization,
+          resourcePrefix,
+          fixtureGitUsernames: harness.fixtureGitUsernames,
+        })
+
+        for (const repoName of scopedSeedNames) {
           await harness.seedOrganizationRepository(organization, repoName, {
             autoInit: false,
           })
         }
-        await fn({ organization, settings })
+        await fn({
+          organization,
+          resourcePrefix,
+          settings,
+          seedNames: scopedSeedNames,
+        })
       } finally {
-        await harness.cleanupOrganization(organization)
+        await harness.cleanupOrganization(organization, resourcePrefix)
       }
     }
 
     it("lists every repository in a namespace when no filter is provided", async () => {
       const seedNames = ["alpha-repo", "beta-repo", "gamma-repo"]
-      await withSeededOrg(seedNames, async ({ organization, settings }) => {
-        const result = await handlers["repo.listNamespace"]({
-          credentials: splitAppSettings(settings).credentials,
-          namespace: organization,
-        })
+      await withSeededOrg(
+        seedNames,
+        async ({ organization, settings, seedNames: scopedSeedNames }) => {
+          const result = await handlers["repo.listNamespace"]({
+            credentials: splitAppSettings(settings).credentials,
+            namespace: organization,
+          })
 
-        const listed = result.repositories.map((entry) => entry.name).sort()
-        for (const expected of seedNames) {
-          assert.ok(
-            listed.includes(expected),
-            `expected listing to include '${expected}', got ${listed.join(", ")}`,
-          )
-        }
-      })
+          const listed = result.repositories.map((entry) => entry.name).sort()
+          for (const expected of scopedSeedNames) {
+            assert.ok(
+              listed.includes(expected),
+              `expected listing to include '${expected}', got ${listed.join(", ")}`,
+            )
+          }
+        },
+      )
     })
 
     it("filters listing by glob pattern", async () => {
       const seedNames = ["lab1-alice", "lab1-bob", "lab2-carol"]
-      await withSeededOrg(seedNames, async ({ organization, settings }) => {
-        const result = await handlers["repo.listNamespace"]({
-          credentials: splitAppSettings(settings).credentials,
-          namespace: organization,
-          filter: "lab1-*",
-        })
+      await withSeededOrg(
+        seedNames,
+        async ({
+          organization,
+          resourcePrefix,
+          settings,
+          seedNames: scopedSeedNames,
+        }) => {
+          const result = await handlers["repo.listNamespace"]({
+            credentials: splitAppSettings(settings).credentials,
+            namespace: organization,
+            filter: `${resourcePrefix}-lab1-*`,
+          })
 
-        const listed = result.repositories.map((entry) => entry.name).sort()
-        assert.deepEqual(
-          listed,
-          ["lab1-alice", "lab1-bob"],
-          "only lab1-* repositories should match the filter",
-        )
-      })
+          const listed = result.repositories.map((entry) => entry.name).sort()
+          assert.deepEqual(
+            listed,
+            scopedSeedNames.slice(0, 2),
+            "only lab1-* repositories should match the filter",
+          )
+        },
+      )
     })
 
     it("bulk-clones the listed repositories flat into the target directory", async () => {
       const seedNames = ["bulk-one", "bulk-two", "bulk-three"]
-      await withSeededOrg(seedNames, async ({ organization, settings }) => {
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-bulk-clone-${Date.now()}`,
-        )
-
-        try {
-          const listResult = await handlers["repo.listNamespace"]({
-            credentials: splitAppSettings(settings).credentials,
-            namespace: organization,
-            filter: "bulk-*",
-          })
-          const cloneResult = await handlers["repo.bulkClone"]({
-            credentials: splitAppSettings(settings).credentials,
-            namespace: organization,
-            repositories: listResult.repositories.map(
-              ({ name, identifier }) => ({ name, identifier }),
-            ),
-            targetDirectory,
-          })
-
-          assert.equal(
-            cloneResult.repositoriesPlanned,
-            seedNames.length,
-            "planned should equal the number of repos passed in",
-          )
-          assert.equal(
-            cloneResult.repositoriesCloned,
-            seedNames.length,
-            "every listed repo should clone successfully",
-          )
-          assert.equal(cloneResult.repositoriesFailed, 0)
-          assert.deepEqual(
-            cloneResult.recordedRepositories,
-            {},
-            "bulk clone must not write repository records",
+      await withSeededOrg(
+        seedNames,
+        async ({
+          organization,
+          resourcePrefix,
+          settings,
+          seedNames: scopedSeedNames,
+        }) => {
+          const targetDirectory = path.join(
+            tmpdir(),
+            `repo-edu-bulk-clone-${Date.now()}`,
           )
 
-          for (const repoName of seedNames) {
-            const configPath = path.join(
+          try {
+            const listResult = await handlers["repo.listNamespace"]({
+              credentials: splitAppSettings(settings).credentials,
+              namespace: organization,
+              filter: `${resourcePrefix}-bulk-*`,
+            })
+            const cloneResult = await handlers["repo.bulkClone"]({
+              credentials: splitAppSettings(settings).credentials,
+              namespace: organization,
+              repositories: listResult.repositories.map(
+                ({ name, identifier }) => ({ name, identifier }),
+              ),
               targetDirectory,
-              repoName,
-              ".git",
-              "config",
+            })
+
+            assert.equal(
+              cloneResult.repositoriesPlanned,
+              scopedSeedNames.length,
+              "planned should equal the number of repos passed in",
             )
-            const config = await readFile(configPath, "utf-8")
-            assert.ok(
-              config.includes('[remote "origin"]'),
-              `${repoName} should have an origin remote after bulk clone`,
+            assert.equal(
+              cloneResult.repositoriesCloned,
+              scopedSeedNames.length,
+              "every listed repo should clone successfully",
             )
-            assert.ok(
-              !config.includes(settings.gitConnections[0].token),
-              `token should not appear in ${repoName}/.git/config`,
+            assert.equal(cloneResult.repositoriesFailed, 0)
+            assert.deepEqual(
+              cloneResult.recordedRepositories,
+              {},
+              "bulk clone must not write repository records",
             )
+
+            for (const repoName of scopedSeedNames) {
+              const configPath = path.join(
+                targetDirectory,
+                repoName,
+                ".git",
+                "config",
+              )
+              const config = await readFile(configPath, "utf-8")
+              assert.ok(
+                config.includes('[remote "origin"]'),
+                `${repoName} should have an origin remote after bulk clone`,
+              )
+              assert.ok(
+                !config.includes(settings.gitConnections[0].token),
+                `token should not appear in ${repoName}/.git/config`,
+              )
+            }
+          } finally {
+            await rm(targetDirectory, { recursive: true, force: true })
           }
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
+        },
+      )
     })
 
     it("counts missing remotes as failed without aborting the batch", async () => {
       const seedNames = ["present-one", "present-two"]
-      await withSeededOrg(seedNames, async ({ organization, settings }) => {
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-bulk-clone-miss-${Date.now()}`,
-        )
-
-        try {
-          const cloneResult = await handlers["repo.bulkClone"]({
-            credentials: splitAppSettings(settings).credentials,
-            namespace: organization,
-            repositories: [...seedNames, "not-a-real-repo"].map((repoName) => ({
-              name: repoName,
-              identifier: repoName,
-            })),
-            targetDirectory,
-          })
-
-          assert.equal(cloneResult.repositoriesPlanned, 3)
-          assert.equal(cloneResult.repositoriesCloned, 2)
-          assert.ok(
-            cloneResult.repositoriesFailed >= 1,
-            "at least the missing remote should be counted as failed",
+      await withSeededOrg(
+        seedNames,
+        async ({
+          organization,
+          resourcePrefix,
+          settings,
+          seedNames: scopedSeedNames,
+        }) => {
+          const targetDirectory = path.join(
+            tmpdir(),
+            `repo-edu-bulk-clone-miss-${Date.now()}`,
           )
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
+
+          try {
+            const cloneResult = await handlers["repo.bulkClone"]({
+              credentials: splitAppSettings(settings).credentials,
+              namespace: organization,
+              repositories: [
+                ...scopedSeedNames,
+                prefixIntegrationResource(resourcePrefix, "not-a-real-repo"),
+              ].map((repoName) => ({
+                name: repoName,
+                identifier: repoName,
+              })),
+              targetDirectory,
+            })
+
+            assert.equal(cloneResult.repositoriesPlanned, 3)
+            assert.equal(cloneResult.repositoriesCloned, 2)
+            assert.ok(
+              cloneResult.repositoriesFailed >= 1,
+              "at least the missing remote should be counted as failed",
+            )
+          } finally {
+            await rm(targetDirectory, { recursive: true, force: true })
+          }
+        },
+      )
     })
 
     it("returns an empty result when the repository list is empty", async () => {

@@ -29,24 +29,27 @@ import {
   collectExpectedRepoNames,
   collectFixtureGitUsernames,
   createGitFixture,
+  createIntegrationResourcePrefix,
+  prefixIntegrationResource,
 } from "./fixture-adapter.js"
 import type { IntegrationTeam } from "./git-provider-harness.js"
 import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 function plannedTeamsForExpected(
   teams: IntegrationTeam[],
+  courseId: string,
   groups: PlannedRepositoryGroup[],
 ): IntegrationTeam[] {
-  const expectedNames = new Set(groups.map(buildTeamName))
+  const expectedNames = new Set(
+    groups.map((group) => buildTeamName({ ...group, courseId })),
+  )
   return teams.filter((team) => expectedNames.has(team.name))
 }
 
 const harnesses = resolveHarnessesFromEnvironment()
 
 for (const harness of harnesses) {
-  const describeIntegration = harness.isConfigured ? describe : describe.skip
-
-  describeIntegration(`repo.create integration (${harness.label})`, () => {
+  describe(`repo.create integration (${harness.label})`, () => {
     let handlers: ReturnType<typeof createRepositoryWorkflowHandlers>
 
     before(async () => {
@@ -73,35 +76,33 @@ for (const harness of harnesses) {
     async function withIsolatedOrg(
       fn: (ctx: {
         organization: string
+        resourcePrefix: string
         course: PersistedCourse
         settings: PersistedAppSettings
       }) => Promise<void>,
     ): Promise<void> {
-      const scopeSuffix = `${Date.now().toString(36)}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`
-      const requestedOrg = `test-${scopeSuffix}`
-      const organization = await harness.createOrganization(requestedOrg)
-
-      const draft = harness.getConnectionDraft()
-      const { course, settings } = createGitFixture({
-        provider: draft.provider,
-        baseUrl: draft.baseUrl,
-        token: draft.token,
-        organization,
-        scopeSuffix,
-        fixtureGitUsernames: harness.fixtureGitUsernames,
-      })
-      const usernames = collectFixtureGitUsernames(course)
-
-      if (harness.supportsUserProvisioning) {
-        await harness.seedUsers(usernames)
-      }
+      const resourcePrefix = createIntegrationResourcePrefix()
+      const organization = await harness.createOrganization(resourcePrefix)
 
       try {
-        await fn({ organization, course, settings })
+        const draft = harness.getConnectionDraft()
+        const { course, settings } = createGitFixture({
+          provider: draft.provider,
+          baseUrl: draft.baseUrl,
+          token: draft.token,
+          organization,
+          resourcePrefix,
+          fixtureGitUsernames: harness.fixtureGitUsernames,
+        })
+        const usernames = collectFixtureGitUsernames(course)
+
+        if (harness.supportsUserProvisioning) {
+          await harness.seedUsers(usernames)
+        }
+
+        await fn({ organization, resourcePrefix, course, settings })
       } finally {
-        await harness.cleanupOrganization(organization)
+        await harness.cleanupOrganization(organization, resourcePrefix)
       }
     }
 
@@ -134,7 +135,11 @@ for (const harness of harnesses) {
         )
 
         const teams = await harness.verifyTeams(organization)
-        const plannedTeams = plannedTeamsForExpected(teams, expected.groups)
+        const plannedTeams = plannedTeamsForExpected(
+          teams,
+          course.id,
+          expected.groups,
+        )
         assert.ok(plannedTeams.length > 0, "planned teams should be created")
 
         const team = plannedTeams[0] as IntegrationTeam
@@ -291,35 +296,40 @@ for (const harness of harnesses) {
     })
 
     it("creates from template and captures commit SHA", async () => {
-      await withIsolatedOrg(async ({ organization, course, settings }) => {
-        const templateRepoName = "starter-template"
-        await harness.seedTemplateRepository(organization, templateRepoName)
+      await withIsolatedOrg(
+        async ({ organization, resourcePrefix, course, settings }) => {
+          const templateRepoName = prefixIntegrationResource(
+            resourcePrefix,
+            "starter-template",
+          )
+          await harness.seedTemplateRepository(organization, templateRepoName)
 
-        const template = {
-          kind: "remote" as const,
-          owner: organization,
-          name: templateRepoName,
-          visibility: "private" as const,
-        }
+          const template = {
+            kind: "remote" as const,
+            owner: organization,
+            name: templateRepoName,
+            visibility: "private" as const,
+          }
 
-        const result = await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template,
-        })
+          const result = await handlers["repo.create"]({
+            course,
+            credentials: splitAppSettings(settings).credentials,
+            assignmentId: "a1",
+            template,
+          })
 
-        assert.ok(
-          result.repositoriesCreated + result.repositoriesAdopted > 0,
-          "should process repos from template",
-        )
-        assert.equal(result.repositoriesFailed, 0, "no failures expected")
-        assert.ok(
-          result.templateCommitShas.a1 !== undefined &&
-            result.templateCommitShas.a1 !== "",
-          "should capture template commit SHA for assignment",
-        )
-      })
+          assert.ok(
+            result.repositoriesCreated + result.repositoriesAdopted > 0,
+            "should process repos from template",
+          )
+          assert.equal(result.repositoriesFailed, 0, "no failures expected")
+          assert.ok(
+            result.templateCommitShas.a1 !== undefined &&
+              result.templateCommitShas.a1 !== "",
+            "should capture template commit SHA for assignment",
+          )
+        },
+      )
     })
 
     it("creates from local template and captures commit SHA", async () => {

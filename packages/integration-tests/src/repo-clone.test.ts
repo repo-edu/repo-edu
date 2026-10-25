@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { after, before, describe, it } from "node:test"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import {
   type PersistedAppSettings,
   splitAppSettings,
@@ -22,15 +23,14 @@ import {
   collectExpectedRepoNames,
   collectFixtureGitUsernames,
   createGitFixture,
+  createIntegrationResourcePrefix,
 } from "./fixture-adapter.js"
 import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 const harnesses = resolveHarnessesFromEnvironment()
 
 for (const harness of harnesses) {
-  const describeIntegration = harness.isConfigured ? describe : describe.skip
-
-  describeIntegration(`repo.clone integration (${harness.label})`, () => {
+  describe(`repo.clone integration (${harness.label})`, () => {
     let handlers: ReturnType<typeof createRepositoryWorkflowHandlers>
 
     before(async () => {
@@ -61,30 +61,27 @@ for (const harness of harnesses) {
         settings: PersistedAppSettings
       }) => Promise<void>,
     ): Promise<void> {
-      const scopeSuffix = `${Date.now().toString(36)}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`
-      const requestedOrg = `test-${scopeSuffix}`
-      const organization = await harness.createOrganization(requestedOrg)
-
-      const draft = harness.getConnectionDraft()
-      const { course, settings } = createGitFixture({
-        provider: draft.provider,
-        baseUrl: draft.baseUrl,
-        token: draft.token,
-        organization,
-        scopeSuffix,
-        fixtureGitUsernames: harness.fixtureGitUsernames,
-      })
-      const usernames = collectFixtureGitUsernames(course)
-      if (harness.supportsUserProvisioning) {
-        await harness.seedUsers(usernames)
-      }
+      const resourcePrefix = createIntegrationResourcePrefix()
+      const organization = await harness.createOrganization(resourcePrefix)
 
       try {
+        const draft = harness.getConnectionDraft()
+        const { course, settings } = createGitFixture({
+          provider: draft.provider,
+          baseUrl: draft.baseUrl,
+          token: draft.token,
+          organization,
+          resourcePrefix,
+          fixtureGitUsernames: harness.fixtureGitUsernames,
+        })
+        const usernames = collectFixtureGitUsernames(course)
+        if (harness.supportsUserProvisioning) {
+          await harness.seedUsers(usernames)
+        }
+
         await fn({ organization, course, settings })
       } finally {
-        await harness.cleanupOrganization(organization)
+        await harness.cleanupOrganization(organization, resourcePrefix)
       }
     }
 
@@ -237,6 +234,10 @@ for (const harness of harnesses) {
                 directoryLayout: "flat",
               }),
             (error: unknown) => {
+              assert.ok(error instanceof CommandOutcomeError)
+              assert.equal(error.outcome.disposition, "refused")
+              if (error.outcome.disposition !== "refused") return false
+              error = error.outcome.error
               const appError = error as { type?: string; message?: string }
               assert.equal(appError.type, "validation")
               assert.match(appError.message ?? "", /non-git entries/)

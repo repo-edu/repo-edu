@@ -22,8 +22,12 @@ once and reused across platforms:
   a runner label and per-platform policy into `ci-platform.yml`. Each is also
   runnable on its own via `workflow_dispatch` for isolating a single platform.
 - `ci.yml` — the aggregate workflow that fans out across all five platform
-  wrappers. It triggers on pushes to `renovate/**`, on `workflow_dispatch`, and
-  via `workflow_call`.
+  wrappers and the live Git-provider workflow. It triggers on pushes to
+  `renovate/**`, on `workflow_dispatch`, and via `workflow_call`.
+- `ci-git-integration.yml` — one Linux job that runs the live suite against
+  pinned Gitea and GitLab containers and a disposable GitHub organisation. It
+  also runs directly on `main` when Git integration code, its contracts, the
+  live harness or the Node HTTP port changes.
 
 A shared composite action, `.github/actions/setup`, installs pnpm and Node and
 runs `pnpm install --frozen-lockfile`. It is the only place that performs the
@@ -128,6 +132,11 @@ The `runtime_validation` input controls how the desktop launch check runs:
 
 `ci.yml` triggers on pushes to `renovate/**`, which is what makes the dependency
 automation safe. Renovate opens an update on a `renovate/**` branch, CI runs the
-full matrix against it, and a green run fast-forwards onto `main` without a
-human in the loop. A PR surfaces only when CI fails. So a bad upstream release
-becomes a red branch, never a broken `main`.
+full matrix and the live Git-provider suite against it, and a green run
+fast-forwards onto `main` without a human in the loop. A PR surfaces only when
+CI fails. So a bad upstream release becomes a red branch, never a broken
+`main`.
+
+The live GitHub step receives its fine-grained token and disposable organisation
+only for that process. The same live job runs when `release.yml` calls `ci.yml`,
+so a release cannot bypass the provider replies.

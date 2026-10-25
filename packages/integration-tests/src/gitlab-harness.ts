@@ -4,6 +4,11 @@ import type {
   IntegrationTeam,
 } from "./git-provider-harness.js"
 
+const TEACHER = {
+  username: "integration-teacher",
+  password: "S9mR4tK8qP2vX7nL5dH1cB6wF3zJ",
+} as const
+
 function resolveHost(baseUrl: string): string {
   const normalized = baseUrl.replace(/\/+$/, "")
   return normalized.endsWith("/api/v4")
@@ -55,6 +60,32 @@ async function gitLabFetch(
       data: text,
     }
   }
+}
+
+async function gitLabFetchPages(
+  host: string,
+  token: string,
+  path: string,
+): Promise<unknown[]> {
+  const entries: unknown[] = []
+  for (let page = 1; page <= 100; page += 1) {
+    const separator = path.includes("?") ? "&" : "?"
+    const result = await gitLabFetch(
+      host,
+      token,
+      `${path}${separator}per_page=100&page=${page}`,
+    )
+    if (result.status !== 200 || !Array.isArray(result.data)) {
+      throw new Error(
+        `Failed to list GitLab resources at '${path}' (${result.status}): ${JSON.stringify(result.data)}`,
+      )
+    }
+    entries.push(...result.data)
+    if (result.data.length < 100) {
+      return entries
+    }
+  }
+  throw new Error(`GitLab pagination exceeded 100 pages at '${path}'.`)
 }
 
 async function waitForGitLab(host: string, token: string): Promise<void> {
@@ -145,17 +176,193 @@ async function ensureParentGroup(
   return resolved
 }
 
+async function findUserId(
+  host: string,
+  adminToken: string,
+  username: string,
+): Promise<number | null> {
+  const users = await gitLabFetchPages(
+    host,
+    adminToken,
+    `/users?username=${encodeURIComponent(username)}`,
+  )
+  const match = users.find(
+    (entry) => (entry as { username?: unknown }).username === username,
+  ) as { id?: unknown } | undefined
+  return typeof match?.id === "number" ? match.id : null
+}
+
+async function ensureTeacher(
+  host: string,
+  adminToken: string,
+): Promise<number> {
+  const existing = await findUserId(host, adminToken, TEACHER.username)
+  if (existing !== null) {
+    return existing
+  }
+
+  const create = await gitLabFetch(host, adminToken, "/users", {
+    method: "POST",
+    body: {
+      email: `${TEACHER.username}@test.local`,
+      username: TEACHER.username,
+      name: "Integration Teacher",
+      password: TEACHER.password,
+      skip_confirmation: true,
+    },
+  })
+  if (create.status === 201) {
+    const teacherId = (create.data as { id?: unknown }).id
+    if (typeof teacherId !== "number") {
+      throw new Error("GitLab teacher response did not contain an id.")
+    }
+    return teacherId
+  }
+
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    const concurrent = await findUserId(host, adminToken, TEACHER.username)
+    if (concurrent !== null) {
+      return concurrent
+    }
+    await sleep(500)
+  }
+
+  throw new Error(
+    `Failed to create GitLab teacher (${create.status}): ${JSON.stringify(create.data)}`,
+  )
+}
+
+async function ensureGroupOwner(
+  host: string,
+  adminToken: string,
+  groupId: number,
+  userId: number,
+): Promise<void> {
+  const create = await gitLabFetch(
+    host,
+    adminToken,
+    `/groups/${groupId}/members`,
+    {
+      method: "POST",
+      body: { user_id: userId, access_level: 50 },
+    },
+  )
+  if (create.status === 201) {
+    return
+  }
+
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    const membership = await gitLabFetch(
+      host,
+      adminToken,
+      `/groups/${groupId}/members/${userId}`,
+    )
+    if (membership.status === 200) {
+      if ((membership.data as { access_level?: unknown }).access_level === 50) {
+        return
+      }
+      const update = await gitLabFetch(
+        host,
+        adminToken,
+        `/groups/${groupId}/members/${userId}`,
+        {
+          method: "PUT",
+          body: { access_level: 50 },
+        },
+      )
+      if (update.status === 200) {
+        return
+      }
+    }
+    await sleep(500)
+  }
+
+  throw new Error(
+    `Failed to add GitLab teacher to parent group (${create.status}): ${JSON.stringify(create.data)}`,
+  )
+}
+
+async function createTeacherToken(
+  host: string,
+  adminToken: string,
+  teacherId: number,
+): Promise<string> {
+  const expiresAt = new Date()
+  expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1)
+  const create = await gitLabFetch(
+    host,
+    adminToken,
+    `/users/${teacherId}/personal_access_tokens`,
+    {
+      method: "POST",
+      body: {
+        name: `integration-teacher-${Date.now()}`,
+        scopes: ["api"],
+        expires_at: expiresAt.toISOString().slice(0, 10),
+      },
+    },
+  )
+  if (create.status !== 201) {
+    throw new Error(
+      `Failed to create GitLab teacher token (${create.status}): ${JSON.stringify(create.data)}`,
+    )
+  }
+  const token = (create.data as { token?: unknown }).token
+  if (typeof token !== "string" || token === "") {
+    throw new Error("GitLab teacher token response did not contain a token.")
+  }
+  return token
+}
+
+async function waitForGitLabCloneEndpoint(
+  host: string,
+  token: string,
+  projectPath: string,
+): Promise<void> {
+  const endpoint = new URL(`${host}/${projectPath}.git/info/refs`)
+  endpoint.searchParams.set("service", "git-upload-pack")
+  const authorization = `Basic ${Buffer.from(`oauth2:${token}`).toString("base64")}`
+  let lastStatus: number | null = null
+
+  for (let attempt = 1; attempt <= 40; attempt += 1) {
+    const response = await fetch(endpoint, {
+      headers: {
+        Accept: "application/x-git-upload-pack-advertisement",
+        Authorization: authorization,
+      },
+    })
+    lastStatus = response.status
+    await response.arrayBuffer()
+    if (response.status === 200) {
+      return
+    }
+    await sleep(500)
+  }
+
+  throw new Error(
+    `GitLab project '${projectPath}' did not expose its clone endpoint within 20s (last status ${String(lastStatus)}).`,
+  )
+}
+
 export function createGitLabHarness(): GitProviderHarness {
   const baseUrl = process.env.INTEGRATION_GITLAB_URL ?? ""
-  const token = process.env.INTEGRATION_GITLAB_TOKEN ?? ""
+  const adminToken = process.env.INTEGRATION_GITLAB_TOKEN ?? ""
   const parentGroupPath =
     process.env.INTEGRATION_GITLAB_PARENT_GROUP ?? "integration-root"
   const host = resolveHost(baseUrl)
+  let teacherToken: string | null = null
+
+  const getTeacherToken = (): string => {
+    if (teacherToken === null) {
+      throw new Error("GitLab teacher token is not initialized.")
+    }
+    return teacherToken
+  }
 
   const getConnectionDraft = (): GitConnectionDraft => ({
     provider: "gitlab",
     baseUrl: host,
-    token,
+    token: getTeacherToken(),
   })
 
   const getParentPath = (): string | null =>
@@ -163,23 +370,32 @@ export function createGitLabHarness(): GitProviderHarness {
 
   return {
     label: "GitLab",
-    isConfigured: host !== "" && token !== "",
+    missingConfiguration: [
+      ...(host === "" ? ["INTEGRATION_GITLAB_URL"] : []),
+      ...(adminToken === "" ? ["INTEGRATION_GITLAB_TOKEN"] : []),
+    ],
     supportsUserProvisioning: true,
     assertTeamMemberAssignments: true,
     fixtureGitUsernames: [],
     async ensureReady() {
-      await waitForGitLab(host, token)
+      await waitForGitLab(host, adminToken)
       const parentPath = getParentPath()
       if (parentPath !== null) {
-        await ensureParentGroup(host, token, parentPath)
+        const parentId = await ensureParentGroup(host, adminToken, parentPath)
+        const teacherId = await ensureTeacher(host, adminToken)
+        await ensureGroupOwner(host, adminToken, parentId, teacherId)
+        teacherToken = await createTeacherToken(host, adminToken, teacherId)
+        return
       }
+      const teacherId = await ensureTeacher(host, adminToken)
+      teacherToken = await createTeacherToken(host, adminToken, teacherId)
     },
     getConnectionDraft,
     async createOrganization(orgName: string): Promise<string> {
       const parentPath = getParentPath()
       let parentId: number | null = null
       if (parentPath !== null) {
-        parentId = await ensureParentGroup(host, token, parentPath)
+        parentId = await ensureParentGroup(host, getTeacherToken(), parentPath)
       }
 
       const payload: Record<string, unknown> = {
@@ -191,7 +407,7 @@ export function createGitLabHarness(): GitProviderHarness {
         payload.parent_id = parentId
       }
 
-      const create = await gitLabFetch(host, token, "/groups", {
+      const create = await gitLabFetch(host, getTeacherToken(), "/groups", {
         method: "POST",
         body: payload,
       })
@@ -208,16 +424,19 @@ export function createGitLabHarness(): GitProviderHarness {
 
       const fullPath =
         parentPath === null ? orgName : `${parentPath}/${orgName}`
-      const resolved = await resolveGroupId(host, token, fullPath)
+      const resolved = await resolveGroupId(host, getTeacherToken(), fullPath)
       if (resolved === null) {
         throw new Error(`Failed to resolve created group '${fullPath}'.`)
       }
       return fullPath
     },
-    async cleanupOrganization(orgName: string): Promise<void> {
+    async cleanupOrganization(
+      orgName: string,
+      _resourcePrefix: string,
+    ): Promise<void> {
       const remove = await gitLabFetch(
         host,
-        token,
+        adminToken,
         `/groups/${encodeURIComponent(orgName)}`,
         {
           method: "DELETE",
@@ -239,7 +458,7 @@ export function createGitLabHarness(): GitProviderHarness {
       for (const username of usernames) {
         const maxAttempts = 3
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          const create = await gitLabFetch(host, token, "/users", {
+          const create = await gitLabFetch(host, adminToken, "/users", {
             method: "POST",
             body: {
               email: `${username}@test.local`,
@@ -260,7 +479,7 @@ export function createGitLabHarness(): GitProviderHarness {
 
           const lookup = await gitLabFetch(
             host,
-            token,
+            adminToken,
             `/users?username=${encodeURIComponent(username)}&per_page=100`,
           )
           if (lookup.status === 200 && Array.isArray(lookup.data)) {
@@ -298,12 +517,12 @@ export function createGitLabHarness(): GitProviderHarness {
       repoName: string,
       options?: { autoInit?: boolean },
     ): Promise<void> {
-      const namespaceId = await resolveGroupId(host, token, orgName)
+      const namespaceId = await resolveGroupId(host, adminToken, orgName)
       if (namespaceId === null) {
         throw new Error(`GitLab group '${orgName}' was not found.`)
       }
 
-      const create = await gitLabFetch(host, token, "/projects", {
+      const create = await gitLabFetch(host, adminToken, "/projects", {
         method: "POST",
         body: {
           name: repoName,
@@ -322,6 +541,34 @@ export function createGitLabHarness(): GitProviderHarness {
           `Failed to create GitLab project '${orgName}/${repoName}' (${create.status}): ${JSON.stringify(create.data)}`,
         )
       }
+
+      const projectPath = `${orgName}/${repoName}`
+      if (options?.autoInit !== false) {
+        let branchReady = false
+        for (let attempt = 1; attempt <= 40; attempt += 1) {
+          const branches = await gitLabFetch(
+            host,
+            adminToken,
+            `/projects/${encodeURIComponent(projectPath)}/repository/branches?per_page=1`,
+          )
+          if (
+            branches.status === 200 &&
+            Array.isArray(branches.data) &&
+            branches.data.length > 0
+          ) {
+            branchReady = true
+            break
+          }
+          await sleep(500)
+        }
+        if (!branchReady) {
+          throw new Error(
+            `GitLab project '${projectPath}' did not publish its initial branch within 20s.`,
+          )
+        }
+      }
+
+      await waitForGitLabCloneEndpoint(host, getTeacherToken(), projectPath)
     },
     async deleteOrganizationRepository(
       orgName: string,
@@ -330,7 +577,7 @@ export function createGitLabHarness(): GitProviderHarness {
       const projectPath = `${orgName}/${repoName}`
       const remove = await gitLabFetch(
         host,
-        token,
+        adminToken,
         `/projects/${encodeURIComponent(projectPath)}`,
         { method: "DELETE" },
       )
@@ -351,7 +598,7 @@ export function createGitLabHarness(): GitProviderHarness {
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         const check = await gitLabFetch(
           host,
-          token,
+          adminToken,
           `/projects/${encodeURIComponent(projectPath)}`,
         )
         if (check.status === 404) {
@@ -372,7 +619,7 @@ export function createGitLabHarness(): GitProviderHarness {
         const projectPath = `${orgName}/${name}`
         const result = await gitLabFetch(
           host,
-          token,
+          getTeacherToken(),
           `/projects/${encodeURIComponent(projectPath)}`,
         )
         if (result.status === 200) {
@@ -382,18 +629,13 @@ export function createGitLabHarness(): GitProviderHarness {
       return existing
     },
     async verifyTeams(orgName: string): Promise<IntegrationTeam[]> {
-      const result = await gitLabFetch(
+      const teams = await gitLabFetchPages(
         host,
-        token,
-        `/groups/${encodeURIComponent(orgName)}/subgroups?per_page=100`,
+        getTeacherToken(),
+        `/groups/${encodeURIComponent(orgName)}/subgroups`,
       )
-      if (result.status !== 200 || !Array.isArray(result.data)) {
-        throw new Error(
-          `Failed to list GitLab subgroups for '${orgName}' (${result.status}).`,
-        )
-      }
 
-      return result.data
+      return teams
         .map((entry) => {
           const team = entry as { id?: unknown; name?: unknown }
           return {
@@ -412,17 +654,12 @@ export function createGitLabHarness(): GitProviderHarness {
         throw new Error(`Invalid GitLab team id '${String(team.id)}'.`)
       }
 
-      const result = await gitLabFetch(
+      const members = await gitLabFetchPages(
         host,
-        token,
-        `/groups/${teamId}/members?per_page=100`,
+        getTeacherToken(),
+        `/groups/${teamId}/members`,
       )
-      if (result.status !== 200 || !Array.isArray(result.data)) {
-        throw new Error(
-          `Failed to list members for GitLab group '${teamId}' (${result.status}).`,
-        )
-      }
-      return result.data
+      return members
         .map((entry) => {
           const member = entry as { username?: unknown }
           return typeof member.username === "string" ? member.username : null
@@ -438,25 +675,26 @@ export function createGitLabHarness(): GitProviderHarness {
         throw new Error(`Invalid GitLab team id '${String(team.id)}'.`)
       }
 
-      let result = await gitLabFetch(
+      let projectsPath = `/groups/${teamId}/projects/shared`
+      const probe = await gitLabFetch(
         host,
-        token,
-        `/groups/${teamId}/projects/shared?per_page=100`,
+        getTeacherToken(),
+        `${projectsPath}?per_page=1`,
       )
-      if (result.status === 404) {
-        result = await gitLabFetch(
-          host,
-          token,
-          `/groups/${teamId}/projects?with_shared=true&include_subgroups=true&per_page=100`,
+      if (probe.status === 404) {
+        projectsPath = `/groups/${teamId}/projects?with_shared=true&include_subgroups=true`
+      } else if (probe.status !== 200 || !Array.isArray(probe.data)) {
+        throw new Error(
+          `Failed to list repositories for GitLab group '${teamId}' (${probe.status}).`,
         )
       }
 
-      if (result.status !== 200 || !Array.isArray(result.data)) {
-        throw new Error(
-          `Failed to list repositories for GitLab group '${teamId}' (${result.status}).`,
-        )
-      }
-      return result.data
+      const projects = await gitLabFetchPages(
+        host,
+        getTeacherToken(),
+        projectsPath,
+      )
+      return projects
         .map((entry) => {
           const project = entry as { path?: unknown }
           return typeof project.path === "string" ? project.path : null

@@ -7,10 +7,21 @@ import type {
 } from "@repo-edu/domain/types"
 import { getFixture } from "@repo-edu/test-fixtures"
 
-function applyGroupNameSuffix(course: PersistedCourse, suffix: string): void {
+function applyGroupNamePrefix(course: PersistedCourse, prefix: string): void {
   for (const group of course.roster.groups) {
-    group.name = `${group.name}-${suffix}`
+    group.name = `${prefix} ${group.name}`
   }
+}
+
+export function prefixIntegrationResource(
+  resourcePrefix: string,
+  name: string,
+): string {
+  return `${resourcePrefix}-${name}`
+}
+
+export function createIntegrationResourcePrefix(): string {
+  return `test${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
 function applyGitUsernameOverrides(
@@ -37,7 +48,7 @@ export function createGitFixture(input: {
   baseUrl: string
   token: string
   organization: string
-  scopeSuffix: string
+  resourcePrefix: string
   fixtureGitUsernames?: readonly string[]
 }): { course: PersistedCourse; settings: PersistedAppSettings } {
   const fixture = getFixture({ tier: "small", preset: "shared-teams" })
@@ -45,7 +56,7 @@ export function createGitFixture(input: {
   const course: PersistedCourse = structuredClone(fixture.course)
   const settings: PersistedAppSettings = structuredClone(fixture.settings)
 
-  applyGroupNameSuffix(course, input.scopeSuffix)
+  applyGroupNamePrefix(course, input.resourcePrefix)
   if (input.fixtureGitUsernames && input.fixtureGitUsernames.length > 0) {
     applyGitUsernameOverrides(course, input.fixtureGitUsernames)
   }
