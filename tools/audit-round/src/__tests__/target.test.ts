@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { test } from "node:test"
 import {
   commitShaped,
+  planningScope,
   planRepositoryPrefix,
   resolvePlan,
   targetRequest,
@@ -15,7 +16,7 @@ test("a plan request carries its scope, or none for the plan's history to decide
     plan: "example",
     scope: null,
   })
-  for (const scope of ["1", "2-4"])
+  for (const scope of ["1", "2-4", planningScope])
     assert.deepEqual(targetRequest("example.md", [scope]), {
       plan: "example",
       scope,
@@ -104,6 +105,9 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["example.md", "0"],
     ["example.md", "3-1"],
     ["example.md", "all"],
+    ["example.md", "planning"],
+    ["example.md", "Plan"],
+    ["example.md", "plan", "1"],
     ["example.md", "9007199254740992"],
     ["example.md", "1", "2"],
     ["phase-arguments", "1", "2"],
@@ -116,7 +120,7 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     assert.throws(() => targetRequest(args[0], args.slice(1)))
   assert.throws(
     () => targetRequest("example", ["all"]),
-    /positive step number or an increasing range/,
+    /Use plan for a planning round, or a positive step number or an increasing range/,
   )
 })
 

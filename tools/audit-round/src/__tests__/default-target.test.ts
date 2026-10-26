@@ -7,7 +7,7 @@ import { InvalidArgumentError } from "commander"
 import { selectTarget } from "../default-target.js"
 import type { LogCommit } from "../episode-log.js"
 import type { Repository } from "../subject.js"
-import { type AuditTarget, planStem } from "../target.js"
+import { type AuditTarget, planningScope, planStem } from "../target.js"
 
 async function planRoot(t: TestContext): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "default-target-"))
@@ -173,6 +173,40 @@ test("a named step or range audits implementation once a step has landed", async
       scope: "1",
     }),
     /No step of example has landed/,
+  )
+})
+
+test("the planning word selects the planning round whatever the plan's history holds", async (t) => {
+  const root = await planRoot(t)
+  const planning = { roundKind: "planning", plan: join(root, "example.md") }
+  for (const history of [
+    logs(["plan", 1, "example/ready: ready"]),
+    implemented,
+    logs(
+      ["repo-edu", 1, "example/impl-1 oth feat(x): step"],
+      ["repo-edu", 2, "example/impl-2 oth feat(x): step"],
+      ["repo-edu", 3, "example/implemented oth: marker"],
+    ),
+  ])
+    assert.deepEqual(
+      await selectTarget(history, root, {
+        plan: "example",
+        scope: planningScope,
+      }),
+      planning,
+    )
+  // The step list is not read, so a malformed one does not block the round.
+  assert.deepEqual(
+    await selectTarget(
+      logs(["repo-edu", 1, "malformed/impl-1 obx feat(x): step"]),
+      root,
+      { plan: "malformed", scope: planningScope },
+    ),
+    { roundKind: "planning", plan: join(root, "malformed.md") },
+  )
+  await assert.rejects(
+    selectTarget(implemented, root, { plan: "missing", scope: planningScope }),
+    /No active plan named missing/,
   )
 })
 

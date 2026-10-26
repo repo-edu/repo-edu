@@ -38,8 +38,15 @@ export type AuditTarget =
   | CommitTarget
 
 /**
- * What a command line names. Commits are a complete target; a plan's round
- * waits for its history, which `default-target.ts` reads.
+ * The scope word that names a plan's planning round whatever has landed. The
+ * plan doctrine's Ready marker owns when the user reaches for it.
+ */
+export const planningScope = "plan"
+
+/**
+ * What a command line names. Commits are a complete target. A plan carries
+ * the planning word, a step scope or no scope; the last waits for the plan's
+ * history, which `default-target.ts` reads.
  */
 export type TargetRequest =
   | CommitTarget
@@ -59,11 +66,12 @@ export function isActivePlanPath(planRoot: string, plan: string): boolean {
   return dirname(resolve(planRoot, plan)) === resolve(planRoot)
 }
 
-function stepScope(value: string): string {
+function planScope(value: string): string {
+  if (value === planningScope) return value
   const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
   if (match === null)
     throw new InvalidArgumentError(
-      "Use a positive step number or an increasing range, such as 2 or 2-4.",
+      `Use ${planningScope} for a planning round, or a positive step number or an increasing range, such as 2 or 2-4.`,
     )
   const first = Number(match[1])
   const last = Number(match[2] ?? match[1])
@@ -130,10 +138,10 @@ export function targetRequest(
     : "repo-edu"
   if (repository === "repo-edu" && !commitShaped(first)) {
     if (rest.length > 1)
-      throw new InvalidArgumentError("A plan accepts at most one step scope.")
+      throw new InvalidArgumentError("A plan accepts at most one scope.")
     return {
       plan: planStem(first),
-      scope: rest[0] === undefined ? null : stepScope(rest[0]),
+      scope: rest[0] === undefined ? null : planScope(rest[0]),
     }
   }
   const commits: [string, ...string[]] = [first, ...rest]

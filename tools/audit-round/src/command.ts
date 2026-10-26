@@ -205,7 +205,7 @@ function parseInvocation(
     )
     .argument(
       "[scope-or-commits...]",
-      "plan step scope or more commit references",
+      "plan for the planning round, a step scope or more commit references",
     )
     .addOption(
       new Option(
@@ -395,7 +395,7 @@ Use brief --help or close --help for their arguments and options.`,
     )
     .argument(
       "[scope-or-commits...]",
-      "plan step scope or further commit references",
+      "plan for the planning round, a step scope or further commit references",
     )
     .requiredOption(
       "--auditor <tag>",

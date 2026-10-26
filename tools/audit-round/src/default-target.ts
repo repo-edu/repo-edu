@@ -8,6 +8,7 @@ import { looseForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
+  planningScope,
   planStem,
   resolvePlan,
   type TargetRequest,
@@ -40,8 +41,10 @@ export async function resolveTarget(
 
 /**
  * A plan's own history decides what its name alone audits, so the shortest
- * command runs the audit the plan's state calls for. Moving on to another
- * scope is the user's call, so a plan between its steps stops with its reason.
+ * command runs the audit the plan's state calls for. The planning word names
+ * the planning round whatever has landed, because a bare name stops selecting
+ * it once a step lands. Moving on to another scope is the user's call, so a
+ * plan between its steps stops with its reason.
  */
 export async function selectTarget(
   logs: Logs,
@@ -58,6 +61,7 @@ export async function selectTarget(
     plan,
     scope,
   })
+  if (request?.scope === planningScope) return { roundKind: "planning", plan }
   if (!hasLandedStep(logs, topic)) {
     if (request?.scope != null)
       throw new InvalidArgumentError(

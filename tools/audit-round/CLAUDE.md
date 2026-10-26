@@ -334,33 +334,34 @@ consumers.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
-  plan stem with an optional step or increasing range, or commit references, which are a
-  complete target. An optional `plan@` prefix on the first reference selects the plan repo for the
-  whole commit target; bare references select Repo Edu. A prefix on a later reference is refused. A
-  commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
-  arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` accepts the
-  active artifact at the plan root and reports an archived plan as unavailable for audit.
-  `requiredActivePlan` accepts only the
-  active artifact. It keeps path validation common while `close`, `settle` and `ready` supply their
-  own reason when no active plan exists. The audit workflow owns Git resolution and inclusive-range
-  admission. The runner passes references unchanged and rejects multiple auditor entries for commit
-  targets, which run once without a trajectory glance or watch.
+  plan stem with an optional scope, or commit references, which are a complete target. A plan's
+  scope is the word `plan` for its planning round, a step or an increasing range; `planningScope` is
+  the one spelling of that word. An optional `plan@` prefix on the first reference selects the plan
+  repo for the whole commit target; bare references select Repo Edu. A prefix on a later reference
+  is refused. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan arguments drop
+  `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` accepts the active artifact
+  at the plan root and reports an archived plan as unavailable for audit. `requiredActivePlan`
+  accepts only the active artifact. It keeps path validation common while `close`, `settle` and
+  `ready` supply their own reason when no active plan exists. The audit workflow owns Git resolution
+  and inclusive-range admission. The runner passes references unchanged and rejects multiple auditor
+  entries for commit targets, which run once without a trajectory glance or watch.
 - `default-target.ts` owns the round a plan argument or no target selects, under
   [Plan targets](#plan-targets), so the plan's history rather than a typed word decides between
   planning and implementation. It reads both histories. Each repository's own Git order decides
   whether its marker follows its newest hosted step. `stemCommits` merges the histories by date only
   when the runner chooses the newest active plan. Without a target it skips plans without an active
   artifact. It resolves the active plan before reading its step list, so a missing plan says so, and
-  supplies the absolute plan path before any assistant starts. Before any step lands, the bare plan
-  selects a planning audit without reading that list. A concrete scope returns after the landed-step
-  check without reading the list. For a bare plan once a step has landed, `plan-steps.ts` supplies
-  every listed step and hosting repo. Loose forms find each hosted step, its repo's newest step and
-  its newest `implemented` marker. The bare plan resolves to the full listed range only when every
-  hosted share has landed and each marker is newer than its repo's latest hosted step. Otherwise it
-  names pending steps by repo and every missing or stale marker. It never reruns the newest
-  implementation-audit record's scope. `defaultPlan` applies the same plan rule alone for the `plan`
-  command and a `close` given no stem. The home `/brief-plan` and `/close` run `plan` for an omitted
-  stem.
+  supplies the absolute plan path before any assistant starts. The `plan` scope selects a planning
+  audit before the landed-step check, so it reads neither history nor list. Before any step lands,
+  the bare plan selects a planning audit without reading that list. A concrete step scope returns
+  after the landed-step check without reading the list. For a bare plan once a step has landed,
+  `plan-steps.ts` supplies every listed step and hosting repo. Loose forms find each hosted step,
+  its repo's newest step and its newest `implemented` marker. The bare plan resolves to the full
+  listed range only when every hosted share has landed and each marker is newer than its repo's
+  latest hosted step. Otherwise it names pending steps by repo and every missing or stale marker. It
+  never reruns the newest implementation-audit record's scope. `defaultPlan` applies the same plan
+  rule alone for the `plan` command and a `close` given no stem. The home `/brief-plan` and `/close`
+  run `plan` for an omitted stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor` and
   `--first` options. It reads both values with the queue's entry grammar and refuses a list with no
   entries. `--first` takes exactly one entry and is refused beside `--auditor`, because the list's
@@ -547,7 +548,12 @@ stem history decide what a bare plan name means:
 
 A concrete step scope selects an implementation audit and is refused before
 any step lands. Once a step has landed, no unscoped invocation selects a
-planning audit. With no target, the runner selects the active artifact whose
+planning audit. The scope word `plan`, as in `pnpm audit-round <stem> plan`,
+selects the planning audit whatever has landed, without reading the step list.
+It continues the plan's `-plan` round series and data file, so the round lands
+the ordinary `plan-audit` record. The plan doctrine's
+[Ready marker](../../../plan/CLAUDE.md#ready-marker) owns when the user
+reaches for it. With no target, the runner selects the active artifact whose
 stem commit is newest across both repos. `plan` prints that selected plan
 without writing anything.
 
@@ -626,6 +632,7 @@ pnpm audit-round example 3 --auditor a -v
 pnpm audit-round example 3 --auditor atx
 pnpm audit-round task-modifier 1-4 --auditor claude
 pnpm audit-round task-modifier --auditor codex
+pnpm audit-round example plan --auditor claude
 pnpm audit-round example 3 --auditor codex,claude,claude
 pnpm audit-round example 3 --auditor "atx, obm"
 pnpm audit-round example 1-4 --first codex
