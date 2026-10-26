@@ -201,11 +201,11 @@ function parseInvocation(
     .exitOverride()
     .argument(
       "[target]",
-      "plan stem, commit reference or commit range; see Omitted below",
+      "a plan stem or commit references; see Targets and scope below",
     )
     .argument(
       "[scope-or-commits...]",
-      "plan for the planning round, a step scope or more commit references",
+      "the planning word, a step scope or more commits; see Targets and scope below",
     )
     .addOption(
       new Option(
@@ -396,7 +396,7 @@ Use brief --help or close --help for their arguments and options.`,
     )
     .argument(
       "[scope-or-commits...]",
-      "plan for the planning round, a step scope or further commit references",
+      "the planning word, a step scope or further commits, as audit-round --help explains",
     )
     .requiredOption(
       "--auditor <tag>",
