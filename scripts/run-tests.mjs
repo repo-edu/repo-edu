@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { dirname, join, posix, resolve } from "node:path"
+import { packageManagerCommand } from "./package-manager-command.mjs"
 
 const workspaceGroups = new Set(["apps", "packages", "tools"])
 const usage = "Usage: pnpm test [apps/<package> | packages/<package> | tools/<package>]"
@@ -56,7 +57,8 @@ function run(command, args) {
 }
 
 function runPnpm(args) {
-  return run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", args)
+  const invocation = packageManagerCommand(args)
+  return run(invocation.command, invocation.args)
 }
 
 export function main(argv) {

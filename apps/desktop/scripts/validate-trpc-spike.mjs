@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { packageManagerCommand } from "./package-manager-command.mjs";
+import { packageManagerCommand } from "../../../scripts/package-manager-command.mjs";
 
 const requireFromScript = createRequire(import.meta.url);
 const desktopDir = resolve(import.meta.dirname, "..");

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
-import { packageManagerCommand } from "./package-manager-command.mjs";
+import { packageManagerCommand } from "../../../scripts/package-manager-command.mjs";
 
 const desktopDir = resolve(import.meta.dirname, "..");
 const startedAt = performance.now();
