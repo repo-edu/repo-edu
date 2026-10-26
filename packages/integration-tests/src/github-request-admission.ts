@@ -1,3 +1,6 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { homedir } from "node:os"
+import { dirname, join } from "node:path"
 import type { GitProviderKind } from "@repo-edu/domain/connection"
 import { createNodeHttpPort } from "@repo-edu/host-node"
 import type {
@@ -8,14 +11,21 @@ import type {
 
 const mutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"])
 const minimumMutationIntervalMs = 1_000
+const contentWindowMs = 3_600_000
 
 type StatusResponse = {
   status: number
 }
 
+export type GitHubRunRecord = {
+  readStartedAt(): number | null
+  writeStartedAt(startedAt: number): void
+}
+
 type RequestAdmissionOptions = {
   now?: () => number
   wait?: (milliseconds: number) => Promise<void>
+  runRecord?: GitHubRunRecord
 }
 
 export class GitHubIntegrationRateLimitError extends Error {
@@ -27,6 +37,51 @@ export class GitHubIntegrationRateLimitError extends Error {
   }
 }
 
+export class GitHubIntegrationRunWindowError extends Error {
+  constructor(previousStartedAt: number, now: number) {
+    const minutesLeft = Math.ceil(
+      (previousStartedAt + contentWindowMs - now) / 60_000,
+    )
+    super(
+      `GitHub live tests created content ${minutesLeft} minutes ago or less; one content-creating run is allowed per hour.`,
+    )
+    this.name = "GitHubIntegrationRunWindowError"
+  }
+}
+
+function createFileRunRecord(): GitHubRunRecord {
+  const recordPath = join(
+    homedir(),
+    ".repo-edu",
+    "github-live-run",
+    "started-at",
+  )
+  return {
+    readStartedAt() {
+      let text: string
+      try {
+        text = readFileSync(recordPath, "utf8")
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return null
+        }
+        throw error
+      }
+      const startedAt = Number(text.trim())
+      if (!Number.isSafeInteger(startedAt)) {
+        throw new Error(
+          `The GitHub live-run record at ${recordPath} is not a timestamp.`,
+        )
+      }
+      return startedAt
+    },
+    writeStartedAt(startedAt) {
+      mkdirSync(dirname(recordPath), { recursive: true, mode: 0o700 })
+      writeFileSync(recordPath, `${startedAt}\n`, { mode: 0o600 })
+    },
+  }
+}
+
 export function createGitHubIntegrationRequestAdmission(
   options: RequestAdmissionOptions = {},
 ) {
@@ -35,9 +90,25 @@ export function createGitHubIntegrationRequestAdmission(
     options.wait ??
     ((milliseconds: number) =>
       new Promise<void>((resolve) => setTimeout(resolve, milliseconds)))
-  let terminalError: GitHubIntegrationRateLimitError | null = null
+  const runRecord = options.runRecord ?? createFileRunRecord()
+  let terminalError: Error | null = null
   let lastMutationAt: number | null = null
   let mutationTail = Promise.resolve()
+
+  function admitRunStart(startedAt: number): void {
+    const previousStartedAt = runRecord.readStartedAt()
+    if (
+      previousStartedAt !== null &&
+      startedAt - previousStartedAt < contentWindowMs
+    ) {
+      terminalError = new GitHubIntegrationRunWindowError(
+        previousStartedAt,
+        startedAt,
+      )
+      throw terminalError
+    }
+    runRecord.writeStartedAt(startedAt)
+  }
 
   return {
     async send<T extends StatusResponse>(
@@ -64,7 +135,9 @@ export function createGitHubIntegrationRequestAdmission(
           throw terminalError
         }
 
-        if (lastMutationAt !== null) {
+        if (lastMutationAt === null) {
+          admitRunStart(now())
+        } else {
           const remaining = minimumMutationIntervalMs - (now() - lastMutationAt)
           if (remaining > 0) {
             await wait(remaining)

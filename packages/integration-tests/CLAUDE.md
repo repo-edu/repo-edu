@@ -42,12 +42,14 @@ Docker lifecycle: `docker:up:gitea` / `docker:up:gitlab` / `docker:down`.
   exceeding GitHub's content-creation limit during one full run.
 - GitHub resources carry a per-run prefix and are removed in `finally`; the token owner must own the
   disposable test organisation.
-- The GitHub suite starts at most once per local hour. Its run record is a safety boundary: do not
-  delete, override or bypass it after a small fix. Use static and unit checks, then wait for the
-  next content window.
-- One process-wide GitHub admission owner paces every mutating raw-harness and product-adapter
-  request by one second. A `403` or `429` stops every later provider request in that run. It never
-  retries.
+- The five live test files run in one process (`--test-isolation=none`), so one GitHub admission
+  owner covers the whole run. It paces every mutating raw-harness and product-adapter request by
+  one second. A `403` or `429` stops every later provider request in that run. It never retries.
+- The admission owner also keeps the local hourly record. When it admits the run's first mutation,
+  it refuses the run if the previous record is younger than an hour and otherwise writes the new
+  start time. A run that creates nothing, such as one refused for a missing or wrong token, leaves
+  the record alone. The record is a safety boundary: do not delete, override or bypass it after a
+  small fix. Use static and unit checks, then wait for the next content window.
 - Provider-operation checks read the resulting files and pull requests through the harness's raw
   setup client, independently of the product adapter.
 - No exports — purely executable test package.
