@@ -247,7 +247,8 @@ Targets and scope:
                implemented marker follows its newest hosted step: the listed range
              - otherwise: stop and name pending steps and missing or stale markers
   Scope    One step (3) or an increasing range (1-3) audits implementation.
-           A scope is refused until a step has landed.
+           A step scope is refused until a step has landed. The word plan selects
+           the planning audit whatever has landed, for a plan edited after ready.
   Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to>.
            plan@ on the first reference selects the plan repo for the whole target;
            bare references select Repo Edu. HEAD-1 is the previous first-parent
