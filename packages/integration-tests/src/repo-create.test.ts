@@ -37,11 +37,12 @@ import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 function plannedTeamsForExpected(
   teams: IntegrationTeam[],
+  organization: string,
   courseId: string,
   groups: PlannedRepositoryGroup[],
 ): IntegrationTeam[] {
   const expectedNames = new Set(
-    groups.map((group) => buildTeamName({ ...group, courseId })),
+    groups.map((group) => buildTeamName({ ...group, organization, courseId })),
   )
   return teams.filter((team) => expectedNames.has(team.name))
 }
@@ -137,6 +138,7 @@ for (const harness of harnesses) {
         const teams = await harness.verifyTeams(organization)
         const plannedTeams = plannedTeamsForExpected(
           teams,
+          organization,
           course.id,
           expected.groups,
         )

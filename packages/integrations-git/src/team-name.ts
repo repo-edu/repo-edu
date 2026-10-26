@@ -1,6 +1,6 @@
 import type { CreateTeamRequest } from "@repo-edu/integrations-git-contract"
 
-const maxTeamNameLength = 255
+const maxTeamPathLength = 255
 const teamPrefix = "team-"
 
 function encodeCourseId(courseId: string): string {
@@ -15,10 +15,14 @@ function encodeCourseId(courseId: string): string {
  * refuse spaces and most punctuation, so the course ID uses lowercase
  * hexadecimal and the group's name becomes a lowercase slug. GitLab keeps team
  * groups beside the course's projects, and the `team-` prefix keeps their paths
- * apart. Gitea and GitLab limit the complete name to 255 characters, so only
- * the readable group slug is shortened. */
+ * apart. GitLab limits the complete nested group path to 255 characters, so
+ * the organisation path is reserved and only the readable group slug is
+ * shortened. */
 export function buildTeamName(
-  group: Pick<CreateTeamRequest, "courseId" | "groupId" | "groupName">,
+  group: Pick<
+    CreateTeamRequest,
+    "organization" | "courseId" | "groupId" | "groupName"
+  >,
 ): string {
   const slug = group.groupName
     .trim()
@@ -26,6 +30,10 @@ export function buildTeamName(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
   const stableId = `${encodeCourseId(group.courseId)}-${group.groupId}`
+  const maxTeamNameLength = Math.max(
+    0,
+    maxTeamPathLength - group.organization.length - 1,
+  )
   const readableSlug = slug
     .slice(
       0,

@@ -25,6 +25,8 @@ and push to each other's repositories. The name keeps to lowercase letters,
 digits, `-` and `_`, because Gitea team names are case-insensitive and Gitea
 team names and GitLab group paths refuse most other characters. Every provider
 sends that name and reuses an existing team only when it carries that name.
+GitLab limits the complete nested group path to 255 characters, so the shared
+name rule reserves the organisation path and shortens only the readable slug.
 
 GitLab namespace and project resolution live in provider-local infrastructure,
 not in the teams or repositories capability. All capabilities share those

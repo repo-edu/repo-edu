@@ -194,7 +194,7 @@ describe("github repositories", () => {
                 resource: "Repository",
                 code: "custom",
                 field: "name",
-                message: "name is too long (maximum is 100 characters)",
+                message: "name cannot be more than 100 characters",
               },
             ],
             documentation_url:

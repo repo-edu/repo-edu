@@ -13,6 +13,37 @@ function applyGroupNamePrefix(course: PersistedCourse, prefix: string): void {
   }
 }
 
+function keepRepresentativeGroups(course: PersistedCourse): void {
+  const assignment = course.roster.assignments.find(
+    (candidate) => candidate.id === "a1",
+  )
+  if (assignment === undefined) {
+    throw new Error("Integration fixture has no 'a1' assignment.")
+  }
+  const groupSet = course.roster.groupSets.find(
+    (candidate) => candidate.id === assignment.groupSetId,
+  )
+  if (groupSet?.nameMode !== "named") {
+    throw new Error(
+      "Integration fixture assignment 'a1' has no named group set.",
+    )
+  }
+  const groupIds = new Set(groupSet.groupIds.slice(0, 2))
+  const groups = course.roster.groups.filter((group) => groupIds.has(group.id))
+  const memberIds = new Set(groups.flatMap((group) => group.memberIds))
+
+  course.roster.groups = groups
+  course.roster.groupSets = course.roster.groupSets.filter(
+    (candidate) => candidate.id === groupSet.id,
+  )
+  groupSet.groupIds = groupSet.groupIds.filter((groupId) =>
+    groupIds.has(groupId),
+  )
+  course.roster.students = course.roster.students.filter((student) =>
+    memberIds.has(student.id),
+  )
+}
+
 export function prefixIntegrationResource(
   resourcePrefix: string,
   name: string,
@@ -56,6 +87,7 @@ export function createGitFixture(input: {
   const course: PersistedCourse = structuredClone(fixture.course)
   const settings: PersistedAppSettings = structuredClone(fixture.settings)
 
+  keepRepresentativeGroups(course)
   applyGroupNamePrefix(course, input.resourcePrefix)
   if (input.fixtureGitUsernames && input.fixtureGitUsernames.length > 0) {
     applyGitUsernameOverrides(course, input.fixtureGitUsernames)

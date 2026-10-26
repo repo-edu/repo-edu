@@ -282,7 +282,7 @@ describe("gitea repositories", () => {
           urlPattern: "/api/v1/orgs/course-org/repos",
           status: 422,
           body: {
-            message: "name is reserved [name: repo-1]",
+            message: "[Name]: MaxSize",
             url: "https://gitea.example.com/api/swagger",
           },
         },
@@ -300,7 +300,7 @@ describe("gitea repositories", () => {
           {
             repositoryName: "repo-1",
             reason:
-              "POST /api/v1/orgs/course-org/repos answered 422: name is reserved [name: repo-1]",
+              "POST /api/v1/orgs/course-org/repos answered 422: [Name]: MaxSize",
           },
         ],
       })

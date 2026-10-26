@@ -138,8 +138,18 @@ describe("gitlab repositories", () => {
           status: 400,
           body: {
             message: {
+              "project_namespace.name": [
+                "is too long (maximum is 255 characters)",
+              ],
+              "project_namespace.path": [
+                "is too long (maximum is 255 characters)",
+                "can contain only letters, digits, '_', '-' and '.'. Cannot start with '-', end in '.git' or end in '.atom'",
+              ],
+              name: ["is too long (maximum is 255 characters)"],
               path: [
                 "can contain only letters, digits, '_', '-' and '.'. Cannot start with '-', end in '.git' or end in '.atom'",
+                "is too long (maximum is 255 characters)",
+                "is too long (maximum is 255 characters)",
               ],
             },
           },
