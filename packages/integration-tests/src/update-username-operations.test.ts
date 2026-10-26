@@ -1,6 +1,5 @@
 import assert from "node:assert/strict"
 import { before, describe, it } from "node:test"
-import { createNodeHttpPort } from "@repo-edu/host-node"
 import { createGitProviderClient } from "@repo-edu/integrations-git"
 import type {
   GitConnectionDraft,
@@ -12,6 +11,7 @@ import {
   createIntegrationResourcePrefix,
 } from "./fixture-adapter.js"
 import type { GitProviderHarness } from "./git-provider-harness.js"
+import { createIntegrationHttpPort } from "./github-request-admission.js"
 import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 type OperationContext = {
@@ -70,7 +70,10 @@ for (const harness of harnesses) {
     before(async () => {
       await harness.ensureReady()
       draft = harness.getConnectionDraft()
-      client = createGitProviderClient(draft.provider, createNodeHttpPort())
+      client = createGitProviderClient(
+        draft.provider,
+        createIntegrationHttpPort(draft.provider),
+      )
     })
 
     it("reads present and absent username replies", async () => {

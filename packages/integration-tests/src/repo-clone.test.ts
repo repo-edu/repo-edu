@@ -13,7 +13,6 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
-  createNodeHttpPort,
   createNodeProcessPort,
 } from "@repo-edu/host-node"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
@@ -25,6 +24,7 @@ import {
   createGitFixture,
   createIntegrationResourcePrefix,
 } from "./fixture-adapter.js"
+import { createIntegrationHttpPort } from "./github-request-admission.js"
 import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 const harnesses = resolveHarnessesFromEnvironment()
@@ -36,7 +36,7 @@ for (const harness of harnesses) {
     before(async () => {
       await harness.ensureReady()
       const draft = harness.getConnectionDraft()
-      const http = createNodeHttpPort()
+      const http = createIntegrationHttpPort(draft.provider)
       const git = createGitProviderClient(draft.provider, http)
       handlers = createRepositoryWorkflowHandlers({
         git,

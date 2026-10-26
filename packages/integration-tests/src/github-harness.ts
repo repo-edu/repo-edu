@@ -4,6 +4,7 @@ import type {
   IntegrationPullRequest,
   IntegrationTeam,
 } from "./git-provider-harness.js"
+import { fetchGitHubIntegration } from "./github-request-admission.js"
 
 function resolveApiBaseUrl(baseUrl: string): string {
   const normalized = baseUrl.replace(/\/+$/, "")
@@ -30,7 +31,7 @@ async function githubFetch(
     body?: unknown
   },
 ): Promise<GitHubResponse> {
-  const response = await fetch(`${apiBase}${path}`, {
+  const response = await fetchGitHubIntegration(`${apiBase}${path}`, {
     method: options?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${token}`,

@@ -17,7 +17,6 @@ import type {
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
-  createNodeHttpPort,
   createNodeProcessPort,
 } from "@repo-edu/host-node"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
@@ -33,6 +32,7 @@ import {
   prefixIntegrationResource,
 } from "./fixture-adapter.js"
 import type { IntegrationTeam } from "./git-provider-harness.js"
+import { createIntegrationHttpPort } from "./github-request-admission.js"
 import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
 function plannedTeamsForExpected(
@@ -56,7 +56,7 @@ for (const harness of harnesses) {
     before(async () => {
       await harness.ensureReady()
       const draft = harness.getConnectionDraft()
-      const http = createNodeHttpPort()
+      const http = createIntegrationHttpPort(draft.provider)
       const git = createGitProviderClient(draft.provider, http)
       handlers = createRepositoryWorkflowHandlers({
         git,

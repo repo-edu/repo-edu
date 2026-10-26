@@ -29,6 +29,12 @@ once and reused across platforms:
   also runs directly on `main` when Git integration code, its contracts, the
   live harness or the Node HTTP port changes.
 
+The GitHub part is deliberately rate-bound. One suite run spaces every
+mutation, treats GitHub's 403 or 429 rate-limit reply as terminal and does not
+retry it. Local runs also permit one GitHub content-creation suite per hour.
+This keeps a small fix from multiplying repository creation while GitHub's
+secondary limit is active.
+
 A shared composite action, `.github/actions/setup`, installs pnpm and Node and
 runs `pnpm install --frozen-lockfile`. It is the only place that performs the
 install, so dependency setup never drifts between platforms.
