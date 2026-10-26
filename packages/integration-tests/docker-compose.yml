@@ -7,7 +7,7 @@ services:
       - GITEA__security__INSTALL_LOCK=true
       - GITEA__server__ROOT_URL=http://localhost:${GITEA_PORT:-3000}
     tmpfs:
-      - /data
+      - /data:exec
     healthcheck:
       test: ["CMD", "curl", "-fsSL", "http://localhost:3000/api/v1/version"]
       interval: 2s

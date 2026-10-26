@@ -5,6 +5,12 @@ export type IntegrationTeam = {
   name: string
 }
 
+export type IntegrationPullRequest = {
+  headBranch: string
+  baseBranch: string
+  url: string
+}
+
 export type GitProviderHarness = {
   label: string
   missingConfiguration: readonly string[]
@@ -23,6 +29,16 @@ export type GitProviderHarness = {
     options?: { autoInit?: boolean },
   ): Promise<void>
   deleteOrganizationRepository(orgName: string, repoName: string): Promise<void>
+  readRepositoryFile(
+    orgName: string,
+    repoName: string,
+    branchName: string,
+    path: string,
+  ): Promise<string | null>
+  listPullRequests(
+    orgName: string,
+    repoName: string,
+  ): Promise<IntegrationPullRequest[]>
   verifyRepositoriesExist(orgName: string, names: string[]): Promise<string[]>
   verifyTeams(orgName: string): Promise<IntegrationTeam[]>
   verifyTeamMembers(orgName: string, team: IntegrationTeam): Promise<string[]>

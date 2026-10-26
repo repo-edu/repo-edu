@@ -1,6 +1,7 @@
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 import type {
   GitProviderHarness,
+  IntegrationPullRequest,
   IntegrationTeam,
 } from "./git-provider-harness.js"
 
@@ -609,6 +610,68 @@ export function createGitLabHarness(): GitProviderHarness {
       throw new Error(
         `GitLab project '${projectPath}' still present after delete poll timeout.`,
       )
+    },
+    async readRepositoryFile(
+      orgName: string,
+      repoName: string,
+      branchName: string,
+      path: string,
+    ): Promise<string | null> {
+      const projectPath = `${orgName}/${repoName}`
+      const result = await gitLabFetch(
+        host,
+        getTeacherToken(),
+        `/projects/${encodeURIComponent(projectPath)}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(branchName)}`,
+      )
+      if (result.status === 404) {
+        return null
+      }
+      const file = result.data as {
+        content?: unknown
+        encoding?: unknown
+      } | null
+      if (
+        result.status !== 200 ||
+        typeof file?.content !== "string" ||
+        file.encoding !== "base64"
+      ) {
+        throw new Error(
+          `Failed to read GitLab file '${projectPath}:${branchName}:${path}' (${result.status}): ${JSON.stringify(result.data)}`,
+        )
+      }
+      return Buffer.from(file.content, "base64").toString("utf8")
+    },
+    async listPullRequests(
+      orgName: string,
+      repoName: string,
+    ): Promise<IntegrationPullRequest[]> {
+      const projectPath = `${orgName}/${repoName}`
+      const pulls = await gitLabFetchPages(
+        host,
+        getTeacherToken(),
+        `/projects/${encodeURIComponent(projectPath)}/merge_requests?state=opened`,
+      )
+      return pulls.map((entry) => {
+        const pull = entry as {
+          source_branch?: unknown
+          target_branch?: unknown
+          web_url?: unknown
+        }
+        if (
+          typeof pull.source_branch !== "string" ||
+          typeof pull.target_branch !== "string" ||
+          typeof pull.web_url !== "string"
+        ) {
+          throw new Error(
+            `GitLab answered an unreadable merge request for '${projectPath}'.`,
+          )
+        }
+        return {
+          headBranch: pull.source_branch,
+          baseBranch: pull.target_branch,
+          url: pull.web_url,
+        }
+      })
     },
     async verifyRepositoriesExist(
       orgName: string,

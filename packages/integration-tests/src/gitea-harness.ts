@@ -1,6 +1,7 @@
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 import type {
   GitProviderHarness,
+  IntegrationPullRequest,
   IntegrationTeam,
 } from "./git-provider-harness.js"
 
@@ -396,6 +397,68 @@ export function createGiteaHarness(): GitProviderHarness {
           `Failed to delete repo '${orgName}/${repoName}' (${status}): ${JSON.stringify(data)}`,
         )
       }
+    },
+    async readRepositoryFile(
+      orgName: string,
+      repoName: string,
+      branchName: string,
+      path: string,
+    ): Promise<string | null> {
+      const result = await giteaFetch(
+        baseUrl,
+        `/repos/${orgName}/${repoName}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branchName)}`,
+        { auth: getTeacherAuth() },
+      )
+      if (result.status === 404) {
+        return null
+      }
+      const file = result.data as {
+        type?: unknown
+        content?: unknown
+        encoding?: unknown
+      } | null
+      if (
+        result.status !== 200 ||
+        file?.type !== "file" ||
+        typeof file.content !== "string" ||
+        file.encoding !== "base64"
+      ) {
+        throw new Error(
+          `Failed to read Gitea file '${orgName}/${repoName}:${branchName}:${path}' (${result.status}): ${JSON.stringify(result.data)}`,
+        )
+      }
+      return Buffer.from(file.content, "base64").toString("utf8")
+    },
+    async listPullRequests(
+      orgName: string,
+      repoName: string,
+    ): Promise<IntegrationPullRequest[]> {
+      const pulls = await giteaFetchPages(
+        baseUrl,
+        `/repos/${orgName}/${repoName}/pulls?state=open`,
+        getTeacherAuth(),
+      )
+      return pulls.map((entry) => {
+        const pull = entry as {
+          head?: { ref?: unknown } | null
+          base?: { ref?: unknown } | null
+          html_url?: unknown
+        }
+        if (
+          typeof pull.head?.ref !== "string" ||
+          typeof pull.base?.ref !== "string" ||
+          typeof pull.html_url !== "string"
+        ) {
+          throw new Error(
+            `Gitea answered an unreadable pull request for '${orgName}/${repoName}'.`,
+          )
+        }
+        return {
+          headBranch: pull.head.ref,
+          baseBranch: pull.base.ref,
+          url: pull.html_url,
+        }
+      })
     },
     async verifyRepositoriesExist(
       orgName: string,

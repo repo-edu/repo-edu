@@ -76,7 +76,7 @@ absence rules.
    provider gaps).
 4. Add behaviour and failure-path tests to the matching provider capability
    suite. The suites name every call an exclusive command makes with each
-   answer its failures give. Fake replies follow the provider's own API
-   definition: Gitea and GitLab at the versions
-   `packages/integration-tests/docker-compose.yml` pins, and GitHub's REST
-   reference.
+   answer its failures give. Fake replies follow the live provider-operation
+   suite for every reply it can provoke. The provider API definition remains
+   the source for failures the live suite cannot give on demand and for changed
+   paths that hold a folder, symbolic link or submodule.
