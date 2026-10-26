@@ -52,7 +52,30 @@ jobs:
       - name: Test GitLab replies
         run: pnpm test:integration:gitlab
 
+      # Every GitHub run creates content in the test organisation. A Renovate
+      # push proves nothing there unless it changes a Git client library's
+      # declared version; main and release runs always test GitHub.
+      - name: Decide whether GitHub runs
+        id: github-run
+        run: |
+          case "${GITHUB_REF}" in
+            refs/heads/renovate/*)
+              git fetch --no-tags --depth=1 origin main
+              if git diff origin/main HEAD -- packages/integrations-git/package.json \
+                | grep -E '^[-+] *"@(octokit|gitbeaker)/rest":'; then
+                echo "run=true" >> "${GITHUB_OUTPUT}"
+              else
+                echo "GitHub stays untested: the branch leaves the Git client libraries alone."
+                echo "run=false" >> "${GITHUB_OUTPUT}"
+              fi
+              ;;
+            *)
+              echo "run=true" >> "${GITHUB_OUTPUT}"
+              ;;
+          esac
+
       - name: Test GitHub replies
+        if: steps.github-run.outputs.run == 'true'
         env:
           INTEGRATION_GITHUB_ORG: ${{ secrets.INTEGRATION_GITHUB_ORG }}
           INTEGRATION_GITHUB_TOKEN: ${{ secrets.INTEGRATION_GITHUB_TOKEN }}

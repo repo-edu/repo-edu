@@ -29,9 +29,15 @@ once and reused across platforms:
   also runs directly on `main` when Git integration code, its contracts, the
   live harness or the Node HTTP port changes.
 
-The GitHub part is deliberately rate-bound. One suite run spaces every
-mutation, treats GitHub's 403 or 429 rate-limit reply as terminal and does not
-retry it. Local runs also permit one GitHub content-creation suite per hour,
+The GitHub part is deliberately rate-bound. The job tests GitHub on every
+`main` and release run. On a `renovate/**` push it tests GitHub only when the
+branch changes the declared version of `@octokit/rest` or `@gitbeaker/rest` in
+`packages/integrations-git/package.json`, because a run that leaves the Git
+client libraries alone would create content in the test organisation with
+nothing to prove. One suite run seeds one fixture that the Clone, Discover and
+Update tests share, spaces every mutation, treats GitHub's 403 or 429
+rate-limit reply as terminal, does not retry it and prints its write count when
+it ends. Local runs also permit one GitHub content-creation suite per hour,
 counted from the run's first mutation, so a run that creates nothing does not
 fill the hour. This keeps a small fix from multiplying repository creation
 while GitHub's secondary limit is active.
@@ -139,7 +145,8 @@ The `runtime_validation` input controls how the desktop launch check runs:
 
 `ci.yml` triggers on pushes to `renovate/**`, which is what makes the dependency
 automation safe. Renovate opens an update on a `renovate/**` branch, CI runs the
-full matrix and the live Git-provider suite against it, and a green run
+full matrix and the live Gitea and GitLab suite against it, with GitHub added
+when the branch changes a Git client library, and a green run
 fast-forwards onto `main` without a human in the loop. A PR surfaces only when
 CI fails. So a bad upstream release becomes a red branch, never a broken
 `main`.

@@ -188,6 +188,98 @@ describe("application repository clone workflow helpers", () => {
     )
   })
 
+  it("records adopted clones under their groups and re-records nothing already recorded", async () => {
+    for (const recorded of [false, true]) {
+      const { course, settings, handlers } = createRepoHarness({
+        git: {
+          resolveRepositoryCloneUrls: async (_draft, request) => ({
+            resolved: request.repositoryNames.map((repositoryName) => ({
+              repositoryName,
+              cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+            })),
+            missing: [],
+          }),
+        },
+        fileSystem: {
+          inspect: async (request) =>
+            request.paths.map((path) => ({ path, kind: "missing" as const })),
+        },
+      })
+      const plan = planForAssignment(course, "a1")
+      const records = Object.fromEntries(
+        plan.groups.map((group) => [group.groupId, group.repoName]),
+      )
+      if (recorded) {
+        const assignment = course.roster.assignments.find(
+          (item) => item.id === "a1",
+        )
+        assert.ok(assignment)
+        assignment.repositories = { ...records }
+      }
+
+      const cloneResult = await handlers["repo.clone"]({
+        course,
+        credentials: settings,
+        assignmentId: "a1",
+        template: null,
+        targetDirectory: cloneTargetDirectory,
+        directoryLayout: "flat",
+      })
+
+      assert.equal(cloneResult.repositoriesCloned, plan.groups.length)
+      assert.deepStrictEqual(
+        cloneResult.recordedRepositories,
+        recorded ? {} : { a1: records },
+      )
+    }
+  })
+
+  it("places each clone in its group's folder under the by-team layout", async () => {
+    const copied: string[] = []
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        resolveRepositoryCloneUrls: async (_draft, request) => ({
+          resolved: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+          })),
+          missing: [],
+        }),
+      },
+      fileSystem: {
+        inspect: async (request) =>
+          request.paths.map((path) => ({ path, kind: "missing" as const })),
+        applyBatch: async (request) => {
+          for (const operation of request.operations) {
+            if (operation.kind === "copy-directory")
+              copied.push(operation.destinationPath)
+          }
+          return { completed: [...request.operations] }
+        },
+      },
+    })
+    const plan = planForAssignment(course, "a1")
+
+    const cloneResult = await handlers["repo.clone"]({
+      course,
+      credentials: settings,
+      assignmentId: "a1",
+      template: null,
+      targetDirectory: cloneTargetDirectory,
+      directoryLayout: "by-team",
+    })
+
+    assert.equal(cloneResult.repositoriesCloned, plan.groups.length)
+    assert.deepStrictEqual(
+      copied.sort(),
+      plan.groups
+        .map((group) =>
+          join(cloneTargetDirectory, group.groupName, group.repoName),
+        )
+        .sort(),
+    )
+  })
+
   it("errors when clone target clashes with non-git directories", async () => {
     let requestedRepositoryNames: string[] = []
     const { course, settings, handlers } = createRepoHarness({

@@ -75,6 +75,31 @@ describe("application repository bulk clone validation", () => {
     )
   })
 
+  it("returns an empty result without a provider call when no repositories are given", async () => {
+    let providerCalls = 0
+    const { settings, handlers } = createRepoHarness({
+      git: {
+        resolveRepositoryCloneUrls: async () => {
+          providerCalls += 1
+          return { resolved: [], missing: [] }
+        },
+      },
+    })
+
+    const result = await handlers["repo.bulkClone"]({
+      credentials: settings,
+      namespace: "repo-edu",
+      repositories: [],
+      targetDirectory: join(tmpdir(), "repo-edu-bulk-clone-empty"),
+    })
+
+    assert.equal(result.repositoriesPlanned, 0)
+    assert.equal(result.repositoriesCloned, 0)
+    assert.equal(result.repositoriesFailed, 0)
+    assert.deepEqual(result.recordedRepositories, {})
+    assert.equal(providerCalls, 0)
+  })
+
   it("clones through the shared clone execution, counts missing repositories as failed and records nothing", async () => {
     const targetDirectory = join(tmpdir(), "repo-edu-bulk-clone-target")
     const pulled: string[] = []

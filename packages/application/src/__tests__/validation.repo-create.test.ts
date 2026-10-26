@@ -202,6 +202,53 @@ describe("application repository create workflow helpers", () => {
     assert.equal(result.repositoriesFailed, 0)
   })
 
+  it("records every accepted repository under its group and re-creates one the server lost", async () => {
+    let lostRepositoryName = ""
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        createRepositories: async (_draft, request) => {
+          const accepted = request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+            cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
+          }))
+          return {
+            created: accepted.filter(
+              (repository) => repository.repositoryName === lostRepositoryName,
+            ),
+            alreadyExisted: accepted.filter(
+              (repository) => repository.repositoryName !== lostRepositoryName,
+            ),
+            failed: [],
+          }
+        },
+      },
+    })
+    const plan = planForAssignment(course, "a1")
+    const recorded = Object.fromEntries(
+      plan.groups.map((group) => [group.groupId, group.repoName]),
+    )
+    const assignment = course.roster.assignments.find(
+      (item) => item.id === "a1",
+    )
+    assert.ok(assignment)
+    assignment.repositories = { ...recorded }
+    lostRepositoryName = plan.groups[0]?.repoName ?? ""
+    assert.notEqual(lostRepositoryName, "")
+
+    const result = await handlers["repo.create"]({
+      course,
+      credentials: settings,
+      assignmentId: "a1",
+      template: null,
+    })
+
+    assert.equal(result.repositoriesCreated, 1)
+    assert.equal(result.repositoriesAdopted, plan.groups.length - 1)
+    assert.equal(result.repositoriesFailed, 0)
+    assert.deepStrictEqual(result.recordedRepositories, { a1: recorded })
+  })
+
   it("uses per-assignment template when available", async () => {
     const assignmentTemplate = {
       kind: "remote" as const,

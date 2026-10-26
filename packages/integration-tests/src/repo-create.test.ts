@@ -1,29 +1,19 @@
 import assert from "node:assert/strict"
-import { execFile } from "node:child_process"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { after, before, describe, it } from "node:test"
-import { promisify } from "node:util"
+import { before, describe, it } from "node:test"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
-import {
-  type PersistedAppSettings,
-  splitAppSettings,
-} from "@repo-edu/domain/settings"
-import type {
-  PersistedCourse,
-  PlannedRepositoryGroup,
-} from "@repo-edu/domain/types"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeProcessPort,
 } from "@repo-edu/host-node"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
-import {
-  buildTeamName,
-  createGitProviderClient,
-} from "@repo-edu/integrations-git"
+import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
+import { createGitProviderClient } from "@repo-edu/integrations-git"
+import type {
+  GitConnectionDraft,
+  GitProviderClient,
+} from "@repo-edu/integrations-git-contract"
 import {
   collectExpectedRepoNames,
   collectFixtureGitUsernames,
@@ -31,62 +21,63 @@ import {
   createIntegrationResourcePrefix,
   prefixIntegrationResource,
 } from "./fixture-adapter.js"
-import type { IntegrationTeam } from "./git-provider-harness.js"
 import { createIntegrationHttpPort } from "./github-request-admission.js"
 import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
-function plannedTeamsForExpected(
-  teams: IntegrationTeam[],
-  organization: string,
-  courseId: string,
-  groups: PlannedRepositoryGroup[],
-): IntegrationTeam[] {
-  const expectedNames = new Set(
-    groups.map((group) => buildTeamName({ ...group, organization, courseId })),
-  )
-  return teams.filter((team) => expectedNames.has(team.name))
+/** The commit the server's HEAD points at, read through git itself so the
+ * check does not depend on the server's branch records catching up with the
+ * push. */
+async function readRemoteHead(
+  gitCommand: GitCommandPort,
+  cloneUrl: string,
+): Promise<string> {
+  const result = await gitCommand.run({
+    args: ["ls-remote", cloneUrl, "HEAD"],
+  })
+  assert.equal(result.exitCode, 0, result.stderr)
+  const head = /^([0-9a-f]{40})\tHEAD$/m.exec(result.stdout)
+  assert.ok(head?.[1] !== undefined, `no HEAD in: ${result.stdout}`)
+  return head[1]
 }
 
 const harnesses = resolveHarnessesFromEnvironment()
 
 for (const harness of harnesses) {
   describe(`repo.create integration (${harness.label})`, () => {
+    let draft: GitConnectionDraft
+    let git: GitProviderClient
+    let gitCommand: GitCommandPort
     let handlers: ReturnType<typeof createRepositoryWorkflowHandlers>
 
     before(async () => {
       await harness.ensureReady()
-      const draft = harness.getConnectionDraft()
-      const http = createIntegrationHttpPort(draft.provider)
-      const git = createGitProviderClient(draft.provider, http)
+      draft = harness.getConnectionDraft()
+      git = createGitProviderClient(
+        draft.provider,
+        createIntegrationHttpPort(draft.provider),
+      )
+      gitCommand = createNodeGitCommandPort(
+        createNodeProcessPort(
+          createChildProcessLifetimeController({
+            diagnosticSink() {},
+            warnUnconfirmedTree(error): never {
+              throw error
+            },
+          }),
+        ),
+      )
       handlers = createRepositoryWorkflowHandlers({
         git,
-        gitCommand: createNodeGitCommandPort(
-          createNodeProcessPort(
-            createChildProcessLifetimeController({
-              diagnosticSink() {},
-              warnUnconfirmedTree(error): never {
-                throw error
-              },
-            }),
-          ),
-        ),
+        gitCommand,
         fileSystem: createNodeFileSystemPort(),
       })
     })
 
-    async function withIsolatedOrg(
-      fn: (ctx: {
-        organization: string
-        resourcePrefix: string
-        course: PersistedCourse
-        settings: PersistedAppSettings
-      }) => Promise<void>,
-    ): Promise<void> {
+    it("clones a remote template and pushes its commit to every created repository", async () => {
       const resourcePrefix = createIntegrationResourcePrefix()
       const organization = await harness.createOrganization(resourcePrefix)
 
       try {
-        const draft = harness.getConnectionDraft()
         const { course, settings } = createGitFixture({
           provider: draft.provider,
           baseUrl: draft.baseUrl,
@@ -95,318 +86,52 @@ for (const harness of harnesses) {
           resourcePrefix,
           fixtureGitUsernames: harness.fixtureGitUsernames,
         })
-        const usernames = collectFixtureGitUsernames(course)
-
         if (harness.supportsUserProvisioning) {
-          await harness.seedUsers(usernames)
+          await harness.seedUsers(collectFixtureGitUsernames(course))
         }
+        const expected = collectExpectedRepoNames(course, "a1")
+        const templateRepoName = prefixIntegrationResource(
+          resourcePrefix,
+          "starter-template",
+        )
+        await harness.seedTemplateRepository(organization, templateRepoName)
 
-        await fn({ organization, resourcePrefix, course, settings })
+        const result = await handlers["repo.create"]({
+          course,
+          credentials: splitAppSettings(settings).credentials,
+          assignmentId: "a1",
+          template: {
+            kind: "remote",
+            owner: organization,
+            name: templateRepoName,
+            visibility: "private",
+          },
+        })
+
+        assert.equal(result.repositoriesCreated, expected.repoNames.length)
+        assert.equal(result.repositoriesFailed, 0)
+        const templateCommitSha = result.templateCommitShas.a1
+        assert.match(
+          templateCommitSha ?? "",
+          /^[0-9a-f]{40}$/,
+          "the create should record the template commit it pushed",
+        )
+
+        const cloneUrls = await git.resolveRepositoryCloneUrls(draft, {
+          organization,
+          repositoryNames: expected.repoNames,
+        })
+        assert.deepEqual(cloneUrls.missing, [])
+        for (const { repositoryName, cloneUrl } of cloneUrls.resolved) {
+          assert.equal(
+            await readRemoteHead(gitCommand, cloneUrl),
+            templateCommitSha,
+            `${repositoryName} should hold the pushed template commit at its HEAD`,
+          )
+        }
       } finally {
         await harness.cleanupOrganization(organization, resourcePrefix)
       }
-    }
-
-    it("creates repositories and teams", async () => {
-      await withIsolatedOrg(async ({ organization, course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-        const result = await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-
-        assert.ok(
-          result.repositoriesCreated + result.repositoriesAdopted > 0,
-          "should create or discover repositories",
-        )
-        assert.equal(result.repositoriesFailed, 0, "no failures expected")
-
-        const existing = await harness.verifyRepositoriesExist(
-          organization,
-          expected.repoNames,
-        )
-        assert.deepEqual(
-          existing.sort(),
-          expected.repoNames.sort(),
-          "all planned repos should exist",
-        )
-
-        const teams = await harness.verifyTeams(organization)
-        const plannedTeams = plannedTeamsForExpected(
-          teams,
-          organization,
-          course.id,
-          expected.groups,
-        )
-        assert.ok(plannedTeams.length > 0, "planned teams should be created")
-
-        const team = plannedTeams[0] as IntegrationTeam
-        if (harness.assertTeamMemberAssignments) {
-          const members = await harness.verifyTeamMembers(organization, team)
-          assert.ok(members.length > 0, "team should have members")
-        }
-
-        const repos = await harness.verifyTeamRepos(organization, team)
-        assert.ok(
-          repos.some((repoName) => expected.repoNames.includes(repoName)),
-          "team should have repo assignments",
-        )
-      })
-    })
-
-    it("records accepted repository names on the create result", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-        const result = await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-
-        const recorded = result.recordedRepositories?.a1 ?? {}
-        const recordedNames = Object.values(recorded).sort()
-        assert.deepEqual(
-          recordedNames,
-          [...expected.repoNames].sort(),
-          "every accepted name should be recorded under its groupId on the result",
-        )
-
-        for (const group of expected.groups) {
-          assert.equal(
-            recorded[group.groupId],
-            group.repoName,
-            `record for group ${group.groupId} should match planner's repo name`,
-          )
-        }
-      })
-    })
-
-    it("reports existing repositories on idempotent re-run", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        const firstResult = await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-        assert.ok(
-          firstResult.repositoriesCreated + firstResult.repositoriesAdopted > 0,
-          "first run should process planned repositories",
-        )
-
-        const secondResult = await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-        assert.equal(
-          secondResult.repositoriesCreated,
-          0,
-          "second run should create nothing",
-        )
-        assert.ok(
-          secondResult.repositoriesAdopted > 0,
-          "second run should report existing",
-        )
-        assert.equal(secondResult.repositoriesFailed, 0, "no failures expected")
-      })
-    })
-
-    it("self-heals when a recorded repository was deleted out-of-band", async () => {
-      await withIsolatedOrg(async ({ organization, course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(
-          expected.repoNames.length >= 2,
-          "fixture should plan at least two repos",
-        )
-
-        // First run: creates every repo and populates records.
-        const firstResult = await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-        assert.equal(
-          firstResult.repositoriesCreated,
-          expected.repoNames.length,
-          "first run should create every planned repo fresh",
-        )
-        assert.equal(firstResult.repositoriesFailed, 0)
-
-        // Apply the records onto the course exactly as the renderer/CLI
-        // would after a successful run.
-        const assignment = course.roster.assignments.find((a) => a.id === "a1")
-        assert.ok(assignment)
-        const recordedAfterFirst = firstResult.recordedRepositories?.a1 ?? {}
-        assignment.repositories = { ...recordedAfterFirst }
-
-        // Delete one server repo out-of-band, leaving the stale record in place.
-        const victimName = expected.repoNames[0]
-        assert.ok(victimName)
-        await harness.deleteOrganizationRepository(organization, victimName)
-
-        // Second run: the victim should be re-created fresh, and the record
-        // for its group should still point at the same name.
-        const secondResult = await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-        assert.equal(
-          secondResult.repositoriesCreated,
-          1,
-          "only the deleted repo should be re-created on the second run",
-        )
-        assert.equal(
-          secondResult.repositoriesAdopted,
-          expected.repoNames.length - 1,
-          "all other repos should come back as adopted",
-        )
-        assert.equal(secondResult.repositoriesFailed, 0)
-
-        const recordedAfterSecond = secondResult.recordedRepositories?.a1 ?? {}
-        const victimGroup = expected.groups.find(
-          (group) => group.repoName === victimName,
-        )
-        assert.ok(victimGroup)
-        assert.equal(
-          recordedAfterSecond[victimGroup.groupId],
-          victimName,
-          "record for the recreated group should be refreshed to the same name",
-        )
-
-        // Confirm the victim actually came back on the server.
-        const existing = await harness.verifyRepositoriesExist(organization, [
-          victimName,
-        ])
-        assert.deepEqual(
-          existing,
-          [victimName],
-          "deleted repo should exist on the server again after self-heal",
-        )
-      })
-    })
-
-    it("creates from template and captures commit SHA", async () => {
-      await withIsolatedOrg(
-        async ({ organization, resourcePrefix, course, settings }) => {
-          const templateRepoName = prefixIntegrationResource(
-            resourcePrefix,
-            "starter-template",
-          )
-          await harness.seedTemplateRepository(organization, templateRepoName)
-
-          const template = {
-            kind: "remote" as const,
-            owner: organization,
-            name: templateRepoName,
-            visibility: "private" as const,
-          }
-
-          const result = await handlers["repo.create"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template,
-          })
-
-          assert.ok(
-            result.repositoriesCreated + result.repositoriesAdopted > 0,
-            "should process repos from template",
-          )
-          assert.equal(result.repositoriesFailed, 0, "no failures expected")
-          assert.ok(
-            result.templateCommitShas.a1 !== undefined &&
-              result.templateCommitShas.a1 !== "",
-            "should capture template commit SHA for assignment",
-          )
-        },
-      )
-    })
-
-    it("creates from local template and captures commit SHA", async () => {
-      const exec = promisify(execFile)
-      const localTemplatePath = await mkdtemp(join(tmpdir(), "repo-edu-tpl-"))
-
-      try {
-        await exec("git", ["init"], { cwd: localTemplatePath })
-        await exec(
-          "git",
-          [
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=t@t",
-            "commit",
-            "--allow-empty",
-            "-m",
-            "init",
-          ],
-          { cwd: localTemplatePath },
-        )
-        await writeFile(join(localTemplatePath, "README.md"), "# Template\n")
-        await exec("git", ["add", "."], { cwd: localTemplatePath })
-        await exec(
-          "git",
-          [
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=t@t",
-            "commit",
-            "-m",
-            "add readme",
-          ],
-          { cwd: localTemplatePath },
-        )
-
-        await withIsolatedOrg(async ({ course, settings }) => {
-          const template = {
-            kind: "local" as const,
-            path: localTemplatePath,
-            visibility: "private" as const,
-          }
-
-          const result = await handlers["repo.create"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template,
-          })
-
-          assert.ok(
-            result.repositoriesCreated + result.repositoriesAdopted > 0,
-            "should process repos from local template",
-          )
-          assert.equal(result.repositoriesFailed, 0, "no failures expected")
-          assert.ok(
-            result.templateCommitShas.a1 !== undefined &&
-              result.templateCommitShas.a1 !== "",
-            "should capture template commit SHA for assignment",
-          )
-          assert.match(
-            result.templateCommitShas.a1,
-            /^[0-9a-f]{40}$/,
-            "SHA should be a 40-char hex string",
-          )
-        })
-      } finally {
-        await rm(localTemplatePath, { recursive: true, force: true })
-      }
-    })
-
-    after(async () => {
-      // Cleanup is handled per-test in withIsolatedOrg.
     })
   })
 }

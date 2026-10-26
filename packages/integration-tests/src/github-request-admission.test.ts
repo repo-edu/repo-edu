@@ -32,11 +32,13 @@ describe("GitHub live request admission", () => {
       runRecord: createMemoryRunRecord().record,
     })
 
+    await admission.send("GET", async () => ({ status: 200 }))
     await admission.send("POST", async () => ({ status: 201 }))
     currentTime += 250
     await admission.send("DELETE", async () => ({ status: 204 }))
 
     assert.deepEqual(waits, [750])
+    assert.equal(admission.mutationsSent(), 2)
   })
 
   it("stops every later request after a mutation rate-limit reply", async () => {

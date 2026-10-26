@@ -93,6 +93,7 @@ export function createGitHubIntegrationRequestAdmission(
   const runRecord = options.runRecord ?? createFileRunRecord()
   let terminalError: Error | null = null
   let lastMutationAt: number | null = null
+  let mutationCount = 0
   let mutationTail = Promise.resolve()
 
   function admitRunStart(startedAt: number): void {
@@ -111,6 +112,10 @@ export function createGitHubIntegrationRequestAdmission(
   }
 
   return {
+    /** The mutating requests this owner has sent, the run's write count. */
+    mutationsSent(): number {
+      return mutationCount
+    },
     async send<T extends StatusResponse>(
       method: string | undefined,
       request: () => Promise<T>,
@@ -149,6 +154,7 @@ export function createGitHubIntegrationRequestAdmission(
         }
 
         lastMutationAt = now()
+        mutationCount += 1
         const response = await request()
         if (response.status === 403 || response.status === 429) {
           terminalError = new GitHubIntegrationRateLimitError(response.status)
@@ -163,6 +169,10 @@ export function createGitHubIntegrationRequestAdmission(
 }
 
 const githubLiveRunAdmission = createGitHubIntegrationRequestAdmission()
+
+export function githubLiveRunMutationsSent(): number {
+  return githubLiveRunAdmission.mutationsSent()
+}
 
 export function createIntegrationHttpPort(provider: GitProviderKind): HttpPort {
   const port = createNodeHttpPort()

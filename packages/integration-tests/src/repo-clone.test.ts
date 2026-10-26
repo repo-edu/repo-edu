@@ -1,15 +1,10 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { after, before, describe, it } from "node:test"
+import { before, describe, it } from "node:test"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
-import { CommandOutcomeError } from "@repo-edu/application-contract"
-import {
-  type PersistedAppSettings,
-  splitAppSettings,
-} from "@repo-edu/domain/settings"
-import type { PersistedCourse } from "@repo-edu/domain/types"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
@@ -17,24 +12,15 @@ import {
 } from "@repo-edu/host-node"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createGitProviderClient } from "@repo-edu/integrations-git"
-
-import {
-  collectExpectedRepoNames,
-  collectFixtureGitUsernames,
-  createGitFixture,
-  createIntegrationResourcePrefix,
-} from "./fixture-adapter.js"
 import { createIntegrationHttpPort } from "./github-request-admission.js"
-import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
+import { runFixtures } from "./run-fixture.js"
 
-const harnesses = resolveHarnessesFromEnvironment()
-
-for (const harness of harnesses) {
+for (const fixture of runFixtures()) {
+  const { harness } = fixture
   describe(`repo.clone integration (${harness.label})`, () => {
     let handlers: ReturnType<typeof createRepositoryWorkflowHandlers>
 
-    before(async () => {
-      await harness.ensureReady()
+    before(() => {
       const draft = harness.getConnectionDraft()
       const http = createIntegrationHttpPort(draft.provider)
       const git = createGitProviderClient(draft.provider, http)
@@ -54,534 +40,60 @@ for (const harness of harnesses) {
       })
     })
 
-    async function withIsolatedOrg(
-      fn: (ctx: {
-        organization: string
-        course: PersistedCourse
-        settings: PersistedAppSettings
-      }) => Promise<void>,
-    ): Promise<void> {
-      const resourcePrefix = createIntegrationResourcePrefix()
-      const organization = await harness.createOrganization(resourcePrefix)
+    it("clones the student repositories through git, the empty one included, without the token in their config", async () => {
+      const { course, settings } = fixture
+      const targetDirectory = await mkdtemp(
+        path.join(tmpdir(), "repo-edu-clone-"),
+      )
 
       try {
-        const draft = harness.getConnectionDraft()
-        const { course, settings } = createGitFixture({
-          provider: draft.provider,
-          baseUrl: draft.baseUrl,
-          token: draft.token,
-          organization,
-          resourcePrefix,
-          fixtureGitUsernames: harness.fixtureGitUsernames,
-        })
-        const usernames = collectFixtureGitUsernames(course)
-        if (harness.supportsUserProvisioning) {
-          await harness.seedUsers(usernames)
-        }
-
-        await fn({ organization, course, settings })
-      } finally {
-        await harness.cleanupOrganization(organization, resourcePrefix)
-      }
-    }
-
-    it("clones repositories to disk without auth tokens in git config", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-        const createResult = await handlers["repo.create"]({
+        const cloneResult = await handlers["repo.clone"]({
           course,
           credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
-        })
-        assert.ok(
-          createResult.repositoriesCreated + createResult.repositoriesAdopted >
-            0,
-          "setup: should provision repositories",
-        )
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-test-${Date.now()}`,
-        )
-
-        try {
-          const cloneResult = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-
-          assert.ok(
-            cloneResult.repositoriesCloned > 0,
-            "should clone repositories",
-          )
-          assert.equal(
-            cloneResult.repositoriesFailed,
-            0,
-            "no failures expected",
-          )
-
-          for (const repoName of expected.repoNames) {
-            const repoPath = path.join(targetDirectory, repoName)
-            const configPath = path.join(repoPath, ".git", "config")
-            const config = await readFile(configPath, "utf-8")
-
-            assert.ok(
-              !config.includes(settings.gitConnections[0].token),
-              `token should not appear in ${repoName}/.git/config`,
-            )
-
-            assert.ok(
-              config.includes('[remote "origin"]'),
-              `${repoName} should have an origin remote`,
-            )
-          }
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    it("skips repositories that already exist locally", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
+          targetDirectory,
+          directoryLayout: "flat",
         })
 
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-test-${Date.now()}`,
-        )
+        assert.equal(cloneResult.repositoriesCloned, 2)
+        assert.equal(cloneResult.repositoriesFailed, 0)
 
-        try {
-          const firstClone = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-          assert.ok(
-            firstClone.repositoriesCloned > 0,
-            "first clone should work",
-          )
-
-          const secondClone = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-          assert.equal(
-            secondClone.repositoriesCloned,
-            0,
-            "second clone should skip all (already exist)",
-          )
-          assert.equal(
-            secondClone.repositoriesFailed,
-            0,
-            "no failures expected",
-          )
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    it("errors on non-git path clashes in the target directory", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-        await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-test-${Date.now()}`,
-        )
-        const clashingRepoName = expected.repoNames[0]
-        assert.ok(clashingRepoName, "expected at least one repository")
-        const clashingPath = path.join(targetDirectory, clashingRepoName)
-
-        try {
-          await mkdir(clashingPath, { recursive: true })
-          await writeFile(path.join(clashingPath, "note.txt"), "not a git repo")
-
-          await assert.rejects(
-            async () =>
-              handlers["repo.clone"]({
-                course,
-                credentials: splitAppSettings(settings).credentials,
-                assignmentId: "a1",
-                template: null,
-                targetDirectory,
-                directoryLayout: "flat",
-              }),
-            (error: unknown) => {
-              assert.ok(error instanceof CommandOutcomeError)
-              assert.equal(error.outcome.disposition, "refused")
-              if (error.outcome.disposition !== "refused") return false
-              error = error.outcome.error
-              const appError = error as { type?: string; message?: string }
-              assert.equal(appError.type, "validation")
-              assert.match(appError.message ?? "", /non-git entries/)
-              return true
-            },
-          )
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    it("treats empty remote repositories as successful clones", async () => {
-      await withIsolatedOrg(async ({ organization, course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-        for (const repoName of expected.repoNames) {
-          await harness.seedOrganizationRepository(organization, repoName, {
-            autoInit: false,
-          })
-        }
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-test-${Date.now()}`,
-        )
-        try {
-          const cloneResult = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-
-          assert.equal(
-            cloneResult.repositoriesCloned,
-            expected.repoNames.length,
-            "all empty repositories should be treated as cloned",
-          )
-          assert.equal(
-            cloneResult.repositoriesFailed,
-            0,
-            "no failures expected",
-          )
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    it("does not clobber contents of already-cloned repositories", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-        await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-test-${Date.now()}`,
-        )
-
-        try {
-          await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-
-          const sentinelName = "clone-test-sentinel.txt"
-          for (const repoName of expected.repoNames) {
-            await writeFile(
-              path.join(targetDirectory, repoName, sentinelName),
-              repoName,
-            )
-          }
-
-          const secondClone = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-          assert.equal(secondClone.repositoriesCloned, 0)
-
-          for (const repoName of expected.repoNames) {
-            const sentinel = await readFile(
-              path.join(targetDirectory, repoName, sentinelName),
-              "utf-8",
-            )
-            assert.equal(
-              sentinel,
-              repoName,
-              `sentinel in ${repoName} should be untouched after second clone`,
-            )
-          }
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    it("reports partial failures when some remotes do not exist", async () => {
-      await withIsolatedOrg(async ({ organization, course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(
-          expected.repoNames.length >= 2,
-          "need at least 2 planned repos",
-        )
-
-        const firstRepoName = expected.repoNames[0]
-        assert.ok(firstRepoName, "expected at least one repository")
-        await harness.seedOrganizationRepository(organization, firstRepoName)
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-test-${Date.now()}`,
-        )
-
-        try {
-          const cloneResult = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-
-          assert.equal(
-            cloneResult.repositoriesCloned,
-            1,
-            "only the seeded repo should be cloned",
+        for (const repoName of [
+          fixture.initialisedRepositoryName,
+          fixture.emptyRepositoryName,
+        ]) {
+          const config = await readFile(
+            path.join(targetDirectory, repoName, ".git", "config"),
+            "utf-8",
           )
           assert.ok(
-            cloneResult.repositoriesFailed >= 1,
-            "missing remotes should count as failed",
+            !config.includes(settings.gitConnections[0].token),
+            `token should not appear in ${repoName}/.git/config`,
           )
-
-          const clonedRepoPath = path.join(targetDirectory, firstRepoName)
-          const configPath = path.join(clonedRepoPath, ".git", "config")
-          const config = await readFile(configPath, "utf-8")
           assert.ok(
             config.includes('[remote "origin"]'),
-            "cloned repo should have an origin remote",
+            `${repoName} should have an origin remote`,
           )
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
         }
-      })
-    })
-
-    it("adopts externally-created repositories by recording their names on the result", async () => {
-      await withIsolatedOrg(async ({ organization, course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-        // Simulate a RepoBee-style setup: repositories already exist on the
-        // server, but the course has no repository records for them.
-        for (const repoName of expected.repoNames) {
-          await harness.seedOrganizationRepository(organization, repoName, {
-            autoInit: false,
-          })
-        }
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-adopt-${Date.now()}`,
-        )
-
-        try {
-          const cloneResult = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-
-          assert.equal(
-            cloneResult.repositoriesCloned,
-            expected.repoNames.length,
-            "all externally-created repositories should be cloned",
-          )
-          assert.equal(
-            cloneResult.repositoriesFailed,
-            0,
-            "no failures expected",
-          )
-
-          const recorded = cloneResult.recordedRepositories?.a1 ?? {}
-          const recordedNames = Object.values(recorded).sort()
-          assert.deepEqual(
-            recordedNames,
-            [...expected.repoNames].sort(),
-            "every adopted clone should record its repo name keyed by groupId",
-          )
-
-          for (const group of expected.groups) {
-            assert.equal(
-              recorded[group.groupId],
-              group.repoName,
-              `record for group ${group.groupId} should match the derived name`,
+        assert.ok(
+          (
+            await readdir(
+              path.join(targetDirectory, fixture.initialisedRepositoryName),
             )
-          }
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    it("does not re-record entries that already match recorded names", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-        // Create repositories and set records on the course by hand.
-        await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-        const assignment = course.roster.assignments.find((a) => a.id === "a1")
-        assert.ok(assignment)
-        assignment.repositories = Object.fromEntries(
-          expected.groups.map((group) => [group.groupId, group.repoName]),
+          ).includes("README.md"),
+          "the initialised repository should check out the server's initial commit",
         )
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-recorded-${Date.now()}`,
+        assert.deepEqual(
+          await readdir(
+            path.join(targetDirectory, fixture.emptyRepositoryName),
+          ),
+          [".git"],
+          "the empty repository should check out nothing",
         )
-
-        try {
-          const cloneResult = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "flat",
-          })
-          assert.equal(
-            cloneResult.repositoriesCloned,
-            expected.repoNames.length,
-          )
-
-          // Already-recorded entries should not be staged again — stageRecord
-          // skips when isRecorded is true.
-          const recorded = cloneResult.recordedRepositories?.a1 ?? {}
-          assert.deepEqual(
-            recorded,
-            {},
-            "already-recorded names should not be re-staged in the result",
-          )
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    it("organizes cloned repositories into team subdirectories with by-team layout", async () => {
-      await withIsolatedOrg(async ({ course, settings }) => {
-        const expected = collectExpectedRepoNames(course, "a1")
-        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-        await handlers["repo.create"]({
-          course,
-          credentials: splitAppSettings(settings).credentials,
-          assignmentId: "a1",
-          template: null,
-        })
-
-        const targetDirectory = path.join(
-          tmpdir(),
-          `repo-edu-clone-test-${Date.now()}`,
-        )
-
-        try {
-          const cloneResult = await handlers["repo.clone"]({
-            course,
-            credentials: splitAppSettings(settings).credentials,
-            assignmentId: "a1",
-            template: null,
-            targetDirectory,
-            directoryLayout: "by-team",
-          })
-
-          assert.ok(
-            cloneResult.repositoriesCloned > 0,
-            "should clone repositories",
-          )
-          assert.equal(
-            cloneResult.repositoriesFailed,
-            0,
-            "no failures expected",
-          )
-
-          for (const group of expected.groups) {
-            const repoPath = path.join(
-              targetDirectory,
-              group.groupName,
-              group.repoName,
-            )
-            const configPath = path.join(repoPath, ".git", "config")
-            const config = await readFile(configPath, "utf-8")
-            assert.ok(
-              config.includes('[remote "origin"]'),
-              `${group.groupName}/${group.repoName} should have an origin remote`,
-            )
-          }
-
-          const topLevelEntries = await readdir(targetDirectory)
-          const expectedGroupNames = [
-            ...new Set(expected.groups.map((group) => group.groupName)),
-          ]
-          for (const groupName of expectedGroupNames) {
-            assert.ok(
-              topLevelEntries.includes(groupName),
-              `target directory should contain group subdirectory '${groupName}'`,
-            )
-          }
-        } finally {
-          await rm(targetDirectory, { recursive: true, force: true })
-        }
-      })
-    })
-
-    after(async () => {
-      // Cleanup is handled per-test in withIsolatedOrg.
+      } finally {
+        await rm(targetDirectory, { recursive: true, force: true })
+      }
     })
   })
 }
