@@ -1,4 +1,5 @@
 import path from "node:path"
+import { composeCourseCommandTransition } from "@repo-edu/application"
 import type {
   RecordedRepositoriesByAssignment,
   WorkflowClient,
@@ -108,113 +109,6 @@ function resolveAssignmentSelection(
   return resolved
 }
 
-function applyTemplateCommitShas(
-  course: PersistedCourse,
-  templateCommitShas: Record<string, string>,
-): PersistedCourse {
-  if (Object.keys(templateCommitShas).length === 0) {
-    return course
-  }
-  let changed = false
-  const assignments = course.roster.assignments.map((assignment) => {
-    const templateCommitSha = templateCommitShas[assignment.id]
-    if (
-      !templateCommitSha ||
-      assignment.templateCommitSha === templateCommitSha
-    ) {
-      return assignment
-    }
-    changed = true
-    return {
-      ...assignment,
-      templateCommitSha,
-    }
-  })
-  if (!changed) {
-    return course
-  }
-  return {
-    ...course,
-    roster: {
-      ...course.roster,
-      assignments,
-    },
-  }
-}
-
-function mergeAssignmentRepositories(
-  course: PersistedCourse,
-  assignmentId: string,
-  incoming: Record<string, string>,
-): Record<string, string> | null {
-  const assignment = course.roster.assignments.find(
-    (candidate) => candidate.id === assignmentId,
-  )
-  if (!assignment) return null
-  const groupSet = course.roster.groupSets.find(
-    (candidate) => candidate.id === assignment.groupSetId,
-  )
-  const validGroupIds = new Set<string>(
-    groupSet === undefined
-      ? []
-      : groupSet.nameMode === "named"
-        ? groupSet.groupIds
-        : groupSet.teams.map((team) => team.id),
-  )
-  const merged: Record<string, string> = {}
-  for (const [groupId, repoName] of Object.entries(
-    assignment.repositories ?? {},
-  )) {
-    if (validGroupIds.has(groupId)) {
-      merged[groupId] = repoName
-    }
-  }
-  for (const [groupId, repoName] of Object.entries(incoming)) {
-    if (validGroupIds.has(groupId)) {
-      merged[groupId] = repoName
-    }
-  }
-  const existingEntries = Object.entries(assignment.repositories ?? {}).sort()
-  const mergedEntries = Object.entries(merged).sort()
-  const unchanged =
-    existingEntries.length === mergedEntries.length &&
-    existingEntries.every(
-      ([key, value], index) =>
-        mergedEntries[index]?.[0] === key &&
-        mergedEntries[index]?.[1] === value,
-    )
-  return unchanged ? null : merged
-}
-
-function applyRecordedRepositories(
-  course: PersistedCourse,
-  recordedRepositories: RecordedRepositoriesByAssignment,
-): PersistedCourse {
-  if (Object.keys(recordedRepositories).length === 0) {
-    return course
-  }
-  let changed = false
-  const assignments = course.roster.assignments.map((assignment) => {
-    const incoming = recordedRepositories[assignment.id]
-    if (!incoming) return assignment
-    const merged = mergeAssignmentRepositories(course, assignment.id, incoming)
-    if (merged === null) return assignment
-    changed = true
-    return {
-      ...assignment,
-      repositories: merged,
-    }
-  })
-  if (!changed) return course
-  return {
-    ...course,
-    roster: {
-      ...course.roster,
-      assignments,
-    },
-  }
-}
-
 function countRecordedRepositories(
   recorded: RecordedRepositoriesByAssignment,
 ): number {
@@ -318,24 +212,19 @@ export function registerRepoCommands(
         const template =
           resolveLocalTemplateOverride(options.templatePath, course) ??
           course.repositoryTemplate
-        const result = await workflowClient.run("repo.create", {
+        const commandInput = {
           course,
           credentials: settings.credentials,
           assignmentId: assignment?.id ?? null,
           template,
-        })
-
-        let nextCourse = applyTemplateCommitShas(
-          course,
-          result.templateCommitShas,
-        )
-        nextCourse = applyRecordedRepositories(
-          nextCourse,
-          result.recordedRepositories,
-        )
-        if (nextCourse !== course) {
-          await workflowClient.run("course.save", nextCourse)
         }
+        const result = await workflowClient.run("repo.create", commandInput)
+        const nextCourse = composeCourseCommandTransition(
+          "repo.create",
+          commandInput,
+          result,
+        )
+        await workflowClient.run("course.save", nextCourse)
 
         const recordedCount = countRecordedRepositories(
           result.recordedRepositories,
@@ -384,22 +273,21 @@ export function registerRepoCommands(
           )
         }
 
-        const result = await workflowClient.run("repo.clone", {
+        const commandInput = {
           course,
           credentials: settings.credentials,
           assignmentId: assignment?.id ?? null,
           template: course.repositoryTemplate,
           targetDirectory: normalizeCliTargetDirectory(options.target ?? "."),
           directoryLayout: options.layout,
-        })
-
-        const nextCourse = applyRecordedRepositories(
-          course,
-          result.recordedRepositories,
-        )
-        if (nextCourse !== course) {
-          await workflowClient.run("course.save", nextCourse)
         }
+        const result = await workflowClient.run("repo.clone", commandInput)
+        const nextCourse = composeCourseCommandTransition(
+          "repo.clone",
+          commandInput,
+          result,
+        )
+        await workflowClient.run("course.save", nextCourse)
 
         const recordedCount = countRecordedRepositories(
           result.recordedRepositories,
@@ -449,37 +337,19 @@ export function registerRepoCommands(
           options.templatePath,
           course,
         )
-        const result = await workflowClient.run("repo.update", {
+        const commandInput = {
           course,
           credentials: settings.credentials,
           assignmentId: assignment.id,
           ...(templateOverride ? { templateOverride } : {}),
-        })
-
-        let nextCourse = course
-        if (result.templateCommitSha) {
-          nextCourse = {
-            ...nextCourse,
-            roster: {
-              ...nextCourse.roster,
-              assignments: nextCourse.roster.assignments.map((entry) =>
-                entry.id === assignment.id
-                  ? {
-                      ...entry,
-                      templateCommitSha: result.templateCommitSha,
-                    }
-                  : entry,
-              ),
-            },
-          }
         }
-        nextCourse = applyRecordedRepositories(
-          nextCourse,
-          result.recordedRepositories,
+        const result = await workflowClient.run("repo.update", commandInput)
+        const nextCourse = composeCourseCommandTransition(
+          "repo.update",
+          commandInput,
+          result,
         )
-        if (nextCourse !== course) {
-          await workflowClient.run("course.save", nextCourse)
-        }
+        await workflowClient.run("course.save", nextCourse)
 
         const recordedCount = countRecordedRepositories(
           result.recordedRepositories,

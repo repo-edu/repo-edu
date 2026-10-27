@@ -479,6 +479,54 @@ describe("CLI workflow-backed behaviors", () => {
     assert.deepEqual(calls, ["save"])
   })
 
+  it("clears a stale template baseline when Create reports incomplete repositories", async () => {
+    const course = makeProfile()
+    const assignment = course.roster.assignments[0]
+    assert.ok(assignment)
+    assignment.templateCommitSha = "old-template-sha"
+    let savedCourse: PersistedCourse | null = null
+    const handlers: Partial<WorkflowHandlerMap> = {
+      "course.load": async () => course,
+      "settings.loadApp": async () => ({
+        ...splitAppSettings(makeSettings(null)),
+        recovery: [],
+      }),
+      "repo.create": async () => ({
+        repositoriesPlanned: 2,
+        repositoriesCreated: 2,
+        repositoriesAdopted: 0,
+        repositoriesFailed: 0,
+        templateCommitShas: { a1: null },
+        recordedRepositories: {},
+        completedAt: "2026-09-06T12:00:00.000Z",
+      }),
+      "course.save": async (input) => {
+        savedCourse = input
+        return { revision: 1, updatedAt: "2026-09-06T12:01:00.000Z" }
+      },
+    }
+
+    const result = await runCli(
+      [
+        "--course",
+        course.id,
+        "repo",
+        "create",
+        "--assignment",
+        assignment.name,
+      ],
+      {
+        workflowClient: createWorkflowClient(handlers as WorkflowHandlerMap),
+      },
+    )
+
+    assert.equal(result.exitCode, 0)
+    assert.equal(
+      savedCourse?.roster.assignments[0]?.templateCommitSha,
+      undefined,
+    )
+  })
+
   it("course list shows seeded course and active marker", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
       const course = makeProfile()

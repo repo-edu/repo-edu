@@ -238,6 +238,28 @@ export function createRepoUpdateHandler(
           totalSteps,
           label: "Resolving template head and changed files.",
         })
+        const fromSha = assignment.templateCommitSha ?? ""
+        if (fromSha.trim() === "") {
+          options?.onOutput?.({
+            channel: "warn",
+            message:
+              "Template baseline SHA is missing for this assignment. Run Create to populate empty repositories and record the baseline before updating.",
+          })
+          options?.onProgress?.({
+            step: totalSteps,
+            totalSteps,
+            label: "Repository update workflow complete.",
+          })
+          return {
+            repositoriesPlanned: plannedRepositoryNames.length,
+            prsCreated: 0,
+            prsSkipped: plannedRepositoryNames.length,
+            prsFailed: 0,
+            templateCommitSha: null,
+            recordedRepositories,
+            completedAt: new Date().toISOString(),
+          }
+        }
         const currentSha = await readTemplateHead(
           ports,
           gitDraft,
@@ -265,14 +287,6 @@ export function createRepoUpdateHandler(
           }
         }
 
-        const fromSha = assignment.templateCommitSha ?? ""
-        if (fromSha.trim() === "") {
-          return finishWithoutPullRequests({
-            channel: "warn",
-            message:
-              "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
-          })
-        }
         if (fromSha === currentSha) {
           return finishWithoutPullRequests({
             channel: "info",

@@ -15,7 +15,7 @@ type Composer<K extends CourseChangingCommandId> = (
 function repositoryCourse(
   course: Immutable<PersistedCourse>,
   recorded: Immutable<RecordedRepositoriesByAssignment>,
-  templateShas: Readonly<Record<string, string>> = {},
+  templateShas: Readonly<Record<string, string | null>> = {},
 ): Immutable<PersistedCourse> {
   return {
     ...course,
@@ -26,6 +26,10 @@ function repositoryCourse(
         const templateCommitSha = templateShas[assignment.id]
         if (incoming === undefined && templateCommitSha === undefined)
           return assignment
+        const assignmentWithoutTemplateCommitSha = { ...assignment }
+        if (templateCommitSha === null) {
+          delete assignmentWithoutTemplateCommitSha.templateCommitSha
+        }
         const groupSet = course.roster.groupSets.find(
           (candidate) => candidate.id === assignment.groupSetId,
         )
@@ -37,7 +41,9 @@ function repositoryCourse(
               : groupSet.teams.map((team) => team.id),
         )
         return {
-          ...assignment,
+          ...(templateCommitSha === null
+            ? assignmentWithoutTemplateCommitSha
+            : assignment),
           ...(incoming === undefined
             ? {}
             : {
@@ -48,7 +54,9 @@ function repositoryCourse(
                   }).filter(([id]) => validIds.has(id)),
                 ),
               }),
-          ...(templateCommitSha === undefined ? {} : { templateCommitSha }),
+          ...(typeof templateCommitSha === "string"
+            ? { templateCommitSha }
+            : {}),
         }
       }),
     },

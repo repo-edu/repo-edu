@@ -55,7 +55,10 @@ async function pushTemplate(request: {
   template: RepositoryTemplate
   repositories: readonly CreatedRepository[]
   options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>
-}): Promise<LocalTemplateHead | null> {
+}): Promise<{
+  head: LocalTemplateHead
+  pushedRepositoryNames: ReadonlySet<string>
+} | null> {
   const { ports, templatePath, template, repositories, options } = request
   const templateHead = await resolveLocalTemplateHead(
     ports.gitCommand,
@@ -86,15 +89,25 @@ async function pushTemplate(request: {
           message: `Failed to push template to '${repository.repositoryName}': ${pushed.detail}`,
         })
       }
-      return pushed.ok
+      return {
+        repositoryName: repository.repositoryName,
+        pushed: pushed.ok,
+      }
     },
     8,
   )
-  options?.onOutput?.({
-    channel: "info",
-    message: `Pushed template '${describeTemplate(template)}' to ${pushResults.filter(Boolean).length}/${repositories.length} repositories.`,
-  })
-  return templateHead.head
+  const pushedRepositoryNames = new Set(
+    pushResults
+      .filter((result) => result.pushed)
+      .map((result) => result.repositoryName),
+  )
+  if (repositories.length > 0) {
+    options?.onOutput?.({
+      channel: "info",
+      message: `Pushed template '${describeTemplate(template)}' to ${pushedRepositoryNames.size}/${repositories.length} repositories.`,
+    })
+  }
+  return { head: templateHead.head, pushedRepositoryNames }
 }
 
 export function createRepoCreateHandler(
@@ -278,21 +291,61 @@ export function createRepoCreateHandler(
           label: "Pushing template content to repositories.",
         })
 
-        const templateCommitShas: Record<string, string> = {}
-        const createdByRepositoryName = new Map(
-          created.map((repository) => [repository.repositoryName, repository]),
+        const templateCommitShas: Record<string, string | null> = {}
+        const acceptedRepositoriesByName = new Map(
+          created
+            .concat(alreadyExisted)
+            .map(
+              (repository) => [repository.repositoryName, repository] as const,
+            ),
         )
+        const createdByRepositoryName = new Map(
+          created.map(
+            (repository) => [repository.repositoryName, repository] as const,
+          ),
+        )
+        const populatedRepositoryNames = new Set<string>()
+        const templateHeadByKey = new Map<string, LocalTemplateHead>()
 
         for (const batch of batches) {
           const template = batch.template
           if (template === null) continue
-          const reposToPopulate = batch.repositoryNames.flatMap((name) => {
-            const repository = createdByRepositoryName.get(name)
-            return repository === undefined ? [] : [repository]
-          })
-          if (reposToPopulate.length === 0) continue
+          const acceptedRepositories = batch.repositoryNames.flatMap(
+            (repositoryName) => {
+              const repository = acceptedRepositoriesByName.get(repositoryName)
+              return repository === undefined ? [] : [repository]
+            },
+          )
+          if (acceptedRepositories.length === 0) continue
 
-          const pushedHead = await withTemplateCheckout({
+          const populationChecks = await mapConcurrent(
+            acceptedRepositories,
+            async (repository) => {
+              if (createdByRepositoryName.has(repository.repositoryName)) {
+                return { repository, needsPush: true }
+              }
+              const head = await ports.git.getRepositoryDefaultBranchHead(
+                gitDraft,
+                {
+                  owner: organization,
+                  repositoryName: repository.repositoryName,
+                },
+                options?.signal,
+              )
+              return { repository, needsPush: head === null }
+            },
+            8,
+          )
+          const reposToPopulate: CreatedRepository[] = []
+          for (const check of populationChecks) {
+            if (check.needsPush) {
+              reposToPopulate.push(check.repository)
+            } else {
+              populatedRepositoryNames.add(check.repository.repositoryName)
+            }
+          }
+
+          const population = await withTemplateCheckout({
             ports,
             gitDraft,
             template,
@@ -315,17 +368,37 @@ export function createRepoCreateHandler(
               return null
             },
           })
-          if (pushedHead === null) continue
+          if (population === null) continue
 
-          for (const entry of plannedWithTemplates.value) {
-            if (
-              entry.template !== null &&
-              templateKey(entry.template) === templateKey(template) &&
-              successfulRepositoryNames.has(entry.group.repoName)
-            ) {
-              templateCommitShas[entry.group.assignmentId] = pushedHead.sha
-            }
+          templateHeadByKey.set(templateKey(template), population.head)
+          for (const repositoryName of population.pushedRepositoryNames) {
+            populatedRepositoryNames.add(repositoryName)
           }
+        }
+
+        const assignmentIds = new Set(
+          plannedWithTemplates.value.map((entry) => entry.group.assignmentId),
+        )
+        for (const assignmentId of assignmentIds) {
+          const assignmentEntries = plannedWithTemplates.value.filter(
+            (entry) => entry.group.assignmentId === assignmentId,
+          )
+          const template = assignmentEntries[0]?.template
+          if (template === null || template === undefined) continue
+          const key = templateKey(template)
+          const everyRepositoryPopulated = assignmentEntries.every(
+            (entry) =>
+              entry.template !== null &&
+              templateKey(entry.template) === key &&
+              populatedRepositoryNames.has(entry.group.repoName),
+          )
+          if (!everyRepositoryPopulated) {
+            templateCommitShas[assignmentId] = null
+            continue
+          }
+          const templateHead = templateHeadByKey.get(key)
+          if (templateHead !== undefined)
+            templateCommitShas[assignmentId] = templateHead.sha
         }
 
         options?.onProgress?.({

@@ -370,6 +370,32 @@ it("refuses a partial course settlement on the wire", () => {
   )
 })
 
+it("admits an explicit Create baseline removal on the wire", () => {
+  const course = makeCourse("course")
+  assert.equal(
+    commandPayloadSchemas("repo.create").settlement.safeParse({
+      workflowId: "repo.create",
+      outcome: {
+        disposition: "completed",
+        completion: {
+          status: "succeeded",
+          result: {
+            repositoriesPlanned: 1,
+            repositoriesCreated: 1,
+            repositoriesAdopted: 0,
+            repositoriesFailed: 0,
+            templateCommitShas: { assignment: null },
+            recordedRepositories: {},
+            completedAt: course.updatedAt,
+          },
+        },
+      },
+      authoritative: { course },
+    }).success,
+    true,
+  )
+})
+
 it("allows authoritative course values only beside an official result on the wire", () => {
   const course = makeCourse("course")
   const result = course.roster

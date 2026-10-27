@@ -12,6 +12,7 @@ import type {
   FileSystemBatchResult,
   ProcessResult,
 } from "@repo-edu/host-runtime-contract"
+import { composeCourseCommandTransition } from "../course-command-transition.js"
 import type { RepositoryWorkflowPorts } from "../repository-workflows.js"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
 import {
@@ -396,7 +397,7 @@ describe("application repository create workflow helpers", () => {
 
       if (branch === null) {
         assert.deepEqual(refspecs, [])
-        assert.deepEqual(result.templateCommitShas, {})
+        assert.deepEqual(result.templateCommitShas, { a1: null })
         assert.ok(
           warnings.some((warning) => warning.includes("not a symbolic ref")),
         )
@@ -721,10 +722,10 @@ function setUpCreate(
       createTempDirectory: setup.createTempDirectory,
     },
   })
-  const run = () =>
+  const run = (courseInput = course) =>
     handlers["repo.create"](
       {
-        course,
+        course: courseInput,
         credentials: settings,
         assignmentId: "a1",
         template:
@@ -737,7 +738,7 @@ function setUpCreate(
       },
     )
   const pushes = () => gitCalls.filter((call) => call.args[0] === "push")
-  return { run, gitCalls, pushes, deleted, warnings, teams }
+  return { course, settings, run, gitCalls, pushes, deleted, warnings, teams }
 }
 
 describe("repo.create answers every outside call", () => {
@@ -794,7 +795,7 @@ describe("repo.create answers every outside call", () => {
         `Could not clone template 'template-org/course-template (private)': ${detail}`,
       ])
       assert.deepEqual(create.pushes(), [])
-      assert.deepEqual(result.templateCommitShas, {})
+      assert.deepEqual(result.templateCommitShas, { a1: null })
       assert.ok(create.teams.length > 0)
       assert.deepEqual(create.deleted, [templateCheckoutPath])
     }
@@ -848,24 +849,99 @@ describe("repo.create answers every outside call", () => {
     }
   })
 
-  it("warns for a push Git refuses and records the commit it pushed elsewhere", async () => {
-    let pushes = 0
-    const create = setUpCreate({
-      answer: (call) => {
-        if (call.args[0] !== "push") return undefined
-        pushes += 1
-        return pushes === 1
-          ? gitAnswer("", "remote: Permission denied", 1)
-          : gitAnswer("")
-      },
-    })
+  it("leaves the baseline unset after refused pushes and retries every empty repository", async () => {
+    for (const refusal of ["partial", "complete"] as const) {
+      let createAttempt = 0
+      let firstAttemptPushes = 0
+      const populatedRepositoryNames = new Set<string>()
+      const refusedRepositoryNames = new Set<string>()
+      const pushNamesByAttempt: string[][] = [[], []]
+      const create = setUpCreate({
+        git: {
+          createRepositories: async (_draft, request) => {
+            createAttempt += 1
+            const repositories = request.repositoryNames.map(
+              (repositoryName) => ({
+                repositoryName,
+                repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+                cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+              }),
+            )
+            return createAttempt === 1
+              ? { created: repositories, alreadyExisted: [], failed: [] }
+              : { created: [], alreadyExisted: repositories, failed: [] }
+          },
+          getRepositoryDefaultBranchHead: async (_draft, request) =>
+            populatedRepositoryNames.has(request.repositoryName)
+              ? { sha: "student-sha", branchName: "main" }
+              : null,
+        },
+        answer: (call) => {
+          if (call.args[0] !== "push") return undefined
+          const repositoryName = call.args[1]
+            ?.split("/")
+            .at(-1)
+            ?.replace(/\.git$/, "")
+          assert.ok(repositoryName)
+          pushNamesByAttempt[createAttempt - 1]?.push(repositoryName)
+          if (createAttempt === 1) {
+            firstAttemptPushes += 1
+            if (refusal === "complete" || firstAttemptPushes === 1) {
+              refusedRepositoryNames.add(repositoryName)
+              return gitAnswer("", "remote: Permission denied", 1)
+            }
+          }
+          populatedRepositoryNames.add(repositoryName)
+          return gitAnswer("")
+        },
+      })
+      const initialAssignment = create.course.roster.assignments.find(
+        (assignment) => assignment.id === "a1",
+      )
+      assert.ok(initialAssignment)
+      initialAssignment.templateCommitSha = "old-template-sha"
 
-    const result = await create.run()
+      const firstResult = await create.run()
+      const firstCourse = composeCourseCommandTransition(
+        "repo.create",
+        {
+          course: create.course,
+          credentials: create.settings,
+          assignmentId: "a1",
+          template: remoteTemplate,
+        },
+        firstResult,
+      )
+      const firstAssignment = firstCourse.roster.assignments.find(
+        (assignment) => assignment.id === "a1",
+      )
+      assert.deepEqual(firstResult.templateCommitShas, { a1: null })
+      assert.equal(firstAssignment?.templateCommitSha, undefined)
+      assert.equal(
+        create.warnings.filter((warning) =>
+          warning.includes("remote: Permission denied"),
+        ).length,
+        refusal === "partial" ? 1 : firstResult.repositoriesCreated,
+      )
 
-    assert.equal(create.pushes().length, result.repositoriesCreated)
-    assert.equal(create.warnings.length, 1)
-    assert.match(create.warnings[0] ?? "", /remote: Permission denied/)
-    assert.equal(result.templateCommitShas.a1, "abc1234")
+      const secondResult = await create.run(firstCourse)
+      const secondCourse = composeCourseCommandTransition(
+        "repo.create",
+        {
+          course: firstCourse,
+          credentials: create.settings,
+          assignmentId: "a1",
+          template: remoteTemplate,
+        },
+        secondResult,
+      )
+      const secondAssignment = secondCourse.roster.assignments.find(
+        (assignment) => assignment.id === "a1",
+      )
+      assert.deepEqual(new Set(pushNamesByAttempt[1]), refusedRepositoryNames)
+      assert.equal(secondResult.templateCommitShas.a1, "abc1234")
+      assert.equal(secondAssignment?.templateCommitSha, "abc1234")
+    }
   })
 
   it("names a missing local template folder and goes on with the teams", async () => {
@@ -887,7 +963,7 @@ describe("repo.create answers every outside call", () => {
       "Template 'local:/course-template (private)' has no readable commit on a branch to push: fatal: cannot change to '/course-template': No such file or directory",
     ])
     assert.deepEqual(create.pushes(), [])
-    assert.deepEqual(result.templateCommitShas, {})
+    assert.deepEqual(result.templateCommitShas, { a1: null })
     assert.ok(create.teams.length > 0)
     assert.ok(create.gitCalls.every((call) => call.cwd === undefined))
     assert.deepEqual(create.deleted, [])

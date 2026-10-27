@@ -201,7 +201,7 @@ describe("repo.update reads template changes through local Git", () => {
     assert.deepEqual(update.deleted, [])
   })
 
-  it("answers without pull requests when the baseline is missing or unchanged, before any download", async () => {
+  it("keeps a missing baseline unset and answers an unchanged template before any download", async () => {
     for (const baseline of [null, "new-template-sha"]) {
       const update = setUpUpdate({ baseline })
 
@@ -209,9 +209,22 @@ describe("repo.update reads template changes through local Git", () => {
 
       assert.equal(result.prsCreated, 0)
       assert.equal(result.prsSkipped, result.repositoriesPlanned)
-      assert.equal(result.templateCommitSha, "new-template-sha")
+      assert.equal(
+        result.templateCommitSha,
+        baseline === null ? null : "new-template-sha",
+      )
       assert.deepEqual(update.commands(), [])
       assert.equal(update.warnings.length, baseline === null ? 1 : 0)
+      const next = composeCourseCommandTransition(
+        "repo.update",
+        update.input,
+        result,
+      )
+      assert.equal(
+        next.roster.assignments.find((candidate) => candidate.id === "a1")
+          ?.templateCommitSha,
+        baseline,
+      )
     }
   })
 
