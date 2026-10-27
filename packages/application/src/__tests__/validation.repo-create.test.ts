@@ -873,6 +873,115 @@ describe("repo.create answers every outside call", () => {
     }
   })
 
+  it("keeps an existing baseline on a no-push rerun and seeds a missing one", async () => {
+    for (const existingBaseline of ["old-template-sha", undefined] as const) {
+      const create = setUpCreate({
+        git: {
+          createRepositories: async (_draft, request) => ({
+            created: [],
+            alreadyExisted: request.repositoryNames.map((repositoryName) => ({
+              repositoryName,
+              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
+            })),
+            failed: [],
+          }),
+          getRepositoryDefaultBranchHead: async () => ({
+            sha: "student-sha",
+            branchName: "main",
+          }),
+        },
+      })
+      const assignment = create.course.roster.assignments.find(
+        (item) => item.id === "a1",
+      )
+      assert.ok(assignment)
+      assignment.templateCommitSha = existingBaseline
+
+      const result = await create.run()
+      const nextCourse = composeCourseCommandTransition(
+        "repo.create",
+        {
+          course: create.course,
+          credentials: create.settings,
+          assignmentId: "a1",
+          template: remoteTemplate,
+        },
+        result,
+      )
+      const nextAssignment = nextCourse.roster.assignments.find(
+        (item) => item.id === "a1",
+      )
+
+      assert.deepEqual(create.pushes(), [])
+      assert.deepEqual(
+        result.templateCommitShas,
+        existingBaseline === undefined ? { a1: "abc1234" } : {},
+      )
+      assert.equal(
+        nextAssignment?.templateCommitSha,
+        existingBaseline ?? "abc1234",
+      )
+      assert.equal(
+        create.gitCalls.some((call) => call.args[0] === "clone"),
+        existingBaseline === undefined,
+      )
+    }
+  })
+
+  it("keeps the stored baseline when a mixed rerun pushes one new repository", async () => {
+    let firstRepositoryName: string | undefined
+    const create = setUpCreate({
+      git: {
+        createRepositories: async (_draft, request) => {
+          firstRepositoryName = request.repositoryNames[0]
+          const repositories = request.repositoryNames.map(
+            (repositoryName) => ({
+              repositoryName,
+              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
+            }),
+          )
+          return {
+            created: repositories.slice(0, 1),
+            alreadyExisted: repositories.slice(1),
+            failed: [],
+          }
+        },
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "student-sha",
+          branchName: "main",
+        }),
+      },
+    })
+    const assignment = create.course.roster.assignments.find(
+      (item) => item.id === "a1",
+    )
+    assert.ok(assignment)
+    assignment.templateCommitSha = "old-template-sha"
+
+    const result = await create.run()
+    const nextCourse = composeCourseCommandTransition(
+      "repo.create",
+      {
+        course: create.course,
+        credentials: create.settings,
+        assignmentId: "a1",
+        template: remoteTemplate,
+      },
+      result,
+    )
+    const nextAssignment = nextCourse.roster.assignments.find(
+      (item) => item.id === "a1",
+    )
+
+    assert.equal(create.pushes().length, 1)
+    assert.ok(firstRepositoryName)
+    assert.ok(create.pushes()[0]?.args[1]?.includes(firstRepositoryName))
+    assert.deepEqual(result.templateCommitShas, {})
+    assert.equal(nextAssignment?.templateCommitSha, "old-template-sha")
+  })
+
   it("leaves the baseline unset after refused pushes and retries every empty repository", async () => {
     for (const refusal of ["partial", "complete"] as const) {
       let createAttempt = 0

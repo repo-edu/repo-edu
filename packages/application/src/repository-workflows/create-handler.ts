@@ -305,18 +305,32 @@ export function createRepoCreateHandler(
           ),
         )
         const populatedRepositoryNames = new Set<string>()
-        const templateHeadByKey = new Map<string, LocalTemplateHead>()
 
         for (const batch of batches) {
           const template = batch.template
           if (template === null) continue
+          const key = templateKey(template)
+          const batchAssignmentIds = new Set(
+            plannedWithTemplates.value
+              .filter(
+                (entry) =>
+                  entry.template !== null &&
+                  templateKey(entry.template) === key,
+              )
+              .map((entry) => entry.group.assignmentId),
+          )
           const acceptedRepositories = batch.repositoryNames.flatMap(
             (repositoryName) => {
               const repository = acceptedRepositoriesByName.get(repositoryName)
               return repository === undefined ? [] : [repository]
             },
           )
-          if (acceptedRepositories.length === 0) continue
+          if (acceptedRepositories.length === 0) {
+            for (const assignmentId of batchAssignmentIds) {
+              templateCommitShas[assignmentId] = null
+            }
+            continue
+          }
 
           const populationChecks = await mapConcurrent(
             acceptedRepositories,
@@ -345,6 +359,16 @@ export function createRepoCreateHandler(
             }
           }
 
+          const everyAssignmentHasBaseline = [...batchAssignmentIds].every(
+            (assignmentId) =>
+              typeof course.roster.assignments.find(
+                (assignment) => assignment.id === assignmentId,
+              )?.templateCommitSha === "string",
+          )
+          if (reposToPopulate.length === 0 && everyAssignmentHasBaseline) {
+            continue
+          }
+
           const population = await withTemplateCheckout({
             ports,
             gitDraft,
@@ -368,37 +392,38 @@ export function createRepoCreateHandler(
               return null
             },
           })
-          if (population === null) continue
-
-          templateHeadByKey.set(templateKey(template), population.head)
-          for (const repositoryName of population.pushedRepositoryNames) {
-            populatedRepositoryNames.add(repositoryName)
+          if (population !== null) {
+            for (const repositoryName of population.pushedRepositoryNames) {
+              populatedRepositoryNames.add(repositoryName)
+            }
           }
-        }
 
-        const assignmentIds = new Set(
-          plannedWithTemplates.value.map((entry) => entry.group.assignmentId),
-        )
-        for (const assignmentId of assignmentIds) {
-          const assignmentEntries = plannedWithTemplates.value.filter(
-            (entry) => entry.group.assignmentId === assignmentId,
-          )
-          const template = assignmentEntries[0]?.template
-          if (template === null || template === undefined) continue
-          const key = templateKey(template)
-          const everyRepositoryPopulated = assignmentEntries.every(
-            (entry) =>
-              entry.template !== null &&
-              templateKey(entry.template) === key &&
+          for (const assignmentId of batchAssignmentIds) {
+            const assignmentEntries = plannedWithTemplates.value.filter(
+              (entry) => entry.group.assignmentId === assignmentId,
+            )
+            const everyRepositoryPopulated = assignmentEntries.every((entry) =>
               populatedRepositoryNames.has(entry.group.repoName),
-          )
-          if (!everyRepositoryPopulated) {
-            templateCommitShas[assignmentId] = null
-            continue
+            )
+            if (!everyRepositoryPopulated) {
+              templateCommitShas[assignmentId] = null
+              continue
+            }
+            if (population === null) continue
+
+            const assignment = course.roster.assignments.find(
+              (item) => item.id === assignmentId,
+            )
+            const everyRepositoryPushed = assignmentEntries.every((entry) =>
+              population.pushedRepositoryNames.has(entry.group.repoName),
+            )
+            if (
+              typeof assignment?.templateCommitSha !== "string" ||
+              everyRepositoryPushed
+            ) {
+              templateCommitShas[assignmentId] = population.head.sha
+            }
           }
-          const templateHead = templateHeadByKey.get(key)
-          if (templateHead !== undefined)
-            templateCommitShas[assignmentId] = templateHead.sha
         }
 
         options?.onProgress?.({
