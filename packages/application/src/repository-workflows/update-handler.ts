@@ -357,7 +357,7 @@ export function createRepoUpdateHandler(
             prsFailed += 1
             options?.onOutput?.({
               channel: "warn",
-              message: `Repository '${repositoryName}' was not found.`,
+              message: `Repository '${repositoryName}' was not found or has no commit on its default branch.`,
             })
             continue
           }
