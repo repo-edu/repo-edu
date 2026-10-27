@@ -56,8 +56,8 @@ workflow:
    naming template, the current roster, and the assignment.
 2. Calls the Git provider's create endpoint. Fresh repositories are counted as **created**; existing
    ones come back as **adopted**.
-3. For fresh repositories only, pushes template content and configures visibility (private,
-   internal, or public).
+3. For fresh repositories, configures visibility (private, internal, or public). For fresh
+   repositories and empty adopted repositories, pushes template content.
 4. Adds team members as collaborators.
 5. Records the accepted name on the assignment so future Update/Clone runs use the recorded name
    instead of re-deriving it.
