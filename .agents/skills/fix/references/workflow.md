@@ -94,6 +94,13 @@ with the same checks on the packages a fix touched.
 Run writing commands only while no other fix is running in either directed
 working tree.
 
+A correction may ask for a proof only a CI run can give, such as a passing
+live-provider job on `main`. That proof is never required work of this phase:
+CI runs only on pushed commits, pushing is the user's, and the next audit reads
+the run as evidence. Apply the code part, land the record and name the owed run
+in the handoff. The phase finishes; it does not fail over a run that cannot
+exist yet.
+
 ## Records
 
 Land records under the plan doctrine's
