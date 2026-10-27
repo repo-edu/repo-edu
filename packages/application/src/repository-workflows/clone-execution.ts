@@ -41,22 +41,25 @@ type ClonePorts = Pick<RepositoryWorkflowPorts, "fileSystem" | "gitCommand">
 type Output = ((output: DiagnosticOutput) => void) | undefined
 
 /** Removal ignores Cancel. A proven stop leaves no Git process writing to the
- * temporary folder, so the delete may run after it. */
+ * temporary folder, so the delete may run after it. A completed removal
+ * failure is reported and returns false. */
 async function removeTemporaryFolder(
   ports: Pick<RepositoryWorkflowPorts, "fileSystem">,
   path: string,
   onOutput: Output,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await ports.fileSystem.applyBatch({
       operations: [{ kind: "delete-path", path }],
     })
+    return true
   } catch (error) {
     if (!isCompletedCommandFailure(error)) throw error
     onOutput?.({
       channel: "warn",
       message: `Could not remove the temporary folder '${path}': ${error.message}`,
     })
+    return false
   }
 }
 
@@ -159,7 +162,8 @@ export async function runRepositoryClones<
     cloneItems,
     async ({ target, tempPath }) => {
       try {
-        await removeTemporaryFolder(ports, tempPath, onOutput)
+        const prepared = await removeTemporaryFolder(ports, tempPath, onOutput)
+        if (!prepared) return "failed" as const
         const clone = await initPullClone(
           ports.gitCommand,
           target.cloneUrl,

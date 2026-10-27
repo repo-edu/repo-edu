@@ -6,6 +6,8 @@ import { CommandOutcomeError } from "@repo-edu/application-contract"
 import {
   createRepoHarness,
   gitAnswer,
+  gitEffect,
+  hasDisposition,
   readGitCall,
 } from "./helpers/repo-workflow-harness.js"
 
@@ -98,6 +100,28 @@ describe("application repository bulk clone validation", () => {
     assert.equal(result.repositoriesFailed, 0)
     assert.deepEqual(result.recordedRepositories, {})
     assert.equal(providerCalls, 0)
+  })
+
+  it("answers a clone URL lookup the Git server refuses or stops", async () => {
+    for (const disposition of ["completed", "stopped"] as const) {
+      const { settings, handlers } = createRepoHarness({
+        git: {
+          resolveRepositoryCloneUrls: async () => {
+            throw gitEffect(disposition, "GET /repos answered 500")
+          },
+        },
+      })
+
+      await assert.rejects(
+        handlers["repo.bulkClone"]({
+          credentials: settings,
+          namespace: "repo-edu",
+          repositories: [{ name: "repo-a", identifier: "repo-a" }],
+          targetDirectory: join(tmpdir(), "repo-edu-bulk-clone-failure"),
+        }),
+        hasDisposition(disposition),
+      )
+    }
   })
 
   it("clones through the shared clone execution, counts missing repositories as failed and records nothing", async () => {

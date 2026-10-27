@@ -488,8 +488,8 @@ describe("repo.update answers the Git server's replies", () => {
     }
   })
 
-  it("counts a missing student repository as a failed pull request and ends on an unreadable one", async () => {
-    for (const answer of ["missing", "refused"] as const) {
+  it("counts a missing student repository as a failed pull request and ends on a failed or stopped read", async () => {
+    for (const answer of ["missing", "completed", "stopped"] as const) {
       let studentReads = 0
       const update = setUpUpdate({
         git: {
@@ -500,13 +500,13 @@ describe("repo.update answers the Git server's replies", () => {
             if (studentReads > 1)
               return { sha: "repo-base-sha", branchName: "main" }
             if (answer === "missing") return null
-            throw gitEffect("completed", "GET /repos answered 500")
+            throw gitEffect(answer, "GET /repos answered 500")
           },
         },
       })
 
-      if (answer === "refused") {
-        await assert.rejects(update.run(), hasDisposition("completed"))
+      if (answer !== "missing") {
+        await assert.rejects(update.run(), hasDisposition(answer))
         continue
       }
       const result = await update.run()

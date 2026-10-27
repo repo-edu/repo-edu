@@ -838,7 +838,7 @@ describe("repo.clone answers every outside call", () => {
     assert.deepEqual(clone.gitCalls, [])
   })
 
-  it("warns when a temporary checkout cannot be removed and keeps the clone", async () => {
+  it("counts a clone as failed when its temporary checkout cannot be prepared", async () => {
     const clone = setUpClone({
       applyBatch: (request) => {
         if (request.operations[0]?.kind === "delete-path")
@@ -849,8 +849,37 @@ describe("repo.clone answers every outside call", () => {
 
     const result = await clone.run()
 
+    assert.equal(result.repositoriesCloned, 0)
+    assert.equal(result.repositoriesFailed, clone.planned)
+    assert.deepEqual(clone.gitCalls, [])
+    assert.deepEqual(clone.copied, [])
+    assert.equal(clone.warnings.length, clone.planned)
+    assert.ok(
+      clone.warnings.every((warning) =>
+        warning.startsWith("Could not remove the temporary folder"),
+      ),
+    )
+  })
+
+  it("warns when a cloned temporary checkout cannot be removed", async () => {
+    const deleteCounts = new Map<string, number>()
+    const clone = setUpClone({
+      applyBatch: (request) => {
+        const operation = request.operations[0]
+        if (operation?.kind !== "delete-path") return undefined
+        const count = (deleteCounts.get(operation.path) ?? 0) + 1
+        deleteCounts.set(operation.path, count)
+        if (count === 2) throw knownPortFailure("EBUSY: resource busy")
+        return undefined
+      },
+    })
+
+    const result = await clone.run()
+
     assert.equal(result.repositoriesCloned, clone.planned)
-    assert.equal(clone.warnings.length, 2 * clone.planned)
+    assert.equal(result.repositoriesFailed, 0)
+    assert.equal(clone.copied.length, clone.planned)
+    assert.equal(clone.warnings.length, clone.planned)
     assert.ok(
       clone.warnings.every((warning) =>
         warning.startsWith("Could not remove the temporary folder"),

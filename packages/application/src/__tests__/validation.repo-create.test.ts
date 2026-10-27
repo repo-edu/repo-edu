@@ -849,6 +849,30 @@ describe("repo.create answers every outside call", () => {
     }
   })
 
+  it("answers an adopted repository head read the Git server refuses or stops", async () => {
+    for (const disposition of ["completed", "stopped"] as const) {
+      const create = setUpCreate({
+        git: {
+          createRepositories: async (_draft, request) => ({
+            created: [],
+            alreadyExisted: request.repositoryNames.map((repositoryName) => ({
+              repositoryName,
+              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
+            })),
+            failed: [],
+          }),
+          getRepositoryDefaultBranchHead: async () => {
+            throw gitEffect(disposition, "GET /repos answered 500")
+          },
+        },
+      })
+
+      await assert.rejects(create.run(), hasDisposition(disposition))
+      assert.deepEqual(create.gitCalls, [])
+    }
+  })
+
   it("leaves the baseline unset after refused pushes and retries every empty repository", async () => {
     for (const refusal of ["partial", "complete"] as const) {
       let createAttempt = 0
