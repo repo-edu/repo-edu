@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { tmpdir } from "node:os"
 import { before, describe, it } from "node:test"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
 import { splitAppSettings } from "@repo-edu/domain/settings"
@@ -33,6 +34,7 @@ async function readRemoteHead(
 ): Promise<string> {
   const result = await gitCommand.run({
     args: ["ls-remote", cloneUrl, "HEAD"],
+    cwd: tmpdir(),
   })
   assert.equal(result.exitCode, 0, result.stderr)
   const head = /^([0-9a-f]{40})\tHEAD$/m.exec(result.stdout)
