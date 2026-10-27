@@ -95,13 +95,45 @@ export async function* runCodexQueryStream(
   const tempDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "codex-prompt-reply-"),
   )
+  let cleanupFailure: unknown
+  let terminalEvent:
+    | Extract<LlmStreamEvent, { readonly kind: "done" }>
+    | undefined
   try {
     const threadOptions = buildCodexThreadOptions(options.spec, tempDir)
     const wrappedPrompt = `${PROMPT_REPLY_PREAMBLE}${options.prompt}`
-    yield* runCodexTurnStream(options, config, threadOptions, wrappedPrompt)
+    for await (const event of runCodexTurnStream(
+      options,
+      config,
+      threadOptions,
+      wrappedPrompt,
+    )) {
+      if (event.kind === "done") {
+        terminalEvent = event
+      } else {
+        yield event
+      }
+    }
   } finally {
-    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true })
+    } catch (error) {
+      cleanupFailure = error
+    }
   }
+  if (cleanupFailure !== undefined) {
+    throw new Error(
+      `Could not remove the Codex working folder "${tempDir}": ${errorMessage(cleanupFailure)}`,
+      { cause: cleanupFailure },
+    )
+  }
+  if (terminalEvent !== undefined) {
+    yield terminalEvent
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 async function collectCodexStream(

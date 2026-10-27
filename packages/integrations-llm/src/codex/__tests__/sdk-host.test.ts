@@ -212,6 +212,38 @@ describe("Codex SDK host process", () => {
     ])
   })
 
+  it("maps SDK host cleanup failure to a completed Codex failure", async () => {
+    const message =
+      'Could not remove the Codex working folder "/tmp/codex": cleanup access denied'
+    const harness = createServerHarness(async function* () {
+      yield { kind: "activity", label: "Contacting Codex." }
+      throw new Error(message)
+    })
+    const client = createCodexLlmTextClient(undefined, {
+      launch: harness.launch,
+    })
+
+    await assert.rejects(
+      () => client.generateText(request(codexSpec)),
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.context.provider === "codex" &&
+        error.context.outcome === "completed" &&
+        error.message === message,
+    )
+    assert.deepEqual(harness.facts, [
+      {
+        kind: "result",
+        result: {
+          message,
+          outcome: "failed",
+          value: { message, type: "sdk-host-error" },
+        },
+      },
+    ])
+  })
+
   it("cancels the Codex SDK host process request and confirms its tree", async () => {
     const started = Promise.withResolvers<void>()
     let sdkHostObservedCancellation = false

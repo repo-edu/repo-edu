@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs"
+import fs from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { delimiter, join } from "node:path"
 import {
@@ -35,6 +35,20 @@ export type ClaudeCliRunOptions = {
   trace?: TraceSink
   launch?: ClaudeCliLaunch
   executable?: string
+}
+
+type ClaudeCliInspectionFailure = {
+  readonly cause: unknown
+  readonly path: string
+}
+
+type ClaudeCliExecutableSearch = {
+  readonly candidates: readonly string[]
+  readonly failures: readonly ClaudeCliInspectionFailure[]
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function terminalResultMessage(result: ResultMessage): string {
@@ -145,7 +159,12 @@ export async function* runClaudeCliStream(
       signal: options.signal,
     })
   } catch (error) {
-    cleanupClaudeCliWorkingDirectory(workingDirectory)
+    try {
+      cleanupClaudeCliWorkingDirectory(workingDirectory)
+    } catch {
+      // The launch failure is the turn's primary outcome. Cleanup cannot
+      // replace it after no Claude process remains.
+    }
     if (error instanceof LlmError && error.context.outcome) throw error
     if (options.signal?.aborted || isAbortLikeError(error)) {
       throw claudeAbortError(error)
@@ -177,6 +196,7 @@ export async function* runClaudeCliStream(
   let resultReported = false
   let terminalEvent: LlmStreamEvent | undefined
   let outcome: ClaudeCliOutcome | undefined
+  let cleanupFailure: unknown
   try {
     await writePromptToChild(child.stdin, options.prompt)
     yield { kind: "activity", label: "Contacting Claude." }
@@ -229,7 +249,11 @@ export async function* runClaudeCliStream(
     }
     errorOutput = (await errorOutputSettled).trim()
     outcome = await child.outcome
-    cleanupClaudeCliWorkingDirectory(workingDirectory)
+    try {
+      cleanupClaudeCliWorkingDirectory(workingDirectory)
+    } catch (error) {
+      cleanupFailure = error
+    }
   }
 
   // The CLI runs without tools or a saved session. Once the controller confirms
@@ -261,6 +285,20 @@ export async function* runClaudeCliStream(
   if (outcome.outcome === "failed") {
     throw cliOutcomeError(outcome)
   }
+  if (cleanupFailure !== undefined) {
+    throw new LlmError(
+      "other",
+      `Could not remove the Claude CLI working folder "${workingDirectory}": ${errorMessage(cleanupFailure)}`,
+      {
+        cause: cleanupFailure,
+        context: {
+          provider: "claude",
+          authMode: "subscription",
+          outcome: "completed",
+        },
+      },
+    )
+  }
   if (terminalEvent !== undefined) {
     yield terminalEvent
   }
@@ -269,15 +307,39 @@ export async function* runClaudeCliStream(
 export function findClaudeCliExecutable(
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
-  for (const candidate of claudeExecutableCandidates(env)) {
-    if (isExecutableFile(candidate)) return candidate
+  const search = claudeExecutableCandidates(env)
+  let failure = search.failures[0]
+  for (const candidate of search.candidates) {
+    try {
+      if (isExecutableFile(candidate)) return candidate
+    } catch (cause) {
+      if (isMissingPathError(cause)) continue
+      failure ??= { cause, path: candidate }
+    }
+  }
+  if (failure !== undefined) {
+    throw new LlmError(
+      "other",
+      `Could not inspect the Claude CLI path "${failure.path}": ${errorMessage(failure.cause)}`,
+      {
+        cause: failure.cause,
+        context: {
+          provider: "claude",
+          authMode: "subscription",
+          outcome: "refused",
+        },
+      },
+    )
   }
   return null
 }
 
-function claudeExecutableCandidates(env: NodeJS.ProcessEnv): string[] {
+function claudeExecutableCandidates(
+  env: NodeJS.ProcessEnv,
+): ClaudeCliExecutableSearch {
   const names = process.platform === "win32" ? ["claude.exe"] : ["claude"]
   const candidates: string[] = []
+  const failures: ClaudeCliInspectionFailure[] = []
   for (const dir of (env.PATH ?? "").split(delimiter)) {
     if (dir.length === 0) continue
     for (const name of names) candidates.push(join(dir, name))
@@ -288,12 +350,12 @@ function claudeExecutableCandidates(env: NodeJS.ProcessEnv): string[] {
     for (const name of names) {
       candidates.push(join(home, ".local", "bin", name))
     }
-    candidates.push(
-      ...claudeVersionCandidates(
-        join(home, ".local", "share", "claude", "versions"),
-        names,
-      ),
+    const versions = claudeVersionCandidates(
+      join(home, ".local", "share", "claude", "versions"),
+      names,
     )
+    candidates.push(...versions.candidates)
+    failures.push(...versions.failures)
   }
 
   if (process.platform === "darwin") {
@@ -313,49 +375,52 @@ function claudeExecutableCandidates(env: NodeJS.ProcessEnv): string[] {
     }
   }
 
-  return [...new Set(candidates)]
+  return { candidates: [...new Set(candidates)], failures }
 }
 
 function claudeVersionCandidates(
   root: string,
   names: readonly string[],
-): string[] {
-  if (!existsSync(root)) return []
+): ClaudeCliExecutableSearch {
   try {
-    return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
-      if (!entry.isDirectory()) return []
-      return names.flatMap((name) => [
-        join(root, entry.name, name),
-        join(root, entry.name, "bin", name),
-      ])
-    })
-  } catch {
-    return []
+    return {
+      candidates: fs
+        .readdirSync(root, { withFileTypes: true })
+        .flatMap((entry) => {
+          if (!entry.isDirectory()) return []
+          return names.flatMap((name) => [
+            join(root, entry.name, name),
+            join(root, entry.name, "bin", name),
+          ])
+        }),
+      failures: [],
+    }
+  } catch (cause) {
+    if (isMissingPathError(cause)) return { candidates: [], failures: [] }
+    return { candidates: [], failures: [{ cause, path: root }] }
   }
 }
 
 function isExecutableFile(path: string): boolean {
-  try {
-    const stat = statSync(path)
-    if (!stat.isFile()) return false
-    if (process.platform === "win32") return true
-    return (stat.mode & 0o111) !== 0
-  } catch {
+  const stat = fs.statSync(path)
+  if (!stat.isFile()) return false
+  if (process.platform === "win32") return true
+  return (stat.mode & 0o111) !== 0
+}
+
+function isMissingPathError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
     return false
   }
+  return error.code === "ENOENT" || error.code === "ENOTDIR"
 }
 
 function createClaudeCliWorkingDirectory(): string {
-  return mkdtempSync(join(tmpdir(), "repo-edu-claude-"))
+  return fs.mkdtempSync(join(tmpdir(), "repo-edu-claude-"))
 }
 
 function cleanupClaudeCliWorkingDirectory(path: string): void {
-  try {
-    rmSync(path, { force: true, recursive: true })
-  } catch {
-    // Best-effort cleanup: Windows can refuse to delete a just-terminated
-    // process cwd until handles are fully released.
-  }
+  fs.rmSync(path, { force: true, recursive: true })
 }
 
 function removeWritableListener(

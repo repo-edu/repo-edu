@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
-import { existsSync } from "node:fs"
+import fs from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { delimiter, join } from "node:path"
 import { PassThrough, Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import {
@@ -26,6 +26,18 @@ const claudeSpec = {
   modelId: "claude-sonnet-4-6",
   effort: "max" as const,
 }
+
+function ioError(code: string, message: string): NodeJS.ErrnoException {
+  return Object.assign(new Error(message), { code })
+}
+
+const executableFileStat = {
+  isFile: () => true,
+  mode: 0o755,
+} as fs.Stats
+
+const claudeExecutableName =
+  process.platform === "win32" ? "claude.exe" : "claude"
 
 type FakeLaunchOptions = {
   stdinWriteError?: Error
@@ -245,6 +257,97 @@ describe("findClaudeCliExecutable", () => {
       null,
     )
   })
+
+  it("continues after a candidate inspection failure and finds a later executable", (t) => {
+    const home = join(tmpdir(), "repo-edu-claude-home")
+    const blockedDirectory = join(tmpdir(), "repo-edu-claude-blocked")
+    const foundDirectory = join(tmpdir(), "repo-edu-claude-found")
+    const blockedCandidate = join(blockedDirectory, claudeExecutableName)
+    const foundCandidate = join(foundDirectory, claudeExecutableName)
+    t.mock.method(fs, "readdirSync", (() => {
+      throw ioError("ENOENT", "versions folder is absent")
+    }) as typeof fs.readdirSync)
+    t.mock.method(fs, "statSync", ((path: fs.PathLike) => {
+      if (String(path) === blockedCandidate) {
+        throw ioError("EACCES", "candidate access denied")
+      }
+      if (String(path) === foundCandidate) return executableFileStat
+      throw ioError("ENOENT", "candidate is absent")
+    }) as typeof fs.statSync)
+
+    assert.equal(
+      findClaudeCliExecutable({
+        PATH: `${blockedDirectory}${delimiter}${foundDirectory}`,
+        HOME: home,
+      }),
+      foundCandidate,
+    )
+  })
+
+  it("refuses when a candidate inspection fails and no executable is found", (t) => {
+    const home = join(tmpdir(), "repo-edu-claude-home")
+    const blockedDirectory = join(tmpdir(), "repo-edu-claude-blocked")
+    const blockedCandidate = join(blockedDirectory, claudeExecutableName)
+    t.mock.method(fs, "readdirSync", (() => {
+      throw ioError("ENOENT", "versions folder is absent")
+    }) as typeof fs.readdirSync)
+    t.mock.method(fs, "statSync", ((path: fs.PathLike) => {
+      if (String(path) === blockedCandidate) {
+        throw ioError("EACCES", "candidate access denied")
+      }
+      throw ioError("ENOENT", "candidate is absent")
+    }) as typeof fs.statSync)
+
+    assert.throws(
+      () => findClaudeCliExecutable({ PATH: blockedDirectory, HOME: home }),
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.context.outcome === "refused" &&
+        error.message ===
+          `Could not inspect the Claude CLI path "${blockedCandidate}": candidate access denied`,
+    )
+  })
+
+  it("keeps searching when the versions folder cannot be inspected", (t) => {
+    const home = join(tmpdir(), "repo-edu-claude-home")
+    const foundDirectory = join(tmpdir(), "repo-edu-claude-found")
+    const foundCandidate = join(foundDirectory, claudeExecutableName)
+    const versions = join(home, ".local", "share", "claude", "versions")
+    t.mock.method(fs, "readdirSync", ((path: fs.PathLike) => {
+      assert.equal(String(path), versions)
+      throw ioError("EACCES", "versions access denied")
+    }) as typeof fs.readdirSync)
+    t.mock.method(fs, "statSync", ((path: fs.PathLike) => {
+      if (String(path) === foundCandidate) return executableFileStat
+      throw ioError("ENOENT", "candidate is absent")
+    }) as typeof fs.statSync)
+
+    assert.equal(
+      findClaudeCliExecutable({ PATH: foundDirectory, HOME: home }),
+      foundCandidate,
+    )
+  })
+
+  it("refuses when the versions folder cannot be inspected and no executable is found", (t) => {
+    const home = join(tmpdir(), "repo-edu-claude-home")
+    const versions = join(home, ".local", "share", "claude", "versions")
+    t.mock.method(fs, "readdirSync", ((path: fs.PathLike) => {
+      assert.equal(String(path), versions)
+      throw ioError("EACCES", "versions access denied")
+    }) as typeof fs.readdirSync)
+    t.mock.method(fs, "statSync", (() => {
+      throw ioError("ENOENT", "candidate is absent")
+    }) as typeof fs.statSync)
+
+    assert.throws(
+      () => findClaudeCliExecutable({ PATH: "", HOME: home }),
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.context.outcome === "refused" &&
+        error.message ===
+          `Could not inspect the Claude CLI path "${versions}": versions access denied`,
+    )
+  })
 })
 
 describe("runClaudeCliStream", () => {
@@ -276,7 +379,7 @@ describe("runClaudeCliStream", () => {
     assert.equal(calls[0]?.stdin, "Reply ok.")
     assert.equal(typeof calls[0]?.cwd, "string")
     assert.match(String(calls[0]?.cwd), /repo-edu-claude-/)
-    assert.equal(existsSync(String(calls[0]?.cwd)), false)
+    assert.equal(fs.existsSync(String(calls[0]?.cwd)), false)
     assert.equal(calls[0]?.env?.ANTHROPIC_API_KEY, undefined)
     assert.equal(calls[0]?.env?.SAFE, "1")
     assert.deepStrictEqual(
@@ -622,7 +725,51 @@ describe("runClaudeCliStream", () => {
         error.message ===
           "Could not start the Claude CLI: The child-process lifetime controller is stopped.",
     )
-    assert.equal(existsSync(String(workingFolder)), false)
+    assert.equal(fs.existsSync(String(workingFolder)), false)
+  })
+
+  it("reports cleanup failure after an otherwise successful turn", async (t) => {
+    const removeWorkingDirectory = fs.rmSync
+    const cleanupFailure = ioError("EACCES", "cleanup access denied")
+    const { launch, calls } = fakeLaunch([
+      '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
+    ])
+    t.mock.method(fs, "rmSync", () => {
+      throw cleanupFailure
+    })
+
+    try {
+      await assert.rejects(
+        async () => {
+          for await (const _event of runClaudeCliStream(
+            {
+              spec: claudeSpec,
+              prompt: "Reply ok.",
+              executable: "/bin/claude",
+              launch,
+            },
+            { authMode: "subscription", childEnv: {} },
+          )) {
+            // Drain stream.
+          }
+        },
+        (error: unknown) =>
+          error instanceof LlmError &&
+          error.kind === "other" &&
+          error.context.outcome === "completed" &&
+          error.cause === cleanupFailure &&
+          error.message.includes("cleanup access denied"),
+      )
+    } finally {
+      t.mock.restoreAll()
+      const workingDirectory = calls[0]?.cwd
+      if (typeof workingDirectory === "string") {
+        removeWorkingDirectory(workingDirectory, {
+          force: true,
+          recursive: true,
+        })
+      }
+    }
   })
 
   it("settles a stream line it cannot read as a known failure", async () => {

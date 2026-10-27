@@ -260,6 +260,46 @@ describe("createCodexRunnerTestClient — thread options snapshot", () => {
     }
   })
 
+  it("reports temporary-directory cleanup failure after a successful turn", async (t) => {
+    process.env[CODEX] = "k"
+    const removeTemporaryDirectory = fs.rm
+    const cleanupFailure = Object.assign(new Error("cleanup access denied"), {
+      code: "EACCES",
+    })
+    const { factory, calls } = createFakeCodex({
+      events: [
+        {
+          type: "item.completed",
+          item: { id: "1", type: "agent_message", text: "pong" },
+        },
+        completedTurn({ input_tokens: 1, output_tokens: 1 }),
+      ],
+    })
+    t.mock.method(fs, "rm", async () => {
+      throw cleanupFailure
+    })
+    const client = createCodexRunnerTestClient(undefined, factory)
+
+    try {
+      await assert.rejects(
+        () => client.generateText(request(codexSpec)),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.cause === cleanupFailure &&
+          error.message.includes("cleanup access denied"),
+      )
+    } finally {
+      t.mock.restoreAll()
+      const workingDirectory = calls[0]?.threadOptions.workingDirectory
+      if (workingDirectory) {
+        await removeTemporaryDirectory(workingDirectory, {
+          force: true,
+          recursive: true,
+        })
+      }
+    }
+  })
+
   it("maps usage: null to zero token counts and still reports wallMs", async () => {
     process.env[CODEX] = "k"
     const { factory } = createFakeCodex({
