@@ -65,6 +65,34 @@ describe("GitHub live request admission", () => {
     assert.equal(calls, 1)
   })
 
+  for (const status of [403, 429]) {
+    it(`stops the next mutation after a read returns ${status}`, async () => {
+      const { record, writes } = createMemoryRunRecord()
+      const admission = createGitHubIntegrationRequestAdmission({
+        runRecord: record,
+      })
+      let calls = 0
+
+      await assert.rejects(
+        admission.send("GET", async () => {
+          calls += 1
+          return { status }
+        }),
+        GitHubIntegrationRateLimitError,
+      )
+      await assert.rejects(
+        admission.send("POST", async () => {
+          calls += 1
+          return { status: 201 }
+        }),
+        GitHubIntegrationRateLimitError,
+      )
+
+      assert.equal(calls, 1)
+      assert.deepEqual(writes, [])
+    })
+  }
+
   it("records the run start at its first mutation only", async () => {
     const { record, writes } = createMemoryRunRecord(1_000_000)
     const admission = createGitHubIntegrationRequestAdmission({

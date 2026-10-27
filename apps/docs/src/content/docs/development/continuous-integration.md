@@ -75,9 +75,9 @@ instead of silently skipping a conditional step.
 A few small fixes removed recurring noise and drift from every run:
 
 - **pnpm version ownership.** The verified pnpm version lives in the root
-  `package.json` `packageManager` field (`pnpm@11.6.0`). `pnpm/action-setup`
-  reads it from there, so CI and local installs use the same pnpm and the
-  version is owned in exactly one place.
+  `package.json` `packageManager` field. `pnpm/action-setup` reads it from
+  there, so CI and local installs use the same pnpm and the version is owned in
+  exactly one place.
 - **Node 24 for actions.** `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` is set
   workspace-wide to run JavaScript actions on Node 24 and suppress the Node 20
   deprecation warnings the runners emit.

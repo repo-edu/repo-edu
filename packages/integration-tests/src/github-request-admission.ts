@@ -31,7 +31,7 @@ type RequestAdmissionOptions = {
 export class GitHubIntegrationRateLimitError extends Error {
   constructor(status: number) {
     super(
-      `GitHub refused a live-test mutation with ${status}; the suite stops to prevent further content creation.`,
+      `GitHub refused a live-test request with ${status}; the suite stops to prevent further content creation.`,
     )
     this.name = "GitHubIntegrationRateLimitError"
   }
@@ -96,6 +96,14 @@ export function createGitHubIntegrationRequestAdmission(
   let mutationCount = 0
   let mutationTail = Promise.resolve()
 
+  function acceptResponse<T extends StatusResponse>(response: T): T {
+    if (response.status === 403 || response.status === 429) {
+      terminalError = new GitHubIntegrationRateLimitError(response.status)
+      throw terminalError
+    }
+    return response
+  }
+
   function admitRunStart(startedAt: number): void {
     const previousStartedAt = runRecord.readStartedAt()
     if (
@@ -125,7 +133,7 @@ export function createGitHubIntegrationRequestAdmission(
       }
 
       if (!mutationMethods.has(method ?? "GET")) {
-        return await request()
+        return acceptResponse(await request())
       }
 
       let release: (() => void) | undefined
@@ -155,12 +163,7 @@ export function createGitHubIntegrationRequestAdmission(
 
         lastMutationAt = now()
         mutationCount += 1
-        const response = await request()
-        if (response.status === 403 || response.status === 429) {
-          terminalError = new GitHubIntegrationRateLimitError(response.status)
-          throw terminalError
-        }
-        return response
+        return acceptResponse(await request())
       } finally {
         release?.()
       }
