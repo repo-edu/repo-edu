@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
@@ -124,14 +124,43 @@ describe("createNodeFileSystemPort", () => {
     )
   })
 
-  it("reports a copy onto an existing folder as a known failure", async () => {
+  it("refuses a move when the destination appears after inspection", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
     const source = join(root, "source")
     const destination = join(root, "destination")
     await mkdir(source)
     await writeFile(join(source, "file.txt"), "source")
+
+    const fileSystemPort = createNodeFileSystemPort()
+    assert.deepStrictEqual(
+      await fileSystemPort.inspect({ paths: [destination] }),
+      [{ path: destination, kind: "missing" }],
+    )
     await mkdir(destination)
     await writeFile(join(destination, "file.txt"), "kept")
+
+    await assert.rejects(
+      fileSystemPort.applyBatch({
+        operations: [
+          {
+            kind: "move-directory",
+            sourcePath: source,
+            destinationPath: destination,
+          },
+        ],
+      }),
+      isKnownFailure,
+    )
+    assert.equal(await readFile(join(source, "file.txt"), "utf8"), "source")
+    assert.equal(await readFile(join(destination, "file.txt"), "utf8"), "kept")
+  })
+
+  it("leaves the destination absent when a move fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
+    const source = join(root, "source")
+    const destination = join(root, "missing-parent", "destination")
+    await mkdir(source)
+    await writeFile(join(source, "file.txt"), "source")
 
     const fileSystemPort = createNodeFileSystemPort()
 
@@ -139,13 +168,20 @@ describe("createNodeFileSystemPort", () => {
       fileSystemPort.applyBatch({
         operations: [
           {
-            kind: "copy-directory",
+            kind: "move-directory",
             sourcePath: source,
             destinationPath: destination,
           },
         ],
       }),
       isKnownFailure,
+    )
+    assert.deepStrictEqual(
+      await fileSystemPort.inspect({ paths: [source, destination] }),
+      [
+        { path: source, kind: "directory" },
+        { path: destination, kind: "missing" },
+      ],
     )
   })
 

@@ -107,12 +107,12 @@ describe("application repository clone workflow helpers", () => {
       plan.groups.length,
     )
 
-    const copyOperations = batchOperations.flat().filter((operation) => {
-      return operation.kind === "copy-directory"
+    const moveOperations = batchOperations.flat().filter((operation) => {
+      return operation.kind === "move-directory"
     })
-    assert.equal(copyOperations.length, plan.groups.length)
+    assert.equal(moveOperations.length, plan.groups.length)
     assert.deepStrictEqual(
-      new Set(copyOperations.map((operation) => operation.destinationPath)),
+      new Set(moveOperations.map((operation) => operation.destinationPath)),
       new Set(
         plannedRepositoryNames.map((repository) =>
           join(cloneTargetDirectory, repository),
@@ -235,7 +235,7 @@ describe("application repository clone workflow helpers", () => {
   })
 
   it("places each clone in its group's folder under the by-team layout", async () => {
-    const copied: string[] = []
+    const moved: string[] = []
     const { course, settings, handlers } = createRepoHarness({
       git: {
         resolveRepositoryCloneUrls: async (_draft, request) => ({
@@ -251,8 +251,8 @@ describe("application repository clone workflow helpers", () => {
           request.paths.map((path) => ({ path, kind: "missing" as const })),
         applyBatch: async (request) => {
           for (const operation of request.operations) {
-            if (operation.kind === "copy-directory")
-              copied.push(operation.destinationPath)
+            if (operation.kind === "move-directory")
+              moved.push(operation.destinationPath)
           }
           return { completed: [...request.operations] }
         },
@@ -271,7 +271,7 @@ describe("application repository clone workflow helpers", () => {
 
     assert.equal(cloneResult.repositoriesCloned, plan.groups.length)
     assert.deepStrictEqual(
-      copied.sort(),
+      moved.sort(),
       plan.groups
         .map((group) =>
           join(cloneTargetDirectory, group.groupName, group.repoName),
@@ -350,7 +350,7 @@ describe("application repository clone workflow helpers", () => {
     )
   })
 
-  it("does not copy into final destination when clone pull fails", async () => {
+  it("does not move into final destination when clone pull fails", async () => {
     const cloneCommands: string[][] = []
     const batchOperations: Array<Array<Record<string, string>>> = []
     let requestedRepositoryNames: string[] = []
@@ -420,10 +420,10 @@ describe("application repository clone workflow helpers", () => {
       plan.groups.length,
     )
     assert.equal(cloneCommands.filter((args) => args[0] === "remote").length, 0)
-    const copyOperations = batchOperations.flat().filter((operation) => {
-      return operation.kind === "copy-directory"
+    const moveOperations = batchOperations.flat().filter((operation) => {
+      return operation.kind === "move-directory"
     })
-    assert.deepStrictEqual(copyOperations, [])
+    assert.deepStrictEqual(moveOperations, [])
     assert.deepStrictEqual(
       new Set(requestedRepositoryNames),
       new Set(plan.groups.map((group) => group.repoName)),
@@ -603,7 +603,7 @@ function setUpClone(
 ) {
   const gitCalls: GitCall[] = []
   const deleted: string[] = []
-  const copied: string[] = []
+  const moved: string[] = []
   const warnings: string[] = []
   const { course, settings, handlers } = createRepoHarness({
     git: {
@@ -634,8 +634,8 @@ function setUpClone(
       applyBatch: async (request) => {
         for (const operation of request.operations) {
           if (operation.kind === "delete-path") deleted.push(operation.path)
-          if (operation.kind === "copy-directory")
-            copied.push(operation.destinationPath)
+          if (operation.kind === "move-directory")
+            moved.push(operation.destinationPath)
         }
         return (
           setup.applyBatch?.(request) ?? { completed: [...request.operations] }
@@ -670,7 +670,7 @@ function setUpClone(
     gitCalls,
     pulledFolders,
     deleted,
-    copied,
+    moved,
     warnings,
   }
 }
@@ -754,19 +754,20 @@ describe("repo.clone answers every outside call", () => {
     }
   })
 
-  it("removes the temporary checkout after a failed copy", async () => {
+  it("removes the temporary checkout when publication fails", async () => {
     const clone = setUpClone({
       applyBatch: (request) => {
-        if (request.operations[0]?.kind === "copy-directory")
-          throw knownPortFailure("EACCES: permission denied")
+        if (request.operations[0]?.kind === "move-directory")
+          throw knownPortFailure("Destination path already exists.")
         return undefined
       },
     })
 
     await assert.rejects(
       clone.run(),
-      hasDisposition("completed", "EACCES: permission denied"),
+      hasDisposition("completed", "Destination path already exists."),
     )
+    assert.equal(clone.moved.length, clone.planned)
     assert.ok(clone.pulledFolders().length > 0)
     for (const folder of clone.pulledFolders()) {
       assert.equal(clone.deleted.filter((path) => path === folder).length, 2)
@@ -800,7 +801,7 @@ describe("repo.clone answers every outside call", () => {
 
     assert.equal(result.repositoriesCloned, 0)
     assert.equal(result.repositoriesFailed, clone.planned)
-    assert.deepEqual(clone.copied, [])
+    assert.deepEqual(clone.moved, [])
     assert.equal(clone.warnings.length, clone.planned)
     assert.ok(
       clone.warnings.every((warning) =>
@@ -852,7 +853,7 @@ describe("repo.clone answers every outside call", () => {
     assert.equal(result.repositoriesCloned, 0)
     assert.equal(result.repositoriesFailed, clone.planned)
     assert.deepEqual(clone.gitCalls, [])
-    assert.deepEqual(clone.copied, [])
+    assert.deepEqual(clone.moved, [])
     assert.equal(clone.warnings.length, clone.planned)
     assert.ok(
       clone.warnings.every((warning) =>
@@ -861,30 +862,18 @@ describe("repo.clone answers every outside call", () => {
     )
   })
 
-  it("warns when a cloned temporary checkout cannot be removed", async () => {
-    const deleteCounts = new Map<string, number>()
-    const clone = setUpClone({
-      applyBatch: (request) => {
-        const operation = request.operations[0]
-        if (operation?.kind !== "delete-path") return undefined
-        const count = (deleteCounts.get(operation.path) ?? 0) + 1
-        deleteCounts.set(operation.path, count)
-        if (count === 2) throw knownPortFailure("EBUSY: resource busy")
-        return undefined
-      },
-    })
+  it("does not delete a checkout after publishing it", async () => {
+    const clone = setUpClone()
 
     const result = await clone.run()
 
     assert.equal(result.repositoriesCloned, clone.planned)
     assert.equal(result.repositoriesFailed, 0)
-    assert.equal(clone.copied.length, clone.planned)
-    assert.equal(clone.warnings.length, clone.planned)
-    assert.ok(
-      clone.warnings.every((warning) =>
-        warning.startsWith("Could not remove the temporary folder"),
-      ),
-    )
+    assert.equal(clone.moved.length, clone.planned)
+    assert.equal(clone.warnings.length, 0)
+    for (const folder of clone.pulledFolders()) {
+      assert.equal(clone.deleted.filter((path) => path === folder).length, 1)
+    }
   })
 
   it("passes on a target folder the host cannot inspect or create", async () => {

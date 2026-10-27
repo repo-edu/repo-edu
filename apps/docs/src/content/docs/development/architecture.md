@@ -105,7 +105,7 @@ in `@repo-edu/application`:
 - `ProcessPort` — OS process execution with cancellation modes (`non-cancellable`, `best-effort`,
   `cooperative`)
 - `GitCommandPort` — Git CLI invocation
-- `FileSystemPort` — inspect paths, batch operations (ensure-directory, copy-directory,
+- `FileSystemPort` — inspect paths, batch operations (ensure-directory, move-directory,
   delete-path), temp directories
 - `UserFilePort` — read/write user-selected files via opaque `UserFileRef` / `UserSaveTargetRef`
   handles

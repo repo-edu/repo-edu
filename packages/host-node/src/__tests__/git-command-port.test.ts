@@ -50,7 +50,7 @@ describe("createNodeGitCommandPort", () => {
         command: "git",
         args: ["log", "--follow", "--", "README.md"],
         cwd: "/tmp/repo-edu",
-        env: { GIT_TERMINAL_PROMPT: "0" },
+        env: { GIT_TERMINAL_PROMPT: "0", LC_ALL: "C" },
         stdinText: "stdin",
         stdoutEncoding: "base64",
         signal: abortController.signal,
@@ -62,6 +62,38 @@ describe("createNodeGitCommandPort", () => {
       stdout: "ok",
       stderr: "",
     })
+  })
+
+  it("adds the fixed locale to the host environment when none is supplied", async () => {
+    const hostVariable = "REPO_EDU_GIT_PORT_HOST_VARIABLE"
+    const previousValue = process.env[hostVariable]
+    process.env[hostVariable] = "host-value"
+    let receivedEnvironment: Readonly<Record<string, string>> | undefined
+    const processPort: ProcessPort = {
+      cancellation: "best-effort",
+      async run(request): Promise<ProcessResult> {
+        receivedEnvironment = request.env
+        return {
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }
+      },
+    }
+
+    try {
+      await createNodeGitCommandPort(processPort).run({ args: ["status"] })
+
+      assert.equal(receivedEnvironment?.[hostVariable], "host-value")
+      assert.equal(receivedEnvironment?.LC_ALL, "C")
+    } finally {
+      if (previousValue === undefined) {
+        delete process.env[hostVariable]
+      } else {
+        process.env[hostVariable] = previousValue
+      }
+    }
   })
 
   it("routes Git through one controller-owned tree", async () => {

@@ -190,8 +190,8 @@ describe("createNodeProcessPort", () => {
     try {
       await processPort.run({ command: "target", env: environment })
 
+      assert.equal(receivedEnvironment?.[hostOnlyName], undefined)
       assert.equal(receivedEnvironment, environment)
-      assert.equal(receivedEnvironment[hostOnlyName], undefined)
     } finally {
       if (previousHostValue === undefined) {
         delete process.env[hostOnlyName]

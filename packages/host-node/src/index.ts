@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs"
 import {
-  cp,
+  lstat,
   mkdir,
   mkdtemp,
   readdir,
   readFile,
   realpath,
+  rename,
   rm,
   stat,
 } from "node:fs/promises"
@@ -276,15 +277,16 @@ async function applyFileSystemOperation(operation: FileSystemBatchOperation) {
     return
   }
 
-  if (operation.kind === "copy-directory") {
-    // Without `verbatimSymlinks`, a relative link would point back into the
-    // source, which is often a temporary folder removed right after the copy.
-    await cp(operation.sourcePath, operation.destinationPath, {
-      recursive: true,
-      force: false,
-      errorOnExist: true,
-      verbatimSymlinks: true,
-    })
+  if (operation.kind === "move-directory") {
+    try {
+      await lstat(operation.destinationPath)
+      throw new Error(
+        `Destination path '${operation.destinationPath}' already exists.`,
+      )
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    }
+    await rename(operation.sourcePath, operation.destinationPath)
     return
   }
 

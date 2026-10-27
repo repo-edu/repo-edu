@@ -54,11 +54,11 @@ describe("host-runtime-contract", () => {
     assert.equal(kinds.length, 3)
   })
 
-  it("FileSystemBatchOperation covers ensure-directory, copy-directory, and delete-path", () => {
+  it("FileSystemBatchOperation covers ensure-directory, move-directory, and delete-path", () => {
     const ops: FileSystemBatchOperation[] = [
       { kind: "ensure-directory", path: "/tmp/test" },
       {
-        kind: "copy-directory",
+        kind: "move-directory",
         sourcePath: "/tmp/a",
         destinationPath: "/tmp/b",
       },
@@ -66,7 +66,7 @@ describe("host-runtime-contract", () => {
     ]
     assert.equal(ops.length, 3)
     assert.equal(ops[0].kind, "ensure-directory")
-    assert.equal(ops[1].kind, "copy-directory")
+    assert.equal(ops[1].kind, "move-directory")
     assert.equal(ops[2].kind, "delete-path")
   })
 

@@ -15,10 +15,11 @@ its port interface.
   full process tree
 - `createNodeGitCommandPort(processPort)` — `GitCommandPort` wrapping the
   controller-backed production port or an injected test port; it calls system
-  `git`
+  `git` with the fixed C locale used by result parsing
 - `createNodeFileSystemPort()` — `FileSystemPort` using `node:fs/promises`
   (inspect/stat, batch operations, temp directories, directory/file listing and
-  contained reads). A directory copy keeps each link's target text unchanged.
+  contained reads). A directory move refuses an existing destination before it
+  publishes the source.
 - `createNodeLlmPort(childProcessLifetimeController, config?)` — `LlmPort` that
   delegates to the `createLlmTextClient` dispatcher in
   `@repo-edu/integrations-llm` and gives subscription Claude the shared

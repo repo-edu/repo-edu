@@ -127,7 +127,7 @@ describe("application repository bulk clone validation", () => {
   it("clones through the shared clone execution, counts missing repositories as failed and records nothing", async () => {
     const targetDirectory = join(tmpdir(), "repo-edu-bulk-clone-target")
     const pulled: string[] = []
-    const copied: string[] = []
+    const moved: string[] = []
     const { settings, handlers } = createRepoHarness({
       git: {
         resolveRepositoryCloneUrls: async () => ({
@@ -153,8 +153,8 @@ describe("application repository bulk clone validation", () => {
           request.paths.map((path) => ({ path, kind: "missing" as const })),
         applyBatch: async (request) => {
           for (const operation of request.operations) {
-            if (operation.kind === "copy-directory")
-              copied.push(operation.destinationPath)
+            if (operation.kind === "move-directory")
+              moved.push(operation.destinationPath)
           }
           return { completed: [...request.operations] }
         },
@@ -178,6 +178,6 @@ describe("application repository bulk clone validation", () => {
     assert.deepEqual(pulled, [
       "https://x-access-token:token-1@github.com/course-group/lab-1.git",
     ])
-    assert.deepEqual(copied, [join(targetDirectory, "lab-1")])
+    assert.deepEqual(moved, [join(targetDirectory, "lab-1")])
   })
 })

@@ -174,14 +174,13 @@ export async function runRepositoryClones<
           await ports.fileSystem.applyBatch({
             operations: [
               {
-                kind: "copy-directory",
+                kind: "move-directory",
                 sourcePath: tempPath,
                 destinationPath: target.path,
               },
             ],
             signal,
           })
-          await removeTemporaryFolder(ports, tempPath, onOutput)
           return "cloned" as const
         }
         await removeTemporaryFolder(ports, tempPath, onOutput)

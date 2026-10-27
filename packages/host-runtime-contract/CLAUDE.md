@@ -11,7 +11,7 @@ Defines the interfaces and request/result shapes for:
   `best-effort` | `cooperative`)
 - `GitCommandPort` — git CLI invocation
 - `FileSystemPort` — inspect/stat, batch operations (ensure-directory,
-  copy-directory, delete-path), temp directories, directory/file listing and
+  move-directory, delete-path), temp directories, directory/file listing and
   bounded reads inside a selected root
 - `UserFilePort` — user file read/write via `UserFileRef` / `UserSaveTargetRef`
 - `LlmPort` — provider-neutral run and stream operations over `LlmModelSpec`,

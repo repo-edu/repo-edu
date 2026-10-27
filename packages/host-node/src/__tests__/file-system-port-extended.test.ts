@@ -1,12 +1,12 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, readlink, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import { createNodeFileSystemPort } from "../index.js"
 
 describe("createNodeFileSystemPort (extended)", () => {
-  it("copy-directory copies a directory recursively", async () => {
+  it("move-directory publishes a complete directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
     const source = join(root, "source")
     const destination = join(root, "destination")
@@ -20,7 +20,7 @@ describe("createNodeFileSystemPort (extended)", () => {
     const result = await fs.applyBatch({
       operations: [
         {
-          kind: "copy-directory",
+          kind: "move-directory",
           sourcePath: source,
           destinationPath: destination,
         },
@@ -28,42 +28,19 @@ describe("createNodeFileSystemPort (extended)", () => {
     })
 
     assert.equal(result.completed.length, 1)
-    assert.equal(result.completed[0].kind, "copy-directory")
+    assert.equal(result.completed[0].kind, "move-directory")
 
     const inspection = await fs.inspect({
       paths: [
+        source,
         join(destination, "file.txt"),
         join(destination, "subdir", "nested.txt"),
       ],
     })
 
-    assert.equal(inspection[0].kind, "file")
+    assert.equal(inspection[0].kind, "missing")
     assert.equal(inspection[1].kind, "file")
-  })
-
-  it("copy-directory keeps a relative link unchanged", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
-    const source = join(root, "source")
-    const destination = join(root, "destination")
-    await mkdir(join(source, "subdir"), { recursive: true })
-    await writeFile(join(source, "file.txt"), "content")
-    await symlink(join("..", "file.txt"), join(source, "subdir", "link"))
-
-    const fs = createNodeFileSystemPort()
-    await fs.applyBatch({
-      operations: [
-        {
-          kind: "copy-directory",
-          sourcePath: source,
-          destinationPath: destination,
-        },
-      ],
-    })
-
-    assert.equal(
-      await readlink(join(destination, "subdir", "link")),
-      await readlink(join(source, "subdir", "link")),
-    )
+    assert.equal(inspection[2].kind, "file")
   })
 
   it("createTempDirectory creates a temporary directory with the given prefix", async () => {

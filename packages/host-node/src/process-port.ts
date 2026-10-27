@@ -26,6 +26,19 @@ function completeEnvironment(
   return environment ?? process.env
 }
 
+function completeGitEnvironment(
+  environment: Readonly<Record<string, string>> | undefined,
+): Record<string, string> {
+  const base =
+    environment ??
+    Object.fromEntries(
+      Object.entries(process.env).filter(
+        (entry): entry is [string, string] => entry[1] !== undefined,
+      ),
+    )
+  return { ...base, LC_ALL: "C" }
+}
+
 async function collectOutput(
   stream: Readable,
   encoding: ProcessOutputEncoding,
@@ -161,7 +174,7 @@ export function createNodeGitCommandPort(
         command: "git",
         args: request.args,
         cwd: request.cwd,
-        env: request.env,
+        env: completeGitEnvironment(request.env),
         stdinText: request.stdinText,
         stdoutEncoding: request.stdoutEncoding,
         signal: request.signal,
