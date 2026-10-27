@@ -178,6 +178,37 @@ describe("github branch-review", () => {
       )
     })
 
+    it("reports a refused file delete as a known failure", async () => {
+      const http = createMockHttpPort([
+        refCreated,
+        fileOnBranch("old.txt", "old-blob"),
+        {
+          method: "DELETE",
+          urlPattern: `${route}/contents/old.txt`,
+          status: 409,
+          body: {
+            message: "old.txt does not match old-blob",
+            status: "409",
+          },
+        },
+      ])
+
+      await assert.rejects(
+        createGitHubClient(http).createBranch(baseDraft, {
+          ...branchRequest,
+          files: [
+            {
+              path: "old.txt",
+              previousPath: null,
+              status: "removed",
+              contentBase64: null,
+            },
+          ],
+        }),
+        { type: "git-effect", disposition: "completed" },
+      )
+    })
+
     it("refuses to write over a path that is not a plain file", async () => {
       const entries: unknown[] = [
         [{ type: "file", name: "a.md", path: "README.md/a.md", sha: "x" }],
