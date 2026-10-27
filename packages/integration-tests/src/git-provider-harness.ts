@@ -15,7 +15,6 @@ export type GitProviderHarness = {
   label: string
   missingConfiguration: readonly string[]
   supportsUserProvisioning: boolean
-  assertTeamMemberAssignments: boolean
   fixtureGitUsernames: readonly string[]
   ensureReady(): Promise<void>
   getConnectionDraft(): GitConnectionDraft
@@ -29,7 +28,6 @@ export type GitProviderHarness = {
     repoName: string,
     options?: { autoInit?: boolean },
   ): Promise<void>
-  deleteOrganizationRepository(orgName: string, repoName: string): Promise<void>
   readRepositoryFile(
     orgName: string,
     repoName: string,

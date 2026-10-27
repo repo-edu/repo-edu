@@ -169,6 +169,52 @@ for (const fixture of runFixtures()) {
         null,
       )
 
+      const renamedSummaryPath = "feedback/renamed-summary.txt"
+      await client.createBranch(draft, {
+        ...branchRequest,
+        files: [
+          {
+            path: renamedSummaryPath,
+            previousPath: "feedback/summary.txt",
+            status: "renamed",
+            contentBase64: Buffer.from(summary).toString("base64"),
+          },
+          {
+            path: "README.md",
+            previousPath: null,
+            status: "removed",
+            contentBase64: null,
+          },
+        ],
+      })
+      assert.equal(
+        await harness.readRepositoryFile(
+          organization,
+          repositoryName,
+          branchName,
+          "README.md",
+        ),
+        null,
+      )
+      assert.equal(
+        await harness.readRepositoryFile(
+          organization,
+          repositoryName,
+          branchName,
+          "feedback/summary.txt",
+        ),
+        null,
+      )
+      assert.equal(
+        await harness.readRepositoryFile(
+          organization,
+          repositoryName,
+          branchName,
+          renamedSummaryPath,
+        ),
+        summary,
+      )
+
       await client.createBranch(draft, { ...branchRequest, files: [] })
       await assert.rejects(
         client.createBranch(draft, {

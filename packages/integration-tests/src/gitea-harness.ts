@@ -225,7 +225,6 @@ export function createGiteaHarness(): GitProviderHarness {
     label: "Gitea",
     missingConfiguration: baseUrl === "" ? ["INTEGRATION_GITEA_URL"] : [],
     supportsUserProvisioning: true,
-    assertTeamMemberAssignments: true,
     fixtureGitUsernames: [],
     async ensureReady() {
       await ensureGiteaReady(baseUrl)
@@ -377,24 +376,6 @@ export function createGiteaHarness(): GitProviderHarness {
       if (createResult.status !== 201 && createResult.status !== 409) {
         throw new Error(
           `Failed to create repo '${orgName}/${repoName}' (${createResult.status}).`,
-        )
-      }
-    },
-    async deleteOrganizationRepository(
-      orgName: string,
-      repoName: string,
-    ): Promise<void> {
-      const { status, data } = await giteaFetch(
-        baseUrl,
-        `/repos/${orgName}/${repoName}`,
-        {
-          method: "DELETE",
-          auth: getAdminAuth(),
-        },
-      )
-      if (status !== 204 && status !== 404) {
-        throw new Error(
-          `Failed to delete repo '${orgName}/${repoName}' (${status}): ${JSON.stringify(data)}`,
         )
       }
     },

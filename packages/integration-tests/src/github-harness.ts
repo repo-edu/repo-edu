@@ -109,7 +109,6 @@ export function createGitHubHarness(): GitProviderHarness {
       ...(organization === "" ? ["INTEGRATION_GITHUB_ORG"] : []),
     ],
     supportsUserProvisioning: false,
-    assertTeamMemberAssignments: true,
     fixtureGitUsernames,
     async ensureReady() {
       const rateLimit = await githubFetch(apiBase, token, "/rate_limit")
@@ -239,22 +238,6 @@ export function createGitHubHarness(): GitProviderHarness {
       if (create.status !== 201 && create.status !== 422) {
         throw new Error(
           `Failed to create GitHub repository '${orgName}/${repoName}' (${create.status}): ${JSON.stringify(create.data)}`,
-        )
-      }
-    },
-    async deleteOrganizationRepository(
-      orgName: string,
-      repoName: string,
-    ): Promise<void> {
-      const remove = await githubFetch(
-        apiBase,
-        token,
-        `/repos/${orgName}/${repoName}`,
-        { method: "DELETE" },
-      )
-      if (remove.status !== 204 && remove.status !== 404) {
-        throw new Error(
-          `Failed to delete GitHub repository '${orgName}/${repoName}' (${remove.status}): ${JSON.stringify(remove.data)}`,
         )
       }
     },

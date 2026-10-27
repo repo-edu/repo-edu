@@ -16,7 +16,6 @@ function createHarness(
     label: provider,
     missingConfiguration: [],
     supportsUserProvisioning: false,
-    assertTeamMemberAssignments: false,
     fixtureGitUsernames: [],
     async ensureReady() {
       if (options.readyFailure !== undefined) {
@@ -40,7 +39,6 @@ function createHarness(
     async seedUsers() {},
     async seedTemplateRepository() {},
     async seedOrganizationRepository() {},
-    async deleteOrganizationRepository() {},
     async readRepositoryFile() {
       return null
     },

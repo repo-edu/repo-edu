@@ -376,7 +376,6 @@ export function createGitLabHarness(): GitProviderHarness {
       ...(adminToken === "" ? ["INTEGRATION_GITLAB_TOKEN"] : []),
     ],
     supportsUserProvisioning: true,
-    assertTeamMemberAssignments: true,
     fixtureGitUsernames: [],
     async ensureReady() {
       await waitForGitLab(host, adminToken)
@@ -589,46 +588,6 @@ export function createGitLabHarness(): GitProviderHarness {
       }
 
       await waitForGitLabCloneEndpoint(host, getTeacherToken(), projectPath)
-    },
-    async deleteOrganizationRepository(
-      orgName: string,
-      repoName: string,
-    ): Promise<void> {
-      const projectPath = `${orgName}/${repoName}`
-      const remove = await gitLabFetch(
-        host,
-        adminToken,
-        `/projects/${encodeURIComponent(projectPath)}`,
-        { method: "DELETE" },
-      )
-      if (
-        remove.status !== 202 &&
-        remove.status !== 200 &&
-        remove.status !== 204 &&
-        remove.status !== 404
-      ) {
-        throw new Error(
-          `Failed to delete GitLab project '${projectPath}' (${remove.status}): ${JSON.stringify(remove.data)}`,
-        )
-      }
-      // GitLab schedules project deletion asynchronously; poll until the
-      // project actually disappears so the next create runs against a
-      // freshly-empty slot rather than racing the background job.
-      const maxAttempts = 20
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        const check = await gitLabFetch(
-          host,
-          adminToken,
-          `/projects/${encodeURIComponent(projectPath)}`,
-        )
-        if (check.status === 404) {
-          return
-        }
-        await sleep(500)
-      }
-      throw new Error(
-        `GitLab project '${projectPath}' still present after delete poll timeout.`,
-      )
     },
     async readRepositoryFile(
       orgName: string,
