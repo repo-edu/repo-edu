@@ -479,7 +479,7 @@ describe("CLI workflow-backed behaviors", () => {
     assert.deepEqual(calls, ["save"])
   })
 
-  it("clears a stale template baseline when Create reports incomplete repositories", async () => {
+  it("keeps a template baseline when Create reports no replacement", async () => {
     const course = makeProfile()
     const assignment = course.roster.assignments[0]
     assert.ok(assignment)
@@ -496,7 +496,7 @@ describe("CLI workflow-backed behaviors", () => {
         repositoriesCreated: 2,
         repositoriesAdopted: 0,
         repositoriesFailed: 0,
-        templateCommitShas: { a1: null },
+        templateCommitShas: {},
         recordedRepositories: {},
         completedAt: "2026-09-06T12:00:00.000Z",
       }),
@@ -523,7 +523,7 @@ describe("CLI workflow-backed behaviors", () => {
     assert.equal(result.exitCode, 0)
     assert.equal(
       savedCourse?.roster.assignments[0]?.templateCommitSha,
-      undefined,
+      "old-template-sha",
     )
   })
 

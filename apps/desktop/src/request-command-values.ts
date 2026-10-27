@@ -59,7 +59,7 @@ export const commandValueSchemas = {
       repositoriesCreated: count,
       repositoriesAdopted: count,
       repositoriesFailed: count,
-      templateCommitShas: z.record(z.string(), z.string().nullable()),
+      templateCommitShas: z.record(z.string(), z.string()),
       recordedRepositories: repositories,
       completedAt: z.string(),
     }),

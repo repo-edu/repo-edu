@@ -215,7 +215,7 @@ export type RepositoryCreateResult = {
   repositoriesCreated: number
   repositoriesAdopted: number
   repositoriesFailed: number
-  templateCommitShas: Record<string, string | null>
+  templateCommitShas: Record<string, string>
   recordedRepositories: RecordedRepositoriesByAssignment
   completedAt: string
 }

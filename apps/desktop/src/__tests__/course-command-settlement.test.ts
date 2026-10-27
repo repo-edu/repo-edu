@@ -370,7 +370,7 @@ it("refuses a partial course settlement on the wire", () => {
   )
 })
 
-it("admits an explicit Create baseline removal on the wire", () => {
+it("refuses an explicit Create baseline removal on the wire", () => {
   const course = makeCourse("course")
   assert.equal(
     commandPayloadSchemas("repo.create").settlement.safeParse({
@@ -392,7 +392,7 @@ it("admits an explicit Create baseline removal on the wire", () => {
       },
       authoritative: { course },
     }).success,
-    true,
+    false,
   )
 })
 

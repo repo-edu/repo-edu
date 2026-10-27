@@ -291,7 +291,7 @@ export function createRepoCreateHandler(
           label: "Pushing template content to repositories.",
         })
 
-        const templateCommitShas: Record<string, string | null> = {}
+        const templateCommitShas: Record<string, string> = {}
         const acceptedRepositoriesByName = new Map(
           created
             .concat(alreadyExisted)
@@ -326,9 +326,6 @@ export function createRepoCreateHandler(
             },
           )
           if (acceptedRepositories.length === 0) {
-            for (const assignmentId of batchAssignmentIds) {
-              templateCommitShas[assignmentId] = null
-            }
             continue
           }
 
@@ -402,14 +399,10 @@ export function createRepoCreateHandler(
             const assignmentEntries = plannedWithTemplates.value.filter(
               (entry) => entry.group.assignmentId === assignmentId,
             )
-            const everyRepositoryPopulated = assignmentEntries.every((entry) =>
+            const anyRepositoryPopulated = assignmentEntries.some((entry) =>
               populatedRepositoryNames.has(entry.group.repoName),
             )
-            if (!everyRepositoryPopulated) {
-              templateCommitShas[assignmentId] = null
-              continue
-            }
-            if (population === null) continue
+            if (population === null || !anyRepositoryPopulated) continue
 
             const assignment = course.roster.assignments.find(
               (item) => item.id === assignmentId,
