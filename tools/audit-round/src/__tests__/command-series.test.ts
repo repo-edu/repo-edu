@@ -661,7 +661,11 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
     call.prompt.startsWith("Run the audit phase "),
   )
   assert.equal(audits.length, 2)
-  assert.ok(audits[1].prompt.includes(widening))
+  const argumentsLine = /^Phase arguments \(JSON array\): (.+)$/m.exec(
+    audits[1].prompt,
+  )
+  assert.ok(argumentsLine)
+  assert.equal((JSON.parse(argumentsLine[1]) as string[])[1], widening)
 })
 
 test("an automatic series stops at its configured maximum", async (t) => {

@@ -435,7 +435,10 @@ test("settle commits only the widening rename through hooks and then leaves its 
   assert.equal(await readFile(hook, "utf8"), "ran\n")
   const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
     .stdout
-  assert.match(f.visible.at(-1) ?? "", new RegExp(`${head}.*${marker}`, "s"))
+  assert.equal(
+    f.visible.at(-1),
+    `Committed ${head}: example/settle: settle the plan's shape\nMarker: ${marker}`,
+  )
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
