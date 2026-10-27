@@ -505,6 +505,25 @@ export function createGitLabHarness(): GitProviderHarness {
         }
       }
     },
+    async blockUser(username: string): Promise<void> {
+      const userId = await findUserId(host, adminToken, username)
+      if (userId === null) {
+        throw new Error(`GitLab user '${username}' was not found.`)
+      }
+      const block = await gitLabFetch(
+        host,
+        adminToken,
+        `/users/${userId}/block`,
+        {
+          method: "POST",
+        },
+      )
+      if (block.status !== 201) {
+        throw new Error(
+          `Failed to block GitLab user '${username}' (${block.status}): ${JSON.stringify(block.data)}`,
+        )
+      }
+    },
     async seedTemplateRepository(
       orgName: string,
       repoName: string,

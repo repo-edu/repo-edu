@@ -3,7 +3,7 @@ import { spec } from "node:test/reporters"
 import { fileURLToPath } from "node:url"
 import { selectedGitProviders } from "./git-provider-harness.js"
 import { githubLiveRunMutationsSent } from "./github-request-admission.js"
-import { removeRunFixtures, seedRunFixtures } from "./run-fixture.js"
+import { runWithRunFixtures } from "./run-fixture.js"
 
 /** The live suite's entry. It seeds the run fixture, runs the five live test
  * files in this process so they share that fixture and one GitHub admission
@@ -33,14 +33,11 @@ async function runLiveTestFiles(): Promise<boolean> {
 }
 
 try {
-  await seedRunFixtures()
-  try {
+  await runWithRunFixtures(async () => {
     if (await runLiveTestFiles()) {
       process.exitCode = 1
     }
-  } finally {
-    await removeRunFixtures()
-  }
+  })
 } finally {
   if (selectedGitProviders().includes("github")) {
     console.log(

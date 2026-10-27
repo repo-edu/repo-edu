@@ -84,19 +84,45 @@ async function seedRunFixture(
   }
 }
 
-export async function seedRunFixtures(): Promise<void> {
-  for (const harness of resolveHarnessesFromEnvironment()) {
+async function seedRunFixtures(
+  harnesses: readonly GitProviderHarness[],
+): Promise<void> {
+  for (const harness of harnesses) {
     const fixture = await seedRunFixture(harness)
     fixtures.set(fixture.harness.getConnectionDraft().provider, fixture)
   }
 }
 
-export async function removeRunFixtures(): Promise<void> {
+async function removeRunFixtures(): Promise<void> {
+  let firstFailure: unknown
+  let failed = false
   for (const fixture of fixtures.values()) {
-    await fixture.harness.cleanupOrganization(
-      fixture.organization,
-      fixture.resourcePrefix,
-    )
+    try {
+      await fixture.harness.cleanupOrganization(
+        fixture.organization,
+        fixture.resourcePrefix,
+      )
+    } catch (error) {
+      if (!failed) {
+        failed = true
+        firstFailure = error
+      }
+    }
   }
   fixtures.clear()
+  if (failed) {
+    throw firstFailure
+  }
+}
+
+export async function runWithRunFixtures<T>(
+  body: () => Promise<T>,
+  harnesses: readonly GitProviderHarness[] = resolveHarnessesFromEnvironment(),
+): Promise<T> {
+  try {
+    await seedRunFixtures(harnesses)
+    return await body()
+  } finally {
+    await removeRunFixtures()
+  }
 }

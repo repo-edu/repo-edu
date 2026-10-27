@@ -15,7 +15,7 @@
     "tsx": "^4.21.0"
   },
   "scripts": {
-    "test": "node --import tsx --test src/github-request-admission.test.ts",
+    "test": "node --import tsx --test src/github-request-admission.test.ts src/run-fixture.test.ts",
     "test:integration": "sh ./scripts/run-integration-tests.sh",
     "test:integration:gitea": "INTEGRATION_GIT_PROVIDERS=gitea pnpm run test:integration",
     "test:integration:gitlab": "INTEGRATION_GIT_PROVIDERS=gitlab pnpm run test:integration",

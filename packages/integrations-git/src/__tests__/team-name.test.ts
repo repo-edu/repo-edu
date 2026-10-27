@@ -3,6 +3,18 @@ import { describe, it } from "node:test"
 import { buildTeamName } from "../team-name.js"
 
 describe("buildTeamName", () => {
+  it("keeps the base letters of accented group names", () => {
+    assert.equal(
+      buildTeamName({
+        organization: "course-org",
+        courseId: "course-1",
+        groupId: "group-1",
+        groupName: "Équipe Été",
+      }),
+      "team-equipe-ete-636f757273652d31-group-1",
+    )
+  })
+
   it("keeps the complete provider team path within 255 characters", () => {
     const organization = "course-org"
     const courseId = "c".repeat(21)

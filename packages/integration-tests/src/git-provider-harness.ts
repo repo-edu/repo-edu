@@ -22,6 +22,7 @@ export type GitProviderHarness = {
   createOrganization(orgName: string): Promise<string>
   cleanupOrganization(orgName: string, resourcePrefix: string): Promise<void>
   seedUsers(usernames: string[]): Promise<void>
+  blockUser?(username: string): Promise<void>
   seedTemplateRepository(orgName: string, repoName: string): Promise<void>
   seedOrganizationRepository(
     orgName: string,

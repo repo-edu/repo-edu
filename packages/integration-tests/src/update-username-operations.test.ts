@@ -47,17 +47,34 @@ for (const fixture of runFixtures()) {
     it("reads present and absent username replies", async () => {
       const resourcePrefix = createIntegrationResourcePrefix()
       const username = presentUsername(harness, resourcePrefix)
+      const blockedUsername = `${resourcePrefix}-blocked`
       if (harness.supportsUserProvisioning) {
-        await harness.seedUsers([username])
+        await harness.seedUsers([
+          username,
+          ...(draft.provider === "gitlab" ? [blockedUsername] : []),
+        ])
+      }
+      if (draft.provider === "gitlab") {
+        assert.ok(harness.blockUser !== undefined)
+        await harness.blockUser(blockedUsername)
       }
       const absentUsername = `${resourcePrefix}-absent`
 
+      const expected = [
+        { username, exists: true },
+        { username: absentUsername, exists: false },
+      ]
+      if (draft.provider === "gitlab") {
+        expected.push({ username: blockedUsername, exists: false })
+      }
+
       assert.deepEqual(
-        await client.verifyGitUsernames(draft, [username, absentUsername]),
-        [
-          { username, exists: true },
-          { username: absentUsername, exists: false },
-        ],
+        await client.verifyGitUsernames(draft, [
+          username,
+          absentUsername,
+          ...(draft.provider === "gitlab" ? [blockedUsername] : []),
+        ]),
+        expected,
       )
     })
 
