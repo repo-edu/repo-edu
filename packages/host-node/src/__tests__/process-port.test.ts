@@ -166,6 +166,41 @@ describe("createNodeProcessPort", () => {
     )
   })
 
+  it("passes a supplied environment unchanged", async () => {
+    const hostOnlyName = "REPO_EDU_PROCESS_PORT_HOST_ONLY"
+    const previousHostValue = process.env[hostOnlyName]
+    process.env[hostOnlyName] = "host-value"
+    const environment = { REPO_EDU_PROCESS_PORT_TARGET_ONLY: "target-value" }
+    let receivedEnvironment: Readonly<NodeJS.ProcessEnv> | undefined
+    const processPort = createAdapterProcessPort({
+      async launch(request) {
+        receivedEnvironment = request.env
+        return {
+          stdin: new PassThrough(),
+          stdout: new PassThrough().end(),
+          stderr: new PassThrough().end(),
+          result: Promise.resolve({ exitCode: 0, signal: null }),
+          async stopAndConfirm() {
+            return { outcome: "confirmed" as const }
+          },
+        }
+      },
+    })
+
+    try {
+      await processPort.run({ command: "target", env: environment })
+
+      assert.equal(receivedEnvironment, environment)
+      assert.equal(receivedEnvironment[hostOnlyName], undefined)
+    } finally {
+      if (previousHostValue === undefined) {
+        delete process.env[hostOnlyName]
+      } else {
+        process.env[hostOnlyName] = previousHostValue
+      }
+    }
+  })
+
   it("settles a lost result proof as an unknown outcome", async () => {
     const processPort = createAdapterProcessPort({
       async launch() {

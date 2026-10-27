@@ -66,6 +66,7 @@ function setUpUpdate(
   const gitCalls: GitCall[] = []
   const deleted: string[] = []
   const branchFiles: PatchFile[][] = []
+  const branchNames: string[] = []
   const warnings: string[] = []
   const { course, settings, handlers } = createRepoHarness({
     git: {
@@ -82,6 +83,7 @@ function setUpUpdate(
       }),
       createBranch: async (_draft, request) => {
         branchFiles.push(request.files)
+        branchNames.push(request.branchName)
       },
       ...setup.git,
     },
@@ -138,7 +140,16 @@ function setUpUpdate(
       },
     })
   const commands = () => gitCalls.map((call) => call.args[0])
-  return { input, run, gitCalls, commands, deleted, branchFiles, warnings }
+  return {
+    input,
+    run,
+    gitCalls,
+    commands,
+    deleted,
+    branchFiles,
+    branchNames,
+    warnings,
+  }
 }
 
 function refusalIssues(error: unknown): string[] {
@@ -185,6 +196,7 @@ describe("repo.update reads template changes through local Git", () => {
         contentBase64: Buffer.from("updated").toString("base64"),
       },
     ])
+    assert.equal(update.branchNames[0], "template-update-new-template-sha")
     assert.deepEqual(update.deleted, [templateCheckoutPath])
   })
 

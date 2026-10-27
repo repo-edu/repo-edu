@@ -324,7 +324,7 @@ export function createRepoUpdateHandler(
           })
         }
 
-        const branchName = `template-update-${currentSha.slice(0, 7)}`
+        const branchName = `template-update-${currentSha}`
         const commitMessage = `Template update ${fromSha.slice(0, 7)} -> ${currentSha.slice(0, 7)}`
         const prTitle = "Template update"
         const prBody = formatTemplateUpdateBody(

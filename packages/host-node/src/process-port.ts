@@ -21,9 +21,9 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
 }
 
 function completeEnvironment(
-  overrides: Readonly<Record<string, string>> | undefined,
+  environment: Readonly<Record<string, string>> | undefined,
 ): NodeJS.ProcessEnv {
-  return { ...process.env, ...overrides }
+  return environment ?? process.env
 }
 
 async function collectOutput(
