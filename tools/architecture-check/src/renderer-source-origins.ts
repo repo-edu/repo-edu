@@ -97,6 +97,28 @@ const queryReturns = new Map([
   ["query.MutationObserver", "mutationObserver"],
 ])
 
+function isIdentitySelector(node: ts.CallExpression): boolean {
+  const selector = node.arguments[0]
+  if (selector === undefined) return true
+  const callback = unwrap(selector)
+  if (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback))
+    return false
+  const parameter = callback.parameters[0]?.name
+  if (!parameter || !ts.isIdentifier(parameter)) return false
+  const returned = ts.isBlock(callback.body)
+    ? callback.body.statements.length === 1 &&
+      ts.isReturnStatement(callback.body.statements[0])
+      ? callback.body.statements[0].expression
+      : undefined
+    : callback.body
+  const result = returned && unwrap(returned)
+  return (
+    result !== undefined &&
+    ts.isIdentifier(result) &&
+    result.text === parameter.text
+  )
+}
+
 function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
   const origins = new Map<ts.Symbol, string>()
   const namespaces = new Map<ts.Symbol, string>()
@@ -108,6 +130,17 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
     kind === "controller" && member === "operations"
       ? "gateway"
       : `${kind}.${member}`
+  const bindPattern = (node: ts.BindingName, kind: string) => {
+    if (ts.isIdentifier(node)) {
+      bind(node, kind)
+      return
+    }
+    if (!ts.isObjectBindingPattern(node)) return
+    for (const element of node.elements) {
+      const member = memberName(element.propertyName ?? element.name)
+      if (member) bindPattern(element.name, memberOrigin(kind, member))
+    }
+  }
   const origin = (node: ts.Node): string | undefined => {
     const symbol = checker.getSymbolAtLocation(node)
     const known = symbol && origins.get(symbol)
@@ -174,6 +207,13 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
       const queryReturn = factory && queryReturns.get(factory)
       if (queryReturn) return queryReturn
       if (factory === "queryClient.getQueryCache") return "queryCache"
+      if (factory === "courseStore.getState") return "courseStoreSnapshot"
+      if (
+        factory === "courseStore" &&
+        ts.isCallExpression(node) &&
+        isIdentitySelector(node)
+      )
+        return "courseStoreSnapshot"
       if (
         ["zustand.create", "zustand.createStore", "storeFactory"].includes(
           factory ?? "",
@@ -231,6 +271,16 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
           const parameter = body.parameters[0]
           if (parameter) bind(parameter.name, "scope")
         }
+        if (method === "courseStore.subscribe") {
+          const listener = node.arguments[0] && unwrap(node.arguments[0])
+          if (
+            listener &&
+            (ts.isArrowFunction(listener) || ts.isFunctionExpression(listener))
+          ) {
+            const parameter = listener.parameters[0]
+            if (parameter) bindPattern(parameter.name, "courseStoreSnapshot")
+          }
+        }
       }
       if (
         !(
@@ -243,13 +293,13 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
       const kind =
         (node.type && origin(node.type)) ||
         (node.initializer && origin(node.initializer))
-      if (kind && ts.isIdentifier(node.name)) bind(node.name, kind)
-      if (kind && ts.isObjectBindingPattern(node.name)) {
-        for (const element of node.name.elements) {
-          const member = memberName(element.propertyName ?? element.name)
-          if (member) bind(element.name, memberOrigin(kind, member))
-        }
-      }
+      if (
+        kind &&
+        (ts.isIdentifier(node.name) ||
+          ts.isObjectBindingPattern(node.name) ||
+          ts.isArrayBindingPattern(node.name))
+      )
+        bindPattern(node.name, kind)
       if (node.initializer) {
         const from = checker.getSymbolAtLocation(unwrap(node.initializer))
         const path = from && namespaces.get(from)

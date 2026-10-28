@@ -69,6 +69,37 @@ export const desktopLifetimeLists: readonly DesktopEntryList[] = [
     members: ["parse", "options.permit", "advanceRequestProtocol"],
   },
   {
+    owner: "terminal gateway receive failures",
+    file: `${desktop}desktop-entry-gateway.ts`,
+    selector: { kind: "call", name: "terminal", within: "receive" },
+    members: [
+      `<dynamic:new Error("Malformed desktop gateway message.", {
+          cause: envelope.error,
+        })>`,
+      '<dynamic:new Error("Invalid desktop gateway port transfer.")>',
+      `<dynamic:new Error("Malformed desktop workflow input.", {
+            cause: input.error,
+          })>`,
+      "<dynamic:error>",
+    ],
+  },
+  {
+    owner: "terminal gateway direct-action failure",
+    file: `${desktop}desktop-entry-gateway.ts`,
+    selector: { kind: "call", name: "terminal", within: "invoke" },
+    members: [
+      `<dynamic:new Error("Malformed desktop gateway action.", {
+          cause: message.error,
+        })>`,
+    ],
+  },
+  {
+    owner: "terminal gateway sender failure",
+    file: `${desktop}desktop-renderer-document.ts`,
+    selector: { kind: "call", name: "terminal", within: "proveSender" },
+    members: ['<dynamic:new Error("Foreign desktop gateway sender.")>'],
+  },
+  {
     owner: "terminal renderer-created window",
     file: `${desktop}desktop-renderer-document.ts`,
     selector: { kind: "property", name: "action" },

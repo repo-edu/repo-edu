@@ -1,5 +1,10 @@
 import * as ts from "typescript"
-import { memberName, syntaxTree, walk } from "./desktop-inventory-syntax.js"
+import {
+  isWithin,
+  memberName,
+  syntaxTree,
+  walk,
+} from "./desktop-inventory-syntax.js"
 import type { Violation } from "./violations.js"
 
 const prefix = "apps/desktop/src/"
@@ -104,7 +109,9 @@ export function checkDesktopLifecycleSource(
     if (
       (ts.isPropertyAssignment(node) || ts.isMethodDeclaration(node)) &&
       memberName(node.name) === "click" &&
-      !["desktop-menu.ts", "desktop-application.ts"].includes(owner)
+      owner !== "desktop-menu.ts" &&
+      (owner !== "desktop-application.ts" ||
+        !isWithin(node, "buildUpdateMenuItems"))
     )
       report("defines a menu start outside its list owner")
   })

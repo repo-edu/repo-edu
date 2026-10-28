@@ -59,7 +59,7 @@ function literal(node: ts.Expression): string {
   return `<dynamic:${value.getText()}>`
 }
 
-function within(node: ts.Node, name: string | undefined): boolean {
+export function isWithin(node: ts.Node, name: string | undefined): boolean {
   if (name === undefined) return true
   for (let parent: ts.Node | undefined = node; parent; parent = parent.parent) {
     if (
@@ -116,7 +116,7 @@ export function readEntryMembers(
     if (
       selector.kind === "calls" &&
       ts.isCallExpression(node) &&
-      within(node, selector.within)
+      isWithin(node, selector.within)
     )
       entries.push(node.expression.getText(source))
     if (
@@ -153,7 +153,7 @@ export function readEntryMembers(
       selector.kind === "property" &&
       ts.isPropertyAssignment(node) &&
       memberName(node.name) === selector.name &&
-      within(node, selector.within)
+      isWithin(node, selector.within)
     )
       entries.push(literal(node.initializer))
     if (
@@ -161,7 +161,7 @@ export function readEntryMembers(
       ts.isCallExpression(node) &&
       (node.expression.getText(source) === selector.name ||
         memberName(node.expression) === selector.name) &&
-      within(node, selector.within)
+      isWithin(node, selector.within)
     ) {
       const argument = node.arguments[selector.argument ?? 0]
       entries.push(argument ? literal(argument) : "<no-argument>")
@@ -178,7 +178,7 @@ export function readEntryMembers(
       selector.kind === "callback-calls" &&
       (ts.isPropertyAssignment(node) || ts.isMethodDeclaration(node)) &&
       memberName(node.name) === selector.property &&
-      within(node, selector.within)
+      isWithin(node, selector.within)
     )
       entries.push(...callbackCalls(source, node))
   })

@@ -218,12 +218,6 @@ function checkRendererSessionOwnership(
   for (const { source: sourceFile, origin } of sources) {
     const file = sourceFile.fileName.slice(RENDERER_SRC_PREFIX.length)
     if (isRendererSessionInternal(file)) continue
-    const courseStoreSnapshotNames = collectCourseStoreSnapshots(
-      sourceFile,
-      origin,
-      violations,
-      file,
-    )
 
     function visit(node: ts.Node): void {
       if (
@@ -271,20 +265,20 @@ function checkRendererSessionOwnership(
           ts.isElementAccessExpression(node)) &&
         SEMANTIC_COURSE_ACTIONS.has(memberName(node) ?? "")
       ) {
-        if (isCourseStoreGetStateCall(node.expression, origin)) {
-          violations.push({
-            file: `packages/renderer-app/src/${file}`,
-            message: `reads course-store action "${memberName(node)}" outside session ownership`,
-          })
-        }
-
-        if (
-          ts.isIdentifier(node.expression) &&
-          courseStoreSnapshotNames.has(node.expression.text)
-        ) {
+        if (origin(node.expression) === "courseStoreSnapshot") {
           violations.push({
             file: `packages/renderer-app/src/${file}`,
             message: `reads course-store action "${memberName(node)}" from a store snapshot outside session ownership`,
+          })
+        }
+      }
+
+      if (ts.isBindingElement(node)) {
+        const action = origin(node.name)?.replace(/^courseStoreSnapshot\./, "")
+        if (action && SEMANTIC_COURSE_ACTIONS.has(action)) {
+          violations.push({
+            file: `packages/renderer-app/src/${file}`,
+            message: `destructures course-store action "${action}" outside session ownership`,
           })
         }
       }
@@ -296,48 +290,6 @@ function checkRendererSessionOwnership(
   }
 
   return violations
-}
-
-function collectCourseStoreSnapshots(
-  sourceFile: ts.SourceFile,
-  origin: RendererSource["origin"],
-  violations: Violation[],
-  file: string,
-): Set<string> {
-  const courseStoreSnapshotNames = new Set<string>()
-
-  function collect(node: ts.Node): void {
-    if (
-      ts.isVariableDeclaration(node) &&
-      node.initializer !== undefined &&
-      (isCourseStoreGetStateCall(node.initializer, origin) ||
-        (ts.isIdentifier(node.initializer) &&
-          courseStoreSnapshotNames.has(node.initializer.text)))
-    ) {
-      if (ts.isIdentifier(node.name)) {
-        courseStoreSnapshotNames.add(node.name.text)
-      } else if (ts.isObjectBindingPattern(node.name)) {
-        for (const element of node.name.elements) {
-          const name = element.propertyName
-            ? propertyNameText(element.propertyName)
-            : ts.isIdentifier(element.name)
-              ? element.name.text
-              : null
-          if (name && SEMANTIC_COURSE_ACTIONS.has(name)) {
-            violations.push({
-              file: `packages/renderer-app/src/${file}`,
-              message: `destructures course-store action "${name}" outside session ownership`,
-            })
-          }
-        }
-      }
-    }
-
-    ts.forEachChild(node, collect)
-  }
-
-  collect(sourceFile)
-  return courseStoreSnapshotNames
 }
 
 function isRendererSessionInternal(file: string): boolean {
@@ -353,11 +305,6 @@ function isRendererSessionInternal(file: string): boolean {
   ].includes(file)
 }
 
-function propertyNameText(name: ts.PropertyName): string | null {
-  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) return name.text
-  return null
-}
-
 function callExpressionName(node: ts.CallExpression): string | null {
   const expression = node.expression
   if (ts.isPropertyAccessExpression(expression)) return expression.name.text
@@ -368,16 +315,6 @@ function callExpressionName(node: ts.CallExpression): string | null {
     return expression.argumentExpression.text
   }
   return null
-}
-
-function isCourseStoreGetStateCall(
-  node: ts.Node,
-  origin: RendererSource["origin"],
-): node is ts.CallExpression {
-  return (
-    ts.isCallExpression(node) &&
-    origin(node.expression) === "courseStore.getState"
-  )
 }
 
 function selectedCourseActionFromUseCourseStoreCall(

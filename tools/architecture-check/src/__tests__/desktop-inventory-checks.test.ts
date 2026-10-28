@@ -12,6 +12,7 @@ import {
   syntaxTree,
   walk,
 } from "../desktop-inventory-syntax.js"
+import { checkDesktopLifecycleSource } from "../desktop-lifecycle-checks.js"
 import { desktopEntryLists } from "../desktop-source-inventory.js"
 import { ROOT, repoPathToAbsolute } from "../repo-paths.js"
 
@@ -89,6 +90,23 @@ it("fails when an owner is removed", () => {
   )
 })
 
+it("rejects an updater click outside its list owner function", () => {
+  const file = "apps/desktop/src/desktop-application.ts"
+  const original = sources.get(file)
+  assert.ok(original)
+  const target = "  function installApplicationMenu() {"
+  assert.ok(original.includes(target))
+  const mutated = original.replace(
+    target,
+    `${target}\n    const unlisted = { click: () => checkForUpdatesNow({ manual: true }) }`,
+  )
+  assert.ok(
+    checkDesktopLifecycleSource(file, mutated).some((violation) =>
+      violation.message.includes("menu start outside its list owner"),
+    ),
+  )
+})
+
 for (const [file, before, after, owner] of [
   [
     "apps/desktop/src/desktop-terminal-sources.ts",
@@ -119,6 +137,42 @@ for (const [file, before, after, owner] of [
     "window.focus()",
     "window.reload()",
     "same-program focus action",
+  ],
+  [
+    "apps/desktop/src/desktop-entry-gateway.ts",
+    'terminal(\n        new Error("Malformed desktop gateway message.",',
+    'ignore(\n        new Error("Malformed desktop gateway message.",',
+    "terminal gateway receive failures",
+  ],
+  [
+    "apps/desktop/src/desktop-entry-gateway.ts",
+    'terminal(new Error("Invalid desktop gateway port transfer."))',
+    'ignore(new Error("Invalid desktop gateway port transfer."))',
+    "terminal gateway receive failures",
+  ],
+  [
+    "apps/desktop/src/desktop-entry-gateway.ts",
+    'terminal(\n          new Error("Malformed desktop workflow input.",',
+    'ignore(\n          new Error("Malformed desktop workflow input.",',
+    "terminal gateway receive failures",
+  ],
+  [
+    "apps/desktop/src/desktop-entry-gateway.ts",
+    "terminal(error)",
+    "ignore(error)",
+    "terminal gateway receive failures",
+  ],
+  [
+    "apps/desktop/src/desktop-entry-gateway.ts",
+    'terminal(\n        new Error("Malformed desktop gateway action.",',
+    'ignore(\n        new Error("Malformed desktop gateway action.",',
+    "terminal gateway direct-action failure",
+  ],
+  [
+    "apps/desktop/src/desktop-renderer-document.ts",
+    'terminal(new Error("Foreign desktop gateway sender."))',
+    'ignore(new Error("Foreign desktop gateway sender."))',
+    "terminal gateway sender failure",
   ],
   [
     "apps/desktop/src/preload.ts",
