@@ -23,6 +23,89 @@ const sources = new Map(
   ]),
 )
 
+const compositionFile = "apps/desktop/src/desktop-application.ts"
+
+for (const [owner, change, before, after, expected] of [
+  [
+    "terminal composition failures",
+    "missing",
+    "admission.terminal(error)",
+    "void error",
+    "terminal composition failures: missing <dynamic:error>",
+  ],
+  [
+    "terminal composition failures",
+    "extra",
+    "admission.terminal(error)",
+    `admission.terminal(error)
+          admission.terminal(new Error("Extra terminal source."))`,
+    'terminal composition failures: extra or differently classified <dynamic:new Error("Extra terminal source.")>',
+  ],
+  [
+    "terminal composition failures",
+    "changed",
+    'new Error("The interactive desktop has no entry gateway.")',
+    'new Error("The interactive desktop lost its entry gateway.")',
+    'terminal composition failures: extra or differently classified <dynamic:new Error("The interactive desktop lost its entry gateway.")>',
+  ],
+  [
+    "terminal bootstrap rejection",
+    "missing",
+    "void bootstrapDesktop().catch(admission.terminal)",
+    "void bootstrapDesktop()",
+    "terminal bootstrap rejection: missing <dynamic:admission.terminal>",
+  ],
+  [
+    "terminal bootstrap rejection",
+    "extra",
+    "void bootstrapDesktop().catch(admission.terminal)",
+    "void bootstrapDesktop().catch(admission.terminal).catch(extraTerminal)",
+    "terminal bootstrap rejection: extra or differently classified <dynamic:extraTerminal>",
+  ],
+  [
+    "terminal bootstrap rejection",
+    "changed",
+    "void bootstrapDesktop().catch(admission.terminal)",
+    "void bootstrapDesktop().catch(fallbackTerminal)",
+    "terminal bootstrap rejection: extra or differently classified <dynamic:fallbackTerminal>",
+  ],
+  [
+    "terminal adapter binding",
+    "missing",
+    "    terminal: admission.terminal,\n",
+    "",
+    "terminal adapter binding: missing <dynamic:admission.terminal>",
+  ],
+  [
+    "terminal adapter binding",
+    "extra",
+    "    terminal: admission.terminal,",
+    `    terminal: admission.terminal,
+    terminal: fallbackTerminal,`,
+    "terminal adapter binding: extra or differently classified <dynamic:fallbackTerminal>",
+  ],
+  [
+    "terminal adapter binding",
+    "changed",
+    "    terminal: admission.terminal,",
+    "    terminal: fallbackTerminal,",
+    "terminal adapter binding: extra or differently classified <dynamic:fallbackTerminal>",
+  ],
+] as const) {
+  it(`${owner} refuses a ${change} member`, () => {
+    const original = sources.get(compositionFile)
+    assert.ok(original)
+    assert.ok(original.includes(before), `Missing mutation target: ${before}`)
+    const mutated = new Map(sources)
+    mutated.set(compositionFile, original.replace(before, after))
+    assert.ok(
+      checkDesktopInventorySources(mutated).some(
+        (violation) => violation.message === expected,
+      ),
+    )
+  })
+}
+
 it("reconciles each Decision 21 list against its installed owner", () => {
   assert.deepEqual(checkDesktopInventorySources(sources), [])
 })

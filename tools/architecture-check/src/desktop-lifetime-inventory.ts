@@ -39,6 +39,36 @@ export const desktopLifetimeLists: readonly DesktopEntryList[] = [
     members: ["<dynamic:admission.terminal>"],
   },
   {
+    owner: "terminal composition failures",
+    file: `${desktop}desktop-application.ts`,
+    selector: { kind: "call", name: "admission.terminal" },
+    members: [
+      '<dynamic:new Error("The interactive desktop has no entry gateway.")>',
+      "<dynamic:error>",
+    ],
+  },
+  {
+    owner: "terminal bootstrap rejection",
+    file: `${desktop}desktop-application.ts`,
+    selector: { kind: "call", name: "catch", argument: 0 },
+    members: [
+      `<dynamic:(error): null => {
+        if (admission.getSnapshot().phase !== "starting") return null
+        throw error
+      }>`,
+      `<dynamic:() => {
+            // Ignore validation polling errors during early page startup.
+          }>`,
+      "<dynamic:admission.terminal>",
+    ],
+  },
+  {
+    owner: "terminal adapter binding",
+    file: `${desktop}desktop-application.ts`,
+    selector: { kind: "property", name: "terminal" },
+    members: ["<dynamic:admission.terminal>"],
+  },
+  {
     owner: "terminal course and settings failures",
     file: `${desktop}trpc.ts`,
     selector: { kind: "call", name: "ctx.terminal" },
