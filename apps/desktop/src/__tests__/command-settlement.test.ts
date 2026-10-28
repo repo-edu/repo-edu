@@ -239,6 +239,44 @@ it("ignores cancellation after the official outcome while settlement reads are p
   }
 })
 
+it("keeps an aborting close when the command ends with a known failure", {
+  timeout: 5000,
+}, async () => {
+  const ending = Promise.withResolvers<void>()
+  const h = harness({
+    "examination.archive.import": async () => {
+      await ending.promise
+      throw new CommandOutcomeError({
+        disposition: "completed",
+        completion: {
+          status: "failed",
+          error: { type: "effect", message: "Known failure." },
+          result: null,
+        },
+      })
+    },
+  })
+  try {
+    void h.run()
+    await until(() => h.admission.getSnapshot().phase === "executing.running")
+    const state = h.admission.getSnapshot()
+    assert.equal(state.phase, "executing.running")
+    if (state.phase !== "executing.running")
+      throw new Error("Command did not start")
+    h.admission.dispatch({
+      type: "host-start",
+      source: "window-close",
+      request: state.request,
+    })
+    ending.resolve()
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.equal(h.admission.getSnapshot().phase, "closing.aborting")
+  } finally {
+    ending.resolve()
+    h.dispose()
+  }
+})
+
 for (const outcome of [
   {
     disposition: "refused",

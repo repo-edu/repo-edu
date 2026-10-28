@@ -66,18 +66,12 @@ export async function executeHostCommand(options: {
     return
   } catch (error) {
     const phase = executionPhase()
-    if (
-      phase === "aborting" &&
-      error instanceof CommandOutcomeError &&
-      error.outcome.disposition === "stopped"
-    )
-      return
-    if (
-      phase === "running" &&
+    const settleableOutcome =
       error instanceof CommandOutcomeError &&
       (error.outcome.disposition !== "uncertain" ||
         error.outcome.reason === "confirmation-expired")
-    ) {
+    if (phase === "aborting" && settleableOutcome) return
+    if (phase === "running" && settleableOutcome) {
       admission.dispatch({
         type: "outcome-fixed",
         request,
