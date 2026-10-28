@@ -66,6 +66,45 @@ it("does not exempt newly added session helpers from raw client ownership", () =
   )
 })
 
+const app = "packages/renderer-app/src/components/App.tsx"
+const appRoot = (use: string) => `
+  import type { WorkflowClient } from "@repo-edu/application-contract"
+  import { useLayoutEffect } from "react"
+  import { SessionController } from "../session/session-controller.js"
+  type Props = { workflowClient: WorkflowClient }
+  function RendererSessionRoot({ workflowClient }: Props) {
+    useLayoutEffect(() => {
+      const controller = new SessionController({ workflowClient })
+      ${use}
+      return () => controller.dispose()
+    }, [workflowClient])
+  }
+`
+
+it("permits the App client only for controller construction and its effect dependency", () => {
+  assert.deepEqual(checkRendererMutationSource(app, appRoot("")), [])
+})
+
+for (const use of [
+  'workflowClient.run("analysis.run", input)',
+  "const alias = workflowClient",
+  "publish(workflowClient)",
+  "void workflowClient.run",
+]) {
+  it(`rejects an App raw-client use: ${use}`, () => {
+    assert.ok(checkRendererMutationSource(app, appRoot(use)).length > 0)
+  })
+}
+
+it("rejects raw-client creation in App", () => {
+  assert.ok(
+    checkRendererMutationSource(
+      app,
+      'import { createWorkflowClient } from "@repo-edu/application-contract"',
+    ).length > 0,
+  )
+})
+
 it("permits the picker and its publication inside one session body", () => {
   assert.deepEqual(
     checkRendererMutationSource(

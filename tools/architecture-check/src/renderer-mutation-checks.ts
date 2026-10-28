@@ -3,6 +3,7 @@ import * as ts from "typescript"
 import { SEMANTIC_COURSE_ACTIONS } from "./bespoke-checks.js"
 import { memberName, syntaxTree, walk } from "./desktop-inventory-syntax.js"
 import type { SourceInventory } from "./inventory.js"
+import { rendererSources } from "./renderer-source-origins.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
 import type { Violation } from "./violations.js"
 
@@ -32,6 +33,33 @@ const directActions = new Set([
   "pickUserFile",
   "pickSaveTarget",
 ])
+
+function isAppWorkflowClientHandoff(node: ts.Identifier): boolean {
+  const property = node.parent
+  const object =
+    ts.isShorthandPropertyAssignment(property) && property.name === node
+      ? property.parent
+      : ts.isPropertyAssignment(property) && property.initializer === node
+        ? property.parent
+        : undefined
+  return (
+    object !== undefined &&
+    ts.isObjectLiteralExpression(object) &&
+    ts.isNewExpression(object.parent) &&
+    object.parent.arguments?.[0] === object &&
+    memberName(object.parent.expression) === "SessionController"
+  )
+}
+
+function isAppWorkflowClientDependency(node: ts.Identifier): boolean {
+  const dependencies = node.parent
+  return (
+    ts.isArrayLiteralExpression(dependencies) &&
+    ts.isCallExpression(dependencies.parent) &&
+    dependencies.parent.arguments[1] === dependencies &&
+    memberName(dependencies.parent.expression) === "useLayoutEffect"
+  )
+}
 
 export function checkRendererMutationOwnership(
   root: string,
@@ -70,7 +98,11 @@ export function checkRendererMutationSource(
   content: string,
 ): Violation[] {
   const relative = file.slice(renderer.length)
-  const source = syntaxTree(file, content)
+  const appSource =
+    relative === "components/App.tsx"
+      ? rendererSources([{ file, content }])[0]
+      : undefined
+  const source = appSource?.source ?? syntaxTree(file, content)
   const violations: Violation[] = []
   const report = (message: string) => {
     violations.push({ file, message })
@@ -111,12 +143,28 @@ export function checkRendererMutationSource(
         report("retains a raw WorkflowClient outside an admitted client owner")
       if (
         ts.isImportSpecifier(node) &&
-        ["WorkflowClient", "createWorkflowClient"].includes(
-          node.propertyName?.text ?? node.name.text,
-        )
+        (node.propertyName?.text ?? node.name.text) === "WorkflowClient"
       )
         report("imports a raw workflow client outside an admitted client owner")
     }
+    if (
+      ts.isImportSpecifier(node) &&
+      (node.propertyName?.text ?? node.name.text) === "createWorkflowClient" &&
+      relative !== "session/session-operations.ts"
+    )
+      report(
+        "creates a raw workflow client outside the session operation owner",
+      )
+    if (
+      ts.isIdentifier(node) &&
+      appSource?.origin(node) === "rawWorkflowClient" &&
+      !(ts.isBindingElement(node.parent) && node.parent.name === node) &&
+      !isAppWorkflowClientHandoff(node) &&
+      !isAppWorkflowClientDependency(node)
+    )
+      report(
+        "uses the raw App workflow client outside SessionController construction",
+      )
     if (
       ts.isPropertyAccessExpression(node) ||
       ts.isElementAccessExpression(node)

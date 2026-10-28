@@ -24,6 +24,34 @@ const sources = new Map(
 )
 
 const compositionFile = "apps/desktop/src/desktop-application.ts"
+const gatewayFile = "apps/desktop/src/desktop-entry-gateway.ts"
+
+for (const [method, handler, owner] of [
+  ["on", "receive", "gateway IPC event registration"],
+  ["handle", "invoke", "gateway IPC invoke registration"],
+] as const) {
+  it(`${owner} refuses an extra channel`, () => {
+    const original = sources.get(gatewayFile)
+    assert.ok(original)
+    const registration = `ipc.${method}(desktopEntryChannel, ${handler})`
+    assert.ok(original.includes(registration))
+    const mutated = new Map(sources)
+    mutated.set(
+      gatewayFile,
+      original.replace(
+        registration,
+        `${registration}\n  ipc.${method}(extraChannel, ${handler})`,
+      ),
+    )
+    assert.ok(
+      checkDesktopInventorySources(mutated).some(
+        (violation) =>
+          violation.message ===
+          `${owner}: extra or differently classified <dynamic:extraChannel>`,
+      ),
+    )
+  })
+}
 
 for (const [owner, change, before, after, expected] of [
   [

@@ -21,6 +21,12 @@ describe("bespoke checks", () => {
         'store(s => s["setDisplayName"])',
         "const courseStore = store",
         "courseStore.getState().setDisplayName(name)",
+        "let assignedStore",
+        "assignedStore = store",
+        "assignedStore.getState().setDisplayName(name)",
+        "let assignedSnapshot",
+        "assignedSnapshot = store.getState()",
+        "assignedSnapshot.setDisplayName(name)",
         "const { getState } = store",
         "getState().setSearchFolder(folder)",
         "const whole = store()",
@@ -35,7 +41,7 @@ describe("bespoke checks", () => {
       { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
       () => [file],
     )
-    assert.equal(violations.length, 7)
+    assert.equal(violations.length, 9)
     assert.ok(
       violations.some((v) => v.message.includes("applyCommittedCourse")),
     )
@@ -43,7 +49,7 @@ describe("bespoke checks", () => {
     assert.ok(violations.some((v) => v.message.includes("setSearchFolder")))
     assert.equal(
       violations.filter((v) => v.message.includes("setDisplayName")).length,
-      5,
+      7,
     )
   })
   it("admits scoped bodies and presentation while rejecting raw clients", async () => {

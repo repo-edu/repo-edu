@@ -32,6 +32,18 @@ const hostStarts = [
  * runtime manifest that can drift away from the real registrations. */
 export const desktopEntryLists: readonly DesktopEntryList[] = [
   {
+    owner: "gateway IPC event registration",
+    file: `${desktop}desktop-entry-gateway.ts`,
+    selector: { kind: "call", name: "ipc.on" },
+    members: ["<dynamic:desktopEntryChannel>"],
+  },
+  {
+    owner: "gateway IPC invoke registration",
+    file: `${desktop}desktop-entry-gateway.ts`,
+    selector: { kind: "call", name: "ipc.handle" },
+    members: ["<dynamic:desktopEntryChannel>"],
+  },
+  {
     owner: "gateway workflow input schemas",
     file: "packages/application-contract/src/workflow-input-schemas.ts",
     selector: { kind: "map", name: "workflowInputSchemas" },

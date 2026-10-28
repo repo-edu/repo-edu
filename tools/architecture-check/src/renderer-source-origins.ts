@@ -141,6 +141,13 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
       if (member) bindPattern(element.name, memberOrigin(kind, member))
     }
   }
+  const bindNamespace = (node: ts.Identifier, value: ts.Expression) => {
+    const from = checker.getSymbolAtLocation(unwrap(value))
+    const path = from && namespaces.get(from)
+    if (!path) return
+    const to = checker.getSymbolAtLocation(node)
+    if (to && !namespaces.has(to)) namespaces.set(to, path)
+  }
   const origin = (node: ts.Node): string | undefined => {
     const symbol = checker.getSymbolAtLocation(node)
     const known = symbol && origins.get(symbol)
@@ -223,6 +230,25 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
     }
     return undefined
   }
+  if (
+    source.fileName.endsWith("packages/renderer-app/src/components/App.tsx")
+  ) {
+    walk(source, (node) => {
+      if (
+        !ts.isFunctionDeclaration(node) ||
+        node.name?.text !== "RendererSessionRoot"
+      )
+        return
+      const parameter = node.parameters[0]?.name
+      if (!parameter || !ts.isObjectBindingPattern(parameter)) return
+      const binding = parameter.elements.find(
+        (element) =>
+          memberName(element.propertyName ?? element.name) === "workflowClient",
+      )
+      if (binding && ts.isIdentifier(binding.name))
+        bind(binding.name, "rawWorkflowClient")
+    })
+  }
   for (const statement of source.statements) {
     if (
       !ts.isImportDeclaration(statement) ||
@@ -283,6 +309,16 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
         }
       }
       if (
+        ts.isBinaryExpression(node) &&
+        node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(node.left)
+      ) {
+        const kind = origin(node.right)
+        if (kind) bind(node.left, kind)
+        bindNamespace(node.left, node.right)
+        return
+      }
+      if (
         !(
           ts.isVariableDeclaration(node) ||
           ts.isParameter(node) ||
@@ -301,12 +337,10 @@ function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
       )
         bindPattern(node.name, kind)
       if (node.initializer) {
+        if (ts.isIdentifier(node.name))
+          bindNamespace(node.name, node.initializer)
         const from = checker.getSymbolAtLocation(unwrap(node.initializer))
         const path = from && namespaces.get(from)
-        if (path && ts.isIdentifier(node.name)) {
-          const to = checker.getSymbolAtLocation(node.name)
-          if (to && !namespaces.has(to)) namespaces.set(to, path)
-        }
         if (path && ts.isObjectBindingPattern(node.name)) {
           for (const element of node.name.elements) {
             const member = memberName(element.propertyName ?? element.name)
