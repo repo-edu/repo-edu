@@ -57,7 +57,7 @@ Created by handlers when a lookup returns nothing (e.g. loading a course that wa
 A write or identity collision.
 
 ```typescript
-{ type: "conflict"; message: string; resource: "course" | "connection" | "group-set" | "assignment" | "repository" | "file"; reason: string }
+{ type: "conflict"; message: string; resource: "connection" | "group-set" | "assignment" | "repository" | "file"; reason: string }
 ```
 
 Created by handlers when an operation would violate uniqueness or consistency constraints.

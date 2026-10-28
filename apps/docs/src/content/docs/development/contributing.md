@@ -13,7 +13,8 @@ Before making a change, decide which layer owns the behavior:
 | Workflow orchestration, multi-step operations | `packages/application` |
 | Workflow IDs, payload types, catalog metadata | `packages/application-contract` |
 | React UI, pages, components | `packages/renderer-app` |
-| File dialogs, external URLs, environment | `packages/renderer-host-contract` (types) + app shell (impl) |
+| File dialogs, environment | `packages/renderer-host-contract` (types) + app shell (impl) |
+| Fixed outside links | `apps/desktop` main-process menu |
 | HTTP, process, filesystem, Git CLI | `packages/host-runtime-contract` (types) + `packages/host-node` (impl) |
 | LMS/Git provider specifics | `packages/integrations-*` |
 | Argument parsing, output formatting | `apps/cli/src/commands/` |

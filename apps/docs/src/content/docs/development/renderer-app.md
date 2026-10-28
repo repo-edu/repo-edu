@@ -23,11 +23,15 @@ non-React getter return that gateway. They do not expose the raw client.
 ```typescript
 // In React components
 const operations = useWorkflowClient()
-await operations.execute("course.list", async (scope) => {
-  const courses = await scope.run("course.list", undefined)
-  scope.publish(() => publishCourses(courses))
+const refreshCourseListAfterCreate = bindSessionStart("courseNew", async (start) => {
+  await operations.execute(start, "course.list", async (scope) => {
+    const courses = await scope.run("course.list", undefined)
+    scope.publish(() => publishCourses(courses))
+  })
 })
 ```
+
+`bindSessionStart` supplies the typed start argument when the control runs.
 
 `SessionController` performs the session bootstrap before `AppShell` renders: it loads app
 credentials and preferences, hydrates editable stores, restores the active surface and course,

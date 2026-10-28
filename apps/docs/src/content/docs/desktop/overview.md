@@ -79,12 +79,6 @@ what action will be reversed.
 
 ## Saving
 
-The app persists course and settings changes after a short debounce delay. A save indicator shows
-the current course status:
-
-- **Saving** — a change is being written
-- **Saved** — all changes are persisted
-- **Error** — the save failed (hover for details)
-
-Retryable save failures retry automatically. See
-[Troubleshooting](/repo-edu/reference/troubleshooting/) for common causes.
+The app persists course and settings changes after a short debounce delay. A failed save shows an
+error, ends the session and is not retried. See
+[Troubleshooting](/repo-edu/reference/troubleshooting/) for common causes and recovery steps.

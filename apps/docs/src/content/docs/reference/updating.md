@@ -10,7 +10,8 @@ an update is available:
 
 1. A notification prompts you to download.
 2. After the download completes, you can restart to apply the update.
-3. If you dismiss the prompt, the update installs automatically on the next quit.
+3. The downloaded update installs only when you choose restart from the dialog or the app menu. A
+   normal quit leaves the download in place.
 
 You can also trigger updates manually from the app menu:
 

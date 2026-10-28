@@ -32,13 +32,13 @@ spawns.
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
-| `REPO_EDU_DESKTOP_VALIDATE_TRPC` | desktop `main.ts` | `"1"` runs the in-renderer tRPC validation pass instead of a normal launch. | off |
-| `REPO_EDU_DESKTOP_VALIDATE_TRPC_TIMEOUT_MS` | desktop `main.ts`, harness | Timeout for the renderer validation step. | 10000 in the app, 30000 from the harness |
+| `REPO_EDU_DESKTOP_VALIDATE_TRPC` | desktop `desktop-application.ts` | `"1"` runs the in-renderer tRPC validation pass instead of a normal launch. | off |
+| `REPO_EDU_DESKTOP_VALIDATE_TRPC_TIMEOUT_MS` | desktop `desktop-application.ts`, harness | Timeout for the renderer validation step. | 10000 in the app, 30000 from the harness |
 | `REPO_EDU_DESKTOP_VALIDATE_APP_TIMEOUT_MS` | harness | Timeout waiting for the app to become ready. | 60000 |
 | `REPO_EDU_DESKTOP_VALIDATE_PACKAGED` | harness | `"1"` forces the packaged Electron binary rather than the dev build. Also implied by `CI=true`. | off |
-| `REPO_EDU_VALIDATION_COURSE_ID` | desktop `main.ts` | The course the validation run targets. | the seeded fixture course |
-| `REPO_EDU_TEST_USER_FILE_QUEUE` | desktop `main.ts` | Delimiter-joined paths returned in order from the open-file dialog, so a headless run needs no real picker. | empty |
-| `REPO_EDU_TEST_SAVE_TARGET_QUEUE` | desktop `main.ts` | The same, for the save-target dialog. | empty |
+| `REPO_EDU_VALIDATION_COURSE_ID` | desktop `desktop-application.ts` | The course the validation run targets. | the seeded fixture course |
+| `REPO_EDU_TEST_USER_FILE_QUEUE` | desktop `desktop-application.ts` | Delimiter-joined paths returned in order from the open-file dialog, so a headless run needs no real picker. | empty |
+| `REPO_EDU_TEST_SAVE_TARGET_QUEUE` | desktop `desktop-application.ts` | The same, for the save-target dialog. | empty |
 
 ### Program-gate artifact validation
 
@@ -72,7 +72,7 @@ they never persist.
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
-| `REPO_EDU_DESKTOP_MEASURE` | desktop `main.ts` | `"1"` enables cold-start instrumentation. Set by `scripts/measure-cold-start.mjs`. | off |
+| `REPO_EDU_DESKTOP_MEASURE` | desktop `desktop-application.ts` | `"1"` enables cold-start instrumentation. Set by `scripts/measure-cold-start.mjs`. | off |
 
 ### Integration tests
 
