@@ -100,12 +100,13 @@ export function checkDesktopLifecycleSource(
     if (ts.isPropertyAssignment(node)) {
       if (memberName(node.name) === "role" && owner !== "desktop-menu.ts")
         report("defines a native role outside the menu allowlist")
-      if (
-        memberName(node.name) === "click" &&
-        !["desktop-menu.ts", "desktop-application.ts"].includes(owner)
-      )
-        report("defines a menu start outside its list owner")
     }
+    if (
+      (ts.isPropertyAssignment(node) || ts.isMethodDeclaration(node)) &&
+      memberName(node.name) === "click" &&
+      !["desktop-menu.ts", "desktop-application.ts"].includes(owner)
+    )
+      report("defines a menu start outside its list owner")
   })
   return violations
 }

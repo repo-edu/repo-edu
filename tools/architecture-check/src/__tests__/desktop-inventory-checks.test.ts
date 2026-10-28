@@ -231,3 +231,26 @@ it("does not hide computed keys, spreads or dynamic roles", () => {
     "<dynamic:chosenRole>",
   ])
 })
+
+it("does not hide direct or empty menu callbacks", () => {
+  const tree = syntaxTree(
+    "owner.ts",
+    `
+    const menu = [
+      { click: options.direct },
+      { click: () => {} },
+      { click() { options.method() } },
+      { click() {} },
+    ]
+  `,
+  )
+  assert.deepEqual(
+    readEntryMembers(tree, { kind: "callback-calls", property: "click" }),
+    [
+      "<dynamic:options.direct>",
+      "<dynamic:() => {}>",
+      "options.method",
+      "<dynamic:click() {}>",
+    ],
+  )
+})

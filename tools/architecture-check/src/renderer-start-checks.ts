@@ -94,12 +94,14 @@ function checkSource({ source, origin }: RendererSource): Violation[] {
     if (
       api === "subscription" ||
       api === "store.subscribe" ||
+      api === "courseStore.subscribe" ||
       api === "controller.subscribe"
     ) {
       for (const arg of args) callback(arg, "store subscription")
     }
     // A store hook's selector is evaluated automatically too.
-    if (api === "store") callback(args[0], "store subscription")
+    if (api === "store" || api === "courseStore")
+      callback(args[0], "store subscription")
   })
   const visit = (node: ts.Node, context?: Context) => {
     if (hasBody(node)) {

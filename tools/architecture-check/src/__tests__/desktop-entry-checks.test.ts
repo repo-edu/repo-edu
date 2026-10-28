@@ -21,6 +21,7 @@ for (const source of [
   'app.on("child-process-gone", ignore)',
   'app.on("new-lifetime-event", work)',
   'const menu = { role: "reload" }',
+  "const menu = { click() { work() } }",
   "Menu.setApplicationMenu(customMenu)",
   'admission.terminal(new Error("new source"))',
 ]) {

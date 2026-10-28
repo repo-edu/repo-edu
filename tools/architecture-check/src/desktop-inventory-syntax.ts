@@ -76,6 +76,28 @@ function within(node: ts.Node, name: string | undefined): boolean {
   return false
 }
 
+function callbackCalls(
+  source: ts.SourceFile,
+  node: ts.PropertyAssignment | ts.MethodDeclaration,
+): string[] {
+  const callback = ts.isPropertyAssignment(node)
+    ? unwrap(node.initializer)
+    : node
+  const body =
+    ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)
+      ? callback.body
+      : ts.isMethodDeclaration(callback)
+        ? callback.body
+        : undefined
+  if (!body) return [`<dynamic:${callback.getText(source)}>`]
+
+  const calls: string[] = []
+  walk(body, (child) => {
+    if (ts.isCallExpression(child)) calls.push(child.expression.getText(source))
+  })
+  return calls.length > 0 ? calls : [`<dynamic:${callback.getText(source)}>`]
+}
+
 /** Inspect syntax through TypeScript, never through a second source parser. */
 export function readEntryMembers(
   source: ts.SourceFile,
@@ -154,15 +176,11 @@ export function readEntryMembers(
     }
     if (
       selector.kind === "callback-calls" &&
-      ts.isPropertyAssignment(node) &&
+      (ts.isPropertyAssignment(node) || ts.isMethodDeclaration(node)) &&
       memberName(node.name) === selector.property &&
       within(node, selector.within)
-    ) {
-      walk(node.initializer, (child) => {
-        if (ts.isCallExpression(child))
-          entries.push(child.expression.getText(source))
-      })
-    }
+    )
+      entries.push(...callbackCalls(source, node))
   })
   return entries
 }

@@ -65,6 +65,8 @@ function importedOrigin(path: string, name: string): string | undefined {
     name === "useSessionControllerSelector"
   )
     return "store"
+  if (path.endsWith("/stores/course-store.js") && name === "useCourseStore")
+    return "courseStore"
   if (
     path.endsWith("/source-lifecycle-events.js") &&
     name === "subscribeCourseRemoval"

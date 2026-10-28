@@ -19,6 +19,10 @@ describe("bespoke checks", () => {
         "const alias = snapshot",
         'alias["applyCommittedCourse"](course)',
         'store(s => s["setDisplayName"])',
+        "const courseStore = store",
+        "courseStore.getState().setDisplayName(name)",
+        "const { getState } = store",
+        "getState().setSearchFolder(folder)",
       ].join("\n"),
     )
     const violations = runBespokeChecks(
@@ -26,11 +30,12 @@ describe("bespoke checks", () => {
       { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
       () => [file],
     )
-    assert.equal(violations.length, 2)
+    assert.equal(violations.length, 4)
     assert.ok(
       violations.some((v) => v.message.includes("applyCommittedCourse")),
     )
     assert.ok(violations.some((v) => v.message.includes("setDisplayName")))
+    assert.ok(violations.some((v) => v.message.includes("setSearchFolder")))
   })
   it("admits scoped bodies and presentation while rejecting raw clients", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-direct-bodies-"))

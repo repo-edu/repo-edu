@@ -6,7 +6,10 @@ import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
 import { checkRendererQuerySources } from "./renderer-query-checks.js"
-import { rendererSources } from "./renderer-source-origins.js"
+import {
+  type RendererSource,
+  rendererSources,
+} from "./renderer-source-origins.js"
 import { checkRendererStartSources } from "./renderer-start-checks.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
 import type { Violation } from "./violations.js"
@@ -92,7 +95,7 @@ export function runBespokeChecks(
   return [
     ...checkNonSourceClaudeCoderImports(root, inventory, pathProvider),
     ...checkClaudeCoderPackageDeclarations(root, pathProvider),
-    ...checkRendererSessionOwnership(root, pathProvider),
+    ...checkRendererSessionOwnership(sources),
     ...checkRendererQuerySources(sources),
     ...checkRendererStartSources(sources),
   ]
@@ -208,36 +211,16 @@ function checkClaudeCoderPackageDeclarations(
 }
 
 function checkRendererSessionOwnership(
-  root: string,
-  pathProvider: GitPathProvider,
+  sources: readonly RendererSource[],
 ): Violation[] {
-  const files = pathProvider(root)
-    .filter(
-      (file) =>
-        file.startsWith(RENDERER_SRC_PREFIX) &&
-        /\.tsx?$/.test(file) &&
-        !/(^|\/)__tests__\//.test(file),
-    )
-    .map((file) => file.slice(RENDERER_SRC_PREFIX.length))
-    .filter((file) => !isRendererSessionInternal(file))
   const violations: Violation[] = []
 
-  for (const file of files) {
-    const content = fs.readFileSync(
-      repoPathToAbsolute(root, `${RENDERER_SRC_PREFIX}${file}`),
-      "utf8",
-    )
-    const sourceFile = ts.createSourceFile(
-      file,
-      content,
-      ts.ScriptTarget.Latest,
-      true,
-      file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-    )
-    const useCourseStoreNames = collectUseCourseStoreImportNames(sourceFile)
+  for (const { source: sourceFile, origin } of sources) {
+    const file = sourceFile.fileName.slice(RENDERER_SRC_PREFIX.length)
+    if (isRendererSessionInternal(file)) continue
     const courseStoreSnapshotNames = collectCourseStoreSnapshots(
       sourceFile,
-      useCourseStoreNames,
+      origin,
       violations,
       file,
     )
@@ -269,7 +252,7 @@ function checkRendererSessionOwnership(
         }
 
         if (
-          isIdentifierNamed(node.expression, useCourseStoreNames) &&
+          origin(node.expression) === "courseStore" &&
           node.arguments.length > 0
         ) {
           const selectedAction =
@@ -288,9 +271,7 @@ function checkRendererSessionOwnership(
           ts.isElementAccessExpression(node)) &&
         SEMANTIC_COURSE_ACTIONS.has(memberName(node) ?? "")
       ) {
-        if (
-          isUseCourseStoreGetStateCall(node.expression, useCourseStoreNames)
-        ) {
+        if (isCourseStoreGetStateCall(node.expression, origin)) {
           violations.push({
             file: `packages/renderer-app/src/${file}`,
             message: `reads course-store action "${memberName(node)}" outside session ownership`,
@@ -317,33 +298,9 @@ function checkRendererSessionOwnership(
   return violations
 }
 
-function collectUseCourseStoreImportNames(
-  sourceFile: ts.SourceFile,
-): Set<string> {
-  const names = new Set<string>()
-  for (const statement of sourceFile.statements) {
-    if (
-      !ts.isImportDeclaration(statement) ||
-      !ts.isStringLiteral(statement.moduleSpecifier) ||
-      !statement.moduleSpecifier.text.endsWith("stores/course-store.js")
-    ) {
-      continue
-    }
-
-    const bindings = statement.importClause?.namedBindings
-    if (!bindings || !ts.isNamedImports(bindings)) continue
-
-    for (const element of bindings.elements) {
-      const imported = element.propertyName?.text ?? element.name.text
-      if (imported === "useCourseStore") names.add(element.name.text)
-    }
-  }
-  return names
-}
-
 function collectCourseStoreSnapshots(
   sourceFile: ts.SourceFile,
-  useCourseStoreNames: Set<string>,
+  origin: RendererSource["origin"],
   violations: Violation[],
   file: string,
 ): Set<string> {
@@ -353,7 +310,7 @@ function collectCourseStoreSnapshots(
     if (
       ts.isVariableDeclaration(node) &&
       node.initializer !== undefined &&
-      (isUseCourseStoreGetStateCall(node.initializer, useCourseStoreNames) ||
+      (isCourseStoreGetStateCall(node.initializer, origin) ||
         (ts.isIdentifier(node.initializer) &&
           courseStoreSnapshotNames.has(node.initializer.text)))
     ) {
@@ -396,10 +353,6 @@ function isRendererSessionInternal(file: string): boolean {
   ].includes(file)
 }
 
-function isIdentifierNamed(node: ts.Node, names: Set<string>): boolean {
-  return ts.isIdentifier(node) && names.has(node.text)
-}
-
 function propertyNameText(name: ts.PropertyName): string | null {
   if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) return name.text
   return null
@@ -417,17 +370,13 @@ function callExpressionName(node: ts.CallExpression): string | null {
   return null
 }
 
-function isUseCourseStoreGetStateCall(
+function isCourseStoreGetStateCall(
   node: ts.Node,
-  useCourseStoreNames: Set<string>,
+  origin: RendererSource["origin"],
 ): node is ts.CallExpression {
-  if (!ts.isCallExpression(node)) return false
-  const expression = node.expression
   return (
-    (ts.isPropertyAccessExpression(expression) ||
-      ts.isElementAccessExpression(expression)) &&
-    memberName(expression) === "getState" &&
-    isIdentifierNamed(expression.expression, useCourseStoreNames)
+    ts.isCallExpression(node) &&
+    origin(node.expression) === "courseStore.getState"
   )
 }
 
