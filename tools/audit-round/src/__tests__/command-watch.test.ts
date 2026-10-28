@@ -157,7 +157,7 @@ test("a due glance sends the watch joined evidence and the cache, never round se
   const watch = transcript.replace(/-1-round\.ouh\.md$/, "-9-watch.ouh.md")
   assert.match(
     log,
-    /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A red record is re-read every round \(rule 1\)\./,
+    /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A–C audit correction commits since: area:tool-audit-round 2\. An area reached the red limit of 2\./,
   )
   assert.ok(
     log.includes(

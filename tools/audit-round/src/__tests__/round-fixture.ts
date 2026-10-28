@@ -54,6 +54,28 @@ export async function commitFixture(
   return (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout
 }
 
+/**
+ * One file-changing audit correction commit under the stem, which the glance
+ * counts once in its area or section.
+ */
+export async function correctionFixture(
+  cwd: string,
+  repository: "repo-edu" | "plan",
+  index: number,
+): Promise<string> {
+  await writeFile(join(cwd, "correction.md"), `${index}\n`)
+  await execa("git", ["add", "correction.md"], { cwd })
+  const bullet =
+    repository === "plan"
+      ? "- C [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Correct: the behaviour."
+      : "- [C] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Correct: the behaviour."
+  const kind = repository === "plan" ? "docs(example)" : "fix(audit-round)"
+  return commitFixture(
+    cwd,
+    `example/impl-audit-1 ath growth-none c1 ${kind}: correction\n\n${bullet}`,
+  )
+}
+
 /** The tier a finished fix commits, independent of the audit report's findings. */
 type Grade = "a" | "b" | "c" | "d" | null
 
@@ -65,9 +87,11 @@ export async function roundFixture(
   tier: Grade = null,
   /**
    * Whether the commit record leaves the watch due, which no round does
-   * alongside a ruling. Both heads are recorded at HEAD, so the glance finds
-   * nothing to count: false records green, which is not due, and true records
-   * red, which is re-read every round.
+   * alongside a ruling. Both heads are recorded at the initial commits. False
+   * records green and lands nothing after them, so the glance finds nothing to
+   * count. True records red and lands two audit corrections in the working
+   * repository, the red limit, so the watch runs and its red grade stops the
+   * sequence.
    */
   watch = false,
   working: "repo-edu" | "plan" = "repo-edu",
@@ -120,20 +144,28 @@ export async function roundFixture(
       )
   const planRoot = await realpath(planDirectory)
   const outputRoot = planRoot
-  const heads = {
+  const recordHeads = {
     "repo-edu": await commitFixture(
       repoRoot,
       landed ? "example/impl-1 ath feat(audit-round): fixture" : undefined,
     ),
     plan: await commitFixture(planRoot),
   }
+  const heads = { ...recordHeads }
+  if (watch)
+    for (const index of [0, 1])
+      heads[working] = await correctionFixture(
+        working === "plan" ? planRoot : repoRoot,
+        working,
+        index,
+      )
   const cacheRoot = join(f.root, "cache")
   await mkdir(cacheRoot)
   await writeFile(
     join(cacheRoot, "watch.json"),
     JSON.stringify({
       example: {
-        heads,
+        heads: recordHeads,
         grade: watch ? "red" : "green",
         written: "2026-09-20",
       },
@@ -297,6 +329,7 @@ export async function roundFixture(
     repoRoot,
     planRoot,
     heads,
+    recordHeads,
     get report() {
       return document("audit", report)
     },

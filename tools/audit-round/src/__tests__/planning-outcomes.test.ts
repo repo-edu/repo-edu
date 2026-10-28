@@ -200,12 +200,12 @@ for (const working of ["repo-edu", "plan"] as const) {
         working,
       )
       // Deliberately different repository positions travel together, and the
-      // glance counts from the round kind's repository head. Red is what
-      // makes the watch due without a correction to count.
+      // glance counts from the round kind's repository head. The fixture's two
+      // corrections after it reach the amber limit.
       const history = JSON.stringify({
         example: {
-          heads: { "repo-edu": f.heads["repo-edu"], plan: f.heads.plan },
-          grade: due ? "red" : "amber",
+          heads: f.recordHeads,
+          grade: "amber",
           written: "2026-09-18",
         },
       })
@@ -224,10 +224,10 @@ for (const working of ["repo-edu", "plan"] as const) {
         log,
         due
           ? new RegExp(
-              `\\[glance\\] due: episode example recorded red at ${f.heads[working]}\\. A red record is re-read every round`,
+              `\\[glance\\] due: episode example recorded amber at ${f.recordHeads[working]}\\. A–C audit correction commits since: ${working === "plan" ? "section:decisions" : "area:tool-audit-round"} 2\\. An area reached the amber limit of 2\\.`,
             )
           : new RegExp(
-              `\\[glance\\] not due: episode example recorded amber at ${f.heads[working]}\\. No A–C audit correction commits since`,
+              `\\[glance\\] not due: episode example recorded amber at ${f.recordHeads[working]}\\. No A–C audit correction commits since`,
             ),
       )
       assert.equal(log.includes("[watch] starting"), due)

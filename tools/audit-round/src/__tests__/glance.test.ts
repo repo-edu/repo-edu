@@ -101,7 +101,7 @@ test("without a record plan audits count from the earliest stem commit", () => {
   const three = history(correction(), correction(), correction())
   const decision = glanceDecision(three, null, "repo-edu")
   assert.equal(decision.due, true)
-  assert.match(decision.text, /area:area-a 3.*green limit of 3 \(rule 2\)/)
+  assert.match(decision.text, /area:area-a 3.*green limit of 3\./)
   // A correction older than the episode's first stem commit is outside it.
   const older = [...two, { ...before, sha: "c000000" }]
   assert.equal(glanceDecision(older, null, "repo-edu").due, false)
@@ -115,18 +115,11 @@ test("without a record plan audits count from the earliest stem commit", () => {
   assert.equal(glanceDecision(bare, null, "repo-edu").due, false)
 })
 
-test("red earns a watch without any new correction", () => {
-  for (const head of ["c000001", "c000001abc"]) {
-    const decision = glanceDecision(history(), record("red", head), "repo-edu")
-    assert.equal(decision.due, true)
-    assert.match(decision.text, /red record.*rule 1/)
-  }
-})
-
-test("green requires three correction commits in one area; amber requires two", () => {
+test("green requires three correction commits in one area; amber and red require two", () => {
   for (const [grade, limit] of [
     ["green", 3],
     ["amber", 2],
+    ["red", 2],
   ] as const) {
     for (const count of [limit - 1, limit, limit + 1]) {
       const decision = glanceDecision(

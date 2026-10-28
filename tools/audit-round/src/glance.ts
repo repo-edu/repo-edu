@@ -72,7 +72,7 @@ export type GlanceDecision = {
 }
 
 /** Fixed correction-commit limits per area. The watch chooses only the grade. */
-const correctionLimits = { green: 3, amber: 2 } as const
+const correctionLimits = { green: 3, amber: 2, red: 2 } as const
 
 /**
  * The rule. The episode owns membership and finding reads, and
@@ -86,12 +86,12 @@ const correctionLimits = { green: 3, amber: 2 } as const
  * Repo Edu uses each finding's area; planning uses its section. D-only work,
  * clean records, deferral-only records and planned steps do not count.
  * Severity, reach and growth never trigger a watch on their own.
- * A watch is due when either of these holds:
- *
- * 1. The recorded grade is red. A conclusive flag is re-read every eligible round until
- *    the user acts on it and the record moves.
- * 2. One area reaches three audit correction commits on green or two on amber.
- *    The watch then judges whether their causes show drift.
+ * A watch is due when one area reaches three audit correction commits on
+ * green or two on amber or red. The watch then judges whether their causes
+ * show drift. Red takes the amber limit rather than an early trigger: the
+ * runner already stops the sequence on red, so the user has acted on the
+ * flag before a next round can run, and re-reading the record on that round
+ * would judge the same evidence again before any new correction lands.
  *
  * A record the glance cannot count from reads as green: none for this
  * episode in this repository, an old-format entry or a recorded head that is
@@ -144,12 +144,6 @@ export function glanceDecision(
           }
   const { grade, held } = window
   const since = new Set(data.history.slice(0, window.end))
-  if (grade === "red")
-    return {
-      due: true,
-      text: `${held} A red record is re-read every round (rule 1).`,
-    }
-
   const counts = new Map<string, number>()
   for (const commit of data.commits) {
     if (
@@ -187,7 +181,7 @@ export function glanceDecision(
   const due = entries.some(([, count]) => count >= limit)
   return {
     due,
-    text: `${held} ${summary} ${due ? `An area reached the ${grade} limit of ${limit} (rule 2).` : `No area reached the ${grade} limit of ${limit}.`}`,
+    text: `${held} ${summary} ${due ? `An area reached the ${grade} limit of ${limit}.` : `No area reached the ${grade} limit of ${limit}.`}`,
   }
 }
 

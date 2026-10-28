@@ -146,9 +146,10 @@ consumers.
   audits remain watch evidence but do not advance the count.
   Repo Edu groups by finding area and planning groups by finding section.
   D-only work, clean records, deferral-only records and planned steps do not count.
-  Green waits for three audit correction commits in one area and amber waits for two. Red runs
-  after every finished round with audit findings. Clean audits never call the
-  glance. Severity, reach and growth have no early trigger.
+  Green waits for three audit correction commits in one area; amber and red wait for two. Red
+  has no early trigger because the runner already stops the sequence on it, so the user has acted
+  before a next round can run. Clean audits never call the glance. Severity, reach and growth have
+  no early trigger.
   A subject the grammar refuses or an unreadable finding set supplies no
   correction count. The episode retains the unreadable evidence. The watch record is read as
   data: a missing, unreadable or old-format entry, or a recorded head off HEAD's
