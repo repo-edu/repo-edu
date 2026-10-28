@@ -336,8 +336,10 @@ consumers.
   It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
   plan stem with an optional scope, or commit references, which are a complete target. A plan's
-  scope is the word `plan` for its planning round, a step or an increasing range; `planningScope` is
-  the one spelling of that word. An optional `plan@` prefix on the first reference selects the plan
+  scope is the word `plan` for its planning round, or step scopes in audit order, each a step or an
+  increasing range, separated by commas or spaces as auditor entries are; `planningScope` is the
+  one spelling of that word, and it stands alone because a planning round and a step series share
+  nothing a list could sequence. An optional `plan@` prefix on the first reference selects the plan
   repo for the whole commit target; bare references select Repo Edu. A prefix on a later reference
   is refused. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan arguments drop
   `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` accepts the active artifact
@@ -354,8 +356,11 @@ consumers.
   artifact. It resolves the active plan before reading its step list, so a missing plan says so, and
   supplies the absolute plan path before any assistant starts. The `plan` scope selects a planning
   audit before the landed-step check, so it reads neither history nor list. Before any step lands,
-  the bare plan selects a planning audit without reading that list. A concrete step scope returns
-  after the landed-step check without reading the list. For a bare plan once a step has landed,
+  the bare plan selects a planning audit without reading that list. Concrete step scopes return
+  after the landed-step check without reading the list, one target per scope in the order given,
+  so every round still runs on one scope and keeps that scope's files, records and round data.
+  `resolveTargets` returns that ordered list; a commit target or a bare plan is a list of one. For
+  a bare plan once a step has landed,
   `plan-steps.ts` supplies every listed step and hosting repo. Loose forms find each hosted step,
   its repo's newest step and its newest `implemented` marker. The bare plan resolves to the full
   listed range only when every hosted share has landed and each marker is newer than its repo's
@@ -406,7 +411,14 @@ consumers.
   a clean record removes none. Failure, a round requiring a ruling, a red watch or an empty queue
   stops the manual sequence, and the queue file is deleted however the sequence ends. Each manual
   round prints the queue's path and contents when it opens. Each automatic round prints its judge
-  answer and reason. Each round records its own file pair and the coordinator has no filesystem side
+  answer and reason. A scope list runs one series per scope in list order. Each scope opens as its
+  own series: the opener is chosen again, so an alternate default reads the stamp the previous
+  scope moved, `--first` opens every scope and the round count starts over. A judge stop, the
+  maximum or a one-shot round ends only that scope and the next one is announced. A failure, an
+  unanswered ruling, a red watch or a plan that turned widening ends the whole list and names the
+  scopes that did not run. The list is refused beside `--auditor`, whose queue belongs to one
+  target and whose pairing with the scopes would need a second reading, and beside `name`, which
+  claims one round. Each round records its own file pair and the coordinator has no filesystem side
   effects: it opens one output per round, retires the previous one first, and reads updates and
   settings once for the whole run before opening any files. Startup messages go only to the
   terminal; the run log begins with the models table. A chained round carries its place in its title
@@ -548,7 +560,9 @@ stem history decide what a bare plan name means:
   completion.
 
 A concrete step scope selects an implementation audit and is refused before
-any step lands. Once a step has landed, no unscoped invocation selects a
+any step lands. A list of step scopes, as in `pnpm audit-round <stem> 2,3-5,6-7`,
+selects one implementation audit per scope and runs an automatic series on each
+in list order. Once a step has landed, no unscoped invocation selects a
 planning audit. The scope word `plan`, as in `pnpm audit-round <stem> plan`,
 selects the planning audit whatever has landed, without reading the step list.
 It continues the plan's `-plan` round series and data file, so the round lands
@@ -629,6 +643,7 @@ heavy background blocks. Preserve these qualities when changing terminal renderi
 
 ```bash
 pnpm audit-round example 1-3
+pnpm audit-round example 2,3-5,6-7
 pnpm audit-round example 3 --auditor a -v
 pnpm audit-round example 3 --auditor atx
 pnpm audit-round task-modifier 1-4 --auditor claude
@@ -763,7 +778,10 @@ at the plan root, or takes the most recently modified one when none is named. It
 the transcript title, writes beside it without claiming a new number and overwrites its standalone
 log on each run. Without `--auditor`, an active settled plan runs an automatic series from the
 `--first` selection or the configured default, follows each fresh judge answer and stops at its
-maximum without writing a queue. Widening plans and commit targets run once.
+maximum without writing a queue. Widening plans and commit targets run once. A scope list runs
+that series once per scope in list order, each scope on its own target, and stops the whole list
+only where a series needs the user: a failure, an unanswered ruling, a red watch or a plan that
+turned widening.
 `--auditor` accepts one selection or a sequence on the named plan scope, separated by commas or
 spaces. Repeated entries request separate rounds. The entries after the current round wait in
 `<target>-queue.md` at the plan root. Edit it to add, remove or reorder rounds; the runner reads it

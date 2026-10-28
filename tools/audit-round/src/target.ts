@@ -44,13 +44,19 @@ export type AuditTarget =
 export const planningScope = "plan"
 
 /**
+ * What a plan argument's scope names: the planning word alone, or the step
+ * scopes to audit in order, each one step or an increasing range.
+ */
+export type ScopeRequest = typeof planningScope | readonly [string, ...string[]]
+
+/**
  * What a command line names. Commits are a complete target. A plan carries
- * the planning word, a step scope or no scope; the last waits for the plan's
+ * the planning word, step scopes or no scope; the last waits for the plan's
  * history, which `default-target.ts` reads.
  */
 export type TargetRequest =
   | CommitTarget
-  | { readonly plan: string; readonly scope: string | null }
+  | { readonly plan: string; readonly scope: ScopeRequest | null }
 
 /** Active and archived plan paths share one identity for files and records. */
 export function planStem(plan: string): string {
@@ -66,12 +72,11 @@ export function isActivePlanPath(planRoot: string, plan: string): boolean {
   return dirname(resolve(planRoot, plan)) === resolve(planRoot)
 }
 
-function planScope(value: string): string {
-  if (value === planningScope) return value
+function stepScope(value: string): string {
   const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
   if (match === null)
     throw new InvalidArgumentError(
-      `Use ${planningScope} for a planning round, or a positive step number or an increasing range, such as 2 or 2-4.`,
+      `Use ${planningScope} for a planning round, or a positive step number or an increasing range, such as 2 or 2-4, in a list such as 2,3-5,6-7 for one series per scope.`,
     )
   const first = Number(match[1])
   const last = Number(match[2] ?? match[1])
@@ -84,6 +89,23 @@ function planScope(value: string): string {
       "The step range must use safe positive integers in increasing order.",
     )
   return value
+}
+
+/**
+ * Scope entries arrive as separate arguments or joined by commas, as auditor
+ * entries do. The planning word stands alone: a planning round and a step
+ * series share nothing a list could sequence.
+ */
+function planScope(values: readonly [string, ...string[]]): ScopeRequest {
+  const [first, ...more] = values.flatMap((value) => value.split(","))
+  if (first === planningScope || more.includes(planningScope)) {
+    if (more.length > 0)
+      throw new InvalidArgumentError(
+        `The ${planningScope} word stands alone: a planning round joins no scope list.`,
+      )
+    return planningScope
+  }
+  return [stepScope(first), ...more.map(stepScope)]
 }
 
 function commitReference(value: string): boolean {
@@ -137,11 +159,10 @@ export function targetRequest(
     ? "plan"
     : "repo-edu"
   if (repository === "repo-edu" && !commitShaped(first)) {
-    if (rest.length > 1)
-      throw new InvalidArgumentError("A plan accepts at most one scope.")
+    const [scope, ...more] = rest
     return {
       plan: planStem(first),
-      scope: rest[0] === undefined ? null : planScope(rest[0]),
+      scope: scope === undefined ? null : planScope([scope, ...more]),
     }
   }
   const commits: [string, ...string[]] = [first, ...rest]

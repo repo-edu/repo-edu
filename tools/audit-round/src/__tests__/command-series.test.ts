@@ -854,3 +854,89 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
   assert.ok(log.includes(join(f.planRoot, "home/claude/commands/fix.md")))
   assert.match(log, /fix +claude /)
 })
+
+test("a scope list runs one automatic series per scope in list order", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  assert.equal(
+    await runCommand(["example.md", "1,2", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.equal(
+    (await f.prompts()).filter((call) =>
+      call.prompt.startsWith("Run the audit phase "),
+    ).length,
+    2,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 1 round\./,
+  )
+  assert.match(
+    visible,
+    /Next scope: Implementation audit of example, step 2; 0 scopes remain after it\./,
+  )
+  assert.match(
+    visible,
+    /Implementation audit of example, step 2: automatic auditor series stopped on the judge answer after 1 round\./,
+  )
+  assert.doesNotMatch(visible, /Scope list stopped/)
+  const stored = JSON.parse(
+    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { target: string; round: number; scope: string }[]
+  assert.deepEqual(
+    stored.map((entry) => [entry.target, entry.round, entry.scope]),
+    [
+      ["example-impl-01..01", 1, "1"],
+      ["example-impl-02..02", 1, "2"],
+    ],
+  )
+})
+
+test("a ruling left unanswered stops the scope list before its later scopes", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  assert.equal(
+    await runCommand(
+      ["example.md", "1,2,3-4", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.equal(
+    (await f.prompts()).filter((call) =>
+      call.prompt.startsWith("Run the audit phase "),
+    ).length,
+    1,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Auditor sequence stopped: this round required your ruling\./,
+  )
+  assert.match(visible, /Scope list stopped before 2, 3-4\./)
+})
+
+test("a scope list is refused beside --auditor and for a hand-run claim", async (t) => {
+  const f = await roundFixture(t)
+  for (const argv of [
+    ["example.md", "1,2", "--auditor", "codex"],
+    ["name", "example.md", "1", "2", "--auditor", "oth"],
+  ])
+    assert.equal(await runCommand(argv, f.runtime, f.options), 2)
+  const errors = f.errors.join("\n")
+  assert.match(errors, /Use --auditor with one scope/)
+  assert.match(errors, /claims one scope/)
+  assert.deepEqual(await f.roundFiles(), [])
+})

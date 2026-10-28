@@ -11,16 +11,42 @@ import {
 } from "../target.js"
 import { fixture } from "./helpers.js"
 
-test("a plan request carries its scope, or none for the plan's history to decide", () => {
+test("a plan request carries its scopes, or none for the plan's history to decide", () => {
   assert.deepEqual(targetRequest("example", []), {
     plan: "example",
     scope: null,
   })
-  for (const scope of ["1", "2-4", planningScope])
+  for (const scope of ["1", "2-4"])
     assert.deepEqual(targetRequest("example.md", [scope]), {
       plan: "example",
-      scope,
+      scope: [scope],
     })
+  assert.deepEqual(targetRequest("example.md", [planningScope]), {
+    plan: "example",
+    scope: planningScope,
+  })
+})
+
+test("a scope list reads commas and spaces alike and keeps its order", () => {
+  for (const rest of [
+    ["2,3-5,6-7"],
+    ["2", "3-5", "6-7"],
+    ["2,3-5", "6-7"],
+    ["2", "3-5,6-7"],
+  ])
+    assert.deepEqual(targetRequest("example", rest), {
+      plan: "example",
+      scope: ["2", "3-5", "6-7"],
+    })
+  assert.deepEqual(targetRequest("example", ["3", "1-2"]), {
+    plan: "example",
+    scope: ["3", "1-2"],
+  })
+  for (const rest of [[`${planningScope},1`], ["1", planningScope]])
+    assert.throws(
+      () => targetRequest("example", rest),
+      /The plan word stands alone/,
+    )
 })
 
 test("plan arguments discard the extension and widening postfix", () => {
@@ -109,13 +135,15 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["example.md", "Plan"],
     ["example.md", "plan", "1"],
     ["example.md", "9007199254740992"],
-    ["example.md", "1", "2"],
-    ["phase-arguments", "1", "2"],
+    ["example.md", "1,"],
+    ["example.md", ",1"],
+    ["example.md", "1,,2"],
+    ["example.md", "1,0"],
+    ["example.md", "1", "3-2"],
     ["phase-arguments", "HEAD"],
     ["../plan/example.md"],
     ["/tmp/example.md"],
     ["archive/example/plan.md"],
-    ["example", "1", "2"],
   ])
     assert.throws(() => targetRequest(args[0], args.slice(1)))
   assert.throws(

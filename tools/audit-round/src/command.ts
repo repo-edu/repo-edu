@@ -10,7 +10,11 @@ import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { completeClean } from "./clean.js"
 import { executionContext } from "./context.js"
-import { defaultPlan, resolveTarget } from "./default-target.js"
+import {
+  type AuditTargets,
+  defaultPlan,
+  resolveTargets,
+} from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { readWatchGrade, runGlance } from "./glance.js"
@@ -78,6 +82,7 @@ import {
   writeLastOpener,
 } from "./startup.js"
 import {
+  type AuditTarget,
   activePlan,
   isActivePlanPath,
   planRepositoryPrefix,
@@ -85,6 +90,7 @@ import {
   requiredActivePlan,
   resolvePlan,
   roundContext,
+  type TargetRequest,
   targetRequest,
 } from "./target.js"
 import { trialReport, trialRoundComplete } from "./trial.js"
@@ -155,6 +161,34 @@ type Invocation =
       readonly aborted?: string
       readonly verbose?: boolean
     }
+
+/**
+ * A scope list runs one automatic series per scope. It joins no `--auditor`
+ * list, whose editable queue belongs to one target and whose pairing with the
+ * scopes would need a second reading, and `name` claims one hand-run round.
+ */
+function requestedTarget(
+  invocation: Extract<Invocation, { kind: "round" | "name" }>,
+): TargetRequest | null {
+  if (invocation.first === undefined) return null
+  const request = targetRequest(invocation.first, invocation.rest)
+  if (
+    "plan" in request &&
+    typeof request.scope !== "string" &&
+    request.scope !== null &&
+    request.scope.length > 1
+  ) {
+    if (invocation.kind === "name")
+      throw new InvalidArgumentError(
+        "A hand-run round claims one scope. Name one step or range.",
+      )
+    if (invocation.auditor !== undefined)
+      throw new InvalidArgumentError(
+        "A scope list runs one automatic series per scope. Use --auditor with one scope.",
+      )
+  }
+  return request
+}
 
 function sessionTag(value: string): string {
   if (!/^[ao][btu][lmhx]$/.test(value))
@@ -247,6 +281,8 @@ Targets and scope:
                implemented marker follows its newest hosted step: the listed range
              - otherwise: stop and name pending steps and missing or stale markers
   Scope    One step (3) or an increasing range (1-3) audits implementation.
+           A list such as 2,3-5,6-7, separated by commas or spaces, runs one
+           automatic series per scope in that order; see Round sequence below.
            A step scope is refused until a step has landed. The word plan selects
            the planning audit whatever has landed, for a plan edited after ready.
   Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to>.
@@ -297,6 +333,14 @@ Round sequence:
       its first member. --first and other command-line choices take no turn.
     - settings.json sets the maximum round count, including the first round.
     - Widening plans and commit targets still run once.
+
+  Scope list (2,3-5,6-7):
+    - Each scope runs its own series on its own target and files, in list order.
+      The opener is chosen again for each scope, and --first opens every scope.
+    - A judge stop, the maximum or a one-shot round ends only that scope.
+    - A failure, an unanswered ruling, a red watch or a plan that turned widening
+      ends the whole list and names the scopes that did not run.
+    - A scope list is refused beside --auditor, whose queue belongs to one scope.
 
   Manual order (--auditor):
     - Every round runs on the same target and step scope.
@@ -362,6 +406,10 @@ Examples (from either checkout):
   5. Start an automatic series on steps 1-4 with Codex instead of the default.
 
      $ pnpm audit-round example 1-4 --first codex
+
+  6. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
+
+     $ pnpm audit-round example 2,3-5,6-7
 
 Use pnpm audit-round trial to read the newest trial.
 Use settle, ready or close to record the corresponding plan lifecycle call.
@@ -599,6 +647,9 @@ export async function runCommand(
   let output: RoundOutput | undefined
   let result: RoundResult | BriefResult | CloseResult | undefined
   let code = 1
+  /** A finished or interrupted outcome exits clean; only a failure exits 1. */
+  const exitCode = (outcome: { readonly status: string }): number =>
+    outcome.status === "failed" ? 1 : 0
   const now = options.now ?? Date.now
   try {
     const context = await executionContext(options.repoEduRoot)
@@ -711,25 +762,24 @@ export async function runCommand(
             }
           : {
               ...invocation,
-              target: await resolveTarget(
+              targets: await resolveTargets(
                 context,
-                invocation.first === undefined
-                  ? null
-                  : targetRequest(invocation.first, invocation.rest),
+                requestedTarget(invocation),
               ),
             }
     if (
       prepared.kind === "round" &&
-      "commits" in prepared.target &&
+      "commits" in prepared.targets[0] &&
       (prepared.auditor?.length ?? 1) > 1
     )
       throw new InvalidArgumentError(
         "Commit audits run once. Multiple auditors require a plan target.",
       )
     if (prepared.kind === "name") {
+      const [target] = prepared.targets
       const { nameStart } = await roundIdentity({
         ...context,
-        ...prepared.target,
+        ...target,
       })
       const claim = join(context.planRoot, `${nameStart}-0-claim.md`)
       claimRound(claim)
@@ -737,7 +787,7 @@ export async function runCommand(
         context.planRoot,
         `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
       )
-      const session = roundContext(context, prepared.target.roundKind)
+      const session = roundContext(context, target.roundKind)
       options.terminal.write(
         JSON.stringify({
           cwd: session.cwd,
@@ -745,14 +795,12 @@ export async function runCommand(
           claim,
           arguments: [
             report,
-            ...("plan" in prepared.target
+            ...("plan" in target
               ? [
-                  prepared.target.plan,
-                  ...(prepared.target.roundKind === "planning"
-                    ? []
-                    : [prepared.target.scope]),
+                  target.plan,
+                  ...(target.roundKind === "planning" ? [] : [target.scope]),
                 ]
-              : prepared.target.commits),
+              : target.commits),
           ],
         }),
       )
@@ -765,7 +813,7 @@ export async function runCommand(
         ? await transcriptKind(prepared.transcript)
         : prepared.kind === "close"
           ? "planning"
-          : prepared.target.roundKind,
+          : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     if (prepared.kind === "round") {
@@ -913,6 +961,7 @@ export async function runCommand(
         settings,
       )
       active.finish(result, runtime.signal)
+      code = exitCode(result)
     } else if (prepared.kind === "close") {
       const run = closeRun(
         prepared.plan,
@@ -934,21 +983,15 @@ export async function runCommand(
         settings,
       )
       active.finish(result, runtime.signal)
+      code = exitCode(result)
     } else {
+      const targets: AuditTargets = prepared.targets
       const [first, ...queued] = prepared.auditor ?? []
       const automatic =
         prepared.auditor === undefined &&
-        "plan" in prepared.target &&
-        isActivePlanPath(context.planRoot, prepared.target.plan) &&
-        !basename(prepared.target.plan).endsWith("-widen.md")
-      // Only an explicit auditor list owns an editable queue. Automatic series
-      // keep their next seat in this invocation, and other targets run once.
-      const queue =
-        prepared.auditor !== undefined && "plan" in prepared.target
-          ? await queueFile({ ...session, ...prepared.target })
-          : null
-      let rest: readonly AuditorEntry[] = queued
-      if (queue !== null) await writeQueue(queue, rest)
+        "plan" in targets[0] &&
+        isActivePlanPath(context.planRoot, targets[0].plan) &&
+        !basename(targets[0].plan).endsWith("-widen.md")
       const coin = options.coin ?? (() => (Math.random() < 0.5 ? 0 : 1))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
       // A settings-chosen opener takes the first look at a target, which the
@@ -966,16 +1009,6 @@ export async function runCommand(
           : settings.defaultAuditor
       }
       const opened = first ?? prepared.firstAuditor
-      let auditorSelectionSource: AuditorSelectionSource =
-        first !== undefined
-          ? "--auditor"
-          : prepared.firstAuditor !== undefined
-            ? "--first"
-            : "settings"
-      let seat: AuditorSeat | null = opened ?? {
-        assistant: await settingsOpener(),
-        override: noOverride,
-      }
       // Only a completed settings-chosen opener moves the stamp: an aborted
       // opener left no first-look evidence, so the same assistant retries.
       const recordOpener = async (
@@ -1013,147 +1046,194 @@ export async function runCommand(
         nextPairSlots[current.assistant] = slot === 0 ? 1 : 0
         return slot
       }
-      let target = prepared.target
-      let completed = 0
-      try {
-        do {
-          if (completed > 0 && "plan" in target) {
-            if (!automatic) {
+      /**
+       * One auditor series on one target. Each scope of a list opens as its
+       * own series: the opener is chosen again, so an alternate default reads
+       * the stamp the previous scope moved, and the round count starts over.
+       * A judge stop, the maximum or an exhausted queue ends the series; an
+       * ending that needs the user stops the whole list.
+       */
+      const runSeries = async (
+        initial: AuditTarget,
+      ): Promise<"ended" | "stopped"> => {
+        // Only an explicit auditor list owns an editable queue. Automatic series
+        // keep their next seat in this invocation, and other targets run once.
+        const queue =
+          prepared.auditor !== undefined && "plan" in initial
+            ? await queueFile({ ...session, ...initial })
+            : null
+        let rest: readonly AuditorEntry[] = queued
+        if (queue !== null) await writeQueue(queue, rest)
+        let auditorSelectionSource: AuditorSelectionSource =
+          first !== undefined
+            ? "--auditor"
+            : prepared.firstAuditor !== undefined
+              ? "--first"
+              : "settings"
+        let seat: AuditorSeat | null = opened ?? {
+          assistant: await settingsOpener(),
+          override: noOverride,
+        }
+        let target = initial
+        let completed = 0
+        try {
+          do {
+            if (completed > 0 && "plan" in target) {
+              if (!automatic) {
+                const plan = await resolvePlan(
+                  context.planRoot,
+                  planStem(target.plan),
+                )
+                target = { ...target, plan }
+              }
+              if (automatic)
+                await output?.message(
+                  `Next round: ${seat.assistant}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
+                )
+            }
+            const setup = {
+              ...session,
+              ...target,
+              auditor: seat.assistant,
+              auditorSelectionSource,
+              override: seat.override,
+              auditSlot: takeAuditSlot(seat),
+              brief: prepared.brief,
+              automatic,
+            }
+            const run = await roundRun(
+              setup,
+              now(),
+              selections,
+              settings,
+              automatic || completed > 0 || rest.length > 0
+                ? completed + 1
+                : undefined,
+            )
+            const active = open(run)
+            if (queue !== null)
+              await active.message(
+                `Queued after this round: ${rest.map((entry) => entry.text).join(", ") || "none"}. Edit ${queue} to add or remove rounds.`,
+              )
+            const round = await runRound(
+              {
+                ...setup,
+                documents: run.documents,
+                transcript: run.paths.markdown,
+                watch: prepared.watch
+                  ? {
+                      file: run.watch,
+                      cacheRoot,
+                    }
+                  : null,
+              },
+              dependenciesFor(active),
+              settings,
+            )
+            result = round
+            code = exitCode(round)
+            active.finish(round, runtime.signal)
+            if (completed === 0) await recordOpener(run, round, active)
+            completed += 1
+            if (!automatic && queue === null) break
+            if (round.status !== "finished") {
+              await active.message(
+                round.status === "failed"
+                  ? "Auditor sequence stopped: this round failed."
+                  : "Auditor sequence stopped: this round required your ruling.",
+              )
+              return "stopped"
+            }
+            if (automatic && "plan" in target) {
               const plan = await resolvePlan(
                 context.planRoot,
                 planStem(target.plan),
               )
               target = { ...target, plan }
+              if (basename(plan).endsWith("-widen.md")) {
+                await active.message(
+                  `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan is now widening.`,
+                )
+                return "stopped"
+              }
             }
-            if (automatic)
-              await output?.message(
-                `Next round: ${seat.assistant}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
-              )
-          }
-          const setup = {
-            ...session,
-            ...target,
-            auditor: seat.assistant,
-            auditorSelectionSource,
-            override: seat.override,
-            auditSlot: takeAuditSlot(seat),
-            brief: prepared.brief,
-            automatic,
-          }
-          const run = await roundRun(
-            setup,
-            now(),
-            selections,
-            settings,
-            automatic || completed > 0 || rest.length > 0
-              ? completed + 1
-              : undefined,
-          )
-          const active = open(run)
-          if (queue !== null)
-            await active.message(
-              `Queued after this round: ${rest.map((entry) => entry.text).join(", ") || "none"}. Edit ${queue} to add or remove rounds.`,
-            )
-          const round = await runRound(
-            {
-              ...setup,
-              documents: run.documents,
-              transcript: run.paths.markdown,
-              watch: prepared.watch
-                ? {
-                    file: run.watch,
-                    cacheRoot,
-                  }
-                : null,
-            },
-            dependenciesFor(active),
-            settings,
-          )
-          result = round
-          active.finish(round, runtime.signal)
-          if (completed === 0) await recordOpener(run, round, active)
-          completed += 1
-          if (!automatic && queue === null) break
-          if (round.status !== "finished") {
-            await active.message(
-              round.status === "failed"
-                ? "Auditor sequence stopped: this round failed."
-                : "Auditor sequence stopped: this round required your ruling.",
-            )
-            break
-          }
-          if (automatic && "plan" in target) {
-            const plan = await resolvePlan(
-              context.planRoot,
-              planStem(target.plan),
-            )
-            target = { ...target, plan }
-            if (basename(plan).endsWith("-widen.md")) {
+            // A red watch asks the user to act now, so no queued round starts first.
+            if (round.watch === "red") {
               await active.message(
-                `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan is now widening.`,
+                `Auditor sequence stopped: the watch graded red. Read ${run.watch} before running more rounds.`,
               )
-              break
+              return "stopped"
             }
-          }
-          // A red watch asks the user to act now, so no queued round starts first.
-          if (round.watch === "red") {
-            await active.message(
-              `Auditor sequence stopped: the watch graded red. Read ${run.watch} before running more rounds.`,
-            )
-            break
-          }
-          if (automatic && "plan" in target) {
-            const series = `${roundSubject(target, planStem(target.plan))}: automatic auditor series`
-            const judge = round.judge
-            if (judge === null)
-              throw new Error(
-                "Automatic settled round finished without a judge answer",
-              )
-            if (judge.answer === "stop") {
+            if (automatic && "plan" in target) {
+              const series = `${roundSubject(target, planStem(target.plan))}: automatic auditor series`
+              const judge = round.judge
+              if (judge === null)
+                throw new Error(
+                  "Automatic settled round finished without a judge answer",
+                )
+              if (judge.answer === "stop") {
+                await active.message(
+                  `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
+                )
+                break
+              }
+              if (completed >= settings.maximumAutomaticRounds) {
+                await active.message(
+                  `${series} reached its maximum of ${settings.maximumAutomaticRounds} rounds.`,
+                )
+                break
+              }
+              seat = {
+                assistant: judge.answer,
+                override: noOverride,
+              }
+              auditorSelectionSource = "settings"
+              continue
+            }
+            const ending = round.cleanAudit ? "Clean audit" : null
+            const ended =
+              ending === null
+                ? null
+                : auditorSetting(seat, selections, settings)
+            if (queue === null) break
+            const taken = await takeNext(queue, ended, selections, settings)
+            if (taken.skipped > 0)
               await active.message(
-                `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
+                `${ending} by ${ended?.assistant} on ${ended?.model} ${ended?.effort ?? "effort unavailable"}; skipped ${taken.skipped} queued ${taken.skipped === 1 ? "entry" : "entries"} with the same setting.`,
               )
-              break
-            }
-            if (completed >= settings.maximumAutomaticRounds) {
-              await active.message(
-                `${series} reached its maximum of ${settings.maximumAutomaticRounds} rounds.`,
-              )
-              break
-            }
-            seat = {
-              assistant: judge.answer,
-              override: noOverride,
-            }
-            auditorSelectionSource = "settings"
-            continue
-          }
-          const ending = round.cleanAudit ? "Clean audit" : null
-          const ended =
-            ending === null ? null : auditorSetting(seat, selections, settings)
-          if (queue === null) break
-          const taken = await takeNext(queue, ended, selections, settings)
-          if (taken.skipped > 0)
+            seat = taken.next
+            auditorSelectionSource = "--auditor"
+            rest = taken.rest
             await active.message(
-              `${ending} by ${ended?.assistant} on ${ended?.model} ${ended?.effort ?? "effort unavailable"}; skipped ${taken.skipped} queued ${taken.skipped === 1 ? "entry" : "entries"} with the same setting.`,
+              seat === null
+                ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`
+                : `Next round: ${seat.assistant}; ${rest.length + 1} auditor entries remain.`,
             )
-          seat = taken.next
-          auditorSelectionSource = "--auditor"
-          rest = taken.rest
-          await active.message(
-            seat === null
-              ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`
-              : `Next round: ${seat.assistant}; ${rest.length + 1} auditor entries remain.`,
+          } while (seat !== null)
+        } finally {
+          if (queue !== null) await removeQueue(queue)
+        }
+        return "ended"
+      }
+      for (const [index, target] of targets.entries()) {
+        const later = targets.slice(index + 1)
+        if (index > 0 && "plan" in target)
+          await output?.message(
+            `Next scope: ${roundSubject(target, planStem(target.plan))}; ${later.length} scope${later.length === 1 ? "" : "s"} remain after it.`,
           )
-        } while (seat !== null)
-      } finally {
-        if (queue !== null) await removeQueue(queue)
+        if ((await runSeries(target)) === "ended") continue
+        const unrun = later.flatMap((scope) =>
+          "scope" in scope ? [scope.scope] : [],
+        )
+        if (unrun.length > 0)
+          await output?.message(
+            `Scope list stopped before ${unrun.join(", ")}.`,
+          )
+        break
       }
     }
-
-    code = result.status === "failed" ? 1 : 0
   } catch (error) {
-    if (error instanceof InvalidArgumentError) code = 2
+    code = error instanceof InvalidArgumentError ? 2 : 1
     options.terminal.clear()
     options.emergency(`audit-round: ${errorMessage(error)}`)
     // Required recording failures cannot be reported through the failed writer.

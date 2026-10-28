@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { type TestContext, test } from "node:test"
 import { InvalidArgumentError } from "commander"
-import { selectTarget } from "../default-target.js"
+import { selectTargets } from "../default-target.js"
 import type { LogCommit } from "../episode-log.js"
 import type { Repository } from "../subject.js"
 import { type AuditTarget, planningScope, planStem } from "../target.js"
@@ -134,46 +134,57 @@ test("the plan's history selects what its name or no target audits", async (t) =
     ],
   ]
   for (const [history, expected] of cases) {
-    assert.deepEqual(await selectTarget(history, root, null), expected)
+    assert.deepEqual(await selectTargets(history, root, null), [expected])
     assert.deepEqual(
-      await selectTarget(history, root, {
+      await selectTargets(history, root, {
         plan: planStem(expected.plan),
         scope: null,
       }),
-      expected,
+      [expected],
     )
   }
 })
 
-test("a named step or range audits implementation once a step has landed", async (t) => {
+test("named step scopes audit implementation in list order once a step has landed", async (t) => {
   const root = await planRoot(t)
+  const plan = join(root, "example.md")
   assert.deepEqual(
-    await selectTarget(implemented, root, { plan: "example", scope: "1-2" }),
-    {
-      roundKind: "implementation",
-      plan: join(root, "example.md"),
-      scope: "1-2",
-    },
+    await selectTargets(implemented, root, { plan: "example", scope: ["1-2"] }),
+    [{ roundKind: "implementation", plan, scope: "1-2" }],
   )
   assert.deepEqual(
-    await selectTarget(
+    await selectTargets(implemented, root, {
+      plan: "example",
+      scope: ["2", "1-3", "3"],
+    }),
+    [
+      { roundKind: "implementation", plan, scope: "2" },
+      { roundKind: "implementation", plan, scope: "1-3" },
+      { roundKind: "implementation", plan, scope: "3" },
+    ],
+  )
+  assert.deepEqual(
+    await selectTargets(
       logs(["repo-edu", 1, "malformed/impl-1 obx feat(x): step"]),
       root,
-      { plan: "malformed", scope: "1" },
+      { plan: "malformed", scope: ["1"] },
     ),
-    {
-      roundKind: "implementation",
-      plan: join(root, "malformed.md"),
-      scope: "1",
-    },
+    [
+      {
+        roundKind: "implementation",
+        plan: join(root, "malformed.md"),
+        scope: "1",
+      },
+    ],
   )
-  await assert.rejects(
-    selectTarget(logs(["plan", 1, "example/ready: ready"]), root, {
-      plan: "example",
-      scope: "1",
-    }),
-    /No step of example has landed/,
-  )
+  for (const scope of [["1"], ["1", "2"]] as const)
+    await assert.rejects(
+      selectTargets(logs(["plan", 1, "example/ready: ready"]), root, {
+        plan: "example",
+        scope,
+      }),
+      /No step of example has landed/,
+    )
 })
 
 test("the planning word selects the planning round whatever the plan's history holds", async (t) => {
@@ -189,23 +200,23 @@ test("the planning word selects the planning round whatever the plan's history h
     ),
   ])
     assert.deepEqual(
-      await selectTarget(history, root, {
+      await selectTargets(history, root, {
         plan: "example",
         scope: planningScope,
       }),
-      planning,
+      [planning],
     )
   // The step list is not read, so a malformed one does not block the round.
   assert.deepEqual(
-    await selectTarget(
+    await selectTargets(
       logs(["repo-edu", 1, "malformed/impl-1 obx feat(x): step"]),
       root,
       { plan: "malformed", scope: planningScope },
     ),
-    { roundKind: "planning", plan: join(root, "malformed.md") },
+    [{ roundKind: "planning", plan: join(root, "malformed.md") }],
   )
   await assert.rejects(
-    selectTarget(implemented, root, { plan: "missing", scope: planningScope }),
+    selectTargets(implemented, root, { plan: "missing", scope: planningScope }),
     /No active plan named missing/,
   )
 })
@@ -213,7 +224,7 @@ test("the planning word selects the planning round whatever the plan's history h
 test("marker freshness follows Git order when commit dates disagree", async (t) => {
   const root = await planRoot(t)
   assert.deepEqual(
-    await selectTarget(
+    await selectTargets(
       logs(
         ["repo-edu", 40, "example/impl-1 obx feat(x): first step"],
         ["repo-edu", 30, "example/impl-2 obx feat(x): second step"],
@@ -224,14 +235,16 @@ test("marker freshness follows Git order when commit dates disagree", async (t) 
       root,
       named,
     ),
-    {
-      roundKind: "implementation",
-      plan: join(root, "example.md"),
-      scope: "1-3",
-    },
+    [
+      {
+        roundKind: "implementation",
+        plan: join(root, "example.md"),
+        scope: "1-3",
+      },
+    ],
   )
   await assert.rejects(
-    selectTarget(
+    selectTargets(
       logs(
         ["repo-edu", 90, "example/implemented obx: stale marker"],
         ["repo-edu", 40, "example/impl-1 obx feat(x): first step"],
@@ -277,11 +290,11 @@ test("a plan between its listed steps and current markers stops with its reason"
     ],
   ]
   for (const [history, reason] of cases) {
-    await assert.rejects(selectTarget(history, root, null), reason)
-    await assert.rejects(selectTarget(history, root, named), reason)
+    await assert.rejects(selectTargets(history, root, null), reason)
+    await assert.rejects(selectTargets(history, root, named), reason)
   }
   await assert.rejects(
-    selectTarget(
+    selectTargets(
       logs(["plan", 1, "archived/init ath: archived only"]),
       root,
       null,
@@ -293,7 +306,7 @@ test("a plan between its listed steps and current markers stops with its reason"
 test("an unfinished plan omits the scope example when no listed step has landed", async (t) => {
   const root = await planRoot(t)
   await assert.rejects(
-    selectTarget(
+    selectTargets(
       logs(["repo-edu", 1, "example/impl-4 obx feat(x): removed step"]),
       root,
       named,

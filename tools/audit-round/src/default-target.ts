@@ -11,8 +11,12 @@ import {
   planningScope,
   planStem,
   resolvePlan,
+  type ScopeRequest,
   type TargetRequest,
 } from "./target.js"
+
+/** The targets one command line runs in order; a scope list gives several. */
+export type AuditTargets = readonly [AuditTarget, ...AuditTarget[]]
 
 type Logs = Readonly<Record<Repository, readonly LogCommit[]>>
 
@@ -30,13 +34,13 @@ export async function defaultPlan(context: ExecutionContext): Promise<string> {
   return (await newestPlan(await readLogs(context), context.planRoot)).path
 }
 
-/** The audit a command line asks for, with no target meaning the newest plan. */
-export async function resolveTarget(
+/** The audits a command line asks for, with no target meaning the newest plan. */
+export async function resolveTargets(
   context: ExecutionContext,
   request: TargetRequest | null,
-): Promise<AuditTarget> {
-  if (request !== null && "commits" in request) return request
-  return selectTarget(await readLogs(context), context.planRoot, request)
+): Promise<AuditTargets> {
+  if (request !== null && "commits" in request) return [request]
+  return selectTargets(await readLogs(context), context.planRoot, request)
 }
 
 /**
@@ -44,13 +48,17 @@ export async function resolveTarget(
  * command runs the audit the plan's state calls for. The planning word names
  * the planning round whatever has landed, because a bare name stops selecting
  * it once a step lands. Moving on to another scope is the user's call, so a
- * plan between its steps stops with its reason.
+ * plan between its steps stops with its reason. Named step scopes each become
+ * one target, in the order given, once any step has landed.
  */
-export async function selectTarget(
+export async function selectTargets(
   logs: Logs,
   planRoot: string,
-  request: { readonly plan: string; readonly scope: string | null } | null,
-): Promise<AuditTarget> {
+  request: {
+    readonly plan: string
+    readonly scope: ScopeRequest | null
+  } | null,
+): Promise<AuditTargets> {
   const plan =
     request === null
       ? (await newestPlan(logs, planRoot)).path
@@ -61,16 +69,17 @@ export async function selectTarget(
     plan,
     scope,
   })
-  if (request?.scope === planningScope) return { roundKind: "planning", plan }
+  if (request?.scope === planningScope) return [{ roundKind: "planning", plan }]
   if (!hasLandedStep(logs, topic)) {
     if (request?.scope != null)
       throw new InvalidArgumentError(
         `No step of ${topic} has landed, so it has no implementation to audit. Name the plan alone for a planning round.`,
       )
-    return { roundKind: "planning", plan }
+    return [{ roundKind: "planning", plan }]
   }
   if (request?.scope != null) {
-    return implementation(request.scope)
+    const [first, ...more] = request.scope
+    return [implementation(first), ...more.map(implementation)]
   }
   const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
   const status = progress(logs, topic, listedSteps)
@@ -80,7 +89,7 @@ export async function selectTarget(
     )
   ) {
     const last = listedSteps.length
-    return implementation(last === 1 ? "1" : `1-${last}`)
+    return [implementation(last === 1 ? "1" : `1-${last}`)]
   }
   const pending = status.repositories.flatMap(({ name, pending }) =>
     pending.length === 0
