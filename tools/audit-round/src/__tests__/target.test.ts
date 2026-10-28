@@ -33,6 +33,9 @@ test("a scope list reads commas and spaces alike and keeps its order", () => {
     ["2", "3-5", "6-7"],
     ["2,3-5", "6-7"],
     ["2", "3-5,6-7"],
+    ["2,", "3-5", "6-7"],
+    ["2, 3-5, 6-7"],
+    ["2", ",", "3-5", "6-7"],
   ])
     assert.deepEqual(targetRequest("example", rest), {
       plan: "example",

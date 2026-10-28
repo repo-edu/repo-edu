@@ -97,7 +97,10 @@ function stepScope(value: string): string {
  * series share nothing a list could sequence.
  */
 function planScope(values: readonly [string, ...string[]]): ScopeRequest {
-  const [first, ...more] = values.flatMap((value) => value.split(","))
+  const [first, ...more] = values
+    .join(" ")
+    .split(",")
+    .flatMap((value) => value.trim().split(/\s+/))
   if (first === planningScope || more.includes(planningScope)) {
     if (more.length > 0)
       throw new InvalidArgumentError(
