@@ -154,7 +154,13 @@ could address the cause across its affected scope, suggest a targeted fix plan.
 That is a small peer plan that owns this part of the parent step, with steps and
 audits of its own. A correction made without a plan has no stated scope and no
 stem. Its commits and their later fixes then cannot be told apart from other
-work, so no audit can find where it starts.
+work, so no audit can find where it starts. When the four-part price under
+[Trajectory diagnostic](#trajectory-diagnostic) shows that the defended event
+has no recorded occurrence, the response is a keep-or-delete question to the
+user, put first. The seed the certainty level allows follows that question,
+and the fix plan is suggested only for the case that the user keeps the
+mechanism. A report that says the event never happened and then strongly
+suggests a fix plan has answered its own price.
 
 On red, and whenever it suggests a targeted fix plan, the watch states how
 certain it is that such a plan fits. It grounds the level in evidence it cites:
