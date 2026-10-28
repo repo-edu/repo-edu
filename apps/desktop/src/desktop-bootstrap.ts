@@ -62,7 +62,7 @@ export async function loadDesktopBootstrap(
       throw error
     }
   } catch (error) {
-    admission.terminal(error)
+    if (!abort.signal.aborted) admission.terminal(error)
     throw error
   } finally {
     settle()

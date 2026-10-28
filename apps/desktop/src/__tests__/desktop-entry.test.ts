@@ -42,6 +42,42 @@ for (const scenario of ["gate-first", "ready-first"]) {
   })
 }
 
+it("a quit that cancels bootstrap keeps the clean ending", async () => {
+  const result = await runDesktopEntry({
+    scenario: "bootstrap-abort",
+    collaborators: {
+      "./desktop-bootstrap": `
+        export const loadDesktopBootstrap = (_root, admission) => {
+          trace("storage")
+          const abort = new AbortController()
+          const settle = admission.startWorkflow("settings.loadApp", {
+            cancel: () => {
+              trace("storage-abort")
+              abort.abort()
+            }
+          })
+          return new Promise((_resolve, reject) => {
+            abort.signal.addEventListener(
+              "abort",
+              () => reject(abort.signal.reason),
+              { once: true }
+            )
+          }).finally(settle)
+        }
+      `,
+    },
+  })
+
+  assert.equal(result.error, undefined)
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(result.stderr.includes("[desktop] terminal"), false)
+  assert.ok(result.events.includes("storage-abort"))
+  assert.equal(
+    result.events.filter((event) => event === "stop-owned-work").length,
+    1,
+  )
+})
+
 for (const scenario of ["unhandled-rejection", "child-loss"]) {
   it(`the installed ${scenario} adapter enters reducer-owned ending before readiness`, async () => {
     const result = await runDesktopEntry({ scenario })

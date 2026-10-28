@@ -666,6 +666,13 @@ export function installDesktopApplication(): void {
   async function createWindow(): Promise<BrowserWindow | null> {
     const isMac = process.platform === "darwin"
     const storageRoot = currentStorageRootPath()
+    const bootstrap = await loadDesktopBootstrap(storageRoot, admission).catch(
+      (error): null => {
+        if (admission.getSnapshot().phase !== "starting") return null
+        throw error
+      },
+    )
+    if (!bootstrap) return null
     const {
       appSettingsStore,
       settings,
@@ -674,7 +681,7 @@ export function installDesktopApplication(): void {
       windowState,
       archiveHandle,
       examinationArchive,
-    } = await loadDesktopBootstrap(storageRoot, admission)
+    } = bootstrap
     if (admission.getSnapshot().phase !== "starting") {
       archiveHandle.close()
       return null

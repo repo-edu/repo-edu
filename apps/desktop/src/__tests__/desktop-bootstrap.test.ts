@@ -85,6 +85,28 @@ it("the loaded archive reports live storage failure through host admission", asy
   })
 })
 
+it("keeps a close during durable loading on the aborting path", async () => {
+  await fixture(async (root, admission, effects) => {
+    const loading = loadDesktopBootstrap(root, admission)
+
+    assert.equal(
+      admission.dispatch({
+        type: "host-start",
+        source: "application-quit",
+        request: { cancel() {} },
+      }),
+      "accepted",
+    )
+    await assert.rejects(loading, (error: Error) => error.name === "AbortError")
+
+    assert.equal(admission.getSnapshot().phase, "closing.aborting")
+    assert.deepEqual(effects, [
+      { type: "disable-input" },
+      { type: "end-host", reason: "abort" },
+    ])
+  })
+})
+
 it("a later launch reads saved settings, courses and geometry with fresh owners", async () => {
   await fixture(async (root, admission) => {
     const settingsStore = createDesktopAppSettingsStore(root)
