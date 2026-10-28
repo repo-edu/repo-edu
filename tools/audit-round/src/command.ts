@@ -1135,7 +1135,6 @@ export async function runCommand(
             active.finish(round, runtime.signal)
             if (completed === 0) await recordOpener(run, round, active)
             completed += 1
-            if (!automatic && queue === null) break
             if (round.status !== "finished") {
               await active.message(
                 round.status === "failed"
@@ -1144,6 +1143,7 @@ export async function runCommand(
               )
               return "stopped"
             }
+            if (!automatic && queue === null) break
             if (automatic && "plan" in target) {
               const plan = await resolvePlan(
                 context.planRoot,

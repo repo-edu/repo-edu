@@ -777,6 +777,43 @@ test("a widening target without --auditor ends after one round", async (t) => {
   assert.doesNotMatch(f.visible.join("\n"), /automatic auditor series/)
 })
 
+test("a failed one-shot round stops a widening scope list before later scopes", async (t) => {
+  const f = await roundFixture(t)
+  await rm(join(f.planRoot, "example.md"))
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as object),
+        assistants: undefined,
+        stream: await phaseStream(
+          "codex",
+          'Audit failed.\nPHASE RESULT: {"status":"failed","reason":"Audit failure"}',
+          "audit-session",
+        ),
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(
+      ["example-widen.md", "1,2", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
+    1,
+  )
+  assert.equal(
+    (await f.prompts()).filter((call) =>
+      call.prompt.startsWith("Run the audit phase "),
+    ).length,
+    1,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Auditor sequence stopped: this round failed\./)
+  assert.match(visible, /Scope list stopped before 2\./)
+})
+
 test("an automatic rebuttal round gives the fresh judge retained evidence", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")
   assert.equal(
