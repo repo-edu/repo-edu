@@ -1,11 +1,5 @@
 import { z } from "zod"
 
-export type UpdaterMessageType =
-  | "onUpdateAvailable"
-  | "onUpdateDownloaded"
-  | "onUpdateError"
-  | "onDownloadProgress"
-
 /** Presentation messages owned by the updater transport (Decision 21). */
 export const updaterMessageSchemas = {
   onUpdateAvailable: z.strictObject({ version: z.string() }),
@@ -17,7 +11,7 @@ export const updaterMessageSchemas = {
     transferred: z.number(),
     total: z.number(),
   }),
-} as const satisfies Record<UpdaterMessageType, z.ZodType>
+} as const
 
 export const updaterMessageChannels = {
   onUpdateAvailable: "repo-edu/updater/on-update-available",

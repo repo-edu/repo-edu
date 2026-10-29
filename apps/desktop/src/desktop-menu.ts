@@ -10,39 +10,12 @@ export type DesktopMenuOptions = {
   quit(): void
 }
 
-type DesktopMenuAction = "documentation" | "about" | "close" | "quit"
-
-type DesktopNativeMenuRole =
-  | "services"
-  | "hide"
-  | "hideOthers"
-  | "unhide"
-  | "editMenu"
-  | "resetZoom"
-  | "zoomIn"
-  | "zoomOut"
-  | "togglefullscreen"
-  | "windowMenu"
-
-function runMenuAction(
-  options: DesktopMenuOptions,
-  action: DesktopMenuAction,
-): void {
-  options[action]()
-}
-
-function nativeMenuItem(
-  role: DesktopNativeMenuRole,
-): MenuItemConstructorOptions {
-  return { role }
-}
-
 function createHelpMenu(options: DesktopMenuOptions) {
   const helpItems: MenuItemConstructorOptions[] = [
     {
       label: "Documentation",
       click: () => {
-        runMenuAction(options, "documentation")
+        options.documentation()
       },
     },
   ]
@@ -57,7 +30,7 @@ function createHelpMenu(options: DesktopMenuOptions) {
       {
         label: `About ${options.appName}`,
         click: () => {
-          runMenuAction(options, "about")
+          options.about()
         },
       },
     )
@@ -80,23 +53,23 @@ export function createDesktopMenuTemplate(options: DesktopMenuOptions) {
         {
           label: `About ${options.appName}`,
           click: () => {
-            runMenuAction(options, "about")
+            options.about()
           },
         },
         { type: "separator" },
         ...options.updateItems,
         { type: "separator" },
-        nativeMenuItem("services"),
+        { role: "services" },
         { type: "separator" },
-        nativeMenuItem("hide"),
-        nativeMenuItem("hideOthers"),
-        nativeMenuItem("unhide"),
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
         { type: "separator" },
         {
           label: `Quit ${options.appName}`,
           accelerator: "Command+Q",
           click: () => {
-            runMenuAction(options, "quit")
+            options.quit()
           },
         },
       ],
@@ -111,7 +84,7 @@ export function createDesktopMenuTemplate(options: DesktopMenuOptions) {
           label: "Close",
           accelerator: "CmdOrCtrl+W",
           click: () => {
-            runMenuAction(options, "close")
+            options.close()
           },
         },
         ...(!isMac
@@ -120,25 +93,25 @@ export function createDesktopMenuTemplate(options: DesktopMenuOptions) {
                 label: "Quit",
                 accelerator: "Alt+F4",
                 click: () => {
-                  runMenuAction(options, "quit")
+                  options.quit()
                 },
               },
             ]
           : []),
       ],
     },
-    nativeMenuItem("editMenu"),
+    { role: "editMenu" },
     {
       label: "View",
       submenu: [
-        nativeMenuItem("resetZoom"),
-        nativeMenuItem("zoomIn"),
-        nativeMenuItem("zoomOut"),
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
         { type: "separator" },
-        nativeMenuItem("togglefullscreen"),
+        { role: "togglefullscreen" },
       ],
     },
-    nativeMenuItem("windowMenu"),
+    { role: "windowMenu" },
   )
 
   template.push(createHelpMenu(options))

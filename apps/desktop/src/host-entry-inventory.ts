@@ -80,32 +80,20 @@ export const desktopTrpcWorkflowIds: readonly OrdinaryWorkflowId[] = (
 
 export type DesktopShellActionClass = "presentation-only" | "session-changing"
 
-export type DesktopShellAction =
-  | "pickUserFile"
-  | "pickSaveTarget"
-  | "pickDirectory"
-  | "setNativeTheme"
-  | "downloadUpdate"
-
-export type DesktopDirectAction =
-  | DesktopShellAction
-  | "bootstrapReady"
-  | "quitAndInstall"
-
 export const desktopShellActions = {
   pickUserFile: "session-changing",
   pickSaveTarget: "session-changing",
   pickDirectory: "session-changing",
   setNativeTheme: "presentation-only",
   downloadUpdate: "presentation-only",
-} as const satisfies Record<DesktopShellAction, DesktopShellActionClass>
+} as const satisfies Record<string, DesktopShellActionClass>
 
-export type DesktopHostStart =
-  | "window-close"
-  | "application-quit"
-  | "menu-close"
-  | "menu-quit"
-  | "menu-update-restart"
+export type DesktopShellAction = keyof typeof desktopShellActions
+
+export type DesktopDirectAction =
+  | DesktopShellAction
+  | "bootstrapReady"
+  | "quitAndInstall"
 
 export const desktopHostStarts = {
   "window-close": "close",
@@ -113,4 +101,6 @@ export const desktopHostStarts = {
   "menu-close": "close",
   "menu-quit": "close",
   "menu-update-restart": "update-restart",
-} as const satisfies Record<DesktopHostStart, "close" | "update-restart">
+} as const satisfies Record<string, "close" | "update-restart">
+
+export type DesktopHostStart = keyof typeof desktopHostStarts

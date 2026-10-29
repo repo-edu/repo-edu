@@ -70,15 +70,6 @@ const _ordinaryIdsAgree: Same<
 > = true
 void _ordinaryIdsAgree
 
-export type SessionDirectOperation =
-  | "pickUserFile"
-  | "pickSaveTarget"
-  | "pickDirectory"
-  | "setNativeTheme"
-  | "downloadUpdate"
-  | "quitAndInstall"
-  | "bootstrapReady"
-
 export const sessionDirectClasses = {
   pickUserFile: "session-changing",
   pickSaveTarget: "session-changing",
@@ -87,10 +78,7 @@ export const sessionDirectClasses = {
   downloadUpdate: "presentation-only",
   quitAndInstall: "session-changing",
   bootstrapReady: "session-changing",
-} as const satisfies Record<
-  SessionDirectOperation,
-  "presentation-only" | "session-changing"
->
+} as const satisfies Record<string, "presentation-only" | "session-changing">
 
 export type SessionDirectId = {
   [K in keyof typeof sessionDirectClasses]: (typeof sessionDirectClasses)[K] extends "session-changing"
