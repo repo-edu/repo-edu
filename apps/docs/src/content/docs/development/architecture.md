@@ -246,15 +246,20 @@ dependency-cruiser graph checks. Graph-level rules such as layer boundaries,
 domain module order, claude-coder source confinement, whole-source import
 cycles, and the desktop renderer runtime closure run through
 dependency-cruiser. Repository checks also enforce source exports and Node test
-runner imports. Symbol-level renderer session ownership remains bespoke in
-architecture-check.
+runner imports. Bespoke checks cover Claude dependency confinement outside the
+source inventory.
 
 - Electron code stays inside `apps/desktop`. Never import Electron in shared packages.
 - Browser-safe contracts and the desktop renderer runtime closure must not import Node built-ins.
 - Side effects live in adapters and ports (`host-node`, integration adapters), not in domain logic.
 - Only the desktop gateway registers renderer IPC. Ordinary workflows use its
   tRPC adapter; exclusive commands and clean close use retained request ports.
-- Every workflow, direct action, request message, lifecycle source, menu action
-  and updater message belongs to its separately checked fixed inventory.
-- The session operation owner alone holds the raw client. All semantic mutation
-  routes pass through its admission; Query publication stays inside the body.
+- Workflow starts, direct actions, request messages, reducer starts, updater
+  menu starts and updater messages stay closed through records or schemas that
+  their runtime owners read.
+- Electron lifecycle, terminal, fatal, navigation and native-menu sources are
+  installed directly. Review and implementation audits compare them with the
+  plan inventory.
+- The session operation owner alone holds the raw client. Review and
+  implementation audits catch new raw-client holders or semantic mutation
+  routes that the import graph cannot express.

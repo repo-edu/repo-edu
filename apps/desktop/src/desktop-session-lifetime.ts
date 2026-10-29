@@ -1,17 +1,5 @@
 import type { App, BrowserWindow } from "electron"
 
-export type SameProgramStartSource =
-  | "single-instance-lock-refused"
-  | "second-instance"
-
-export const sameProgramStartActions = {
-  "single-instance-lock-refused": "exit-new-process",
-  "second-instance": "focus-running-window",
-} as const satisfies Record<
-  SameProgramStartSource,
-  "exit-new-process" | "focus-running-window"
->
-
 /** Activation may focus this session but never create a replacement renderer. */
 export function installDesktopSessionLifetime(options: {
   app: Pick<App, "on">
@@ -26,17 +14,8 @@ export function installDesktopSessionLifetime(options: {
     if (window.isMinimized()) window.restore()
     window.focus()
   }
-  const lifecycleSources = {
-    "second-instance": focus,
-    activate: focus,
-    "window-all-closed": options.close,
-  } satisfies Record<
-    "second-instance" | "activate" | "window-all-closed",
-    () => void
-  >
-  sameProgramStartActions["second-instance"] satisfies "focus-running-window"
-  options.app.on("second-instance", lifecycleSources["second-instance"])
-  options.app.on("activate", lifecycleSources.activate)
+  options.app.on("second-instance", focus)
+  options.app.on("activate", focus)
   // Quit on macOS too. A later Dock launch then starts a fresh process.
-  options.app.on("window-all-closed", lifecycleSources["window-all-closed"])
+  options.app.on("window-all-closed", options.close)
 }

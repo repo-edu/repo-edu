@@ -71,10 +71,7 @@ import { loadDesktopBootstrap } from "./desktop-bootstrap"
 import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { createDesktopMenuTemplate } from "./desktop-menu"
-import {
-  installDesktopSessionLifetime,
-  sameProgramStartActions,
-} from "./desktop-session-lifetime"
+import { installDesktopSessionLifetime } from "./desktop-session-lifetime"
 import { endDesktopHost, isDesktopEnding } from "./desktop-terminal"
 import { installDesktopTerminalSources } from "./desktop-terminal-sources"
 import type { DesktopDirectMessage } from "./desktop-wire"
@@ -105,9 +102,6 @@ export function installDesktopApplication(): void {
     app.commandLine.appendSwitch("password-store", "basic")
   }
   if (!app.requestSingleInstanceLock()) {
-    sameProgramStartActions[
-      "single-instance-lock-refused"
-    ] satisfies "exit-new-process"
     app.exit(0)
     return
   }

@@ -32,7 +32,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 - `src/desktop-wire.ts`: uses Zod to check messages for ordinary workflows,
   direct actions and command requests.
 - `src/desktop-menu.ts`: main-process menu definitions. Keeps safe native
-  actions and sends close and quit through the host reducer.
+  actions and sends close and quit through the host reducer. The direct menu
+  template is the source list; no second table mirrors it.
 - `src/host-admission*.ts`: one reducer for startup, accepted calls, command
   preparation and execution, settlement, close and terminal failure.
 - `src/workflow-client.ts`, `src/desktop-trpc-link.ts` and
@@ -80,9 +81,12 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 
 - `workflowInputSchemas` in `application-contract` validates every workflow
   input. Desktop wire schemas compose those browser-safe schemas. Keep workflow
-  starts, direct actions, request messages, lifecycle sources, native menus and
-  updater messages in their separate type-closed tables. The gateway refuses
-  any renderer entry outside those tables at runtime.
+  starts, direct actions, request messages, reducer host starts, updater menu
+  starts and updater messages in the closed records or schemas their runtime
+  owners read. Electron lifecycle, terminal, fatal, navigation and native-menu
+  sources are direct registrations. Review and implementation audits compare
+  them with the plan inventory. The gateway refuses any renderer entry outside
+  its records and schemas at runtime.
 - Only startup and ordinary ids (`OrdinaryWorkflowId`) have a tRPC wire path,
   router procedure and renderer client entry. An exclusive command on the tRPC
   wire is a malformed envelope. The current request port alone carries

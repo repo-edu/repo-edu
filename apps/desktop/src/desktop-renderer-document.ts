@@ -74,25 +74,11 @@ export function installDesktopRendererDocument(options: {
     if (isMainFrame) rejectNavigation()
   }
 
-  const navigationSources = {
-    "did-start-navigation": started,
-    "will-navigate": navigate,
-    "will-redirect": redirect,
-    "did-frame-navigate": committed,
-    "did-navigate-in-page": inPage,
-  } satisfies {
-    "did-start-navigation": typeof started
-    "will-navigate": typeof navigate
-    "will-redirect": typeof redirect
-    "did-frame-navigate": typeof committed
-    "did-navigate-in-page": typeof inPage
-  }
-
-  contents.on("did-start-navigation", navigationSources["did-start-navigation"])
-  contents.on("will-navigate", navigationSources["will-navigate"])
-  contents.on("will-redirect", navigationSources["will-redirect"])
-  contents.on("did-frame-navigate", navigationSources["did-frame-navigate"])
-  contents.on("did-navigate-in-page", navigationSources["did-navigate-in-page"])
+  contents.on("did-start-navigation", started)
+  contents.on("will-navigate", navigate)
+  contents.on("will-redirect", redirect)
+  contents.on("did-frame-navigate", committed)
+  contents.on("did-navigate-in-page", inPage)
   contents.setWindowOpenHandler(() => {
     terminal(new Error("The desktop renderer cannot create a window."))
     return { action: "deny" }
@@ -134,26 +120,11 @@ export function installDesktopRendererDocument(options: {
     },
     dispose() {
       state = { phase: "ended" }
-      contents.removeListener(
-        "did-start-navigation",
-        navigationSources["did-start-navigation"],
-      )
-      contents.removeListener(
-        "will-navigate",
-        navigationSources["will-navigate"],
-      )
-      contents.removeListener(
-        "will-redirect",
-        navigationSources["will-redirect"],
-      )
-      contents.removeListener(
-        "did-frame-navigate",
-        navigationSources["did-frame-navigate"],
-      )
-      contents.removeListener(
-        "did-navigate-in-page",
-        navigationSources["did-navigate-in-page"],
-      )
+      contents.removeListener("did-start-navigation", started)
+      contents.removeListener("will-navigate", navigate)
+      contents.removeListener("will-redirect", redirect)
+      contents.removeListener("did-frame-navigate", committed)
+      contents.removeListener("did-navigate-in-page", inPage)
       // Keep window creation denied even if disposal precedes destruction.
     },
   }

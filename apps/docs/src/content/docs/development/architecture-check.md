@@ -25,37 +25,25 @@ violations. The checks cover these concerns.
    claude-agent-SDK source confinement, and a whole-inventory acyclic rule. It
    also flags `@repo-edu/*` imports that resolve outside the inventory and
    exposes normalized dependency metadata for runtime-closure checks.
-3. **Bespoke symbol checks** (`bespoke-checks.ts`). Renderer session-ownership
-   and claude-coder confinement that the import graph cannot express on its own.
+3. **Bespoke import checks** (`bespoke-checks.ts`). Confines claude-coder and
+   Claude Agent SDK imports for TypeScript files outside the source inventory.
 4. **Repository checks** (`repository-checks.ts`). Validates workspace source
-   exports, Node test-runner imports, and the browser-safe production boundary.
-   That boundary combines the emitted dependency closure from the desktop
-   renderer entry with the renderer-host contract, LLM contract, host-runtime
-   contract and deterministic test fixtures. Tests and erased type-only edges
-   are excluded.
-5. **Source inventory** (`inventory.ts`). The single tracked-file list every
+   exports, Node test-runner imports, production imports of test code, the
+   browser-safe production boundary and desktop runtime-external ownership.
+   The browser-safe boundary combines the emitted dependency closure from the
+   desktop renderer entry with the renderer-host contract, LLM contract,
+   host-runtime contract and deterministic test fixtures. Tests and erased
+   type-only edges are excluded.
+5. **Product process launches** (`product-process-launches.ts`). Reconciles
+   every product process entry with its child-process lifetime owner, including
+   the Windows launcher and Codex SDK host process.
+6. **Source inventory** (`inventory.ts`). The single tracked-file list every
    check shares: tracked `.ts` and `.tsx` files under `apps/*/src`,
    `packages/*/src` and `tools/*/src`, minus build output, `node_modules` and
    vendored notices.
-6. **Desktop entry ownership** (`desktop-entry-checks.ts` and
-   `desktop-lifecycle-checks.ts`). Only the gateway registers renderer IPC.
-   Transport modules use supported tRPC APIs. Fatal entry installs before
-   product loading and cannot start asynchronous shutdown.
-7. **Exact desktop inventories** (`desktop-inventory-checks.ts`). Separate
-   lists cover workflow schemas and classes, direct actions, request-port
-   messages, reducer starts, terminal and fatal sources, same-program starts,
-   menu definitions, native roles and updater messages. The checks inspect
-   declarations and registrations; a missing, extra or differently classified
-   member fails at its list owner.
-8. **Renderer semantic admission** (`renderer-mutation-checks.ts` and
-   `renderer-input-inventory.ts`, alongside bespoke client checks). Features
-   cannot retain the raw workflow client. Semantic store actions, preferences,
-   selection and input routes pass through the session owner. Direct and
-   Query-backed publication remains inside its complete body so it cannot
-   bypass the global command freeze.
-9. **Product process launches** (`product-process-launches.ts`). Every product
-   process entry belongs to a registered lifetime owner, including the Windows
-   launcher and Codex SDK host process.
+7. **Renderer start documentation** (`renderer-start-document.ts`). Checks the
+   generated start-control table in the renderer instructions against its code
+   source.
 
 Because reconciliation and the graph rules read the *same* inventory, the
 boundaries CI enforces match exactly the files that ship.

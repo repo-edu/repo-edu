@@ -49,8 +49,9 @@ inside that body. React effects may display results but cannot commit semantic s
 
 `session-operation-inventory.ts` assigns every workflow and direct action a
 class. Read-only results that supply command input are session-changing too.
-Presentation-only calls cannot commit application state. Architecture checks
-reject raw-client holders and semantic mutation routes outside the owner.
+Presentation-only calls cannot commit application state. The import graph
+enforces package boundaries. Review and implementation audits catch raw-client
+holders and semantic mutation routes outside the owner.
 
 Command reservation freezes all semantic changes and worker starts before
 intent. The freeze lasts through settlement application, acknowledgement, host

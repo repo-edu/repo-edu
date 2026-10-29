@@ -12,28 +12,14 @@ function fatalDesktop(error: unknown): never {
   }
 }
 
-type FatalDesktopSource =
-  | "uncaught-main-process-exception"
-  | "rejected-product-composition-import"
-  | "thrown-product-installer"
-
-const fatalDesktopSources = {
-  "uncaught-main-process-exception": fatalDesktop,
-  "rejected-product-composition-import": fatalDesktop,
-  "thrown-product-installer": fatalDesktop,
-} satisfies Record<FatalDesktopSource, (error: unknown) => never>
-
-process.on(
-  "uncaughtException",
-  fatalDesktopSources["uncaught-main-process-exception"],
-)
+process.on("uncaughtException", fatalDesktop)
 
 async function loadDesktopProduct(): Promise<() => void> {
   try {
     const product = await import("./desktop-application")
     return product.installDesktopApplication
   } catch (error) {
-    return fatalDesktopSources["rejected-product-composition-import"](error)
+    return fatalDesktop(error)
   }
 }
 
@@ -41,5 +27,5 @@ const installDesktopApplication = await loadDesktopProduct()
 try {
   installDesktopApplication()
 } catch (error) {
-  fatalDesktopSources["thrown-product-installer"](error)
+  fatalDesktop(error)
 }

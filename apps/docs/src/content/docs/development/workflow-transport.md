@@ -95,13 +95,14 @@ describes detected failure, fatal entry and process-owned gate release.
 
 ## Fixed entry inventories
 
-Each entry list has its own owner: gateway workflow starts and direct actions,
-request-port messages, reducer starts, terminal sources, fatal sources,
-same-program starts, main-process menu actions, updater menu actions, safe native
-roles and updater presentation messages. Architecture checks compare their
-actual declarations and registrations against those separate lists. Missing,
-extra or differently classified entries fail. The workflow catalogue alone
-does not grant admission.
+Each entry list has its own owner. Gateway workflow starts and direct actions,
+request-port messages, reducer starts, updater menu starts and updater messages
+use closed records or schemas that their runtime owners read. A missing member
+there fails the type check or the gateway. Terminal, fatal, same-program,
+navigation and native-menu sources are direct registrations. Review and
+implementation audits compare those sources with the plan inventory instead of
+maintaining a mirror table. The workflow catalogue alone does not grant
+admission.
 
 ## Renderer and CLI wiring
 

@@ -1,39 +1,6 @@
 import type { ExaminationArchiveStoragePort } from "@repo-edu/host-runtime-contract"
 import type { App, WebContents } from "electron"
 
-export type DesktopTerminalSource =
-  | "unhandled-promise-rejection"
-  | "request-port-loss"
-  | "invalid-gateway-entry"
-  | "invalid-request-port-message"
-  | "renderer-document-change"
-  | "renderer-created-window"
-  | "course-store-failure"
-  | "settings-store-failure"
-  | "examination-archive-store-failure"
-  | "renderer-process-loss"
-  | "electron-child-process-loss"
-  | "updater-installation-failure"
-
-type DesktopTerminalAdmission = "always" | "unless-clean-exit"
-
-/** Decision 21's terminal sources. Runtime owners report through the admission
- * reducer; the table keeps the source set and its one conditional rule closed. */
-export const desktopTerminalSourceAdmissions = {
-  "unhandled-promise-rejection": "always",
-  "request-port-loss": "always",
-  "invalid-gateway-entry": "always",
-  "invalid-request-port-message": "always",
-  "renderer-document-change": "always",
-  "renderer-created-window": "always",
-  "course-store-failure": "always",
-  "settings-store-failure": "always",
-  "examination-archive-store-failure": "always",
-  "renderer-process-loss": "always",
-  "electron-child-process-loss": "unless-clean-exit",
-  "updater-installation-failure": "always",
-} as const satisfies Record<DesktopTerminalSource, DesktopTerminalAdmission>
-
 /** Process sources classify loss, then report an ordinary host failure.
  * No adapter owns shutdown or receives the child-process lifetime controller. */
 export function installDesktopTerminalSources(options: {
@@ -45,12 +12,7 @@ export function installDesktopTerminalSources(options: {
   options.process.on("unhandledRejection", terminal)
   options.app.on("child-process-gone", (_event, details) => {
     // Type never changes admission, including types introduced by later Electron releases.
-    if (
-      desktopTerminalSourceAdmissions["electron-child-process-loss"] ===
-        "unless-clean-exit" &&
-      details.reason === "clean-exit"
-    )
-      return
+    if (details.reason === "clean-exit") return
     terminal(
       new Error(
         `Electron child process ended: type=${details.type}, reason=${details.reason}, exitCode=${details.exitCode}, name=${details.name ?? ""}, serviceName=${details.serviceName ?? ""}.`,

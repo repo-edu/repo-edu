@@ -31,13 +31,14 @@ violations. The checks cover:
 - Renderer start documentation (`renderer-start-document.ts`): checks the
   generated control table in the renderer `CLAUDE.md` against its code source.
 
-Desktop entry lists live as closed tables in their product owners. Workflow
-classes use exhaustive records, request and direct messages use closed Zod
-schemas and lifecycle and menu owners use exhaustive source tables. The
-gateway's runtime tests prove that an entry outside those lists is terminal.
-The architecture checker does not re-read source text to rediscover list
-members or renderer mutation routes. Review and implementation audits own
-mutation-route drift that the import graph cannot express.
+Workflow classes use exhaustive records. Request and direct messages use
+closed Zod schemas. Reducer starts, updater menu starts and updater messages
+also have runtime-read closed owners. Electron lifecycle, terminal, fatal,
+navigation and native-menu sources are direct registrations with no mirror
+table. The gateway's runtime tests prove that a renderer entry outside its
+records and schemas is terminal. The architecture checker does not re-read
+source text to rediscover source lists or renderer mutation routes. Review and
+implementation audits own that drift where the import graph cannot express it.
 
 ## Area model
 

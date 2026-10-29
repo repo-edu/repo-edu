@@ -12,13 +12,6 @@ export type DesktopMenuOptions = {
 
 type DesktopMenuAction = "documentation" | "about" | "close" | "quit"
 
-const desktopMenuActionCallbacks = {
-  documentation: "documentation",
-  about: "about",
-  close: "close",
-  quit: "quit",
-} as const satisfies Record<DesktopMenuAction, DesktopMenuAction>
-
 type DesktopNativeMenuRole =
   | "services"
   | "hide"
@@ -31,30 +24,17 @@ type DesktopNativeMenuRole =
   | "togglefullscreen"
   | "windowMenu"
 
-const desktopNativeMenuRoles = {
-  services: "services",
-  hide: "hide",
-  hideOthers: "hideOthers",
-  unhide: "unhide",
-  editMenu: "editMenu",
-  resetZoom: "resetZoom",
-  zoomIn: "zoomIn",
-  zoomOut: "zoomOut",
-  togglefullscreen: "togglefullscreen",
-  windowMenu: "windowMenu",
-} as const satisfies Record<DesktopNativeMenuRole, DesktopNativeMenuRole>
-
 function runMenuAction(
   options: DesktopMenuOptions,
   action: DesktopMenuAction,
 ): void {
-  options[desktopMenuActionCallbacks[action]]()
+  options[action]()
 }
 
 function nativeMenuItem(
   role: DesktopNativeMenuRole,
 ): MenuItemConstructorOptions {
-  return { role: desktopNativeMenuRoles[role] }
+  return { role }
 }
 
 function createHelpMenu(options: DesktopMenuOptions) {
