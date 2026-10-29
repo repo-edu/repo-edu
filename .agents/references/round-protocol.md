@@ -363,6 +363,9 @@ The choice is settled in two cases:
    changing only wording count as options. On equal upkeep, the option better
    for people using the app wins. Waiting for a ruling on a rare case costs
    more than its answer is worth.
+3. The costlier option's only advantage is a guard against a mistake no round
+   has found. Such a guard buys nothing the evidence shows, so the option with
+   the least upkeep wins. A crumb of yield does not make a choice real.
 
 The winning option becomes the finding's correction. Any other choice is real.
 A boundary entry or recorded user decision can still settle a real choice.
