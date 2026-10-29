@@ -71,7 +71,10 @@ import { loadDesktopBootstrap } from "./desktop-bootstrap"
 import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { createDesktopMenuTemplate } from "./desktop-menu"
-import { installDesktopSessionLifetime } from "./desktop-session-lifetime"
+import {
+  installDesktopSessionLifetime,
+  sameProgramStartActions,
+} from "./desktop-session-lifetime"
 import { endDesktopHost, isDesktopEnding } from "./desktop-terminal"
 import { installDesktopTerminalSources } from "./desktop-terminal-sources"
 import type { DesktopDirectMessage } from "./desktop-wire"
@@ -102,6 +105,9 @@ export function installDesktopApplication(): void {
     app.commandLine.appendSwitch("password-store", "basic")
   }
   if (!app.requestSingleInstanceLock()) {
+    sameProgramStartActions[
+      "single-instance-lock-refused"
+    ] satisfies "exit-new-process"
     app.exit(0)
     return
   }
@@ -481,8 +487,9 @@ export function installDesktopApplication(): void {
         ? `Download Update ${updaterState.availableVersion}`
         : "Download Update"
 
-    const items: MenuItemConstructorOptions[] = [
-      {
+    type UpdaterMenuStart = "check" | "download" | "restart"
+    const starts = {
+      check: {
         label: checkLabel,
         enabled:
           updaterState.supported &&
@@ -492,7 +499,7 @@ export function installDesktopApplication(): void {
           void checkForUpdatesNow({ manual: true })
         },
       },
-      {
+      download: {
         label: downloadLabel,
         enabled:
           updaterState.supported &&
@@ -503,7 +510,7 @@ export function installDesktopApplication(): void {
           void downloadUpdate()
         },
       },
-      {
+      restart: {
         label: "Install Update and Restart",
         enabled:
           updaterState.supported &&
@@ -525,7 +532,8 @@ export function installDesktopApplication(): void {
           }
         },
       },
-    ]
+    } satisfies Record<UpdaterMenuStart, MenuItemConstructorOptions>
+    const items: MenuItemConstructorOptions[] = Object.values(starts)
 
     if (updaterState.errorMessage) {
       items.push(
@@ -638,8 +646,10 @@ export function installDesktopApplication(): void {
         if (decision !== "accepted" && decision !== "ignored") {
           throw new Error("The desktop could not accept bootstrap readiness.")
         }
+        return
       }
     }
+    message satisfies never
   }
 
   function handleValidationMarker(message: string) {

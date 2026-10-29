@@ -3,6 +3,12 @@ import type {
   WorkflowId,
 } from "@repo-edu/application-contract"
 
+export type DesktopWorkflowStartClass =
+  | "startup"
+  | "ordinary"
+  | "startup-or-ordinary"
+  | "exclusive"
+
 /** Decision 21 owns these classes; the shared catalogue does not infer them. */
 export const desktopWorkflowStarts = {
   "course.list": "startup-or-ordinary",
@@ -47,7 +53,7 @@ export const desktopWorkflowStarts = {
   "examination.lookupQuestionSummaries": "ordinary",
   "examination.archive.export": "exclusive",
   "examination.archive.import": "exclusive",
-} as const satisfies Record<WorkflowId, string>
+} as const satisfies Record<WorkflowId, DesktopWorkflowStartClass>
 
 type DesktopTrpcWorkflowId = {
   [K in WorkflowId]: (typeof desktopWorkflowStarts)[K] extends "exclusive"
@@ -72,13 +78,34 @@ export const desktopTrpcWorkflowIds: readonly OrdinaryWorkflowId[] = (
   Object.keys(desktopWorkflowStarts) as WorkflowId[]
 ).filter(isDesktopTrpcWorkflowId)
 
+export type DesktopShellActionClass = "presentation-only" | "session-changing"
+
+export type DesktopShellAction =
+  | "pickUserFile"
+  | "pickSaveTarget"
+  | "pickDirectory"
+  | "setNativeTheme"
+  | "downloadUpdate"
+
+export type DesktopDirectAction =
+  | DesktopShellAction
+  | "bootstrapReady"
+  | "quitAndInstall"
+
 export const desktopShellActions = {
   pickUserFile: "session-changing",
   pickSaveTarget: "session-changing",
   pickDirectory: "session-changing",
   setNativeTheme: "presentation-only",
   downloadUpdate: "presentation-only",
-} as const
+} as const satisfies Record<DesktopShellAction, DesktopShellActionClass>
+
+export type DesktopHostStart =
+  | "window-close"
+  | "application-quit"
+  | "menu-close"
+  | "menu-quit"
+  | "menu-update-restart"
 
 export const desktopHostStarts = {
   "window-close": "close",
@@ -86,7 +113,4 @@ export const desktopHostStarts = {
   "menu-close": "close",
   "menu-quit": "close",
   "menu-update-restart": "update-restart",
-} as const
-
-export type DesktopHostStart = keyof typeof desktopHostStarts
-export type DesktopShellAction = keyof typeof desktopShellActions
+} as const satisfies Record<DesktopHostStart, "close" | "update-restart">

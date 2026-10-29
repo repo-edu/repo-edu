@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron"
 import {
+  type DesktopDirectMessage,
   type DesktopTrpcBridge,
   desktopEntryChannel,
   desktopTrpcResponseChannel,
@@ -27,6 +28,10 @@ const desktopTrpcBridge: DesktopTrpcBridge = {
       ipcRenderer.removeListener(desktopTrpcResponseChannel, receive)
     }
   },
+}
+
+function invokeDesktopAction(message: DesktopDirectMessage) {
+  return ipcRenderer.invoke(desktopEntryChannel, message)
 }
 
 const requestTransport = createPreloadRequestTransport({
@@ -69,31 +74,36 @@ ipcRenderer.on(requestPortChannel, (event, message: unknown) => {
 
 const desktopHostBridge: DesktopRendererHostBridge = {
   async bootstrapReady() {
-    await ipcRenderer.invoke(desktopEntryChannel, { action: "bootstrapReady" })
+    await invokeDesktopAction({ action: "bootstrapReady" })
   },
   async pickUserFile(options) {
-    return await ipcRenderer.invoke(desktopEntryChannel, {
+    return await invokeDesktopAction({
       action: "pickUserFile",
-      input: options,
+      input: options && {
+        ...options,
+        acceptFormats: options.acceptFormats
+          ? [...options.acceptFormats]
+          : undefined,
+      },
     })
   },
 
   async pickSaveTarget(options) {
-    return await ipcRenderer.invoke(desktopEntryChannel, {
+    return await invokeDesktopAction({
       action: "pickSaveTarget",
       input: options,
     })
   },
 
   async pickDirectory(options) {
-    return await ipcRenderer.invoke(desktopEntryChannel, {
+    return await invokeDesktopAction({
       action: "pickDirectory",
       input: options,
     })
   },
 
   async setNativeTheme(theme) {
-    await ipcRenderer.invoke(desktopEntryChannel, {
+    await invokeDesktopAction({
       action: "setNativeTheme",
       input: theme,
     })
@@ -178,11 +188,11 @@ const desktopHostBridge: DesktopRendererHostBridge = {
   },
 
   async downloadUpdate() {
-    await ipcRenderer.invoke(desktopEntryChannel, { action: "downloadUpdate" })
+    await invokeDesktopAction({ action: "downloadUpdate" })
   },
 
   async quitAndInstall() {
-    await ipcRenderer.invoke(desktopEntryChannel, { action: "quitAndInstall" })
+    await invokeDesktopAction({ action: "quitAndInstall" })
   },
 }
 

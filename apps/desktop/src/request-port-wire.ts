@@ -48,6 +48,21 @@ export type RequestPayloadSchemas<Input, Progress, Output, Settlement> = {
   settlement: z.ZodType<Settlement>
 }
 
+export type RequestMessageType =
+  | "admission"
+  | "prepare"
+  | "bundle"
+  | "persisted"
+  | "input"
+  | "progress"
+  | "output"
+  | "cancel"
+  | "settlement"
+  | "acknowledged"
+  | "released"
+  | "close-ready"
+  | "close-acknowledged"
+
 export function requestMessageSchemas<I, P, O, S>(
   payloads: RequestPayloadSchemas<I, P, O, S>,
 ) {
@@ -85,7 +100,7 @@ export function requestMessageSchemas<I, P, O, S>(
     "close-acknowledged": z.strictObject({
       type: z.literal("close-acknowledged"),
     }),
-  }
+  } satisfies Record<RequestMessageType, z.ZodType>
 }
 
 type RequestMessageSchemas<I, P, O, S> = ReturnType<

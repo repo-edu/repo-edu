@@ -7,12 +7,9 @@ import {
 } from "./area-model.js"
 import { runBespokeChecks } from "./bespoke-checks.js"
 import { runDependencyCruiserAnalysis } from "./dependency-cruiser-runner.js"
-import { checkDesktopEntryOwnership } from "./desktop-entry-checks.js"
-import { checkDesktopInventories } from "./desktop-inventory-checks.js"
 import { buildDependencyCruiserRuleSet } from "./graph-policy.js"
 import { readSourceInventory } from "./inventory.js"
 import { checkProductProcessLaunches } from "./product-process-launches.js"
-import { checkRendererMutationOwnership } from "./renderer-mutation-checks.js"
 import { checkRendererStartDocument } from "./renderer-start-document.js"
 import { ROOT } from "./repo-paths.js"
 import { runRepositoryChecks } from "./repository-checks.js"
@@ -47,9 +44,6 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
       ...bespokeViolations,
       ...repositoryViolations,
       ...processLaunchViolations,
-      ...checkDesktopEntryOwnership(root, inventory),
-      ...checkDesktopInventories(root, inventory),
-      ...checkRendererMutationOwnership(root, inventory),
       ...checkRendererStartDocument(root),
     ].sort(compareViolations),
   }

@@ -3,7 +3,10 @@ import { appAppearanceSchema } from "@repo-edu/domain/settings"
 import { fileFormats } from "@repo-edu/domain/types"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import { z } from "zod"
-import { desktopTrpcWorkflowIds } from "./host-entry-inventory"
+import {
+  type DesktopDirectAction,
+  desktopTrpcWorkflowIds,
+} from "./host-entry-inventory"
 import { commandIntentSchema } from "./request-port-wire"
 
 export const desktopEntryChannel = "repo-edu/entry"
@@ -33,9 +36,9 @@ export const desktopEntryMessageSchema = z.discriminatedUnion("kind", [
 ])
 
 const fileFormat = z.enum(fileFormats)
-export const desktopDirectMessageSchema = z.discriminatedUnion("action", [
-  z.strictObject({ action: z.literal("bootstrapReady") }),
-  z.strictObject({
+const desktopDirectMessageSchemas = {
+  bootstrapReady: z.strictObject({ action: z.literal("bootstrapReady") }),
+  pickUserFile: z.strictObject({
     action: z.literal("pickUserFile"),
     input: z
       .strictObject({
@@ -44,7 +47,7 @@ export const desktopDirectMessageSchema = z.discriminatedUnion("action", [
       })
       .optional(),
   }),
-  z.strictObject({
+  pickSaveTarget: z.strictObject({
     action: z.literal("pickSaveTarget"),
     input: z
       .strictObject({
@@ -54,17 +57,28 @@ export const desktopDirectMessageSchema = z.discriminatedUnion("action", [
       })
       .optional(),
   }),
-  z.strictObject({
+  pickDirectory: z.strictObject({
     action: z.literal("pickDirectory"),
     input: z.strictObject({ title: z.string().optional() }).optional(),
   }),
-  z.strictObject({
+  setNativeTheme: z.strictObject({
     action: z.literal("setNativeTheme"),
     input: appAppearanceSchema.shape.theme,
   }),
-  z.strictObject({ action: z.literal("downloadUpdate") }),
-  z.strictObject({ action: z.literal("quitAndInstall") }),
-])
+  downloadUpdate: z.strictObject({ action: z.literal("downloadUpdate") }),
+  quitAndInstall: z.strictObject({ action: z.literal("quitAndInstall") }),
+} as const satisfies Record<DesktopDirectAction, z.ZodObject>
+
+type DesktopDirectMessageSchema =
+  (typeof desktopDirectMessageSchemas)[DesktopDirectAction]
+const directMessageSchemas = Object.values(desktopDirectMessageSchemas) as [
+  DesktopDirectMessageSchema,
+  ...DesktopDirectMessageSchema[],
+]
+export const desktopDirectMessageSchema = z.discriminatedUnion(
+  "action",
+  directMessageSchemas,
+)
 
 export type DesktopTrpcMessage = z.infer<typeof desktopTrpcMessageSchema>
 export type DesktopDirectMessage = z.infer<typeof desktopDirectMessageSchema>

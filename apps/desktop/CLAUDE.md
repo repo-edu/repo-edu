@@ -81,7 +81,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 - `workflowInputSchemas` in `application-contract` validates every workflow
   input. Desktop wire schemas compose those browser-safe schemas. Keep workflow
   starts, direct actions, request messages, lifecycle sources, native menus and
-  updater messages in their separately checked entry inventories.
+  updater messages in their separate type-closed tables. The gateway refuses
+  any renderer entry outside those tables at runtime.
 - Only startup and ordinary ids (`OrdinaryWorkflowId`) have a tRPC wire path,
   router procedure and renderer client entry. An exclusive command on the tRPC
   wire is a malformed envelope. The current request port alone carries

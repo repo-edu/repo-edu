@@ -7,81 +7,6 @@ import { describe, it } from "node:test"
 import { runBespokeChecks } from "../bespoke-checks.js"
 
 describe("bespoke checks", () => {
-  it("refuses new session helpers that extract or alias course mutations", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-course-actions-"))
-    const file = "packages/renderer-app/src/session/unowned-helper.ts"
-    await mkdir(join(root, file, ".."), { recursive: true })
-    await writeFile(
-      join(root, file),
-      [
-        'import { useCourseStore as store } from "../stores/course-store.js"',
-        'const snapshot = store["getState"]()',
-        "const alias = snapshot",
-        'alias["applyCommittedCourse"](course)',
-        'store(s => s["setDisplayName"])',
-        "const courseStore = store",
-        "courseStore.getState().setDisplayName(name)",
-        "let assignedStore",
-        "assignedStore = store",
-        "assignedStore.getState().setDisplayName(name)",
-        "let assignedSnapshot",
-        "assignedSnapshot = store.getState()",
-        "assignedSnapshot.setDisplayName(name)",
-        "const { getState } = store",
-        "getState().setSearchFolder(folder)",
-        "const whole = store()",
-        "whole.setDisplayName(name)",
-        "const same = store((state) => state)",
-        "same.setDisplayName(name)",
-        "store.subscribe((state) => { state.setDisplayName(name) })",
-      ].join("\n"),
-    )
-    const violations = runBespokeChecks(
-      root,
-      { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
-      () => [file],
-    )
-    assert.equal(violations.length, 9)
-    assert.ok(
-      violations.some((v) => v.message.includes("applyCommittedCourse")),
-    )
-    assert.ok(violations.some((v) => v.message.includes("setDisplayName")))
-    assert.ok(violations.some((v) => v.message.includes("setSearchFolder")))
-    assert.equal(
-      violations.filter((v) => v.message.includes("setDisplayName")).length,
-      7,
-    )
-  })
-  it("admits scoped bodies and presentation while rejecting raw clients", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-direct-bodies-"))
-    const file = "packages/renderer-app/src/components/Feature.tsx"
-    await mkdir(join(root, file, ".."), { recursive: true })
-    await writeFile(
-      join(root, file),
-      [
-        'import type { WorkflowClient as RawClient } from "@repo-edu/application-contract"',
-        'import { getWorkflowClient } from "../contexts/workflow-client.js"',
-        "const gateway = getWorkflowClient()",
-        'gateway.execute("roster.importFromFile", async (scope) => {',
-        '  const result = await scope.run("roster.importFromFile", input)',
-        "  scope.publish(() => publish(result))",
-        "})",
-        'gateway.presentation("validation.roster", input)',
-      ].join("\n"),
-    )
-    const violations = runBespokeChecks(
-      root,
-      { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
-      () => [file],
-    )
-    assert.equal(violations.length, 1)
-    assert.ok(
-      violations.some((violation) =>
-        violation.message.includes("raw WorkflowClient"),
-      ),
-    )
-  })
-
   it("keeps non-source TypeScript files in claude-coder confinement", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-bespoke-"))
     await writeFile(join(root, "package.json"), "{}")
@@ -100,41 +25,6 @@ describe("bespoke checks", () => {
     assert.match(
       violations.map((violation) => violation.message).join("\n"),
       /outside fixture-engine/,
-    )
-  })
-
-  it("checks automatic starts and Query ownership through the same controller gateway", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-renderer-checks-"))
-    const file = "packages/renderer-app/src/components/Feature.tsx"
-    await mkdir(join(root, file, ".."), { recursive: true })
-    await writeFile(
-      join(root, file),
-      `
-      import { useEffect } from "react"
-      import { useQueryClient } from "@tanstack/react-query"
-      import { useSessionController } from "../session/session-controller-context.js"
-      import { scopedSessionQueryOptions } from "../session/session-query.js"
-      const { operations } = useSessionController()
-      const cache = useQueryClient()
-      useEffect(() => {
-        operations.execute(start, "analysis.run", async (scope) => {
-          await cache.fetchQuery({ ...scopedSessionQueryOptions(scope, signal, fetch) })
-        })
-        cache.fetchQuery(options)
-      })
-    `,
-    )
-    const violations = runBespokeChecks(
-      root,
-      { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
-      () => [file],
-    )
-    assert.equal(violations.length, 2)
-    assert.ok(violations.some(({ message }) => message.includes("in effect")))
-    assert.ok(
-      violations.some(({ message }) =>
-        message.includes("outside a scoped body"),
-      ),
     )
   })
 

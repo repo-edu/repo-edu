@@ -94,7 +94,7 @@ it("refuses child, absent, stale and wrong-URL frames for starts and stops", () 
   assert.equal(h.admission.getSnapshot().phase, "terminal")
 })
 
-it("rejects complete-envelope violations before identity cleanup", () => {
+it("refuses gateway entries outside its closed lists before identity cleanup", () => {
   const malformed = [
     null,
     [],
@@ -159,7 +159,7 @@ it("accepts every owned format in native file and save pickers", () => {
   }
 })
 
-it("validates direct actions through the same sender proof and rejects unknown actions", () => {
+it("validates listed direct actions and refuses an action outside the list", () => {
   const h = transportHarness(async () => undefined)
   h.invoke({ action: "setNativeTheme", input: "dark" })
   assert.deepEqual(h.direct, [{ action: "setNativeTheme", input: "dark" }])

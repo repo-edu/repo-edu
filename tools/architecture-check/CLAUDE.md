@@ -13,9 +13,9 @@ violations. The checks cover:
   model, then reconciles it against the source inventory.
 - Graph boundaries (`graph-policy.ts` + `dependency-cruiser-runner.ts`):
   projects the area model into dependency-cruiser rules and runs them.
-- Bespoke symbol checks (`bespoke-checks.ts`): renderer session-ownership and
-  Claude-coder / Claude-agent-SDK confinement that the import graph cannot
-  express.
+- Bespoke import checks (`bespoke-checks.ts`): Claude-coder and
+  Claude-agent-SDK confinement for TypeScript files outside the source
+  inventory.
 - Repository checks (`repository-checks.ts`): package manifest and export-source
   validation, Node test-runner imports, production-to-test import rejection,
   Node built-in exclusion from browser-safe runtime closures and desktop
@@ -28,25 +28,16 @@ violations. The checks cover:
   Deno and dependency-owned launch paths.
 - Source inventory (`inventory.ts`): one raw current-worktree listing plus the
   selected source list and set that every check shares.
-- Desktop entry ownership (`desktop-entry-checks.ts`,
-  `desktop-lifecycle-checks.ts`): sole gateway IPC registration, supported tRPC
-  APIs, lifecycle-source ownership and synchronous fatal entry before product imports.
-- Exact desktop inventories (`desktop-inventory-checks.ts`): workflow schemas
-  and classes, direct actions, request-port messages, reducer starts, terminal
-  and fatal sources, same-program starts, menu definitions, native roles and
-  updater messages. Missing, extra and differently classified members fail.
-- Renderer mutation ownership (`renderer-mutation-checks.ts` and the renderer
-  input inventory): raw-client confinement, complete session operation bodies
-  and semantic store/input routes through the session owner and its global freeze.
 - Renderer start documentation (`renderer-start-document.ts`): checks the
   generated control table in the renderer `CLAUDE.md` against its code source.
-- Renderer starts (`renderer-start-checks.ts`): rejects direct admission and
-  locally bound handler calls during render, effects, Query observation and
-  store subscriptions. Bindings may be created during render. The compiler
-  resolves imported APIs and local aliases within each file; the check does
-  not trace helper bodies, named callbacks or forwarded properties.
-  `renderer-source-origins.ts` owns the compiler program and name tracking
-  shared with the Query check. Each check owns its separate rules.
+
+Desktop entry lists live as closed tables in their product owners. Workflow
+classes use exhaustive records, request and direct messages use closed Zod
+schemas and lifecycle and menu owners use exhaustive source tables. The
+gateway's runtime tests prove that an entry outside those lists is terminal.
+The architecture checker does not re-read source text to rediscover list
+members or renderer mutation routes. Review and implementation audits own
+mutation-route drift that the import graph cannot express.
 
 ## Area model
 

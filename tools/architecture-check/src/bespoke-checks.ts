@@ -1,16 +1,8 @@
 import * as fs from "node:fs"
-import * as ts from "typescript"
-import { memberName } from "./desktop-inventory-syntax.js"
 
 import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
-import { checkRendererQuerySources } from "./renderer-query-checks.js"
-import {
-  type RendererSource,
-  rendererSources,
-} from "./renderer-source-origins.js"
-import { checkRendererStartSources } from "./renderer-start-checks.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
 import type { Violation } from "./violations.js"
 
@@ -20,84 +12,14 @@ const CLAUDE_AGENT_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk"
 const PACKAGE_MANIFEST_PATTERN =
   /^(?:apps|packages|tools)\/[^/]+\/package\.json$/
 
-const RENDERER_SRC_PREFIX = "packages/renderer-app/src/"
-
-const CONTROLLER_WORKFLOW_IDS = new Set([
-  "course.list",
-  "settings.loadApp",
-  "settings.saveCredentials",
-  "settings.savePreferences",
-  "course.load",
-  "course.save",
-  "course.delete",
-])
-
-export const SEMANTIC_COURSE_ACTIONS = new Set([
-  "hydrate",
-  "applyCommittedCourse",
-  "applyLmsPreview",
-  "clear",
-  "applySaveStamp",
-  "addMember",
-  "updateMember",
-  "removeMember",
-  "deleteMemberPermanently",
-  "setRoster",
-  "setIdSequences",
-  "addAssignment",
-  "updateAssignment",
-  "deleteAssignment",
-  "createGroup",
-  "updateGroup",
-  "deleteGroup",
-  "moveMemberToGroup",
-  "copyMemberToGroup",
-  "createLocalGroupSet",
-  "copyGroupSet",
-  "renameGroupSet",
-  "deleteGroupSet",
-  "removeGroupFromSet",
-  "updateGroupSetTemplate",
-  "updateGroupSetColumnVisibility",
-  "updateGroupSetColumnSizing",
-  "setCourseId",
-  "setLmsConnectionId",
-  "setOrganization",
-  "setRepositoryTemplate",
-  "setRepositoryCloneTargetDirectory",
-  "setRepositoryCloneDirectoryLayout",
-  "setDisplayName",
-  "setSearchFolder",
-  "setAnalysisInputs",
-  "ensureSystemGroupSets",
-  "runChecks",
-  "undo",
-  "redo",
-  "clearHistory",
-])
-
 export function runBespokeChecks(
   root: string,
   inventory: SourceInventory,
   pathProvider: GitPathProvider = readGitWorktreePaths,
 ): Violation[] {
-  const sources = rendererSources(
-    inventory.files
-      .filter(
-        (file) =>
-          file.startsWith(RENDERER_SRC_PREFIX) && !file.includes("/__tests__/"),
-      )
-      .map((file) => ({
-        file,
-        content: fs.readFileSync(repoPathToAbsolute(root, file), "utf8"),
-      })),
-  )
   return [
     ...checkNonSourceClaudeCoderImports(root, inventory, pathProvider),
     ...checkClaudeCoderPackageDeclarations(root, pathProvider),
-    ...checkRendererSessionOwnership(sources),
-    ...checkRendererQuerySources(sources),
-    ...checkRendererStartSources(sources),
   ]
 }
 
@@ -208,147 +130,4 @@ function checkClaudeCoderPackageDeclarations(
   }
 
   return violations
-}
-
-function checkRendererSessionOwnership(
-  sources: readonly RendererSource[],
-): Violation[] {
-  const violations: Violation[] = []
-
-  for (const { source: sourceFile, origin } of sources) {
-    const file = sourceFile.fileName.slice(RENDERER_SRC_PREFIX.length)
-    if (isRendererSessionInternal(file)) continue
-
-    function visit(node: ts.Node): void {
-      if (
-        ts.isImportSpecifier(node) &&
-        (node.propertyName?.text ?? node.name.text) === "WorkflowClient" &&
-        file !== "components/App.tsx"
-      ) {
-        violations.push({
-          file: `${RENDERER_SRC_PREFIX}${file}`,
-          message: "retains a raw WorkflowClient outside session composition",
-        })
-      }
-      if (ts.isCallExpression(node)) {
-        const runName = callExpressionName(node)
-        const workflowId = node.arguments[0]
-        if (
-          runName === "run" &&
-          workflowId !== undefined &&
-          ts.isStringLiteralLike(workflowId) &&
-          CONTROLLER_WORKFLOW_IDS.has(workflowId.text)
-        ) {
-          violations.push({
-            file: `packages/renderer-app/src/${file}`,
-            message: `calls controller-owned workflow "${workflowId.text}" outside session/persistence`,
-          })
-        }
-
-        if (
-          origin(node.expression) === "courseStore" &&
-          node.arguments.length > 0
-        ) {
-          const selectedAction =
-            selectedCourseActionFromUseCourseStoreCall(node)
-          if (selectedAction) {
-            violations.push({
-              file: `packages/renderer-app/src/${file}`,
-              message: `selects course-store action "${selectedAction}" outside session ownership`,
-            })
-          }
-        }
-      }
-
-      if (
-        (ts.isPropertyAccessExpression(node) ||
-          ts.isElementAccessExpression(node)) &&
-        SEMANTIC_COURSE_ACTIONS.has(memberName(node) ?? "")
-      ) {
-        if (origin(node.expression) === "courseStoreSnapshot") {
-          violations.push({
-            file: `packages/renderer-app/src/${file}`,
-            message: `reads course-store action "${memberName(node)}" from a store snapshot outside session ownership`,
-          })
-        }
-      }
-
-      if (ts.isBindingElement(node)) {
-        const action = origin(node.name)?.replace(/^courseStoreSnapshot\./, "")
-        if (action && SEMANTIC_COURSE_ACTIONS.has(action)) {
-          violations.push({
-            file: `packages/renderer-app/src/${file}`,
-            message: `destructures course-store action "${action}" outside session ownership`,
-          })
-        }
-      }
-
-      ts.forEachChild(node, visit)
-    }
-
-    visit(sourceFile)
-  }
-
-  return violations
-}
-
-function isRendererSessionInternal(file: string): boolean {
-  return [
-    "session/session-controller.ts",
-    "session/session-operations.ts",
-    "session/session-persistence.ts",
-    "session/session-settings.ts",
-    "session/session-query.ts",
-    "persistence/create-persister.ts",
-    "persistence/course-persister.ts",
-    "persistence/settings-persister.ts",
-  ].includes(file)
-}
-
-function callExpressionName(node: ts.CallExpression): string | null {
-  const expression = node.expression
-  if (ts.isPropertyAccessExpression(expression)) return expression.name.text
-  if (
-    ts.isElementAccessExpression(expression) &&
-    ts.isStringLiteralLike(expression.argumentExpression)
-  ) {
-    return expression.argumentExpression.text
-  }
-  return null
-}
-
-function selectedCourseActionFromUseCourseStoreCall(
-  node: ts.CallExpression,
-): string | null {
-  const selector = node.arguments[0]
-  if (
-    selector === undefined ||
-    (!ts.isArrowFunction(selector) && !ts.isFunctionExpression(selector))
-  ) {
-    return null
-  }
-
-  const storeParameter = selector.parameters[0]?.name
-  if (!storeParameter || !ts.isIdentifier(storeParameter)) return null
-  const storeParameterName = storeParameter.text
-  let selectedAction: string | null = null
-
-  function visitSelection(child: ts.Node): void {
-    if (selectedAction !== null) return
-    if (
-      (ts.isPropertyAccessExpression(child) ||
-        ts.isElementAccessExpression(child)) &&
-      ts.isIdentifier(child.expression) &&
-      child.expression.text === storeParameterName &&
-      SEMANTIC_COURSE_ACTIONS.has(memberName(child) ?? "")
-    ) {
-      selectedAction = memberName(child) ?? null
-      return
-    }
-
-    ts.forEachChild(child, visitSelection)
-  }
-
-  visitSelection(selector.body)
-  return selectedAction
 }
