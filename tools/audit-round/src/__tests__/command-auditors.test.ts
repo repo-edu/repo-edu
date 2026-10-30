@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readdir, readFile } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -30,7 +30,7 @@ test("an unavailable writer still prints the known session to the emergency chan
   )
   assert.match(
     f.errors.join("\n"),
-    /Resume: cd .* && codex resume --approve-for-me audit-session/,
+    /Resume: cd .* && codex -m gpt-5\.6-sol -c model_reasoning_effort\\=high resume --approve-for-me audit-session/,
   )
 })
 
@@ -77,27 +77,6 @@ test("startup writes only to the terminal before the models table opens the run 
   )
 })
 
-for (const effort of [null, "max"]) {
-  test(`a ${effort} configured effort stops the command before any round files exist`, async (t) => {
-    const f = await roundFixture(t)
-    await f.configure({
-      phases: f.phases,
-      config: { model: "unlisted-model", model_reasoning_effort: effort },
-    })
-    const before = await readdir(f.repoRoot)
-    assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
-    assert.match(
-      f.errors.join("\n"),
-      /codex audit.*full --auditor or --first tag/,
-    )
-    assert.deepEqual(await readdir(f.repoRoot), before)
-    assert.equal(
-      (await f.calls()).filter((call) => call.args[0] === "exec").length,
-      0,
-    )
-  })
-}
-
 for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
@@ -139,10 +118,14 @@ for (const auditor of ["codex", "claude"] as const) {
       )
     assert.equal(invocations[2].args.includes("resume"), false)
     assert.equal(invocations[2].args.includes("--resume"), false)
-    // The vet and the fix keep whatever their own CLI is configured to use.
+    // The vet and the fix keep their own selections.
     for (const index of [1, 3])
-      for (const flag of ["-m", "--model", "-c", "--effort"])
-        assert.equal(invocations[index].args.includes(flag), false)
+      for (const value of ["gpt-6-astra", "claude-fable-5-1", "xhigh"])
+        assert.equal(
+          invocations[index].args.some((arg: string) => arg.includes(value)),
+          false,
+          invocations[index].args.join(" "),
+        )
     // The brief names its own model whatever the command line asked for.
     assert.ok(invocations[4].args.includes("gpt-5.6-terra"))
     const { log } = await f.records()
@@ -152,7 +135,7 @@ for (const auditor of ["codex", "claude"] as const) {
         ? /audit +codex +gpt-6-astra +extra high +--auditor/
         : /audit +claude +claude-fable-5-1 +extra high +--auditor/,
     )
-    assert.match(log, /fix +codex +chosen-model +high +CLI default/)
+    assert.match(log, /fix +codex +gpt-5\.6-sol +high +audit-round defaults/)
     assert.match(log, /brief +codex +gpt-5\.6-terra +low +audit-round settings/)
     // The requested model and effort stay in the arguments above.
     // The fix receives the release and effort reported by each phase instead.
@@ -161,8 +144,8 @@ for (const auditor of ["codex", "claude"] as const) {
       {
         phases:
           auditor === "codex"
-            ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.`
-            : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.`,
+            ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
+            : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
         auditor: recordedTag(auditor),
       },
     )
@@ -195,7 +178,7 @@ test("a configured pair refuses partial --auditor and --first tags before startu
 })
 
 for (const auditor of ["codex", "claude"] as const) {
-  test(`--auditor ${auditor} inherits CLI settings for audit and rebuttal despite phase pins`, async (t) => {
+  test(`--auditor ${auditor} selects the defaults for audit and rebuttal despite phase pins`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
     settings.defaultAuditor = auditor === "codex" ? "claude" : "codex"
@@ -220,8 +203,11 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       assert.ok(call)
       assert.equal(call.assistant, auditor)
-      for (const flag of ["-m", "--model", "-c", "--effort"])
-        assert.equal(call.args.includes(flag), false)
+      for (const argument of auditor === "codex"
+        ? ["-m", "gpt-5.6-sol", "-c", "model_reasoning_effort=high"]
+        : ["--model", "opus", "--effort", "high"])
+        assert.ok(call.args.includes(argument), call.args.join(" "))
+      assert.equal(call.args.includes("pinned-auditor"), false)
     }
     const fix = prompts.find((call) =>
       call.prompt.startsWith("Run the fix phase "),
@@ -233,11 +219,11 @@ for (const auditor of ["codex", "claude"] as const) {
       assert.match(
         log,
         new RegExp(
-          `${phase} +${auditor} +${auditor === "claude" ? "claude-model" : "chosen-model"} +high +CLI default`,
+          `${phase} +${auditor} +${auditor === "claude" ? "opus" : "gpt-5.6-sol"} +high +--auditor`,
         ),
       )
     assert.ok(
-      transcript.endsWith(`-1-round.${auditor === "claude" ? "a" : "o"}uh.md`),
+      transcript.endsWith(`-1-round.${auditor === "claude" ? "a" : "o"}bh.md`),
     )
   })
 }
@@ -272,7 +258,7 @@ test("auditor lists keep each entry's model and effort independent", async (t) =
       assistant: "codex",
       pin: ["-m", "gpt-5.6-sol", "-c", "model_reasoning_effort=medium"],
     },
-    { assistant: "claude", pin: [] },
+    { assistant: "claude", pin: ["--model", "opus", "--effort", "high"] },
     {
       assistant: "codex",
       pin: ["-m", "gpt-6-astra", "-c", "model_reasoning_effort=low"],
@@ -291,18 +277,25 @@ test("auditor lists keep each entry's model and effort independent", async (t) =
         assert.ok(call.args.includes(arg), call.args.join(" "))
       assert.equal(call.args.includes("pinned-claude"), false)
       assert.equal(call.args.includes("pinned-codex"), false)
-      if (index === 2) {
-        assert.equal(call.args.includes("--model"), false)
-        assert.equal(call.args.includes("--effort"), false)
-      }
     }
   }
+  // The vet and the fix keep their own selections whatever the entry named.
   for (const phase of ["vet", "fix"]) {
     for (const call of prompts.filter((call) =>
       call.prompt.startsWith(`Run the ${phase} phase `),
     )) {
-      for (const flag of ["--model", "--effort", "-m", "-c"])
-        assert.equal(call.args.includes(flag), false)
+      for (const value of [
+        "claude-fable-5-1",
+        "gpt-6-astra",
+        "xhigh",
+        "medium",
+        "low",
+      ])
+        assert.equal(
+          call.args.some((arg: string) => arg.includes(value)),
+          false,
+          call.args.join(" "),
+        )
     }
   }
   assert.deepEqual(

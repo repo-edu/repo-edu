@@ -54,6 +54,10 @@ export const runClose = (
   dependencies: Parameters<typeof round.runClose>[1],
 ) => round.runClose(input, dependencies, testSettings)
 
+/** The assistant's default selection under the test settings, as a phase pins it. */
+export const pinned = (assistant: phase.Assistant) =>
+  phase.defaultModel(assistant, testSettings)
+
 export const roundPhases = (
   auditor: phase.Assistant,
   override: phase.AuditorOverride,

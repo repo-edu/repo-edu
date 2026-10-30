@@ -14,18 +14,17 @@ import { join } from "node:path"
 import { createInterface } from "node:readline"
 import { z } from "zod"
 import { type AssistantRuntime, runAssistantInvocation } from "./assistant.js"
-import { readClaudeSettings } from "./claude.js"
 import { readCliLines, withCliProcess } from "./cli-process.js"
 import {
   codexSessionsRoot,
   decodeCodexUsage,
   findSessionFile,
 } from "./codex-session.js"
-import { readCodexSettings } from "./codex-settings.js"
 import type { ExecutionContext } from "./context.js"
 import { eventSchema, type Feedback } from "./feedback.js"
 import { RoundOutput } from "./output.js"
-import { type Assistant, unpinned } from "./phase.js"
+import { phaseSelection } from "./output-format.js"
+import { type Assistant, defaultModel } from "./phase.js"
 import { claudeSettingsRequest } from "./requests.js"
 import { defaultSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
@@ -162,20 +161,16 @@ export async function recordContracts(
     const files: string[] = []
     for (const assistant of assistants) {
       terminal.write(`Recording ${assistant} contract...`)
-      const selection = await (assistant === "claude"
-        ? readClaudeSettings
-        : readCodexSettings)(runtime, async (text) => terminal.write(text))
+      // The probe runs on the built-in default selection, as written.
+      const model = defaultModel(assistant, defaultSettings)
+      const selection = phaseSelection(model, new Map())
       const output = new RoundOutput(
         {
           settings: defaultSettings,
           name: "CLI contract",
           title: `CLI contract for ${assistant}`,
-          phases: [{ phase: "fix", assistant, model: unpinned }],
-          // The recorded phase names no model, so no release is resolved.
-          selections: {
-            claude: { configured: selection, releases: new Map() },
-            codex: { configured: selection, releases: new Map() },
-          },
+          phases: [{ phase: "fix", assistant, model }],
+          releases: { claude: new Map(), codex: new Map() },
           paths: {
             claim: null,
             log: join(scratch, `${assistant}.log`),
@@ -230,8 +225,7 @@ export async function recordContracts(
             phase: "fix",
             rulingFile: join(scratch, "ruling.md"),
             assistant,
-            // The probe records a CLI contract, so it names no model of its own.
-            model: unpinned,
+            model,
             ...context,
             arguments: ["CLI contract probe"],
             sessionId: null,
@@ -274,7 +268,7 @@ export async function recordContracts(
             phase: "fix",
             rulingFile: join(scratch, "ruling.md"),
             assistant,
-            model: unpinned,
+            model,
             ...context,
             arguments: ["CLI contract probe"],
             sessionId: result.sessionId,

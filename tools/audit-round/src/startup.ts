@@ -4,10 +4,9 @@ import { join } from "node:path"
 import { ExecaError } from "execa"
 import { compare, valid } from "semver"
 import { z } from "zod"
-import { readClaudeSettings, resolveClaudeModel } from "./claude.js"
+import { resolveClaudeModel } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
-import { readCodexSettings } from "./codex-settings.js"
-import { type CliModels, errorMessage } from "./feedback.js"
+import { errorMessage, type ModelReleases } from "./feedback.js"
 import { type Assistant, namedModels } from "./phase.js"
 import type { RoundSettings } from "./settings.js"
 
@@ -243,28 +242,23 @@ export function resolveCacheRoot(
   )
 }
 
+/**
+ * Update both CLIs, then resolve each Claude model name the settings may pin
+ * to its current release, so the settings header can name what each phase
+ * runs on before it starts. No request starts an LLM turn, and neither CLI's
+ * own configuration is read: the settings file names every phase's selection.
+ */
 export async function prepareAssistants(
   runtime: CliRuntime,
   output: StartupOutput,
   settings: RoundSettings,
   options: { readonly cacheRoot?: string; readonly now?: () => Date } = {},
-): Promise<Record<Assistant, CliModels>> {
+): Promise<Record<Assistant, ModelReleases>> {
   const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
   await updateClis(runtime, output, cacheRoot, options.now)
-  // Both update attempts finish before settings are read. No request starts an LLM turn.
-  const claude = await readClaudeSettings(runtime, output.message)
-  // Claude resolves a family alias to its current release, so the settings
-  // header can name what each pinned phase runs on before it starts.
-  const releases = new Map<string, string>()
+  const claude = new Map<string, string>()
   for (const model of namedModels("claude", settings))
-    releases.set(
-      model,
-      await resolveClaudeModel(runtime, output.message, model),
-    )
-  const codex = await readCodexSettings(runtime, output.message)
-  return {
-    claude: { configured: claude, releases },
-    // Codex runs a named model under the name it was given.
-    codex: { configured: codex, releases: new Map() },
-  }
+    claude.set(model, await resolveClaudeModel(runtime, output.message, model))
+  // Codex runs a named model under the name it was given.
+  return { claude, codex: new Map() }
 }

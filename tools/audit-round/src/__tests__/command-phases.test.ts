@@ -95,8 +95,8 @@ for (const auditor of ["claude", "codex"] as const) {
         const stamps = {
           phases:
             auditor === "codex"
-              ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.`
-              : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.`,
+              ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
+              : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
           auditor: recordedTag(auditor),
         }
         assert.deepEqual(
@@ -144,7 +144,7 @@ for (const auditor of ["claude", "codex"] as const) {
             log,
             /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C audit correction commits since\. No area reached the green limit of 3/,
           )
-        assert.match(log, /fix +codex +chosen-model +high/)
+        assert.match(log, /fix +codex +gpt-5.6-sol +high/)
         assert.match(log, /brief +codex +gpt-5\.6-terra +low/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
@@ -318,8 +318,8 @@ for (const auditor of ["claude", "codex"] as const) {
       {
         phases:
           auditor === "codex"
-            ? `audit: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: chosen-model high\nAudit and vet took 0 min.`
-            : `audit: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: chosen-model high\nAudit and vet took 0 min.`,
+            ? `audit: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit and vet took 0 min.`
+            : `audit: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit and vet took 0 min.`,
         auditor: recordedTag(auditor),
       },
     )

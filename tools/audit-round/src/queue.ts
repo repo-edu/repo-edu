@@ -1,5 +1,5 @@
 import { readFile, rm, writeFile } from "node:fs/promises"
-import type { CliModels, ModelSelection } from "./feedback.js"
+import type { ModelReleases, ModelSelection } from "./feedback.js"
 import { errorMessage } from "./feedback.js"
 import { phaseSelection } from "./output-format.js"
 import {
@@ -7,6 +7,7 @@ import {
   type AuditorOption,
   type AuditorSeat,
   auditPair,
+  noOverride,
   parseAuditor,
   roundPhases,
 } from "./phase.js"
@@ -17,18 +18,24 @@ export type AuditorEntry = AuditorSeat & { readonly text: string }
 
 export type AuditorSetting = ModelSelection & { readonly assistant: Assistant }
 
-function pairText(pair: NonNullable<ReturnType<typeof auditPair>>): string {
-  return pair
-    .map(
-      ({ model, effort }) =>
-        `${model ?? "CLI default model"} at ${effort ?? "CLI default effort"}`,
-    )
+/** The pair's members as they resolve, so a refusal names what the user can pick. */
+function pairText(assistant: Assistant, settings: RoundSettings): string {
+  return ([0, 1] as const)
+    .map((slot) => {
+      const { model, effort } = roundPhases(
+        assistant,
+        noOverride,
+        settings,
+        slot,
+      ).audit.model
+      return `${model.value} at ${effort.value}`
+    })
     .join(" and ")
 }
 
 /**
  * A partial tag inherits from settings, which is ambiguous when those settings
- * hold two members. Names bypass the pair and full tags replace both fields.
+ * hold two members. Names select the defaults and full tags replace both fields.
  */
 export function validateAuditorEntries(
   entries: readonly AuditorEntry[],
@@ -39,10 +46,11 @@ export function validateAuditorEntries(
     if (
       pair !== null &&
       typeof entry.override === "object" &&
+      "strength" in entry.override &&
       (entry.override.strength === null || entry.override.effort === null)
     )
       throw new Error(
-        `Auditor entry ${index + 1} (${entry.text}) is a partial tag, but ${entry.assistant}'s audit selection is the pair ${pairText(pair)}. Use ${entry.assistant} or a full tag with both tier and effort.`,
+        `Auditor entry ${index + 1} (${entry.text}) is a partial tag, but ${entry.assistant}'s audit selection is the pair ${pairText(entry.assistant, settings)}. Use ${entry.assistant} or a full tag with both tier and effort.`,
       )
   })
 }
@@ -50,13 +58,13 @@ export function validateAuditorEntries(
 /** The exact auditor setting an entry asks the current runner invocation to use. */
 export function auditorSetting(
   entry: AuditorSeat,
-  selections: Record<Assistant, CliModels>,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): AuditorSetting {
   const audit = roundPhases(entry.assistant, entry.override, settings).audit
   return {
     assistant: entry.assistant,
-    ...phaseSelection(audit.model, selections[entry.assistant]),
+    ...phaseSelection(audit.model, releases[entry.assistant]),
   }
 }
 
@@ -123,7 +131,7 @@ async function readQueue(
 export async function takeNext(
   path: string,
   ended: AuditorSetting | null,
-  selections: Record<Assistant, CliModels>,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): Promise<{
   readonly next: AuditorEntry | null
@@ -133,7 +141,7 @@ export async function takeNext(
   const queued = await readQueue(path, settings)
   const kept = queued.filter((entry) => {
     if (ended === null) return true
-    const setting = auditorSetting(entry, selections, settings)
+    const setting = auditorSetting(entry, releases, settings)
     return !(
       setting.assistant === ended.assistant &&
       setting.model === ended.model &&

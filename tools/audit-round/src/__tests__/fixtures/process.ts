@@ -52,66 +52,6 @@ if (args[0] === "update") {
   process.exit(0)
 }
 
-if (args[0] === "app-server") {
-  for await (const line of createInterface({ input: process.stdin })) {
-    const request = JSON.parse(line)
-    await appendFile(join(root, "requests.jsonl"), `${line}\n`)
-    if (request.id === undefined) continue
-    if (scenario.settingsMode === "exit") process.exit(3)
-    if (scenario.settingsMode === "malformed") {
-      console.log("invalid JSON")
-      continue
-    }
-    if (scenario.settingsMode === "error") {
-      send({
-        id: request.id,
-        error: { code: -32603, message: "Settings unavailable" },
-      })
-      continue
-    }
-    if (request.method === "initialize") send({ id: request.id, result: {} })
-    if (request.method === "config/read") {
-      send({
-        id: request.id,
-        result: {
-          config: scenario.config ?? {
-            model: "chosen-model",
-            model_reasoning_effort: "high",
-          },
-        },
-      })
-    }
-    if (request.method === "model/list") {
-      send({
-        id: request.id,
-        result:
-          request.params.cursor === undefined
-            ? {
-                data: [
-                  {
-                    model: "other",
-                    defaultReasoningEffort: "low",
-                    isDefault: false,
-                  },
-                ],
-                nextCursor: "second-page",
-              }
-            : {
-                data: [
-                  {
-                    model: "chosen-model",
-                    defaultReasoningEffort: "xhigh",
-                    isDefault: true,
-                  },
-                ],
-                nextCursor: null,
-              },
-      })
-    }
-  }
-  process.exit(scenario.settingsExit ?? 0)
-}
-
 process.on("SIGTERM", () => {
   void writeFile(join(root, "stopped"), "SIGTERM").then(() => process.exit(0))
 })

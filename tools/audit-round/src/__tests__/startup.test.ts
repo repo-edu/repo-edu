@@ -2,15 +2,13 @@ import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { readClaudeSettings } from "../claude.js"
-import { readCodexSettings } from "../codex-settings.js"
 import { prepareAssistants, updateClis } from "../startup.js"
 import { testSettings } from "./configured-runner.js"
 import { fixture } from "./helpers.js"
 
 const now = () => new Date(2026, 8, 11, 12)
 
-test("startup finishes daily updates before read-only settings discovery", async (t) => {
+test("startup finishes daily updates before resolving Claude's model names", async (t) => {
   const f = await fixture(t, { releases: { opus: "claude-opus-5-5" } })
   const messages: string[] = []
   const output = {
@@ -22,23 +20,18 @@ test("startup finishes daily updates before read-only settings discovery", async
     },
   }
   const cacheRoot = join(f.root, "cache")
-  const selections = await prepareAssistants(f.runtime, output, testSettings, {
+  const releases = await prepareAssistants(f.runtime, output, testSettings, {
     cacheRoot,
     now,
   })
-  // Each Claude model the settings may pin reads as the release it resolves to.
-  assert.deepEqual(selections, {
-    claude: {
-      configured: { model: "claude-model", effort: "high" },
-      releases: new Map([
-        ["opus", "claude-opus-5-5"],
-        ["claude-fable-5-1", "claude-fable-5-1"],
-      ]),
-    },
-    codex: {
-      configured: { model: "chosen-model", effort: "high" },
-      releases: new Map(),
-    },
+  // Each Claude model the settings may pin reads as the release it resolves
+  // to; neither CLI's own configuration is read.
+  assert.deepEqual(releases, {
+    claude: new Map([
+      ["opus", "claude-opus-5-5"],
+      ["claude-fable-5-1", "claude-fable-5-1"],
+    ]),
+    codex: new Map(),
   })
   assert.deepEqual(
     (await f.calls()).map((call) => [
@@ -51,10 +44,8 @@ test("startup finishes daily updates before read-only settings discovery", async
     [
       ["claude", "update", null],
       ["codex", "--version", null],
-      ["claude", "-p", null],
       ["claude", "-p", "opus"],
       ["claude", "-p", "claude-fable-5-1"],
-      ["codex", "app-server", null],
     ],
   )
   assert.equal(
@@ -129,72 +120,22 @@ test("only failed updates repeat and an unavailable cache warns", async (t) => {
   )
 })
 
-for (const config of [
-  { model: null, model_reasoning_effort: null },
-  { model: "chosen-model", model_reasoning_effort: null },
-  { model: null, model_reasoning_effort: "high" },
-]) {
-  test(`Codex resolves paginated defaults for ${JSON.stringify(config)}`, async (t) => {
-    const f = await fixture(t, { config })
-    assert.deepEqual(await readCodexSettings(f.runtime, async () => {}), {
-      model: "chosen-model",
-      effort: config.model_reasoning_effort ?? "xhigh",
-    })
-    const requests = (await readFile(join(f.root, "requests.jsonl"), "utf8"))
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line))
-    assert.deepEqual(
-      requests
-        .filter((request) => request.method === "model/list")
-        .map((request) => request.params),
-      [{ includeHidden: true }, { includeHidden: true, cursor: "second-page" }],
+for (const mode of ["error", "exit", "missing"] as const) {
+  test(`Claude failing to resolve a model name (${mode}) stops startup`, async (t) => {
+    const f = await fixture(t, { settingsMode: mode })
+    await assert.rejects(
+      prepareAssistants(
+        f.runtime,
+        { message: async () => {}, warning: async () => {} },
+        testSettings,
+        {
+          cacheRoot: join(f.root, "cache"),
+          now,
+        },
+      ),
     )
   })
 }
-
-test("Codex reports an unresolved effort for phase selection to validate", async (t) => {
-  const f = await fixture(t, {
-    config: { model: "unlisted-model", model_reasoning_effort: null },
-  })
-  assert.deepEqual(await readCodexSettings(f.runtime, async () => {}), {
-    model: "unlisted-model",
-    effort: null,
-  })
-  const requests = (await readFile(join(f.root, "requests.jsonl"), "utf8"))
-    .trim()
-    .split("\n")
-    .map((line) => JSON.parse(line))
-  assert.deepEqual(
-    requests
-      .filter((request) => request.method === "model/list")
-      .map((request) => request.params),
-    [{ includeHidden: true }, { includeHidden: true, cursor: "second-page" }],
-  )
-  const [call] = await f.calls()
-  assert.throws(() => process.kill(call.pid, 0), { code: "ESRCH" })
-})
-
-for (const mode of ["error", "exit", "malformed"] as const) {
-  test(`Codex settings ${mode} rejects pending requests and awaits the child`, async (t) => {
-    const f = await fixture(t, { settingsMode: mode })
-    await assert.rejects(readCodexSettings(f.runtime, async () => {}))
-    const [call] = await f.calls()
-    assert.throws(() => process.kill(call.pid, 0), { code: "ESRCH" })
-  })
-}
-
-for (const mode of ["error", "exit", "missing"] as const) {
-  test(`Claude settings ${mode} stops startup`, async (t) => {
-    const f = await fixture(t, { settingsMode: mode })
-    await assert.rejects(readClaudeSettings(f.runtime, async () => {}))
-  })
-}
-
-test("Codex settings process failure overrides valid replies", async (t) => {
-  const f = await fixture(t, { settingsExit: 7 })
-  await assert.rejects(readCodexSettings(f.runtime, async () => {}))
-})
 
 test("Ctrl-C during an update stops startup without attempting the other CLI", async (t) => {
   const f = await fixture(t, { updateWait: true })

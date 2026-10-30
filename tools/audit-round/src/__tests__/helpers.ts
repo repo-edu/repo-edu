@@ -20,11 +20,12 @@ import {
 import {
   type Assistant,
   type AssistantTurnInput,
+  type Effort,
   type PhaseResult,
   phaseSkills,
 } from "../phase.js"
 import type { RoundContext, RoundKind } from "../target.js"
-import { capabilityTag } from "./configured-runner.js"
+import { capabilityTag, phaseSelection, pinned } from "./configured-runner.js"
 
 export function testContext(
   repoEduRoot: string,
@@ -75,15 +76,10 @@ export function testSetup(
 }
 
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
-export const selections = {
-  claude: {
-    configured: { model: "claude-opus-5", effort: "xhigh" },
-    releases: new Map([["opus", "claude-opus-5"]]),
-  },
-  codex: {
-    configured: { model: "gpt-6-astra", effort: "high" },
-    releases: new Map<string, string>(),
-  },
+/** The releases startup resolved: Claude's alias only, as the runner asks. */
+export const releases = {
+  claude: new Map([["opus", "claude-opus-5"]]),
+  codex: new Map<string, string>(),
 }
 export const recorded = async (name: string) =>
   readFile(join(fixtureRoot, name), "utf8")
@@ -119,14 +115,26 @@ export function recordedText(assistant: Assistant): string {
   return `${model} ${effort}`
 }
 
+/** The selection a phase on the assistant's default runs on, with Claude's alias resolved. */
+export const resolved = (assistant: Assistant) =>
+  phaseSelection(pinned(assistant), releases[assistant])
+
 /** The capability tag the recorded session's audit stamps under the test settings. */
 export function recordedTag(assistant: Assistant): string {
-  const tag = capabilityTag(
-    { phase: "audit", assistant, model: { model: null, effort: null } },
-    { configured: recordedSelections[assistant], releases: new Map() },
+  const { model, effort } = recordedSelections[assistant]
+  if (effort === null) throw new Error(`${assistant} recording names no effort`)
+  const source = "recording"
+  return capabilityTag(
+    {
+      phase: "audit",
+      assistant,
+      model: {
+        model: { value: model, source },
+        effort: { value: effort as Effort, source },
+      },
+    },
+    new Map(),
   )
-  if (tag === null) throw new Error(`${assistant} recording names no effort`)
-  return tag
 }
 export const finishedText =
   'Résumé complete\nPHASE RESULT: {"status":"finished","reason":null}'

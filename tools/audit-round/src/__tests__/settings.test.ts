@@ -48,11 +48,12 @@ test("malformed and invalid settings report their path without replacing the fil
   }
 })
 
-test("phase settings inherit CLI values and apply partial auditor overrides", () => {
+test("phase fields read the assistant's defaults and apply partial auditor overrides", () => {
   const config = structuredClone(settings)
   config.strengthModels.codex.top = "custom-top-model"
+  config.defaults.codex = { model: "codex-default", effort: "xhigh" }
   config.phases.audit.codex = { model: "configured-auditor", effort: "medium" }
-  config.phases.watch = { assistant: "codex", model: null, effort: "low" }
+  config.phases.watch = { assistant: "codex", model: "default", effort: "low" }
   const phases = roundPhases(
     "codex",
     { option: "--auditor", strength: "top", effort: null },
@@ -64,16 +65,22 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
   })
   assert.deepEqual(phases.rebut, phases.audit)
   assert.deepEqual(phases.watch.model, {
-    model: null,
+    model: { value: "codex-default", source: "audit-round defaults" },
     effort: { value: "low", source: "audit-round settings" },
   })
   assert.deepEqual(codexArguments(null, phases.watch.model), [
     "exec",
     "--approve-for-me",
+    "-m",
+    "codex-default",
     "-c",
     "model_reasoning_effort=low",
     "--json",
   ])
+  assert.deepEqual(phases.fix.model, {
+    model: { value: "codex-default", source: "audit-round defaults" },
+    effort: { value: "xhigh", source: "audit-round defaults" },
+  })
   assert.equal(modelStrength("codex", "custom-top-model", config), "top")
   assert.equal(modelStrength("codex", "gpt-6-astra", config), null)
   // A field names the option its tag came from.
@@ -134,7 +141,7 @@ test("assigned phases follow their configured assistants independently of the au
     for (const assistant of ["claude", "codex"] as const) {
       const config = structuredClone(settings)
       config.phases.fix = { assistant, model: "custom-fixer", effort: "high" }
-      config.phases.watch = { assistant, model: null, effort: null }
+      config.phases.watch = { assistant, model: "default", effort: "default" }
       config.phases.judge = { assistant, model: "cheap-judge", effort: "low" }
       const phases = roundPhases(auditor, noOverride, config)
       assert.deepEqual(phases.fix, {
@@ -144,9 +151,13 @@ test("assigned phases follow their configured assistants independently of the au
           effort: { value: "high", source: "audit-round settings" },
         },
       })
+      const { model, effort } = config.defaults[assistant]
       assert.deepEqual(phases.watch, {
         assistant,
-        model: { model: null, effort: null },
+        model: {
+          model: { value: model, source: "audit-round defaults" },
+          effort: { value: effort, source: "audit-round defaults" },
+        },
       })
       assert.deepEqual(phases.judge, {
         assistant,
@@ -164,12 +175,12 @@ test("assigned phases follow their configured assistants independently of the au
   }
 })
 
-test("assistant names bypass audit pins while letter tags retain them across chained auditors", () => {
+test("assistant names select the defaults while letter tags keep audit pins across chained auditors", () => {
   const config = structuredClone(settings)
   config.phases.audit.claude = { model: "claude-auditor", effort: "high" }
   config.phases.audit.codex = { model: "codex-auditor", effort: "medium" }
   for (const value of ["claude", "codex", "a", "o"]) {
-    const seat = parseAuditor(value, "--auditor")
+    const seat = parseAuditor(value, "--first")
     assert.ok(seat)
     assert.equal(
       seat.assistant,
@@ -178,10 +189,14 @@ test("assistant names bypass audit pins while letter tags retain them across cha
     for (const assistant of ["claude", "codex"] as const) {
       const phases = roundPhases(assistant, seat.override, config)
       const configured = roundPhases(assistant, noOverride, config)
+      const { model, effort } = config.defaults[assistant]
       assert.deepEqual(
         phases.audit.model,
         value.length > 1
-          ? { model: null, effort: null }
+          ? {
+              model: { value: model, source: "--first" },
+              effort: { value: effort, source: "--first" },
+            }
           : configured.audit.model,
       )
       assert.deepEqual(phases.rebut, phases.audit)
@@ -210,14 +225,22 @@ test("alternating auditors and vetters keep their own configured models", () => 
   }
 })
 
-test("settings reject unsupported effort, misspelt fields and independent rebuttal settings", () => {
+test("settings reject null fields, unsupported effort, misspelt fields and independent rebuttal settings", () => {
   for (const patch of [
     { effort: "extra-high" },
     { model: " " },
+    { model: null },
+    { effort: null },
     { assitant: "codex" },
   ]) {
     const config = structuredClone(settings)
     Object.assign(config.phases.watch, patch)
+    assert.equal(settingsSchema.safeParse(config).success, false)
+  }
+  // The defaults name a selection outright, so neither field may defer again.
+  for (const patch of [{ model: "default" }, { effort: "default" }]) {
+    const config = structuredClone(settings)
+    Object.assign(config.defaults.claude, patch)
     assert.equal(settingsSchema.safeParse(config).success, false)
   }
   assert.equal(

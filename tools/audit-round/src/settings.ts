@@ -1,12 +1,27 @@
 import { readFile, writeFile } from "node:fs/promises"
 import { z } from "zod"
 import defaults from "../default-settings.json" with { type: "json" }
+import { efforts } from "./phase.js"
 
 const assistant = z.enum(["claude", "codex"])
 const model = z.string().trim().min(1)
+const effort = z.enum(efforts)
+/**
+ * A phase field either names its own value or says `default`, which reads the
+ * assistant's default selection. Null is not a value: a field left unset would
+ * be the CLI's choice, which the runner never consults.
+ */
+const defaulted = z.literal("default")
 const selection = z.strictObject({
-  model: model.nullable(),
-  effort: z.enum(["low", "medium", "high", "xhigh"]).nullable(),
+  model: z.union([model, defaulted]),
+  effort: z.union([effort, defaulted]),
+})
+/** The selection a phase's `default` reads, so it names a model outright. */
+const defaultSelection = z.strictObject({
+  model: model.refine((value) => value !== defaulted.value, {
+    message: "The defaults must name a model",
+  }),
+  effort,
 })
 export type PhaseSelection = z.infer<typeof selection>
 const assignedPhase = selection.extend({ assistant })
@@ -27,6 +42,10 @@ export const settingsSchema = z.strictObject({
   defaultAuditor: z.enum(["claude", "codex", "random", "alternate"]),
   maximumAutomaticRounds: z.number().int().positive(),
   strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
+  defaults: z.strictObject({
+    claude: defaultSelection,
+    codex: defaultSelection,
+  }),
   phases: z.strictObject({
     audit: auditPhase,
     vet: alternatingPhase,

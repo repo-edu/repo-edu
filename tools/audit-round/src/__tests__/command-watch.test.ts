@@ -18,14 +18,14 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-impl-03..03-01-1-round.ouh.log",
-    "example-impl-03..03-01-1-round.ouh.md",
-    "example-impl-03..03-02-1-round.ouh.log",
-    "example-impl-03..03-02-1-round.ouh.md",
-    "example-impl-03..03-03-1-round.ouh.log",
-    "example-impl-03..03-03-1-round.ouh.md",
-    "example-impl-03..03-04-1-round.ouh.log",
-    "example-impl-03..03-04-1-round.ouh.md",
+    "example-impl-03..03-01-1-round.obh.log",
+    "example-impl-03..03-01-1-round.obh.md",
+    "example-impl-03..03-02-1-round.obh.log",
+    "example-impl-03..03-02-1-round.obh.md",
+    "example-impl-03..03-03-1-round.obh.log",
+    "example-impl-03..03-03-1-round.obh.md",
+    "example-impl-03..03-04-1-round.obh.log",
+    "example-impl-03..03-04-1-round.obh.md",
   ])
   const invocations = (await f.calls()).filter(
     (call) =>
@@ -40,21 +40,21 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   assert.match(visible, /Next round: codex; 3 auditor entries remain\./)
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
   assert.match(visible, /Auditor sequence finished after 4 rounds\./)
-  // Updates and settings are read once for the run; later rounds still seat
-  // their roles from the selections that first round discovered. Claude's read
-  // is its default plus one release for each model the settings may pin.
+  // Updates and releases are read once for the run; later rounds still seat
+  // their roles from the releases that first round resolved, one read per
+  // model the settings may pin.
   assert.equal(
     (await f.calls()).filter((call) =>
       call.args.includes("--no-session-persistence"),
     ).length,
-    1 + namedModels("claude", testSettings).size,
+    namedModels("claude", testSettings).size,
   )
   const second = await readFile(join(f.planRoot, names[2]), "utf8")
   assert.match(
     second,
     /Implementation audit of .*example\.md, step 3 \(round 2\)/,
   )
-  assert.match(second, /audit +codex +chosen-model +high/)
+  assert.match(second, /audit +codex +gpt-5\.6-sol +high/)
 })
 
 test("manual queues do not prune a setting from report prose", async (t) => {
@@ -110,12 +110,12 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-impl-01..01-01-1-round.ouh.log",
-    "example-impl-01..01-01-1-round.ouh.md",
-    "example-impl-01..01-02-1-round.ouh.log",
-    "example-impl-01..01-02-1-round.ouh.md",
-    "example-impl-01..01-03-1-round.auh.log",
-    "example-impl-01..01-03-1-round.auh.md",
+    "example-impl-01..01-01-1-round.obh.log",
+    "example-impl-01..01-01-1-round.obh.md",
+    "example-impl-01..01-02-1-round.obh.log",
+    "example-impl-01..01-02-1-round.obh.md",
+    "example-impl-01..01-03-1-round.abh.log",
+    "example-impl-01..01-03-1-round.abh.md",
   ])
   const visible = f.visible.join("\n")
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
@@ -138,7 +138,7 @@ test("a red watch stops the auditor sequence before the next queued round", asyn
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Auditor sequence stopped: the watch graded red\. Read .*-01-9-watch\.ouh\.md before running more rounds\./,
+    /Auditor sequence stopped: the watch graded red\. Read .*-01-9-watch\.obh\.md before running more rounds\./,
   )
   assert.doesNotMatch(visible, /Next round:/)
   assert.equal((await f.roundFiles()).length, 2)
@@ -154,7 +154,7 @@ test("a due glance sends the watch joined evidence and the cache, never round se
   )
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
-  const watch = transcript.replace(/-1-round\.ouh\.md$/, "-9-watch.ouh.md")
+  const watch = transcript.replace(/-1-round\.obh\.md$/, "-9-watch.obh.md")
   assert.match(
     log,
     /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A–C audit correction commits since: area:tool-audit-round 2\. An area reached the red limit of 2\./,

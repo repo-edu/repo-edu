@@ -7,7 +7,7 @@ import { execa } from "execa"
 import { installationRoot } from "../context.js"
 import type { PhaseInput } from "../phase.js"
 import { phasePrompt } from "../requests.js"
-import { runCommand, unpinned } from "./configured-runner.js"
+import { pinned, runCommand } from "./configured-runner.js"
 import { fixture, testContext } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
@@ -27,7 +27,7 @@ test("watch evidence reaches the assistant but is omitted from the log prompt", 
     ...testContext(f.root),
     phase: "watch",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     sessionId: null,
     arguments: ["watch.md", f.root],
     evidence,
@@ -48,7 +48,7 @@ test("the judge sees only the gate's two options and retained evidence", async (
     ...testContext(f.root),
     phase: "judge",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     sessionId: null,
     arguments: [],
     evidence,
@@ -82,7 +82,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           ...context,
           phase,
           assistant,
-          model: unpinned,
+          model: pinned(assistant),
           sessionId: null,
           arguments: ["input.md", "output.md", "review.md"],
           rulingFile: "ruling.md",

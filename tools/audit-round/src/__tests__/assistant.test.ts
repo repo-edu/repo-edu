@@ -10,11 +10,7 @@ import {
   phaseRequest,
   recoveryCommand,
 } from "../requests.js"
-import {
-  type Assistant,
-  type PhaseInput,
-  unpinned,
-} from "./configured-runner.js"
+import { type Assistant, type PhaseInput, pinned } from "./configured-runner.js"
 import {
   finishedText,
   fixture,
@@ -30,7 +26,7 @@ const input = (
   phase: "fix",
   rulingFile: "RULING.md",
   assistant,
-  model: unpinned,
+  model: pinned(assistant),
   ...testContext(cwd),
   arguments: ["/peer plan/AUDIT.md"],
   sessionId: null,
@@ -123,7 +119,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const phase: PhaseInput<"audit"> = {
       phase: "audit",
       assistant,
-      model: unpinned,
+      model: pinned(assistant),
       ...testContext(f.root),
       arguments: [report, "example.md"],
       sessionId: null,
@@ -218,7 +214,15 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.doesNotMatch(logged, /fix workflow\n|fix launcher\n/)
     const [call] = await f.calls()
     if (assistant === "codex") {
-      assert.deepEqual(call.args, ["exec", "--approve-for-me", "--json"])
+      assert.deepEqual(call.args, [
+        "exec",
+        "--approve-for-me",
+        "-m",
+        "gpt-5.6-sol",
+        "-c",
+        "model_reasoning_effort=high",
+        "--json",
+      ])
     } else {
       assert.equal(
         call.args[call.args.indexOf("--permission-mode") + 1],
@@ -377,9 +381,13 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.equal(result.sessionId, "prior-session")
     const [call] = await f.calls()
     if (assistant === "codex")
-      assert.deepEqual(call.args.slice(0, 5), [
+      assert.deepEqual(call.args.slice(0, 9), [
         "exec",
         "--approve-for-me",
+        "-m",
+        "gpt-5.6-sol",
+        "-c",
+        "model_reasoning_effort=high",
         "resume",
         "--json",
         "prior-session",
@@ -401,7 +409,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const f = await fixture(t)
     const session = {
       assistant,
-      model: unpinned,
+      model: pinned(assistant),
       sessionId: "fix-session",
       ...testContext(f.root),
     }
@@ -414,7 +422,15 @@ for (const assistant of ["claude", "codex"] as const) {
       ...args,
     ])
     if (assistant === "codex") {
-      assert.deepEqual(args, ["resume", "--approve-for-me", "fix-session"])
+      assert.deepEqual(args, [
+        "-m",
+        "gpt-5.6-sol",
+        "-c",
+        "model_reasoning_effort=high",
+        "resume",
+        "--approve-for-me",
+        "fix-session",
+      ])
     } else {
       assert.deepEqual(args.slice(0, 2), ["--resume", "fix-session"])
       assert.equal(args[args.indexOf("--permission-mode") + 1], "auto")
@@ -424,6 +440,7 @@ for (const assistant of ["claude", "codex"] as const) {
 
 test("fresh and resumed Codex fix requests carry large prompts only on stdin", () => {
   const prompt = "Evidence: é\n".repeat(30_000)
+  const pin = ["-m", "gpt-5.6-sol", "-c", "model_reasoning_effort=high"]
   for (const sessionId of [null, "fix-session"]) {
     const request = phaseRequest(
       {
@@ -438,8 +455,16 @@ test("fresh and resumed Codex fix requests carry large prompts only on stdin", (
     assert.deepEqual(
       request.args,
       sessionId === null
-        ? ["exec", "--approve-for-me", "--json"]
-        : ["exec", "--approve-for-me", "resume", "--json", sessionId, "-"],
+        ? ["exec", "--approve-for-me", ...pin, "--json"]
+        : [
+            "exec",
+            "--approve-for-me",
+            ...pin,
+            "resume",
+            "--json",
+            sessionId,
+            "-",
+          ],
     )
   }
 })
@@ -577,7 +602,7 @@ test("judge cancellation stops and awaits its fresh CLI", async (t) => {
     {
       phase: "judge",
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       ...testContext(f.root),
       arguments: [],
       evidence: {
@@ -640,19 +665,4 @@ test("the brief carries its pinned model and effort into the Codex invocation", 
     "model_reasoning_effort=low",
     "--json",
   ])
-})
-
-test("an unpinned Codex phase names no model", async (t) => {
-  const f = await fixture(t)
-  await f.configure({
-    stream: await phaseStream("codex"),
-    usage: {
-      path: join(f.root, "rollout-test-session.jsonl"),
-      text: await recorded("codex-rollout.jsonl"),
-    },
-  })
-  await runAssistantPhase(input("codex", f.root), f.output, f.runtime)
-  const [call] = await f.calls()
-  assert.equal(call.args.includes("-m"), false)
-  assert.equal(call.args.includes("-c"), false)
 })

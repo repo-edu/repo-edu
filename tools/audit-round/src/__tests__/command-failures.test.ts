@@ -22,7 +22,7 @@ test("a single explicit auditor claims one round", async (t) => {
   assert.equal(names.length, 2)
   assert.ok(
     names.every((name) =>
-      name.startsWith("example-impl-03..03-01-1-round.ouh."),
+      name.startsWith("example-impl-03..03-01-1-round.obh."),
     ),
   )
   assert.doesNotMatch(f.visible.join("\n"), /Chain/)
@@ -59,7 +59,7 @@ for (const auditor of ["codex", "claude"] as const) {
         transcript,
         join(
           f.planRoot,
-          `example-plan-01-1-round.${auditor === "codex" ? "ouh" : "auh"}.md`,
+          `example-plan-01-1-round.${auditor === "codex" ? "obh" : "abh"}.md`,
         ),
       )
       assert.match(log, /Plan audit of .*example\.md/)
@@ -108,8 +108,8 @@ for (const auditor of ["codex", "claude"] as const) {
         {
           phases:
             auditor === "codex"
-              ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.`
-              : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: chosen-model high\nAudit, vet and rebuttal took 0 min.`,
+              ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
+              : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
           auditor: recordedTag(auditor),
         },
       )
@@ -122,6 +122,10 @@ for (const auditor of ["codex", "claude"] as const) {
           f.planRoot,
           "&&",
           "codex",
+          "-m",
+          "gpt-5.6-sol",
+          "-c",
+          "model_reasoning_effort=high",
           "resume",
           "--approve-for-me",
           "fix-session",
@@ -341,6 +345,10 @@ test("a failed planning audit retains its root and recovery session without star
     "claude",
     "--resume",
     "audit-session",
+    "--model",
+    "opus",
+    "--effort",
+    "high",
     "--permission-mode",
     "auto",
     "--add-dir",

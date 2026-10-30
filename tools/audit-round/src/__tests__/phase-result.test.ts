@@ -8,7 +8,7 @@ import { decodeCodex } from "../codex.js"
 import type { PhaseInput } from "../phase.js"
 import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
-import { unpinned } from "./configured-runner.js"
+import { pinned } from "./configured-runner.js"
 import { fixture, testContext } from "./helpers.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
@@ -52,7 +52,7 @@ test("a fresh prompt supplies routed workflows and shared files once under their
     ...context,
     phase: "rebut",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     sessionId: null,
     arguments: ["audit.md", "vet.md", "rebut.md"],
   }
@@ -84,7 +84,7 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
         ...context,
         phase: "fix",
         assistant,
-        model: unpinned,
+        model: pinned(assistant),
         sessionId: null,
         arguments: ["audit.md", "vet.md"],
         rulingFile: join(context.cwd, "ruling.md"),
@@ -131,7 +131,7 @@ test("watch receives Repo Edu's workflow and joined evidence without a launcher"
   const common = {
     ...testContext(f.root, "planning"),
     assistant: "codex" as const,
-    model: unpinned,
+    model: pinned("codex"),
     sessionId: null,
   }
   const { text: writer } = phasePrompt({
@@ -253,7 +253,7 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
   const { text: prompt } = phasePrompt({
     phase: "audit",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...testContext(f.root),
 
     sessionId: null,
@@ -269,12 +269,24 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
     split(
       recoveryCommand({
         assistant: "codex",
-        model: unpinned,
+        model: pinned("codex"),
         sessionId,
         ...testContext("/repo"),
       }),
     ),
-    ["cd", "/repo", "&&", "codex", "resume", "--approve-for-me", sessionId],
+    [
+      "cd",
+      "/repo",
+      "&&",
+      "codex",
+      "-m",
+      "gpt-5.6-sol",
+      "-c",
+      "model_reasoning_effort=high",
+      "resume",
+      "--approve-for-me",
+      sessionId,
+    ],
   )
   // A seat that named its model resumes on it, so the user continues the round's own run.
   assert.deepEqual(
@@ -309,12 +321,20 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
         assistant: "claude",
         model: {
           model: { value: "fable", source: "--strength" },
-          effort: null,
+          effort: { value: "high", source: "--effort" },
         },
         sessionId: "audit-session",
         ...testContext("/repo"),
       }),
-    ).slice(3, 8),
-    ["claude", "--resume", "audit-session", "--model", "fable"],
+    ).slice(3, 10),
+    [
+      "claude",
+      "--resume",
+      "audit-session",
+      "--model",
+      "fable",
+      "--effort",
+      "high",
+    ],
   )
 })

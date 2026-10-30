@@ -6,13 +6,19 @@ import { roundRun as buildRoundRun } from "../output.js"
 import { parseRoundDataFile } from "../round-data.js"
 import {
   noOverride,
+  pinned,
   RoundOutput,
   roundPhases,
   roundRun,
   testSettings,
-  unpinned,
 } from "./configured-runner.js"
-import { fixture, selections, testContext, testSetup } from "./helpers.js"
+import {
+  fixture,
+  releases,
+  resolved,
+  testContext,
+  testSetup,
+} from "./helpers.js"
 
 for (const { zone, instant, timestamp } of [
   {
@@ -61,7 +67,7 @@ for (const { zone, instant, timestamp } of [
       await roundRun(
         { ...testSetup(f.root), plan: "example.md", scope: "1" },
         Date.parse(instant),
-        selections,
+        releases,
       ),
       {
         now: () => Date.parse(instant),
@@ -86,7 +92,7 @@ for (const { zone, instant, timestamp } of [
     t.after(() => output.close())
 
     const logName = basename(output.paths.log)
-    assert.equal(logName, "example-impl-01..01-01-1-round.oth.log")
+    assert.equal(logName, "example-impl-01..01-01-1-round.obh.log")
     assert.doesNotMatch(logName, /[:<>"|?*]/)
     assert.equal(
       output.paths.markdown,
@@ -105,7 +111,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   const run = await roundRun(
     { ...testSetup(f.root), plan: "example.md", scope: "1" },
     Date.now(),
-    selections,
+    releases,
   )
   const output = new RoundOutput(run, {
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
@@ -126,7 +132,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
       phase: "fix",
       rulingFile: "RULING.md",
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       ...testContext("/repo"),
       arguments: ["REPORT.md"],
       sessionId: null,
@@ -143,7 +149,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
 
   const session = {
     assistant: "codex" as const,
-    model: unpinned,
+    model: pinned("codex"),
     sessionId: "session",
     ...testContext("/repo"),
   }
@@ -197,7 +203,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
       automatic: true,
     },
     Date.now(),
-    selections,
+    releases,
     testSettings,
   )
   const output = new RoundOutput(run, {
@@ -225,7 +231,7 @@ test("the final retained write stores the judge answer", async (t) => {
       automatic: true,
     },
     Date.now(),
-    selections,
+    releases,
     testSettings,
   )
   const output = new RoundOutput(run, {
@@ -266,7 +272,7 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
       automatic: true,
     },
     Date.now(),
-    selections,
+    releases,
     testSettings,
   )
   const output = new RoundOutput(run, {
@@ -280,7 +286,7 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
     phase: "judge",
     sessionId: "judge-session",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...testContext(f.root),
     reason: "Judge process stopped",
     commits: [],
@@ -305,7 +311,7 @@ for (const [name, abortReason, status] of [
     const run = await buildRoundRun(
       { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
-      selections,
+      releases,
       testSettings,
     )
     const output = new RoundOutput(run, {
@@ -321,7 +327,7 @@ for (const [name, abortReason, status] of [
         phase: "audit",
         sessionId: "audit-session",
         assistant: "codex",
-        model: unpinned,
+        model: pinned("codex"),
         ...testContext(f.root),
         reason: "Command was canceled",
         commits: [],
@@ -351,7 +357,7 @@ for (const assistant of ["claude", "codex"] as const) {
       },
     }
     const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-    const run = await buildRoundRun(setup, Date.now(), selections, settings)
+    const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const log: string[] = []
     const output = new RoundOutput(run, {
       terminal: { write: () => {}, status: () => {}, clear: () => {} },
@@ -369,7 +375,7 @@ for (const assistant of ["claude", "codex"] as const) {
       phase: "fix" as const,
       rulingFile: "RULING.md",
       assistant,
-      model: unpinned,
+      model: pinned(assistant),
       arguments: ["REPORT.md"] as const,
     }
     const tokens = (input: number, cached: number, outputTokens: number) =>
@@ -380,7 +386,7 @@ for (const assistant of ["claude", "codex"] as const) {
               kind: "models",
               models: [
                 {
-                  model: selections.claude.configured.model,
+                  model: resolved("claude").model,
                   input,
                   cached,
                   output: outputTokens,
@@ -447,20 +453,18 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.equal(data.settings.fix.assistant, assistant)
     assert.deepEqual(data.auditor, {
       assistant: "codex",
-      model: selections.codex.configured.model,
-      effort: selections.codex.configured.effort,
+      ...resolved("codex"),
       chosenBy: "settings",
     })
     assert.deepEqual(data.phases, [
       {
         phase: "fix",
         assistant,
-        model: selections[assistant].configured.model,
-        effort: selections[assistant].configured.effort,
+        ...resolved(assistant),
         milliseconds: 3000,
         tokens: [
           {
-            model: selections[assistant].configured.model,
+            model: resolved(assistant).model,
             input: 120,
             cached: 60,
             output: 12,
@@ -496,7 +500,7 @@ for (const assistant of ["claude", "codex"] as const) {
       },
     }
     const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-    const run = await buildRoundRun(setup, Date.now(), selections, settings)
+    const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const output = new RoundOutput(run, {
       terminal: {
         write: (text) => visible.push(text),
@@ -511,7 +515,7 @@ for (const assistant of ["claude", "codex"] as const) {
         phase: "fix",
         rulingFile: "RULING.md",
         assistant,
-        model: unpinned,
+        model: pinned(assistant),
         arguments: ["REPORT.md"],
         sessionId: null,
       },
@@ -566,13 +570,10 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const phases = roundPhases("codex", noOverride)
-  const output = new RoundOutput(
-    await roundRun(setup, Date.now(), selections),
-    {
-      terminal: { write: () => {}, status: () => {}, clear: () => {} },
-      openFiles: () => ({ log: () => {}, markdown: () => {}, close: () => {} }),
-    },
-  )
+  const output = new RoundOutput(await roundRun(setup, Date.now(), releases), {
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+    openFiles: () => ({ log: () => {}, markdown: () => {}, close: () => {} }),
+  })
   t.after(() => output.close())
   const time = () => output.commitStamps()?.phases.split("\n").at(-1)
   const start = (phase: "audit" | "vet" | "rebut" | "fix") =>
@@ -607,7 +608,7 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
   await start("audit")
   t.mock.timers.tick(4 * 60_000)
   // A running audit has taken no time a commit could state yet.
-  assert.equal(time(), "audit: gpt-6-astra high")
+  assert.equal(time(), "audit: gpt-5.6-sol high")
   await finish()
   assert.equal(time(), "Audit took 4 min.")
   await start("vet")
@@ -632,7 +633,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
     await roundRun(
       { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
-      selections,
+      releases,
     ),
     {
       terminal: { write: () => {}, status: () => {}, clear: () => {} },
@@ -660,7 +661,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
       phase: "fix",
       rulingFile: "RULING.md",
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       ...testContext("/repo"),
       arguments: ["REPORT.md"],
       sessionId: null,
@@ -679,7 +680,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
 
   const session = {
     assistant: "codex" as const,
-    model: unpinned,
+    model: pinned("codex"),
     sessionId: "session",
     ...testContext("/repo"),
   }

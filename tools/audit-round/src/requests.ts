@@ -10,7 +10,6 @@ import type {
   InteractiveSession,
   PhaseInput,
   PinnedField,
-  PinnedModel,
 } from "./phase.js"
 import { phaseLauncher, phaseWorkflow } from "./phase.js"
 
@@ -20,15 +19,20 @@ export const claudeSettingsRequest = {
   request: { subtype: "get_settings" },
 } as const
 
-/** What a CLI is told to run on. What named each field stays with the round. */
+/**
+ * What a CLI is told to run on. What named each field stays with the round. A
+ * phase names both fields; only a release lookup names the model alone.
+ */
 export type ModelRequest = {
-  readonly [Field in keyof PinnedModel]: Pick<PinnedField, "value"> | null
+  readonly model: Pick<PinnedField, "value">
+  readonly effort: Pick<PinnedField, "value"> | null
 }
 
-/** How Claude names a phase's model and effort. An unnamed field is left out. */
+/** How Claude names a phase's model and effort. */
 function claudePin(model: ModelRequest): string[] {
   return [
-    ...(model.model === null ? [] : ["--model", model.model.value]),
+    "--model",
+    model.model.value,
     ...(model.effort === null ? [] : ["--effort", model.effort.value]),
   ]
 }
@@ -39,7 +43,8 @@ function claudePin(model: ModelRequest): string[] {
  */
 function codexPin(model: ModelRequest): string[] {
   return [
-    ...(model.model === null ? [] : ["-m", model.model.value]),
+    "-m",
+    model.model.value,
     ...(model.effort === null
       ? []
       : ["-c", `model_reasoning_effort=${model.effort.value}`]),

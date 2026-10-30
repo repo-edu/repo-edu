@@ -1,6 +1,6 @@
 import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
-import type { CliModels, Feedback, PhaseOutput } from "./feedback.js"
+import type { Feedback, ModelReleases, PhaseOutput } from "./feedback.js"
 import {
   type Context,
   capabilityTag,
@@ -86,7 +86,7 @@ export type Run = {
   readonly name: string
   readonly title: string
   readonly phases: readonly RunEntry[]
-  readonly selections: Record<Assistant, CliModels>
+  readonly releases: Record<Assistant, ModelReleases>
   readonly paths: RunPaths
   /** Present for every active plan-target round, with settled and final writes. */
   readonly data?: {
@@ -104,13 +104,16 @@ export type Run = {
   readonly started: number
 }
 
-function resolvedRun(run: PhaseRun, selections: Record<Assistant, CliModels>) {
-  return phaseSelection(run.model, selections[run.assistant])
+function resolvedRun(
+  run: PhaseRun,
+  releases: Record<Assistant, ModelReleases>,
+) {
+  return phaseSelection(run.model, releases[run.assistant])
 }
 
 /** Settings that split trials, resolved once with the same phase owner as execution. */
 function roundSettingsData(
-  selections: Record<Assistant, CliModels>,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): RoundData["settings"] {
   const audit = (
@@ -118,14 +121,14 @@ function roundSettingsData(
   ): RoundData["settings"]["audit"][Assistant] => {
     const first = resolvedRun(
       roundPhases(assistant, noOverride, settings, 0).audit,
-      selections,
+      releases,
     )
     if (!Array.isArray(settings.phases.audit[assistant])) return first
     return [
       first,
       resolvedRun(
         roundPhases(assistant, noOverride, settings, 1).audit,
-        selections,
+        releases,
       ),
     ]
   }
@@ -136,37 +139,29 @@ function roundSettingsData(
         noOverride,
         settings,
       ).vet,
-      selections,
+      releases,
     )
   const fix = roundPhases("codex", noOverride, settings).fix
   return {
     audit: { claude: audit("claude"), codex: audit("codex") },
     vet: { claude: vet("claude"), codex: vet("codex") },
-    fix: { assistant: fix.assistant, ...resolvedRun(fix, selections) },
+    fix: { assistant: fix.assistant, ...resolvedRun(fix, releases) },
   }
 }
 
-/** A tag must be known before any file reserves or records the round. */
+/** The tag every file of a phase carries, known before any file reserves the round. */
 function fileTag(
   entry: RunEntry,
-  selections: Record<Assistant, CliModels>,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): string {
-  const tag = capabilityTag(entry, selections[entry.assistant], settings)
-  if (tag !== null) return tag
-  const advice =
-    entry.phase === "audit" || entry.phase === "rebut"
-      ? "Supply a full --auditor or --first tag."
-      : `Set ${entry.assistant}'s effort in its CLI settings; --auditor does not control this phase.`
-  throw new Error(
-    `Cannot name ${entry.assistant} ${entry.phase} output: its effort is missing or unsupported. ${advice}`,
-  )
+  return capabilityTag(entry, releases[entry.assistant], settings)
 }
 
 export async function roundRun(
   setup: RoundSetup,
   started: number,
-  selections: Record<Assistant, CliModels>,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
   /**
    * The round's place in a chain, for the title only. Disk claims own filenames.
@@ -188,7 +183,7 @@ export async function roundRun(
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: Phase): string =>
-    fileTag(entry(phase), selections, settings)
+    fileTag(entry(phase), releases, settings)
   // The judge writes no file, and the close runs alone, so a round needs
   // neither tag.
   for (const phase of Object.keys(phases) as Phase[]) {
@@ -215,10 +210,10 @@ export async function roundRun(
           ),
           ...roundDataIdentity(nameStart),
           tag: tag("audit"),
-          settings: roundSettingsData(selections, settings),
+          settings: roundSettingsData(releases, settings),
           auditor: {
             assistant: audit.assistant,
-            ...resolvedRun(audit, selections),
+            ...resolvedRun(audit, releases),
             chosenBy: setup.auditorSelectionSource,
           },
           ...(setup.roundKind === "planning"
@@ -257,7 +252,7 @@ export async function roundRun(
       markdown: `${base}.md`,
     },
     ...(data === undefined ? {} : { data }),
-    selections,
+    releases,
     settings,
     started,
   }
@@ -267,7 +262,7 @@ export async function roundRun(
 export function briefRun(
   transcript: string,
   started: number,
-  selections: Record<Assistant, CliModels>,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): Run & { readonly brief: string } {
   const phase = {
@@ -279,7 +274,7 @@ export function briefRun(
     phaseFilename(
       transcriptNameStart(transcript),
       "brief",
-      fileTag(phase, selections, settings),
+      fileTag(phase, releases, settings),
     ),
   )
   return {
@@ -288,7 +283,7 @@ export function briefRun(
     title: `Brief of ${basename(transcript)}`,
     phases: [phase],
     settings,
-    selections,
+    releases,
     paths: {
       claim: null,
       log: `${base}.log`,
@@ -307,14 +302,14 @@ export function closeRun(
   plan: string,
   planRoot: string,
   started: number,
-  selections: Record<Assistant, CliModels>,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): Run & { readonly tag: string; readonly record: string } {
   const phase = { phase: "close", ...closePhase(settings) } as const
-  const tag = fileTag(phase, selections, settings)
+  const tag = fileTag(phase, releases, settings)
   const { model, effort } = phaseSelection(
     phase.model,
-    selections[phase.assistant],
+    releases[phase.assistant],
   )
   return {
     tag,
@@ -323,7 +318,7 @@ export function closeRun(
     title: `Close of plan ${basename(plan)}`,
     phases: [phase],
     settings,
-    selections,
+    releases,
     paths: {
       claim: null,
       log: join(planRoot, `${planStem(plan)}-close.${tag}.log`),
@@ -383,7 +378,7 @@ export class RoundOutput<R extends Run = Run> {
       this.say(
         `\n${runRule}\n${run.title}\n${started}\nLog: ${this.paths.log}${texts}`,
       )
-      this.models(run.selections)
+      this.models(run.releases)
     } catch (error) {
       this.files.close()
       throw error
@@ -407,7 +402,7 @@ export class RoundOutput<R extends Run = Run> {
     this.say(`Warning: ${text}`)
   }
 
-  models(selections: Record<Assistant, CliModels>): void {
+  models(releases: Record<Assistant, ModelReleases>): void {
     const { phases } = this.run
     const lead = phases[0]?.assistant
     // Phases are grouped by assistant so one assistant's model reads as one block.
@@ -416,11 +411,11 @@ export class RoundOutput<R extends Run = Run> {
         (first, second) =>
           Number(first.assistant !== lead) - Number(second.assistant !== lead),
       )
-      // A named field reports itself; the rest reports the CLI default.
+      // Each field reports what named it: an option, the phase's pin or the defaults.
       .map(({ phase, assistant, model }) => ({
         phase,
         assistant,
-        ...phaseText(model, selections[assistant]),
+        ...phaseText(model, releases[assistant]),
       }))
     const width = (column: (row: (typeof rows)[number]) => string) =>
       Math.max(...rows.map((row) => column(row).length))
@@ -489,7 +484,7 @@ export class RoundOutput<R extends Run = Run> {
     this.ran.set(input.phase, {
       selection: phaseSelection(
         input.model,
-        this.run.selections[input.assistant],
+        this.run.releases[input.assistant],
       ),
       spent: earlier?.spent ?? null,
       tokens: earlier?.tokens ?? [],

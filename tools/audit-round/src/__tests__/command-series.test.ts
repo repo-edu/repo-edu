@@ -539,11 +539,16 @@ test("--first replaces the default auditor's first round and the series still fo
     stored.map((entry) => entry.auditor.chosenBy),
     ["--first", "settings"],
   )
-  // Only the first round carries the selection; the judged round names no tier.
+  // Only the first round carries the selection; the judged round runs on the defaults.
   for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
-  for (const flag of ["-m", "-c"])
-    assert.equal(audits[1].args.includes(flag), false)
+  for (const argument of [
+    "-m",
+    "gpt-5.6-sol",
+    "-c",
+    "model_reasoning_effort=high",
+  ])
+    assert.ok(audits[1].args.includes(argument), audits[1].args.join(" "))
   const firstLog = (await f.roundFiles()).find((name) =>
     /-01-1-round\..+\.log$/.test(name),
   )

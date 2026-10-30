@@ -26,11 +26,11 @@ import {
   type PhaseInput,
   type PhaseResult,
   type PinnedModel,
+  pinned,
   type RoundDependencies,
   runBrief,
   runClose,
   runRound as runRoundWithAccount,
-  unpinned,
 } from "./configured-runner.js"
 import {
   areas,
@@ -703,7 +703,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "audit",
           assistant: auditor,
-          model: unpinned,
+          model: pinned(auditor),
           ...testContext(repoRoot),
           cwd: ownerRoot,
           arguments: [files.documents.report, "../plan/example.md", "2-3"],
@@ -712,7 +712,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "vet",
           assistant: vetAssistant,
-          model: unpinned,
+          model: pinned(vetAssistant),
           ...testContext(repoRoot),
           cwd: ownerRoot,
           arguments: [report, files.documents.vet],
@@ -721,7 +721,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "rebut",
           assistant: auditor,
-          model: unpinned,
+          model: pinned(auditor),
           ...testContext(repoRoot),
           cwd: ownerRoot,
           arguments: [report, files.documents.vet, files.documents.rebut],
@@ -731,7 +731,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "fix",
           rulingFile: ruling,
           assistant: "codex",
-          model: unpinned,
+          model: pinned("codex"),
           ...testContext(repoRoot),
           cwd: ownerRoot,
           arguments: [report, files.documents.vet, files.documents.rebut],
@@ -783,7 +783,7 @@ for (const auditor of ["claude", "codex"] as const) {
 
     const session = {
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       sessionId: "fix-session",
       ...testContext(repoRoot),
     }
@@ -829,7 +829,10 @@ for (const auditor of ["claude", "codex"] as const) {
           ...failure,
           phase,
           assistant: runner(phase, auditor, vetAssistant),
-          model: phase === "brief" ? briefPin : unpinned,
+          model:
+            phase === "brief"
+              ? briefPin
+              : pinned(runner(phase, auditor, vetAssistant)),
           ...testContext(repoRoot),
           commits:
             phase === "brief" || phase === "watch"
@@ -870,7 +873,7 @@ test("a due glance completes the watch in one fresh session", async () => {
       phase: "watch",
       evidence: "Joined evidence including the finished fix",
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       ...testContext(repoRoot),
       arguments: [watch, cacheRoot],
       sessionId: null,
@@ -911,7 +914,7 @@ test("a watch that leaves no readable record fails its phase", async () => {
     sessionId: "watch-session",
     phase: "watch",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...testContext(repoRoot),
     reason: "The watch left no readable record for example",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
@@ -1001,7 +1004,7 @@ test("a glance that cannot read the record stops the round before any watch pass
     sessionId: null,
     phase: "watch",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...testContext(repoRoot),
     reason: failure.message,
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
@@ -1064,7 +1067,7 @@ test("retains a failure before the assistant establishes a session", async () =>
     ...round.results.audit,
     phase: "audit",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...testContext(repoRoot),
     commits: [],
   })
@@ -1165,7 +1168,7 @@ for (const operation of ["requestRuling"] as const) {
       status: "failed",
       phase: "ruling-input",
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       sessionId: "fix-session",
       ...testContext(repoRoot),
       reason: "Ruling input unavailable",
@@ -1376,7 +1379,7 @@ for (const auditor of ["claude", "codex"] as const) {
       phase: "fix",
       rulingFile: ruling,
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       ...testContext(repoRoot),
       arguments: [report, files.documents.vet],
       sessionId: null,
@@ -1459,7 +1462,7 @@ test("a missing ruling fails the fix before the brief or user input", async () =
     phase: "fix",
     sessionId: "fix-session",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...testContext(repoRoot),
     reason: "Missing ruling",
     commits: [],
@@ -1510,7 +1513,7 @@ for (const reason of [null, "The check cost more than it gave."]) {
       {
         phase: "close",
         assistant: "codex",
-        model: unpinned,
+        model: pinned("codex"),
         ...context,
         arguments:
           reason === null
@@ -1552,7 +1555,7 @@ test("a failed close keeps its session for recovery", async () => {
     reason: "No shared folder for the peer plan",
     phase: "close",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...context,
   })
 })
@@ -1573,7 +1576,7 @@ test("a finished close that left its plan at the root fails with its session", a
     sessionId: "close-session",
     phase: "close",
     assistant: "codex",
-    model: unpinned,
+    model: pinned("codex"),
     ...context,
     reason: `The finished close left ${plan} at the plan root`,
   })

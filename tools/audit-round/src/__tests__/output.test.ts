@@ -10,12 +10,12 @@ import type { Assistant, AuditorOverride } from "./configured-runner.js"
 import {
   briefRun,
   commandText,
+  pinned,
   RoundOutput,
   roundPhases,
   roundRun,
-  unpinned,
 } from "./configured-runner.js"
-import { fixture, selections, testContext, testSetup } from "./helpers.js"
+import { fixture, releases, testContext, testSetup } from "./helpers.js"
 
 test("long commit lists record every reference without exceeding filename limits", async (t) => {
   const f = await fixture(t)
@@ -26,7 +26,7 @@ test("long commit lists record every reference without exceeding filename limits
   const run = await roundRun(
     { ...testSetup(f.root), commits, repository: "repo-edu" },
     Date.now(),
-    selections,
+    releases,
   )
   const output = new RoundOutput(run, {
     terminal: { write() {}, status() {}, clear() {} },
@@ -51,7 +51,7 @@ test("commit stamps retain each phase's reported selection across later phases",
     } as const,
   }
   const phases = roundPhases(setup.auditor, setup.override)
-  const output = new RoundOutput(await roundRun(setup, 0, selections), {
+  const output = new RoundOutput(await roundRun(setup, 0, releases), {
     terminal: { write() {}, status() {}, clear() {} },
   })
   t.after(() => output.close())
@@ -109,7 +109,7 @@ test("output records complete invocations incrementally and refreshes only while
     await roundRun(
       { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
-      selections,
+      releases,
     ),
     {
       verbose: true,
@@ -133,7 +133,7 @@ test("output records complete invocations incrementally and refreshes only while
       {
         phase: "audit",
         assistant: "codex",
-        model: unpinned,
+        model: pinned("codex"),
         ...testContext(f.root),
         arguments: ["example-impl-01..01-01", "example.md"],
         sessionId: null,
@@ -235,7 +235,7 @@ test("written status stamps chain into the running total", async (t) => {
     await roundRun(
       { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
-      selections,
+      releases,
     ),
     {
       terminal: {
@@ -256,7 +256,7 @@ test("written status stamps chain into the running total", async (t) => {
     {
       phase: "audit",
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       ...testContext(f.root),
       arguments: ["example-impl-01..01-01", "example.md"],
       sessionId: null,
@@ -276,7 +276,7 @@ test("written status stamps chain into the running total", async (t) => {
       rulingFile: "/ruling.md",
       rulingReply: "Apply the corrections.",
       assistant: "codex",
-      model: unpinned,
+      model: pinned("codex"),
       ...testContext(f.root),
 
       sessionId: "prior",
@@ -301,7 +301,7 @@ for (const assistant of ["claude", "codex"] as const) {
         await roundRun(
           { ...testSetup(f.root), plan: "example.md", scope: "1" },
           Date.now(),
-          selections,
+          releases,
         ),
         {
           verbose,
@@ -319,7 +319,7 @@ for (const assistant of ["claude", "codex"] as const) {
         {
           phase: "audit",
           assistant,
-          model: unpinned,
+          model: pinned(assistant),
           ...testContext(f.root),
           arguments: ["example-impl-01..01-01", "example.md"],
           sessionId: null,
@@ -465,7 +465,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
     await roundRun(
       { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
-      selections,
+      releases,
     ),
     {
       terminal: {
@@ -483,7 +483,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
       phase: "fix",
       rulingFile: "/ruling.md",
       assistant: "claude",
-      model: unpinned,
+      model: pinned("claude"),
       ...testContext(f.root),
       arguments: ["/AUDIT.md"],
       sessionId: null,
@@ -512,7 +512,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
           brief: true,
         },
         Date.now(),
-        selections,
+        releases,
       ),
       {
         terminal: {
@@ -531,35 +531,29 @@ test("the settings header groups phases by assistant in aligned columns", async 
     )
     t.after(() => output.close())
     output.models({
-      claude: {
-        configured: { model: "claude-opus-5[1m]", effort: "xhigh" },
-        releases: new Map(),
-      },
-      codex: {
-        configured: { model: "gpt-6-astra", effort: "high" },
-        releases: new Map(),
-      },
+      claude: new Map([["opus", "claude-opus-5[1m]"]]),
+      codex: new Map(),
     })
     return visible.at(-1)
   }
   // Model, effort and source each start in their own column.
   const codexHeader = [
-    "audit  codex   gpt-6-astra       high        CLI default",
-    "rebut  codex   gpt-6-astra       high        CLI default",
-    "fix    codex   gpt-6-astra       high        CLI default",
-    "brief  codex   gpt-5.6-terra     low         audit-round settings",
-    "watch  codex   gpt-6-astra       high        CLI default",
-    "vet    claude  claude-opus-5[1m] extra high  CLI default",
+    "audit  codex   gpt-5.6-sol       high  audit-round defaults",
+    "rebut  codex   gpt-5.6-sol       high  audit-round defaults",
+    "fix    codex   gpt-5.6-sol       high  audit-round defaults",
+    "brief  codex   gpt-5.6-terra     low   audit-round settings",
+    "watch  codex   gpt-5.6-sol       high  audit-round defaults",
+    "vet    claude  claude-opus-5[1m] high  audit-round defaults",
   ]
   assert.equal(
     await header("claude"),
     [
-      "audit  claude  claude-opus-5[1m] extra high  CLI default",
-      "rebut  claude  claude-opus-5[1m] extra high  CLI default",
-      "vet    codex   gpt-6-astra       high        CLI default",
-      "fix    codex   gpt-6-astra       high        CLI default",
-      "brief  codex   gpt-5.6-terra     low         audit-round settings",
-      "watch  codex   gpt-6-astra       high        CLI default",
+      "audit  claude  claude-opus-5[1m] high  audit-round defaults",
+      "rebut  claude  claude-opus-5[1m] high  audit-round defaults",
+      "vet    codex   gpt-5.6-sol       high  audit-round defaults",
+      "fix    codex   gpt-5.6-sol       high  audit-round defaults",
+      "brief  codex   gpt-5.6-terra     low   audit-round settings",
+      "watch  codex   gpt-5.6-sol       high  audit-round defaults",
     ].join("\n"),
   )
   assert.equal(await header("codex"), codexHeader.join("\n"))
@@ -589,7 +583,7 @@ test("the settings header names what set each phase's model and effort", async (
           brief: true,
         },
         Date.now(),
-        selections,
+        releases,
       ),
       {
         terminal: {
@@ -608,27 +602,21 @@ test("the settings header names what set each phase's model and effort", async (
     )
     t.after(() => output.close())
     output.models({
-      claude: {
-        configured: { model: "claude-opus-5[1m]", effort: "xhigh" },
-        releases: new Map([["opus", "claude-opus-5-5"]]),
-      },
-      codex: {
-        configured: { model: "gpt-5.6-sol", effort: "high" },
-        releases: new Map(),
-      },
+      claude: new Map([["opus", "claude-opus-5-5"]]),
+      codex: new Map(),
     })
     return (visible.at(-1) as string).split("\n")
   }
-  // Both flags name the whole selection, and the fix keeps the CLI default.
+  // Both flags name the whole selection, and the fix keeps the defaults.
   assert.deepEqual(
     await header({ option: "--auditor", strength: "top", effort: "xhigh" }),
     [
-      "audit  codex   gpt-6-astra       extra high  --auditor",
-      "rebut  codex   gpt-6-astra       extra high  --auditor",
-      "fix    codex   gpt-5.6-sol       high        CLI default",
-      "brief  codex   gpt-5.6-terra     low         audit-round settings",
-      "watch  codex   gpt-5.6-sol       high        CLI default",
-      "vet    claude  claude-opus-5[1m] extra high  CLI default",
+      "audit  codex   gpt-6-astra     extra high  --auditor",
+      "rebut  codex   gpt-6-astra     extra high  --auditor",
+      "fix    codex   gpt-5.6-sol     high        audit-round defaults",
+      "brief  codex   gpt-5.6-terra   low         audit-round settings",
+      "watch  codex   gpt-5.6-sol     high        audit-round defaults",
+      "vet    claude  claude-opus-5-5 high        audit-round defaults",
     ],
   )
   // One flag names one field, so the row reports both sources, model first.
@@ -637,8 +625,8 @@ test("the settings header names what set each phase's model and effort", async (
       await header({ option: "--auditor", strength: "top", effort: null })
     ).slice(0, 2),
     [
-      "audit  codex   gpt-6-astra       high        --auditor/CLI default",
-      "rebut  codex   gpt-6-astra       high        --auditor/CLI default",
+      "audit  codex   gpt-6-astra     high  --auditor/audit-round defaults",
+      "rebut  codex   gpt-6-astra     high  --auditor/audit-round defaults",
     ],
   )
   assert.deepEqual(
@@ -646,8 +634,8 @@ test("the settings header names what set each phase's model and effort", async (
       await header({ option: "--auditor", strength: null, effort: "medium" })
     ).slice(0, 2),
     [
-      "audit  codex   gpt-5.6-sol       medium      CLI default/--auditor",
-      "rebut  codex   gpt-5.6-sol       medium      CLI default/--auditor",
+      "audit  codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
+      "rebut  codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
     ],
   )
   // A --first tag names its own option.
@@ -656,8 +644,8 @@ test("the settings header names what set each phase's model and effort", async (
       await header({ option: "--first", strength: "top", effort: "xhigh" })
     ).slice(0, 2),
     [
-      "audit  codex   gpt-6-astra       extra high  --first",
-      "rebut  codex   gpt-6-astra       extra high  --first",
+      "audit  codex   gpt-6-astra     extra high  --first",
+      "rebut  codex   gpt-6-astra     extra high  --first",
     ],
   )
   // A family alias reads as the release the CLI resolved it to.
@@ -682,7 +670,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
     await roundRun(
       { ...testSetup(f.root), plan: "example.md", scope: "1" },
       Date.now(),
-      selections,
+      releases,
     ),
     {
       terminal: {
@@ -699,7 +687,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
     {
       phase: "brief",
       assistant: "claude",
-      model: unpinned,
+      model: pinned("claude"),
       ...testContext(f.root),
       arguments: [output.paths.markdown, "/brief.md"],
       sessionId: null,
@@ -725,7 +713,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
-    briefRun(transcript, Date.parse("2026-09-13T08:00:00Z"), selections),
+    briefRun(transcript, Date.parse("2026-09-13T08:00:00Z"), releases),
     {
       terminal: {
         write: (text) => {
@@ -752,7 +740,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     /^\n═{72}\nBrief of example-impl-01..01-01-1-round\.oth\.md\n/,
   )
   assert.doesNotMatch(visible[0] as string, /Texts:/)
-  output.models(selections)
+  output.models(releases)
   assert.equal(
     visible.at(-1),
     "brief  codex  gpt-5.6-terra low  audit-round settings",

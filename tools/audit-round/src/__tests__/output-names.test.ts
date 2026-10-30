@@ -11,7 +11,7 @@ import {
   testSettings,
   transcriptNameStart,
 } from "./configured-runner.js"
-import { fixture, selections, testContext, testSetup } from "./helpers.js"
+import { fixture, releases, testContext, testSetup } from "./helpers.js"
 import { commitFixture } from "./round-fixture.js"
 
 const options = { terminal: { write() {}, status() {}, clear() {} } }
@@ -26,7 +26,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
       brief: true,
     },
     0,
-    selections,
+    releases,
   )
   const names = [
     run.paths.claim,
@@ -39,18 +39,18 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   })
   assert.deepEqual(names.toSorted(), [
     "abcdef..123abc-01-0-claim.md",
-    "abcdef..123abc-01-1-round.oth.md",
-    "abcdef..123abc-01-2-audit.oth.md",
-    "abcdef..123abc-01-3-vet.abx.md",
-    "abcdef..123abc-01-4-rebut.oth.md",
+    "abcdef..123abc-01-1-round.obh.md",
+    "abcdef..123abc-01-2-audit.obh.md",
+    "abcdef..123abc-01-3-vet.abh.md",
+    "abcdef..123abc-01-4-rebut.obh.md",
     "abcdef..123abc-01-6-brief.oul.md",
-    "abcdef..123abc-01-7-ruling.oth.md",
-    "abcdef..123abc-01-9-watch.oth.md",
+    "abcdef..123abc-01-7-ruling.obh.md",
+    "abcdef..123abc-01-9-watch.obh.md",
   ])
   assert.equal(run.data, undefined)
   assert.equal(run.paths.log, run.paths.markdown.replace(/\.md$/, ".log"))
   assert.equal(transcriptNameStart(run.paths.markdown), "abcdef..123abc-01")
-  const brief = briefRun(run.paths.markdown, 0, selections)
+  const brief = briefRun(run.paths.markdown, 0, releases)
   assert.equal(brief.paths.log, brief.brief.replace(/\.md$/, ".log"))
   assert.equal(
     basename(run.paths.claim as string),
@@ -66,7 +66,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
           repository: "repo-edu",
         },
         0,
-        selections,
+        releases,
       )
     ).nameStart,
     "abcdef..123abc-02",
@@ -81,8 +81,8 @@ test("different auditors cannot open the same candidate and the next run advance
     scope: "2-4",
     auditorSelectionSource: "settings" as const,
   }
-  const codex = await roundRun({ ...setup, auditor: "codex" }, 0, selections)
-  const claude = await roundRun({ ...setup, auditor: "claude" }, 0, selections)
+  const codex = await roundRun({ ...setup, auditor: "codex" }, 0, releases)
+  const claude = await roundRun({ ...setup, auditor: "claude" }, 0, releases)
   assert.equal(codex.nameStart, "example-impl-02..04-01")
   assert.equal(claude.nameStart, codex.nameStart)
   new RoundOutput(codex, options).close()
@@ -90,13 +90,13 @@ test("different auditors cannot open the same candidate and the next run advance
   assert.equal(await readFile(codex.paths.claim as string, "utf8"), "")
   await assert.rejects(readFile(claude.paths.log), { code: "ENOENT" })
   await assert.rejects(readFile(claude.paths.markdown), { code: "ENOENT" })
-  const next = await roundRun({ ...setup, auditor: "claude" }, 0, selections)
+  const next = await roundRun({ ...setup, auditor: "claude" }, 0, releases)
   assert.equal(next.nameStart, "example-impl-02..04-02")
   assert.equal(
     basename(next.paths.markdown),
-    "example-impl-02..04-02-1-round.abx.md",
+    "example-impl-02..04-02-1-round.abh.md",
   )
-  assert.equal(basename(next.watch), "example-impl-02..04-02-9-watch.oth.md")
+  assert.equal(basename(next.watch), "example-impl-02..04-02-9-watch.obh.md")
   new RoundOutput(next, options).close()
 })
 
@@ -108,23 +108,23 @@ test("only retained numbered files at the plan root reserve numbers across audit
       "0-claim.md",
       "0-settle.md",
       "0-reopen.md",
-      "1-round.abx.md",
-      "1-round.abx.json",
+      "1-round.abh.md",
+      "1-round.abh.json",
       "1-round.otm.log",
-      "2-audit.abx.md",
+      "2-audit.abh.md",
       "3-vet.otm.md",
-      "4-rebut.abx.md",
+      "4-rebut.abh.md",
       "6-brief.oul.md",
       "6-brief.oul.log",
-      "7-ruling.oth.md",
-      "9-watch.abx.md",
+      "7-ruling.obh.md",
+      "9-watch.abh.md",
     ]) {
       const path = join(root, `example-impl-01..01-09-${suffix}`)
       await writeFile(path, "")
-      const run = await roundRun(setup, 0, selections)
+      const run = await roundRun(setup, 0, releases)
       assert.equal(
         run.nameStart,
-        root === setup.planRoot && suffix !== "1-round.abx.json"
+        root === setup.planRoot && suffix !== "1-round.abh.json"
           ? "example-impl-01..01-10"
           : "example-impl-01..01-01",
         path,
@@ -140,7 +140,7 @@ test("only retained numbered files at the plan root reserve numbers across audit
   )
   await mkdir(join(f.root, "example-impl-01..01-99-1-round.otm.md"))
   assert.equal(
-    (await roundRun(setup, 0, selections)).nameStart,
+    (await roundRun(setup, 0, releases)).nameStart,
     "example-impl-01..01-01",
   )
 })
@@ -148,19 +148,19 @@ test("only retained numbered files at the plan root reserve numbers across audit
 test("a plan-root report survives partial cleanup and full cleanup restarts numbering", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-  const run = await roundRun(setup, 0, selections)
+  const run = await roundRun(setup, 0, releases)
   new RoundOutput(run, options).close()
-  const report = join(f.root, "../plan", `${run.nameStart}-2-audit.oth.md`)
+  const report = join(f.root, "../plan", `${run.nameStart}-2-audit.obh.md`)
   await writeFile(report, "Report")
   for (const path of [run.paths.claim, run.paths.log, run.paths.markdown])
     await rm(path as string)
   assert.equal(
-    (await roundRun(setup, 0, selections)).nameStart,
+    (await roundRun(setup, 0, releases)).nameStart,
     "example-impl-01..01-02",
   )
   await rm(report)
   assert.equal(
-    (await roundRun(setup, 0, selections)).nameStart,
+    (await roundRun(setup, 0, releases)).nameStart,
     "example-impl-01..01-01",
   )
 })
@@ -168,12 +168,12 @@ test("a plan-root report survives partial cleanup and full cleanup restarts numb
 test("a failed tagged-file open retains the number's claim", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-  const run = await roundRun(setup, 0, selections)
+  const run = await roundRun(setup, 0, releases)
   await mkdir(run.paths.log)
   assert.throws(() => new RoundOutput(run, options))
   assert.equal(await readFile(run.paths.claim as string, "utf8"), "")
   assert.equal(
-    (await roundRun(setup, 0, selections)).nameStart,
+    (await roundRun(setup, 0, releases)).nameStart,
     "example-impl-01..01-02",
   )
 })
@@ -197,9 +197,9 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
     const run = await roundRun(
       { ...testSetup(f.root), commits, repository },
       0,
-      selections,
+      releases,
     )
-    assert.equal(basename(run.paths.markdown), `${target}-01-1-round.oth.md`)
+    assert.equal(basename(run.paths.markdown), `${target}-01-1-round.obh.md`)
     assert.equal(run.title, `Commit audit of ${commits.join(" ")}`)
   }
 })
@@ -218,7 +218,7 @@ test("single steps and ranges keep separate padded numbering", async (t) => {
         scope,
       },
       0,
-      selections,
+      releases,
     )
     assert.equal(run.nameStart, `example-${target}-01`)
     assert.ok(run.data)
@@ -228,9 +228,9 @@ test("single steps and ranges keep separate padded numbering", async (t) => {
 
 test("a standalone brief reuses the number and overwrites only its pinned writer's log", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-impl-01..01-09-1-round.abx.md")
+  const transcript = join(f.root, "example-impl-01..01-09-1-round.abh.md")
   await writeFile(transcript, "Original transcript")
-  const run = briefRun(transcript, 0, selections)
+  const run = briefRun(transcript, 0, releases)
   assert.equal(
     basename(run.paths.log),
     "example-impl-01..01-09-6-brief.oul.log",
@@ -238,60 +238,13 @@ test("a standalone brief reuses the number and overwrites only its pinned writer
   const first = new RoundOutput(run, options)
   await first.message("First brief")
   first.close()
-  new RoundOutput(briefRun(transcript, 1000, selections), options).close()
+  new RoundOutput(briefRun(transcript, 1000, releases), options).close()
   assert.doesNotMatch(await readFile(run.paths.log, "utf8"), /First brief/)
   assert.equal(await readFile(transcript, "utf8"), "Original transcript")
   assert.deepEqual(
     (await readdir(f.root)).filter((name) => name.endsWith("-0-claim.md")),
     [],
   )
-})
-
-test("unspellable phase efforts fail before any claim or output is created", async (t) => {
-  const f = await fixture(t)
-  const before = await readdir(f.root)
-  for (const effort of [null, "max"]) {
-    for (const assistant of ["codex", "claude"] as const) {
-      const chosen = {
-        ...selections,
-        [assistant]: {
-          ...selections[assistant],
-          configured: { ...selections[assistant].configured, effort },
-        },
-      }
-      await assert.rejects(
-        roundRun(
-          { ...testSetup(f.root), plan: "example.md", scope: "1" },
-          0,
-          chosen,
-        ),
-        assistant === "codex"
-          ? /codex audit.*full --auditor or --first tag/
-          : /claude vet.*CLI settings/,
-      )
-    }
-  }
-  // An auditor override cannot supply the effort for the same assistant's fix phase.
-  await assert.rejects(
-    roundRun(
-      {
-        ...testSetup(f.root),
-        plan: "example.md",
-        scope: "1",
-        override: { option: "--auditor", strength: "top", effort: "high" },
-      },
-      0,
-      {
-        ...selections,
-        codex: {
-          ...selections.codex,
-          configured: { model: "gpt-6-astra", effort: null },
-        },
-      },
-    ),
-    /codex fix.*CLI settings/,
-  )
-  assert.deepEqual(await readdir(f.root), before)
 })
 
 test("an automatic judge needs no capability tag because it writes no file", async (t) => {
@@ -304,22 +257,12 @@ test("an automatic judge needs no capability tag because it writes no file", asy
       automatic: true,
     },
     0,
-    {
-      ...selections,
-      claude: {
-        ...selections.claude,
-        configured: { model: "claude-opus-5", effort: null },
-      },
-    },
+    releases,
     {
       ...testSettings,
       phases: {
         ...testSettings.phases,
-        vet: {
-          ...testSettings.phases.vet,
-          claude: { model: null, effort: "high" },
-        },
-        judge: { assistant: "claude", model: null, effort: null },
+        judge: { assistant: "claude", model: "default", effort: "default" },
       },
     },
   )
@@ -334,7 +277,7 @@ test("planning rounds number their bare target at the plan root and write there"
   const run = await roundRun(
     { ...context, plan: "example-widen.md" },
     0,
-    selections,
+    releases,
   )
   assert.ok(run.data)
   assert.equal(run.nameStart, "example-plan-06")
@@ -344,7 +287,7 @@ test("planning rounds number their bare target at the plan root and write there"
   )
   assert.equal(
     run.paths.markdown,
-    join(context.planRoot, "example-plan-06-1-round.oth.md"),
+    join(context.planRoot, "example-plan-06-1-round.obh.md"),
   )
   assert.equal(
     run.data.path,
@@ -352,12 +295,12 @@ test("planning rounds number their bare target at the plan root and write there"
   )
   assert.equal(
     run.watch,
-    join(context.planRoot, "example-plan-06-9-watch.oth.md"),
+    join(context.planRoot, "example-plan-06-9-watch.obh.md"),
   )
   const archived = await roundRun(
     { ...context, plan: "archive/topic/plan.md" },
     0,
-    selections,
+    releases,
   )
   assert.equal(archived.nameStart, "topic-plan-01")
   assert.equal(archived.data, undefined)

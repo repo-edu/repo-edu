@@ -97,15 +97,15 @@ export type AuditorOption = "--auditor" | "--first"
 export type AuditorSelectionSource = "settings" | AuditorOption
 
 /**
- * What the command line asked of the auditor's phases. `none` asks nothing and
- * `cli` bypasses phase settings. A tag names its option, so the settings header
- * says which one set a field; a null tag field follows settings.json, then the
- * CLI. The override binds audit and rebuttal because the rebuttal is the
- * auditor's answer.
+ * What the command line asked of the auditor's phases. `none` asks nothing. An
+ * assistant name asks for the assistant's default selection in place of its
+ * audit pins. A tag names its option, so the settings header says which one
+ * set a field; a null tag field follows the audit pin. The override binds
+ * audit and rebuttal because the rebuttal is the auditor's answer.
  */
 export type AuditorOverride =
   | "none"
-  | "cli"
+  | { readonly option: AuditorOption; readonly defaults: true }
   | {
       readonly option: AuditorOption
       readonly strength: Strength | null
@@ -125,7 +125,7 @@ export const strengthLetters: Record<Strength, "b" | "t"> = {
 }
 
 /** The letter a capability tag closes with, naming the reasoning effort. */
-const effortLetters: Record<Effort, "l" | "m" | "h" | "x"> = {
+export const effortLetters: Record<Effort, "l" | "m" | "h" | "x"> = {
   low: "l",
   medium: "m",
   high: "h",
@@ -160,8 +160,8 @@ function named<K extends string>(
 }
 
 /**
- * Assistant names inherit both CLI settings. Capability tags may name a tier
- * and effort; unnamed fields follow settings.json, then the CLI. The three
+ * Assistant names select the assistant's default selection. Capability tags
+ * may name a tier and effort; unnamed fields follow the audit pin. The three
  * alphabets share no letter, so a partial tag says
  * which fields it named. The `u` a subject may carry says the model is on
  * neither tier, which is a reading and not a request, so it is not accepted.
@@ -171,7 +171,7 @@ export function parseAuditor(
   option: AuditorOption,
 ): AuditorSeat | null {
   if (value === "claude" || value === "codex")
-    return { assistant: value, override: "cli" }
+    return { assistant: value, override: { option, defaults: true } }
   const match = /^([ao])([bt])?([lmhx])?$/.exec(value)
   if (match === null) return null
   const assistant = named(assistantLetters, match[1])
@@ -209,21 +209,21 @@ export function modelStrength(
   )
 }
 
-/** One named field of a phase's selection, with what named it. */
-export type PinnedField = {
-  readonly value: string
+/** One field of a phase's selection, with what named it. */
+export type PinnedField<Value extends string = string> = {
+  readonly value: Value
   /** What named the field, as the run's settings header prints it. */
   readonly source: string
 }
 
 /**
- * What a phase names for itself. A null field runs on whatever the phase's CLI
- * is configured to use, so one phase can take its model from the command line
- * and its effort from the assistant's own settings.
+ * What a phase runs on. Every field is named: by the command line, by the
+ * phase's own pin or by the assistant's default selection. The CLI's own
+ * configuration never enters.
  */
 export type PinnedModel = {
-  readonly model: PinnedField | null
-  readonly effort: PinnedField | null
+  readonly model: PinnedField
+  readonly effort: PinnedField<Effort>
 }
 
 /** Who fills one phase of a round, and what that phase runs on. */
@@ -232,12 +232,20 @@ export type PhaseRun = {
   readonly model: PinnedModel
 }
 
-/** A phase that names nothing, which every phase outside the two below is. */
-export const unpinned: PinnedModel = { model: null, effort: null }
+/** An assistant's default selection, as the settings header names it. */
+export function defaultModel(
+  assistant: Assistant,
+  config: RoundSettings,
+  source = "audit-round defaults",
+): PinnedModel {
+  const { model, effort } = config.defaults[assistant]
+  return { model: { value: model, source }, effort: { value: effort, source } }
+}
 
 /**
  * Command-line fields override the audit settings, which rebuttal shares.
- * Other fields use the configured phase selection or inherit from the CLI.
+ * Other fields use the configured phase selection, whose `default` reads the
+ * assistant's default selection.
  */
 function phaseModel(
   phase: Phase,
@@ -256,11 +264,17 @@ function phaseModel(
   } else {
     pin = config.phases[configuredPhase]
   }
-  const field = (value: string | null): PinnedField | null =>
-    value === null ? null : { value, source: "audit-round settings" }
+  const defaults = defaultModel(assistant, config)
+  const own = <Value extends string>(value: Value): PinnedField<Value> => ({
+    value,
+    source: "audit-round settings",
+  })
+  const model = pin.model === "default" ? defaults.model : own(pin.model)
+  const effort = pin.effort === "default" ? defaults.effort : own(pin.effort)
   if (configuredPhase !== "audit" || override === "none")
-    return { model: field(pin.model), effort: field(pin.effort) }
-  if (override === "cli") return unpinned
+    return { model, effort }
+  if ("defaults" in override)
+    return defaultModel(assistant, config, override.option)
   return {
     model:
       override.strength !== null
@@ -268,11 +282,11 @@ function phaseModel(
             value: config.strengthModels[assistant][override.strength],
             source: override.option,
           }
-        : field(pin.model),
+        : model,
     effort:
       override.effort !== null
         ? { value: override.effort, source: override.option }
-        : field(pin.effort),
+        : effort,
   }
 }
 
@@ -319,13 +333,13 @@ export function closePhase(config: RoundSettings): PhaseRun {
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * each phase's own pin and each tier a tag can ask for.
+ * the default selection, each phase's own pin and each tier a tag can ask for.
  */
 export function namedModels(
   assistant: Assistant,
   config: RoundSettings,
 ): ReadonlySet<string> {
-  const names = new Set<string>()
+  const names = new Set<string>([config.defaults[assistant].model])
   for (const auditor of ["claude", "codex"] as const)
     for (const auditSlot of [0, 1] as const)
       for (const strength of [null, ...strengths])
@@ -337,8 +351,7 @@ export function namedModels(
             auditSlot,
           ),
         ))
-          if (run.assistant === assistant && run.model.model !== null)
-            names.add(run.model.model.value)
+          if (run.assistant === assistant) names.add(run.model.model.value)
   return names
 }
 

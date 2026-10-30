@@ -8,7 +8,6 @@ import {
   tokenSchema,
 } from "./feedback.js"
 import { toolInputText } from "./output-format.js"
-import { unpinned } from "./phase.js"
 import {
   claudeArguments,
   claudeSettingsRequest,
@@ -178,49 +177,33 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
   }
 }
 
-/** The selection Claude applies to a phase that names nothing. */
-export async function readClaudeSettings(
-  runtime: CliRuntime,
-  diagnostic: (text: string) => Promise<void>,
-): Promise<ModelSelection> {
-  return readApplied(runtime, diagnostic, unpinned)
-}
-
 /**
  * The release Claude runs for a model name. A family alias such as `opus`
- * names whichever release is current, so only the CLI can answer.
+ * names whichever release is current, so only the CLI can answer. The lookup
+ * names the model alone and starts no LLM turn.
  */
 export async function resolveClaudeModel(
   runtime: CliRuntime,
   diagnostic: (text: string) => Promise<void>,
   model: string,
 ): Promise<string> {
-  const request = { model: { value: model }, effort: null }
-  return (await readApplied(runtime, diagnostic, request)).model
-}
-
-/** What Claude applies to a request, read from its settings without an LLM turn. */
-async function readApplied(
-  runtime: CliRuntime,
-  diagnostic: (text: string) => Promise<void>,
-  request: ModelRequest,
-): Promise<ModelSelection> {
-  return withCliProcess(
+  const request: ModelRequest = { model: { value: model }, effort: null }
+  let selection: ModelSelection | undefined
+  await withCliProcess(
     runtime,
     "claude",
     [...claudeArguments(null, null, request), "--no-session-persistence"],
     `${JSON.stringify(claudeSettingsRequest)}\n`,
     async (child) => {
-      let selection: ModelSelection | undefined
       await readCliLines(child, "stdout", async (line) => {
         for (const event of decodeClaude(JSON.parse(line))) {
           if (event.type === "model") selection = event.selection
         }
       })
-      if (selection === undefined)
-        throw new Error("Claude ended without reporting settings")
-      return selection
     },
     diagnostic,
   )
+  if (selection === undefined)
+    throw new Error(`Claude ended without resolving the model ${model}`)
+  return selection.model
 }

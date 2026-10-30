@@ -42,7 +42,7 @@ for (const auditor of ["codex", "claude"] as const) {
           index === 0 ? auditor : auditor === "codex" ? "claude" : "codex"
         assert.equal(
           file,
-          `example-plan-0${index + 1}-1-round.${writer === "codex" ? "ouh" : "auh"}.log`,
+          `example-plan-0${index + 1}-1-round.${writer === "codex" ? "obh" : "abh"}.log`,
         )
         const log = await readFile(join(f.planRoot, file), "utf8")
         assert.match(log, /Plan audit of .*example\.md/)
@@ -57,11 +57,11 @@ for (const auditor of ["codex", "claude"] as const) {
       const visible = f.visible.join("\n")
       assert.match(visible, /Auditor sequence finished after 3 rounds/)
       const calls = await f.calls()
-      // One startup: Claude's default and one release per pinnable model.
+      // One startup: one release read per model the settings may pin.
       assert.equal(
         calls.filter((call) => call.args.includes("--no-session-persistence"))
           .length,
-        1 + namedModels("claude", testSettings).size,
+        namedModels("claude", testSettings).size,
       )
       for (const call of calls) assert.equal(call.cwd, f.planRoot)
       const fixes = (await f.prompts()).filter(
@@ -71,7 +71,7 @@ for (const auditor of ["codex", "claude"] as const) {
       assert.deepEqual(
         fixes.map((call) => call.auditor),
         files.map((name) =>
-          recordedTag(name.includes(".ouh.") ? "codex" : "claude"),
+          recordedTag(name.includes(".obh.") ? "codex" : "claude"),
         ),
       )
     })
@@ -110,10 +110,22 @@ for (const auditor of ["codex", "claude"] as const) {
       "&&",
       auditor,
       ...(auditor === "codex"
-        ? ["resume", "--approve-for-me", "audit-session"]
+        ? [
+            "-m",
+            "gpt-5.6-sol",
+            "-c",
+            "model_reasoning_effort=high",
+            "resume",
+            "--approve-for-me",
+            "audit-session",
+          ]
         : [
             "--resume",
             "audit-session",
+            "--model",
+            "opus",
+            "--effort",
+            "high",
             "--permission-mode",
             "auto",
             "--add-dir",
@@ -232,7 +244,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.equal(log.includes("[watch] starting"), due)
       if (due) {
-        const watch = transcript.replace("-1-round.ouh.md", "-9-watch.ouh.md")
+        const watch = transcript.replace("-1-round.obh.md", "-9-watch.obh.md")
         assert.ok(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,

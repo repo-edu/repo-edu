@@ -91,9 +91,9 @@ test("close archives the named plan through one close session from the plan chec
   // The close writes only its log, under the plan's stem and its own tag.
   assert.deepEqual(
     (await readdir(f.planRoot)).filter((name) => !before.includes(name)),
-    ["example-close.ouh.log"],
+    ["example-close.obh.log"],
   )
-  const log = await readFile(join(f.planRoot, "example-close.ouh.log"), "utf8")
+  const log = await readFile(join(f.planRoot, "example-close.obh.log"), "utf8")
   assert.match(log, /Close of plan example\.md\n/)
   assert.match(log, /\[close\] starting codex \(fresh\)/)
   assert.ok(
@@ -103,7 +103,7 @@ test("close archives the named plan through one close session from the plan chec
   )
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "ouh", "chosen-model high"])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high"])}`,
     ),
   )
   assert.ok(
@@ -124,7 +124,7 @@ test("a finished close that left its plan at the root fails with a resume comman
   f.phases.close = { ...(f.phases.close as object), remove: [] }
   await f.configure({ phases: f.phases })
   assert.equal(await runCommand(["close"], f.runtime, f.options), 1)
-  const log = await readFile(join(f.planRoot, "example-close.ouh.log"), "utf8")
+  const log = await readFile(join(f.planRoot, "example-close.obh.log"), "utf8")
   assert.match(
     log,
     /\[close\] failed: The finished close left .+example\.md at the plan root/,
@@ -143,10 +143,10 @@ test("close without a stem takes the plan that plan prints and passes an abort r
     0,
     f.errors.join("\n"),
   )
-  const log = await readFile(join(f.planRoot, "example-close.ouh.log"), "utf8")
+  const log = await readFile(join(f.planRoot, "example-close.obh.log"), "utf8")
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "ouh", "chosen-model high", "The check cost more than it gave."])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high", "The check cost more than it gave."])}`,
     ),
   )
 })

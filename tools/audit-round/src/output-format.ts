@@ -1,9 +1,11 @@
 import { split } from "shellwords"
-import type { CliModels, ModelSelection } from "./feedback.js"
+import type { ModelReleases, ModelSelection } from "./feedback.js"
 import {
   type Assistant,
   assistantLetters,
+  type Effort,
   effortLetter,
+  effortLetters,
   modelStrength,
   type Phase,
   type PinnedModel,
@@ -25,21 +27,20 @@ export function modelText(selection: ModelSelection): string {
 }
 
 /**
- * What one phase runs on, and what named it. A field the phase did not name
- * follows the CLI default, so a phase that took only its model from the
- * command line names both sources, model first.
+ * What one phase runs on, and what named it. A phase whose fields came from
+ * different places names both sources, model first.
  */
 export function phaseText(
   pinned: PinnedModel,
-  cli: CliModels,
+  releases: ModelReleases,
 ): {
   readonly model: string
   readonly effort: string
   readonly source: string
 } {
-  const { model, effort } = phaseSelection(pinned, cli)
-  const modelSource = pinned.model?.source ?? "CLI default"
-  const effortSource = pinned.effort?.source ?? "CLI default"
+  const { model, effort } = phaseSelection(pinned, releases)
+  const modelSource = pinned.model.source
+  const effortSource = pinned.effort.source
   return {
     model,
     effort: effortText(effort),
@@ -56,14 +57,11 @@ export function phaseText(
  */
 export function phaseSelection(
   { model, effort }: PinnedModel,
-  { configured, releases }: CliModels,
-): ModelSelection {
+  releases: ModelReleases,
+): { readonly model: string; readonly effort: Effort } {
   return {
-    model:
-      model === null
-        ? configured.model
-        : (releases.get(model.value) ?? model.value),
-    effort: effort?.value ?? configured.effort,
+    model: releases.get(model.value) ?? model.value,
+    effort: effort.value,
   }
 }
 
@@ -140,30 +138,40 @@ export function reviewTimeLine(
 /**
  * A phase's capability tag: the assistant's letter, the strength's letter and
  * the effort's letter, each from its own alphabet so a character decodes
- * without its position. An unreported effort is the one case with nothing to
- * write, and the commit body carries the exact model either way.
+ * without its position. Every phase names one of the four efforts, so the tag
+ * is always known before the phase starts.
  */
 export function capabilityTag(
   entry: RunEntry,
-  cli: CliModels,
+  releases: ModelReleases,
   settings: RoundSettings,
-): string | null {
-  return selectionTag(
-    entry.assistant,
-    phaseSelection(entry.model, cli),
-    settings,
-  )
+): string {
+  const { model, effort } = phaseSelection(entry.model, releases)
+  return tagText(entry.assistant, model, effortLetters[effort], settings)
 }
 
+/**
+ * The tag a reported selection reads as. A CLI may report an effort outside
+ * the four the tag can spell, which is the one case with nothing to write;
+ * the commit body carries the exact model either way.
+ */
 function selectionTag(
   assistant: Assistant,
   { model, effort }: ModelSelection,
   settings: RoundSettings,
 ): string | null {
   const letter = effort === null ? null : effortLetter(effort)
-  if (letter === null) return null
+  return letter === null ? null : tagText(assistant, model, letter, settings)
+}
+
+function tagText(
+  assistant: Assistant,
+  model: string,
+  effortLetter: string,
+  settings: RoundSettings,
+): string {
   const strength = modelStrength(assistant, model, settings)
-  return `${assistantLetters[assistant]}${strength === null ? "u" : strengthLetters[strength]}${letter}`
+  return `${assistantLetters[assistant]}${strength === null ? "u" : strengthLetters[strength]}${effortLetter}`
 }
 
 /**

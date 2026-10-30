@@ -189,7 +189,7 @@ test("a clean audit prunes its resolved setting and preserves another setting", 
   assert.equal((await f.roundFiles()).length, 4)
   assert.match(
     f.visible.join("\n"),
-    /Clean audit by codex on chosen-model high; skipped 2 queued entries with the same setting\./,
+    /Clean audit by codex on gpt-5.6-sol high; skipped 2 queued entries with the same setting\./,
   )
 })
 

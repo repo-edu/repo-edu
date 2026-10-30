@@ -299,14 +299,14 @@ Auditor selection (--auditor <selections>):
   audited by Claude, then a round audited by Codex. Each entry is one of:
 
     claude | codex
-      Use that CLI's current model and effort instead of the runner's audit settings.
+      Use that assistant's default selection in settings.json, not its audit pins.
 
     <assistant>[<tier>][<effort>]
       A capability tag, written without spaces. Brackets mark optional fields.
       <assistant>  a = Claude, o = Codex
       <tier>       b = base model, t = top model
       <effort>     l = low, m = medium, h = high, x = xhigh
-      Omitted fields use settings.json, then the CLI default.
+      Omitted fields use the audit pin in settings.json.
       When that assistant's audit setting is a pair, supply both fields. A
       partial tag is refused because it does not name one member of the pair.
 
@@ -827,7 +827,7 @@ export async function runCommand(
       }
     }
     runtime.signal?.throwIfAborted()
-    const selections = await prepareAssistants(
+    const releases = await prepareAssistants(
       { ...runtime, cwd: session.cwd },
       {
         message: async (text) => options.terminal.write(text),
@@ -839,9 +839,8 @@ export async function runCommand(
     runtime.signal?.throwIfAborted()
     /**
      * Each round records its own file pair, so a chained run opens one output
-     * per round and retires the previous one first. Updates and settings are
-     * read once; later rounds reuse the selections rather than re-entering the
-     * CLIs.
+     * per round and retires the previous one first. Updates and releases are
+     * read once; later rounds reuse them rather than re-entering the CLI.
      */
     const open = (run: Run): RoundOutput => {
       const previous = output
@@ -949,7 +948,7 @@ export async function runCommand(
 
     if (prepared.kind === "brief") {
       const { transcript } = prepared
-      const run = briefRun(transcript, now(), selections, settings)
+      const run = briefRun(transcript, now(), releases, settings)
       const active = open(run)
       result = await runBrief(
         {
@@ -967,7 +966,7 @@ export async function runCommand(
         prepared.plan,
         context.planRoot,
         now(),
-        selections,
+        releases,
         settings,
       )
       const active = open(run)
@@ -1104,7 +1103,7 @@ export async function runCommand(
             const run = await roundRun(
               setup,
               now(),
-              selections,
+              releases,
               settings,
               automatic || completed > 0 || rest.length > 0
                 ? completed + 1
@@ -1192,11 +1191,9 @@ export async function runCommand(
             }
             const ending = round.cleanAudit ? "Clean audit" : null
             const ended =
-              ending === null
-                ? null
-                : auditorSetting(seat, selections, settings)
+              ending === null ? null : auditorSetting(seat, releases, settings)
             if (queue === null) break
-            const taken = await takeNext(queue, ended, selections, settings)
+            const taken = await takeNext(queue, ended, releases, settings)
             if (taken.skipped > 0)
               await active.message(
                 `${ending} by ${ended?.assistant} on ${ended?.model} ${ended?.effort ?? "effort unavailable"}; skipped ${taken.skipped} queued ${taken.skipped === 1 ? "entry" : "entries"} with the same setting.`,
