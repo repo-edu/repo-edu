@@ -208,6 +208,21 @@ test("a stale in-progress entry does not block a later stop", () => {
   assert.equal(offers("stop", [stale, currentRound], currentRound), true)
 })
 
+test("round order survives a clock moving backwards between rounds", () => {
+  const earlierRound = round("claude", "2026-10-11T11:00:00Z", {
+    tier: "B",
+  })
+  const current = round("claude", "2026-10-11T10:00:00Z", {
+    round: 2,
+    phase: "widening",
+  })
+
+  assert.deepEqual(
+    judgeOptions(evidence([earlierRound, current]), identity(current)),
+    ["settle", "stop", "claude", "codex"],
+  )
+})
+
 test("detailing without an init or settle uses the full history", () => {
   const claude = round("claude", "2026-10-11T10:00:00Z", { tier: "B" })
   const codex = round("codex", "2026-10-11T11:00:00Z", { round: 2 })

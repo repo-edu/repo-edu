@@ -116,13 +116,11 @@ export function judgeOptions(
     (entry) =>
       entry.target === currentRound.target && settled(entry, currentRound),
   )
-  const current = entries
-    .toSorted(
-      (first, second) =>
-        Date.parse(first.started) - Date.parse(second.started) ||
-        first.round - second.round,
-    )
-    .at(-1)
+  const current = entries.find(
+    (entry) =>
+      entry.target === currentRound.target &&
+      entry.round === currentRound.round,
+  )
   if (
     current !== undefined &&
     "phase" in current &&
@@ -143,9 +141,7 @@ export function judgeOptions(
   }
   const latest = new Map<RoundData["auditor"]["assistant"], RoundData>()
   for (const entry of entries.toSorted(
-    (first, second) =>
-      Date.parse(first.started) - Date.parse(second.started) ||
-      first.round - second.round,
+    (first, second) => first.round - second.round,
   ))
     latest.set(entry.auditor.assistant, entry)
   const canEnd = ![...latest.values()].some(acceptedRealBug)
