@@ -62,8 +62,11 @@ read at the named repo's HEAD.
 
 Before any audit work, check three things.
 
-- The named repo's working tree is clean. A dirty tree means the round would
-  judge work that is not committed.
+- No file the range touched has uncommitted changes in the named repo's
+  working tree. The round reads touched files from the tree, so an
+  uncommitted edit there would be judged as the range's work. A dirty file
+  outside the touched set is never read and does not block the round. When
+  the check fails, name every dirty touched path and stop.
 - Every commit in the range is reachable from the named repo's HEAD.
 - No commit in the range carries a plan stem.
 
