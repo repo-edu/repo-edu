@@ -161,7 +161,7 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       {
         ...commit(
           planSubject,
-          `- C [field:missing] [section:decisions] ${ratings} Correct: the plan.`,
+          `- C [field:missing] [section:decisions] ${recurring} Correct: the plan.`,
           ["example.md", "example-widen.md"],
           [{ from: "example.md", to: "example-widen.md" }],
         ),
@@ -180,10 +180,38 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
   const formatted = formatWatchEvidence(joined)
   assert.match(formatted, /^\{\n {2}"repositories":/)
   const evidence = JSON.parse(formatted)
-  assert.deepEqual(Object.keys(evidence), ["repositories", "roundData"])
+  assert.deepEqual(Object.keys(evidence), [
+    "repositories",
+    "tokens",
+    "growthPatterns",
+    "roundData",
+  ])
+  assert.deepEqual(evidence.tokens, {
+    growthPattern: { recurrence: 3 },
+    reach: { developer: 3 },
+    complexity: { low: 3 },
+    sections: { decisions: 1 },
+    areas: { "area-a": 2 },
+    covers: {},
+  })
+  assert.deepEqual(evidence.growthPatterns, [
+    {
+      label: "recurrence",
+      commits: ["repo-edu@bbbbbbb", "repo-edu@aaaaaaa", "plan@ddddddd"],
+    },
+  ])
   assert.deepEqual(evidence.roundData, {})
 
   const plan = evidence.repositories[0]
+  assert.deepEqual(Object.keys(plan), [
+    "repository",
+    "topic",
+    "head",
+    "anchor",
+    "tokens",
+    "runs",
+    "commits",
+  ])
   assert.deepEqual(
     {
       repository: plan.repository,
@@ -199,9 +227,9 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       head: "ddddddd",
       anchor: "ddddddd",
       tokens: {
-        growthPattern: { none: 1 },
+        growthPattern: { recurrence: 1 },
         reach: { developer: 1 },
-        complexity: { none: 1 },
+        complexity: { low: 1 },
         sections: { decisions: 1 },
         areas: {},
         covers: {},
@@ -215,11 +243,20 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       date: "2026-10-27",
       subject: planSubject,
       windowStart: "widening",
-      findings: [`C [field:missing] [section:decisions] ${ratings} Correct`],
+      findings: [`C [field:missing] [section:decisions] ${recurring} Correct`],
     },
   ])
 
   const repoEdu = evidence.repositories[1]
+  assert.deepEqual(Object.keys(repoEdu), [
+    "repository",
+    "topic",
+    "head",
+    "anchor",
+    "tokens",
+    "runs",
+    "commits",
+  ])
   assert.deepEqual(
     {
       repository: repoEdu.repository,

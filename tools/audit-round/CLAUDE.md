@@ -136,7 +136,9 @@ consumers.
   anchors, episode-level counts and runs, then each commit's short SHA, date, written subject,
   window candidate, unreadable reason and finding prefixes through their titles. Its round data
   keeps each round's identity, landed commits, status, applicable findings and phase compaction
-  counts. It serialises that indented view for the runner and hand-run command. It resolves a
+  counts. The joined top level keeps token counts and repeated-growth evidence across both repos;
+  repeated-growth commits use short `plan@` or `repo-edu@` SHAs. It serialises that indented view
+  for the runner and hand-run command. It resolves a
   hand-run commit target as an explicit anchor in
   whichever repo holds its SHA; HEAD forms mean Repo Edu. The peer keeps its own anchor. Without a
   target it takes the newest stem commit across both histories by commit date. No episode file is

@@ -286,10 +286,11 @@ The runner supplies this workflow directly to its watch session.
 ## Trajectory diagnostic
 
 The watch alone applies this diagnostic to the supplied evidence for each
-artifact. The module provides the trajectory facts and candidate window starts;
-the watch judges their meaning against the named commits and current artifact.
-It may read additional evidence for a claim without recomputing the episode.
-The user owns the response and may still read the diagnostic directly.
+artifact. The view supplies each commit's written subject and candidate
+window-start mark. The watch reads the trajectory from the subjects and judges
+its meaning against the named commits and current artifact. It may read
+additional evidence for a claim without recomputing the episode. The user owns
+the response and may still read the diagnostic directly.
 
 - A round form's first tier letter is the maximum severity that round addressed.
   In every form the severity sequence is the tag before the conventional kind,
@@ -399,6 +400,10 @@ optional window start, optional unreadable reason and finding prefixes through
 their titles. Bodies, file lists and parsed copies are not in the view. Read a
 named commit's body or files from Git only when the grounding rule requires
 them.
+
+The top-level `tokens` and `growthPatterns` fields join both repositories.
+Growth-pattern repeats name their commits with short `plan@` or `repo-edu@`
+shas.
 
 The `roundData` object holds each existing round kind in reduced form: the
 target, round number, landed commits, status, applicable findings and each

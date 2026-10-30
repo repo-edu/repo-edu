@@ -378,6 +378,13 @@ function shortSha(sha: string): string {
   return sha.slice(0, 7)
 }
 
+function shortJoinedSha(sha: string): string {
+  const separator = sha.indexOf("@")
+  return separator === -1
+    ? shortSha(sha)
+    : `${sha.slice(0, separator + 1)}${shortSha(sha.slice(separator + 1))}`
+}
+
 function findingPrefix(finding: EpisodeFinding): string {
   return finding.text.slice(2, finding.text.indexOf(": "))
 }
@@ -450,6 +457,11 @@ export function formatWatchEvidence(
   return JSON.stringify(
     {
       repositories: evidence.repositories.map(watchRepository),
+      tokens: evidence.tokens,
+      growthPatterns: evidence.growthPatterns.map(({ label, commits }) => ({
+        label,
+        commits: commits.map(shortJoinedSha),
+      })),
       roundData: watchRoundData(roundData),
     },
     null,
