@@ -366,11 +366,22 @@ function recordLocation(
     : { kind: "plan", section: finding.location.value }
 }
 
-function recordFindings(records: readonly FindingRecord[]): RoundFinding[] {
-  const byTitle = new Map<
-    string,
-    { finding: RoundFinding; repositories: Set<Repository> }
-  >()
+type RecordedFinding = {
+  readonly finding: RoundFinding
+  readonly repositories: Set<Repository>
+}
+
+/** Key a record bullet by its report finding number, or by title when it lands none. */
+function recordKey(finding: Pick<RoundFinding, "number" | "title">): string {
+  return finding.number === null
+    ? `title:${finding.title}`
+    : `#${finding.number}`
+}
+
+function recordFindings(
+  records: readonly FindingRecord[],
+): Map<string, RecordedFinding> {
+  const recorded = new Map<string, RecordedFinding>()
   for (const record of records) {
     const subject = parseSubject(record.subject, record.repository)
     for (const finding of readFindings(
@@ -378,18 +389,22 @@ function recordFindings(records: readonly FindingRecord[]): RoundFinding[] {
       record.repository,
       subject.form?.role ?? null,
     )) {
-      const title = finding.title
-      const existing = byTitle.get(title)
+      const key = recordKey(finding)
+      const existing = recorded.get(key)
       if (existing?.repositories.has(record.repository) === true)
-        throw new Error(`Record finding title appears more than once: ${title}`)
+        throw new Error(
+          finding.number === null
+            ? `Record finding title appears more than once: ${finding.title}`
+            : `Record finding number appears more than once: ${finding.number}`,
+        )
       if (existing !== undefined) {
         existing.repositories.add(record.repository)
         continue
       }
-      byTitle.set(title, {
+      recorded.set(key, {
         finding: {
-          number: null,
-          title,
+          number: finding.number,
+          title: finding.title,
           tier: finding.tier.toUpperCase() as RoundFinding["tier"],
           reach: finding.reach,
           complexity: finding.complexity,
@@ -405,21 +420,28 @@ function recordFindings(records: readonly FindingRecord[]): RoundFinding[] {
       })
     }
   }
-  return [...byTitle.values()].map(({ finding }) => finding)
+  return recorded
 }
 
-/** Join the fix's durable record bullets to report findings by whole-round title. */
+/**
+ * Join the fix's durable record bullets to report findings by finding number.
+ * A numbered bullet lands the report finding it names, whatever its title; a
+ * bullet without a number records work no report finding asked for.
+ */
 export function settleRoundFindings(
   findings: readonly RoundFinding[],
   records: readonly FindingRecord[],
 ): readonly RoundFinding[] {
   const recorded = recordFindings(records)
-  const byTitle = new Map(recorded.map((finding) => [finding.title, finding]))
-  const matched = new Set<string>()
+  const numbers = new Set(findings.map((finding) => finding.number))
+  for (const { finding } of recorded.values())
+    if (finding.number !== null && !numbers.has(finding.number))
+      throw new Error(
+        `Record finding number names no report finding: ${finding.number}`,
+      )
   const settled = findings.map((finding): RoundFinding => {
-    const final = byTitle.get(finding.title)
+    const final = recorded.get(recordKey(finding))?.finding
     if (final === undefined) return { ...finding, outcome: "dropped" }
-    matched.add(finding.title)
     return {
       ...finding,
       outcome: "kept",
@@ -429,7 +451,9 @@ export function settleRoundFindings(
   })
   return [
     ...settled,
-    ...recorded.filter((finding) => !matched.has(finding.title)),
+    ...[...recorded.values()]
+      .map(({ finding }) => finding)
+      .filter((finding) => finding.number === null),
   ]
 }
 

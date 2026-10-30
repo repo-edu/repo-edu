@@ -329,8 +329,8 @@ Round sequence:
       completed its round, as recorded in the audit-round cache.
     - After each non-red round, a fresh judge picks the next assistant or an
       ending. In widening it may recommend settle or stop; in detailing and
-      implementation it may stop. A settled A or B finding removes settle in
-      widening and stop otherwise.
+      implementation it may stop. A settled A finding removes settle in
+      widening; a settled A or B finding removes stop otherwise.
     - No queue file is written.
     - A configured audit pair takes turns within this command. A coin flip picks
       its first member. --first and other command-line choices take no turn.

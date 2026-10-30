@@ -38,6 +38,7 @@ export type FindingToken = {
 }
 
 export const findingTokenKeys = [
+  "finding",
   "field",
   "section",
   "area",

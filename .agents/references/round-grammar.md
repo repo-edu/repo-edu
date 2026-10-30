@@ -502,12 +502,13 @@ Refusal: `Rebuttal answer 1 uses the word "Drop"; use Agree, Contest or For user
 ```text
 <record-bullet>          ::= <repo-edu-bullet> | <plan-bullet>
 
-<repo-edu-bullet>        ::= "- ["<tier>"] "<repo-edu-record-location>" "
+<repo-edu-bullet>        ::= "- ["<tier>"] "<finding-number>?<repo-edu-record-location>" "
                              <rating-tokens>" "<title>": "<prose>
 <repo-edu-record-location> ::= <area-token>(" "<cover-token>)* | <plan-token>
 
-<plan-bullet>            ::= "- "<tier>" "<plan-record-location>" "
+<plan-bullet>            ::= "- "<tier>" "<finding-number>?<plan-record-location>" "
                              <rating-tokens>" "<title>": "<prose>
+<finding-number>         ::= "[finding:"<n>"] "
 <plan-record-location>   ::= <planning-record-location>
                            | <planning-deferral-location>
                            | <section-token>
@@ -515,6 +516,13 @@ Refusal: `Rebuttal answer 1 uses the word "Drop"; use Agree, Contest or For user
 <planning-record-location> ::= <field-token>" "<section-token>
 <planning-deferral-location> ::= <field-token>" "<area-token>(" "<cover-token>)*
 ```
+
+A bullet that lands a report finding opens its tokens with that finding's
+number from the report. The round data joins the bullet to the finding by this
+number, so the bullet's title may say the correction in its own words. A bullet
+without a number records work no report finding asked for; the round data keeps
+it as unmatched. A number the report does not have is refused when the round
+data settles.
 
 A Repo Edu record uses the bracketed tier. Its local location is one area and
 any cover areas. A plan deferral replaces all area and cover tokens with one
@@ -530,7 +538,7 @@ record replaces the section with one area and any cover areas.
 #### `record/repo-edu-local` — parsed
 
 ```text
-- [B] [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low] Shared token owner: the report and record readers use one definition.
+- [B] [finding:2] [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low] Shared token owner: the report and record readers use one definition.
 ```
 
 #### `record/repo-edu-plan-deferral` — parsed
@@ -542,7 +550,7 @@ record replaces the section with one area and any cover areas.
 #### `record/plan-audit` — parsed
 
 ```text
-- B [field:missing] [section:decisions] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the decision names the one owner.
+- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the decision names the one owner.
 ```
 
 #### `record/plan-local` — parsed
@@ -561,6 +569,14 @@ record replaces the section with one area and any cover areas.
 
 ```text
 - B [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:medium] Reader correction: Repo Edu owns the parser change.
+```
+
+#### `record/repo-edu-finding-not-first` — refused
+
+Refusal: `unexpected [finding:...] at 2; expected [growth-pattern:...]`
+
+```text
+- [C] [area:tool-audit-round] [finding:1] [growth-pattern:none] [reach:developer] [complexity:none] Number placement: the finding number opens the tokens.
 ```
 
 #### `record/repo-edu-misplaced-field` — refused

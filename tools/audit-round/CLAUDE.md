@@ -52,8 +52,9 @@ consumers.
   not.
   After any other non-red round in an active plan's automatic series, it starts a fresh judge turn
   over the plan's round-kind data, episode commits, stop conditions and latest watch. The runner's
-  real-bug gate removes settle in widening and stop otherwise while either assistant's latest
-  settled read of the scope carries an accepted A or B. A widening judge chooses settle, stop,
+  real-bug gate removes settle in widening while either assistant's latest settled read of the
+  scope carries an accepted A, and removes stop otherwise while that read carries an accepted A or
+  B. A widening judge chooses settle, stop,
   Claude or Codex; every other judge chooses stop, Claude or Codex. The output stores its answer in
   the final entry. Manual queues and commit targets run no judge. The round records both
   repositories' HEADs before the fix, reads the landed records and validates every subject under its
@@ -87,8 +88,9 @@ consumers.
   It returns the full opening for widening reports and an empty opening for every other report
   class. Planning reports have Excess functionality and Missing functionality fields; implementation
   reports have one Findings field including deferred findings. Each holds numbered finding blocks or
-  its exact empty-field sentence. Finding titles are distinct across the whole report because round
-  data joins them to record bullets by title. Quoted evidence and code blocks supply no findings.
+  its exact empty-field sentence. Finding titles are distinct across the whole report because the
+  vet and rebuttal name findings by them; round data joins findings to record bullets by the
+  `[finding:<n>]` number each bullet opens with. Quoted evidence and code blocks supply no findings.
   `vet.ts` reads the fixed verdict and answer lines and ignores every other line. It requires
   verdicts for the report's finding numbers in order and rebuttal answers for each revise, drop and
   ruling verdict. Only Accept verdicts skip the rebuttal. Both readers are supplied through
@@ -137,8 +139,11 @@ consumers.
   list, `STOP-CONDITIONS.md` and the newest watch. It applies the settled-span
   gate and each assistant's latest settled entry on the scope to decide whether
   the phase's ending is available. Widening has no settled-span cut and always
-  admits stop, while the gate controls settle. Detailing and implementation use
-  the gate to control stop. Detailing uses the current span. Implementation
+  admits stop, while the gate controls settle on an accepted A alone: a widening
+  B is a fixable issue inside the shape that the vet checked and the fix landed,
+  and the auditor's settling recommendation already says whether a shape
+  question remains. Detailing and implementation use the gate on an accepted A
+  or B to control stop. Detailing uses the current span. Implementation
   uses every settled entry on its scope target. Only the exact current
   `in-progress` entry is eligible.
   Failed or interrupted entries with landed records remain eligible. It
@@ -168,11 +173,11 @@ consumers.
   recorded for the runner's sequence decision.
 - `findings.ts` reads the complete current bullet form for commit hooks and episodes, D included. It
   validates token values without consulting the area model. It requires the `Title: prose` form and
-  carries the title, the mirror of the report reader's title rule, so the hook refuses a bullet with
-  no title separator before the round-data join can misread it. `commit-msg.ts` checks primary and
-  cover IDs against the current model at write time. `sequence.ts` derives severity from the strict
-  read and fills the subject's severity slot under its role and repository rules. The growth mark
-  remains authored and is required beside every sequence outside a deferral record.
+  reads the optional leading `[finding:<n>]` token that names the report finding the bullet lands,
+  so the hook refuses a malformed bullet before the round-data join reads it. `commit-msg.ts` checks
+  primary and cover IDs against the current model at write time. `sequence.ts` derives severity from
+  the strict read and fills the subject's severity slot under its role and repository rules. The
+  growth mark remains authored and is required beside every sequence outside a deferral record.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
   either repository's form, names the class it matched and refuses with the first slot that does not

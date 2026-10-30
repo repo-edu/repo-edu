@@ -39,6 +39,37 @@ test("the round grammar's record-bullet examples are parser fixtures", () => {
   }
 })
 
+test("a leading finding token carries the report finding number", () => {
+  const [numbered] = readFindings(
+    "- [B] [finding:12] [area:area-a] [growth-pattern:none] [reach:developer] [complexity:none] Any title: Explanation.",
+    "repo-edu",
+    strict,
+  )
+  assert.equal(numbered.number, 12)
+  const [planning] = readFindings(
+    "- C [finding:2] [field:excess] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Any title: Explanation.",
+    "plan",
+    "plan-audit",
+  )
+  assert.equal(planning.number, 2)
+  const [plain] = readFindings(
+    "- C [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Any title: Explanation.",
+    "plan",
+    "impl-audit-1",
+  )
+  assert.equal(plain.number, null)
+  for (const value of ["0", "x", "1.5", ""])
+    assert.throws(
+      () =>
+        readFindings(
+          `- [B] [finding:${value}] [area:area-a] [growth-pattern:none] [reach:developer] [complexity:none] Title: Explanation.`,
+          "repo-edu",
+          strict,
+        ),
+      /report finding number from 1/,
+    )
+})
+
 test("the round grammar's area tokens use current area IDs", () => {
   const areaKinds = new Map(areaModel.areas.map((area) => [area.id, area.kind]))
   const examples = roundGrammarExamples().filter(

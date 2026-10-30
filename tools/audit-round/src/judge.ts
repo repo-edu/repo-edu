@@ -99,11 +99,21 @@ function settled(entry: RoundData, current: CurrentRound): boolean {
   )
 }
 
-function acceptedRealBug(entry: RoundData): boolean {
+/**
+ * Whether the entry landed a finding at one of the gating tiers. Widening gates
+ * on A alone: a widening B is a fixable issue inside the shape that the vet
+ * checked and the fix landed, so the auditor's settling recommendation already
+ * says whether a shape question remains. Detailing and implementation gate on A
+ * and B, where B is a real bug the other assistant has not confirmed.
+ */
+function landedGatingFinding(
+  entry: RoundData,
+  tiers: readonly ("A" | "B")[],
+): boolean {
   return entry.findings.some(
     (finding) =>
       (finding.outcome === "kept" || finding.outcome === "unmatched") &&
-      ["A", "B"].includes(finding.finalTier ?? finding.tier),
+      (tiers as readonly string[]).includes(finding.finalTier ?? finding.tier),
   )
 }
 
@@ -144,11 +154,14 @@ export function judgeOptions(
     (first, second) => first.round - second.round,
   ))
     latest.set(entry.auditor.assistant, entry)
-  const canEnd = ![...latest.values()].some(acceptedRealBug)
+  const widening =
+    current !== undefined && "phase" in current && current.phase === "widening"
+  const gatingTiers = widening ? (["A"] as const) : (["A", "B"] as const)
+  const canEnd = ![...latest.values()].some((entry) =>
+    landedGatingFinding(entry, gatingTiers),
+  )
   const continuations = ["claude", "codex"] as const
-  return current !== undefined &&
-    "phase" in current &&
-    current.phase === "widening"
+  return widening
     ? [...(canEnd ? (["settle"] as const) : []), "stop", ...continuations]
     : [...(canEnd ? (["stop"] as const) : []), ...continuations]
 }

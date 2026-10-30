@@ -17,7 +17,9 @@ export type Finding = Omit<
   /** The growth-pattern labels the flagged work could violate, comma-joined, or `none`. */
   readonly growthPattern: string
   readonly tier: TierLetter
-  /** The short title before the bullet's explanatory colon, the round-wide join key. */
+  /** The report finding this bullet lands, or null for work no report finding asked for. */
+  readonly number: number | null
+  /** The short title before the bullet's explanatory colon. */
   readonly title: string
   readonly location: { readonly key: string; readonly value: string }
   readonly deferred: boolean
@@ -54,28 +56,36 @@ export function readFindings(
       )
     const { tokens } = prefix
     const planning = repository === "plan" && role === "plan-audit"
-    const expectedTokenKeys =
+    const numbered = tokens[0]?.key === "finding"
+    const number = numbered ? Number(tokens[0].value) : null
+    if (numbered && !/^[1-9]\d*$/.test(tokens[0].value))
+      fail("needs a report finding number from 1 in [finding:...]")
+    const first = numbered ? 1 : 0
+    const locationTokenKeys =
       repository === "repo-edu"
-        ? tokens[0]?.key === "plan"
+        ? tokens[first]?.key === "plan"
           ? (["plan", ...findingRatingTokenKeys] as const)
           : ([
-              ...areaLocationTokenKeys(tokens, 0),
+              ...areaLocationTokenKeys(tokens, first),
               ...findingRatingTokenKeys,
             ] as const)
         : planning
-          ? tokens[1]?.key === "area"
+          ? tokens[first + 1]?.key === "area"
             ? ([
                 "field",
-                ...areaLocationTokenKeys(tokens, 1),
+                ...areaLocationTokenKeys(tokens, first + 1),
                 ...findingRatingTokenKeys,
               ] as const)
             : (["field", "section", ...findingRatingTokenKeys] as const)
-          : tokens[0]?.key === "section"
+          : tokens[first]?.key === "section"
             ? (["section", ...findingRatingTokenKeys] as const)
             : ([
-                ...areaLocationTokenKeys(tokens, 0),
+                ...areaLocationTokenKeys(tokens, first),
                 ...findingRatingTokenKeys,
               ] as const)
+    const expectedTokenKeys = numbered
+      ? (["finding", ...locationTokenKeys] as const)
+      : locationTokenKeys
     const tokenIssue = findingTokenSequenceIssue(tokens, expectedTokenKeys)
     if (tokenIssue !== null) {
       if (
@@ -136,6 +146,7 @@ export function readFindings(
       reach: checked.data.reach,
       complexity: checked.data.complexity,
       tier: start[1].toLowerCase() as TierLetter,
+      number,
       title: prefix.remainder.slice(0, separator),
       location,
       deferred,

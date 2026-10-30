@@ -84,8 +84,8 @@ outweighs the other. This is the commit-level instance of the account rule in
 
 ## Finding metadata
 
-Every graded concern carries the same title and metadata from its report into
-the round's durable record. The
+Every graded concern carries its finding number and metadata from its report
+into the round's durable record. The
 [round document grammar](round-grammar.md#audit-report) owns the report block
 and location cases. Its
 [commit record bullet](round-grammar.md#commit-record-bullet) production owns
@@ -115,10 +115,13 @@ balance shows whether an artifact is still growing or has started to shed.
 Commit bullets written before that value existed read as missing, because
 excess was not yet a search obligation.
 
-The title gives later rounds a stable handle. Use the same short title in the
-report and record and keep titles distinct across the round. Each accepted
-graded concern, D included, gets one bullet. A carried decision or trade ruling
-that is not a finding takes no tier or metadata.
+A record bullet that lands a report finding carries that finding's number in
+its first token, `[finding:<n>]`. The round data joins bullet and finding by
+that number, so the bullet's short title may differ from the report's. Keep
+titles distinct across the report, because the vet and rebuttal name findings
+by them. Each accepted graded concern, D included, gets one numbered bullet. A
+bullet without a number records work no finding asked for. A carried decision
+or trade ruling that is not a finding takes no tier or metadata.
 
 Name the abstraction the issue touches, not only its correction, so the watch
 can cluster related findings. When a round reverses or narrows a prior

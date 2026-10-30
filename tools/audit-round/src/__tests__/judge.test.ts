@@ -249,9 +249,22 @@ test("a widening A before the settle cutoff does not block detailing stop", () =
   assert.equal(offers("stop", [widening, detailing], detailing, commits), true)
 })
 
-test("widening withholds settle across all settled reads but always offers stop", () => {
+test("a widening B leaves settle offered", () => {
   const claude = round("claude", "2026-10-11T09:00:00Z", {
     tier: "B",
+    phase: "widening",
+  })
+  assert.deepEqual(judgeOptions(evidence([claude]), identity(claude)), [
+    "settle",
+    "stop",
+    "claude",
+    "codex",
+  ])
+})
+
+test("widening withholds settle after an A across all settled reads but always offers stop", () => {
+  const claude = round("claude", "2026-10-11T09:00:00Z", {
+    tier: "A",
     phase: "widening",
   })
   const codex = round("codex", "2026-10-11T10:00:00Z", {

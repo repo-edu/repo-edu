@@ -246,14 +246,14 @@ test("one finding recorded in both repositories settles once from the first reco
       subject:
         "example/impl-audit-1 oth growth-none B1 fix(audit-round): settle findings",
       message:
-        "- [B] [area:tool-audit-round] [growth-pattern:none] [reach:rare] [complexity:none] Shared correction: Apply the code correction.",
+        "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:rare] [complexity:none] Shared correction: Apply the code correction.",
     },
     {
       repository: "plan",
       subject:
         "example/impl-audit-1 oth growth-none c1 docs(audit): settle findings",
       message:
-        "- C [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Shared correction: Apply the plan correction.",
+        "- C [finding:1] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Shared plan correction: Apply the plan correction.",
     },
   ])
 
@@ -267,7 +267,7 @@ test("one finding recorded in both repositories settles once from the first reco
   ])
 })
 
-test("one repository cannot record the same finding title twice", () => {
+test("one repository cannot record the same finding number or unnumbered title twice", () => {
   const record = {
     repository: "repo-edu" as const,
     subject:
@@ -278,6 +278,35 @@ test("one repository cannot record the same finding title twice", () => {
   assert.throws(
     () => settleRoundFindings([], [record, record]),
     /title appears more than once/,
+  )
+  const numbered = {
+    ...record,
+    message:
+      "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Repeated correction: Apply the correction.",
+  }
+  assert.throws(
+    () =>
+      settleRoundFindings(
+        reviewedRoundFindings([reportFinding(1, "Report finding")]),
+        [numbered, numbered],
+      ),
+    /number appears more than once/,
+  )
+})
+
+test("a record bullet cannot name a finding the report does not have", () => {
+  assert.throws(
+    () =>
+      settleRoundFindings(reviewedRoundFindings([reportFinding(1, "Only")]), [
+        {
+          repository: "repo-edu",
+          subject:
+            "example/impl-audit-1 oth growth-none B1 fix(audit-round): settle findings",
+          message:
+            "- [B] [finding:2] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Only: Apply the correction.",
+        },
+      ]),
+    /names no report finding: 2/,
   )
 })
 
@@ -366,7 +395,7 @@ test("a planning record can defer an unmatched finding to Repo Edu", () => {
   ])
 })
 
-test("record titles settle kept, dropped, narrowed and unmatched findings", () => {
+test("record numbers settle kept, dropped, narrowed and unmatched findings", () => {
   const findings = reviewedRoundFindings([
     reportFinding(1, "Kept finding"),
     reportFinding(2, "Dropped finding", "C"),
@@ -378,8 +407,8 @@ test("record titles settle kept, dropped, narrowed and unmatched findings", () =
       subject:
         "example/impl-audit-1 oth growth-none B1C1d1 fix(audit-round): settle findings",
       message: [
-        "- [B] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Kept finding: Retain the correction.",
-        "- [C] [area:tool-audit-round] [growth-pattern:none] [reach:ordinary] [complexity:none] Narrowed finding: Keep the narrower result.",
+        "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Retitled kept finding: Retain the correction.",
+        "- [C] [finding:3] [area:tool-audit-round] [growth-pattern:none] [reach:ordinary] [complexity:none] Narrowed finding: Keep the narrower result.",
         "- [D] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Unmatched finding: Record work found during the fix.",
       ].join("\n"),
     },
