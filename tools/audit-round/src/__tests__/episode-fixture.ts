@@ -32,7 +32,13 @@ export function commit(
   files = ["src/a.ts"],
   renames: LogCommit["renames"] = [],
 ): Omit<LogCommit, "sha"> {
-  return { subject, body, files, renames, committedAt: 0 }
+  return {
+    subject,
+    body,
+    files,
+    renames,
+    committedAt: "1970-01-01T00:00:00+00:00",
+  }
 }
 
 export const base = commit("example/impl-1 ath feat(x): step")

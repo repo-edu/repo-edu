@@ -62,7 +62,7 @@ export async function readJudgeEvidence(
         .map((commit) => ({
           repository,
           sha: commit.sha,
-          committed: new Date(commit.committedAt * 1000).toISOString(),
+          committed: new Date(commit.committedAt).toISOString(),
           subject: commit.subject,
           role: looseForm(commit.subject)?.role ?? null,
         })),

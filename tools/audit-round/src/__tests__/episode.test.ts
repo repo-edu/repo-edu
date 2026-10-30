@@ -144,17 +144,17 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       {
         ...commit(newestSubject, bullet("area:area-a", "C", recurring)),
         sha: "a".repeat(40),
-        committedAt: Date.UTC(2026, 9, 30) / 1000,
+        committedAt: "2026-10-30T00:20:39+01:00",
       },
       {
         ...commit(earlierSubject, bullet("area:area-a", "C", recurring)),
         sha: "b".repeat(40),
-        committedAt: Date.UTC(2026, 9, 29) / 1000,
+        committedAt: "2026-10-29T00:00:00+00:00",
       },
       {
         ...commit(unreadableSubject, "- [C] [area:area-a] Old finding form."),
         sha: "c".repeat(40),
-        committedAt: Date.UTC(2026, 9, 28) / 1000,
+        committedAt: "2026-10-28T00:00:00+00:00",
       },
     ],
     plan: [
@@ -166,7 +166,7 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
           [{ from: "example.md", to: "example-widen.md" }],
         ),
         sha: "d".repeat(40),
-        committedAt: Date.UTC(2026, 9, 27) / 1000,
+        committedAt: "2026-10-27T00:00:00+00:00",
       },
     ],
   }
@@ -521,7 +521,11 @@ test("widening candidates require an actual rename back to the widening artifact
 test("Git supplies complete bodies, unusual touched paths and both sides of renames", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "episode-log-"))
   try {
-    const first = await commitFixture(cwd, "example/init ath: start")
+    const first = await commitFixture(
+      cwd,
+      "example/init ath: start",
+      "2026-10-30T00:20:39+01:00",
+    )
     const name = 'odd\tname\n".md'
     // Git can store names that the host filesystem cannot create.
     const { stdout: blob } = await execa(
@@ -555,6 +559,7 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
     const log = await readLog(cwd)
     assert.equal(log.length, 5)
     assert.ok(log[4].sha.startsWith(first))
+    assert.equal(log[4].committedAt, "2026-10-30T00:20:39+01:00")
     assert.deepEqual(log[0].files, [])
     assert.deepEqual(log[2].renames, [{ from: name, to: "example.md" }])
     assert.deepEqual(log[2].files, [name, "example.md"])

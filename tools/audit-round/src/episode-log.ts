@@ -3,7 +3,7 @@ import { execa } from "execa"
 /** Git history is newest first. Both paths of a rename are touched files. */
 export type LogCommit = {
   readonly sha: string
-  readonly committedAt: number
+  readonly committedAt: string
   readonly subject: string
   readonly body: string
   readonly files: readonly string[]
@@ -16,7 +16,7 @@ export async function readLog(cwd: string): Promise<LogCommit[]> {
     "git",
     [
       "log",
-      "--format=%x00%H%x00%ct%x00%s%x00%b",
+      "--format=%x00%H%x00%cI%x00%s%x00%b",
       "--name-status",
       "-z",
       "--find-renames",
@@ -30,7 +30,7 @@ export async function readLog(cwd: string): Promise<LogCommit[]> {
   while (at < fields.length - 1) {
     at += 1 // The empty field before each commit's header.
     const sha = fields[at++]
-    const committedAt = Number(fields[at++])
+    const committedAt = fields[at++]
     const subject = fields[at++]
     const body = fields[at++]
     const files: string[] = []

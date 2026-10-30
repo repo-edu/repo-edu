@@ -87,7 +87,9 @@ export function stemCommits(
       }),
     )
     .sort(
-      (first, second) => second.commit.committedAt - first.commit.committedAt,
+      (first, second) =>
+        Date.parse(second.commit.committedAt) -
+        Date.parse(first.commit.committedAt),
     )
 }
 
@@ -407,7 +409,7 @@ function watchRepository(episode: Episode) {
     },
     commits: episode.commits.map((commit) => ({
       sha: shortSha(commit.sha),
-      date: new Date(commit.committedAt * 1000).toISOString().slice(0, 10),
+      date: commit.committedAt.slice(0, 10),
       subject: commit.subject,
       ...(commit.windowStart === null
         ? {}

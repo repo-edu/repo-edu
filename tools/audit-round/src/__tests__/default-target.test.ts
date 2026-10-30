@@ -61,7 +61,7 @@ function logs(
       .filter(([owner]) => owner === repository)
       .map(([, committedAt, subject], at) => ({
         sha: `${repository}${at}`.padEnd(40, "0"),
-        committedAt,
+        committedAt: new Date(committedAt * 1000).toISOString(),
         subject,
         body: "",
         files: [],
