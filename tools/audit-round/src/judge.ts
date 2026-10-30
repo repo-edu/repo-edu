@@ -190,11 +190,3 @@ export function formatJudgeOptions(options: readonly JudgeDecision[]): string {
     ? (labels[0] ?? "none")
     : `${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}`
 }
-
-export function formatJudgeAnswer(answer: JudgeAnswer): string {
-  const decision =
-    answer.answer === "settle" || answer.answer === "stop"
-      ? answer.answer
-      : `continue with ${answer.answer === "claude" ? "Claude" : "Codex"}`
-  return `Judge: ${decision}. ${answer.reason}`
-}

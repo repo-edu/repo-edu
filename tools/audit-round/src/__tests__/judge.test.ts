@@ -1,11 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import {
-  formatJudgeAnswer,
-  type JudgeEvidence,
-  judgeOptions,
-  readJudgeAnswer,
-} from "../judge.js"
+import { type JudgeEvidence, judgeOptions, readJudgeAnswer } from "../judge.js"
 import type { JudgeDecision, RoundData } from "../round-data.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
@@ -284,12 +279,11 @@ test("judge answers are one plain line with one admitted decision", () => {
     answer: "codex",
     reason: "The other setting should inspect the evidence.",
   } as const
-  assert.equal(
-    formatJudgeAnswer(answer),
-    "Judge: continue with Codex. The other setting should inspect the evidence.",
-  )
   assert.deepEqual(
-    readJudgeAnswer(formatJudgeAnswer(answer), ["stop", "claude", "codex"]),
+    readJudgeAnswer(
+      "Judge: continue with Codex. The other setting should inspect the evidence.",
+      ["stop", "claude", "codex"],
+    ),
     answer,
   )
   for (const source of [

@@ -138,7 +138,8 @@ consumers.
   gate and each assistant's latest settled entry on the scope to decide whether
   the phase's ending is available. Widening has no settled-span cut and always
   admits stop, while the gate controls settle. Detailing and implementation use
-  the current span and let the gate control stop. Only the exact current
+  the gate to control stop. Detailing uses the current span. Implementation
+  uses every settled entry on its scope target. Only the exact current
   `in-progress` entry is eligible.
   Failed or interrupted entries with landed records remain eligible. It
   validates the judge's single answer and reason without deriving watch-only
