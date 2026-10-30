@@ -2,10 +2,7 @@ import assert from "node:assert/strict"
 import { beforeEach, describe, it, type TestContext } from "node:test"
 import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
 import { QueryObserver } from "@tanstack/react-query"
-import {
-  clearAnalysisQueries,
-  createRendererQueryClient,
-} from "../analysis/analysis-query-client.js"
+import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
@@ -27,12 +24,12 @@ import {
 const source = ["folder", "/repos"] as const
 const repos = ["/repos/first", "/repos/second", "/repos/third"]
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve))
-const resultKey = (repoPath: string) =>
+const resultKey = (repoPath: string, snapshotCommitOid = "head") =>
   analysisQueryKeys.result(
     buildAnalysisQueryIdentity({
       source,
       repoPath,
-      snapshotCommitOid: "head",
+      snapshotCommitOid,
       config: {},
       rosterContext: undefined,
     }),
@@ -322,39 +319,37 @@ describe("source analysis ownership", () => {
     assert.deepEqual(analysed, [repos[0], repos[1]])
   })
 
-  it("clears mounted entries and publishes a rerun without observer refetch", {
+  it("refreshes requested heads and reuses results whose head is unchanged", {
     timeout: 2000,
   }, async (t) => {
-    let runs = 0
-    const { runner, client } = await setup(t, async (id) => {
-      if (id === "analysis.resolveSnapshotHead") return "head"
-      runs++
+    const headByRepo = new Map(repos.map((path) => [path, "head"]))
+    const headCalls: string[] = []
+    const analysisCalls: string[] = []
+    const { runner, client } = await setup(t, async (id, path) => {
+      if (id === "analysis.resolveSnapshotHead") {
+        headCalls.push(path)
+        return headByRepo.get(path)
+      }
+      analysisCalls.push(path)
       return makeBaseResult()
     })
-    const selected = new QueryObserver(client, {
-      queryKey: resultKey(repos[0]),
-      enabled: false,
-    })
-    t.after(selected.subscribe(() => {}))
     await runner.run(
       testSessionStart("analysisRun"),
-      [repos[0]],
+      repos.slice(0, 2),
       repos[0],
       null,
     )
-    assert.ok(selected.getCurrentResult().data)
-    clearAnalysisQueries(client, {
-      queryKey: analysisQueryKeys.repo(source, repos[0]),
-    })
-    assert.equal(selected.getCurrentResult().data, undefined)
+    headByRepo.set(repos[0], "new-head")
     await runner.run(
       testSessionStart("analysisRun"),
-      [repos[0]],
+      repos.slice(0, 2),
       repos[0],
       null,
     )
-    assert.equal(runs, 2)
-    assert.ok(selected.getCurrentResult().data)
+    assert.deepEqual(headCalls, [repos[0], repos[1], repos[0], repos[1]])
+    assert.deepEqual(analysisCalls, [repos[0], repos[1], repos[0]])
+    assert.ok(client.getQueryData(resultKey(repos[0], "new-head")))
+    assert.ok(client.getQueryData(resultKey(repos[1])))
   })
 
   it("publishes one repository's error and completes the other repositories", {

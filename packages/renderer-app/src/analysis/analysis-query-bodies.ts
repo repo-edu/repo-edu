@@ -6,7 +6,6 @@ import type { SessionOperationScope } from "../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../session/session-query.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
-import { invalidateSourceSnapshotHeadQueries } from "./analysis-query-client.js"
 import {
   analysisQueryKeys,
   analysisSourceKeyParts,
@@ -33,7 +32,6 @@ export async function discoverRepositories(
     input.depth,
   )
   scope.publish(() => {
-    void invalidateSourceSnapshotHeadQueries(queryClient, source)
     void queryClient.invalidateQueries({
       queryKey,
       exact: true,

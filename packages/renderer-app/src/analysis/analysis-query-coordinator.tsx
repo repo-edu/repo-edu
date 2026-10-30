@@ -45,7 +45,6 @@ import {
 } from "../stores/analysis-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { discoverRepositories } from "./analysis-query-bodies.js"
-import { clearAnalysisQueries } from "./analysis-query-client.js"
 import {
   type AnalysisQueryIdentity,
   analysisQueryKeys,
@@ -403,10 +402,9 @@ export function AnalysisCoordinatorProvider({
     enabled: false,
     queryFn: skipToken,
   })
-  const selectedSnapshotCommitOid =
-    selectedSnapshotQuery.isFetching || selectedSnapshotQuery.isError
-      ? null
-      : (selectedSnapshotQuery.data ?? null)
+  const selectedSnapshotCommitOid = selectedSnapshotQuery.isError
+    ? null
+    : (selectedSnapshotQuery.data ?? null)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The runner already keys the source, analysis config and roster by content.
   const selectedAnalysisIdentity = useMemo<AnalysisQueryIdentity | null>(() => {
@@ -586,12 +584,6 @@ export function AnalysisCoordinatorProvider({
       bindSessionStart("analysisRun", (start: SessionStart) => {
         if (selectedRepoPath === null) return
         client.change(() => {
-          clearAnalysisQueries(queryClient, {
-            queryKey: analysisQueryKeys.repo(
-              activeSourceParts,
-              selectedRepoPath,
-            ),
-          })
           void createSourceRunner(activeSurface)
             ?.run(
               start,
@@ -607,8 +599,6 @@ export function AnalysisCoordinatorProvider({
       createSourceRunner,
       activeSurface,
       selectedRepoPath,
-      activeSourceParts,
-      queryClient,
       discoveredRepoPaths,
       effectiveBlameConfig,
     ],

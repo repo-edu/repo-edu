@@ -121,29 +121,6 @@ export function blameResultScopeKey(identity: BlameQueryIdentity): string {
   return JSON.stringify(identity)
 }
 
-function sourcePartsEqual(
-  candidate: unknown,
-  expected: AnalysisSourceKeyParts,
-): boolean {
-  if (!Array.isArray(candidate)) return false
-  if (candidate.length !== expected.length) return false
-  return expected.every((part, index) => candidate[index] === part)
-}
-
-export function queryKeyMatchesSourceSnapshotHead(
-  queryKey: readonly unknown[],
-  source: AnalysisSourceKeyParts,
-): boolean {
-  return (
-    queryKey[0] === "analysis" &&
-    queryKey[1] === "source" &&
-    sourcePartsEqual(queryKey[2], source) &&
-    queryKey[3] === "repo" &&
-    typeof queryKey[4] === "string" &&
-    queryKey[5] === "snapshot-head"
-  )
-}
-
 export function buildAnalysisOutputConfigKey(
   config: AnalysisConfig,
 ): AnalysisOutputConfigKey {

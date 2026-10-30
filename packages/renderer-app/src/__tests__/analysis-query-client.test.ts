@@ -1,10 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { QueryObserver } from "@tanstack/react-query"
-import {
-  createRendererQueryClient,
-  invalidateSourceSnapshotHeadQueries,
-} from "../analysis/analysis-query-client.js"
+import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
@@ -57,84 +54,6 @@ function buildBlameData(lineCount: number) {
 }
 
 describe("renderer analysis query cache", () => {
-  it("marks snapshot heads stale without fetching or clearing cached values", async () => {
-    const queryClient = createRendererQueryClient()
-    const analysis = buildAnalysisQueryIdentity({
-      source,
-      repoPath,
-      snapshotCommitOid: "old-head",
-      config: {},
-      rosterContext: undefined,
-    })
-    const blame = buildBlameQueryIdentity({
-      source,
-      repoPath,
-      analysis,
-      config: {},
-    })
-    const snapshotKey = analysisQueryKeys.snapshotHead({
-      source,
-      repoPath,
-      until: null,
-    })
-    const inactiveSnapshotKey = analysisQueryKeys.snapshotHead({
-      source,
-      repoPath: "/courses/repo-b",
-      until: null,
-    })
-    const discoveryKey = analysisQueryKeys.discovery(source, "/courses", 5)
-    const resultKey = analysisQueryKeys.result(analysis)
-    const blameKey = analysisQueryKeys.blame(blame)
-    let snapshotFetchCount = 0
-
-    queryClient.setQueryData(snapshotKey, "old-head")
-    queryClient.setQueryData(inactiveSnapshotKey, "inactive-head")
-    queryClient.setQueryData(discoveryKey, { repos: [] })
-    queryClient.setQueryData(resultKey, { result: true })
-    queryClient.setQueryData(blameKey, { blame: true })
-    const observer = new QueryObserver(queryClient, {
-      queryKey: snapshotKey,
-      enabled: false,
-      queryFn: async () => {
-        snapshotFetchCount++
-        return "new-head"
-      },
-    })
-    const unsubscribe = observer.subscribe(() => {})
-
-    try {
-      await invalidateSourceSnapshotHeadQueries(queryClient, source)
-
-      assert.equal(queryClient.getQueryData(snapshotKey), "old-head")
-      assert.equal(observer.getCurrentResult().data, "old-head")
-      assert.equal(
-        queryClient.getQueryData(inactiveSnapshotKey),
-        "inactive-head",
-      )
-      assert.equal(queryClient.getQueryState(snapshotKey)?.isInvalidated, true)
-      assert.equal(
-        queryClient.getQueryState(inactiveSnapshotKey)?.isInvalidated,
-        true,
-      )
-      assert.equal(snapshotFetchCount, 0)
-      assert.deepEqual(queryClient.getQueryData(discoveryKey), { repos: [] })
-      assert.deepEqual(queryClient.getQueryData(resultKey), { result: true })
-      assert.deepEqual(queryClient.getQueryData(blameKey), { blame: true })
-
-      await queryClient.fetchQuery({
-        queryKey: snapshotKey,
-        queryFn: async () => {
-          snapshotFetchCount++
-          return "new-head"
-        },
-      })
-      assert.equal(snapshotFetchCount, 1)
-      assert.equal(queryClient.getQueryData(snapshotKey), "new-head")
-    } finally {
-      unsubscribe()
-    }
-  })
-
   it("evicts oldest inactive blame results over the line budget", () => {
     const queryClient = createRendererQueryClient({
       retainedBlameLineBudget: 3,

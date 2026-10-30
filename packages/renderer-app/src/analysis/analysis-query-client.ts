@@ -1,13 +1,5 @@
 import type { BlameResult } from "@repo-edu/domain/analysis"
-import {
-  type Query,
-  QueryClient,
-  type QueryFilters,
-} from "@tanstack/react-query"
-import {
-  type AnalysisSourceKeyParts,
-  queryKeyMatchesSourceSnapshotHead,
-} from "./analysis-query-keys.js"
+import { type Query, QueryClient } from "@tanstack/react-query"
 
 /**
  * Blame lines kept across unobserved blame results before the oldest are
@@ -95,26 +87,4 @@ export function createRendererQueryClient(
   })
 
   return queryClient
-}
-
-/** Clear cached values without detaching mounted observers or starting work. */
-export function clearAnalysisQueries(
-  queryClient: QueryClient,
-  filters: QueryFilters,
-): void {
-  for (const query of queryClient.getQueryCache().findAll(filters)) {
-    if (query.getObserversCount() > 0) query.reset()
-    else queryClient.removeQueries({ queryKey: query.queryKey, exact: true })
-  }
-}
-
-export function invalidateSourceSnapshotHeadQueries(
-  queryClient: QueryClient,
-  source: AnalysisSourceKeyParts,
-): Promise<void> {
-  return queryClient.invalidateQueries({
-    predicate: (query) =>
-      queryKeyMatchesSourceSnapshotHead(query.queryKey, source),
-    refetchType: "none",
-  })
 }

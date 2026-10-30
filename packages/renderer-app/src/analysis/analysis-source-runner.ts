@@ -60,6 +60,15 @@ export class AnalysisSourceRunner {
             ...repoPaths.filter((path) => path !== selectedRepoPath),
           ]
     await this.operations.execute(start, "analysis.run", async (scope) => {
+      await Promise.all(
+        ordered.map((repoPath) =>
+          this.queryClient.invalidateQueries({
+            queryKey: this.snapshotHeadQueryKey(repoPath),
+            exact: true,
+            refetchType: "none",
+          }),
+        ),
+      )
       let nextIndex = 0
       const worker = async () => {
         while (!scope.signal.aborted && nextIndex < ordered.length) {
@@ -135,11 +144,7 @@ export class AnalysisSourceRunner {
   ): Promise<void> {
     const { source, config, rosterContext, kind } = this.input
     const snapshotCommitOid = await this.queryClient.fetchQuery({
-      queryKey: analysisQueryKeys.snapshotHead({
-        source,
-        repoPath,
-        until: config.until ?? null,
-      }),
+      queryKey: this.snapshotHeadQueryKey(repoPath),
       ...scopedSessionQueryOptions(scope, () =>
         scope.run("analysis.resolveSnapshotHead", {
           repositoryAbsolutePath: repoPath,
@@ -211,5 +216,13 @@ export class AnalysisSourceRunner {
         snapshotCommitOid,
       },
     )
+  }
+
+  private snapshotHeadQueryKey(repoPath: string) {
+    return analysisQueryKeys.snapshotHead({
+      source: this.input.source,
+      repoPath,
+      until: this.input.config.until ?? null,
+    })
   }
 }

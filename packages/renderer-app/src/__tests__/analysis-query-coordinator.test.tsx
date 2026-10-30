@@ -115,6 +115,10 @@ async function mountCoordinator(
     activeSurface?: PersistedActiveSurface
     strictEffects?: boolean
     repoParallelism?: number
+    resolveSnapshotHead?: (
+      signal: AbortSignal,
+      input: WorkflowInput<"analysis.resolveSnapshotHead">,
+    ) => Promise<string>
   } = {},
 ) {
   const { discover, repoParallelism = 1 } = options
@@ -181,7 +185,7 @@ async function mountCoordinator(
       async run(
         id: WorkflowId,
         _input: unknown,
-        options?: { signal?: AbortSignal },
+        runOptions?: { signal?: AbortSignal },
       ) {
         if (id === "settings.loadApp")
           return makeSettings({
@@ -194,27 +198,34 @@ async function mountCoordinator(
         if (id === "settings.savePreferences") return
         if (id === "course.load") return course
         if (id === "course.list") return [course]
-        if (id === "analysis.resolveSnapshotHead") return "head"
+        if (id === "analysis.resolveSnapshotHead") {
+          if (options.resolveSnapshotHead === undefined) return "head"
+          assert.ok(runOptions?.signal)
+          return await options.resolveSnapshotHead(
+            runOptions.signal,
+            _input as WorkflowInput<"analysis.resolveSnapshotHead">,
+          )
+        }
         if (id === "analysis.discoverRepos") {
-          assert.ok(options?.signal)
+          assert.ok(runOptions?.signal)
           assert.ok(discover)
           return await discover(
-            options.signal,
+            runOptions.signal,
             _input as WorkflowInput<"analysis.discoverRepos">,
           )
         }
         if (id === "analysis.run") {
-          assert.ok(options?.signal)
+          assert.ok(runOptions?.signal)
           return await analyse(
-            options.signal,
+            runOptions.signal,
             _input as WorkflowInput<"analysis.run">,
           )
         }
         if (id === "analysis.blame") {
-          assert.ok(options?.signal)
+          assert.ok(runOptions?.signal)
           assert.ok(blame)
           return await blame(
-            options.signal,
+            runOptions.signal,
             _input as WorkflowInput<"analysis.blame">,
           )
         }
@@ -640,7 +651,7 @@ describe("analysis runner lifetime in React", () => {
         await controller.waitForIdle()
         await flushQueries()
       })
-      assert.equal(calls, repos.length + 1)
+      assert.equal(calls, ending === "cancel" ? repos.length + 1 : repos.length)
       assert.deepEqual(read().result, makeBaseResult())
     })
   }
@@ -1117,34 +1128,68 @@ describe("analysis sidebar admission", () => {
     assert.deepEqual(analysed, repos)
   })
 
-  it("runs the full list from Run and Re-run Analysis", {
+  it("refreshes every head and reuses unchanged results on Re-run Analysis", {
     timeout: 3000,
   }, async (t) => {
+    const refreshEntered = deferred<void>()
+    const releaseRefresh = deferred<string>()
+    t.after(() => releaseRefresh.resolve("first-head-2"))
+    const headCalls: string[] = []
     const analysed: string[] = []
-    const { controller, container } = await mountCoordinator(
+    const { controller, container, read } = await mountCoordinator(
       t,
       async (_signal, input) => {
         assert.ok(input.repositoryAbsolutePath)
         analysed.push(input.repositoryAbsolutePath)
-        if (analysed.length === 2) throw new Error("Analysis failed")
         return makeBaseResult()
       },
       undefined,
-      { sidebar: true, requestAnalysis: false },
+      {
+        sidebar: true,
+        requestAnalysis: false,
+        resolveSnapshotHead: async (_signal, input) => {
+          const path = input.repositoryAbsolutePath
+          headCalls.push(path)
+          if (path === repos[0] && headCalls.length > repos.length) {
+            refreshEntered.resolve()
+            return await releaseRefresh.promise
+          }
+          return path === repos[0] ? "first-head" : "second-head"
+        },
+      },
     )
     assert.equal(analysed.length, 0)
-    for (const label of ["Run Analysis", "Re-run Analysis"]) {
-      const button = Array.from(container.querySelectorAll("button")).find(
-        (entry) => entry.textContent?.trim() === label,
-      )
-      assert.ok(button, label)
-      await React.act(async () => {
-        button.click()
-        await controller.waitForIdle()
-        await flushQueries()
-      })
-    }
-    assert.deepEqual(analysed, [...repos, ...repos])
+    const run = Array.from(container.querySelectorAll("button")).find(
+      (entry) => entry.textContent?.trim() === "Run Analysis",
+    )
+    assert.ok(run)
+    await React.act(async () => {
+      run.click()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.deepEqual(headCalls, repos)
+    assert.deepEqual(analysed, repos)
+    assert.deepEqual(read().result, makeBaseResult())
+
+    const rerun = Array.from(container.querySelectorAll("button")).find(
+      (entry) => entry.textContent?.trim() === "Re-run Analysis",
+    )
+    assert.ok(rerun)
+    await React.act(async () => {
+      rerun.click()
+      await refreshEntered.promise
+      await flushQueries()
+    })
+    assert.deepEqual(read().result, makeBaseResult())
+    await React.act(async () => {
+      releaseRefresh.resolve("first-head-2")
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.deepEqual(headCalls, [...repos, ...repos])
+    assert.deepEqual(analysed, [...repos, repos[0]])
+    assert.deepEqual(read().result, makeBaseResult())
   })
 
   for (const singleRepo of [false, true]) {
