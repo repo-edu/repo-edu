@@ -21,7 +21,7 @@ import {
   type Assistant,
   type AssistantTurnInput,
   type Effort,
-  type PhaseResult,
+  type PhaseControlResult,
   phaseSkills,
 } from "../phase.js"
 import type { RoundContext, RoundKind } from "../target.js"
@@ -226,7 +226,7 @@ export async function fixture(
   }
   const feedback: Feedback[] = []
   const starts: { input: AssistantTurnInput; prompt: string }[] = []
-  const finishes: PhaseResult[] = []
+  const finishes: PhaseControlResult[] = []
   let releases = 0
   const output: PhaseOutput = {
     async start(input, prompt) {
@@ -237,6 +237,10 @@ export async function fixture(
     },
     async finish(result) {
       finishes.push(result)
+      return {
+        compactions: feedback.filter((event) => event.type === "compaction")
+          .length,
+      }
     },
     release() {
       releases += 1

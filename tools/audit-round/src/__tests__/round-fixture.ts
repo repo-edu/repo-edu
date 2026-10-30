@@ -214,7 +214,9 @@ export async function roundFixture(
     const final =
       phase === "judge"
         ? 'Judge: stop. The retained evidence has converged.\n\nPHASE RESULT: {"status":"finished","reason":null}'
-        : `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
+        : phase === "watch"
+          ? `# Example: trajectory watch\n\nComplete watch text.\nWatch grade: ${watch ? "red" : "green"}\nPHASE RESULT: {"status":"finished","reason":null}`
+          : `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
     phases[phase] = {
       document:
         phase === "audit"
@@ -227,7 +229,7 @@ export async function roundFixture(
                 ? ruling
                   ? { text: "Written ruling by fix" }
                   : undefined
-                : phase === "close" || phase === "judge"
+                : phase === "close" || phase === "judge" || phase === "watch"
                   ? undefined
                   : { text: `Written ${phase}` },
       commits:

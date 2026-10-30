@@ -270,14 +270,7 @@ for (const phase of ["audit", "vet"] as const) {
   })
 }
 
-for (const phase of [
-  "audit",
-  "vet",
-  "rebut",
-  "fix",
-  "brief",
-  "watch",
-] as const) {
+for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
   test(`an empty ${phase} output cannot complete its phase`, async (t) => {
     const ruling = phase === "fix"
     const f = await roundFixture(t, "codex", "repo-edu", ruling, null, !ruling)
@@ -295,6 +288,23 @@ for (const phase of [
     assert.ok(log.includes(`Session: ${phase}-session`))
   })
 }
+
+test("an empty returned watch cannot complete its phase", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  const watch = f.phases.watch as {
+    stream: string
+    assistants: { codex: { stream: string } }
+  }
+  const final =
+    'Watch grade: red\nPHASE RESULT: {"status":"finished","reason":null}'
+  watch.stream = await phaseStream("codex", final, "watch-session")
+  watch.assistants.codex.stream = watch.stream
+  await f.configure({ phases: f.phases })
+  assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
+  const { log } = await f.records()
+  assert.ok(log.includes("[watch] failed: Watch document is empty"))
+  assert.ok(log.includes("Session: watch-session"))
+})
 
 test("a fix cannot request a ruling without writing its supplied document", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)

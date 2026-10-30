@@ -134,16 +134,17 @@ function controlledRound(
   const completions: CleanInput[] = []
   const glances: GlanceInput[] = []
   const watchEvidence: WatchEvidenceInput[] = []
+  const watchDocuments: { file: string; document: string }[] = []
+  const watchRecords: Parameters<RoundDependencies["writeWatchRecord"]>[0][] =
+    []
   const rulings: string[] = []
   const briefs: string[] = []
-  const watchGrades: { cacheRoot: string; stem: string }[] = []
   const settledWrites: {
     commits: readonly LandedCommit[]
     account: RoundAccount
   }[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
-  let grade: WatchGrade = "green"
   // A close that finished moved its plan unless a test leaves it in place.
   let planRemains = false
   const results: { [P in Phase]: PhaseResult<P> } = {
@@ -167,6 +168,9 @@ function controlledRound(
     watch: {
       status: "finished",
       sessionId: "watch-session",
+      document: "# Example: trajectory watch",
+      grade: "green",
+      compactions: 0,
     },
     judge: {
       status: "finished",
@@ -191,12 +195,19 @@ function controlledRound(
     watchEvidence: async (input) => {
       assert.equal(calls.at(-1)?.phase, "brief")
       watchEvidence.push(input)
-      return "Joined evidence including the finished fix"
+      return JSON.stringify({
+        repositories: [
+          { repository: "repo-edu", head: "def4567" },
+          { repository: "plan", head: "abc1234" },
+        ],
+      })
     },
-    watchGrade: async (cacheRoot, stem) => {
-      assert.equal(calls.at(-1)?.phase, "watch")
-      watchGrades.push({ cacheRoot, stem })
-      return grade
+    writeWatchDocument: async (file, document) => {
+      watchDocuments.push({ file, document })
+    },
+    writeWatchRecord: async (input) => {
+      assert.equal(watchDocuments.length, watchRecords.length + 1)
+      watchRecords.push(input)
     },
     deleteRoundReports: async (cwd, nameStart) => {
       assert.equal(calls.at(-1)?.phase, "fix")
@@ -291,7 +302,8 @@ function controlledRound(
     completions,
     glances,
     watchEvidence,
-    watchGrades,
+    watchDocuments,
+    watchRecords,
     settledWrites,
     rulings,
     briefs,
@@ -302,7 +314,9 @@ function controlledRound(
       glance = decision
     },
     grade(recorded: WatchGrade) {
-      grade = recorded
+      const watch = results.watch
+      if (watch.status !== "finished") throw new Error("Watch did not finish")
+      results.watch = { ...watch, grade: recorded }
     },
     leavePlan() {
       planRemains = true
@@ -535,7 +549,7 @@ for (const grade of ["green", "amber"] as const) {
       const [writer] = watches
       assert.equal(writer.phase, "watch")
       assert.match(writer.evidence, /finished fix/)
-      assert.equal(writer.arguments.includes(writer.evidence), false)
+      assert.deepEqual(writer.arguments, [])
     }
   })
 }
@@ -553,7 +567,10 @@ test("a due watch receives the current round's dropped findings from joined evid
         assert.ok(settled)
         assert.equal(settled.account.findings[0]?.outcome, "dropped")
         return JSON.stringify({
-          topic: "example",
+          repositories: [
+            { repository: "repo-edu", head: "def4567" },
+            { repository: "plan", head: "abc1234" },
+          ],
           roundData: {
             implementation: [
               {
@@ -635,6 +652,10 @@ for (const [ending, sequence] of endings) {
             const call = round.calls.at(-1)
             if (call?.phase === phase)
               throw new Error(`Missing output: ${file}`)
+          },
+          async writeWatchDocument(file, document) {
+            if (phase === "watch") throw new Error(`Missing output: ${file}`)
+            await round.dependencies.writeWatchDocument(file, document)
           },
         },
       )
@@ -871,15 +892,30 @@ test("a due glance completes the watch in one fresh session", async () => {
   })
   // The watch reads retained evidence, so it receives none of the round's session files.
   assert.equal(round.glances.length, 1)
-  assert.deepEqual(round.watchGrades, [{ cacheRoot, stem: "example" }])
+  assert.deepEqual(round.watchDocuments, [
+    { file: watch, document: "# Example: trajectory watch" },
+  ])
+  assert.deepEqual(round.watchRecords, [
+    {
+      cacheRoot,
+      stem: "example",
+      heads: { "repo-edu": "def4567", plan: "abc1234" },
+      grade: "green",
+    },
+  ])
   assert.deepEqual(round.calls.slice(5), [
     {
       phase: "watch",
-      evidence: "Joined evidence including the finished fix",
+      evidence: JSON.stringify({
+        repositories: [
+          { repository: "repo-edu", head: "def4567" },
+          { repository: "plan", head: "abc1234" },
+        ],
+      }),
       assistant: "codex",
       model: pinned("codex"),
       ...testContext(repoRoot),
-      arguments: [watch, cacheRoot],
+      arguments: [],
       sessionId: null,
     },
   ])
@@ -899,18 +935,17 @@ test("a red watch reaches the round result for the sequence to stop on", async (
   assert.equal(result.status === "finished" && result.watch, "red")
 })
 
-test("a watch that leaves no readable record fails its phase", async () => {
+test("a compacted watch writes neither output and names the evidence size", async () => {
   const round = controlledRound()
   arrange(round, "watch")
+  const watch = round.results.watch
+  assert.equal(watch.status, "finished")
+  if (watch.status === "finished")
+    round.results.watch = { ...watch, compactions: 1 }
 
   const result = await runRound(
     { ...files, plan: "example.md", scope: "1" },
-    {
-      ...round.dependencies,
-      watchGrade: async () => {
-        throw new Error("The watch left no readable record for example")
-      },
-    },
+    round.dependencies,
   )
 
   assert.deepEqual(result, {
@@ -920,11 +955,57 @@ test("a watch that leaves no readable record fails its phase", async () => {
     assistant: "codex",
     model: pinned("codex"),
     ...testContext(repoRoot),
-    reason: "The watch left no readable record for example",
+    reason:
+      "The watch compacted while reading 100 characters of evidence; it needs one uncompacted session.",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
     ),
   })
+  assert.deepEqual(round.watchDocuments, [])
+  assert.deepEqual(round.watchRecords, [])
+})
+
+test("a watch document failure skips the cadence record", async () => {
+  const round = controlledRound()
+  arrange(round, "watch")
+  const result = await runRound(
+    { ...files, plan: "example.md", scope: "1" },
+    {
+      ...round.dependencies,
+      writeWatchDocument: async () => {
+        throw new Error("Document write failed")
+      },
+    },
+  )
+  assert.equal(result.status, "failed")
+  assert.equal(
+    result.status === "failed" && result.reason,
+    "Document write failed",
+  )
+  assert.deepEqual(round.watchRecords, [])
+})
+
+test("a watch record failure keeps the admitted document", async () => {
+  const round = controlledRound()
+  arrange(round, "watch")
+  const result = await runRound(
+    { ...files, plan: "example.md", scope: "1" },
+    {
+      ...round.dependencies,
+      writeWatchRecord: async () => {
+        throw new Error("Record write failed")
+      },
+    },
+  )
+  assert.equal(result.status, "failed")
+  assert.equal(
+    result.status === "failed" && result.reason,
+    "Record write failed",
+  )
+  assert.deepEqual(round.watchDocuments, [
+    { file: watch, document: "# Example: trajectory watch" },
+  ])
+  assert.deepEqual(round.watchRecords, [])
 })
 
 test("a round that hands over runs no watch, because its work has not landed", async () => {

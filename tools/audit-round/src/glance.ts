@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises"
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { format } from "date-fns"
 import { z } from "zod"
 import { type Episode, readEpisode, sameHead } from "./episode.js"
 import type { Repository } from "./subject.js"
@@ -12,7 +13,7 @@ import type { Repository } from "./subject.js"
  * The watch reads the log and then the code behind it,
  * and most rounds do not move the record that far. The glance is the cheap
  * check that keeps the watch from running on every round. It reads recorded
- * areas, grades nothing and writes no file; the watch phase owns the record.
+ * areas and grades nothing. The runner writes an admitted watch's record.
  *
  * The user directed the glance on 2026-09-13. It ran as a Claude session until
  * 2026-09-20, when its rules moved here. The user then replaced severity and
@@ -30,7 +31,7 @@ const watchRecordSchema = z.strictObject({
   written: z.string(),
 })
 
-/** One episode's entry in `watch.json`, as the watch workflow writes it. */
+/** One episode's entry in `watch.json`, as the runner writes it. */
 export type WatchRecord = z.infer<typeof watchRecordSchema>
 
 export type WatchGrade = WatchRecord["grade"]
@@ -206,24 +207,36 @@ export async function readWatchRecords(
   }
 }
 
-/**
- * The grade the watch that just ran recorded for this episode. The runner
- * ends an auditor sequence on red, so a watch that leaves no readable entry
- * fails its phase rather than letting queued rounds start unread.
- */
-export async function readWatchGrade(
-  cacheRoot: string,
-  stem: string,
-): Promise<WatchGrade> {
-  let saved: WatchRecord
+/** Atomically replace one episode entry while preserving every peer entry. */
+export async function writeWatchRecord(input: {
+  readonly cacheRoot: string
+  readonly stem: string
+  readonly heads: WatchRecord["heads"]
+  readonly grade: WatchGrade
+}): Promise<void> {
+  const path = join(input.cacheRoot, "watch.json")
+  let records: Record<string, unknown> = {}
   try {
-    saved = parseWatchRecord((await readWatchRecords(cacheRoot))?.[stem])
-  } catch {
-    throw new Error(
-      `The watch left no readable record for ${stem} in ${join(cacheRoot, "watch.json")}.`,
-    )
+    const parsed: unknown = JSON.parse(await readFile(path, "utf8"))
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+      throw new Error("Watch file must be an object keyed by episode stem")
+    records = parsed as Record<string, unknown>
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
-  return saved.grade
+  const record = watchRecordSchema.parse({
+    heads: input.heads,
+    grade: input.grade,
+    written: format(new Date(), "yyyy-MM-dd"),
+  })
+  await mkdir(input.cacheRoot, { recursive: true })
+  const temporary = `${path}.tmp`
+  await writeFile(
+    temporary,
+    `${JSON.stringify({ ...records, [input.stem]: record }, null, 2)}\n`,
+    "utf8",
+  )
+  await rename(temporary, path)
 }
 
 export async function runGlance(input: GlanceInput): Promise<GlanceDecision> {

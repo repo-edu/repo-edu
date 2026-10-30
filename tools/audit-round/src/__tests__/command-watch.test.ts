@@ -3,6 +3,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
+import { recorded } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
 test("repeated auditor entries run beyond the old cap with one startup", async (t) => {
@@ -145,7 +146,7 @@ test("a red watch stops the auditor sequence before the next queued round", asyn
   await assert.rejects(readFile(queue), { code: "ENOENT" })
 })
 
-test("a due glance sends the watch joined evidence and the cache, never round session files", async (t) => {
+test("a due glance admits and publishes the returned watch without round session files", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
   assert.equal(
     await runCommand(["example.md", "3"], f.runtime, f.options),
@@ -164,11 +165,7 @@ test("a due glance sends the watch joined evidence and the cache, never round se
       join(f.repoRoot, ".agents/skills/watch/references/workflow.md"),
     ),
   )
-  assert.ok(
-    log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
-    ),
-  )
+  assert.ok(log.includes(`Phase arguments (JSON array): ${JSON.stringify([])}`))
   assert.doesNotMatch(log, /Source file: .*\/watch\/SKILL\.md/)
   assert.doesNotMatch(log, /watch-edit/)
   assert.equal(log.match(/\[watch\] starting/g)?.length, 1)
@@ -176,7 +173,56 @@ test("a due glance sends the watch joined evidence and the cache, never round se
   // The watch follows the round it grades, so none of its text enters the transcript.
   assert.equal(markdown.includes("## watch ("), false)
   assert.ok(f.visible.join("\n").includes("Complete watch text."))
+  assert.equal(
+    await readFile(watch, "utf8"),
+    "# Example: trajectory watch\n\nComplete watch text.\n",
+  )
+  const record = JSON.parse(
+    await readFile(join(f.options.cacheRoot, "watch.json"), "utf8"),
+  ).example
+  const watchPrompt = (await f.prompts()).find((call) =>
+    call.prompt.startsWith("Run the watch phase "),
+  )?.prompt
+  assert.ok(watchPrompt)
+  const supplied = JSON.parse(
+    watchPrompt.slice(watchPrompt.lastIndexOf("Joined watch evidence:\n") + 23),
+  )
+  const suppliedHeads = Object.fromEntries(
+    supplied.repositories.map(
+      (repository: { repository: string; head: string }) => [
+        repository.repository,
+        repository.head,
+      ],
+    ),
+  )
+  assert.equal(record.grade, "red")
+  assert.deepEqual(record.heads, suppliedHeads)
   assert.match(f.visible.join("\n"), /Audit round finished\./)
+})
+
+test("a compacted watch publishes neither its document nor cadence record", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  const watchPhase = f.phases.watch as {
+    usage: { path: string; text: string }
+  }
+  watchPhase.usage.text = await recorded("codex-compacted.jsonl")
+  await f.configure({ phases: f.phases })
+  const before = await readFile(join(f.options.cacheRoot, "watch.json"), "utf8")
+
+  assert.equal(await runCommand(["example.md", "3"], f.runtime, f.options), 1)
+
+  assert.match(
+    f.visible.join("\n"),
+    /The watch compacted while reading \d+ characters of evidence; it needs one uncompacted session\./,
+  )
+  assert.equal(
+    (await readdir(f.planRoot)).some((name) => /-9-watch\./.test(name)),
+    false,
+  )
+  assert.equal(
+    await readFile(join(f.options.cacheRoot, "watch.json"), "utf8"),
+    before,
+  )
 })
 
 for (const target of ["implementation", "planning", "commits"] as const) {

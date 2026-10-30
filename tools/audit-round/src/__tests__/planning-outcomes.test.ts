@@ -231,7 +231,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         ),
         0,
       )
-      const { log, markdown, transcript } = await f.records()
+      const { log, markdown } = await f.records()
       assert.match(
         log,
         due
@@ -244,11 +244,8 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.equal(log.includes("[watch] starting"), due)
       if (due) {
-        const watch = transcript.replace("-1-round.obh.md", "-9-watch.obh.md")
         assert.ok(
-          log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
-          ),
+          log.includes(`Phase arguments (JSON array): ${JSON.stringify([])}`),
         )
         assert.ok(
           log.includes(
@@ -263,7 +260,19 @@ for (const working of ["repo-edu", "plan"] as const) {
       }
       assert.doesNotMatch(log, /watch-edit/)
       assert.doesNotMatch(markdown, /## watch /)
-      assert.equal(await readFile(record, "utf8"), history)
+      const currentRecord = await readFile(record, "utf8")
+      if (due) {
+        const saved = JSON.parse(currentRecord).example
+        assert.equal(saved.grade, "red")
+        assert.match(saved.heads["repo-edu"], /^[0-9a-f]{7}$/)
+        assert.match(saved.heads.plan, /^[0-9a-f]{7}$/)
+        assert.notEqual(
+          saved.heads[working],
+          f.recordHeads[working].slice(0, 7),
+        )
+      } else {
+        assert.equal(currentRecord, history)
+      }
       for (const call of await f.calls()) assert.equal(call.cwd, f.runtime.cwd)
     })
   }

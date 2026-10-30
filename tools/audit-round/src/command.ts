@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises"
+import { readFile, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import {
   Command,
@@ -17,7 +17,7 @@ import {
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
-import { readWatchGrade, runGlance } from "./glance.js"
+import { runGlance, writeWatchRecord } from "./glance.js"
 import { readJudgeEvidence } from "./judge.js"
 import { readyPlan, requireReadyMarker, settlePlan } from "./lifecycle.js"
 import {
@@ -912,7 +912,9 @@ export async function runCommand(
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
       watchEvidence: readWatchEvidence,
-      watchGrade: readWatchGrade,
+      writeWatchDocument: async (file, document) =>
+        writeFile(file, `${document}\n`, "utf8"),
+      writeWatchRecord,
       deleteRoundReports,
       checkFile: async (file) => {
         if (!(await readFile(file, "utf8")).trim())

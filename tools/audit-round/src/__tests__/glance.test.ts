@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
@@ -7,10 +7,10 @@ import { execa } from "execa"
 import { type LogCommit, readLog } from "../episode-log.js"
 import {
   glanceDecision as decide,
-  readWatchGrade,
   readWatchRecord,
   readWatchRecords,
   runGlance,
+  writeWatchRecord,
 } from "../glance.js"
 import type { Repository } from "../subject.js"
 import {
@@ -419,16 +419,30 @@ test("real Git history carries finding bodies and touched files into the decisio
     await mkdir(cacheRoot)
     await writeFile(join(cacheRoot, "watch.json"), "{broken")
     assert.equal(await readWatchRecords(cacheRoot), null)
-    // A finished watch that left no readable entry has no grade to report.
     await assert.rejects(
-      readWatchGrade(cacheRoot, "example"),
-      /no readable record for example/,
+      writeWatchRecord({
+        cacheRoot,
+        stem: "example",
+        heads: { "repo-edu": first, plan: "plan0001" },
+        grade: "amber",
+      }),
+      /JSON/,
     )
     await writeFile(
       join(cacheRoot, "watch.json"),
-      JSON.stringify(record("amber", first)),
+      JSON.stringify({ ...record("amber", first), peer: { kept: true } }),
     )
-    assert.equal(await readWatchGrade(cacheRoot, "example"), "amber")
+    await writeWatchRecord({
+      cacheRoot,
+      stem: "example",
+      heads: { "repo-edu": first, plan: "plan0001" },
+      grade: "red",
+    })
+    const saved = JSON.parse(
+      await readFile(join(cacheRoot, "watch.json"), "utf8"),
+    )
+    assert.equal(saved.example.grade, "red")
+    assert.deepEqual(saved.peer, { kept: true })
     const repoEduRoot = join(directory, "repo-edu")
     const modelDirectory = join(repoEduRoot, "tools/architecture-check/src")
     await mkdir(modelDirectory, { recursive: true })

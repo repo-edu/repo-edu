@@ -1,5 +1,5 @@
 import { errorMessage } from "./feedback.js"
-import type { WatchGrade } from "./glance.js"
+import type { WatchGrade, WatchRecord } from "./glance.js"
 import { judgeOptions } from "./judge.js"
 import type { RoundDocuments } from "./output.js"
 import {
@@ -249,14 +249,18 @@ export async function runClose(
  * gained in corrections since the last watch, not how many rounds have run. A user who asked
  * for no watch gets none, whatever the record says.
  *
- * Returns the failure that stops the round, or the grade the watch recorded.
+ * Returns the failure that stops the round, or the admitted and published grade.
  * The grade is null when the watch was not due or was not asked for.
  */
 async function runWatch(
   input: RoundContext & Pick<RoundInput, "watch"> & { readonly plan: string },
   dependencies: Pick<
     RoundDependencies,
-    "runPhase" | "checkFile" | "glance" | "watchEvidence" | "watchGrade"
+    | "runPhase"
+    | "glance"
+    | "watchEvidence"
+    | "writeWatchDocument"
+    | "writeWatchRecord"
   >,
   settings: RoundSettings,
 ): Promise<RoundFailure | { readonly grade: WatchGrade | null }> {
@@ -277,24 +281,36 @@ async function runWatch(
     })
     if (!glance.due) return { grade: null }
     const evidence = await dependencies.watchEvidence({ ...context, stem })
+    const heads = watchHeads(evidence)
 
-    const watch = await reportPhase(
-      () =>
-        dependencies.runPhase.watch({
-          phase: "watch",
-          ...phases.watch,
-          ...context,
-          arguments: [target.file, target.cacheRoot],
-          evidence,
-          sessionId: null,
-        }),
-      target.file,
-      dependencies,
-    )
+    const watch = await dependencies.runPhase.watch({
+      phase: "watch",
+      ...phases.watch,
+      ...context,
+      arguments: [],
+      evidence,
+      sessionId: null,
+    })
     if (watch.status === "failed")
       return { ...watch, phase: "watch", ...phases.watch, ...context }
+    if (watch.compactions > 0)
+      return {
+        status: "failed",
+        sessionId: watch.sessionId,
+        phase: "watch",
+        ...phases.watch,
+        ...context,
+        reason: `The watch compacted while reading ${evidence.length} characters of evidence; it needs one uncompacted session.`,
+      }
     try {
-      return { grade: await dependencies.watchGrade(target.cacheRoot, stem) }
+      await dependencies.writeWatchDocument(target.file, watch.document)
+      await dependencies.writeWatchRecord({
+        cacheRoot: target.cacheRoot,
+        stem,
+        heads,
+        grade: watch.grade,
+      })
+      return { grade: watch.grade }
     } catch (error) {
       return {
         status: "failed",
@@ -315,6 +331,30 @@ async function runWatch(
       reason: errorMessage(error),
     }
   }
+}
+
+/** Read the two heads from the exact evidence supplied to this watch session. */
+function watchHeads(evidence: string): WatchRecord["heads"] {
+  const parsed: unknown = JSON.parse(evidence)
+  if (typeof parsed !== "object" || parsed === null)
+    throw new Error("Watch evidence must be an object")
+  const repositories = (parsed as { repositories?: unknown }).repositories
+  if (!Array.isArray(repositories))
+    throw new Error("Watch evidence has no repositories")
+  const head = (repository: "repo-edu" | "plan") => {
+    const entry = repositories.find(
+      (candidate): candidate is { repository: string; head: unknown } =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        "repository" in candidate &&
+        candidate.repository === repository &&
+        "head" in candidate,
+    )
+    if (entry === undefined || typeof entry.head !== "string")
+      throw new Error(`Watch evidence has no ${repository} head`)
+    return entry.head
+  }
+  return { "repo-edu": head("repo-edu"), plan: head("plan") }
 }
 
 /** Run the fresh evidence-only turn that decides an automatic series. */

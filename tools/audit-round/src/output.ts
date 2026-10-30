@@ -22,7 +22,7 @@ import {
   closePhase,
   noOverride,
   type Phase,
-  type PhaseResult,
+  type PhaseControlResult,
   type PhaseRun,
   roundPhases,
   transcribed,
@@ -539,7 +539,10 @@ export class RoundOutput<R extends Run = Run> {
           ...run,
           compactions: run.compactions + 1,
         })
-        if (run.compactions === 0)
+        if (
+          run.compactions === 0 &&
+          ["audit", "vet", "rebut", "fix"].includes(active.input.phase)
+        )
           this.say(
             `Warning: The ${active.input.phase} phase compacted. Use a narrower scope instead of a larger context window.`,
           )
@@ -589,7 +592,9 @@ export class RoundOutput<R extends Run = Run> {
     terminal?.status(this.stamp())
   }
 
-  private finishPhase(result: PhaseResult): void {
+  private finishPhase(result: PhaseControlResult): {
+    readonly compactions: number
+  } {
     const active = this.active
     const run = active && this.ran.get(active.input.phase)
     if (active === undefined || run === undefined)
@@ -603,6 +608,7 @@ export class RoundOutput<R extends Run = Run> {
     // The run's finish line owns the failure reason, session and resume command.
     this.say(`[${phase}] ${result.status}`)
     this.active = undefined
+    return { compactions: run.compactions }
   }
 
   showBrief(text: string): void {

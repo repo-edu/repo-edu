@@ -53,6 +53,42 @@ test("Claude's empty closing result of no turns is not a turn", () => {
   )
 })
 
+test("a watch returns its document, grade and output-owned compaction count", async (t) => {
+  const f = await fixture(t)
+  const final = `# Example: trajectory watch
+
+Grounded evidence.
+Watch grade: amber
+PHASE RESULT: {"status":"finished","reason":null}`
+  await f.configure({ stream: await phaseStream("claude", final) })
+  const result = await runAssistantPhase(
+    {
+      phase: "watch",
+      assistant: "claude",
+      model: pinned("claude"),
+      ...testContext(f.root),
+      arguments: [],
+      evidence: "{}",
+      sessionId: null,
+    },
+    {
+      ...f.output,
+      finish: async (phaseResult) => {
+        await f.output.finish(phaseResult)
+        return { compactions: 2 }
+      },
+    },
+    f.runtime,
+  )
+  assert.deepEqual(result, {
+    status: "finished",
+    sessionId: "test-session",
+    document: "# Example: trajectory watch\n\nGrounded evidence.",
+    grade: "amber",
+    compactions: 2,
+  })
+})
+
 test("Claude reports the last turn's text when a background wake-up adds turns", async (t) => {
   const f = await fixture(t)
   const report = join(f.root, "audit.md")

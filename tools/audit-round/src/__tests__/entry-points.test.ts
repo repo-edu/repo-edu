@@ -29,7 +29,7 @@ test("watch evidence reaches the assistant but is omitted from the log prompt", 
     assistant: "codex",
     model: pinned("codex"),
     sessionId: null,
-    arguments: ["watch.md", f.root],
+    arguments: [],
     evidence,
   })
   assert.ok(text.endsWith(`Joined watch evidence:\n${evidence}`))

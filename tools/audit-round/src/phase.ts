@@ -401,7 +401,7 @@ type PhaseArguments = {
   }
   watch: {
     readonly evidence: string
-    readonly arguments: readonly [watch: string, cacheRoot: string]
+    readonly arguments: readonly []
     readonly sessionId: null
   }
   judge: {
@@ -455,10 +455,32 @@ type ReportResult = {
   readonly sessionId: string
 }
 
+export type WatchResult = ReportResult & {
+  readonly document: string
+  readonly grade: WatchGrade
+  readonly compactions: number
+}
+
 type FixResult = {
   readonly status: "finished" | "needs-ruling"
   readonly sessionId: string
 }
+
+type PhaseControlResults = {
+  audit: ReportResult
+  vet: ReportResult
+  rebut: ReportResult
+  fix: FixResult
+  brief: ReportResult
+  watch: ReportResult
+  judge: ReportResult
+  close: ReportResult
+}
+
+/** The final control line before a phase admits any returned document. */
+export type PhaseControlResult<P extends Phase = Phase> =
+  | PhaseFailure
+  | PhaseControlResults[P]
 
 type PhaseResults = {
   audit: ReportResult
@@ -466,7 +488,7 @@ type PhaseResults = {
   rebut: ReportResult
   fix: FixResult
   brief: ReportResult
-  watch: ReportResult
+  watch: WatchResult
   judge: ReportResult
   close: ReportResult
 }
@@ -544,8 +566,15 @@ export type RoundDependencies = {
     commits: readonly LandedCommit[],
     account: RoundAccount,
   ) => void
-  /** The grade a finished watch recorded; rejects when it left no readable record. */
-  readonly watchGrade: (cacheRoot: string, stem: string) => Promise<WatchGrade>
+  /** Save an admitted watch document before its cadence record. */
+  readonly writeWatchDocument: (file: string, document: string) => Promise<void>
+  /** Replace only this episode's cadence entry after its document is durable. */
+  readonly writeWatchRecord: (input: {
+    readonly cacheRoot: string
+    readonly stem: string
+    readonly heads: Readonly<Record<"repo-edu" | "plan", string>>
+    readonly grade: WatchGrade
+  }) => Promise<void>
   /** Displays the ruling and records a reply; null stops without submitting a draft. */
   readonly requestRuling: (document: string) => Promise<string | null>
 }

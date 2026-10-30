@@ -28,8 +28,8 @@ The round kind sets automated sessions' working directory: plan for planning,
 Repo Edu for implementation. Use the supplied checkout paths.
 
 A hand-run watch returns its watch in chat and writes no file or cadence
-record. The automated writer follows the file input, output, shape
-and result instructions below only when the invocation supplies their paths.
+record. An automated watch returns its finished document and grade to the
+runner under **Output** and **Runner result**.
 
 ## Hand-run entry
 
@@ -76,9 +76,10 @@ The shared episode module in Repo Edu computes membership and counts from Git.
 The runner supplies the audited plan's topic and formats the reduced JSON view
 only after a finished fix when glance says watch is due. The view names the two
 graded heads and includes the applicable parts of each existing round data
-file. The writer owns both the judgement and the finished wording. A hand-run
-watch obtains the same view under **Hand-run entry**. No route writes an
-episode file or computes an episode before audit.
+file. The writer owns both the judgement and the finished wording. The runner
+owns publication after it admits the result. A hand-run watch obtains the same
+view under **Hand-run entry**. No route writes an episode file or computes an
+episode before audit.
 
 The evidence is bounded to commits reachable from each repository's HEAD.
 Other branches and refs are outside it. The watch may inspect named commits
@@ -88,10 +89,10 @@ count computation.
 The cadence differs by route, because only the runner keeps a record. Under
 `/watch` the recommended cadence is advice: the user acts on it by invoking
 `/watch` again, sooner on amber, skipping a couple on green. Under the round's
-watch phase the watch keeps a record of its own, so the cadence is counted rather
-than remembered. That record holds the episode stem, each repository's HEAD it
-last graded, the grade and the written date. The grade selects a fixed limit
-owned by the glance. It lives
+watch phase the runner keeps a record after admitting the returned watch, so
+the cadence is counted rather than remembered. That record holds the episode
+stem, each repository's HEAD it last graded, the grade and the written date.
+The grade selects a fixed limit owned by the glance. It lives
 outside both repositories, in the audit-round runner's shared cache, because it
 is machine state about when the watch ran and not part of either repository's
 history. A counted cadence replaces a watch run on intuition.
@@ -106,8 +107,8 @@ suggests nothing. Readers changing the counting or membership rules use
 [`glance.ts`](../../../../tools/audit-round/src/glance.ts) and
 [the shared episode module](../../../../tools/audit-round/src/episode.ts).
 The thresholds are code because they apply without the user in the loop.
-The watch writes both graded heads; one repository's commit never supplies
-the other's history position.
+The runner writes both graded heads from the supplied view; one repository's
+commit never supplies the other's history position.
 
 Only file-changing audit correction commits for the selected plan advance the
 green or amber count. Step scopes share that count. Off-plan work and other
@@ -382,8 +383,8 @@ the doer's reasoning. So:
 - Do not read the round's transcript, its brief, its report or its vet and
   rebuttal twins, and do not read the fix session. The invocation gives you
   none of them on purpose.
-- The watch is read-only except for the watch file and the watch record.
-  Change no code, run no writing command and land no commit.
+- The watch session is read-only. Change no file or code, run no writing
+  command and land no commit. The runner publishes an admitted automated result.
 
 The round that just ran is evidence through the commits it landed and its
 retained entry, the same as every earlier round. Its reports and session remain
@@ -391,14 +392,13 @@ outside the watch.
 
 ## Input
 
-Use the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
-for the watch and cache-root arguments. The prompt separately supplies one
-indented JSON value. Its `repositories` entries keep the topic, graded head,
-anchor, episode-level token counts, repeated-growth and complexity runs, then
-each member commit's short sha, date, written subject, optional window start,
-optional unreadable reason and finding prefixes through their titles. Bodies,
-file lists and parsed copies are not in the view. Read a named commit's body or
-files from Git only when the grounding rule requires them.
+The prompt supplies one indented JSON value. Its `repositories` entries keep
+the topic, graded head, anchor, episode-level token counts, repeated-growth and
+complexity runs, then each member commit's short sha, date, written subject,
+optional window start, optional unreadable reason and finding prefixes through
+their titles. Bodies, file lists and parsed copies are not in the view. Read a
+named commit's body or files from Git only when the grounding rule requires
+them.
 
 The `roundData` object holds each existing round kind in reduced form: the
 target, round number, landed commits, status, applicable findings and each
@@ -413,30 +413,14 @@ No route reads or writes an episode file.
 
 ## Output
 
-Use the supplied output path under the runner's
-[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
-The independence rule also applies when locating output: do not read the
-transcript to derive a path.
+Return the finished watch Markdown in the final response. After it, write one
+plain grade line in the shared
+[watch grade grammar](../../../references/round-grammar.md#watch-grade):
+`Watch grade: green`, `Watch grade: amber` or `Watch grade: red`. Keep
+`PHASE RESULT` as the response's final line.
 
-Write the finished watch to the named `-9-watch.<tag>.md` file, replacing anything already there.
-It is Markdown for a person reading in a
-Markdown viewer.
-
-Then write the watch record. The
-[watch record grammar](../../../references/round-grammar.md#watch-record) owns
-its exact JSON shape and examples. It lives at `watch.json` in the named cache
-root, keyed by episode stem. Replace only this episode's entry.
-
-Write both graded heads, including the peer checkout's head. A glance at either
-root counts from its own entry, never the other repository's history. The grade
-describes the joined episode. Keep other episode entries unchanged.
-
-`tools/audit-round/src/glance.ts` owns the limits and the counting. Create the file and its
-directory when they are missing. A record that cannot be written is a failure of this phase: say so
-rather than leaving a watch the next glance cannot count from. The runner reads the grade back
-from this entry and fails the phase when it finds none.
-
-The same session owns the finished watch and its record. Check the wording
+Write no file or cadence record. The runner removes the two control lines,
+admits the result and publishes the Markdown and record. Check the wording
 before returning; there is no separate editing phase.
 
 ## Voice
@@ -514,5 +498,17 @@ finished watch.
 ## Runner result
 
 Follow the shared [Runner result](../../../references/round-protocol.md#runner-result).
-Automated completion requires both the finished watch and its cadence record
-at the supplied paths.
+Automated completion returns the finished Markdown, its parsed grade and a
+finished phase result. The output recorder supplies the phase's final
+compaction count. The runner admits only a result with zero compactions. A
+compacted watch fails with the supplied evidence size and the need for one
+uncompacted session, before either output is written.
+
+After admission, the runner saves the Markdown at the named
+`-9-watch.<tag>.md` path. It then replaces only this episode's `watch.json`
+entry in the shared cache, using the supplied heads, returned grade and current
+date under the shared
+[watch record grammar](../../../references/round-grammar.md#watch-record). A
+document-write failure skips the record write. A record-write failure leaves
+the valid document and earlier record in place. Either write failure fails the
+phase.

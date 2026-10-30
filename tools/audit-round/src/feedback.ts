@@ -1,7 +1,7 @@
 import { z } from "zod"
 import type {
   AssistantTurnInput,
-  PhaseResult,
+  PhaseControlResult,
   SessionContext,
 } from "./phase.js"
 import type { ModelTokenUsage } from "./round-data.js"
@@ -59,9 +59,14 @@ export type AssistantEvent =
 export type PhaseOutput = {
   readonly start: (input: AssistantTurnInput, prompt: string) => Promise<void>
   readonly observe: (feedback: Feedback) => Promise<void>
-  readonly finish: (result: PhaseResult) => Promise<void>
+  readonly finish: (result: PhaseControlResult) => Promise<PhaseCompletion>
   /** Releases transient terminal output even after a required write fails. */
   readonly release: () => void
+}
+
+/** Measurements owned by the output recorder once one invocation settles. */
+export type PhaseCompletion = {
+  readonly compactions: number
 }
 
 export const eventSchema = z.looseObject({ type: z.string().min(1) })

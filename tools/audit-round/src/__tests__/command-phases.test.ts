@@ -38,7 +38,8 @@ test("one supplied configuration controls auditor phase arguments and output tag
   )
   assert.ok(watchCall.args.includes("chosen-watch"))
   assert.ok(watchCall.args.includes("model_reasoning_effort=medium"))
-  assert.ok(watchCall.prompt.includes("-9-watch.otm.md"))
+  assert.ok(watchCall.prompt.includes("Phase arguments (JSON array): []"))
+  assert.doesNotMatch(watchCall.prompt, /-9-watch\.otm\.md/)
 })
 
 for (const auditor of ["claude", "codex"] as const) {

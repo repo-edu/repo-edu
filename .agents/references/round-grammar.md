@@ -6,8 +6,9 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The eight forms are the audit report, vet twin, rebuttal twin, commit record
-bullet, implementation-plan step, phase result, judge answer and watch record.
+The nine forms are the audit report, vet twin, rebuttal twin, commit record
+bullet, implementation-plan step, phase result, watch grade, judge answer and
+watch record.
 
 ## Notation
 
@@ -721,6 +722,47 @@ Refusal: `Report PHASE RESULT must finish`
 
 ```text
 PHASE RESULT: {"status":"needs-ruling","reason":null}
+```
+
+## Watch grade
+
+### Production
+
+```text
+<watch-grade-line> ::= "Watch grade: "<grade>
+<grade>            ::= green | amber | red
+```
+
+The grade is exactly one plain line after the finished watch Markdown and
+immediately before the final `PHASE RESULT` line. It is control data for the
+runner and is not part of the saved document.
+
+### Examples
+
+#### `watch-grade/green` — parsed
+
+```text
+Watch grade: green
+```
+
+#### `watch-grade/amber` — parsed
+
+```text
+Watch grade: amber
+```
+
+#### `watch-grade/red` — parsed
+
+```text
+Watch grade: red
+```
+
+#### `watch-grade/unknown` — refused
+
+Refusal: `Invalid watch grade line`
+
+```text
+Watch grade: yellow
 ```
 
 ## Judge answer

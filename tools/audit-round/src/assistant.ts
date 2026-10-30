@@ -3,18 +3,23 @@ import { decodeClaude } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
 import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
-import { errorMessage, type PhaseOutput } from "./feedback.js"
+import {
+  errorMessage,
+  type PhaseCompletion,
+  type PhaseOutput,
+} from "./feedback.js"
 import { readJudgeAnswer } from "./judge.js"
 import type {
   AssistantTurnInput,
   JudgeResult,
   Phase,
+  PhaseControlResult,
   PhaseFailure,
   PhaseInput,
   PhaseResult,
   RoundDependencies,
 } from "./phase.js"
-import { phaseResult, withoutPhaseResult } from "./phase-result.js"
+import { phaseResult, watchOutput, withoutPhaseResult } from "./phase-result.js"
 import { type AssistantPrompt, phasePrompt, phaseRequest } from "./requests.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
@@ -66,7 +71,21 @@ export function runAssistantInvocation(
         if (report !== null)
           await writeFile(report, `${withoutPhaseResult(finalText)}\n`, "utf8")
       }
-      return { phaseResult: result, value: result }
+      if (input.phase === "watch" && result.status === "finished") {
+        const output = watchOutput(finalText)
+        return {
+          phaseResult: result,
+          complete: ({ compactions }: PhaseCompletion) => ({
+            ...result,
+            ...output,
+            compactions,
+          }),
+        }
+      }
+      return {
+        phaseResult: result,
+        complete: () => result as PhaseResult,
+      }
     },
     record,
   )
@@ -86,7 +105,7 @@ export function runJudge(
     async (sessionId, finalText) => {
       const result = phaseResult(input.phase, sessionId, finalText)
       if (result.status !== "finished")
-        return { phaseResult: result, value: result }
+        return { phaseResult: result, complete: () => result }
       const value = {
         status: "finished",
         sessionId,
@@ -94,7 +113,7 @@ export function runJudge(
       } as const
       return {
         phaseResult: result,
-        value,
+        complete: () => value,
       }
     },
   )
@@ -108,7 +127,10 @@ async function runAssistantTurn<T>(
   admit: (
     sessionId: string,
     finalText: string,
-  ) => Promise<{ readonly phaseResult: PhaseResult; readonly value: T }>,
+  ) => Promise<{
+    readonly phaseResult: PhaseControlResult
+    readonly complete: (completion: PhaseCompletion) => T
+  }>,
   record?: (value: unknown) => Promise<void>,
 ): Promise<T | PhaseFailure> {
   let sessionId = input.sessionId
@@ -163,8 +185,8 @@ async function runAssistantTurn<T>(
         )
       await usage?.read(sessionId, observe, true)
       const admitted = await admit(sessionId, finalText)
-      await output.finish(admitted.phaseResult)
-      return admitted.value
+      const completion = await output.finish(admitted.phaseResult)
+      return admitted.complete(completion)
     } finally {
       await usage?.close()
     }

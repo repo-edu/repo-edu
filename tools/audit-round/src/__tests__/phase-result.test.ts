@@ -6,7 +6,7 @@ import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import type { PhaseInput } from "../phase.js"
-import { phaseResult } from "../phase-result.js"
+import { phaseResult, watchOutput } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import { pinned } from "./configured-runner.js"
 import { fixture, testContext } from "./helpers.js"
@@ -30,6 +30,39 @@ test("the round grammar's phase-result examples are parser fixtures", () => {
       )
     }
   }
+})
+
+test("the round grammar's watch-grade examples are parser fixtures", () => {
+  for (const example of roundGrammarExamples("watch-grade/")) {
+    const response = `# Example: trajectory watch\n\nEvidence.\n${example.source}\nPHASE RESULT: {"status":"finished","reason":null}`
+    if (example.outcome === "parsed") {
+      assert.deepEqual(watchOutput(response), {
+        document: "# Example: trajectory watch\n\nEvidence.",
+        grade: example.id.slice("watch-grade/".length),
+      })
+    } else {
+      assert.throws(
+        () => watchOutput(response),
+        (error: unknown) =>
+          error instanceof Error && error.message === example.refusal,
+        example.id,
+      )
+    }
+  }
+  assert.throws(
+    () =>
+      watchOutput(
+        '# Example\nPHASE RESULT: {"status":"finished","reason":null}',
+      ),
+    /Missing watch grade line/,
+  )
+  assert.throws(
+    () =>
+      watchOutput(
+        'Watch grade: green\nPHASE RESULT: {"status":"finished","reason":null}',
+      ),
+    /Watch document is empty/,
+  )
 })
 
 test("a fresh prompt supplies routed workflows and shared files once under their source paths", async (t) => {
@@ -137,7 +170,7 @@ test("watch receives Repo Edu's workflow and joined evidence without a launcher"
   const { text: writer } = phasePrompt({
     ...common,
     phase: "watch",
-    arguments: ["watch.md", "cache"],
+    arguments: [],
     evidence: "Joined episode facts",
   })
   assert.doesNotMatch(writer, /launcher|SKILL\.md/)
