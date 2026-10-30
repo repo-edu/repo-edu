@@ -534,7 +534,7 @@ for (const grade of ["green", "amber"] as const) {
     if (watches.length === 1) {
       const [writer] = watches
       assert.equal(writer.phase, "watch")
-      assert.match(writer.evidence, /finished-plan-fix/)
+      assert.match(writer.evidence, /finished fix/)
       assert.equal(writer.arguments.includes(writer.evidence), false)
     }
   })

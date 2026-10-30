@@ -19,6 +19,7 @@ import {
   episode,
   history,
   ratings,
+  watchRoundDataFixture,
 } from "./episode-fixture.js"
 import { commitFixture } from "./round-fixture.js"
 
@@ -41,10 +42,6 @@ test("membership admits only touched-file rework after the anchor", () => {
     ["c000005", "c000003", "c000002", "c000001"],
   )
   assert.equal(data.commits[1].parsed, null)
-  assert.deepEqual(data.commits[1].loose, {
-    stem: "example",
-    role: "impl-audit-all",
-  })
   assert.equal(data.tokens.reach.developer, 2)
 })
 
@@ -80,7 +77,7 @@ test("joined evidence keeps both heads and applies an explicit anchor only in it
   assert.deepEqual(absent.commits, [])
 })
 
-test("trajectory retains tier counts, reach case and structure independently of finding readability", () => {
+test("subject totals still validate findings without per-commit duplicate facts", () => {
   const mixed = commit(
     "oth pruning-high !B1C1a1d1 redesign(x): reshape",
     [
@@ -91,24 +88,13 @@ test("trajectory retains tier counts, reach case and structure independently of 
     ].join("\n"),
   )
   const data = episode(history(mixed))
-  assert.deepEqual(data.commits[0].trajectory, {
-    maximum: "a",
-    counts: { a: 1, b: 1, c: 1, d: 1 },
-    upper: [
-      { tier: "b", count: 1 },
-      { tier: "c", count: 1 },
-    ],
-    lower: [
-      { tier: "a", count: 1 },
-      { tier: "d", count: 1 },
-    ],
-    ordinary: true,
-    structure: { direction: "pruning", level: "high" },
-  })
+  assert.equal(data.commits[0].unreadable, null)
+  assert.equal("loose" in data.commits[0], false)
+  assert.equal("trajectory" in data.commits[0], false)
+  assert.equal("tokens" in data.commits[0], false)
   assert.deepEqual(data.windowStarts, [{ sha: "c000002", kind: "redesign" }])
   const broken = episode(history({ ...mixed, body: "- [A] Missing tokens." }))
   assert.equal(broken.unreadable.length, 1)
-  assert.equal(broken.commits[0].trajectory.maximum, "a")
   assert.deepEqual(broken.commits[0].findings, [])
   assert.deepEqual(broken.tokens.areas, {})
 })
@@ -142,7 +128,176 @@ test("joined totals and repeated growth include findings from both repositories"
   ])
 })
 
-test("joined watch evidence keeps planning and implementation round data beside Git", () => {
+test("the watch view keeps only the reduced repository and commit evidence", () => {
+  const recurring = ratings
+    .replace("growth-pattern:none", "growth-pattern:recurrence")
+    .replace("complexity:none", "complexity:low")
+  const newestSubject =
+    "example/impl-audit-1 oth growth-none c1 redesign(audit-round): newest"
+  const earlierSubject =
+    "example/impl-audit-1 oth growth-none c1 redesign(audit-round): earlier"
+  const unreadableSubject =
+    "example/impl-audit-1 oth growth-none c1 fix(audit-round): unreadable"
+  const planSubject = "example/plan-audit oth growth-none c1: reopen the shape"
+  const logs = {
+    "repo-edu": [
+      {
+        ...commit(newestSubject, bullet("area:area-a", "C", recurring)),
+        sha: "a".repeat(40),
+        committedAt: Date.UTC(2026, 9, 30) / 1000,
+      },
+      {
+        ...commit(earlierSubject, bullet("area:area-a", "C", recurring)),
+        sha: "b".repeat(40),
+        committedAt: Date.UTC(2026, 9, 29) / 1000,
+      },
+      {
+        ...commit(unreadableSubject, "- [C] [area:area-a] Old finding form."),
+        sha: "c".repeat(40),
+        committedAt: Date.UTC(2026, 9, 28) / 1000,
+      },
+    ],
+    plan: [
+      {
+        ...commit(
+          planSubject,
+          `- C [field:missing] [section:decisions] ${ratings} Correct: the plan.`,
+          ["example.md", "example-widen.md"],
+          [{ from: "example.md", to: "example-widen.md" }],
+        ),
+        sha: "d".repeat(40),
+        committedAt: Date.UTC(2026, 9, 27) / 1000,
+      },
+    ],
+  }
+  const joined = joinedEpisode(logs, "example", areas)
+  for (const commit of joined.repositories[1].commits) {
+    assert.equal("loose" in commit, false)
+    assert.equal("trajectory" in commit, false)
+    assert.equal("tokens" in commit, false)
+  }
+
+  const formatted = formatWatchEvidence(joined)
+  assert.match(formatted, /^\{\n {2}"repositories":/)
+  const evidence = JSON.parse(formatted)
+  assert.deepEqual(Object.keys(evidence), ["repositories", "roundData"])
+  assert.deepEqual(evidence.roundData, {})
+
+  const plan = evidence.repositories[0]
+  assert.deepEqual(
+    {
+      repository: plan.repository,
+      topic: plan.topic,
+      head: plan.head,
+      anchor: plan.anchor,
+      tokens: plan.tokens,
+      runs: plan.runs,
+    },
+    {
+      repository: "plan",
+      topic: "example",
+      head: "ddddddd",
+      anchor: "ddddddd",
+      tokens: {
+        growthPattern: { none: 1 },
+        reach: { developer: 1 },
+        complexity: { none: 1 },
+        sections: { decisions: 1 },
+        areas: {},
+        covers: {},
+      },
+      runs: { growthPatterns: [], complexity: [] },
+    },
+  )
+  assert.deepEqual(plan.commits, [
+    {
+      sha: "ddddddd",
+      date: "2026-10-27",
+      subject: planSubject,
+      windowStart: "widening",
+      findings: [`C [field:missing] [section:decisions] ${ratings} Correct`],
+    },
+  ])
+
+  const repoEdu = evidence.repositories[1]
+  assert.deepEqual(
+    {
+      repository: repoEdu.repository,
+      topic: repoEdu.topic,
+      head: repoEdu.head,
+      anchor: repoEdu.anchor,
+      tokens: repoEdu.tokens,
+      runs: repoEdu.runs,
+    },
+    {
+      repository: "repo-edu",
+      topic: "example",
+      head: "aaaaaaa",
+      anchor: "ccccccc",
+      tokens: {
+        growthPattern: { recurrence: 2 },
+        reach: { developer: 2 },
+        complexity: { low: 2 },
+        sections: {},
+        areas: { "area-a": 2 },
+        covers: {},
+      },
+      runs: {
+        growthPatterns: [
+          { label: "recurrence", commits: ["bbbbbbb", "aaaaaaa"] },
+        ],
+        complexity: [["bbbbbbb", "aaaaaaa"]],
+      },
+    },
+  )
+  assert.deepEqual(repoEdu.commits.slice(0, 2), [
+    {
+      sha: "aaaaaaa",
+      date: "2026-10-30",
+      subject: newestSubject,
+      windowStart: "redesign",
+      findings: [`[C] [area:area-a] ${recurring} Correct`],
+    },
+    {
+      sha: "bbbbbbb",
+      date: "2026-10-29",
+      subject: earlierSubject,
+      windowStart: "redesign",
+      findings: [`[C] [area:area-a] ${recurring} Correct`],
+    },
+  ])
+  assert.deepEqual(
+    {
+      sha: repoEdu.commits[2].sha,
+      date: repoEdu.commits[2].date,
+      subject: repoEdu.commits[2].subject,
+      findings: repoEdu.commits[2].findings,
+    },
+    {
+      sha: "ccccccc",
+      date: "2026-10-28",
+      subject: unreadableSubject,
+      findings: [],
+    },
+  )
+  assert.match(repoEdu.commits[2].unreadable, /finding bullet/)
+  for (const commit of [...plan.commits, ...repoEdu.commits]) {
+    for (const field of [
+      "committedAt",
+      "body",
+      "files",
+      "renames",
+      "parsed",
+      "loose",
+      "trajectory",
+      "tokens",
+    ])
+      assert.equal(field in commit, false, field)
+  }
+})
+
+test("the watch view keeps dropped findings from finished rounds and all unfinished findings", () => {
+  const roundData = watchRoundDataFixture()
   const evidence = JSON.parse(
     formatWatchEvidence(
       joinedEpisode(
@@ -150,13 +305,39 @@ test("joined watch evidence keeps planning and implementation round data beside 
         "example",
         areas,
       ),
-      { planning: [], implementation: [] },
+      roundData,
     ),
   )
-
-  assert.equal(evidence.topic, "example")
-  assert.deepEqual(evidence.roundData, { planning: [], implementation: [] })
-  assert.equal(evidence.repositories.length, 2)
+  const planningSource = roundData.planning?.[0]
+  const implementationSource = roundData.implementation?.[0]
+  assert.ok(planningSource)
+  assert.ok(implementationSource)
+  assert.deepEqual(evidence.roundData.planning, [
+    {
+      target: "example-plan",
+      round: 3,
+      commits: [{ repository: "repo-edu", sha: "aaaaaaa" }],
+      status: "finished",
+      findings: [planningSource.findings[0]],
+      phases: [
+        { phase: "audit", compactions: 1 },
+        { phase: "fix", compactions: 0 },
+      ],
+    },
+  ])
+  assert.deepEqual(evidence.roundData.implementation, [
+    {
+      target: "example-impl-01..01",
+      round: 4,
+      commits: [{ repository: "repo-edu", sha: "bbbbbbb" }],
+      status: "failed",
+      findings: implementationSource.findings,
+      phases: [
+        { phase: "audit", compactions: 1 },
+        { phase: "fix", compactions: 0 },
+      ],
+    },
+  ])
 })
 
 test("each finding resolves current, split and unknown areas while all other tokens still count", () => {
@@ -189,7 +370,6 @@ test("each finding resolves current, split and unknown areas while all other tok
     areas: { "area-a": 1, "child-a": 1, "child-b": 1 },
     covers: { "cover-x": 1 },
   })
-  assert.deepEqual(data.commits[0].tokens, data.tokens)
   assert.match(findings[2].text, /Missing|Correct/)
   const currentWins = computeEpisode(
     history(correction("retired")),
@@ -287,7 +467,6 @@ test("a missing or malformed bullet makes the whole commit unreadable, D include
     )
     assert.equal(data.unreadable.length, 1)
     assert.equal(data.commits[0].findings.length, 0)
-    assert.equal(data.commits[0].trajectory.counts.d, 1)
   }
 })
 

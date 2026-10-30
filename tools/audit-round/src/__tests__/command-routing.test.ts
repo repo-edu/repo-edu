@@ -110,24 +110,27 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       return JSON.parse(f.visible.join("\n"))
     }
+    const topic = (evidence: {
+      repositories: readonly { readonly topic: string | null }[]
+    }) => evidence.repositories[0]?.topic
     assert.equal(
-      (await invoke()).topic,
+      topic(await invoke()),
       working === "plan" ? "newest" : "planning",
     )
     const planAnchor = await invoke(planNewest)
-    assert.equal(planAnchor.topic, "planning")
+    assert.equal(topic(planAnchor), "planning")
     assert.ok(
       planAnchor.repositories
         .find((entry: { repository: string }) => entry.repository === "plan")
         .anchor.startsWith(planNewest),
     )
     const stem = await invoke("example")
-    assert.equal(stem.topic, "example")
+    assert.equal(topic(stem), "example")
     assert.equal(stem.repositories.length, 2)
     for (const target of ["example.md", "example-widen", "example-widen.md"])
       assert.deepEqual(await invoke(target), stem)
     const named = await invoke("facade.md")
-    assert.equal(named.topic, "facade")
+    assert.equal(topic(named), "facade")
     assert.ok(
       named.repositories
         .find((entry: { repository: string }) => entry.repository === "plan")
@@ -136,7 +139,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         ),
     )
     const anchored = await invoke(older)
-    assert.equal(anchored.topic, "older")
+    assert.equal(topic(anchored), "older")
     assert.ok(
       anchored.repositories
         .find(
@@ -145,12 +148,12 @@ for (const working of ["repo-edu", "plan"] as const) {
         .anchor.startsWith(older),
     )
     const fallback = await invoke("HEAD-1")
-    assert.equal(fallback.topic, "newest")
+    assert.equal(topic(fallback), "newest")
     assert.equal(
       fallback.repositories.find(
         (entry: { repository: string }) => entry.repository === "repo-edu",
       ).anchor,
-      unstemmed,
+      unstemmed.slice(0, 7),
     )
     const head = await invoke("HEAD")
     assert.ok(

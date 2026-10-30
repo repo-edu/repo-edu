@@ -6,11 +6,14 @@ import {
   repeatedGrowthPatterns,
   runEvidence,
   tokenCounts,
-  trajectory,
 } from "./episode-facts.js"
 import { type LogCommit, readLog } from "./episode-log.js"
 import { type Finding, readFindings } from "./findings.js"
-import { type PlanRoundData, readPlanRoundData } from "./round-data.js"
+import {
+  type PlanRoundData,
+  type RoundData,
+  readPlanRoundData,
+} from "./round-data.js"
 import {
   looseForm,
   parseSubject,
@@ -33,11 +36,8 @@ export type EpisodeFinding = Finding & {
 
 export type EpisodeCommit = LogCommit & {
   readonly parsed: Subject | null
-  readonly loose: ReturnType<typeof looseForm>
   readonly findings: readonly EpisodeFinding[]
   readonly unreadable: string | null
-  readonly trajectory: ReturnType<typeof trajectory>
-  readonly tokens: ReturnType<typeof tokenCounts>
   /** Candidates only. The watch decides whether a redesign retires a shape. */
   readonly windowStart: "redesign" | "widening" | null
 }
@@ -175,11 +175,8 @@ function readCommit(
   return {
     ...commit,
     parsed,
-    loose,
     findings,
     unreadable,
-    trajectory: trajectory(parsed),
-    tokens: tokenCounts(findings),
     windowStart,
   }
 }
@@ -377,18 +374,83 @@ export async function readWatchEvidence(
   )
 }
 
-/** One serialisation for Git and round-data evidence; no episode file. */
+function shortSha(sha: string): string {
+  return sha.slice(0, 7)
+}
+
+function findingPrefix(finding: EpisodeFinding): string {
+  return finding.text.slice(2, finding.text.indexOf(": "))
+}
+
+function watchRepository(episode: Episode) {
+  return {
+    repository: episode.repository,
+    topic: episode.topic,
+    head: episode.head === null ? null : shortSha(episode.head),
+    anchor: episode.anchor === null ? null : shortSha(episode.anchor),
+    tokens: episode.tokens,
+    runs: {
+      growthPatterns: episode.runs.growthPatterns.map(({ label, commits }) => ({
+        label,
+        commits: commits.map(shortSha),
+      })),
+      complexity: episode.runs.complexity.map((commits) =>
+        commits.map(shortSha),
+      ),
+    },
+    commits: episode.commits.map((commit) => ({
+      sha: shortSha(commit.sha),
+      date: new Date(commit.committedAt * 1000).toISOString().slice(0, 10),
+      subject: commit.subject,
+      ...(commit.windowStart === null
+        ? {}
+        : { windowStart: commit.windowStart }),
+      ...(commit.unreadable === null ? {} : { unreadable: commit.unreadable }),
+      findings: commit.findings.map(findingPrefix),
+    })),
+  }
+}
+
+function watchRound(round: RoundData) {
+  return {
+    target: round.target,
+    round: round.round,
+    commits: round.commits.map(({ repository, sha }) => ({
+      repository,
+      sha: shortSha(sha),
+    })),
+    status: round.status,
+    findings:
+      round.status === "finished"
+        ? round.findings.filter((finding) => finding.outcome === "dropped")
+        : round.findings,
+    phases: round.phases.map(({ phase, compactions }) => ({
+      phase,
+      compactions,
+    })),
+  }
+}
+
+function watchRoundData(roundData: PlanRoundData) {
+  return {
+    ...(roundData.planning === undefined
+      ? {}
+      : { planning: roundData.planning.map(watchRound) }),
+    ...(roundData.implementation === undefined
+      ? {}
+      : { implementation: roundData.implementation.map(watchRound) }),
+  }
+}
+
+/** Project and serialise the one watch view; no episode file. */
 export function formatWatchEvidence(
   evidence: ReturnType<typeof joinedEpisode>,
   roundData: PlanRoundData = {},
 ): string {
   return JSON.stringify(
     {
-      ...evidence,
-      roundData,
-      repositories: evidence.repositories.map(
-        ({ history: _history, ...episode }) => episode,
-      ),
+      repositories: evidence.repositories.map(watchRepository),
+      roundData: watchRoundData(roundData),
     },
     null,
     2,
