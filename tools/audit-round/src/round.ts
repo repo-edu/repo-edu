@@ -360,7 +360,7 @@ export async function runRound(
   dependencies: RoundDependencies,
   settings: RoundSettings,
 ): Promise<RoundResult> {
-  let account: RoundAccount = { judgedRepos: [], findings: [] }
+  let account: RoundAccount = { opening: "", judgedRepos: [], findings: [] }
   const phases = roundPhases(
     input.auditor,
     input.override ?? noOverride,
@@ -421,6 +421,7 @@ export async function runRound(
     }
   }
   account = {
+    opening: evidence.opening,
     judgedRepos: evidence.judgedRepos,
     findings: reviewedRoundFindings(evidence.findings),
   }

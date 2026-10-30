@@ -129,6 +129,7 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
   const planning: PlanningRoundData = {
     ...common,
     phase: "detailing",
+    opening: "",
     findings: [
       {
         ...reportFinding(1, "Dropped plan finding"),
@@ -167,6 +168,23 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
   assert.equal(evidence.planning?.[0]?.findings[0]?.outcome, "dropped")
   assert.equal(evidence.implementation?.[0]?.status, "failed")
   assert.equal(evidence.implementation?.[0]?.phases[0]?.compactions, 1)
+})
+
+test("planning round data rejects history without the required opening", async (t) => {
+  const f = await fixture(t)
+  const {
+    scope: _scope,
+    judgedRepos: _judgedRepos,
+    ...common
+  } = entry("example-plan", 1)
+  const path = join(f.root, "example-plan-rounds.json")
+
+  assert.throws(() =>
+    parseRoundDataFile(
+      path,
+      JSON.stringify([{ ...common, phase: "widening" }]),
+    ),
+  )
 })
 
 test("a plan's watch evidence omits a round kind whose file is absent", async (t) => {

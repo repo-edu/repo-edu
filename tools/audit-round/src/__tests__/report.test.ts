@@ -115,6 +115,7 @@ test("the report opening identifies the judged repos independently of evidence",
         "implementation",
       ),
       {
+        opening: "",
         findings: [],
         judgedRepos,
       },
@@ -155,6 +156,7 @@ test("plain judged-repos lines survive formatted neighbours in the same paragrap
         "implementation",
       ),
       {
+        opening: "",
         findings: [],
         judgedRepos: ["repo-edu"],
       },
@@ -190,15 +192,31 @@ test("missing, duplicate, quoted and malformed judged-repos openings fail", () =
 test("settled reports carry findings and judged repositories after routing", () => {
   assert.deepEqual(
     readAuditReport(implementation("No findings."), "implementation"),
-    { findings: [], judgedRepos: ["plan", "repo-edu"] },
+    { opening: "", findings: [], judgedRepos: ["plan", "repo-edu"] },
   )
   assert.deepEqual(
     readAuditReport(
       planning("No excess findings.", "No missing findings."),
       "detailing",
     ),
-    { findings: [], judgedRepos: ["plan"] },
+    { opening: "", findings: [], judgedRepos: ["plan"] },
   )
+})
+
+test("widening reports retain their complete document opening", () => {
+  const source = planning(
+    "No excess findings.",
+    "No missing findings.",
+  ).replace(
+    "Judged repos: plan@abc123\n\n",
+    "Judged repos: plan@abc123\n\nSettle once finding 1 has landed.\n\n",
+  )
+
+  assert.equal(
+    readAuditReport(source, "widening").opening,
+    "# Planning round workflow\n\nJudged repos: plan@abc123\n\nSettle once finding 1 has landed.",
+  )
+  assert.equal(readAuditReport(source, "detailing").opening, "")
 })
 
 test("reports require the workflow that matches their class", () => {

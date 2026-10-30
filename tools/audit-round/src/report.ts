@@ -45,6 +45,7 @@ export function reportKind(source: string): RoundKind {
 export type ReportFindings = readonly ReportFinding[]
 
 export type AuditReport = {
+  readonly opening: string
   readonly findings: ReportFindings
   readonly judgedRepos: readonly Repository[]
 }
@@ -56,6 +57,14 @@ type OpeningLine = {
   readonly plain: string
   /** Formatted spans keep their source, so a reason loses no words. */
   readonly text: string
+}
+
+function reportOpening(children: readonly Block[], source: string): string {
+  const end = children.findIndex(
+    (node) => node.type === "heading" && node.depth === 2,
+  )
+  const offset = end === -1 ? undefined : children[end]?.position?.start.offset
+  return source.slice(0, offset).trim()
 }
 
 function openingLines(
@@ -372,6 +381,7 @@ export function readReport(
     titles.add(finding.title)
   }
   return {
+    opening: reportClass === "widening" ? reportOpening(children, source) : "",
     findings,
     judgedRepos: repositories,
   }

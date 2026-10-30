@@ -182,7 +182,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     report: "REPORT.md",
     session,
     commits: [],
-    account: { judgedRepos: ["repo-edu"], findings: [] },
+    account: { opening: "", judgedRepos: ["repo-edu"], findings: [] },
   })
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
   assert.ok(run.data)
@@ -209,7 +209,11 @@ test("stopping between retained writes leaves the settled entry in progress", as
   const output = new RoundOutput(run, {
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
-  output.writeSettledRound([], { judgedRepos: ["repo-edu"], findings: [] })
+  output.writeSettledRound([], {
+    opening: "",
+    judgedRepos: ["repo-edu"],
+    findings: [],
+  })
   output.close()
 
   assert.ok(run.data)
@@ -219,6 +223,39 @@ test("stopping between retained writes leaves the settled entry in progress", as
   )
   assert.equal(entry?.status, "in-progress")
   assert.equal(entry?.judge, null)
+})
+
+test("widening planning data retains the report opening", async (t) => {
+  const f = await fixture(t)
+  const run = await buildRoundRun(
+    {
+      ...testSetup(f.root, "planning"),
+      plan: "example-widen.md",
+    },
+    Date.now(),
+    releases,
+    testSettings,
+  )
+  const output = new RoundOutput(run, {
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+  })
+  const opening =
+    "# Planning round workflow\n\nJudged repos: plan@abc123\n\nSettle once finding 1 has landed."
+  output.writeSettledRound([], {
+    opening,
+    judgedRepos: ["plan"],
+    findings: [],
+  })
+  output.close()
+
+  assert.ok(run.data)
+  const [entry] = parseRoundDataFile(
+    run.data.path,
+    await readFile(run.data.path, "utf8"),
+  )
+  assert.ok(entry && "phase" in entry)
+  assert.equal(entry.phase, "widening")
+  assert.equal(entry.opening, opening)
 })
 
 test("the final retained write stores the judge answer", async (t) => {
@@ -238,7 +275,11 @@ test("the final retained write stores the judge answer", async (t) => {
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
   t.after(() => output.close())
-  const account = { judgedRepos: ["repo-edu"] as const, findings: [] }
+  const account = {
+    opening: "",
+    judgedRepos: ["repo-edu"] as const,
+    findings: [],
+  }
   output.writeSettledRound([], account)
   output.finish({
     status: "finished",
@@ -279,7 +320,11 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
   t.after(() => output.close())
-  const account = { judgedRepos: ["repo-edu"] as const, findings: [] }
+  const account = {
+    opening: "",
+    judgedRepos: ["repo-edu"] as const,
+    findings: [],
+  }
   output.writeSettledRound([], account)
   output.finish({
     status: "failed",
@@ -318,7 +363,11 @@ for (const [name, abortReason, status] of [
       terminal: { write: () => {}, status: () => {}, clear: () => {} },
     })
     t.after(() => output.close())
-    const account = { judgedRepos: ["repo-edu"] as const, findings: [] }
+    const account = {
+      opening: "",
+      judgedRepos: ["repo-edu"] as const,
+      findings: [],
+    }
     const interruption = new AbortController()
     interruption.abort(new Error(abortReason))
     output.finish(
@@ -438,7 +487,7 @@ for (const assistant of ["claude", "codex"] as const) {
           sha: "0123456789abcdef0123456789abcdef01234567",
         },
       ],
-      account: { judgedRepos: ["repo-edu"], findings: [] },
+      account: { opening: "", judgedRepos: ["repo-edu"], findings: [] },
     })
 
     assert.ok(run.data)
@@ -541,7 +590,7 @@ for (const assistant of ["claude", "codex"] as const) {
       judge: null,
       watch: null,
       commits: [],
-      account: { judgedRepos: ["repo-edu"], findings: [] },
+      account: { opening: "", judgedRepos: ["repo-edu"], findings: [] },
     })
 
     assert.ok(run.data)

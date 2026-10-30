@@ -182,6 +182,7 @@ function controlledRound(
     await settle(input)
   }
   const evidence = {
+    opening: "",
     findings: [reportFinding],
     accepted: false,
     subjects: ["example/impl-audit-1 oth clean: settled"],
@@ -211,6 +212,7 @@ function controlledRound(
       return { message: "Clean audit recorded", commits: [] }
     },
     readReport: async () => ({
+      opening: evidence.opening,
       findings: evidence.findings,
       judgedRepos: ["repo-edu"],
     }),
@@ -407,6 +409,7 @@ test("the round account retains review, rebuttal and settlement outcomes", async
   )
   assert.equal(result.status, "finished")
   assert.deepEqual(result.account, {
+    opening: "",
     judgedRepos: ["repo-edu"],
     findings: [
       {
@@ -492,6 +495,7 @@ for (const grade of ["green", "amber"] as const) {
       {
         ...round.dependencies,
         readReport: async () => ({
+          opening: "",
           findings: [reportFinding],
           judgedRepos: ["plan", "repo-edu"],
         }),
@@ -1592,6 +1596,7 @@ test("the round reads each supplied file and records both heads immediately befo
       async readReport(file, kind) {
         reads.push([file, kind])
         return {
+          opening: "",
           findings: [reportFinding, secondReportFinding],
           judgedRepos: ["repo-edu"],
         }
