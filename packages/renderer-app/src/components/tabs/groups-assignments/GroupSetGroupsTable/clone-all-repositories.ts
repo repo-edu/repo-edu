@@ -33,9 +33,7 @@ export function createCloneAllSafeListingInput(params: {
   }
 }
 
-export type CloneAllListingAdmissionId = CloneAllSafeListingInput & {
-  readonly listingGeneration: number
-}
+export type CloneAllListingAdmissionId = CloneAllSafeListingInput
 
 export type CloneAllPublishedListingInput = {
   readonly admissionId: CloneAllListingAdmissionId
@@ -222,8 +220,7 @@ export function cloneAllAdmissionIdsEqual(
     left.connectionId === right.connectionId &&
     left.namespace === right.namespace &&
     left.filter === right.filter &&
-    left.includeArchived === right.includeArchived &&
-    left.listingGeneration === right.listingGeneration
+    left.includeArchived === right.includeArchived
   )
 }
 

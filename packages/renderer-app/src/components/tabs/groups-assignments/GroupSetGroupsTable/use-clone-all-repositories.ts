@@ -137,11 +137,7 @@ export function useCloneAllRepositories({
       if (rawListingInput === null) return
       client.change(() => {
         const input: CloneAllPublishedListingInput = {
-          admissionId: {
-            ...rawListingInput,
-            listingGeneration:
-              (publishedListingInput?.admissionId.listingGeneration ?? 0) + 1,
-          },
+          admissionId: rawListingInput,
           credentials,
         }
         dispatchListing({ type: "search", input })

@@ -809,7 +809,7 @@ describe("analysis runner lifetime in React", () => {
     assert.ok(read().result)
   })
 
-  it("waits for a repository request after cancelling a repeated search", {
+  it("keeps cached analysis after cancelling a repeated search", {
     timeout: 3000,
   }, async (t) => {
     const entered = deferred<AbortSignal>()
@@ -849,7 +849,7 @@ describe("analysis runner lifetime in React", () => {
     const signal = await entered.promise
     await React.act(flushQueries)
     assert.equal(read().discoveryStatus, "loading")
-    assert.equal(read().result, null)
+    assert.deepEqual(read().result, result)
     await React.act(async () => {
       read().cancelDiscovery()
       await flushQueries()
@@ -863,13 +863,7 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(searches, 2)
     assert.equal(read().discoveryStatus, "idle")
     assert.deepEqual(read().discoveredRepos, discoveredRepos)
-    assert.equal(read().result, null)
-    await React.act(async () => {
-      read().analyseSelectedRepository()
-      await controller.waitForIdle()
-      await flushQueries()
-    })
-    await waitForResult()
+    assert.deepEqual(read().result, result)
   })
 
   for (const start of ["Start", "Run Analysis"] as const) {

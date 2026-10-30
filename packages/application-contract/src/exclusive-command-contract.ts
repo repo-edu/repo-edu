@@ -39,46 +39,22 @@ export type CourseChangingCommandId =
 
 type CommandDeclaration<K extends ExclusiveCommandId> = {
   courseTransition: K extends CourseChangingCommandId ? "required" : "none"
-  settlementReads: K extends "examination.archive.import"
-    ? readonly [
-        "examination.lookupQuestionSummaries",
-        "examination.lookupQuestions",
-      ]
-    : readonly []
 }
 
 export const exclusiveCommandDeclarations = {
-  "roster.importFromFile": {
-    courseTransition: "required",
-    settlementReads: [],
-  },
-  "roster.exportMembers": { courseTransition: "none", settlementReads: [] },
-  "groupSet.importFromFile": {
-    courseTransition: "required",
-    settlementReads: [],
-  },
-  "groupSet.export": { courseTransition: "none", settlementReads: [] },
-  "gitUsernames.import": { courseTransition: "required", settlementReads: [] },
-  "repo.create": { courseTransition: "required", settlementReads: [] },
-  "repo.clone": { courseTransition: "required", settlementReads: [] },
-  "repo.update": { courseTransition: "required", settlementReads: [] },
-  "repo.bulkClone": { courseTransition: "none", settlementReads: [] },
-  "userFile.exportPreview": { courseTransition: "none", settlementReads: [] },
-  "examination.generateQuestions": {
-    courseTransition: "none",
-    settlementReads: [],
-  },
-  "examination.archive.export": {
-    courseTransition: "none",
-    settlementReads: [],
-  },
-  "examination.archive.import": {
-    courseTransition: "none",
-    settlementReads: [
-      "examination.lookupQuestionSummaries",
-      "examination.lookupQuestions",
-    ],
-  },
+  "roster.importFromFile": { courseTransition: "required" },
+  "roster.exportMembers": { courseTransition: "none" },
+  "groupSet.importFromFile": { courseTransition: "required" },
+  "groupSet.export": { courseTransition: "none" },
+  "gitUsernames.import": { courseTransition: "required" },
+  "repo.create": { courseTransition: "required" },
+  "repo.clone": { courseTransition: "required" },
+  "repo.update": { courseTransition: "required" },
+  "repo.bulkClone": { courseTransition: "none" },
+  "userFile.exportPreview": { courseTransition: "none" },
+  "examination.generateQuestions": { courseTransition: "none" },
+  "examination.archive.export": { courseTransition: "none" },
+  "examination.archive.import": { courseTransition: "none" },
 } as const satisfies { [K in ExclusiveCommandId]: CommandDeclaration<K> }
 
 export type Immutable<T> = T extends readonly (infer Item)[]

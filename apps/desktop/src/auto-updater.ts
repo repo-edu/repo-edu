@@ -211,10 +211,6 @@ export function initAutoUpdater(
   }, updateCheckIntervalMs)
 }
 
-export function bindAutoUpdaterWindow(mainWindow: BrowserWindow): void {
-  currentWindow = mainWindow
-}
-
 export async function checkForUpdatesNow(options?: {
   manual?: boolean
 }): Promise<void> {

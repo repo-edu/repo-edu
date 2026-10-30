@@ -481,7 +481,6 @@ export function installDesktopApplication(): void {
         ? `Download Update ${updaterState.availableVersion}`
         : "Download Update"
 
-    type UpdaterMenuStart = "check" | "download" | "restart"
     const starts = {
       check: {
         label: checkLabel,
@@ -526,7 +525,7 @@ export function installDesktopApplication(): void {
           }
         },
       },
-    } satisfies Record<UpdaterMenuStart, MenuItemConstructorOptions>
+    }
     const items: MenuItemConstructorOptions[] = Object.values(starts)
 
     if (updaterState.errorMessage) {

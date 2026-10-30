@@ -3,7 +3,7 @@ import { describe, it } from "node:test"
 import { QueryObserver } from "@tanstack/react-query"
 import {
   createRendererQueryClient,
-  refreshSourceSnapshotHeadQueries,
+  invalidateSourceSnapshotHeadQueries,
 } from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
@@ -57,7 +57,7 @@ function buildBlameData(lineCount: number) {
 }
 
 describe("renderer analysis query cache", () => {
-  it("clears observed snapshot heads without fetching and removes inactive ones", async () => {
+  it("marks snapshot heads stale without fetching or clearing cached values", async () => {
     const queryClient = createRendererQueryClient()
     const analysis = buildAnalysisQueryIdentity({
       source,
@@ -103,15 +103,33 @@ describe("renderer analysis query cache", () => {
     const unsubscribe = observer.subscribe(() => {})
 
     try {
-      await refreshSourceSnapshotHeadQueries(queryClient, source)
+      await invalidateSourceSnapshotHeadQueries(queryClient, source)
 
-      assert.equal(queryClient.getQueryData(snapshotKey), undefined)
-      assert.equal(observer.getCurrentResult().data, undefined)
-      assert.equal(queryClient.getQueryData(inactiveSnapshotKey), undefined)
+      assert.equal(queryClient.getQueryData(snapshotKey), "old-head")
+      assert.equal(observer.getCurrentResult().data, "old-head")
+      assert.equal(
+        queryClient.getQueryData(inactiveSnapshotKey),
+        "inactive-head",
+      )
+      assert.equal(queryClient.getQueryState(snapshotKey)?.isInvalidated, true)
+      assert.equal(
+        queryClient.getQueryState(inactiveSnapshotKey)?.isInvalidated,
+        true,
+      )
       assert.equal(snapshotFetchCount, 0)
       assert.deepEqual(queryClient.getQueryData(discoveryKey), { repos: [] })
       assert.deepEqual(queryClient.getQueryData(resultKey), { result: true })
       assert.deepEqual(queryClient.getQueryData(blameKey), { blame: true })
+
+      await queryClient.fetchQuery({
+        queryKey: snapshotKey,
+        queryFn: async () => {
+          snapshotFetchCount++
+          return "new-head"
+        },
+      })
+      assert.equal(snapshotFetchCount, 1)
+      assert.equal(queryClient.getQueryData(snapshotKey), "new-head")
     } finally {
       unsubscribe()
     }

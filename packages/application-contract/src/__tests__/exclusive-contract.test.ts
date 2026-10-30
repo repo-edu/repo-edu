@@ -102,17 +102,7 @@ describe("exclusive command contracts", () => {
     }
   })
 
-  it("declares bounded authoritative reads for archive import", () => {
-    assert.deepEqual(
-      exclusiveCommandDeclarations["examination.archive.import"]
-        .settlementReads,
-      ["examination.lookupQuestionSummaries", "examination.lookupQuestions"],
-    )
-    for (const id of [...courseCommands, ...effectCommands]) {
-      if (id !== "examination.archive.import") {
-        assert.deepEqual(exclusiveCommandDeclarations[id].settlementReads, [])
-      }
-    }
+  it("types the bounded authoritative values for archive import", () => {
     const operation: ExclusiveRequestOperation<"examination.archive.import"> = {
       workflowId: "examination.archive.import",
       input: file,

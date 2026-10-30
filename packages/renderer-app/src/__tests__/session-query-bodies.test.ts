@@ -66,7 +66,6 @@ describe("session Query bodies", () => {
         namespace: "org",
         filter: "",
         includeArchived: false,
-        listingGeneration: 1,
       },
       credentials: defaultAppCredentials,
     }
@@ -135,7 +134,6 @@ describe("session Query bodies", () => {
         namespace: "org",
         filter: "",
         includeArchived: false,
-        listingGeneration: 1,
       },
       credentials: defaultAppCredentials,
     }

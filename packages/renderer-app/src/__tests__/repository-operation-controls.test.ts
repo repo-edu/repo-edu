@@ -61,10 +61,7 @@ const initialInput: CloneAllSafeListingInput = {
 }
 
 const initialPublishedInput: CloneAllPublishedListingInput = {
-  admissionId: {
-    ...initialInput,
-    listingGeneration: 1,
-  },
+  admissionId: initialInput,
   credentials: firstCredentials,
 }
 
@@ -105,7 +102,6 @@ describe("clone-all listing requests", () => {
         ...initialInput,
         filter: "lab-2*",
         includeArchived: true,
-        listingGeneration: 2,
       },
       credentials: secondCredentials,
     }
@@ -168,7 +164,6 @@ describe("clone-all query ownership", () => {
           ...createCloneAllListingQueryPolicy({
             ...initialPublishedInput.admissionId,
             filter: "lab-2*",
-            listingGeneration: 2,
           }),
           enabled: false,
         })
@@ -227,6 +222,58 @@ describe("clone-all query ownership", () => {
     assert.equal(policy.retry, false)
     assert.equal(policy.refetchOnWindowFocus, false)
     assert.equal(policy.refetchOnReconnect, false)
+  })
+
+  it("keeps a cached listing while the same search is cancelled", async (t) => {
+    resetStores()
+    const entered = deferred<void>()
+    const release = deferred<void>()
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "course.list") return []
+        if (id === "settings.loadApp") return makeSettings()
+        if (id === "repo.listNamespace") {
+          entered.resolve()
+          await release.promise
+          return listingResult
+        }
+        assert.fail(id)
+      }),
+    })
+    const queryClient = new QueryClient()
+    t.after(() => {
+      release.resolve()
+      controller.dispose()
+      queryClient.clear()
+    })
+    await controller.waitForIdle()
+    const policy = createCloneAllListingQueryPolicy(
+      initialPublishedInput.admissionId,
+    )
+    queryClient.setQueryData(policy.queryKey, listingResult)
+    const observer = new QueryObserver<RepositoryListNamespaceResult>(
+      queryClient,
+      { ...policy, enabled: false },
+    )
+    const unsubscribe = observer.subscribe(() => {})
+    t.after(unsubscribe)
+
+    const listing = fetchCloneAllListing(
+      testSessionStart("cloneAllSearch"),
+      controller.operations,
+      queryClient,
+      initialPublishedInput,
+    )
+    await entered.promise
+    assert.deepEqual(observer.getCurrentResult().data, listingResult)
+
+    controller.operations.stop("repo.listNamespace")
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.deepEqual(observer.getCurrentResult().data, listingResult)
+    assert.deepEqual(queryClient.getQueryData(policy.queryKey), listingResult)
+
+    release.resolve()
+    await listing.catch(() => undefined)
   })
 })
 
@@ -372,7 +419,7 @@ describe("clone-all admission and clone inputs", () => {
             ...variables,
             listingAdmissionId: {
               ...variables.listingAdmissionId,
-              listingGeneration: 2,
+              filter: "lab-2*",
             },
           },
           publishedInput: initialPublishedInput,

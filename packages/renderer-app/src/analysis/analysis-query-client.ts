@@ -108,12 +108,13 @@ export function clearAnalysisQueries(
   }
 }
 
-export function refreshSourceSnapshotHeadQueries(
+export function invalidateSourceSnapshotHeadQueries(
   queryClient: QueryClient,
   source: AnalysisSourceKeyParts,
-): void {
-  clearAnalysisQueries(queryClient, {
+): Promise<void> {
+  return queryClient.invalidateQueries({
     predicate: (query) =>
       queryKeyMatchesSourceSnapshotHead(query.queryKey, source),
+    refetchType: "none",
   })
 }
