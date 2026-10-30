@@ -39,14 +39,20 @@ the episode, omission uses the newest stem commit across both repos by commit
 date and `help` shows usage. The `episode` command resolves a commit before
 a stem; a SHA anchors its hosting repo and HEAD forms mean Repo Edu.
 
-Pass the original target unchanged to `pnpm audit-round episode [target]`,
-omitting it when absent. Read the returned evidence in the watch context.
-In chat, return the grounded description, the grade with evidence and the
-suggested response with its reason under **Voice** below. On red, or when the
-response is a targeted fix plan, add the certainty level and its seed under
-**Shape**. On amber, name the
-area and the horizon in iterations for looking again under **Watch step**.
-Then ask for the user's decision and stop.
+Pass the original target unchanged to every
+`pnpm audit-round episode [target] --lines <start>-<end>` call, omitting the
+target when absent. Request lines 1-200 first, then the next 200 lines in order
+until the returned range reaches the current total stated by the command. Each
+call rebuilds the current view. If a later call returns `none` after the view
+shrinks, stop when the previous returned range already reaches its new total.
+Do not pin its heads between calls or write the evidence to a file.
+
+Read every returned page in the watch context. In chat, return the grounded
+description, the grade with evidence and the suggested response with its
+reason under **Voice** below. On red, or when the response is a targeted fix
+plan, add the certainty level and its seed under **Shape**. On amber, name the
+area and the horizon in iterations for looking again under **Watch step**. Then
+ask for the user's decision and stop.
 Do not stop an iteration or schedule a later watch yourself. The watch's
 independence, evidence and judgement rules below apply to both routes.
 
@@ -67,12 +73,12 @@ nothing in flight to block. A red grade from that phase ends the auditor
 sequence, so no queued round starts before the user decides.
 
 The shared episode module in Repo Edu computes membership and counts from Git.
-The runner supplies the audited plan's topic and formats joined evidence only
-after a finished fix when glance says watch is due. The evidence carries the Git
-episode, including the two graded heads, and each of the plan's two round data
-files that exists. The writer owns both the judgement and the finished wording.
-A hand-run watch obtains the same evidence under **Hand-run entry**. No route
-writes an episode file or computes an episode before audit.
+The runner supplies the audited plan's topic and formats the reduced JSON view
+only after a finished fix when glance says watch is due. The view names the two
+graded heads and includes the applicable parts of each existing round data
+file. The writer owns both the judgement and the finished wording. A hand-run
+watch obtains the same view under **Hand-run entry**. No route writes an
+episode file or computes an episode before audit.
 
 The evidence is bounded to commits reachable from each repository's HEAD.
 Other branches and refs are outside it. The watch may inspect named commits
@@ -386,13 +392,22 @@ outside the watch.
 ## Input
 
 Use the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
-for the watch and cache-root arguments. The prompt separately supplies one JSON
-value. Its episode fields hold the joined Git evidence and its `roundData`
-object holds the existing `planning` and `implementation` round-kind files. An
-absent key means that round kind has no file. Take the topic and both graded
-heads from the episode evidence; do not select a topic from HEAD or reread
-current heads to replace the supplied ones. The runner computes this snapshot
-after the fix, only when glance says watch is due.
+for the watch and cache-root arguments. The prompt separately supplies one
+indented JSON value. Its `repositories` entries keep the topic, graded head,
+anchor, episode-level token counts, repeated-growth and complexity runs, then
+each member commit's short sha, date, written subject, optional window start,
+optional unreadable reason and finding prefixes through their titles. Bodies,
+file lists and parsed copies are not in the view. Read a named commit's body or
+files from Git only when the grounding rule requires them.
+
+The `roundData` object holds each existing round kind in reduced form: the
+target, round number, landed commits, status, applicable findings and each
+phase's compaction count. A finished round keeps only dropped findings; an
+unfinished round keeps all findings. An absent key means that round kind has
+no file. Take the topic and both graded heads from the supplied view. Do not
+select a topic from HEAD or reread current heads to replace them. The runner
+computes this view after the fix, only when glance says watch is due. A hand-run
+watch reads the current view in pages under **Hand-run entry**.
 
 No route reads or writes an episode file.
 

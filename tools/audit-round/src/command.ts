@@ -99,7 +99,11 @@ import { readRebuttal, readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
-  | { readonly kind: "episode"; readonly target?: string }
+  | {
+      readonly kind: "episode"
+      readonly target?: string
+      readonly lines: LineRange
+    }
   | { readonly kind: "trial" }
   | { readonly kind: "plan" }
   | {
@@ -197,6 +201,37 @@ function sessionTag(value: string): string {
       "Expected a full session tag, such as oth or oux.",
     )
   return value
+}
+
+type LineRange = {
+  readonly first: number
+  readonly last: number
+}
+
+function lineRange(value: string): LineRange {
+  const match = /^([1-9]\d*)-([1-9]\d*)$/.exec(value)
+  const first = Number(match?.[1])
+  const last = Number(match?.[2])
+  if (
+    match === null ||
+    !Number.isSafeInteger(first) ||
+    !Number.isSafeInteger(last) ||
+    first > last
+  )
+    throw new InvalidArgumentError(
+      "Expected an increasing one-based line range, such as 1-200.",
+    )
+  return { first, last }
+}
+
+function watchEvidencePage(evidence: string, range: LineRange): string {
+  const lines = evidence.split("\n")
+  const page = lines.slice(range.first - 1, range.last)
+  const returned =
+    page.length === 0
+      ? "none"
+      : `${range.first}-${range.first + page.length - 1}`
+  return [`Evidence lines ${returned} of ${lines.length}.`, ...page].join("\n")
 }
 
 /** One option's entries in the queue's grammar; an empty list is refused. */
@@ -503,14 +538,19 @@ Use brief --help or close --help for their arguments and options.`,
   command
     .command("episode", { hidden: true })
     .description(
-      "Print joined Git and round data evidence for a hand-run watch without writing files.",
+      "Print a line range of joined Git and round data evidence for a hand-run watch without writing files.",
     )
     .argument(
       "[stem-or-commit]",
       "topic or anchor commit; defaults to the newest topic across both repos; HEAD means Repo Edu",
     )
-    .action((target?: string) => {
-      invocation = { kind: "episode", target }
+    .requiredOption(
+      "--lines <start-end>",
+      "one-based inclusive evidence lines, such as 1-200",
+      lineRange,
+    )
+    .action((target: string | undefined, flags: { lines: LineRange }) => {
+      invocation = { kind: "episode", target, lines: flags.lines }
     })
   command
     .command("trial")
@@ -676,7 +716,10 @@ export async function runCommand(
     const context = await executionContext(options.repoEduRoot)
     if (invocation.kind === "episode") {
       options.terminal.write(
-        await readWatchEvidence({ ...context, target: invocation.target }),
+        watchEvidencePage(
+          await readWatchEvidence({ ...context, target: invocation.target }),
+          invocation.lines,
+        ),
       )
       return 0
     }

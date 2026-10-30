@@ -130,11 +130,17 @@ consumers.
   directly, retired areas resolve through `splitFrom` and unknown areas remain listed on their
   findings. Redesigns and widening renames identify possible new graded windows for the watch to
   judge. `readWatchEvidence` joins both histories with the plan's existing planning and
-  implementation round data, and `formatWatchEvidence` serialises the evidence for the runner and
-  hand-run command. It resolves a hand-run commit target as an explicit anchor in
+  implementation round data. `formatWatchEvidence` projects the repositories, their heads,
+  anchors, episode-level counts and runs, then each commit's short SHA, date, written subject,
+  window candidate, unreadable reason and finding prefixes through their titles. Its round data
+  keeps each round's identity, landed commits, status, applicable findings and phase compaction
+  counts. It serialises that indented view for the runner and hand-run command. It resolves a
+  hand-run commit target as an explicit anchor in
   whichever repo holds its SHA; HEAD forms mean Repo Edu. The peer keeps its own anchor. Without a
   target it takes the newest stem commit across both histories by commit date. No episode file is
-  written.
+  written. The hidden hand-run command takes a one-based inclusive line range over the current
+  indented view. It states the returned range and current total on every call, including an
+  out-of-range call that returns no evidence lines.
 - `judge.ts` reads one round kind's retained data, the stem's episode commit
   list, `STOP-CONDITIONS.md` and the newest watch. It applies the settled-span
   gate and each assistant's latest settled entry on the scope to decide whether
@@ -397,8 +403,10 @@ consumers.
   `delete-reports` and `episode`, and the reopen step calls `mark`, so help hides them. `plan`
   prints the plan an omitted target selects, as its absolute path, and writes nothing, so a user can
   see it before a round or close takes it. `close` resolves its plan before startup, then runs the
-  close phase alone with its own log. The `episode` command prints joined watch evidence from the
-  shared reader and formatter without release resolution, assistant startup or file writes. The
+  close phase alone with its own log. The `episode` command prints the requested line range from
+  joined watch evidence produced by the shared reader and formatter, with its returned range and
+  current total. Every call rebuilds the view. It performs no release resolution, assistant startup
+  or file writes. The
   `name` command claims a round and prints its claim, workflow, working checkout and audit
   arguments. Its required `--auditor` is the hand-run session's full tag, including `u`, checked
   separately from a round's model request. The `paths` command prints the workflow, working checkout
@@ -697,8 +705,8 @@ pnpm audit-round paths rebut example-impl-03..03-01-2-audit.oth.md --writer otm
 pnpm audit-round paths fix example-impl-03..03-01-2-audit.oth.md
 pnpm audit-round delete-reports example-impl-03..03-01
 pnpm audit-round mark reopen
-pnpm audit-round episode example
-pnpm audit-round episode HEAD-2
+pnpm audit-round episode example --lines 1-200
+pnpm audit-round episode HEAD-2 --lines 201-400
 pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
@@ -789,6 +797,15 @@ marker takes a number so a file list shows where the reopen fell among the
 rounds. The plan repo's
 [Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle) owns when each marker is
 written; the command loads no settings and starts no assistant.
+
+`episode [stem-or-commit] --lines <start>-<end>` prints one one-based inclusive
+line range from the current indented watch evidence view. It resolves the
+target before reading the range: omission selects the newest topic across both
+repos, a commit anchors its hosting repo and HEAD forms mean Repo Edu. The first
+line states the returned range and the view's current total line count. An
+out-of-range request reports `none` and returns no evidence lines. Each call
+reads both histories and current round data again. It starts no assistant and
+writes no file, cache entry or snapshot.
 
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
 document in the terminal. Only `--brief` runs it, for every round, without changing the watch. A

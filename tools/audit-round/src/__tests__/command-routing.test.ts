@@ -97,18 +97,38 @@ for (const working of ["repo-edu", "plan"] as const) {
         readdir(path, { recursive: true }),
       ),
     )
-    const invoke = async (target?: string) => {
+    const invokePage = async (
+      target: string | undefined,
+      first = 1,
+      last = 100_000,
+    ) => {
       f.visible.length = 0
       assert.equal(
         await runCommand(
-          ["episode", ...(target === undefined ? [] : [target])],
+          [
+            "episode",
+            ...(target === undefined ? [] : [target]),
+            "--lines",
+            `${first}-${last}`,
+          ],
           f.runtime,
           f.options,
         ),
         0,
         f.errors.join("\n"),
       )
-      return JSON.parse(f.visible.join("\n"))
+      const [heading, ...lines] = f.visible.join("\n").split("\n")
+      const match = /^Evidence lines (none|\d+-\d+) of (\d+)\.$/.exec(heading)
+      assert.ok(match, heading)
+      return {
+        returned: match[1],
+        total: Number(match[2]),
+        lines,
+      }
+    }
+    const invoke = async (target?: string) => {
+      const page = await invokePage(target)
+      return JSON.parse(page.lines.join("\n"))
     }
     const topic = (evidence: {
       repositories: readonly { readonly topic: string | null }[]
@@ -170,11 +190,74 @@ for (const working of ["repo-edu", "plan"] as const) {
           f.heads[entry.repository as keyof typeof f.heads],
         ),
       )
+
+    const whole = await invokePage("example")
+    assert.equal(whole.returned, `1-${whole.total}`)
+    const wholeLines = whole.lines
+    const first = await invokePage("example", 1, 2)
+    assert.equal(first.returned, "1-2")
+    assert.deepEqual(first.lines, wholeLines.slice(0, 2))
+    const middleStart = Math.floor(whole.total / 2)
+    const middle = await invokePage("example", middleStart, middleStart + 1)
+    assert.equal(middle.returned, `${middleStart}-${middleStart + 1}`)
+    assert.deepEqual(
+      middle.lines,
+      wholeLines.slice(middleStart - 1, middleStart + 1),
+    )
+    const last = await invokePage("example", whole.total - 1, whole.total + 20)
+    assert.equal(last.returned, `${whole.total - 1}-${whole.total}`)
+    assert.deepEqual(last.lines, wholeLines.slice(-2))
+    const outside = await invokePage(
+      "example",
+      whole.total + 1,
+      whole.total + 20,
+    )
+    assert.equal(outside.returned, "none")
+    assert.deepEqual(outside.lines, [])
+
+    assert.deepEqual(
+      await Promise.all(
+        [f.repoRoot, f.planRoot, f.options.cacheRoot].map((path) =>
+          readdir(path, { recursive: true }),
+        ),
+      ),
+      before,
+    )
+
+    const stale = await invoke("example")
+    const freshHead = await commitFixture(
+      root,
+      "example/impl-2 oth docs(audit-round): refresh evidence",
+    )
+    const afterCommit = await Promise.all(
+      [f.repoRoot, f.planRoot, f.options.cacheRoot].map((path) =>
+        readdir(path, { recursive: true }),
+      ),
+    )
+    const fresh = await invoke("example")
+    assert.notEqual(
+      fresh.repositories.find(
+        (entry: { repository: string }) => entry.repository === "repo-edu",
+      ).head,
+      stale.repositories.find(
+        (entry: { repository: string }) => entry.repository === "repo-edu",
+      ).head,
+    )
+    assert.equal(
+      fresh.repositories.find(
+        (entry: { repository: string }) => entry.repository === "repo-edu",
+      ).head,
+      freshHead.slice(0, 7),
+    )
     for (const target of ["HEAD-999999999", "HEAD-nope", "f".repeat(40)]) {
       f.visible.length = 0
       f.errors.length = 0
       assert.equal(
-        await runCommand(["episode", target], f.runtime, f.options),
+        await runCommand(
+          ["episode", target, "--lines", "1-200"],
+          f.runtime,
+          f.options,
+        ),
         1,
       )
       assert.match(
@@ -189,7 +272,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           readdir(path, { recursive: true }),
         ),
       ),
-      before,
+      afterCommit,
     )
     await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
       code: "ENOENT",
