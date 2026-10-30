@@ -840,7 +840,7 @@ test("a widening judge can stop the series without recommending settle", async (
   )
 })
 
-test("a failed widening round stops a scope list before later scopes", async (t) => {
+test("a failed round stops a scope list before later scopes", async (t) => {
   const f = await roundFixture(t)
   await rm(join(f.planRoot, "example.md"))
   await f.configure({
