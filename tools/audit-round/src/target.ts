@@ -5,6 +5,7 @@ import type { ExecutionContext } from "./context.js"
 import type { Repository } from "./subject.js"
 
 export type RoundKind = "planning" | "implementation"
+export type PlanPhase = "widening" | "detailing"
 export type RoundContext = ExecutionContext & {
   readonly roundKind: RoundKind
   readonly cwd: string
@@ -65,6 +66,11 @@ export function planStem(plan: string): string {
       ? basename(dirname(plan))
       : basename(plan, ".md")
   ).replace(/-widen$/, "")
+}
+
+/** The active filename is the one owner of a planning round's phase. */
+export function planPhase(plan: string): PlanPhase {
+  return basename(plan).endsWith("-widen.md") ? "widening" : "detailing"
 }
 
 /** An active plan sits directly at the plan root. */

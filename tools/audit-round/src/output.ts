@@ -53,7 +53,7 @@ import {
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { RoundSettings } from "./settings.js"
-import { isActivePlanPath, planStem } from "./target.js"
+import { isActivePlanPath, planPhase, planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
@@ -217,11 +217,7 @@ export async function roundRun(
             chosenBy: setup.auditorSelectionSource,
           },
           ...(setup.roundKind === "planning"
-            ? {
-                phase: basename(setup.plan).endsWith("-widen.md")
-                  ? ("widening" as const)
-                  : ("detailing" as const),
-              }
+            ? { phase: planPhase(setup.plan) }
             : { scope: setup.scope }),
         }
       : undefined

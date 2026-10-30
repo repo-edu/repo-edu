@@ -5,6 +5,7 @@ import { episodeMembers } from "./episode.js"
 import { readLog } from "./episode-log.js"
 import {
   type JudgeAnswer,
+  type JudgeDecision,
   type RoundData,
   readPlanRoundData,
   roundDataFilename,
@@ -106,14 +107,11 @@ function acceptedRealBug(entry: RoundData): boolean {
   )
 }
 
-/**
- * Stop is available only when each assistant's latest settled read of this
- * scope in the current span has no accepted A or B finding.
- */
-export function judgeCanStop(
+/** The decisions the current series phase admits after applying the real-bug gate. */
+export function judgeOptions(
   evidence: JudgeEvidence,
   currentRound: CurrentRound,
-): boolean {
+): readonly JudgeDecision[] {
   let entries = evidence.roundData.rounds.filter(
     (entry) =>
       entry.target === currentRound.target && settled(entry, currentRound),
@@ -150,15 +148,24 @@ export function judgeCanStop(
       first.round - second.round,
   ))
     latest.set(entry.auditor.assistant, entry)
-  return ![...latest.values()].some(acceptedRealBug)
+  const canEnd = ![...latest.values()].some(acceptedRealBug)
+  const continuations = ["claude", "codex"] as const
+  return current !== undefined &&
+    "phase" in current &&
+    current.phase === "widening"
+    ? [...(canEnd ? (["settle"] as const) : []), "stop", ...continuations]
+    : [...(canEnd ? (["stop"] as const) : []), ...continuations]
 }
 
 /** Read the judge's single content line after the phase-result suffix is removed. */
-export function readJudgeAnswer(source: string, canStop: boolean): JudgeAnswer {
+export function readJudgeAnswer(
+  source: string,
+  options: readonly JudgeDecision[],
+): JudgeAnswer {
   const lines = source.trim().split(/\r?\n/)
   const match =
     lines.length === 1
-      ? /^Judge: (stop|continue with Claude|continue with Codex)\. (\S.*)$/.exec(
+      ? /^Judge: (settle|stop|continue with Claude|continue with Codex)\. (\S.*)$/.exec(
           lines[0],
         )
       : null
@@ -167,22 +174,31 @@ export function readJudgeAnswer(source: string, canStop: boolean): JudgeAnswer {
       "Judge answer must contain exactly one plain Judge line and a reason",
     )
   const answer =
-    match[1] === "stop"
-      ? "stop"
+    match[1] === "settle" || match[1] === "stop"
+      ? match[1]
       : match[1] === "continue with Claude"
         ? "claude"
         : "codex"
-  if (!canStop && answer === "stop")
+  if (!options.includes(answer))
     throw new Error(
-      "Judge answered stop while the runner offered only Claude or Codex",
+      `Judge answered ${answer} while the runner offered only ${formatJudgeOptions(options)}`,
     )
   return { answer, reason: match[2] }
 }
 
+export function formatJudgeOptions(options: readonly JudgeDecision[]): string {
+  const labels = options.map((option) =>
+    option === "claude" ? "Claude" : option === "codex" ? "Codex" : option,
+  )
+  return labels.length < 2
+    ? (labels[0] ?? "none")
+    : `${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}`
+}
+
 export function formatJudgeAnswer(answer: JudgeAnswer): string {
   const decision =
-    answer.answer === "stop"
-      ? "stop"
+    answer.answer === "settle" || answer.answer === "stop"
+      ? answer.answer
       : `continue with ${answer.answer === "claude" ? "Claude" : "Codex"}`
   return `Judge: ${decision}. ${answer.reason}`
 }

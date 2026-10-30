@@ -611,7 +611,7 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
   )
   assert.match(
     f.visible.join("\n"),
-    /Plan audit of example: automatic auditor series stopped after 1 round because the plan is now widening\./,
+    /Plan audit of example: automatic auditor series stopped after 1 round because the plan changed from detailing to widening\./,
   )
   const [stored] = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
@@ -746,17 +746,17 @@ test("a clean automatic audit follows its judge", async (t) => {
   )
 })
 
-test("a widening target without --auditor ends after one round", async (t) => {
+test("a widening series ends on the judge's settle recommendation", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
     "plan",
     false,
-    "b",
+    null,
     false,
     "plan",
-    false,
     true,
+    false,
     false,
   )
   await rm(join(f.planRoot, "example.md"))
@@ -767,6 +767,9 @@ test("a widening target without --auditor ends after one round", async (t) => {
       "Phase: widening",
     ),
   )
+  await configureJudgeAnswers(f, [
+    "Judge: settle. No concrete shape question remains.",
+  ])
 
   assert.equal(
     await runCommand(["example-widen.md", "--no-watch"], f.runtime, f.options),
@@ -779,10 +782,65 @@ test("a widening target without --auditor ends after one round", async (t) => {
     ).length,
     1,
   )
-  assert.doesNotMatch(f.visible.join("\n"), /automatic auditor series/)
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Judge: settle\. No concrete shape question remains\./)
+  assert.match(
+    visible,
+    /Plan audit of example: automatic auditor series ended on the judge's settle recommendation after 1 round\./,
+  )
+  assert.match(
+    visible,
+    /The plan remains widening until you run pnpm audit-round settle example\./,
+  )
+  const [stored] = JSON.parse(
+    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+  ) as { phase: string; judge: { answer: string; reason: string } | null }[]
+  assert.equal(stored?.phase, "widening")
+  assert.deepEqual(stored?.judge, {
+    answer: "settle",
+    reason: "No concrete shape question remains.",
+  })
 })
 
-test("a failed one-shot round stops a widening scope list before later scopes", async (t) => {
+test("a widening judge can stop the series without recommending settle", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    null,
+    false,
+    "plan",
+    true,
+    false,
+    false,
+  )
+  await rm(join(f.planRoot, "example.md"))
+  await writeFile(
+    f.report,
+    (await readFile(f.report, "utf8")).replace(
+      "Phase: detailing",
+      "Phase: widening",
+    ),
+  )
+  await configureJudgeAnswers(f, [
+    "Judge: stop. The shape question needs evidence only the user can supply.",
+  ])
+
+  assert.equal(
+    await runCommand(["example-widen.md", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Judge: stop\. The shape question needs evidence/)
+  assert.match(
+    visible,
+    /Plan audit of example: automatic auditor series stopped on the judge answer after 1 round\./,
+  )
+})
+
+test("a failed widening round stops a scope list before later scopes", async (t) => {
   const f = await roundFixture(t)
   await rm(join(f.planRoot, "example.md"))
   await f.configure({

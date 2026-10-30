@@ -713,12 +713,13 @@ PHASE RESULT: {"status":"needs-ruling","reason":null}
 
 ```text
 <judge-answer>   ::= "Judge: "<judge-decision>". "<one-line-reason>
-<judge-decision> ::= stop | continue with Claude | continue with Codex
+<judge-decision> ::= settle | stop | continue with Claude | continue with Codex
 <one-line-reason> ::= non-empty text on one line
 ```
 
-The answer is exactly one plain line. `stop` is admitted only when the runner
-offers it. Either continuation is admitted whenever it is offered.
+The answer is exactly one plain line. `settle` and `stop` are each admitted only
+when the runner offers them. Either continuation is admitted whenever it is
+offered.
 
 ### Examples
 
@@ -734,6 +735,20 @@ Refusal: `Judge answered stop while the runner offered only Claude or Codex`
 
 ```text
 Judge: stop. Both current reads found no remaining real bug.
+```
+
+#### `judge/settle-available` — parsed
+
+```text
+Judge: settle. No concrete shape question remains.
+```
+
+#### `judge/settle-unavailable` — refused
+
+Refusal: `Judge answered settle while the runner offered only stop, Claude or Codex`
+
+```text
+Judge: settle. No concrete shape question remains.
 ```
 
 #### `judge/claude` — parsed

@@ -1,7 +1,6 @@
-import { basename } from "node:path"
 import { errorMessage } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
-import { judgeCanStop } from "./judge.js"
+import { judgeOptions } from "./judge.js"
 import type { RoundDocuments } from "./output.js"
 import {
   type Assistant,
@@ -33,7 +32,12 @@ import {
 import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
-import { type AuditTarget, planStem, type RoundContext } from "./target.js"
+import {
+  type AuditTarget,
+  planPhase,
+  planStem,
+  type RoundContext,
+} from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
 export type RoundSetup = RoundContext & {
@@ -83,7 +87,7 @@ export type RoundResult = (
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
-      /** The fresh judge's answer; manual and red-watch rounds have none. */
+      /** The fresh judge's answer; manual, red-watch and phase-change rounds have none. */
       readonly judge: JudgeAnswer | null
       /** The grade the watch that followed the round recorded; null when none ran. */
       readonly watch: WatchGrade | null
@@ -330,14 +334,14 @@ async function runSeriesJudge(
     const currentRound = roundDataIdentity(
       transcriptNameStart(input.transcript),
     )
-    const canStop = judgeCanStop(evidence, currentRound)
+    const options = judgeOptions(evidence, currentRound)
     const judged = await dependencies.runJudge({
       phase: "judge",
       ...phases.judge,
       ...context,
       arguments: [],
       evidence,
-      canStop,
+      options,
       sessionId: null,
     })
     if (judged.status === "failed")
@@ -402,11 +406,7 @@ export async function runRound(
   try {
     evidence = await dependencies.readReport(
       report,
-      roundKind === "implementation"
-        ? "implementation"
-        : basename(input.plan).endsWith("-widen.md")
-          ? "widening"
-          : "detailing",
+      roundKind === "implementation" ? "implementation" : planPhase(input.plan),
     )
   } catch (error) {
     return {
@@ -734,7 +734,7 @@ export async function runRound(
         input.automatic === true &&
         "plan" in input &&
         currentPlan !== null &&
-        !basename(currentPlan).endsWith("-widen.md") &&
+        planPhase(currentPlan) === planPhase(input.plan) &&
         watched.grade !== "red"
           ? await runSeriesJudge(input, dependencies, settings)
           : { answer: null }

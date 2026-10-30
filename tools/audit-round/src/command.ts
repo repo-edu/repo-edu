@@ -1,5 +1,5 @@
 import { readFile, stat } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { join } from "node:path"
 import {
   Command,
   CommanderError,
@@ -85,6 +85,7 @@ import {
   type AuditTarget,
   activePlan,
   isActivePlanPath,
+  planPhase,
   planRepositoryPrefix,
   planStem,
   requiredActivePlan,
@@ -313,32 +314,34 @@ Auditor selection (--auditor <selections>):
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor comes from settings.json.
-  Without --auditor, an active settled plan starts an automatic series with
-  that default.
+  Without --auditor, an active plan starts an automatic series with that
+  default.
   --first <selection> takes one entry in the same form and runs it instead of the
   default for the first round. It cannot be combined with --auditor.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
 
-  Automatic series (active settled plan without --auditor):
+  Automatic series (active plan without --auditor):
     - The configured default auditor runs first, or the --first selection. A
       random default flips a coin for the opener in each command run. An
       alternate default opens opposite the last settings-chosen opener that
       completed its round, as recorded in the audit-round cache.
-    - After each non-red round, a fresh judge picks the next assistant or stops.
-      A settled A or B finding removes stop from the judge's options.
+    - After each non-red round, a fresh judge picks the next assistant or an
+      ending. In widening it may recommend settle or stop; in detailing and
+      implementation it may stop. A settled A or B finding removes settle in
+      widening and stop otherwise.
     - No queue file is written.
     - A configured audit pair takes turns within this command. A coin flip picks
       its first member. --first and other command-line choices take no turn.
     - settings.json sets the maximum round count, including the first round.
-    - Widening plans and commit targets still run once.
+    - Commit targets still run once. A phase change ends a plan series.
 
   Scope list (2,3-5,6-7):
     - Each scope runs its own series on its own target and files, in list order.
       The opener is chosen again for each scope, and --first opens every scope.
-    - A judge stop, the maximum or a one-shot round ends only that scope.
-    - A failure, an unanswered ruling, a red watch or a plan that turned widening
+    - A judge settle or stop, or the maximum, ends only that scope.
+    - A failure, an unanswered ruling, a red watch or a plan phase change
       ends the whole list and names the scopes that did not run.
     - A scope list is refused beside --auditor, whose queue belongs to one scope.
 
@@ -989,8 +992,7 @@ export async function runCommand(
       const automatic =
         prepared.auditor === undefined &&
         "plan" in targets[0] &&
-        isActivePlanPath(context.planRoot, targets[0].plan) &&
-        !basename(targets[0].plan).endsWith("-widen.md")
+        isActivePlanPath(context.planRoot, targets[0].plan)
       const coin = options.coin ?? (() => (Math.random() < 0.5 ? 0 : 1))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
       // A settings-chosen opener takes the first look at a target, which the
@@ -1049,8 +1051,8 @@ export async function runCommand(
        * One auditor series on one target. Each scope of a list opens as its
        * own series: the opener is chosen again, so an alternate default reads
        * the stamp the previous scope moved, and the round count starts over.
-       * A judge stop, the maximum or an exhausted queue ends the series; an
-       * ending that needs the user stops the whole list.
+       * A judge settle or stop, the maximum or an exhausted queue ends the
+       * series; an ending that needs the user stops the whole list.
        */
       const runSeries = async (
         initial: AuditTarget,
@@ -1144,14 +1146,16 @@ export async function runCommand(
             }
             if (!automatic && queue === null) break
             if (automatic && "plan" in target) {
+              const previousPhase = planPhase(target.plan)
               const plan = await resolvePlan(
                 context.planRoot,
                 planStem(target.plan),
               )
               target = { ...target, plan }
-              if (basename(plan).endsWith("-widen.md")) {
+              const currentPhase = planPhase(plan)
+              if (currentPhase !== previousPhase) {
                 await active.message(
-                  `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan is now widening.`,
+                  `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan changed from ${previousPhase} to ${currentPhase}.`,
                 )
                 return "stopped"
               }
@@ -1168,11 +1172,17 @@ export async function runCommand(
               const judge = round.judge
               if (judge === null)
                 throw new Error(
-                  "Automatic settled round finished without a judge answer",
+                  "Automatic plan round finished without a judge answer",
                 )
               if (judge.answer === "stop") {
                 await active.message(
                   `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
+                )
+                break
+              }
+              if (judge.answer === "settle") {
+                await active.message(
+                  `${series} ended on the judge's settle recommendation after ${completed} round${completed === 1 ? "" : "s"}. The plan remains widening until you run pnpm audit-round settle ${planStem(target.plan)}.`,
                 )
                 break
               }

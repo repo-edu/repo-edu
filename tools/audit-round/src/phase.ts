@@ -8,6 +8,7 @@ import type {
   FindingRebuttal,
   FindingReview,
   JudgeAnswer,
+  JudgeDecision,
   LandedCommit,
   RoundAccount,
 } from "./round-data.js"
@@ -405,7 +406,7 @@ type PhaseArguments = {
   }
   judge: {
     readonly evidence: JudgeEvidence
-    readonly canStop: boolean
+    readonly options: readonly JudgeDecision[]
     readonly arguments: readonly []
     readonly sessionId: null
   }

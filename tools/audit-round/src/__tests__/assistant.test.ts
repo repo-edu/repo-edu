@@ -610,7 +610,7 @@ test("judge cancellation stops and awaits its fresh CLI", async (t) => {
         commits: [],
         latestWatch: null,
       },
-      canStop: true,
+      options: ["stop", "claude", "codex"],
       sessionId: null,
     },
     {

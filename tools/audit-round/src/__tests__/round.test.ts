@@ -1225,7 +1225,7 @@ test("an automatic round publishes its settled entry before the fresh judge", as
       },
       runJudge: async (input) => {
         assert.equal(input.sessionId, null)
-        assert.equal(input.canStop, true)
+        assert.deepEqual(input.options, ["stop", "claude", "codex"])
         return {
           status: "finished",
           sessionId: "judge-session",

@@ -110,7 +110,7 @@ const roundStatus = z.enum([
 ])
 export const judgeAnswerSchema = z
   .strictObject({
-    answer: z.enum(["stop", "claude", "codex"]),
+    answer: z.enum(["settle", "stop", "claude", "codex"]),
     reason: z.string().min(1),
   })
   .nullable()
@@ -194,6 +194,7 @@ export function roundDataFilename(stem: string, kind: RoundKind): string {
 export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
 export type RoundFinding = z.infer<typeof roundFindingSchema>
 export type JudgeAnswer = NonNullable<z.infer<typeof judgeAnswerSchema>>
+export type JudgeDecision = JudgeAnswer["answer"]
 export type ReportFinding = Omit<
   RoundFinding,
   "vetVerdict" | "rebuttalAnswer" | "outcome" | "finalTier" | "finalReach"

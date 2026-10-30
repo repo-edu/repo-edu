@@ -90,7 +90,7 @@ export function runJudge(
       const value = {
         status: "finished",
         sessionId,
-        answer: readJudgeAnswer(withoutPhaseResult(finalText), input.canStop),
+        answer: readJudgeAnswer(withoutPhaseResult(finalText), input.options),
       } as const
       return {
         phaseResult: result,

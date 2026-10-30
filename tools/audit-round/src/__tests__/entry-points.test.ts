@@ -37,7 +37,7 @@ test("watch evidence reaches the assistant but is omitted from the log prompt", 
   assert.ok(!log.includes(evidence))
 })
 
-test("the judge sees only the gate's two options and retained evidence", async (t) => {
+test("the judge sees only its permitted options and retained evidence", async (t) => {
   const f = await fixture(t)
   const evidence = {
     roundData: { file: "example-impl-rounds.json", rounds: [] },
@@ -52,10 +52,10 @@ test("the judge sees only the gate's two options and retained evidence", async (
     sessionId: null,
     arguments: [],
     evidence,
-    canStop: false,
+    options: ["stop", "claude", "codex"],
   })
-  assert.match(text, /Permitted judge options: Claude or Codex\./)
-  assert.doesNotMatch(text, /Permitted judge options: stop/)
+  assert.match(text, /Permitted judge options: stop, Claude or Codex\./)
+  assert.doesNotMatch(text, /Permitted judge options: settle/)
   assert.match(text, /"file": "example-impl-rounds\.json"/)
   assert.match(log, /Judge evidence:\n"\(contents omitted from log\)"$/)
 })
@@ -87,6 +87,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           arguments: ["input.md", "output.md", "review.md"],
           rulingFile: "ruling.md",
           evidence: "Episode facts",
+          options: ["claude", "codex"],
         } as PhaseInput)
         const protocol = `Source file: ${join(installationRoot, ".agents/references/round-protocol.md")}\n`
         assert.equal(

@@ -48,12 +48,14 @@ consumers.
   that grade, and the command runner ends the auditor sequence on red, so no queued round starts
   before the user acts on the watch. Before the brief and watch, `round.ts` publishes the settled
   findings as the current `in-progress` round-data entry. After the fix, it resolves the plan's
-  current filename. The watch still runs when the fix reopened the plan, but the judge does not.
+  current filename. The watch still runs when the fix changed the plan's phase, but the judge does
+  not.
   After any other non-red round in an active plan's automatic series, it starts a fresh judge turn
   over the plan's round-kind data, episode commits, stop conditions and latest watch. The runner's
-  real-bug gate removes stop while either assistant's latest settled read of the scope carries an
-  accepted A or B. The judge then chooses stop, Claude or Codex and the output stores its answer in
-  the final entry. Manual queues and one-shot rounds run no judge. The round records both
+  real-bug gate removes settle in widening and stop otherwise while either assistant's latest
+  settled read of the scope carries an accepted A or B. A widening judge chooses settle, stop,
+  Claude or Codex; every other judge chooses stop, Claude or Codex. The output stores its answer in
+  the final entry. Manual queues and commit targets run no judge. The round records both
   repositories' HEADs before the fix, reads the landed records and validates every subject under its
   repository's grammar. A plan target fails when a finished fix landed no commit. A commit target
   may land nothing. Reader failures retain the owning phase and its session for recovery. The
@@ -133,7 +135,10 @@ consumers.
 - `judge.ts` reads one round kind's retained data, the stem's episode commit
   list, `STOP-CONDITIONS.md` and the newest watch. It applies the settled-span
   gate and each assistant's latest settled entry on the scope to decide whether
-  stop is available. Only the exact current `in-progress` entry is eligible.
+  the phase's ending is available. Widening has no settled-span cut and always
+  admits stop, while the gate controls settle. Detailing and implementation use
+  the current span and let the gate control stop. Only the exact current
+  `in-progress` entry is eligible.
   Failed or interrupted entries with landed records remain eligible. It
   validates the judge's single answer and reason without deriving watch-only
   facts.
@@ -393,38 +398,37 @@ consumers.
   its path, with no release resolution or assistant. So the program carries an action handler,
   Commander adds no `help` command, and each command's own `-h` prints its help. A bare command line
   prints that help; options without a target take `defaultTarget`. It also owns the round sequence
-  and its counter. Without `--auditor`, an active settled plan target runs an automatic series. The
+  and its counter. Without `--auditor`, an active plan target runs an automatic series. The
   `--first` selection runs first, or the configured default without it, then each judge answer names
-  the next assistant or stops. A `random` default resolves its opener once per command run on the
-  same coin the pairs use. An `alternate` default opens opposite the opener stamp in the cache and
-  falls back to the coin without one. The stamp moves only when a settings-chosen opener's round is
-  complete in the trial's sense, so an aborted opener retries the same assistant; `--first`,
+  the next assistant or an ending. A `random` default resolves its opener once per command run on
+  the same coin the pairs use. An `alternate` default opens opposite the opener stamp in the cache
+  and falls back to the coin without one. The stamp moves only when a settings-chosen opener's round
+  is complete in the trial's sense, so an aborted opener retries the same assistant; `--first`,
   `--auditor` and judged rounds never move it. Only that first round carries the selection's fields.
   When the selected assistant has an audit pair, settings-chosen rounds take turns between its
   members and a coin flip chooses the first. Each assistant keeps its own turn inside this command.
-  A command-line choice takes no turn. The series writes no queue and ends on a stop, the configured
-  maximum, a failure, an unanswered ruling, a red watch or a fix that reopens the plan. A reopened
-  plan finishes the current round without a judge answer. Widening plans and commit targets run
-  once, on the `--first` selection when given. With `--auditor`, the first entry runs first and the
-  remaining entries on a plan target seed its editable queue. A clean audit removes queued entries
-  that resolve to that round's assistant, model and effort. Other settings remain. A fix that lands
-  a clean record removes none. Failure, a round requiring a ruling, a red watch or an empty queue
+  A command-line choice takes no turn. The series writes no queue and ends on settle or stop, the
+  configured maximum, a failure, an unanswered ruling, a red watch or a phase change. A round that
+  changes the plan's phase finishes without a judge answer. Commit targets run once, on the
+  `--first` selection when given. With `--auditor`, the first entry runs first and the remaining
+  entries on a plan target seed its editable queue. A clean audit removes queued entries that
+  resolve to that round's assistant, model and effort. Other settings remain. A fix that lands a
+  clean record removes none. Failure, a round requiring a ruling, a red watch or an empty queue
   stops the manual sequence, and the queue file is deleted however the sequence ends. Each manual
   round prints the queue's path and contents when it opens. Each automatic round prints its judge
   answer and reason. A scope list runs one series per scope in list order. Each scope opens as its
-  own series: the opener is chosen again, so an alternate default reads the stamp the previous
-  scope moved, `--first` opens every scope and the round count starts over. A judge stop, the
-  maximum or a one-shot round ends only that scope and the next one is announced. A failure, an
-  unanswered ruling, a red watch or a plan that turned widening ends the whole list and names the
-  scopes that did not run. The list is refused beside `--auditor`, whose queue belongs to one
-  target and whose pairing with the scopes would need a second reading, and beside `name`, which
-  claims one round. Each round records its own file pair and the coordinator has no filesystem side
-  effects: it opens one output per round, retires the previous one first, and reads updates and
-  settings once for the whole run before opening any files. Startup messages go only to the
-  terminal; the run log begins with the models table. A chained round carries its place in its title
-  and independently claims the next number for its target. Required write failures stop phase
-  progression. If recording itself fails, the emergency channel still reports the known session and
-  recovery command.
+  own series: the opener is chosen again, so an alternate default reads the stamp the previous scope
+  moved, `--first` opens every scope and the round count starts over. A judge settle or stop, or the
+  maximum, ends only that scope and the next one is announced. A failure, an unanswered ruling, a
+  red watch or a plan phase change ends the whole list and names the scopes that did not run. The
+  list is refused beside `--auditor`, whose queue belongs to one target and whose pairing with the
+  scopes would need a second reading, and beside `name`, which claims one round. Each round records
+  its own file pair and the coordinator has no filesystem side effects: it opens one output per
+  round, retires the previous one first, and reads updates and settings once for the whole run
+  before opening any files. Startup messages go only to the terminal; the run log begins with the
+  models table. A chained round carries its place in its title and independently claims the next
+  number for its target. Required write failures stop phase progression. If recording itself fails,
+  the emergency channel still reports the known session and recovery command.
 - `queue.ts` owns the queue file's contents and the entry grammar `--auditor` and `--first` share:
   names or tags separated by commas, spaces or line breaks, each read by `parseAuditor`. Entries
   keep the user's spelling, so a rewrite changes only which entries remain. It resolves each entry
@@ -602,7 +606,7 @@ left unchanged.
   sense, recorded as `opener` in the `audit-round` cache, so the trial's first looks stay balanced
   between assistants; an opener that fails before its commit leaves no first-look evidence and the
   next run retries it. Without a stamp the coin opens.
-- `maximumAutomaticRounds` limits an active settled plan's automatic series, counting
+- `maximumAutomaticRounds` limits an active plan's automatic series, counting
   its first round.
 - `strengthModels` maps each assistant's base and top tiers to a model name.
   The same names classify reported models for capability tags. A family alias
@@ -779,12 +783,12 @@ adds a `-watch.md` document. The watch keeps its own history in the shared cache
 cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an earlier transcript
 at the plan root, or takes the most recently modified one when none is named. It reads its kind from
 the transcript title, writes beside it without claiming a new number and overwrites its standalone
-log on each run. Without `--auditor`, an active settled plan runs an automatic series from the
-`--first` selection or the configured default, follows each fresh judge answer and stops at its
-maximum without writing a queue. Widening plans and commit targets run once. A scope list runs
-that series once per scope in list order, each scope on its own target, and stops the whole list
-only where a series needs the user: a failure, an unanswered ruling, a red watch or a plan that
-turned widening.
+log on each run. Without `--auditor`, an active plan runs an automatic series from the `--first`
+selection or the configured default, follows each fresh judge answer and stops at settle, stop or
+its maximum without writing a queue. A settle answer prints its reason and leaves the widening plan
+unchanged for the user to settle or keep widening. Commit targets run once. A scope list runs that
+series once per scope in list order, each scope on its own target, and stops the whole list only
+where a series needs the user: a failure, an unanswered ruling, a red watch or a plan phase change.
 `--auditor` accepts one selection or a sequence on the named plan scope, separated by commas or
 spaces. Repeated entries request separate rounds. The entries after the current round wait in
 `<target>-queue.md` at the plan root. Edit it to add, remove or reorder rounds; the runner reads it

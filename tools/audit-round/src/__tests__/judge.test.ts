@@ -3,10 +3,10 @@ import { test } from "node:test"
 import {
   formatJudgeAnswer,
   type JudgeEvidence,
-  judgeCanStop,
+  judgeOptions,
   readJudgeAnswer,
 } from "../judge.js"
-import type { RoundData } from "../round-data.js"
+import type { JudgeDecision, RoundData } from "../round-data.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
 const selection = { model: "fixture-model", effort: "low" }
@@ -98,17 +98,33 @@ function identity(entry: RoundData): Pick<RoundData, "target" | "round"> {
   return { target: entry.target, round: entry.round }
 }
 
+function offers(
+  decision: JudgeDecision,
+  rounds: readonly RoundData[],
+  current: RoundData,
+  commits?: JudgeEvidence["commits"],
+): boolean {
+  return judgeOptions(evidence(rounds, commits), identity(current)).includes(
+    decision,
+  )
+}
+
 test("the round grammar's judge examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("judge/")) {
-    const canStop = example.id !== "judge/stop-unavailable"
+    const options: readonly JudgeDecision[] =
+      example.id === "judge/stop-unavailable"
+        ? ["claude", "codex"]
+        : example.id === "judge/settle-unavailable"
+          ? ["stop", "claude", "codex"]
+          : ["settle", "stop", "claude", "codex"]
     if (example.outcome === "parsed") {
       assert.doesNotThrow(
-        () => readJudgeAnswer(example.source, canStop),
+        () => readJudgeAnswer(example.source, options),
         example.id,
       )
     } else {
       assert.throws(
-        () => readJudgeAnswer(example.source, canStop),
+        () => readJudgeAnswer(example.source, options),
         (error: unknown) =>
           error instanceof Error && error.message === example.refusal,
         example.id,
@@ -122,15 +138,19 @@ test("the current in-progress settled B removes stop from the judge", () => {
     status: "in-progress",
     tier: "B",
   })
-  assert.equal(judgeCanStop(evidence([current]), identity(current)), false)
+  assert.equal(offers("stop", [current], current), false)
   assert.throws(
-    () => readJudgeAnswer("Judge: stop. The round has converged.", false),
+    () =>
+      readJudgeAnswer("Judge: stop. The round has converged.", [
+        "claude",
+        "codex",
+      ]),
     /offered only Claude or Codex/,
   )
   assert.deepEqual(
     readJudgeAnswer(
       "Judge: continue with Claude. Cross-check the accepted finding.",
-      false,
+      ["claude", "codex"],
     ),
     {
       answer: "claude",
@@ -145,19 +165,16 @@ test("an unmatched landed B removes stop from the judge", () => {
     outcome: "unmatched",
   })
 
-  assert.equal(judgeCanStop(evidence([current]), identity(current)), false)
+  assert.equal(offers("stop", [current], current), false)
 })
 
 test("an earlier assistant's unconfirmed A blocks stop", () => {
   const claude = round("claude", "2026-10-11T10:00:00Z", { tier: "A" })
   const codex = round("codex", "2026-10-11T11:00:00Z", { round: 2 })
-  assert.equal(judgeCanStop(evidence([claude, codex]), identity(codex)), false)
+  assert.equal(offers("stop", [claude, codex], codex), false)
 
   const confirmed = round("claude", "2026-10-11T12:00:00Z", { round: 3 })
-  assert.equal(
-    judgeCanStop(evidence([claude, codex, confirmed]), identity(confirmed)),
-    true,
-  )
+  assert.equal(offers("stop", [claude, codex, confirmed], confirmed), true)
 })
 
 test("a failed round with a landed B still removes stop", () => {
@@ -165,26 +182,20 @@ test("a failed round with a landed B still removes stop", () => {
     status: "failed",
     tier: "B",
   })
-  assert.equal(judgeCanStop(evidence([failed]), identity(failed)), false)
+  assert.equal(offers("stop", [failed], failed), false)
 
   const failedBeforeRecord = round("claude", "2026-10-11T10:00:00Z", {
     status: "failed",
     tier: "B",
     landed: false,
   })
-  assert.equal(
-    judgeCanStop(evidence([failedBeforeRecord]), identity(failedBeforeRecord)),
-    true,
-  )
+  assert.equal(offers("stop", [failedBeforeRecord], failedBeforeRecord), true)
 
   const interrupted = round("claude", "2026-10-11T10:00:00Z", {
     status: "interrupted",
     tier: "B",
   })
-  assert.equal(
-    judgeCanStop(evidence([interrupted]), identity(interrupted)),
-    false,
-  )
+  assert.equal(offers("stop", [interrupted], interrupted), false)
 })
 
 test("a stale in-progress entry does not block a later stop", () => {
@@ -194,19 +205,13 @@ test("a stale in-progress entry does not block a later stop", () => {
   })
   const currentRound = round("codex", "2026-10-11T11:00:00Z", { round: 2 })
 
-  assert.equal(
-    judgeCanStop(evidence([stale, currentRound]), identity(currentRound)),
-    true,
-  )
+  assert.equal(offers("stop", [stale, currentRound], currentRound), true)
 })
 
 test("detailing without an init or settle uses the full history", () => {
   const claude = round("claude", "2026-10-11T10:00:00Z", { tier: "B" })
   const codex = round("codex", "2026-10-11T11:00:00Z", { round: 2 })
-  assert.equal(
-    judgeCanStop(evidence([claude, codex], []), identity(codex)),
-    false,
-  )
+  assert.equal(offers("stop", [claude, codex], codex, []), false)
 })
 
 test("a widening A before the settle cutoff does not block detailing stop", () => {
@@ -231,9 +236,31 @@ test("a widening A before the settle cutoff does not block detailing stop", () =
       role: "settle",
     },
   ]
-  assert.equal(
-    judgeCanStop(evidence([widening, detailing], commits), identity(detailing)),
-    true,
+  assert.equal(offers("stop", [widening, detailing], detailing, commits), true)
+})
+
+test("widening withholds settle across all settled reads but always offers stop", () => {
+  const claude = round("claude", "2026-10-11T09:00:00Z", {
+    tier: "B",
+    phase: "widening",
+  })
+  const codex = round("codex", "2026-10-11T10:00:00Z", {
+    round: 2,
+    phase: "widening",
+  })
+  assert.deepEqual(judgeOptions(evidence([claude, codex]), identity(codex)), [
+    "stop",
+    "claude",
+    "codex",
+  ])
+
+  const confirmed = round("claude", "2026-10-11T11:00:00Z", {
+    round: 3,
+    phase: "widening",
+  })
+  assert.deepEqual(
+    judgeOptions(evidence([claude, codex, confirmed]), identity(confirmed)),
+    ["settle", "stop", "claude", "codex"],
   )
 })
 
@@ -246,12 +273,18 @@ test("judge answers are one plain line with one admitted decision", () => {
     formatJudgeAnswer(answer),
     "Judge: continue with Codex. The other setting should inspect the evidence.",
   )
-  assert.deepEqual(readJudgeAnswer(formatJudgeAnswer(answer), true), answer)
+  assert.deepEqual(
+    readJudgeAnswer(formatJudgeAnswer(answer), ["stop", "claude", "codex"]),
+    answer,
+  )
   for (const source of [
     "Judge: stop.",
     "Judge: continue. More work remains.",
     "Preface.\nJudge: stop. Enough evidence.",
     "Judge: stop. Enough evidence.\nMore text.",
   ])
-    assert.throws(() => readJudgeAnswer(source, true), /exactly one/)
+    assert.throws(
+      () => readJudgeAnswer(source, ["stop", "claude", "codex"]),
+      /exactly one/,
+    )
 })
