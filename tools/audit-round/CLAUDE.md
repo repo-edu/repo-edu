@@ -126,12 +126,13 @@ consumers.
 - `episode.ts` owns episode membership and history facts for the glance and joined watch evidence.
   It joins both repos' commits under the plan's stem, includes rework touching the topic's artifacts
   and retains both repositories' heads and anchors. `episode-log.ts` reads Git's commit dates,
-  bodies, touched paths and renames. `episode-facts.ts` derives severity, token counts and
-  repeated-growth evidence without grading them. Every member keeps its complete findings or an
-  unreadable reason; unreadable findings contribute no partial counts. Current areas resolve
-  directly, retired areas resolve through `splitFrom` and unknown areas remain listed on their
-  findings. Redesigns and widening renames identify possible new graded windows for the watch to
-  judge. `readWatchEvidence` joins both histories with the plan's existing planning and
+  bodies, touched paths and renames. `episode-facts.ts` checks body finding counts against subject
+  severity and derives episode-level token counts and repeated-growth evidence without grading
+  them. Every member keeps its complete findings or an unreadable reason; unreadable findings
+  contribute no partial counts. Current areas resolve directly and retired areas resolve through
+  `splitFrom`; an unknown location stays on its original finding. Redesigns and widening renames
+  mark their commits as possible new graded windows for the watch to judge. `readWatchEvidence`
+  joins both histories with the plan's existing planning and
   implementation round data. `formatWatchEvidence` projects the repositories, their heads,
   anchors, episode-level counts and runs, then each commit's short SHA, date, written subject,
   window candidate, unreadable reason and finding prefixes through their titles. Its round data

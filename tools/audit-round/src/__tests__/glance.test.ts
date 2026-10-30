@@ -278,7 +278,7 @@ test("maintenance and other plans' audits remain evidence without triggering a w
       "example",
     )
     assert.equal(data.commits.length, 6)
-    assert.equal(data.unreadable.length, 0)
+    assert.ok(data.commits.every((commit) => commit.unreadable === null))
     const saved = record("green", "c000001", repository)
     const decision = decide(data, saved)
     assert.equal(decision.due, false)
@@ -376,7 +376,7 @@ test("unreadable corrections stay in episode evidence without contributing parti
       commit("example/impl-audit-1 ath growth-none c1 fix(x): correction"),
     ),
   )
-  assert.equal(data.unreadable.length, 1)
+  assert.notEqual(data.commits[0].unreadable, null)
   assert.equal(decide(data, record("green")).due, false)
 })
 

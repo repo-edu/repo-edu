@@ -36,11 +36,11 @@ test("membership admits only touched-file rework after the anchor", () => {
     subject: "oth growth-none c1 fix(x): before the anchor",
   }
   const data = episode([...log, before])
-  assert.deepEqual(data.artifacts, ["src/a.ts", "src/b.ts"])
   assert.deepEqual(
     data.commits.map((c) => c.sha),
     ["c000005", "c000003", "c000002", "c000001"],
   )
+  assert.deepEqual(data.commits[2].files, ["src/b.ts"])
   assert.equal(data.commits[1].parsed, null)
   assert.equal(data.tokens.reach.developer, 2)
 })
@@ -92,9 +92,11 @@ test("subject totals still validate findings without per-commit duplicate facts"
   assert.equal("loose" in data.commits[0], false)
   assert.equal("trajectory" in data.commits[0], false)
   assert.equal("tokens" in data.commits[0], false)
-  assert.deepEqual(data.windowStarts, [{ sha: "c000002", kind: "redesign" }])
+  assert.equal(data.commits[0].windowStart, "redesign")
+  for (const field of ["artifacts", "unreadable", "windowStarts"])
+    assert.equal(field in data, false, field)
   const broken = episode(history({ ...mixed, body: "- [A] Missing tokens." }))
-  assert.equal(broken.unreadable.length, 1)
+  assert.match(broken.commits[0].unreadable ?? "", /finding bullet/)
   assert.deepEqual(broken.commits[0].findings, [])
   assert.deepEqual(broken.tokens.areas, {})
 })
@@ -403,9 +405,10 @@ test("each finding resolves current, split and unknown areas while all other tok
     [["area-a"], ["child-a", "child-b"], []],
   )
   assert.deepEqual(
-    findings.map((f) => f.unresolved),
-    [[], [], ["missing"]],
+    findings.map((f) => f.location.value),
+    ["area-a", "retired", "missing"],
   )
+  assert.equal("unresolved" in findings[2], false)
   assert.deepEqual(data.tokens, {
     growthPattern: { recurrence: 1, ownership: 1, none: 2 },
     reach: { rare: 1, developer: 2 },
@@ -509,7 +512,7 @@ test("a missing or malformed bullet makes the whole commit unreadable, D include
     const data = episode(
       history(commit("oth growth-none c1d1 fix(x): two findings", body)),
     )
-    assert.equal(data.unreadable.length, 1)
+    assert.notEqual(data.commits[0].unreadable, null)
     assert.equal(data.commits[0].findings.length, 0)
   }
 })
@@ -522,7 +525,10 @@ test("widening candidates require an actual rename back to the widening artifact
     [{ from: "example.md", to: "example-widen.md" }],
   )
   const data = episode(history(widened, { ...widened, renames: [] }), "plan")
-  assert.deepEqual(data.windowStarts, [{ sha: "c000003", kind: "widening" }])
+  assert.equal(
+    data.commits.find((commit) => commit.sha === "c000003")?.windowStart,
+    "widening",
+  )
 })
 
 test("Git supplies complete bodies, unusual touched paths and both sides of renames", async () => {
@@ -572,7 +578,10 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
     assert.deepEqual(log[2].files, [name, "example.md"])
     assert.match(log[3].body, /\[section:decisions\]/)
     const data = computeEpisode(log, "plan", "example", areas)
-    assert.deepEqual(data.windowStarts, [{ sha: log[1].sha, kind: "widening" }])
+    assert.equal(
+      data.commits.find((commit) => commit.sha === log[1].sha)?.windowStart,
+      "widening",
+    )
     assert.deepEqual(data.tokens.sections, { decisions: 1 })
 
     // The running process must see model edits made by a fix before the next glance.

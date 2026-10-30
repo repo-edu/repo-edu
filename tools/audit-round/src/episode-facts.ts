@@ -1,21 +1,13 @@
 import type { EpisodeCommit, EpisodeFinding } from "./episode.js"
 import type { Subject, TierLetter } from "./subject.js"
 
-export function trajectory(subject: Subject | null) {
-  const severity = subject?.severity
-  const upper = severity && severity !== "clean" ? severity.upper : []
-  const lower = severity && severity !== "clean" ? severity.lower : []
-  const counts = { a: 0, b: 0, c: 0, d: 0 }
-  for (const run of [...upper, ...lower]) counts[run.tier] += run.count
-  return {
-    maximum:
-      (["a", "b", "c", "d"] as const).find((tier) => counts[tier] > 0) ?? null,
-    counts,
-    upper,
-    lower,
-    ordinary: severity && severity !== "clean" ? severity.ordinary : false,
-    structure: subject?.burden ?? null,
-  }
+function findingCounts(subject: Subject): Record<TierLetter, number> {
+  const counts: Record<TierLetter, number> = { a: 0, b: 0, c: 0, d: 0 }
+  const severity = subject.severity
+  if (severity === null || severity === "clean") return counts
+  for (const run of [...severity.upper, ...severity.lower])
+    counts[run.tier] += run.count
+  return counts
 }
 
 /** Counts are per bullet. A split finding contributes once to each current area. */
@@ -48,13 +40,13 @@ export function tokenCounts(findings: readonly EpisodeFinding[]) {
   return counts
 }
 
-/** Refuse partial counts while retaining the subject's independent trajectory. */
+/** Refuse a partial body when its finding counts differ from the subject. */
 export function checkFindingTotals(
   subject: Subject | null,
   findings: readonly EpisodeFinding[],
 ): void {
   if (subject === null) return
-  const expected = trajectory(subject).counts
+  const expected = findingCounts(subject)
   for (const tier of Object.keys(expected) as TierLetter[]) {
     const count = findings.filter((finding) => finding.tier === tier).length
     if (count !== expected[tier])

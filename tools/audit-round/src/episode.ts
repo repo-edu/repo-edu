@@ -31,7 +31,6 @@ export type Area = {
 export type EpisodeFinding = Finding & {
   readonly areas: readonly string[]
   readonly resolvedCovers: readonly string[]
-  readonly unresolved: readonly string[]
 }
 
 export type EpisodeCommit = LogCommit & {
@@ -48,18 +47,9 @@ export type Episode = {
   readonly head: string | null
   readonly anchor: string | null
   readonly history: readonly string[]
-  readonly artifacts: readonly string[]
   readonly commits: readonly EpisodeCommit[]
   readonly tokens: ReturnType<typeof tokenCounts>
   readonly runs: ReturnType<typeof runEvidence>
-  readonly unreadable: readonly {
-    readonly sha: string
-    readonly reason: string
-  }[]
-  readonly windowStarts: readonly {
-    readonly sha: string
-    readonly kind: "redesign" | "widening"
-  }[]
 }
 
 export function commitTopic(commit: LogCommit): string | null {
@@ -120,19 +110,13 @@ function resolveFinding(
     finding.location.key === "area" ? finding.location.value : null
   const resolved =
     primary === null ? [] : resolveArea(primary, "partition", areas)
-  const covers = finding.covers.map((id) => ({
-    id,
-    resolved: resolveArea(id, "cover", areas),
-  }))
   return {
     ...finding,
     areas: resolved,
-    resolvedCovers: [...new Set(covers.flatMap((cover) => cover.resolved))],
-    unresolved: [
-      ...(primary !== null && resolved.length === 0 ? [primary] : []),
-      ...covers
-        .filter((cover) => cover.resolved.length === 0)
-        .map((cover) => cover.id),
+    resolvedCovers: [
+      ...new Set(
+        finding.covers.flatMap((id) => resolveArea(id, "cover", areas)),
+      ),
     ],
   }
 }
@@ -191,7 +175,7 @@ export function computeEpisode(
   areas: readonly Area[],
   explicitAnchor?: string,
 ): Episode {
-  const { anchor, artifacts, members } = episodeMembers(
+  const { anchor, members } = episodeMembers(
     log,
     repository,
     topic,
@@ -204,20 +188,9 @@ export function computeEpisode(
     head: log[0]?.sha ?? null,
     anchor: log[anchor]?.sha ?? null,
     history: log.map((commit) => commit.sha),
-    artifacts: [...artifacts].sort(),
     commits,
     tokens: tokenCounts(commits.flatMap((commit) => commit.findings)),
     runs: runEvidence(commits),
-    unreadable: commits.flatMap((commit) =>
-      commit.unreadable === null
-        ? []
-        : [{ sha: commit.sha, reason: commit.unreadable }],
-    ),
-    windowStarts: commits.flatMap((commit) =>
-      commit.windowStart === null
-        ? []
-        : [{ sha: commit.sha, kind: commit.windowStart }],
-    ),
   }
 }
 
@@ -233,7 +206,6 @@ export function episodeMembers(
   explicitAnchor?: string,
 ): {
   readonly anchor: number
-  readonly artifacts: ReadonlySet<string>
   readonly members: readonly LogCommit[]
 } {
   const named = log.filter(
@@ -252,7 +224,6 @@ export function episodeMembers(
     )
   return {
     anchor,
-    artifacts,
     members: log
       .slice(0, anchor + 1)
       .filter(
