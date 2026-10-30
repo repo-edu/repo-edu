@@ -46,7 +46,11 @@ export type Feedback =
       readonly stage: "started" | "completed"
     }
 
-/** Completion evidence stays with the invocation, outside display state. */
+/**
+ * Turn evidence stays with the invocation, outside display state. `final` is
+ * a turn's text and `complete` marks a finished turn; a session may hold
+ * several, and the invocation reads the last turn's text as the phase result.
+ */
 export type AssistantEvent =
   | Feedback
   | { readonly type: "final"; readonly text: string }

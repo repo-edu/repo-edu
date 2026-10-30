@@ -112,8 +112,10 @@ async function runAssistantTurn<T>(
   record?: (value: unknown) => Promise<void>,
 ): Promise<T | PhaseFailure> {
   let sessionId = input.sessionId
+  // A session is one or more turns and ends with its process. The phase's
+  // final text is the last finished turn's text.
   let finalText: string | undefined
-  let completed = false
+  let turns = 0
   const observe = output.observe
   const usage =
     input.assistant === "codex"
@@ -143,12 +145,8 @@ async function runAssistantTurn<T>(
                 sessionId = event.sessionId
               }
               if (event.type === "complete") {
-                if (completed)
-                  throw new Error("CLI reported completion more than once")
-                completed = true
+                turns += 1
               } else if (event.type === "final") {
-                if (completed)
-                  throw new Error("CLI reported final text after completion")
                 finalText = event.text
               } else {
                 await observe(event)
@@ -159,7 +157,7 @@ async function runAssistantTurn<T>(
         },
         (text) => observe({ type: "diagnostic", text }),
       )
-      if (!completed || sessionId === null || finalText === undefined)
+      if (turns === 0 || sessionId === null || finalText === undefined)
         throw new Error(
           "CLI ended without a completed turn, session identity or final text",
         )

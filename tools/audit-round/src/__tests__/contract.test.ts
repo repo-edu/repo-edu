@@ -14,7 +14,11 @@ import { fixture, phaseStream, recorded } from "./helpers.js"
 const terminal = { write: () => {}, status: () => {}, clear: () => {} }
 
 test("the contract prompt requests a valid finished phase result", () => {
-  for (const prompt of [contractPrompt, contractResumePrompt]) {
+  for (const prompt of [
+    contractPrompt("claude"),
+    contractPrompt("codex"),
+    contractResumePrompt,
+  ]) {
     const result = prompt.slice(prompt.indexOf("PHASE RESULT: "))
     assert.deepEqual(phaseResult("fix", "probe-session", result), {
       status: "finished",

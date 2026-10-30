@@ -39,13 +39,59 @@ test("Claude compact boundaries become phase feedback", () => {
   )
 })
 
+test("Claude's empty closing result of no turns is not a turn", () => {
+  assert.deepEqual(
+    decodeClaude({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      num_turns: 0,
+      result: "",
+      modelUsage: {},
+    }),
+    [],
+  )
+})
+
+test("Claude reports the last turn's text when a background wake-up adds turns", async (t) => {
+  const f = await fixture(t)
+  const report = join(f.root, "audit.md")
+  const lines = (await phaseStream("claude")).trim().split("\n")
+  const last = lines.findLastIndex((line) => line.includes('"type":"result"'))
+  const closing = JSON.parse(lines[last])
+  const waiting = JSON.stringify({
+    ...closing,
+    num_turns: 1,
+    result: "Waiting for the probe sleep.",
+  })
+  const empty = JSON.stringify({ ...closing, num_turns: 0, result: "" })
+  lines.splice(last, 1, waiting, lines[last], empty)
+  await f.configure({ stream: `${lines.join("\n")}\n` })
+  const result = await runAssistantPhase(
+    {
+      phase: "audit",
+      assistant: "claude",
+      model: pinned("claude"),
+      ...testContext(f.root),
+      arguments: [report, "example.md"],
+      sessionId: null,
+    },
+    f.output,
+    f.runtime,
+  )
+  assert.deepEqual(result, { status: "finished", sessionId: "test-session" })
+  assert.equal(await readFile(report, "utf8"), "Résumé complete\n")
+})
+
 async function recordedTokenUpdate(assistant: Assistant, recording: string) {
   if (assistant === "claude") {
+    // Each turn's result carries the session total so far; the newest stands.
     const result = (await recorded(`${recording}.jsonl`))
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line))
-      .find((event) => event.type === "result")
+      .filter((event) => event.type === "result" && event.num_turns > 0)
+      .at(-1)
     assert.ok(result?.modelUsage)
     return {
       kind: "models" as const,

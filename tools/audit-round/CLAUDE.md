@@ -186,13 +186,17 @@ consumers.
   refuses a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the
   entry both repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar
   file.
-- `assistant.ts` owns one invocation's session identity, final text and completion evidence.
-  After validating completion, it saves audit, vet and rebuttal reports
-  from the final text without the result line. A failed write fails the phase before progression.
+- `assistant.ts` owns one invocation's session identity, final text and turn evidence. A session
+  is one or more turns and ends with its process: Claude's print mode emits one result per turn,
+  a background task or subagent wakes the session for a further turn, and while a subagent is
+  pending the CLI defers the results and flushes them at exit behind an empty result of no turns.
+  The phase's final text is the last turn's text. After the process ends with at least one turn,
+  it saves audit, vet and rebuttal reports from that text without the result line. A failed write
+  fails the phase before progression.
   Context and token measurements pass directly to the output observer. Both
   assistants replace the phase total with the session's newest running total.
   Claude and Codex decoders validate the fields they consume.
-  `claude.ts` reads `modelUsage` from the final result. Its input is
+  `claude.ts` reads `modelUsage` from each turn's result. Its input is
   `inputTokens + cacheReadInputTokens + cacheCreationInputTokens`, its cached
   input is `cacheReadInputTokens` and its output is `outputTokens`.
   `cli-process.ts` owns the child's environment and stops the child before unwinding a failed line
@@ -444,8 +448,10 @@ consumers.
   malformed entry stops the sequence with an error naming the file and the entry.
 - `contract.ts` invokes the same assistant and output boundaries with a probe prompt on the built-in
   default selection. It requires successful and deliberately failed shell calls before replacing any
-  selected fixtures. A second probe resumes the first session and requires token usage from both
-  invocations. It invokes no workflow and refreshes only this package's recordings.
+  selected fixtures. The Claude probe also ends a turn on a background command and the recorder
+  requires that second turn, so the recording pins one result per turn. A second probe resumes the
+  first session and requires token usage from both invocations. It invokes no workflow and
+  refreshes only this package's recordings.
 
 The coordinator has no process, filesystem or terminal side effects of its own.
 Its dependencies supply those operations explicitly. A returned phase failure

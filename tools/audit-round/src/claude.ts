@@ -135,9 +135,14 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
         })
     }
     case "result": {
+      // Print mode emits one result per turn. A background task or subagent
+      // wakes the session for a further turn, so a session yields several.
+      // While a subagent is pending the CLI defers the results and flushes
+      // them at exit, closing with an empty result of no turns.
       const result = z
         .object({
           is_error: z.boolean(),
+          num_turns: z.number().int().nonnegative(),
           result: z.string().optional(),
           errors: z.array(z.string()).optional(),
           subtype: z.string(),
@@ -148,10 +153,11 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
         throw new Error(
           result.result || result.errors?.join("; ") || result.subtype,
         )
+      if (result.num_turns === 0) return []
       if (result.result === undefined)
-        throw new Error("Claude completed without final text")
+        throw new Error("Claude finished a turn without its text")
       if (result.modelUsage === undefined)
-        throw new Error("Claude completed without token usage")
+        throw new Error("Claude finished a turn without token usage")
       return [
         {
           type: "tokens",

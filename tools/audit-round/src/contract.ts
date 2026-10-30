@@ -29,7 +29,17 @@ import { claudeSettingsRequest } from "./requests.js"
 import { defaultSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
 
-export const contractPrompt = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
+const contractEnding = `Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
+const contractProbes = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything.`
+/**
+ * The Claude probe also ends a turn on a background command, so the recording
+ * holds one result per turn as the CLI's print mode emits them. Codex runs one
+ * turn per invocation and has no background wake-up to record.
+ */
+export function contractPrompt(assistant: Assistant): string {
+  if (assistant === "codex") return `${contractProbes} ${contractEnding}`
+  return `${contractProbes} Then run sleep 2 with your shell tool's background option and end your turn at once with the single sentence: Waiting for the probe sleep. When its task notification arrives, continue. ${contractEnding}`
+}
 export const contractResumePrompt = `This is the resumed half of a CLI contract recording, not a repository task. Use your shell tool once to run printf audit-round-resume-probe. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
 
 /** Keep consumed events while excluding unrelated initialisation and configuration. */
@@ -192,7 +202,10 @@ export async function recordContracts(
           tool: false,
           failure: false,
           success: false,
+          // Codex runs one turn; the Claude probe must record its second.
+          turns: assistant === "codex",
         }
+        let turnResults = 0
         const observe = async (event: Feedback) => {
           if (event.type === "text") seen.text = true
           if (event.type === "model") seen.model = true
@@ -230,16 +243,27 @@ export async function recordContracts(
             arguments: ["CLI contract probe"],
             sessionId: null,
           },
-          { text: contractPrompt, log: contractPrompt },
+          { text: contractPrompt(assistant), log: contractPrompt(assistant) },
           { ...output.phase, observe },
           runtime,
           async (record) => {
             const event = selectRecord(assistant, record)
-            if (event !== undefined)
-              await appendFile(
-                join(scratch, `${assistant}.jsonl`),
-                `${JSON.stringify(event)}\n`,
-              )
+            if (event === undefined) return
+            const kept = z
+              .object({ type: z.string(), num_turns: z.number().optional() })
+              .parse(event)
+            if (
+              assistant === "claude" &&
+              kept.type === "result" &&
+              (kept.num_turns ?? 0) > 0
+            ) {
+              turnResults += 1
+              if (turnResults >= 2) seen.turns = true
+            }
+            await appendFile(
+              join(scratch, `${assistant}.jsonl`),
+              `${JSON.stringify(event)}\n`,
+            )
           },
         )
         if (result.status !== "finished")
