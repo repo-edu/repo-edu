@@ -84,13 +84,14 @@ consumers.
   title and one closed host sentence, then returns the steps and their hosting
   repos in list order.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
-  Planning reports have Excess functionality and Missing functionality fields; implementation
-  reports have one Findings field including deferred findings. Each holds numbered finding blocks
-  or its exact empty-field sentence. Finding titles are distinct across the whole report because
-  round data joins them to record bullets by title. Quoted evidence and code blocks supply no
-  findings. `vet.ts` reads the fixed verdict and answer lines and ignores every other line. It
-  requires verdicts for the report's finding numbers in order and rebuttal answers for each revise,
-  drop and ruling verdict. Only Accept verdicts skip the rebuttal. Both readers are supplied through
+  It returns the full opening for widening reports and an empty opening for every other report
+  class. Planning reports have Excess functionality and Missing functionality fields; implementation
+  reports have one Findings field including deferred findings. Each holds numbered finding blocks or
+  its exact empty-field sentence. Finding titles are distinct across the whole report because round
+  data joins them to record bullets by title. Quoted evidence and code blocks supply no findings.
+  `vet.ts` reads the fixed verdict and answer lines and ignores every other line. It requires
+  verdicts for the report's finding numbers in order and rebuttal answers for each revise, drop and
+  ruling verdict. Only Accept verdicts skip the rebuttal. Both readers are supplied through
   `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
@@ -275,7 +276,9 @@ consumers.
   `round-data.ts` owns the checked JSON schemas, replace-or-append writer and the read of one plan's
   existing round-kind files from the active root or closed-plan archive. A finding review carries
   its report number, tier and verdict; retained finding data stores the verdict word and rebuttal
-  answer. The planning and implementation files each hold a time-ordered entry per round. An entry
+  answer. A planning entry's required `opening` field keeps the full widening report opening;
+  detailing entries and history written before the field use `""`. The planning and implementation
+  files each hold a time-ordered entry per round. An entry
   records state, settings, chosen auditor and source, phase measurements including peak context and
   compactions, landed commits, finding review and outcome data and any judge answer. `RoundOutput`
   writes the settled findings as `in-progress` before later phases, then replaces the entry with its

@@ -19,14 +19,18 @@ type Block = ReturnType<typeof fromMarkdown>["children"][number]
 type List = Extract<Block, { type: "list" }>
 type Paragraph = Extract<Block, { type: "paragraph" }>
 
-/** The named workflow in the report opening owns routing, never its file name. */
-export function reportKind(source: string): RoundKind {
-  const children = fromMarkdown(source).children
+function openingEndIndex(children: readonly Block[]): number {
   const end = children.findIndex(
     (node) => node.type === "heading" && node.depth === 2,
   )
+  return end === -1 ? children.length : end
+}
+
+/** The named workflow in the report opening owns routing, never its file name. */
+export function reportKind(source: string): RoundKind {
+  const children = fromMarkdown(source).children
   const opening = children
-    .slice(0, end === -1 ? undefined : end)
+    .slice(0, openingEndIndex(children))
     .filter((node) => node.type === "heading" || node.type === "paragraph")
     .map((node) =>
       source.slice(node.position?.start.offset, node.position?.end.offset),
@@ -60,10 +64,7 @@ type OpeningLine = {
 }
 
 function reportOpening(children: readonly Block[], source: string): string {
-  const end = children.findIndex(
-    (node) => node.type === "heading" && node.depth === 2,
-  )
-  const offset = end === -1 ? undefined : children[end]?.position?.start.offset
+  const offset = children[openingEndIndex(children)]?.position?.start.offset
   return source.slice(0, offset).trim()
 }
 
@@ -71,10 +72,7 @@ function openingLines(
   children: readonly Block[],
   source: string,
 ): readonly OpeningLine[] {
-  const end = children.findIndex(
-    (node) => node.type === "heading" && node.depth === 2,
-  )
-  return children.slice(0, end === -1 ? undefined : end).flatMap((node) => {
+  return children.slice(0, openingEndIndex(children)).flatMap((node) => {
     if (node.type !== "paragraph") return []
     // Only text and breaks end lines, so both readings split alike.
     const lines = (
