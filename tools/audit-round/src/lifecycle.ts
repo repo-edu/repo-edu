@@ -132,19 +132,45 @@ export async function readyPlan(
   readPlanSteps(await readFile(plan, "utf8"))
 
   const stem = planStem(plan)
-  const { stdout } = await execa("git", ["log", "--format=%h%x09%s"], {
-    cwd: context.planRoot,
-  })
-  const existing = stdout.split("\n").find((line) => {
-    const separator = line.indexOf("\t")
-    const form = separator === -1 ? null : looseForm(line.slice(separator + 1))
-    return form?.stem === stem && form.role === "ready"
-  })
+  const existing = await findMarker(context.planRoot, stem, "ready")
   if (existing !== undefined)
     throw new Error(`${name} already has ready marker ${existing}.`)
 
   return commitOnly({
     cwd: context.planRoot,
     subject: `${stem}/ready: declare the plan ready for implementation`,
+  })
+}
+
+/**
+ * A close without an abort reason archives the plan as shipped work, so it
+ * requires the user's ready declaration in the stem scan. A plan that never
+ * reached `ready` is an abandoned attempt under the plan doctrine and closes
+ * only through `--aborted`.
+ */
+export async function requireReadyMarker(
+  planRoot: string,
+  plan: string,
+): Promise<void> {
+  const existing = await findMarker(planRoot, planStem(plan), "ready")
+  if (existing !== undefined) return
+  throw new Error(
+    `${basename(plan)} has no ready marker. Run pnpm audit-round ready first, or close it with --aborted <reason>.`,
+  )
+}
+
+/** The newest stem-scan line of the plan's marker with that role, as `<sha>\t<subject>`. */
+async function findMarker(
+  planRoot: string,
+  stem: string,
+  role: "ready",
+): Promise<string | undefined> {
+  const { stdout } = await execa("git", ["log", "--format=%h%x09%s"], {
+    cwd: planRoot,
+  })
+  return stdout.split("\n").find((line) => {
+    const separator = line.indexOf("\t")
+    const form = separator === -1 ? null : looseForm(line.slice(separator + 1))
+    return form?.stem === stem && form.role === role
   })
 }

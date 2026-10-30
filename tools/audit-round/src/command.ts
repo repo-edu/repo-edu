@@ -9,7 +9,7 @@ import {
 import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { completeClean } from "./clean.js"
-import { executionContext } from "./context.js"
+import { type ExecutionContext, executionContext } from "./context.js"
 import {
   type AuditTargets,
   defaultPlan,
@@ -19,7 +19,7 @@ import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { readWatchGrade, runGlance } from "./glance.js"
 import { readJudgeEvidence } from "./judge.js"
-import { readyPlan, settlePlan } from "./lifecycle.js"
+import { readyPlan, requireReadyMarker, settlePlan } from "./lifecycle.js"
 import {
   briefRun,
   closeRun,
@@ -632,6 +632,24 @@ Use brief --help or close --help for their arguments and options.`,
   return invocation
 }
 
+/**
+ * The plan a close archives, resolved before any assistant starts. A close
+ * without an abort reason archives shipped work, so it refuses a plan whose
+ * stem scan holds no `ready` marker.
+ */
+async function closePlan(
+  context: ExecutionContext,
+  invocation: Extract<Invocation, { kind: "close" }>,
+): Promise<string> {
+  const plan =
+    invocation.stem === undefined
+      ? await defaultPlan(context)
+      : await requiredActivePlan(context.planRoot, invocation.stem, "close")
+  if (invocation.aborted === undefined)
+    await requireReadyMarker(context.planRoot, plan)
+  return plan
+}
+
 export async function runCommand(
   argv: readonly string[],
   runtime: AssistantRuntime,
@@ -752,17 +770,7 @@ export async function runCommand(
                     .path,
           }
         : invocation.kind === "close"
-          ? {
-              ...invocation,
-              plan:
-                invocation.stem === undefined
-                  ? await defaultPlan(context)
-                  : await requiredActivePlan(
-                      context.planRoot,
-                      invocation.stem,
-                      "close",
-                    ),
-            }
+          ? { ...invocation, plan: await closePlan(context, invocation) }
           : {
               ...invocation,
               targets: await resolveTargets(

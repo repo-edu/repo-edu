@@ -12,6 +12,14 @@ import { test } from "node:test"
 import { runCommand } from "./configured-runner.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
+/** A close without an abort reason needs the user's ready declaration behind it. */
+async function declareReady(planRoot: string) {
+  await commitFixture(
+    planRoot,
+    "example/ready: declare the plan ready for implementation",
+  )
+}
+
 test("a brief without a transcript retells the newest round at the plan root", async (t) => {
   const f = await roundFixture(t)
   const brief = async () => {
@@ -60,6 +68,7 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
 
 test("close archives the named plan through one close session from the plan checkout", async (t) => {
   const f = await roundFixture(t)
+  await declareReady(f.planRoot)
   const archive = join(f.planRoot, "archive/example")
   await mkdir(archive, { recursive: true })
   const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
@@ -121,6 +130,7 @@ test("close archives the named plan through one close session from the plan chec
 
 test("a finished close that left its plan at the root fails with a resume command", async (t) => {
   const f = await roundFixture(t)
+  await declareReady(f.planRoot)
   f.phases.close = { ...(f.phases.close as object), remove: [] }
   await f.configure({ phases: f.phases })
   assert.equal(await runCommand(["close"], f.runtime, f.options), 1)
@@ -149,6 +159,23 @@ test("close without a stem takes the plan that plan prints and passes an abort r
       `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high", "The check cost more than it gave."])}`,
     ),
   )
+})
+
+test("close without an abort reason refuses a plan that never reached ready", async (t) => {
+  const f = await roundFixture(t)
+  const before = await readdir(f.planRoot)
+  for (const args of [["close"], ["close", "example"]]) {
+    f.errors.length = 0
+    assert.equal(await runCommand(args, f.runtime, f.options), 1)
+    assert.match(
+      f.errors.join("\n"),
+      /example\.md has no ready marker\. Run pnpm audit-round ready first, or close it with --aborted <reason>\./,
+    )
+  }
+  assert.deepEqual(await readdir(f.planRoot), before)
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
 })
 
 test("close refuses paths and plans without an active artifact before any assistant starts", async (t) => {

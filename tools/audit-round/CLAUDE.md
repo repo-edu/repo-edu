@@ -767,15 +767,16 @@ that preserves unrelated staged work. It loads no settings and starts no
 assistant.
 
 `close [stem]` closes a plan's loop under the plan repo's
-[loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It takes an
-active plan's stem, or the plan `plan` prints when none is named, and refuses an archived plan as
-already closed. `--aborted <reason>` archives an episode that never shipped and passes the reason
-for its README. One session, on the `close` settings, moves the plan, rewrites the links to it,
-writes each repo's `closed` commit, moves its round-data files into the archive folder and deletes
-the topic's sidecars. It works in the plan checkout
-and writes only `<stem>-close.<tag>.log` beside the plan root's other runner files. Where it would
-need the user's answer, it fails with the question, and its printed resume command continues that
-session.
+[loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It takes an active
+plan's stem, or the plan `plan` prints when none is named, and refuses an archived plan as already
+closed. Without `--aborted` it also refuses a plan whose stem scan holds no `ready` marker, before
+any assistant starts, because the unmarked archive form records shipped work. `--aborted <reason>`
+archives an episode that never shipped and passes the reason for its README. One session, on the
+`close` settings, moves the plan, rewrites the links to it, writes each repo's `closed` commit,
+moves its round-data files into the archive folder and deletes the topic's sidecars. It works in the
+plan checkout and writes only `<stem>-close.<tag>.log` beside the plan root's other runner files.
+Where it would need the user's answer, it fails with the question, and its printed resume command
+continues that session.
 
 `delete-reports` deletes the audit and twins for its exact target and round at the
 plan root and lists each deleted file. It fails when no report matches. Claims, markers and
