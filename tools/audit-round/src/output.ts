@@ -29,11 +29,12 @@ import {
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
 import { recoveryCommand } from "./requests.js"
-import type {
-  BriefResult,
-  CloseResult,
-  RoundResult,
-  RoundSetup,
+import {
+  type BriefResult,
+  type CloseResult,
+  failureResumeSessionId,
+  type RoundResult,
+  type RoundSetup,
 } from "./round.js"
 import {
   type JudgeAnswer,
@@ -671,10 +672,11 @@ export class RoundOutput<R extends Run = Run> {
     }
     this.release()
     if (result.status === "failed") {
+      const resumeSessionId = failureResumeSessionId(result)
       const resume =
-        result.sessionId === null
+        resumeSessionId === null
           ? ""
-          : `\nResume: ${recoveryCommand({ ...result, sessionId: result.sessionId })}`
+          : `\nResume: ${recoveryCommand({ ...result, sessionId: resumeSessionId })}`
       this.say(
         `${unsettledReport}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )

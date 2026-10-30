@@ -75,11 +75,20 @@ export type BriefInput = RoundContext & {
   readonly brief: string
 }
 
-type RoundFailure = PhaseFailure &
+export type RoundFailure = PhaseFailure &
   PhaseRun &
   RoundContext & {
     readonly phase: Phase | "ruling-input" | "complete"
+    /** Overrides the diagnostic session identity when this failure cannot resume it. */
+    readonly resumeSessionId?: string | null
   }
+
+/** The session a failed round may resume, which can differ from its diagnostic identity. */
+export function failureResumeSessionId(failure: RoundFailure): string | null {
+  return failure.resumeSessionId === undefined
+    ? failure.sessionId
+    : failure.resumeSessionId
+}
 
 export type RoundResult = (
   | {
@@ -293,15 +302,19 @@ async function runWatch(
     })
     if (watch.status === "failed")
       return { ...watch, phase: "watch", ...phases.watch, ...context }
+    const startFresh = (reason: string): RoundFailure => ({
+      status: "failed",
+      sessionId: watch.sessionId,
+      resumeSessionId: null,
+      phase: "watch",
+      ...phases.watch,
+      ...context,
+      reason: `${reason}${/[.!?]$/.test(reason) ? "" : "."} The next watch must start fresh.`,
+    })
     if (watch.compactions > 0)
-      return {
-        status: "failed",
-        sessionId: watch.sessionId,
-        phase: "watch",
-        ...phases.watch,
-        ...context,
-        reason: `The watch compacted while reading ${evidence.length} characters of evidence; it needs one uncompacted session.`,
-      }
+      return startFresh(
+        `The watch compacted while reading ${evidence.length} characters of evidence; it needs one uncompacted session.`,
+      )
     try {
       await dependencies.writeWatchDocument(target.file, watch.document)
       await dependencies.writeWatchRecord({
@@ -312,14 +325,7 @@ async function runWatch(
       })
       return { grade: watch.grade }
     } catch (error) {
-      return {
-        status: "failed",
-        sessionId: watch.sessionId,
-        phase: "watch",
-        ...phases.watch,
-        ...context,
-        reason: errorMessage(error),
-      }
+      return startFresh(errorMessage(error))
     }
   } catch (error) {
     return {

@@ -213,8 +213,10 @@ test("a compacted watch publishes neither its document nor cadence record", asyn
 
   assert.match(
     f.visible.join("\n"),
-    /The watch compacted while reading \d+ characters of evidence; it needs one uncompacted session\./,
+    /The watch compacted while reading \d+ characters of evidence; it needs one uncompacted session\. The next watch must start fresh\./,
   )
+  assert.match(f.visible.join("\n"), /Session: watch-session/)
+  assert.doesNotMatch(f.visible.join("\n"), /Resume:/)
   assert.equal(
     (await readdir(f.planRoot)).some((name) => /-9-watch\./.test(name)),
     false,

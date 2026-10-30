@@ -951,12 +951,13 @@ test("a compacted watch writes neither output and names the evidence size", asyn
   assert.deepEqual(result, {
     status: "failed",
     sessionId: "watch-session",
+    resumeSessionId: null,
     phase: "watch",
     assistant: "codex",
     model: pinned("codex"),
     ...testContext(repoRoot),
     reason:
-      "The watch compacted while reading 100 characters of evidence; it needs one uncompacted session.",
+      "The watch compacted while reading 100 characters of evidence; it needs one uncompacted session. The next watch must start fresh.",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
     ),
@@ -980,8 +981,9 @@ test("a watch document failure skips the cadence record", async () => {
   assert.equal(result.status, "failed")
   assert.equal(
     result.status === "failed" && result.reason,
-    "Document write failed",
+    "Document write failed. The next watch must start fresh.",
   )
+  assert.equal(result.status === "failed" && result.resumeSessionId, null)
   assert.deepEqual(round.watchRecords, [])
 })
 
@@ -1000,8 +1002,9 @@ test("a watch record failure keeps the admitted document", async () => {
   assert.equal(result.status, "failed")
   assert.equal(
     result.status === "failed" && result.reason,
-    "Record write failed",
+    "Record write failed. The next watch must start fresh.",
   )
+  assert.equal(result.status === "failed" && result.resumeSessionId, null)
   assert.deepEqual(round.watchDocuments, [
     { file: watch, document: "# Example: trajectory watch" },
   ])

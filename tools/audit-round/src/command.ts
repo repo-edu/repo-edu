@@ -53,6 +53,7 @@ import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
   type CloseResult,
+  failureResumeSessionId,
   type RoundResult,
   runBrief,
   runClose,
@@ -1298,12 +1299,13 @@ export async function runCommand(
     options.emergency(`audit-round: ${errorMessage(error)}`)
     // Required recording failures cannot be reported through the failed writer.
     if (result?.status === "failed") {
+      const resumeSessionId = failureResumeSessionId(result)
       options.emergency(
         `[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}`,
       )
-      if (result.sessionId !== null)
+      if (resumeSessionId !== null)
         options.emergency(
-          `Resume: ${recoveryCommand({ ...result, sessionId: result.sessionId })}`,
+          `Resume: ${recoveryCommand({ ...result, sessionId: resumeSessionId })}`,
         )
     }
   } finally {
