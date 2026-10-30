@@ -340,7 +340,7 @@ Round sequence:
   Scope list (2,3-5,6-7):
     - Each scope runs its own series on its own target and files, in list order.
       The opener is chosen again for each scope, and --first opens every scope.
-    - A judge settle or stop, or the maximum, ends only that scope.
+    - A judge stop or the maximum ends only that scope.
     - A failure, an unanswered ruling, a red watch or a plan phase change
       ends the whole list and names the scopes that did not run.
     - A scope list is refused beside --auditor, whose queue belongs to one scope.

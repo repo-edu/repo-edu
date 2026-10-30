@@ -422,8 +422,8 @@ consumers.
   round prints the queue's path and contents when it opens. Each automatic round prints its judge
   answer and reason. A scope list runs one series per scope in list order. Each scope opens as its
   own series: the opener is chosen again, so an alternate default reads the stamp the previous scope
-  moved, `--first` opens every scope and the round count starts over. A judge settle or stop, or the
-  maximum, ends only that scope and the next one is announced. A failure, an unanswered ruling, a
+  moved, `--first` opens every scope and the round count starts over. A judge stop or the maximum
+  ends only that scope and the next one is announced. A failure, an unanswered ruling, a
   red watch or a plan phase change ends the whole list and names the scopes that did not run. The
   list is refused beside `--auditor`, whose queue belongs to one target and whose pairing with the
   scopes would need a second reading, and beside `name`, which claims one round. Each round records
