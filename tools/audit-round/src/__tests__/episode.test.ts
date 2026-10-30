@@ -178,8 +178,12 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
   }
 
   const formatted = formatWatchEvidence(joined)
-  assert.match(formatted, /^\{\n {2}"repositories":/)
-  const evidence = JSON.parse(formatted)
+  assert.match(formatted.evidence, /^\{\n {2}"repositories":/)
+  assert.deepEqual(formatted.heads, {
+    "repo-edu": "aaaaaaa",
+    plan: "ddddddd",
+  })
+  const evidence = JSON.parse(formatted.evidence)
   assert.deepEqual(Object.keys(evidence), [
     "repositories",
     "tokens",
@@ -338,12 +342,15 @@ test("the watch view keeps dropped findings from finished rounds and all unfinis
   const evidence = JSON.parse(
     formatWatchEvidence(
       joinedEpisode(
-        { "repo-edu": history(correction()), plan: history() },
+        {
+          "repo-edu": history(correction()),
+          plan: history(commit("other/init ath: other plan")),
+        },
         "example",
         areas,
       ),
       roundData,
-    ),
+    ).evidence,
   )
   const planningSource = roundData.planning?.[0]
   const implementationSource = roundData.implementation?.[0]

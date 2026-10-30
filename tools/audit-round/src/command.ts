@@ -716,12 +716,11 @@ export async function runCommand(
   try {
     const context = await executionContext(options.repoEduRoot)
     if (invocation.kind === "episode") {
-      options.terminal.write(
-        watchEvidencePage(
-          await readWatchEvidence({ ...context, target: invocation.target }),
-          invocation.lines,
-        ),
-      )
+      const { evidence } = await readWatchEvidence({
+        ...context,
+        target: invocation.target,
+      })
+      options.terminal.write(watchEvidencePage(evidence, invocation.lines))
       return 0
     }
     if (invocation.kind === "trial") {

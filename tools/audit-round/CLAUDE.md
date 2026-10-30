@@ -137,9 +137,9 @@ consumers.
   window candidate, unreadable reason and finding prefixes through their titles. Its round data
   keeps each round's identity, landed commits, status, applicable findings and phase compaction
   counts. The joined top level keeps token counts and repeated-growth evidence across both repos;
-  repeated-growth commits use short `plan@` or `repo-edu@` SHAs. It serialises that indented view
-  for the runner and hand-run command. It resolves a
-  hand-run commit target as an explicit anchor in
+  repeated-growth commits use short `plan@` or `repo-edu@` SHAs. It returns that serialised view
+  beside the two typed heads from the same projection. The runner uses both, while the hand-run
+  command pages only the view. It resolves a hand-run commit target as an explicit anchor in
   whichever repo holds its SHA; HEAD forms mean Repo Edu. The peer keeps its own anchor. Without a
   target it takes the newest stem commit across both histories by commit date. No episode file is
   written. The hidden hand-run command takes a one-based inclusive line range over the current

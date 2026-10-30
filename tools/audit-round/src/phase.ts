@@ -1,6 +1,6 @@
 import { join } from "node:path"
 import type { CleanCompletion, CleanInput } from "./clean.js"
-import type { WatchEvidenceInput } from "./episode.js"
+import type { WatchEvidence, WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { JudgeEvidence, JudgeEvidenceInput } from "./judge.js"
 import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
@@ -559,7 +559,7 @@ export type RoundDependencies = {
    * cannot be read at all.
    */
   readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
-  readonly watchEvidence: (input: WatchEvidenceInput) => Promise<string>
+  readonly watchEvidence: (input: WatchEvidenceInput) => Promise<WatchEvidence>
   readonly judgeEvidence: (input: JudgeEvidenceInput) => Promise<JudgeEvidence>
   /** Publish settled findings before the watch and judge read the current entry. */
   readonly writeSettledRound: (

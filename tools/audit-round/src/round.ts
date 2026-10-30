@@ -1,5 +1,5 @@
 import { errorMessage } from "./feedback.js"
-import type { WatchGrade, WatchRecord } from "./glance.js"
+import type { WatchGrade } from "./glance.js"
 import { judgeOptions } from "./judge.js"
 import type { RoundDocuments } from "./output.js"
 import {
@@ -289,8 +289,10 @@ async function runWatch(
       stem,
     })
     if (!glance.due) return { grade: null }
-    const evidence = await dependencies.watchEvidence({ ...context, stem })
-    const heads = watchHeads(evidence)
+    const { evidence, heads } = await dependencies.watchEvidence({
+      ...context,
+      stem,
+    })
 
     const watch = await dependencies.runPhase.watch({
       phase: "watch",
@@ -337,30 +339,6 @@ async function runWatch(
       reason: errorMessage(error),
     }
   }
-}
-
-/** Read the two heads from the exact evidence supplied to this watch session. */
-function watchHeads(evidence: string): WatchRecord["heads"] {
-  const parsed: unknown = JSON.parse(evidence)
-  if (typeof parsed !== "object" || parsed === null)
-    throw new Error("Watch evidence must be an object")
-  const repositories = (parsed as { repositories?: unknown }).repositories
-  if (!Array.isArray(repositories))
-    throw new Error("Watch evidence has no repositories")
-  const head = (repository: "repo-edu" | "plan") => {
-    const entry = repositories.find(
-      (candidate): candidate is { repository: string; head: unknown } =>
-        typeof candidate === "object" &&
-        candidate !== null &&
-        "repository" in candidate &&
-        candidate.repository === repository &&
-        "head" in candidate,
-    )
-    if (entry === undefined || typeof entry.head !== "string")
-      throw new Error(`Watch evidence has no ${repository} head`)
-    return entry.head
-  }
-  return { "repo-edu": head("repo-edu"), plan: head("plan") }
 }
 
 /** Run the fresh evidence-only turn that decides an automatic series. */

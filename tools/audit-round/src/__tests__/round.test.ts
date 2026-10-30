@@ -54,6 +54,7 @@ const brief = `${repoRoot}/example-impl-01..01-01-6-brief.oul.md`
 const ruling = `${repoRoot}/example-impl-01..01-01-7-ruling.abx.md`
 const watch = `${repoRoot}/example-impl-01..01-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
+const watchEvidenceText = "joined watch evidence"
 const judgeAnswer = {
   answer: "codex",
   reason: "Another round is worth its cost.",
@@ -195,12 +196,10 @@ function controlledRound(
     watchEvidence: async (input) => {
       assert.equal(calls.at(-1)?.phase, "brief")
       watchEvidence.push(input)
-      return JSON.stringify({
-        repositories: [
-          { repository: "repo-edu", head: "def4567" },
-          { repository: "plan", head: "abc1234" },
-        ],
-      })
+      return {
+        evidence: watchEvidenceText,
+        heads: { "repo-edu": "def4567", plan: "abc1234" },
+      }
     },
     writeWatchDocument: async (file, document) => {
       watchDocuments.push({ file, document })
@@ -566,21 +565,20 @@ test("a due watch receives the current round's dropped findings from joined evid
         const settled = round.settledWrites[0]
         assert.ok(settled)
         assert.equal(settled.account.findings[0]?.outcome, "dropped")
-        return JSON.stringify({
-          repositories: [
-            { repository: "repo-edu", head: "def4567" },
-            { repository: "plan", head: "abc1234" },
-          ],
-          roundData: {
-            implementation: [
-              {
-                target: "example-impl-01..01",
-                round: 1,
-                findings: settled.account.findings,
-              },
-            ],
-          },
-        })
+        return {
+          evidence: JSON.stringify({
+            roundData: {
+              implementation: [
+                {
+                  target: "example-impl-01..01",
+                  round: 1,
+                  findings: settled.account.findings,
+                },
+              ],
+            },
+          }),
+          heads: { "repo-edu": "def4567", plan: "abc1234" },
+        }
       },
     },
   )
@@ -906,12 +904,7 @@ test("a due glance completes the watch in one fresh session", async () => {
   assert.deepEqual(round.calls.slice(5), [
     {
       phase: "watch",
-      evidence: JSON.stringify({
-        repositories: [
-          { repository: "repo-edu", head: "def4567" },
-          { repository: "plan", head: "abc1234" },
-        ],
-      }),
+      evidence: watchEvidenceText,
       assistant: "codex",
       model: pinned("codex"),
       ...testContext(repoRoot),
@@ -957,7 +950,7 @@ test("a compacted watch writes neither output and names the evidence size", asyn
     model: pinned("codex"),
     ...testContext(repoRoot),
     reason:
-      "The watch compacted while reading 100 characters of evidence; it needs one uncompacted session. The next watch must start fresh.",
+      "The watch compacted while reading 21 characters of evidence; it needs one uncompacted session. The next watch must start fresh.",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
     ),

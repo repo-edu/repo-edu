@@ -314,10 +314,15 @@ export async function readEpisode(
 export type WatchEvidenceInput = ExecutionContext &
   ({ readonly stem: string } | { readonly target?: string })
 
+export type WatchEvidence = {
+  readonly evidence: string
+  readonly heads: Readonly<Record<Repository, string>>
+}
+
 /** Resolve hand-run targets and join both histories only when evidence is requested. */
 export async function readWatchEvidence(
   input: WatchEvidenceInput,
-): Promise<string> {
+): Promise<WatchEvidence> {
   const [plan, repoEdu] = await Promise.all([
     readLog(input.planRoot),
     readLog(input.repoEduRoot),
@@ -451,22 +456,40 @@ function watchRoundData(roundData: PlanRoundData) {
   }
 }
 
-/** Project and serialise the one watch view; no episode file. */
+function watchHeads(
+  repositories: readonly ReturnType<typeof watchRepository>[],
+): WatchEvidence["heads"] {
+  const head = (repository: Repository) => {
+    const entry = repositories.find(
+      (candidate) => candidate.repository === repository,
+    )
+    if (entry?.head === null || entry?.head === undefined)
+      throw new Error(`Watch evidence has no ${repository} head`)
+    return entry.head
+  }
+  return { "repo-edu": head("repo-edu"), plan: head("plan") }
+}
+
+/** Project the one watch snapshot and serialise its evidence; no episode file. */
 export function formatWatchEvidence(
   evidence: ReturnType<typeof joinedEpisode>,
   roundData: PlanRoundData = {},
-): string {
-  return JSON.stringify(
-    {
-      repositories: evidence.repositories.map(watchRepository),
-      tokens: evidence.tokens,
-      growthPatterns: evidence.growthPatterns.map(({ label, commits }) => ({
-        label,
-        commits: commits.map(shortJoinedSha),
-      })),
-      roundData: watchRoundData(roundData),
-    },
-    null,
-    2,
-  )
+): WatchEvidence {
+  const repositories = evidence.repositories.map(watchRepository)
+  return {
+    evidence: JSON.stringify(
+      {
+        repositories,
+        tokens: evidence.tokens,
+        growthPatterns: evidence.growthPatterns.map(({ label, commits }) => ({
+          label,
+          commits: commits.map(shortJoinedSha),
+        })),
+        roundData: watchRoundData(roundData),
+      },
+      null,
+      2,
+    ),
+    heads: watchHeads(repositories),
+  }
 }
