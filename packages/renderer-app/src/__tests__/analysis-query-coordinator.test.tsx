@@ -1149,6 +1149,7 @@ describe("analysis sidebar admission", () => {
         requestAnalysis: false,
         resolveSnapshotHead: async (_signal, input) => {
           const path = input.repositoryAbsolutePath
+          assert.ok(path)
           headCalls.push(path)
           if (path === repos[0] && headCalls.length > repos.length) {
             refreshEntered.resolve()
