@@ -72,7 +72,10 @@ describe("session Query bodies", () => {
     client.setQueryData(
       cloneAllListingQueryKeys.admission(publishedInput.admissionId),
       {
-        repositories: [{ name: "repo", identifier: "repo", archived: false }],
+        credentials: publishedInput.credentials,
+        result: {
+          repositories: [{ name: "repo", identifier: "repo", archived: false }],
+        },
       },
     )
     const variables = {
@@ -144,7 +147,10 @@ describe("session Query bodies", () => {
     client.setQueryData(
       cloneAllListingQueryKeys.admission(publishedInput.admissionId),
       {
-        repositories: [{ name: "old", identifier: "old", archived: false }],
+        credentials: publishedInput.credentials,
+        result: {
+          repositories: [{ name: "old", identifier: "old", archived: false }],
+        },
       },
     )
     const listing = fetchCloneAllListing(

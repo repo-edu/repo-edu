@@ -120,10 +120,10 @@ the existing transaction owner. Follow-up bodies retain the initiating start.
 | Analyse selected repository | Analysis sidebar | `analysis.run` for one repository | Cancel |
 | Search, or Enter in namespace or name filter | Clone All panel | `repo.listNamespace` | Cancel |
 | Browse (target directory) | Clone All panel | `pickDirectory` | none |
-| Clone | Clone All panel | `repo.bulkClone` | command Cancel |
-| Create | Repository operation fields | `repo.create` | command Cancel |
-| Clone | Repository operation fields | `repo.clone` | command Cancel |
-| Update | Repository operation fields | `repo.update` | command Cancel |
+| Clone | Clone All panel | `repo.bulkClone` | none |
+| Create | Repository operation fields | `repo.create` | none |
+| Clone | Repository operation fields | `repo.clone` | none |
+| Update | Repository operation fields | `repo.update` | none |
 | Browse (template repository) | Repository operation fields | `pickDirectory` | none |
 | Preview, Refresh Preview | Import students dialog | `roster.importFromLms` | close control |
 | Load group sets | Connect group set dialog | `groupSet.fetchAvailableFromLms` | close control |
@@ -131,9 +131,9 @@ the existing transaction owner. Follow-up bodies retain the initiating start.
 | Browse | Import students dialog | `pickUserFile` | none |
 | Browse | Git usernames dialog | `pickUserFile` | none |
 | Browse | Import group set dialog | `pickUserFile`, then `groupSet.previewImportFromFile` | none |
-| Import | Import students dialog | `roster.importFromFile` | command Cancel |
-| Import | Import group set dialog | `groupSet.importFromFile` | command Cancel |
-| Import | Git usernames dialog | `gitUsernames.import` | command Cancel |
+| Import | Import students dialog | `roster.importFromFile` | none |
+| Import | Import group set dialog | `groupSet.importFromFile` | none |
+| Import | Git usernames dialog | `gitUsernames.import` | none |
 | Export | Students tab | `roster.exportMembers` | none |
 | Export | Group set sidebar | `groupSet.export` | none |
 | Home | Top bar, course switcher | surface change to Home | none |
@@ -149,7 +149,7 @@ the existing transaction owner. Follow-up bodies retain the initiating start.
 | Refresh | Submission tab | `analysis.listFolderFiles` | none |
 | Load questions, Refresh questions | Examination view | `examination.prepareSubmissionSource` as needed, then `examination.lookupQuestions` and `examination.lookupQuestionSummaries` | none |
 | Generate questions, Re-generate | Examination view | preparation and lookup as needed, then `examination.generateQuestions` | Stop |
-| Import archive | Examination view | `pickUserFile`, then `examination.archive.import` | command Cancel |
+| Import archive | Examination view | `pickUserFile`, then `examination.archive.import` | none |
 | Export archive | Examination view | `pickSaveTarget`, then `examination.archive.export` | none |
 
 <!-- session-start-inventory:end -->

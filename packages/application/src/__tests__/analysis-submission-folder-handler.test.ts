@@ -65,34 +65,13 @@ describe("submission folder analysis workflows", () => {
     ])
   })
 
-  it("rejects invalid roots and escaping relative paths", async () => {
+  it("rejects invalid roots", async () => {
     const handlers = createHandlers(createFileSystemPort())
 
     await assertValidationError(() =>
       handlers["analysis.listFolderFiles"]({
         folderPath: "relative",
         extensions: ["ts"],
-      }),
-    )
-    await assert.rejects(
-      () =>
-        handlers["analysis.readFolderFile"]({
-          folderPath: "/tmp/submission",
-          relativePath: "../main.ts",
-        }),
-      (error) => {
-        const appError = error as AppError
-        assert.equal(appError.type, "validation")
-        const issue = appError.issues?.[0]
-        assert.ok(issue !== undefined && "path" in issue)
-        assert.equal(issue.path, "relativePath")
-        return true
-      },
-    )
-    await assertValidationError(() =>
-      handlers["analysis.readFolderFile"]({
-        folderPath: "/tmp/submission",
-        relativePath: "C:main.ts",
       }),
     )
   })
@@ -106,52 +85,5 @@ describe("submission folder analysis workflows", () => {
         extensions: [42],
       } as never),
     )
-    await assertValidationError(() =>
-      handlers["analysis.readFolderFile"]({
-        folderPath: "/tmp/submission",
-      } as never),
-    )
-  })
-
-  it("reads selected files as base64 through the filesystem port", async () => {
-    const handlers = createHandlers(
-      createFileSystemPort({
-        readFileInsideRoot: async (request) => {
-          assert.equal(request.relativePath, " main.ts ")
-          return {
-            relativePath: request.relativePath,
-            bytes: new TextEncoder().encode("const answer = 42\n"),
-          }
-        },
-      }),
-    )
-
-    const result = await handlers["analysis.readFolderFile"]({
-      folderPath: "/tmp/submission",
-      relativePath: " main.ts ",
-    })
-
-    assert.equal(result.relativePath, " main.ts ")
-    assert.equal(result.byteLength, "const answer = 42\n".length)
-    assert.equal(atob(result.base64), "const answer = 42\n")
-  })
-
-  it("normalizes an admitted file path before the filesystem boundary", async () => {
-    const handlers = createHandlers(
-      createFileSystemPort({
-        readFileInsideRoot: async (request) => {
-          assert.equal(request.relativePath, "src/main.ts")
-          return {
-            relativePath: request.relativePath,
-            bytes: new TextEncoder().encode("export {}\n"),
-          }
-        },
-      }),
-    )
-
-    await handlers["analysis.readFolderFile"]({
-      folderPath: "/tmp/submission",
-      relativePath: "src\\main.ts",
-    })
   })
 })

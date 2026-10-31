@@ -68,13 +68,6 @@ export function nextLookupDisplay(
   }
 }
 
-export function completedEntry(entry: ExaminationEntry): ExaminationEntry {
-  return {
-    ...entry,
-    stopRequested: false,
-  }
-}
-
 export function completeGenerationSession(
   session: ExaminationSession,
   payload: LoadedArchiveResultPayload,
@@ -127,7 +120,7 @@ export function applyGenerationCompletionToCurrentState(
   if (payload.loadingKey !== null && payload.loadingKey !== payload.resultKey) {
     entriesByKey.delete(payload.loadingKey)
   }
-  entriesByKey.set(payload.resultKey, completedEntry(payload.entry))
+  entriesByKey.set(payload.resultKey, payload.entry)
 
   if (
     payload.sourceSessionKey !== undefined &&

@@ -160,10 +160,6 @@ export const workflowInputSchemas = {
     folderPath: z.string(),
     extensions: z.array(z.string()),
   }),
-  "analysis.readFolderFile": z.strictObject({
-    folderPath: z.string(),
-    relativePath: z.string(),
-  }),
   "examination.generateQuestions": examinationGenerateQuestionsInputSchema,
   "examination.lookupQuestions": examinationLookupQuestionsInputSchema,
   "examination.prepareSubmissionSource":

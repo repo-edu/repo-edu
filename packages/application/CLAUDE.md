@@ -76,7 +76,7 @@ It composes:
   (`createAnalysisWorkflowHandlers`): `analysis-handler.ts` (`analysis.run`),
   `snapshot-head-handler.ts` (`analysis.resolveSnapshotHead`), `blame-handler.ts`
   (`analysis.blame`), `discover-repos-handler.ts` (`analysis.discoverRepos`),
-  `submission-folder-handler.ts` (`analysis.listFolderFiles`, `analysis.readFolderFile`), plus
+  `submission-folder-handler.ts` (`analysis.listFolderFiles`), plus
   `log-parser.ts`, `blame-parser.ts`, `snapshot-engine.ts`, `analysis-matchers.ts`, `repo-root.ts`,
   `ports.ts` (`AnalysisWorkflowPorts` over `GitCommandPort` + `FileSystemPort`).
   `analysis-matchers.ts` owns one immutable compiled predicate set per analysis invocation.

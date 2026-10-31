@@ -943,10 +943,8 @@ export function useExaminationEngine({
   )
 
   const stopGeneration = useCallback(() => {
-    if (sourceSessionKey !== null)
-      useExaminationStore.getState().requestGenerationStop(sourceSessionKey)
     workflowClient.stop("examination.generateQuestions")
-  }, [sourceSessionKey, workflowClient])
+  }, [workflowClient])
 
   const loadQuestions = useMemo(
     () =>

@@ -66,7 +66,6 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 | `analysis.blame` | yes | — | yes | Interactive per-file blame analysis |
 | `analysis.discoverRepos` | yes | — | yes | Folder/repository browser support |
 | `analysis.listFolderFiles` | yes | — | yes | Folder/repository browser support |
-| `analysis.readFolderFile` | yes | — | yes | Folder/repository browser support |
 | `examination.generateQuestions` | yes | — | yes | Interactive LLM-backed examination generation |
 | `examination.lookupQuestions` | yes | — | yes | Examination archive lookup |
 | `examination.archive.export` | yes | — | yes | File save dialog |

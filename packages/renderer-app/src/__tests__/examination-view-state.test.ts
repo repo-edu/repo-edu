@@ -69,7 +69,6 @@ function archiveEntry(params: {
       partialQuestionCount: null,
       generationProgressLabel: null,
       streamedResponseCharacterCount: 0,
-      stopRequested: false,
     },
   }
 }

@@ -104,14 +104,21 @@ describe("analysis query keys", () => {
       analysis,
       config: { includeFiles: ["*"], copyMove: 1 },
     })
+    const repositoryPrefix = [
+      "analysis",
+      "source",
+      source,
+      "repo",
+      repoPath,
+    ] as const
 
     assert.deepEqual(
       analysisQueryKeys.result(analysis).slice(0, 5),
-      analysisQueryKeys.repo(source, repoPath),
+      repositoryPrefix,
     )
     assert.deepEqual(
       analysisQueryKeys.blame(blame).slice(0, 5),
-      analysisQueryKeys.repo(source, repoPath),
+      repositoryPrefix,
     )
     assert.equal("files" in blame, false)
   })

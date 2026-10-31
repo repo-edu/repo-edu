@@ -203,12 +203,6 @@ export function buildBlameQueryIdentity(params: {
 }
 
 export const analysisQueryKeys = {
-  source: (source: AnalysisSourceKeyParts) =>
-    ["analysis", "source", source] as const,
-  sourceRepos: (source: AnalysisSourceKeyParts) =>
-    ["analysis", "source", source, "repo"] as const,
-  repo: (source: AnalysisSourceKeyParts, repoPath: string) =>
-    ["analysis", "source", source, "repo", repoPath] as const,
   discovery: (source: AnalysisSourceKeyParts, folder: string, depth: number) =>
     ["analysis", "source", source, "discovery", folder, depth] as const,
   snapshotHead: (params: {

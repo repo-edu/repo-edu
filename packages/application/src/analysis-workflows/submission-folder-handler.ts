@@ -1,17 +1,14 @@
-import { Buffer } from "node:buffer"
 import { isAbsolute } from "node:path"
 import type {
   AnalysisFolderFile,
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { SUBMISSION_FILE_MAX_BYTES } from "@repo-edu/application-contract"
 import {
   DEFAULT_EXTENSIONS,
   normalizeExtension,
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
-import { admitSelectedRelativeFilePath } from "../selected-file-admission.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 
@@ -55,31 +52,6 @@ function validateListFolderFilesInput(input: unknown): {
   }
 }
 
-function validateReadFolderFileInput(input: unknown): {
-  folderPath: string
-  relativePath: string
-} {
-  if (!isRecord(input)) {
-    throw createValidationAppError("Submission file input is invalid.", [
-      { path: "input", message: "Input must be an object." },
-    ])
-  }
-  const issues: { path: string; message: string }[] = []
-  if (typeof input.folderPath !== "string") {
-    issues.push({ path: "folderPath", message: "folderPath is required." })
-  }
-  if (typeof input.relativePath !== "string") {
-    issues.push({ path: "relativePath", message: "relativePath is required." })
-  }
-  if (issues.length > 0) {
-    throw createValidationAppError("Submission file input is invalid.", issues)
-  }
-  return {
-    folderPath: input.folderPath as string,
-    relativePath: input.relativePath as string,
-  }
-}
-
 function normalizeExtensionFilter(extensions: readonly string[]): string[] {
   const normalized = [
     ...new Set(
@@ -120,28 +92,11 @@ async function assertExistingDirectory(
   }
 }
 
-function admitRelativeFilePath(relativePath: string): string {
-  const admission = admitSelectedRelativeFilePath(relativePath)
-  if (!admission.ok) {
-    throw createValidationAppError("Submission file path is invalid.", [
-      {
-        path: "relativePath",
-        message: "File path must stay inside the submission folder.",
-      },
-    ])
-  }
-  return admission.path
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64")
-}
-
 export function createSubmissionFolderHandlers(
   ports: AnalysisWorkflowPorts,
 ): Pick<
-  WorkflowHandlerMap<"analysis.listFolderFiles" | "analysis.readFolderFile">,
-  "analysis.listFolderFiles" | "analysis.readFolderFile"
+  WorkflowHandlerMap<"analysis.listFolderFiles">,
+  "analysis.listFolderFiles"
 > {
   return {
     "analysis.listFolderFiles": async (input, options) => {
@@ -175,30 +130,6 @@ export function createSubmissionFolderHandlers(
         (left, right) => left.relativePath.localeCompare(right.relativePath),
       )
       return { files: resultFiles }
-    },
-    "analysis.readFolderFile": async (input, options) => {
-      const typedOptions = options as
-        | WorkflowCallOptions<never, never>
-        | undefined
-      const signal = typedOptions?.signal
-      const validatedInput = validateReadFolderFileInput(input)
-      const folderPath = validateAbsoluteFolderPath(validatedInput.folderPath)
-      const relativePath = admitRelativeFilePath(validatedInput.relativePath)
-      throwIfAborted(signal)
-      await assertExistingDirectory(ports, folderPath, signal)
-      const result = await ports.fileSystem.readFileInsideRoot({
-        rootPath: folderPath,
-        relativePath,
-        maxBytes: SUBMISSION_FILE_MAX_BYTES,
-        signal,
-      })
-      throwIfAborted(signal)
-      return {
-        relativePath: result.relativePath,
-        mediaType: null,
-        byteLength: result.bytes.byteLength,
-        base64: bytesToBase64(result.bytes),
-      }
     },
   }
 }

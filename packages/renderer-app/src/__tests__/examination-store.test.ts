@@ -67,7 +67,6 @@ function entry(status: ExaminationEntry["status"]): ExaminationEntry {
       status === "loading" ? { requested: 2, accepted: 0 } : null,
     generationProgressLabel: null,
     streamedResponseCharacterCount: 0,
-    stopRequested: false,
   }
 }
 
@@ -437,31 +436,6 @@ describe("examination store", () => {
 
     assert.equal(useExaminationStore.getState().sourceSessions.size, 0)
     assert.equal(useExaminationStore.getState().sourceSummaries.size, 0)
-  })
-
-  it("records a soft stop intent without ending the request itself", () => {
-    const store = activateSession()
-    const started = store.startGenerationSession({
-      sourceSessionKey,
-      entryKey: "session-1",
-      seedQuestions: [],
-      sourceReferences: [],
-      requestedQuestionCount: 4,
-    })
-    if (started === null) throw new Error("Generation did not start.")
-
-    store.requestGenerationStop(sourceSessionKey)
-
-    assert.equal(
-      useExaminationStore.getState().entriesByKey.get("session-1")
-        ?.stopRequested,
-      true,
-    )
-    assert.equal(
-      useExaminationStore.getState().sourceSessions.get(sourceSessionKey)
-        ?.pendingGenerationRequestId,
-      started.requestId,
-    )
   })
 
   it("invalidates repository summaries by parsed repository path", () => {

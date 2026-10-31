@@ -52,11 +52,6 @@ export async function settleHostCommand(
     return
   const { operation, outcome } = state.completion
   const current = () => admission.getSnapshot() === state
-  if (
-    outcome.disposition === "uncertain" &&
-    outcome.reason !== "confirmation-expired"
-  )
-    throw new Error("Unproven effects cannot release command admission.")
   const result =
     outcome.disposition === "completed"
       ? outcome.completion.result

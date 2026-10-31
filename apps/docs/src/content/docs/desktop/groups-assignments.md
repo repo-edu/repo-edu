@@ -161,8 +161,9 @@ a text field and saving a connection in Settings start no listing.
   Git connection.
 
 While a listing runs, the window refuses input except **Cancel**. Scrolling remains available.
-Cancel stops the listing. The panel hides the previous results and shows "Listing repositories…"
-while the new listing loads.
+Cancel stops the listing. A repeated search with the same inputs and credentials keeps its matching
+results visible while they refresh. A search with new inputs or credentials shows "Listing
+repositories…" until matching results arrive.
 
 The target folder is pre-filled from the course-level clone target but edits are held in panel state
 only — assignment-scoped Clone remains the sole writer of the course setting.

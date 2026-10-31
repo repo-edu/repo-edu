@@ -15,8 +15,8 @@ case and a full correctness plan for key normalization, schema versioning, and i
 `analysis.resolveSnapshotHead` resolves the canonical snapshot OID. `analysis.run` computes
 log-based repository statistics and a PersonDB baseline from that fixed OID. `analysis.blame`
 computes per-file blame output from the same fixed OID and applies the PersonDB overlay.
-`analysis.discoverRepos`, `analysis.listFolderFiles`, and `analysis.readFolderFile` provide the
-folder/repository browsing support used by the renderer.
+`analysis.discoverRepos` and `analysis.listFolderFiles` provide the folder/repository browsing
+support used by the renderer.
 
 Repository inputs are a strict union:
 

@@ -59,7 +59,6 @@ describe("application-contract workflow catalog", () => {
       "analysis.blame",
       "analysis.discoverRepos",
       "analysis.listFolderFiles",
-      "analysis.readFolderFile",
       "examination.generateQuestions",
       "examination.lookupQuestions",
       "examination.prepareSubmissionSource",

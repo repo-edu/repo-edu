@@ -36,8 +36,6 @@ import type {
   AnalysisListFolderFilesInput,
   AnalysisListFolderFilesResult,
   AnalysisProgress,
-  AnalysisReadFolderFileInput,
-  AnalysisReadFolderFileResult,
   AnalysisResolveSnapshotHeadInput,
   AnalysisRunInput,
   AssignmentValidationInput,
@@ -301,12 +299,6 @@ export type WorkflowPayloads = {
     progress: never
     output: never
     result: AnalysisListFolderFilesResult
-  }
-  "analysis.readFolderFile": {
-    input: AnalysisReadFolderFileInput
-    progress: never
-    output: never
-    result: AnalysisReadFolderFileResult
   }
   "examination.generateQuestions": {
     input: ExaminationGenerateQuestionsInput

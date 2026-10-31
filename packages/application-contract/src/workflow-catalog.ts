@@ -184,11 +184,6 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "none",
     cancellation: "cooperative",
   },
-  "analysis.readFolderFile": {
-    delivery: ["desktop"],
-    progress: "none",
-    cancellation: "cooperative",
-  },
   "examination.generateQuestions": {
     delivery: ["desktop"],
     progress: "milestone",

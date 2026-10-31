@@ -89,7 +89,6 @@ export function createLoadingEntry(params: {
     },
     generationProgressLabel: "Preparing question generation.",
     streamedResponseCharacterCount: 0,
-    stopRequested: false,
   }
 }
 
@@ -108,6 +107,5 @@ export function createErrorEntry(message: string): ExaminationEntry {
     partialQuestionCount: null,
     generationProgressLabel: null,
     streamedResponseCharacterCount: 0,
-    stopRequested: false,
   }
 }

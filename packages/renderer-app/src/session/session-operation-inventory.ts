@@ -41,7 +41,6 @@ export const sessionWorkflowClasses = {
   "analysis.blame": "session-changing",
   "analysis.discoverRepos": "session-changing",
   "analysis.listFolderFiles": "session-changing",
-  "analysis.readFolderFile": "session-changing",
   "examination.generateQuestions": "command",
   "examination.lookupQuestions": "session-changing",
   "examination.prepareSubmissionSource": "session-changing",
@@ -74,10 +73,6 @@ export const sessionDirectClasses = {
   pickUserFile: "session-changing",
   pickSaveTarget: "session-changing",
   pickDirectory: "session-changing",
-  setNativeTheme: "presentation-only",
-  downloadUpdate: "presentation-only",
-  quitAndInstall: "session-changing",
-  bootstrapReady: "session-changing",
 } as const satisfies Record<string, "presentation-only" | "session-changing">
 
 export type SessionDirectId = {
@@ -87,10 +82,6 @@ export type SessionDirectId = {
 }[keyof typeof sessionDirectClasses]
 
 export type SessionOperationId = SessionWorkflowId | SessionDirectId
-export type PresentationDirectId = Exclude<
-  keyof typeof sessionDirectClasses,
-  SessionDirectId
->
 
 export function sessionOperationKind(
   operation: SessionOperationId,

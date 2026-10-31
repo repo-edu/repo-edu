@@ -1,4 +1,3 @@
-import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useReducer, useState } from "react"
@@ -18,10 +17,12 @@ import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   type CloneAllCommandState,
   type CloneAllCommandVariables,
+  type CloneAllListingResult,
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
   cloneAllInputIsCurrent,
   cloneAllListingReducer,
+  cloneAllListingResultIsCurrent,
   cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
   createCloneAllSafeListingInput,
@@ -78,11 +79,17 @@ export function useCloneAllRepositories({
   const queryPolicy = createCloneAllListingQueryPolicy(
     publishedListingInput?.admissionId ?? null,
   )
-  const listingQuery = useQuery<RepositoryListNamespaceResult>({
+  const listingQuery = useQuery<CloneAllListingResult>({
     ...queryPolicy,
     enabled: false,
     queryFn: skipToken,
   })
+
+  const listResult =
+    inputIsCurrent &&
+    cloneAllListingResultIsCurrent(publishedListingInput, listingQuery.data)
+      ? (listingQuery.data?.result ?? null)
+      : null
 
   const [cloneCommand, setCloneCommand] = useState<CloneAllCommandState>({
     status: "idle",
@@ -91,7 +98,7 @@ export function useCloneAllRepositories({
   const canClone = selectCloneAllCanClone({
     inputIsCurrent,
     queryIsSuccess: listingQuery.isSuccess,
-    listResult: listingQuery.data,
+    listResult: listResult ?? undefined,
     targetDirectory,
     commandIsPending: cloneCommand.status === "pending",
   })
@@ -168,7 +175,7 @@ export function useCloneAllRepositories({
         },
       )
     }),
-    listResult: inputIsCurrent ? (listingQuery.data ?? null) : null,
+    listResult,
     listError:
       inputIsCurrent && listingQuery.isError
         ? getErrorMessage(listingQuery.error)

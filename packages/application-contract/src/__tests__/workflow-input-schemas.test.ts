@@ -165,8 +165,8 @@ describe("runtime workflow inputs", () => {
     }
   })
 
-  it("has exactly the catalogue's 42 workflow keys", () => {
-    assert.equal(Object.keys(workflowInputSchemas).length, 42)
+  it("has exactly the catalogue's 41 workflow keys", () => {
+    assert.equal(Object.keys(workflowInputSchemas).length, 41)
     assert.deepEqual(
       Object.keys(workflowInputSchemas).sort(),
       Object.keys(workflowCatalog).sort(),

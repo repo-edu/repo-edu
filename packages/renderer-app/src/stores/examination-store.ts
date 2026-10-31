@@ -608,36 +608,6 @@ export const useExaminationStore = create<
         requestId,
       ),
 
-    requestGenerationStop: (sourceSessionKey) => {
-      const state = get()
-      const session = state.sourceSessions.get(sourceSessionKey)
-      const requestId = session?.pendingGenerationRequestId ?? null
-      const entryKey = session?.pendingGenerationEntryKey ?? null
-      if (session === undefined || requestId === null || entryKey === null) {
-        return false
-      }
-      get().applyGenerationProgress(
-        entryKey,
-        state.entriesByKey.get(entryKey)?.generationProgressLabel ??
-          "Stopping generation.",
-        sourceSessionKey,
-        requestId,
-      )
-      set((current) => {
-        const entry = current.entriesByKey.get(entryKey)
-        if (entry?.status !== "loading") return current
-        const entriesByKey = new Map(current.entriesByKey)
-        entriesByKey.set(entryKey, {
-          ...entry,
-          stopRequested: true,
-          generationProgressLabel:
-            entry.generationProgressLabel ?? "Stopping generation.",
-        })
-        return { entriesByKey }
-      })
-      return true
-    },
-
     clearEntry: (key) =>
       set((state) => {
         if (!state.entriesByKey.has(key)) return state

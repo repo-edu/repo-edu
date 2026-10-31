@@ -413,10 +413,6 @@ describe("session operation ownership", () => {
       pickUserFile: "session-changing",
       pickSaveTarget: "session-changing",
       pickDirectory: "session-changing",
-      setNativeTheme: "presentation-only",
-      downloadUpdate: "presentation-only",
-      quitAndInstall: "session-changing",
-      bootstrapReady: "session-changing",
     })
   })
   it("freezes at reservation while earlier publication finishes before command start", async () => {
@@ -615,9 +611,6 @@ describe("session operation ownership", () => {
       }),
     )
     await gateway.presentation("validation.roster", {} as never)
-    await gateway.presentationDirect("setNativeTheme", async () => {
-      calls.push("theme")
-    })
     assert.equal(snapshot().transactions.admitted.size, 0)
     await assert.rejects(
       gateway.presentation("repo.clone" as never, {} as never),
@@ -647,6 +640,6 @@ describe("session operation ownership", () => {
       }),
       /does not belong/,
     )
-    assert.deepEqual(calls, ["validation.roster", "theme"])
+    assert.deepEqual(calls, ["validation.roster"])
   })
 })

@@ -65,10 +65,6 @@ export function createHostRequestTransport(options: {
   const terminal = options.admission.terminal
 
   function attach(request: HostRequest, port: RequestPort, run?: CommandRun) {
-    if (retained.has(request)) {
-      port.close()
-      throw new Error("The request already owns a port.")
-    }
     const endpoint = createRequestPortEndpoint<
       unknown,
       unknown,
@@ -180,11 +176,10 @@ export function createHostRequestTransport(options: {
       })
       if (decision !== "accepted" && decision !== "busy") {
         endpoint.dispose()
-        return request
+        return
       }
       endpoint.send({ type: "admission", status: decision })
       if (decision === "accepted") endpoint.send({ type: "prepare" })
-      return request
     },
     prepareClose(request: HostRequest, port: RequestPort) {
       const endpoint = attach(request, port)

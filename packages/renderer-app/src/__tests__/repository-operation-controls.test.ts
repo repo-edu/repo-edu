@@ -8,11 +8,13 @@ import {
 import { QueryClient, QueryObserver } from "@tanstack/react-query"
 import {
   buildCloneAllWorkflowInput,
+  type CloneAllListingResult,
   type CloneAllListingState,
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
   cloneAllInputIsCurrent,
   cloneAllListingReducer,
+  cloneAllListingResultIsCurrent,
   cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
   createCloneAllSafeListingInput,
@@ -73,6 +75,11 @@ const listingResult: RepositoryListNamespaceResult = {
       archived: false,
     },
   ],
+}
+
+const cachedListingResult: CloneAllListingResult = {
+  credentials: firstCredentials,
+  result: listingResult,
 }
 
 describe("clone-all listing requests", () => {
@@ -143,13 +150,10 @@ describe("clone-all query ownership", () => {
       const policy = createCloneAllListingQueryPolicy(
         initialPublishedInput.admissionId,
       )
-      const observer = new QueryObserver<RepositoryListNamespaceResult>(
-        queryClient,
-        {
-          ...policy,
-          enabled: false,
-        },
-      )
+      const observer = new QueryObserver<CloneAllListingResult>(queryClient, {
+        ...policy,
+        enabled: false,
+      })
       const unsubscribe = observer.subscribe(() => {})
       t.after(unsubscribe)
       const listing = fetchCloneAllListing(
@@ -177,7 +181,7 @@ describe("clone-all query ownership", () => {
         closed = true
         assert.deepEqual(
           queryClient.getQueryData(policy.queryKey),
-          listingResult,
+          cachedListingResult,
         )
       })
       await new Promise<void>((resolve) => setImmediate(resolve))
@@ -250,11 +254,11 @@ describe("clone-all query ownership", () => {
     const policy = createCloneAllListingQueryPolicy(
       initialPublishedInput.admissionId,
     )
-    queryClient.setQueryData(policy.queryKey, listingResult)
-    const observer = new QueryObserver<RepositoryListNamespaceResult>(
-      queryClient,
-      { ...policy, enabled: false },
-    )
+    queryClient.setQueryData(policy.queryKey, cachedListingResult)
+    const observer = new QueryObserver<CloneAllListingResult>(queryClient, {
+      ...policy,
+      enabled: false,
+    })
     const unsubscribe = observer.subscribe(() => {})
     t.after(unsubscribe)
 
@@ -265,12 +269,15 @@ describe("clone-all query ownership", () => {
       initialPublishedInput,
     )
     await entered.promise
-    assert.deepEqual(observer.getCurrentResult().data, listingResult)
+    assert.deepEqual(observer.getCurrentResult().data, cachedListingResult)
 
     controller.operations.stop("repo.listNamespace")
     await new Promise<void>((resolve) => setImmediate(resolve))
-    assert.deepEqual(observer.getCurrentResult().data, listingResult)
-    assert.deepEqual(queryClient.getQueryData(policy.queryKey), listingResult)
+    assert.deepEqual(observer.getCurrentResult().data, cachedListingResult)
+    assert.deepEqual(
+      queryClient.getQueryData(policy.queryKey),
+      cachedListingResult,
+    )
 
     release.resolve()
     await listing.catch(() => undefined)
@@ -293,6 +300,20 @@ describe("clone-all admission and clone inputs", () => {
         credentials: firstCredentials,
         publishedInput: initialPublishedInput,
       }),
+      false,
+    )
+    assert.equal(
+      cloneAllListingResultIsCurrent(
+        initialPublishedInput,
+        cachedListingResult,
+      ),
+      true,
+    )
+    assert.equal(
+      cloneAllListingResultIsCurrent(
+        { ...initialPublishedInput, credentials: secondCredentials },
+        cachedListingResult,
+      ),
       false,
     )
     assert.equal(
@@ -412,21 +433,6 @@ describe("clone-all admission and clone inputs", () => {
     assert.deepEqual(workflowInput.repositories, [
       { name: "lab-1", identifier: "team-a/lab-1" },
     ])
-    assert.throws(
-      () =>
-        buildCloneAllWorkflowInput({
-          variables: {
-            ...variables,
-            listingAdmissionId: {
-              ...variables.listingAdmissionId,
-              filter: "lab-2*",
-            },
-          },
-          publishedInput: initialPublishedInput,
-          listResult: listingResult,
-        }),
-      /no longer admitted/,
-    )
   })
 
   it("extracts only valid subgroup prefixes", () => {

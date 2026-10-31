@@ -152,7 +152,7 @@ describe("desktop host admission", () => {
         .map(([id]) => id)
         .sort(),
     )
-    assert.equal(desktopTrpcWorkflowIds.length, 29)
+    assert.equal(desktopTrpcWorkflowIds.length, 28)
   })
 
   it("admits only one of two concurrent command attempts and preserves its resource", () => {

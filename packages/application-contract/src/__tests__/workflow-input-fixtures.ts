@@ -203,10 +203,6 @@ export const workflowInputs = {
   },
   "analysis.discoverRepos": { searchFolder: "/courses", maxDepth: 3 },
   "analysis.listFolderFiles": { folderPath: "/courses", extensions: ["ts"] },
-  "analysis.readFolderFile": {
-    folderPath: "/courses",
-    relativePath: "main.ts",
-  },
   "examination.generateQuestions": {
     ...questionInput,
     regenerate: true,

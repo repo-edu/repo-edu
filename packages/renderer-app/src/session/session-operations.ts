@@ -22,7 +22,6 @@ import { useCourseStore } from "../stores/course-store.js"
 import type { CourseMutationActions } from "./course-mutation-controller.js"
 import { captureSessionCommandInput } from "./session-command-input.js"
 import {
-  type PresentationDirectId,
   type PresentationWorkflowId,
   type SessionDirectId,
   type SessionOperationId,
@@ -116,10 +115,6 @@ export type SessionOperationGateway = {
     input: WorkflowInput<K>,
     options?: CallOptions<K>,
   ): Promise<WorkflowResult<K>>
-  presentationDirect<T>(
-    id: PresentationDirectId,
-    start: () => Promise<T>,
-  ): Promise<T>
   reserve<T>(
     start: SessionStart,
     operation: SessionOperationId,
@@ -166,13 +161,6 @@ export class SessionOperations extends SessionSurfaceTransactions {
       return await reservation.run(body)
     },
     presentation: (id, input, options) => this.present(id, input, options),
-    presentationDirect: async (id, start) => {
-      if (sessionDirectClasses[id] !== "presentation-only")
-        throw new Error("The direct action is not presentation-only.")
-      if (this.snapshot().lifecycle.kind !== "live")
-        throw new Error("The session is not accepting presentation calls.")
-      return await start()
-    },
     reserve: (start, operation) => this.reserveOperation(start, operation),
     stop: (operation) =>
       this.stopMatching(

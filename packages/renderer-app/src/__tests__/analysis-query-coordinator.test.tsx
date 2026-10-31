@@ -63,7 +63,7 @@ import {
 const repos = ["/repos/first", "/repos/second"]
 const source = ["course", "course"] as const
 const repoResults = (repoPath: string) =>
-  [...analysisQueryKeys.repo(source, repoPath), "result"] as const
+  ["analysis", "source", source, "repo", repoPath, "result"] as const
 const flushQueries = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 0))
 

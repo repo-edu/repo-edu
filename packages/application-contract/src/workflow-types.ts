@@ -317,18 +317,6 @@ export type AnalysisListFolderFilesResult = {
   files: AnalysisFolderFile[]
 }
 
-export type AnalysisReadFolderFileInput = {
-  folderPath: string
-  relativePath: string
-}
-
-export type AnalysisReadFolderFileResult = {
-  relativePath: string
-  mediaType: null
-  byteLength: number
-  base64: string
-}
-
 // Per-file sanity guard for submission inputs. Raised well above realistic
 // source-file sizes so the guard only fires on accidental blobs (vendored
 // libraries, build artefacts) rather than ordinary student code.

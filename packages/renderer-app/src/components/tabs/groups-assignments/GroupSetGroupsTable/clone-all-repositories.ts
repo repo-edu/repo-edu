@@ -40,6 +40,11 @@ export type CloneAllPublishedListingInput = {
   readonly credentials: PersistedAppCredentials
 }
 
+export type CloneAllListingResult = {
+  readonly credentials: PersistedAppCredentials
+  readonly result: RepositoryListNamespaceResult
+}
+
 export type CloneAllCommandVariables = {
   readonly listingAdmissionId: CloneAllListingAdmissionId
   readonly targetDirectory: string
@@ -60,19 +65,20 @@ export function fetchCloneAllListing(
   operations: SessionOperationGateway,
   queryClient: QueryClient,
   input: CloneAllPublishedListingInput,
-): Promise<RepositoryListNamespaceResult | undefined> {
+): Promise<CloneAllListingResult | undefined> {
   return operations.execute(start, "repo.listNamespace", async (scope) => {
     // Input changes do not cancel a listing; its Cancel control does.
     return await queryClient.fetchQuery({
       ...createCloneAllListingQueryPolicy(input.admissionId),
-      ...scopedSessionQueryOptions(scope, () =>
-        scope.run("repo.listNamespace", {
+      ...scopedSessionQueryOptions(scope, async () => ({
+        credentials: input.credentials,
+        result: await scope.run("repo.listNamespace", {
           credentials: input.credentials,
           namespace: input.admissionId.namespace,
           filter: input.admissionId.filter || undefined,
           includeArchived: input.admissionId.includeArchived,
         }),
-      ),
+      })),
     })
   })
 }
@@ -88,13 +94,17 @@ export function executeCloneAllCommand(
   return operations.execute(start, "repo.bulkClone", async (scope) => {
     scope.publish(() => publish({ status: "pending", variables }))
     try {
-      const listing = queryClient.getQueryState<RepositoryListNamespaceResult>(
+      const listing = queryClient.getQueryState<CloneAllListingResult>(
         cloneAllListingQueryKeys.admission(variables.listingAdmissionId),
       )
+      const listingData =
+        listing?.status === "success" ? listing.data : undefined
       const input = buildCloneAllWorkflowInput({
         variables,
         publishedInput,
-        listResult: listing?.status === "success" ? listing.data : undefined,
+        listResult: cloneAllListingResultIsCurrent(publishedInput, listingData)
+          ? listingData?.result
+          : undefined,
       })
       const data = await scope.run("repo.bulkClone", input)
       scope.publish(() => publish({ status: "success", variables, data }))
@@ -186,12 +196,48 @@ export function cloneAllInputIsCurrent(params: {
       params.input,
       params.publishedInput.admissionId,
     ) &&
-    params.credentials.gitConnections.find(
-      (connection) => connection.id === connectionId,
-    ) ===
-      params.publishedInput.credentials.gitConnections.find(
-        (connection) => connection.id === connectionId,
-      )
+    cloneAllCredentialsMatch(
+      connectionId,
+      params.credentials,
+      params.publishedInput.credentials,
+    )
+  )
+}
+
+export function cloneAllCredentialsMatch(
+  connectionId: string | undefined,
+  left: PersistedAppCredentials,
+  right: PersistedAppCredentials,
+): boolean {
+  const leftConnection = left.gitConnections.find(
+    (connection) => connection.id === connectionId,
+  )
+  const rightConnection = right.gitConnections.find(
+    (connection) => connection.id === connectionId,
+  )
+  return (
+    leftConnection !== undefined &&
+    rightConnection !== undefined &&
+    leftConnection.id === rightConnection.id &&
+    leftConnection.provider === rightConnection.provider &&
+    leftConnection.baseUrl === rightConnection.baseUrl &&
+    leftConnection.token === rightConnection.token &&
+    leftConnection.userAgent === rightConnection.userAgent
+  )
+}
+
+export function cloneAllListingResultIsCurrent(
+  publishedInput: CloneAllPublishedListingInput | null,
+  listingResult: CloneAllListingResult | undefined,
+): boolean {
+  return (
+    publishedInput !== null &&
+    listingResult !== undefined &&
+    cloneAllCredentialsMatch(
+      publishedInput.admissionId.connectionId,
+      listingResult.credentials,
+      publishedInput.credentials,
+    )
   )
 }
 
@@ -212,18 +258,6 @@ export function selectCloneAllCanClone(params: {
   )
 }
 
-export function cloneAllAdmissionIdsEqual(
-  left: CloneAllListingAdmissionId,
-  right: CloneAllListingAdmissionId,
-): boolean {
-  return (
-    left.connectionId === right.connectionId &&
-    left.namespace === right.namespace &&
-    left.filter === right.filter &&
-    left.includeArchived === right.includeArchived
-  )
-}
-
 export function cloneAllResultBelongsToCurrentCommand(params: {
   readonly inputIsCurrent: boolean
   readonly publishedInput: CloneAllPublishedListingInput | null
@@ -236,7 +270,7 @@ export function cloneAllResultBelongsToCurrentCommand(params: {
     params.commandVariables !== undefined &&
     params.currentTargetDirectory.trim() ===
       params.commandVariables.targetDirectory &&
-    cloneAllAdmissionIdsEqual(
+    cloneAllSafeInputMatchesAdmission(
       params.commandVariables.listingAdmissionId,
       params.publishedInput.admissionId,
     )
@@ -248,14 +282,7 @@ export function buildCloneAllWorkflowInput(params: {
   readonly publishedInput: CloneAllPublishedListingInput | null
   readonly listResult: RepositoryListNamespaceResult | undefined
 }): RepositoryBulkCloneInput {
-  if (
-    params.publishedInput === null ||
-    !cloneAllAdmissionIdsEqual(
-      params.variables.listingAdmissionId,
-      params.publishedInput.admissionId,
-    ) ||
-    params.listResult === undefined
-  ) {
+  if (params.publishedInput === null || params.listResult === undefined) {
     throw new Error("Clone-all input is no longer admitted.")
   }
 

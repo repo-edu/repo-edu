@@ -31,7 +31,6 @@ export type ExaminationEntry = {
   } | null
   generationProgressLabel: string | null
   streamedResponseCharacterCount: number
-  stopRequested: boolean
 }
 
 export type AvailableArchiveEntry = {
@@ -262,7 +261,6 @@ export type ExaminationActions = {
     sourceSessionKey?: string,
     requestId?: string,
   ) => void
-  requestGenerationStop: (sourceSessionKey: string) => boolean
   clearEntry: (key: string) => void
   archiveCatalogChanged: () => number
   invalidateRepositoryAnalysisSource: (

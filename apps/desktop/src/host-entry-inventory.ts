@@ -46,7 +46,6 @@ export const desktopWorkflowStarts = {
   "analysis.blame": "ordinary",
   "analysis.discoverRepos": "ordinary",
   "analysis.listFolderFiles": "ordinary",
-  "analysis.readFolderFile": "ordinary",
   "examination.generateQuestions": "exclusive",
   "examination.lookupQuestions": "ordinary",
   "examination.prepareSubmissionSource": "ordinary",

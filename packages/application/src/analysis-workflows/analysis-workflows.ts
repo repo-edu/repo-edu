@@ -12,7 +12,6 @@ type AnalysisWorkflowId =
   | "analysis.blame"
   | "analysis.discoverRepos"
   | "analysis.listFolderFiles"
-  | "analysis.readFolderFile"
 
 export function createAnalysisWorkflowHandlers(
   ports: AnalysisWorkflowPorts,
