@@ -129,7 +129,7 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
   const planning: PlanningRoundData = {
     ...common,
     phase: "detailing",
-    opening: "",
+    settling: "",
     findings: [
       {
         ...reportFinding(1, "Dropped plan finding"),
@@ -170,7 +170,7 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
   assert.equal(evidence.implementation?.[0]?.phases[0]?.compactions, 1)
 })
 
-test("planning round data rejects history without the required opening", async (t) => {
+test("planning round data rejects history without the required settling", async (t) => {
   const f = await fixture(t)
   const {
     scope: _scope,

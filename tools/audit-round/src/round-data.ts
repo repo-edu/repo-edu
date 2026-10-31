@@ -172,7 +172,7 @@ const commonRoundData = z.strictObject({
 
 export const planningRoundDataSchema = commonRoundData.extend({
   phase: z.enum(["widening", "detailing"]),
-  opening: z.string(),
+  settling: z.string(),
 })
 export const implementationRoundDataSchema = commonRoundData.extend({
   scope: z.string().min(1),
@@ -226,7 +226,7 @@ export type FindingRebuttal = {
 }
 
 export type RoundAccount = {
-  readonly opening: string
+  readonly settling: string
   readonly judgedRepos: readonly Repository[]
   readonly findings: readonly RoundFinding[]
 }

@@ -764,6 +764,45 @@ Refusal: `Invalid watch grade line`
 Watch grade: yellow
 ```
 
+## Settling line
+
+### Production
+
+```text
+<settling-line>   ::= "Settling: "<settling-advice>". "<one-line-reason>
+<settling-advice> ::= settle | keep open
+<one-line-reason> ::= non-empty text on one line
+```
+
+The line is exactly one plain line after the finished fix's Markdown and
+immediately before the final `PHASE RESULT` line. A fix in a widening planning
+round returns it; every other fix returns none, and the round refuses a line
+where none is required. A fix that needs a ruling returns no line, because the
+round has not ended. It is control data for the runner, which retains it as the
+round's settling recommendation for the series judge.
+
+### Examples
+
+#### `settling/settle` — parsed
+
+```text
+Settling: settle. Findings 1 to 3 landed and no shape question remains.
+```
+
+#### `settling/keep-open` — parsed
+
+```text
+Settling: keep open. Decision 3 needs the landed step's timing evidence before the shape can close.
+```
+
+#### `settling/unknown` — refused
+
+Refusal: `Invalid settling line`
+
+```text
+Settling: maybe. The shape might be done.
+```
+
 ## Judge answer
 
 ### Production

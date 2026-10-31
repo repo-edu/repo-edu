@@ -765,7 +765,7 @@ export class RoundOutput<R extends Run = Run> {
       findings: [...account.findings],
       judge,
       ...("phase" in this.run.data
-        ? { phase: this.run.data.phase, opening: account.opening }
+        ? { phase: this.run.data.phase, settling: account.settling }
         : {
             scope: this.run.data.scope,
             judgedRepos: [...account.judgedRepos],

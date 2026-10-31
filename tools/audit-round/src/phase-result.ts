@@ -31,6 +31,22 @@ export function watchOutput(text: string): {
   return { document, grade: grade as WatchGrade }
 }
 
+const settlingPrefix = "Settling: "
+const settlingLine = /^Settling: (settle|keep open)\. (\S.*)$/
+
+/**
+ * Read the settling line a finished fix puts before its phase result. The
+ * line is absent outside widening rounds, so absence is returned rather than
+ * refused; the round decides whether the phase required it.
+ */
+export function settlingOutput(text: string): string | null {
+  const line = withoutPhaseResult(text).split("\n").at(-1) ?? ""
+  if (!line.startsWith(settlingPrefix)) return null
+  const match = settlingLine.exec(line)
+  if (match === null) throw new Error("Invalid settling line")
+  return `${match[1]}. ${match[2]}`
+}
+
 const resultSchema = z.strictObject({
   status: z.enum(["finished", "needs-ruling", "failed"]),
   reason: z.string().nullable(),
@@ -51,10 +67,11 @@ export function phaseResult<P extends Phase>(
   }
   if (result.reason !== null) throw new Error("Unexpected PHASE RESULT reason")
   if (phase === "fix") {
-    return {
-      status: result.status,
-      sessionId,
-    } as PhaseControlResult<P>
+    return (
+      result.status === "finished"
+        ? { status: "finished", sessionId, settling: settlingOutput(text) }
+        : { status: "needs-ruling", sessionId }
+    ) as PhaseControlResult<P>
   }
   if (result.status !== "finished")
     throw new Error("Report PHASE RESULT must finish")

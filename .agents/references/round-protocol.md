@@ -568,7 +568,9 @@ The [phase-result grammar](round-grammar.md#phase-result) owns the final control
 line, exact JSON object, statuses and phase admission. Keep that line outside a
 code fence and make it the last line of the response. Audit, vet and rebuttal
 return their complete document before it and write no file; the runner saves
-that text without the control line.
+that text without the control line. A finished fix in a widening planning round
+puts the grammar's [settling line](round-grammar.md#settling-line) immediately
+before it; no other fix returns one.
 
 - `finished` means the phase completed all required work.
 - `needs-ruling` means the fix wrote the final ruling for an open decision. The

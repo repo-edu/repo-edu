@@ -51,21 +51,24 @@ consumers.
   round reports the returned grade, and the command runner ends the auditor sequence on red, so no
   queued round starts before the user acts on the watch. Before the brief and watch, `round.ts`
   publishes the settled findings as the current `in-progress` round-data entry. After the fix, it
-  resolves the plan's current filename. The watch still runs when the fix changed the plan's phase,
-  but the judge does not. After any other non-red round in an active plan's automatic series, it
-  starts a fresh judge turn over the plan's round-kind data, episode commits, stop conditions and
-  latest watch. The runner's real-bug gate removes settle in widening while either assistant's
-  latest settled read of the scope carries an accepted A, and removes stop otherwise while that read
-  carries an accepted A or B. A widening judge chooses settle, stop, Claude or Codex; every other
-  judge chooses stop, Claude or Codex. The output stores its answer in the final entry. Manual
-  queues and commit targets run no judge. The round records both repositories' HEADs before the fix,
-  reads the landed records and validates every subject under its repository's grammar. A plan target
-  fails when a finished fix landed no commit. A commit target may land nothing. Reader failures
-  retain the owning phase and its session for recovery. The coordinator deletes the report set after
-  these checks, then runs the brief. Other outcomes retain the set. `runClose` runs the loop-close
-  phase alone on its own settings. It passes the active plan, the capability tag and model record
-  its commits carry and any abort reason. A finished close that left its plan at the root fails,
-  because the move is the close.
+  resolves the plan's current filename. A widening fix must end with the grammar's settling line,
+  which replaces the audit's opening as the entry's retained settling recommendation, because the
+  fix ends the round and has answered every ruling it asked; a fix outside widening must return
+  none. The watch still runs when the fix changed the plan's phase, but the judge does not. After
+  any other non-red round in an active plan's automatic series, it starts a fresh judge turn over
+  the plan's round-kind data, episode commits, stop conditions and latest watch. The runner's
+  real-bug gate removes settle in widening while either assistant's latest settled read of the scope
+  carries an accepted A, and removes stop otherwise while that read carries an accepted A or B. A
+  widening judge chooses settle, stop, Claude or Codex; every other judge chooses stop, Claude or
+  Codex. The output stores its answer in the final entry. Manual queues and commit targets run no
+  judge. The round records both repositories' HEADs before the fix, reads the landed records and
+  validates every subject under its repository's grammar. A plan target fails when a finished fix
+  landed no commit. A commit target may land nothing. Reader failures retain the owning phase and
+  its session for recovery. The coordinator deletes the report set after these checks, then runs the
+  brief. Other outcomes retain the set. `runClose` runs the loop-close phase alone on its own
+  settings. It passes the active plan, the capability tag and model record its commits carry and any
+  abort reason. A finished close that left its plan at the root fails, because the move is the
+  close.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -88,16 +91,18 @@ consumers.
   repos in list order.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
   It returns the full opening for widening reports and an empty opening for every other report
-  class. Planning reports have Excess functionality and Missing functionality fields; implementation
-  reports have one Findings field including deferred findings. Each holds depth-3 finding headings
-  or its exact empty-field sentence. A heading form keeps evidence free of the indentation a
-  numbered list needs, which grew by one space at the tenth finding and was missed. Finding titles
-  are distinct across the whole report because the vet and rebuttal name findings by them; round
-  data joins findings to record bullets by the `[finding:<n>]` number each bullet opens with. Quoted
-  evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict and answer lines and
-  ignores every other line. It requires verdicts for the report's finding numbers in order and
-  rebuttal answers for each revise, drop and ruling verdict. Only Accept verdicts skip the rebuttal.
-  Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
+  class; a clean widening round retains that opening as its settling recommendation, since no fix
+  ran to replace it. Planning reports have Excess functionality and Missing functionality fields;
+  implementation reports have one Findings field including deferred findings. Each holds depth-3
+  finding headings or its exact empty-field sentence. A heading form keeps evidence free of the
+  indentation a numbered list needs, which grew by one space at the tenth finding and was missed.
+  Finding titles are distinct across the whole report because the vet and rebuttal name findings by
+  them; round data joins findings to record bullets by the `[finding:<n>]` number each bullet opens
+  with. Quoted evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict and
+  answer lines and ignores every other line. It requires verdicts for the report's finding numbers
+  in order and rebuttal answers for each revise, drop and ruling verdict. Only Accept verdicts skip
+  the rebuttal. Both readers are supplied through `RoundDependencies`, alongside the HEAD and
+  subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.
@@ -153,7 +158,7 @@ consumers.
   the phase's ending is available. Widening has no settled-span cut and always
   admits stop, while the gate controls settle on an accepted A alone: a widening
   B is a fixable issue inside the shape that the vet checked and the fix landed,
-  and the auditor's settling recommendation already says whether a shape
+  and the retained settling recommendation already says whether a shape
   question remains. Detailing and implementation use the gate on an accepted A
   or B to control stop. Detailing uses the current span. Implementation
   uses every settled entry on its scope target. Only the exact current
@@ -301,30 +306,31 @@ consumers.
   zero and a resumed phase reports no first change. `round-data.ts` owns the checked JSON schemas,
   replace-or-append writer and the read of one plan's existing round-kind files from the active root
   or closed-plan archive. A finding review carries its report number, tier and verdict; retained
-  finding data stores the verdict word and rebuttal answer. A planning entry's required `opening`
-  field keeps the full widening report opening; detailing entries and history written before the
-  field use `""`. The planning and implementation files each hold a time-ordered entry per round. An
-  entry records state, settings, chosen auditor and source, phase measurements including peak
-  context and compactions, landed commits, finding review and outcome data and any judge answer.
-  `RoundOutput` writes the settled findings as `in-progress` before later phases, then replaces the
-  entry with its final state. The writer checks the whole array and publishes it by temporary file
-  rename. `run-files.ts` completes each required write before returning to the invocation; no
-  complete transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the
-  `pi-tui` Markdown component at the current terminal width, preserving paragraph spacing, nested
-  lists and source finding numbers. It uses cyan for inline code without background blocks and
-  honours `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live
-  status line, so permanent text is not wrapped twice. Redirected output retains the original
-  Markdown. The log records each tool invocation once, with shell wrappers removed and no event
-  envelopes or result payloads. Invocation lines stay complete in the log; assistant texts stay
-  complete in Markdown. Only terminal tool lines shorten. The terminal omits the final
-  `PHASE RESULT` control line; the transcript retains it. `showBrief` renders the saved brief after
-  validation and appends it to the log, keeping it out of the transcript it retells. The brief's
-  assistant text is not displayed, so a writer echo cannot duplicate the saved document. Both full
-  rounds and standalone briefs use this route. `beginRuling` releases the live status display and
-  renders the fix's ruling. `endRuling` excludes the user's waiting time and records a submitted
-  reply in the log and transcript before any resumed process starts. Assistant replies use the
-  normal phase output, so launch prompts stay in the log and never reach the terminal. Supplied
-  instruction files appear there by path only; their full contents go to the assistant.
+  finding data stores the verdict word and rebuttal answer. A planning entry's required `settling`
+  field keeps the widening round's settling recommendation as it stands when the round ends: the
+  fix's settling line, or the full report opening when the clean audit ran no fix; detailing entries
+  use `""`. The planning and implementation files each hold a time-ordered entry per round. An entry
+  records state, settings, chosen auditor and source, phase measurements including peak context and
+  compactions, landed commits, finding review and outcome data and any judge answer. `RoundOutput`
+  writes the settled findings as `in-progress` before later phases, then replaces the entry with its
+  final state. The writer checks the whole array and publishes it by temporary file rename.
+  `run-files.ts` completes each required write before returning to the invocation; no complete
+  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
+  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
+  source finding numbers. It uses cyan for inline code without background blocks and honours
+  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
+  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
+  log records each tool invocation once, with shell wrappers removed and no event envelopes or
+  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
+  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
+  line; the transcript retains it. `showBrief` renders the saved brief after validation and appends
+  it to the log, keeping it out of the transcript it retells. The brief's assistant text is not
+  displayed, so a writer echo cannot duplicate the saved document. Both full rounds and standalone
+  briefs use this route. `beginRuling` releases the live status display and renders the fix's
+  ruling. `endRuling` excludes the user's waiting time and records a submitted reply in the log and
+  transcript before any resumed process starts. Assistant replies use the normal phase output, so
+  launch prompts stay in the log and never reach the terminal. Supplied instruction files appear
+  there by path only; their full contents go to the assistant.
 - `trial.ts` owns the read-only trial read-out. It reads checked round data at
   the plan root and closed-plan archives, excludes manual `--auditor` rounds,
   then takes the newest uninterrupted run with one settings snapshot. A

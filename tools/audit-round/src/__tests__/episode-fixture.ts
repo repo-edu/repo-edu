@@ -168,7 +168,7 @@ export function watchRoundDataFixture(): PlanRoundData {
       }),
     ]),
     phase: "detailing",
-    opening: "Complete report opening",
+    settling: "Complete report opening",
   }
   const implementation: ImplementationRoundData = {
     ...commonRound("example-impl-01..01", 4, "failed", "b".repeat(40), [

@@ -20,6 +20,7 @@ const formPrefixes = [
   "plan-step/",
   "phase-result/",
   "watch-grade/",
+  "settling/",
   "judge/",
   "watch/",
 ] as const

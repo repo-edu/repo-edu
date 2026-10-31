@@ -106,8 +106,10 @@ if (scenario.phases !== undefined) {
   const selected = scenario.phases[phase]
   // A chained round changes who audits, so a phase may answer as either CLI.
   scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
-  if (phase === "judge" && selected?.streams !== undefined) {
-    const counter = join(root, "judge-count")
+  // A phase may answer differently on each call: one judge per round, or a
+  // fix resumed in a detailing round and then started fresh in a widening one.
+  if (selected?.streams !== undefined) {
+    const counter = join(root, `${phase}-count`)
     let index = 0
     try {
       index = Number(await readFile(counter, "utf8"))

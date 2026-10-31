@@ -66,7 +66,7 @@ function round(
           ],
     judge: null,
     phase: options.phase ?? "detailing",
-    opening: "",
+    settling: "",
   }
 }
 

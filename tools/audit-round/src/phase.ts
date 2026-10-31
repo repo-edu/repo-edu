@@ -461,10 +461,20 @@ export type WatchResult = ReportResult & {
   readonly compactions: number
 }
 
-type FixResult = {
-  readonly status: "finished" | "needs-ruling"
-  readonly sessionId: string
-}
+/**
+ * A finished fix carries the settling line it returned, or null when it
+ * returned none. Only a widening round requires one; the round enforces that.
+ */
+type FixResult =
+  | {
+      readonly status: "finished"
+      readonly sessionId: string
+      readonly settling: string | null
+    }
+  | {
+      readonly status: "needs-ruling"
+      readonly sessionId: string
+    }
 
 type PhaseControlResults = {
   audit: ReportResult

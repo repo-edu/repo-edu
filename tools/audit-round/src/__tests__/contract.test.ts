@@ -23,6 +23,7 @@ test("the contract prompt requests a valid finished phase result", () => {
     assert.deepEqual(phaseResult("fix", "probe-session", result), {
       status: "finished",
       sessionId: "probe-session",
+      settling: null,
     })
   }
 })

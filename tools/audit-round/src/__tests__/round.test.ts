@@ -161,7 +161,7 @@ function controlledRound(
       status: "finished",
       sessionId: "rebut-session",
     },
-    fix: { status: "finished", sessionId: "fix-session" },
+    fix: { status: "finished", sessionId: "fix-session", settling: null },
     brief: {
       status: "finished",
       sessionId: "brief-session",
@@ -350,7 +350,11 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
   )
   assert.equal(round.deletedReports.length, 0)
   assert.deepEqual(round.briefs, [])
-  round.results.fix = { status: "finished", sessionId: "fix-session" }
+  round.results.fix = {
+    status: "finished",
+    sessionId: "fix-session",
+    settling: null,
+  }
   reply.resolve("Choose option 1.")
   assert.deepEqual(await running, {
     status: "finished",
@@ -393,7 +397,11 @@ test("clarification can leave a decision open without creating a new fix session
         const reply = replies.shift()
         assert.ok(reply)
         if (replies.length === 0)
-          round.results.fix = { status: "finished", sessionId: "fix-session" }
+          round.results.fix = {
+            status: "finished",
+            sessionId: "fix-session",
+            settling: null,
+          }
         return reply
       },
     },
@@ -422,7 +430,7 @@ test("the round account retains review, rebuttal and settlement outcomes", async
   )
   assert.equal(result.status, "finished")
   assert.deepEqual(result.account, {
-    opening: "",
+    settling: "",
     judgedRepos: ["repo-edu"],
     findings: [
       {
@@ -1021,6 +1029,94 @@ test("a round that hands over runs no watch, because its work has not landed", a
   assert.deepEqual(round.glances, [])
 })
 
+test("a widening fix's settling line replaces the audit's opening in the retained account", async () => {
+  const round = controlledRound()
+  round.evidence.opening =
+    "# Planning round workflow\n\nKeep open until the user rules on finding 1."
+  round.results.fix = {
+    status: "finished",
+    sessionId: "fix-session",
+    settling: "settle. Finding 1 landed and no shape question remains.",
+  }
+
+  const result = await runRound(
+    {
+      ...files,
+      ...testContext(repoRoot, "planning"),
+      plan: "example-widen.md",
+    },
+    round.dependencies,
+  )
+
+  assert.equal(result.status, "finished")
+  assert.equal(
+    round.settledWrites[0]?.account.settling,
+    "settle. Finding 1 landed and no shape question remains.",
+  )
+})
+
+test("a clean widening audit retains the auditor's opening as the settling recommendation", async () => {
+  const round = controlledRound()
+  round.evidence.opening =
+    "# Planning round workflow\n\nSettle: no concrete shape question remains."
+  round.evidence.findings = []
+
+  const result = await runRound(
+    {
+      ...files,
+      ...testContext(repoRoot, "planning"),
+      plan: "example-widen.md",
+    },
+    round.dependencies,
+  )
+
+  assert.equal(result.status, "finished")
+  assert.equal(round.settledWrites[0]?.account.settling, round.evidence.opening)
+})
+
+test("a widening fix without a settling line fails at the fix and keeps the reports", async () => {
+  const round = controlledRound()
+
+  const result = await runRound(
+    {
+      ...files,
+      ...testContext(repoRoot, "planning"),
+      plan: "example-widen.md",
+    },
+    round.dependencies,
+  )
+
+  assert.equal(result.status, "failed")
+  if (result.status !== "failed") return
+  assert.equal(result.phase, "fix")
+  assert.equal(result.sessionId, "fix-session")
+  assert.match(result.reason, /widening fix must end with a settling line/)
+  assert.deepEqual(round.deletedReports, [])
+  assert.deepEqual(round.settledWrites, [])
+})
+
+for (const [kind, input] of [
+  ["detailing", { ...testContext(repoRoot, "planning"), plan: "example.md" }],
+  ["implementation", { plan: "example.md", scope: "1" }],
+] as const) {
+  test(`a settling line from a ${kind} fix fails at the fix`, async () => {
+    const round = controlledRound()
+    round.results.fix = {
+      status: "finished",
+      sessionId: "fix-session",
+      settling: "settle. Nothing remains.",
+    }
+
+    const result = await runRound({ ...files, ...input }, round.dependencies)
+
+    assert.equal(result.status, "failed")
+    if (result.status !== "failed") return
+    assert.equal(result.phase, "fix")
+    assert.match(result.reason, /Only a widening fix returns a settling line/)
+    assert.deepEqual(round.deletedReports, [])
+  })
+}
+
 test("a planning round glances at the plan repository's record from its own root", async () => {
   const round = controlledRound()
   const planning = testContext(repoRoot, "planning")
@@ -1430,6 +1526,7 @@ for (const auditor of ["claude", "codex"] as const) {
     round.results.fix = {
       status: "finished",
       sessionId: "fix-session",
+      settling: null,
     }
 
     round.evidence.accepted = true

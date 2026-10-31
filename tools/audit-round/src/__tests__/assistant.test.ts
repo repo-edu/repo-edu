@@ -250,6 +250,7 @@ for (const assistant of ["claude", "codex"] as const) {
     )
     assert.deepEqual(result, {
       status: "finished",
+      settling: null,
       sessionId: "test-session",
     })
     assert.equal(f.releases(), 1)
@@ -333,7 +334,11 @@ for (const assistant of ["claude", "codex"] as const) {
       f.output,
       f.runtime,
     )
-    assert.deepEqual(fresh, { status: "finished", sessionId: "test-session" })
+    assert.deepEqual(fresh, {
+      status: "finished",
+      sessionId: "test-session",
+      settling: null,
+    })
     const freshFeedbackEnd = f.feedback.length
 
     await f.configure({
@@ -363,6 +368,7 @@ for (const assistant of ["claude", "codex"] as const) {
     )
     assert.deepEqual(resumed, {
       status: "finished",
+      settling: null,
       sessionId: "test-session",
     })
     const freshTokens = f.feedback
@@ -575,6 +581,7 @@ test("Claude completes a phase when its settings reply fails", async (t) => {
   )
   assert.deepEqual(result, {
     status: "finished",
+    settling: null,
     sessionId: "test-session",
   })
   assert.equal(
@@ -609,6 +616,7 @@ test("Codex fix excludes all pre-invocation usage and retains the new selection"
   )
   assert.deepEqual(result, {
     status: "finished",
+    settling: null,
     sessionId: "test-session",
   })
   assert.deepEqual(

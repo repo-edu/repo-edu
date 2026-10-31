@@ -102,18 +102,32 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
 async function finishFixOnReply(
   f: Awaited<ReturnType<typeof roundFixture>>,
   judgeAnswers?: readonly string[],
+  /** The settling line a widening fix that follows the resumed one must end with. */
+  settling?: string,
 ) {
   const stream = await phaseStream(
     "codex",
     'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
     "fix-session",
   )
+  const streams =
+    settling === undefined
+      ? undefined
+      : [
+          stream,
+          await phaseStream(
+            "codex",
+            `Applied the corrections.\n${settling}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            "fix-session",
+          ),
+        ]
   await f.configure({
     phases: {
       ...f.phases,
       fix: {
         ...(f.phases.fix as Record<string, unknown>),
         assistants: { codex: { stream } },
+        ...(streams === undefined ? {} : { streams }),
         commits: [
           {
             cwd: f.repoRoot,
@@ -240,6 +254,30 @@ async function configureJudgeAnswers(
 ) {
   await f.configure({
     phases: { ...f.phases, judge: await judgePhase(f, answers) },
+  })
+}
+
+/** A widening fix ends on its settling line, so the fixture's fix response carries one. */
+async function configureWideningSeries(
+  f: Awaited<ReturnType<typeof roundFixture>>,
+  settling: string,
+  answers: readonly string[],
+) {
+  const stream = await phaseStream(
+    "codex",
+    `Applied the corrections.\n${settling}\nPHASE RESULT: {"status":"finished","reason":null}`,
+    "fix-session",
+  )
+  await f.configure({
+    phases: {
+      ...f.phases,
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        stream,
+        assistants: { claude: { stream }, codex: { stream } },
+      },
+      judge: await judgePhase(f, answers),
+    },
   })
 }
 
@@ -653,7 +691,11 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
             reportSource,
             detailingReport.replace("Phase: detailing", "Phase: widening"),
           )
-          await finishFixOnReply(f)
+          await finishFixOnReply(
+            f,
+            undefined,
+            "Settling: keep open. The reopened decision still needs evidence.",
+          )
           return "Reopen the plan."
         },
       },
@@ -752,11 +794,11 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
     "codex",
     "plan",
     false,
-    null,
+    "b",
     false,
     "plan",
-    true,
     false,
+    true,
     false,
   )
   await rm(join(f.planRoot, "example.md"))
@@ -767,9 +809,11 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
       "Phase: widening",
     ),
   )
-  await configureJudgeAnswers(f, [
-    "Judge: settle. No concrete shape question remains.",
-  ])
+  await configureWideningSeries(
+    f,
+    "Settling: settle. Finding 1 landed and no shape question remains.",
+    ["Judge: settle. No concrete shape question remains."],
+  )
 
   assert.equal(
     await runCommand(["example-widen.md", "--no-watch"], f.runtime, f.options),
@@ -781,6 +825,14 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
       call.prompt.startsWith("Run the audit phase "),
     ).length,
     1,
+  )
+  const judge = (await f.prompts()).find((call) =>
+    call.prompt.startsWith("Run the judge phase"),
+  )
+  assert.ok(judge)
+  assert.match(
+    judge.prompt,
+    /"settling": "settle\. Finding 1 landed and no shape question remains\."/,
   )
   const visible = f.visible.join("\n")
   assert.match(visible, /Judge: settle\. No concrete shape question remains\./)
@@ -794,8 +846,16 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   )
   const [stored] = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
-  ) as { phase: string; judge: { answer: string; reason: string } | null }[]
+  ) as {
+    phase: string
+    settling: string
+    judge: { answer: string; reason: string } | null
+  }[]
   assert.equal(stored?.phase, "widening")
+  assert.equal(
+    stored?.settling,
+    "settle. Finding 1 landed and no shape question remains.",
+  )
   assert.deepEqual(stored?.judge, {
     answer: "settle",
     reason: "No concrete shape question remains.",
@@ -832,6 +892,11 @@ test("a widening judge can stop the series without recommending settle", async (
     0,
     f.errors.join("\n"),
   )
+  // A clean audit runs no fix, so the auditor's opening is the retained recommendation.
+  const [stored] = JSON.parse(
+    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+  ) as { settling: string }[]
+  assert.match(stored?.settling ?? "", /^Planning round workflow\n/)
   const visible = f.visible.join("\n")
   assert.match(visible, /Judge: stop\. The shape question needs evidence/)
   assert.match(

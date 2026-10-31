@@ -388,7 +388,7 @@ export async function runRound(
   dependencies: RoundDependencies,
   settings: RoundSettings,
 ): Promise<RoundResult> {
-  let account: RoundAccount = { opening: "", judgedRepos: [], findings: [] }
+  let account: RoundAccount = { settling: "", judgedRepos: [], findings: [] }
   const phases = roundPhases(
     input.auditor,
     input.override ?? noOverride,
@@ -445,7 +445,7 @@ export async function runRound(
     }
   }
   account = {
-    opening: evidence.opening,
+    settling: evidence.opening,
     judgedRepos: evidence.judgedRepos,
     findings: reviewedRoundFindings(evidence.findings),
   }
@@ -667,6 +667,19 @@ export async function runRound(
 
     if (fix.status === "finished") {
       try {
+        // The fix ends the round and has answered every ruling it asked, so
+        // its settling line is the recommendation the judge reads. The audit's
+        // opening stands only when no fix ran.
+        const widening =
+          "plan" in input &&
+          roundKind === "planning" &&
+          planPhase(input.plan) === "widening"
+        if (widening && fix.settling === null)
+          throw new Error("A widening fix must end with a settling line")
+        if (!widening && fix.settling !== null)
+          throw new Error("Only a widening fix returns a settling line")
+        if (fix.settling !== null)
+          account = { ...account, settling: fix.settling }
         const landed = await Promise.all(
           repositories.map(({ root, repository }, index) =>
             dependencies.readRecords(root, before[index], repository),

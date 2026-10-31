@@ -6,7 +6,7 @@ import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import type { PhaseInput } from "../phase.js"
-import { phaseResult, watchOutput } from "../phase-result.js"
+import { phaseResult, settlingOutput, watchOutput } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import { pinned } from "./configured-runner.js"
 import { fixture, testContext } from "./helpers.js"
@@ -62,6 +62,36 @@ test("the round grammar's watch-grade examples are parser fixtures", () => {
         'Watch grade: green\nPHASE RESULT: {"status":"finished","reason":null}',
       ),
     /Watch document is empty/,
+  )
+})
+
+test("the round grammar's settling examples are parser fixtures", () => {
+  const result = '\nPHASE RESULT: {"status":"finished","reason":null}'
+  for (const example of roundGrammarExamples("settling/")) {
+    const response = `Applied the corrections.\n${example.source}${result}`
+    if (example.outcome === "parsed") {
+      assert.equal(
+        settlingOutput(response),
+        example.source.slice("Settling: ".length),
+      )
+      assert.deepEqual(phaseResult("fix", "session", response), {
+        status: "finished",
+        sessionId: "session",
+        settling: example.source.slice("Settling: ".length),
+      })
+    } else {
+      assert.throws(
+        () => settlingOutput(response),
+        (error: unknown) =>
+          error instanceof Error && error.message === example.refusal,
+        example.id,
+      )
+    }
+  }
+  assert.equal(settlingOutput(`Applied the corrections.${result}`), null)
+  assert.equal(
+    settlingOutput(`Settling: settle. Buried.\nMore text.${result}`),
+    null,
   )
 })
 
@@ -195,10 +225,12 @@ for (const phase of [
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
     for (const ending of ["", "\n", "\r\n", " \t\n\n"])
-      assert.deepEqual(phaseResult(phase, "session", text(finished) + ending), {
-        status: "finished",
-        sessionId: "session",
-      })
+      assert.deepEqual(
+        phaseResult(phase, "session", text(finished) + ending),
+        phase === "fix"
+          ? { status: "finished", sessionId: "session", settling: null }
+          : { status: "finished", sessionId: "session" },
+      )
     assert.deepEqual(
       phaseResult(
         phase,

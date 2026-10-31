@@ -102,7 +102,7 @@ function settled(entry: RoundData, current: CurrentRound): boolean {
 /**
  * Whether the entry landed a finding at one of the gating tiers. Widening gates
  * on A alone: a widening B is a fixable issue inside the shape that the vet
- * checked and the fix landed, so the auditor's settling recommendation already
+ * checked and the fix landed, so the retained settling recommendation already
  * says whether a shape question remains. Detailing and implementation gate on A
  * and B, where B is a real bug the other assistant has not confirmed.
  */
