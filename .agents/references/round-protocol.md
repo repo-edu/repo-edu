@@ -479,9 +479,9 @@ the deferral and apply the settled findings.
 ## Audit reports
 
 The [round grammar](round-grammar.md#audit-report) owns report openings,
-judged-repo lines, finding fields, location admission, numbering and empty
-sentences. The workflow owns the evidence placed before those fields, such as
-coverage and current-shape advice.
+target lines, judged-repo lines, finding fields, location admission, numbering
+and empty sentences. The workflow owns the evidence placed before those fields,
+such as coverage and current-shape advice.
 
 Planning reports put excess before missing. An accepted removal can make a gap
 inside the removed area irrelevant, so the user decides what can go before

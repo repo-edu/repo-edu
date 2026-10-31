@@ -177,8 +177,9 @@ export async function roundFixture(
   await writeFile(
     report,
     (working === "plan"
-      ? "Planning round workflow\nArtifact: `example.md`\nPhase: detailing\n"
+      ? "Planning round workflow\n"
       : "Implementation audit workflow\n") +
+      "Target: <arguments>\n" +
       `Judged repos: ${owner}@${heads[owner]}\n` +
       "\n" +
       (working === "plan"

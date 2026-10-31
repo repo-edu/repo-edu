@@ -930,8 +930,8 @@ export async function runCommand(
         active.cleanCompletion(completion.message)
         return completion
       },
-      readReport: async (file, kind) =>
-        readReport(await readFile(file, "utf8"), kind),
+      readReport: async (file, kind, target) =>
+        readReport(await readFile(file, "utf8"), kind, target),
       readVet: async (file, findings) =>
         readVet(await readFile(file, "utf8"), findings),
       readRebuttal: async (file, findings, reviews) =>

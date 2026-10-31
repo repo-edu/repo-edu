@@ -37,6 +37,7 @@ import {
   planPhase,
   planStem,
   type RoundContext,
+  reportTarget,
 } from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
@@ -431,6 +432,7 @@ export async function runRound(
     evidence = await dependencies.readReport(
       report,
       roundKind === "implementation" ? "implementation" : planPhase(input.plan),
+      reportTarget(input),
     )
   } catch (error) {
     return {

@@ -100,6 +100,19 @@ function openingLines(
   })
 }
 
+/** The report names the target the runner resolved, so no later phase has to ask which it judged. */
+function checkTarget(
+  children: readonly Block[],
+  source: string,
+  target: string,
+): void {
+  const lines = openingLines(children, source)
+    .map((line) => line.plain)
+    .filter((line) => line.startsWith("Target:"))
+  if (lines.length !== 1 || lines[0] !== `Target: ${target}`)
+    throw new Error(`Report needs one Target: opening naming ${target}`)
+}
+
 function judgedRepos(
   children: readonly Block[],
   source: string,
@@ -276,6 +289,7 @@ function findingData(
 export function readReport(
   source: string,
   reportClass: ReportClass,
+  target: string,
 ): AuditReport {
   const namedKind = reportKind(source)
   const expectedKind =
@@ -300,6 +314,7 @@ export function readReport(
           },
         ]
   const children = fromMarkdown(source).children
+  checkTarget(children, source, target)
   const repositories = judgedRepos(children, source, reportClass)
   const findings: ReportFinding[] = []
   for (const definition of definitions) {

@@ -81,10 +81,18 @@ above.
 <implementation-report>  ::= <implementation-opening><implementation-field>
 
 <planning-opening>        ::= <opening containing "Planning round workflow">
-                              <planning-judged-line><opening-markdown>
+                              <target-line><planning-judged-line><opening-markdown>
 <implementation-opening>  ::= <opening containing "Implementation audit workflow">
-                              <implementation-judged-line><opening-markdown>
+                              <target-line><implementation-judged-line><opening-markdown>
 <opening-markdown>        ::= free Markdown before the first depth-2 heading
+
+<target-line>             ::= "Target: "<target>
+<target>                  ::= <plan-file>                        ; planning round
+                            | <plan-file>" "<step-scope>         ; step audit
+                            | <commit-reference>(" "<commit-reference>)*
+<plan-file>               ::= the plan's current filename at the plan root
+<step-scope>              ::= <n> | <n>"-"<n>
+<commit-reference>        ::= a reference as typed, plan@ prefix included
 
 <planning-judged-line>       ::= "Judged repos: plan@"<sha>
 <implementation-judged-line> ::= "Judged repos: plan@"<sha>
@@ -114,11 +122,18 @@ above.
 <finding-evidence>        ::= free Markdown without a heading of depth 1 to 3
 ```
 
-The workflow phrase and exactly one plain `Judged repos:` line occur in the
-opening. A planning report uses only the plan head. An implementation report
-uses one of the three ordered repository sets above. A finding's token line is
-the first block after its heading. Finding numbers run from 1 without gaps
-across all fields and titles are distinct across the report.
+The workflow phrase, exactly one plain `Target:` line and exactly one plain
+`Judged repos:` line occur in the opening. The target line repeats the round's
+target as the runner resolved it: the plan's filename for a planning round, the
+filename and the step scope the user named for a step audit, or the typed
+commit references for a commit-scoped round. The plan filename carries the
+phase, so the opening names no phase of its own. The runner compares the line
+with the round it is running and refuses a report that names another target or
+none before any later phase starts, so a vet never has to ask which target a
+report judged. A planning report uses only the plan head. An implementation
+report uses one of the three ordered repository sets above. A finding's token
+line is the first block after its heading. Finding numbers run from 1 without
+gaps across all fields and titles are distinct across the report.
 
 Each field contains findings or its exact empty sentence, never both.
 
@@ -140,6 +155,7 @@ location token. Each cell names its example case.
 ```markdown
 # Planning round workflow
 
+Target: example.md
 Judged repos: plan@abc123
 
 ## Excess functionality
@@ -164,6 +180,7 @@ The target state needs one owner.
 ```markdown
 # Planning round workflow
 
+Target: example.md
 Judged repos: plan@abc123
 
 ## Excess functionality
@@ -180,6 +197,7 @@ No missing findings.
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
@@ -192,6 +210,7 @@ No findings.
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123
 
 ## Findings
@@ -208,6 +227,7 @@ The correction belongs in the plan.
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123
 
 ## Findings
@@ -226,6 +246,7 @@ Refusal: `Finding 1 has an invalid plan deferral`
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123
 
 ## Findings
@@ -244,6 +265,7 @@ Refusal: `Finding 1 has an invalid plan location`
 ```markdown
 # Implementation audit workflow
 
+Target: HEAD-1
 Judged repos: repo-edu@def456
 
 ## Findings
@@ -260,6 +282,7 @@ The plan repo is outside the judged set.
 ```markdown
 # Implementation audit workflow
 
+Target: HEAD-1
 Judged repos: repo-edu@def456
 
 ## Findings
@@ -276,6 +299,7 @@ The correction belongs in Repo Edu.
 ```markdown
 # Implementation audit workflow
 
+Target: HEAD-1
 Judged repos: repo-edu@def456
 
 ## Findings
@@ -292,6 +316,7 @@ The correction belongs in the plan repo, outside the judged set.
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
@@ -308,6 +333,7 @@ The correction belongs in the judged plan repo.
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
@@ -326,6 +352,7 @@ Refusal: `Finding 1 has an invalid plan deferral`
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
@@ -337,6 +364,20 @@ Judged repos: plan@abc123, repo-edu@def456
 The plan repo is already in the judged set.
 ```
 
+#### `report/target-missing` — refused
+
+Refusal: `Report needs one Target: opening naming example.md 1`
+
+```markdown
+# Implementation audit workflow
+
+Judged repos: plan@abc123
+
+## Findings
+
+No findings.
+```
+
 #### `report/empty-plan-target` — refused
 
 Refusal: `Finding 1 has an empty plan target`
@@ -344,6 +385,7 @@ Refusal: `Finding 1 has an empty plan target`
 ```markdown
 # Implementation audit workflow
 
+Target: HEAD-1
 Judged repos: repo-edu@def456
 
 ## Findings
@@ -362,6 +404,7 @@ Refusal: `Finding 1 has unknown [foo:...] token at 2`
 ```markdown
 # Implementation audit workflow
 
+Target: HEAD-1
 Judged repos: repo-edu@def456
 
 ## Findings
@@ -380,6 +423,7 @@ Refusal: `Finding 1 has unexpected [cover:...] location at 2; expected [growth-p
 ```markdown
 # Implementation audit workflow
 
+Target: example.md 1
 Judged repos: plan@abc123
 
 ## Findings

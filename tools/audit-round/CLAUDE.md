@@ -568,7 +568,10 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 - watch: no path arguments; the prompt separately supplies the evidence
 
 The runner saves audit, vet and rebuttal final text without the parsed phase
-result line. The brief writes its supplied output. The watch returns Markdown
+result line. It then reads the report under the round grammar and fails the
+round when the report's `Target:` line does not repeat the target it supplied
+to the audit, before any later phase starts, so a vet never has to ask which
+target a report judged. The brief writes its supplied output. The watch returns Markdown
 and its grade; `round.ts` publishes the admitted document and cadence entry. A
 fix receives its ruling path separately and reuses it when the same session
 resumes.

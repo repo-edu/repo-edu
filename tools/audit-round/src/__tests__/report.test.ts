@@ -5,14 +5,26 @@ import {
   reachValues,
   reportLocationTable,
 } from "../finding-tokens.js"
-import { readReport as readAuditReport, reportKind } from "../report.js"
+import {
+  readReport as parseReport,
+  type ReportClass,
+  reportKind,
+} from "../report.js"
 import { readRebuttal, readVet, rebuttalAnswers, vetVerdicts } from "../vet.js"
 import { roundGrammarExample, roundGrammarExamples } from "./round-grammar.js"
 
-const readReport = (
+const targets = {
+  widening: "example-widen.md",
+  detailing: "example.md",
+  implementation: "example.md 1",
+} as const
+const readAuditReport = (
   source: string,
-  kind: "widening" | "detailing" | "implementation",
-) => readAuditReport(source, kind).findings.map((finding) => finding.number)
+  kind: ReportClass,
+  target: string = targets[kind],
+) => parseReport(source, kind, target)
+const readReport = (source: string, kind: ReportClass) =>
+  readAuditReport(source, kind).findings.map((finding) => finding.number)
 
 function assertNamedRefusal(run: () => unknown, refusal: string | null): void {
   assert.notEqual(refusal, null)
@@ -28,14 +40,16 @@ test("the round grammar's report examples are parser fixtures", () => {
     const kind = example.source.includes("Planning round workflow")
       ? "detailing"
       : "implementation"
+    // A refused example without the line is held to the class default.
+    const target = /^Target: (.+)$/m.exec(example.source)?.[1]
     if (example.outcome === "parsed") {
       assert.doesNotThrow(
-        () => readAuditReport(example.source, kind),
+        () => readAuditReport(example.source, kind, target),
         example.id,
       )
     } else {
       assertNamedRefusal(
-        () => readAuditReport(example.source, kind),
+        () => readAuditReport(example.source, kind, target),
         example.refusal,
       )
     }
@@ -99,9 +113,9 @@ function finding(
   return `### ${number}. B: Preserve the evidence\n\n${location} ${ratings}\n\n${evidence}\n`
 }
 const implementation = (body: string) =>
-  `# Implementation audit workflow\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
+  `# Implementation audit workflow\n\nTarget: example.md 1\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
 const planning = (excess: string, missing: string) =>
-  `# Planning round workflow\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
+  `# Planning round workflow\n\nTarget: example.md\nJudged repos: plan@abc123\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
 
 test("the report opening identifies the judged repos independently of evidence", () => {
   for (const [line, judgedRepos] of [
@@ -111,7 +125,7 @@ test("the report opening identifies the judged repos independently of evidence",
   ] as const) {
     assert.deepEqual(
       readAuditReport(
-        `# Implementation audit workflow\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
+        `# Implementation audit workflow\n\nTarget: example.md 1\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
       {
@@ -126,7 +140,10 @@ test("the report opening identifies the judged repos independently of evidence",
 test("planning reports judge only the plan repository", () => {
   const valid = planning("No excess findings.", "No missing findings.")
   for (const reportClass of ["widening", "detailing"] as const) {
-    assert.deepEqual(readAuditReport(valid, reportClass).judgedRepos, ["plan"])
+    assert.deepEqual(
+      readAuditReport(valid, reportClass, "example.md").judgedRepos,
+      ["plan"],
+    )
     for (const opening of [
       "Judged repos: repo-edu@def456",
       "Judged repos: plan@abc123, repo-edu@def456",
@@ -136,6 +153,7 @@ test("planning reports judge only the plan repository", () => {
           readAuditReport(
             valid.replace("Judged repos: plan@abc123", opening),
             reportClass,
+            "example.md",
           ),
         /Judged repos/,
       )
@@ -152,7 +170,7 @@ test("plain judged-repos lines survive formatted neighbours in the same paragrap
   ])
     assert.deepEqual(
       readAuditReport(
-        `# Implementation audit workflow\n\n${opening}\n\n## Findings\n\nNo findings.`,
+        `# Implementation audit workflow\n\nTarget: example.md 1\n\n${opening}\n\n## Findings\n\nNo findings.`,
         "implementation",
       ),
       {
@@ -182,11 +200,47 @@ test("missing, duplicate, quoted and malformed judged-repos openings fail", () =
     assert.throws(
       () =>
         readAuditReport(
-          `# Implementation audit workflow\n\n${opening}\n\n## Findings\n\nNo findings.`,
+          `# Implementation audit workflow\n\nTarget: example.md 1\n\n${opening}\n\n## Findings\n\nNo findings.`,
           "implementation",
         ),
       /Judged repos/,
     )
+})
+
+test("the report opening names the round's target exactly once in plain text", () => {
+  const valid = planning("No excess findings.", "No missing findings.")
+  assert.deepEqual(readAuditReport(valid, "detailing").judgedRepos, ["plan"])
+  assert.deepEqual(
+    readAuditReport(
+      implementation("No findings.").replace(
+        "Target: example.md 1",
+        "Target: plan@HEAD-1 abc123",
+      ),
+      "implementation",
+      "plan@HEAD-1 abc123",
+    ).judgedRepos,
+    ["plan", "repo-edu"],
+  )
+  for (const line of [
+    "",
+    "Target: other.md",
+    "Target: example-widen.md",
+    "Target: example.md 1",
+    "Target: `example.md`",
+    "**Target:** example.md",
+    "> Target: example.md",
+    "Target: example.md\nTarget: example.md",
+  ])
+    assert.throws(
+      () =>
+        readAuditReport(valid.replace("Target: example.md", line), "detailing"),
+      /^Error: Report needs one Target: opening naming example\.md$/,
+      line,
+    )
+  assert.throws(
+    () => readAuditReport(valid, "widening"),
+    /naming example-widen\.md$/,
+  )
 })
 
 test("settled reports carry findings and judged repositories after routing", () => {
@@ -204,19 +258,21 @@ test("settled reports carry findings and judged repositories after routing", () 
 })
 
 test("widening reports retain their complete document opening", () => {
-  const source = planning(
-    "No excess findings.",
-    "No missing findings.",
-  ).replace(
-    "Judged repos: plan@abc123\n\n",
-    "Judged repos: plan@abc123\n\nSettle once finding 1 has landed.\n\n",
-  )
+  const source = planning("No excess findings.", "No missing findings.")
+    .replace("Target: example.md", "Target: example-widen.md")
+    .replace(
+      "Judged repos: plan@abc123\n\n",
+      "Judged repos: plan@abc123\n\nSettle once finding 1 has landed.\n\n",
+    )
 
   assert.equal(
     readAuditReport(source, "widening").opening,
-    "# Planning round workflow\n\nJudged repos: plan@abc123\n\nSettle once finding 1 has landed.",
+    "# Planning round workflow\n\nTarget: example-widen.md\nJudged repos: plan@abc123\n\nSettle once finding 1 has landed.",
   )
-  assert.equal(readAuditReport(source, "detailing").opening, "")
+  assert.equal(
+    readAuditReport(source, "detailing", "example-widen.md").opening,
+    "",
+  )
 })
 
 test("reports require the workflow that matches their class", () => {
@@ -545,7 +601,7 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
   assert.throws(
     () =>
       readReport(
-        "# Implementation audit workflow\n\nJudged repos: repo-edu@abc123\n\nNo findings.",
+        "# Implementation audit workflow\n\nTarget: example.md 1\nJudged repos: repo-edu@abc123\n\nNo findings.",
         "implementation",
       ),
     /Findings/,
@@ -553,7 +609,7 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
   assert.throws(
     () =>
       readReport(
-        "# Planning round workflow\n\nJudged repos: plan@abc123\n\n## Excess functionality\n\nNo excess findings.",
+        "# Planning round workflow\n\nTarget: example.md\nJudged repos: plan@abc123\n\n## Excess functionality\n\nNo excess findings.",
         "detailing",
       ),
     /Missing functionality/,

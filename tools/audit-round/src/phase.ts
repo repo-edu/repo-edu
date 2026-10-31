@@ -537,6 +537,7 @@ export type RoundDependencies = {
   readonly readReport: (
     file: string,
     reportClass: ReportClass,
+    target: string,
   ) => Promise<AuditReport>
   readonly readVet: (
     file: string,

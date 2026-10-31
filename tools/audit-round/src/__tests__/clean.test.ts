@@ -36,7 +36,11 @@ for (const working of ["plan", "repo-edu"] as const) {
         `example-handoff.${f.heads.plan.slice(0, 6)}.md`,
       )
       await writeFile(handoff, "Prior reasoning\n")
-      const report = await readFile(f.report, "utf8")
+      // The fixture audit resolves its target placeholder from the arguments.
+      const report = (await readFile(f.report, "utf8")).replace(
+        "Target: <arguments>",
+        working === "plan" ? "Target: example.md" : "Target: example.md 2-3",
+      )
       assert.equal(
         await runCommand(
           working === "plan"
@@ -106,7 +110,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     await writeFile(
       f.report,
-      `Implementation audit workflow\nJudged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
+      `Implementation audit workflow\nTarget: example.md 1\nJudged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
       await runCommand(["example.md", "1"], f.runtime, f.options),

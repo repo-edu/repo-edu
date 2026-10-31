@@ -68,6 +68,13 @@ export function planStem(plan: string): string {
   ).replace(/-widen$/, "")
 }
 
+/** The target as a report's opening repeats it, so the parser holds the report to its round. */
+export function reportTarget(target: AuditTarget): string {
+  if ("commits" in target) return target.commits.join(" ")
+  const plan = basename(target.plan)
+  return target.roundKind === "planning" ? plan : `${plan} ${target.scope}`
+}
+
 /** The active filename is the one owner of a planning round's phase. */
 export function planPhase(plan: string): PlanPhase {
   return basename(plan).endsWith("-widen.md") ? "widening" : "detailing"

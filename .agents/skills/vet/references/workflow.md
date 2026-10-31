@@ -48,11 +48,10 @@ Check two mismatches before vetting:
   [Head drift](../../../references/round-protocol.md#head-drift) and note the
   changes in the verdicts. When the moved tree already resolved the defect,
   drop the finding and name the resolving commit.
-- The target in the name differs from the plan and scope or typed commit
-  references the report names inside. Apply the shared target rule, using
-  the audited head for `HEAD`. One of the two is wrong, so refuse and ask.
-  A report that names no scope inside cannot pass this check, so ask before
-  vetting.
+- The target in the name differs from the report's `Target:` line, which the
+  round grammar owns. One of the two is wrong, so refuse and name both. The
+  runner refuses a report whose line is missing or names another target before
+  it starts a vet, so this check fires only in a hand-run session.
 
 ## Axes
 

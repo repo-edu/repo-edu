@@ -7,7 +7,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { createInterface } from "node:readline"
 import { setTimeout } from "node:timers/promises"
 import { promisify } from "node:util"
@@ -145,10 +145,22 @@ if (scenario.phases !== undefined) {
           ? null
           : phaseArguments[outputIndex]
     if (output !== null) {
-      const text =
+      // A fixture audit names its target from the arguments it was given,
+      // as a real auditor does, so one report serves every scope.
+      const target = (): string => {
+        const [, first, ...rest] = phaseArguments as string[]
+        if (!first.endsWith(".md")) return [first, ...rest].join(" ")
+        const plan = basename(first)
+        return rest.length === 0 ? plan : `${plan} ${rest[0]}`
+      }
+      const written: string =
         document.source === undefined
           ? document.text
           : await readFile(document.source, "utf8")
+      const text =
+        phase === "audit"
+          ? written.replace("Target: <arguments>", `Target: ${target()}`)
+          : written
       if (["audit", "vet", "rebut"].includes(phase)) {
         // Report assistants return text; only the runner writes their output.
         const final = (value: string) =>
