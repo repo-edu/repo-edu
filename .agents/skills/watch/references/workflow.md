@@ -47,9 +47,10 @@ call rebuilds the current view. If a later call returns `none` after the view
 shrinks, stop when the previous returned range already reaches its new total.
 Do not pin its heads between calls or write the evidence to a file.
 
-Read every returned page in the watch context. In chat, return the grounded
-description, the grade with evidence and the suggested response with its
-reason under **Voice** below. On red, or when the response is a targeted fix
+Read every returned page in the watch context. In chat, return the watch in
+the form **Shape** gives its grade: on green the short form, otherwise the
+grounded description, the grade with evidence and the suggested response with
+its reason under **Voice** below. On red, or when the response is a targeted fix
 plan, add the certainty level and its seed under **Shape**. On amber, name the
 area and the horizon in iterations for looking again under **Watch step**. Then
 ask for the user's decision and stop.
@@ -433,7 +434,8 @@ before returning; there is no separate editing phase.
 The `simple` requirement governs the watch. Beyond it:
 
 - Lead with the grounded description, not the grade. Which abstraction is the
-  unstable one, and the structural reason rounds keep reopening it.
+  unstable one, and the structural reason rounds keep reopening it. On green
+  nothing is drifting, so the grade leads.
 - Explain the mechanism in words, not in names. Say what a piece of code does
   and why that shape keeps drawing rounds back, not which function or file it
   is. Keep a path, an identifier or a commit sha only where the user needs it
@@ -481,6 +483,18 @@ The watch has these sections in this order.
 6. **When to look again**: on amber, name the area to watch. On red, state that
    this is for the user to act on now. On green, nothing more.
 
+A green watch publishes only the title, **The grade** and **What to do about
+it**. Its grade section is one paragraph: the grade, what is converging and
+each of the three trajectories in a sentence. Its response is one or two
+sentences. It omits **What is drifting**, the four-part price of any run,
+dropped and unfinished findings and every evidence limit except a compaction
+note. The watch still reads and prices in full to reach the grade; it publishes
+that reasoning only on amber and red, where the user acts on it. Reason: on
+green no mechanism reads the body beyond the judge's response class. The glance
+reads only the record and the next watch rebuilds its evidence from the view.
+The full form then costs the watch's output and every later judge's input for
+nothing either acts on.
+
 Nothing else belongs in the file. The round's own brief holds its findings.
 
 ## Final wording
@@ -495,6 +509,8 @@ Before finishing, read the watch as the user will and correct unclear wording:
 4. Does the certainty level rest on the evidence the watch cites, and does the
    seed stay free of design?
 5. Can the reader follow each sentence without `git log` open beside it?
+
+On green, questions 1 and 4 do not apply.
 
 Keep the wording consistent with the evidence and judgement. Never append a
 critique, a change list or a note about the draft: the file must read as the
