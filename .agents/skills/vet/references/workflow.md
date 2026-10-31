@@ -48,10 +48,14 @@ Check two mismatches before vetting:
   [Head drift](../../../references/round-protocol.md#head-drift) and note the
   changes in the verdicts. When the moved tree already resolved the defect,
   drop the finding and name the resolving commit.
-- The target in the name differs from the report's `Target:` line, which the
-  round grammar owns. One of the two is wrong, so refuse and name both. The
-  runner refuses a report whose line is missing or names another target before
-  it starts a vet, so this check fires only in a hand-run session.
+- The target in the name differs from the report's `Target:` line after the
+  line is translated under the runner's
+  [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) rule. For a
+  commit target, that rule replaces `HEAD` with the selected repo's short
+  starting commit and shortens a reference list after its first entry. One of
+  the two is wrong, so refuse and name both. The runner refuses a report whose
+  line is missing or names another target before it starts a vet, so this check
+  fires only in a hand-run session.
 
 ## Axes
 
