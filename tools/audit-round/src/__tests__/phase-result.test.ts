@@ -93,6 +93,15 @@ test("the round grammar's settling examples are parser fixtures", () => {
     settlingOutput(`Settling: settle. Buried.\nMore text.${result}`),
     null,
   )
+  assert.throws(
+    () =>
+      phaseResult(
+        "fix",
+        "session",
+        'Settling: settle. Premature.\nPHASE RESULT: {"status":"needs-ruling","reason":null}',
+      ),
+    /Unexpected settling line/,
+  )
 })
 
 test("a fresh prompt supplies routed workflows and shared files once under their source paths", async (t) => {

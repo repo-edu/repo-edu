@@ -67,11 +67,15 @@ export function phaseResult<P extends Phase>(
   }
   if (result.reason !== null) throw new Error("Unexpected PHASE RESULT reason")
   if (phase === "fix") {
-    return (
-      result.status === "finished"
-        ? { status: "finished", sessionId, settling: settlingOutput(text) }
-        : { status: "needs-ruling", sessionId }
-    ) as PhaseControlResult<P>
+    const settling = settlingOutput(text)
+    if (result.status === "finished")
+      return {
+        status: "finished",
+        sessionId,
+        settling,
+      } as PhaseControlResult<P>
+    if (settling !== null) throw new Error("Unexpected settling line")
+    return { status: "needs-ruling", sessionId } as PhaseControlResult<P>
   }
   if (result.status !== "finished")
     throw new Error("Report PHASE RESULT must finish")
