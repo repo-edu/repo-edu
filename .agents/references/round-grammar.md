@@ -18,9 +18,8 @@ quotes, `|` separates alternatives, `[ ]` encloses an optional part and `( )`
 groups. The postfix operators are `?` for zero or one, `*` for zero or more
 and `+` for one or more. A comment follows `;`. All other text is literal.
 
-`NL` is one line break and `BLANK` is one empty line. Markdown indentation
-means the spaces needed to keep a line inside its numbered list item. Free
-Markdown may span lines unless its production says otherwise.
+`NL` is one line break and `BLANK` is one empty line. Free Markdown may span
+lines unless its production says otherwise.
 
 Every example case has a level-four heading in one of these forms:
 
@@ -106,19 +105,19 @@ above.
                               BLANK <finding-evidence>
 <implementation-finding> ::= <finding-title> BLANK <implementation-token-line>
                               BLANK <finding-evidence>
-<finding-title>           ::= <n>". **"<tier>": "<title>"**"
+<finding-title>           ::= "### "<n>". "<tier>": "<title>
 <planning-token-line>     ::= <field-token>" "<section-token>" "<rating-tokens>
 <implementation-token-line> ::= <implementation-location>" "<rating-tokens>
 <implementation-location> ::= <section-token>
                               | <area-token>(" "<cover-token>)*
                               | <plan-token>
-<finding-evidence>        ::= indented free Markdown
+<finding-evidence>        ::= free Markdown without a heading of depth 1 to 3
 ```
 
 The workflow phrase and exactly one plain `Judged repos:` line occur in the
 opening. A planning report uses only the plan head. An implementation report
 uses one of the three ordered repository sets above. A finding's token line is
-the first content after its bold title. Finding numbers run from 1 without gaps
+the first block after its heading. Finding numbers run from 1 without gaps
 across all fields and titles are distinct across the report.
 
 Each field contains findings or its exact empty sentence, never both.
@@ -145,19 +144,19 @@ Judged repos: plan@abc123
 
 ## Excess functionality
 
-1. **B: Remove repeated admission rules**
+### 1. B: Remove repeated admission rules
 
-   [field:excess] [section:decisions] [growth-pattern:hardening,growing-lists] [reach:developer] [complexity:minus-high]
+[field:excess] [section:decisions] [growth-pattern:hardening,growing-lists] [reach:developer] [complexity:minus-high]
 
-   One owner can replace the repeated rules.
+One owner can replace the repeated rules.
 
 ## Missing functionality
 
-2. **C: Name the parser owner**
+### 2. C: Name the parser owner
 
-   [field:missing] [section:target-state] [growth-pattern:none] [reach:very-rare] [complexity:minus-medium]
+[field:missing] [section:target-state] [growth-pattern:none] [reach:very-rare] [complexity:minus-medium]
 
-   The target state needs one owner.
+The target state needs one owner.
 ```
 
 #### `report/planning-empty` — parsed
@@ -197,11 +196,11 @@ Judged repos: plan@abc123
 
 ## Findings
 
-1. **B: Keep the plan decision**
+### 1. B: Keep the plan decision
 
-   [section:decisions] [growth-pattern:none] [reach:rare] [complexity:minus-low]
+[section:decisions] [growth-pattern:none] [reach:rare] [complexity:minus-low]
 
-   The correction belongs in the plan.
+The correction belongs in the plan.
 ```
 
 #### `report/location-plan-area` — parsed
@@ -213,11 +212,11 @@ Judged repos: plan@abc123
 
 ## Findings
 
-1. **C: Defer the implementation correction**
+### 1. C: Defer the implementation correction
 
-   [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
+[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
 
-   The correction belongs in Repo Edu, outside the judged set.
+The correction belongs in Repo Edu, outside the judged set.
 ```
 
 #### `report/location-plan-plan` — refused
@@ -231,11 +230,11 @@ Judged repos: plan@abc123
 
 ## Findings
 
-1. **C: Reject a local plan deferral**
+### 1. C: Reject a local plan deferral
 
-   [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
+[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
 
-   The plan repo is already in the judged set.
+The plan repo is already in the judged set.
 ```
 
 #### `report/location-repo-edu-section` — refused
@@ -249,11 +248,11 @@ Judged repos: repo-edu@def456
 
 ## Findings
 
-1. **C: Reject an unjudged plan location**
+### 1. C: Reject an unjudged plan location
 
-   [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none]
+[section:decisions] [growth-pattern:none] [reach:developer] [complexity:none]
 
-   The plan repo is outside the judged set.
+The plan repo is outside the judged set.
 ```
 
 #### `report/location-repo-edu-area` — parsed
@@ -265,11 +264,11 @@ Judged repos: repo-edu@def456
 
 ## Findings
 
-1. **B: Correct the report reader**
+### 1. B: Correct the report reader
 
-   [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low]
+[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low]
 
-   The correction belongs in Repo Edu.
+The correction belongs in Repo Edu.
 ```
 
 #### `report/location-repo-edu-plan` — parsed
@@ -281,11 +280,11 @@ Judged repos: repo-edu@def456
 
 ## Findings
 
-1. **C: Defer the doctrine correction**
+### 1. C: Defer the doctrine correction
 
-   [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:very-rare] [complexity:medium]
+[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:very-rare] [complexity:medium]
 
-   The correction belongs in the plan repo, outside the judged set.
+The correction belongs in the plan repo, outside the judged set.
 ```
 
 #### `report/location-both-section` — parsed
@@ -297,11 +296,11 @@ Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
 
-1. **B: Correct the shared decision**
+### 1. B: Correct the shared decision
 
-   [section:decisions] [growth-pattern:none] [reach:rare] [complexity:high]
+[section:decisions] [growth-pattern:none] [reach:rare] [complexity:high]
 
-   The correction belongs in the judged plan repo.
+The correction belongs in the judged plan repo.
 ```
 
 #### `report/location-both-area` — parsed
@@ -313,11 +312,11 @@ Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
 
-1. **C: Correct the shared reader**
+### 1. C: Correct the shared reader
 
-   [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
+[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
 
-   The correction belongs in the judged Repo Edu checkout.
+The correction belongs in the judged Repo Edu checkout.
 ```
 
 #### `report/location-both-plan` — refused
@@ -331,11 +330,11 @@ Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
 
-1. **C: Reject a deferral inside the judged set**
+### 1. C: Reject a deferral inside the judged set
 
-   [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
+[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
 
-   The plan repo is already in the judged set.
+The plan repo is already in the judged set.
 ```
 
 #### `report/empty-plan-target` — refused
@@ -349,11 +348,11 @@ Judged repos: repo-edu@def456
 
 ## Findings
 
-1. **C: Reject an empty plan target**
+### 1. C: Reject an empty plan target
 
-   [plan:] [growth-pattern:none] [reach:developer] [complexity:none]
+[plan:] [growth-pattern:none] [reach:developer] [complexity:none]
 
-   A plan deferral must name its destination.
+A plan deferral must name its destination.
 ```
 
 #### `report/unknown-token` — refused
@@ -367,11 +366,11 @@ Judged repos: repo-edu@def456
 
 ## Findings
 
-1. **C: Reject an unknown token**
+### 1. C: Reject an unknown token
 
-   [area:pkg-application] [foo:bar] [growth-pattern:none] [reach:developer] [complexity:none]
+[area:pkg-application] [foo:bar] [growth-pattern:none] [reach:developer] [complexity:none]
 
-   The token is outside the grammar.
+The token is outside the grammar.
 ```
 
 #### `report/misplaced-cover` — refused
@@ -385,11 +384,11 @@ Judged repos: plan@abc123
 
 ## Findings
 
-1. **C: Reject a cover beside a section**
+### 1. C: Reject a cover beside a section
 
-   [section:decisions] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:none]
+[section:decisions] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:none]
 
-   A cover belongs only after an area.
+A cover belongs only after an area.
 ```
 
 ## Vet twin

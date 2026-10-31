@@ -222,8 +222,8 @@ answer is the rare-case rule under [Real choices](#real-choices).
 
 ## Finding explanations
 
-The [round grammar](round-grammar.md#audit-report) owns the numbered Markdown
-block, token order, field order and empty forms. This section owns what the
+The [round grammar](round-grammar.md#audit-report) owns the finding heading,
+token order, field order and empty forms. This section owns what the
 explanation must prove.
 
 Briefly state the problem, its consequence and the correction, supported by

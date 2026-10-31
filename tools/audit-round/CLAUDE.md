@@ -89,14 +89,15 @@ consumers.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
   It returns the full opening for widening reports and an empty opening for every other report
   class. Planning reports have Excess functionality and Missing functionality fields; implementation
-  reports have one Findings field including deferred findings. Each holds numbered finding blocks or
-  its exact empty-field sentence. Finding titles are distinct across the whole report because the
-  vet and rebuttal name findings by them; round data joins findings to record bullets by the
-  `[finding:<n>]` number each bullet opens with. Quoted evidence and code blocks supply no findings.
-  `vet.ts` reads the fixed verdict and answer lines and ignores every other line. It requires
-  verdicts for the report's finding numbers in order and rebuttal answers for each revise, drop and
-  ruling verdict. Only Accept verdicts skip the rebuttal. Both readers are supplied through
-  `RoundDependencies`, alongside the HEAD and subject reads.
+  reports have one Findings field including deferred findings. Each holds depth-3 finding headings
+  or its exact empty-field sentence. A heading form keeps evidence free of the indentation a
+  numbered list needs, which grew by one space at the tenth finding and was missed. Finding titles
+  are distinct across the whole report because the vet and rebuttal name findings by them; round
+  data joins findings to record bullets by the `[finding:<n>]` number each bullet opens with. Quoted
+  evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict and answer lines and
+  ignores every other line. It requires verdicts for the report's finding numbers in order and
+  rebuttal answers for each revise, drop and ruling verdict. Only Accept verdicts skip the rebuttal.
+  Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.

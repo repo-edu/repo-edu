@@ -96,7 +96,7 @@ function finding(
   location = "[area:tool-audit-round]",
   evidence = "The defect loses evidence.",
 ): string {
-  return `${number}. **B: Preserve the evidence**\n\n   ${location} ${ratings}\n\n   ${evidence}\n`
+  return `### ${number}. B: Preserve the evidence\n\n${location} ${ratings}\n\n${evidence}\n`
 }
 const implementation = (body: string) =>
   `# Implementation audit workflow\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
@@ -369,7 +369,7 @@ test("report finding titles are unique across tiers", () => {
   assert.throws(
     () =>
       readAuditReport(
-        implementation(`${finding()}\n${finding(2).replace("**B:", "**C:")}`),
+        implementation(`${finding()}\n${finding(2).replace(". B:", ". C:")}`),
         "implementation",
       ),
     /title appears more than once/,
@@ -389,7 +389,7 @@ test("report finding titles cannot contain the record bullet delimiter", () => {
   )
 })
 
-test("Markdown quotes, nested evidence and code cannot introduce findings or empty-field sentences", () => {
+test("Markdown quotes, evidence and code cannot introduce findings or empty-field sentences", () => {
   const examples = `${finding(27)}\nNo findings.`
   const quoted = examples
     .split("\n")
@@ -403,25 +403,26 @@ test("Markdown quotes, nested evidence and code cannot introduce findings or emp
     ),
     [],
   )
-  const evidence = `Explanation.\n\n${`${quoted}\n\n${fenced}`
-    .split("\n")
-    .map((line) => `   ${line}`)
-    .join("\n")}\n`
-  assert.deepEqual(
-    readReport(
-      implementation(finding(1, "[area:tool-audit-round]", evidence)),
-      "implementation",
-    ),
-    [1],
-  )
+  for (const evidence of [
+    `Explanation.\n\n${quoted}\n\n${fenced}\n`,
+    "Explanation.\n\nNo findings.\n",
+    "Explanation.\n\n#### Detail\n\nMore evidence.\n",
+  ])
+    assert.deepEqual(
+      readReport(
+        implementation(finding(1, "[area:tool-audit-round]", evidence)),
+        "implementation",
+      ),
+      [1],
+    )
 })
 
-test("opening metadata stays independent of nested list evidence", () => {
+test("list evidence stays evidence at any finding count", () => {
   for (const evidence of [
-    "Explanation.\n\n   - First correction.\n   - Last correction.",
-    "Explanation.\n\n   1. First option.\n   2. Last option.",
-    "Explanation.\n\n   - Outer detail.\n     - Nested detail.",
-    "Explanation.\n\n   - A **formatted** correction.\n",
+    "Explanation.\n\n- First correction.\n- Last correction.",
+    "Explanation.\n\n1. First option.\n2. Last option.",
+    "Explanation.\n\n- Outer detail.\n  - Nested detail.",
+    "Explanation.\n\n- A **formatted** correction.\n",
   ]) {
     assert.deepEqual(
       readReport(
@@ -443,50 +444,47 @@ test("opening metadata stays independent of nested list evidence", () => {
       [1],
     )
   }
-  const body = Array.from({ length: 10 }, (_, index) => {
+  const body = Array.from({ length: 12 }, (_, index) => {
     const number = index + 1
-    const indent = " ".repeat(String(number).length + 2)
-    return `${number}. **C: Preserve opening metadata ${number}**\n\n${indent}[area:tool-audit-round] ${ratings}\n\n${indent}- Evidence.\n`
+    return `### ${number}. C: Preserve opening metadata ${number}\n\n[area:tool-audit-round] ${ratings}\n\n- Evidence.\n`
   }).join("\n")
   assert.deepEqual(
     readReport(implementation(body), "implementation"),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   )
 })
 
 test("metadata must follow the title before any evidence", () => {
   const tokens = `[area:tool-audit-round] ${ratings}`
   for (const evidence of [
-    `- Evidence.\n     ${tokens}`,
-    `- Evidence.\n\n     ${tokens}`,
-    `> Evidence.\n   ${tokens}`,
+    `- Evidence.\n${tokens}`,
+    `- Evidence.\n\n${tokens}`,
+    `> Evidence.\n${tokens}`,
     `> ${tokens}`,
-    `- > Evidence.\n   ${tokens}`,
-    `\`\`\`text\n   ${tokens}`,
-    `- \`\`\`text\n     ${tokens}`,
+    `- > Evidence.\n${tokens}`,
+    `\`\`\`text\n${tokens}`,
+    `- \`\`\`text\n${tokens}`,
     `    ${tokens}`,
-    `\`Evidence\n   ${tokens}\n   \``,
-    `- Evidence.\n   ${tokens}\n   More evidence.`,
-    `Evidence.\n   ${tokens}`,
-    `Evidence.\n\n   ${tokens}`,
-    `<!-- lint note -->\n\n   Evidence.\n\n   ${tokens}`,
-    `<!-- rumdl-disable-next-line MD013 -->\n   ${tokens}`,
-    `<!-- rumdl-disable-next-line MD013 -->\n\n   ${tokens}`,
-    `<!-- First note -->\n   <!-- Second note -->\n\n   ${tokens}`,
-    `<!-- A note\n   spanning lines -->\n\n   ${tokens}`,
-    `<div>Evidence.</div>\n\n   ${tokens}`,
-    `<!-- lint note --><div>Evidence.</div><!-- another note -->\n\n   ${tokens}`,
+    `\`Evidence\n${tokens}\n\``,
+    `- Evidence.\n${tokens}\nMore evidence.`,
+    `Evidence.\n${tokens}`,
+    `Evidence.\n\n${tokens}`,
+    `<!-- lint note -->\n\nEvidence.\n\n${tokens}`,
+    `<!-- rumdl-disable-next-line MD013 -->\n${tokens}`,
+    `<!-- rumdl-disable-next-line MD013 -->\n\n${tokens}`,
+    `<!-- First note -->\n<!-- Second note -->\n\n${tokens}`,
+    `<!-- A note\nspanning lines -->\n\n${tokens}`,
+    `<div>Evidence.</div>\n\n${tokens}`,
+    `<!-- lint note --><div>Evidence.</div><!-- another note -->\n\n${tokens}`,
     `<!-- ${tokens} -->`,
-    `<!-- unclosed comment\n   ${tokens}`,
+    `<!-- unclosed comment\n${tokens}`,
     `${tokens} **extra**`,
     `**${tokens}**`,
   ])
     assert.throws(
       () =>
         readReport(
-          implementation(
-            `1. **C: Missing opening metadata**\n\n   ${evidence}`,
-          ),
+          implementation(`### 1. C: Missing opening metadata\n\n${evidence}`),
           "implementation",
         ),
       /Malformed finding/,
@@ -496,7 +494,7 @@ test("metadata must follow the title before any evidence", () => {
 
 test("tokens follow the title with or without blank lines", () => {
   for (const separator of ["\n", "\n\n"]) {
-    const body = `1. **C: Preserve metadata**${separator}   [area:tool-audit-round] ${ratings}${separator}   Evidence with **formatting**.`
+    const body = `### 1. C: Preserve metadata${separator}[area:tool-audit-round] ${ratings}${separator}Evidence with **formatting**.`
     assert.deepEqual(readReport(implementation(body), "implementation"), [1])
     assert.deepEqual(
       readReport(
@@ -515,11 +513,21 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
     "No **missing** findings.",
     `No findings.\n\n${finding()}`,
     "No findings.\n\nNo findings.",
-    finding().replace("**B:", "**E:"),
+    finding().replace(". B:", ". E:"),
     finding().replace("1.", "-"),
+    finding().replace("### 1.", "## 1."),
+    finding().replace("### 1.", "#### 1."),
     finding().replace(
-      "**B: Preserve the evidence**",
-      "[B] Preserve the evidence",
+      "### 1. B: Preserve the evidence",
+      "1. **B: Preserve the evidence**",
+    ),
+    finding().replace(
+      "### 1. B: Preserve the evidence",
+      "### 1. **B: Preserve the evidence**",
+    ),
+    finding().replace(
+      "### 1. B: Preserve the evidence",
+      "### 1. [B] Preserve the evidence",
     ),
     finding().replace(ratings, ""),
     finding().replace("[reach:developer] ", ""),
@@ -569,7 +577,7 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
 
 const twoFindings = readAuditReport(
   implementation(
-    `${finding()}\n${finding(2).replace("**B: Preserve the evidence", "**C: Keep the record")}`,
+    `${finding()}\n${finding(2).replace("B: Preserve the evidence", "C: Keep the record")}`,
   ),
   "implementation",
 ).findings

@@ -16,7 +16,7 @@ import type { Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
 type Block = ReturnType<typeof fromMarkdown>["children"][number]
-type List = Extract<Block, { type: "list" }>
+type Heading = Extract<Block, { type: "heading" }>
 type Paragraph = Extract<Block, { type: "paragraph" }>
 
 function openingEndIndex(children: readonly Block[]): number {
@@ -122,25 +122,16 @@ function judgedRepos(
     .map((entry) => entry.split("@")[0] as Repository)
 }
 
-function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
+function plain(node: Paragraph | Heading): string {
   if (node.children.some((child) => child.type !== "text")) return ""
   return node.children
     .map((child) => (child.type === "text" ? child.value : ""))
     .join("")
 }
 
-function openingTokens(item: List["children"][number]): string {
-  const start = item.children[0]
-  if (start?.type !== "paragraph") return ""
-  const next = item.children[1]
-  // The token line may share the title's paragraph or follow a blank line.
-  const children =
-    start.children.length > 1
-      ? start.children.slice(1)
-      : next?.type === "paragraph"
-        ? next.children
-        : []
-  return children
+function tokenLine(node: Block | undefined): string {
+  if (node?.type !== "paragraph") return ""
+  return node.children
     .map((child) => (child.type === "text" ? child.value : "\0"))
     .join("")
     .trimStart()
@@ -149,28 +140,22 @@ function openingTokens(item: List["children"][number]): string {
 }
 
 function findingData(
-  item: List["children"][number],
+  title: Heading,
+  next: Block | undefined,
   source: string,
   field: string | null,
   reportClass: ReportClass,
   repositories: readonly Repository[],
 ): ReportFinding {
-  const start = item.children[0]
-  const title = start?.type === "paragraph" ? start.children[0] : undefined
-  const lines = source
-    .slice(item.position?.start.offset, item.position?.end.offset)
-    .split("\n")
-  const heading = /^([1-9]\d*)\. \*\*([A-D]): (.+)\*\*\s*$/.exec(lines[0])
-  const tokenLine = openingTokens(item)
-  const tokenPrefix = readFindingTokenPrefix(tokenLine)
-  if (
-    heading === null ||
-    title?.type !== "strong" ||
-    tokenPrefix === null ||
-    tokenPrefix.remainder !== ""
+  const line = source.slice(
+    title.position?.start.offset,
+    title.position?.end.offset,
   )
+  const heading = /^### ([1-9]\d*)\. ([A-D]): (.+?)\s*$/.exec(line)
+  const tokenPrefix = readFindingTokenPrefix(tokenLine(next))
+  if (heading === null || tokenPrefix === null || tokenPrefix.remainder !== "")
     throw new Error(
-      `Malformed finding at report line ${item.position?.start.line}: expected a bold tier title followed by a token line`,
+      `Malformed finding at report line ${title.position?.start.line}: expected a tier heading followed by a token line`,
     )
   if (heading[3].includes(": "))
     throw new Error(`Finding ${heading[1]} title cannot contain ": "`)
@@ -287,7 +272,7 @@ function findingData(
   }
 }
 
-/** Read only document-level fields and lists; quoted evidence and code are not findings. */
+/** Read only document-level fields and headings; quoted evidence and code are not findings. */
 export function readReport(
   source: string,
   reportClass: ReportClass,
@@ -335,26 +320,26 @@ export function readReport(
     const nodes = children.slice(start, next === -1 ? undefined : next)
     let empty = 0
     const fieldFindings: ReportFinding[] = []
-    for (const node of nodes) {
-      if (node.type === "paragraph" && plain(node).trim() === definition.empty)
+    // A depth-3 heading opens a finding; every later block is its evidence.
+    nodes.forEach((node, index) => {
+      if (node.type === "heading" && node.depth === 3)
+        fieldFindings.push(
+          findingData(
+            node,
+            nodes[index + 1],
+            source,
+            definition.field,
+            reportClass,
+            repositories,
+          ),
+        )
+      else if (
+        fieldFindings.length === 0 &&
+        node.type === "paragraph" &&
+        plain(node).trim() === definition.empty
+      )
         empty += 1
-      if (node.type === "list") {
-        if (!node.ordered)
-          throw new Error(
-            `${definition.heading} findings must be numbered blocks`,
-          )
-        for (const item of node.children)
-          fieldFindings.push(
-            findingData(
-              item,
-              source,
-              definition.field,
-              reportClass,
-              repositories,
-            ),
-          )
-      }
-    }
+    })
     if (
       !(
         (empty === 1 && fieldFindings.length === 0) ||

@@ -173,7 +173,7 @@ export async function roundFixture(
   )
   const report = join(outputRoot, "audit-source.md")
   const finding = (location: string) =>
-    `1. **B: Fixture finding**\n\n   ${location} [growth-pattern:none] [reach:developer] [complexity:none]\n\n   Correct the fixture.\n`
+    `### 1. B: Fixture finding\n\n${location} [growth-pattern:none] [reach:developer] [complexity:none]\n\nCorrect the fixture.\n`
   await writeFile(
     report,
     (working === "plan"
