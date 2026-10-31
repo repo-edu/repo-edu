@@ -235,6 +235,11 @@ test("a refused subject, missing model and disagreeing effort still stop the com
     ],
     ["example/impl-1 oth feat(x): s\n", "repo-edu", /open with the model/],
     [
+      `oth growth-none docs(repo): s\ngpt-6-astra high\n\n${codeFinding}\n`,
+      "repo-edu",
+      /blank line separates the subject/,
+    ],
+    [
       message("oth update(repo): s", codeFinding),
       "repo-edu",
       /not on the list/,

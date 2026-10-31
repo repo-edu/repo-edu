@@ -110,6 +110,16 @@ export function stampCommitMessage(
   const subjectLine = stampSequence(tokens.join(" "), findings, repository)
   const subject = parseSubject(subjectLine, repository)
 
+  // Git strips comment lines and reads the body from the first blank line, so
+  // a model record right after the subject joins it in every one-line log and
+  // stem scan. A session composing from `%s%n%b` output, which hides that
+  // blank line, has landed this shape more than once.
+  const afterSubject = lines.findIndex(
+    (line, at) => at > 0 && !line.startsWith("#"),
+  )
+  if (afterSubject !== -1 && lines[afterSubject] !== "")
+    throw new SubjectError("a blank line separates the subject from the body")
+
   const first = lines.findIndex(
     (line, at) => at > 0 && line !== "" && !line.startsWith("#"),
   )
