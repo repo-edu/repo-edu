@@ -140,7 +140,7 @@ consumers.
   mark their commits as possible new graded windows for the watch to judge. `readWatchEvidence`
   joins both histories with the plan's existing planning and
   implementation round data. `formatWatchEvidence` projects the repositories, their heads,
-  anchors, episode-level counts and runs, then each commit's short SHA, date, written subject,
+  anchors, episode-level counts and runs, then each commit's six-character SHA, date, written subject,
   window candidate, unreadable reason and finding prefixes through their titles. Its round data
   keeps each round's identity, landed commits, status, applicable findings and phase compaction
   counts. The joined top level keeps token counts and repeated-growth evidence across both repos;
