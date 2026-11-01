@@ -193,6 +193,47 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   )
 })
 
+test("a finished phase stops its status timer", async (t) => {
+  const f = await fixture(t)
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
+  const statuses: string[] = []
+  const output = new RoundOutput(
+    await roundRun(
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
+      Date.now(),
+      releases,
+    ),
+    {
+      terminal: {
+        write: () => {},
+        status: (text) => statuses.push(text),
+        clear: () => {},
+      },
+    },
+  )
+  t.after(() => output.close())
+
+  await output.phase.start(
+    {
+      phase: "fix",
+      rulingFile: "RULING.md",
+      assistant: "codex",
+      model: pinned("codex"),
+      ...testContext("/repo"),
+      arguments: ["REPORT.md"],
+      sessionId: null,
+    },
+    "Full prompt",
+  )
+  t.mock.timers.tick(1_000)
+  await output.phase.finish({ status: "finished", sessionId: "session" })
+  const finishedStatuses = statuses.length
+
+  t.mock.timers.tick(1_000)
+
+  assert.equal(statuses.length, finishedStatuses)
+})
+
 test("stopping between retained writes leaves the settled entry in progress", async (t) => {
   const f = await fixture(t)
   const run = await buildRoundRun(

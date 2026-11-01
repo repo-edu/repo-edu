@@ -609,6 +609,7 @@ export class RoundOutput<R extends Run = Run> {
     // The run's finish line owns the failure reason, session and resume command.
     this.say(`[${phase}] ${result.status}`)
     this.active = undefined
+    this.release()
     return { compactions: run.compactions }
   }
 
