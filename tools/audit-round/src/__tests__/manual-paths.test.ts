@@ -262,6 +262,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
           references: ["abc123..def456"],
           repository: "repo-edu",
           startingHead: "unused",
+          shortReferences: ["abc123..def456"],
         },
       ],
     },

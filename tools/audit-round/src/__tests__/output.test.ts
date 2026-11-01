@@ -31,6 +31,10 @@ test("long commit lists record every reference without exceeding filename limits
           references: commits,
           repository: "repo-edu",
           startingHead: "unused",
+          shortReferences: commits.map((commit) => commit.slice(0, 6)) as [
+            string,
+            ...string[],
+          ],
         },
       ],
     },

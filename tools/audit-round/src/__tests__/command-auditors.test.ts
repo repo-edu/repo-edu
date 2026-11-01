@@ -6,7 +6,7 @@ import { execa } from "execa"
 import { openRunFiles } from "../run-files.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { recordedTag, recordedText } from "./helpers.js"
-import { roundFixture } from "./round-fixture.js"
+import { roundFixture, shortCommit } from "./round-fixture.js"
 
 test("an unavailable writer still prints the known session to the emergency channel", async (t) => {
   const f = await roundFixture(t)
@@ -432,10 +432,15 @@ for (const auditor of ["codex", "claude"] as const) {
       { cwd: f.repoRoot },
     )
     const commits = auditor === "codex" ? ["HEAD-2..HEAD"] : ["HEAD-1", "HEAD"]
+    const back = (n: number) => shortCommit(f.repoRoot, `HEAD~${n}`)
     const group = {
       repository: "repo-edu",
       references: commits,
       startingHead: head,
+      shortReferences:
+        auditor === "codex"
+          ? [`${await back(2)}..${await back(0)}`]
+          : [await back(1), await back(0)],
     }
     assert.equal(
       await runCommand(
@@ -453,7 +458,7 @@ for (const auditor of ["codex", "claude"] as const) {
       ),
     )
     assert.ok(markdown.startsWith(`# Commit audit of ${commits.join(" ")}\n`))
-    assert.ok(transcript.includes(commits[0].replaceAll("HEAD", head)))
+    assert.ok(transcript.includes(`commit-${group.shortReferences[0]}`))
     for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
       assert.ok(log.includes(`[${phase}] finished`))
     assert.doesNotMatch(log, /\[(?:glance|watch)\]|watch +codex|Chained round/)

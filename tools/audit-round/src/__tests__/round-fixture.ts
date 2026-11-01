@@ -54,6 +54,16 @@ export async function commitFixture(
   return (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout
 }
 
+/** The six-character commit name the plan doctrine fixes, for filename expectations. */
+export async function shortCommit(
+  cwd: string,
+  revision: string,
+): Promise<string> {
+  return (
+    await execa("git", ["rev-parse", "--verify", revision], { cwd })
+  ).stdout.slice(0, 6)
+}
+
 /**
  * One file-changing audit correction commit under the stem, which the glance
  * counts once in its area or section.

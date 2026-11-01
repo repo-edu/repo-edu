@@ -2,8 +2,14 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
+import { execa } from "execa"
+import { resolveTargets } from "../default-target.js"
 import { roundRun as buildRoundRun } from "../output.js"
-import { planRepositoryPrefix } from "../target.js"
+import {
+  planRepositoryPrefix,
+  targetRequest,
+  unprefixedCommitReference,
+} from "../target.js"
 import {
   briefRun,
   RoundOutput,
@@ -12,7 +18,7 @@ import {
   transcriptNameStart,
 } from "./configured-runner.js"
 import { fixture, releases, testContext, testSetup } from "./helpers.js"
-import { commitFixture } from "./round-fixture.js"
+import { commitFixture, shortCommit } from "./round-fixture.js"
 
 const options = { terminal: { write() {}, status() {}, clear() {} } }
 
@@ -26,6 +32,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
           references: ["abcdef..123abc"],
           repository: "repo-edu",
           startingHead: "unused",
+          shortReferences: ["abcdef..123abc"],
         },
       ],
       brief: true,
@@ -43,23 +50,26 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     return basename(file)
   })
   assert.deepEqual(names.toSorted(), [
-    "abcdef..123abc-01-0-claim.md",
-    "abcdef..123abc-01-1-round.obh.md",
-    "abcdef..123abc-01-2-audit.obh.md",
-    "abcdef..123abc-01-3-vet.abh.md",
-    "abcdef..123abc-01-4-rebut.obh.md",
-    "abcdef..123abc-01-6-brief.oul.md",
-    "abcdef..123abc-01-7-ruling.obh.md",
-    "abcdef..123abc-01-9-watch.obh.md",
+    "commit-abcdef..123abc-01-0-claim.md",
+    "commit-abcdef..123abc-01-1-round.obh.md",
+    "commit-abcdef..123abc-01-2-audit.obh.md",
+    "commit-abcdef..123abc-01-3-vet.abh.md",
+    "commit-abcdef..123abc-01-4-rebut.obh.md",
+    "commit-abcdef..123abc-01-6-brief.oul.md",
+    "commit-abcdef..123abc-01-7-ruling.obh.md",
+    "commit-abcdef..123abc-01-9-watch.obh.md",
   ])
   assert.equal(run.data, undefined)
   assert.equal(run.paths.log, run.paths.markdown.replace(/\.md$/, ".log"))
-  assert.equal(transcriptNameStart(run.paths.markdown), "abcdef..123abc-01")
+  assert.equal(
+    transcriptNameStart(run.paths.markdown),
+    "commit-abcdef..123abc-01",
+  )
   const brief = briefRun(run.paths.markdown, 0, releases)
   assert.equal(brief.paths.log, brief.brief.replace(/\.md$/, ".log"))
   assert.equal(
     basename(run.paths.claim as string),
-    "abcdef..123abc-01-0-claim.md",
+    "commit-abcdef..123abc-01-0-claim.md",
   )
   await writeFile(run.documents.report, "Retained report")
   assert.equal(
@@ -72,6 +82,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
               references: ["abcdef..123abc"],
               repository: "repo-edu",
               startingHead: "unused",
+              shortReferences: ["abcdef..123abc"],
             },
           ],
         },
@@ -79,7 +90,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
         releases,
       )
     ).nameStart,
-    "abcdef..123abc-02",
+    "commit-abcdef..123abc-02",
   )
 })
 
@@ -188,65 +199,67 @@ test("a failed tagged-file open retains the number's claim", async (t) => {
   )
 })
 
-test("commit filenames resolve each group HEAD and join group labels", async (t) => {
+test("commit filenames resolve each group's references to six characters and join group labels", async (t) => {
   const f = await fixture(t)
-  const head = await commitFixture(f.root, "Fixture")
-  const planHead = await commitFixture(join(f.root, "../plan"), "Plan fixture")
-  for (const [repository, commits, target] of [
-    ["repo-edu", ["HEAD"], head],
-    ["repo-edu", ["HEAD-4"], `${head}-4`],
-    ["repo-edu", ["HEAD-4..HEAD"], `${head}-4..${head}`],
-    ["repo-edu", ["HEAD-4", "HEAD-1", "HEAD"], `${head}-4-plus-2`],
-    ["repo-edu", ["abcd1234"], "abcd1234"],
+  const planRoot = join(f.root, "../plan")
+  for (let n = 0; n < 5; n += 1) {
+    await commitFixture(f.root, `Fixture ${n}`)
+    await commitFixture(planRoot, `Plan fixture ${n}`)
+  }
+  const context = testContext(f.root)
+  const head = await shortCommit(f.root, "HEAD")
+  const back = (n: number) => shortCommit(f.root, `HEAD~${n}`)
+  const planHead = await shortCommit(planRoot, "HEAD")
+  const fullSha = (await execa("git", ["rev-parse", "HEAD~1"], { cwd: f.root }))
+    .stdout
+  for (const [commits, label] of [
+    [["HEAD"], `commit-${head}`],
+    [["HEAD-4"], `commit-${await back(4)}`],
+    [["HEAD-4..HEAD"], `commit-${await back(4)}..${head}`],
+    [["HEAD-4", "HEAD-1", "HEAD"], `commit-${await back(4)}-plus-2`],
+    // A typed SHA names the same file at any length.
+    [[fullSha], `commit-${await back(1)}`],
+    [[fullSha.slice(0, 9)], `commit-${await back(1)}`],
     [
-      "plan",
       [`${planRepositoryPrefix}HEAD-4..HEAD`],
-      `${planHead}-4..${planHead}`,
+      `commit-${await shortCommit(planRoot, "HEAD~4")}..${planHead}`,
     ],
   ] as const) {
-    const run = await roundRun(
-      {
-        ...testSetup(f.root),
-        groups: [
-          {
-            references: commits,
-            repository,
-            startingHead: repository === "plan" ? planHead : head,
-          },
-        ],
-      },
-      0,
-      releases,
-    )
-    assert.equal(basename(run.paths.markdown), `${target}-01-1-round.obh.md`)
+    const [first, ...rest] = commits
+    const [target] = await resolveTargets(context, targetRequest(first, rest))
+    const run = await roundRun({ ...testSetup(f.root), ...target }, 0, releases)
+    assert.equal(basename(run.paths.markdown), `${label}-01-1-round.obh.md`)
     assert.equal(run.title, `Commit audit of ${commits.join(" ")}`)
   }
 
   const references = ["HEAD-1", "HEAD", `${planRepositoryPrefix}HEAD`] as const
-  const run = await roundRun(
-    {
-      ...testSetup(f.root),
-      groups: [
-        {
-          references: ["HEAD-1", "HEAD"],
-          repository: "repo-edu",
-          startingHead: head,
-        },
-        {
-          references: [`${planRepositoryPrefix}HEAD`],
-          repository: "plan",
-          startingHead: planHead,
-        },
-      ],
-    },
-    0,
-    releases,
+  const [target] = await resolveTargets(
+    context,
+    targetRequest(references[0], references.slice(1)),
   )
+  assert.ok("groups" in target)
+  assert.deepEqual(
+    target.groups.map((group) => group.shortReferences),
+    [[await back(1), head], [planHead]],
+  )
+  const run = await roundRun({ ...testSetup(f.root), ...target }, 0, releases)
   assert.equal(
     basename(run.paths.markdown),
-    `${head}-1-plus-1+${planHead}-01-1-round.obh.md`,
+    `commit-${await back(1)}-plus-1+${planHead}-01-1-round.obh.md`,
   )
   assert.equal(run.title, `Commit audit of ${references.join(" ")}`)
+
+  for (const [reference, repository] of [
+    ["abcd1234", "repo-edu"],
+    ["HEAD-9", "repo-edu"],
+    [`${planRepositoryPrefix}abcd1234..HEAD`, "plan"],
+  ] as const)
+    await assert.rejects(
+      resolveTargets(context, targetRequest(reference, [])),
+      {
+        message: `${unprefixedCommitReference(reference).split("..")[0]} names no commit in the ${repository} checkout.`,
+      },
+    )
 })
 
 test("single steps and ranges keep separate padded numbering", async (t) => {

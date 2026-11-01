@@ -390,13 +390,17 @@ consumers.
   nothing a list could sequence. A commit target carries parsed groups across the phase boundary:
   bare references before the first `plan@` reference form the Repo Edu group, and that reference and
   every reference after it form the plan group. Each request group keeps its repository and
-  references as typed. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
+  references as typed; `default-target.ts` adds the resolved short references
+  the filename uses. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
   arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` accepts the
   active artifact at the plan root and reports an archived plan as unavailable for audit.
   `requiredActivePlan` accepts only the active artifact. It keeps path validation common while
   `close`, `settle` and `ready` supply their own reason when no active plan exists. The audit
   workflow owns Git resolution and inclusive-range admission. `default-target.ts` captures each
-  request group's starting HEAD once before round files are allocated. The runner passes those
+  request group's starting HEAD once before round files are allocated and
+  resolves every typed reference against it to the six-character name the
+  filename uses, refusing a reference that names no commit before any round
+  file is claimed. The runner passes those
   resolved groups unchanged and rejects multiple auditor entries for commit targets, which run once
   without a trajectory glance or watch.
 - `default-target.ts` owns the round a plan argument or no target selects, under
@@ -408,18 +412,18 @@ consumers.
   supplies the absolute plan path before any assistant starts. The `plan` scope selects a planning
   audit before the landed-step check, so it reads neither history nor list. Before any step lands,
   the bare plan selects a planning audit without reading that list. Concrete step scopes return
-  after the landed-step check without reading the list, one target per scope in the order given,
-  so every round still runs on one scope and keeps that scope's files, records and round data.
+  after the landed-step check without reading the list, one target per scope in the order given, so
+  every round still runs on one scope and keeps that scope's files, records and round data.
   `resolveTargets` returns that ordered list. For a commit target it also captures each repository's
-  starting HEAD once. A commit target or a bare plan is a list of one. For
-  a bare plan once a step has landed,
-  `plan-steps.ts` supplies every listed step and hosting repo. Loose forms find each hosted step,
-  its repo's newest step and its newest `implemented` marker. The bare plan resolves to the full
-  listed range only when every hosted share has landed and each marker is newer than its repo's
-  latest hosted step. Otherwise it names pending steps by repo and every missing or stale marker. It
-  never reruns the newest implementation-audit record's scope. `defaultPlan` applies the same plan
-  rule alone for the `plan` command and a `close` given no stem. The home `/brief-plan` and `/close`
-  run `plan` for an omitted stem.
+  starting HEAD once and resolves each group's references to their six-character names. A commit
+  target or a bare plan is a list of one. For a bare plan once a step has landed, `plan-steps.ts`
+  supplies every listed step and hosting repo. Loose forms find each hosted step, its repo's newest
+  step and its newest `implemented` marker. The bare plan resolves to the full listed range only
+  when every hosted share has landed and each marker is newer than its repo's latest hosted step.
+  Otherwise it names pending steps by repo and every missing or stale marker. It never reruns the
+  newest implementation-audit record's scope. `defaultPlan` applies the same plan rule alone for the
+  `plan` command and a `close` given no stem. The home `/brief-plan` and `/close` run `plan` for an
+  omitted stem.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor` and
   `--first` options. It reads both values with the queue's entry grammar and refuses a list with no
   entries. `--first` takes exactly one entry and is refused beside `--auditor`, because the list's
@@ -530,8 +534,9 @@ Runner result rule in
 `../../.agents/references/round-protocol.md#runner-result` defines their
 meaning. Phase results carry only status and reason. The runner reads reports,
 vet twins and the fix's landed subjects for routing and completion checks. It also reads
-each commit group's starting HEAD before naming and the log the glance counts;
-the audit workflow resolves the audited scope against that carried value. Keep
+each commit group's starting HEAD before naming, resolves the typed references
+against it for the filename, and reads the log the glance counts; the audit
+workflow resolves the audited scope against that carried starting HEAD. Keep
 assistant adapters independent of the product LLM adapters.
 
 ## Round files
@@ -560,11 +565,16 @@ name.
 
 Skipped phases leave gaps. A plan audit target ends in `-plan`; an
 implementation target ends in `-impl-<a>..<b>`, with step and round numbers
-padded to at least two digits. A single step repeats its endpoint. Commit
-targets preserve typed references. Each group replaces `HEAD` with its captured
-short starting commit and uses `-plus-<n>` for a list after its first reference.
-The first plan reference's `plan@` prefix stays out of its label. Group labels
-join with `+` in command-line order.
+padded to at least two digits. A single step repeats its endpoint. A commit
+target opens with the fixed word `commit-`, so every commit audit sits together
+in a sorted file list as plan targets do under their stem. Each group's label
+is its first reference with every commit resolved to the six-character name the
+plan doctrine fixes for the handoff, `HEAD` and `HEAD-<n>` included and a range
+keeping its `..`, followed by `-plus-<n>` for a list after that reference. The
+resolved form, never the typed spelling, names the file, so one commit scope
+keeps one filename and one round sequence however its commits were typed. The
+first plan reference's `plan@` prefix stays out of its label. Group labels join
+with `+` in command-line order.
 
 Later phases preserve the report's target and round. Their tag names their own
 writer under Repo Edu's **Commit Capability Tag**, not the report's auditor.
@@ -587,7 +597,8 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 
 - audit: report output, then either a plan with an optional implementation
   scope or open-deferral object, or one structured object per commit group
-  carrying its repository, typed references and starting HEAD
+  carrying its repository, typed references, starting HEAD and the resolved
+  short references the filename uses
 - vet: report input, vet output
 - rebuttal: report input, vet input, rebuttal output
 - fix: report input, then existing vet and rebuttal inputs, followed by the
@@ -878,20 +889,21 @@ the transcript title, writes beside it without claiming a new number and overwri
 log on each run. Without `--auditor`, an active plan runs an automatic series from the `--first`
 selection or the configured default, follows each fresh judge answer and stops at settle, stop or
 its maximum without writing a queue. A settle answer prints its reason and leaves the widening plan
-unchanged for the user to settle or keep widening. Commit targets run once. A scope list runs that
-series once per scope in list order, each scope on its own target, and stops the whole list only
-where a series needs the user: a failure, an unanswered ruling, a red watch or a plan phase change.
-`--auditor` accepts one selection or a sequence on the named plan scope, separated by commas or
-spaces. Repeated entries request separate rounds. The entries after the current round wait in
-`<target>-queue.md` at the plan root. Edit it to add, remove or reorder rounds; the runner reads it
-between rounds and deletes it when the sequence ends. An empty or deleted file ends the sequence
-after the current round. Every completed automatic round prints its judge answer and reason. In a
-manual series, a clean audit skips queued entries with the same resolved assistant, model and
-effort; other settings remain. Failure or leaving a ruling without a reply stops either sequence. A
-submitted reply resumes the fix, then the sequence after the round completes. A settings pair takes
-turns only in rounds the automatic pick chose. Its first picked round uses a coin flip. A `--first`,
-`--auditor` or queue choice bypasses the pair and takes no turn. Each header records the round's
-start time; filenames carry no timestamp.
+unchanged for the user to settle or keep widening. A detailing stop whose reason recommends ready
+leaves the settled plan unchanged for the user to mark ready or keep detailing. Commit targets run
+once. A scope list runs that series once per scope in list order, each scope on its own target, and
+stops the whole list only where a series needs the user: a failure, an unanswered ruling, a red
+watch or a plan phase change. `--auditor` accepts one selection or a sequence on the named plan
+scope, separated by commas or spaces. Repeated entries request separate rounds. The entries after
+the current round wait in `<target>-queue.md` at the plan root. Edit it to add, remove or reorder
+rounds; the runner reads it between rounds and deletes it when the sequence ends. An empty or
+deleted file ends the sequence after the current round. Every completed automatic round prints its
+judge answer and reason. In a manual series, a clean audit skips queued entries with the same
+resolved assistant, model and effort; other settings remain. Failure or leaving a ruling without a
+reply stops either sequence. A submitted reply resumes the fix, then the sequence after the round
+completes. A settings pair takes turns only in rounds the automatic pick chose. Its first picked
+round uses a coin flip. A `--first`, `--auditor` or queue choice bypasses the pair and takes no
+turn. Each header records the round's start time; filenames carry no timestamp.
 
 Before an automatic implementation series starts, the runner chains one
 planning round when the shared owner finds an open deferral into the plan repo.

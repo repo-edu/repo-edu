@@ -6,7 +6,6 @@ import {
   type CommitGroup,
   planStem,
   type RoundKind,
-  unprefixedCommitReference,
 } from "./target.js"
 
 type NamingTarget = ExecutionContext & AuditTarget
@@ -98,16 +97,15 @@ async function targetDescription(target: NamingTarget): Promise<{
   title: string
 }> {
   if ("groups" in target) {
-    const groupLabel = (group: CommitGroup): string => {
-      const first = unprefixedCommitReference(group.references[0])
-      const head = first.includes("HEAD") ? group.startingHead : ""
-      return `${first.replaceAll("HEAD", head)}${group.references.length === 1 ? "" : `-plus-${group.references.length - 1}`}`
-    }
+    // The fixed `commit-` word groups every commit audit in a sorted file list,
+    // as `-plan` and `-impl-` do for plan targets.
+    const groupLabel = (group: CommitGroup): string =>
+      `${group.shortReferences[0]}${group.shortReferences.length === 1 ? "" : `-plus-${group.shortReferences.length - 1}`}`
     const labels = target.groups.map(groupLabel)
     const references = target.groups.flatMap((group) => group.references)
     // Keep list filenames bounded; the title and phase arguments carry every reference.
     return {
-      label: labels.join("+"),
+      label: `commit-${labels.join("+")}`,
       title: `Commit audit of ${references.join(" ")}`,
     }
   }

@@ -163,12 +163,15 @@ for (const working of ["repo-edu", "plan"] as const) {
       JSON.parse(f.visible[0]).claim,
       join(f.planRoot, "example-plan-01-0-claim.md"),
     )
-    await commitFixture(f.repoRoot, "example/impl-1 ath feat(x): step")
+    const head = await commitFixture(
+      f.repoRoot,
+      "example/impl-1 ath feat(x): step",
+    )
     for (const [args, target] of [
       [["example", "1"], "example-impl-01..01"],
       [["example", "1-2"], "example-impl-01..02"],
       [["example", "9-12"], "example-impl-09..12"],
-      [["abcdef"], "abcdef"],
+      [["HEAD"], `commit-${head.slice(0, 6)}`],
     ] as const) {
       f.visible.length = 0
       assert.equal(await name(args), 0, f.errors.join("\n"))

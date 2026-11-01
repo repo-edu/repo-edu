@@ -15,11 +15,10 @@ finding metadata meanings, growth-pattern tags and trade pricing. The
 [round grammar](../../../references/round-grammar.md) owns report, twin and
 record-bullet shapes.
 
-The round's repo set is the repositories carried by the parsed commit groups.
-The phase arguments keep the group boundary, repository, typed references and
-starting HEAD, so this workflow does not derive that boundary or read HEAD
-again. A repo outside that set may be read as evidence, never as a source of
-intent.
+The round's repo set is the repositories carried by the parsed commit groups. The phase arguments
+keep the group boundary, repository, typed references, starting HEAD and the resolved short
+references the round's filename uses, so this workflow does not derive that boundary or read HEAD
+again. A repo outside that set may be read as evidence, never as a source of intent.
 
 ## Range
 

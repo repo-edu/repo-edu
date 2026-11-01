@@ -618,6 +618,7 @@ for (const accepted of [false, true]) {
           references: ["HEAD"] as const,
           repository: "repo-edu" as const,
           startingHead: "abc1234",
+          shortReferences: ["abc123"] as const,
         },
       ] as const,
     },
@@ -1234,6 +1235,7 @@ for (const ruling of [false, true]) {
       references: commits,
       repository: "repo-edu" as const,
       startingHead: "abc1234",
+      shortReferences: ["abc111", "abc222", "abc123"] as const,
     }
     const result = await runRound(
       { ...files, groups: [group] },
@@ -1280,7 +1282,11 @@ test("commit groups keep their starting head after document allocation", async (
   )
 
   assert.equal(result.status, "finished")
-  assert.ok(basename(allocated.paths.markdown).startsWith(`${startingHead}-`))
+  assert.ok(
+    basename(allocated.paths.markdown).startsWith(
+      `commit-${startingHead.slice(0, 6)}-`,
+    ),
+  )
   assert.deepEqual(round.calls[0].arguments, [
     allocated.documents.report,
     ...target.groups,
@@ -2024,6 +2030,7 @@ test("a finished fix on a plan target requires a landed commit; clean audits use
           references: ["HEAD"] as const,
           repository: "repo-edu" as const,
           startingHead: "abc1234",
+          shortReferences: ["abc123"] as const,
         },
       ] as const,
     },

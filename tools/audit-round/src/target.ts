@@ -30,6 +30,12 @@ export type CommitGroupRequest = {
 
 export type CommitGroup = CommitGroupRequest & {
   readonly startingHead: string
+  /**
+   * Each typed reference with every commit at the six-character length the
+   * plan doctrine fixes for commit names, so one scope keeps one filename and
+   * one round sequence however its commits were spelled.
+   */
+  readonly shortReferences: readonly [string, ...string[]]
 }
 
 type CommitTargetWith<Group> = {
@@ -134,10 +140,16 @@ function planScope(values: readonly [string, ...string[]]): ScopeRequest {
   return [stepScope(first), ...more.map(stepScope)]
 }
 
-function commitReference(value: string): boolean {
-  if (/^[a-fA-F0-9]{4,40}$/.test(value)) return true
+/** The first-parent distance a `HEAD` or `HEAD-<n>` reference names, or null for any other form. */
+export function headOffset(value: string): number | null {
   const head = /^HEAD(?:-(0|[1-9]\d*))?$/.exec(value)
-  return head !== null && Number.isSafeInteger(Number(head[1] ?? 0))
+  if (head === null) return null
+  const offset = Number(head[1] ?? 0)
+  return Number.isSafeInteger(offset) ? offset : null
+}
+
+function commitReference(value: string): boolean {
+  return /^[a-fA-F0-9]{4,40}$/.test(value) || headOffset(value) !== null
 }
 
 export const planRepositoryPrefix = "plan@"

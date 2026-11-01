@@ -10,11 +10,14 @@ import {
   type AuditTarget,
   activePlan,
   type CommitGroup,
+  type CommitGroupRequest,
+  headOffset,
   planningScope,
   planStem,
   resolvePlan,
   type ScopeRequest,
   type TargetRequest,
+  unprefixedCommitReference,
 } from "./target.js"
 
 /** The targets one command line runs in order; a scope list gives several. */
@@ -43,18 +46,11 @@ export async function resolveTargets(
 ): Promise<AuditTargets> {
   if (request !== null && "groups" in request) {
     const groups = await Promise.all(
-      request.groups.map(
-        async (group): Promise<CommitGroup> => ({
-          ...group,
-          startingHead: (
-            await execa("git", ["rev-parse", "--short", "HEAD"], {
-              cwd:
-                group.repository === "plan"
-                  ? context.planRoot
-                  : context.repoEduRoot,
-            })
-          ).stdout,
-        }),
+      request.groups.map((group) =>
+        resolveCommitGroup(
+          group,
+          group.repository === "plan" ? context.planRoot : context.repoEduRoot,
+        ),
       ),
     )
     return [
@@ -65,6 +61,49 @@ export async function resolveTargets(
     ]
   }
   return selectTargets(await readLogs(context), context.planRoot, request)
+}
+
+/**
+ * A group's starting HEAD is captured once, and every typed reference is
+ * resolved against it, so the filename names the commits the round judges
+ * even when the repo moves before the audit starts. A reference that names no
+ * commit is refused here, before any round file is claimed.
+ */
+async function resolveCommitGroup(
+  group: CommitGroupRequest,
+  cwd: string,
+): Promise<CommitGroup> {
+  const startingHead = (
+    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })
+  ).stdout
+  const shortCommit = async (endpoint: string): Promise<string> => {
+    const offset = headOffset(endpoint)
+    const revision = offset === null ? endpoint : `${startingHead}~${offset}`
+    const resolved = await execa(
+      "git",
+      ["rev-parse", "--verify", "--quiet", `${revision}^{commit}`],
+      { cwd, reject: false },
+    )
+    if (resolved.exitCode !== 0)
+      throw new InvalidArgumentError(
+        `${endpoint} names no commit in the ${group.repository} checkout.`,
+      )
+    return resolved.stdout.slice(0, 6)
+  }
+  const shortReferences = await Promise.all(
+    group.references.map(async (reference) =>
+      (
+        await Promise.all(
+          unprefixedCommitReference(reference).split("..").map(shortCommit),
+        )
+      ).join(".."),
+    ),
+  )
+  return {
+    ...group,
+    startingHead,
+    shortReferences: shortReferences as [string, ...string[]],
+  }
 }
 
 /**

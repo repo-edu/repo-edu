@@ -5,7 +5,7 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { planRepositoryPrefix } from "../target.js"
 import { runCommand, testSettings } from "./configured-runner.js"
-import { commitFixture, roundFixture } from "./round-fixture.js"
+import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
 type Fixture = Awaited<ReturnType<typeof roundFixture>>
 
@@ -351,9 +351,21 @@ for (const working of ["repo-edu", "plan"] as const) {
 
 test("name shares commit range and list targets with the runner", async (t) => {
   const f = await roundFixture(t)
-  for (const [references, target] of [
-    [["HEAD-2..HEAD"], `${f.heads["repo-edu"]}-2..${f.heads["repo-edu"]}`],
-    [["abcd", "HEAD", "ef01"], "abcd-plus-2"],
+  let startingHead = f.heads["repo-edu"]
+  for (const n of [1, 2])
+    startingHead = await commitFixture(f.repoRoot, `Fixture ${n}`)
+  const head = await shortCommit(f.repoRoot, "HEAD")
+  const back = [
+    await shortCommit(f.repoRoot, "HEAD~1"),
+    await shortCommit(f.repoRoot, "HEAD~2"),
+  ]
+  for (const [references, shortReferences, target] of [
+    [["HEAD-2..HEAD"], [`${back[1]}..${head}`], `commit-${back[1]}..${head}`],
+    [
+      [back[1], "HEAD", back[0]],
+      [back[1], head, back[0]],
+      `commit-${back[1]}-plus-2`,
+    ],
   ] as const) {
     f.visible.length = 0
     assert.equal(
@@ -372,7 +384,8 @@ test("name shares commit range and list targets with the runner", async (t) => {
       {
         references,
         repository: "repo-edu",
-        startingHead: f.heads["repo-edu"],
+        startingHead,
+        shortReferences,
       },
     ])
   }
@@ -390,6 +403,10 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
     true,
   )
   const reference = `${planRepositoryPrefix}HEAD-2..HEAD`
+  let startingHead = f.heads.plan
+  for (const n of [1, 2])
+    startingHead = await commitFixture(f.planRoot, `Plan fixture ${n}`)
+  const label = `${await shortCommit(f.planRoot, "HEAD~2")}..${await shortCommit(f.planRoot, "HEAD")}`
 
   assert.equal(
     await runCommand([reference], f.runtime, f.options),
@@ -400,15 +417,11 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const { log, markdown, transcript } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead: f.heads.plan }])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead, shortReferences: [label] }])}`,
     ),
   )
   assert.ok(markdown.startsWith(`# Commit audit of ${reference}\n`))
-  assert.ok(
-    basename(transcript).startsWith(
-      `${f.heads.plan}-2..${f.heads.plan}-01-1-round.`,
-    ),
-  )
+  assert.ok(basename(transcript).startsWith(`commit-${label}-01-1-round.`))
 })
 
 test("name passes two parsed commit groups to a hand-run audit", async (t) => {
@@ -431,16 +444,21 @@ test("name passes two parsed commit groups to a hand-run audit", async (t) => {
       repository: "repo-edu",
       references: ["HEAD"],
       startingHead: f.heads["repo-edu"],
+      shortReferences: [f.heads["repo-edu"].slice(0, 6)],
     },
     {
       repository: "plan",
       references: [`${planRepositoryPrefix}HEAD`],
       startingHead: f.heads.plan,
+      shortReferences: [f.heads.plan.slice(0, 6)],
     },
   ])
   assert.equal(
     named.claim,
-    join(f.planRoot, `${f.heads["repo-edu"]}+${f.heads.plan}-01-0-claim.md`),
+    join(
+      f.planRoot,
+      `commit-${f.heads["repo-edu"].slice(0, 6)}+${f.heads.plan.slice(0, 6)}-01-0-claim.md`,
+    ),
   )
 })
 
@@ -469,11 +487,13 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
       repository: "repo-edu",
       references: ["HEAD"],
       startingHead: f.heads["repo-edu"],
+      shortReferences: [f.heads["repo-edu"].slice(0, 6)],
     },
     {
       repository: "plan",
       references: [`${planRepositoryPrefix}HEAD`],
       startingHead: f.heads.plan,
+      shortReferences: [f.heads.plan.slice(0, 6)],
     },
   ]
   assert.ok(
@@ -484,7 +504,7 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
   assert.ok(markdown.startsWith(`# Commit audit of ${references.join(" ")}\n`))
   assert.ok(
     basename(transcript).startsWith(
-      `${f.heads["repo-edu"]}+${f.heads.plan}-01-1-round.`,
+      `commit-${f.heads["repo-edu"].slice(0, 6)}+${f.heads.plan.slice(0, 6)}-01-1-round.`,
     ),
   )
 })
@@ -537,7 +557,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
   )
   assert.equal(
     await runCommand(
-      ["name", "abcd", "ef01", "--auditor", "oux"],
+      ["name", "HEAD", "--auditor", "oux"],
       f.runtime,
       f.options,
     ),

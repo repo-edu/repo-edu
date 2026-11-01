@@ -48,19 +48,17 @@ Check two mismatches before vetting:
   [Head drift](../../../references/round-protocol.md#head-drift) and note the
   changes in the verdicts. When the moved tree already resolved the defect,
   drop the finding and name the resolving commit.
-- The target in the name differs from the report's `Target:` line after the
-  line is translated under the runner's
-  [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) rule. For a
-  commit target, split the typed references into the Repo Edu group before the
-  first `plan@` reference and the plan group from that reference onwards. For
-  each group, the rule uses that repo's short starting commit, the head the
-  report's `Judged repos:` line names for that repo, replaces `HEAD` in the
-  group's first reference, drops its `plan@` prefix and shortens a list after
-  its first entry. Join the group labels with `+` in command-line order. One
-  of the filename and report target is wrong when the result differs, so refuse
-  and name both. The runner refuses a report whose line is missing or names
-  another target before it starts a vet, so this check fires only in a hand-run
-  session.
+- The target in the name differs from the report's `Target:` line after the line is translated under
+  the runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) rule. For a commit
+  target, split the typed references into the Repo Edu group before the first `plan@` reference and
+  the plan group from that reference onwards. For each group, take its first reference without the
+  `plan@` prefix, resolve each commit in it with `git rev-parse` in that repo, reading `HEAD` and
+  `HEAD-<n>` against the head the report's `Judged repos:` line names for that repo, cut each result
+  to six characters and keep a range's `..`; append `-plus-<n>` for a list after that reference.
+  Join the group labels with `+` in command-line order and prefix `commit-`. One of the filename and
+  report target is wrong when the result differs, so refuse and name both. The runner refuses a
+  report whose line is missing or names another target before it starts a vet, so this check fires
+  only in a hand-run session.
 
 ## Axes
 
