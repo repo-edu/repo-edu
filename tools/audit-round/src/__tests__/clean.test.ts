@@ -8,7 +8,7 @@ import { stampCommitMessage } from "../commit-msg.js"
 import { planStem } from "../target.js"
 import { runCommand } from "./configured-runner.js"
 import { recordedTag } from "./helpers.js"
-import { roundFixture } from "./round-fixture.js"
+import { roundFixture, shortCommit } from "./round-fixture.js"
 
 for (const working of ["plan", "repo-edu"] as const) {
   for (const owner of working === "plan"
@@ -79,8 +79,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.equal(dirname(f.report), f.planRoot)
       const peer = owner === "plan" ? f.repoRoot : f.planRoot
       assert.equal(
-        (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: peer }))
-          .stdout,
+        await shortCommit(peer, "HEAD"),
         f.heads[owner === "plan" ? "repo-edu" : "plan"],
       )
       assert.equal(await readFile(handoff, "utf8"), "Prior reasoning\n")
@@ -143,11 +142,7 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
     true,
   )
   assert.equal(await runCommand(["HEAD"], f.runtime, f.options), 0)
-  assert.equal(
-    (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: f.repoRoot }))
-      .stdout,
-    f.heads["repo-edu"],
-  )
+  assert.equal(await shortCommit(f.repoRoot, "HEAD"), f.heads["repo-edu"])
   assert.match(await readFile(f.report, "utf8"), /No findings/)
   const { log, markdown } = await f.records()
   assert.doesNotMatch(log, /\[(?:vet|rebut|fix|brief|watch)\] starting/)
@@ -200,7 +195,7 @@ test("clean deferral citations stay in one bullet list", async (t) => {
   assert.match(
     message,
     new RegExp(
-      `Audit took 1 min\\.\\n\\n- \\[applies:${firstSha}\\/1\\] The plan stands\\.\\n- \\[applies:${secondSha}\\/2\\] The plan stands\\.`,
+      `Audit took 1 min\\.\\n\\n- \\[applies:${firstSha.slice(0, 6)}\\/1\\] The plan stands\\.\\n- \\[applies:${secondSha.slice(0, 6)}\\/2\\] The plan stands\\.`,
     ),
   )
 })

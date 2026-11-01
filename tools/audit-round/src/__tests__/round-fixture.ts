@@ -51,10 +51,10 @@ export async function commitFixture(
           : { GIT_COMMITTER_DATE: committedAt },
     },
   )
-  return (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout
+  return shortCommit(cwd, "HEAD")
 }
 
-/** The six-character commit name the plan doctrine fixes, for filename expectations. */
+/** The six-character commit form the doctrine fixes for names, reports and records. */
 export async function shortCommit(
   cwd: string,
   revision: string,

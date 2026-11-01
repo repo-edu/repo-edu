@@ -104,8 +104,8 @@ ordinary round.
 
 Before drafting findings, build one coverage table with one row per commit
 across all groups, with columns for the commit, its changed code and one
-disposition for the commit as a whole. Prefix the short SHA in the commit cell
-with its repo, as `repo-edu@c5c651d` or `plan@e8128bd`. Inspect every touched
+disposition for the commit as a whole. Prefix the six-character SHA in the commit cell
+with its repo, as `repo-edu@c5c651` or `plan@e8128b`. Inspect every touched
 file whether or not the message names it.
 
 - `holds`: the code at HEAD delivers the commit's substantive intent.
@@ -141,7 +141,7 @@ Follow the [audit report grammar](../../../references/round-grammar.md#audit-rep
 and the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports).
 In place of plan and step evidence, supply every group's commit references as
-typed, each resolved range with its prefixed short SHAs and the statement that
+typed, each resolved range with its prefixed six-character SHAs and the statement that
 no plan covers the work. Open `Judged repos:` with every group's
 `startingHead` in the grammar's order, `plan@<sha>, repo-edu@<sha>` when both
 are present. Use the commit coverage table above. Naming and allocation follow the

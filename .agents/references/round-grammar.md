@@ -41,7 +41,8 @@ names the parser refusal it demonstrates.
 <digit>              ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 <non-zero-digit>     ::= 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 <tier>               ::= A | B | C | D
-<sha>                ::= <lower-hex>+
+<sha>                ::= <short-sha><lower-hex>*
+<short-sha>          ::= six <lower-hex> characters
 <lower-hex>          ::= <digit> | a | b | c | d | e | f
 <label>              ::= <label-part>("-"<label-part>)*
 <label-part>         ::= one or more lowercase ASCII letters or digits
@@ -70,6 +71,11 @@ names the parser refusal it demonstrates.
 The growth-pattern syntax is open. `GROWTH-PATTERNS.md` in the plan repo owns
 the admitted labels and their order. Reach and complexity are the closed sets
 above.
+
+A `<sha>` is written as the commit's first six characters, the one short form
+every report, record and round file shares, so each has the same shape. A
+reader resolves it by prefix and accepts a longer form, because records
+written before the six-character rule carry full commit IDs.
 
 ## Audit report
 
@@ -583,9 +589,9 @@ record replaces the section with one area and any cover areas.
 
 A graded bullet carries each deferral it applies after its location and before
 its rating tokens. An untiered citation bullet records that the plan needs no
-change. Each citation names the deferring commit by its full commit ID and that
+change. Each citation names the deferring commit by its six-character form and that
 commit's deferral position into the destination repo, counted from one in body
-order. The commit ID uses lowercase hexadecimal and the position is always
+order. The commit form uses lowercase hexadecimal and the position is always
 present, including for the first and only deferral.
 
 ### Examples
@@ -605,7 +611,7 @@ present, including for the first and only deferral.
 #### `record/repo-edu-applies` — parsed
 
 ```text
-- [C] [area:tool-audit-round] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [applies:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/2] [growth-pattern:none] [reach:developer] [complexity:none] Reader correction: the cited deferrals are applied.
+- [C] [area:tool-audit-round] [applies:aaaaaa/1] [applies:bbbbbb/2] [growth-pattern:none] [reach:developer] [complexity:none] Reader correction: the cited deferrals are applied.
 ```
 
 #### `record/plan-audit` — parsed
@@ -617,7 +623,7 @@ present, including for the first and only deferral.
 #### `record/plan-audit-applies` — parsed
 
 ```text
-- B [finding:1] [field:missing] [section:decisions] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the cited deferral is applied.
+- B [finding:1] [field:missing] [section:decisions] [applies:aaaaaa/1] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the cited deferral is applied.
 ```
 
 #### `record/plan-local` — parsed
@@ -641,13 +647,13 @@ present, including for the first and only deferral.
 #### `record/plan-stands` — parsed
 
 ```text
-- [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] The plan stands.
+- [applies:aaaaaa/1] The plan stands.
 ```
 
 #### `record/repo-edu-plan-stands` — parsed
 
 ```text
-- [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [applies:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/2] The plan stands.
+- [applies:aaaaaa/1] [applies:bbbbbb/2] The plan stands.
 ```
 
 #### `record/repo-edu-invalid-applies` — refused
@@ -663,7 +669,7 @@ Refusal: `invalid [applies:ABC123/0] value`
 Refusal: `unexpected [applies:...] at 5`
 
 ```text
-- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [reach:rare] [complexity:minus-low] Citation placement: the applies token follows the location.
+- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [applies:aaaaaa/1] [reach:rare] [complexity:minus-low] Citation placement: the applies token follows the location.
 ```
 
 #### `record/plan-stands-reason` — refused
@@ -671,7 +677,7 @@ Refusal: `unexpected [applies:...] at 5`
 Refusal: `must say exactly "The plan stands."`
 
 ```text
-- [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] The plan probably stands.
+- [applies:aaaaaa/1] The plan probably stands.
 ```
 
 #### `record/repo-edu-finding-not-first` — refused

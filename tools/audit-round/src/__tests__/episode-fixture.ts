@@ -51,7 +51,7 @@ export const correction = (area = "area-a", severity = "c1", tier = "C") =>
 export function history(...commits: Omit<LogCommit, "sha">[]): LogCommit[] {
   return [...commits, base].map((commit, at, all) => ({
     ...commit,
-    sha: `c${String(all.length - at).padStart(6, "0")}`,
+    sha: `c${String(all.length - at).padStart(5, "0")}`,
   }))
 }
 

@@ -160,6 +160,30 @@ test("a standing citation closes its numbered deferral only", () => {
   ])
 })
 
+test("a six-character citation closes its deferral by prefix", () => {
+  const deferringSha = `abcdef0${"a".repeat(33)}`
+  const logs = {
+    "repo-edu": [
+      commit(
+        deferringSha,
+        "2026-10-31T12:00:00.000Z",
+        "example/impl-audit-1 obx c1: defer into the plan",
+        repoDeferral("example", "Plan choice"),
+      ),
+    ],
+    plan: [
+      commit(
+        "c".repeat(40),
+        "2026-10-31T13:00:00.000Z",
+        "example/plan-audit obx clean: record that the plan stands",
+        `- [applies:${deferringSha.slice(0, 6)}/1] The plan stands.`,
+      ),
+    ],
+  }
+
+  assert.deepEqual(openDeferrals("example", logs), [])
+})
+
 test("a later short-prefix collision does not reopen a full-ID citation", () => {
   const deferringSha = `abcdef0${"a".repeat(33)}`
   const collisionSha = `abcdef0${"b".repeat(33)}`

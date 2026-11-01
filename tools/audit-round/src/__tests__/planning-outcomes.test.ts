@@ -264,11 +264,11 @@ for (const working of ["repo-edu", "plan"] as const) {
       if (due) {
         const saved = JSON.parse(currentRecord).example
         assert.equal(saved.grade, "red")
-        assert.match(saved.heads["repo-edu"], /^[0-9a-f]{7}$/)
-        assert.match(saved.heads.plan, /^[0-9a-f]{7}$/)
+        assert.match(saved.heads["repo-edu"], /^[0-9a-f]{6}$/)
+        assert.match(saved.heads.plan, /^[0-9a-f]{6}$/)
         assert.notEqual(
           saved.heads[working],
-          f.recordHeads[working].slice(0, 7),
+          f.recordHeads[working].slice(0, 6),
         )
       } else {
         assert.equal(currentRecord, history)

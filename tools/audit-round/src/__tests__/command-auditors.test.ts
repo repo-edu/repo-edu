@@ -426,11 +426,7 @@ for (const auditor of ["codex", "claude"] as const) {
       ],
       { cwd: f.repoRoot },
     )
-    const { stdout: head } = await execa(
-      "git",
-      ["rev-parse", "--short", "HEAD"],
-      { cwd: f.repoRoot },
-    )
+    const head = await shortCommit(f.repoRoot, "HEAD")
     const commits = auditor === "codex" ? ["HEAD-2..HEAD"] : ["HEAD-1", "HEAD"]
     const back = (n: number) => shortCommit(f.repoRoot, `HEAD~${n}`)
     const group = {

@@ -1,4 +1,5 @@
 import type { CommitStamps } from "./commit-msg.js"
+import { shortSha } from "./episode-log.js"
 import { commitOnly } from "./lifecycle.js"
 import type { OpenDeferral } from "./open-deferrals.js"
 import type { LandedCommit } from "./round-data.js"
@@ -50,7 +51,7 @@ export async function completeClean(
   parseSubject(subject, repository)
   const citations = (input.deferrals ?? []).map(
     (deferral) =>
-      `- [applies:${deferral.sha}/${deferral.position}] The plan stands.`,
+      `- [applies:${shortSha(deferral.sha)}/${deferral.position}] The plan stands.`,
   )
   const body = [stamps.phases, citations.join("\n")]
     .filter(Boolean)

@@ -1,5 +1,13 @@
 import { execa } from "execa"
 
+/**
+ * The six-character form every report, record and file name writes a commit
+ * in, fixed so each has the same shape; a reader resolves it by prefix.
+ */
+export function shortSha(sha: string): string {
+  return sha.slice(0, 6)
+}
+
 /** Git history is newest first. Both paths of a rename are touched files. */
 export type LogCommit = {
   readonly sha: string

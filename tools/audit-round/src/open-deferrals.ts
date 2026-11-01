@@ -68,30 +68,31 @@ function deferrals(
   })
 }
 
-function citedDeferrals(
+function citations(
   destinationCommits: readonly LogCommit[],
   destinationRepository: Repository,
-  sourceCommits: readonly LogCommit[],
-): Set<string> {
-  const cited = new Set<string>()
-  for (const commit of destinationCommits) {
-    for (const bullet of readableBullets(commit, destinationRepository)) {
-      for (const citation of bullet.applies) {
-        const sha = citationCommit(citation, sourceCommits)
-        if (sha !== null) cited.add(`${sha}/${citation.position}`)
-      }
-    }
-  }
-  return cited
+): DeferralCitation[] {
+  return destinationCommits.flatMap((commit) =>
+    readableBullets(commit, destinationRepository).flatMap(
+      (bullet) => bullet.applies,
+    ),
+  )
 }
 
-function citationCommit(
-  citation: DeferralCitation,
-  commits: readonly LogCommit[],
-): string | null {
-  return commits.some((commit) => commit.sha === citation.sha)
-    ? citation.sha
-    : null
+/**
+ * A citation names its deferring commit by prefix, so the short written form
+ * and the full form history holds both resolve, against the deferring commits
+ * alone rather than the whole log.
+ */
+function cited(
+  deferral: DeferralCandidate,
+  applied: readonly DeferralCitation[],
+): boolean {
+  return applied.some(
+    (citation) =>
+      citation.position === deferral.position &&
+      deferral.sha.startsWith(citation.sha),
+  )
 }
 
 /** Compute one active plan's open deferrals from the two newest-first logs. */
@@ -115,21 +116,19 @@ export function openDeferrals(
     "plan",
     (finding) => finding.location.key === "area",
   )
-  const appliedIntoPlan = citedDeferrals(planCommits, "plan", logs["repo-edu"])
-  const appliedIntoRepoEdu = citedDeferrals(
-    logs["repo-edu"],
-    "repo-edu",
-    planCommits,
-  )
+  const appliedIntoPlan = citations(planCommits, "plan")
+  const appliedIntoRepoEdu = citations(logs["repo-edu"], "repo-edu")
 
   return [...intoPlan, ...intoRepoEdu]
-    .filter((deferral) => {
-      const applied =
-        deferral.deferringRepository === "repo-edu"
-          ? appliedIntoPlan
-          : appliedIntoRepoEdu
-      return !applied.has(`${deferral.sha}/${deferral.position}`)
-    })
+    .filter(
+      (deferral) =>
+        !cited(
+          deferral,
+          deferral.deferringRepository === "repo-edu"
+            ? appliedIntoPlan
+            : appliedIntoRepoEdu,
+        ),
+    )
     .sort(
       (first, second) =>
         Date.parse(second.committedAt) - Date.parse(first.committedAt),

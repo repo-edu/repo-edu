@@ -3,7 +3,7 @@ import { InvalidArgumentError } from "commander"
 import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
 import { stemCommits } from "./episode.js"
-import { type LogCommit, readLog } from "./episode-log.js"
+import { type LogCommit, readLog, shortSha } from "./episode-log.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import { looseForm, type Repository } from "./subject.js"
 import {
@@ -73,9 +73,9 @@ async function resolveCommitGroup(
   group: CommitGroupRequest,
   cwd: string,
 ): Promise<CommitGroup> {
-  const startingHead = (
-    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })
-  ).stdout
+  const startingHead = shortSha(
+    (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
+  )
   const shortCommit = async (endpoint: string): Promise<string> => {
     const offset = headOffset(endpoint)
     const revision = offset === null ? endpoint : `${startingHead}~${offset}`
@@ -88,7 +88,7 @@ async function resolveCommitGroup(
       throw new InvalidArgumentError(
         `${endpoint} names no commit in the ${group.repository} checkout.`,
       )
-    return resolved.stdout.slice(0, 6)
+    return shortSha(resolved.stdout)
   }
   const shortReferences = await Promise.all(
     group.references.map(async (reference) =>

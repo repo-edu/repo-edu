@@ -173,7 +173,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       fallback.repositories.find(
         (entry: { repository: string }) => entry.repository === "repo-edu",
       ).anchor,
-      unstemmed.slice(0, 7),
+      unstemmed.slice(0, 6),
     )
     const head = await invoke("HEAD")
     assert.ok(
@@ -247,7 +247,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       fresh.repositories.find(
         (entry: { repository: string }) => entry.repository === "repo-edu",
       ).head,
-      freshHead.slice(0, 7),
+      freshHead.slice(0, 6),
     )
     for (const target of ["HEAD-999999999", "HEAD-nope", "f".repeat(40)]) {
       f.visible.length = 0

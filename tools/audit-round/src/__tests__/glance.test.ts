@@ -31,7 +31,7 @@ const glanceDecision = (
 ) => decide(episode(log, repository), records)
 const record = (
   grade: "green" | "amber" | "red",
-  head = "c000001",
+  head = "c00001",
   repository = "repo-edu",
 ) => ({
   example: {
@@ -68,12 +68,12 @@ test("missing, invalid and former watch records read green from the episode's an
     {},
     {
       example: {
-        heads: { plan: "c000001" },
+        heads: { plan: "c00001" },
         grade: "green",
         written: "2026-09-20",
       },
     },
-    { example: { sha: "c000001", grade: "green", horizon: 4, written: "x" } },
+    { example: { sha: "c00001", grade: "green", horizon: 4, written: "x" } },
     { example: { ...record("amber").example, horizon: 6 } },
   ]) {
     const decision = glanceDecision(history(), records, "repo-edu")
@@ -103,7 +103,7 @@ test("without a record plan audits count from the earliest stem commit", () => {
   assert.equal(decision.due, true)
   assert.match(decision.text, /area:area-a 3.*green limit of 3\./)
   // A correction older than the episode's first stem commit is outside it.
-  const older = [...two, { ...before, sha: "c000000" }]
+  const older = [...two, { ...before, sha: "c00000" }]
   assert.equal(glanceDecision(older, null, "repo-edu").due, false)
   assert.match(glanceDecision(older, null, "repo-edu").text, /area:area-a 2/)
   // Unstemmed history contains no audit corrections for a plan.
@@ -243,7 +243,7 @@ test("only plan audit corrections after the saved head count", () => {
   }
   const log = history(offPlan, outside, correction(), correction())
   assert.equal(
-    glanceDecision(log, record("amber", "c000003"), "repo-edu").due,
+    glanceDecision(log, record("amber", "c00003"), "repo-edu").due,
     false,
   )
   assert.equal(glanceDecision(log, record("amber"), "repo-edu").due, true)
@@ -279,7 +279,7 @@ test("maintenance and other plans' audits remain evidence without triggering a w
     )
     assert.equal(data.commits.length, 6)
     assert.ok(data.commits.every((commit) => commit.unreadable === null))
-    const saved = record("green", "c000001", repository)
+    const saved = record("green", "c00001", repository)
     const decision = decide(data, saved)
     assert.equal(decision.due, false)
     assert.match(decision.text, /(?:area:area-a|section:decisions) 1\./)
@@ -304,7 +304,7 @@ test("plan rounds count sections independently and ignore D findings", () => {
       `- C [field:missing] [section:${section}] ${ratings} Correct: it.\n- D [field:missing] [section:wording] ${ratings} Words: polish.`,
       ["example.md"],
     )
-  const saved = record("amber", "c000001", "plan")
+  const saved = record("amber", "c00001", "plan")
   assert.equal(
     glanceDecision(
       history(plan("decisions"), plan("target-state")),
@@ -331,7 +331,7 @@ test("plan commits count local sections without counting deferred Repo Edu findi
   )
   const decision = glanceDecision(
     history(mixed, deferred),
-    record("amber", "c000001", "plan"),
+    record("amber", "c00001", "plan"),
     "plan",
   )
   assert.equal(decision.due, false)
@@ -340,7 +340,7 @@ test("plan commits count local sections without counting deferred Repo Edu findi
   assert.equal(
     glanceDecision(
       history(mixed, mixed),
-      record("amber", "c000001", "plan"),
+      record("amber", "c00001", "plan"),
       "plan",
     ).due,
     true,

@@ -99,7 +99,7 @@ test("deferrals prints only the active plan's open deferrals", async (t) => {
     f.errors.join("\n"),
   )
   assert.deepEqual(f.visible, [
-    `Open deferrals for example:\n- repo-edu@${deferral.sha.slice(0, 7)}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
+    `Open deferrals for example:\n- repo-edu@${deferral.sha.slice(0, 6)}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
   ])
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",

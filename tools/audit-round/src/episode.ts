@@ -7,7 +7,7 @@ import {
   runEvidence,
   tokenCounts,
 } from "./episode-facts.js"
-import { type LogCommit, readLog } from "./episode-log.js"
+import { type LogCommit, readLog, shortSha } from "./episode-log.js"
 import { type Finding, readFindings } from "./findings.js"
 import {
   type PlanRoundData,
@@ -350,10 +350,6 @@ export async function readWatchEvidence(
     joinedEpisode(logs, topic, loadAreaModel(input.repoEduRoot).areas, anchor),
     roundData,
   )
-}
-
-function shortSha(sha: string): string {
-  return sha.slice(0, 7)
 }
 
 function shortJoinedSha(sha: string): string {

@@ -5,7 +5,7 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
-import { roundFixture } from "./round-fixture.js"
+import { roundFixture, shortCommit } from "./round-fixture.js"
 
 test("a ruling resumes the fix and the remaining auditor sequence without replaying internal prompts", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
@@ -444,7 +444,7 @@ test("an implementation deferral chains a clean planning round before the judge"
       cwd: f.planRoot,
     })
   ).stdout
-  assert.match(planBody, /- \[applies:[0-9a-f]{40}\/1\] The plan stands\./)
+  assert.match(planBody, /- \[applies:[0-9a-f]{6}\/1\] The plan stands\./)
   assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
 })
 
@@ -510,9 +510,7 @@ test("an automatic series opens with a chained deferral round", async (t) => {
     true,
   )
   await seedPlanDeferral(f)
-  const repoHead = (
-    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: f.repoRoot })
-  ).stdout
+  const repoHead = await shortCommit(f.repoRoot, "HEAD")
   await f.configure({
     phases: {
       ...f.phases,
@@ -608,9 +606,7 @@ test("an applied deferral does not start a chained planning round", async (t) =>
     "example/plan-audit oth clean: record that the plan stands",
     `- [applies:${deferral}/1] The plan stands.`,
   )
-  const repoHead = (
-    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: f.repoRoot })
-  ).stdout
+  const repoHead = await shortCommit(f.repoRoot, "HEAD")
   await f.configure({
     phases: {
       ...f.phases,
@@ -646,9 +642,7 @@ test("a vet-dropped deferral lands an untiered citation", async (t) => {
     true,
   )
   const deferral = await seedPlanDeferral(f)
-  const repoHead = (
-    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: f.repoRoot })
-  ).stdout
+  const repoHead = await shortCommit(f.repoRoot, "HEAD")
   await f.configure({
     phases: {
       ...f.phases,

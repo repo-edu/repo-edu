@@ -51,10 +51,10 @@ function readDeferralCitations(
   fail: (reason: string) => never,
 ): readonly DeferralCitation[] {
   return values.map((value) => {
-    const parsed = /^([0-9a-f]+)\/([1-9]\d*)$/.exec(value)
+    const parsed = /^([0-9a-f]{6,})\/([1-9]\d*)$/.exec(value)
     if (parsed === null)
       fail(
-        `invalid [applies:${value}] value; expected a lowercase commit sha and position from 1`,
+        `invalid [applies:${value}] value; expected six or more lowercase commit sha characters and a position from 1`,
       )
     return { sha: parsed[1], position: Number(parsed[2]) }
   })

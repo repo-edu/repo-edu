@@ -133,25 +133,24 @@ consumers.
   It joins both repos' commits under the plan's stem, includes rework touching the topic's artifacts
   and retains both repositories' heads and anchors. `episode-log.ts` reads Git's commit dates,
   bodies, touched paths and renames. `episode-facts.ts` checks body finding counts against subject
-  severity and derives episode-level token counts and repeated-growth evidence without grading
-  them. Every member keeps its complete findings or an unreadable reason; unreadable findings
-  contribute no partial counts. Current areas resolve directly and retired areas resolve through
-  `splitFrom`; an unknown location stays on its original finding. Redesigns and widening renames
-  mark their commits as possible new graded windows for the watch to judge. `readWatchEvidence`
-  joins both histories with the plan's existing planning and
-  implementation round data. `formatWatchEvidence` projects the repositories, their heads,
-  anchors, episode-level counts and runs, then each commit's six-character SHA, date, written subject,
-  window candidate, unreadable reason and finding prefixes through their titles. Its round data
-  keeps each round's identity, landed commits, status, applicable findings and phase compaction
-  counts. The joined top level keeps token counts and repeated-growth evidence across both repos;
-  repeated-growth commits use short `plan@` or `repo-edu@` SHAs. It returns that serialised view
-  beside the two typed heads from the same projection. The runner uses both, while the hand-run
-  command pages only the view. It resolves a hand-run commit target as an explicit anchor in
-  whichever repo holds its SHA; HEAD forms mean Repo Edu. The peer keeps its own anchor. Without a
-  target it takes the newest stem commit across both histories by commit date. No episode file is
-  written. The hidden hand-run command takes a one-based inclusive line range over the current
-  indented view. It states the returned range and current total on every call, including an
-  out-of-range call that returns no evidence lines.
+  severity and derives episode-level token counts and repeated-growth evidence without grading them.
+  Every member keeps its complete findings or an unreadable reason; unreadable findings contribute
+  no partial counts. Current areas resolve directly and retired areas resolve through `splitFrom`;
+  an unknown location stays on its original finding. Redesigns and widening renames mark their
+  commits as possible new graded windows for the watch to judge. `readWatchEvidence` joins both
+  histories with the plan's existing planning and implementation round data. `formatWatchEvidence`
+  projects the repositories, their heads, anchors, episode-level counts and runs, then each commit's
+  six-character SHA, date, written subject, window candidate, unreadable reason and finding prefixes
+  through their titles. Its round data keeps each round's identity, landed commits, status,
+  applicable findings and phase compaction counts. The joined top level keeps token counts and
+  repeated-growth evidence across both repos; repeated-growth commits use short `plan@` or
+  `repo-edu@` SHAs. It returns that serialised view beside the two typed heads from the same
+  projection. The runner uses both, while the hand-run command pages only the view. It resolves a
+  hand-run commit target as an explicit anchor in whichever repo holds its SHA; HEAD forms mean Repo
+  Edu. The peer keeps its own anchor. Without a target it takes the newest stem commit across both
+  histories by commit date. No episode file is written. The hidden hand-run command takes a
+  one-based inclusive line range over the current indented view. It states the returned range and
+  current total on every call, including an out-of-range call that returns no evidence lines.
 - `judge.ts` reads one round kind's retained data, the stem's episode commit
   list, `STOP-CONDITIONS.md` and the newest watch. It applies the settled-span
   gate and each assistant's latest settled entry on the scope to decide whether

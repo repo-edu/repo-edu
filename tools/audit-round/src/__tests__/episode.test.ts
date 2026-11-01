@@ -38,7 +38,7 @@ test("membership admits only touched-file rework after the anchor", () => {
   const data = episode([...log, before])
   assert.deepEqual(
     data.commits.map((c) => c.sha),
-    ["c000005", "c000003", "c000002", "c000001"],
+    ["c00005", "c00003", "c00002", "c00001"],
   )
   assert.deepEqual(data.commits[2].files, ["src/b.ts"])
   assert.equal(data.commits[1].parsed, null)
@@ -58,14 +58,14 @@ test("joined evidence keeps both heads and applies an explicit anchor only in it
   }
   const data = joinedEpisode(logs, "example", areas, {
     repository: "repo-edu",
-    sha: "c000002",
+    sha: "c00002",
   })
   const [plan, code] = data.repositories
   assert.equal(data.topic, "example")
-  assert.equal(plan.head, "c000002")
-  assert.equal(plan.anchor, "c000001")
-  assert.equal(code.head, "c000003")
-  assert.equal(code.anchor, "c000002")
+  assert.equal(plan.head, "c00002")
+  assert.equal(plan.anchor, "c00001")
+  assert.equal(code.head, "c00003")
+  assert.equal(code.anchor, "c00002")
   assert.equal(code.commits.length, 2)
   assert.equal(plan.tokens.sections.decisions, 1)
   assert.throws(
@@ -126,7 +126,7 @@ test("joined totals and repeated growth include findings from both repositories"
   )
   assert.equal(data.tokens.growthPattern.recurrence, 2)
   assert.deepEqual(data.growthPatterns, [
-    { label: "recurrence", commits: ["repo-edu@c000002", "plan@c000002"] },
+    { label: "recurrence", commits: ["repo-edu@c00002", "plan@c00002"] },
   ])
 })
 
@@ -182,8 +182,8 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
   const formatted = formatWatchEvidence(joined)
   assert.match(formatted.evidence, /^\{\n {2}"repositories":/)
   assert.deepEqual(formatted.heads, {
-    "repo-edu": "aaaaaaa",
-    plan: "ddddddd",
+    "repo-edu": "aaaaaa",
+    plan: "dddddd",
   })
   const evidence = JSON.parse(formatted.evidence)
   assert.deepEqual(Object.keys(evidence), [
@@ -203,7 +203,7 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
   assert.deepEqual(evidence.growthPatterns, [
     {
       label: "recurrence",
-      commits: ["repo-edu@bbbbbbb", "repo-edu@aaaaaaa", "plan@ddddddd"],
+      commits: ["repo-edu@bbbbbb", "repo-edu@aaaaaa", "plan@dddddd"],
     },
   ])
   assert.deepEqual(evidence.roundData, {})
@@ -230,8 +230,8 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
     {
       repository: "plan",
       topic: "example",
-      head: "ddddddd",
-      anchor: "ddddddd",
+      head: "dddddd",
+      anchor: "dddddd",
       tokens: {
         growthPattern: { recurrence: 1 },
         reach: { developer: 1 },
@@ -245,7 +245,7 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
   )
   assert.deepEqual(plan.commits, [
     {
-      sha: "ddddddd",
+      sha: "dddddd",
       date: "2026-10-27",
       subject: planSubject,
       windowStart: "widening",
@@ -275,8 +275,8 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
     {
       repository: "repo-edu",
       topic: "example",
-      head: "aaaaaaa",
-      anchor: "ccccccc",
+      head: "aaaaaa",
+      anchor: "cccccc",
       tokens: {
         growthPattern: { recurrence: 2 },
         reach: { developer: 2 },
@@ -287,22 +287,22 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       },
       runs: {
         growthPatterns: [
-          { label: "recurrence", commits: ["bbbbbbb", "aaaaaaa"] },
+          { label: "recurrence", commits: ["bbbbbb", "aaaaaa"] },
         ],
-        complexity: [["bbbbbbb", "aaaaaaa"]],
+        complexity: [["bbbbbb", "aaaaaa"]],
       },
     },
   )
   assert.deepEqual(repoEdu.commits.slice(0, 2), [
     {
-      sha: "aaaaaaa",
+      sha: "aaaaaa",
       date: "2026-10-30",
       subject: newestSubject,
       windowStart: "redesign",
       findings: [`[C] [area:area-a] ${recurring} Correct`],
     },
     {
-      sha: "bbbbbbb",
+      sha: "bbbbbb",
       date: "2026-10-29",
       subject: earlierSubject,
       windowStart: "redesign",
@@ -317,7 +317,7 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       findings: repoEdu.commits[2].findings,
     },
     {
-      sha: "ccccccc",
+      sha: "cccccc",
       date: "2026-10-28",
       subject: unreadableSubject,
       findings: [],
@@ -362,7 +362,7 @@ test("the watch view keeps dropped findings from finished rounds and all unfinis
     {
       target: "example-plan",
       round: 3,
-      commits: [{ repository: "repo-edu", sha: "aaaaaaa" }],
+      commits: [{ repository: "repo-edu", sha: "aaaaaa" }],
       status: "finished",
       findings: [planningSource.findings[0]],
       phases: [
@@ -375,7 +375,7 @@ test("the watch view keeps dropped findings from finished rounds and all unfinis
     {
       target: "example-impl-01..01",
       round: 4,
-      commits: [{ repository: "repo-edu", sha: "bbbbbbb" }],
+      commits: [{ repository: "repo-edu", sha: "bbbbbb" }],
       status: "failed",
       findings: implementationSource.findings,
       phases: [
@@ -439,9 +439,9 @@ test("run evidence counts distinct graded commits including off-plan and D-only 
   )
   const data = episode(history(repeated, repeated))
   assert.deepEqual(data.runs.growthPatterns, [
-    { label: "recurrence", commits: ["c000002", "c000003"] },
+    { label: "recurrence", commits: ["c00002", "c00003"] },
   ])
-  assert.deepEqual(data.runs.complexity, [["c000002", "c000003"]])
+  assert.deepEqual(data.runs.complexity, [["c00002", "c00003"]])
   assert.equal(data.tokens.growthPattern.recurrence, 4)
   assert.deepEqual(episode(history(repeated)).runs.growthPatterns, [])
 })
@@ -526,7 +526,7 @@ test("widening candidates require an actual rename back to the widening artifact
   )
   const data = episode(history(widened, { ...widened, renames: [] }), "plan")
   assert.equal(
-    data.commits.find((commit) => commit.sha === "c000003")?.windowStart,
+    data.commits.find((commit) => commit.sha === "c00003")?.windowStart,
     "widening",
   )
 })
