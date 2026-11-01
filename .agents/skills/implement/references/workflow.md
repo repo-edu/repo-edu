@@ -109,8 +109,8 @@ the boundaries, so check it against `../plan/BOUNDARIES.md`; a departure that
 would cross a boundary stops for the user instead of landing. Write plan-tier
 work into `../plan` only when the user directs it; a directed plan-file fix
 lands in the same run as its own plan-repo commit in the round form. An
-implementation audit defers an undirected plan-text defect in its Repo Edu
-commit body.
+implementation audit lands stale plan text itself and defers only a defect that
+needs a judgement.
 
 ## Close
 

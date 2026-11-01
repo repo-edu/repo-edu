@@ -369,7 +369,7 @@ export function transcribed(phase: Phase): boolean {
   )
 }
 
-/** The open deferrals one chained planning round must settle. */
+/** The open-deferral object a phase receives. */
 export type DeferralScope = {
   readonly deferrals: readonly OpenDeferral[]
 }
