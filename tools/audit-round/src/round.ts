@@ -814,30 +814,32 @@ export async function runRound(
           ? await runWatch(input, dependencies, settings)
           : { grade: null }
       if ("status" in watched) return { ...watched, commits, account }
-      let deferralChain: DeferralChainOutcome
-      try {
-        deferralChain = await runDeferralChain(
-          currentPlan === null ? input : { ...input, plan: currentPlan },
-          dependencies,
-        )
-      } catch (error) {
-        return {
-          status: "failed",
-          sessionId: null,
-          phase: "complete",
-          ...phases.fix,
-          ...context,
-          reason: errorMessage(error),
-          commits,
-          account,
+      const seriesMayContinue =
+        "plan" in input &&
+        currentPlan !== null &&
+        planPhase(currentPlan) === planPhase(input.plan) &&
+        watched.grade !== "red"
+      let deferralChain: DeferralChainOutcome = "none"
+      if (seriesMayContinue) {
+        try {
+          deferralChain = await runDeferralChain(input, dependencies)
+        } catch (error) {
+          return {
+            status: "failed",
+            sessionId: null,
+            phase: "complete",
+            ...phases.fix,
+            ...context,
+            reason: errorMessage(error),
+            commits,
+            account,
+          }
         }
       }
       const judged =
         input.automatic === true &&
         "plan" in input &&
-        currentPlan !== null &&
-        planPhase(currentPlan) === planPhase(input.plan) &&
-        watched.grade !== "red" &&
+        seriesMayContinue &&
         (deferralChain === "none" || deferralChain === "finished")
           ? await runSeriesJudge(input, dependencies, settings)
           : { answer: null }

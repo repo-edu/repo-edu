@@ -449,6 +449,56 @@ test("an implementation deferral chains a clean planning round before the judge"
   assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
 })
 
+test("a red implementation watch leaves a new plan deferral open", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "c", true)
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as Record<string, unknown>),
+        document: undefined,
+        streams: await auditStreams([
+          implementationDeferralReport(f.heads["repo-edu"]),
+          planningDeferralReport(f.heads.plan, true),
+        ]),
+      },
+      vet: {
+        ...(f.phases.vet as Record<string, unknown>),
+        document: { text: "1. [C] Accept\n" },
+      },
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        commits: [
+          {
+            cwd: f.repoRoot,
+            subject: "example/impl-audit-1 oth c1: defer the plan decision",
+            body: `- [C] [finding:1] [plan:../plan/example.md#decisions] ${deferralRatings} Plan decision: the plan needs a decision.`,
+          },
+        ],
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(["example.md", "1"], f.runtime, f.options),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const prompts = await f.prompts()
+  assert.equal(
+    prompts.filter((call) => call.prompt.startsWith("Run the audit phase "))
+      .length,
+    1,
+  )
+  assert.equal(
+    prompts.some((call) => call.prompt.startsWith("Run the judge phase")),
+    false,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Auditor sequence stopped: the watch graded red\./)
+  assert.match(visible, /Open deferrals for example:/)
+})
+
 test("an automatic series opens with a chained deferral round", async (t) => {
   const f = await roundFixture(
     t,
