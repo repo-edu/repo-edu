@@ -107,6 +107,32 @@ test("graded citations apply deferrals in both directions", () => {
   assert.deepEqual(openDeferrals("example", logs), [])
 })
 
+test("a plan record can close a deferral into Repo Edu", () => {
+  const deferringSha = "b".repeat(40)
+  const logs = {
+    "repo-edu": [],
+    plan: [
+      commit(
+        "c".repeat(40),
+        "2026-10-31T13:00:00.000Z",
+        "example/impl-audit-1-6 obx growth-none c1 docs(audit-round): fix the plan",
+        [
+          `- C [finding:1] [section:decisions] ${ratings} Plan correction: The plan changes.`,
+          `- [applies:${deferringSha}/1] The plan stands.`,
+        ].join("\n"),
+      ),
+      commit(
+        deferringSha,
+        "2026-10-31T12:00:00.000Z",
+        "example/plan-audit obx c1: defer into Repo Edu",
+        planDeferral("tool-audit-round", "Tool choice"),
+      ),
+    ],
+  }
+
+  assert.deepEqual(openDeferrals("example", logs), [])
+})
+
 test("the destination plan selects Repo Edu deferrals", () => {
   const logs = {
     "repo-edu": [

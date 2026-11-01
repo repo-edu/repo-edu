@@ -89,7 +89,11 @@ hand-run fix has no object, so those opening lines and findings are its complete
 deferral scope. A changed destination uses a graded bullet with the item's
 `[applies:<full-sha>/<position>]` token. A satisfied item, or an item the review
 drops, uses the untiered citation. Direct clean completion adds the untiered
-citations itself when no fix runs.
+citations itself when no fix runs. When a deferral into Repo Edu is satisfied
+or dropped without a Repo Edu file change, put that citation in whichever
+judged repo already receives the round record. Do not create a citation-only
+Repo Edu record. Deferrals into the plan repo still close only from plan
+commits.
 
 Then format only the fixed files, and typecheck and run
 `pnpm test <package path>` for each workspace package whose source a fix

@@ -199,10 +199,12 @@ consumers.
   growth mark remains authored and is required beside every sequence outside a deferral record.
 - `open-deferrals.ts` owns one active plan's open set. It selects plan-bound
   deferrals from every Repo Edu commit by their destination plan and Repo
-  Edu-bound deferrals from that plan's stem commits. It removes citations found
-  in the destination repo by exact full commit ID and position. It returns the
-  remaining deferring repo, full commit ID, position, tier, destination and
-  title newest first. The automatic series
+  Edu-bound deferrals from that plan's stem commits. It removes plan-bound
+  deferrals through plan-repo citations. It removes Repo Edu-bound deferrals
+  through citations in Repo Edu history or the plan's stem commits. Each match
+  uses the exact full commit ID and position. It returns the remaining
+  deferring repo, full commit ID, position, tier, destination and title newest
+  first. The automatic series
   chain, each plan-scoped implementation audit, every automatic series ending
   and loop-close all read this owner.
 - `subject.ts` is the one reader of the commit subject grammar in
@@ -439,7 +441,8 @@ consumers.
   writes nothing, so a user can see it before a round or close takes it. `close` resolves its plan
   and open deferrals before startup, then runs the close phase alone with its own log. The
   `deferrals` command prints the active plan's open set through the shared owner. It exists only for
-  hand-run close, so help hides it beside `episode` and the other launcher interfaces. The `episode`
+  the hand-run implementation audit and close, so help hides it beside `episode` and the other
+  launcher interfaces. The `episode`
   command prints the requested line range from joined watch evidence produced by the shared reader
   and formatter, with its returned range and current total. Every call rebuilds the view. It
   performs no release resolution, assistant startup or file writes. The `name` command claims a

@@ -182,17 +182,20 @@ plan came from when one exists. The user should not choose against a reason the
 plan never carried forward. Absence of an older source is normal, not an error.
 
 Every deferral traces to the files this round inspected or to a choice the user
-made in the round's fix phase. A later bullet in the destination repo applies
-it with `[applies:<sha>/<position>]`, where the position counts that commit's
-deferrals into the destination repo from one in body order. A graded bullet
-carries the token when it changes the destination. An unchanged plan uses the
-untiered `The plan stands.` bullet. The citation closes the deferral without a
-text comparison.
+made in the round's fix phase. A later round applies it with
+`[applies:<sha>/<position>]`, where the position counts that commit's deferrals
+into the destination repo from one in body order. A graded bullet in the
+destination repo carries the token when it changes the destination. When a
+deferral into Repo Edu is satisfied or dropped without a Repo Edu file change,
+the untiered `The plan stands.` bullet sits in whichever judged repo already
+gets the round record. Deferrals into the plan repo still close only from plan
+commits. The citation closes the deferral without a text comparison.
 
 The runner's open-deferral owner reads both Git histories. It selects deferrals
 into the plan repo from every Repo Edu commit by destination plan, selects
 deferrals into Repo Edu from the plan's stem commits and removes the ones cited
-in their destination repo.
+in Repo Edu history or those stem commits. Deferrals into the plan repo are
+removed only by citations in plan commits.
 
 Judge every supplied deferral into Repo Edu against current code. A missing
 correction becomes a finding that names the deferring full commit ID and

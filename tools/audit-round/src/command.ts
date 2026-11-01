@@ -16,7 +16,7 @@ import {
   resolveTargets,
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
-import { type LogCommit, readLog, shortSha } from "./episode-log.js"
+import { type LogCommit, readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import { readJudgeEvidence } from "./judge.js"
@@ -285,7 +285,7 @@ function openDeferralText(stem: string, deferrals: readonly OpenDeferral[]) {
     `Open deferrals for ${stem}:`,
     ...deferrals.map(
       (deferral) =>
-        `- ${deferral.deferringRepository}@${shortSha(deferral.sha)}/${deferral.position} [${deferral.tier.toUpperCase()}] -> ${deferral.destination}: ${deferral.title}`,
+        `- ${deferral.deferringRepository}@${deferral.sha}/${deferral.position} [${deferral.tier.toUpperCase()}] -> ${deferral.destination}: ${deferral.title}`,
     ),
   ].join("\n")
 }

@@ -112,7 +112,10 @@ export function openDeferrals(
     (finding) => finding.location.key === "area",
   )
   const appliedIntoPlan = citations(planCommits, "plan")
-  const appliedIntoRepoEdu = citations(logs["repo-edu"], "repo-edu")
+  const appliedIntoRepoEdu = [
+    ...citations(logs["repo-edu"], "repo-edu"),
+    ...citations(planCommits, "plan"),
+  ]
 
   return [...intoPlan, ...intoRepoEdu]
     .filter(
