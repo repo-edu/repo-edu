@@ -200,8 +200,8 @@ consumers.
 - `open-deferrals.ts` owns one active plan's open set. It selects plan-bound
   deferrals from every Repo Edu commit by their destination plan and Repo
   Edu-bound deferrals from that plan's stem commits. It removes citations found
-  in the destination repo and returns the remaining deferring repo, short SHA,
-  position, tier, destination and title newest first. The automatic series
+  in the destination repo and returns the remaining deferring repo, full commit
+  ID, position, tier, destination and title newest first. The automatic series
   chain, every automatic series ending and loop-close all read this owner.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
@@ -460,32 +460,34 @@ consumers.
   chooses the first. Each assistant keeps its own turn inside this command. A command-line choice
   takes no turn. The series writes no queue and ends on settle or stop, the configured maximum, a
   failure, an unanswered ruling, a red watch or a phase change. Before an automatic implementation
-  series starts, and after each finished implementation-audit round, the runner computes the open
-  set. Plan-bound deferrals chain one scoped planning round before the series judge. The chain uses
-  the deferring round's assistant, claims its own planning-round number, takes no
-  implementation-series turn and ends the implementation series when it fails, awaits a ruling,
-  changes phase or receives a red watch. Every automatic series ending on a plan prints the
-  remaining open deferrals or says there are none. A round that changes the plan's phase finishes
-  without a judge answer. Commit targets run once, on the `--first` selection when given. With
-  `--auditor`, the first entry runs first and the remaining entries on a plan target seed its
-  editable queue. A clean audit removes queued entries that resolve to that round's assistant, model
-  and effort. Other settings remain. A fix that lands a clean record removes none. Failure, a round
-  requiring a ruling, a red watch or an empty queue stops the manual sequence, and the queue file is
-  deleted however the sequence ends. Each manual round prints the queue's path and contents when it
-  opens. Each automatic round prints its judge answer and reason. A scope list runs one series per
-  scope in list order. Each scope opens as its own series: the opener is chosen again, so an
-  alternate default reads the stamp the previous scope moved, `--first` opens every scope and the
-  round count starts over. A judge stop or the maximum ends only that scope and the next one is
-  announced. A failure, an unanswered ruling, a red watch or a plan phase change ends the whole list
-  and names the scopes that did not run. The list is refused beside `--auditor`, whose queue belongs
-  to one target and whose pairing with the scopes would need a second reading, and beside `name`,
-  which claims one round. Each round records its own file pair and the coordinator has no filesystem
-  side effects: it opens one output per round, retires the previous one first, and reads updates and
-  settings once for the whole run before opening any files. Startup messages go only to the
-  terminal; the run log begins with the models table. A chained round carries its place in its title
-  and independently claims the next number for its target. Required write failures stop phase
-  progression. If recording itself fails, the emergency channel still reports the known session and
-  recovery command.
+  series starts, the runner computes the open set and chains one scoped planning round for
+  plan-bound deferrals. After each finished implementation-audit round, it computes the set again.
+  It chains the planning round only when the series remains eligible to continue to its judge. A red
+  implementation watch or a plan phase change caused by the implementation fix leaves the deferral
+  open, prints it and stops the series. The chain uses the deferring round's assistant, claims its
+  own planning-round number, takes no implementation-series turn and ends the implementation series
+  when it fails, awaits a ruling, changes phase or receives a red watch. Every automatic series
+  ending on a plan prints the remaining open deferrals or says there are none. A round that changes
+  the plan's phase finishes without a judge answer. Commit targets run once, on the `--first`
+  selection when given. With `--auditor`, the first entry runs first and the remaining entries on a
+  plan target seed its editable queue. A clean audit removes queued entries that resolve to that
+  round's assistant, model and effort. Other settings remain. A fix that lands a clean record
+  removes none. Failure, a round requiring a ruling, a red watch or an empty queue stops the manual
+  sequence, and the queue file is deleted however the sequence ends. Each manual round prints the
+  queue's path and contents when it opens. Each automatic round prints its judge answer and reason.
+  A scope list runs one series per scope in list order. Each scope opens as its own series: the
+  opener is chosen again, so an alternate default reads the stamp the previous scope moved,
+  `--first` opens every scope and the round count starts over. A judge stop or the maximum ends only
+  that scope and the next one is announced. A failure, an unanswered ruling, a red watch or a plan
+  phase change ends the whole list and names the scopes that did not run. The list is refused beside
+  `--auditor`, whose queue belongs to one target and whose pairing with the scopes would need a
+  second reading, and beside `name`, which claims one round. Each round records its own file pair
+  and the coordinator has no filesystem side effects: it opens one output per round, retires the
+  previous one first, and reads updates and settings once for the whole run before opening any
+  files. Startup messages go only to the terminal; the run log begins with the models table. A
+  chained round carries its place in its title and independently claims the next number for its
+  target. Required write failures stop phase progression. If recording itself fails, the emergency
+  channel still reports the known session and recovery command.
 - `queue.ts` owns the shared entry splitter and the queue file's contents. Commit references, plan
   scopes, `--auditor`, `--first` and queue files admit entries separated by commas, spaces or line
   breaks. Auditor entries are each read by `parseAuditor` and keep the user's spelling, so a rewrite
@@ -891,12 +893,15 @@ turns only in rounds the automatic pick chose. Its first picked round uses a coi
 `--auditor` or queue choice bypasses the pair and takes no turn. Each header records the round's
 start time; filenames carry no timestamp.
 
-Before an automatic implementation series starts, and after each finished
-implementation-audit round, the runner chains one planning round when the
-shared owner finds an open deferral into the plan repo. The planning round
-receives only those deferrals, runs before the implementation judge and does
-not count against the implementation-series maximum. Every automatic series
-ending then prints the remaining open deferrals or says there are none.
+Before an automatic implementation series starts, the runner chains one
+planning round when the shared owner finds an open deferral into the plan repo.
+After each finished implementation-audit round, it computes the open set again.
+It chains the planning round only when the series will continue to its judge. A
+red implementation watch or a plan phase change caused by the implementation
+fix leaves the deferral open, prints it and stops the series. The planning round
+receives only those deferrals, runs before the implementation judge and does not
+count against the implementation-series maximum. Every automatic series ending
+then prints the remaining open deferrals or says there are none.
 
 ## Verification
 

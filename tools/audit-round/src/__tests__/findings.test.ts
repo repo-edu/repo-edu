@@ -38,9 +38,11 @@ test("the round grammar's record-bullet examples are parser fixtures", () => {
 })
 
 test("graded and untiered bullets expose deferral citations", () => {
-  const graded =
-    "- C [section:decisions] [applies:abc123/1] [applies:def456/2] [growth-pattern:none] [reach:developer] [complexity:none] Apply: the plan changes."
-  const standing = "- [applies:987abc/3] The plan stands."
+  const firstSha = "a".repeat(40)
+  const secondSha = "b".repeat(40)
+  const standingSha = "c".repeat(40)
+  const graded = `- C [section:decisions] [applies:${firstSha}/1] [applies:${secondSha}/2] [growth-pattern:none] [reach:developer] [complexity:none] Apply: the plan changes.`
+  const standing = `- [applies:${standingSha}/3] The plan stands.`
   const bullets = readRecordBullets(
     `${graded}\n${standing}`,
     "plan",
@@ -50,10 +52,10 @@ test("graded and untiered bullets expose deferral citations", () => {
     bullets.map((bullet) => bullet.applies),
     [
       [
-        { sha: "abc123", position: 1 },
-        { sha: "def456", position: 2 },
+        { sha: firstSha, position: 1 },
+        { sha: secondSha, position: 2 },
       ],
-      [{ sha: "987abc", position: 3 }],
+      [{ sha: standingSha, position: 3 }],
     ],
   )
   assert.equal(

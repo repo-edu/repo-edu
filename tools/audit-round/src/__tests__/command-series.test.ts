@@ -360,8 +360,7 @@ async function commitWithBody(
     ],
     { cwd },
   )
-  return (await execa("git", ["rev-parse", "--short=7", "HEAD"], { cwd }))
-    .stdout
+  return (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout
 }
 
 async function seedPlanDeferral(
@@ -445,7 +444,7 @@ test("an implementation deferral chains a clean planning round before the judge"
       cwd: f.planRoot,
     })
   ).stdout
-  assert.match(planBody, /- \[applies:[0-9a-f]{7}\/1\] The plan stands\./)
+  assert.match(planBody, /- \[applies:[0-9a-f]{40}\/1\] The plan stands\./)
   assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
 })
 

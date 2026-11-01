@@ -53,7 +53,7 @@ test("open deferrals include each direction newest first", () => {
   assert.deepEqual(openDeferrals("example", logs), [
     {
       deferringRepository: "repo-edu",
-      sha: "aaaaaaa",
+      sha: "a".repeat(40),
       position: 1,
       tier: "c",
       destination: "../plan/example-widen.md#decisions",
@@ -61,7 +61,7 @@ test("open deferrals include each direction newest first", () => {
     },
     {
       deferringRepository: "plan",
-      sha: "bbbbbbb",
+      sha: "b".repeat(40),
       position: 1,
       tier: "c",
       destination: "tool-audit-round",
@@ -79,7 +79,7 @@ test("graded citations apply deferrals in both directions", () => {
         "d".repeat(40),
         "2026-10-31T14:00:00.000Z",
         "example/impl-audit-1 obx growth-none c1 fix(audit-round): apply the code deferral",
-        repoApplication("bbbbbbb/1"),
+        repoApplication(`${planSha}/1`),
       ),
       commit(
         repoSha,
@@ -93,7 +93,7 @@ test("graded citations apply deferrals in both directions", () => {
         "c".repeat(40),
         "2026-10-31T13:00:00.000Z",
         "example/plan-audit obx growth-none c1: apply the plan deferral",
-        planApplication("aaaaaaa/1"),
+        planApplication(`${repoSha}/1`),
       ),
       commit(
         planSha,
@@ -143,7 +143,7 @@ test("a standing citation closes its numbered deferral only", () => {
         "f".repeat(40),
         "2026-10-31T13:00:00.000Z",
         "example/plan-audit obx clean: record that the plan stands",
-        "- [applies:eeeeeee/2] The plan stands.",
+        `- [applies:${repoSha}/2] The plan stands.`,
       ),
     ],
   }
@@ -151,13 +151,44 @@ test("a standing citation closes its numbered deferral only", () => {
   assert.deepEqual(openDeferrals("example", logs), [
     {
       deferringRepository: "repo-edu",
-      sha: "eeeeeee",
+      sha: repoSha,
       position: 3,
       tier: "c",
       destination: "../plan/example.md#decisions",
       title: "Open choice",
     },
   ])
+})
+
+test("a later short-prefix collision does not reopen a full-ID citation", () => {
+  const deferringSha = `abcdef0${"a".repeat(33)}`
+  const collisionSha = `abcdef0${"b".repeat(33)}`
+  const logs = {
+    "repo-edu": [
+      commit(
+        collisionSha,
+        "2026-11-01T12:00:00.000Z",
+        "example/impl-2 obx feat(audit-round): add later work",
+        "gpt-6.1-sol xhigh",
+      ),
+      commit(
+        deferringSha,
+        "2026-10-31T12:00:00.000Z",
+        "example/impl-audit-1 obx c1: defer into the plan",
+        repoDeferral("example", "Plan choice"),
+      ),
+    ],
+    plan: [
+      commit(
+        "c".repeat(40),
+        "2026-10-31T13:00:00.000Z",
+        "example/plan-audit obx clean: record that the plan stands",
+        `- [applies:${deferringSha}/1] The plan stands.`,
+      ),
+    ],
+  }
+
+  assert.deepEqual(openDeferrals("example", logs), [])
 })
 
 test("a plan with no deferrals has an empty open set", () => {

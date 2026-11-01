@@ -583,10 +583,10 @@ record replaces the section with one area and any cover areas.
 
 A graded bullet carries each deferral it applies after its location and before
 its rating tokens. An untiered citation bullet records that the plan needs no
-change. Each citation names the deferring commit and that commit's deferral
-position into the destination repo, counted from one in body order. The commit
-SHA uses lowercase hexadecimal and the position is always present, including
-for the first and only deferral.
+change. Each citation names the deferring commit by its full commit ID and that
+commit's deferral position into the destination repo, counted from one in body
+order. The commit ID uses lowercase hexadecimal and the position is always
+present, including for the first and only deferral.
 
 ### Examples
 
@@ -605,7 +605,7 @@ for the first and only deferral.
 #### `record/repo-edu-applies` — parsed
 
 ```text
-- [C] [area:tool-audit-round] [applies:abc123/1] [applies:def456/2] [growth-pattern:none] [reach:developer] [complexity:none] Reader correction: the cited deferrals are applied.
+- [C] [area:tool-audit-round] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [applies:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/2] [growth-pattern:none] [reach:developer] [complexity:none] Reader correction: the cited deferrals are applied.
 ```
 
 #### `record/plan-audit` — parsed
@@ -617,7 +617,7 @@ for the first and only deferral.
 #### `record/plan-audit-applies` — parsed
 
 ```text
-- B [finding:1] [field:missing] [section:decisions] [applies:abc123/1] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the cited deferral is applied.
+- B [finding:1] [field:missing] [section:decisions] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the cited deferral is applied.
 ```
 
 #### `record/plan-local` — parsed
@@ -641,13 +641,13 @@ for the first and only deferral.
 #### `record/plan-stands` — parsed
 
 ```text
-- [applies:abc123/1] The plan stands.
+- [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] The plan stands.
 ```
 
 #### `record/repo-edu-plan-stands` — parsed
 
 ```text
-- [applies:abc123/1] [applies:def456/2] The plan stands.
+- [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [applies:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/2] The plan stands.
 ```
 
 #### `record/repo-edu-invalid-applies` — refused
@@ -663,7 +663,7 @@ Refusal: `invalid [applies:ABC123/0] value`
 Refusal: `unexpected [applies:...] at 5`
 
 ```text
-- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [applies:abc123/1] [reach:rare] [complexity:minus-low] Citation placement: the applies token follows the location.
+- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [reach:rare] [complexity:minus-low] Citation placement: the applies token follows the location.
 ```
 
 #### `record/plan-stands-reason` — refused
@@ -671,7 +671,7 @@ Refusal: `unexpected [applies:...] at 5`
 Refusal: `must say exactly "The plan stands."`
 
 ```text
-- [applies:abc123/1] The plan probably stands.
+- [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] The plan probably stands.
 ```
 
 #### `record/repo-edu-finding-not-first` — refused

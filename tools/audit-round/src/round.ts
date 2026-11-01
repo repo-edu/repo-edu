@@ -497,25 +497,38 @@ export async function runRound(
         report,
         judgedRepos: evidence.judgedRepos,
       })
-      dependencies.writeSettledRound(completion.commits, account)
-      const deferralChain = await runDeferralChain(input, dependencies)
-      const judged =
-        input.automatic === true &&
-        "plan" in input &&
-        (deferralChain === "none" || deferralChain === "finished")
-          ? await runSeriesJudge(input, dependencies, settings)
-          : { answer: null }
-      if ("status" in judged)
-        return { ...judged, commits: completion.commits, account }
-      return {
-        status: "finished",
-        report,
-        cleanAudit: true,
-        judge: judged.answer,
-        watch: null,
-        deferralChain,
-        commits: completion.commits,
-        account,
+      try {
+        dependencies.writeSettledRound(completion.commits, account)
+        const deferralChain = await runDeferralChain(input, dependencies)
+        const judged =
+          input.automatic === true &&
+          "plan" in input &&
+          (deferralChain === "none" || deferralChain === "finished")
+            ? await runSeriesJudge(input, dependencies, settings)
+            : { answer: null }
+        if ("status" in judged)
+          return { ...judged, commits: completion.commits, account }
+        return {
+          status: "finished",
+          report,
+          cleanAudit: true,
+          judge: judged.answer,
+          watch: null,
+          deferralChain,
+          commits: completion.commits,
+          account,
+        }
+      } catch (error) {
+        return {
+          status: "failed",
+          sessionId: null,
+          phase: "complete",
+          ...phases.audit,
+          ...context,
+          reason: errorMessage(error),
+          commits: completion.commits,
+          account,
+        }
       }
     } catch (error) {
       return {

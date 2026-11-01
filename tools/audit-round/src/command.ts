@@ -265,8 +265,8 @@ function deferringAssistant(
   deferral: OpenDeferral,
   logs: DeferralState["logs"],
 ): Assistant {
-  const commit = logs[deferral.deferringRepository].find((candidate) =>
-    candidate.sha.startsWith(deferral.sha),
+  const commit = logs[deferral.deferringRepository].find(
+    (candidate) => candidate.sha === deferral.sha,
   )
   const vendor =
     commit === undefined
@@ -285,7 +285,7 @@ function openDeferralText(stem: string, deferrals: readonly OpenDeferral[]) {
     `Open deferrals for ${stem}:`,
     ...deferrals.map(
       (deferral) =>
-        `- ${deferral.deferringRepository}@${deferral.sha}/${deferral.position} [${deferral.tier.toUpperCase()}] -> ${deferral.destination}: ${deferral.title}`,
+        `- ${deferral.deferringRepository}@${deferral.sha.slice(0, 7)}/${deferral.position} [${deferral.tier.toUpperCase()}] -> ${deferral.destination}: ${deferral.title}`,
     ),
   ].join("\n")
 }

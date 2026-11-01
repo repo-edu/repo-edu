@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
+import { execa } from "execa"
 import { runCommand } from "./configured-runner.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
@@ -22,7 +23,7 @@ async function declareReady(planRoot: string) {
 
 /** One open plan-bound deferral in Repo Edu history. */
 async function deferPlanChoice(repoRoot: string) {
-  const sha = await commitFixture(
+  await commitFixture(
     repoRoot,
     `example/impl-audit-1 obx c1: defer the plan choice
 
@@ -30,6 +31,8 @@ gpt-6.1-sol xhigh
 
 - [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Plan choice: The plan needs a decision.`,
   )
+  const sha = (await execa("git", ["rev-parse", "HEAD"], { cwd: repoRoot }))
+    .stdout
   return {
     deferringRepository: "repo-edu",
     sha,
@@ -96,7 +99,7 @@ test("deferrals prints only the active plan's open deferrals", async (t) => {
     f.errors.join("\n"),
   )
   assert.deepEqual(f.visible, [
-    `Open deferrals for example:\n- repo-edu@${deferral.sha}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
+    `Open deferrals for example:\n- repo-edu@${deferral.sha.slice(0, 7)}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
   ])
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",

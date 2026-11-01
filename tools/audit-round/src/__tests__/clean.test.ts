@@ -156,6 +156,8 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
 
 test("clean deferral citations stay in one bullet list", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const firstSha = `abcdef1${"1".repeat(33)}`
+  const secondSha = `abcdef2${"2".repeat(33)}`
   await completeClean(
     {
       cwd: f.planRoot,
@@ -168,7 +170,7 @@ test("clean deferral citations stay in one bullet list", async (t) => {
       deferrals: [
         {
           deferringRepository: "repo-edu",
-          sha: "abcdef1",
+          sha: firstSha,
           position: 1,
           tier: "c",
           destination: "../plan/example.md#decisions",
@@ -176,7 +178,7 @@ test("clean deferral citations stay in one bullet list", async (t) => {
         },
         {
           deferringRepository: "repo-edu",
-          sha: "abcdef2",
+          sha: secondSha,
           position: 2,
           tier: "c",
           destination: "../plan/example.md#decisions",
@@ -197,7 +199,9 @@ test("clean deferral citations stay in one bullet list", async (t) => {
   ).stdout
   assert.match(
     message,
-    /Audit took 1 min\.\n\n- \[applies:abcdef1\/1\] The plan stands\.\n- \[applies:abcdef2\/2\] The plan stands\./,
+    new RegExp(
+      `Audit took 1 min\\.\\n\\n- \\[applies:${firstSha}\\/1\\] The plan stands\\.\\n- \\[applies:${secondSha}\\/2\\] The plan stands\\.`,
+    ),
   )
 })
 

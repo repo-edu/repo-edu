@@ -18,7 +18,6 @@ export type OpenDeferral = {
 
 type DeferralCandidate = OpenDeferral & {
   readonly committedAt: string
-  readonly fullSha: string
 }
 
 function readableBullets(commit: LogCommit, repository: Repository) {
@@ -39,10 +38,6 @@ function isFinding(
   return "tier" in bullet
 }
 
-function shortSha(sha: string): string {
-  return sha.slice(0, 7)
-}
-
 function destinationPlan(location: string): string {
   return planStem(location.split("#", 1)[0])
 }
@@ -61,8 +56,7 @@ function deferrals(
       return [
         {
           deferringRepository: repository,
-          sha: shortSha(commit.sha),
-          fullSha: commit.sha,
+          sha: commit.sha,
           committedAt: commit.committedAt,
           position,
           tier: bullet.tier,
@@ -95,10 +89,9 @@ function citationCommit(
   citation: DeferralCitation,
   commits: readonly LogCommit[],
 ): string | null {
-  const matches = commits.filter((commit) =>
-    commit.sha.startsWith(citation.sha),
-  )
-  return matches.length === 1 ? matches[0].sha : null
+  return commits.some((commit) => commit.sha === citation.sha)
+    ? citation.sha
+    : null
 }
 
 /** Compute one active plan's open deferrals from the two newest-first logs. */
@@ -135,14 +128,11 @@ export function openDeferrals(
         deferral.deferringRepository === "repo-edu"
           ? appliedIntoPlan
           : appliedIntoRepoEdu
-      return !applied.has(`${deferral.fullSha}/${deferral.position}`)
+      return !applied.has(`${deferral.sha}/${deferral.position}`)
     })
     .sort(
       (first, second) =>
         Date.parse(second.committedAt) - Date.parse(first.committedAt),
     )
-    .map(
-      ({ committedAt: _committedAt, fullSha: _fullSha, ...deferral }) =>
-        deferral,
-    )
+    .map(({ committedAt: _committedAt, ...deferral }) => deferral)
 }

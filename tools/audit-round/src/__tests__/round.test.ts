@@ -1575,6 +1575,37 @@ test("failed clean bookkeeping stops the round without a fictitious fix session"
   assert.deepEqual(round.glances, [])
 })
 
+test("a later clean-chain failure keeps the landed commit for final recording", async () => {
+  const round = controlledRound()
+  const landed = { repository: "repo-edu", sha: "a".repeat(40) } as const
+  round.evidence.findings = []
+  const result = await runRound(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "1",
+      automatic: true,
+    },
+    {
+      ...round.dependencies,
+      completeClean: async () => ({
+        message: "Clean audit recorded",
+        commits: [landed],
+      }),
+      chainDeferrals: async () => {
+        throw new Error("Cannot read open deferrals")
+      },
+    },
+  )
+
+  assert.equal(result.status, "failed")
+  if (result.status !== "failed") return
+  assert.equal(result.phase, "complete")
+  assert.equal(result.reason, "Cannot read open deferrals")
+  assert.deepEqual(result.commits, [landed])
+  assert.deepEqual(round.settledWrites[0]?.commits, [landed])
+})
+
 for (const auditor of ["claude", "codex"] as const) {
   test(`a vet that accepts every ${auditor} finding skips the rebuttal on the way to the fix`, async () => {
     const report = files.documents.report
@@ -1738,7 +1769,7 @@ test("a brief on its own runs only the brief phase over the named transcript", a
 
 const openDeferral = {
   deferringRepository: "repo-edu",
-  sha: "abcdef0",
+  sha: `abcdef0${"0".repeat(33)}`,
   position: 1,
   tier: "c",
   destination: "../plan/example.md#decisions",
