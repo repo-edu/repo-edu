@@ -52,7 +52,9 @@ export async function completeClean(
     (deferral) =>
       `- [applies:${deferral.sha}/${deferral.position}] The plan stands.`,
   )
-  const body = [stamps.phases, ...citations].join("\n\n")
+  const body = [stamps.phases, citations.join("\n")]
+    .filter(Boolean)
+    .join("\n\n")
   const { sha } = await commitOnly({ cwd, subject, body, stamps })
   return {
     message: `Clean audit recorded. Report retained: ${input.report}`,

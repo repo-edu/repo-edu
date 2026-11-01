@@ -154,6 +154,53 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
   assert.match(markdown, /Clean audit\. Report retained/)
 })
 
+test("clean deferral citations stay in one bullet list", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await completeClean(
+    {
+      cwd: f.planRoot,
+      repoEduRoot: f.repoRoot,
+      planRoot: f.planRoot,
+      roundKind: "planning",
+      plan: "example.md",
+      report: f.report,
+      judgedRepos: ["plan"],
+      deferrals: [
+        {
+          deferringRepository: "repo-edu",
+          sha: "abcdef1",
+          position: 1,
+          tier: "c",
+          destination: "../plan/example.md#decisions",
+          title: "First deferral",
+        },
+        {
+          deferringRepository: "repo-edu",
+          sha: "abcdef2",
+          position: 2,
+          tier: "c",
+          destination: "../plan/example.md#decisions",
+          title: "Second deferral",
+        },
+      ],
+    },
+    {
+      auditor: "obx",
+      phases: "audit: gpt-6.1-sol xhigh\nAudit took 1 min.",
+    },
+  )
+
+  const message = (
+    await execa("git", ["show", "-s", "--format=%B", "HEAD"], {
+      cwd: f.planRoot,
+    })
+  ).stdout
+  assert.match(
+    message,
+    /Audit took 1 min\.\n\n- \[applies:abcdef1\/1\] The plan stands\.\n- \[applies:abcdef2\/2\] The plan stands\./,
+  )
+})
+
 test("a clean audit prunes its resolved setting and preserves another setting", async (t) => {
   const f = await roundFixture(
     t,
