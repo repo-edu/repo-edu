@@ -162,10 +162,22 @@ plan came from when one exists. The user should not choose against a reason the
 plan never carried forward. Absence of an older source is normal, not an error.
 
 Every deferral traces to the files this round inspected or to a choice the user
-made in the round's fix phase. The round tells the user that follow-up in the
-undirected repo rests with them. A later user-directed round in that repo
-collects open deferrals from the other repo's stem scan, cites the
-commits it applies and leaves already-corrected text alone.
+made in the round's fix phase. A later bullet in the destination repo applies
+it with `[applies:<sha>/<position>]`, where the position counts that commit's
+deferrals into the destination repo from one in body order. A graded bullet
+carries the token when it changes the destination. An unchanged plan uses the
+untiered `The plan stands.` bullet. The citation closes the deferral without a
+text comparison.
+
+The runner's open-deferral owner reads both Git histories. It selects deferrals
+into the plan repo from every Repo Edu commit by destination plan, selects
+deferrals into Repo Edu from the plan's stem commits and removes the ones cited
+in their destination repo. An automatic implementation series reads that set
+before its first round and after each finished implementation-audit round. Open
+deferrals into the plan repo chain one planning round on the supplied deferrals
+before the series judge runs. Deferrals into Repo Edu stay open until a
+user-selected implementation scope applies them. Every automatic series ending
+prints what remains, and loop-close reads the same set before archiving.
 
 ## Episode settlement
 

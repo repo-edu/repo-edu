@@ -66,9 +66,9 @@ consumers.
   landed no commit. A commit target may land nothing. Reader failures retain the owning phase and
   its session for recovery. The coordinator deletes the report set after these checks, then runs the
   brief. Other outcomes retain the set. `runClose` runs the loop-close phase alone on its own
-  settings. It passes the active plan, the capability tag and model record its commits carry and any
-  abort reason. A finished close that left its plan at the root fails, because the move is the
-  close.
+  settings. It passes the active plan, the capability tag and model record its commits carry, the
+  open deferrals resolved before assistant startup and any abort reason. A finished close that left
+  its plan at the root fails, because the move is the close.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -191,10 +191,18 @@ consumers.
 - `findings.ts` reads the complete current bullet form for commit hooks and episodes, D included. It
   validates token values without consulting the area model. It requires the `Title: prose` form and
   reads the optional leading `[finding:<n>]` token that names the report finding the bullet lands,
-  so the hook refuses a malformed bullet before the round-data join reads it. `commit-msg.ts` checks
+  plus `[applies:<sha>/<position>]` citations on graded bullets and the untiered `The plan stands.`
+  form. The hook therefore refuses a malformed bullet before the round-data join or deferral owner
+  reads it. `commit-msg.ts` checks
   primary and cover IDs against the current model at write time. `sequence.ts` derives severity from
   the strict read and fills the subject's severity slot under its role and repository rules. The
   growth mark remains authored and is required beside every sequence outside a deferral record.
+- `open-deferrals.ts` owns one active plan's open set. It selects plan-bound
+  deferrals from every Repo Edu commit by their destination plan and Repo
+  Edu-bound deferrals from that plan's stem commits. It removes citations found
+  in the destination repo and returns the remaining deferring repo, short SHA,
+  position, tier, destination and title newest first. The automatic series
+  chain, every automatic series ending and loop-close all read this owner.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
   either repository's form, names the class it matched and refuses with the first slot that does not
@@ -414,59 +422,67 @@ consumers.
   entries. `--first` takes exactly one entry and is refused beside `--auditor`, because the list's
   first entry already names the first round. The round is the command itself, taking the target as
   its own arguments. Its subcommands are `trial`, `brief`, `settle`, `ready`, `close`, `plan`,
-  `name`, `paths`, `delete-reports`, `mark` and `episode`. Help lists the round, `trial`, `brief`,
-  `settle`, `ready`, `close` and `plan`, the commands a user runs. `trial` reads its retained data
-  before assistant startup or release resolution. The hand-run launchers call `name`, `paths`,
-  `delete-reports` and `episode`, and the reopen step calls `mark`, so help hides them. `plan`
-  prints the plan an omitted target selects, as its absolute path, and writes nothing, so a user can
-  see it before a round or close takes it. `close` resolves its plan before startup, then runs the
-  close phase alone with its own log. The `episode` command prints the requested line range from
-  joined watch evidence produced by the shared reader and formatter, with its returned range and
-  current total. Every call rebuilds the view. It performs no release resolution, assistant startup
-  or file writes. The
-  `name` command claims a round and prints its claim, workflow, working checkout and audit
-  arguments. Its required `--auditor` is the hand-run session's full tag, including `u`, checked
-  separately from a round's model request. The `paths` command prints the workflow, working checkout
-  and argument paths for an existing report as a JSON object. It reads the report opening's named
-  workflow to select its kind. Both commands bypass assistant startup and release resolution;
-  `paths` writes nothing. The `delete-reports` command uses the same deletion function as the
-  coordinator and starts no assistant or release resolution. `settle` and `ready` resolve the active
-  plan that `plan` prints when no stem is given and run only the lifecycle Git owner. The hidden
-  `mark` command claims an active plan's next round number for an empty `reopen` marker and prints
-  its path, with no release resolution or assistant. So the program carries an action handler,
-  Commander adds no `help` command, and each command's own `-h` prints its help. A bare command line
-  prints that help; options without a target take `defaultTarget`. It also owns the round sequence
-  and its counter. Without `--auditor`, an active plan target runs an automatic series. The
-  `--first` selection runs first, or the configured default without it, then each judge answer names
-  the next assistant or an ending. A `random` default resolves its opener once per command run on
-  the same coin the pairs use. An `alternate` default opens opposite the opener stamp in the cache
-  and falls back to the coin without one. The stamp moves only when a settings-chosen opener's round
-  is complete in the trial's sense, so an aborted opener retries the same assistant; `--first`,
-  `--auditor` and judged rounds never move it. Only that first round carries the selection's fields.
-  When the selected assistant has an audit pair, settings-chosen rounds take turns between its
-  members and a coin flip chooses the first. Each assistant keeps its own turn inside this command.
-  A command-line choice takes no turn. The series writes no queue and ends on settle or stop, the
-  configured maximum, a failure, an unanswered ruling, a red watch or a phase change. A round that
-  changes the plan's phase finishes without a judge answer. Commit targets run once, on the
-  `--first` selection when given. With `--auditor`, the first entry runs first and the remaining
-  entries on a plan target seed its editable queue. A clean audit removes queued entries that
-  resolve to that round's assistant, model and effort. Other settings remain. A fix that lands a
-  clean record removes none. Failure, a round requiring a ruling, a red watch or an empty queue
-  stops the manual sequence, and the queue file is deleted however the sequence ends. Each manual
-  round prints the queue's path and contents when it opens. Each automatic round prints its judge
-  answer and reason. A scope list runs one series per scope in list order. Each scope opens as its
-  own series: the opener is chosen again, so an alternate default reads the stamp the previous scope
-  moved, `--first` opens every scope and the round count starts over. A judge stop or the maximum
-  ends only that scope and the next one is announced. A failure, an unanswered ruling, a
-  red watch or a plan phase change ends the whole list and names the scopes that did not run. The
-  list is refused beside `--auditor`, whose queue belongs to one target and whose pairing with the
-  scopes would need a second reading, and beside `name`, which claims one round. Each round records
-  its own file pair and the coordinator has no filesystem side effects: it opens one output per
-  round, retires the previous one first, and reads updates and settings once for the whole run
-  before opening any files. Startup messages go only to the terminal; the run log begins with the
-  models table. A chained round carries its place in its title and independently claims the next
-  number for its target. Required write failures stop phase progression. If recording itself fails,
-  the emergency channel still reports the known session and recovery command.
+  `name`, `paths`, `delete-reports`, `mark`, `episode` and `deferrals`. Help lists the round,
+  `trial`, `brief`, `settle`, `ready`, `close` and `plan`, the commands a user runs. `trial` reads
+  its retained data before assistant startup or release resolution. The hand-run launchers call
+  `name`, `paths`, `delete-reports`, `episode` and `deferrals`, and the reopen step calls `mark`, so
+  help hides them. `plan` prints the plan an omitted target selects, as its absolute path, and
+  writes nothing, so a user can see it before a round or close takes it. `close` resolves its plan
+  and open deferrals before startup, then runs the close phase alone with its own log. The
+  `deferrals` command prints the active plan's open set through the shared owner. It exists only for
+  hand-run close, so help hides it beside `episode` and the other launcher interfaces. The `episode`
+  command prints the requested line range from joined watch evidence produced by the shared reader
+  and formatter, with its returned range and current total. Every call rebuilds the view. It
+  performs no release resolution, assistant startup or file writes. The `name` command claims a
+  round and prints its claim, workflow, working checkout and audit arguments. Its required
+  `--auditor` is the hand-run session's full tag, including `u`, checked separately from a round's
+  model request. The `paths` command prints the workflow, working checkout and argument paths for an
+  existing report as a JSON object. It reads the report opening's named workflow to select its kind.
+  Both commands bypass assistant startup and release resolution; `paths` writes nothing. The
+  `delete-reports` command uses the same deletion function as the coordinator and starts no
+  assistant or release resolution. `settle` and `ready` resolve the active plan that `plan` prints
+  when no stem is given and run only the lifecycle Git owner. The hidden `mark` command claims an
+  active plan's next round number for an empty `reopen` marker and prints its path, with no release
+  resolution or assistant. So the program carries an action handler, Commander adds no `help`
+  command, and each command's own `-h` prints its help. A bare command line prints that help;
+  options without a target take `defaultTarget`. It also owns the round sequence and its counter.
+  Without `--auditor`, an active plan target runs an automatic series. The `--first` selection runs
+  first, or the configured default without it, then each judge answer names the next assistant or an
+  ending. A `random` default resolves its opener once per command run on the same coin the pairs
+  use. An `alternate` default opens opposite the opener stamp in the cache and falls back to the
+  coin without one. The stamp moves only when a settings-chosen opener's round is complete in the
+  trial's sense, so an aborted opener retries the same assistant; `--first`, `--auditor` and judged
+  rounds never move it. Only that first round carries the selection's fields. When the selected
+  assistant has an audit pair, settings-chosen rounds take turns between its members and a coin flip
+  chooses the first. Each assistant keeps its own turn inside this command. A command-line choice
+  takes no turn. The series writes no queue and ends on settle or stop, the configured maximum, a
+  failure, an unanswered ruling, a red watch or a phase change. Before an automatic implementation
+  series starts, and after each finished implementation-audit round, the runner computes the open
+  set. Plan-bound deferrals chain one scoped planning round before the series judge. The chain uses
+  the deferring round's assistant, claims its own planning-round number, takes no
+  implementation-series turn and ends the implementation series when it fails, awaits a ruling,
+  changes phase or receives a red watch. Every automatic series ending on a plan prints the
+  remaining open deferrals or says there are none. A round that changes the plan's phase finishes
+  without a judge answer. Commit targets run once, on the `--first` selection when given. With
+  `--auditor`, the first entry runs first and the remaining entries on a plan target seed its
+  editable queue. A clean audit removes queued entries that resolve to that round's assistant, model
+  and effort. Other settings remain. A fix that lands a clean record removes none. Failure, a round
+  requiring a ruling, a red watch or an empty queue stops the manual sequence, and the queue file is
+  deleted however the sequence ends. Each manual round prints the queue's path and contents when it
+  opens. Each automatic round prints its judge answer and reason. A scope list runs one series per
+  scope in list order. Each scope opens as its own series: the opener is chosen again, so an
+  alternate default reads the stamp the previous scope moved, `--first` opens every scope and the
+  round count starts over. A judge stop or the maximum ends only that scope and the next one is
+  announced. A failure, an unanswered ruling, a red watch or a plan phase change ends the whole list
+  and names the scopes that did not run. The list is refused beside `--auditor`, whose queue belongs
+  to one target and whose pairing with the scopes would need a second reading, and beside `name`,
+  which claims one round. Each round records its own file pair and the coordinator has no filesystem
+  side effects: it opens one output per round, retires the previous one first, and reads updates and
+  settings once for the whole run before opening any files. Startup messages go only to the
+  terminal; the run log begins with the models table. A chained round carries its place in its title
+  and independently claims the next number for its target. Required write failures stop phase
+  progression. If recording itself fails, the emergency channel still reports the known session and
+  recovery command.
 - `queue.ts` owns the shared entry splitter and the queue file's contents. Commit references, plan
   scopes, `--auditor`, `--first` and queue files admit entries separated by commas, spaces or line
   breaks. Auditor entries are each read by `parseAuditor` and keep the user's spelling, so a rewrite
@@ -564,13 +580,17 @@ hand.
 `requests.ts` resolves every workflow header and supplies its listed files
 whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 
-- audit: report output, then a plan and optional scope, or one structured
-  object per commit group carrying its repository and typed references
+- audit: report output, then either a plan with an optional implementation
+  scope or open-deferral object, or one structured object per commit group
+  carrying its repository and typed references
 - vet: report input, vet output
 - rebuttal: report input, vet input, rebuttal output
-- fix: report input, then existing vet and rebuttal inputs
+- fix: report input, then existing vet and rebuttal inputs, followed by the
+  same open-deferral object for a chained planning round
 - brief: transcript input, brief output
 - watch: no path arguments; the prompt separately supplies the evidence
+- close: plan, capability tag, model record, open-deferral object and optional
+  abort reason
 
 The runner saves audit, vet and rebuttal final text without the parsed phase
 result line. It then reads the report under the round grammar and fails the
@@ -811,8 +831,14 @@ archives an episode that never shipped and passes the reason for its README. One
 `close` settings, moves the plan, rewrites the links to it, writes each repo's `closed` commit,
 moves its round-data files into the archive folder and deletes the topic's sidecars. It works in the
 plan checkout and writes only `<stem>-close.<tag>.log` beside the plan root's other runner files.
-Where it would need the user's answer, it fails with the question, and its printed resume command
-continues that session.
+The runner resolves the plan's open deferrals before the session starts and supplies them in its
+phase arguments. Where close would need the user's answer, including permission to archive with an
+open deferral, it fails with the question, and its printed resume command continues that session.
+
+`deferrals [stem]` prints one active plan's open deferrals through the shared owner. It resolves the
+same default plan as close when the stem is omitted. It starts no assistant, performs no release
+resolution and writes nothing. The command is hidden because it exists only for the hand-run close
+workflow, which needs the list before its session starts.
 
 `delete-reports` deletes the audit and twins for its exact target and round at the
 plan root and lists each deleted file. It fails when no report matches. Claims, markers and
@@ -861,6 +887,13 @@ submitted reply resumes the fix, then the sequence after the round completes. A 
 turns only in rounds the automatic pick chose. Its first picked round uses a coin flip. A `--first`,
 `--auditor` or queue choice bypasses the pair and takes no turn. Each header records the round's
 start time; filenames carry no timestamp.
+
+Before an automatic implementation series starts, and after each finished
+implementation-audit round, the runner chains one planning round when the
+shared owner finds an open deferral into the plan repo. The planning round
+receives only those deferrals, runs before the implementation judge and does
+not count against the implementation-series maximum. Every automatic series
+ending then prints the remaining open deferrals or says there are none.
 
 ## Verification
 
