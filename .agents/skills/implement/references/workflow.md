@@ -116,10 +116,12 @@ commit body.
 
 After the workers finish, the coordinator handles closure. For each repo where
 the run lands its final hosted share, run the plan's final
-verification when it names any for that repo. After that repo's checkout is
-clean and its log proves every share it hosts has landed, write its shared
-`implemented:` marker from `../plan/CLAUDE.md`. The implementation request
-authorises this marker without further approval. A both-repo step counts in
-each repo only when that repo's commit has landed. A run that leaves work
-unimplemented ends with one line per repo: the
-shares landed and the first step remaining there.
+verification when it names any for that repo. After its log proves every share
+it hosts has landed, write its shared `implemented` marker from
+`../plan/CLAUDE.md`. Working-tree and index changes never block the marker. The
+marker is an empty commit: leave concurrent work untouched and, when the real
+index contains staged changes, create the marker through a temporary index
+seeded from `HEAD`. The implementation request authorises this marker without
+further approval. A both-repo step counts in each repo only when that repo's
+commit has landed. A run that leaves work unimplemented ends with one line per
+repo: the shares landed and the first step remaining there.
