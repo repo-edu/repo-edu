@@ -39,7 +39,7 @@ export async function resolveTargets(
   context: ExecutionContext,
   request: TargetRequest | null,
 ): Promise<AuditTargets> {
-  if (request !== null && "commits" in request) return [request]
+  if (request !== null && "groups" in request) return [request]
   return selectTargets(await readLogs(context), context.planRoot, request)
 }
 

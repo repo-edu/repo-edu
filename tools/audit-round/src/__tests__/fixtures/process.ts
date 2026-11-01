@@ -148,7 +148,17 @@ if (scenario.phases !== undefined) {
       // A fixture audit names its target from the arguments it was given,
       // as a real auditor does, so one report serves every scope.
       const target = (): string => {
-        const [, first, ...rest] = phaseArguments as string[]
+        const [, first, ...rest] = phaseArguments as [
+          string,
+          string | { references: string[] },
+          ...(string | { references: string[] })[],
+        ]
+        if (typeof first !== "string")
+          return [first, ...rest]
+            .flatMap((group) =>
+              typeof group === "string" ? [group] : group.references,
+            )
+            .join(" ")
         if (!first.endsWith(".md")) return [first, ...rest].join(" ")
         const plan = basename(first)
         return rest.length === 0 ? plan : `${plan} ${rest[0]}`

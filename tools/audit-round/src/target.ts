@@ -2,6 +2,7 @@ import { readdir, stat } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { InvalidArgumentError } from "commander"
 import type { ExecutionContext } from "./context.js"
+import { splitEntries } from "./queue.js"
 import type { Repository } from "./subject.js"
 
 export type RoundKind = "planning" | "implementation"
@@ -22,10 +23,14 @@ export function roundContext(
   }
 }
 
-type CommitTarget = {
-  readonly roundKind: "implementation"
+export type CommitGroup = {
   readonly repository: Repository
-  readonly commits: readonly [string, ...string[]]
+  readonly references: readonly [string, ...string[]]
+}
+
+export type CommitTarget = {
+  readonly roundKind: "implementation"
+  readonly groups: readonly [CommitGroup, ...CommitGroup[]]
 }
 
 /** One scope owner for argument validation, phase routing and run presentation. */
@@ -70,7 +75,8 @@ export function planStem(plan: string): string {
 
 /** The target as a report's opening repeats it, so the parser holds the report to its round. */
 export function reportTarget(target: AuditTarget): string {
-  if ("commits" in target) return target.commits.join(" ")
+  if ("groups" in target)
+    return target.groups.flatMap((group) => group.references).join(" ")
   const plan = basename(target.plan)
   return target.roundKind === "planning" ? plan : `${plan} ${target.scope}`
 }
@@ -111,9 +117,6 @@ function stepScope(value: string): string {
  */
 function planScope(values: readonly [string, ...string[]]): ScopeRequest {
   const [first, ...more] = values
-    .join(" ")
-    .split(",")
-    .flatMap((value) => value.trim().split(/\s+/))
   if (first === planningScope || more.includes(planningScope)) {
     if (more.length > 0)
       throw new InvalidArgumentError(
@@ -153,6 +156,30 @@ export function commitShaped(value: string): boolean {
   )
 }
 
+function commitGroup(
+  repository: Repository,
+  references: readonly [string, ...string[]],
+): CommitGroup {
+  const values = references.map((reference, index) =>
+    repository === "plan" && index === 0
+      ? unprefixedCommitReference(reference)
+      : reference,
+  )
+  const endpoints = values[0].split("..")
+  if (
+    !(
+      values.every(commitReference) ||
+      (values.length === 1 &&
+        endpoints.length === 2 &&
+        endpoints.every(commitReference))
+    )
+  )
+    throw new InvalidArgumentError(
+      "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
+    )
+  return { repository, references }
+}
+
 /** A plan argument names a stem, never a path. */
 function refusePath(value: string): void {
   if (/[\\/]/.test(value))
@@ -167,33 +194,38 @@ export function targetRequest(
   rest: readonly string[],
 ): TargetRequest {
   refusePath(first)
-  if (rest.some((reference) => reference.startsWith(planRepositoryPrefix)))
+  const [target, ...entries] = splitEntries([first, ...rest].join(" "))
+  if (target === undefined)
     throw new InvalidArgumentError(
-      "Use plan@ only on the first commit reference.",
+      "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
     )
-  const repository: Repository = first.startsWith(planRepositoryPrefix)
-    ? "plan"
-    : "repo-edu"
-  if (repository === "repo-edu" && !commitShaped(first)) {
-    const [scope, ...more] = rest
+  if (!target.startsWith(planRepositoryPrefix) && !commitShaped(target)) {
+    const [scope, ...more] = entries
     return {
-      plan: planStem(first),
+      plan: planStem(target),
       scope: scope === undefined ? null : planScope([scope, ...more]),
     }
   }
-  const commits: [string, ...string[]] = [first, ...rest]
-  const references = [unprefixedCommitReference(first), ...rest]
-  const endpoints = references[0].split("..")
-  if (
-    references.every(commitReference) ||
-    (rest.length === 0 &&
-      endpoints.length === 2 &&
-      endpoints.every(commitReference))
+  const references = [target, ...entries] as [string, ...string[]]
+  const planIndex = references.findIndex((reference) =>
+    reference.startsWith(planRepositoryPrefix),
   )
-    return { commits, repository, roundKind: "implementation" }
-  throw new InvalidArgumentError(
-    "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
-  )
+  const groups: CommitGroup[] = []
+  if (planIndex !== 0) {
+    const repoEduReferences = references.slice(
+      0,
+      planIndex === -1 ? references.length : planIndex,
+    ) as [string, ...string[]]
+    groups.push(commitGroup("repo-edu", repoEduReferences))
+  }
+  if (planIndex !== -1) {
+    const planReferences = references.slice(planIndex) as [string, ...string[]]
+    groups.push(commitGroup("plan", planReferences))
+  }
+  return {
+    groups: groups as [CommitGroup, ...CommitGroup[]],
+    roundKind: "implementation",
+  }
 }
 
 /** The plan's artifact at the plan root, or null once it is archived or absent. */

@@ -322,10 +322,11 @@ Targets and scope:
            automatic series per scope in that order; see Round sequence below.
            A step scope is refused until a step has landed. The word plan selects
            the planning audit whatever has landed, for a plan edited after ready.
-  Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to>.
-           plan@ on the first reference selects the plan repo for the whole target;
-           bare references select Repo Edu. HEAD-1 is the previous first-parent
-           commit. Ranges include both ends.
+  Commits  SHA, HEAD, HEAD-<n>, a comma-or-space-separated list or <from>..<to>.
+           Bare references first form the Repo Edu group. The first plan@ reference
+           opens the plan group, which runs to the end of the target. Either group
+           may appear alone, or both may appear in that order. HEAD-1 is the previous
+           first-parent commit in its group's repo. Ranges include both ends.
   Omitted  Options without a target take the active plan with the newest stem
            commit in either repo, which audit-round plan prints, as if named alone.
   The first line of every run names the round it resolved.
@@ -434,19 +435,23 @@ Examples (from either checkout):
 
      $ pnpm audit-round example 3 --auditor atx,obm
 
-  3. Audit an inclusive commit range in the plan repo.
+  3. Audit both repo shares of one change as one round.
+
+     $ pnpm audit-round HEAD ${planRepositoryPrefix}HEAD
+
+  4. Audit an inclusive commit range in the plan repo.
 
      $ pnpm audit-round ${planRepositoryPrefix}HEAD-2..HEAD
 
-  4. Run the audit the newest plan calls for with Codex.
+  5. Run the audit the newest plan calls for with Codex.
 
      $ pnpm audit-round --auditor codex
 
-  5. Start an automatic series on steps 1-4 with Codex instead of the default.
+  6. Start an automatic series on steps 1-4 with Codex instead of the default.
 
      $ pnpm audit-round example 1-4 --first codex
 
-  6. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
+  7. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
 
      $ pnpm audit-round example 2,3-5,6-7
 
@@ -823,7 +828,7 @@ export async function runCommand(
             }
     if (
       prepared.kind === "round" &&
-      "commits" in prepared.targets[0] &&
+      "groups" in prepared.targets[0] &&
       (prepared.auditor?.length ?? 1) > 1
     )
       throw new InvalidArgumentError(
@@ -854,7 +859,7 @@ export async function runCommand(
                   target.plan,
                   ...(target.roundKind === "planning" ? [] : [target.scope]),
                 ]
-              : target.commits),
+              : target.groups),
           ],
         }),
       )

@@ -257,8 +257,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   const run = await roundRun(
     {
       ...testSetup(f.repoRoot),
-      commits: ["abc123..def456"],
-      repository: "repo-edu",
+      groups: [{ references: ["abc123..def456"], repository: "repo-edu" }],
     },
     0,
     releases,

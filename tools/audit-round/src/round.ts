@@ -403,8 +403,8 @@ export async function runRound(
     ...phases.audit,
     ...context,
     arguments:
-      "commits" in input
-        ? [input.documents.report, ...input.commits]
+      "groups" in input
+        ? [input.documents.report, ...input.groups]
         : input.roundKind === "planning"
           ? [input.documents.report, input.plan]
           : [input.documents.report, input.plan, input.scope],

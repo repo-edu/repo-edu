@@ -4,6 +4,7 @@ import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
 import {
   type AuditTarget,
+  type CommitGroup,
   planStem,
   type RoundKind,
   unprefixedCommitReference,
@@ -97,22 +98,27 @@ async function targetDescription(target: NamingTarget): Promise<{
   label: string
   title: string
 }> {
-  if ("commits" in target) {
-    const first = unprefixedCommitReference(target.commits[0])
-    const head = first.includes("HEAD")
-      ? (
-          await execa("git", ["rev-parse", "--short", "HEAD"], {
-            cwd:
-              target.repository === "plan"
-                ? target.planRoot
-                : target.repoEduRoot,
-          })
-        ).stdout
-      : ""
+  if ("groups" in target) {
+    const groupLabel = async (group: CommitGroup): Promise<string> => {
+      const first = unprefixedCommitReference(group.references[0])
+      const head = first.includes("HEAD")
+        ? (
+            await execa("git", ["rev-parse", "--short", "HEAD"], {
+              cwd:
+                group.repository === "plan"
+                  ? target.planRoot
+                  : target.repoEduRoot,
+            })
+          ).stdout
+        : ""
+      return `${first.replaceAll("HEAD", head)}${group.references.length === 1 ? "" : `-plus-${group.references.length - 1}`}`
+    }
+    const labels = await Promise.all(target.groups.map(groupLabel))
+    const references = target.groups.flatMap((group) => group.references)
     // Keep list filenames bounded; the title and phase arguments carry every reference.
     return {
-      label: `${first.replaceAll("HEAD", head)}${target.commits.length === 1 ? "" : `-plus-${target.commits.length - 1}`}`,
-      title: `Commit audit of ${target.commits.join(" ")}`,
+      label: labels.join("+"),
+      title: `Commit audit of ${references.join(" ")}`,
     }
   }
   const stem = planStem(target.plan)
@@ -132,7 +138,7 @@ async function targetDescription(target: NamingTarget): Promise<{
  * phrase so the two cannot drift.
  */
 export function roundSubject(
-  target: Exclude<AuditTarget, { commits: unknown }>,
+  target: Exclude<AuditTarget, { groups: unknown }>,
   plan: string,
 ): string {
   if (target.roundKind === "planning") return `Plan audit of ${plan}`

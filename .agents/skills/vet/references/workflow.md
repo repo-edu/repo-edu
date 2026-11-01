@@ -51,11 +51,15 @@ Check two mismatches before vetting:
 - The target in the name differs from the report's `Target:` line after the
   line is translated under the runner's
   [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) rule. For a
-  commit target, that rule replaces `HEAD` with the selected repo's short
-  starting commit and shortens a reference list after its first entry. One of
-  the two is wrong, so refuse and name both. The runner refuses a report whose
-  line is missing or names another target before it starts a vet, so this check
-  fires only in a hand-run session.
+  commit target, split the typed references into the Repo Edu group before the
+  first `plan@` reference and the plan group from that reference onwards. For
+  each group, the rule resolves that repo's short `HEAD`, replaces `HEAD` in
+  the group's first reference, drops its `plan@` prefix and shortens a list
+  after its first entry. Join the group labels with `+` in command-line order.
+  One of the filename and report target is wrong when the result differs, so
+  refuse and name both. The runner refuses a report whose line is missing or
+  names another target before it starts a vet, so this check fires only in a
+  hand-run session.
 
 ## Axes
 

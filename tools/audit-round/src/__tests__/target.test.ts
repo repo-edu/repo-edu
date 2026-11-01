@@ -45,6 +45,11 @@ test("a scope list reads commas and spaces alike and keeps its order", () => {
     plan: "example",
     scope: ["3", "1-2"],
   })
+  for (const rest of [["1,"], [",1"], ["1,,2"]])
+    assert.deepEqual(targetRequest("example", rest), {
+      plan: "example",
+      scope: rest[0].includes("2") ? ["1", "2"] : ["1"],
+    })
   for (const rest of [[`${planningScope},1`], ["1", planningScope]])
     assert.throws(
       () => targetRequest("example", rest),
@@ -74,7 +79,7 @@ test("commit-shaped stems keep .md to name a plan", () => {
 })
 
 test("commit targets preserve references for the workflow to resolve", () => {
-  for (const commits of [
+  for (const references of [
     ["HEAD"],
     ["HEAD-0"],
     ["HEAD-1"],
@@ -87,15 +92,14 @@ test("commit targets preserve references for the workflow to resolve", () => {
     ["abcdef..23674f"],
     ["HEAD-2", "23674f", "HEAD"],
   ])
-    assert.deepEqual(targetRequest(commits[0], commits.slice(1)), {
-      commits,
-      repository: "repo-edu",
+    assert.deepEqual(targetRequest(references[0], references.slice(1)), {
+      groups: [{ references, repository: "repo-edu" }],
       roundKind: "implementation",
     })
 })
 
 test("plan-prefixed commit targets preserve the typed prefix and name their repository", () => {
-  for (const commits of [
+  for (const references of [
     [`${planRepositoryPrefix}HEAD`],
     [`${planRepositoryPrefix}HEAD-1`],
     [`${planRepositoryPrefix}23674f`],
@@ -103,13 +107,38 @@ test("plan-prefixed commit targets preserve the typed prefix and name their repo
     [`${planRepositoryPrefix}23674f..HEAD`],
     [`${planRepositoryPrefix}HEAD-2`, "23674f", "HEAD"],
   ]) {
-    assert.equal(commitShaped(commits[0]), true)
-    assert.deepEqual(targetRequest(commits[0], commits.slice(1)), {
-      commits,
-      repository: "plan",
+    assert.equal(commitShaped(references[0]), true)
+    assert.deepEqual(targetRequest(references[0], references.slice(1)), {
+      groups: [{ references, repository: "plan" }],
       roundKind: "implementation",
     })
   }
+})
+
+test("the first plan prefix opens a second repository group", () => {
+  assert.deepEqual(
+    targetRequest("HEAD-1", ["HEAD", `${planRepositoryPrefix}HEAD-2`, "HEAD"]),
+    {
+      groups: [
+        {
+          references: ["HEAD-1", "HEAD"],
+          repository: "repo-edu",
+        },
+        {
+          references: [`${planRepositoryPrefix}HEAD-2`, "HEAD"],
+          repository: "plan",
+        },
+      ],
+      roundKind: "implementation",
+    },
+  )
+})
+
+test("commit references share the comma-and-space entry grammar", () => {
+  assert.deepEqual(
+    targetRequest("HEAD-1,HEAD", [`${planRepositoryPrefix}HEAD-2,`, "HEAD"]),
+    targetRequest("HEAD-1", ["HEAD", `${planRepositoryPrefix}HEAD-2`, "HEAD"]),
+  )
 })
 
 test("invalid targets and mixed plan/commit scopes are refused", () => {
@@ -123,7 +152,6 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["HEAD.."],
     ["..HEAD"],
     ["HEAD-2..HEAD", "HEAD-3"],
-    ["HEAD", `${planRepositoryPrefix}HEAD-1`],
     [`${planRepositoryPrefix}HEAD`, `${planRepositoryPrefix}HEAD-1`],
     [`${planRepositoryPrefix}example`],
     [planRepositoryPrefix],
@@ -138,9 +166,6 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["example.md", "Plan"],
     ["example.md", "plan", "1"],
     ["example.md", "9007199254740992"],
-    ["example.md", "1,"],
-    ["example.md", ",1"],
-    ["example.md", "1,,2"],
     ["example.md", "1,0"],
     ["example.md", "1", "3-2"],
     ["phase-arguments", "HEAD"],

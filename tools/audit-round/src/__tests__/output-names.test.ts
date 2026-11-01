@@ -21,8 +21,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   const run = await roundRun(
     {
       ...testSetup(f.root),
-      commits: ["abcdef..123abc"],
-      repository: "repo-edu",
+      groups: [{ references: ["abcdef..123abc"], repository: "repo-edu" }],
       brief: true,
     },
     0,
@@ -62,8 +61,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
       await roundRun(
         {
           ...testSetup(f.root),
-          commits: ["abcdef..123abc"],
-          repository: "repo-edu",
+          groups: [{ references: ["abcdef..123abc"], repository: "repo-edu" }],
         },
         0,
         releases,
@@ -178,7 +176,7 @@ test("a failed tagged-file open retains the number's claim", async (t) => {
   )
 })
 
-test("commit filenames resolve HEAD once while keeping typed offsets and list counts", async (t) => {
+test("commit filenames resolve each group HEAD and join group labels", async (t) => {
   const f = await fixture(t)
   const head = await commitFixture(f.root, "Fixture")
   const planHead = await commitFixture(join(f.root, "../plan"), "Plan fixture")
@@ -195,13 +193,34 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
     ],
   ] as const) {
     const run = await roundRun(
-      { ...testSetup(f.root), commits, repository },
+      {
+        ...testSetup(f.root),
+        groups: [{ references: commits, repository }],
+      },
       0,
       releases,
     )
     assert.equal(basename(run.paths.markdown), `${target}-01-1-round.obh.md`)
     assert.equal(run.title, `Commit audit of ${commits.join(" ")}`)
   }
+
+  const references = ["HEAD-1", "HEAD", `${planRepositoryPrefix}HEAD`] as const
+  const run = await roundRun(
+    {
+      ...testSetup(f.root),
+      groups: [
+        { references: ["HEAD-1", "HEAD"], repository: "repo-edu" },
+        { references: [`${planRepositoryPrefix}HEAD`], repository: "plan" },
+      ],
+    },
+    0,
+    releases,
+  )
+  assert.equal(
+    basename(run.paths.markdown),
+    `${head}-1-plus-1+${planHead}-01-1-round.obh.md`,
+  )
+  assert.equal(run.title, `Commit audit of ${references.join(" ")}`)
 })
 
 test("single steps and ranges keep separate padded numbering", async (t) => {

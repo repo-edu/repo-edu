@@ -15,24 +15,24 @@ finding metadata meanings, growth-pattern tags and trade pricing. The
 [round grammar](../../../references/round-grammar.md) owns report, twin and
 record-bullet shapes.
 
-The round's repo set is the repo the commit target names. Bare references name
-Repo Edu. A `plan@` prefix on the first reference names the plan repo for the
-whole target. The other repo may be read as evidence, never as a source of
-intent.
+The round's repo set is the repositories carried by the parsed commit groups.
+The phase arguments keep the group boundary, repository and typed references,
+so this workflow does not derive that boundary again. A repo outside that set
+may be read as evidence, never as a source of intent.
 
 ## Range
 
-The user names the range. Follow it exactly. Never select, propose or replace
-it. The range may be given as `<from>..<to>`, as a list of commits or as one
-commit reference, which scopes the round to that commit alone. An optional
-`plan@` prefix on the first reference selects the plan repo for every reference
-in the target. A prefix on a later reference is refused. Bare references select
-Repo Edu. Ignore prose around the commits the user names, and never resolve a
-range from prose alone. When the invocation names no commit, ask for one and
+The user names each group's range. Follow every group exactly. Never select,
+propose or replace one. A group may be given as `<from>..<to>`, as a list of
+commits or as one commit reference, which scopes that group to that commit
+alone. The group's repository comes from its parsed `repository` field. Its
+`references` field preserves the typed `plan@` prefix on the first plan
+reference. Ignore prose around the commits the user names and never resolve a
+range from prose alone. When the invocation names no group, ask for one and
 wait.
 
 After the optional prefix, each reference may be a sha, `HEAD` or `HEAD-<n>`.
-`HEAD` names the latest commit in the named repo. `HEAD-<n>` names its nth
+`HEAD` names the latest commit in the group's repo. `HEAD-<n>` names its nth
 first-parent ancestor, with `<n>` a non-negative integer: `HEAD-0` is `HEAD`
 and `HEAD-1` is the commit before it. Translate `HEAD-<n>` to Git's
 `HEAD~<n>` before resolving it. These forms also work in lists and at either
@@ -40,9 +40,10 @@ end of a range, including alongside shas. For example, prefixing
 `HEAD-2..HEAD` with `plan@` includes the latest three commits along the plan
 repo's first-parent history.
 
-Resolve all references against the named repo's same HEAD at the start of the
-round and keep the resulting shas as its scope. If a reference is invalid or
-its ancestor does not exist, name it and stop for corrected input.
+Resolve a group's references against that repo's same HEAD at the start of the
+round and keep the resulting shas as that group's scope. Resolve every group's
+HEAD before reading its files. If a reference is invalid or its ancestor does
+not exist, name its repo and reference and stop for corrected input.
 
 Every form names an inclusive set of commits. Resolve each named commit on its
 own and take the span between the oldest and the newest, which are the round's
@@ -51,24 +52,24 @@ pass the user's text to Git as a range expression: `<from>..<to>` read
 literally drops `<from>`, and `<to>..<from>` read literally resolves to no
 commits at all.
 
-A named set must be contiguous in the first-parent history. When it is not,
-name the commits lying between the named ones, say the range has a gap and
-stop. Continue only when the user explicitly says to.
+A named set must be contiguous in its repo's first-parent history. When it is
+not, name the repo and commits lying between the named ones, say the range has
+a gap and stop. Continue only when the user explicitly says to.
 
-The scope is the commits in the range and the state of the files they touched,
-read at the named repo's HEAD.
+The scope is every group's commits and the state of the files they touched,
+read at that group's repo HEAD.
 
 ## Gate
 
 Before any audit work, check three things.
 
-- No file the range touched has uncommitted changes in the named repo's
-  working tree. The round reads touched files from the tree, so an
+- No file a group touched has uncommitted changes in that repo's working tree.
+  The round reads touched files from the tree, so an
   uncommitted edit there would be judged as the range's work. A dirty file
   outside the touched set is never read and does not block the round. When
-  the check fails, name every dirty touched path and stop.
-- Every commit in the range is reachable from the named repo's HEAD.
-- No commit in the range carries a plan stem.
+  the check fails, name the repo and every dirty touched path and stop.
+- Every commit in each group is reachable from that repo's HEAD.
+- No commit in any group carries a plan stem.
 
 A commit carrying a plan stem belongs to a plan-scoped round, which judges it
 against a plan this round cannot read. Name every such commit, say those
@@ -78,17 +79,17 @@ and the files they touched are judged like any other code the round reads.
 
 ## Baseline
 
-Inspect each commit's complete change against the repo requirements and the
-substantive intent in its subject and body. Judge the resulting work at the
-named repo's HEAD. Follow the shared
+Inspect each commit's complete change against its repo requirements and the
+substantive intent in its subject and body. Judge the resulting work at that
+repo's HEAD. Follow the shared
 [completed-commit metadata exclusion](../../../references/round-protocol.md#completed-commit-metadata).
 
-The standing sources replace the plan. For a Repo Edu target, read the
+The standing sources replace the plan. When Repo Edu is judged, read the
 `CLAUDE.md` of every package the range touched, `../plan/BOUNDARIES.md`,
 `../plan/GROWTH-PATTERNS.md` and
 `tools/architecture-check/src/area-model.json`.
 
-For a plan-repo target, read `../plan/CLAUDE.md`,
+When the plan repo is judged, read `../plan/CLAUDE.md`,
 `../plan/.agents/references/planning-rules.md`,
 `.agents/references/round-protocol.md`,
 `.agents/references/subject-grammar.md`, `../plan/BOUNDARIES.md` and
@@ -102,10 +103,11 @@ ordinary round.
 
 ## Coverage
 
-Before drafting findings, build a coverage table with one row per named commit,
-with columns for the commit, its changed code and one disposition for the
-commit as a whole. Inspect every touched file whether or not the message names
-it.
+Before drafting findings, build one coverage table with one row per commit
+across all groups, with columns for the commit, its changed code and one
+disposition for the commit as a whole. Prefix the short SHA in the commit cell
+with its repo, as `repo-edu@c5c651d` or `plan@e8128bd`. Inspect every touched
+file whether or not the message names it.
 
 - `holds`: the code at HEAD delivers the commit's substantive intent.
 - `overreached`: the change materially exceeds that intent's scope.
@@ -139,20 +141,24 @@ it apart from the range's own work.
 Follow the [audit report grammar](../../../references/round-grammar.md#audit-report)
 and the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports).
-In place of plan and step evidence, supply the commit references as typed, the
-resolved range with its short shas and the statement that no plan covers the
-work. Use the commit coverage table above. Naming and allocation follow the
+In place of plan and step evidence, supply every group's commit references as
+typed, each resolved range with its prefixed short SHAs and the statement that
+no plan covers the work. Open `Judged repos:` with every judged head in the
+grammar's order, `plan@<sha>, repo-edu@<sha>` when both are present. Use the
+commit coverage table above. Naming and allocation follow the
 runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) and
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 
 ## Record
 
-A commit-scoped round has no plan stem, so its fix commit carries no
-`impl-audit-` role token. A Repo Edu record takes Repo Edu's ordinary
-severity-prefixed conventional form. A plan-repo record takes the subject
-grammar's O2 off-plan form, `<tag> <growth> <sequence> <kind>: <sentence>`.
-Its body uses unbracketed tiers with `[section:]` locations. Every record follows
-the shared protocol's **Finding metadata** and the
+A commit-scoped round has no plan stem, so its fix commits carry no
+`impl-audit-` role token. It lands one record in each judged repo whose files
+took accepted findings and none in a judged repo without findings. A Repo Edu
+record takes Repo Edu's ordinary severity-prefixed conventional form. A
+plan-repo record takes the subject grammar's O2 off-plan form, `<tag> <growth>
+<sequence> <kind>: <sentence>`. Its body uses unbracketed tiers with
+`[section:]` locations. A round that judges both repos defers nothing between
+them. Every record follows the shared protocol's **Finding metadata** and the
 [record bullet grammar](../../../references/round-grammar.md#commit-record-bullet).
 
 Direct clean completion follows the shared protocol. It creates no record

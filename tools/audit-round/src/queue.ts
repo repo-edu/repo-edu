@@ -18,6 +18,14 @@ export type AuditorEntry = AuditorSeat & { readonly text: string }
 
 export type AuditorSetting = ModelSelection & { readonly assistant: Assistant }
 
+/**
+ * One entry grammar for positional lists, command options and queue files.
+ * Entries may be separated by commas or whitespace.
+ */
+export function splitEntries(text: string): string[] {
+  return text.split(/[\s,]+/).filter((entry) => entry.length > 0)
+}
+
 /** The pair's members as they resolve, so a refusal names what the user can pick. */
 function pairText(assistant: Assistant, settings: RoundSettings): string {
   return ([0, 1] as const)
@@ -77,17 +85,14 @@ export function parseAuditors(
   option: AuditorOption,
   settings?: RoundSettings,
 ): AuditorEntry[] {
-  const entries = text
-    .split(/[\s,]+/)
-    .filter((entry) => entry.length > 0)
-    .map((entry, index) => {
-      const seat = parseAuditor(entry, option)
-      if (seat === null)
-        throw new Error(
-          `Auditor entry ${index + 1} (${entry}): expected claude, codex or a capability tag, such as o, at or otx.`,
-        )
-      return { ...seat, text: entry }
-    })
+  const entries = splitEntries(text).map((entry, index) => {
+    const seat = parseAuditor(entry, option)
+    if (seat === null)
+      throw new Error(
+        `Auditor entry ${index + 1} (${entry}): expected claude, codex or a capability tag, such as o, at or otx.`,
+      )
+    return { ...seat, text: entry }
+  })
   if (settings !== undefined) validateAuditorEntries(entries, settings)
   return entries
 }

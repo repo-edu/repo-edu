@@ -368,6 +368,9 @@ test("name shares commit range and list targets with the runner", async (t) => {
       JSON.parse(f.visible[0]).arguments[0],
       join(f.planRoot, `${target}-01-2-audit.oux.md`),
     )
+    assert.deepEqual(JSON.parse(f.visible[0]).arguments.slice(1), [
+      { references, repository: "repo-edu" },
+    ])
   }
 })
 
@@ -393,13 +396,75 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const { log, markdown, transcript } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, reference])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference] }])}`,
     ),
   )
   assert.ok(markdown.startsWith(`# Commit audit of ${reference}\n`))
   assert.ok(
     basename(transcript).startsWith(
       `${f.heads.plan}-2..${f.heads.plan}-01-1-round.`,
+    ),
+  )
+})
+
+test("name passes two parsed commit groups to a hand-run audit", async (t) => {
+  const f = await roundFixture(t)
+  const references = ["HEAD", `${planRepositoryPrefix}HEAD`] as const
+
+  assert.equal(
+    await runCommand(
+      ["name", ...references, "--auditor", "oux"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const named = JSON.parse(f.visible[0])
+  assert.deepEqual(named.arguments.slice(1), [
+    { repository: "repo-edu", references: ["HEAD"] },
+    { repository: "plan", references: [`${planRepositoryPrefix}HEAD`] },
+  ])
+  assert.equal(
+    named.claim,
+    join(f.planRoot, `${f.heads["repo-edu"]}+${f.heads.plan}-01-0-claim.md`),
+  )
+})
+
+test("a two-repo commit round passes parsed groups and joins their labels", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  const references = ["HEAD", `${planRepositoryPrefix}HEAD`] as const
+
+  assert.equal(
+    await runCommand([...references], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const { log, markdown, transcript } = await f.records()
+  const groups = [
+    { repository: "repo-edu", references: ["HEAD"] },
+    { repository: "plan", references: [`${planRepositoryPrefix}HEAD`] },
+  ]
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, ...groups])}`,
+    ),
+  )
+  assert.ok(markdown.startsWith(`# Commit audit of ${references.join(" ")}\n`))
+  assert.ok(
+    basename(transcript).startsWith(
+      `${f.heads["repo-edu"]}+${f.heads.plan}-01-1-round.`,
     ),
   )
 })

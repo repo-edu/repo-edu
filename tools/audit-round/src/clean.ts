@@ -24,7 +24,7 @@ export async function completeClean(
   input: CleanInput,
   stamps: CommitStamps,
 ): Promise<CleanCompletion> {
-  if ("commits" in input)
+  if ("groups" in input)
     return {
       message: `Clean audit. Report retained: ${input.report}`,
       commits: [],
