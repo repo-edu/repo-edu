@@ -112,8 +112,9 @@ for their contents, including a clean record reached through reconciliation. A
 plan-repo commit round's record takes the plan repo's off-plan form rather than
 an implementation-audit form.
 
-The invocation grants the round's record commits and any directed plan-repo
-correction commit once the checks above pass. Anything outside the landed
+The invocation grants the round's record commits, any directed plan-repo
+correction commit and any stale-text plan-repo correction admitted by the
+implementation audit once the checks above pass. Anything outside the landed
 round's file set still asks.
 
 ## Completion

@@ -109,6 +109,18 @@ judged set into an outside destination. The plan doctrine's
 [Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms)
 owns record placement, directed cross-repo fixes and who follows up.
 
+An implementation audit lands a plan correction without user direction when
+implementation history has made text in any section false, one correction is
+plainly right and the correction changes no decision's meaning or reason. Stale
+text includes a name, path, count, cross-reference or sentence saying which
+steps have landed. The fix writes that correction as its own plan-repo commit
+under the plan doctrine. It is not a deferral. A substantive correction still
+defers when the plan repo is outside the judged set: changing a decision,
+adding a missing rule or row or choosing among sensible corrections needs a
+judgement. The plan is the reference the audit judges the implementation
+against, so letting the audit rewrite disputed content could make the
+implementation pass by moving that reference.
+
 The search-direction value is `excess` for functionality the artifact can shed
 or simplify and `missing` for functionality it lacks. Across rounds their
 balance shows whether an artifact is still growing or has started to shed.

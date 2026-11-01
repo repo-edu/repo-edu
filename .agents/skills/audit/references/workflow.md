@@ -145,17 +145,29 @@ for directed fixes and deferrals, and the shared protocol's **Finding metadata**
 for their location tokens. State the required correction, the inspected-code
 evidence and any user ruling with its reason.
 
-Split each deferral by whether the correction needs a choice.
+Split each plan-bound cross-repo finding into these cases before deciding
+whether it is a deferral.
 
-- No choice needed. The plan states something the shipped code shows is false,
-  and one correction is plainly right: a broken cross-reference, a step naming
-  a function that cannot exist or a decision the correct shipped code
-  contradicts. Show the correction in the report for the user to accept or
-  revise.
+- Stale text. Implementation history has made text in any section false, one
+  correction is plainly right and the correction changes no decision's meaning
+  or reason. A name, path, count, cross-reference or sentence saying which
+  steps have landed belongs to this case. The fix phase lands the correction as
+  its own plan-repo commit in the implementation-audit round form without user
+  direction. It is not a deferral.
+- No choice needed. The correction changes the plan's substantive reference,
+  such as a decision's meaning or reason or a missing rule or row, but one
+  correction stands. Show the correction in the report for the user to accept
+  or revise.
 - A choice is needed. More than one sensible correction exists. Put the options
-  in the report. The fix phase puts them to the user and carries the answer
-  and its reason in the deferral, or keeps the choice open when the user does
-  not rule, instead of choosing for them.
+  in the report. The fix phase puts them to the user and carries the answer and
+  its reason in the deferral, or keeps the choice open when the user does not
+  rule, instead of choosing for them.
+
+The plan is the reference the audit judges the implementation against. A
+substantive rewrite inside the audit could make the implementation pass by
+changing that reference, so the no-choice and choice cases remain deferrals
+when the plan repo is outside the judged set. A stale-text correction is forced
+and leaves the reference's meaning unchanged.
 
 Before proposing a change to a **Decisions** entry, read the archived source the
 plan came from when one exists. The user should not choose against a reason the
