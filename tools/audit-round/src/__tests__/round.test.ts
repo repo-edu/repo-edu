@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { test } from "node:test"
 import type { CleanInput } from "../clean.js"
+import { resolveTargets } from "../default-target.js"
 import {
   formatWatchEvidence,
   joinedEpisode,
@@ -20,14 +21,17 @@ import type {
   ReportFinding,
   RoundAccount,
 } from "../round-data.js"
+import { targetRequest } from "../target.js"
 import {
   type Assistant,
+  roundRun as allocateRound,
   type Phase,
   type PhaseInput,
   type PhaseResult,
   type PinnedModel,
   pinned,
   type RoundDependencies,
+  RoundOutput,
   runBrief,
   runClose,
   runRound as runRoundWithAccount,
@@ -40,7 +44,8 @@ import {
   episode,
   history,
 } from "./episode-fixture.js"
-import { testContext, testSetup } from "./helpers.js"
+import { releases, testContext, testSetup } from "./helpers.js"
+import { commitFixture, roundFixture } from "./round-fixture.js"
 
 /** The brief names its own model, so its seat is the one a round never overrides. */
 const briefPin: PinnedModel = {
@@ -609,7 +614,11 @@ for (const accepted of [false, true]) {
     { plan: "example.md", scope: "1" },
     {
       groups: [
-        { references: ["HEAD"] as const, repository: "repo-edu" as const },
+        {
+          references: ["HEAD"] as const,
+          repository: "repo-edu" as const,
+          startingHead: "abc1234",
+        },
       ] as const,
     },
   ]) {
@@ -1221,7 +1230,11 @@ for (const ruling of [false, true]) {
     if (ruling) arrange(round, "ruling")
     round.decide(dueDecision)
     const commits = ["HEAD-2", "HEAD-1", "HEAD"] as const
-    const group = { references: commits, repository: "repo-edu" as const }
+    const group = {
+      references: commits,
+      repository: "repo-edu" as const,
+      startingHead: "abc1234",
+    }
     const result = await runRound(
       { ...files, groups: [group] },
       round.dependencies,
@@ -1235,6 +1248,44 @@ for (const ruling of [false, true]) {
     )
   })
 }
+
+test("commit groups keep their starting head after document allocation", async (t) => {
+  const fixture = await roundFixture(t)
+  const context = testContext(fixture.repoRoot)
+  const [target] = await resolveTargets(context, targetRequest("HEAD", []))
+  assert.ok("groups" in target)
+  const setup = { ...testSetup(fixture.repoRoot), ...target }
+  const allocated = await allocateRound(setup, 0, releases)
+  const output = new RoundOutput(allocated, {
+    terminal: { write() {}, status() {}, clear() {} },
+  })
+  t.after(() => output.close())
+
+  const startingHead = target.groups[0].startingHead
+  const currentHead = await commitFixture(
+    fixture.repoRoot,
+    "obx test(audit-round): advance after allocation",
+  )
+  assert.notEqual(currentHead, startingHead)
+
+  const round = controlledRound()
+  const result = await runRound(
+    {
+      ...setup,
+      documents: allocated.documents,
+      transcript: allocated.paths.markdown,
+      watch: null,
+    },
+    round.dependencies,
+  )
+
+  assert.equal(result.status, "finished")
+  assert.ok(basename(allocated.paths.markdown).startsWith(`${startingHead}-`))
+  assert.deepEqual(round.calls[0].arguments, [
+    allocated.documents.report,
+    ...target.groups,
+  ])
+})
 
 test("retains a failure before the assistant establishes a session", async () => {
   const round = controlledRound()
@@ -1938,7 +1989,11 @@ test("a finished fix on a plan target requires a landed commit; clean audits use
     { plan: "example.md", scope: "1" },
     {
       groups: [
-        { references: ["HEAD"] as const, repository: "repo-edu" as const },
+        {
+          references: ["HEAD"] as const,
+          repository: "repo-edu" as const,
+          startingHead: "abc1234",
+        },
       ] as const,
     },
   ]) {

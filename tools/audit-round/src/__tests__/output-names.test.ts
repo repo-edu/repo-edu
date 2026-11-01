@@ -21,7 +21,13 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   const run = await roundRun(
     {
       ...testSetup(f.root),
-      groups: [{ references: ["abcdef..123abc"], repository: "repo-edu" }],
+      groups: [
+        {
+          references: ["abcdef..123abc"],
+          repository: "repo-edu",
+          startingHead: "unused",
+        },
+      ],
       brief: true,
     },
     0,
@@ -61,7 +67,13 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
       await roundRun(
         {
           ...testSetup(f.root),
-          groups: [{ references: ["abcdef..123abc"], repository: "repo-edu" }],
+          groups: [
+            {
+              references: ["abcdef..123abc"],
+              repository: "repo-edu",
+              startingHead: "unused",
+            },
+          ],
         },
         0,
         releases,
@@ -195,7 +207,13 @@ test("commit filenames resolve each group HEAD and join group labels", async (t)
     const run = await roundRun(
       {
         ...testSetup(f.root),
-        groups: [{ references: commits, repository }],
+        groups: [
+          {
+            references: commits,
+            repository,
+            startingHead: repository === "plan" ? planHead : head,
+          },
+        ],
       },
       0,
       releases,
@@ -209,8 +227,16 @@ test("commit filenames resolve each group HEAD and join group labels", async (t)
     {
       ...testSetup(f.root),
       groups: [
-        { references: ["HEAD-1", "HEAD"], repository: "repo-edu" },
-        { references: [`${planRepositoryPrefix}HEAD`], repository: "plan" },
+        {
+          references: ["HEAD-1", "HEAD"],
+          repository: "repo-edu",
+          startingHead: head,
+        },
+        {
+          references: [`${planRepositoryPrefix}HEAD`],
+          repository: "plan",
+          startingHead: planHead,
+        },
       ],
     },
     0,

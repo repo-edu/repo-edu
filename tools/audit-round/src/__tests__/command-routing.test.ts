@@ -369,7 +369,11 @@ test("name shares commit range and list targets with the runner", async (t) => {
       join(f.planRoot, `${target}-01-2-audit.oux.md`),
     )
     assert.deepEqual(JSON.parse(f.visible[0]).arguments.slice(1), [
-      { references, repository: "repo-edu" },
+      {
+        references,
+        repository: "repo-edu",
+        startingHead: f.heads["repo-edu"],
+      },
     ])
   }
 })
@@ -396,7 +400,7 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const { log, markdown, transcript } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference] }])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead: f.heads.plan }])}`,
     ),
   )
   assert.ok(markdown.startsWith(`# Commit audit of ${reference}\n`))
@@ -423,8 +427,16 @@ test("name passes two parsed commit groups to a hand-run audit", async (t) => {
 
   const named = JSON.parse(f.visible[0])
   assert.deepEqual(named.arguments.slice(1), [
-    { repository: "repo-edu", references: ["HEAD"] },
-    { repository: "plan", references: [`${planRepositoryPrefix}HEAD`] },
+    {
+      repository: "repo-edu",
+      references: ["HEAD"],
+      startingHead: f.heads["repo-edu"],
+    },
+    {
+      repository: "plan",
+      references: [`${planRepositoryPrefix}HEAD`],
+      startingHead: f.heads.plan,
+    },
   ])
   assert.equal(
     named.claim,
@@ -453,8 +465,16 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
 
   const { log, markdown, transcript } = await f.records()
   const groups = [
-    { repository: "repo-edu", references: ["HEAD"] },
-    { repository: "plan", references: [`${planRepositoryPrefix}HEAD`] },
+    {
+      repository: "repo-edu",
+      references: ["HEAD"],
+      startingHead: f.heads["repo-edu"],
+    },
+    {
+      repository: "plan",
+      references: [`${planRepositoryPrefix}HEAD`],
+      startingHead: f.heads.plan,
+    },
   ]
   assert.ok(
     log.includes(

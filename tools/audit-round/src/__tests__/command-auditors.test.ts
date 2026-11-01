@@ -432,7 +432,11 @@ for (const auditor of ["codex", "claude"] as const) {
       { cwd: f.repoRoot },
     )
     const commits = auditor === "codex" ? ["HEAD-2..HEAD"] : ["HEAD-1", "HEAD"]
-    const group = { repository: "repo-edu", references: commits }
+    const group = {
+      repository: "repo-edu",
+      references: commits,
+      startingHead: head,
+    }
     assert.equal(
       await runCommand(
         [...commits, "--brief", "--auditor", auditor === "codex" ? "o" : "a"],

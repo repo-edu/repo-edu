@@ -26,7 +26,13 @@ test("long commit lists record every reference without exceeding filename limits
   const run = await roundRun(
     {
       ...testSetup(f.root),
-      groups: [{ references: commits, repository: "repo-edu" }],
+      groups: [
+        {
+          references: commits,
+          repository: "repo-edu",
+          startingHead: "unused",
+        },
+      ],
     },
     Date.now(),
     releases,

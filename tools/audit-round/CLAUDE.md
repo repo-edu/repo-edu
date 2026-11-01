@@ -364,8 +364,8 @@ consumers.
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
   commit roles. A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
   `Implementation audit of <plan>, steps 1-6`, and `transcriptKind` reads the kind back from it. It
-  resolves each commit group's `HEAD` in that group's repository, drops the first plan reference's
-  `plan@` prefix, shortens each group after its first reference, joins group labels with `+` and
+  uses each commit group's captured starting HEAD, drops the first plan reference's `plan@` prefix,
+  shortens each group after its first reference, joins group labels with `+` and
   scans the plan root for the next target-wide number.
   Automated rounds supply every phase path. A manual audit names only its claim and report; later
   manual phases retain that report's round and name their output with the current session's writer
@@ -385,18 +385,20 @@ consumers.
 - `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
   plan stem with an optional scope, or commit references, which are a complete target. A plan's
   scope is the word `plan` for its planning round, or step scopes in audit order, each a step or an
-  increasing range, separated by commas or spaces as auditor entries are; `planningScope` is the
-  one spelling of that word, and it stands alone because a planning round and a step series share
+  increasing range, separated by commas or spaces as auditor entries are; `planningScope` is the one
+  spelling of that word, and it stands alone because a planning round and a step series share
   nothing a list could sequence. A commit target carries parsed groups across the phase boundary:
-  bare references before the first `plan@` reference form the Repo Edu group, and that reference
-  and every reference after it form the plan group. Each group keeps its repository and references
-  as typed. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan arguments drop
-  `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` accepts the active artifact
-  at the plan root and reports an archived plan as unavailable for audit. `requiredActivePlan`
-  accepts only the active artifact. It keeps path validation common while `close`, `settle` and
-  `ready` supply their own reason when no active plan exists. The audit workflow owns Git resolution
-  and inclusive-range admission. The runner passes the parsed groups unchanged and rejects multiple
-  auditor entries for commit targets, which run once without a trajectory glance or watch.
+  bare references before the first `plan@` reference form the Repo Edu group, and that reference and
+  every reference after it form the plan group. Each request group keeps its repository and
+  references as typed. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
+  arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` accepts the
+  active artifact at the plan root and reports an archived plan as unavailable for audit.
+  `requiredActivePlan` accepts only the active artifact. It keeps path validation common while
+  `close`, `settle` and `ready` supply their own reason when no active plan exists. The audit
+  workflow owns Git resolution and inclusive-range admission. `default-target.ts` captures each
+  request group's starting HEAD once before round files are allocated. The runner passes those
+  resolved groups unchanged and rejects multiple auditor entries for commit targets, which run once
+  without a trajectory glance or watch.
 - `default-target.ts` owns the round a plan argument or no target selects, under
   [Plan targets](#plan-targets), so the plan's history rather than a typed word decides between
   planning and implementation. It reads both histories. Each repository's own Git order decides
@@ -408,7 +410,8 @@ consumers.
   the bare plan selects a planning audit without reading that list. Concrete step scopes return
   after the landed-step check without reading the list, one target per scope in the order given,
   so every round still runs on one scope and keeps that scope's files, records and round data.
-  `resolveTargets` returns that ordered list; a commit target or a bare plan is a list of one. For
+  `resolveTargets` returns that ordered list. For a commit target it also captures each repository's
+  starting HEAD once. A commit target or a bare plan is a list of one. For
   a bare plan once a step has landed,
   `plan-steps.ts` supplies every listed step and hosting repo. Loose forms find each hosted step,
   its repo's newest step and its newest `implemented` marker. The bare plan resolves to the full
@@ -525,9 +528,9 @@ Runner result rule in
 `../../.agents/references/round-protocol.md#runner-result` defines their
 meaning. Phase results carry only status and reason. The runner reads reports,
 vet twins and the fix's landed subjects for routing and completion checks. It also reads
-`HEAD` for naming and the log the glance counts; the audit workflow still
-resolves the audited scope. Keep assistant adapters independent of the product
-LLM adapters.
+each commit group's starting HEAD before naming and the log the glance counts;
+the audit workflow resolves the audited scope against that carried value. Keep
+assistant adapters independent of the product LLM adapters.
 
 ## Round files
 
@@ -556,7 +559,7 @@ name.
 Skipped phases leave gaps. A plan audit target ends in `-plan`; an
 implementation target ends in `-impl-<a>..<b>`, with step and round numbers
 padded to at least two digits. A single step repeats its endpoint. Commit
-targets preserve typed references. Each group replaces `HEAD` with that repo's
+targets preserve typed references. Each group replaces `HEAD` with its captured
 short starting commit and uses `-plus-<n>` for a list after its first reference.
 The first plan reference's `plan@` prefix stays out of its label. Group labels
 join with `+` in command-line order.
@@ -582,7 +585,7 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 
 - audit: report output, then either a plan with an optional implementation
   scope or open-deferral object, or one structured object per commit group
-  carrying its repository and typed references
+  carrying its repository, typed references and starting HEAD
 - vet: report input, vet output
 - rebuttal: report input, vet input, rebuttal output
 - fix: report input, then existing vet and rebuttal inputs, followed by the
@@ -793,7 +796,7 @@ writes nothing.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved plan and scope, or
-the parsed commit groups.
+the commit groups with their captured starting heads.
 It creates only the claim. It does not load settings or start an assistant. Its argument grammar
 is the same as the automated round, from either checkout. A plan argument or no target resolves
 under [Plan targets](#plan-targets).

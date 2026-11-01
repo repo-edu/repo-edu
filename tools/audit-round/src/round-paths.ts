@@ -1,6 +1,5 @@
 import { readdir, readFile, realpath, stat, unlink } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
-import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
 import {
   type AuditTarget,
@@ -99,21 +98,12 @@ async function targetDescription(target: NamingTarget): Promise<{
   title: string
 }> {
   if ("groups" in target) {
-    const groupLabel = async (group: CommitGroup): Promise<string> => {
+    const groupLabel = (group: CommitGroup): string => {
       const first = unprefixedCommitReference(group.references[0])
-      const head = first.includes("HEAD")
-        ? (
-            await execa("git", ["rev-parse", "--short", "HEAD"], {
-              cwd:
-                group.repository === "plan"
-                  ? target.planRoot
-                  : target.repoEduRoot,
-            })
-          ).stdout
-        : ""
+      const head = first.includes("HEAD") ? group.startingHead : ""
       return `${first.replaceAll("HEAD", head)}${group.references.length === 1 ? "" : `-plus-${group.references.length - 1}`}`
     }
-    const labels = await Promise.all(target.groups.map(groupLabel))
+    const labels = target.groups.map(groupLabel)
     const references = target.groups.flatMap((group) => group.references)
     // Keep list filenames bounded; the title and phase arguments carry every reference.
     return {

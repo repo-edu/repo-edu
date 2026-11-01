@@ -23,15 +23,22 @@ export function roundContext(
   }
 }
 
-export type CommitGroup = {
+export type CommitGroupRequest = {
   readonly repository: Repository
   readonly references: readonly [string, ...string[]]
 }
 
-export type CommitTarget = {
-  readonly roundKind: "implementation"
-  readonly groups: readonly [CommitGroup, ...CommitGroup[]]
+export type CommitGroup = CommitGroupRequest & {
+  readonly startingHead: string
 }
+
+type CommitTargetWith<Group> = {
+  readonly roundKind: "implementation"
+  readonly groups: readonly [Group, ...Group[]]
+}
+
+export type CommitTarget = CommitTargetWith<CommitGroup>
+export type CommitTargetRequest = CommitTargetWith<CommitGroupRequest>
 
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =
@@ -61,7 +68,7 @@ export type ScopeRequest = typeof planningScope | readonly [string, ...string[]]
  * history, which `default-target.ts` reads.
  */
 export type TargetRequest =
-  | CommitTarget
+  | CommitTargetRequest
   | { readonly plan: string; readonly scope: ScopeRequest | null }
 
 /** Active and archived plan paths share one identity for files and records. */
@@ -159,7 +166,7 @@ export function commitShaped(value: string): boolean {
 function commitGroup(
   repository: Repository,
   references: readonly [string, ...string[]],
-): CommitGroup {
+): CommitGroupRequest {
   const values = references.map((reference, index) =>
     repository === "plan" && index === 0
       ? unprefixedCommitReference(reference)
@@ -210,7 +217,7 @@ export function targetRequest(
   const planIndex = references.findIndex((reference) =>
     reference.startsWith(planRepositoryPrefix),
   )
-  const groups: CommitGroup[] = []
+  const groups: CommitGroupRequest[] = []
   if (planIndex !== 0) {
     const repoEduReferences = references.slice(
       0,
@@ -223,7 +230,7 @@ export function targetRequest(
     groups.push(commitGroup("plan", planReferences))
   }
   return {
-    groups: groups as [CommitGroup, ...CommitGroup[]],
+    groups: groups as [CommitGroupRequest, ...CommitGroupRequest[]],
     roundKind: "implementation",
   }
 }

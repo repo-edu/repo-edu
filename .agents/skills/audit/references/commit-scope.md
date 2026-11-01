@@ -16,9 +16,10 @@ finding metadata meanings, growth-pattern tags and trade pricing. The
 record-bullet shapes.
 
 The round's repo set is the repositories carried by the parsed commit groups.
-The phase arguments keep the group boundary, repository and typed references,
-so this workflow does not derive that boundary again. A repo outside that set
-may be read as evidence, never as a source of intent.
+The phase arguments keep the group boundary, repository, typed references and
+starting HEAD, so this workflow does not derive that boundary or read HEAD
+again. A repo outside that set may be read as evidence, never as a source of
+intent.
 
 ## Range
 
@@ -32,18 +33,17 @@ range from prose alone. When the invocation names no group, ask for one and
 wait.
 
 After the optional prefix, each reference may be a sha, `HEAD` or `HEAD-<n>`.
-`HEAD` names the latest commit in the group's repo. `HEAD-<n>` names its nth
-first-parent ancestor, with `<n>` a non-negative integer: `HEAD-0` is `HEAD`
-and `HEAD-1` is the commit before it. Translate `HEAD-<n>` to Git's
-`HEAD~<n>` before resolving it. These forms also work in lists and at either
-end of a range, including alongside shas. For example, prefixing
-`HEAD-2..HEAD` with `plan@` includes the latest three commits along the plan
-repo's first-parent history.
+`HEAD` names the group's `startingHead`, the short commit captured before the
+round files were named. `HEAD-<n>` names its nth first-parent ancestor, with
+`<n>` a non-negative integer: `HEAD-0` is `HEAD` and `HEAD-1` is the commit
+before it. Translate `HEAD-<n>` to `<startingHead>~<n>` before resolving it.
+These forms also work in lists and at either end of a range, including
+alongside shas. For example, prefixing `HEAD-2..HEAD` with `plan@` includes the
+three commits ending at the plan group's starting HEAD.
 
-Resolve a group's references against that repo's same HEAD at the start of the
-round and keep the resulting shas as that group's scope. Resolve every group's
-HEAD before reading its files. If a reference is invalid or its ancestor does
-not exist, name its repo and reference and stop for corrected input.
+Resolve a group's references against its `startingHead` and keep the resulting
+shas as that group's scope. If a reference is invalid or its ancestor does not
+exist, name its repo and reference and stop for corrected input.
 
 Every form names an inclusive set of commits. Resolve each named commit on its
 own and take the span between the oldest and the newest, which are the round's
@@ -57,7 +57,7 @@ not, name the repo and commits lying between the named ones, say the range has
 a gap and stop. Continue only when the user explicitly says to.
 
 The scope is every group's commits and the state of the files they touched,
-read at that group's repo HEAD.
+read at that group's `startingHead`.
 
 ## Gate
 
@@ -81,7 +81,7 @@ and the files they touched are judged like any other code the round reads.
 
 Inspect each commit's complete change against its repo requirements and the
 substantive intent in its subject and body. Judge the resulting work at that
-repo's HEAD. Follow the shared
+group's `startingHead`. Follow the shared
 [completed-commit metadata exclusion](../../../references/round-protocol.md#completed-commit-metadata).
 
 The standing sources replace the plan. When Repo Edu is judged, read the
@@ -143,9 +143,9 @@ and the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports).
 In place of plan and step evidence, supply every group's commit references as
 typed, each resolved range with its prefixed short SHAs and the statement that
-no plan covers the work. Open `Judged repos:` with every judged head in the
-grammar's order, `plan@<sha>, repo-edu@<sha>` when both are present. Use the
-commit coverage table above. Naming and allocation follow the
+no plan covers the work. Open `Judged repos:` with every group's
+`startingHead` in the grammar's order, `plan@<sha>, repo-edu@<sha>` when both
+are present. Use the commit coverage table above. Naming and allocation follow the
 runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) and
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 

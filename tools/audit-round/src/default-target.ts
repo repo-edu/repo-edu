@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { InvalidArgumentError } from "commander"
+import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog } from "./episode-log.js"
@@ -8,6 +9,7 @@ import { looseForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
+  type CommitGroup,
   planningScope,
   planStem,
   resolvePlan,
@@ -39,7 +41,29 @@ export async function resolveTargets(
   context: ExecutionContext,
   request: TargetRequest | null,
 ): Promise<AuditTargets> {
-  if (request !== null && "groups" in request) return [request]
+  if (request !== null && "groups" in request) {
+    const groups = await Promise.all(
+      request.groups.map(
+        async (group): Promise<CommitGroup> => ({
+          ...group,
+          startingHead: (
+            await execa("git", ["rev-parse", "--short", "HEAD"], {
+              cwd:
+                group.repository === "plan"
+                  ? context.planRoot
+                  : context.repoEduRoot,
+            })
+          ).stdout,
+        }),
+      ),
+    )
+    return [
+      {
+        ...request,
+        groups: groups as [CommitGroup, ...CommitGroup[]],
+      },
+    ]
+  }
   return selectTargets(await readLogs(context), context.planRoot, request)
 }
 
