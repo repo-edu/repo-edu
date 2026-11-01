@@ -1,6 +1,7 @@
 import { errorMessage } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
 import { judgeOptions } from "./judge.js"
+import type { OpenDeferral } from "./open-deferrals.js"
 import type { RoundDocuments } from "./output.js"
 import {
   type Assistant,
@@ -8,6 +9,8 @@ import {
   type AuditorSelectionSource,
   type AuditSlot,
   closePhase,
+  type DeferralChainOutcome,
+  type DeferralScope,
   type InteractiveSession,
   noOverride,
   type Phase,
@@ -53,6 +56,8 @@ export type RoundSetup = RoundContext & {
   readonly brief?: boolean
   /** True only when this round belongs to the judge-led series. */
   readonly automatic?: boolean
+  /** Present only on the planning round chained to apply these deferrals. */
+  readonly deferrals?: readonly OpenDeferral[]
 } & AuditTarget
 
 /** Where a watch that follows the round writes, and where it keeps its history. */
@@ -101,6 +106,8 @@ export type RoundResult = (
       readonly judge: JudgeAnswer | null
       /** The grade the watch that followed the round recorded; null when none ran. */
       readonly watch: WatchGrade | null
+      /** The chained planning round's outcome before this round's judge. */
+      readonly deferralChain: DeferralChainOutcome
     }
   | {
       readonly status: "awaiting-ruling"
@@ -384,6 +391,22 @@ async function runSeriesJudge(
   }
 }
 
+async function runDeferralChain(
+  input: RoundInput,
+  dependencies: Pick<RoundDependencies, "chainDeferrals">,
+): Promise<DeferralChainOutcome> {
+  if (
+    input.automatic !== true ||
+    input.roundKind !== "implementation" ||
+    !("plan" in input)
+  )
+    return "none"
+  return dependencies.chainDeferrals({
+    plan: input.plan,
+    auditor: input.auditor,
+  })
+}
+
 export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
@@ -398,6 +421,8 @@ export async function runRound(
   )
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const deferralScope: DeferralScope | null =
+    input.deferrals === undefined ? null : { deferrals: input.deferrals }
   const auditInput: PhaseInput<"audit"> = {
     phase: "audit",
     ...phases.audit,
@@ -406,7 +431,11 @@ export async function runRound(
       "groups" in input
         ? [input.documents.report, ...input.groups]
         : input.roundKind === "planning"
-          ? [input.documents.report, input.plan]
+          ? [
+              input.documents.report,
+              input.plan,
+              ...(deferralScope === null ? [] : [deferralScope]),
+            ]
           : [input.documents.report, input.plan, input.scope],
     sessionId: null,
   }
@@ -461,8 +490,11 @@ export async function runRound(
         judgedRepos: evidence.judgedRepos,
       })
       dependencies.writeSettledRound(completion.commits, account)
+      const deferralChain = await runDeferralChain(input, dependencies)
       const judged =
-        input.automatic === true && "plan" in input
+        input.automatic === true &&
+        "plan" in input &&
+        (deferralChain === "none" || deferralChain === "finished")
           ? await runSeriesJudge(input, dependencies, settings)
           : { answer: null }
       if ("status" in judged)
@@ -473,6 +505,7 @@ export async function runRound(
         cleanAudit: true,
         judge: judged.answer,
         watch: null,
+        deferralChain,
         commits: completion.commits,
         account,
       }
@@ -618,7 +651,11 @@ export async function runRound(
     phase: "fix",
     ...phases.fix,
     ...context,
-    arguments: [report, ...twins],
+    arguments: [
+      report,
+      ...twins,
+      ...(deferralScope === null ? [] : [deferralScope]),
+    ],
     rulingFile: input.documents.ruling,
     sessionId: null,
   }
@@ -769,12 +806,31 @@ export async function runRound(
           ? await runWatch(input, dependencies, settings)
           : { grade: null }
       if ("status" in watched) return { ...watched, commits, account }
+      let deferralChain: DeferralChainOutcome
+      try {
+        deferralChain = await runDeferralChain(
+          currentPlan === null ? input : { ...input, plan: currentPlan },
+          dependencies,
+        )
+      } catch (error) {
+        return {
+          status: "failed",
+          sessionId: null,
+          phase: "complete",
+          ...phases.fix,
+          ...context,
+          reason: errorMessage(error),
+          commits,
+          account,
+        }
+      }
       const judged =
         input.automatic === true &&
         "plan" in input &&
         currentPlan !== null &&
         planPhase(currentPlan) === planPhase(input.plan) &&
-        watched.grade !== "red"
+        watched.grade !== "red" &&
+        (deferralChain === "none" || deferralChain === "finished")
           ? await runSeriesJudge(input, dependencies, settings)
           : { answer: null }
       if ("status" in judged) return { ...judged, commits, account }
@@ -784,6 +840,7 @@ export async function runRound(
         cleanAudit: false,
         judge: judged.answer,
         watch: watched.grade,
+        deferralChain,
         commits,
         account,
       }

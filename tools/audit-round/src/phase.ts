@@ -3,6 +3,7 @@ import type { CleanCompletion, CleanInput } from "./clean.js"
 import type { WatchEvidence, WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { JudgeEvidence, JudgeEvidenceInput } from "./judge.js"
+import type { OpenDeferral } from "./open-deferrals.js"
 import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
 import type {
   FindingRebuttal,
@@ -368,12 +369,17 @@ export function transcribed(phase: Phase): boolean {
   )
 }
 
+/** The open deferrals one chained planning round must settle. */
+export type DeferralScope = {
+  readonly deferrals: readonly OpenDeferral[]
+}
+
 type PhaseArguments = {
   audit: {
     readonly arguments: readonly [
       report: string,
       target: string | CommitGroup,
-      ...scopeOrGroups: (string | CommitGroup)[],
+      ...scopeGroupsOrDeferrals: (string | CommitGroup | DeferralScope)[],
     ]
     readonly sessionId: null
   }
@@ -386,7 +392,10 @@ type PhaseArguments = {
     readonly sessionId: null
   }
   fix: {
-    readonly arguments: readonly [report: string, ...twins: string[]]
+    readonly arguments: readonly [
+      report: string,
+      ...twinsOrDeferrals: (string | DeferralScope)[],
+    ]
     readonly rulingFile: string
   } & (
     | { readonly sessionId: null; readonly rulingReply?: never }
@@ -572,6 +581,11 @@ export type RoundDependencies = {
   readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
   readonly watchEvidence: (input: WatchEvidenceInput) => Promise<WatchEvidence>
   readonly judgeEvidence: (input: JudgeEvidenceInput) => Promise<JudgeEvidence>
+  /** Apply open plan-bound deferrals before the implementation series judge runs. */
+  readonly chainDeferrals: (input: {
+    readonly plan: string
+    readonly auditor: Assistant
+  }) => Promise<DeferralChainOutcome>
   /** Publish settled findings before the watch and judge read the current entry. */
   readonly writeSettledRound: (
     commits: readonly LandedCommit[],
@@ -589,3 +603,11 @@ export type RoundDependencies = {
   /** Displays the ruling and records a reply; null stops without submitting a draft. */
   readonly requestRuling: (document: string) => Promise<string | null>
 }
+
+export type DeferralChainOutcome =
+  | "none"
+  | "finished"
+  | "failed"
+  | "awaiting-ruling"
+  | "phase-change"
+  | "red-watch"

@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
+import { execa } from "execa"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
@@ -280,6 +281,367 @@ async function configureWideningSeries(
     },
   })
 }
+
+const deferralRatings =
+  "[growth-pattern:none] [reach:developer] [complexity:none]"
+
+function implementationDeferralReport(head: string): string {
+  return `Implementation audit workflow
+Target: example.md 1
+Judged repos: repo-edu@${head}
+
+## Findings
+
+### 1. C: Decide the plan correction
+
+[plan:../plan/example.md#decisions] ${deferralRatings}
+
+The plan needs the deferred decision.
+`
+}
+
+function cleanImplementationReport(head: string): string {
+  return `Implementation audit workflow
+Target: example.md 1
+Judged repos: repo-edu@${head}
+
+## Findings
+
+No findings.
+`
+}
+
+function planningDeferralReport(head: string, clean: boolean): string {
+  return `Planning round workflow
+Target: example.md
+Judged repos: plan@${head}
+
+## Excess functionality
+
+No excess findings.
+
+## Missing functionality
+
+${
+  clean
+    ? "No missing findings."
+    : `### 1. B: Apply the deferred decision
+
+[field:missing] [section:decisions] ${deferralRatings}
+
+Apply the correction admitted by the implementation audit.`
+}
+`
+}
+
+async function commitWithBody(
+  cwd: string,
+  subject: string,
+  body: string,
+): Promise<string> {
+  await execa(
+    "git",
+    [
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.test",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      subject,
+      "-m",
+      body,
+    ],
+    { cwd },
+  )
+  return (await execa("git", ["rev-parse", "--short=7", "HEAD"], { cwd }))
+    .stdout
+}
+
+async function seedPlanDeferral(
+  f: Awaited<ReturnType<typeof roundFixture>>,
+): Promise<string> {
+  return commitWithBody(
+    f.repoRoot,
+    "example/impl-audit-1 oth c1: defer the plan decision",
+    `- [C] [plan:../plan/example.md#decisions] ${deferralRatings} Plan decision: the plan needs a decision.`,
+  )
+}
+
+async function auditStreams(
+  reports: readonly string[],
+): Promise<readonly string[]> {
+  return Promise.all(
+    reports.map((report) =>
+      phaseStream(
+        "codex",
+        `${report.trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+        "audit-session",
+      ),
+    ),
+  )
+}
+
+test("an implementation deferral chains a clean planning round before the judge", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "c")
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as Record<string, unknown>),
+        document: undefined,
+        streams: await auditStreams([
+          implementationDeferralReport(f.heads["repo-edu"]),
+          planningDeferralReport(f.heads.plan, true),
+        ]),
+      },
+      vet: {
+        ...(f.phases.vet as Record<string, unknown>),
+        document: { text: "1. [C] Accept\n" },
+      },
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        commits: [
+          {
+            cwd: f.repoRoot,
+            subject: "example/impl-audit-1 oth c1: defer the plan decision",
+            body: `- [C] [finding:1] [plan:../plan/example.md#decisions] ${deferralRatings} Plan decision: the plan needs a decision.`,
+          },
+        ],
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const prompts = await f.prompts()
+  assert.deepEqual(
+    prompts
+      .filter((call) => call.prompt.startsWith("Run the audit phase "))
+      .map((call) => [
+        call.assistant,
+        call.prompt.match(/unattended (.+?) round/)?.[1],
+      ]),
+    [
+      ["codex", "implementation-audit"],
+      ["codex", "planning"],
+    ],
+  )
+  const judge = prompts.find((call) =>
+    call.prompt.startsWith("Run the judge phase"),
+  )
+  assert.ok(judge)
+  const planBody = (
+    await execa("git", ["show", "-s", "--format=%B", "HEAD"], {
+      cwd: f.planRoot,
+    })
+  ).stdout
+  assert.match(planBody, /- \[applies:[0-9a-f]{7}\/1\] The plan stands\./)
+  assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
+})
+
+test("an automatic series opens with a chained deferral round", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  await seedPlanDeferral(f)
+  const repoHead = (
+    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: f.repoRoot })
+  ).stdout
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as Record<string, unknown>),
+        document: undefined,
+        streams: await auditStreams([
+          planningDeferralReport(f.heads.plan, true),
+          cleanImplementationReport(repoHead),
+        ]),
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.match(audits[0].prompt, /unattended planning round/)
+  assert.match(audits[1].prompt, /unattended implementation-audit round/)
+  const args = JSON.parse(
+    /^Phase arguments \(JSON array\): (.+)$/m.exec(audits[0].prompt)?.[1] ??
+      "[]",
+  ) as unknown[]
+  assert.equal((args[2] as { deferrals: unknown[] }).deferrals.length, 1)
+})
+
+test("a ruling in the chained deferral round stops the implementation series", async (t) => {
+  const f = await roundFixture(t)
+  await seedPlanDeferral(f)
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as Record<string, unknown>),
+        document: undefined,
+        streams: await auditStreams([
+          planningDeferralReport(f.heads.plan, false),
+        ]),
+      },
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        document: { text: "Choose whether to change the plan." },
+        streams: [
+          await phaseStream(
+            "codex",
+            'Choose whether to change the plan.\nPHASE RESULT: {"status":"needs-ruling","reason":null}',
+            "fix-session",
+          ),
+        ],
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const prompts = await f.prompts()
+  assert.equal(
+    prompts.filter((call) => call.prompt.startsWith("Run the audit phase "))
+      .length,
+    1,
+  )
+  assert.equal(
+    prompts.some((call) => call.prompt.startsWith("Run the judge phase")),
+    false,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(visible, /chained deferral round ended with awaiting ruling/)
+  assert.match(visible, /Open deferrals for example:/)
+})
+
+test("an applied deferral does not start a chained planning round", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  const deferral = await seedPlanDeferral(f)
+  await commitWithBody(
+    f.planRoot,
+    "example/plan-audit oth clean: record that the plan stands",
+    `- [applies:${deferral}/1] The plan stands.`,
+  )
+  const repoHead = (
+    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: f.repoRoot })
+  ).stdout
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as Record<string, unknown>),
+        document: undefined,
+        streams: await auditStreams([cleanImplementationReport(repoHead)]),
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.equal(audits.length, 1)
+  assert.match(audits[0].prompt, /unattended implementation-audit round/)
+})
+
+test("a vet-dropped deferral lands an untiered citation", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  const deferral = await seedPlanDeferral(f)
+  const repoHead = (
+    await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: f.repoRoot })
+  ).stdout
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as Record<string, unknown>),
+        document: undefined,
+        streams: await auditStreams([
+          planningDeferralReport(f.heads.plan, false),
+          cleanImplementationReport(repoHead),
+        ]),
+      },
+      vet: {
+        ...(f.phases.vet as Record<string, unknown>),
+        document: { text: "1. [B] Drop\nThe plan already stands.\n" },
+      },
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        commits: [
+          {
+            cwd: f.planRoot,
+            subject:
+              "example/plan-audit oth clean: record that the plan stands",
+            body: `- [applies:${deferral}/1] The plan stands.`,
+          },
+        ],
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const planBody = (
+    await execa("git", ["show", "-s", "--format=%B", "HEAD"], {
+      cwd: f.planRoot,
+    })
+  ).stdout
+  assert.match(planBody, new RegExp(`\\[applies:${deferral}/1\\]`))
+  assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
+})
 
 test("an automatic series follows the judged switch and ends on stop without a queue", async (t) => {
   const f = await roundFixture(

@@ -287,6 +287,7 @@ test("the final retained write stores the judge answer", async (t) => {
     cleanAudit: true,
     judge: { answer: "claude", reason: "Cross-check the retained result." },
     watch: null,
+    deferralChain: "none",
     commits: [],
     account,
   })
@@ -481,6 +482,7 @@ for (const assistant of ["claude", "codex"] as const) {
       cleanAudit: false,
       judge: null,
       watch: null,
+      deferralChain: "none",
       commits: [
         {
           repository: "repo-edu",
@@ -589,6 +591,7 @@ for (const assistant of ["claude", "codex"] as const) {
       cleanAudit: false,
       judge: null,
       watch: null,
+      deferralChain: "none",
       commits: [],
       account: { settling: "", judgedRepos: ["repo-edu"], findings: [] },
     })

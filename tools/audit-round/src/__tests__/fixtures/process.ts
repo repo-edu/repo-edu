@@ -219,6 +219,7 @@ for (const commit of scenario.commits ?? [])
       "-q",
       "-m",
       commit.subject,
+      ...(commit.body === undefined ? [] : ["-m", commit.body]),
     ],
     { cwd: commit.cwd },
   )

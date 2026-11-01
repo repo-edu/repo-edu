@@ -16,10 +16,12 @@ import {
   resolveTargets,
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
+import { type LogCommit, readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import { readJudgeEvidence } from "./judge.js"
 import { readyPlan, requireReadyMarker, settlePlan } from "./lifecycle.js"
+import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
   briefRun,
   closeRun,
@@ -35,6 +37,7 @@ import {
   type AuditorSelectionSource,
   type AuditSlot,
   auditPair,
+  type DeferralChainOutcome,
   noOverride,
   phaseWorkflow,
   type RoundDependencies,
@@ -233,6 +236,53 @@ function watchEvidencePage(evidence: string, range: LineRange): string {
       ? "none"
       : `${range.first}-${range.first + page.length - 1}`
   return [`Evidence lines ${returned} of ${lines.length}.`, ...page].join("\n")
+}
+
+type DeferralState = {
+  readonly deferrals: readonly OpenDeferral[]
+  readonly logs: Readonly<Record<"repo-edu" | "plan", readonly LogCommit[]>>
+}
+
+async function deferralState(
+  context: ExecutionContext,
+  stem: string,
+): Promise<DeferralState> {
+  const [repoEdu, plan] = await Promise.all([
+    readLog(context.repoEduRoot),
+    readLog(context.planRoot),
+  ])
+  const logs = { "repo-edu": repoEdu, plan }
+  return { deferrals: openDeferrals(stem, logs), logs }
+}
+
+/** The newest open deferral selects the assistant that recorded its round. */
+function deferringAssistant(
+  deferral: OpenDeferral,
+  logs: DeferralState["logs"],
+): Assistant {
+  const commit = logs[deferral.deferringRepository].find((candidate) =>
+    candidate.sha.startsWith(deferral.sha),
+  )
+  const vendor =
+    commit === undefined
+      ? null
+      : /(?:^| )([ao])[btu][lmhx](?: |$)/.exec(commit.subject)?.[1]
+  if (vendor === undefined || vendor === null)
+    throw new Error(
+      `Cannot resolve the assistant that recorded ${deferral.deferringRepository}@${deferral.sha}`,
+    )
+  return vendor === "a" ? "claude" : "codex"
+}
+
+function openDeferralText(stem: string, deferrals: readonly OpenDeferral[]) {
+  if (deferrals.length === 0) return `No deferrals are open for ${stem}.`
+  return [
+    `Open deferrals for ${stem}:`,
+    ...deferrals.map(
+      (deferral) =>
+        `- ${deferral.deferringRepository}@${deferral.sha}/${deferral.position} [${deferral.tier.toUpperCase()}] -> ${deferral.destination}: ${deferral.title}`,
+    ),
+  ].join("\n")
 }
 
 /** One option's entries in the queue's grammar; an empty list is refused. */
@@ -915,7 +965,11 @@ export async function runCommand(
     }
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
-    const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
+    const dependenciesFor = (
+      active: RoundOutput,
+      chainDeferrals: RoundDependencies["chainDeferrals"] = async () => "none",
+      phaseContext = session,
+    ): RoundDependencies => ({
       watchEvidence: readWatchEvidence,
       writeWatchDocument: async (file, document) =>
         writeFile(file, `${document}\n`, "utf8"),
@@ -942,6 +996,7 @@ export async function runCommand(
       readRebuttal: async (file, findings, reviews) =>
         readRebuttal(await readFile(file, "utf8"), findings, reviews),
       judgeEvidence: readJudgeEvidence,
+      chainDeferrals,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
       resolvePlan,
@@ -977,7 +1032,7 @@ export async function runCommand(
         )
       },
       ...assistantDependencies(
-        { ...runtime, cwd: session.cwd, commit: active.commitStamps },
+        { ...runtime, cwd: phaseContext.cwd, commit: active.commitStamps },
         active.phase,
       ),
       writeSettledRound: (commits, account) =>
@@ -1105,6 +1160,76 @@ export async function runCommand(
         nextPairSlots[current.assistant] = slot === 0 ? 1 : 0
         return slot
       }
+      const deferralsIntoPlan = async (plan: string) => {
+        const state = await deferralState(context, planStem(plan))
+        return {
+          ...state,
+          deferrals: state.deferrals.filter(
+            (deferral) => deferral.deferringRepository === "repo-edu",
+          ),
+        }
+      }
+      const runDeferralRound = async (
+        plan: string,
+        auditor: Assistant,
+        deferrals: readonly OpenDeferral[],
+        nested: boolean,
+        roundNumber: number,
+      ): Promise<DeferralChainOutcome> => {
+        const currentPlan = await resolvePlan(context.planRoot, planStem(plan))
+        const planningSession = roundContext(context, "planning")
+        const setup = {
+          ...planningSession,
+          roundKind: "planning" as const,
+          plan: currentPlan,
+          auditor,
+          auditorSelectionSource: "settings" as const,
+          brief: prepared.brief,
+          automatic: false,
+          deferrals,
+        }
+        const chainedRun = await roundRun(
+          setup,
+          now(),
+          releases,
+          settings,
+          roundNumber,
+        )
+        const active = nested
+          ? new RoundOutput(chainedRun, {
+              ...options,
+              verbose: prepared.verbose,
+            })
+          : open(chainedRun)
+        try {
+          const chained = await runRound(
+            {
+              ...setup,
+              documents: chainedRun.documents,
+              transcript: chainedRun.paths.markdown,
+              watch: prepared.watch
+                ? { file: chainedRun.watch, cacheRoot }
+                : null,
+            },
+            dependenciesFor(active, undefined, planningSession),
+            settings,
+          )
+          if (!nested) result = chained
+          active.finish(chained, runtime.signal)
+          if (chained.status === "failed") return "failed"
+          if (chained.status === "awaiting-ruling") return "awaiting-ruling"
+          const landedPlan = await resolvePlan(
+            context.planRoot,
+            planStem(currentPlan),
+          )
+          if (planPhase(landedPlan) !== planPhase(currentPlan))
+            return "phase-change"
+          if (chained.watch === "red") return "red-watch"
+          return "finished"
+        } finally {
+          if (nested) active.close()
+        }
+      }
       /**
        * One auditor series on one target. Each scope of a list opens as its
        * own series: the opener is chosen again, so an alternate default reads
@@ -1135,7 +1260,49 @@ export async function runCommand(
         }
         let target = initial
         let completed = 0
+        const printDeferrals = async () => {
+          if (!("plan" in target)) return
+          const state = await deferralState(context, planStem(target.plan))
+          await output?.message(
+            openDeferralText(planStem(target.plan), state.deferrals),
+          )
+        }
+        const stopForChain = async (
+          outcome: Exclude<DeferralChainOutcome, "none" | "finished">,
+        ): Promise<"stopped"> => {
+          code = outcome === "failed" ? 1 : 0
+          const series =
+            "plan" in initial
+              ? roundSubject(initial, planStem(initial.plan))
+              : "Commit audit"
+          await output?.message(
+            `${series}: automatic auditor series stopped because the chained deferral round ended with ${outcome.replace("-", " ")}.`,
+          )
+          await printDeferrals()
+          return "stopped"
+        }
         try {
+          if (
+            automatic &&
+            session.roundKind === "implementation" &&
+            "plan" in target
+          ) {
+            const openPlanDeferrals = await deferralsIntoPlan(target.plan)
+            if (openPlanDeferrals.deferrals.length > 0) {
+              const outcome = await runDeferralRound(
+                target.plan,
+                deferringAssistant(
+                  openPlanDeferrals.deferrals[0],
+                  openPlanDeferrals.logs,
+                ),
+                openPlanDeferrals.deferrals,
+                false,
+                completed + 1,
+              )
+              if (outcome !== "none" && outcome !== "finished")
+                return stopForChain(outcome)
+            }
+          }
           do {
             if (completed > 0 && "plan" in target) {
               if (!automatic) {
@@ -1186,7 +1353,17 @@ export async function runCommand(
                     }
                   : null,
               },
-              dependenciesFor(active),
+              dependenciesFor(active, async ({ plan, auditor }) => {
+                const openPlanDeferrals = await deferralsIntoPlan(plan)
+                if (openPlanDeferrals.deferrals.length === 0) return "none"
+                return runDeferralRound(
+                  plan,
+                  auditor,
+                  openPlanDeferrals.deferrals,
+                  true,
+                  completed + 1,
+                )
+              }),
               settings,
             )
             result = round
@@ -1194,12 +1371,19 @@ export async function runCommand(
             active.finish(round, runtime.signal)
             if (completed === 0) await recordOpener(run, round, active)
             completed += 1
+            if (
+              round.status === "finished" &&
+              round.deferralChain !== "none" &&
+              round.deferralChain !== "finished"
+            )
+              return stopForChain(round.deferralChain)
             if (round.status !== "finished") {
               await active.message(
                 round.status === "failed"
                   ? "Auditor sequence stopped: this round failed."
                   : "Auditor sequence stopped: this round required your ruling.",
               )
+              if (automatic) await printDeferrals()
               return "stopped"
             }
             if (!automatic && queue === null) break
@@ -1215,6 +1399,7 @@ export async function runCommand(
                 await active.message(
                   `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan changed from ${previousPhase} to ${currentPhase}.`,
                 )
+                await printDeferrals()
                 return "stopped"
               }
             }
@@ -1223,6 +1408,7 @@ export async function runCommand(
               await active.message(
                 `Auditor sequence stopped: the watch graded red. Read ${run.watch} before running more rounds.`,
               )
+              if (automatic) await printDeferrals()
               return "stopped"
             }
             if (automatic && "plan" in target) {
@@ -1236,18 +1422,21 @@ export async function runCommand(
                 await active.message(
                   `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
                 )
+                await printDeferrals()
                 break
               }
               if (judge.answer === "settle") {
                 await active.message(
                   `${series} ended on the judge's settle recommendation after ${completed} round${completed === 1 ? "" : "s"}. The plan remains widening until you run pnpm audit-round settle ${planStem(target.plan)}.`,
                 )
+                await printDeferrals()
                 break
               }
               if (completed >= settings.maximumAutomaticRounds) {
                 await active.message(
                   `${series} reached its maximum of ${settings.maximumAutomaticRounds} rounds.`,
                 )
+                await printDeferrals()
                 break
               }
               seat = {

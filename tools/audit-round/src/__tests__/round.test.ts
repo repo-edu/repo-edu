@@ -253,6 +253,7 @@ function controlledRound(
       commits: [],
       latestWatch: null,
     }),
+    chainDeferrals: async () => "none",
     writeSettledRound: (commits, account) => {
       settledWrites.push({ commits, account })
     },
@@ -362,6 +363,7 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     cleanAudit: false,
     judge: null,
     watch: "green",
+    deferralChain: "none",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
     ),
@@ -730,6 +732,7 @@ for (const auditor of ["claude", "codex"] as const) {
         cleanAudit: false,
         judge: null,
         watch: null,
+        deferralChain: "none",
         commits: landedRecords("repo-edu", round.evidence.subjects).map(
           ({ repository, sha }) => ({ repository, sha }),
         ),
@@ -896,6 +899,7 @@ test("a due glance completes the watch in one fresh session", async () => {
     cleanAudit: false,
     judge: null,
     watch: "green",
+    deferralChain: "none",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
     ),
@@ -1156,6 +1160,7 @@ test("a round asked for no watch consults no glance, whatever the record says", 
     cleanAudit: false,
     judge: null,
     watch: null,
+    deferralChain: "none",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
     ),
@@ -1417,6 +1422,7 @@ test("an automatic round publishes its settled entry before the fresh judge", as
     cleanAudit: false,
     judge: answer,
     watch: null,
+    deferralChain: "none",
     commits: landedRecords("repo-edu", round.evidence.subjects).map(
       ({ repository, sha }) => ({ repository, sha }),
     ),
@@ -1472,6 +1478,7 @@ for (const auditor of ["claude", "codex"] as const) {
       cleanAudit: true,
       judge: null,
       watch: null,
+      deferralChain: "none",
       commits: [],
     })
     assert.deepEqual(
@@ -1546,6 +1553,7 @@ for (const auditor of ["claude", "codex"] as const) {
       cleanAudit: false,
       judge: null,
       watch: null,
+      deferralChain: "none",
       commits: landedRecords("repo-edu", round.evidence.subjects).map(
         ({ repository, sha }) => ({ repository, sha }),
       ),
@@ -1830,6 +1838,7 @@ test("the round reads each supplied file and records both heads immediately befo
     cleanAudit: false,
     judge: null,
     watch: null,
+    deferralChain: "none",
     commits: [
       ...landedRecords("repo-edu", [
         "example/impl-audit-1 oth growth-none !C1a1 fix(audit-round): repair",

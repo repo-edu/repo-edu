@@ -1,5 +1,6 @@
 import type { CommitStamps } from "./commit-msg.js"
 import { commitOnly } from "./lifecycle.js"
+import type { OpenDeferral } from "./open-deferrals.js"
 import type { LandedCommit } from "./round-data.js"
 import { parseSubject, type Repository } from "./subject.js"
 import { type AuditTarget, planStem, type RoundContext } from "./target.js"
@@ -8,6 +9,8 @@ export type CleanInput = RoundContext &
   AuditTarget & {
     readonly report: string
     readonly judgedRepos: readonly Repository[]
+    /** Present only for a chained planning round scoped to these deferrals. */
+    readonly deferrals?: readonly OpenDeferral[]
   }
 
 export type CleanCompletion = {
@@ -45,7 +48,11 @@ export async function completeClean(
     input.roundKind === "planning" ? "plan-audit" : `impl-audit-${input.scope}`
   const subject = `${planStem(input.plan)}/${role} ${stamps.auditor} clean: record audit with no findings`
   parseSubject(subject, repository)
-  const body = stamps.phases
+  const citations = (input.deferrals ?? []).map(
+    (deferral) =>
+      `- [applies:${deferral.sha}/${deferral.position}] The plan stands.`,
+  )
+  const body = [stamps.phases, ...citations].join("\n\n")
   const { sha } = await commitOnly({ cwd, subject, body, stamps })
   return {
     message: `Clean audit recorded. Report retained: ${input.report}`,
