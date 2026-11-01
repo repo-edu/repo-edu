@@ -53,13 +53,14 @@ Check two mismatches before vetting:
   [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) rule. For a
   commit target, split the typed references into the Repo Edu group before the
   first `plan@` reference and the plan group from that reference onwards. For
-  each group, the rule resolves that repo's short `HEAD`, replaces `HEAD` in
-  the group's first reference, drops its `plan@` prefix and shortens a list
-  after its first entry. Join the group labels with `+` in command-line order.
-  One of the filename and report target is wrong when the result differs, so
-  refuse and name both. The runner refuses a report whose line is missing or
-  names another target before it starts a vet, so this check fires only in a
-  hand-run session.
+  each group, the rule uses that repo's short starting commit, the head the
+  report's `Judged repos:` line names for that repo, replaces `HEAD` in the
+  group's first reference, drops its `plan@` prefix and shortens a list after
+  its first entry. Join the group labels with `+` in command-line order. One
+  of the filename and report target is wrong when the result differs, so refuse
+  and name both. The runner refuses a report whose line is missing or names
+  another target before it starts a vet, so this check fires only in a hand-run
+  session.
 
 ## Axes
 
