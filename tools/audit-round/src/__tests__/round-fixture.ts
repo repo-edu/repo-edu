@@ -54,7 +54,7 @@ export async function commitFixture(
   return shortCommit(cwd, "HEAD")
 }
 
-/** The six-character commit form the doctrine fixes for names, reports and records. */
+/** The six-character display form the doctrine fixes for names and reports. */
 export async function shortCommit(
   cwd: string,
   revision: string,

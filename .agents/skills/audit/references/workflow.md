@@ -195,11 +195,18 @@ deferrals into Repo Edu from the plan's stem commits and removes the ones cited
 in their destination repo.
 
 Judge every supplied deferral into Repo Edu against current code. A missing
-correction becomes a finding that names the deferring commit and position. Its
-fix record cites that item. When current code already holds the correction, the
-audit reports no finding for that item and the round cites it with the untiered
-form. The runner passes the same object to the fix. Every completed route must
-therefore cite every supplied deferral.
+correction becomes a finding that names the deferring full commit ID and
+position. Its fix record cites that item. When current code already holds the
+correction, the audit reports no finding for that item. Instead, its report
+opening adds one line in this exact form:
+
+`Satisfied deferral: <full-sha>/<position> <title>.`
+
+The report opening carries that judgement into either fix route, including a
+hand-run fix that receives no open-deferral object. The runner also passes the
+same object to an automated fix. The report must account for every supplied
+item through either a satisfied-deferral line or a finding. Every completed
+route cites every supplied deferral.
 
 An automatic implementation series reads the open set before its first round
 and after each finished implementation-audit round. Open deferrals into the plan

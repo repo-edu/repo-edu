@@ -1,8 +1,8 @@
 import { execa } from "execa"
 
 /**
- * The six-character form every report, record and file name writes a commit
- * in, fixed so each has the same shape; a reader resolves it by prefix.
+ * The six-character display form used by reports and file names. Durable
+ * deferral citations keep the full commit ID instead.
  */
 export function shortSha(sha: string): string {
   return sha.slice(0, 6)

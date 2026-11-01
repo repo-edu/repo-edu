@@ -489,7 +489,7 @@ test("an implementation deferral chains a clean planning round before the judge"
       cwd: f.planRoot,
     })
   ).stdout
-  assert.match(planBody, /- \[applies:[0-9a-f]{6}\/1\] The plan stands\./)
+  assert.match(planBody, /- \[applies:[0-9a-f]{40}\/1\] The plan stands\./)
   assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
 })
 

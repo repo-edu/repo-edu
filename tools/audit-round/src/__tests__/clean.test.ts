@@ -195,7 +195,7 @@ test("clean deferral citations stay in one bullet list", async (t) => {
   assert.match(
     message,
     new RegExp(
-      `Audit took 1 min\\.\\n\\n- \\[applies:${firstSha.slice(0, 6)}\\/1\\] The plan stands\\.\\n- \\[applies:${secondSha.slice(0, 6)}\\/2\\] The plan stands\\.`,
+      `Audit took 1 min\\.\\n\\n- \\[applies:${firstSha}\\/1\\] The plan stands\\.\\n- \\[applies:${secondSha}\\/2\\] The plan stands\\.`,
     ),
   )
 })

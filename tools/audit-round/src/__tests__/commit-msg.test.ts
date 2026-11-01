@@ -84,7 +84,7 @@ test("both hooks validate graded and untiered deferral citations", () => {
         `applies:${citationSha.toUpperCase()}/1`,
       ),
       `- [applies:${citationSha}/0] The plan stands.`,
-      `- [applies:${citationSha.slice(0, 5)}/1] The plan stands.`,
+      `- [applies:${citationSha.slice(0, 6)}/1] The plan stands.`,
       `- [applies:${citationSha}/1] The plan probably stands.`,
     ])
       assert.throws(

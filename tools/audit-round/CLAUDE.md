@@ -74,6 +74,7 @@ consumers.
   Repo Edu when both repos were judged, using the report's judged-repos
   opening and the audit's actual model record and capability tag. `git commit --only --allow-empty`
   preserves staged work while using the normal hooks and signing settings.
+  Full commit IDs identify any deferrals that the clean record closes.
   A commit target lands no commit. Both routes retain their report and leave
   existing handoffs untouched. Completion failures stop the run without a
   fictitious fix session or resume command. `target.ts` supplies the active
@@ -190,17 +191,18 @@ consumers.
 - `findings.ts` reads the complete current bullet form for commit hooks and episodes, D included. It
   validates token values without consulting the area model. It requires the `Title: prose` form and
   reads the optional leading `[finding:<n>]` token that names the report finding the bullet lands,
-  plus `[applies:<sha>/<position>]` citations on graded bullets and the untiered `The plan stands.`
-  form. The hook therefore refuses a malformed bullet before the round-data join or deferral owner
-  reads it. `commit-msg.ts` checks
+  plus `[applies:<full-sha>/<position>]` citations on graded bullets and the untiered `The plan
+  stands.` form. A citation keeps the full commit ID. The hook therefore refuses a malformed bullet
+  before the round-data join or deferral owner reads it. `commit-msg.ts` checks
   primary and cover IDs against the current model at write time. `sequence.ts` derives severity from
   the strict read and fills the subject's severity slot under its role and repository rules. The
   growth mark remains authored and is required beside every sequence outside a deferral record.
 - `open-deferrals.ts` owns one active plan's open set. It selects plan-bound
   deferrals from every Repo Edu commit by their destination plan and Repo
   Edu-bound deferrals from that plan's stem commits. It removes citations found
-  in the destination repo and returns the remaining deferring repo, full commit
-  ID, position, tier, destination and title newest first. The automatic series
+  in the destination repo by exact full commit ID and position. It returns the
+  remaining deferring repo, full commit ID, position, tier, destination and
+  title newest first. The automatic series
   chain, each plan-scoped implementation audit, every automatic series ending
   and loop-close all read this owner.
 - `subject.ts` is the one reader of the commit subject grammar in
@@ -920,8 +922,10 @@ then prints the remaining open deferrals or says there are none.
 Before each plan-scoped implementation audit, the runner supplies the open
 deferrals into Repo Edu to its audit and fix phases. Those items add Repo Edu to
 the judged repo set for their named corrections. A hand-run audit reads the same
-owner through the hidden `deferrals` command. A clean round cites items whose
-corrections already hold. A fix cites each item it applies or drops.
+owner through the hidden `deferrals` command. The audit report opening names
+each supplied item whose correction already holds. Findings name the missing
+items. A clean round cites satisfied items. A fix reads both report parts and
+cites each item it applies or drops.
 
 ## Verification
 

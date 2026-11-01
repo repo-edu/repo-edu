@@ -79,19 +79,14 @@ function citations(
   )
 }
 
-/**
- * A citation names its deferring commit by prefix, so the short written form
- * and the full form history holds both resolve, against the deferring commits
- * alone rather than the whole log.
- */
+/** A citation names its deferring commit by its full, exact identity. */
 function cited(
   deferral: DeferralCandidate,
   applied: readonly DeferralCitation[],
 ): boolean {
   return applied.some(
     (citation) =>
-      citation.position === deferral.position &&
-      deferral.sha.startsWith(citation.sha),
+      citation.position === deferral.position && deferral.sha === citation.sha,
   )
 }
 
