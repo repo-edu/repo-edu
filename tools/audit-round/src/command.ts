@@ -111,6 +111,11 @@ type Invocation =
   | { readonly kind: "trial" }
   | { readonly kind: "plan" }
   | {
+      readonly kind: "deferrals"
+      /** Absent when the command takes the plan `plan` prints. */
+      readonly stem?: string
+    }
+  | {
       readonly kind: "name"
       /** Absent when the runner takes the newest plan. */
       readonly first?: string
@@ -609,6 +614,15 @@ Use brief --help or close --help for their arguments and options.`,
       invocation = { kind: "episode", target, lines: flags.lines }
     })
   command
+    .command("deferrals", { hidden: true })
+    .description(
+      "Print one active plan's open deferrals without writing files or starting assistants.",
+    )
+    .argument("[stem]", "an active plan, or none for the newest plan")
+    .action((stem: string | undefined) => {
+      invocation = { kind: "deferrals", stem }
+    })
+  command
     .command("trial")
     .description(
       "Read the newest unchanged-settings auditor trial without writing files or starting assistants.",
@@ -746,6 +760,15 @@ async function closePlan(
   return plan
 }
 
+async function preparedClose(
+  context: ExecutionContext,
+  invocation: Extract<Invocation, { kind: "close" }>,
+) {
+  const plan = await closePlan(context, invocation)
+  const { deferrals } = await deferralState(context, planStem(plan))
+  return { ...invocation, plan, deferrals }
+}
+
 export async function runCommand(
   argv: readonly string[],
   runtime: AssistantRuntime,
@@ -784,6 +807,20 @@ export async function runCommand(
     }
     if (invocation.kind === "plan") {
       options.terminal.write(await defaultPlan(context))
+      return 0
+    }
+    if (invocation.kind === "deferrals") {
+      const plan =
+        invocation.stem === undefined
+          ? await defaultPlan(context)
+          : await requiredActivePlan(
+              context.planRoot,
+              invocation.stem,
+              "deferrals",
+            )
+      const stem = planStem(plan)
+      const { deferrals } = await deferralState(context, stem)
+      options.terminal.write(openDeferralText(stem, deferrals))
       return 0
     }
     if (invocation.kind === "delete-reports") {
@@ -868,7 +905,7 @@ export async function runCommand(
                     .path,
           }
         : invocation.kind === "close"
-          ? { ...invocation, plan: await closePlan(context, invocation) }
+          ? await preparedClose(context, invocation)
           : {
               ...invocation,
               targets: await resolveTargets(
@@ -1093,6 +1130,7 @@ export async function runCommand(
           tag: run.tag,
           record: run.record,
           reason: prepared.aborted ?? null,
+          deferrals: prepared.deferrals,
         },
         dependenciesFor(active),
         settings,

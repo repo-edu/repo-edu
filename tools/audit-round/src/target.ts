@@ -280,7 +280,7 @@ export async function resolvePlan(
 export async function requiredActivePlan(
   planRoot: string,
   value: string,
-  command: "close" | "ready" | "settle",
+  command: "close" | "deferrals" | "ready" | "settle",
 ): Promise<string> {
   refusePath(value)
   const stem = planStem(value)

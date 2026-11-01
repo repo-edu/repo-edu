@@ -132,6 +132,8 @@ export type CloseInput = RoundContext & {
   readonly record: string
   /** Why an episode that never shipped is abandoned; null for a completed plan. */
   readonly reason: string | null
+  /** Open deferrals resolved before the close session starts. */
+  readonly deferrals: readonly OpenDeferral[]
 }
 
 export type CloseResult = { readonly status: "finished" } | RoundFailure
@@ -228,8 +230,14 @@ export async function runClose(
     ...context,
     arguments:
       input.reason === null
-        ? [input.plan, input.tag, input.record]
-        : [input.plan, input.tag, input.record, input.reason],
+        ? [input.plan, input.tag, input.record, { deferrals: input.deferrals }]
+        : [
+            input.plan,
+            input.tag,
+            input.record,
+            { deferrals: input.deferrals },
+            input.reason,
+          ],
     sessionId: null,
   })
   if (close.status === "failed")

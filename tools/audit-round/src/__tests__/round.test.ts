@@ -1685,14 +1685,31 @@ test("a brief on its own runs only the brief phase over the named transcript", a
   assert.deepEqual(round.rulings, [])
 })
 
+const openDeferral = {
+  deferringRepository: "repo-edu",
+  sha: "abcdef0",
+  position: 1,
+  tier: "c",
+  destination: "../plan/example.md#decisions",
+  title: "Plan choice",
+} as const
+
 for (const reason of [null, "The check cost more than it gave."]) {
   test(`a close${reason === null ? "" : " with an abort reason"} runs only the close phase from the plan checkout`, async () => {
     const round = controlledRound()
     const context = testContext(repoRoot, "planning")
     const plan = join(context.planRoot, "example.md")
+    const deferrals = reason === null ? [openDeferral] : []
 
     const result = await runClose(
-      { ...context, plan, tag: "obh", record: "gpt-6-astra high", reason },
+      {
+        ...context,
+        plan,
+        tag: "obh",
+        record: "gpt-6-astra high",
+        reason,
+        deferrals,
+      },
       round.dependencies,
     )
 
@@ -1705,8 +1722,8 @@ for (const reason of [null, "The check cost more than it gave."]) {
         ...context,
         arguments:
           reason === null
-            ? [plan, "obh", "gpt-6-astra high"]
-            : [plan, "obh", "gpt-6-astra high", reason],
+            ? [plan, "obh", "gpt-6-astra high", { deferrals: [openDeferral] }]
+            : [plan, "obh", "gpt-6-astra high", { deferrals: [] }, reason],
         sessionId: null,
       },
     ])
@@ -1733,6 +1750,7 @@ test("a failed close keeps its session for recovery", async () => {
       tag: "obh",
       record: "gpt-6-astra high",
       reason: null,
+      deferrals: [],
     },
     round.dependencies,
   )
@@ -1755,7 +1773,14 @@ test("a finished close that left its plan at the root fails with its session", a
   const plan = join(context.planRoot, "example.md")
 
   const result = await runClose(
-    { ...context, plan, tag: "obh", record: "gpt-6-astra high", reason: null },
+    {
+      ...context,
+      plan,
+      tag: "obh",
+      record: "gpt-6-astra high",
+      reason: null,
+      deferrals: [],
+    },
     round.dependencies,
   )
 

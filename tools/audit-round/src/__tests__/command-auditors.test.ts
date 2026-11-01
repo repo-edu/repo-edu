@@ -377,7 +377,10 @@ test("argument errors and help start no assistant processes", async (t) => {
     /Omitted +Options without a target take the active plan/,
   )
   // Hand-run launchers call the housekeeping commands; help shows what a user runs.
-  assert.doesNotMatch(visible, /^\s+(name|paths|episode|delete-reports)\s/m)
+  assert.doesNotMatch(
+    visible,
+    /^\s+(name|paths|episode|deferrals|delete-reports)\s/m,
+  )
   for (const name of ["trial", "brief", "settle", "ready", "close", "plan"])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
   assert.match(visible, /--aborted <reason>/)

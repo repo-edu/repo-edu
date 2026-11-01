@@ -66,6 +66,30 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
   assert.deepEqual(await readdir(f.planRoot), before)
 })
 
+test("deferrals prints only the active plan's open deferrals", async (t) => {
+  const f = await roundFixture(t)
+  const sha = await commitFixture(
+    f.repoRoot,
+    `example/impl-audit-1 obx c1: defer the plan choice
+
+gpt-6.1-sol xhigh
+
+- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Plan choice: The plan needs a decision.`,
+  )
+
+  assert.equal(
+    await runCommand(["deferrals", "example"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.deepEqual(f.visible, [
+    `Open deferrals for example:\n- repo-edu@${sha}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
+  ])
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
 test("close archives the named plan through one close session from the plan checkout", async (t) => {
   const f = await roundFixture(t)
   await declareReady(f.planRoot)
@@ -112,7 +136,7 @@ test("close archives the named plan through one close session from the plan chec
   )
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high"])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high", { deferrals: [] }])}`,
     ),
   )
   assert.ok(
@@ -156,7 +180,7 @@ test("close without a stem takes the plan that plan prints and passes an abort r
   const log = await readFile(join(f.planRoot, "example-close.obh.log"), "utf8")
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high", "The check cost more than it gave."])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high", { deferrals: [] }, "The check cost more than it gave."])}`,
     ),
   )
 })

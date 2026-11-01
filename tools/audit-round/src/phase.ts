@@ -422,8 +422,19 @@ type PhaseArguments = {
   close: {
     /** An abort reason closes an episode that never shipped. */
     readonly arguments:
-      | readonly [plan: string, tag: string, record: string]
-      | readonly [plan: string, tag: string, record: string, reason: string]
+      | readonly [
+          plan: string,
+          tag: string,
+          record: string,
+          deferrals: DeferralScope,
+        ]
+      | readonly [
+          plan: string,
+          tag: string,
+          record: string,
+          deferrals: DeferralScope,
+          reason: string,
+        ]
     readonly sessionId: null
   }
 }
