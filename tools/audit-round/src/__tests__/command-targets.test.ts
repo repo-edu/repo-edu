@@ -20,6 +20,26 @@ async function declareReady(planRoot: string) {
   )
 }
 
+/** One open plan-bound deferral in Repo Edu history. */
+async function deferPlanChoice(repoRoot: string) {
+  const sha = await commitFixture(
+    repoRoot,
+    `example/impl-audit-1 obx c1: defer the plan choice
+
+gpt-6.1-sol xhigh
+
+- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Plan choice: The plan needs a decision.`,
+  )
+  return {
+    deferringRepository: "repo-edu",
+    sha,
+    position: 1,
+    tier: "c",
+    destination: "../plan/example.md#decisions",
+    title: "Plan choice",
+  } as const
+}
+
 test("a brief without a transcript retells the newest round at the plan root", async (t) => {
   const f = await roundFixture(t)
   const brief = async () => {
@@ -68,14 +88,7 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
 
 test("deferrals prints only the active plan's open deferrals", async (t) => {
   const f = await roundFixture(t)
-  const sha = await commitFixture(
-    f.repoRoot,
-    `example/impl-audit-1 obx c1: defer the plan choice
-
-gpt-6.1-sol xhigh
-
-- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Plan choice: The plan needs a decision.`,
-  )
+  const deferral = await deferPlanChoice(f.repoRoot)
 
   assert.equal(
     await runCommand(["deferrals", "example"], f.runtime, f.options),
@@ -83,15 +96,16 @@ gpt-6.1-sol xhigh
     f.errors.join("\n"),
   )
   assert.deepEqual(f.visible, [
-    `Open deferrals for example:\n- repo-edu@${sha}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
+    `Open deferrals for example:\n- repo-edu@${deferral.sha}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
   ])
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
 })
 
-test("close archives the named plan through one close session from the plan checkout", async (t) => {
+test("close supplies open deferrals to one close session from the plan checkout", async (t) => {
   const f = await roundFixture(t)
+  const deferral = await deferPlanChoice(f.repoRoot)
   await declareReady(f.planRoot)
   const archive = join(f.planRoot, "archive/example")
   await mkdir(archive, { recursive: true })
@@ -134,11 +148,16 @@ test("close archives the named plan through one close session from the plan chec
       "Run the close phase, the unattended loop-close of one plan, in this fresh session.",
     ),
   )
-  assert.ok(
-    log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high", { deferrals: [] }])}`,
-    ),
-  )
+  const phaseArguments = /^Phase arguments \(JSON array\): (.+)$/m.exec(
+    log,
+  )?.[1]
+  assert.ok(phaseArguments)
+  assert.deepEqual(JSON.parse(phaseArguments), [
+    join(f.planRoot, "example.md"),
+    "obh",
+    "gpt-5.6-sol high",
+    { deferrals: [deferral] },
+  ])
   assert.ok(
     log.includes(
       `Workflow: ${join(f.planRoot, ".agents/skills/close/references/workflow.md")}`,
