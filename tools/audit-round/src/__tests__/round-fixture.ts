@@ -328,8 +328,9 @@ export async function roundFixture(
         for (const match of log.matchAll(
           /^Phase arguments \(JSON array\): (.+)$/gm,
         )) {
-          const path = (JSON.parse(match[1]) as string[]).find((path) =>
-            path.includes(`-${kind}.`),
+          const path = (JSON.parse(match[1]) as unknown[]).find(
+            (path): path is string =>
+              typeof path === "string" && path.includes(`-${kind}.`),
           )
           if (path !== undefined) return path
         }

@@ -315,7 +315,7 @@ test("a plan named without its extension runs as its .md file", async (t) => {
   const { log } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3"])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3", { deferrals: [] }])}`,
     ),
   )
 })

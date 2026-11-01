@@ -373,6 +373,16 @@ async function seedPlanDeferral(
   )
 }
 
+async function seedRepoEduDeferral(
+  f: Awaited<ReturnType<typeof roundFixture>>,
+): Promise<string> {
+  return commitWithBody(
+    f.planRoot,
+    "example/plan-audit oth growth-none c1: defer the runner correction",
+    `- C [field:missing] [area:tool-audit-round] ${deferralRatings} Runner correction: the runner needs a correction.`,
+  )
+}
+
 async function auditStreams(
   reports: readonly string[],
 ): Promise<readonly string[]> {
@@ -386,6 +396,41 @@ async function auditStreams(
     ),
   )
 }
+
+test("an implementation audit receives open deferrals into Repo Edu", async (t) => {
+  const f = await roundFixture(t)
+  const sha = await seedRepoEduDeferral(f)
+
+  assert.equal(
+    await runCommand(
+      ["example.md", "1", "--auditor", "codex", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+
+  const audit = (await f.prompts()).find((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.ok(audit)
+  const args = JSON.parse(
+    /^Phase arguments \(JSON array\): (.+)$/m.exec(audit.prompt)?.[1] ?? "[]",
+  ) as unknown[]
+  assert.deepEqual(args.at(-1), {
+    deferrals: [
+      {
+        deferringRepository: "plan",
+        sha,
+        position: 1,
+        tier: "c",
+        destination: "tool-audit-round",
+        title: "Runner correction",
+      },
+    ],
+  })
+})
 
 test("an implementation deferral chains a clean planning round before the judge", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")

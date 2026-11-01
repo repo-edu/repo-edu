@@ -56,7 +56,7 @@ export type RoundSetup = RoundContext & {
   readonly brief?: boolean
   /** True only when this round belongs to the judge-led series. */
   readonly automatic?: boolean
-  /** Present only on the planning round chained to apply these deferrals. */
+  /** The open deferrals this round must judge and settle. */
   readonly deferrals?: readonly OpenDeferral[]
 } & AuditTarget
 
@@ -444,7 +444,12 @@ export async function runRound(
               input.plan,
               ...(deferralScope === null ? [] : [deferralScope]),
             ]
-          : [input.documents.report, input.plan, input.scope],
+          : [
+              input.documents.report,
+              input.plan,
+              input.scope,
+              ...(deferralScope === null ? [] : [deferralScope]),
+            ],
     sessionId: null,
   }
   const audit = await reportPhase(

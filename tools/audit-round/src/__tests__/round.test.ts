@@ -717,6 +717,17 @@ function runner(
   return "codex"
 }
 
+const repoEduDeferrals = [
+  {
+    deferringRepository: "plan",
+    sha: `abcdef0${"0".repeat(33)}`,
+    position: 1,
+    tier: "c",
+    destination: "tool-audit-round",
+    title: "Runner correction",
+  },
+] as const
+
 for (const auditor of ["claude", "codex"] as const) {
   const vetAssistant: Assistant = auditor === "claude" ? "codex" : "claude"
 
@@ -732,6 +743,7 @@ for (const auditor of ["claude", "codex"] as const) {
           plan: "../plan/example.md",
           scope: "2-3",
           auditor,
+          deferrals: repoEduDeferrals,
         },
         round.dependencies,
       )
@@ -754,7 +766,12 @@ for (const auditor of ["claude", "codex"] as const) {
           model: pinned(auditor),
           ...testContext(repoRoot),
           cwd: ownerRoot,
-          arguments: [files.documents.report, "../plan/example.md", "2-3"],
+          arguments: [
+            files.documents.report,
+            "../plan/example.md",
+            "2-3",
+            { deferrals: repoEduDeferrals },
+          ],
           sessionId: null,
         },
         {
@@ -782,7 +799,12 @@ for (const auditor of ["claude", "codex"] as const) {
           model: pinned("codex"),
           ...testContext(repoRoot),
           cwd: ownerRoot,
-          arguments: [report, files.documents.vet, files.documents.rebut],
+          arguments: [
+            report,
+            files.documents.vet,
+            files.documents.rebut,
+            { deferrals: repoEduDeferrals },
+          ],
           sessionId: null,
         },
         {

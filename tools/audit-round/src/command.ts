@@ -1198,12 +1198,15 @@ export async function runCommand(
         nextPairSlots[current.assistant] = slot === 0 ? 1 : 0
         return slot
       }
-      const deferralsIntoPlan = async (plan: string) => {
+      const deferralsInto = async (
+        plan: string,
+        destination: "repo-edu" | "plan",
+      ) => {
         const state = await deferralState(context, planStem(plan))
         return {
           ...state,
           deferrals: state.deferrals.filter(
-            (deferral) => deferral.deferringRepository === "repo-edu",
+            (deferral) => deferral.deferringRepository !== destination,
           ),
         }
       }
@@ -1325,7 +1328,7 @@ export async function runCommand(
             session.roundKind === "implementation" &&
             "plan" in target
           ) {
-            const openPlanDeferrals = await deferralsIntoPlan(target.plan)
+            const openPlanDeferrals = await deferralsInto(target.plan, "plan")
             if (openPlanDeferrals.deferrals.length > 0) {
               const outcome = await runDeferralRound(
                 target.plan,
@@ -1355,6 +1358,10 @@ export async function runCommand(
                   `Next round: ${seat.assistant}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
                 )
             }
+            const repoEduDeferrals =
+              session.roundKind === "implementation" && "plan" in target
+                ? (await deferralsInto(target.plan, "repo-edu")).deferrals
+                : undefined
             const setup = {
               ...session,
               ...target,
@@ -1364,6 +1371,9 @@ export async function runCommand(
               auditSlot: takeAuditSlot(seat),
               brief: prepared.brief,
               automatic,
+              ...(repoEduDeferrals === undefined
+                ? {}
+                : { deferrals: repoEduDeferrals }),
             }
             const run = await roundRun(
               setup,
@@ -1392,7 +1402,7 @@ export async function runCommand(
                   : null,
               },
               dependenciesFor(active, async ({ plan, auditor }) => {
-                const openPlanDeferrals = await deferralsIntoPlan(plan)
+                const openPlanDeferrals = await deferralsInto(plan, "plan")
                 if (openPlanDeferrals.deferrals.length === 0) return "none"
                 return runDeferralRound(
                   plan,

@@ -82,6 +82,12 @@ escalation rule. A correction those rules turn into a
 structural change is applied as that structural change, never narrowed to
 fit.
 
+When the phase arguments end with an open-deferral object, settle every item in
+the round's records. A changed destination uses a graded bullet with the item's
+`[applies:<sha>/<position>]` token. A destination that already stands, or an
+item the review drops, uses the untiered citation. Direct clean completion adds
+the untiered citations itself when no fix runs.
+
 Then format only the fixed files, and typecheck and run
 `pnpm test <package path>` for each workspace package whose source a fix
 changed. A fix that changes only documents runs no suite. A failing test in

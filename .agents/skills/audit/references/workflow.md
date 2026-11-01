@@ -70,6 +70,13 @@ the plan's **Implementation plan**. A step may be hosted by Repo Edu, the plan
 repo or both. The round's repo set is the union of those hosts. When a host
 sentence does not use the fixed form, stop for a plan correction.
 
+For a plan-scoped implementation audit, the runner adds one final object with
+the plan's open deferrals into Repo Edu. Those deferrals add Repo Edu to the
+repo set for their named corrections, even when the selected steps are hosted
+only in the plan repo. In a hand-run audit with no object, run
+`pnpm audit-round deferrals <stem>` and take the entries whose destination is
+Repo Edu. This does not replace or widen the selected step range.
+
 ## Round
 
 Run one read-only implementation-audit round. Judge only the repos in the
@@ -185,12 +192,21 @@ text comparison.
 The runner's open-deferral owner reads both Git histories. It selects deferrals
 into the plan repo from every Repo Edu commit by destination plan, selects
 deferrals into Repo Edu from the plan's stem commits and removes the ones cited
-in their destination repo. An automatic implementation series reads that set
-before its first round and after each finished implementation-audit round. Open
-deferrals into the plan repo chain one planning round on the supplied deferrals
-before the series judge runs. Deferrals into Repo Edu stay open until a
-user-selected implementation scope applies them. Every automatic series ending
-prints what remains, and loop-close reads the same set before archiving.
+in their destination repo.
+
+Judge every supplied deferral into Repo Edu against current code. A missing
+correction becomes a finding that names the deferring commit and position. Its
+fix record cites that item. When current code already holds the correction, the
+audit reports no finding for that item and the round cites it with the untiered
+form. The runner passes the same object to the fix. Every completed route must
+therefore cite every supplied deferral.
+
+An automatic implementation series reads the open set before its first round
+and after each finished implementation-audit round. Open deferrals into the plan
+repo chain one planning round on the supplied deferrals before the series judge
+runs. The next user-selected implementation audit receives deferrals into Repo
+Edu without starting another round. Every automatic series ending prints what
+remains, and loop-close reads the same set before archiving.
 
 ## Episode settlement
 

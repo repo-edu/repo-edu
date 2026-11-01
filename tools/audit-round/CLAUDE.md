@@ -201,7 +201,8 @@ consumers.
   Edu-bound deferrals from that plan's stem commits. It removes citations found
   in the destination repo and returns the remaining deferring repo, full commit
   ID, position, tier, destination and title newest first. The automatic series
-  chain, every automatic series ending and loop-close all read this owner.
+  chain, each plan-scoped implementation audit, every automatic series ending
+  and loop-close all read this owner.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
   either repository's form, names the class it matched and refuses with the first slot that does not
@@ -595,13 +596,15 @@ hand.
 whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 
 - audit: report output, then either a plan with an optional implementation
-  scope or open-deferral object, or one structured object per commit group
-  carrying its repository, typed references, starting HEAD and the resolved
-  short references the filename uses
+  scope and open-deferral object, a plan with an open-deferral object for a
+  chained planning round, or one structured object per commit group carrying
+  its repository, typed references, starting HEAD and the resolved short
+  references the filename uses
 - vet: report input, vet output
 - rebuttal: report input, vet input, rebuttal output
 - fix: report input, then existing vet and rebuttal inputs, followed by the
-  same open-deferral object for a chained planning round
+  same open-deferral object for a chained planning or plan-scoped
+  implementation round
 - brief: transcript input, brief output
 - watch: no path arguments; the prompt separately supplies the evidence
 - close: plan, capability tag, model record, open-deferral object and optional
@@ -852,8 +855,8 @@ open deferral, it fails with the question, and its printed resume command contin
 
 `deferrals [stem]` prints one active plan's open deferrals through the shared owner. It resolves the
 same default plan as close when the stem is omitted. It starts no assistant, performs no release
-resolution and writes nothing. The command is hidden because it exists only for the hand-run close
-workflow, which needs the list before its session starts.
+resolution and writes nothing. The command is hidden because only the hand-run implementation
+audit and close workflows need the list before their sessions start.
 
 `delete-reports` deletes the audit and twins for its exact target and round at the
 plan root and lists each deleted file. It fails when no report matches. Claims, markers and
@@ -913,6 +916,12 @@ fix leaves the deferral open, prints it and stops the series. The planning round
 receives only those deferrals, runs before the implementation judge and does not
 count against the implementation-series maximum. Every automatic series ending
 then prints the remaining open deferrals or says there are none.
+
+Before each plan-scoped implementation audit, the runner supplies the open
+deferrals into Repo Edu to its audit and fix phases. Those items add Repo Edu to
+the judged repo set for their named corrections. A hand-run audit reads the same
+owner through the hidden `deferrals` command. A clean round cites items whose
+corrections already hold. A fix cites each item it applies or drops.
 
 ## Verification
 

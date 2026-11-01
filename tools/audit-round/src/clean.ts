@@ -10,7 +10,7 @@ export type CleanInput = RoundContext &
   AuditTarget & {
     readonly report: string
     readonly judgedRepos: readonly Repository[]
-    /** Present only for a chained planning round scoped to these deferrals. */
+    /** The open deferrals this clean record must settle. */
     readonly deferrals?: readonly OpenDeferral[]
   }
 

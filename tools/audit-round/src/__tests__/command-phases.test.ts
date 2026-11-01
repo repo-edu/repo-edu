@@ -171,7 +171,7 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(markdown.includes("Written brief"), false)
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3"])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3", { deferrals: [] }])}`,
           ),
         )
         assert.equal(
