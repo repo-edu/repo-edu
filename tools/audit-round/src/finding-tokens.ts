@@ -44,6 +44,7 @@ export const findingTokenKeys = [
   "area",
   "cover",
   "plan",
+  "applies",
   "growth-pattern",
   "reach",
   "complexity",
@@ -133,6 +134,17 @@ export function areaLocationTokenKeys(
   const keys: FindingTokenKey[] = ["area"]
   for (let index = areaIndex + 1; tokens[index]?.key === "cover"; index += 1)
     keys.push("cover")
+  return keys
+}
+
+/** Read the citation tokens directly after one record location. */
+export function deferralCitationTokenKeys(
+  tokens: readonly FindingToken[],
+  citationIndex: number,
+): readonly FindingTokenKey[] {
+  const keys: FindingTokenKey[] = []
+  for (let index = citationIndex; tokens[index]?.key === "applies"; index += 1)
+    keys.push("applies")
   return keys
 }
 

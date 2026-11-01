@@ -1,6 +1,7 @@
 import { z } from "zod"
 import {
   areaLocationTokenKeys,
+  deferralCitationTokenKeys,
   findingLabelSchema,
   findingRatingsSchema,
   findingRatingTokenKeys,
@@ -25,22 +26,76 @@ export type Finding = Omit<
   readonly deferred: boolean
   readonly field: string | null
   readonly covers: readonly string[]
+  readonly applies: readonly DeferralCitation[]
   readonly text: string
   readonly line: number
 }
 
-/** Read the current fixed bullet form. Area existence is a write-time rule. */
-export function readFindings(
+export type DeferralCitation = {
+  readonly sha: string
+  readonly position: number
+}
+
+export type StandingCitation = {
+  readonly applies: readonly DeferralCitation[]
+  readonly text: string
+  readonly line: number
+}
+
+export type RecordBullet = Finding | StandingCitation
+
+export const standingCitationReason = "The plan stands."
+
+function readDeferralCitations(
+  values: readonly string[],
+  fail: (reason: string) => never,
+): readonly DeferralCitation[] {
+  return values.map((value) => {
+    const parsed = /^([0-9a-f]+)\/([1-9]\d*)$/.exec(value)
+    if (parsed === null)
+      fail(
+        `invalid [applies:${value}] value; expected a lowercase commit sha and position from 1`,
+      )
+    return { sha: parsed[1], position: Number(parsed[2]) }
+  })
+}
+
+/** Read the current graded and untiered record-bullet forms. */
+export function readRecordBullets(
   body: string,
   repository: Repository,
   role: string | null,
-): Finding[] {
-  const findings: Finding[] = []
+): RecordBullet[] {
+  const bullets: RecordBullet[] = []
   const opening =
     repository === "repo-edu" ? /^- \[([A-D])\]/ : /^- ([A-D])(?= \[)/
   for (const [index, line] of body.split("\n").entries()) {
     const start = opening.exec(line)
-    if (start === null) continue
+    if (start === null) {
+      if (!line.startsWith("- [applies:")) continue
+      const fail: (reason: string) => never = (reason) => {
+        throw new SubjectError(
+          `citation bullet on body line ${index + 1} (${line}): ${reason}`,
+        )
+      }
+      const prefix = readFindingTokenPrefix(line.slice(2))
+      if (prefix === null || prefix.remainder.trim().length === 0)
+        fail("needs one or more applies tokens followed by the fixed reason")
+      const tokenIssue = findingTokenSequenceIssue(
+        prefix.tokens,
+        deferralCitationTokenKeys(prefix.tokens, 0),
+      )
+      if (tokenIssue !== null) fail(tokenIssue)
+      const applies = readDeferralCitations(
+        findingTokenValues(prefix.tokens, "applies"),
+        fail,
+      )
+      if (applies.length === 0) fail("needs at least one [applies:...] token")
+      if (prefix.remainder !== standingCitationReason)
+        fail(`must say exactly "${standingCitationReason}"`)
+      bullets.push({ applies, text: line, line: index + 1 })
+      continue
+    }
     const fail: (reason: string) => never = (reason) => {
       throw new SubjectError(
         `finding bullet on body line ${index + 1} (${line}): ${reason}`,
@@ -64,29 +119,33 @@ export function readFindings(
     const locationTokenKeys =
       repository === "repo-edu"
         ? tokens[first]?.key === "plan"
-          ? (["plan", ...findingRatingTokenKeys] as const)
-          : ([
-              ...areaLocationTokenKeys(tokens, first),
-              ...findingRatingTokenKeys,
-            ] as const)
+          ? (["plan"] as const)
+          : areaLocationTokenKeys(tokens, first)
         : planning
           ? tokens[first + 1]?.key === "area"
-            ? ([
-                "field",
-                ...areaLocationTokenKeys(tokens, first + 1),
-                ...findingRatingTokenKeys,
-              ] as const)
-            : (["field", "section", ...findingRatingTokenKeys] as const)
+            ? (["field", ...areaLocationTokenKeys(tokens, first + 1)] as const)
+            : (["field", "section"] as const)
           : tokens[first]?.key === "section"
-            ? (["section", ...findingRatingTokenKeys] as const)
-            : ([
-                ...areaLocationTokenKeys(tokens, first),
-                ...findingRatingTokenKeys,
-              ] as const)
+            ? (["section"] as const)
+            : areaLocationTokenKeys(tokens, first)
     const expectedTokenKeys = numbered
-      ? (["finding", ...locationTokenKeys] as const)
-      : locationTokenKeys
-    const tokenIssue = findingTokenSequenceIssue(tokens, expectedTokenKeys)
+      ? ([
+          "finding",
+          ...locationTokenKeys,
+          ...deferralCitationTokenKeys(
+            tokens,
+            first + locationTokenKeys.length,
+          ),
+        ] as const)
+      : ([
+          ...locationTokenKeys,
+          ...deferralCitationTokenKeys(tokens, locationTokenKeys.length),
+        ] as const)
+    const completeTokenKeys = [
+      ...expectedTokenKeys,
+      ...findingRatingTokenKeys,
+    ] as const
+    const tokenIssue = findingTokenSequenceIssue(tokens, completeTokenKeys)
     if (tokenIssue !== null) {
       if (
         repository === "plan" &&
@@ -97,6 +156,7 @@ export function readFindings(
       fail(tokenIssue)
     }
     const values = (key: string) => findingTokenValues(tokens, key)
+    const applies = readDeferralCitations(values("applies"), fail)
     const key = repository === "repo-edu" ? "area" : "section"
     const foreignKey = repository === "repo-edu" ? "plan" : "area"
     const local = values(key)
@@ -141,7 +201,7 @@ export function readFindings(
       prefix.remainder.slice(separator + 2).trim().length === 0
     )
       fail('needs the `Title: prose` form, a title before the first ": "')
-    findings.push({
+    bullets.push({
       growthPattern: checked.data["growth-pattern"],
       reach: checked.data.reach,
       complexity: checked.data.complexity,
@@ -152,9 +212,21 @@ export function readFindings(
       deferred,
       field: values("field")[0] ?? null,
       covers: values("cover"),
+      applies,
       text: line,
       line: index + 1,
     })
   }
-  return findings
+  return bullets
+}
+
+/** Read only graded findings while still validating untiered citation bullets. */
+export function readFindings(
+  body: string,
+  repository: Repository,
+  role: string | null,
+): Finding[] {
+  return readRecordBullets(body, repository, role).filter(
+    (bullet): bullet is Finding => "tier" in bullet,
+  )
 }

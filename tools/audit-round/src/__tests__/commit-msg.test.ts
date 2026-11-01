@@ -62,6 +62,34 @@ test("the hook alone requires current primary and cover IDs, including deferred 
   }
 })
 
+test("both hooks validate graded and untiered deferral citations", () => {
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const finding = repository === "repo-edu" ? codeFinding : planFinding
+    const applied = finding.replace(
+      " [growth-pattern:none]",
+      " [applies:abc123/1] [growth-pattern:none]",
+    )
+    const subject = `example/impl-audit-1 oth growth-none${repository === "repo-edu" ? " fix(audit-round)" : " docs(claude)"}: s`
+    assert.match(stamp(message(subject, applied), repository), / c1 /)
+
+    const clean = message(
+      "example/impl-audit-1 oth: s",
+      "- [applies:abc123/1] The plan stands.",
+    )
+    assert.match(stamp(clean, repository), / oth clean:/)
+    for (const invalid of [
+      applied.replace("applies:abc123/1", "applies:ABC123/1"),
+      "- [applies:abc123/0] The plan stands.",
+      "- [applies:abc123/1] The plan probably stands.",
+    ])
+      assert.throws(
+        () =>
+          stamp(message("example/impl-audit-1 oth: s", invalid), repository),
+        /citation|applies|say exactly/,
+      )
+  }
+})
+
 test("the hook inserts and overwrites severity while preserving the burden mark, prose and model records", () => {
   for (const authored of ["", "c9 ", "!B2d3 ", "clean ", "D0C2C1 "]) {
     const input = message(

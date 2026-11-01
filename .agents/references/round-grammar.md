@@ -64,6 +64,7 @@ names the parser refusal it demonstrates.
 <area-token>         ::= "[area:"<label>"]"
 <cover-token>        ::= "[cover:"<label>"]"
 <plan-token>         ::= "[plan:"<plan-target>"]"
+<applies-token>      ::= "[applies:"<sha>"/"<n>"]"
 ```
 
 The growth-pattern syntax is open. `GROWTH-PATTERNS.md` in the plan repo owns
@@ -544,14 +545,16 @@ Refusal: `Rebuttal answer 1 uses the word "Drop"; use Agree, Contest or For user
 ### Productions
 
 ```text
-<record-bullet>          ::= <repo-edu-bullet> | <plan-bullet>
+<record-bullet>          ::= <graded-record-bullet> | <citation-bullet>
+<graded-record-bullet>   ::= <repo-edu-bullet> | <plan-bullet>
+<applies-prefix>         ::= (<applies-token>" ")*
 
 <repo-edu-bullet>        ::= "- ["<tier>"] "<finding-number>?<repo-edu-record-location>" "
-                             <rating-tokens>" "<title>": "<prose>
+                             <applies-prefix><rating-tokens>" "<title>": "<prose>
 <repo-edu-record-location> ::= <area-token>(" "<cover-token>)* | <plan-token>
 
 <plan-bullet>            ::= "- "<tier>" "<finding-number>?<plan-record-location>" "
-                             <rating-tokens>" "<title>": "<prose>
+                             <applies-prefix><rating-tokens>" "<title>": "<prose>
 <finding-number>         ::= "[finding:"<n>"] "
 <plan-record-location>   ::= <planning-record-location>
                            | <planning-deferral-location>
@@ -559,6 +562,7 @@ Refusal: `Rebuttal answer 1 uses the word "Drop"; use Agree, Contest or For user
                            | <area-token>(" "<cover-token>)*
 <planning-record-location> ::= <field-token>" "<section-token>
 <planning-deferral-location> ::= <field-token>" "<area-token>(" "<cover-token>)*
+<citation-bullet>        ::= "- "<applies-token>(" "<applies-token>)*" The plan stands."
 ```
 
 A bullet that lands a report finding opens its tokens with that finding's
@@ -577,6 +581,13 @@ field followed by its section or its deferred Repo Edu area. Other local
 records have one section without a field. A Repo Edu deferral in any other
 record replaces the section with one area and any cover areas.
 
+A graded bullet carries each deferral it applies after its location and before
+its rating tokens. An untiered citation bullet records that the plan needs no
+change. Each citation names the deferring commit and that commit's deferral
+position into the destination repo, counted from one in body order. The commit
+SHA uses lowercase hexadecimal and the position is always present, including
+for the first and only deferral.
+
 ### Examples
 
 #### `record/repo-edu-local` — parsed
@@ -591,10 +602,22 @@ record replaces the section with one area and any cover areas.
 - [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Doctrine correction: the plan records the missing decision.
 ```
 
+#### `record/repo-edu-applies` — parsed
+
+```text
+- [C] [area:tool-audit-round] [applies:abc123/1] [applies:def456/2] [growth-pattern:none] [reach:developer] [complexity:none] Reader correction: the cited deferrals are applied.
+```
+
 #### `record/plan-audit` — parsed
 
 ```text
 - B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the decision names the one owner.
+```
+
+#### `record/plan-audit-applies` — parsed
+
+```text
+- B [finding:1] [field:missing] [section:decisions] [applies:abc123/1] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the cited deferral is applied.
 ```
 
 #### `record/plan-local` — parsed
@@ -613,6 +636,42 @@ record replaces the section with one area and any cover areas.
 
 ```text
 - B [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:medium] Reader correction: Repo Edu owns the parser change.
+```
+
+#### `record/plan-stands` — parsed
+
+```text
+- [applies:abc123/1] The plan stands.
+```
+
+#### `record/repo-edu-plan-stands` — parsed
+
+```text
+- [applies:abc123/1] [applies:def456/2] The plan stands.
+```
+
+#### `record/repo-edu-invalid-applies` — refused
+
+Refusal: `invalid [applies:ABC123/0] value`
+
+```text
+- [C] [area:tool-audit-round] [applies:ABC123/0] [growth-pattern:none] [reach:developer] [complexity:none] Citation shape: the token names a lowercase commit and a position from one.
+```
+
+#### `record/plan-audit-applies-out-of-order` — refused
+
+Refusal: `unexpected [applies:...] at 5`
+
+```text
+- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [applies:abc123/1] [reach:rare] [complexity:minus-low] Citation placement: the applies token follows the location.
+```
+
+#### `record/plan-stands-reason` — refused
+
+Refusal: `must say exactly "The plan stands."`
+
+```text
+- [applies:abc123/1] The plan probably stands.
 ```
 
 #### `record/repo-edu-finding-not-first` — refused

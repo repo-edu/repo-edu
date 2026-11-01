@@ -3,7 +3,7 @@ import { test } from "node:test"
 import areaModel from "../../../architecture-check/src/area-model.json" with {
   type: "json",
 }
-import { readFindings } from "../findings.js"
+import { readFindings, readRecordBullets } from "../findings.js"
 import { findingSequence, printSequence } from "../sequence.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
@@ -15,21 +15,19 @@ test("the round grammar's record-bullet examples are parser fixtures", () => {
     const repository = example.id.startsWith("record/repo-edu")
       ? "repo-edu"
       : "plan"
-    const role =
-      example.id === "record/plan-audit" ||
-      example.id === "record/plan-audit-deferral"
-        ? "plan-audit"
-        : "impl-audit-1"
+    const role = example.id.startsWith("record/plan-audit")
+      ? "plan-audit"
+      : "impl-audit-1"
     if (example.outcome === "parsed") {
       assert.equal(
-        readFindings(example.source, repository, role).length,
+        readRecordBullets(example.source, repository, role).length,
         1,
         example.id,
       )
     } else {
       assert.notEqual(example.refusal, null, example.id)
       assert.throws(
-        () => readFindings(example.source, repository, role),
+        () => readRecordBullets(example.source, repository, role),
         (error: unknown) =>
           error instanceof Error &&
           error.message.includes(example.refusal as string),
@@ -37,6 +35,31 @@ test("the round grammar's record-bullet examples are parser fixtures", () => {
       )
     }
   }
+})
+
+test("graded and untiered bullets expose deferral citations", () => {
+  const graded =
+    "- C [section:decisions] [applies:abc123/1] [applies:def456/2] [growth-pattern:none] [reach:developer] [complexity:none] Apply: the plan changes."
+  const standing = "- [applies:987abc/3] The plan stands."
+  const bullets = readRecordBullets(
+    `${graded}\n${standing}`,
+    "plan",
+    "impl-audit-1",
+  )
+  assert.deepEqual(
+    bullets.map((bullet) => bullet.applies),
+    [
+      [
+        { sha: "abc123", position: 1 },
+        { sha: "def456", position: 2 },
+      ],
+      [{ sha: "987abc", position: 3 }],
+    ],
+  )
+  assert.equal(
+    readFindings(`${graded}\n${standing}`, "plan", "impl-audit-1").length,
+    1,
+  )
 })
 
 test("a leading finding token carries the report finding number", () => {
