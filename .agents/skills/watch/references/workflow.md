@@ -456,10 +456,16 @@ The watch has these sections in this order.
 2. **What is drifting**: one or two paragraphs of grounded description. The
    unstable abstraction, where findings cluster and the structural reason that
    area keeps reopening.
-3. **The grade**: green, amber or red, with its evidence. Commit shas, the
-   clustered area ID, the repeated severity, the reach trajectory the tier
-   letters' case carries and the burden trajectory the leading
-   `growth-<level>` or `pruning-<level>` marks carry.
+3. **The grade**: green, amber or red, then one sentence each for the
+   severity run, the clustered area, the reach trajectory the tier letters'
+   case carries and the burden trajectory the leading `growth-<level>` or
+   `pruning-<level>` marks carry. Each sentence states the conclusion and
+   names one commit the user can check. No round-by-round list of tiers,
+   burden marks or titles: the view already holds that walk, and the user reads
+   the conclusion, not the trajectory. The four-part price of a flagged run
+   appears only when it bears on a question the watch asks the user. An
+   observation outside the drifting area is one sentence with its conclusion,
+   or absent.
 4. **What to do about it**: the suggested response class and the reason it
    fits, following [Watch step](#watch-step).
 5. **Targeted fix plan**: on red, and whenever the suggested response is a
