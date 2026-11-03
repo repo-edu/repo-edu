@@ -62,7 +62,7 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root =
     input.phase === "close" || input.phase === "judge"
       ? input.planRoot
-      : transcribed(input.phase)
+      : recorded(input.phase)
         ? input.cwd
         : input.repoEduRoot
   return join(
@@ -76,7 +76,7 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
 export function phaseLauncher(
   input: RoundContext & { phase: Phase; assistant: Assistant },
 ): string | null {
-  if (!transcribed(input.phase)) return null
+  if (!recorded(input.phase)) return null
   const root = join(input.planRoot, "home")
   const skill = phaseSkills[input.phase]
   return input.assistant === "claude"
@@ -358,15 +358,24 @@ export function namedModels(
 }
 
 /**
- * Whether a phase's texts belong in the round transcript. Only the four phases
- * that carry out the round write into it. The brief, the ruling and the watch
- * are separate documents. The fix writes the ruling; the brief and watch
- * run afterwards without adding their text to the transcript.
+ * The phases that carry out the round's work: each runs from the working
+ * checkout under a launcher and the round's commit model record names it. The
+ * brief, the ruling and the watch are separate documents.
  */
-export function transcribed(phase: Phase): boolean {
+export function recorded(phase: Phase): boolean {
   return (
     phase === "audit" || phase === "vet" || phase === "rebut" || phase === "fix"
   )
+}
+
+/**
+ * The phases whose texts enter the round transcript. The judge's one-line
+ * answer joins the recorded phases because it is the round's recommendation on
+ * how to continue, which the user reads from the transcript after the terminal
+ * has scrolled; it has no launcher and no place in the model record.
+ */
+export function transcribed(phase: Phase): boolean {
+  return recorded(phase) || phase === "judge"
 }
 
 /** The open-deferral object a phase receives. */

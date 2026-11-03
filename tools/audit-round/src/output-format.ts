@@ -9,9 +9,9 @@ import {
   modelStrength,
   type Phase,
   type PinnedModel,
+  recorded,
   type SessionContext,
   strengthLetters,
-  transcribed,
 } from "./phase.js"
 import type { ModelTokenUsage } from "./round-data.js"
 import type { RoundSettings } from "./settings.js"
@@ -93,7 +93,7 @@ export type RanPhase = {
 export function commitPhaseLines(ran: ReadonlyMap<Phase, RanPhase>): string {
   const lines = new Map<string, Phase[]>()
   for (const [phase, { selection }] of ran) {
-    if (!transcribed(phase)) continue
+    if (!recorded(phase)) continue
     const { model, effort } = selection
     const runsOn = effort === null ? model : `${model} ${effort}`
     lines.set(runsOn, [...(lines.get(runsOn) ?? []), phase])

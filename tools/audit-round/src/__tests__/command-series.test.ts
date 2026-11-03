@@ -762,12 +762,24 @@ test("an automatic series follows the judged switch and ends on stop without a q
   )
   const visible = f.visible.join("\n")
   assert.match(visible, /Judge: continue with Claude\./)
-  assert.match(visible, /Next round: claude, as judged;/)
+  assert.match(
+    visible,
+    /Next round: claude, as judged; \d+ rounds remain before the maximum\. Claude should check the remaining concern\./,
+  )
   assert.match(visible, /Judge: stop\./)
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\. The cross-check found no reason for another round\./,
   )
+  const transcripts = (await f.roundFiles()).filter((name) =>
+    /-1-round\..+\.md$/.test(name),
+  )
+  assert.equal(transcripts.length, 2)
+  for (const transcript of transcripts)
+    assert.match(
+      await readFile(join(f.planRoot, transcript), "utf8"),
+      /\n## judge \(\w+, fresh\)\n[\s\S]*\nJudge: (continue with Claude|stop)\. /,
+    )
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
   ) as { status: string; judge: { answer: string } | null }[]
@@ -1287,7 +1299,7 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   assert.match(visible, /Judge: settle\. No concrete shape question remains\./)
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended on the judge's settle recommendation after 1 round\./,
+    /Plan audit of example: automatic auditor series ended on the judge's settle recommendation after 1 round\. No concrete shape question remains\. The plan remains widening/,
   )
   assert.match(
     visible,

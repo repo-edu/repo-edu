@@ -126,13 +126,15 @@ consumers.
   because the rebuttal is the auditor's answer. Each named field carries what named it, including
   which of the two options a tag came from, so the report never guesses, and either CLI accepts one.
   It also defines the private inputs and results for assistant invocations, and the shared workflow
-  and launcher selectors, and owns which phases' texts enter the round transcript: only audit, vet,
-  rebuttal and fix. The brief, ruling and watch are separate documents. The judge is an
-  evidence-only turn with no document. The fix writes the ruling; the brief and watch run once the
-  transcript holds the round. Assistant boundaries own processes, stream validation, session
-  observations and phase output. They return only after accounting for the process, streams and
-  required record writes. A failure retains the known session identity, including a resumed session
-  whose new invocation reported no identity.
+  and launcher selectors, and owns which phases' texts enter the round transcript: audit, vet,
+  rebuttal, fix and the judge's one answer line, so the recommendation on how to continue survives
+  in the file after the terminal has scrolled. The brief, ruling and watch are separate documents.
+  The judge is an evidence-only turn with no document, launcher or model-record entry of its own, so
+  the launcher and commit-record set stays the four recorded phases. The fix writes the ruling; the
+  brief and watch run once the transcript holds the round. Assistant boundaries own processes,
+  stream validation, session observations and phase output. They return only after accounting for
+  the process, streams and required record writes. A failure retains the known session identity,
+  including a resumed session whose new invocation reported no identity.
 - `episode.ts` owns episode membership and history facts for the glance and joined watch evidence.
   It joins both repos' commits under the plan's stem, includes rework touching the topic's artifacts
   and retains both repositories' heads and anchors. `episode-log.ts` reads Git's commit dates,
@@ -486,8 +488,10 @@ consumers.
   round's assistant, model and effort. Other settings remain. A fix that lands a clean record
   removes none. Failure, a round requiring a ruling, a red watch or an empty queue stops the manual
   sequence, and the queue file is deleted however the sequence ends. Each manual round prints the
-  queue's path and contents when it opens. Each automatic round prints its judge answer and reason.
-  A scope list runs one series per scope in list order. Each scope opens as its own series: the
+  queue's path and contents when it opens. Each automatic round prints its judge answer and reason
+  and repeats the reason in the line that ends the series or opens the next round, so the log and
+  the terminal's last lines both carry the recommendation. A scope list runs one series per scope
+  in list order. Each scope opens as its own series: the
   opener is chosen again, so an alternate default reads the stamp the previous scope moved,
   `--first` opens every scope and the round count starts over. A judge stop or the maximum ends only
   that scope and the next one is announced. A failure, an unanswered ruling, a red watch or a plan
@@ -908,12 +912,13 @@ scope, separated by commas or spaces. Repeated entries request separate rounds. 
 the current round wait in `<target>-queue.md` at the plan root. Edit it to add, remove or reorder
 rounds; the runner reads it between rounds and deletes it when the sequence ends. An empty or
 deleted file ends the sequence after the current round. Every completed automatic round prints its
-judge answer and reason. In a manual series, a clean audit skips queued entries with the same
-resolved assistant, model and effort; other settings remain. Failure or leaving a ruling without a
-reply stops either sequence. A submitted reply resumes the fix, then the sequence after the round
-completes. A settings pair takes turns only in rounds the automatic pick chose. Its first picked
-round uses a coin flip. A `--first`, `--auditor` or queue choice bypasses the pair and takes no
-turn. Each header records the round's start time; filenames carry no timestamp.
+judge answer and reason, keeps them in the round transcript and repeats the reason in the series
+ending or the next round's opening line. In a manual series, a clean audit skips queued entries with
+the same resolved assistant, model and effort; other settings remain. Failure or leaving a ruling
+without a reply stops either sequence. A submitted reply resumes the fix, then the sequence after
+the round completes. A settings pair takes turns only in rounds the automatic pick chose. Its first
+picked round uses a coin flip. A `--first`, `--auditor` or queue choice bypasses the pair and takes
+no turn. Each header records the round's start time; filenames carry no timestamp.
 
 Before an automatic implementation series starts, the runner chains one
 planning round when the shared owner finds an open deferral into the plan repo.

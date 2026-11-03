@@ -465,7 +465,9 @@ Round sequence:
   Skipping rounds and stopping:
     - If the audit finds nothing, it skips vet, rebuttal, fix and watch. An
       automatic series still runs the judge.
-    - The judge prints its answer and reason inside the round.
+    - The judge's answer and reason print inside the round, enter the round
+      transcript and repeat in the line that ends the series or opens the
+      next round.
     - In a manual queue, a clean audit skips entries that resolve to the same
       assistant, model and effort. Other settings still run.
     - A fix that records a clean result does not skip later rounds.
@@ -1301,6 +1303,9 @@ export async function runCommand(
         }
         let target = initial
         let completed = 0
+        // The reason behind the judge answer that chose the next seat, printed
+        // with the next round's opening line so the log carries it.
+        let judgedReason: string | null = null
         const printDeferrals = async () => {
           if (!("plan" in target)) return
           const state = await deferralState(context, planStem(target.plan))
@@ -1355,7 +1360,7 @@ export async function runCommand(
               }
               if (automatic)
                 await output?.message(
-                  `Next round: ${seat.assistant}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum.`,
+                  `Next round: ${seat.assistant}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${judgedReason}`,
                 )
             }
             const repoEduDeferrals =
@@ -1468,14 +1473,14 @@ export async function runCommand(
                 )
               if (judge.answer === "stop") {
                 await active.message(
-                  `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}.`,
+                  `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}. ${judge.reason}`,
                 )
                 await printDeferrals()
                 break
               }
               if (judge.answer === "settle") {
                 await active.message(
-                  `${series} ended on the judge's settle recommendation after ${completed} round${completed === 1 ? "" : "s"}. The plan remains widening until you run pnpm audit-round settle ${planStem(target.plan)}.`,
+                  `${series} ended on the judge's settle recommendation after ${completed} round${completed === 1 ? "" : "s"}. ${judge.reason} The plan remains widening until you run pnpm audit-round settle ${planStem(target.plan)}.`,
                 )
                 await printDeferrals()
                 break
@@ -1491,6 +1496,7 @@ export async function runCommand(
                 assistant: judge.answer,
                 override: noOverride,
               }
+              judgedReason = judge.reason
               auditorSelectionSource = "settings"
               continue
             }
