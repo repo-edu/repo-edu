@@ -11,6 +11,7 @@
     "mdast-util-from-markdown": "^2.0.3",
     "semver": "^7.8.5",
     "shellwords": "^1.1.1",
+    "simple-statistics": "^8.0.0",
     "vfile": "^6.0.3",
     "vfile-matter": "^5.0.1",
     "zod": "^4.6.2"

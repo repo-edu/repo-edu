@@ -333,7 +333,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["settle", "--help"],
     ["ready", "--help"],
     ["close", "--help"],
-    ["trial", "--help"],
+    ["models", "--help"],
     ["plan", "--help"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 0)
@@ -343,7 +343,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round trial\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -358,7 +358,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     visible,
     /^\s+(name|paths|episode|deferrals|delete-reports)\s/m,
   )
-  for (const name of ["trial", "brief", "settle", "ready", "close", "plan"])
+  for (const name of ["models", "brief", "settle", "ready", "close", "plan"])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
   assert.match(visible, /--aborted <reason>/)
   assert.match(visible, /HEAD-<n>/)

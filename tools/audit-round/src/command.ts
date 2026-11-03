@@ -26,6 +26,7 @@ import {
   requireReadyMarker,
   settlePlan,
 } from "./lifecycle.js"
+import { modelsReport } from "./models.js"
 import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
   briefRun,
@@ -95,7 +96,6 @@ import {
   type TargetRequest,
   targetRequest,
 } from "./target.js"
-import { trialReport } from "./trial.js"
 import { readRebuttal, readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
@@ -105,7 +105,7 @@ type Invocation =
       readonly target?: string
       readonly lines: LineRange
     }
-  | { readonly kind: "trial" }
+  | { readonly kind: "models" }
   | { readonly kind: "plan" }
   | {
       readonly kind: "deferrals"
@@ -315,7 +315,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round trial\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -505,7 +505,7 @@ Examples (from either checkout):
 
      $ pnpm audit-round example 2,3-5,6-7
 
-Use pnpm audit-round trial to read the newest unchanged-settings run.
+Use pnpm audit-round models to read the auditor and coder results.
 Use settle, ready or close to record the corresponding plan lifecycle call.
 Use brief --help or close --help for their arguments and options.`,
     )
@@ -618,12 +618,12 @@ Use brief --help or close --help for their arguments and options.`,
       invocation = { kind: "deferrals", stem }
     })
   command
-    .command("trial")
+    .command("models")
     .description(
-      "Read the newest unchanged-settings auditor trial without writing files or starting assistants.",
+      "Read auditor and coder results from retained records without starting assistants.",
     )
     .action(() => {
-      invocation = { kind: "trial" }
+      invocation = { kind: "models" }
     })
   command
     .command("plan")
@@ -796,8 +796,12 @@ export async function runCommand(
       options.terminal.write(watchEvidencePage(evidence, invocation.lines))
       return 0
     }
-    if (invocation.kind === "trial") {
-      options.terminal.write(await trialReport(context), "markdown")
+    if (invocation.kind === "models") {
+      const modelSettings = options.settings ?? (await readSettings())
+      options.terminal.write(
+        await modelsReport(context, modelSettings.coders),
+        "markdown",
+      )
       return 0
     }
     if (invocation.kind === "plan") {
