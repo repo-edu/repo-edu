@@ -484,13 +484,13 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   )
   assert.equal(
     auditorReading.match(
-      /For planning audits, codex audit-admission low needs/g,
+      /for planning audits, codex audit-admission low needs/g,
     )?.length,
     1,
   )
   assert.equal(
     auditorReading.match(
-      /For implementation audits, codex audit-admission low needs/g,
+      /for implementation audits, codex audit-admission low needs/g,
     )?.length,
     1,
   )
@@ -500,6 +500,10 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(
     output,
     /codex audit-third low.+first none; later 1, yield 1\.0, dropped 0\.0, 1\.0 min; manual 0.+none/,
+  )
+  assert.match(
+    output,
+    /Later means a later settings-chosen round on a target that already has a finished round\. Manual means a round whose auditor the command line chose\./,
   )
   assert.match(output, /## Coders/)
   assert.match(

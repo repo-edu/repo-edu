@@ -53,6 +53,11 @@ function shortageClause(
   return `${context}, ${modelText(identity)} needs ${plural(missing, "more example")} before all current rows can be compared`
 }
 
+function joinedSentence(clauses: readonly string[]): string {
+  const joined = clauses.join("; ")
+  return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`
+}
+
 function currentEntries<Row extends { readonly identity: ModelIdentity }>(
   rows: ReadonlyMap<string, Row>,
   current: readonly string[],
@@ -83,10 +88,7 @@ function sharedAuditorSamples(
   first: string,
   second: string,
   workClass: WorkClass,
-): {
-  readonly sharedSettings: boolean
-  readonly samples: readonly [AuditorSample[], AuditorSample[]]
-} {
+): readonly [AuditorSample[], AuditorSample[]] {
   const select = (key: string) =>
     (rows.get(key)?.samples ?? []).filter(
       (sample) =>
@@ -95,12 +97,7 @@ function sharedAuditorSamples(
         sample.active.has(first) &&
         sample.active.has(second),
     )
-  return {
-    sharedSettings:
-      rows.get(first)?.settingsPeers[workClass].has(second) === true ||
-      rows.get(second)?.settingsPeers[workClass].has(first) === true,
-    samples: [select(first), select(second)],
-  }
+  return [select(first), select(second)]
 }
 
 function comparisonClause(
@@ -133,13 +130,12 @@ function auditorRecommendation(
     ranked.every((other) => {
       if (candidate === other) return true
       return (["planning", "implementation"] as const).every((workClass) => {
-        const { samples } = sharedAuditorSamples(
+        const [candidateSamples, otherSamples] = sharedAuditorSamples(
           rows,
           candidate,
           other,
           workClass,
         )
-        const [candidateSamples, otherSamples] = samples
         return (
           candidateSamples.length >= auditorFloor &&
           otherSamples.length >= auditorFloor &&
@@ -170,22 +166,15 @@ function auditorSentence(
             ).length
           : Math.min(
               ...peers.map((peer) => {
-                const comparison = sharedAuditorSamples(
-                  rows,
-                  key,
-                  peer,
-                  workClass,
-                )
-                return comparison.sharedSettings
-                  ? comparison.samples[0].length
-                  : 0
+                return sharedAuditorSamples(rows, key, peer, workClass)[0]
+                  .length
               }),
             )
       const shortage = shortageClause(
         row.identity,
         sampleCount,
         auditorFloor,
-        `For ${workClass} audits`,
+        `for ${workClass} audits`,
       )
       if (shortage !== null) clauses.push(shortage)
     }
@@ -197,18 +186,12 @@ function auditorSentence(
       const comparisons = (["planning", "implementation"] as const).map(
         (workClass) => ({
           workClass,
-          comparison: sharedAuditorSamples(
-            rows,
-            firstKey,
-            secondKey,
-            workClass,
-          ),
+          samples: sharedAuditorSamples(rows, firstKey, secondKey, workClass),
         }),
       )
-      for (const { workClass, comparison } of comparisons) {
-        const [firstSamples, secondSamples] = comparison.samples
+      for (const { workClass, samples } of comparisons) {
+        const [firstSamples, secondSamples] = samples
         if (
-          !comparison.sharedSettings ||
           firstSamples.length < auditorFloor ||
           secondSamples.length < auditorFloor
         )
@@ -220,7 +203,7 @@ function auditorSentence(
             secondRow.identity,
             firstSamples,
             secondSamples,
-            `For ${workClass} audits`,
+            `for ${workClass} audits`,
           ),
         )
       }
@@ -240,7 +223,7 @@ function auditorSentence(
       ? "the current records do not separate one auditor clearly across both audit groups"
       : `the current records clearly support running ${modelText(rows.get(recommendation)?.identity ?? entries[0][1].identity)}`,
   )
-  return `${clauses.join("; ")}.`
+  return joinedSentence(clauses)
 }
 
 function sampleSummary(samples: readonly AuditorSample[]): string {
@@ -356,7 +339,7 @@ function coderSentence(
       row.identity,
       row.samples.length,
       coderFloor,
-      "For implemented plans",
+      "for implemented plans",
     )
     if (shortage !== null) clauses.push(shortage)
   }
@@ -371,7 +354,7 @@ function coderSentence(
           secondRow.identity,
           firstRow.samples,
           secondRow.samples,
-          "For implemented plans",
+          "for implemented plans",
         ),
       )
     }
@@ -389,7 +372,7 @@ function coderSentence(
         : "the current records do not separate one coder clearly"
       : `the current records clearly support running ${modelText(rows.get(reading.recommendation)?.identity ?? entries[0][1].identity)}`,
   )
-  return `${clauses.join("; ")}.`
+  return joinedSentence(clauses)
 }
 
 function coderTable(
@@ -428,7 +411,7 @@ export async function modelsReport(
     "",
     ...auditorTable(evidence.auditors, evidence.currentAuditors),
     "",
-    "First means a settings-chosen opening round. Later means a judge-chosen round. Manual command-line openings stay visible but do not enter the reading. Yield is accepted A and B findings per complete round. Auditor time and tokens include audit and rebuttal only.",
+    "First means a settings-chosen opening round. Later means a later settings-chosen round on a target that already has a finished round. Manual means a round whose auditor the command line chose. Yield is accepted A and B findings per complete round. Auditor time and tokens include audit and rebuttal only.",
     "",
     "## Coders",
     "",
