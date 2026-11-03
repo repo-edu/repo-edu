@@ -192,7 +192,7 @@ function controlledRound(
     await settle(input)
   }
   const evidence = {
-    opening: "",
+    settling: "",
     findings: [reportFinding],
     accepted: false,
     subjects: ["example/impl-audit-1 oth clean: settled"],
@@ -227,7 +227,7 @@ function controlledRound(
       return { message: "Clean audit recorded", commits: [] }
     },
     readReport: async () => ({
-      opening: evidence.opening,
+      settling: evidence.settling,
       findings: evidence.findings,
       judgedRepos: ["repo-edu"],
     }),
@@ -523,7 +523,7 @@ for (const grade of ["green", "amber"] as const) {
       {
         ...round.dependencies,
         readReport: async () => ({
-          opening: "",
+          settling: "",
           findings: [reportFinding],
           judgedRepos: ["plan", "repo-edu"],
         }),
@@ -1069,10 +1069,10 @@ test("a round that hands over runs no watch, because its work has not landed", a
   assert.deepEqual(round.glances, [])
 })
 
-test("a widening fix's settling line replaces the audit's opening in the retained account", async () => {
+test("a widening fix's settling line replaces the audit report's line in the retained account", async () => {
   const round = controlledRound()
-  round.evidence.opening =
-    "# Planning round workflow\n\nKeep open until the user rules on finding 1."
+  round.evidence.settling =
+    "keep open. Finding 1 needs the user's ruling before the shape can close."
   round.results.fix = {
     status: "finished",
     sessionId: "fix-session",
@@ -1138,10 +1138,9 @@ test("a plan round records only the landed commits that carry its stem", async (
   assert.equal(round.settledWrites[0]?.account.findings[0]?.outcome, "kept")
 })
 
-test("a clean widening audit retains the auditor's opening as the settling recommendation", async () => {
+test("a clean widening audit retains the report's settling line as the settling recommendation", async () => {
   const round = controlledRound()
-  round.evidence.opening =
-    "# Planning round workflow\n\nSettle: no concrete shape question remains."
+  round.evidence.settling = "settle. No concrete shape question remains."
   round.evidence.findings = []
 
   const result = await runRound(
@@ -1154,7 +1153,10 @@ test("a clean widening audit retains the auditor's opening as the settling recom
   )
 
   assert.equal(result.status, "finished")
-  assert.equal(round.settledWrites[0]?.account.settling, round.evidence.opening)
+  assert.equal(
+    round.settledWrites[0]?.account.settling,
+    round.evidence.settling,
+  )
 })
 
 test("a widening fix without a settling line fails at the fix and keeps the reports", async () => {
@@ -1958,7 +1960,7 @@ test("the round reads each supplied file and records both heads immediately befo
       async readReport(file, kind) {
         reads.push([file, kind])
         return {
-          opening: "",
+          settling: "",
           findings: [reportFinding, secondReportFinding],
           judgedRepos: ["repo-edu"],
         }

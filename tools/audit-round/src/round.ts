@@ -489,7 +489,7 @@ export async function runRound(
     }
   }
   account = {
-    settling: evidence.opening,
+    settling: evidence.settling,
     judgedRepos: evidence.judgedRepos,
     findings: reviewedRoundFindings(evidence.findings),
   }
@@ -733,8 +733,8 @@ export async function runRound(
     if (fix.status === "finished") {
       try {
         // The fix ends the round and has answered every ruling it asked, so
-        // its settling line is the recommendation the judge reads. The audit's
-        // opening stands only when no fix ran.
+        // its settling line is the recommendation the judge reads. The audit
+        // report's closing line stands only when no fix ran.
         const widening =
           "plan" in input &&
           roundKind === "planning" &&

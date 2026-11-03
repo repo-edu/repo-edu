@@ -1137,9 +1137,11 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
         readReply: async () => {
           await rm(widening)
           await rename(settled, widening)
+          // The reopened plan's next audit reads a widening report, which
+          // ends on its settling line.
           await writeFile(
             reportSource,
-            detailingReport.replace("Phase: detailing", "Phase: widening"),
+            `${detailingReport}\nSettling: keep open. The reopened decision still needs evidence.\n`,
           )
           await finishFixOnReply(
             f,
@@ -1254,10 +1256,7 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   await rm(join(f.planRoot, "example.md"))
   await writeFile(
     f.report,
-    (await readFile(f.report, "utf8")).replace(
-      "Phase: detailing",
-      "Phase: widening",
-    ),
+    `${await readFile(f.report, "utf8")}\nSettling: keep open. Finding 1 must land before the shape can close.\n`,
   )
   await configureWideningSeries(
     f,
@@ -1328,10 +1327,7 @@ test("a widening judge can stop the series without recommending settle", async (
   await rm(join(f.planRoot, "example.md"))
   await writeFile(
     f.report,
-    (await readFile(f.report, "utf8")).replace(
-      "Phase: detailing",
-      "Phase: widening",
-    ),
+    `${await readFile(f.report, "utf8")}\nSettling: keep open. The shape question needs evidence only the user can supply.\n`,
   )
   await configureJudgeAnswers(f, [
     "Judge: stop. The shape question needs evidence only the user can supply.",
@@ -1342,11 +1338,14 @@ test("a widening judge can stop the series without recommending settle", async (
     0,
     f.errors.join("\n"),
   )
-  // A clean audit runs no fix, so the auditor's opening is the retained recommendation.
+  // A clean audit runs no fix, so the report's closing line is the retained recommendation.
   const [stored] = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
   ) as { settling: string }[]
-  assert.match(stored?.settling ?? "", /^Planning round workflow\n/)
+  assert.equal(
+    stored?.settling,
+    "keep open. The shape question needs evidence only the user can supply.",
+  )
   const visible = f.visible.join("\n")
   assert.match(visible, /Judge: stop\. The shape question needs evidence/)
   assert.match(

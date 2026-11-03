@@ -35,16 +35,20 @@ const settlingPrefix = "Settling: "
 const settlingLine = /^Settling: (settle|keep open)\. (\S.*)$/
 
 /**
- * Read the settling line a finished fix puts before its phase result. The
- * line is absent outside widening rounds, so absence is returned rather than
- * refused; the round decides whether the phase required it.
+ * Read one settling line as the retained recommendation. A line that is not
+ * one returns null, so the caller decides whether its place required one; a
+ * line that starts as one but breaks the grammar is refused.
  */
-export function settlingOutput(text: string): string | null {
-  const line = withoutPhaseResult(text).split("\n").at(-1) ?? ""
+export function readSettlingLine(line: string): string | null {
   if (!line.startsWith(settlingPrefix)) return null
   const match = settlingLine.exec(line)
   if (match === null) throw new Error("Invalid settling line")
   return `${match[1]}. ${match[2]}`
+}
+
+/** Read the settling line a finished fix puts before its phase result. */
+export function settlingOutput(text: string): string | null {
+  return readSettlingLine(withoutPhaseResult(text).split("\n").at(-1) ?? "")
 }
 
 const resultSchema = z.strictObject({

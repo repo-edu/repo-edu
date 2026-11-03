@@ -280,8 +280,7 @@ test("widening planning data retains the settling recommendation", async (t) => 
   const output = new RoundOutput(run, {
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
-  const settling =
-    "# Planning round workflow\n\nJudged repos: plan@abc123\n\nSettle once finding 1 has landed."
+  const settling = "keep open. Settle once finding 1 has landed."
   output.writeSettledRound([], {
     settling,
     judgedRepos: ["plan"],

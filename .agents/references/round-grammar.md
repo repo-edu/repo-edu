@@ -85,9 +85,12 @@ exactly, so one citation cannot close two deferrals whose short forms collide.
 ### Productions
 
 ```text
-<report>                  ::= <planning-report> | <implementation-report>
+<report>                  ::= <widening-report> | <detailing-report>
+                            | <implementation-report>
 
-<planning-report>         ::= <planning-opening><planning-fields>
+<widening-report>         ::= <planning-opening><planning-fields> BLANK
+                              <settling-line>
+<detailing-report>        ::= <planning-opening><planning-fields>
 <implementation-report>  ::= <implementation-opening><implementation-field>
 
 <planning-opening>        ::= <opening containing "Planning round workflow">
@@ -147,6 +150,12 @@ gaps across all fields and titles are distinct across the report.
 
 Each field contains findings or its exact empty sentence, never both.
 
+A widening report ends with the [settling line](#settling-line) as its last
+line, after the last finding field, so the reader meets the round's advice
+where the report stops instead of hunting for it in the opening. The reader
+requires that line on a widening report and refuses one on a detailing or
+implementation report, where no series recommendation belongs.
+
 ### Implementation location table
 
 The judged set selects the meaning and admission of the implementation
@@ -200,6 +209,65 @@ No excess findings.
 ## Missing functionality
 
 No missing findings.
+```
+
+#### `report/widening-empty` — parsed
+
+```markdown
+# Planning round workflow
+
+Target: example-widen.md
+Judged repos: plan@abc123
+
+## Excess functionality
+
+No excess findings.
+
+## Missing functionality
+
+No missing findings.
+
+Settling: settle. No concrete shape question remains.
+```
+
+#### `report/widening-without-settling` — refused
+
+Refusal: `Widening report must end with a settling line`
+
+```markdown
+# Planning round workflow
+
+Target: example-widen.md
+Judged repos: plan@abc123
+
+## Excess functionality
+
+No excess findings.
+
+## Missing functionality
+
+No missing findings.
+```
+
+#### `report/detailing-settling` — refused
+
+Refusal: `Only a widening report ends with a settling line`
+
+```markdown
+# Planning round workflow
+
+Target: example.md
+Judged repos: plan@abc123
+
+## Excess functionality
+
+No excess findings.
+
+## Missing functionality
+
+No missing findings.
+
+Settling: settle. No concrete shape question remains.
 ```
 
 #### `report/implementation-empty` — parsed
@@ -886,12 +954,14 @@ Watch grade: yellow
 <one-line-reason> ::= non-empty text on one line
 ```
 
-The line is exactly one plain line after the finished fix's Markdown and
-immediately before the final `PHASE RESULT` line. A fix in a widening planning
-round returns it; every other fix returns none, and the round refuses a line
-where none is required. A fix that needs a ruling returns no line, because the
-round has not ended. It is control data for the runner, which retains it as the
-round's settling recommendation for the series judge.
+The line is exactly one plain line and closes two widening outputs. A widening
+audit report ends with it as its last line, after the last finding field, under
+[Audit report](#audit-report). A widening fix returns it after its Markdown,
+immediately before the final `PHASE RESULT` line. Every other report and fix
+carries none, and the reader refuses a line where none is required. A fix that
+needs a ruling returns no line, because the round has not ended. It is control
+data for the runner, which retains the audit's line, replaced by the fix's line
+when a fix runs, as the round's settling recommendation for the series judge.
 
 ### Examples
 

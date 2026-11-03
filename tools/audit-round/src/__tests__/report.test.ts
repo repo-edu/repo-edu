@@ -37,11 +37,13 @@ function assertNamedRefusal(run: () => unknown, refusal: string | null): void {
 
 test("the round grammar's report examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("report/")) {
-    const kind = example.source.includes("Planning round workflow")
-      ? "detailing"
-      : "implementation"
     // A refused example without the line is held to the class default.
     const target = /^Target: (.+)$/m.exec(example.source)?.[1]
+    const kind = !example.source.includes("Planning round workflow")
+      ? "implementation"
+      : target?.endsWith("-widen.md")
+        ? "widening"
+        : "detailing"
     if (example.outcome === "parsed") {
       assert.doesNotThrow(
         () => readAuditReport(example.source, kind, target),
@@ -116,6 +118,9 @@ const implementation = (body: string) =>
   `# Implementation audit workflow\n\nTarget: example.md 1\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
 const planning = (excess: string, missing: string) =>
   `# Planning round workflow\n\nTarget: example.md\nJudged repos: plan@abc123\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
+const settlingLine = "Settling: settle. No concrete shape question remains."
+const widening = (excess: string, missing: string) =>
+  `${planning(excess, missing).replace("Target: example.md", "Target: example-widen.md")}\n\n${settlingLine}`
 
 test("the report opening identifies the judged repos independently of evidence", () => {
   for (const [line, judgedRepos] of [
@@ -129,7 +134,7 @@ test("the report opening identifies the judged repos independently of evidence",
         "implementation",
       ),
       {
-        opening: "",
+        settling: "",
         findings: [],
         judgedRepos,
       },
@@ -138,12 +143,12 @@ test("the report opening identifies the judged repos independently of evidence",
 })
 
 test("planning reports judge only the plan repository", () => {
-  const valid = planning("No excess findings.", "No missing findings.")
   for (const reportClass of ["widening", "detailing"] as const) {
-    assert.deepEqual(
-      readAuditReport(valid, reportClass, "example.md").judgedRepos,
-      ["plan"],
+    const valid = (reportClass === "widening" ? widening : planning)(
+      "No excess findings.",
+      "No missing findings.",
     )
+    assert.deepEqual(readAuditReport(valid, reportClass).judgedRepos, ["plan"])
     for (const opening of [
       "Judged repos: repo-edu@def456",
       "Judged repos: plan@abc123, repo-edu@def456",
@@ -153,7 +158,6 @@ test("planning reports judge only the plan repository", () => {
           readAuditReport(
             valid.replace("Judged repos: plan@abc123", opening),
             reportClass,
-            "example.md",
           ),
         /Judged repos/,
       )
@@ -174,7 +178,7 @@ test("plain judged-repos lines survive formatted neighbours in the same paragrap
         "implementation",
       ),
       {
-        opening: "",
+        settling: "",
         findings: [],
         judgedRepos: ["repo-edu"],
       },
@@ -246,33 +250,55 @@ test("the report opening names the round's target exactly once in plain text", (
 test("settled reports carry findings and judged repositories after routing", () => {
   assert.deepEqual(
     readAuditReport(implementation("No findings."), "implementation"),
-    { opening: "", findings: [], judgedRepos: ["plan", "repo-edu"] },
+    { settling: "", findings: [], judgedRepos: ["plan", "repo-edu"] },
   )
   assert.deepEqual(
     readAuditReport(
       planning("No excess findings.", "No missing findings."),
       "detailing",
     ),
-    { opening: "", findings: [], judgedRepos: ["plan"] },
+    { settling: "", findings: [], judgedRepos: ["plan"] },
   )
 })
 
-test("widening reports retain their complete document opening", () => {
-  const source = planning("No excess findings.", "No missing findings.")
-    .replace("Target: example.md", "Target: example-widen.md")
-    .replace(
-      "Judged repos: plan@abc123\n\n",
-      "Judged repos: plan@abc123\n\nSettle once finding 1 has landed.\n\n",
+test("widening reports end with their settling line and retain it", () => {
+  const empty = widening("No excess findings.", "No missing findings.")
+  assert.equal(
+    readAuditReport(empty, "widening").settling,
+    "settle. No concrete shape question remains.",
+  )
+  // The line closes the document, so it is not the last finding's evidence.
+  const found = widening(
+    "No excess findings.",
+    "### 1. B: Name the owner\n\n[field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none]\n\nOne owner is missing.",
+  ).replace(
+    settlingLine,
+    "Settling: keep open. Finding 1 names the open question in `plan-steps.ts`.",
+  )
+  assert.deepEqual(
+    [
+      readAuditReport(found, "widening").settling,
+      readAuditReport(found, "widening").findings.map((f) => f.number),
+    ],
+    ["keep open. Finding 1 names the open question in `plan-steps.ts`.", [1]],
+  )
+  assert.throws(
+    () => readAuditReport(empty, "detailing", "example-widen.md"),
+    /^Error: Only a widening report ends with a settling line$/,
+  )
+  assert.throws(
+    () => readAuditReport(empty.replace(`\n\n${settlingLine}`, ""), "widening"),
+    /^Error: Widening report must end with a settling line$/,
+  )
+  for (const line of [
+    "Settling: maybe. The shape might be done.",
+    "Settling: settle. The reason wraps onto\na second line.",
+  ])
+    assert.throws(
+      () => readAuditReport(empty.replace(settlingLine, line), "widening"),
+      /^Error: Invalid settling line$/,
+      line,
     )
-
-  assert.equal(
-    readAuditReport(source, "widening").opening,
-    "# Planning round workflow\n\nTarget: example-widen.md\nJudged repos: plan@abc123\n\nSettle once finding 1 has landed.",
-  )
-  assert.equal(
-    readAuditReport(source, "detailing", "example-widen.md").opening,
-    "",
-  )
 })
 
 test("reports require the workflow that matches their class", () => {

@@ -11,6 +11,7 @@ import {
   readFindingTokenPrefix,
   reportLocationTable,
 } from "./finding-tokens.js"
+import { readSettlingLine } from "./phase-result.js"
 import type { ReportFinding, RoundFindingLocation } from "./round-data.js"
 import type { Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
@@ -49,7 +50,8 @@ export function reportKind(source: string): RoundKind {
 export type ReportFindings = readonly ReportFinding[]
 
 export type AuditReport = {
-  readonly opening: string
+  /** A widening report's closing settling line; empty for every other class. */
+  readonly settling: string
   readonly findings: ReportFindings
   readonly judgedRepos: readonly Repository[]
 }
@@ -63,9 +65,32 @@ type OpeningLine = {
   readonly text: string
 }
 
-function reportOpening(children: readonly Block[], source: string): string {
-  const offset = children[openingEndIndex(children)]?.position?.start.offset
-  return source.slice(0, offset).trim()
+/**
+ * A widening report ends on its settling line, so its reader meets the advice
+ * where the report stops. No other report class carries one. The line is read
+ * from its source, so a formatted span in the reason loses no words, and a
+ * wrapped paragraph fails the one-line grammar.
+ */
+function reportSettling(
+  children: readonly Block[],
+  source: string,
+  reportClass: ReportClass,
+): string {
+  const last = children.at(-1)
+  const line =
+    last?.type === "paragraph"
+      ? readSettlingLine(
+          source.slice(last.position?.start.offset, last.position?.end.offset),
+        )
+      : null
+  if (reportClass === "widening") {
+    if (line === null)
+      throw new Error("Widening report must end with a settling line")
+    return line
+  }
+  if (line !== null)
+    throw new Error("Only a widening report ends with a settling line")
+  return ""
 }
 
 function openingLines(
@@ -316,9 +341,12 @@ export function readReport(
   const children = fromMarkdown(source).children
   checkTarget(children, source, target)
   const repositories = judgedRepos(children, source, reportClass)
+  const settling = reportSettling(children, source, reportClass)
+  // The settling line closes the document, not the last field.
+  const body = settling === "" ? children : children.slice(0, -1)
   const findings: ReportFinding[] = []
   for (const definition of definitions) {
-    const headings = children.flatMap((node, index) =>
+    const headings = body.flatMap((node, index) =>
       node.type === "heading" &&
       node.depth === 2 &&
       plain(node) === definition.heading
@@ -328,11 +356,11 @@ export function readReport(
     if (headings.length !== 1)
       throw new Error(`Report needs exactly one ## ${definition.heading} field`)
     const start = headings[0] + 1
-    const next = children.findIndex(
+    const next = body.findIndex(
       (node, index) =>
         index >= start && node.type === "heading" && node.depth <= 2,
     )
-    const nodes = children.slice(start, next === -1 ? undefined : next)
+    const nodes = body.slice(start, next === -1 ? undefined : next)
     let empty = 0
     const fieldFindings: ReportFinding[] = []
     // A depth-3 heading opens a finding; every later block is its evidence.
@@ -378,9 +406,5 @@ export function readReport(
       )
     titles.add(finding.title)
   }
-  return {
-    opening: reportClass === "widening" ? reportOpening(children, source) : "",
-    findings,
-    judgedRepos: repositories,
-  }
+  return { settling, findings, judgedRepos: repositories }
 }
