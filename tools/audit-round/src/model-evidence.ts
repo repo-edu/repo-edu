@@ -27,7 +27,7 @@ export type TokenTotals = Map<string, Omit<ModelTokenUsage, "model">>
 
 export type AuditorSample = ReadingSample & {
   readonly workClass: WorkClass
-  readonly source: RoundData["auditor"]["chosenBy"]
+  readonly position: "first" | "later" | "manual"
   readonly active: ReadonlySet<string>
   readonly dropped: number
   readonly tokens: TokenTotals
@@ -68,6 +68,9 @@ type RoundRecord = {
 
 type HistoryCommit = {
   readonly repository: "repo-edu" | "plan"
+  readonly sha: string
+  readonly committedAt: number
+  readonly order: number
   readonly subject: string
   readonly body: string
 }
@@ -75,6 +78,7 @@ type HistoryCommit = {
 type StepRecord = {
   readonly identity: ModelIdentity
   readonly minutes: number | null
+  readonly commit: HistoryCommit
 }
 
 type PlanEvidence = {
@@ -146,7 +150,7 @@ function finalTier(finding: RoundFinding): RoundFinding["tier"] {
 function acceptedYield(findings: readonly RoundFinding[]): number {
   return findings.filter(
     (finding) =>
-      (finding.outcome === "kept" || finding.outcome === "unmatched") &&
+      finding.outcome === "kept" &&
       (finalTier(finding) === "A" || finalTier(finding) === "B"),
   ).length
 }
@@ -215,6 +219,16 @@ async function readRoundRecords(
 
 function auditorRows(records: readonly RoundRecord[]): Map<string, AuditorRow> {
   const rows = new Map<string, AuditorRow>()
+  const targetKey = (record: RoundRecord) =>
+    JSON.stringify([record.workClass, record.stem, record.data.target])
+  const firstFinishedRounds = new Map<string, number>()
+  for (const record of records) {
+    if (!modelRoundComplete(record.data)) continue
+    const key = targetKey(record)
+    const first = firstFinishedRounds.get(key)
+    if (first === undefined || record.data.round < first)
+      firstFinishedRounds.set(key, record.data.round)
+  }
   for (const record of records) {
     const identity = selectionIdentity(
       record.data.auditor.assistant,
@@ -230,6 +244,8 @@ function auditorRows(records: readonly RoundRecord[]): Map<string, AuditorRow> {
     const vet = record.data.settings.vet[vetAssistant]
     row.vets.add(`${vet.model} ${vet.effort ?? "effort unavailable"}`)
     if (modelRoundComplete(record.data)) {
+      const firstFinished =
+        firstFinishedRounds.get(targetKey(record)) === record.data.round
       const owned = record.data.phases.filter(
         (phase) => phase.phase === "audit" || phase.phase === "rebut",
       )
@@ -237,7 +253,12 @@ function auditorRows(records: readonly RoundRecord[]): Map<string, AuditorRow> {
       for (const phase of owned) addTokens(tokens, phase.tokens)
       row.samples.push({
         workClass: record.workClass,
-        source: record.data.auditor.chosenBy,
+        position:
+          record.data.auditor.chosenBy !== "settings"
+            ? "manual"
+            : firstFinished
+              ? "first"
+              : "later",
         active: roundAuditKeys(record.data),
         yield: acceptedYield(record.data.findings),
         dropped: droppedYield(record.data.findings),
@@ -258,14 +279,22 @@ async function readHistory(
 ): Promise<HistoryCommit[]> {
   const { stdout } = await execa(
     "git",
-    ["log", "-z", "--format=%H%x00%s%x00%b"],
+    ["log", "-z", "--format=%H%x00%ct%x00%s%x00%b"],
     { cwd: root },
   )
   const fields = stdout.split("\0")
   const commits: HistoryCommit[] = []
-  for (let at = 0; at + 2 < fields.length; at += 3) {
-    const [sha, subject, body] = fields.slice(at, at + 3)
-    if (sha.length > 0) commits.push({ repository, subject, body })
+  for (let at = 0; at + 3 < fields.length; at += 4) {
+    const [sha, committedAt, subject, body] = fields.slice(at, at + 4)
+    if (sha.length > 0)
+      commits.push({
+        repository,
+        sha,
+        committedAt: Number(committedAt),
+        order: at / 4,
+        subject,
+        body,
+      })
   }
   return commits
 }
@@ -296,6 +325,7 @@ function stepRecord(commit: HistoryCommit): StepRecord | null {
   return {
     identity: { assistant, model: selection[1], effort: selection[2] },
     minutes,
+    commit,
   }
 }
 
@@ -325,17 +355,50 @@ function fixIdentity(phase: RoundData["phases"][number]): ModelIdentity {
   }
 }
 
+function historyKey(repository: HistoryCommit["repository"], sha: string) {
+  return `${repository}:${sha.toLowerCase()}`
+}
+
+function hasWholePlanAudit(
+  plan: PlanEvidence,
+  history: ReadonlyMap<string, HistoryCommit>,
+): boolean {
+  const finalStep = Math.max(...[...plan.steps].map(Number))
+  const scope = finalStep === 1 ? "1" : `1-${finalStep}`
+  const newerThanStep = (audit: HistoryCommit, step: StepRecord) =>
+    audit.repository === step.commit.repository
+      ? audit.order < step.commit.order
+      : audit.committedAt > step.commit.committedAt
+  return plan.rounds.some(
+    (round) =>
+      modelRoundComplete(round.data) &&
+      "scope" in round.data &&
+      round.data.scope === scope &&
+      round.data.commits.some((commit) => {
+        const record = history.get(historyKey(commit.repository, commit.sha))
+        const form = record === undefined ? null : looseForm(record.subject)
+        return (
+          record !== undefined &&
+          plan.stepRecords.every((step) => newerThanStep(record, step)) &&
+          form?.stem === plan.stem &&
+          form.role === `impl-audit-${scope}`
+        )
+      }),
+  )
+}
+
 function excludedPlanReason(
   plan: PlanEvidence,
   actual: ReadonlySet<string>,
+  history: ReadonlyMap<string, HistoryCommit>,
 ): string {
   if (!plan.closed) return "not closed"
   if (plan.assignment === null) return "no ready assignment"
   if (plan.steps.size === 0) return "no step records"
   if (plan.stepRecords.some((record) => record.minutes === null))
     return "step time unavailable"
-  if (!plan.rounds.some((round) => modelRoundComplete(round.data)))
-    return "no complete implementation audit"
+  if (!hasWholePlanAudit(plan, history))
+    return "no complete whole-plan audit after the final step"
   const assigned = modelKey(plan.assignment)
   if (actual.size !== 1 || !actual.has(assigned)) return "mixed model records"
   return ""
@@ -349,6 +412,12 @@ async function coderRows(
     readHistory("repo-edu", context.repoEduRoot),
     readHistory("plan", context.planRoot),
   ])
+  const history = new Map(
+    [...repoEduHistory, ...planHistory].map((commit) => [
+      historyKey(commit.repository, commit.sha),
+      commit,
+    ]),
+  )
   const plans = new Map<string, PlanEvidence>()
   for (const record of records) {
     if (record.workClass === "implementation")
@@ -363,7 +432,7 @@ async function coderRows(
         plan.assignment = parseCoderRecord(commit.body)
       continue
     }
-    if (form.role === "closed" && commit.repository === "repo-edu") {
+    if (form.role === "closed" && commit.repository === "plan") {
       plan.closed = true
       continue
     }
@@ -409,7 +478,7 @@ async function coderRows(
       }
     }
     if (actual.size === 0) continue
-    const reason = excludedPlanReason(plan, new Set(actual.keys()))
+    const reason = excludedPlanReason(plan, new Set(actual.keys()), history)
     for (const [key, identity] of actual) {
       const row = ensureRow(identity)
       const tokens = tokensByModel.get(key) ?? new Map()

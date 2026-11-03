@@ -9,6 +9,7 @@ import {
   speedWords,
   yieldWords,
 } from "../model-comparison.js"
+import { modelKey, readModelEvidence } from "../model-evidence.js"
 import type { RoundData, RoundFinding } from "../round-data.js"
 import { writeRoundData } from "../round-data.js"
 import { runCommand, testSettings } from "./configured-runner.js"
@@ -20,6 +21,100 @@ const modelSamples = (
   minutes = 10,
 ): { readonly yield: number; readonly minutes: number }[] =>
   yields.map((yieldValue) => ({ yield: yieldValue, minutes }))
+
+const selection = (model: string, effort: string | null = "low") => ({
+  model,
+  effort,
+})
+
+const settings = (claude: string, codex: string): RoundData["settings"] => ({
+  audit: { claude: selection(claude), codex: selection(codex) },
+  vet: {
+    claude: selection("claude-vet"),
+    codex: selection("codex-vet"),
+  },
+  fix: { assistant: "codex", ...selection("coder-beta") },
+})
+
+const phase = (
+  phaseName: RoundData["phases"][number]["phase"],
+  assistant: "claude" | "codex",
+  model: string,
+  milliseconds: number,
+): RoundData["phases"][number] => ({
+  phase: phaseName,
+  assistant,
+  model,
+  effort: "low",
+  milliseconds,
+  tokens: [{ model, input: 1000, cached: 500, output: 100 }],
+  peakContext: null,
+  compactions: 0,
+})
+
+const finding = (
+  title: string,
+  outcome: "kept" | "unmatched" = "kept",
+): RoundFinding => ({
+  number: outcome === "kept" ? 1 : null,
+  title,
+  tier: "B",
+  reach: "developer",
+  complexity: "none",
+  growthPattern: "none",
+  location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+  vetVerdict: outcome === "kept" ? "accept" : null,
+  rebuttalAnswer: null,
+  outcome,
+  finalTier: null,
+  finalReach: null,
+})
+
+const round = (
+  target: string,
+  roundNumber: number,
+  started: string,
+  auditor: RoundData["auditor"],
+  roundSettings: RoundData["settings"],
+  phases: RoundData["phases"],
+  commits: RoundData["commits"],
+  findings: RoundFinding[] = [finding(`${auditor.model} yield`)],
+) => ({
+  target,
+  round: roundNumber,
+  tag: auditor.assistant === "claude" ? "aul" : "oul",
+  started,
+  status: "finished" as const,
+  settings: roundSettings,
+  auditor,
+  phases,
+  commits,
+  findings,
+  judge: null,
+})
+
+async function commit(
+  cwd: string,
+  subject: string,
+  body: string,
+  committedAt?: string,
+): Promise<string> {
+  await execa(
+    "git",
+    ["commit", "--allow-empty", "-q", "-m", subject, "-m", body],
+    {
+      cwd,
+      env:
+        committedAt === undefined
+          ? undefined
+          : {
+              GIT_AUTHOR_DATE: committedAt,
+              GIT_COMMITTER_DATE: committedAt,
+            },
+    },
+  )
+  return (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout
+}
 
 test("graded yield and speed words cover the four bands and both directions", () => {
   assert.equal(yieldWords(1, 1.03), "the same yield")
@@ -115,94 +210,35 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   const planRoot = join(f.root, "../plan")
   await commitFixture(planRoot)
 
-  const commit = async (cwd: string, subject: string, body: string) => {
-    await execa(
-      "git",
-      ["commit", "--allow-empty", "-q", "-m", subject, "-m", body],
-      { cwd },
-    )
-    return (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout
-  }
   await commit(
     planRoot,
     "mixed/ready: declare the plan ready for implementation",
     "Coder: codex coder-alpha low",
-  )
-  const step = await commit(
-    f.root,
-    "mixed/impl-1 obl feat(audit-round): fixture step",
-    "coder-alpha low\nImplementation took 10 min.",
+    "2026-09-30T10:00:00Z",
   )
   await commit(
     f.root,
+    "mixed/impl-1 obl feat(audit-round): fixture step",
+    "coder-alpha low\nImplementation took 10 min.",
+    "2026-10-01T09:00:00Z",
+  )
+  const audit = await commit(
+    f.root,
+    "mixed/impl-audit-1 obl clean: record the whole-plan audit",
+    "coder-alpha low",
+    "2026-10-01T10:00:00Z",
+  )
+  await commit(
+    planRoot,
     "mixed/closed obl: close the fixture plan",
     "coder-alpha low",
+    "2026-10-01T11:00:00Z",
   )
 
-  const selection = (model: string, effort: string | null = "low") => ({
-    model,
-    effort,
-  })
-  const settings = (claude: string, codex: string): RoundData["settings"] => ({
-    audit: { claude: selection(claude), codex: selection(codex) },
-    vet: {
-      claude: selection("claude-vet"),
-      codex: selection("codex-vet"),
-    },
-    fix: { assistant: "codex", ...selection("coder-beta") },
-  })
-  const phase = (
-    phaseName: RoundData["phases"][number]["phase"],
-    assistant: "claude" | "codex",
-    model: string,
-    milliseconds: number,
-  ): RoundData["phases"][number] => ({
-    phase: phaseName,
-    assistant,
-    model,
-    effort: "low",
-    milliseconds,
-    tokens: [{ model, input: 1000, cached: 500, output: 100 }],
-    peakContext: null,
-    compactions: 0,
-  })
-  const finding = (title: string): RoundFinding => ({
-    number: 1,
-    title,
-    tier: "B",
-    reach: "developer",
-    complexity: "none",
-    growthPattern: "none",
-    location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
-    vetVerdict: "accept",
-    rebuttalAnswer: null,
-    outcome: "kept",
-    finalTier: null,
-    finalReach: null,
-  })
-  const common = (
-    target: string,
-    round: number,
-    started: string,
-    auditor: RoundData["auditor"],
-    roundSettings: RoundData["settings"],
-    phases: RoundData["phases"],
-  ) => ({
-    target,
-    round,
-    tag: auditor.assistant === "claude" ? "aul" : "oul",
-    started,
-    status: "finished" as const,
-    settings: roundSettings,
-    auditor,
-    phases,
-    commits: [{ repository: "repo-edu" as const, sha: step }],
-    findings: [finding(`${auditor.model} yield`)],
-    judge: null,
-  })
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
 
   writeRoundData(join(planRoot, "mixed-impl-rounds.json"), {
-    ...common(
+    ...round(
       "mixed-impl-01..01",
       1,
       "2026-10-01T10:00:00.000Z",
@@ -217,12 +253,13 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
         phase("rebut", "codex", "audit-alpha", 120_000),
         phase("fix", "codex", "coder-beta", 60_000),
       ],
+      commits,
     ),
     scope: "1",
     judgedRepos: ["repo-edu"],
   })
   writeRoundData(join(planRoot, "mixed-plan-rounds.json"), {
-    ...common(
+    ...round(
       "mixed-plan",
       1,
       "2026-10-02T10:00:00.000Z",
@@ -236,12 +273,13 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
         phase("audit", "claude", "audit-claude", 60_000),
         phase("fix", "codex", "planning-fixer", 60_000),
       ],
+      commits,
     ),
     phase: "detailing",
     settling: "",
   })
   writeRoundData(join(planRoot, "mixed-plan-rounds.json"), {
-    ...common(
+    ...round(
       "mixed-plan",
       2,
       "2026-10-03T10:00:00.000Z",
@@ -252,6 +290,8 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
       },
       settings("audit-claude", "audit-third"),
       [phase("audit", "codex", "audit-third", 60_000)],
+      commits,
+      [finding("kept yield"), finding("unmatched work", "unmatched")],
     ),
     phase: "detailing",
     settling: "",
@@ -288,6 +328,10 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     /codex audit-alpha low.+first 1, yield 1\.0, dropped 0\.0, 3\.0 min/,
   )
   assert.match(output, /needs 4 more examples/)
+  assert.match(
+    output,
+    /codex audit-third low.+first none; later 1, yield 1\.0, dropped 0\.0, 1\.0 min; manual 0.+none/,
+  )
   assert.match(output, /## Coders/)
   assert.match(output, /codex coder-alpha low.+mixed: mixed model records/)
   assert.match(output, /codex coder-beta low.+mixed: mixed model records/)
@@ -296,4 +340,124 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
+})
+
+test("coder admission needs a current whole-plan audit, counts only kept findings and accepts a plan-repo close", async (t) => {
+  const f = await fixture(t)
+  await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
+  await commitFixture(f.root, undefined, "2026-09-29T10:00:00Z")
+  const planRoot = join(f.root, "../plan")
+  await commitFixture(planRoot, undefined, "2026-09-29T10:00:00Z")
+
+  const coder = {
+    assistant: "codex" as const,
+    model: "coder-alpha",
+    effort: "low",
+  }
+  const addReady = (stem: string, at: string) =>
+    commit(
+      planRoot,
+      `${stem}/ready: declare the plan ready for implementation`,
+      "Coder: codex coder-alpha low",
+      at,
+    )
+  const addStep = (stem: string, stepNumber: number, at: string) =>
+    commit(
+      planRoot,
+      `${stem}/impl-${stepNumber} obl docs(audit-round): fixture step`,
+      "coder-alpha low\nImplementation took 10 min.",
+      at,
+    )
+  const addAudit = (stem: string, scope: string, at: string) =>
+    commit(
+      planRoot,
+      `${stem}/impl-audit-${scope} obl clean: record the audit`,
+      "coder-alpha low",
+      at,
+    )
+  const addClose = (stem: string, at: string) =>
+    commit(
+      planRoot,
+      `${stem}/closed obl: close the fixture plan`,
+      "coder-alpha low",
+      at,
+    )
+  const writeImplementationRound = (
+    stem: string,
+    scope: string,
+    audit: string,
+    started: string,
+    findings: RoundFinding[] = [finding(`${stem} yield`)],
+  ) =>
+    writeRoundData(join(planRoot, `${stem}-impl-rounds.json`), {
+      ...round(
+        `${stem}-impl-${scope.replace("-", "..")}`,
+        1,
+        started,
+        {
+          assistant: "codex",
+          ...selection("audit-alpha"),
+          chosenBy: "settings",
+        },
+        settings("audit-claude", "audit-alpha"),
+        [phase("audit", "codex", "audit-alpha", 60_000)],
+        [{ repository: "plan", sha: audit }],
+        findings,
+      ),
+      scope,
+      judgedRepos: ["plan"],
+    })
+
+  await addReady("plan-only", "2026-10-01T08:00:00Z")
+  await addStep("plan-only", 1, "2026-10-01T09:00:00Z")
+  const planOnlyAudit = await addAudit("plan-only", "1", "2026-10-01T09:00:00Z")
+  await addClose("plan-only", "2026-10-01T11:00:00Z")
+  writeImplementationRound(
+    "plan-only",
+    "1",
+    planOnlyAudit,
+    "2026-10-01T10:00:00.000Z",
+    [finding("accepted defect"), finding("unmatched work", "unmatched")],
+  )
+
+  await addReady("partial", "2026-10-02T08:00:00Z")
+  await addStep("partial", 1, "2026-10-02T09:00:00Z")
+  await addStep("partial", 2, "2026-10-02T10:00:00Z")
+  const partialAudit = await addAudit("partial", "1", "2026-10-02T11:00:00Z")
+  await addClose("partial", "2026-10-02T12:00:00Z")
+  writeImplementationRound(
+    "partial",
+    "1",
+    partialAudit,
+    "2026-10-02T11:00:00.000Z",
+  )
+
+  await addReady("stale", "2026-10-03T08:00:00Z")
+  await addStep("stale", 1, "2026-10-03T09:00:00Z")
+  await addStep("stale", 2, "2026-10-03T10:00:00Z")
+  const staleAudit = await addAudit("stale", "1-2", "2026-10-03T11:00:00Z")
+  await addStep("stale", 2, "2026-10-03T12:00:00Z")
+  await addClose("stale", "2026-10-03T13:00:00Z")
+  writeImplementationRound(
+    "stale",
+    "1-2",
+    staleAudit,
+    "2026-10-03T11:00:00.000Z",
+  )
+
+  const evidence = await readModelEvidence({ repoEduRoot: f.root, planRoot })
+  const row = evidence.coders.get(modelKey(coder))
+  assert.ok(row)
+  assert.deepEqual(
+    row.samples.map((sample) => ({ stem: sample.stem, yield: sample.yield })),
+    [{ stem: "plan-only", yield: 1 }],
+  )
+  assert.equal(
+    row.excluded.get("partial"),
+    "no complete whole-plan audit after the final step",
+  )
+  assert.equal(
+    row.excluded.get("stale"),
+    "no complete whole-plan audit after the final step",
+  )
 })

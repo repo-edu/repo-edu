@@ -63,7 +63,7 @@ function sharedAuditorSamples(
     (rows.get(key)?.samples ?? []).filter(
       (sample) =>
         sample.workClass === workClass &&
-        sample.source === "settings" &&
+        sample.position === "first" &&
         sample.active.has(first) &&
         sample.active.has(second),
     )
@@ -158,7 +158,7 @@ function auditorSentence(
   }
   if (entries.length === 1) {
     const samples = entries[0][1].samples.filter(
-      (sample) => sample.source === "settings",
+      (sample) => sample.position === "first",
     )
     clauses.push(
       `${modelText(entries[0][1].identity)} has ${plural(samples.length, "settings-opened audit")} in the records`,
@@ -181,9 +181,9 @@ function sampleSummary(samples: readonly AuditorSample[]): string {
 
 function auditorWorkCell(row: AuditorRow, workClass: WorkClass): string {
   const samples = row.samples.filter((sample) => sample.workClass === workClass)
-  const first = samples.filter((sample) => sample.source === "settings")
-  const later = samples.filter((sample) => sample.source === "command-line")
-  const manual = samples.length - first.length - later.length
+  const first = samples.filter((sample) => sample.position === "first")
+  const later = samples.filter((sample) => sample.position === "later")
+  const manual = samples.filter((sample) => sample.position === "manual").length
   return `first ${sampleSummary(first)}; later ${sampleSummary(later)}; manual ${manual}`
 }
 
@@ -199,9 +199,7 @@ function auditorTable(
   for (const [key, row] of [...rows].sort(([, first], [, second]) =>
     modelText(first.identity).localeCompare(modelText(second.identity)),
   )) {
-    const openings = row.samples.filter(
-      (sample) => sample.source === "settings",
-    )
+    const openings = row.samples.filter((sample) => sample.position === "first")
     const tokens: TokenTotals = new Map()
     for (const sample of openings) mergeTokens(tokens, sample.tokens)
     const vets = [...row.vets].sort()
@@ -362,7 +360,7 @@ export async function modelsReport(
     "",
     ...coderTable(evidence.coders, currentCoders),
     "",
-    "One ranked coder example is one closed plan with a ready assignment, timed step records and a complete implementation audit. Yield is accepted A and B findings per step. Time adds active step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    "One ranked coder example is one closed plan with a ready assignment, timed step records and a complete whole-plan implementation audit after the final step. Yield is accepted A and B findings per step. Time adds active step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
   ]
   return `${lines.join("\n")}\n`
 }
