@@ -99,7 +99,7 @@ await appendFile(
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
   const phase =
-    /^Run the (audit|vet|rebut|fix|brief|watch|judge|close) phase\b/.exec(
+    /^Run the (audit|vet|rebut|fix|implement|brief|watch|judge|close) phase\b/.exec(
       prompt ?? "",
     )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
@@ -135,7 +135,7 @@ if (scenario.phases !== undefined) {
       watch: 0,
     }[phase]
     const output =
-      phase === "fix"
+      phase === "fix" || phase === "implement"
         ? JSON.parse(
             /^Ruling output path \(JSON string\): (.+)$/m.exec(
               prompt ?? "",

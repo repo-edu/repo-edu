@@ -127,7 +127,7 @@ const runRound: typeof runRoundWithAccount = async (...arguments_) =>
  */
 const endings: readonly (readonly [
   ending: "ruling" | "watch",
-  phases: readonly Phase[],
+  phases: readonly Exclude<Phase, "implement">[],
 ])[] = [
   ["ruling", rulingPhases],
   ["watch", watchPhases],
@@ -154,7 +154,7 @@ function controlledRound(
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
   // A close that finished moved its plan unless a test leaves it in place.
   let planRemains = false
-  const results: { [P in Phase]: PhaseResult<P> } = {
+  const results: { [P in Exclude<Phase, "implement">]: PhaseResult<P> } = {
     audit: {
       status: "finished",
       sessionId: "audit-session",
@@ -1431,6 +1431,8 @@ for (const [ending, sequence] of endings) {
     const entered = sequence.map(() => Promise.withResolvers<void>())
     const release = sequence.map(() => Promise.withResolvers<void>())
     const round = controlledRound(async (input) => {
+      if (input.phase === "implement")
+        throw new Error("A round cannot start an implementation worker")
       const index = sequence.indexOf(input.phase)
       entered[index].resolve()
       await release[index].promise

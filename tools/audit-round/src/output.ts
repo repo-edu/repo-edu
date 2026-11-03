@@ -30,6 +30,7 @@ import {
   type Phase,
   type PhaseControlResult,
   type PhaseRun,
+  type RoundPhase,
   roundPhases,
   transcribed,
 } from "./phase.js"
@@ -177,12 +178,12 @@ export async function roundRun(
     setup.fixer,
     setup.fixerSource,
   )
-  const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
-  const tag = (phase: Phase): string =>
+  const entry = (phase: RoundPhase): RunEntry => ({ phase, ...phases[phase] })
+  const tag = (phase: RoundPhase): string =>
     fileTag(entry(phase), releases, settings)
   // The judge writes no file, and the close runs alone, so a round needs
   // neither tag.
-  for (const phase of Object.keys(phases) as Phase[]) {
+  for (const phase of Object.keys(phases) as RoundPhase[]) {
     if (
       phase !== "close" &&
       phase !== "judge" &&
@@ -192,7 +193,7 @@ export async function roundRun(
   }
   const { nameStart, title } = await roundIdentity(setup)
   const previousModels = await readPreviousRoundModels(setup.planRoot)
-  const path = (kind: FileKind, phase: Phase) =>
+  const path = (kind: FileKind, phase: RoundPhase) =>
     join(setup.planRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
   const audit = entry("audit")
@@ -752,7 +753,8 @@ export class RoundOutput<R extends Run = Run> {
       settings: this.run.data.settings,
       auditor: this.run.data.auditor,
       phases: [...this.ran].flatMap(([phase, ran]) => {
-        if (phase === "close" || ran.spent === null) return []
+        if (phase === "close" || phase === "implement" || ran.spent === null)
+          return []
         const entry = this.run.phases.find(
           (candidate) => candidate.phase === phase,
         )

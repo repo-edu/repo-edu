@@ -83,13 +83,23 @@ consumers.
   fictitious fix session or resume command. `target.ts` supplies the active
   plan stem shared by output naming and clean records.
 - `lifecycle.ts` owns the shared plan-file preflight and the Git operations for
-  the user-called `settle` and `ready` commands. It refuses an untracked,
+  the user-called `settle` and `ready` commands, plus each hosting repo's
+  runner-written `implemented` marker. It refuses an untracked,
   staged or unstaged target plan while leaving unrelated work alone. Settle
   commits only the widening rename before claiming its marker. Ready shares
   the `git commit --only --allow-empty` route with direct clean completion and
   validates the committed plan's steps and audit ranges, advances through the
   configured coder list and writes the assignment in its marker. Both routes
-  keep the plan checkout's normal hooks enabled.
+  keep the plan checkout's normal hooks enabled. An implemented marker carries
+  the assigned coder's resolved model record and capability tag.
+- `implement.ts` owns the assigned-ready gate, optional step scope, per-repo
+  landed-share scan and sequential worker loop. It starts one fresh worker for
+  each selected step with pending shares. A ruling resumes only that worker.
+  A failed worker or missing share stops before the next step and retains its
+  recovery session. After the loop, each hosting repo with every share landed
+  receives its current `implemented` marker.
+- `implement-output.ts` resolves the assigned coder's release, effort, tag and
+  model record once. It names one retained log and ruling path per step.
 - `plan-steps.ts` reads the first ordered list below the depth-2
   `Implementation plan` heading. It requires each item to open with a bold
   title and one closed host sentence, then returns the steps and their hosting
@@ -414,19 +424,17 @@ consumers.
   nothing a list could sequence. A commit target carries parsed groups across the phase boundary:
   bare references before the first `plan@` reference form the Repo Edu group, and that reference and
   every reference after it form the plan group. Each request group keeps its repository and
-  references as typed; `default-target.ts` adds the resolved short references
-  the filename uses. A commit-shaped plan stem keeps `.md` to identify it as a plan. Plan
-  arguments drop `.md` and `-widen` and refuse paths with a stem example. `resolvePlan` accepts the
-  active artifact at the plan root and reports an archived plan as unavailable for audit.
-  `requiredActivePlan` accepts only the active artifact. It keeps path validation common while
-  `close`, `settle` and `ready` supply their own reason when no active plan exists. The audit
-  workflow owns Git resolution and inclusive-range admission. `default-target.ts` captures each
-  request group's starting HEAD once before round files are allocated and
-  resolves every typed reference against it to the six-character name the
-  filename uses, refusing a reference that names no commit before any round
-  file is claimed. The runner passes those
-  resolved groups unchanged and rejects multiple auditor entries for commit targets, which run once
-  without a trajectory glance or watch.
+  references as typed; `default-target.ts` adds the resolved short references the filename uses. A
+  commit-shaped plan stem keeps `.md` to identify it as a plan. Plan arguments drop `.md` and
+  `-widen` and refuse paths with a stem example. `resolvePlan` accepts the active artifact at the
+  plan root and reports an archived plan as unavailable for audit. `requiredActivePlan` accepts only
+  the active artifact. It keeps path validation common while `close`, `settle`, `ready` and
+  `implement` supply their own reason when no active plan exists. The audit workflow owns Git
+  resolution and inclusive-range admission. `default-target.ts` captures each request group's
+  starting HEAD once before round files are allocated and resolves every typed reference against it
+  to the six-character name the filename uses, refusing a reference that names no commit before any
+  round file is claimed. The runner passes those resolved groups unchanged and rejects multiple
+  auditor entries for commit targets, which run once without a trajectory glance or watch.
 - `default-target.ts` owns the round a plan argument or no target selects, under
   [Plan targets](#plan-targets), so the plan's history rather than a typed word decides between
   planning and implementation. It reads both histories. Each repository's own Git order decides
@@ -449,39 +457,44 @@ consumers.
   a listed range because an implementation-audit record already exists for it. `defaultPlan`
   applies the same plan rule alone for the `plan` command and a `close` given no stem. The home
   `/brief-plan` and `/close` run `plan` for an omitted stem.
+  The implement command reuses this per-repo progress reader without applying
+  bare-plan audit selection.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor` and
   `--first` options. It reads both values with the queue's entry grammar and refuses a list with no
   entries. `--first` takes exactly one entry and is refused beside `--auditor`, because the list's
   first entry already names the first round. The round is the command itself, taking the target as
-  its own arguments. Its subcommands are `models`, `brief`, `settle`, `ready`, `close`, `plan`,
-  `name`, `paths`, `delete-reports`, `mark`, `episode` and `deferrals`. Help lists the round,
-  `models`, `brief`, `settle`, `ready`, `close` and `plan`, the commands a user runs. `models` reads
-  its retained data and current coder list before assistant startup or release resolution. The
-  hand-run launchers call `name`, `paths`, `delete-reports`, `episode` and `deferrals`, and the
-  reopen step calls `mark`, so help hides them. `plan` prints the plan an omitted target selects, as
-  its absolute path, and writes nothing, so a user can see it before a round or close takes it.
-  `close` resolves its plan and open deferrals before startup, then runs the close phase alone with
-  its own log. The `deferrals` command prints the active plan's open set through the shared owner.
-  It exists only for the hand-run implementation audit and close, so help hides it beside `episode`
-  and the other launcher interfaces. The `episode` command prints the requested line range from
-  joined watch evidence produced by the shared reader and formatter, with its returned range and
-  current total. Every call rebuilds the view. It performs no release resolution, assistant startup
-  or file writes. The `name` command claims a round and prints its claim, workflow, working checkout
-  and audit arguments. Its required `--auditor` is the hand-run session's full tag, including `u`,
-  checked separately from a round's model request. The `paths` command prints the workflow, working
-  checkout and argument paths for an existing report as a JSON object. It reads the report opening's
-  named workflow to select its kind. Both commands bypass assistant startup and release resolution;
-  `paths` writes nothing. The `delete-reports` command uses the same deletion function as the
-  coordinator and starts no assistant or release resolution. `settle` and `ready` resolve the active
-  plan that `plan` prints when no stem is given and run only the lifecycle Git owner. The hidden
-  `mark` command claims an active plan's next round number for an empty `reopen` marker and prints
-  its path, with no release resolution or assistant. So the program carries an action handler,
-  Commander adds no `help` command, and each command's own `-h` prints its help. A bare command line
-  prints that help; options without a target take `defaultTarget`. It also owns the round sequence
-  and its counter. Without `--auditor`, an active plan target runs an automatic series. The
-  `--first` selection runs first, or the configured default without it, then each judge answer names
-  the next assistant or an ending. A `random` default resolves its opener once per command run on a
-  coin. Only that first round carries the selection's fields. The series writes no queue and ends on
+  its own arguments. Its subcommands are `models`, `brief`, `settle`, `ready`, `implement`, `close`,
+  `plan`, `name`, `paths`, `delete-reports`, `mark`, `episode` and `deferrals`. Help lists the
+  round, `models`, `brief`, `settle`, `ready`, `implement`, `close` and `plan`, the commands a user
+  runs. `models` reads its retained data and current coder list before assistant startup or release
+  resolution. The hand-run launchers call `name`, `paths`, `delete-reports`, `episode` and
+  `deferrals`, and the reopen step calls `mark`, so help hides them. `plan` prints the plan an
+  omitted target selects, as its absolute path, and writes nothing, so a user can see it before a
+  round or close takes it. `close` resolves its plan and open deferrals before startup, then runs
+  the close phase alone with its own log. The `deferrals` command prints the active plan's open set
+  through the shared owner. It exists only for the hand-run implementation audit and close, so help
+  hides it beside `episode` and the other launcher interfaces. The `episode` command prints the
+  requested line range from joined watch evidence produced by the shared reader and formatter, with
+  its returned range and current total. Every call rebuilds the view. It performs no release
+  resolution, assistant startup or file writes. The `name` command claims a round and prints its
+  claim, workflow, working checkout and audit arguments. Its required `--auditor` is the hand-run
+  session's full tag, including `u`, checked separately from a round's model request. The `paths`
+  command prints the workflow, working checkout and argument paths for an existing report as a JSON
+  object. It reads the report opening's named workflow to select its kind. Both commands bypass
+  assistant startup and release resolution; `paths` writes nothing. The `delete-reports` command
+  uses the same deletion function as the coordinator and starts no assistant or release resolution.
+  `settle` and `ready` resolve the active plan that `plan` prints when no stem is given and run only
+  the lifecycle Git owner. The hidden `mark` command claims an active plan's next round number for
+  an empty `reopen` marker and prints its path, with no release resolution or assistant. So the
+  program carries an action handler, Commander adds no `help` command, and each command's own `-h`
+  prints its help. A bare command line prints that help; options without a target take
+  `defaultTarget`. `implement` requires its named active plan's assigned ready marker before
+  assistant startup. It uses the assigned coder for every selected pending step and verifies the
+  landed share subjects after each worker before continuing. It also owns the round sequence and its
+  counter. Without `--auditor`, an active plan target runs an automatic series. The `--first`
+  selection runs first, or the configured default without it, then each judge answer names the next
+  assistant or an ending. A `random` default resolves its opener once per command run on a coin.
+  Only that first round carries the selection's fields. The series writes no queue and ends on
   settle or stop, the configured maximum, a failure, an unanswered ruling, a red watch or a phase
   change. Before an automatic implementation series starts, the runner computes the open set and
   chains one scoped planning round for plan-bound deferrals. After each finished
@@ -537,7 +550,8 @@ the invocation owner must release its resources before rejecting.
 
 `phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal and fix use the single
 launcher set under the plan checkout's `home/`; their workflow follows the round's kind. Brief
-and watch have no launchers; the runner supplies their Repo Edu workflows directly. Judge and close
+and watch have no launchers; the runner supplies their Repo Edu workflows directly. Implement also
+has no launcher and uses Repo Edu's worker-only workflow. Judge and close
 also have no launchers and their workflows live in the plan checkout, because series choice and
 loop-close are plan doctrine.
 `phaseSkills` names each phase's skill folder and launchers. The brief phase's skill is
@@ -611,6 +625,11 @@ complete replacement through a temporary file. Loop-close moves existing files
 beside the archived plan. These are machine artifacts and are never edited by
 hand.
 
+The implement command retains one log and one possible ruling beside the plan
+root as `<stem>-impl-<step>-implement.<tag>.log` and
+`<stem>-impl-<step>-implement-ruling.<tag>.md`. These are phase files, not audit
+round files. A fresh worker owns each step log.
+
 ## Phase routing
 
 `requests.ts` resolves every workflow header and supplies its listed files
@@ -626,6 +645,9 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 - fix: report input, then existing vet and rebuttal inputs, followed by the
   same open-deferral object for a chained planning or plan-scoped
   implementation round
+- implement: plan, one-based step number, remaining hosting repo shares,
+  resolved model release and launched effort; the ruling path is supplied
+  separately and reused when the same worker resumes
 - brief: transcript input, brief output
 - watch: no path arguments; the prompt separately supplies the evidence
 - close: plan, capability tag, model record, open-deferral object and optional
@@ -637,8 +659,9 @@ round when the report's `Target:` line does not repeat the target it supplied
 to the audit, before any later phase starts, so a vet never has to ask which
 target a report judged. The brief writes its supplied output. The watch returns Markdown
 and its grade; `round.ts` publishes the admitted document and cadence entry. A
-fix receives its ruling path separately and reuses it when the same session
-resumes.
+fix or implementation worker receives its ruling path separately and reuses it
+when the same session resumes. An implementation resume carries the user's
+reply but no time value.
 
 Hand-run phases use the same resolver. `name [target] [scope-or-commits...]
 --auditor <full tag>` claims a new round and prints `cwd`, `workflow`, `claim`
@@ -784,6 +807,8 @@ pnpm audit-round settle example
 pnpm audit-round settle
 pnpm audit-round ready example
 pnpm audit-round ready
+pnpm audit-round implement example
+pnpm audit-round implement example 2-4
 pnpm audit-round close example
 pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
@@ -854,6 +879,16 @@ earlier assigned ready marker, and records the assigned coder in the body of
 `<stem>/ready: declare the plan ready for implementation` with an empty commit
 that preserves unrelated staged work. It reads settings but starts no assistant
 process or release lookup.
+
+`implement <stem> [scope]` requires an active plan with an assigned `ready`
+marker. It parses the plan's implementation steps and scans each hosting
+repo's log independently. It starts one fresh worker per selected step that
+still has a missing share, in step order, on the assigned coder's resolved
+release and effort. A ruling reply resumes that worker without adding a time
+argument. A failed worker, unanswered ruling or missing landed share stops
+before the next step and prints the worker's recovery command. Once all shares
+hosted by a repo have landed, the runner writes that repo's `implemented`
+marker. The command retains one phase log per started step.
 
 `close [stem]` closes a plan's loop under the plan repo's
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It takes an active

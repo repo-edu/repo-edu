@@ -175,20 +175,22 @@ function formatPhasePrompt(
   const opening =
     phase === "close"
       ? `Run the close phase, the unattended loop-close of one plan, in this ${session} session.`
-      : `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${session} session.`
+      : phase === "implement"
+        ? `Run the implement phase, one unattended plan-step worker, in this ${session} session.`
+        : `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${session} session.`
   const prompt = `${opening}
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
-${instructions === null ? `Read and follow this launcher: ${launcher}` : `Follow the supplied ${launcher === null ? "workflow" : "launcher and workflow"} below. The workflow's listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
+${instructions === null ? "Continue the supplied workflow in this resumed session." : `Follow the supplied ${launcher === null ? "workflow" : "launcher and workflow"} below. The workflow's listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Workflow: ${phaseWorkflow(input)}
 The supplied workflow and phase arguments are already resolved. Do not run name or paths again. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
 For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : input.phase === "judge" ? `\n\nPermitted judge options: ${formatJudgeOptions(input.options)}.\n\nJudge evidence:\n${JSON.stringify(omitEvidence ? "(contents omitted from log)" : input.evidence, null, 2)}` : ""}`
-  if (input.phase !== "fix") return prompt
+  if (input.phase !== "fix" && input.phase !== "implement") return prompt
   const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md at that path.`
   if (input.rulingReply === undefined) return fixPrompt
-  return `${fixPrompt}\n\nThe runner displayed your ruling and collected the user's reply below. Continue this fix session. Do not repeat the internal launch instructions.\n\nUser reply:\n${input.rulingReply}`
+  return `${fixPrompt}\n\nThe runner displayed your ruling and collected the user's reply below. Continue this ${input.phase} session. Do not repeat the internal launch instructions.\n\nUser reply:\n${input.rulingReply}`
 }
 
 export function phaseRequest(input: AssistantTurnInput, prompt: string) {

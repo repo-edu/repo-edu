@@ -7,7 +7,7 @@ import { readAuditRanges, readPlanSteps } from "./plan-steps.js"
 import { markerPath } from "./round-paths.js"
 import { claimRound } from "./run-files.js"
 import { type Coder, coderRecord, parseCoderRecord } from "./settings.js"
-import { looseForm } from "./subject.js"
+import { looseForm, type Repository } from "./subject.js"
 import { planStem } from "./target.js"
 
 type CommitOnlyInput = {
@@ -182,6 +182,23 @@ export async function readReadyCoder(
     (candidate) => candidate.stem === stem,
   )
   return marker === undefined ? null : markerCoder(planRoot, marker.sha)
+}
+
+/** Write one repo's empty completion marker without disturbing concurrent work. */
+export async function markImplemented(
+  context: ExecutionContext,
+  stem: string,
+  repository: Repository,
+  tag: string,
+  record: string,
+): Promise<LifecycleCommit> {
+  const cwd = repository === "repo-edu" ? context.repoEduRoot : context.planRoot
+  const share = repository === "repo-edu" ? "Repo Edu" : "plan repo"
+  return commitOnly({
+    cwd,
+    subject: `${stem}/implemented ${tag}: complete the ${share} share`,
+    body: record,
+  })
 }
 
 /**

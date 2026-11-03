@@ -994,20 +994,20 @@ Audit ranges: 1-2, 2-4.
 <phase-result-line> ::= "PHASE RESULT: "<phase-result>
 <phase-result>      ::= {"status":"finished","reason":null}
                       | {"status":"failed","reason":<reason-string>}
-                      | {"status":"needs-ruling","reason":null} ; fix only
+                      | {"status":"needs-ruling","reason":null} ; fix or implement only
 <reason-string>     ::= a JSON string containing non-whitespace text
 ```
 
 The phase result is the response's last line and stays outside a code fence.
 The JSON object has exactly the two fields shown. Audit, vet, rebuttal, brief,
-watch, judge and close admit `finished` or `failed`. Fix also admits
-`needs-ruling`.
+watch, judge and close admit `finished` or `failed`. Fix and implement also
+admit `needs-ruling`.
 
 ### Phase table
 
 | Phase | `finished` | `failed` | `needs-ruling` |
 | --- | --- | --- | --- |
-| Fix | Parsed; `phase-result/finished` | Parsed; `phase-result/failed` | Parsed; `phase-result/fix-needs-ruling` |
+| Fix or implement | Parsed; `phase-result/finished` | Parsed; `phase-result/failed` | Parsed; `phase-result/work-needs-ruling` |
 | Every other phase | Parsed; `phase-result/finished` | Parsed; `phase-result/failed` | Refused; `phase-result/report-needs-ruling` |
 
 ### Examples
@@ -1024,7 +1024,7 @@ PHASE RESULT: {"status":"finished","reason":null}
 PHASE RESULT: {"status":"failed","reason":"The report is malformed."}
 ```
 
-#### `phase-result/fix-needs-ruling` — parsed
+#### `phase-result/work-needs-ruling` — parsed
 
 ```text
 PHASE RESULT: {"status":"needs-ruling","reason":null}

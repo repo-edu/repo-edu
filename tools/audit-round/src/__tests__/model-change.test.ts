@@ -23,7 +23,7 @@ const oldSelection = { model: "old-model", effort: "high" } as const
 const newSelection = { model: "new-model", effort: "xhigh" } as const
 
 function phase(
-  name: Exclude<Phase, "close">,
+  name: Exclude<Phase, "close" | "implement">,
   assistant: Assistant,
   selection: ModelSelection,
 ): RoundData["phases"][number] {

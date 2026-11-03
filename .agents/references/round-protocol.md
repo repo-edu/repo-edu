@@ -585,8 +585,8 @@ body. Commit-scoped rounds use their own one-shot settlement rule.
 
 When the prompt identifies an unattended phase, follow this rule for every
 ending, including an early stop. It is shared by audit, vet, rebuttal, fix,
-brief, watch, judge and close. Ordinary interactive invocations add no result
-line.
+implement, brief, watch, judge and close. Ordinary interactive invocations add
+no result line.
 
 The [phase-result grammar](round-grammar.md#phase-result) owns the final control
 line, exact JSON object, statuses and phase admission. Keep that line outside a
@@ -597,9 +597,9 @@ puts the grammar's [settling line](round-grammar.md#settling-line) immediately
 before it; no other fix returns one.
 
 - `finished` means the phase completed all required work.
-- `needs-ruling` means the fix wrote the final ruling for an open decision. The
-  runner checks and displays it, collects the user's reply and resumes the same
-  fix session. No other phase can return this status.
+- `needs-ruling` means the fix or implementation worker wrote the final ruling
+  for an open decision. The runner checks and displays it, collects the user's
+  reply and resumes the same session. No other phase can return this status.
 - `failed` means required work remains incomplete. Give a short non-empty
   reason.
 

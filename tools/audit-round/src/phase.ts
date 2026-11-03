@@ -14,6 +14,7 @@ import type {
   RoundAccount,
 } from "./round-data.js"
 import type { Coder, PhaseSelection, RoundSettings } from "./settings.js"
+import type { Repository } from "./subject.js"
 import type { CommitGroup, RoundContext } from "./target.js"
 import type { VetReading } from "./vet.js"
 
@@ -26,18 +27,21 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
 }
 
 /**
- * The phases an assistant session can run. All but `close` belong to a round;
- * `close` runs on its own and closes a plan's loop.
+ * The phases an assistant session can run. `implement` and `close` run alone;
+ * the other phases belong to an audit round.
  */
 export type Phase =
   | "audit"
   | "vet"
   | "rebut"
   | "fix"
+  | "implement"
   | "brief"
   | "watch"
   | "judge"
   | "close"
+
+export type RoundPhase = Exclude<Phase, "implement">
 
 /**
  * Each phase's skill name, which names its workflow folder and launchers. The
@@ -48,6 +52,7 @@ export const phaseSkills: Record<Phase, string> = {
   vet: "vet",
   rebut: "rebut",
   fix: "fix",
+  implement: "implement",
   brief: "brief-round",
   watch: "watch",
   judge: "judge",
@@ -62,9 +67,11 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root =
     input.phase === "close" || input.phase === "judge"
       ? input.planRoot
-      : recorded(input.phase)
-        ? input.cwd
-        : input.repoEduRoot
+      : input.phase === "implement"
+        ? input.repoEduRoot
+        : recorded(input.phase)
+          ? input.cwd
+          : input.repoEduRoot
   return join(
     root,
     ".agents/skills",
@@ -238,7 +245,7 @@ export function defaultModel(
  * assistant's default selection.
  */
 function phaseModel(
-  phase: Exclude<Phase, "fix">,
+  phase: Exclude<Phase, "fix" | "implement">,
   assistant: Assistant,
   override: AuditorOverride,
   config: RoundSettings,
@@ -279,9 +286,9 @@ function phaseModel(
 }
 
 /**
- * The single owner of who runs each phase and on what, a round's phases and
- * the close that runs alone. The runner invokes from this value and the run's
- * settings header prints it, so what a run says it ran on is what it ran with.
+ * The single owner of who runs each round phase and on what. The runner invokes
+ * from this value and the run's settings header prints it, so what a run says
+ * it ran on is what it ran with.
  */
 export function roundPhases(
   auditor: Assistant,
@@ -289,21 +296,15 @@ export function roundPhases(
   config: RoundSettings,
   fixer: Coder = config.coders[0],
   fixerSource = "audit-round coders",
-): Record<Phase, PhaseRun> {
+): Record<RoundPhase, PhaseRun> {
   const run = (
-    phase: Exclude<Phase, "fix">,
+    phase: Exclude<Phase, "fix" | "implement">,
     assistant: Assistant,
   ): PhaseRun => ({
     assistant,
     model: phaseModel(phase, assistant, override, config),
   })
-  const fix: PhaseRun = {
-    assistant: fixer.assistant,
-    model: {
-      model: { value: fixer.model, source: fixerSource },
-      effort: { value: fixer.effort, source: fixerSource },
-    },
-  }
+  const fix = implementationPhase(fixer, fixerSource)
   return {
     audit: run("audit", auditor),
     // The vetter is the other assistant, so no assistant vets its own report.
@@ -318,6 +319,20 @@ export function roundPhases(
     // The judge reads retained evidence and uses its own cheap setting.
     judge: run("judge", config.phases.judge.assistant),
     close: closePhase(config),
+  }
+}
+
+/** A plan's ready-assigned coder owns both implementation and audit fixes. */
+export function implementationPhase(
+  coder: Coder,
+  source = "ready assignment",
+): PhaseRun {
+  return {
+    assistant: coder.assistant,
+    model: {
+      model: { value: coder.model, source },
+      effort: { value: coder.effort, source },
+    },
   }
 }
 
@@ -404,6 +419,22 @@ type PhaseArguments = {
     readonly arguments: readonly [
       report: string,
       ...twinsOrDeferrals: (string | DeferralScope)[],
+    ]
+    readonly rulingFile: string
+  } & (
+    | { readonly sessionId: null; readonly rulingReply?: never }
+    | {
+        readonly sessionId: string
+        readonly rulingReply: string
+      }
+  )
+  implement: {
+    readonly arguments: readonly [
+      plan: string,
+      step: number,
+      shares: readonly Repository[],
+      release: string,
+      effort: Effort,
     ]
     readonly rulingFile: string
   } & (
@@ -505,11 +536,19 @@ type FixResult =
       readonly sessionId: string
     }
 
+type ImplementResult =
+  | ReportResult
+  | {
+      readonly status: "needs-ruling"
+      readonly sessionId: string
+    }
+
 type PhaseControlResults = {
   audit: ReportResult
   vet: ReportResult
   rebut: ReportResult
   fix: FixResult
+  implement: ImplementResult
   brief: ReportResult
   watch: ReportResult
   judge: ReportResult
@@ -526,6 +565,7 @@ type PhaseResults = {
   vet: ReportResult
   rebut: ReportResult
   fix: FixResult
+  implement: ImplementResult
   brief: ReportResult
   watch: WatchResult
   judge: ReportResult
@@ -589,7 +629,7 @@ export type RoundDependencies = {
   ) => Promise<readonly LandedRecord[]>
   readonly runJudge: (input: PhaseInput<"judge">) => Promise<JudgeResult>
   readonly runPhase: {
-    readonly [P in Exclude<Phase, "judge">]: (
+    readonly [P in Exclude<Phase, "judge" | "implement">]: (
       input: PhaseInput<P>,
     ) => Promise<PhaseResult<P>>
   }

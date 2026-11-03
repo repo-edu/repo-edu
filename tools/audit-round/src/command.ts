@@ -7,7 +7,11 @@ import {
   Option,
 } from "commander"
 import { execa } from "execa"
-import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
+import {
+  type AssistantRuntime,
+  assistantDependencies,
+  runAssistantPhase,
+} from "./assistant.js"
 import { completeClean } from "./clean.js"
 import { type ExecutionContext, executionContext } from "./context.js"
 import {
@@ -19,8 +23,18 @@ import { readWatchEvidence } from "./episode.js"
 import { type LogCommit, readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
+import {
+  prepareImplementation,
+  readImplementationProgress,
+  runImplementation,
+} from "./implement.js"
+import {
+  implementationIdentity,
+  implementationRun,
+} from "./implement-output.js"
 import { readJudgeEvidence } from "./judge.js"
 import {
+  markImplemented,
   readReadyCoder,
   readyPlan,
   requireReadyMarker,
@@ -137,6 +151,12 @@ type Invocation =
       readonly kind: "ready"
       /** Absent when the lifecycle command takes the plan `plan` prints. */
       readonly stem?: string
+    }
+  | {
+      readonly kind: "implement"
+      readonly stem: string
+      readonly scope?: string
+      readonly verbose?: boolean
     }
   | {
       readonly kind: "mark"
@@ -315,7 +335,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -506,6 +526,7 @@ Examples (from either checkout):
      $ pnpm audit-round example 2,3-5,6-7
 
 Use pnpm audit-round models to read the auditor and coder results.
+Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
 Use brief --help or close --help for their arguments and options.`,
     )
@@ -617,6 +638,23 @@ Use brief --help or close --help for their arguments and options.`,
     .action((stem: string | undefined) => {
       invocation = { kind: "deferrals", stem }
     })
+  command
+    .command("implement")
+    .description(
+      "Implement a ready plan's remaining shares, one fresh assigned-coder worker per step.",
+    )
+    .argument("<stem>", "the active ready plan to implement")
+    .argument("[scope]", "one step or an inclusive increasing step range")
+    .option("-v, --verbose", "show tool calls as well as assistant text")
+    .action(
+      (
+        stem: string,
+        scope: string | undefined,
+        flags: { verbose?: boolean },
+      ) => {
+        invocation = { kind: "implement", stem, scope, ...flags }
+      },
+    )
   command
     .command("models")
     .description(
@@ -895,24 +933,38 @@ export async function runCommand(
       return 0
     }
     const prepared =
-      invocation.kind === "brief"
+      invocation.kind === "implement"
         ? {
             ...invocation,
-            transcript:
-              invocation.transcript === undefined
-                ? await newestTranscript(context)
-                : (await roundDocument(context, invocation.transcript, "round"))
-                    .path,
+            ...(await prepareImplementation(
+              context,
+              invocation.stem,
+              invocation.scope,
+            )),
           }
-        : invocation.kind === "close"
-          ? await preparedClose(context, invocation)
-          : {
+        : invocation.kind === "brief"
+          ? {
               ...invocation,
-              targets: await resolveTargets(
-                context,
-                requestedTarget(invocation),
-              ),
+              transcript:
+                invocation.transcript === undefined
+                  ? await newestTranscript(context)
+                  : (
+                      await roundDocument(
+                        context,
+                        invocation.transcript,
+                        "round",
+                      )
+                    ).path,
             }
+          : invocation.kind === "close"
+            ? await preparedClose(context, invocation)
+            : {
+                ...invocation,
+                targets: await resolveTargets(
+                  context,
+                  requestedTarget(invocation),
+                ),
+              }
     if (
       prepared.kind === "round" &&
       "groups" in prepared.targets[0] &&
@@ -957,11 +1009,13 @@ export async function runCommand(
     // The close moves the plan and commits in the plan checkout first.
     const session = roundContext(
       context,
-      prepared.kind === "brief"
-        ? await transcriptKind(prepared.transcript)
-        : prepared.kind === "close"
-          ? "planning"
-          : prepared.targets[0].roundKind,
+      prepared.kind === "implement"
+        ? "implementation"
+        : prepared.kind === "brief"
+          ? await transcriptKind(prepared.transcript)
+          : prepared.kind === "close"
+            ? "planning"
+            : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
@@ -1091,7 +1145,149 @@ export async function runCommand(
       },
     })
 
-    if (prepared.kind === "brief") {
+    if (prepared.kind === "implement") {
+      const identity = implementationIdentity(
+        prepared.coder,
+        releases,
+        settings,
+      )
+      const implementation = await runImplementation(
+        {
+          ...context,
+          plan: prepared.plan,
+          stem: prepared.stem,
+          steps: prepared.steps,
+          selectedSteps: prepared.selectedSteps,
+          coder: prepared.coder,
+          phaseRun: identity.phaseRun,
+          release: identity.release,
+          effort: identity.effort,
+        },
+        {
+          readProgress: () =>
+            readImplementationProgress(context, prepared.stem, prepared.steps),
+          openStep: async (step) => {
+            const run = implementationRun(
+              prepared.plan,
+              context.planRoot,
+              step.number,
+              now(),
+              releases,
+              settings,
+              identity,
+            )
+            open(run)
+            return { rulingFile: run.ruling }
+          },
+          runWorker: async (input) => {
+            const active = output
+            if (active === undefined)
+              throw new Error("Implementation worker has no active output")
+            const expected = {
+              model: input.arguments[3],
+              effort: input.arguments[4],
+            }
+            let reported = false
+            const phaseOutput = {
+              ...active.phase,
+              observe: async (
+                feedback: Parameters<typeof active.phase.observe>[0],
+              ) => {
+                await active.phase.observe(feedback)
+                if (feedback.type !== "model") return
+                reported = true
+                if (
+                  feedback.selection.model !== expected.model ||
+                  feedback.selection.effort !== expected.effort
+                )
+                  throw new Error(
+                    `Implement worker reported ${feedback.selection.model} ${feedback.selection.effort ?? "effort unavailable"}; the runner launched ${input.assistant} on ${expected.model} ${expected.effort}.`,
+                  )
+              },
+            }
+            const worker = await runAssistantPhase(input, phaseOutput, {
+              ...runtime,
+              cwd: session.cwd,
+              env: {
+                ...runtime.env,
+                COMMIT_AUDITOR: "",
+                COMMIT_PHASES: "",
+              },
+            })
+            if (worker.status !== "failed" && !reported)
+              return {
+                status: "failed" as const,
+                sessionId: worker.sessionId,
+                reason:
+                  "Implement worker finished without reporting its model and effort.",
+              }
+            return worker
+          },
+          checkFile: async (file) => {
+            if (!(await readFile(file, "utf8")).trim())
+              throw new Error(`Phase output is empty: ${file}`)
+          },
+          requestRuling: async (document) => {
+            const active = output
+            if (active === undefined)
+              throw new Error("Implementation ruling has no active output")
+            active.beginRuling(document, await readFile(document, "utf8"))
+            let reply: string | null = null
+            try {
+              reply = await (
+                options.readReply ??
+                (() =>
+                  readRulingReply(
+                    process.stdin,
+                    process.stdout,
+                    runtime.signal,
+                  ))
+              )()
+              return reply
+            } finally {
+              active.endRuling(reply)
+            }
+          },
+          markImplemented: (repository) =>
+            markImplemented(
+              context,
+              prepared.stem,
+              repository,
+              identity.tag,
+              identity.record,
+            ),
+          message: async (text) => {
+            if (output === undefined) options.terminal.write(text)
+            else await output.message(text)
+          },
+        },
+      )
+      if (implementation.status === "finished") {
+        await output?.message(
+          implementation.markers.length === 0
+            ? "Implementation finished; no completion marker was due."
+            : "Implementation finished.",
+        )
+        if (output === undefined && implementation.markers.length === 0)
+          options.terminal.write(
+            "Implementation finished; no completion marker was due.",
+          )
+        code = 0
+      } else {
+        const line =
+          implementation.status === "failed"
+            ? `Step ${implementation.step} failed: ${implementation.reason}`
+            : `Step ${implementation.step} stopped without a ruling reply.`
+        if (output === undefined) options.terminal.write(line)
+        else await output.message(line)
+        if (implementation.session !== null) {
+          const resume = `Resume: ${recoveryCommand(implementation.session)}`
+          if (output === undefined) options.terminal.write(resume)
+          else await output.message(resume)
+        }
+        code = implementation.status === "failed" ? 1 : 0
+      }
+    } else if (prepared.kind === "brief") {
       const { transcript } = prepared
       const run = await briefRun(transcript, now(), releases, settings)
       const active = open(run)

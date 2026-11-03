@@ -81,6 +81,8 @@ export function phaseResult<P extends Phase>(
     if (settling !== null) throw new Error("Unexpected settling line")
     return { status: "needs-ruling", sessionId } as PhaseControlResult<P>
   }
+  if (phase === "implement" && result.status === "needs-ruling")
+    return { status: "needs-ruling", sessionId } as PhaseControlResult<P>
   if (result.status !== "finished")
     throw new Error("Report PHASE RESULT must finish")
   return {

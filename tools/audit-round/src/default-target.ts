@@ -23,10 +23,14 @@ import {
 /** The targets one command line runs in order; a scope list gives several. */
 export type AuditTargets = readonly [AuditTarget, ...AuditTarget[]]
 
-type Logs = Readonly<Record<Repository, readonly LogCommit[]>>
+export type ImplementationLogs = Readonly<
+  Record<Repository, readonly LogCommit[]>
+>
 
 /** Both histories at their current heads, which every plan target reads. */
-async function readLogs(context: ExecutionContext): Promise<Logs> {
+export async function readImplementationLogs(
+  context: ExecutionContext,
+): Promise<ImplementationLogs> {
   const [plan, repoEdu] = await Promise.all([
     readLog(context.planRoot),
     readLog(context.repoEduRoot),
@@ -36,7 +40,9 @@ async function readLogs(context: ExecutionContext): Promise<Logs> {
 
 /** The plan an omitted stem names, for the plan brief and close as for an omitted target. */
 export async function defaultPlan(context: ExecutionContext): Promise<string> {
-  return (await newestPlan(await readLogs(context), context.planRoot)).path
+  return (
+    await newestPlan(await readImplementationLogs(context), context.planRoot)
+  ).path
 }
 
 /** The audits a command line asks for, with no target meaning the newest plan. */
@@ -60,7 +66,11 @@ export async function resolveTargets(
       },
     ]
   }
-  return selectTargets(await readLogs(context), context.planRoot, request)
+  return selectTargets(
+    await readImplementationLogs(context),
+    context.planRoot,
+    request,
+  )
 }
 
 /**
@@ -115,7 +125,7 @@ async function resolveCommitGroup(
  * one target, in the order given, once any step has landed.
  */
 export async function selectTargets(
-  logs: Logs,
+  logs: ImplementationLogs,
   planRoot: string,
   request: {
     readonly plan: string
@@ -146,7 +156,7 @@ export async function selectTargets(
   }
   const source = await readFile(plan, "utf8")
   const listedSteps = readPlanSteps(source)
-  const status = progress(logs, topic, listedSteps)
+  const status = implementationProgress(logs, topic, listedSteps)
   if (
     status.repositories.every(
       ({ pending, marker }) => pending.length === 0 && marker === "current",
@@ -185,7 +195,7 @@ export async function selectTargets(
 }
 
 /** Whether either repository holds an implementation step for this plan. */
-function hasLandedStep(logs: Logs, topic: string): boolean {
+function hasLandedStep(logs: ImplementationLogs, topic: string): boolean {
   return Object.values(logs).some((commits) =>
     commits.some((commit) => {
       const form = looseForm(commit.subject)
@@ -194,21 +204,26 @@ function hasLandedStep(logs: Logs, topic: string): boolean {
   )
 }
 
-type MarkerStatus = "current" | "missing" | "stale"
+export type MarkerStatus = "current" | "missing" | "stale"
+
+export type RepositoryProgress = {
+  readonly repository: Repository
+  readonly name: string
+  readonly pending: readonly number[]
+  readonly marker: MarkerStatus
+}
+
+export type ImplementationProgress = {
+  readonly landed: readonly number[]
+  readonly repositories: readonly RepositoryProgress[]
+}
 
 /** Listed-step completion and marker freshness in each hosting repository. */
-function progress(
-  logs: Logs,
+export function implementationProgress(
+  logs: ImplementationLogs,
   topic: string,
   listedSteps: readonly PlanStep[],
-): {
-  readonly landed: readonly number[]
-  readonly repositories: readonly {
-    readonly name: string
-    readonly pending: readonly number[]
-    readonly marker: MarkerStatus
-  }[]
-} {
+): ImplementationProgress {
   const repositoryOrder = ["repo-edu", "plan"] as const
   const expected = new Map<Repository, Set<number>>()
   for (const step of listedSteps)
@@ -248,6 +263,7 @@ function progress(
           : "current"
     return [
       {
+        repository,
         name: repository === "repo-edu" ? "Repo Edu" : "the plan repo",
         pending: [...hosted].filter((step) => !completed.has(step)),
         marker,
@@ -261,7 +277,7 @@ function progress(
 }
 
 /** The active plan whose stem commit is newest in either history. */
-async function newestPlan(logs: Logs, planRoot: string) {
+async function newestPlan(logs: ImplementationLogs, planRoot: string) {
   const inactive = new Set<string>()
   for (const { topic } of stemCommits(logs)) {
     if (inactive.has(topic)) continue

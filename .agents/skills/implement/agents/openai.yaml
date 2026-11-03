@@ -1,7 +1,0 @@
-interface:
-  display_name: "Implement"
-  short_description: "Implement plan steps with fresh sub-agents"
-  default_prompt: "Use $implement <plan-file> [step-range] to implement its steps sequentially with one fresh sub-agent per step."
-
-policy:
-  allow_implicit_invocation: false

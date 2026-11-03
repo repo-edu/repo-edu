@@ -126,8 +126,8 @@ export async function readPreviousCloseModel(
 }
 
 /**
- * Report a changed applied selection. Fix compares with this invocation's
- * launch selection; every other phase compares with the matching history.
+ * Report a changed applied selection. Fix and implement compare with this
+ * invocation's launch selection; every other phase compares with history.
  */
 export function modelChangeNotice(
   references: readonly ModelReference[],
@@ -137,7 +137,7 @@ export function modelChangeNotice(
   reported: ModelSelection,
 ): string | null {
   const previous =
-    phase === "fix"
+    phase === "fix" || phase === "implement"
       ? launched
       : references.find(
           (reference) =>
@@ -148,7 +148,7 @@ export function modelChangeNotice(
     (previous.model === reported.model && previous.effort === reported.effort)
   )
     return null
-  return phase === "fix"
-    ? `Model change: fix reported ${selectionText(reported)}; the runner launched ${assistant} on ${selectionText(previous)}.`
+  return phase === "fix" || phase === "implement"
+    ? `Model change: ${phase} reported ${selectionText(reported)}; the runner launched ${assistant} on ${selectionText(previous)}.`
     : `Model change: ${phase} reported ${selectionText(reported)}; the newest earlier ${phase} run by ${assistant} reported ${selectionText(previous)}.`
 }

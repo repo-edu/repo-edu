@@ -15,7 +15,7 @@ import { roundGrammarExamples } from "./round-grammar.js"
 test("the round grammar's phase-result examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("phase-result/")) {
     const phase =
-      example.id === "phase-result/fix-needs-ruling" ? "fix" : "audit"
+      example.id === "phase-result/work-needs-ruling" ? "fix" : "audit"
     if (example.outcome === "parsed") {
       assert.doesNotThrow(
         () => phaseResult(phase, "session", example.source),
@@ -187,7 +187,11 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
       const { text: reply, log } = phasePrompt(resumed)
       assert.equal(log, reply)
       assert.match(reply, /Run the fix phase .* resumed session/)
-      assert.ok(reply.includes(`Read and follow this launcher: ${launcher}`))
+      assert.ok(
+        reply.includes(
+          "Continue the supplied workflow in this resumed session.",
+        ),
+      )
       assert.doesNotMatch(reply, /Source file:|supplied phase instructions/)
       assert.ok(reply.endsWith("User reply:\nApply the correction."))
       const launcherContent = await readFile(launcher, "utf8")
@@ -196,6 +200,19 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
       await writeFile(launcher, launcherContent)
     }
   }
+})
+
+test("implementation workers may request a ruling but other report phases may not", () => {
+  const result =
+    'Need a decision.\nPHASE RESULT: {"status":"needs-ruling","reason":null}'
+  assert.deepEqual(phaseResult("implement", "worker-session", result), {
+    status: "needs-ruling",
+    sessionId: "worker-session",
+  })
+  assert.throws(
+    () => phaseResult("audit", "audit-session", result),
+    /Report PHASE RESULT must finish/,
+  )
 })
 
 test("watch receives Repo Edu's workflow and joined evidence without a launcher", async (t) => {

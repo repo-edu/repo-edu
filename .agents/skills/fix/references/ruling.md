@@ -1,11 +1,13 @@
 # Writing a ruling
 
-The fix session writes the final ruling when a user decision remains open. Use the supplied output
-path under the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
-and report completion under the shared protocol's
-[Runner result](../../../references/round-protocol.md#runner-result). Review it for clarity in this
-same session. No separate drafting or editing session follows. The runner displays the ruling
-directly and collects the user's reply. The brief runs only after the full fix has completed.
+The fix session or implementation worker writes the final ruling when a user
+decision remains open. Use the supplied output path under the runner's
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) and
+report completion under the shared protocol's
+[Runner result](../../../references/round-protocol.md#runner-result). Review it
+for clarity in this same session. No separate drafting or editing session
+follows. The runner displays the ruling directly and collects the user's reply.
+The brief runs only after a full audit fix has completed.
 
 ## Evidence and scope
 
@@ -14,9 +16,10 @@ only when a claim needs verification. Start with the relevant passage in the
 report, plan or current code and expand when it does not settle the claim.
 Do not reread the whole round merely to write its ruling.
 
-Explain only the decisions the fix left open. Do not reopen settled findings,
-add findings or change agreed verdicts. If current code contradicts an open
-item's evidence, state that uncertainty within the item.
+Explain only the decisions the current work left open. An audit fix does not
+reopen settled findings, add findings or change agreed verdicts. If current
+code contradicts an open item's evidence, state that uncertainty within the
+item.
 
 ## Length and voice
 
@@ -31,8 +34,9 @@ needs them to locate evidence. Expand unfamiliar terms where they occur.
 
 ## Contents
 
-Use a short title naming the audited scope. Keep the fix's numbering for open
-items, so the user's reply can refer to them. Each item covers:
+Use a short title naming the audited scope or implementation step. In a fix,
+keep its numbering for open items so the user's reply can refer to them. Each
+item covers:
 
 1. The decision and why it needs the user's answer.
 2. The viable alternatives and their material differences.
@@ -56,6 +60,6 @@ the ruling. Revise any unclear or unsupported claim in this session.
 
 After a user reply, answer any questions before acting. If a decision remains
 open, replace the ruling with the current choices and return `needs-ruling`
-again. Carry resolved choices into the fix; do not ask the user to decide them
-again. Use the shared **Runner result** for required write failures. A finished fix follows
-the ordinary completion rules and does not need a ruling document.
+again. Carry resolved choices into the resumed work; do not ask the user to
+decide them again. Use the shared **Runner result** for required write failures.
+Finished work needs no ruling document.
