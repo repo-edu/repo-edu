@@ -62,7 +62,9 @@ consumers.
   widening judge chooses settle, stop, Claude or Codex; every other judge chooses stop, Claude or
   Codex. The output stores its answer in the final entry. Manual queues and commit targets run no
   judge. The round records both repositories' HEADs before the fix, reads the landed records and
-  validates every subject under its repository's grammar. A plan target fails when a finished fix
+  validates every subject under its repository's grammar. A plan target keeps only the records
+  whose subject carries its stem, because another plan's round may land in the same checkout
+  while the fix runs. A plan target fails when a finished fix
   landed no commit. A commit target may land nothing. Reader failures retain the owning phase and
   its session for recovery. The coordinator deletes the report set after these checks, then runs the
   brief. Other outcomes retain the set. `runClose` runs the loop-close phase alone on its own

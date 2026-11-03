@@ -34,7 +34,7 @@ import {
 } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
-import { parseSubject, type Repository } from "./subject.js"
+import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
   type AuditTarget,
   planPhase,
@@ -745,10 +745,22 @@ export async function runRound(
           throw new Error("Only a widening fix returns a settling line")
         if (fix.settling !== null)
           account = { ...account, settling: fix.settling }
-        const landed = await Promise.all(
-          repositories.map(({ root, repository }, index) =>
-            dependencies.readRecords(root, before[index], repository),
-          ),
+        // A plan round's records are the commits that carry its stem. Another
+        // round may land in the same checkout while the fix runs, and its
+        // records number their findings from one as well.
+        const stem = "plan" in input ? planStem(input.plan) : null
+        const landed = (
+          await Promise.all(
+            repositories.map(({ root, repository }, index) =>
+              dependencies.readRecords(root, before[index], repository),
+            ),
+          )
+        ).map((records) =>
+          stem === null
+            ? records
+            : records.filter(
+                ({ subject }) => looseForm(subject)?.stem === stem,
+              ),
         )
         commits = landed
           .flat()

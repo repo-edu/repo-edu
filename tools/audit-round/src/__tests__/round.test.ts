@@ -1095,6 +1095,49 @@ test("a widening fix's settling line replaces the audit's opening in the retaine
   )
 })
 
+test("a plan round records only the landed commits that carry its stem", async () => {
+  const round = controlledRound()
+  round.results.fix = {
+    status: "finished",
+    sessionId: "fix-session",
+    settling: "settle. Finding 1 landed and no shape question remains.",
+  }
+  // Another plan's round landed in the same checkout while the fix ran, with
+  // its own finding numbered from one.
+  const foreign = {
+    repository: "plan" as const,
+    sha: "1".repeat(40),
+    subject: "other/plan-audit obx growth-none B1: correct the other plan",
+    message:
+      "- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+  }
+  const own = {
+    repository: "plan" as const,
+    sha: "2".repeat(40),
+    subject: "example/plan-audit ath growth-none B1: correct the plan",
+    message:
+      "- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+  }
+
+  const result = await runRound(
+    {
+      ...files,
+      ...testContext(repoRoot, "planning"),
+      plan: "example-widen.md",
+    },
+    {
+      ...round.dependencies,
+      readRecords: async (root) => (root === repoRoot ? [] : [foreign, own]),
+    },
+  )
+
+  assert.equal(result.status, "finished")
+  assert.deepEqual(round.settledWrites[0]?.commits, [
+    { repository: "plan", sha: own.sha },
+  ])
+  assert.equal(round.settledWrites[0]?.account.findings[0]?.outcome, "kept")
+})
+
 test("a clean widening audit retains the auditor's opening as the settling recommendation", async () => {
   const round = controlledRound()
   round.evidence.opening =
