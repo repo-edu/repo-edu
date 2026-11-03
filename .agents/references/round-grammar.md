@@ -6,9 +6,9 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The ten forms are the audit report, vet twin, rebuttal twin, commit record
+The eleven forms are the audit report, vet twin, rebuttal twin, commit record
 bullet, implementation-plan step, audit-range sentence, phase result, watch
-grade, judge answer and watch record.
+grade, settling line, judge answer and watch record.
 
 ## Notation
 
@@ -864,7 +864,7 @@ Refusal: `Implementation plan item 1 needs a bold title ending in a full stop.`
 The audit-range sentence sits in the depth-3 `Execution and audits` subsection
 inside the Implementation plan section. Its ranges start at step 1, follow each
 other without a gap or overlap and end at the last listed step. Prose may
-precede the sentence in the same paragraph.
+precede or follow the sentence in the same paragraph.
 
 ### Examples
 
@@ -900,6 +900,21 @@ The first three steps change the runner. Audit ranges: 1-2, 3, 4-5.
 ### Execution and audits
 
 Audit ranges: 1-3.
+```
+
+#### `audit-ranges/followed-by-prose` — parsed
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the reader.** Hosted in Repo Edu.
+2. **Use the range.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1-2. Both steps change the reader.
 ```
 
 #### `audit-ranges/missing` — refused

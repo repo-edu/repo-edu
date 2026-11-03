@@ -62,6 +62,25 @@ export type AuditTarget =
  */
 export const planningScope = "plan"
 
+export type StepScopeParseResult =
+  | { readonly ok: true; readonly first: number; readonly last: number }
+  | { readonly ok: false; readonly reason: "shape" | "bounds" }
+
+/** Parse one positive step or increasing step range. */
+export function parseStepScope(value: string): StepScopeParseResult {
+  const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
+  if (match === null) return { ok: false, reason: "shape" }
+  const first = Number(match[1])
+  const last = Number(match[2] ?? match[1])
+  if (
+    !Number.isSafeInteger(first) ||
+    !Number.isSafeInteger(last) ||
+    last < first
+  )
+    return { ok: false, reason: "bounds" }
+  return { ok: true, first, last }
+}
+
 /**
  * What a plan argument's scope names: the planning word alone, or the step
  * scopes to audit in order, each one step or an increasing range.
@@ -105,18 +124,12 @@ export function isActivePlanPath(planRoot: string, plan: string): boolean {
 }
 
 function stepScope(value: string): string {
-  const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
-  if (match === null)
+  const parsed = parseStepScope(value)
+  if (!parsed.ok && parsed.reason === "shape")
     throw new InvalidArgumentError(
       `Use ${planningScope} for a planning round, or a positive step number or an increasing range, such as 2 or 2-4, in a list such as 2,3-5,6-7 for one series per scope.`,
     )
-  const first = Number(match[1])
-  const last = Number(match[2] ?? match[1])
-  if (
-    !Number.isSafeInteger(first) ||
-    !Number.isSafeInteger(last) ||
-    last < first
-  )
+  if (!parsed.ok)
     throw new InvalidArgumentError(
       "The step range must use safe positive integers in increasing order.",
     )

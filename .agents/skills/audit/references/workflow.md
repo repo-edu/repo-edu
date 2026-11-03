@@ -64,8 +64,9 @@ command resolves one under the runner's
 completed bare plan, the runner reads the fixed `Audit ranges:` sentence in the
 plan's **Execution and audits** subsection and starts one series per listed
 range, followed by one on the full range. That sentence is the runner's source;
-the audit workflow still follows each supplied resolved range exactly. Never
-select, propose or replace it.
+a sentence listing only the full range runs it once. The audit workflow still
+follows each supplied resolved range exactly. Never select, propose or replace
+it.
 
 The step range decides the repo set. Read each in-range step's host sentence in
 the plan's **Implementation plan**. A step may be hosted by Repo Edu, the plan

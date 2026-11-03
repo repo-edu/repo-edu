@@ -55,6 +55,7 @@ test("the round grammar's audit-range examples are parser fixtures", () => {
   const parsed: Readonly<Record<string, readonly string[]>> = {
     "audit-ranges/multiple": ["1-2", "3", "4-5"],
     "audit-ranges/full": ["1-3"],
+    "audit-ranges/followed-by-prose": ["1-2"],
   }
   for (const example of roundGrammarExamples("audit-ranges/")) {
     const steps = readPlanSteps(example.source)

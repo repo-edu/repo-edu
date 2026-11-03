@@ -1,5 +1,6 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
 import type { Repository } from "./subject.js"
+import { parseStepScope } from "./target.js"
 
 type Block = ReturnType<typeof fromMarkdown>["children"][number]
 type Heading = Extract<Block, { type: "heading" }>
@@ -149,29 +150,23 @@ export function readAuditRanges(
 ): readonly string[] {
   const paragraph = auditRangeParagraph(fromMarkdown(source).children)
   const sentence = paragraph.text.slice(paragraph.marker)
-  const match = /^Audit ranges: (.+)\.$/.exec(sentence)
+  const match = /^Audit ranges: ([^.]+)\.(?:\s|$)/.exec(sentence)
   if (match === null)
     throw new Error(
       'Audit ranges sentence must use "Audit ranges: 1-3, 4, 5-6.".',
     )
 
   const ranges = match[1].split(", ").map((scope) => {
-    const range = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(scope)
-    if (range === null)
+    const range = parseStepScope(scope)
+    if (!range.ok && range.reason === "shape")
       throw new Error(
         `Audit range "${scope}" must be a positive step number or an increasing range.`,
       )
-    const first = Number(range[1])
-    const last = Number(range[2] ?? range[1])
-    if (
-      !Number.isSafeInteger(first) ||
-      !Number.isSafeInteger(last) ||
-      last < first
-    )
+    if (!range.ok)
       throw new Error(
         `Audit range "${scope}" must use safe positive integers in increasing order.`,
       )
-    return { scope, first, last }
+    return { scope, first: range.first, last: range.last }
   })
 
   let expected = 1
