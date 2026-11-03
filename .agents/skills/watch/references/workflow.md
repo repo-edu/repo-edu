@@ -453,9 +453,13 @@ The watch has these sections in this order.
 
 1. **Title**: `# <episode stem>: trajectory watch`, followed by the two graded
    heads labelled `repo-edu` and `plan`.
-2. **What is drifting**: one or two paragraphs of grounded description. The
-   unstable abstraction, where findings cluster and the structural reason that
-   area keeps reopening.
+2. **What is drifting**: one or two paragraphs of grounded description. Each
+   paragraph names one unstable abstraction, where its findings cluster and
+   the structural reason that area keeps reopening, with one commit per claim
+   the user can check. No round-by-round walk of the commits that changed the
+   area: the view already holds that walk, and the grade section states what
+   it shows. A count or test the watch runs itself appears only as its
+   conclusion in one sentence, never with its method or its figures.
 3. **The grade**: green, amber or red, then one sentence each for the
    severity run, the clustered area, the reach trajectory the tier letters'
    case carries and the burden trajectory the leading `growth-<level>` or
