@@ -20,6 +20,10 @@ async function lifecyclePlan(
 ## Implementation plan
 
 1. **Example step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1.
 `
     : "# Example plan\n",
 ) {
@@ -709,6 +713,38 @@ test("ready refuses a committed plan whose implementation steps do not read", as
 
   assert.equal(await runCommand(["ready"], f.runtime, f.options), 1)
   assert.match(f.errors.at(-1) ?? "", /Implementation plan item 1/)
+  assert.equal(
+    (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+    head,
+  )
+})
+
+test("ready refuses a committed plan whose audit ranges do not read", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(
+    f,
+    "settled",
+    true,
+    "example",
+    `# Example plan
+
+## Implementation plan
+
+1. **Example step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 2.
+`,
+  )
+  const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
+    .stdout
+
+  assert.equal(await runCommand(["ready"], f.runtime, f.options), 1)
+  assert.match(
+    f.errors.at(-1) ?? "",
+    /Audit ranges must start at step 1; found step 2/,
+  )
   assert.equal(
     (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
     head,

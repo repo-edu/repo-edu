@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { readPlanSteps } from "../plan-steps.js"
+import { readAuditRanges, readPlanSteps } from "../plan-steps.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
 test("the round grammar's plan-step examples are parser fixtures", () => {
@@ -48,6 +48,79 @@ The steps follow after this paragraph.
       { number: 2, repositories: ["plan"] },
       { number: 3, repositories: ["plan", "repo-edu"] },
     ],
+  )
+})
+
+test("the round grammar's audit-range examples are parser fixtures", () => {
+  const parsed: Readonly<Record<string, readonly string[]>> = {
+    "audit-ranges/multiple": ["1-2", "3", "4-5"],
+    "audit-ranges/full": ["1-3"],
+  }
+  for (const example of roundGrammarExamples("audit-ranges/")) {
+    const steps = readPlanSteps(example.source)
+    if (example.outcome === "refused") {
+      assert.throws(
+        () => readAuditRanges(example.source, steps.length),
+        (error: unknown) =>
+          error instanceof Error && error.message === example.refusal,
+        example.id,
+      )
+      continue
+    }
+    assert.deepEqual(
+      readAuditRanges(example.source, steps.length),
+      parsed[example.id],
+      example.id,
+    )
+  }
+})
+
+test("requires the Execution and audits subsection", () => {
+  const source = `# Plan
+
+## Implementation plan
+
+1. **Step.** Hosted in Repo Edu.
+`
+  assert.throws(
+    () => readAuditRanges(source, readPlanSteps(source).length),
+    /exactly one depth-3 Execution and audits subsection/,
+  )
+})
+
+test("requires every audit range to use the step-scope grammar", () => {
+  const source = `# Plan
+
+## Implementation plan
+
+1. **First step.** Hosted in Repo Edu.
+2. **Second step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1-two.
+`
+  assert.throws(
+    () => readAuditRanges(source, readPlanSteps(source).length),
+    /Audit range "1-two" must be a positive step number or an increasing range/,
+  )
+})
+
+test("requires the audit ranges to end at the last listed step", () => {
+  const source = `# Plan
+
+## Implementation plan
+
+1. **First step.** Hosted in Repo Edu.
+2. **Second step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1.
+`
+  assert.throws(
+    () => readAuditRanges(source, readPlanSteps(source).length),
+    /Audit ranges end at step 1; implementation plan ends at step 2/,
   )
 })
 

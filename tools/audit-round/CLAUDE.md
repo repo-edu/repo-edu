@@ -85,12 +85,14 @@ consumers.
   staged or unstaged target plan while leaving unrelated work alone. Settle
   commits only the widening rename before claiming its marker. Ready shares
   the `git commit --only --allow-empty` route with direct clean completion and
-  validates the committed plan's steps before writing its marker. Both routes
-  keep the plan checkout's normal hooks enabled.
+  validates the committed plan's steps and audit ranges before writing its
+  marker. Both routes keep the plan checkout's normal hooks enabled.
 - `plan-steps.ts` reads the first ordered list below the depth-2
   `Implementation plan` heading. It requires each item to open with a bold
   title and one closed host sentence, then returns the steps and their hosting
-  repos in list order.
+  repos in list order. It also reads the `Audit ranges:` sentence under the
+  depth-3 `Execution and audits` subsection and requires its scopes to tile the
+  listed steps in order.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
   A widening report must end with the grammar's settling line as its last paragraph, read from its
   source so a formatted reason keeps its words; the reader returns that line as the report's

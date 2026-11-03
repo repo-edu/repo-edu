@@ -3,7 +3,7 @@ import { basename, join, relative } from "node:path"
 import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
-import { readPlanSteps } from "./plan-steps.js"
+import { readAuditRanges, readPlanSteps } from "./plan-steps.js"
 import { markerPath } from "./round-paths.js"
 import { claimRound } from "./run-files.js"
 import { looseForm } from "./subject.js"
@@ -129,7 +129,9 @@ export async function readyPlan(
   if (name.endsWith("-widen.md"))
     throw new Error(`Cannot declare ${name} ready while it is still widening.`)
   await requireCommittedPlan(context.planRoot, plan)
-  readPlanSteps(await readFile(plan, "utf8"))
+  const source = await readFile(plan, "utf8")
+  const steps = readPlanSteps(source)
+  readAuditRanges(source, steps.length)
 
   const stem = planStem(plan)
   const existing = await findMarker(context.planRoot, stem, "ready")

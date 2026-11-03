@@ -6,9 +6,9 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The nine forms are the audit report, vet twin, rebuttal twin, commit record
-bullet, implementation-plan step, phase result, watch grade, judge answer and
-watch record.
+The ten forms are the audit report, vet twin, rebuttal twin, commit record
+bullet, implementation-plan step, audit-range sentence, phase result, watch
+grade, judge answer and watch record.
 
 ## Notation
 
@@ -849,6 +849,111 @@ Refusal: `Implementation plan item 1 needs a bold title ending in a full stop.`
 ## Implementation plan
 
 1. **Write the parser** Hosted in Repo Edu. Add the shared reader.
+```
+
+## Audit ranges
+
+### Production
+
+```text
+<execution-and-audits> ::= "### Execution and audits" BLANK <audit-prose>
+<audit-prose>          ::= free Markdown containing exactly one <audit-ranges>
+<audit-ranges>         ::= "Audit ranges: "<step-scope>(", "<step-scope>)*"."
+```
+
+The audit-range sentence sits in the depth-3 `Execution and audits` subsection
+inside the Implementation plan section. Its ranges start at step 1, follow each
+other without a gap or overlap and end at the last listed step. Prose may
+precede the sentence in the same paragraph.
+
+### Examples
+
+#### `audit-ranges/multiple` — parsed
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the reader.** Hosted in Repo Edu.
+2. **Add its fixtures.** Hosted in Repo Edu.
+3. **Use the range.** Hosted in Repo Edu.
+4. **Update the doctrine.** Hosted in the plan repo.
+5. **Update its mirrors.** Hosted in the plan repo.
+
+### Execution and audits
+
+The first three steps change the runner. Audit ranges: 1-2, 3, 4-5.
+```
+
+#### `audit-ranges/full` — parsed
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the reader.** Hosted in Repo Edu.
+2. **Use the range.** Hosted in Repo Edu.
+3. **Update the doctrine.** Hosted in the plan repo.
+
+### Execution and audits
+
+Audit ranges: 1-3.
+```
+
+#### `audit-ranges/missing` — refused
+
+Refusal: `Execution and audits subsection needs exactly one Audit ranges: sentence.`
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the reader.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit the reader after it lands.
+```
+
+#### `audit-ranges/gap` — refused
+
+Refusal: `Audit ranges leave a gap before step 4; expected step 3.`
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the reader.** Hosted in Repo Edu.
+2. **Add its fixtures.** Hosted in Repo Edu.
+3. **Use the range.** Hosted in Repo Edu.
+4. **Update the doctrine.** Hosted in the plan repo.
+
+### Execution and audits
+
+Audit ranges: 1-2, 4.
+```
+
+#### `audit-ranges/overlap` — refused
+
+Refusal: `Audit ranges overlap at step 2; expected step 3.`
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the reader.** Hosted in Repo Edu.
+2. **Add its fixtures.** Hosted in Repo Edu.
+3. **Use the range.** Hosted in Repo Edu.
+4. **Update the doctrine.** Hosted in the plan repo.
+
+### Execution and audits
+
+Audit ranges: 1-2, 2-4.
 ```
 
 ## Phase result
