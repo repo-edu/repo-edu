@@ -4,7 +4,7 @@ import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog, shortSha } from "./episode-log.js"
-import { type PlanStep, readPlanSteps } from "./plan-steps.js"
+import { type PlanStep, readAuditRanges, readPlanSteps } from "./plan-steps.js"
 import { looseForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
@@ -144,7 +144,8 @@ export async function selectTargets(
     const [first, ...more] = request.scope
     return [implementation(first), ...more.map(implementation)]
   }
-  const listedSteps = readPlanSteps(await readFile(plan, "utf8"))
+  const source = await readFile(plan, "utf8")
+  const listedSteps = readPlanSteps(source)
   const status = progress(logs, topic, listedSteps)
   if (
     status.repositories.every(
@@ -152,7 +153,14 @@ export async function selectTargets(
     )
   ) {
     const last = listedSteps.length
-    return [implementation(last === 1 ? "1" : `1-${last}`)]
+    const fullRange = last === 1 ? "1" : `1-${last}`
+    const ranges = readAuditRanges(source, last)
+    if (ranges.length === 1) return [implementation(fullRange)]
+    return [
+      implementation(ranges[0]),
+      ...ranges.slice(1).map(implementation),
+      implementation(fullRange),
+    ]
   }
   const pending = status.repositories.flatMap(({ name, pending }) =>
     pending.length === 0

@@ -176,32 +176,32 @@ type Invocation =
       readonly verbose?: boolean
     }
 
-/**
- * A scope list runs one automatic series per scope. It joins no `--auditor`
- * list, whose editable queue belongs to one target and whose pairing with the
- * scopes would need a second reading, and `name` claims one hand-run round.
- */
 function requestedTarget(
   invocation: Extract<Invocation, { kind: "round" | "name" }>,
 ): TargetRequest | null {
   if (invocation.first === undefined) return null
-  const request = targetRequest(invocation.first, invocation.rest)
-  if (
-    "plan" in request &&
-    typeof request.scope !== "string" &&
-    request.scope !== null &&
-    request.scope.length > 1
-  ) {
-    if (invocation.kind === "name")
-      throw new InvalidArgumentError(
-        "A hand-run round claims one scope. Name one step or range.",
-      )
-    if (invocation.auditor !== undefined)
-      throw new InvalidArgumentError(
-        "A scope list runs one automatic series per scope. Use --auditor with one scope.",
-      )
-  }
-  return request
+  return targetRequest(invocation.first, invocation.rest)
+}
+
+/**
+ * A resolved target list runs one automatic series per target. It joins no
+ * `--auditor` list, whose editable queue belongs to one target and whose
+ * pairing with several targets would need a second reading, and `name` claims
+ * one hand-run round.
+ */
+function requireSingleTarget(
+  invocation: Extract<Invocation, { kind: "round" | "name" }>,
+  targets: AuditTargets,
+): void {
+  if (targets.length === 1) return
+  if (invocation.kind === "name")
+    throw new InvalidArgumentError(
+      "A hand-run round claims one scope. Name one step or range.",
+    )
+  if (invocation.auditor !== undefined)
+    throw new InvalidArgumentError(
+      "A scope list runs one automatic series per scope. Use --auditor with one scope.",
+    )
 }
 
 function sessionTag(value: string): string {
@@ -370,7 +370,9 @@ Targets and scope:
            Alone, the stem runs the audit the plan's history calls for:
              - no step has landed: a plan audit of the plan document
              - every listed step has landed in each hosting repo and each repo's
-               implemented marker follows its newest hosted step: the listed range
+               implemented marker follows its newest hosted step: every Audit ranges:
+               scope in order, then the full listed step range; one full-range
+               sentence runs that range only
              - otherwise: stop and name pending steps and missing or stale markers
   Scope    One step (3) or an increasing range (1-3) audits implementation.
            A list such as 2,3-5,6-7, separated by commas or spaces, runs one
@@ -923,6 +925,8 @@ export async function runCommand(
       throw new InvalidArgumentError(
         "Commit audits run once. Multiple auditors require a plan target.",
       )
+    if (prepared.kind === "round" || prepared.kind === "name")
+      requireSingleTarget(prepared, prepared.targets)
     if (prepared.kind === "name") {
       const [target] = prepared.targets
       const { nameStart } = await roundIdentity({

@@ -21,6 +21,40 @@ async function declareReady(planRoot: string) {
   )
 }
 
+/** A completed plan whose bare name resolves to its two groups and full range. */
+async function completeRangePlan(fixture: {
+  readonly planRoot: string
+  readonly repoRoot: string
+}) {
+  await writeFile(
+    join(fixture.planRoot, "example.md"),
+    `# Example plan
+
+## Implementation plan
+
+1. **First step.** Hosted in Repo Edu.
+2. **Second step.** Hosted in Repo Edu.
+3. **Third step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1-2, 3.
+`,
+  )
+  await commitFixture(
+    fixture.repoRoot,
+    "example/impl-2 obx feat(audit-round): second step",
+  )
+  await commitFixture(
+    fixture.repoRoot,
+    "example/impl-3 obx feat(audit-round): third step",
+  )
+  await commitFixture(
+    fixture.repoRoot,
+    "example/implemented obx: complete the Repo Edu share",
+  )
+}
+
 /** One open plan-bound deferral in Repo Edu history. */
 async function deferPlanChoice(repoRoot: string) {
   await commitFixture(
@@ -318,6 +352,34 @@ test("a plan named without its extension runs as its .md file", async (t) => {
       `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3", { deferrals: [] }])}`,
     ),
   )
+})
+
+test("a completed bare range series is refused beside --auditor", async (t) => {
+  const f = await roundFixture(t)
+  await completeRangePlan(f)
+
+  assert.equal(
+    await runCommand(["example", "--auditor", "codex"], f.runtime, f.options),
+    2,
+  )
+  assert.match(f.errors.join("\n"), /Use --auditor with one scope/)
+  assert.deepEqual(await f.roundFiles(), [])
+})
+
+test("a hand-run claim refuses a completed bare range series", async (t) => {
+  const f = await roundFixture(t)
+  await completeRangePlan(f)
+
+  assert.equal(
+    await runCommand(
+      ["name", "example", "--auditor", "oth"],
+      f.runtime,
+      f.options,
+    ),
+    2,
+  )
+  assert.match(f.errors.join("\n"), /claims one scope/)
+  assert.deepEqual(await f.roundFiles(), [])
 })
 
 test("options without a target run the audit the newest plan's history calls for", async (t) => {

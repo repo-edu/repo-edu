@@ -21,6 +21,10 @@ async function planRoot(t: TestContext): Promise<string> {
 1. **First Repo Edu step.** Hosted in Repo Edu.
 2. **Second Repo Edu step.** Hosted in Repo Edu.
 3. **Plan step.** Hosted in the plan repo.
+
+### Execution and audits
+
+Audit ranges: 1-2, 3.
 `,
   )
   for (const name of ["one.md", "widened-widen.md"])
@@ -31,6 +35,10 @@ async function planRoot(t: TestContext): Promise<string> {
 ## Implementation plan
 
 1. **Only step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1.
 `,
     )
   await writeFile(
@@ -47,6 +55,20 @@ The shape is still open, so no implementation steps exist yet.
 ## Implementation plan
 
 1. **Title without a full stop** Hosted in Repo Edu.
+`,
+  )
+  await writeFile(
+    join(root, "bad-ranges.md"),
+    `# Plan
+
+## Implementation plan
+
+1. **First step.** Hosted in Repo Edu.
+2. **Second step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1, 3.
 `,
   )
   return root
@@ -92,14 +114,14 @@ test("the plan's history selects what its name or no target audits", async (t) =
   const root = await planRoot(t)
   const cases: [
     Record<Repository, LogCommit[]>,
-    Extract<AuditTarget, { plan: string }>,
+    readonly Extract<AuditTarget, { plan: string }>[],
   ][] = [
     [
       logs(
         ["plan", 1, "example/init ath: start"],
         ["repo-edu", 2, "oth growth-none c1 fix(x): unstemmed and newer"],
       ),
-      { roundKind: "planning", plan: join(root, "example.md") },
+      [{ roundKind: "planning", plan: join(root, "example.md") }],
     ],
     [
       logs(
@@ -107,42 +129,72 @@ test("the plan's history selects what its name or no target audits", async (t) =
         ["plan", 3, "archived/closed ath: archived and newest"],
         ["plan", 2, "widened/plan-audit oth growth-none B1: widening round"],
       ),
-      { roundKind: "planning", plan: join(root, "widened-widen.md") },
+      [{ roundKind: "planning", plan: join(root, "widened-widen.md") }],
     ],
     [
       logs(["plan", 1, "unstructured/init ath: start"]),
-      { roundKind: "planning", plan: join(root, "unstructured-widen.md") },
+      [{ roundKind: "planning", plan: join(root, "unstructured-widen.md") }],
     ],
     [
       implemented,
-      {
-        roundKind: "implementation",
-        plan: join(root, "example.md"),
-        scope: "1-3",
-      },
+      [
+        {
+          roundKind: "implementation",
+          plan: join(root, "example.md"),
+          scope: "1-2",
+        },
+        {
+          roundKind: "implementation",
+          plan: join(root, "example.md"),
+          scope: "3",
+        },
+        {
+          roundKind: "implementation",
+          plan: join(root, "example.md"),
+          scope: "1-3",
+        },
+      ],
     ],
     [
       logs(
         ["repo-edu", 1, "one/impl-1 oth feat(x): step"],
         ["repo-edu", 2, "one/implemented oth: marker"],
       ),
-      {
-        roundKind: "implementation",
-        plan: join(root, "one.md"),
-        scope: "1",
-      },
+      [
+        {
+          roundKind: "implementation",
+          plan: join(root, "one.md"),
+          scope: "1",
+        },
+      ],
     ],
   ]
   for (const [history, expected] of cases) {
-    assert.deepEqual(await selectTargets(history, root, null), [expected])
+    assert.deepEqual(await selectTargets(history, root, null), expected)
     assert.deepEqual(
       await selectTargets(history, root, {
-        plan: planStem(expected.plan),
+        plan: planStem(expected[0].plan),
         scope: null,
       }),
-      [expected],
+      expected,
     )
   }
+})
+
+test("a completed bare plan refuses malformed audit ranges", async (t) => {
+  const root = await planRoot(t)
+  await assert.rejects(
+    selectTargets(
+      logs(
+        ["repo-edu", 1, "bad-ranges/impl-1 obx feat(x): first step"],
+        ["repo-edu", 2, "bad-ranges/impl-2 obx feat(x): second step"],
+        ["repo-edu", 3, "bad-ranges/implemented obx: marker"],
+      ),
+      root,
+      { plan: "bad-ranges", scope: null },
+    ),
+    /Audit ranges leave a gap before step 3; expected step 2\./,
+  )
 })
 
 test("named step scopes audit implementation in list order once a step has landed", async (t) => {
@@ -236,6 +288,16 @@ test("marker freshness follows Git order when commit dates disagree", async (t) 
       named,
     ),
     [
+      {
+        roundKind: "implementation",
+        plan: join(root, "example.md"),
+        scope: "1-2",
+      },
+      {
+        roundKind: "implementation",
+        plan: join(root, "example.md"),
+        scope: "3",
+      },
       {
         roundKind: "implementation",
         plan: join(root, "example.md"),

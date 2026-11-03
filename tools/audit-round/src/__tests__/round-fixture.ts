@@ -150,6 +150,10 @@ export async function roundFixture(
 ## Implementation plan
 
 1. **Fixture step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1.
 `,
       )
   const planRoot = await realpath(planDirectory)

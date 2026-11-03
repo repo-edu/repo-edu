@@ -60,10 +60,12 @@ and stop. Continue only when the user explicitly says to.
 
 The user sets the step range, or gives the plan alone or no target so the
 command resolves one under the runner's
-[Plan targets](../../../../tools/audit-round/CLAUDE.md#plan-targets).
-Follow the resolved range exactly. Never select, propose or replace it. The
-plan's **Execution and audits** subsection is guidance for the user, not
-instructions for the workflow.
+[Plan targets](../../../../tools/audit-round/CLAUDE.md#plan-targets). For a
+completed bare plan, the runner reads the fixed `Audit ranges:` sentence in the
+plan's **Execution and audits** subsection and starts one series per listed
+range, followed by one on the full range. That sentence is the runner's source;
+the audit workflow still follows each supplied resolved range exactly. Never
+select, propose or replace it.
 
 The step range decides the repo set. Read each in-range step's host sentence in
 the plan's **Implementation plan**. A step may be hosted by Repo Edu, the plan
