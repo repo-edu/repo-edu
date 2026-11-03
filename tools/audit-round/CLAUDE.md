@@ -349,7 +349,18 @@ consumers.
   renders the fix's ruling. `endRuling` excludes the user's waiting time and records a submitted
   reply in the log and transcript before any resumed process starts. Assistant replies use the
   normal phase output, so launch prompts stay in the log and never reach the terminal. Supplied
-  instruction files appear there by path only; their full contents go to the assistant.
+  instruction files appear there by path only; their full contents go to the assistant. Each
+  assistant's reported model line is followed by the model-change notice from `model-change.ts`
+  when that comparison differs.
+- `model-change.ts` owns the non-blocking model and effort notices. For audit,
+  vet, rebut, brief, watch and judge it reads every active and archived
+  plan's checked round data and compares with the newest earlier entry for the
+  same phase and assistant. Fix compares the report with the selection that
+  invocation launched, so a deliberate coder change between plans is not a
+  warning. Close reads the newest earlier plan-repo `closed` model record for
+  the same assistant. A different assistant, a first observation or an
+  unchanged selection produces no notice. Invalid round data still stops the
+  run before an assistant starts.
 - `trial.ts` owns the read-only trial read-out. It reads checked round data at
   the plan root and closed-plan archives, excludes manual `--auditor` rounds,
   then takes the newest uninterrupted run with one settings snapshot. A

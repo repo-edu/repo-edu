@@ -2,6 +2,12 @@ import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
 import type { Feedback, ModelReleases, PhaseOutput } from "./feedback.js"
 import {
+  type ModelReference,
+  modelChangeNotice,
+  readPreviousCloseModel,
+  readPreviousRoundModels,
+} from "./model-change.js"
+import {
   type Context,
   capabilityTag,
   commitStamps,
@@ -89,6 +95,8 @@ export type Run = {
   readonly phases: readonly RunEntry[]
   readonly releases: Record<Assistant, ModelReleases>
   readonly paths: RunPaths
+  /** Earlier applied selections used only to surface a model or effort change. */
+  readonly previousModels: readonly ModelReference[]
   /** Present for every active plan-target round, with settled and final writes. */
   readonly data?: {
     readonly path: string
@@ -181,6 +189,7 @@ export async function roundRun(
       tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
+  const previousModels = await readPreviousRoundModels(setup.planRoot)
   const path = (kind: FileKind, phase: Phase) =>
     join(setup.planRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
@@ -233,6 +242,7 @@ export async function roundRun(
       log: `${base}.log`,
       markdown: `${base}.md`,
     },
+    previousModels,
     ...(data === undefined ? {} : { data }),
     releases,
     settings,
@@ -241,12 +251,12 @@ export async function roundRun(
 }
 
 /** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */
-export function briefRun(
+export async function briefRun(
   transcript: string,
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
-): Run & { readonly brief: string } {
+): Promise<Run & { readonly brief: string }> {
   const phase = {
     phase: "brief",
     ...roundPhases("codex", noOverride, settings).brief,
@@ -271,6 +281,7 @@ export function briefRun(
       log: `${base}.log`,
       markdown: null,
     },
+    previousModels: await readPreviousRoundModels(dirname(transcript)),
     started,
   }
 }
@@ -280,13 +291,13 @@ export function briefRun(
  * Its session cannot tell its own capability, so the run hands it the tag and
  * model record its commits carry.
  */
-export function closeRun(
+export async function closeRun(
   plan: string,
   planRoot: string,
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
-): Run & { readonly tag: string; readonly record: string } {
+): Promise<Run & { readonly tag: string; readonly record: string }> {
   const phase = { phase: "close", ...closePhase(settings) } as const
   const tag = fileTag(phase, releases, settings)
   const { model, effort } = phaseSelection(
@@ -306,6 +317,7 @@ export function closeRun(
       log: join(planRoot, `${planStem(plan)}-close.${tag}.log`),
       markdown: null,
     },
+    previousModels: await readPreviousCloseModel(planRoot, phase.assistant),
     started,
   }
 }
@@ -501,7 +513,8 @@ export class RoundOutput<R extends Run = Run> {
           `${prefix} ${active.input.assistant} session ${feedback.sessionId}`,
         )
         break
-      case "model":
+      case "model": {
+        const launched = this.phaseRun(active.input.phase).selection
         this.ran.set(active.input.phase, {
           ...this.phaseRun(active.input.phase),
           selection: feedback.selection,
@@ -509,7 +522,16 @@ export class RoundOutput<R extends Run = Run> {
         this.say(
           `${prefix} ${active.input.assistant} ${modelText(feedback.selection)}`,
         )
+        const notice = modelChangeNotice(
+          this.run.previousModels,
+          active.input.phase,
+          active.input.assistant,
+          launched,
+          feedback.selection,
+        )
+        if (notice !== null) this.say(`Warning: ${notice}`)
         break
+      }
       case "context": {
         const run = this.phaseRun(active.input.phase)
         active.context = feedback

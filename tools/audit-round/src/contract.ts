@@ -186,6 +186,7 @@ export async function recordContracts(
             log: join(scratch, `${assistant}.log`),
             markdown: join(scratch, `${assistant}.md`),
           },
+          previousModels: [],
           started: Date.now(),
         },
         { terminal, verbose: true },

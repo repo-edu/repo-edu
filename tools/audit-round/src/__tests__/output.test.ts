@@ -111,6 +111,56 @@ test("commit stamps retain each phase's reported selection across later phases",
   })
 })
 
+test("reported model feedback prints a change notice after the phase line", async (t) => {
+  const f = await fixture(t)
+  const visible: string[] = []
+  const run = await roundRun(
+    { ...testSetup(f.root), plan: "example.md", scope: "1" },
+    0,
+    releases,
+  )
+  const output = new RoundOutput(
+    {
+      ...run,
+      previousModels: [
+        {
+          phase: "audit",
+          assistant: "codex",
+          selection: { model: "earlier-model", effort: "high" },
+        },
+      ],
+    },
+    {
+      terminal: {
+        write: (text) => visible.push(text),
+        status() {},
+        clear() {},
+      },
+      openFiles: () => ({ log() {}, markdown() {}, close() {} }),
+    },
+  )
+  t.after(() => output.close())
+  await output.phase.start(
+    {
+      phase: "audit",
+      assistant: "codex",
+      model: pinned("codex"),
+      ...testContext(f.root),
+      arguments: ["example-impl-01..01-01", "example.md"],
+      sessionId: null,
+    },
+    "prompt",
+  )
+  await output.phase.observe({
+    type: "model",
+    selection: { model: "reported-model", effort: "xhigh" },
+  })
+  assert.deepEqual(visible.slice(-2), [
+    "[audit] codex reported-model extra high",
+    "Warning: Model change: audit reported reported-model xhigh; the newest earlier audit run by codex reported earlier-model high.",
+  ])
+})
+
 test("output records complete invocations incrementally and refreshes only while a phase runs", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10000 })
@@ -726,7 +776,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
-    briefRun(transcript, Date.parse("2026-09-13T08:00:00Z"), releases),
+    await briefRun(transcript, Date.parse("2026-09-13T08:00:00Z"), releases),
     {
       terminal: {
         write: (text) => {

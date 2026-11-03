@@ -65,7 +65,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     transcriptNameStart(run.paths.markdown),
     "commit-abcdef..123abc-01",
   )
-  const brief = briefRun(run.paths.markdown, 0, releases)
+  const brief = await briefRun(run.paths.markdown, 0, releases)
   assert.equal(brief.paths.log, brief.brief.replace(/\.md$/, ".log"))
   assert.equal(
     basename(run.paths.claim as string),
@@ -288,7 +288,7 @@ test("a standalone brief reuses the number and overwrites only its pinned writer
   const f = await fixture(t)
   const transcript = join(f.root, "example-impl-01..01-09-1-round.abh.md")
   await writeFile(transcript, "Original transcript")
-  const run = briefRun(transcript, 0, releases)
+  const run = await briefRun(transcript, 0, releases)
   assert.equal(
     basename(run.paths.log),
     "example-impl-01..01-09-6-brief.oul.log",
@@ -296,7 +296,7 @@ test("a standalone brief reuses the number and overwrites only its pinned writer
   const first = new RoundOutput(run, options)
   await first.message("First brief")
   first.close()
-  new RoundOutput(briefRun(transcript, 1000, releases), options).close()
+  new RoundOutput(await briefRun(transcript, 1000, releases), options).close()
   assert.doesNotMatch(await readFile(run.paths.log, "utf8"), /First brief/)
   assert.equal(await readFile(transcript, "utf8"), "Original transcript")
   assert.deepEqual(

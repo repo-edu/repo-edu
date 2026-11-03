@@ -1083,7 +1083,7 @@ export async function runCommand(
 
     if (prepared.kind === "brief") {
       const { transcript } = prepared
-      const run = briefRun(transcript, now(), releases, settings)
+      const run = await briefRun(transcript, now(), releases, settings)
       const active = open(run)
       result = await runBrief(
         {
@@ -1097,7 +1097,7 @@ export async function runCommand(
       active.finish(result, runtime.signal)
       code = exitCode(result)
     } else if (prepared.kind === "close") {
-      const run = closeRun(
+      const run = await closeRun(
         prepared.plan,
         context.planRoot,
         now(),
