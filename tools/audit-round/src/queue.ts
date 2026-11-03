@@ -6,8 +6,6 @@ import {
   type Assistant,
   type AuditorOption,
   type AuditorSeat,
-  auditPair,
-  noOverride,
   parseAuditor,
   roundPhases,
 } from "./phase.js"
@@ -24,43 +22,6 @@ export type AuditorSetting = ModelSelection & { readonly assistant: Assistant }
  */
 export function splitEntries(text: string): string[] {
   return text.split(/[\s,]+/).filter((entry) => entry.length > 0)
-}
-
-/** The pair's members as they resolve, so a refusal names what the user can pick. */
-function pairText(assistant: Assistant, settings: RoundSettings): string {
-  return ([0, 1] as const)
-    .map((slot) => {
-      const { model, effort } = roundPhases(
-        assistant,
-        noOverride,
-        settings,
-        slot,
-      ).audit.model
-      return `${model.value} at ${effort.value}`
-    })
-    .join(" and ")
-}
-
-/**
- * A partial tag inherits from settings, which is ambiguous when those settings
- * hold two members. Names select the defaults and full tags replace both fields.
- */
-export function validateAuditorEntries(
-  entries: readonly AuditorEntry[],
-  settings: RoundSettings,
-): void {
-  entries.forEach((entry, index) => {
-    const pair = auditPair(entry.assistant, settings)
-    if (
-      pair !== null &&
-      typeof entry.override === "object" &&
-      "strength" in entry.override &&
-      (entry.override.strength === null || entry.override.effort === null)
-    )
-      throw new Error(
-        `Auditor entry ${index + 1} (${entry.text}) is a partial tag, but ${entry.assistant}'s audit selection is the pair ${pairText(entry.assistant, settings)}. Use ${entry.assistant} or a full tag with both tier and effort.`,
-      )
-  })
 }
 
 /** The exact auditor setting an entry asks the current runner invocation to use. */
@@ -83,7 +44,6 @@ export function auditorSetting(
 export function parseAuditors(
   text: string,
   option: AuditorOption,
-  settings?: RoundSettings,
 ): AuditorEntry[] {
   const entries = splitEntries(text).map((entry, index) => {
     const seat = parseAuditor(entry, option)
@@ -93,7 +53,6 @@ export function parseAuditors(
       )
     return { ...seat, text: entry }
   })
-  if (settings !== undefined) validateAuditorEntries(entries, settings)
   return entries
 }
 
@@ -109,10 +68,7 @@ export async function writeQueue(
 }
 
 /** A missing file is an empty queue, so deleting it also ends the sequence. */
-async function readQueue(
-  path: string,
-  settings: RoundSettings,
-): Promise<AuditorEntry[]> {
+async function readQueue(path: string): Promise<AuditorEntry[]> {
   let text: string
   try {
     text = await readFile(path, "utf8")
@@ -122,7 +78,7 @@ async function readQueue(
   }
   // The queue holds the rest of an `--auditor` list.
   try {
-    return parseAuditors(text, "--auditor", settings)
+    return parseAuditors(text, "--auditor")
   } catch (error) {
     throw new Error(`${path}: ${errorMessage(error)}`)
   }
@@ -143,7 +99,7 @@ export async function takeNext(
   readonly rest: readonly AuditorEntry[]
   readonly skipped: number
 }> {
-  const queued = await readQueue(path, settings)
+  const queued = await readQueue(path)
   const kept = queued.filter((entry) => {
     if (ended === null) return true
     const setting = auditorSetting(entry, releases, settings)

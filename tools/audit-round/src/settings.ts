@@ -25,10 +25,9 @@ const defaultSelection = z.strictObject({
 })
 export type PhaseSelection = z.infer<typeof selection>
 const assignedPhase = selection.extend({ assistant })
-const auditSelection = z.union([selection, z.tuple([selection, selection])])
 const auditPhase = z.strictObject({
-  claude: auditSelection,
-  codex: auditSelection,
+  claude: selection,
+  codex: selection,
 })
 const alternatingPhase = z.strictObject({ claude: selection, codex: selection })
 const strengths = z.strictObject({ base: model, top: model })
@@ -36,10 +35,9 @@ const strengths = z.strictObject({ base: model, top: model })
 export const settingsSchema = z.strictObject({
   /**
    * Who opens a series without a command-line choice. `random` flips a coin
-   * per command run; `alternate` opens opposite the last opener whose round
-   * completed in the trial's sense.
+   * per command run.
    */
-  defaultAuditor: z.enum(["claude", "codex", "random", "alternate"]),
+  defaultAuditor: z.enum(["claude", "codex", "random"]),
   maximumAutomaticRounds: z.number().int().positive(),
   strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   defaults: z.strictObject({

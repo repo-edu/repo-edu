@@ -81,10 +81,10 @@ for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
-    settings.phases.audit[auditor] = [
-      { model: "first-pair-member", effort: "low" },
-      { model: "second-pair-member", effort: "medium" },
-    ]
+    settings.phases.audit[auditor] = {
+      model: "pinned-auditor",
+      effort: "medium",
+    }
     assert.equal(
       await runCommand(
         [
@@ -151,31 +151,6 @@ for (const auditor of ["codex", "claude"] as const) {
     )
   })
 }
-
-test("a configured pair refuses partial --auditor and --first tags before startup", async (t) => {
-  const f = await roundFixture(t)
-  const settings = structuredClone(testSettings)
-  settings.phases.audit.codex = [
-    { model: "gpt-5.6-sol", effort: "medium" },
-    { model: "gpt-6-astra", effort: "xhigh" },
-  ]
-  for (const argv of [
-    ["example.md", "1", "--auditor", "o"],
-    ["example.md", "1", "--first", "oh"],
-  ])
-    assert.equal(
-      await runCommand(argv, f.runtime, { ...f.options, settings }),
-      2,
-    )
-  const errors = f.errors.join("\n")
-  assert.match(errors, /codex's audit selection is the pair/)
-  assert.match(errors, /gpt-5\.6-sol at medium/)
-  assert.match(errors, /gpt-6-astra at xhigh/)
-  assert.match(errors, /Use codex or a full tag with both tier and effort/)
-  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-    code: "ENOENT",
-  })
-})
 
 for (const auditor of ["codex", "claude"] as const) {
   test(`--auditor ${auditor} selects the defaults for audit and rebuttal despite phase pins`, async (t) => {
@@ -391,6 +366,10 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.doesNotMatch(visible, /--chain/)
   assert.match(visible, /<effort>\s+l = low, m = medium, h = high, x = xhigh/)
   assert.match(visible, /default auditor comes from\s+settings\.json/)
+  assert.doesNotMatch(
+    visible,
+    /audit pair|alternate default|member of the pair/,
+  )
   assert.match(visible, /Targets and scope:/)
   assert.match(visible, /Auditor selection \(--auditor <selections>\):/)
   assert.match(visible, /Each entry runs\s+one round, from left to right/)

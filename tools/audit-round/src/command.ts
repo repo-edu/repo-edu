@@ -35,8 +35,6 @@ import {
   type AuditorOption,
   type AuditorSeat,
   type AuditorSelectionSource,
-  type AuditSlot,
-  auditPair,
   type DeferralChainOutcome,
   noOverride,
   phaseWorkflow,
@@ -48,7 +46,6 @@ import {
   parseAuditors,
   removeQueue,
   takeNext,
-  validateAuditorEntries,
   writeQueue,
 } from "./queue.js"
 import { readReport, reportKind } from "./report.js"
@@ -79,12 +76,7 @@ import {
 import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
-import {
-  prepareAssistants,
-  readLastOpener,
-  resolveCacheRoot,
-  writeLastOpener,
-} from "./startup.js"
+import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
   type AuditTarget,
   activePlan,
@@ -98,7 +90,7 @@ import {
   type TargetRequest,
   targetRequest,
 } from "./target.js"
-import { trialReport, trialRoundComplete } from "./trial.js"
+import { trialReport } from "./trial.js"
 import { readRebuttal, readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
@@ -402,8 +394,6 @@ Auditor selection (--auditor <selections>):
       <tier>       b = base model, t = top model
       <effort>     l = low, m = medium, h = high, x = xhigh
       Omitted fields use the audit pin in settings.json.
-      When that assistant's audit setting is a pair, supply both fields. A
-      partial tag is refused because it does not name one member of the pair.
 
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
@@ -418,16 +408,12 @@ Round sequence:
 
   Automatic series (active plan without --auditor):
     - The configured default auditor runs first, or the --first selection. A
-      random default flips a coin for the opener in each command run. An
-      alternate default opens opposite the last settings-chosen opener that
-      completed its round, as recorded in the audit-round cache.
+      random default flips a coin for the opener in each command run.
     - After each non-red round, a fresh judge picks the next assistant or an
       ending. In widening it may recommend settle or stop; in detailing and
       implementation it may stop. A settled A finding removes settle in
       widening; a settled A or B finding removes stop otherwise.
     - No queue file is written.
-    - A configured audit pair takes turns within this command. A coin flip picks
-      its first member. --first and other command-line choices take no turn.
     - settings.json sets the maximum round count, including the first round.
     - Commit targets still run once. A phase change ends a plan series.
 
@@ -514,7 +500,7 @@ Examples (from either checkout):
 
      $ pnpm audit-round example 2,3-5,6-7
 
-Use pnpm audit-round trial to read the newest trial.
+Use pnpm audit-round trial to read the newest unchanged-settings run.
 Use settle, ready or close to record the corresponding plan lifecycle call.
 Use brief --help or close --help for their arguments and options.`,
     )
@@ -782,8 +768,8 @@ export async function runCommand(
     readonly repoEduRoot?: string
     readonly settings?: RoundSettings
     readonly readReply?: () => Promise<string | null>
-    /** Supplies a random default's opener and each pair's first member in deterministic tests. */
-    readonly coin?: () => AuditSlot
+    /** Supplies a random default's opener in deterministic tests. */
+    readonly coin?: () => 0 | 1
   },
 ): Promise<number> {
   const invocation = parseInvocation(argv, options)
@@ -968,16 +954,6 @@ export async function runCommand(
           : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
-    if (prepared.kind === "round") {
-      try {
-        if (prepared.auditor !== undefined)
-          validateAuditorEntries(prepared.auditor, settings)
-        if (prepared.firstAuditor !== undefined)
-          validateAuditorEntries([prepared.firstAuditor], settings)
-      } catch (error) {
-        throw new InvalidArgumentError(errorMessage(error))
-      }
-    }
     runtime.signal?.throwIfAborted()
     const releases = await prepareAssistants(
       { ...runtime, cwd: session.cwd },
@@ -1152,58 +1128,14 @@ export async function runCommand(
         isActivePlanPath(context.planRoot, targets[0].plan)
       const coin = options.coin ?? (() => (Math.random() < 0.5 ? 0 : 1))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
-      // A settings-chosen opener takes the first look at a target, which the
-      // trial reads as the decisive round. A random default opens each command
-      // run on the coin; an alternate default opens opposite the last opener
-      // whose round completed, so the trial's first looks stay balanced.
-      const settingsOpener = async (): Promise<Assistant> => {
-        if (settings.defaultAuditor === "alternate") {
-          const last = await readLastOpener(cacheRoot)
-          if (last !== null) return last === "claude" ? "codex" : "claude"
-        }
-        return settings.defaultAuditor === "random" ||
-          settings.defaultAuditor === "alternate"
+      // A random default spreads first looks over both assistants without
+      // binding either assistant to the first position on every target.
+      const settingsOpener = (): Assistant => {
+        return settings.defaultAuditor === "random"
           ? (["claude", "codex"] as const)[coin()]
           : settings.defaultAuditor
       }
       const opened = first ?? prepared.firstAuditor
-      // Only a completed settings-chosen opener moves the stamp: an aborted
-      // opener left no first-look evidence, so the same assistant retries.
-      const recordOpener = async (
-        run: Run,
-        round: RoundResult,
-        output: RoundOutput,
-      ): Promise<void> => {
-        if (
-          settings.defaultAuditor !== "alternate" ||
-          opened !== undefined ||
-          run.data === undefined ||
-          !trialRoundComplete({
-            status: round.status,
-            commits: round.commits,
-            findings: round.account.findings,
-          })
-        )
-          return
-        try {
-          await writeLastOpener(cacheRoot, run.data.auditor.assistant)
-        } catch (error) {
-          await output.message(
-            `Warning: cannot save the opener for alternation: ${errorMessage(error)}`,
-          )
-        }
-      }
-      const nextPairSlots: Partial<Record<Assistant, AuditSlot>> = {}
-      const takeAuditSlot = (current: AuditorSeat): AuditSlot => {
-        if (
-          current.override !== noOverride ||
-          auditPair(current.assistant, settings) === null
-        )
-          return 0
-        const slot = nextPairSlots[current.assistant] ?? coin()
-        nextPairSlots[current.assistant] = slot === 0 ? 1 : 0
-        return slot
-      }
       const deferralsInto = async (
         plan: string,
         destination: "repo-edu" | "plan",
@@ -1279,10 +1211,9 @@ export async function runCommand(
       }
       /**
        * One auditor series on one target. Each scope of a list opens as its
-       * own series: the opener is chosen again, so an alternate default reads
-       * the stamp the previous scope moved, and the round count starts over.
-       * A judge settle or stop, the maximum or an exhausted queue ends the
-       * series; an ending that needs the user stops the whole list.
+       * own series, so the opener is chosen again and the round count starts
+       * over. A judge settle or stop, the maximum or an exhausted queue ends
+       * the series; an ending that needs the user stops the whole list.
        */
       const runSeries = async (
         initial: AuditTarget,
@@ -1302,7 +1233,7 @@ export async function runCommand(
               ? "--first"
               : "settings"
         let seat: AuditorSeat | null = opened ?? {
-          assistant: await settingsOpener(),
+          assistant: settingsOpener(),
           override: noOverride,
         }
         let target = initial
@@ -1377,7 +1308,6 @@ export async function runCommand(
               auditor: seat.assistant,
               auditorSelectionSource,
               override: seat.override,
-              auditSlot: takeAuditSlot(seat),
               brief: prepared.brief,
               automatic,
               ...(repoEduDeferrals === undefined
@@ -1426,7 +1356,6 @@ export async function runCommand(
             result = round
             code = exitCode(round)
             active.finish(round, runtime.signal)
-            if (completed === 0) await recordOpener(run, round, active)
             completed += 1
             if (
               round.status === "finished" &&

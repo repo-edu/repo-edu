@@ -62,8 +62,7 @@ export const roundPhases = (
   auditor: phase.Assistant,
   override: phase.AuditorOverride,
   settings = testSettings,
-  auditSlot?: phase.AuditSlot,
-) => phase.roundPhases(auditor, override, settings, auditSlot)
+) => phase.roundPhases(auditor, override, settings)
 
 export const modelStrength = (
   assistant: phase.Assistant,

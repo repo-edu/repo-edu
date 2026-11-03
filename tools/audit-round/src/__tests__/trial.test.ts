@@ -410,7 +410,7 @@ test("trial reads the newest settings run, cross-checks completed rounds, counts
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
   assert.match(output, /Newest unchanged-settings run: 11 rounds/)
-  assert.match(output, /codex: gpt-top xhigh versus gpt-base xhigh/)
+  assert.doesNotMatch(output, /Compared pair/)
   assert.doesNotMatch(output, /old-impl-01..01|old-auditor/)
   assert.doesNotMatch(output, /manual-impl-01..01|manual-model/)
   assert.match(output, /first-impl-01..01 #1 \| otx \| codex gpt-top xhigh/)

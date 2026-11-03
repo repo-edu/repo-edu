@@ -19,6 +19,7 @@ test("a missing settings file is generated from the built-in defaults", async (t
   const path = join(root, "settings.json")
   assert.deepEqual(await readSettings(path), defaultSettings)
   assert.deepEqual(JSON.parse(await readFile(path, "utf8")), defaultSettings)
+  assert.equal(defaultSettings.defaultAuditor, "random")
 
   const edited = structuredClone(settings)
   edited.defaultAuditor = "random"
@@ -95,25 +96,16 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
   })
 })
 
-test("audit settings accept one setting or an exact pair", () => {
+test("audit settings accept exactly one setting per assistant", () => {
   const config = structuredClone(settings)
-  config.phases.audit.codex = [
-    { model: "first-auditor", effort: "medium" },
-    { model: "second-auditor", effort: "xhigh" },
-  ]
+  config.phases.audit.codex = { model: "one-auditor", effort: "medium" }
   assert.equal(settingsSchema.safeParse(config).success, true)
-  const first = roundPhases("codex", noOverride, config, 0)
-  assert.deepEqual(first.audit.model, {
-    model: { value: "first-auditor", source: "audit-round settings" },
+  const phases = roundPhases("codex", noOverride, config)
+  assert.deepEqual(phases.audit.model, {
+    model: { value: "one-auditor", source: "audit-round settings" },
     effort: { value: "medium", source: "audit-round settings" },
   })
-  assert.deepEqual(first.rebut, first.audit)
-  const second = roundPhases("codex", noOverride, config, 1)
-  assert.deepEqual(second.audit.model, {
-    model: { value: "second-auditor", source: "audit-round settings" },
-    effort: { value: "xhigh", source: "audit-round settings" },
-  })
-  assert.deepEqual(second.rebut, second.audit)
+  assert.deepEqual(phases.rebut, phases.audit)
 
   for (const audit of [
     [],
@@ -134,6 +126,11 @@ test("audit settings accept one setting or an exact pair", () => {
       }).success,
       false,
     )
+  assert.equal(
+    settingsSchema.safeParse({ ...settings, defaultAuditor: "alternate" })
+      .success,
+    false,
+  )
 })
 
 test("assigned phases follow their configured assistants independently of the auditor", () => {

@@ -27,11 +27,7 @@ type TrialRound = {
   readonly data: RoundData
 }
 
-/**
- * Whether a round supplies first-look evidence: it ended, landed a commit and
- * every finding reached an outcome. The `alternate` opener stamp moves on the
- * same test, so the trial's first rounds stay balanced between assistants.
- */
+/** Whether a round ended with complete finding and commit evidence. */
 export function trialRoundComplete(round: {
   readonly status: RoundData["status"]
   readonly commits: readonly RoundData["commits"][number][]
@@ -298,12 +294,6 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
   const rounds = await trialRounds(context)
   const settings = rounds.at(-1)?.data.settings
   if (settings === undefined) throw new Error("Trial has no rounds")
-  const pairs = (["claude", "codex"] as const).flatMap((assistant) => {
-    const selection = settings.audit[assistant]
-    return Array.isArray(selection)
-      ? [`${assistant}: ${selection.map(settingText).join(" versus ")}`]
-      : []
-  })
   const lines = [
     "# Auditor trial",
     "",
@@ -315,7 +305,6 @@ export async function trialReport(context: ExecutionContext): Promise<string> {
     "| --- | --- |",
     `| Claude audit | ${escapeCell(auditText(settings.audit.claude))} |`,
     `| Codex audit | ${escapeCell(auditText(settings.audit.codex))} |`,
-    `| Compared pair | ${escapeCell(pairs.join("; ") || "none")} |`,
     `| Claude vet | ${escapeCell(settingText(settings.vet.claude))} |`,
     `| Codex vet | ${escapeCell(settingText(settings.vet.codex))} |`,
     `| Fix | ${escapeCell(`${settings.fix.assistant} ${settingText(settings.fix)}`)} |`,

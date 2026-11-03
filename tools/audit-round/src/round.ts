@@ -7,7 +7,6 @@ import {
   type Assistant,
   type AuditorOverride,
   type AuditorSelectionSource,
-  type AuditSlot,
   closePhase,
   type DeferralChainOutcome,
   type DeferralScope,
@@ -50,8 +49,6 @@ export type RoundSetup = RoundContext & {
   readonly auditorSelectionSource: AuditorSelectionSource
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
-  /** Which member of a configured audit pair this round runs. */
-  readonly auditSlot?: AuditSlot
   /** True adds the brief to every round in the command; absent runs none. */
   readonly brief?: boolean
   /** True only when this round belongs to the judge-led series. */
@@ -425,7 +422,6 @@ export async function runRound(
     input.auditor,
     input.override ?? noOverride,
     settings,
-    input.auditSlot,
   )
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
