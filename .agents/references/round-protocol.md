@@ -254,6 +254,18 @@ A D finding derives its consequence for grading but need not report it. A tier
 claim without a consequence does not stand; drop a finding whose trace ends
 with the same behaviour shipping.
 
+When a plan rule reads records that already exist, a finding about what that
+rule prints or decides states what the rule gives on those records today, read
+from them by hand, and whether the finding's case appears in them. A case that
+appears in no record is stated as such, and the finding then says why the
+records will change. A constructed case without that statement is not evidence
+that the rule is wrong. This rule's case: it is triggered by a planning finding
+on a record-reading rule, a few per plan of that kind. Without it, a run of
+rounds can add and remove a test on argument alone while the rule gives the
+same result on every real record. Accepting that was rejected because each such
+round costs a full audit, vet and fix for a change nobody can see. The charge
+is one count read from the records per such finding.
+
 At tiers A to C, explain the trade when the growth-pattern value is not `none`,
 reach is not `ordinary` and complexity is an increase. State the simplest
 mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery
