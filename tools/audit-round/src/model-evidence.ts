@@ -48,7 +48,6 @@ export type AuditorRow = {
 export type CoderSample = ReadingSample & {
   readonly stem: string
   readonly dropped: number
-  readonly tokens: TokenTotals
 }
 
 export type CoderRow = {
@@ -382,14 +381,20 @@ async function readArchivedPlanSteps(
     join(directory, `${plan.stem}.md`),
     join(directory, "plan.md"),
   ]) {
+    let source: string
     try {
-      return readPlanSteps(await readFile(path, "utf8"))
+      source = await readFile(path, "utf8")
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") continue
       throw new Error(
         `Invalid archived plan ${relative(context.planRoot, path)}: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
       )
+    }
+    try {
+      return readPlanSteps(source)
+    } catch {
+      return null
     }
   }
   return null
@@ -508,8 +513,10 @@ async function coderRows(
     for (const [key, identity] of actual) {
       const row = ensureRow(identity)
       const tokens = tokensByModel.get(key) ?? new Map()
-      mergeTokens(row.tokens, tokens)
-      row.tokenSteps += stepCount
+      if (stepCount > 0) {
+        mergeTokens(row.tokens, tokens)
+        row.tokenSteps += stepCount
+      }
       if (reason.length > 0) {
         row.excluded.set(plan.stem, reason)
         continue
@@ -531,7 +538,6 @@ async function coderRows(
         yield: acceptedYield(findings) / stepCount,
         dropped: droppedYield(findings) / stepCount,
         minutes: (stepMinutes + fixMinutes) / stepCount,
-        tokens,
       })
     }
   }

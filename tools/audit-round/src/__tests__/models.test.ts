@@ -301,6 +301,92 @@ test("coder spread and worst-plan reliability block independently", () => {
   )
 })
 
+test("an archived plan with an older step form stays visible but unranked", async (t) => {
+  const f = await modelFixture(t)
+  const stem = "old-plan"
+  const audit = await commit(
+    f.root,
+    `${stem}/impl-audit-1 obl clean: record the whole-plan audit`,
+    "coder-alpha low",
+  )
+  await commit(
+    f.planRoot,
+    `${stem}/closed obl: close the fixture plan`,
+    "coder-alpha low",
+  )
+  const archive = join(f.planRoot, "archive", stem)
+  await mkdir(archive, { recursive: true })
+  await writeFile(
+    join(archive, "plan.md"),
+    "# Old plan\n\n## Implementation plan\n\n1. **Old step.** Repo Edu and plan repo.\n",
+  )
+  writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
+    ...round(
+      `${stem}-impl-01..01`,
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      settings("audit-claude", "audit-alpha"),
+      [phase("fix", "codex", "coder-alpha", 60_000)],
+      [{ repository: "repo-edu", sha: audit }],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+  })
+  const row = evidence.coders.get(
+    modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
+  )
+  assert.ok(row)
+  assert.equal(row.excluded.get(stem), "no ready assignment")
+})
+
+test("an active plan contributes no fix tokens without a step count", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "active/impl-audit-1 obl clean: record the current audit",
+    "coder-alpha low",
+  )
+  writeRoundData(join(f.planRoot, "active-impl-rounds.json"), {
+    ...round(
+      "active-impl-01..01",
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      settings("audit-claude", "audit-alpha"),
+      [phase("fix", "codex", "coder-alpha", 60_000)],
+      [{ repository: "repo-edu", sha: audit }],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+  })
+  const row = evidence.coders.get(
+    modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
+  )
+  assert.ok(row)
+  assert.equal(row.excluded.get("active"), "not closed")
+  assert.equal(row.tokenSteps, 0)
+  assert.deepEqual([...row.tokens], [])
+})
+
 test("models groups every recorded model, counts rebuttal cost, admits settings openings and excludes mixed and planning-fix coder evidence", async (t) => {
   const f = await fixture(t)
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
