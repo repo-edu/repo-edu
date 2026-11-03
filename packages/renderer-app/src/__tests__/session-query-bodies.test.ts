@@ -5,7 +5,10 @@ import type {
   RepositoryCloneResult,
   WorkflowId,
 } from "@repo-edu/application-contract"
-import { defaultAppCredentials } from "@repo-edu/domain/settings"
+import {
+  defaultAppCredentials,
+  type PersistedAppCredentials,
+} from "@repo-edu/domain/settings"
 import { type QueryClient, QueryObserver } from "@tanstack/react-query"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
@@ -53,6 +56,17 @@ async function session(
 }
 
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve))
+const cloneCredentials: PersistedAppCredentials = {
+  ...defaultAppCredentials,
+  gitConnections: [
+    {
+      id: "git",
+      provider: "github",
+      baseUrl: "https://github.com",
+      token: "secret-token",
+    },
+  ],
+}
 
 describe("session Query bodies", () => {
   it("publishes clone failure inside the command body", async () => {
@@ -67,7 +81,7 @@ describe("session Query bodies", () => {
         filter: "",
         includeArchived: false,
       },
-      credentials: defaultAppCredentials,
+      credentials: cloneCredentials,
     }
     client.setQueryData(
       cloneAllListingQueryKeys.admission(publishedInput.admissionId),
@@ -104,7 +118,9 @@ describe("session Query bodies", () => {
     assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
   })
 
-  it("keeps clone listing and command results inside their ordered bodies", async () => {
+  it("keeps clone listing and command results inside their ordered bodies", {
+    timeout: 2000,
+  }, async () => {
     const listed = deferred<void>()
     const releaseListing = deferred<void>()
     const cloned = deferred<void>()
@@ -138,7 +154,7 @@ describe("session Query bodies", () => {
         filter: "",
         includeArchived: false,
       },
-      credentials: defaultAppCredentials,
+      credentials: cloneCredentials,
     }
     const variables = {
       listingAdmissionId: publishedInput.admissionId,
