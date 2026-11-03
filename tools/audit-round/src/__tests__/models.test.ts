@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { type TestContext, test } from "node:test"
 import { execa } from "execa"
@@ -125,6 +125,43 @@ async function modelFixture(t: TestContext) {
   const planRoot = join(f.root, "../plan")
   await commitFixture(planRoot)
   return { ...f, planRoot }
+}
+
+type StepHost = "repo-edu" | "plan" | "both"
+
+function archivedPlanSource(hosts: readonly StepHost[]): string {
+  const sentence = (host: StepHost) =>
+    host === "repo-edu"
+      ? "Hosted in Repo Edu."
+      : host === "plan"
+        ? "Hosted in the plan repo."
+        : "Hosted in both repos."
+  return `# Fixture plan
+
+## Implementation plan
+
+${hosts
+  .map(
+    (host, index) =>
+      `${index + 1}. **Fixture step ${index + 1}.** ${sentence(host)}`,
+  )
+  .join("\n")}
+`
+}
+
+async function archivePlan(
+  planRoot: string,
+  stem: string,
+  hosts: readonly StepHost[],
+  splitPeer = false,
+): Promise<string> {
+  const directory = join(planRoot, "archive", stem)
+  await mkdir(directory, { recursive: true })
+  await writeFile(
+    join(directory, splitPeer ? `${stem}.md` : "plan.md"),
+    archivedPlanSource(hosts),
+  )
+  return directory
 }
 
 function findings(count: number, label: string): RoundFinding[] {
@@ -298,7 +335,8 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
 
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
 
-  writeRoundData(join(planRoot, "mixed-impl-rounds.json"), {
+  const mixedArchive = await archivePlan(planRoot, "mixed", ["repo-edu"])
+  writeRoundData(join(mixedArchive, "mixed-impl-rounds.json"), {
     ...round(
       "mixed-impl-01..01",
       1,
@@ -364,7 +402,10 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     "coder-alpha low",
     "2026-10-04T11:00:00Z",
   )
-  writeRoundData(join(planRoot, "no-assignment-impl-rounds.json"), {
+  const noAssignmentArchive = await archivePlan(planRoot, "no-assignment", [
+    "repo-edu",
+  ])
+  writeRoundData(join(noAssignmentArchive, "no-assignment-impl-rounds.json"), {
     ...round(
       "no-assignment-impl-01..01",
       1,
@@ -406,7 +447,10 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     "coder-alpha low",
     "2026-10-05T11:00:00Z",
   )
-  writeRoundData(join(planRoot, "effort-mixed-impl-rounds.json"), {
+  const effortMixedArchive = await archivePlan(planRoot, "effort-mixed", [
+    "repo-edu",
+  ])
+  writeRoundData(join(effortMixedArchive, "effort-mixed-impl-rounds.json"), {
     ...round(
       "effort-mixed-impl-01..01",
       1,
@@ -562,7 +606,12 @@ test("the report names both reliability blocks on an otherwise clear coder lead"
       `${stem}/closed obl: close the fixture plan`,
       `${model} low`,
     )
-    writeRoundData(join(f.planRoot, `${stem}-impl-rounds.json`), {
+    const archive = await archivePlan(
+      f.planRoot,
+      stem,
+      Array.from({ length: stepCount }, () => "repo-edu" as const),
+    )
+    writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
       ...round(
         `${stem}-impl-${scope.replace("-", "..")}`,
         1,
@@ -608,7 +657,7 @@ test("the report names both reliability blocks on an otherwise clear coder lead"
   assert.doesNotMatch(report, /clearly support running codex coder-alpha low/)
 })
 
-test("coder admission needs a current whole-plan audit, counts only kept findings and accepts a plan-repo close", async (t) => {
+test("coder admission needs every archived plan share and a current whole-plan audit", async (t) => {
   const f = await fixture(t)
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root, undefined, "2026-09-29T10:00:00Z")
@@ -648,14 +697,17 @@ test("coder admission needs a current whole-plan audit, counts only kept finding
       "coder-alpha low",
       at,
     )
-  const writeImplementationRound = (
+  const writeImplementationRound = async (
     stem: string,
     scope: string,
     audit: string,
     started: string,
     findings: RoundFinding[] = [finding(`${stem} yield`)],
-  ) =>
-    writeRoundData(join(planRoot, `${stem}-impl-rounds.json`), {
+    hosts: readonly StepHost[] = ["plan"],
+    splitPeer = false,
+  ) => {
+    const archive = await archivePlan(planRoot, stem, hosts, splitPeer)
+    writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
       ...round(
         `${stem}-impl-${scope.replace("-", "..")}`,
         1,
@@ -673,29 +725,51 @@ test("coder admission needs a current whole-plan audit, counts only kept finding
       scope,
       judgedRepos: ["plan"],
     })
+  }
 
   await addReady("plan-only", "2026-10-01T08:00:00Z")
   await addStep("plan-only", 1, "2026-10-01T09:00:00Z")
   const planOnlyAudit = await addAudit("plan-only", "1", "2026-10-01T09:00:00Z")
   await addClose("plan-only", "2026-10-01T11:00:00Z")
-  writeImplementationRound(
+  await writeImplementationRound(
     "plan-only",
     "1",
     planOnlyAudit,
     "2026-10-01T10:00:00.000Z",
     [finding("accepted defect"), finding("unmatched work", "unmatched")],
+    ["plan"],
+    true,
   )
 
   await addReady("partial", "2026-10-02T08:00:00Z")
   await addStep("partial", 1, "2026-10-02T09:00:00Z")
   await addStep("partial", 2, "2026-10-02T10:00:00Z")
-  const partialAudit = await addAudit("partial", "1", "2026-10-02T11:00:00Z")
+  const partialAudit = await addAudit("partial", "1-2", "2026-10-02T11:00:00Z")
   await addClose("partial", "2026-10-02T12:00:00Z")
-  writeImplementationRound(
+  await writeImplementationRound(
     "partial",
-    "1",
+    "1-2",
     partialAudit,
     "2026-10-02T11:00:00.000Z",
+    undefined,
+    ["plan", "plan", "plan"],
+  )
+
+  await addReady("missing-share", "2026-10-02T13:00:00Z")
+  await addStep("missing-share", 1, "2026-10-02T14:00:00Z")
+  const missingShareAudit = await addAudit(
+    "missing-share",
+    "1",
+    "2026-10-02T15:00:00Z",
+  )
+  await addClose("missing-share", "2026-10-02T16:00:00Z")
+  await writeImplementationRound(
+    "missing-share",
+    "1",
+    missingShareAudit,
+    "2026-10-02T15:00:00.000Z",
+    undefined,
+    ["both"],
   )
 
   await addReady("stale", "2026-10-03T08:00:00Z")
@@ -704,7 +778,7 @@ test("coder admission needs a current whole-plan audit, counts only kept finding
   const staleAudit = await addAudit("stale", "1-2", "2026-10-03T11:00:00Z")
   await addStep("stale", 2, "2026-10-03T12:00:00Z")
   await addClose("stale", "2026-10-03T13:00:00Z")
-  writeImplementationRound(
+  await writeImplementationRound(
     "stale",
     "1-2",
     staleAudit,
@@ -718,9 +792,10 @@ test("coder admission needs a current whole-plan audit, counts only kept finding
     row.samples.map((sample) => ({ stem: sample.stem, yield: sample.yield })),
     [{ stem: "plan-only", yield: 1 }],
   )
+  assert.equal(row.excluded.get("partial"), "implementation shares missing")
   assert.equal(
-    row.excluded.get("partial"),
-    "no complete whole-plan audit after the final step",
+    row.excluded.get("missing-share"),
+    "implementation shares missing",
   )
   assert.equal(
     row.excluded.get("stale"),

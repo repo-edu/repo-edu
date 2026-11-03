@@ -377,7 +377,7 @@ consumers.
   the same assistant. A different assistant, a first observation or an
   unchanged selection produces no notice. Invalid round data still stops the
   run before an assistant starts.
-- `models.ts` owns the read-only model read-out and its two sections.
+- `models.ts` owns the model read-out and its two sections.
   `model-evidence.ts` reads checked round data once at the plan root and
   closed-plan archives, then joins the step, ready and closed records from both
   Git histories. `model-comparison.ts` owns the graded words and direct range
@@ -387,14 +387,18 @@ consumers.
   settings-chosen openings only where
   both rows were active, split planning from implementation and add audit and
   rebuttal cost. Later and command-line rounds stay descriptive. Coder
-  comparisons use one closed, assigned and fully recorded plan per example,
-  add step and implementation-fix time and exclude planning fixes. A missing
-  assignment, unavailable step time or model mismatch keeps the plan visible
-  but unranked. Mean and standard deviation come from `simple-statistics`.
+  comparisons use one closed and assigned plan per example. The archived plan
+  supplies the listed steps, every hosted share must be present and the
+  whole-plan audit must follow the final share. The comparison adds step and
+  implementation-fix time and excludes planning fixes. A missing assignment,
+  unavailable step time or model mismatch keeps the plan visible but unranked.
+  Mean and standard deviation come from `simple-statistics`.
   Direct observed-range comparisons own the graded reading and clear-cut
   recommendation. Coder spread and worst-plan yield may block a lead. Current
   auditor rows come from the newest round and current coder rows from the live
-  coder list. The command starts no assistant and writes nothing.
+  coder list. The command starts no assistant and writes no round file or
+  round data. Like other commands that read settings, it creates a missing
+  `settings.json` from the defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -848,8 +852,9 @@ rebuttal time, accepted and dropped A/B findings, tokens and vet settings.
 Coder rows show admitted plan count, yield and time per step, spread, worst
 plan, dropped findings, implementation-fix tokens and excluded plans. A coder
 lead is withheld when its spread or worst plan is worse than another current
-ranked coder's. The command renders Markdown, starts no assistant and writes
-nothing.
+ranked coder's. The command renders Markdown, starts no assistant and writes no
+round file or round data. Like other commands that read settings, it creates a
+missing `settings.json` from the defaults.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved plan and scope, or

@@ -1,10 +1,16 @@
 import { readFile } from "node:fs/promises"
-import { basename, relative } from "node:path"
-import { execa } from "execa"
+import { basename, dirname, join, relative, sep } from "node:path"
 import { readModelRecord, readStepModelRecord } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
+import {
+  type ImplementationLogs,
+  implementationProgress,
+  readImplementationLogs,
+} from "./default-target.js"
+import type { LogCommit } from "./episode-log.js"
 import type { ReadingSample } from "./model-comparison.js"
 import type { Assistant } from "./phase.js"
+import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
   type ModelTokenUsage,
   parseRoundDataFile,
@@ -66,13 +72,9 @@ type RoundRecord = {
   readonly data: RoundData
 }
 
-type HistoryCommit = {
+type HistoryCommit = LogCommit & {
   readonly repository: "repo-edu" | "plan"
-  readonly sha: string
-  readonly committedAt: number
   readonly order: number
-  readonly subject: string
-  readonly body: string
 }
 
 type StepRecord = {
@@ -85,7 +87,7 @@ type PlanEvidence = {
   readonly stem: string
   assignment: Coder | null
   closed: boolean
-  readonly steps: Set<string>
+  listedSteps: readonly PlanStep[] | null
   readonly stepRecords: StepRecord[]
   readonly rounds: RoundRecord[]
 }
@@ -271,30 +273,11 @@ function auditorRows(records: readonly RoundRecord[]): Map<string, AuditorRow> {
   return rows
 }
 
-async function readHistory(
+function historyCommits(
   repository: "repo-edu" | "plan",
-  root: string,
-): Promise<HistoryCommit[]> {
-  const { stdout } = await execa(
-    "git",
-    ["log", "-z", "--format=%H%x00%ct%x00%s%x00%b"],
-    { cwd: root },
-  )
-  const fields = stdout.split("\0")
-  const commits: HistoryCommit[] = []
-  for (let at = 0; at + 3 < fields.length; at += 4) {
-    const [sha, committedAt, subject, body] = fields.slice(at, at + 4)
-    if (sha.length > 0)
-      commits.push({
-        repository,
-        sha,
-        committedAt: Number(committedAt),
-        order: at / 4,
-        subject,
-        body,
-      })
-  }
-  return commits
+  commits: readonly LogCommit[],
+): HistoryCommit[] {
+  return commits.map((commit, order) => ({ ...commit, repository, order }))
 }
 
 function subjectAssistant(subject: string): Assistant | null {
@@ -337,7 +320,7 @@ function planEvidence(
     stem,
     assignment: null,
     closed: false,
-    steps: new Set<string>(),
+    listedSteps: null,
     stepRecords: [],
     rounds: [],
   }
@@ -361,12 +344,13 @@ function hasWholePlanAudit(
   plan: PlanEvidence,
   history: ReadonlyMap<string, HistoryCommit>,
 ): boolean {
-  const finalStep = Math.max(...[...plan.steps].map(Number))
+  const finalStep = plan.listedSteps?.length ?? 0
+  if (finalStep === 0) return false
   const scope = finalStep === 1 ? "1" : `1-${finalStep}`
   const newerThanStep = (audit: HistoryCommit, step: StepRecord) =>
     audit.repository === step.commit.repository
       ? audit.order < step.commit.order
-      : audit.committedAt > step.commit.committedAt
+      : Date.parse(audit.committedAt) > Date.parse(step.commit.committedAt)
   return plan.rounds.some(
     (round) =>
       modelRoundComplete(round.data) &&
@@ -385,14 +369,48 @@ function hasWholePlanAudit(
   )
 }
 
+async function readArchivedPlanSteps(
+  context: ExecutionContext,
+  plan: PlanEvidence,
+): Promise<readonly PlanStep[] | null> {
+  const archivedRound = plan.rounds.find(
+    (round) => round.file.split(sep)[0] === "archive",
+  )
+  if (archivedRound === undefined) return null
+  const directory = dirname(join(context.planRoot, archivedRound.file))
+  for (const path of [
+    join(directory, `${plan.stem}.md`),
+    join(directory, "plan.md"),
+  ]) {
+    try {
+      return readPlanSteps(await readFile(path, "utf8"))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue
+      throw new Error(
+        `Invalid archived plan ${relative(context.planRoot, path)}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      )
+    }
+  }
+  return null
+}
+
 function excludedPlanReason(
   plan: PlanEvidence,
   actual: ReadonlySet<string>,
   history: ReadonlyMap<string, HistoryCommit>,
+  logs: ImplementationLogs,
 ): string {
   if (!plan.closed) return "not closed"
   if (plan.assignment === null) return "no ready assignment"
-  if (plan.steps.size === 0) return "no step records"
+  if (plan.listedSteps === null) return "archived plan unavailable"
+  if (plan.stepRecords.length === 0) return "no step records"
+  if (
+    implementationProgress(logs, plan.stem, plan.listedSteps).repositories.some(
+      ({ pending }) => pending.length > 0,
+    )
+  )
+    return "implementation shares missing"
   if (plan.stepRecords.some((record) => record.minutes === null))
     return "step time unavailable"
   if (!hasWholePlanAudit(plan, history))
@@ -406,10 +424,9 @@ async function coderRows(
   context: ExecutionContext,
   records: readonly RoundRecord[],
 ): Promise<Map<string, CoderRow>> {
-  const [repoEduHistory, planHistory] = await Promise.all([
-    readHistory("repo-edu", context.repoEduRoot),
-    readHistory("plan", context.planRoot),
-  ])
+  const logs = await readImplementationLogs(context)
+  const repoEduHistory = historyCommits("repo-edu", logs["repo-edu"])
+  const planHistory = historyCommits("plan", logs.plan)
   const history = new Map(
     [...repoEduHistory, ...planHistory].map((commit) => [
       historyKey(commit.repository, commit.sha),
@@ -440,9 +457,14 @@ async function coderRows(
     if (!/^[1-9]\d*$/.test(scope)) continue
     const record = stepRecord(commit)
     if (record === null) continue
-    plan.steps.add(scope)
     plan.stepRecords.push(record)
   }
+  await Promise.all(
+    [...plans.values()].map(async (plan) => {
+      if (plan.closed)
+        plan.listedSteps = await readArchivedPlanSteps(context, plan)
+    }),
+  )
 
   const rows = new Map<string, CoderRow>()
   const ensureRow = (identity: ModelIdentity) => {
@@ -476,12 +498,18 @@ async function coderRows(
       }
     }
     if (actual.size === 0) continue
-    const reason = excludedPlanReason(plan, new Set(actual.keys()), history)
+    const reason = excludedPlanReason(
+      plan,
+      new Set(actual.keys()),
+      history,
+      logs,
+    )
+    const stepCount = plan.listedSteps?.length ?? 0
     for (const [key, identity] of actual) {
       const row = ensureRow(identity)
       const tokens = tokensByModel.get(key) ?? new Map()
       mergeTokens(row.tokens, tokens)
-      row.tokenSteps += plan.steps.size
+      row.tokenSteps += stepCount
       if (reason.length > 0) {
         row.excluded.set(plan.stem, reason)
         continue
@@ -500,9 +528,9 @@ async function coderRows(
         .reduce((total, phase) => total + phase.milliseconds / 60_000, 0)
       row.samples.push({
         stem: plan.stem,
-        yield: acceptedYield(findings) / plan.steps.size,
-        dropped: droppedYield(findings) / plan.steps.size,
-        minutes: (stepMinutes + fixMinutes) / plan.steps.size,
+        yield: acceptedYield(findings) / stepCount,
+        dropped: droppedYield(findings) / stepCount,
+        minutes: (stepMinutes + fixMinutes) / stepCount,
         tokens,
       })
     }
