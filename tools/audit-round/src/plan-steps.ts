@@ -69,6 +69,14 @@ function nodeText(node: unknown): string {
   return ""
 }
 
+function nestedParagraphs(node: unknown): readonly Paragraph[] {
+  if (typeof node !== "object" || node === null) return []
+  if ("type" in node && node.type === "paragraph") return [node as Paragraph]
+  if ("children" in node && Array.isArray(node.children))
+    return node.children.flatMap(nestedParagraphs)
+  return []
+}
+
 function auditRangeParagraph(children: readonly Block[]): {
   readonly text: string
   readonly marker: number
@@ -94,7 +102,7 @@ function auditRangeParagraph(children: readonly Block[]): {
   const marker = "Audit ranges:"
   const paragraphs = implementation
     .slice(start, nextHeading === -1 ? undefined : nextHeading)
-    .filter((node): node is Paragraph => node.type === "paragraph")
+    .flatMap(nestedParagraphs)
     .map((paragraph) => nodeText(paragraph).replace(/\s+/g, " ").trim())
     .flatMap((text) => {
       const first = text.indexOf(marker)

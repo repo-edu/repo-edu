@@ -56,6 +56,7 @@ test("the round grammar's audit-range examples are parser fixtures", () => {
     "audit-ranges/multiple": ["1-2", "3", "4-5"],
     "audit-ranges/full": ["1-3"],
     "audit-ranges/followed-by-prose": ["1-2"],
+    "audit-ranges/list-item": ["1-2"],
   }
   for (const example of roundGrammarExamples("audit-ranges/")) {
     const steps = readPlanSteps(example.source)
@@ -86,6 +87,25 @@ test("requires the Execution and audits subsection", () => {
   assert.throws(
     () => readAuditRanges(source, readPlanSteps(source).length),
     /exactly one depth-3 Execution and audits subsection/,
+  )
+})
+
+test("rejects audit-range sentences split across nested paragraphs", () => {
+  const source = `# Plan
+
+## Implementation plan
+
+1. **Step.** Hosted in Repo Edu.
+
+### Execution and audits
+
+Audit ranges: 1.
+
+- Audit ranges: 1.
+`
+  assert.throws(
+    () => readAuditRanges(source, readPlanSteps(source).length),
+    /exactly one Audit ranges: sentence/,
   )
 })
 

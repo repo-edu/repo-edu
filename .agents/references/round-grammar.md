@@ -917,6 +917,21 @@ Audit ranges: 1-3.
 Audit ranges: 1-2. Both steps change the reader.
 ```
 
+#### `audit-ranges/list-item` — parsed
+
+```markdown
+# Example
+
+## Implementation plan
+
+1. **Write the reader.** Hosted in Repo Edu.
+2. **Use the range.** Hosted in Repo Edu.
+
+### Execution and audits
+
+- Audit ranges: 1-2.
+```
+
 #### `audit-ranges/missing` — refused
 
 Refusal: `Execution and audits subsection needs exactly one Audit ranges: sentence.`
