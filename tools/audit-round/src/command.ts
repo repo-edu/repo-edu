@@ -433,7 +433,7 @@ Round sequence:
 
   Automatic series (active plan without --auditor):
     - The configured default auditor runs first, or the --first selection. A
-      random default flips a coin for the opener in each command run.
+      random default flips a coin for the opener in each scope's series.
     - After each non-red round, a fresh judge picks the next assistant or an
       ending. In widening it may recommend settle or stop; in detailing and
       implementation it may stop. A settled A finding removes settle in

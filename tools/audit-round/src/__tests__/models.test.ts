@@ -471,15 +471,32 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(output, /codex audit-alpha low/)
   assert.match(output, /claude audit-claude low/)
   assert.match(output, /codex audit-third low/)
+  const auditorReading = output
+    .split("## Auditors\n\n")[1]
+    .split("\n\n| Model |")[0]
   assert.match(
     output,
     /codex audit-alpha low.+first 1, yield 1\.0, dropped 0\.0, 3\.0 min/,
   )
-  assert.match(output, /needs 4 more examples/)
   assert.match(
-    output,
-    /codex audit-alpha low and codex audit-third low never ran under the same audit settings, so their records cannot be compared/,
+    auditorReading,
+    /codex audit-admission low needs 3 more examples/,
   )
+  assert.equal(
+    auditorReading.match(
+      /For planning audits, codex audit-admission low needs/g,
+    )?.length,
+    1,
+  )
+  assert.equal(
+    auditorReading.match(
+      /For implementation audits, codex audit-admission low needs/g,
+    )?.length,
+    1,
+  )
+  assert.doesNotMatch(auditorReading, /codex audit-alpha low/)
+  assert.doesNotMatch(auditorReading, /codex audit-third low/)
+  assert.doesNotMatch(auditorReading, /needs 0 more examples/)
   assert.match(
     output,
     /codex audit-third low.+first none; later 1, yield 1\.0, dropped 0\.0, 1\.0 min; manual 0.+none/,
@@ -494,6 +511,13 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     output,
     /codex coder-alpha high.+effort-mixed: mixed model records/,
   )
+  const coderReading = output
+    .split("## Coders\n\n")[1]
+    .split("\n\n| Model |")[0]
+  assert.equal(coderReading.match(/codex coder-alpha low needs/g)?.length, 1)
+  assert.equal(coderReading.match(/codex coder-beta low needs/g)?.length, 1)
+  assert.doesNotMatch(coderReading, /coder-alpha high/)
+  assert.doesNotMatch(coderReading, /needs 0 more examples/)
   assert.doesNotMatch(output, /planning-fixer/)
   assert.match(output, /the current records do not separate one coder clearly/)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {

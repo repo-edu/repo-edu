@@ -381,8 +381,10 @@ consumers.
   `model-evidence.ts` reads checked round data once at the plan root and
   closed-plan archives, then joins the step, ready and closed records from both
   Git histories. `model-comparison.ts` owns the graded words and direct range
-  comparisons. Every recorded auditor and coder gets one row. Auditor
-  comparisons use complete settings-chosen openings only where
+  comparisons. Every recorded auditor and coder gets one row. The opening
+  sentence uses only current recorded rows and states each current thin row's
+  shortage once per work class. Auditor comparisons use complete
+  settings-chosen openings only where
   both rows were active, split planning from implementation and add audit and
   rebuttal cost. Later and command-line rounds stay descriptive. Coder
   comparisons use one closed, assigned and fully recorded plan per example,
@@ -493,7 +495,7 @@ consumers.
   landed share subjects after each worker before continuing. It also owns the round sequence and its
   counter. Without `--auditor`, an active plan target runs an automatic series. The `--first`
   selection runs first, or the configured default without it, then each judge answer names the next
-  assistant or an ending. A `random` default resolves its opener once per command run on a coin.
+  assistant or an ending. A `random` default resolves its opener for each scope's series on a coin.
   Only that first round carries the selection's fields. The series writes no queue and ends on
   settle or stop, the configured maximum, a failure, an unanswered ruling, a red watch or a phase
   change. Before an automatic implementation series starts, the runner computes the open set and
@@ -735,7 +737,7 @@ defaults. An invalid file stops the command with a validation error and is
 left unchanged.
 
 - `defaultAuditor` selects Claude or Codex when neither `--auditor` nor `--first` is given.
-  `random` flips a coin for the opener in each command run, so neither assistant always takes
+  `random` flips a coin for the opener in each scope's series, so neither assistant always takes
   the first look at a target; the round data still records that choice as settings-chosen.
 - `maximumAutomaticRounds` limits an active plan's automatic series, counting
   its first round.
@@ -836,8 +838,9 @@ Phase files use
 runner owns both writes.
 
 `models` reads every retained round-data file and both Git histories. It prints
-auditors, then coders. Each section opens with the graded comparison and a
-recommendation only where the current rows have the required sample count,
+auditors, then coders. Each section opens with the graded comparison of current
+rows and states each current thin row's shortage once per work class. It gives
+a recommendation only where the current rows have the required sample count,
 their observed ranges separate and yield does not conflict with a clear time
 lead. The tables keep every recorded model visible. Auditor rows split
 settings-opened, later and manual rounds by audit class and show audit plus

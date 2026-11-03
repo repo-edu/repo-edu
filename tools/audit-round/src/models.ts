@@ -42,6 +42,31 @@ function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`
 }
 
+function shortageClause(
+  identity: ModelIdentity,
+  sampleCount: number,
+  floor: number,
+  context: string,
+): string | null {
+  const missing = floor - sampleCount
+  if (missing <= 0) return null
+  return `${context}, ${modelText(identity)} needs ${plural(missing, "more example")} before all current rows can be compared`
+}
+
+function currentEntries<Row extends { readonly identity: ModelIdentity }>(
+  rows: ReadonlyMap<string, Row>,
+  current: readonly string[],
+): Array<readonly [string, Row]> {
+  return [...new Set(current)]
+    .flatMap((key) => {
+      const row = rows.get(key)
+      return row === undefined ? [] : ([[key, row]] as const)
+    })
+    .sort(([, first], [, second]) =>
+      modelText(first.identity).localeCompare(modelText(second.identity)),
+    )
+}
+
 function tokenTotalsText(tokens: TokenTotals, divisor: number): string {
   if (tokens.size === 0 || divisor === 0) return "none"
   return [...tokens]
@@ -78,29 +103,14 @@ function sharedAuditorSamples(
   }
 }
 
-function unsharedAuditorClause(
-  first: ModelIdentity,
-  second: ModelIdentity,
-  workClass?: WorkClass,
-): string {
-  const context = workClass === undefined ? "" : `For ${workClass} audits, `
-  return `${context}${modelText(first)} and ${modelText(second)} never ran under the same audit settings, so their records cannot be compared`
-}
-
 function comparisonClause(
   role: "auditor" | "coder",
   first: ModelIdentity,
   second: ModelIdentity,
   firstSamples: readonly ReadingSample[],
   secondSamples: readonly ReadingSample[],
-  floor: number,
   context: string,
 ): string {
-  if (firstSamples.length < floor || secondSamples.length < floor) {
-    const firstMissing = Math.max(0, floor - firstSamples.length)
-    const secondMissing = Math.max(0, floor - secondSamples.length)
-    return `${context}, ${modelText(first)} needs ${plural(firstMissing, "more example")} and ${modelText(second)} needs ${plural(secondMissing, "more example")} before their records can be compared`
-  }
   const firstYield = mean(firstSamples.map((sample) => sample.yield))
   const secondYield = mean(secondSamples.map((sample) => sample.yield))
   const firstMinutes = mean(firstSamples.map((sample) => sample.minutes))
@@ -145,10 +155,41 @@ function auditorSentence(
   rows: ReadonlyMap<string, AuditorRow>,
   current: readonly string[],
 ): string {
-  const entries = [...rows.entries()].sort(([, first], [, second]) =>
-    modelText(first.identity).localeCompare(modelText(second.identity)),
-  )
+  const entries = currentEntries(rows, current)
+  if (entries.length === 0) return "No current auditor records are available."
+  const currentKeys = entries.map(([key]) => key)
   const clauses: string[] = []
+  for (const workClass of ["planning", "implementation"] as const) {
+    for (const [key, row] of entries) {
+      const peers = currentKeys.filter((peer) => peer !== key)
+      const sampleCount =
+        peers.length === 0
+          ? row.samples.filter(
+              (sample) =>
+                sample.workClass === workClass && sample.position === "first",
+            ).length
+          : Math.min(
+              ...peers.map((peer) => {
+                const comparison = sharedAuditorSamples(
+                  rows,
+                  key,
+                  peer,
+                  workClass,
+                )
+                return comparison.sharedSettings
+                  ? comparison.samples[0].length
+                  : 0
+              }),
+            )
+      const shortage = shortageClause(
+        row.identity,
+        sampleCount,
+        auditorFloor,
+        `For ${workClass} audits`,
+      )
+      if (shortage !== null) clauses.push(shortage)
+    }
+  }
   for (let first = 0; first < entries.length; first += 1) {
     for (let second = first + 1; second < entries.length; second += 1) {
       const [firstKey, firstRow] = entries[first]
@@ -164,28 +205,14 @@ function auditorSentence(
           ),
         }),
       )
-      if (
-        comparisons.every(
-          ({ comparison }) => comparison.sharedSettings === false,
-        )
-      ) {
-        clauses.push(
-          unsharedAuditorClause(firstRow.identity, secondRow.identity),
-        )
-        continue
-      }
       for (const { workClass, comparison } of comparisons) {
-        if (!comparison.sharedSettings) {
-          clauses.push(
-            unsharedAuditorClause(
-              firstRow.identity,
-              secondRow.identity,
-              workClass,
-            ),
-          )
-          continue
-        }
         const [firstSamples, secondSamples] = comparison.samples
+        if (
+          !comparison.sharedSettings ||
+          firstSamples.length < auditorFloor ||
+          secondSamples.length < auditorFloor
+        )
+          continue
         clauses.push(
           comparisonClause(
             "auditor",
@@ -193,14 +220,13 @@ function auditorSentence(
             secondRow.identity,
             firstSamples,
             secondSamples,
-            auditorFloor,
             `For ${workClass} audits`,
           ),
         )
       }
     }
   }
-  if (entries.length === 1) {
+  if (entries.length === 1 && clauses.length === 0) {
     const samples = entries[0][1].samples.filter(
       (sample) => sample.position === "first",
     )
@@ -208,7 +234,6 @@ function auditorSentence(
       `${modelText(entries[0][1].identity)} has ${plural(samples.length, "settings-opened audit")} in the records`,
     )
   }
-  if (entries.length === 0) clauses.push("No auditor records are available")
   const recommendation = auditorRecommendation(rows, current)
   clauses.push(
     recommendation === null
@@ -322,14 +347,23 @@ function coderSentence(
   rows: ReadonlyMap<string, CoderRow>,
   current: readonly string[],
 ): string {
-  const entries = [...rows.entries()].sort(([, first], [, second]) =>
-    modelText(first.identity).localeCompare(modelText(second.identity)),
-  )
+  const entries = currentEntries(rows, current)
+  if (entries.length === 0) return "No current coder records are available."
+  const ranked = entries.filter(([, row]) => row.samples.length >= coderFloor)
   const clauses: string[] = []
-  for (let first = 0; first < entries.length; first += 1) {
-    for (let second = first + 1; second < entries.length; second += 1) {
-      const firstRow = entries[first][1]
-      const secondRow = entries[second][1]
+  for (const [, row] of entries) {
+    const shortage = shortageClause(
+      row.identity,
+      row.samples.length,
+      coderFloor,
+      "For implemented plans",
+    )
+    if (shortage !== null) clauses.push(shortage)
+  }
+  for (let first = 0; first < ranked.length; first += 1) {
+    for (let second = first + 1; second < ranked.length; second += 1) {
+      const firstRow = ranked[first][1]
+      const secondRow = ranked[second][1]
       clauses.push(
         comparisonClause(
           "coder",
@@ -337,17 +371,15 @@ function coderSentence(
           secondRow.identity,
           firstRow.samples,
           secondRow.samples,
-          coderFloor,
           "For implemented plans",
         ),
       )
     }
   }
-  if (entries.length === 1)
+  if (entries.length === 1 && clauses.length === 0)
     clauses.push(
       `${modelText(entries[0][1].identity)} has ${plural(entries[0][1].samples.length, "ranked plan")} in the records`,
     )
-  if (entries.length === 0) clauses.push("No coder records are available")
   const reading = coderReading(rows, current)
   clauses.push(...reading.reliabilityBlocks)
   clauses.push(

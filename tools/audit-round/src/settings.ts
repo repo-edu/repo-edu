@@ -40,7 +40,7 @@ const strengths = z.strictObject({ base: model, top: model })
 export const settingsSchema = z.strictObject({
   /**
    * Who opens a series without a command-line choice. `random` flips a coin
-   * per command run.
+   * for each scope's series.
    */
   defaultAuditor: z.enum(["claude", "codex", "random"]),
   maximumAutomaticRounds: z.number().int().positive(),
