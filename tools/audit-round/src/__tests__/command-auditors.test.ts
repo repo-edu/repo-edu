@@ -135,7 +135,7 @@ for (const auditor of ["codex", "claude"] as const) {
         ? /audit +codex +gpt-6-astra +extra high +--auditor/
         : /audit +claude +claude-fable-5-1 +extra high +--auditor/,
     )
-    assert.match(log, /fix +codex +gpt-5\.6-sol +high +audit-round defaults/)
+    assert.match(log, /fix +codex +gpt-5\.6-sol +high +audit-round coders/)
     assert.match(log, /brief +codex +gpt-5\.6-terra +low +audit-round settings/)
     // The requested model and effort stay in the arguments above.
     // The fix receives the release and effort reported by each phase instead.
@@ -158,11 +158,13 @@ for (const auditor of ["codex", "claude"] as const) {
     const settings = structuredClone(testSettings)
     settings.defaultAuditor = auditor === "codex" ? "claude" : "codex"
     settings.phases.audit[auditor] = { model: "pinned-auditor", effort: "low" }
-    settings.phases.fix = {
-      assistant: "codex",
-      model: "pinned-fix",
-      effort: "medium",
-    }
+    settings.coders = [
+      {
+        assistant: "codex",
+        model: "pinned-fix",
+        effort: "medium",
+      },
+    ]
     assert.equal(
       await runCommand(["example.md", "1", "--auditor", auditor], f.runtime, {
         ...f.options,

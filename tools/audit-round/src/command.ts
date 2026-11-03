@@ -20,7 +20,12 @@ import { type LogCommit, readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import { readJudgeEvidence } from "./judge.js"
-import { readyPlan, requireReadyMarker, settlePlan } from "./lifecycle.js"
+import {
+  readReadyCoder,
+  readyPlan,
+  requireReadyMarker,
+  settlePlan,
+} from "./lifecycle.js"
 import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
   briefRun,
@@ -859,7 +864,8 @@ export async function runCommand(
           `Committed ${result.sha}: ${result.subject}\nMarker: ${result.marker}`,
         )
       } else {
-        const result = await readyPlan(context, plan)
+        const lifecycleSettings = options.settings ?? (await readSettings())
+        const result = await readyPlan(context, plan, lifecycleSettings.coders)
         options.terminal.write(`Committed ${result.sha}: ${result.subject}`)
       }
       return 0
@@ -1136,6 +1142,17 @@ export async function runCommand(
           : settings.defaultAuditor
       }
       const opened = first ?? prepared.firstAuditor
+      const fixerFor = async (target: AuditTarget) => {
+        const assigned =
+          "plan" in target
+            ? await readReadyCoder(context.planRoot, planStem(target.plan))
+            : null
+        return {
+          fixer: assigned ?? settings.coders[0],
+          fixerSource:
+            assigned === null ? "audit-round coders" : "ready assignment",
+        }
+      }
       const deferralsInto = async (
         plan: string,
         destination: "repo-edu" | "plan",
@@ -1161,6 +1178,10 @@ export async function runCommand(
           ...planningSession,
           roundKind: "planning" as const,
           plan: currentPlan,
+          ...(await fixerFor({
+            roundKind: "planning",
+            plan: currentPlan,
+          })),
           auditor,
           auditorSelectionSource: "settings" as const,
           brief: prepared.brief,
@@ -1305,6 +1326,7 @@ export async function runCommand(
             const setup = {
               ...session,
               ...target,
+              ...(await fixerFor(target)),
               auditor: seat.assistant,
               auditorSelectionSource,
               override: seat.override,

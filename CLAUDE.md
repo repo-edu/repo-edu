@@ -379,18 +379,24 @@ for: `claude-opus-5`, not `opus`. An alias names whichever release is current,
 so it would stop being true of the commit it sits in. The effort is one of
 `low`, `medium`, `high` and `xhigh`.
 
-`audit-round` passes the record to the phase that commits, because it holds
+`audit-round` passes a round record to the phase that commits, because it holds
 every phase's reported model and that session does not. The standalone close is
 no round, so it receives its one-line record in its phase arguments and writes
-it itself. A hand-run session committing on its own writes its own line: it
-knows the model it was told to run and reads its effort from the environment.
+it itself. An implement worker receives its reported model release and launched
+effort in its phase arguments. Its step record adds `Implementation took <n>
+min.`, where the implementation workflow owns the active-time measurement and
+the split across a step hosted in both repos. A hand-run session committing on
+its own writes its own line: it knows the model it was told to run and reads its
+effort from the environment.
 
 Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the
 record when a round supplies it. Each hook refuses any non-merge commit whose
 body does not open with a model record, except the tag-free `settle` and `ready`
 forms. It checks the line's shape rather than a list of model names, so a new
 model family needs no edit here. It also refuses a single-model record whose
-effort disagrees with the subject's tag.
+effort disagrees with the subject's tag. A step commit without its active-time
+line is refused. A `ready` marker has no model record, but its body must carry
+the assigned coder.
 
 ## Vocabulary
 

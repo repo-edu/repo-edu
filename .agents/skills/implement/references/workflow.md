@@ -112,6 +112,30 @@ lands in the same run as its own plan-repo commit in the round form. An
 implementation audit lands stale plan text itself and defers only a defect that
 needs a judgement.
 
+## Step model record
+
+The runner's implement phase arguments supply the resolved model release and
+effort the worker runs. The worker uses those values for its capability tag and
+opens each step commit body with this step-only model record:
+
+```text
+<reported-model> <launched-effort>
+Implementation took <active-minutes> min.
+```
+
+The worker reads the clock when each turn starts, after each check run, just
+before each commit and just before the turn ends. Active time is the sum of the
+spans between readings within turns, rounded to the nearest whole minute. A
+wait for a ruling, recovery session or later message sits between turns and is
+not counted. When a failure ends a turn, the last reading is its boundary. The
+reading after a check bounds work a later failure could otherwise leave out.
+No session file supplies time.
+
+For a step hosted in both repos, the first commit records the active time since
+the worker's first turn. The worker resets the accumulator at that commit. The
+second commit records only the active time after the first commit, so adding the
+two records counts the step once.
+
 ## Close
 
 After the workers finish, the coordinator handles closure. For each repo where

@@ -30,6 +30,7 @@ import {
   type PhaseResult,
   type PinnedModel,
   pinned,
+  pinnedCoder,
   type RoundDependencies,
   RoundOutput,
   runBrief,
@@ -796,7 +797,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "fix",
           rulingFile: ruling,
           assistant: "codex",
-          model: pinned("codex"),
+          model: pinnedCoder(),
           ...testContext(repoRoot),
           cwd: ownerRoot,
           arguments: [
@@ -853,7 +854,7 @@ for (const auditor of ["claude", "codex"] as const) {
 
     const session = {
       assistant: "codex",
-      model: pinned("codex"),
+      model: pinnedCoder(),
       sessionId: "fix-session",
       ...testContext(repoRoot),
     }
@@ -902,7 +903,9 @@ for (const auditor of ["claude", "codex"] as const) {
           model:
             phase === "brief"
               ? briefPin
-              : pinned(runner(phase, auditor, vetAssistant)),
+              : phase === "fix"
+                ? pinnedCoder()
+                : pinned(runner(phase, auditor, vetAssistant)),
           ...testContext(repoRoot),
           commits:
             phase === "brief" || phase === "watch"
@@ -1476,7 +1479,7 @@ for (const operation of ["requestRuling"] as const) {
       status: "failed",
       phase: "ruling-input",
       assistant: "codex",
-      model: pinned("codex"),
+      model: pinnedCoder(),
       sessionId: "fix-session",
       ...testContext(repoRoot),
       reason: "Ruling input unavailable",
@@ -1722,7 +1725,7 @@ for (const auditor of ["claude", "codex"] as const) {
       phase: "fix",
       rulingFile: ruling,
       assistant: "codex",
-      model: pinned("codex"),
+      model: pinnedCoder(),
       ...testContext(repoRoot),
       arguments: [report, files.documents.vet],
       sessionId: null,
@@ -1805,7 +1808,7 @@ test("a missing ruling fails the fix before the brief or user input", async () =
     phase: "fix",
     sessionId: "fix-session",
     assistant: "codex",
-    model: pinned("codex"),
+    model: pinnedCoder(),
     ...testContext(repoRoot),
     reason: "Missing ruling",
     commits: [],

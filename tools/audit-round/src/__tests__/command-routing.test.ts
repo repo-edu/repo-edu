@@ -661,7 +661,7 @@ test("ready lands one empty commit through hooks and refuses a second marker", a
     (
       await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
     ).stdout.trim(),
-    "example/ready: declare the plan ready for implementation",
+    "example/ready: declare the plan ready for implementation\n\nCoder: codex gpt-5.6-sol high",
   )
   assert.equal(
     (await execa("git", ["rev-parse", "HEAD^{tree}"], { cwd: f.planRoot }))
@@ -692,6 +692,39 @@ test("ready lands one empty commit through hooks and refuses a second marker", a
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
+})
+
+test("ready assignments advance through the coder list and wrap", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const settings = structuredClone(testSettings)
+  settings.coders = [
+    { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
+    { assistant: "codex", model: "gpt-6.1-sol", effort: "high" },
+  ]
+  const records: string[] = []
+  for (const stem of ["example", "second", "third"]) {
+    await lifecyclePlan(f, "settled", true, stem)
+    assert.equal(
+      await runCommand(["ready", stem], f.runtime, {
+        ...f.options,
+        settings,
+      }),
+      0,
+      f.errors.join("\n"),
+    )
+    records.push(
+      (
+        await execa("git", ["log", "-1", "--format=%b"], {
+          cwd: f.planRoot,
+        })
+      ).stdout.trim(),
+    )
+  }
+  assert.deepEqual(records, [
+    "Coder: claude claude-opus-5-5 xhigh",
+    "Coder: codex gpt-6.1-sol high",
+    "Coder: claude claude-opus-5-5 xhigh",
+  ])
 })
 
 test("ready refuses a committed plan whose implementation steps do not read", async (t) => {

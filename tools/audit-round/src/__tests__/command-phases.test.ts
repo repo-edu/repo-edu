@@ -7,7 +7,7 @@ import { parseRoundDataFile } from "../round-data.js"
 import { openRunFiles } from "../run-files.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { recordedTag, recordedText } from "./helpers.js"
-import { roundFixture } from "./round-fixture.js"
+import { commitFixture, roundFixture } from "./round-fixture.js"
 
 test("one supplied configuration controls auditor phase arguments and output tags", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", false, null, true)
@@ -41,6 +41,56 @@ test("one supplied configuration controls auditor phase arguments and output tag
   assert.ok(watchCall.prompt.includes("Phase arguments (JSON array): []"))
   assert.doesNotMatch(watchCall.prompt, /-9-watch\.otm\.md/)
 })
+
+for (const route of [
+  "pre-ready plan",
+  "named commit",
+  "post-ready plan",
+] as const) {
+  test(`${route} selects the assigned coder or first-coder fallback for fix`, async (t) => {
+    const planning = route !== "named commit"
+    const f = await roundFixture(
+      t,
+      "codex",
+      planning ? "plan" : "repo-edu",
+      false,
+      null,
+      false,
+      planning ? "plan" : "repo-edu",
+    )
+    const settings = structuredClone(testSettings)
+    settings.coders = [
+      { assistant: "claude", model: "claude-first", effort: "low" },
+      { assistant: "codex", model: "codex-assigned", effort: "xhigh" },
+    ]
+    if (route === "post-ready plan")
+      await commitFixture(
+        f.planRoot,
+        "example/ready: declare the plan ready for implementation\n\nCoder: codex codex-assigned xhigh",
+      )
+    const target = route === "named commit" ? ["HEAD"] : ["example.md", "plan"]
+    assert.equal(
+      await runCommand([...target, "--auditor", "o", "--no-watch"], f.runtime, {
+        ...f.options,
+        settings,
+      }),
+      0,
+      f.errors.join("\n"),
+    )
+    const fix = (await f.prompts()).find((call) =>
+      call.prompt.startsWith("Run the fix phase"),
+    )
+    assert.ok(fix)
+    const assigned = route === "post-ready plan"
+    assert.equal(fix.assistant, assigned ? "codex" : "claude")
+    assert.ok(fix.args.includes(assigned ? "codex-assigned" : "claude-first"))
+    assert.ok(
+      fix.args.some((argument: string) =>
+        argument.includes(assigned ? "xhigh" : "low"),
+      ),
+    )
+  })
+}
 
 for (const auditor of ["claude", "codex"] as const) {
   for (const owner of ["repo-edu", "plan"] as const) {

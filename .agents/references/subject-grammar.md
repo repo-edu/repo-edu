@@ -50,11 +50,13 @@ the `<tag>` slot.
 
 The body of every tagged commit opens with one of these records. Blank lines
 and Git comment lines may precede it. The P3 `settle` and `ready` subjects have
-no model record.
+no model record. A `ready` body instead carries the coder that owns the plan.
 
 ```text
-<model-record>       ::= <single-model-record> | <round-model-record>
+<model-record>       ::= <single-model-record> | <step-model-record> | <round-model-record>
 <single-model-record> ::= <model>" "<effort-name>
+<step-model-record>  ::= <single-model-record> NL
+                         <implementation-time-line>
 <round-model-record> ::= <phase-model-line>+
                          <time-line>
 
@@ -66,13 +68,19 @@ no model record.
 <time-line>          ::= "Audit took "<n>" min."
                        | "Audit and vet took "<n>" min."
                        | "Audit, vet and rebuttal took "<n>" min."
+<implementation-time-line> ::= "Implementation took "<n>" min."
+
+<ready-coder-record> ::= "Coder: "<assistant>" "<model>" "<effort-name>
+<assistant>          ::= claude | codex
 ```
 
-A hand-run commit uses the single-model record. An automated round groups
-phases that used the same model and effort on one line. Phase names keep round
-order within a line, and lines keep the order of their first phase. The time
-line names the audit, vet and rebuttal phases that finished before the commit;
-the fix is not counted because it lands the record while it runs.
+A hand-run commit uses the single-model record. An implementation step uses the
+step record, whose time is the active implementation time defined by the
+implementation workflow. An automated round groups phases that used the same
+model and effort on one line. Phase names keep round order within a line, and
+lines keep the order of their first phase. The time line names the audit, vet
+and rebuttal phases that finished before the commit; the fix is not counted
+because it lands the record while it runs.
 
 ### Model record examples
 
@@ -80,6 +88,13 @@ the fix is not counted because it lands the record while it runs.
 
 ```text
 gpt-6.1-sol low
+```
+
+#### `model-record/step` — parsed
+
+```text
+gpt-6.1-sol xhigh
+Implementation took 17 min.
 ```
 
 #### `model-record/round` — parsed
@@ -181,8 +196,11 @@ Rules across the classes:
 - Every subject except the P3 `settle` and `ready` forms carries exactly one
   `<tag>`, attributed under Repo Edu's **Commit Capability Tag** rule. Those two
   runner-written markers report no assistant work.
+- The P3 `ready` body consists of one `<ready-coder-record>`. The P3 `settle`
+  body has no record.
 - I1 carries no `<severity>`, under the plan doctrine's **Shared implementation
-  forms**.
+  forms**, and its body opens with a `<step-model-record>`. Other independently
+  written tagged commits use the single-model record.
 - Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
   off-plan plan-repo commit (O2) carries one when it closes a graded concern
   and none otherwise.

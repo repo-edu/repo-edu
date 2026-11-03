@@ -13,7 +13,7 @@ import type {
   LandedCommit,
   RoundAccount,
 } from "./round-data.js"
-import type { PhaseSelection, RoundSettings } from "./settings.js"
+import type { Coder, PhaseSelection, RoundSettings } from "./settings.js"
 import type { CommitGroup, RoundContext } from "./target.js"
 import type { VetReading } from "./vet.js"
 
@@ -238,7 +238,7 @@ export function defaultModel(
  * assistant's default selection.
  */
 function phaseModel(
-  phase: Phase,
+  phase: Exclude<Phase, "fix">,
   assistant: Assistant,
   override: AuditorOverride,
   config: RoundSettings,
@@ -287,19 +287,31 @@ export function roundPhases(
   auditor: Assistant,
   override: AuditorOverride,
   config: RoundSettings,
+  fixer: Coder = config.coders[0],
+  fixerSource = "audit-round coders",
 ): Record<Phase, PhaseRun> {
-  const run = (phase: Phase, assistant: Assistant): PhaseRun => ({
+  const run = (
+    phase: Exclude<Phase, "fix">,
+    assistant: Assistant,
+  ): PhaseRun => ({
     assistant,
     model: phaseModel(phase, assistant, override, config),
   })
+  const fix: PhaseRun = {
+    assistant: fixer.assistant,
+    model: {
+      model: { value: fixer.model, source: fixerSource },
+      effort: { value: fixer.effort, source: fixerSource },
+    },
+  }
   return {
     audit: run("audit", auditor),
     // The vetter is the other assistant, so no assistant vets its own report.
     vet: run("vet", auditor === "codex" ? "claude" : "codex"),
     // The rebuttal is the auditor's answer, using the same model and effort.
     rebut: run("rebut", auditor),
-    // Settings choose the fixer whoever audited; unlike the vetter, it may be the auditor.
-    fix: run("fix", config.phases.fix.assistant),
+    // The plan's ready assignment chooses the fixer. Work without one uses the first coder.
+    fix,
     brief: run("brief", config.phases.brief.assistant),
     // The watch reads joined trajectory evidence, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
@@ -326,7 +338,12 @@ export function namedModels(
   assistant: Assistant,
   config: RoundSettings,
 ): ReadonlySet<string> {
-  const names = new Set<string>([config.defaults[assistant].model])
+  const names = new Set<string>([
+    config.defaults[assistant].model,
+    ...config.coders
+      .filter((coder) => coder.assistant === assistant)
+      .map((coder) => coder.model),
+  ])
   for (const auditor of ["claude", "codex"] as const)
     for (const strength of [null, ...strengths])
       for (const run of Object.values(

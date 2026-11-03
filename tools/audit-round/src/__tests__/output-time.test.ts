@@ -441,10 +441,7 @@ for (const assistant of ["claude", "codex"] as const) {
     t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
     const settings = {
       ...testSettings,
-      phases: {
-        ...testSettings.phases,
-        fix: { ...testSettings.phases.fix, assistant },
-      },
+      coders: [{ ...testSettings.coders[0], assistant }],
     }
     const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
@@ -585,10 +582,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const visible: string[] = []
     const settings = {
       ...testSettings,
-      phases: {
-        ...testSettings.phases,
-        fix: { ...testSettings.phases.fix, assistant },
-      },
+      coders: [{ ...testSettings.coders[0], assistant }],
     }
     const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)

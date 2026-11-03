@@ -32,7 +32,7 @@ import {
   settleRoundFindings,
 } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
-import type { RoundSettings } from "./settings.js"
+import type { Coder, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
   type AuditTarget,
@@ -45,6 +45,10 @@ import {
 /** What names a round before it starts: its target, who audits and on what. */
 export type RoundSetup = RoundContext & {
   readonly auditor: Assistant
+  /** The ready-assigned coder, or the first configured coder without an assignment. */
+  readonly fixer?: Coder
+  /** What selected the fixer, as the settings header reports it. */
+  readonly fixerSource?: string
   /** The command route that supplied this round's auditor. */
   readonly auditorSelectionSource: AuditorSelectionSource
   /** What the command line asked of the auditor's phases; absent asks nothing. */
@@ -422,6 +426,8 @@ export async function runRound(
     input.auditor,
     input.override ?? noOverride,
     settings,
+    input.fixer,
+    input.fixerSource,
   )
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }

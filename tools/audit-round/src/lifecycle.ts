@@ -6,6 +6,7 @@ import type { ExecutionContext } from "./context.js"
 import { readAuditRanges, readPlanSteps } from "./plan-steps.js"
 import { markerPath } from "./round-paths.js"
 import { claimRound } from "./run-files.js"
+import { type Coder, coderRecord, parseCoderRecord } from "./settings.js"
 import { looseForm } from "./subject.js"
 import { planStem } from "./target.js"
 
@@ -124,6 +125,7 @@ export async function settlePlan(
 export async function readyPlan(
   context: ExecutionContext,
   plan: string,
+  coders: readonly Coder[],
 ): Promise<LifecycleCommit> {
   const name = basename(plan)
   if (name.endsWith("-widen.md"))
@@ -138,10 +140,48 @@ export async function readyPlan(
   if (existing !== undefined)
     throw new Error(`${name} already has ready marker ${existing}.`)
 
+  const markers = await readyMarkers(context.planRoot)
+  let previous: Coder | null = null
+  for (const marker of markers) {
+    previous = await markerCoder(context.planRoot, marker.sha)
+    if (previous !== null) break
+  }
+  const coder = nextCoder(coders, previous)
+
   return commitOnly({
     cwd: context.planRoot,
     subject: `${stem}/ready: declare the plan ready for implementation`,
+    body: coderRecord(coder),
   })
+}
+
+/** Pick the coder after the newest assigned ready marker, wrapping the list. */
+export function nextCoder(
+  coders: readonly Coder[],
+  previous: Coder | null,
+): Coder {
+  if (coders.length === 0) throw new Error("Coder list is empty")
+  const at =
+    previous === null
+      ? -1
+      : coders.findIndex(
+          (coder) =>
+            coder.assistant === previous.assistant &&
+            coder.model === previous.model &&
+            coder.effort === previous.effort,
+        )
+  return coders[(at + 1) % coders.length]
+}
+
+/** Read one active plan's ready assignment, or null before it has one. */
+export async function readReadyCoder(
+  planRoot: string,
+  stem: string,
+): Promise<Coder | null> {
+  const marker = (await readyMarkers(planRoot)).find(
+    (candidate) => candidate.stem === stem,
+  )
+  return marker === undefined ? null : markerCoder(planRoot, marker.sha)
 }
 
 /**
@@ -167,12 +207,42 @@ async function findMarker(
   stem: string,
   role: "ready",
 ): Promise<string | undefined> {
-  const { stdout } = await execa("git", ["log", "--format=%h%x09%s"], {
+  const marker = (await readyMarkers(planRoot)).find(
+    (candidate) => candidate.stem === stem,
+  )
+  return marker === undefined || role !== "ready"
+    ? undefined
+    : `${marker.short}\t${marker.subject}`
+}
+
+type ReadyMarker = {
+  readonly sha: string
+  readonly short: string
+  readonly stem: string
+  readonly subject: string
+}
+
+/** Ready markers in newest-first Git order, across every plan on this branch. */
+async function readyMarkers(planRoot: string): Promise<readonly ReadyMarker[]> {
+  const { stdout } = await execa("git", ["log", "--format=%H%x09%h%x09%s"], {
     cwd: planRoot,
   })
-  return stdout.split("\n").find((line) => {
-    const separator = line.indexOf("\t")
-    const form = separator === -1 ? null : looseForm(line.slice(separator + 1))
-    return form?.stem === stem && form.role === role
+  const markers: ReadyMarker[] = []
+  for (const line of stdout.split("\n")) {
+    const [sha, short, subject] = line.split("\t", 3)
+    const form = subject === undefined ? null : looseForm(subject)
+    if (form?.role === "ready")
+      markers.push({ sha, short, stem: form.stem, subject })
+  }
+  return markers
+}
+
+async function markerCoder(
+  planRoot: string,
+  sha: string,
+): Promise<Coder | null> {
+  const { stdout } = await execa("git", ["show", "-s", "--format=%b", sha], {
+    cwd: planRoot,
   })
+  return parseCoderRecord(stdout)
 }

@@ -58,6 +58,16 @@ export const runClose = (
 export const pinned = (assistant: phase.Assistant) =>
   phase.defaultModel(assistant, testSettings)
 
+/** The first configured coder selection when no ready assignment exists. */
+export const pinnedCoder = () => {
+  const coder = testSettings.coders[0]
+  const source = "audit-round coders"
+  return {
+    model: { value: coder.model, source },
+    effort: { value: coder.effort, source },
+  }
+}
+
 export const roundPhases = (
   auditor: phase.Assistant,
   override: phase.AuditorOverride,

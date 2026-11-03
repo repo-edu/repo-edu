@@ -1300,7 +1300,7 @@ test("an automatic rebuttal round gives the fresh judge retained evidence", asyn
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", true)
   const settings = structuredClone(testSettings)
-  settings.phases.fix.assistant = "claude"
+  settings.coders[0].assistant = "claude"
   const code = await runCommand(
     ["example.md", "1", "--auditor", "a", "--no-watch"],
     f.runtime,

@@ -124,6 +124,7 @@ function resolvedRun(
 function roundSettingsData(
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
+  fix: PhaseRun,
 ): RoundData["settings"] {
   const audit = (assistant: Assistant) =>
     resolvedRun(roundPhases(assistant, noOverride, settings).audit, releases)
@@ -136,7 +137,6 @@ function roundSettingsData(
       ).vet,
       releases,
     )
-  const fix = roundPhases("codex", noOverride, settings).fix
   return {
     audit: { claude: audit("claude"), codex: audit("codex") },
     vet: { claude: vet("claude"), codex: vet("codex") },
@@ -174,6 +174,8 @@ export async function roundRun(
     setup.auditor,
     setup.override ?? noOverride,
     settings,
+    setup.fixer,
+    setup.fixerSource,
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: Phase): string =>
@@ -205,7 +207,7 @@ export async function roundRun(
           ),
           ...roundDataIdentity(nameStart),
           tag: tag("audit"),
-          settings: roundSettingsData(releases, settings),
+          settings: roundSettingsData(releases, settings, phases.fix),
           auditor: {
             assistant: audit.assistant,
             ...resolvedRun(audit, releases),

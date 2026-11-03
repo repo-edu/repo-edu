@@ -17,7 +17,9 @@ consumers.
   through `vet.ts` to decide whether every finding was accepted from its verdict lines. Rebuttal
   uses the audit's resolved model and effort, including `--auditor` or `--first` fields, because it
   is the auditor's answer. Its workflow grounds answers in current sources. The settings file
-  selects the default auditor, the fixer and the assistants that write documents. The brief follows
+  selects the default auditor, the coder list and the assistants that write documents. A plan's
+  ready marker selects its fixer from that list; work without an assignment uses the first coder.
+  The brief follows
   only a finished fix, after all rulings and resumed fix invocations have completed. Only `--brief`
   adds that phase and its settings row to every round. Its input is the round transcript, never the
   report, and its workflow belongs to the Repo Edu root. `runBrief` runs that one phase on its own
@@ -85,8 +87,9 @@ consumers.
   staged or unstaged target plan while leaving unrelated work alone. Settle
   commits only the widening rename before claiming its marker. Ready shares
   the `git commit --only --allow-empty` route with direct clean completion and
-  validates the committed plan's steps and audit ranges before writing its
-  marker. Both routes keep the plan checkout's normal hooks enabled.
+  validates the committed plan's steps and audit ranges, advances through the
+  configured coder list and writes the assignment in its marker. Both routes
+  keep the plan checkout's normal hooks enabled.
 - `plan-steps.ts` reads the first ordered list below the depth-2
   `Implementation plan` heading. It requires each item to open with a bold
   title and one closed host sentence, then returns the steps and their hosting
@@ -120,7 +123,8 @@ consumers.
   on its own settings, because the close belongs to no auditor. Every phase names a model and an
   effort; a field that says
   `default` reads the assistant's default selection, so neither CLI's own configuration enters.
-  `settings.json` owns phase selections, the default selections and the model tier table.
+  `settings.json` owns the coder list, phase selections, the default selections
+  and the model tier table.
   `settings.ts` loads and validates it once at command entry, independently of the working
   directory. That configuration is passed through routing, output naming and commit stamps.
   `--auditor` and `--first` override each field they name, using the configured tier table for its
@@ -223,8 +227,10 @@ consumers.
   rule: it replaces a record's auditor tag with `COMMIT_AUDITOR` when the runner supplies it. It
   derives severity from the graded bullets before parsing the subject. It replaces the body's
   opening phase lines and time line with `COMMIT_PHASES` when a round supplies it, so a second
-  stamp repeats neither, and requires a model line otherwise. It
-  refuses a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the
+  stamp repeats neither, and requires a model line otherwise. It refuses a
+  single-model record whose effort disagrees with the tag, a step record
+  without active implementation time and a ready marker without its coder.
+  `commit-msg-main.ts` is the
   entry both repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar
   file.
 - `assistant.ts` owns one invocation's session identity, final text and turn evidence. A session
@@ -723,14 +729,18 @@ left unchanged.
   field that says `default` reads it, and `--auditor claude` or `--auditor
   codex` runs the audit on it. Neither CLI's own model configuration is ever
   read, so this file alone decides what every phase runs on.
+- `coders` is a non-empty ordered list. Each coder names its assistant, full
+  model and effort. Ready advances from the newest earlier assigned plan and
+  wraps at the end. A one-entry list always selects that coder.
 - `phases` sets each phase's model and effort. Each assistant's audit selection
   is one `{ model, effort }` object. Each field
   names a value or says `default`; `null` is refused. A named model must suit
   the selected CLI.
 - Audit and vet each have separate Claude and Codex selections, so changing
   auditor in a chain keeps each CLI on its own model. Rebuttal shares the
-  audit selection. The vet uses the other assistant. Fix, the document phases,
-  judge and close each select their assistant, whoever audited.
+  audit selection. The vet uses the other assistant. The document phases,
+  judge and close each select their assistant, whoever audited. Fix uses the
+  plan's ready assignment, or the first coder when the target has none.
 - A field supplied by `--auditor` or `--first` wins over the corresponding
   audit setting. Other fields use this file.
 - The names `claude` and `codex`, given to `--auditor` or `--first`, run the
@@ -855,10 +865,11 @@ assistant.
 
 `ready [stem]` takes an active settled plan through the same resolution and
 plan-file preflight. It refuses a widening plan and a stem whose history
-already carries a ready marker. It records
+already carries a ready marker. It advances through `coders`, after the newest
+earlier assigned ready marker, and records the assigned coder in the body of
 `<stem>/ready: declare the plan ready for implementation` with an empty commit
-that preserves unrelated staged work. It loads no settings and starts no
-assistant.
+that preserves unrelated staged work. It reads settings but starts no assistant
+process or release lookup.
 
 `close [stem]` closes a plan's loop under the plan repo's
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It takes an active

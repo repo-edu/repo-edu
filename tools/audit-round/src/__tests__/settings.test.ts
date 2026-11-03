@@ -3,8 +3,15 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
+import { nextCoder } from "../lifecycle.js"
 import { codexArguments } from "../requests.js"
-import { defaultSettings, readSettings, settingsSchema } from "../settings.js"
+import {
+  coderRecord,
+  defaultSettings,
+  parseCoderRecord,
+  readSettings,
+  settingsSchema,
+} from "../settings.js"
 import {
   modelStrength,
   noOverride,
@@ -49,10 +56,32 @@ test("malformed and invalid settings report their path without replacing the fil
   }
 })
 
+test("ready coder records parse exactly and assignment advances through the list", () => {
+  const coders = [
+    { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
+    { assistant: "codex", model: "gpt-6.1-sol", effort: "high" },
+  ] as const
+  assert.deepEqual(parseCoderRecord(coderRecord(coders[0])), coders[0])
+  assert.deepEqual(nextCoder(coders, null), coders[0])
+  assert.deepEqual(nextCoder(coders, coders[0]), coders[1])
+  assert.deepEqual(nextCoder(coders, coders[1]), coders[0])
+  assert.deepEqual(nextCoder([coders[1]], coders[1]), coders[1])
+  for (const body of [
+    "",
+    "Coder: codex gpt-6.1-sol",
+    "Coder: unknown gpt-6.1-sol high",
+    `${coderRecord(coders[0])}\nExtra: value`,
+  ])
+    assert.equal(parseCoderRecord(body), null)
+})
+
 test("phase fields read the assistant's defaults and apply partial auditor overrides", () => {
   const config = structuredClone(settings)
   config.strengthModels.codex.top = "custom-top-model"
   config.defaults.codex = { model: "codex-default", effort: "xhigh" }
+  config.coders = [
+    { assistant: "codex", model: "assigned-coder", effort: "xhigh" },
+  ]
   config.phases.audit.codex = { model: "configured-auditor", effort: "medium" }
   config.phases.watch = { assistant: "codex", model: "default", effort: "low" }
   const phases = roundPhases(
@@ -79,8 +108,8 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
     "--json",
   ])
   assert.deepEqual(phases.fix.model, {
-    model: { value: "codex-default", source: "audit-round defaults" },
-    effort: { value: "xhigh", source: "audit-round defaults" },
+    model: { value: "assigned-coder", source: "audit-round coders" },
+    effort: { value: "xhigh", source: "audit-round coders" },
   })
   assert.equal(modelStrength("codex", "custom-top-model", config), "top")
   assert.equal(modelStrength("codex", "gpt-6-astra", config), null)
@@ -133,19 +162,19 @@ test("audit settings accept exactly one setting per assistant", () => {
   )
 })
 
-test("assigned phases follow their configured assistants independently of the auditor", () => {
+test("the coder and assigned phases follow their configured assistants independently of the auditor", () => {
   for (const auditor of ["claude", "codex"] as const) {
     for (const assistant of ["claude", "codex"] as const) {
       const config = structuredClone(settings)
-      config.phases.fix = { assistant, model: "custom-fixer", effort: "high" }
+      config.coders = [{ assistant, model: "custom-fixer", effort: "high" }]
       config.phases.watch = { assistant, model: "default", effort: "default" }
       config.phases.judge = { assistant, model: "cheap-judge", effort: "low" }
       const phases = roundPhases(auditor, noOverride, config)
       assert.deepEqual(phases.fix, {
         assistant,
         model: {
-          model: { value: "custom-fixer", source: "audit-round settings" },
-          effort: { value: "high", source: "audit-round settings" },
+          model: { value: "custom-fixer", source: "audit-round coders" },
+          effort: { value: "high", source: "audit-round coders" },
         },
       })
       const { model, effort } = config.defaults[assistant]
@@ -244,6 +273,19 @@ test("settings reject null fields, unsupported effort, misspelt fields and indep
     settingsSchema.safeParse({
       ...settings,
       phases: { ...settings.phases, rebut: settings.phases.audit },
+    }).success,
+    false,
+  )
+  assert.equal(
+    settingsSchema.safeParse({ ...settings, coders: [] }).success,
+    false,
+  )
+  assert.equal(
+    settingsSchema.safeParse({
+      ...settings,
+      coders: [
+        { assistant: "codex", model: "model with spaces", effort: "high" },
+      ],
     }).success,
     false,
   )

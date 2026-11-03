@@ -4,7 +4,11 @@ import defaults from "../default-settings.json" with { type: "json" }
 import { efforts } from "./phase.js"
 
 const assistant = z.enum(["claude", "codex"])
-const model = z.string().trim().min(1)
+const model = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(/^\S+$/, "Model names contain no spaces")
 const effort = z.enum(efforts)
 /**
  * A phase field either names its own value or says `default`, which reads the
@@ -25,6 +29,8 @@ const defaultSelection = z.strictObject({
 })
 export type PhaseSelection = z.infer<typeof selection>
 const assignedPhase = selection.extend({ assistant })
+export const coderSchema = z.strictObject({ assistant, model, effort })
+export type Coder = z.infer<typeof coderSchema>
 const auditPhase = z.strictObject({
   claude: selection,
   codex: selection,
@@ -44,10 +50,10 @@ export const settingsSchema = z.strictObject({
     claude: defaultSelection,
     codex: defaultSelection,
   }),
+  coders: z.array(coderSchema).min(1),
   phases: z.strictObject({
     audit: auditPhase,
     vet: alternatingPhase,
-    fix: assignedPhase,
     brief: assignedPhase,
     watch: assignedPhase,
     judge: assignedPhase,
@@ -58,6 +64,28 @@ export const settingsSchema = z.strictObject({
 export type RoundSettings = z.infer<typeof settingsSchema>
 
 export const defaultSettings = settingsSchema.parse(defaults)
+
+/** The one durable coder line a ready marker carries. */
+export function coderRecord(coder: Coder): string {
+  return `Coder: ${coder.assistant} ${coder.model} ${coder.effort}`
+}
+
+/** Parse a ready marker body, returning null for the older empty marker form. */
+export function parseCoderRecord(body: string): Coder | null {
+  const lines = body
+    .split("\n")
+    .filter((line) => line !== "" && !line.startsWith("#"))
+  if (lines.length !== 1) return null
+  const match = /^Coder: (claude|codex) (\S+) (low|medium|high|xhigh)$/.exec(
+    lines[0],
+  )
+  if (match === null) return null
+  return coderSchema.parse({
+    assistant: match[1],
+    model: match[2],
+    effort: match[3],
+  })
+}
 
 /** Both checkout entry points use the editable file beside this tool. */
 export async function readSettings(

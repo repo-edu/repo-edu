@@ -21,6 +21,13 @@
       "effort": "high"
     }
   },
+  "coders": [
+    {
+      "assistant": "codex",
+      "model": "gpt-5.6-sol",
+      "effort": "high"
+    }
+  ],
   "phases": {
     "audit": {
       "claude": {
@@ -41,11 +48,6 @@
         "model": "default",
         "effort": "default"
       }
-    },
-    "fix": {
-      "assistant": "codex",
-      "model": "default",
-      "effort": "default"
     },
     "brief": {
       "assistant": "codex",

@@ -1,5 +1,6 @@
 # Derives the severity slot from graded bullets and stamps the capability tag
-# and model record. Refuses subjects outside the grammar in
+# and model record, including a step's active time and a ready marker's coder.
+# Refuses subjects outside the grammar in
 # .agents/references/subject-grammar.md. The parser in
 # tools/audit-round/src/subject.ts is the grammar's one reader. Git writes a
 # merge's subject, so a merge commit is admitted unchecked.

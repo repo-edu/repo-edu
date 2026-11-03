@@ -603,7 +603,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
   const codexHeader = [
     "audit  codex   gpt-5.6-sol       high  audit-round defaults",
     "rebut  codex   gpt-5.6-sol       high  audit-round defaults",
-    "fix    codex   gpt-5.6-sol       high  audit-round defaults",
+    "fix    codex   gpt-5.6-sol       high  audit-round coders",
     "brief  codex   gpt-5.6-terra     low   audit-round settings",
     "watch  codex   gpt-5.6-sol       high  audit-round defaults",
     "vet    claude  claude-opus-5[1m] high  audit-round defaults",
@@ -614,7 +614,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
       "audit  claude  claude-opus-5[1m] high  audit-round defaults",
       "rebut  claude  claude-opus-5[1m] high  audit-round defaults",
       "vet    codex   gpt-5.6-sol       high  audit-round defaults",
-      "fix    codex   gpt-5.6-sol       high  audit-round defaults",
+      "fix    codex   gpt-5.6-sol       high  audit-round coders",
       "brief  codex   gpt-5.6-terra     low   audit-round settings",
       "watch  codex   gpt-5.6-sol       high  audit-round defaults",
     ].join("\n"),
@@ -676,7 +676,7 @@ test("the settings header names what set each phase's model and effort", async (
     [
       "audit  codex   gpt-6-astra     extra high  --auditor",
       "rebut  codex   gpt-6-astra     extra high  --auditor",
-      "fix    codex   gpt-5.6-sol     high        audit-round defaults",
+      "fix    codex   gpt-5.6-sol     high        audit-round coders",
       "brief  codex   gpt-5.6-terra   low         audit-round settings",
       "watch  codex   gpt-5.6-sol     high        audit-round defaults",
       "vet    claude  claude-opus-5-5 high        audit-round defaults",

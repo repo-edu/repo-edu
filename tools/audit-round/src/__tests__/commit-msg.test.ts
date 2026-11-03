@@ -146,9 +146,12 @@ test("every subject class derives only the severity its role admits", () => {
       "example/closed oth",
       ...(repository === "plan" ? ["example/init oth"] : []),
     ]) {
+      const model = subject.includes("/impl-1 ")
+        ? "gpt-6-astra high\nImplementation took 3 min."
+        : "gpt-6-astra high"
       assert.equal(
-        stamp(message(`${subject}: s`), repository),
-        message(`${subject}: s`),
+        stamp(message(`${subject}: s`, "", model), repository),
+        message(`${subject}: s`, "", model),
       )
       assert.throws(
         () => stamp(message(`${subject}: s`, finding), repository),
@@ -195,7 +198,10 @@ test("every subject class derives only the severity its role admits", () => {
 
 test("the hook accepts only plan-repo settle and ready subjects without attribution", () => {
   for (const role of ["settle", "ready"] as const) {
-    const input = `example/${role}: record the marker\n`
+    const input =
+      role === "ready"
+        ? "example/ready: record the marker\n\nCoder: codex gpt-6.1-sol high\n"
+        : "example/settle: record the marker\n"
     assert.equal(stamp(input, "plan"), input)
     assert.throws(
       () => stamp(input, "repo-edu"),
@@ -205,6 +211,10 @@ test("the hook accepts only plan-repo settle and ready subjects without attribut
   assert.throws(
     () => stamp(message("example/settle oth: record the marker"), "plan"),
     /carries no capability tag/,
+  )
+  assert.throws(
+    () => stamp("example/ready: record the marker\n", "plan"),
+    /coder record/,
   )
 })
 
@@ -347,7 +357,11 @@ test("round stamps compose with the derived sequence and retain every finding", 
       stamps.phases,
     ),
   )
-  const step = message("example/impl-3 obm feat(x): s", "", "gpt medium")
+  const step = message(
+    "example/impl-3 obm feat(x): s",
+    "",
+    "gpt medium\nImplementation took 5 min.",
+  )
   assert.equal(
     stampCommitMessage(
       step,
@@ -367,6 +381,15 @@ test("round stamps compose with the derived sequence and retain every finding", 
       ),
     /disagree/,
   )
+  for (const repository of ["repo-edu", "plan"] as const)
+    assert.throws(
+      () =>
+        stamp(
+          message("example/impl-3 obm feat(x): s", "", "gpt medium"),
+          repository,
+        ),
+      /implementation time/,
+    )
 })
 
 test("round stamps replace the whole opening model record and time line without changing on a second stamp", () => {

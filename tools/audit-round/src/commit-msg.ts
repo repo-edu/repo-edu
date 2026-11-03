@@ -1,5 +1,6 @@
 import { readFindings } from "./findings.js"
 import { stampSequence } from "./sequence.js"
+import { parseCoderRecord } from "./settings.js"
 import {
   isAuditRole,
   looseForm,
@@ -39,6 +40,7 @@ const modelLine = new RegExp(
  */
 const timeLine =
   /^(Audit|Audit and vet|Audit, vet and rebuttal) took \d+ min\.$/
+const implementationTimeLine = /^Implementation took (\d+) min\.$/
 
 /** Read the complete leading model record which identifies what produced a commit. */
 export function readModelRecord(body: string): readonly string[] {
@@ -48,7 +50,10 @@ export function readModelRecord(body: string): readonly string[] {
     throw new SubjectError(
       `the body must open with a model line${first === -1 ? "" : `, not ${lines[first]}`}`,
     )
-  if (singleModelLine.test(lines[first])) return [lines[first]]
+  if (singleModelLine.test(lines[first]))
+    return implementationTimeLine.test(lines[first + 1] ?? "")
+      ? [lines[first], lines[first + 1]]
+      : [lines[first]]
   const record: string[] = []
   let at = first
   for (; at < lines.length && phaseModelLine.test(lines[at]); at += 1)
@@ -57,6 +62,28 @@ export function readModelRecord(body: string): readonly string[] {
     throw new SubjectError("a round model record must end with its time line")
   record.push(lines[at])
   return record
+}
+
+export type StepModelRecord = {
+  readonly model: string
+  readonly effort: "low" | "medium" | "high" | "xhigh"
+  readonly minutes: number
+}
+
+/** Parse the model, effort and active time from one implementation-step record. */
+export function readStepModelRecord(body: string): StepModelRecord {
+  const record = readModelRecord(body)
+  const selection = /^(\S+) (low|medium|high|xhigh)$/.exec(record[0] ?? "")
+  const time = implementationTimeLine.exec(record[1] ?? "")
+  if (record.length !== 2 || selection === null || time === null)
+    throw new SubjectError(
+      "an implementation step model record must end with its implementation time",
+    )
+  return {
+    model: selection[1],
+    effort: selection[2] as StepModelRecord["effort"],
+    minutes: Number(time[1]),
+  }
 }
 
 /**
@@ -123,11 +150,19 @@ export function stampCommitMessage(
   const first = lines.findIndex(
     (line, at) => at > 0 && line !== "" && !line.startsWith("#"),
   )
+  const body = lines.slice(1).join("\n")
+  if (subject.form?.role === "ready" && parseCoderRecord(body) === null)
+    throw new SubjectError("a ready marker body must contain its coder record")
   // A round states what every phase ran on, so its record replaces whatever the
   // session opened the body with.
   if (subject.tag !== null && stamps.phases === null) {
     try {
-      readModelRecord(lines.slice(1).join("\n"))
+      const modelRecord = readModelRecord(body)
+      if (subject.form?.role === "impl") readStepModelRecord(body)
+      else if (implementationTimeLine.test(modelRecord[1] ?? ""))
+        throw new SubjectError(
+          "implementation time belongs only to an implementation step",
+        )
     } catch (error) {
       if (first === -1)
         throw new SubjectError(
@@ -137,7 +172,8 @@ export function stampCommitMessage(
     }
   }
   if (subject.tag !== null) {
-    const modelRecord = stamps.phases ?? lines[first]
+    const modelRecord =
+      stamps.phases ?? readModelRecord(body)[0] ?? lines[first]
     // One unprefixed record line describes this commit alone, so the two must
     // agree on the effort. A round lists several and states each phase itself,
     // and an audit record names its audit while the record names the fix.
@@ -160,7 +196,9 @@ export function stampCommitMessage(
     let at = first === -1 ? lines.length : first
     while (
       at < lines.length &&
-      (modelLine.test(lines[at]) || timeLine.test(lines[at]))
+      (modelLine.test(lines[at]) ||
+        timeLine.test(lines[at]) ||
+        implementationTimeLine.test(lines[at]))
     )
       at += 1
     while (at < lines.length && lines[at] === "") at += 1

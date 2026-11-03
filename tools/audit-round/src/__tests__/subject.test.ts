@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
-import { readModelRecord } from "../commit-msg.js"
+import { readModelRecord, readStepModelRecord } from "../commit-msg.js"
 import {
   isAuditRole,
   looseForm,
@@ -61,13 +61,17 @@ test("the subject grammar's model-record examples are parser fixtures", async ()
   ]
   assert.deepEqual(
     examples.map((example) => example[1]),
-    ["single", "round"],
+    ["single", "step", "round"],
   )
   for (const [, id, source] of examples) {
     const lines = readModelRecord(source)
-    assert.equal(lines.length, id === "single" ? 1 : 3, id)
+    assert.equal(lines.length, id === "single" ? 1 : id === "step" ? 2 : 3, id)
     assert.equal(source, lines.join("\n"), id)
   }
+  assert.deepEqual(
+    readStepModelRecord("gpt-6.1-sol xhigh\nImplementation took 17 min."),
+    { model: "gpt-6.1-sol", effort: "xhigh", minutes: 17 },
+  )
 })
 
 test("range examples parse and obsolete all examples are refused", async () => {
