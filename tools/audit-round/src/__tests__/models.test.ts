@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { test } from "node:test"
+import { type TestContext, test } from "node:test"
 import { execa } from "execa"
 import {
   clearlyPreferred,
@@ -10,6 +10,7 @@ import {
   yieldWords,
 } from "../model-comparison.js"
 import { modelKey, readModelEvidence } from "../model-evidence.js"
+import { modelsReport } from "../models.js"
 import type { RoundData, RoundFinding } from "../round-data.js"
 import { writeRoundData } from "../round-data.js"
 import { runCommand, testSettings } from "./configured-runner.js"
@@ -41,11 +42,12 @@ const phase = (
   assistant: "claude" | "codex",
   model: string,
   milliseconds: number,
+  effort = "low",
 ): RoundData["phases"][number] => ({
   phase: phaseName,
   assistant,
   model,
-  effort: "low",
+  effort,
   milliseconds,
   tokens: [{ model, input: 1000, cached: 500, output: 100 }],
   peakContext: null,
@@ -116,6 +118,22 @@ async function commit(
   return (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout
 }
 
+async function modelFixture(t: TestContext) {
+  const f = await fixture(t)
+  await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
+  await commitFixture(f.root)
+  const planRoot = join(f.root, "../plan")
+  await commitFixture(planRoot)
+  return { ...f, planRoot }
+}
+
+function findings(count: number, label: string): RoundFinding[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...finding(`${label} ${index + 1}`),
+    number: index + 1,
+  }))
+}
+
 test("graded yield and speed words cover the four bands and both directions", () => {
   assert.equal(yieldWords(1, 1.03), "the same yield")
   assert.equal(yieldWords(1.1, 1), "marginally higher yield")
@@ -149,40 +167,83 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
   )
 })
 
-test("a recommendation must separate every ranked row in both auditor groups", () => {
-  const candidate = {
-    planning: modelSamples([1, 1, 1, 1, 1]),
-    implementation: modelSamples([1, 1, 1, 1, 1]),
-  }
-  const others = [
-    {
-      planning: modelSamples([0, 0, 0, 0, 0]),
-      implementation: modelSamples([0, 0, 0, 0, 0]),
-    },
-    {
-      planning: modelSamples([0.2, 0.2, 0.2, 0.2, 0.2]),
-      implementation: modelSamples([0.1, 0.1, 0.1, 0.1, 0.1]),
-    },
-  ]
-  assert.equal(
-    others.every((other) =>
-      (["planning", "implementation"] as const).every((group) =>
-        clearlyPreferred(candidate[group], other[group], true),
-      ),
-    ),
-    true,
+test("the report names an auditor only with a clear lead in both audit classes", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
   )
-  const overlapping = {
-    ...others[1],
-    implementation: modelSamples([0, 0, 0, 0, 1]),
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
+  const addClass = (workClass: "planning" | "implementation") => {
+    const path = join(
+      f.planRoot,
+      `auditor-${workClass === "planning" ? "plan" : "impl"}-rounds.json`,
+    )
+    for (const [assistant, model, accepted] of [
+      ["claude", "audit-strong", true],
+      ["codex", "audit-weak", false],
+    ] as const)
+      for (let index = 1; index <= 5; index += 1)
+        writeRoundData(path, {
+          ...round(
+            `${workClass}-${model}-${index}`,
+            1,
+            `2026-10-${String(index).padStart(2, "0")}T${assistant === "claude" ? "10" : "11"}:00:00.000Z`,
+            {
+              assistant,
+              ...selection(model),
+              chosenBy: "settings",
+            },
+            settings("audit-strong", "audit-weak"),
+            [phase("audit", assistant, model, 60_000)],
+            commits,
+            accepted ? findings(1, `${workClass} lead`) : [],
+          ),
+          ...(workClass === "planning"
+            ? { phase: "detailing" as const, settling: "" }
+            : { scope: "1", judgedRepos: ["repo-edu" as const] }),
+        })
   }
-  assert.equal(
-    ([others[0], overlapping] as const).every((other) =>
-      (["planning", "implementation"] as const).every((group) =>
-        clearlyPreferred(candidate[group], other[group], true),
-      ),
+  addClass("planning")
+  addClass("implementation")
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot },
+    [],
+  )
+  assert.match(
+    report,
+    /current records clearly support running claude audit-strong low/,
+  )
+
+  const path = join(f.planRoot, "auditor-impl-rounds.json")
+  writeRoundData(path, {
+    ...round(
+      "implementation-audit-strong-5",
+      1,
+      "2026-10-05T10:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-strong"),
+        chosenBy: "settings",
+      },
+      settings("audit-strong", "audit-weak"),
+      [phase("audit", "claude", "audit-strong", 60_000)],
+      commits,
+      [],
     ),
-    false,
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+  const overlapping = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot },
+    [],
+  )
+  assert.doesNotMatch(overlapping, /clearly support running/)
+  assert.match(
+    overlapping,
+    /current records do not separate one auditor clearly across both audit groups/,
   )
 })
 
@@ -278,6 +339,93 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     phase: "detailing",
     settling: "",
   })
+
+  await commit(
+    planRoot,
+    "no-assignment/ready: declare the plan ready for implementation",
+    "Legacy ready marker",
+    "2026-10-04T08:00:00Z",
+  )
+  await commit(
+    f.root,
+    "no-assignment/impl-1 obl feat(audit-round): fixture step",
+    "coder-alpha low\nImplementation took 10 min.",
+    "2026-10-04T09:00:00Z",
+  )
+  const noAssignmentAudit = await commit(
+    f.root,
+    "no-assignment/impl-audit-1 obl clean: record the whole-plan audit",
+    "coder-alpha low",
+    "2026-10-04T10:00:00Z",
+  )
+  await commit(
+    planRoot,
+    "no-assignment/closed obl: close the fixture plan",
+    "coder-alpha low",
+    "2026-10-04T11:00:00Z",
+  )
+  writeRoundData(join(planRoot, "no-assignment-impl-rounds.json"), {
+    ...round(
+      "no-assignment-impl-01..01",
+      1,
+      "2026-10-04T10:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-admission"),
+        chosenBy: "settings",
+      },
+      settings("audit-claude", "audit-admission"),
+      [phase("audit", "codex", "audit-admission", 60_000)],
+      [{ repository: "repo-edu", sha: noAssignmentAudit }],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  await commit(
+    planRoot,
+    "effort-mixed/ready: declare the plan ready for implementation",
+    "Coder: codex coder-alpha low",
+    "2026-10-05T08:00:00Z",
+  )
+  await commit(
+    f.root,
+    "effort-mixed/impl-1 obl feat(audit-round): fixture step",
+    "coder-alpha low\nImplementation took 10 min.",
+    "2026-10-05T09:00:00Z",
+  )
+  const effortMixedAudit = await commit(
+    f.root,
+    "effort-mixed/impl-audit-1 obl clean: record the whole-plan audit",
+    "coder-alpha low",
+    "2026-10-05T10:00:00Z",
+  )
+  await commit(
+    planRoot,
+    "effort-mixed/closed obl: close the fixture plan",
+    "coder-alpha low",
+    "2026-10-05T11:00:00Z",
+  )
+  writeRoundData(join(planRoot, "effort-mixed-impl-rounds.json"), {
+    ...round(
+      "effort-mixed-impl-01..01",
+      1,
+      "2026-10-05T10:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-admission"),
+        chosenBy: "settings",
+      },
+      settings("audit-claude", "audit-admission"),
+      [
+        phase("audit", "codex", "audit-admission", 60_000),
+        phase("fix", "codex", "coder-alpha", 60_000, "high"),
+      ],
+      [{ repository: "repo-edu", sha: effortMixedAudit }],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
   writeRoundData(join(planRoot, "mixed-plan-rounds.json"), {
     ...round(
       "mixed-plan",
@@ -330,16 +478,106 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(output, /needs 4 more examples/)
   assert.match(
     output,
+    /codex audit-alpha low and codex audit-third low never ran under the same audit settings, so their records cannot be compared/,
+  )
+  assert.match(
+    output,
     /codex audit-third low.+first none; later 1, yield 1\.0, dropped 0\.0, 1\.0 min; manual 0.+none/,
   )
   assert.match(output, /## Coders/)
-  assert.match(output, /codex coder-alpha low.+mixed: mixed model records/)
+  assert.match(
+    output,
+    /codex coder-alpha low.+mixed: mixed model records.+no-assignment: no ready assignment.+effort-mixed: mixed model records/,
+  )
   assert.match(output, /codex coder-beta low.+mixed: mixed model records/)
+  assert.match(
+    output,
+    /codex coder-alpha high.+effort-mixed: mixed model records/,
+  )
   assert.doesNotMatch(output, /planning-fixer/)
   assert.match(output, /the current records do not separate one coder clearly/)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
+})
+
+test("the report names both reliability blocks on an otherwise clear coder lead", async (t) => {
+  const f = await modelFixture(t)
+  let planIndex = 0
+  const addPlan = async (
+    stem: string,
+    model: string,
+    stepCount: number,
+    acceptedFindings: number,
+    minutesPerStep: number,
+  ) => {
+    planIndex += 1
+    await commit(
+      f.planRoot,
+      `${stem}/ready: declare the plan ready for implementation`,
+      `Coder: codex ${model} low`,
+    )
+    for (let step = 1; step <= stepCount; step += 1)
+      await commit(
+        f.root,
+        `${stem}/impl-${step} obl feat(audit-round): fixture step`,
+        `${model} low\nImplementation took ${minutesPerStep} min.`,
+      )
+    const scope = stepCount === 1 ? "1" : `1-${stepCount}`
+    const audit = await commit(
+      f.root,
+      `${stem}/impl-audit-${scope} obl clean: record the whole-plan audit`,
+      `${model} low`,
+    )
+    await commit(
+      f.planRoot,
+      `${stem}/closed obl: close the fixture plan`,
+      `${model} low`,
+    )
+    writeRoundData(join(f.planRoot, `${stem}-impl-rounds.json`), {
+      ...round(
+        `${stem}-impl-${scope.replace("-", "..")}`,
+        1,
+        `2026-10-${String(planIndex).padStart(2, "0")}T10:00:00.000Z`,
+        {
+          assistant: "codex",
+          ...selection("audit-alpha"),
+          chosenBy: "settings",
+        },
+        settings("audit-claude", "audit-alpha"),
+        [phase("audit", "codex", "audit-alpha", 60_000)],
+        [{ repository: "repo-edu", sha: audit }],
+        findings(acceptedFindings, `${stem} defect`),
+      ),
+      scope,
+      judgedRepos: ["repo-edu"],
+    })
+  }
+
+  await addPlan("alpha-low-1", "coder-alpha", 1, 0, 1)
+  await addPlan("alpha-low-2", "coder-alpha", 1, 0, 1)
+  await addPlan("alpha-variable", "coder-alpha", 2, 1, 1)
+  await addPlan("beta-steady-1", "coder-beta", 6, 1, 10)
+  await addPlan("beta-steady-2", "coder-beta", 6, 1, 10)
+  await addPlan("beta-steady-3", "coder-beta", 6, 1, 10)
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot },
+    [
+      { assistant: "codex", model: "coder-alpha", effort: "low" },
+      { assistant: "codex", model: "coder-beta", effort: "low" },
+    ],
+  )
+  assert.match(
+    report,
+    /codex coder-alpha low has higher spread than codex coder-beta low/,
+  )
+  assert.match(
+    report,
+    /codex coder-alpha low has the worse worst plan, alpha-variable at 0\.5 findings per step/,
+  )
+  assert.match(report, /reliability blocks the otherwise clear coder lead/)
+  assert.doesNotMatch(report, /clearly support running codex coder-alpha low/)
 })
 
 test("coder admission needs a current whole-plan audit, counts only kept findings and accepts a plan-repo close", async (t) => {

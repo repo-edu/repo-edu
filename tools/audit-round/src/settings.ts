@@ -31,11 +31,10 @@ export type PhaseSelection = z.infer<typeof selection>
 const assignedPhase = selection.extend({ assistant })
 export const coderSchema = z.strictObject({ assistant, model, effort })
 export type Coder = z.infer<typeof coderSchema>
-const auditPhase = z.strictObject({
+const assistantPhase = z.strictObject({
   claude: selection,
   codex: selection,
 })
-const alternatingPhase = z.strictObject({ claude: selection, codex: selection })
 const strengths = z.strictObject({ base: model, top: model })
 
 export const settingsSchema = z.strictObject({
@@ -52,8 +51,8 @@ export const settingsSchema = z.strictObject({
   }),
   coders: z.array(coderSchema).min(1),
   phases: z.strictObject({
-    audit: auditPhase,
-    vet: alternatingPhase,
+    audit: assistantPhase,
+    vet: assistantPhase,
     brief: assignedPhase,
     watch: assignedPhase,
     judge: assignedPhase,

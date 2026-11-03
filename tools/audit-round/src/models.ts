@@ -58,7 +58,10 @@ function sharedAuditorSamples(
   first: string,
   second: string,
   workClass: WorkClass,
-): readonly [AuditorSample[], AuditorSample[]] {
+): {
+  readonly sharedSettings: boolean
+  readonly samples: readonly [AuditorSample[], AuditorSample[]]
+} {
   const select = (key: string) =>
     (rows.get(key)?.samples ?? []).filter(
       (sample) =>
@@ -67,7 +70,21 @@ function sharedAuditorSamples(
         sample.active.has(first) &&
         sample.active.has(second),
     )
-  return [select(first), select(second)]
+  return {
+    sharedSettings:
+      rows.get(first)?.settingsPeers[workClass].has(second) === true ||
+      rows.get(second)?.settingsPeers[workClass].has(first) === true,
+    samples: [select(first), select(second)],
+  }
+}
+
+function unsharedAuditorClause(
+  first: ModelIdentity,
+  second: ModelIdentity,
+  workClass?: WorkClass,
+): string {
+  const context = workClass === undefined ? "" : `For ${workClass} audits, `
+  return `${context}${modelText(first)} and ${modelText(second)} never ran under the same audit settings, so their records cannot be compared`
 }
 
 function comparisonClause(
@@ -106,12 +123,13 @@ function auditorRecommendation(
     ranked.every((other) => {
       if (candidate === other) return true
       return (["planning", "implementation"] as const).every((workClass) => {
-        const [candidateSamples, otherSamples] = sharedAuditorSamples(
+        const { samples } = sharedAuditorSamples(
           rows,
           candidate,
           other,
           workClass,
         )
+        const [candidateSamples, otherSamples] = samples
         return (
           candidateSamples.length >= auditorFloor &&
           otherSamples.length >= auditorFloor &&
@@ -135,13 +153,39 @@ function auditorSentence(
     for (let second = first + 1; second < entries.length; second += 1) {
       const [firstKey, firstRow] = entries[first]
       const [secondKey, secondRow] = entries[second]
-      for (const workClass of ["planning", "implementation"] as const) {
-        const [firstSamples, secondSamples] = sharedAuditorSamples(
-          rows,
-          firstKey,
-          secondKey,
+      const comparisons = (["planning", "implementation"] as const).map(
+        (workClass) => ({
           workClass,
+          comparison: sharedAuditorSamples(
+            rows,
+            firstKey,
+            secondKey,
+            workClass,
+          ),
+        }),
+      )
+      if (
+        comparisons.every(
+          ({ comparison }) => comparison.sharedSettings === false,
         )
+      ) {
+        clauses.push(
+          unsharedAuditorClause(firstRow.identity, secondRow.identity),
+        )
+        continue
+      }
+      for (const { workClass, comparison } of comparisons) {
+        if (!comparison.sharedSettings) {
+          clauses.push(
+            unsharedAuditorClause(
+              firstRow.identity,
+              secondRow.identity,
+              workClass,
+            ),
+          )
+          continue
+        }
+        const [firstSamples, secondSamples] = comparison.samples
         clauses.push(
           comparisonClause(
             "auditor",

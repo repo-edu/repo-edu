@@ -225,8 +225,8 @@ Use only three parts of the round data beside that Git evidence:
   read. Compaction alone does not change the grade or suggest a response.
 
 Do not use the other round data fields to take over the judge's stop decision,
-the trial's comparison or Git's ownership of episode membership and accepted
-records.
+the model read-out's comparison or Git's ownership of episode membership and
+accepted records.
 
 Bullets outside the current token form are listed as unreadable and supply
 no partial counts. Their subjects still supply independent severity evidence.

@@ -121,7 +121,7 @@ function resolvedRun(
   return phaseSelection(run.model, releases[run.assistant])
 }
 
-/** Settings that split trials, resolved once with the same phase owner as execution. */
+/** Settings recorded for the model read-out, resolved by the execution owner. */
 function roundSettingsData(
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,

@@ -119,6 +119,23 @@ test("round data admits every end state", async (t) => {
   )
 })
 
+test("round data rejects the removed two-member audit setting", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.root, "example-impl-rounds.json")
+  const paired = {
+    ...entry("example-impl-01..01", 1),
+    settings: {
+      ...settings,
+      audit: {
+        ...settings.audit,
+        claude: [settings.audit.claude, settings.audit.claude],
+      },
+    },
+  }
+
+  assert.throws(() => parseRoundDataFile(path, JSON.stringify([paired])))
+})
+
 test("a plan's watch evidence reads both round kinds and their trajectory fields", async (t) => {
   const f = await fixture(t)
   const {

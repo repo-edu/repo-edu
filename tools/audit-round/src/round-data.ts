@@ -13,10 +13,6 @@ const modelSelection = z.strictObject({
   model: z.string().min(1),
   effort: z.string().min(1).nullable(),
 })
-const auditSelection = z.union([
-  modelSelection,
-  z.tuple([modelSelection, modelSelection]),
-])
 const tokenUsage = z.strictObject({
   model: z.string().min(1),
   input: z.number().int().nonnegative(),
@@ -122,8 +118,8 @@ const commonRoundData = z.strictObject({
   status: roundStatus,
   settings: z.strictObject({
     audit: z.strictObject({
-      claude: auditSelection,
-      codex: auditSelection,
+      claude: modelSelection,
+      codex: modelSelection,
     }),
     vet: z.strictObject({
       claude: modelSelection,

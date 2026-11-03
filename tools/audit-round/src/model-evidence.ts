@@ -36,6 +36,7 @@ export type AuditorSample = ReadingSample & {
 export type AuditorRow = {
   readonly identity: ModelIdentity
   readonly samples: AuditorSample[]
+  readonly settingsPeers: Record<WorkClass, Set<string>>
   readonly vets: Set<string>
 }
 
@@ -166,10 +167,8 @@ function droppedYield(findings: readonly RoundFinding[]): number {
 function roundAuditKeys(round: RoundData): ReadonlySet<string> {
   const keys = new Set<string>()
   for (const assistant of ["claude", "codex"] as const) {
-    const configured = round.settings.audit[assistant]
-    const selections = Array.isArray(configured) ? configured : [configured]
-    for (const selection of selections)
-      keys.add(modelKey(selectionIdentity(assistant, selection)))
+    const selection = round.settings.audit[assistant]
+    keys.add(modelKey(selectionIdentity(assistant, selection)))
   }
   return keys
 }
@@ -217,8 +216,28 @@ async function readRoundRecords(
   )
 }
 
+function auditorSettingsPeers(
+  records: readonly RoundRecord[],
+): Map<string, Record<WorkClass, Set<string>>> {
+  const peers = new Map<string, Record<WorkClass, Set<string>>>()
+  for (const record of records) {
+    const active = [...roundAuditKeys(record.data)]
+    for (const key of active) {
+      const row = peers.get(key) ?? {
+        planning: new Set<string>(),
+        implementation: new Set<string>(),
+      }
+      for (const peer of active)
+        if (peer !== key) row[record.workClass].add(peer)
+      peers.set(key, row)
+    }
+  }
+  return peers
+}
+
 function auditorRows(records: readonly RoundRecord[]): Map<string, AuditorRow> {
   const rows = new Map<string, AuditorRow>()
+  const settingsPeers = auditorSettingsPeers(records)
   const targetKey = (record: RoundRecord) =>
     JSON.stringify([record.workClass, record.stem, record.data.target])
   const firstFinishedRounds = new Map<string, number>()
@@ -238,6 +257,10 @@ function auditorRows(records: readonly RoundRecord[]): Map<string, AuditorRow> {
     const row = rows.get(key) ?? {
       identity,
       samples: [],
+      settingsPeers: settingsPeers.get(key) ?? {
+        planning: new Set(),
+        implementation: new Set(),
+      },
       vets: new Set<string>(),
     }
     const vetAssistant = identity.assistant === "claude" ? "codex" : "claude"
