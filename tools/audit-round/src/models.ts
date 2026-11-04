@@ -3,6 +3,7 @@ import type { ExecutionContext } from "./context.js"
 import {
   auditorFloor,
   clearlyPreferred,
+  clearlyPreferredMeasures,
   coderFloor,
   coderReliabilityDisadvantages,
   type ReadingSample,
@@ -256,7 +257,7 @@ function auditorTable(
     for (const sample of openings) mergeTokens(tokens, sample.tokens)
     const vets = [...row.vets].sort()
     lines.push(
-      `| ${escapeCell(modelText(row.identity))} | ${currentSet.has(key) ? "yes" : "no"} | ${escapeCell(auditorWorkCell(row, "planning"))} | ${escapeCell(auditorWorkCell(row, "implementation"))} | ${escapeCell(tokenTotalsText(tokens, openings.length))} | ${escapeCell(vets.length > 1 ? `${vets.length}: ${vets.join("; ")}` : (vets[0] ?? "none"))} |`,
+      `| ${escapeCell(modelText(row.identity))} | ${currentSet.has(key) ? "yes" : "no"} | ${escapeCell(auditorWorkCell(row, "planning"))} | ${escapeCell(auditorWorkCell(row, "implementation"))} | ${escapeCell(tokenTotalsText(tokens, openings.length))} | ${escapeCell(vets.length > 1 ? `${vets.length}: ${vets.join("; ")}` : "none")} |`,
     )
   }
   return lines
@@ -266,11 +267,11 @@ function coderReliability(row: CoderRow): {
   readonly spread: number
   readonly worst: CoderSample
 } {
-  const worst = [...row.samples].sort(
+  const worst = [...row.yieldSamples].sort(
     (first, second) => second.yield - first.yield,
   )[0]
   return {
-    spread: standardDeviation(row.samples.map((sample) => sample.yield)),
+    spread: standardDeviation(row.yieldSamples.map((sample) => sample.yield)),
     worst,
   }
 }
@@ -280,16 +281,20 @@ function coderReading(
   current: readonly string[],
 ): CoderReading {
   const ranked = [...new Set(current)].filter(
-    (key) => (rows.get(key)?.samples.length ?? 0) >= coderFloor,
+    (key) =>
+      (rows.get(key)?.yieldSamples.length ?? 0) >= coderFloor &&
+      (rows.get(key)?.timeSamples.length ?? 0) >= coderFloor,
   )
   if (ranked.length < 2) return { recommendation: null, reliabilityBlocks: [] }
   const potential = ranked.filter((candidate) =>
     ranked.every(
       (other) =>
         candidate === other ||
-        clearlyPreferred(
-          rows.get(candidate)?.samples ?? [],
-          rows.get(other)?.samples ?? [],
+        clearlyPreferredMeasures(
+          rows.get(candidate)?.yieldSamples ?? [],
+          rows.get(other)?.yieldSamples ?? [],
+          rows.get(candidate)?.timeSamples ?? [],
+          rows.get(other)?.timeSamples ?? [],
           false,
         ),
     ),
@@ -308,8 +313,8 @@ function coderReading(
     if (otherRow === undefined) continue
     const otherReliability = coderReliability(otherRow)
     const disadvantages = coderReliabilityDisadvantages(
-      candidateRow.samples,
-      otherRow.samples,
+      candidateRow.yieldSamples,
+      otherRow.yieldSamples,
     )
     if (disadvantages.spread)
       blocks.push(
@@ -332,36 +337,62 @@ function coderSentence(
 ): string {
   const entries = currentEntries(rows, current)
   if (entries.length === 0) return "No current coder records are available."
-  const ranked = entries.filter(([, row]) => row.samples.length >= coderFloor)
+  const yieldRanked = entries.filter(
+    ([, row]) => row.yieldSamples.length >= coderFloor,
+  )
+  const timeRanked = entries.filter(
+    ([, row]) => row.timeSamples.length >= coderFloor,
+  )
   const clauses: string[] = []
   for (const [, row] of entries) {
-    const shortage = shortageClause(
+    const yieldShortage = shortageClause(
       row.identity,
-      row.samples.length,
+      row.yieldSamples.length,
       coderFloor,
-      "for implemented plans",
+      "for coder yield",
     )
-    if (shortage !== null) clauses.push(shortage)
+    if (yieldShortage !== null) clauses.push(yieldShortage)
+    const timeShortage = shortageClause(
+      row.identity,
+      row.timeSamples.length,
+      coderFloor,
+      "for coder time",
+    )
+    if (timeShortage !== null) clauses.push(timeShortage)
   }
-  for (let first = 0; first < ranked.length; first += 1) {
-    for (let second = first + 1; second < ranked.length; second += 1) {
-      const firstRow = ranked[first][1]
-      const secondRow = ranked[second][1]
+  for (let first = 0; first < yieldRanked.length; first += 1) {
+    for (let second = first + 1; second < yieldRanked.length; second += 1) {
+      const firstRow = yieldRanked[first][1]
+      const secondRow = yieldRanked[second][1]
+      const firstYield = mean(
+        firstRow.yieldSamples.map((sample) => sample.yield),
+      )
+      const secondYield = mean(
+        secondRow.yieldSamples.map((sample) => sample.yield),
+      )
       clauses.push(
-        comparisonClause(
-          "coder",
-          firstRow.identity,
-          secondRow.identity,
-          firstRow.samples,
-          secondRow.samples,
-          "for implemented plans",
-        ),
+        `for coder yield, ${modelText(firstRow.identity)} has ${yieldWords(firstYield, secondYield)} (${numberText(firstYield)} vs ${numberText(secondYield)} accepted A/B findings per step) than ${modelText(secondRow.identity)}, from ${firstRow.yieldSamples.length} and ${secondRow.yieldSamples.length} plans`,
+      )
+    }
+  }
+  for (let first = 0; first < timeRanked.length; first += 1) {
+    for (let second = first + 1; second < timeRanked.length; second += 1) {
+      const firstRow = timeRanked[first][1]
+      const secondRow = timeRanked[second][1]
+      const firstMinutes = mean(
+        firstRow.timeSamples.map((sample) => sample.minutes),
+      )
+      const secondMinutes = mean(
+        secondRow.timeSamples.map((sample) => sample.minutes),
+      )
+      clauses.push(
+        `for coder time, ${modelText(firstRow.identity)} is ${speedWords(firstMinutes, secondMinutes)} (${numberText(firstMinutes)} vs ${numberText(secondMinutes)} min per step) than ${modelText(secondRow.identity)}, from ${firstRow.timeSamples.length} and ${secondRow.timeSamples.length} plans`,
       )
     }
   }
   if (entries.length === 1 && clauses.length === 0)
     clauses.push(
-      `${modelText(entries[0][1].identity)} has ${plural(entries[0][1].samples.length, "ranked plan")} in the records`,
+      `${modelText(entries[0][1].identity)} has ${plural(entries[0][1].yieldSamples.length, "yield plan")} and ${plural(entries[0][1].timeSamples.length, "timed plan")} in the records`,
     )
   const reading = coderReading(rows, current)
   clauses.push(...reading.reliabilityBlocks)
@@ -381,15 +412,16 @@ function coderTable(
 ): string[] {
   const currentSet = new Set(current)
   const lines = [
-    "| Model | Current | Ranked plans | Yield per step | Time per step | Spread | Worst plan | Dropped A/B per step | Fix tokens per step | Excluded plans |",
-    "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | --- | --- |",
+    "| Model | Current | Yield plans | Timed plans | Yield per step | Time per step | Spread | Worst plan | Dropped A/B per step | Fix tokens per step | Excluded plans |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | --- | --- |",
   ]
   for (const [key, row] of [...rows].sort(([, first], [, second]) =>
     modelText(first.identity).localeCompare(modelText(second.identity)),
   )) {
-    const reliability = row.samples.length === 0 ? null : coderReliability(row)
+    const reliability =
+      row.yieldSamples.length === 0 ? null : coderReliability(row)
     lines.push(
-      `| ${escapeCell(modelText(row.identity))} | ${currentSet.has(key) ? "yes" : "no"} | ${row.samples.length} | ${row.samples.length === 0 ? "—" : numberText(mean(row.samples.map((sample) => sample.yield)))} | ${row.samples.length === 0 ? "—" : numberText(mean(row.samples.map((sample) => sample.minutes)))} | ${reliability === null ? "—" : numberText(reliability.spread)} | ${reliability === null ? "—" : escapeCell(`${reliability.worst.stem} (${numberText(reliability.worst.yield)})`)} | ${row.samples.length === 0 ? "—" : numberText(mean(row.samples.map((sample) => sample.dropped)))} | ${escapeCell(tokenTotalsText(row.tokens, row.tokenSteps))} | ${escapeCell(row.excluded.size === 0 ? "none" : [...row.excluded].map(([stem, reason]) => `${stem}: ${reason}`).join("; "))} |`,
+      `| ${escapeCell(modelText(row.identity))} | ${currentSet.has(key) ? "yes" : "no"} | ${row.yieldSamples.length} | ${row.timeSamples.length} | ${row.yieldSamples.length === 0 ? "—" : numberText(mean(row.yieldSamples.map((sample) => sample.yield)))} | ${row.timeSamples.length === 0 ? "—" : numberText(mean(row.timeSamples.map((sample) => sample.minutes)))} | ${reliability === null ? "—" : numberText(reliability.spread)} | ${reliability === null ? "—" : escapeCell(`${reliability.worst.stem} (${numberText(reliability.worst.yield)})`)} | ${row.yieldSamples.length === 0 ? "—" : numberText(mean(row.yieldSamples.map((sample) => sample.dropped)))} | ${escapeCell(tokenTotalsText(row.tokens, row.tokenSteps))} | ${escapeCell(row.excluded.size === 0 ? "none" : [...row.excluded].map(([stem, reason]) => `${stem}: ${reason}`).join("; "))} |`,
     )
   }
   return lines
@@ -419,7 +451,7 @@ export async function modelsReport(
     "",
     ...coderTable(evidence.coders, currentCoders),
     "",
-    "One ranked coder example is one closed plan with a ready assignment, timed step records and a complete whole-plan implementation audit after the final step. Yield is accepted A and B findings per step. Time adds active step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    "One coder yield example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder. A missing active-time line withholds only the time example. Yield is accepted A and B findings per step. Time adds active step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
   ]
   return `${lines.join("\n")}\n`
 }

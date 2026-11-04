@@ -5,6 +5,7 @@ import { type TestContext, test } from "node:test"
 import { execa } from "execa"
 import {
   clearlyPreferred,
+  clearlyPreferredMeasures,
   coderReliabilityDisadvantages,
   speedWords,
   yieldWords,
@@ -202,6 +203,16 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
     ),
     false,
   )
+  assert.equal(
+    clearlyPreferredMeasures(
+      modelSamples([0, 0, 0]),
+      modelSamples([1, 1, 1]),
+      [],
+      [],
+      false,
+    ),
+    false,
+  )
 })
 
 test("the report names an auditor only with a clear lead in both audit classes", async (t) => {
@@ -301,7 +312,7 @@ test("coder spread and worst-plan reliability block independently", () => {
   )
 })
 
-test("an archived plan with an older step form stays visible but unranked", async (t) => {
+test("an archived plan with an unreadable step list stays visible but unranked", async (t) => {
   const f = await modelFixture(t)
   const stem = "old-plan"
   const audit = await commit(
@@ -346,7 +357,60 @@ test("an archived plan with an older step form stays visible but unranked", asyn
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
   assert.ok(row)
-  assert.equal(row.excluded.get(stem), "no ready assignment")
+  assert.equal(row.excluded.get(stem), "archived plan unavailable")
+})
+
+test("coder yield accepts agreeing unassigned records without step time", async (t) => {
+  const f = await modelFixture(t)
+  const stem = "yield-only"
+  await commit(
+    f.root,
+    `${stem}/impl-1 obl feat(audit-round): fixture step`,
+    "coder-alpha low",
+  )
+  const audit = await commit(
+    f.root,
+    `${stem}/impl-audit-1 obl clean: record the whole-plan audit`,
+    "coder-alpha low",
+  )
+  await commit(
+    f.planRoot,
+    `${stem}/closed obl: close the fixture plan`,
+    "coder-alpha low",
+  )
+  const archive = await archivePlan(f.planRoot, stem, ["repo-edu"])
+  writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
+    ...round(
+      `${stem}-impl-01..01`,
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      settings("audit-claude", "audit-alpha"),
+      [phase("audit", "codex", "audit-alpha", 60_000)],
+      [{ repository: "repo-edu", sha: audit }],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+  })
+  const row = evidence.coders.get(
+    modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
+  )
+  assert.ok(row)
+  assert.deepEqual(
+    row.yieldSamples.map((sample) => sample.stem),
+    [stem],
+  )
+  assert.deepEqual(row.timeSamples, [])
+  assert.equal(row.excluded.has(stem), false)
 })
 
 test("an active plan contributes no fix tokens without a step count", async (t) => {
@@ -638,8 +702,9 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(output, /## Coders/)
   assert.match(
     output,
-    /codex coder-alpha low.+mixed: mixed model records.+no-assignment: no ready assignment.+effort-mixed: mixed model records/,
+    /codex coder-alpha low.+mixed: mixed model records.+effort-mixed: mixed model records/,
   )
+  assert.doesNotMatch(output, /no-assignment: /)
   assert.match(output, /codex coder-beta low.+mixed: mixed model records/)
   assert.match(
     output,
@@ -648,12 +713,13 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   const coderReading = output
     .split("## Coders\n\n")[1]
     .split("\n\n| Model |")[0]
-  assert.equal(coderReading.match(/codex coder-alpha low needs/g)?.length, 1)
-  assert.equal(coderReading.match(/codex coder-beta low needs/g)?.length, 1)
+  assert.equal(coderReading.match(/codex coder-alpha low needs/g)?.length, 2)
+  assert.equal(coderReading.match(/codex coder-beta low needs/g)?.length, 2)
   assert.doesNotMatch(coderReading, /coder-alpha high/)
   assert.doesNotMatch(coderReading, /needs 0 more examples/)
   assert.doesNotMatch(output, /planning-fixer/)
   assert.match(output, /the current records do not separate one coder clearly/)
+  assert.doesNotMatch(output, /codex-vet low/)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
@@ -858,6 +924,29 @@ test("coder admission needs every archived plan share and a current whole-plan a
     ["both"],
   )
 
+  await addReady("unreadable-share", "2026-10-02T16:30:00Z")
+  await addStep("unreadable-share", 1, "2026-10-02T17:00:00Z")
+  await commit(
+    f.root,
+    "unreadable-share/impl-1 obl feat(audit-round): fixture step",
+    "Unreadable model record",
+    "2026-10-02T17:30:00Z",
+  )
+  const unreadableShareAudit = await addAudit(
+    "unreadable-share",
+    "1",
+    "2026-10-02T18:00:00Z",
+  )
+  await addClose("unreadable-share", "2026-10-02T19:00:00Z")
+  await writeImplementationRound(
+    "unreadable-share",
+    "1",
+    unreadableShareAudit,
+    "2026-10-02T18:00:00.000Z",
+    undefined,
+    ["both"],
+  )
+
   await addReady("stale", "2026-10-03T08:00:00Z")
   await addStep("stale", 1, "2026-10-03T09:00:00Z")
   await addStep("stale", 2, "2026-10-03T10:00:00Z")
@@ -875,13 +964,24 @@ test("coder admission needs every archived plan share and a current whole-plan a
   const row = evidence.coders.get(modelKey(coder))
   assert.ok(row)
   assert.deepEqual(
-    row.samples.map((sample) => ({ stem: sample.stem, yield: sample.yield })),
+    row.yieldSamples.map((sample) => ({
+      stem: sample.stem,
+      yield: sample.yield,
+    })),
     [{ stem: "plan-only", yield: 1 }],
+  )
+  assert.deepEqual(
+    row.timeSamples.map((sample) => sample.stem),
+    ["plan-only"],
   )
   assert.equal(row.excluded.get("partial"), "implementation shares missing")
   assert.equal(
     row.excluded.get("missing-share"),
     "implementation shares missing",
+  )
+  assert.equal(
+    row.excluded.get("unreadable-share"),
+    "step model record unreadable",
   )
   assert.equal(
     row.excluded.get("stale"),

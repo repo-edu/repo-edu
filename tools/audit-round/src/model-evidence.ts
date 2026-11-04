@@ -2,11 +2,7 @@ import { readFile } from "node:fs/promises"
 import { basename, dirname, join, relative, sep } from "node:path"
 import { readModelRecord, readStepModelRecord } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
-import {
-  type ImplementationLogs,
-  implementationProgress,
-  readImplementationLogs,
-} from "./default-target.js"
+import { readImplementationLogs } from "./default-target.js"
 import type { LogCommit } from "./episode-log.js"
 import type { ReadingSample } from "./model-comparison.js"
 import type { Assistant } from "./phase.js"
@@ -45,14 +41,20 @@ export type AuditorRow = {
   readonly vets: Set<string>
 }
 
-export type CoderSample = ReadingSample & {
+export type CoderSample = Pick<ReadingSample, "yield"> & {
   readonly stem: string
   readonly dropped: number
 }
 
+export type CoderTimeSample = {
+  readonly stem: string
+  readonly minutes: number
+}
+
 export type CoderRow = {
   readonly identity: ModelIdentity
-  readonly samples: CoderSample[]
+  readonly yieldSamples: CoderSample[]
+  readonly timeSamples: CoderTimeSample[]
   readonly excluded: Map<string, string>
   readonly tokens: TokenTotals
   tokenSteps: number
@@ -82,12 +84,16 @@ type StepRecord = {
   readonly commit: HistoryCommit
 }
 
+type StepShare = {
+  readonly record: StepRecord | null
+}
+
 type PlanEvidence = {
   readonly stem: string
   assignment: Coder | null
   closed: boolean
   listedSteps: readonly PlanStep[] | null
-  readonly stepRecords: StepRecord[]
+  readonly stepShares: Map<string, StepShare>
   readonly rounds: RoundRecord[]
 }
 
@@ -320,7 +326,7 @@ function planEvidence(
     assignment: null,
     closed: false,
     listedSteps: null,
-    stepRecords: [],
+    stepShares: new Map(),
     rounds: [],
   }
   plans.set(stem, created)
@@ -339,12 +345,37 @@ function historyKey(repository: HistoryCommit["repository"], sha: string) {
   return `${repository}:${sha.toLowerCase()}`
 }
 
+function stepShareKey(repository: HistoryCommit["repository"], step: number) {
+  return `${repository}:${step}`
+}
+
+function expectedStepShareKeys(steps: readonly PlanStep[]): string[] {
+  return steps.flatMap((step) =>
+    step.repositories.map((repository) =>
+      stepShareKey(repository, step.number),
+    ),
+  )
+}
+
+function listedStepRecords(plan: PlanEvidence): StepRecord[] | null {
+  if (plan.listedSteps === null) return null
+  const records: StepRecord[] = []
+  for (const key of expectedStepShareKeys(plan.listedSteps)) {
+    const share = plan.stepShares.get(key)
+    if (share?.record === undefined || share.record === null) return null
+    records.push(share.record)
+  }
+  return records
+}
+
 function hasWholePlanAudit(
   plan: PlanEvidence,
   history: ReadonlyMap<string, HistoryCommit>,
 ): boolean {
   const finalStep = plan.listedSteps?.length ?? 0
   if (finalStep === 0) return false
+  const stepRecords = listedStepRecords(plan)
+  if (stepRecords === null) return false
   const scope = finalStep === 1 ? "1" : `1-${finalStep}`
   const newerThanStep = (audit: HistoryCommit, step: StepRecord) =>
     audit.repository === step.commit.repository
@@ -360,7 +391,7 @@ function hasWholePlanAudit(
         const form = record === undefined ? null : looseForm(record.subject)
         return (
           record !== undefined &&
-          plan.stepRecords.every((step) => newerThanStep(record, step)) &&
+          stepRecords.every((step) => newerThanStep(record, step)) &&
           form?.stem === plan.stem &&
           form.role === `impl-audit-${scope}`
         )
@@ -404,24 +435,19 @@ function excludedPlanReason(
   plan: PlanEvidence,
   actual: ReadonlySet<string>,
   history: ReadonlyMap<string, HistoryCommit>,
-  logs: ImplementationLogs,
 ): string {
   if (!plan.closed) return "not closed"
-  if (plan.assignment === null) return "no ready assignment"
   if (plan.listedSteps === null) return "archived plan unavailable"
-  if (plan.stepRecords.length === 0) return "no step records"
-  if (
-    implementationProgress(logs, plan.stem, plan.listedSteps).repositories.some(
-      ({ pending }) => pending.length > 0,
-    )
-  )
+  const expectedShares = expectedStepShareKeys(plan.listedSteps)
+  if (expectedShares.some((key) => !plan.stepShares.has(key)))
     return "implementation shares missing"
-  if (plan.stepRecords.some((record) => record.minutes === null))
-    return "step time unavailable"
+  if (expectedShares.some((key) => plan.stepShares.get(key)?.record === null))
+    return "step model record unreadable"
   if (!hasWholePlanAudit(plan, history))
     return "no complete whole-plan audit after the final step"
-  const assigned = modelKey(plan.assignment)
-  if (actual.size !== 1 || !actual.has(assigned)) return "mixed model records"
+  if (actual.size !== 1) return "mixed model records"
+  if (plan.assignment !== null && !actual.has(modelKey(plan.assignment)))
+    return "mixed model records"
   return ""
 }
 
@@ -460,9 +486,12 @@ async function coderRows(
       continue
     const scope = form.role.slice("impl-".length)
     if (!/^[1-9]\d*$/.test(scope)) continue
-    const record = stepRecord(commit)
-    if (record === null) continue
-    plan.stepRecords.push(record)
+    const step = Number(scope)
+    const key = stepShareKey(commit.repository, step)
+    if (!plan.stepShares.has(key))
+      plan.stepShares.set(key, {
+        record: stepRecord(commit),
+      })
   }
   await Promise.all(
     [...plans.values()].map(async (plan) => {
@@ -476,7 +505,8 @@ async function coderRows(
     const key = modelKey(identity)
     const row = rows.get(key) ?? {
       identity,
-      samples: [],
+      yieldSamples: [],
+      timeSamples: [],
       excluded: new Map<string, string>(),
       tokens: new Map<string, Omit<ModelTokenUsage, "model">>(),
       tokenSteps: 0,
@@ -488,8 +518,13 @@ async function coderRows(
   for (const plan of plans.values()) {
     const actual = new Map<string, ModelIdentity>()
     const tokensByModel = new Map<string, TokenTotals>()
-    for (const record of plan.stepRecords)
-      actual.set(modelKey(record.identity), record.identity)
+    const expectedShares =
+      plan.listedSteps === null
+        ? new Set(plan.stepShares.keys())
+        : new Set(expectedStepShareKeys(plan.listedSteps))
+    for (const [key, share] of plan.stepShares)
+      if (expectedShares.has(key) && share.record !== null)
+        actual.set(modelKey(share.record.identity), share.record.identity)
     for (const round of plan.rounds) {
       for (const phase of round.data.phases.filter(
         (candidate) => candidate.phase === "fix",
@@ -503,12 +538,7 @@ async function coderRows(
       }
     }
     if (actual.size === 0) continue
-    const reason = excludedPlanReason(
-      plan,
-      new Set(actual.keys()),
-      history,
-      logs,
-    )
+    const reason = excludedPlanReason(plan, new Set(actual.keys()), history)
     const stepCount = plan.listedSteps?.length ?? 0
     for (const [key, identity] of actual) {
       const row = ensureRow(identity)
@@ -525,20 +555,27 @@ async function coderRows(
         modelRoundComplete(round.data),
       )
       const findings = completeRounds.flatMap((round) => round.data.findings)
-      const stepMinutes = plan.stepRecords.reduce(
-        (total, record) => total + (record.minutes ?? 0),
-        0,
-      )
+      const stepRecords = listedStepRecords(plan)
+      if (stepRecords === null) continue
       const fixMinutes = plan.rounds
         .flatMap((round) => round.data.phases)
         .filter((phase) => phase.phase === "fix")
         .reduce((total, phase) => total + phase.milliseconds / 60_000, 0)
-      row.samples.push({
+      row.yieldSamples.push({
         stem: plan.stem,
         yield: acceptedYield(findings) / stepCount,
         dropped: droppedYield(findings) / stepCount,
-        minutes: (stepMinutes + fixMinutes) / stepCount,
       })
+      if (stepRecords.every((record) => record.minutes !== null)) {
+        const stepMinutes = stepRecords.reduce(
+          (total, record) => total + (record.minutes ?? 0),
+          0,
+        )
+        row.timeSamples.push({
+          stem: plan.stem,
+          minutes: (stepMinutes + fixMinutes) / stepCount,
+        })
+      }
     }
   }
   return rows

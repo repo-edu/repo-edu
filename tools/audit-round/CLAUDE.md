@@ -386,16 +386,20 @@ consumers.
   closed-plan archives, then joins the step, ready and closed records from both
   Git histories. `model-comparison.ts` owns the graded words and direct range
   comparisons. Every recorded auditor and coder gets one row. The opening
-  sentence uses only current recorded rows and states each current thin row's
-  shortage once per work class. Auditor comparisons use complete
+  sentence uses only current recorded rows. It states each auditor shortage
+  once per work class and each coder shortage once per measure. Auditor
+  comparisons use complete
   settings-chosen openings only where
   both rows were active, split planning from implementation and add audit and
   rebuttal cost. Later and command-line rounds stay descriptive. Coder
-  comparisons use one closed and assigned plan per example. The archived plan
-  supplies the listed steps, every hosted share must be present and the
-  whole-plan audit must follow the final share. The comparison adds step and
-  implementation-fix time and excludes planning fixes. A missing assignment,
-  unavailable step time or model mismatch keeps the plan visible but unranked.
+  yield comparisons use one closed plan per example. The archived plan
+  supplies the listed steps, every hosted share must have a readable model
+  record and the whole-plan audit must follow the final share. Records admit a
+  plan without a ready assignment when they name one model and effort. An
+  assignment, when present, must match. A readable step record without active
+  time withholds only the time example. Incomplete or mixed records keep the
+  plan visible but unranked. Time adds step and implementation-fix time and
+  excludes planning fixes.
   Mean and standard deviation come from `simple-statistics`.
   Direct observed-range comparisons own the graded reading and clear-cut
   recommendation. Coder spread and worst-plan yield may block a lead. Current
@@ -855,8 +859,9 @@ their observed ranges separate and yield does not conflict with a clear time
 lead. The tables keep every recorded model visible. Auditor rows split
 settings-opened, later and manual rounds by audit class and show audit plus
 rebuttal time, accepted and dropped A/B findings, tokens and vet settings.
-Coder rows show admitted plan count, yield and time per step, spread, worst
-plan, dropped findings, implementation-fix tokens and excluded plans. A coder
+Coder rows show separate yield and time plan counts, yield and time per step,
+spread, worst plan, dropped findings, implementation-fix tokens and excluded
+plans. A coder
 lead is withheld when its spread or worst plan is worse than another current
 ranked coder's. The command renders Markdown, starts no assistant and writes no
 round file or round data. Like other commands that read settings, it creates a

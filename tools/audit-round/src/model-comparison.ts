@@ -14,6 +14,9 @@ export type ReadingSample = {
   readonly minutes: number
 }
 
+export type YieldSample = Pick<ReadingSample, "yield">
+export type TimeSample = Pick<ReadingSample, "minutes">
+
 function timeFactor(first: number, second: number): number {
   const lower = Math.min(first, second)
   const upper = Math.max(first, second)
@@ -40,8 +43,8 @@ export function speedWords(first: number, second: number): string {
 }
 
 function clearYieldLeader(
-  first: readonly ReadingSample[],
-  second: readonly ReadingSample[],
+  first: readonly YieldSample[],
+  second: readonly YieldSample[],
   moreIsBetter: boolean,
 ): boolean {
   const firstMean = mean(first.map((sample) => sample.yield))
@@ -60,8 +63,8 @@ function clearYieldLeader(
 }
 
 function clearTimeLeader(
-  first: readonly ReadingSample[],
-  second: readonly ReadingSample[],
+  first: readonly TimeSample[],
+  second: readonly TimeSample[],
 ): boolean {
   const firstMean = mean(first.map((sample) => sample.minutes))
   const secondMean = mean(second.map((sample) => sample.minutes))
@@ -79,21 +82,44 @@ export function clearlyPreferred(
   second: readonly ReadingSample[],
   moreYieldIsBetter: boolean,
 ): boolean {
-  if (first.length === 0 || second.length === 0) return false
-  if (clearYieldLeader(first, second, moreYieldIsBetter))
-    return !clearTimeLeader(second, first)
+  return clearlyPreferredMeasures(
+    first,
+    second,
+    first,
+    second,
+    moreYieldIsBetter,
+  )
+}
+
+/** Whether separate yield and time evidence gives one row a clear lead. */
+export function clearlyPreferredMeasures(
+  firstYield: readonly YieldSample[],
+  secondYield: readonly YieldSample[],
+  firstTime: readonly TimeSample[],
+  secondTime: readonly TimeSample[],
+  moreYieldIsBetter: boolean,
+): boolean {
+  if (
+    firstYield.length === 0 ||
+    secondYield.length === 0 ||
+    firstTime.length === 0 ||
+    secondTime.length === 0
+  )
+    return false
+  if (clearYieldLeader(firstYield, secondYield, moreYieldIsBetter))
+    return !clearTimeLeader(secondTime, firstTime)
   const yieldsMatch =
     Math.abs(
-      mean(first.map((sample) => sample.yield)) -
-        mean(second.map((sample) => sample.yield)),
+      mean(firstYield.map((sample) => sample.yield)) -
+        mean(secondYield.map((sample) => sample.yield)),
     ) < yieldSame
-  return yieldsMatch && clearTimeLeader(first, second)
+  return yieldsMatch && clearTimeLeader(firstTime, secondTime)
 }
 
 /** Whether the first coder's spread or worst observed plan is less reliable. */
 export function coderReliabilityDisadvantages(
-  first: readonly ReadingSample[],
-  second: readonly ReadingSample[],
+  first: readonly YieldSample[],
+  second: readonly YieldSample[],
 ): { readonly spread: boolean; readonly worst: boolean } {
   return {
     spread:
