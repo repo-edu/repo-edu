@@ -235,6 +235,54 @@ test("a finished phase stops its status timer", async (t) => {
   assert.equal(statuses.length, finishedStatuses)
 })
 
+test("round data attributes the auditor to the audit phase's reported model", async (t) => {
+  const f = await fixture(t)
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+  const run = await buildRoundRun(setup, Date.now(), releases, testSettings)
+  const output = new RoundOutput(run, {
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+  })
+  t.after(() => output.close())
+  const audit = roundPhases("codex", noOverride).audit
+  await output.phase.start(
+    {
+      ...setup,
+      ...audit,
+      phase: "audit",
+      arguments: ["example-impl-01..01-01", "example.md"],
+      sessionId: null,
+    },
+    "Run the audit",
+  )
+  await output.phase.observe({
+    type: "model",
+    selection: { model: "reported-auditor", effort: "xhigh" },
+  })
+  await output.phase.finish({ status: "finished", sessionId: "audit-session" })
+  output.finish({
+    status: "finished",
+    report: "REPORT.md",
+    cleanAudit: true,
+    judge: null,
+    watch: null,
+    deferralChain: "none",
+    commits: [],
+    account: { settling: "", judgedRepos: ["repo-edu"], findings: [] },
+  })
+
+  assert.ok(run.data)
+  const [entry] = parseRoundDataFile(
+    run.data.path,
+    await readFile(run.data.path, "utf8"),
+  )
+  assert.deepEqual(entry?.auditor, {
+    assistant: "codex",
+    model: "reported-auditor",
+    effort: "xhigh",
+    chosenBy: "settings",
+  })
+})
+
 test("stopping between retained writes leaves the settled entry in progress", async (t) => {
   const f = await fixture(t)
   const run = await buildRoundRun(

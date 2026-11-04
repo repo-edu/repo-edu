@@ -6,6 +6,7 @@ import {
   clearlyPreferredMeasures,
   coderFloor,
   coderReliabilityDisadvantages,
+  comparisonPreposition,
   type ReadingSample,
   speedWords,
   yieldWords,
@@ -370,8 +371,9 @@ function coderSentence(
       const secondYield = mean(
         secondRow.yieldSamples.map((sample) => sample.yield),
       )
+      const reading = yieldWords(firstYield, secondYield)
       clauses.push(
-        `for coder yield, ${modelText(firstRow.identity)} has ${yieldWords(firstYield, secondYield)} (${numberText(firstYield)} vs ${numberText(secondYield)} accepted A/B findings per step) than ${modelText(secondRow.identity)}, from ${firstRow.yieldSamples.length} and ${secondRow.yieldSamples.length} plans`,
+        `for coder yield, ${modelText(firstRow.identity)} has ${reading} (${numberText(firstYield)} vs ${numberText(secondYield)} accepted A/B findings per step) ${comparisonPreposition(reading)} ${modelText(secondRow.identity)}, from ${firstRow.yieldSamples.length} and ${secondRow.yieldSamples.length} plans`,
       )
     }
   }
@@ -385,8 +387,9 @@ function coderSentence(
       const secondMinutes = mean(
         secondRow.timeSamples.map((sample) => sample.minutes),
       )
+      const reading = speedWords(firstMinutes, secondMinutes)
       clauses.push(
-        `for coder time, ${modelText(firstRow.identity)} is ${speedWords(firstMinutes, secondMinutes)} (${numberText(firstMinutes)} vs ${numberText(secondMinutes)} min per step) than ${modelText(secondRow.identity)}, from ${firstRow.timeSamples.length} and ${secondRow.timeSamples.length} plans`,
+        `for coder time, ${modelText(firstRow.identity)} is ${reading} (${numberText(firstMinutes)} vs ${numberText(secondMinutes)} min per step) ${comparisonPreposition(reading)} ${modelText(secondRow.identity)}, from ${firstRow.timeSamples.length} and ${secondRow.timeSamples.length} plans`,
       )
     }
   }

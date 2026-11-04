@@ -745,6 +745,7 @@ export class RoundOutput<R extends Run = Run> {
     judge: JudgeAnswer | null,
   ): void {
     if (this.run.data === undefined) return
+    const auditor = this.ran.get("audit")?.selection ?? this.run.data.auditor
     writeRoundData(this.run.data.path, {
       target: this.run.data.target,
       round: this.run.data.round,
@@ -752,7 +753,11 @@ export class RoundOutput<R extends Run = Run> {
       started: new Date(this.run.started).toISOString(),
       status,
       settings: this.run.data.settings,
-      auditor: this.run.data.auditor,
+      auditor: {
+        ...this.run.data.auditor,
+        model: auditor.model,
+        effort: auditor.effort,
+      },
       phases: [...this.ran].flatMap(([phase, ran]) => {
         if (phase === "close" || phase === "implement" || ran.spent === null)
           return []

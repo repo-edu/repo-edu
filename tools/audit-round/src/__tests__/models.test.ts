@@ -7,6 +7,7 @@ import {
   clearlyPreferred,
   clearlyPreferredMeasures,
   coderReliabilityDisadvantages,
+  comparisonPreposition,
   speedWords,
   yieldWords,
 } from "../model-comparison.js"
@@ -184,6 +185,11 @@ test("graded yield and speed words cover the four bands and both directions", ()
   assert.equal(speedWords(10, 15), "faster")
   assert.equal(speedWords(10, 20), "much faster")
   assert.equal(speedWords(20, 10), "much slower")
+
+  assert.equal(comparisonPreposition(yieldWords(1, 1.03)), "as")
+  assert.equal(comparisonPreposition(speedWords(10, 10.4)), "as")
+  assert.equal(comparisonPreposition(yieldWords(1.1, 1)), "than")
+  assert.equal(comparisonPreposition(speedWords(10, 11)), "than")
 })
 
 test("constant rows can lead while overlapping ranges and yield-against-time trades cannot", () => {
