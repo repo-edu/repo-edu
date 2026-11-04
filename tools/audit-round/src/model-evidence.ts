@@ -437,6 +437,7 @@ function excludedPlanReason(
   history: ReadonlyMap<string, HistoryCommit>,
 ): string {
   if (!plan.closed) return "not closed"
+  if (plan.rounds.length === 0) return "no implementation round data"
   if (plan.listedSteps === null) return "archived plan unavailable"
   const expectedShares = expectedStepShareKeys(plan.listedSteps)
   if (expectedShares.some((key) => !plan.stepShares.has(key)))

@@ -360,6 +360,32 @@ test("an archived plan with an unreadable step list stays visible but unranked",
   assert.equal(row.excluded.get(stem), "archived plan unavailable")
 })
 
+test("a closed plan without implementation round data names the missing evidence", async (t) => {
+  const f = await modelFixture(t)
+  const stem = "no-round-data"
+  await commit(
+    f.root,
+    `${stem}/impl-1 obl feat(audit-round): fixture step`,
+    "coder-alpha low\nImplementation took 5 min.",
+  )
+  await commit(
+    f.planRoot,
+    `${stem}/closed obl: close the fixture plan`,
+    "coder-alpha low",
+  )
+  await archivePlan(f.planRoot, stem, ["repo-edu"])
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+  })
+  const row = evidence.coders.get(
+    modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
+  )
+  assert.ok(row)
+  assert.equal(row.excluded.get(stem), "no implementation round data")
+})
+
 test("coder yield accepts agreeing unassigned records without step time", async (t) => {
   const f = await modelFixture(t)
   const stem = "yield-only"
