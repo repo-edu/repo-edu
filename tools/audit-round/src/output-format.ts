@@ -51,6 +51,14 @@ export function phaseText(
   }
 }
 
+/** The selection a phase's settings named, before the CLI resolved any alias. */
+export function pinnedSelection({
+  model,
+  effort,
+}: PinnedModel): ModelSelection {
+  return { model: model.value, effort: effort.value }
+}
+
 /**
  * What a phase requests before its own CLI reports the applied selection. A
  * named model reads as the release its CLI resolved it to at startup.
@@ -74,6 +82,8 @@ export type RunEntry = {
 
 /** One started phase: what it ran on and the assistant time it took. */
 export type RanPhase = {
+  /** What the settings named for the phase; the round data keeps it. */
+  readonly launched: ModelSelection
   readonly selection: ModelSelection
   /** The finished invocations' total; null until one finishes. */
   readonly spent: number | null

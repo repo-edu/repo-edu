@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises"
 import { basename } from "node:path"
 import { test } from "node:test"
 import { roundRun as buildRoundRun } from "../output.js"
+import { pinnedSelection } from "../output-format.js"
 import { parseRoundDataFile } from "../round-data.js"
 import {
   noOverride,
@@ -549,6 +550,7 @@ for (const assistant of ["claude", "codex"] as const) {
         phase: "fix",
         assistant,
         ...resolved(assistant),
+        launched: pinnedSelection(pinned(assistant)),
         milliseconds: 3000,
         tokens: [
           {

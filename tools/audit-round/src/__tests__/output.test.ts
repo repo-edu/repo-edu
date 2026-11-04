@@ -124,9 +124,9 @@ test("reported model feedback prints a change notice after the phase line", asyn
       ...run,
       previousModels: [
         {
-          phase: "audit",
           assistant: "codex",
-          selection: { model: "earlier-model", effort: "high" },
+          launched: { model: "gpt-5.6-sol", effort: "high" },
+          reported: { model: "earlier-model", effort: "high" },
         },
       ],
     },
@@ -157,7 +157,7 @@ test("reported model feedback prints a change notice after the phase line", asyn
   })
   assert.deepEqual(visible.slice(-2), [
     "[audit] codex reported-model extra high",
-    "Warning: Model change: audit reported reported-model xhigh; the newest earlier audit run by codex reported earlier-model high.",
+    "Warning: Model change: audit reported reported-model xhigh; the newest earlier codex run launched on gpt-5.6-sol high reported earlier-model high.",
   ])
 })
 

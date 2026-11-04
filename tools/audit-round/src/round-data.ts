@@ -145,6 +145,11 @@ const commonRoundData = z.strictObject({
       assistant,
       model: z.string().min(1),
       effort: z.string().min(1).nullable(),
+      /**
+       * The selection the settings named, before the CLI resolved any alias.
+       * Entries written before it was recorded carry none.
+       */
+      launched: modelSelection.optional(),
       milliseconds: z.number().int().nonnegative(),
       tokens: z.array(tokenUsage),
       peakContext: z

@@ -4,7 +4,6 @@ import type { Feedback, ModelReleases, PhaseOutput } from "./feedback.js"
 import {
   type ModelReference,
   modelChangeNotice,
-  readPreviousCloseModel,
   readPreviousRoundModels,
 } from "./model-change.js"
 import {
@@ -18,6 +17,7 @@ import {
   phaseSelection,
   phaseText,
   phaseTokenText,
+  pinnedSelection,
   type RanPhase,
   type RunEntry,
   toolText,
@@ -320,7 +320,7 @@ export async function closeRun(
       log: join(planRoot, `${planStem(plan)}-close.${tag}.log`),
       markdown: null,
     },
-    previousModels: await readPreviousCloseModel(planRoot, phase.assistant),
+    previousModels: await readPreviousRoundModels(planRoot),
     started,
   }
 }
@@ -479,6 +479,7 @@ export class RoundOutput<R extends Run = Run> {
     }
     const earlier = this.ran.get(input.phase)
     this.ran.set(input.phase, {
+      launched: pinnedSelection(input.model),
       selection: phaseSelection(
         input.model,
         this.run.releases[input.assistant],
@@ -517,9 +518,9 @@ export class RoundOutput<R extends Run = Run> {
         )
         break
       case "model": {
-        const launched = this.phaseRun(active.input.phase).selection
+        const run = this.phaseRun(active.input.phase)
         this.ran.set(active.input.phase, {
-          ...this.phaseRun(active.input.phase),
+          ...run,
           selection: feedback.selection,
         })
         this.say(
@@ -529,7 +530,7 @@ export class RoundOutput<R extends Run = Run> {
           this.run.previousModels,
           active.input.phase,
           active.input.assistant,
-          launched,
+          run.launched,
           feedback.selection,
         )
         if (notice !== null) this.say(`Warning: ${notice}`)
@@ -766,6 +767,7 @@ export class RoundOutput<R extends Run = Run> {
             assistant: entry.assistant,
             model: ran.selection.model,
             effort: ran.selection.effort,
+            launched: ran.launched,
             milliseconds: Math.round(ran.spent),
             tokens: [...ran.tokens],
             peakContext: ran.peakContext,

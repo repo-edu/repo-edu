@@ -2,11 +2,9 @@ import assert from "node:assert/strict"
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import type { LogCommit } from "../episode-log.js"
 import type { ModelSelection } from "../feedback.js"
 import {
   modelChangeNotice,
-  previousCloseModel,
   previousRoundModels,
   readPreviousRoundModels,
 } from "../model-change.js"
@@ -19,18 +17,22 @@ import {
 } from "../round-data.js"
 import { fixture } from "./helpers.js"
 
-const oldSelection = { model: "old-model", effort: "high" } as const
-const newSelection = { model: "new-model", effort: "xhigh" } as const
+const alias = { model: "opus", effort: "high" } as const
+const oldRelease = { model: "old-release", effort: "high" } as const
+const newRelease = { model: "new-release", effort: "high" } as const
+const pinnedRelease = { model: "pinned-release", effort: "xhigh" } as const
 
 function phase(
   name: Exclude<Phase, "close" | "implement">,
   assistant: Assistant,
-  selection: ModelSelection,
+  launched: ModelSelection | undefined,
+  reported: ModelSelection,
 ): RoundData["phases"][number] {
   return {
     phase: name,
     assistant,
-    ...selection,
+    ...reported,
+    ...(launched === undefined ? {} : { launched }),
     milliseconds: 1,
     tokens: [],
     peakContext: null,
@@ -76,89 +78,74 @@ function round(
   }
 }
 
-test("every recorded non-fix round phase reports a changed model or effort", () => {
+test("the same launched selection reporting another release warns in every phase", () => {
   for (const name of [
     "audit",
     "vet",
     "rebut",
+    "fix",
     "brief",
     "watch",
     "judge",
+    "close",
   ] as const) {
     const references = previousRoundModels([
-      round("2026-11-01T10:00:00.000Z", [phase(name, "codex", oldSelection)]),
+      round("2026-11-01T10:00:00.000Z", [
+        phase("audit", "claude", alias, oldRelease),
+      ]),
     ])
     assert.equal(
-      modelChangeNotice(references, name, "codex", newSelection, newSelection),
-      `Model change: ${name} reported new-model xhigh; the newest earlier ${name} run by codex reported old-model high.`,
+      modelChangeNotice(references, name, "claude", alias, newRelease),
+      `Model change: ${name} reported new-release high; the newest earlier claude run launched on opus high reported old-release high.`,
     )
   }
 })
 
-test("fix compares the report with the model and effort the runner launched", () => {
+test("a changed launched selection, a different assistant and an unchanged report are silent", () => {
+  const references = previousRoundModels([
+    round("2026-11-01T10:00:00.000Z", [
+      phase("fix", "codex", oldRelease, oldRelease),
+    ]),
+  ])
   assert.equal(
-    modelChangeNotice([], "fix", "claude", oldSelection, oldSelection),
+    modelChangeNotice(references, "fix", "codex", newRelease, newRelease),
     null,
   )
   assert.equal(
-    modelChangeNotice([], "fix", "claude", oldSelection, newSelection),
-    "Model change: fix reported new-model xhigh; the runner launched claude on old-model high.",
+    modelChangeNotice(references, "audit", "claude", oldRelease, newRelease),
+    null,
   )
-})
-
-test("close compares with the newest earlier close by the same assistant", () => {
-  const commit = (subject: string, body: string, sha: string): LogCommit => ({
-    sha,
-    committedAt: "2026-11-01T10:00:00.000Z",
-    subject,
-    body,
-    files: [],
-    renames: [],
-  })
-  const reference = previousCloseModel(
-    [
-      commit("newest/closed abx: archive the plan", "claude-new xhigh", "2"),
-      commit("earlier/closed obh: archive the plan", "codex-old high", "1"),
-    ],
-    "codex",
-  )
-  assert.ok(reference)
   assert.equal(
-    modelChangeNotice(
-      [reference],
-      "close",
-      "codex",
-      newSelection,
-      newSelection,
-    ),
-    "Model change: close reported new-model xhigh; the newest earlier close run by codex reported codex-old high.",
+    modelChangeNotice(references, "audit", "codex", oldRelease, oldRelease),
+    null,
   )
 })
 
-test("a different assistant and an unchanged small history produce no notice", () => {
+test("the newest report on a launched selection is the reference, whatever phase ran it", () => {
   const references = previousRoundModels([
-    round("2026-11-01T10:00:00.000Z", [phase("audit", "claude", oldSelection)]),
+    round("2026-11-02T10:00:00.000Z", [
+      phase("vet", "claude", alias, newRelease),
+    ]),
     round(
-      "2026-11-02T10:00:00.000Z",
-      [phase("audit", "claude", newSelection)],
+      "2026-11-01T10:00:00.000Z",
+      [phase("audit", "claude", alias, oldRelease)],
       "another-plan-impl-01..01",
       2,
     ),
   ])
   assert.equal(
-    modelChangeNotice(
-      references,
-      "audit",
-      "claude",
-      newSelection,
-      newSelection,
-    ),
+    modelChangeNotice(references, "audit", "claude", alias, newRelease),
     null,
   )
-  assert.equal(
-    modelChangeNotice(references, "audit", "codex", newSelection, newSelection),
-    null,
-  )
+})
+
+test("a phase recorded without its launched selection is no reference", () => {
+  const references = previousRoundModels([
+    round("2026-11-01T10:00:00.000Z", [
+      phase("audit", "claude", undefined, oldRelease),
+    ]),
+  ])
+  assert.deepEqual(references, [])
 })
 
 test("round history joins active and archived plans before choosing the newest entry", async (t) => {
@@ -168,11 +155,13 @@ test("round history joins active and archived plans before choosing the newest e
   await mkdir(archived, { recursive: true })
   writeRoundData(
     join(planRoot, roundDataFilename("active-plan", "implementation")),
-    round("2026-11-01T10:00:00.000Z", [phase("watch", "codex", oldSelection)]),
+    round("2026-11-01T10:00:00.000Z", [
+      phase("watch", "codex", pinnedRelease, oldRelease),
+    ]),
   )
   const archivedRound = round(
     "2026-11-02T10:00:00.000Z",
-    [phase("watch", "codex", newSelection)],
+    [phase("watch", "codex", pinnedRelease, newRelease)],
     "closed-plan-plan",
   )
   const {
@@ -186,11 +175,7 @@ test("round history joins active and archived plans before choosing the newest e
     settling: "",
   })
   const references = await readPreviousRoundModels(planRoot)
-  assert.equal(
-    references.find(
-      (reference) =>
-        reference.phase === "watch" && reference.assistant === "codex",
-    )?.selection.model,
-    "new-model",
-  )
+  assert.deepEqual(references, [
+    { assistant: "codex", launched: pinnedRelease, reported: newRelease },
+  ])
 })

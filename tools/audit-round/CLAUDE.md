@@ -368,15 +368,19 @@ consumers.
   instruction files appear there by path only; their full contents go to the assistant. Each
   assistant's reported model line is followed by the model-change notice from `model-change.ts`
   when that comparison differs.
-- `model-change.ts` owns the non-blocking model and effort notices. For audit,
-  vet, rebut, brief, watch and judge it reads every active and archived
-  plan's checked round data and compares with the newest earlier entry for the
-  same phase and assistant. Fix compares the report with the selection that
-  invocation launched, so a deliberate coder change between plans is not a
-  warning. Close reads the newest earlier plan-repo `closed` model record for
-  the same assistant. A different assistant, a first observation or an
-  unchanged selection produces no notice. Invalid round data still stops the
-  run before an assistant starts.
+- `model-change.ts` owns the non-blocking model and effort notice. Every
+  round phase and the close compare the same way: the notice reads every
+  active and archived plan's checked round data and compares the report with
+  the newest earlier report by the same assistant on the same launched
+  selection, whatever phase ran it. The launched selection is what the
+  settings named before the CLI resolved any alias, so an alias that now
+  resolves to another release warns, and so does a tool running another
+  release or effort than it did on that selection before. A changed launched
+  selection is already visible in the settings header, so a coder rotation or
+  an edited default is no warning. A first observation, a different assistant
+  and an unchanged report produce no notice. A phase entry recorded before
+  the launched selection was kept matches nothing. Invalid round data still
+  stops the run before an assistant starts.
 - `models.ts` owns the model read-out and its two sections.
   `model-evidence.ts` reads checked round data once at the plan root and
   closed-plan archives, then joins the step, ready and closed records from both
@@ -626,7 +630,9 @@ every file-writing phase's tag before opening output.
 `round-data.ts` owns `<stem>-plan-rounds.json` and
 `<stem>-impl-rounds.json`. They are checked, gitignored arrays keyed by target
 and round number. Each entry records the resolved scope, settings, phases,
-landed commits, findings, status and judge answer. The writer publishes a
+landed commits, findings, status and judge answer. Each phase carries the
+model and effort the tool reported and the launched selection the settings
+named. The writer publishes a
 complete replacement through a temporary file. Loop-close moves existing files
 beside the archived plan. These are machine artifacts and are never edited by
 hand.
