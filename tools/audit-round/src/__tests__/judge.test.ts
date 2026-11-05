@@ -1,7 +1,11 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { type JudgeEvidence, judgeOptions, readJudgeAnswer } from "../judge.js"
-import type { JudgeDecision, RoundData } from "../round-data.js"
+import type {
+  JudgeDecision,
+  PlanningRoundData,
+  RoundData,
+} from "../round-data.js"
 import type { Auditor } from "../settings.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
@@ -27,6 +31,7 @@ const pool: readonly Auditor[] = [fable, opus, sol]
 const exampleOptions: Readonly<Record<string, readonly JudgeDecision[]>> = {
   "judge/stop-unavailable": [sol],
   "judge/settle-unavailable": ["stop", sol],
+  "judge/ready-unavailable": ["stop", sol],
   "judge/continue-unoffered": [
     { assistant: "claude", model: "opus", effort: "high" },
   ],
@@ -43,7 +48,7 @@ function round(
     readonly landed?: boolean
     readonly outcome?: "kept" | "unmatched"
   } = {},
-): RoundData {
+): PlanningRoundData {
   const tier = options.tier
   const outcome = options.outcome ?? "kept"
   return {
@@ -136,6 +141,7 @@ test("the round grammar's judge examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("judge/")) {
     const options: readonly JudgeDecision[] = exampleOptions[example.id] ?? [
       "settle",
+      "ready",
       "stop",
       ...pool,
     ]
@@ -338,7 +344,7 @@ test("the judge offers every pool entry and gates only the vendors the pool can 
   // Two models of one vendor are separate options, in the pool's order.
   assert.deepEqual(
     judgeOptions(evidence([claude]), identity(claude), [fable, opus]),
-    ["stop", fable, opus],
+    ["ready", "stop", fable, opus],
   )
   // A Codex read with a B holds stop while the pool can send Codex in again.
   assert.equal(offers("stop", [codexB, claude], claude), false)
@@ -346,5 +352,61 @@ test("the judge offers every pool entry and gates only the vendors the pool can 
   assert.equal(
     offers("stop", [codexB, claude], claude, undefined, [fable, opus]),
     true,
+  )
+})
+
+test("detailing offers ready beside stop until the plan's ready marker", () => {
+  const current = round("claude", "2026-10-11T10:00:00Z")
+  assert.deepEqual(judgeOptions(evidence([current]), identity(current), pool), [
+    "ready",
+    "stop",
+    ...pool,
+  ])
+  assert.deepEqual(
+    readJudgeAnswer(
+      "Judge: ready. Both reads found the brief complete.",
+      judgeOptions(evidence([current]), identity(current), pool),
+    ),
+    { answer: "ready", reason: "Both reads found the brief complete." },
+  )
+
+  // The real-bug gate that withholds stop withholds ready too.
+  const blocked = round("claude", "2026-10-11T10:00:00Z", { tier: "B" })
+  assert.deepEqual(
+    judgeOptions(evidence([blocked]), identity(blocked), pool),
+    pool,
+  )
+
+  // After the ready marker the planning round keeps stop alone.
+  const marked: JudgeEvidence["commits"] = [
+    ...evidence([]).commits,
+    {
+      repository: "plan",
+      sha: "3".repeat(40),
+      committed: "2026-10-11T09:00:00Z",
+      subject: "example/ready: declare the plan ready for implementation",
+      role: "ready",
+    },
+  ]
+  assert.deepEqual(
+    judgeOptions(evidence([current], marked), identity(current), pool),
+    ["stop", ...pool],
+  )
+
+  // Widening and implementation never offer ready.
+  const widening = round("claude", "2026-10-11T10:00:00Z", {
+    phase: "widening",
+  })
+  assert.equal(offers("ready", [widening], widening), false)
+  const { phase: _phase, settling: _settling, ...common } = current
+  const implementation: RoundData = {
+    ...common,
+    target: "example-impl-01..02",
+    scope: "1-2",
+    judgedRepos: ["repo-edu"],
+  }
+  assert.deepEqual(
+    judgeOptions(evidence([implementation]), identity(implementation), pool),
+    ["stop", ...pool],
   )
 })

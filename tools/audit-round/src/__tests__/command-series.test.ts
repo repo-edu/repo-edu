@@ -1420,6 +1420,57 @@ test("a widening judge can stop the series without recommending settle", async (
   )
 })
 
+test("a detailing series ends on the judge's ready recommendation", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    null,
+    false,
+    "plan",
+    true,
+    false,
+    false,
+  )
+  await rm(join(f.planRoot, "example-widen.md"))
+  await configureJudgeAnswers(f, [
+    "Judge: ready. The clean read leaves no remaining real bug in the brief.",
+  ])
+
+  assert.equal(
+    await runCommand(["example.md", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const judge = (await f.prompts()).find((call) =>
+    call.prompt.startsWith("Run the judge phase"),
+  )
+  assert.ok(judge)
+  assert.match(judge.prompt, /Permitted judge options: ready, stop, /)
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Judge: ready\. The clean read leaves no remaining/)
+  assert.match(
+    visible,
+    /Plan audit of example: automatic auditor series ended after 1 round\. The judge finds the brief complete\. Detailing is done: run pnpm audit-round ready example\./,
+  )
+  const {
+    rounds: [stored],
+  } = JSON.parse(
+    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+  ) as {
+    rounds: {
+      phase: string
+      judge: { answer: string; reason: string } | null
+    }[]
+  }
+  assert.equal(stored?.phase, "detailing")
+  assert.deepEqual(stored?.judge, {
+    answer: "ready",
+    reason: "The clean read leaves no remaining real bug in the brief.",
+  })
+})
+
 test("a failed round stops a scope list before later scopes", async (t) => {
   const f = await roundFixture(t)
   await rm(join(f.planRoot, "example.md"))

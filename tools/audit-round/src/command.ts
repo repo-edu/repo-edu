@@ -416,6 +416,15 @@ function watchEvidencePage(evidence: string, range: LineRange): string {
   return [`Evidence lines ${returned} of ${lines.length}.`, ...page].join("\n")
 }
 
+/**
+ * How one auditor series ended. `settle` and `ready` carry the judge's
+ * recommended lifecycle call, `ended` a judge stop, the round maximum or an
+ * exhausted manual queue, and `stopped` an ending that needs the user: a
+ * failure, an unanswered ruling, a red watch, a phase change or a chained
+ * deferral round that ended the series.
+ */
+type SeriesEnding = "settle" | "ready" | "ended" | "stopped"
+
 type DeferralState = {
   readonly deferrals: readonly OpenDeferral[]
   readonly logs: Readonly<Record<"repo-edu" | "plan", readonly LogCommit[]>>
@@ -594,9 +603,10 @@ Round sequence:
       random default picks the opener from the auditors list in each scope's
       series.
     - After each non-red round, a fresh judge picks the next listed auditor or
-      an ending. In widening it may recommend settle or stop; in detailing and
-      implementation it may stop. A settled A finding removes settle in
-      widening; a settled A or B finding removes stop otherwise.
+      an ending. In widening it may recommend settle or stop; in detailing
+      before the ready marker, ready or stop; otherwise it may stop. A settled
+      A finding removes settle in widening; a settled A or B finding removes
+      ready and stop otherwise.
     - No queue file is written.
     - settings.json sets the maximum round count, including the first round.
     - Commit targets still run once. A phase change ends a plan series.
@@ -639,8 +649,8 @@ Round sequence:
       automatic series still runs the judge.
     - The judge's answer and reason print inside the round, enter the round
       transcript and repeat in the line that stops the series or opens the
-      next round. A settle answer ends the series with the settle command to
-      run; its reason stays in the round.
+      next round. A settle or ready answer ends the series with that command
+      to run; its reason stays in the round.
     - In a manual queue, a clean audit skips entries that resolve to the same
       assistant, model and effort. Other settings still run.
     - A fix that records a clean result does not skip later rounds.
@@ -1684,12 +1694,11 @@ export async function runCommand(
       /**
        * One auditor series on one target. Each scope of a list opens as its
        * own series, so the opener is chosen again and the round count starts
-       * over. A judge settle or stop, the maximum or an exhausted queue ends
-       * the series; an ending that needs the user stops the whole list.
+       * over. A judge settle or ready names that lifecycle call; a judge stop,
+       * the maximum or an exhausted queue ends the series; an ending that
+       * needs the user stops the whole list.
        */
-      const runSeries = async (
-        initial: AuditTarget,
-      ): Promise<"ended" | "stopped"> => {
+      const runSeries = async (initial: AuditTarget): Promise<SeriesEnding> => {
         // Only an explicit auditor list owns an editable queue. Automatic series
         // keep their next seat in this invocation, and other targets run once.
         const queue =
@@ -1886,7 +1895,14 @@ export async function runCommand(
                   `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. The judge finds no open shape question. Widening is done: run pnpm audit-round settle ${planStem(target.plan)}.`,
                 )
                 await printDeferrals()
-                break
+                return "settle"
+              }
+              if (judge.answer === "ready") {
+                await active.message(
+                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. The judge finds the brief complete. Detailing is done: run pnpm audit-round ready ${planStem(target.plan)}.`,
+                )
+                await printDeferrals()
+                return "ready"
               }
               if (completed >= settings.maximumAutomaticRounds) {
                 await active.message(
@@ -1937,7 +1953,8 @@ export async function runCommand(
           await output?.message(
             `Next scope: ${roundSubject(target, planStem(target.plan))}; ${later.length} scope${later.length === 1 ? "" : "s"} remain after it.`,
           )
-        if ((await runSeries(target)) === "ended") continue
+        // Every ending but stopped lets the next scope run.
+        if ((await runSeries(target)) !== "stopped") continue
         const unrun = later.flatMap((scope) =>
           "scope" in scope ? [scope.scope] : [],
         )

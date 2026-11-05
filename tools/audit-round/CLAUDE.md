@@ -62,8 +62,9 @@ consumers.
   over the plan's round-kind data, episode commits, stop conditions and latest watch. The series
   pool is the `auditors` list plus a `--first` selection whose assistant the list lacks. The
   runner's real-bug gate removes settle in widening while the latest settled read of the scope by
-  an assistant the pool can run carries an accepted A, and removes stop otherwise while that read
-  carries an accepted A or B. A widening judge chooses settle, stop or a pool entry; every other
+  an assistant the pool can run carries an accepted A, and removes ready and stop otherwise while
+  that read carries an accepted A or B. A widening judge chooses settle, stop or a pool entry; a
+  detailing judge before the plan's ready marker chooses ready, stop or a pool entry; every other
   judge chooses stop or a pool entry. The output stores its answer, the chosen entry for a
   continuation, in the final entry. Manual queues and commit targets run no
   judge. The round records both repositories' HEADs before the fix, reads the landed records and
@@ -177,27 +178,24 @@ consumers.
   histories by commit date. No episode file is written. The hidden hand-run command takes a
   one-based inclusive line range over the current indented view. It states the returned range and
   current total on every call, including an out-of-range call that returns no evidence lines.
-- `judge.ts` reads one round kind's retained data, the stem's episode commit
-  list, `STOP-CONDITIONS.md` and the newest watch. It applies the settled-span
-  gate and the latest settled entry on the scope of each assistant the series
-  pool can run to decide whether the phase's ending is available. An assistant
-  the pool cannot run imposes nothing, because the series could never unlock
-  an ending its read withheld. Widening has no settled-span cut and always
-  admits stop, while the gate controls settle on an accepted A alone: a widening
-  B is a fixable issue inside the shape that the vet checked and the fix landed,
-  and the retained settling recommendation already says whether a shape
-  question remains. Detailing and implementation use the gate on an accepted A
-  or B to control stop. Detailing uses the current span. Implementation
-  uses every settled entry on its scope target. Only the exact current
-  `in-progress` entry is eligible.
-  Failed or interrupted entries with landed records remain eligible. It offers
-  every pool entry after the admitted endings and validates the judge's single
-  answer and reason without deriving watch-only facts. A continuation names an
-  offered entry as `<assistant> <model> <effort>` and reads back as that entry.
-  Each entry's model is the release its CLI resolved at startup, through the
-  queue's `auditorSetting`. The round data names every round's auditor by that
-  release, so an alias in the settings cannot hide a listed auditor's rounds
-  from the judge.
+- `judge.ts` reads one round kind's retained data, the stem's episode commit list,
+  `STOP-CONDITIONS.md` and the newest watch. It applies the settled-span gate and the latest settled
+  entry on the scope of each assistant the series pool can run to decide whether the phase's ending
+  is available. An assistant the pool cannot run imposes nothing, because the series could never
+  unlock an ending its read withheld. Widening has no settled-span cut and always admits stop, while
+  the gate controls settle on an accepted A alone: a widening B is a fixable issue inside the shape
+  that the vet checked and the fix landed, and the retained settling recommendation already says
+  whether a shape question remains. Detailing and implementation use the gate on an accepted A or B
+  to control stop, and detailing to control ready too. Detailing offers ready only while the
+  episode's plan-repo commits hold no `ready` record, so the planning round after the marker keeps
+  stop alone. Detailing uses the current span. Implementation uses every settled entry on its scope
+  target. Only the exact current `in-progress` entry is eligible. Failed or interrupted entries with
+  landed records remain eligible. It offers every pool entry after the admitted endings and
+  validates the judge's single answer and reason without deriving watch-only facts. A continuation
+  names an offered entry as `<assistant> <model> <effort>` and reads back as that entry. Each
+  entry's model is the release its CLI resolved at startup, through the queue's `auditorSetting`.
+  The round data names every round's auditor by that release, so an alias in the settings cannot
+  hide a listed auditor's rounds from the judge.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
   topic from the audited plan for every runner glance. The episode reader
@@ -534,8 +532,11 @@ consumers.
   list plus the resolved `--first` selection when the list has no entry for its assistant, for every
   scope the run opens; otherwise the selection runs only the first round. A `first` default opens on
   the first entry and a `random` default picks an entry for each scope's series. The
-  series writes no queue and ends on settle or stop, the configured maximum, a failure, an
-  unanswered ruling, a red watch or a phase change. Before an automatic implementation series
+  series writes no queue and ends on settle, ready or stop, the configured maximum, a failure, an
+  unanswered ruling, a red watch or a phase change. It returns that ending as a value: `settle` or
+  `ready` for the judge's lifecycle answer, `ended` for a judge stop, the maximum or an emptied
+  manual queue, and `stopped` for an ending that needs the user, so a reader never parses the
+  printed lines. Before an automatic implementation series
   starts, the runner computes the open set and chains one scoped planning round for plan-bound
   deferrals. After each finished implementation-audit round, it computes the set again. It chains
   the planning round only when the series remains eligible to continue to its judge. A red
@@ -556,7 +557,7 @@ consumers.
   the terminal's last lines both carry the recommendation. A resolved scope list, whether typed or
   derived from a completed plan's audit ranges, runs one series per scope in list order. Each scope
   opens as its own series: the opener is chosen again, `--first` opens every scope and the round
-  count starts over. A judge stop or the maximum ends only that scope and the next one is announced.
+  count starts over. Every ending but `stopped` ends only that scope and the next one is announced.
   A failure, an unanswered ruling, a red watch or a plan phase change ends the whole list and names
   the scopes that did not run. After target resolution, the list is refused beside `--auditor`,
   whose queue belongs to one target and whose pairing with the scopes would need a second reading,
@@ -1015,10 +1016,10 @@ cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an
 at the plan root, or takes the most recently modified one when none is named. It reads its kind from
 the transcript title, writes beside it without claiming a new number and overwrites its standalone
 log on each run. Without `--auditor`, an active plan runs an automatic series from the `--first`
-selection or the configured default, follows each fresh judge answer and stops at settle, stop or
-its maximum without writing a queue. A settle answer ends the series with the settle command to run
-and leaves the widening plan unchanged for the user to settle or keep widening; its reason stays in
-the round. A detailing stop whose reason recommends ready
+selection or the configured default, follows each fresh judge answer and stops at settle, ready,
+stop or its maximum without writing a queue. A settle answer ends the series with the settle command
+to run and leaves the widening plan unchanged for the user to settle or keep widening; its reason
+stays in the round. A detailing ready answer ends the series with the ready command to run and
 leaves the settled plan unchanged for the user to mark ready or keep detailing. Commit targets run
 once. A scope list runs that series once per scope in list order, each scope on its own target, and
 stops the whole list only where a series needs the user: a failure, an unanswered ruling, a red

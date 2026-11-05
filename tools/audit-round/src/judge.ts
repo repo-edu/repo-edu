@@ -120,10 +120,11 @@ function landedGatingFinding(
 
 /**
  * The decisions the current series phase admits after applying the real-bug
- * gate, followed by every series-pool entry. The gate reads the latest settled
- * read of each assistant the pool can run: an assistant the series cannot send
- * in again imposes nothing, so it cannot hold an ending the series can never
- * unlock.
+ * gate, followed by every series-pool entry. Widening may end on settle or
+ * stop; detailing before the ready marker on ready or stop; every other phase
+ * on stop. The gate reads the latest settled read of each assistant the pool
+ * can run: an assistant the series cannot send in again imposes nothing, so it
+ * cannot hold an ending the series can never unlock.
  */
 export function judgeOptions(
   evidence: JudgeEvidence,
@@ -139,14 +140,12 @@ export function judgeOptions(
       entry.target === currentRound.target &&
       entry.round === currentRound.round,
   )
-  if (
-    current !== undefined &&
-    "phase" in current &&
-    current.phase === "detailing"
-  ) {
-    const planCommits = evidence.commits.filter(
-      (commit) => commit.repository === "plan",
-    )
+  const planCommits = evidence.commits.filter(
+    (commit) => commit.repository === "plan",
+  )
+  const detailing =
+    current !== undefined && "phase" in current && current.phase === "detailing"
+  if (detailing) {
     const cutoff =
       planCommits.findLast((commit) => commit.role === "settle") ??
       planCommits.findLast((commit) => commit.role === "init")
@@ -170,9 +169,18 @@ export function judgeOptions(
   const canEnd = ![...latest.values()].some((entry) =>
     landedGatingFinding(entry, gatingTiers),
   )
-  return widening
-    ? [...(canEnd ? (["settle"] as const) : []), "stop", ...pool]
-    : [...(canEnd ? (["stop"] as const) : []), ...pool]
+  // A detailing round before the plan's ready marker may recommend that call
+  // as a value. After the marker the planning round keeps stop alone.
+  const readyOpen =
+    detailing && !planCommits.some((commit) => commit.role === "ready")
+  const endings: readonly JudgeDecision[] = widening
+    ? [...(canEnd ? (["settle"] as const) : []), "stop"]
+    : !canEnd
+      ? []
+      : readyOpen
+        ? ["ready", "stop"]
+        : ["stop"]
+  return [...endings, ...pool]
 }
 
 /** One series-pool entry as the runner offers it and the judge names it back. */
@@ -192,7 +200,7 @@ export function readJudgeAnswer(
   const lines = source.trim().split(/\r?\n/)
   const match =
     lines.length === 1
-      ? /^Judge: (settle|stop|continue with (?:claude|codex) \S+ (?:low|medium|high|xhigh))\. (\S.*)$/.exec(
+      ? /^Judge: (settle|ready|stop|continue with (?:claude|codex) \S+ (?:low|medium|high|xhigh))\. (\S.*)$/.exec(
           lines[0],
         )
       : null

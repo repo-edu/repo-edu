@@ -109,7 +109,7 @@ const roundStatus = z.enum([
 export const judgeAnswerSchema = z
   .strictObject({
     answer: z.union([
-      z.enum(["settle", "stop"]),
+      z.enum(["settle", "ready", "stop"]),
       z.strictObject({ assistant, model: z.string().min(1), effort }),
     ]),
     reason: z.string().min(1),

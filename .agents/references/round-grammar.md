@@ -1129,7 +1129,7 @@ Settling: maybe. The shape might be done.
 
 ```text
 <judge-answer>    ::= "Judge: "<judge-decision>". "<one-line-reason>
-<judge-decision>  ::= settle | stop | "continue with "<pool-entry>
+<judge-decision>  ::= settle | ready | stop | "continue with "<pool-entry>
 <pool-entry>      ::= <assistant>" "<model>" "<effort>
 <assistant>       ::= claude | codex
 <model>           ::= a non-empty model name without spaces
@@ -1137,8 +1137,8 @@ Settling: maybe. The shape might be done.
 <one-line-reason> ::= non-empty text on one line
 ```
 
-The answer is exactly one plain line. `settle` and `stop` are each admitted only
-when the runner offers them. A continuation names one series-pool entry exactly
+The answer is exactly one plain line. `settle`, `ready` and `stop` are each
+admitted only when the runner offers them. A continuation names one series-pool entry exactly
 as the runner printed it among the permitted options, and is admitted only when
 that entry is offered.
 
@@ -1170,6 +1170,20 @@ Refusal: `Judge answered settle while the runner offered only stop or codex gpt-
 
 ```text
 Judge: settle. No concrete shape question remains.
+```
+
+#### `judge/ready-available` — parsed
+
+```text
+Judge: ready. Both current reads found the brief complete with no remaining real bug.
+```
+
+#### `judge/ready-unavailable` — refused
+
+Refusal: `Judge answered ready while the runner offered only stop or codex gpt-5.6-sol xhigh`
+
+```text
+Judge: ready. Both current reads found the brief complete with no remaining real bug.
 ```
 
 #### `judge/continue-claude` — parsed
