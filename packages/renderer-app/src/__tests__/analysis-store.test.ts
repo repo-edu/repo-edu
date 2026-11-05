@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import { MAX_ANALYSIS_WORKFLOW_CONCURRENCY } from "@repo-edu/domain/analysis"
-import type { PersistedCourse } from "@repo-edu/domain/types"
+import {
+  type PersistedCourse,
+  resolveAnalysisConfig,
+} from "@repo-edu/domain/types"
 import { useAnalysisTransientStore } from "../analysis/analysis-transient-store.js"
 import { buildEffectiveBlameWorkflowConfig } from "../analysis/analysis-workflow-inputs.js"
 import {
@@ -78,9 +81,8 @@ describe("analysis view state", () => {
     })
 
     const merged = buildEffectiveBlameWorkflowConfig(
-      course,
+      resolveAnalysisConfig(course, ["py"], 4),
       useAnalysisStore.getState().blameConfig,
-      ["py"],
       4,
     )
     assert.equal(merged.subfolder, "src")
@@ -96,9 +98,8 @@ describe("analysis view state", () => {
 
   it("caps blame workflow concurrency at the workflow schema limit", () => {
     const merged = buildEffectiveBlameWorkflowConfig(
-      makeCourse({}),
+      resolveAnalysisConfig(makeCourse({}), ["ts"], 1),
       useAnalysisStore.getState().blameConfig,
-      ["ts"],
       MAX_ANALYSIS_WORKFLOW_CONCURRENCY * 8,
     )
 

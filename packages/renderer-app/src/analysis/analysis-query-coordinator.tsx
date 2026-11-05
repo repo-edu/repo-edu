@@ -1,21 +1,8 @@
 import type { AnalysisDiscoverReposResult } from "@repo-edu/application-contract"
-import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
-import type {
-  AnalysisBlameConfig,
-  AnalysisResult,
-  BlameResult,
-} from "@repo-edu/domain/analysis"
-import { resolveAnalysisConfig } from "@repo-edu/domain/types"
+import type { AnalysisResult, BlameResult } from "@repo-edu/domain/analysis"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useCallback, useMemo } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
-import { useAnalysisContext } from "../hooks/use-analysis-context.js"
-import {
-  selectActiveSurface,
-  selectAnalysisConcurrency,
-  selectDefaultExtensions,
-} from "../session/selectors.js"
-import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import {
   bindSessionStart,
@@ -63,12 +50,10 @@ import {
   analysisSourceKeyParts,
   analysisSourceScopeKey,
   blameResultScopeKey,
-  buildAnalysisOutputConfigKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
-  buildRosterOutputContextKey,
 } from "./analysis-query-keys.js"
-import { AnalysisSourceRunner } from "./analysis-source-runner.js"
+import { useAnalysisSourceInput } from "./analysis-source-input.js"
 import {
   EMPTY_PARTIAL_AUTHOR_LINES,
   useAnalysisTransientStore,
@@ -82,7 +67,6 @@ import {
   mergeAuthorStats,
   mergeFileStats,
 } from "./analysis-view-models.js"
-import { buildEffectiveBlameWorkflowConfig } from "./analysis-workflow-inputs.js"
 
 function toAppErrorMessage(error: unknown, fallback: string): string {
   return getErrorMessage(error, fallback)
@@ -95,12 +79,14 @@ export function AnalysisCoordinatorProvider({
 }) {
   const client = useWorkflowClient()
   const queryClient = useQueryClient()
-  const analysisContext = useAnalysisContext()
-  const activeSurface = useSessionControllerSelector(selectActiveSurface)
-  const activeSourceParts = useMemo(
-    () => analysisSourceKeyParts(analysisSourceKeyFromSurface(activeSurface)),
-    [activeSurface],
-  )
+  const {
+    input: sourceInput,
+    createSourceRunner,
+    effectiveBlameConfig,
+  } = useAnalysisSourceInput()
+  const activeSurface = sourceInput.activeSurface
+  const activeSourceParts = sourceInput.source
+  const analysisConfig = sourceInput.config
   const activeSourceText = useMemo(
     () => analysisSourceScopeKey(activeSourceParts),
     [activeSourceParts],
@@ -116,77 +102,7 @@ export function AnalysisCoordinatorProvider({
     selectPendingRepoDiscoveryRequestForScope(state, activeSourceText),
   )
   const searchDepth = useAnalysisStore((state) => state.searchDepth)
-  const blameConfig = useAnalysisStore((state) => state.blameConfig)
   const showRenames = useAnalysisStore((state) => state.showRenames)
-
-  const defaultExtensions = useSessionControllerSelector(
-    selectDefaultExtensions,
-  )
-  const analysisConcurrency = useSessionControllerSelector(
-    selectAnalysisConcurrency,
-  )
-
-  const analysisConfig = useMemo(() => {
-    if (analysisContext.kind === "none") return null
-    return resolveAnalysisConfig(
-      {
-        searchFolder: analysisContext.searchFolder,
-        analysisInputs: analysisContext.analysisInputs,
-      },
-      defaultExtensions,
-      analysisConcurrency.filesPerRepo,
-    )
-  }, [analysisConcurrency.filesPerRepo, analysisContext, defaultExtensions])
-
-  const sourceRunnerInput = JSON.stringify({
-    source: activeSourceParts,
-    config:
-      analysisConfig === null
-        ? null
-        : buildAnalysisOutputConfigKey(analysisConfig),
-    roster: buildRosterOutputContextKey(analysisContext.rosterContext),
-    kind: analysisContext.kind === "course" ? "course" : "folder",
-    concurrency: analysisConcurrency,
-  })
-  // The result key fields define input equality; the host still takes full inputs.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: The content key replaces the identities of the course-derived objects.
-  const createSourceRunner = useCallback(
-    (surface: PersistedActiveSurface) =>
-      analysisConfig === null
-        ? null
-        : new AnalysisSourceRunner(client, queryClient, {
-            source: analysisSourceKeyParts(
-              analysisSourceKeyFromSurface(surface),
-            ),
-            config: analysisConfig,
-            rosterContext: analysisContext.rosterContext,
-            kind: analysisContext.kind === "course" ? "course" : "folder",
-            repoParallelism: analysisConcurrency.repoParallelism,
-          }),
-    [client, queryClient, sourceRunnerInput],
-  )
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: The runner already keys source inputs, extensions and concurrency by content.
-  const effectiveBlameConfig = useMemo<AnalysisBlameConfig | null>(() => {
-    if (
-      analysisContext.kind === "none" ||
-      analysisContext.analysisInputs.blameSkip
-    )
-      return null
-    return buildEffectiveBlameWorkflowConfig(
-      {
-        searchFolder: analysisContext.searchFolder,
-        analysisInputs: analysisContext.analysisInputs,
-      },
-      blameConfig,
-      defaultExtensions,
-      analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo,
-    )
-  }, [
-    createSourceRunner,
-    blameConfig,
-    analysisContext.analysisInputs.blameSkip,
-  ])
 
   const discoveryQueryKey =
     discoveryInput === null
@@ -247,23 +163,22 @@ export function AnalysisCoordinatorProvider({
     ? null
     : (selectedSnapshotQuery.data ?? null)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: The runner already keys the source, analysis config and roster by content.
   const selectedAnalysisIdentity = useMemo<AnalysisQueryIdentity | null>(() => {
     if (
       selectedRepoPath === null ||
-      analysisConfig === null ||
+      sourceInput.config === null ||
       selectedSnapshotCommitOid === null
     ) {
       return null
     }
     return buildAnalysisQueryIdentity({
-      source: activeSourceParts,
+      source: sourceInput.source,
       repoPath: selectedRepoPath,
       snapshotCommitOid: selectedSnapshotCommitOid,
-      config: analysisConfig,
-      rosterContext: analysisContext.rosterContext,
+      config: sourceInput.config,
+      rosterContext: sourceInput.rosterContext,
     })
-  }, [createSourceRunner, selectedRepoPath, selectedSnapshotCommitOid])
+  }, [sourceInput, selectedRepoPath, selectedSnapshotCommitOid])
 
   const analysisScopeKey = useMemo(
     () =>
