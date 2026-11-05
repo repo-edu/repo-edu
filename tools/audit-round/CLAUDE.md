@@ -384,32 +384,36 @@ consumers.
   and an unchanged report produce no notice. A phase entry recorded before
   the launched selection was kept matches nothing. Invalid round data still
   stops the run before an assistant starts.
-- `models.ts` owns the model read-out and its two sections.
+- `models.ts` owns the model read-out and its five sections.
   `model-evidence.ts` reads checked round data once at the plan root and
   closed-plan archives, then joins the step, ready and closed records from both
   Git histories. `model-comparison.ts` owns the graded words and direct range
-  comparisons. Every recorded auditor and coder gets one row. The opening
-  sentence uses only current recorded rows. It states each auditor shortage
-  once per work class and each coder shortage once per measure. Auditor
-  comparisons use complete
-  settings-chosen openings only where
-  both rows were active, split planning from implementation and add audit and
-  rebuttal cost. Later and command-line rounds stay descriptive. Coder
+  comparisons. Every recorded auditor and coder gets one row. Planning and
+  implementation auditors have separate tables. Every complete round enters
+  its auditor's class, and every row with at least five rounds enters that
+  class's comparisons. A thinner row stays visible, states its shortage and
+  blocks no recommendation. Auditor cost adds audit and rebuttal time. Kept,
+  dropped, downgraded and disproved findings are exclusive counts; wrong claims
+  is the last three as a percentage of all four. A later disproval removes a
+  kept finding from coder evidence too. Coder
   yield comparisons use one closed plan per example. The archived plan
   supplies the listed steps, every hosted share must have a readable model
   record and the whole-plan audit must follow the final share. Records admit a
   plan without a ready assignment when they name one model and effort. An
   assignment, when present, must match. A readable step record without active
-  time withholds only the time example. Incomplete or mixed records keep the
-  plan visible but unranked. Time adds step and implementation-fix time and
-  excludes planning fixes.
-  Mean and standard deviation come from `simple-statistics`.
+  time falls back to the span from the ready marker or previous step to that
+  step's later share commit. A two-repo span counts once. Incomplete or mixed
+  records move to the excluded-plans section. Time adds step and
+  implementation-fix time and excludes planning fixes.
+  Mean comes from `simple-statistics`.
   Direct observed-range comparisons own the graded reading and clear-cut
-  recommendation. Coder spread and worst-plan yield may block a lead. Current
-  auditor rows come from the newest round and current coder rows from the live
-  coder list. The command starts no assistant and writes no round file or
-  round data. Like other commands that read settings, it creates a missing
-  `settings.json` from the defaults.
+  recommendation. Every row that reaches its minimum enters the pairwise
+  comparison. A winning auditor outside the current audit defaults, or a
+  winning coder outside the live coder list, is named as such. Disproved
+  findings are also listed with the user's full reason, and excluded plans are
+  grouped by reason with their recorded models. The command starts no assistant
+  and writes no round file or round data. Like other commands that read
+  settings, it creates a missing `settings.json` from the defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -863,20 +867,21 @@ Phase files use
 runner owns both writes.
 
 `models` reads every retained round-data file and both Git histories. It prints
-auditors, then coders. Each section opens with the graded comparison of current
-rows and states each current thin row's shortage once per work class. It gives
-a recommendation only where the current rows have the required sample count,
-their observed ranges separate and yield does not conflict with a clear time
-lead. The tables keep every recorded model visible. Auditor rows split
-settings-opened, later and manual rounds by audit class and show audit plus
-rebuttal time, accepted and dropped A/B findings, tokens and vet settings.
-Coder rows show separate yield and time plan counts, yield and time per step,
-spread, worst plan, dropped findings, implementation-fix tokens and excluded
-plans. A coder
-lead is withheld when its spread or worst plan is worse than another current
-ranked coder's. The command renders Markdown, starts no assistant and writes no
-round file or round data. Like other commands that read settings, it creates a
-missing `settings.json` from the defaults.
+planning auditors, implementation auditors, coders, disproved findings and
+excluded plans. Each comparison admits every row that reaches its minimum;
+thin rows remain visible and block nothing. It gives a recommendation only
+where the admitted rows' observed ranges separate and yield does not conflict
+with a clear time lead. A winner outside the current audit defaults or coder
+list is labelled. Auditor tables count complete rounds and their kept, dropped,
+downgraded and later-disproved A/B findings, with wrong claims as the last three
+over all four and audit plus rebuttal time per round. The coder table shows
+plans, timed plans, steps, kept A/B findings and time per step. A missing step
+time uses the span from the ready marker or previous step, with a two-repo step
+ending at its later share commit. The disproved section retains each full
+reason. The excluded-plans section groups plans by reason and names their
+recorded models. The command renders Markdown, starts no assistant and writes
+no round file or round data. Like other commands that read settings, it creates
+a missing `settings.json` from the defaults.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved plan and scope, or

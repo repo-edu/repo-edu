@@ -6,7 +6,6 @@ import { execa } from "execa"
 import {
   clearlyPreferred,
   clearlyPreferredMeasures,
-  coderReliabilityDisadvantages,
   comparisonPreposition,
   speedWords,
   yieldWords,
@@ -14,7 +13,7 @@ import {
 import { modelKey, readModelEvidence } from "../model-evidence.js"
 import { modelsReport } from "../models.js"
 import type { RoundData, RoundFinding } from "../round-data.js"
-import { writeRoundData } from "../round-data.js"
+import { writeDisprovedFinding, writeRoundData } from "../round-data.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { fixture } from "./helpers.js"
 import { commitFixture } from "./round-fixture.js"
@@ -264,11 +263,11 @@ test("the report names an auditor only with a clear lead in both audit classes",
 
   const report = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot },
-    [],
+    testSettings,
   )
   assert.match(
     report,
-    /current records clearly support running claude audit-strong low/,
+    /records clearly support running audit-strong low for planning audits/,
   )
 
   const path = join(f.planRoot, "auditor-impl-rounds.json")
@@ -292,30 +291,120 @@ test("the report names an auditor only with a clear lead in both audit classes",
   })
   const overlapping = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot },
-    [],
+    testSettings,
   )
-  assert.doesNotMatch(overlapping, /clearly support running/)
   assert.match(
     overlapping,
-    /current records do not separate one auditor clearly across both audit groups/,
+    /records clearly support running audit-strong low for planning audits/,
+  )
+  assert.match(
+    overlapping,
+    /records do not separate one implementation auditor clearly/,
   )
 })
 
-test("coder spread and worst-plan reliability block independently", () => {
-  assert.deepEqual(
-    coderReliabilityDisadvantages(
-      modelSamples([0, 0.4, 0.4]),
-      modelSamples([0.3, 0.3, 0.5]),
-    ),
-    { spread: true, worst: false },
+test("all complete rounds count, thin rows do not block and disproved claims stay visible", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
   )
-  assert.deepEqual(
-    coderReliabilityDisadvantages(
-      modelSamples([0.4, 0.4, 0.4]),
-      modelSamples([0, 0.3, 0.3]),
+  const path = join(f.planRoot, "evidence-plan-rounds.json")
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
+  const special = [
+    { ...finding("kept claim"), number: 1 },
+    {
+      ...finding("dropped claim"),
+      number: 2,
+      vetVerdict: "drop" as const,
+      outcome: "dropped" as const,
+    },
+    { ...finding("downgraded claim"), number: 3, finalTier: "C" as const },
+    { ...finding("later disproved claim"), number: 4 },
+  ]
+  for (const [assistant, model] of [
+    ["claude", "audit-strong"],
+    ["codex", "audit-weak"],
+  ] as const)
+    for (let index = 1; index <= 5; index += 1)
+      writeRoundData(path, {
+        ...round(
+          `${model}-plan`,
+          index,
+          `2026-10-${String(index).padStart(2, "0")}T${assistant === "claude" ? "10" : "11"}:00:00.000Z`,
+          { assistant, ...selection(model), chosenBy: "settings" },
+          settings("audit-strong", "audit-weak"),
+          [
+            phase("audit", assistant, model, 60_000),
+            phase(
+              "vet",
+              assistant === "claude" ? "codex" : "claude",
+              "vet-model",
+              60_000,
+            ),
+          ],
+          commits,
+          model === "audit-strong"
+            ? index === 1
+              ? special
+              : findings(1, `later claim ${index}`)
+            : [],
+        ),
+        phase: "detailing",
+        settling: "",
+      })
+  writeRoundData(path, {
+    ...round(
+      "audit-thin-plan",
+      1,
+      "2026-10-06T12:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-thin"),
+        chosenBy: "command-line",
+      },
+      settings("audit-strong", "audit-weak"),
+      [phase("audit", "codex", "audit-thin", 60_000)],
+      commits,
+      findings(10, "thin claim"),
     ),
-    { spread: false, worst: true },
+    phase: "detailing",
+    settling: "",
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-01",
+    reason: "The retained claim did not hold.",
+    target: "audit-strong-plan",
+    round: 1,
+    finding: 4,
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-02",
+    reason: "No retained round held this finding.",
+    auditor: { model: "audit-strong", effort: "low" },
+  })
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot },
+    testSettings,
   )
+  assert.match(
+    report,
+    /\| audit-strong low \| 5 \| 5 \| 1 \| 1 \| 2 \| 44% \| 1\.0 \|/,
+  )
+  assert.match(report, /audit-thin low needs 4 more examples/)
+  assert.match(
+    report,
+    /records clearly support running audit-strong low for planning audits/,
+  )
+  assert.match(report, /audit-strong low is not a current audit setting/)
+  assert.match(report, /## Disproved after the round/)
+  assert.match(report, /#4 later disproved claim/)
+  assert.match(report, /vet-model low; accept/)
+  assert.match(report, /The retained claim did not hold\./)
+  assert.match(report, /no retained round data holds this finding/)
+  assert.match(report, /No retained round held this finding\./)
 })
 
 test("an archived plan with an unreadable step list stays visible but unranked", async (t) => {
@@ -445,7 +534,96 @@ test("coder yield accepts agreeing unassigned records without step time", async 
   assert.equal(row.excluded.has(stem), false)
 })
 
-test("an active plan contributes no fix tokens without a step count", async (t) => {
+test("coder evidence removes disproved findings and falls back to one commit span per step", async (t) => {
+  const f = await modelFixture(t)
+  const stem = "commit-span"
+  await commit(
+    f.planRoot,
+    `${stem}/ready: declare the plan ready for implementation`,
+    "Coder: codex coder-alpha low",
+    "2026-10-01T10:00:00Z",
+  )
+  await commit(
+    f.root,
+    `${stem}/impl-1 obl feat(audit-round): fixture Repo Edu share`,
+    "coder-alpha low",
+    "2026-10-01T10:10:00Z",
+  )
+  await commit(
+    f.planRoot,
+    `${stem}/impl-1 obl docs(audit-round): fixture plan share`,
+    "coder-alpha low",
+    "2026-10-01T10:20:00Z",
+  )
+  await commit(
+    f.root,
+    `${stem}/impl-2 obl feat(audit-round): fixture second step`,
+    "coder-alpha low",
+    "2026-10-01T10:50:00Z",
+  )
+  const audit = await commit(
+    f.root,
+    `${stem}/impl-audit-1-2 obl clean: record the whole-plan audit`,
+    "coder-alpha low",
+    "2026-10-01T11:00:00Z",
+  )
+  await commit(
+    f.planRoot,
+    `${stem}/closed obl: close the fixture plan`,
+    "coder-alpha low",
+    "2026-10-01T11:10:00Z",
+  )
+  const archive = await archivePlan(f.planRoot, stem, ["both", "repo-edu"])
+  const path = join(archive, `${stem}-impl-rounds.json`)
+  writeRoundData(path, {
+    ...round(
+      `${stem}-impl-01..02`,
+      1,
+      "2026-10-01T11:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      settings("audit-alpha", "audit-beta"),
+      [
+        phase("audit", "claude", "audit-alpha", 60_000),
+        phase("fix", "codex", "coder-alpha", 600_000),
+      ],
+      [{ repository: "repo-edu", sha: audit }],
+      [finding("disproved implementation claim")],
+    ),
+    scope: "1-2",
+    judgedRepos: ["repo-edu", "plan"],
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-01",
+    reason: "The implementation claim was wrong.",
+    target: `${stem}-impl-01..02`,
+    round: 1,
+    finding: 1,
+  })
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+  })
+  const row = evidence.coders.get(
+    modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
+  )
+  assert.ok(row)
+  assert.deepEqual(row.yieldSamples, [{ stem, steps: 2, kept: 0, yield: 0 }])
+  assert.deepEqual(row.timeSamples, [{ stem, steps: 2, minutes: 30 }])
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot },
+    testSettings,
+  )
+  assert.match(report, /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 30\.0 \|/)
+  assert.match(report, /The implementation claim was wrong\./)
+})
+
+test("an active plan remains excluded without a step count", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -479,8 +657,6 @@ test("an active plan contributes no fix tokens without a step count", async (t) 
   )
   assert.ok(row)
   assert.equal(row.excluded.get("active"), "not closed")
-  assert.equal(row.tokenSteps, 0)
-  assert.deepEqual([...row.tokens], [])
 })
 
 test("models groups every recorded model, counts rebuttal cost, admits settings openings and excludes mixed and planning-fix coder evidence", async (t) => {
@@ -693,71 +869,54 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
-  assert.match(output, /## Auditors/)
-  assert.match(output, /codex audit-alpha low/)
-  assert.match(output, /claude audit-claude low/)
-  assert.match(output, /codex audit-third low/)
+  assert.match(output, /## Planning auditors/)
+  assert.match(output, /## Implementation auditors/)
+  assert.match(output, /audit-alpha low/)
+  assert.match(output, /audit-claude low/)
+  assert.match(output, /audit-third low/)
   const auditorReading = output
-    .split("## Auditors\n\n")[1]
+    .split("## Implementation auditors\n\n")[1]
     .split("\n\n| Model |")[0]
   assert.match(
     output,
-    /codex audit-alpha low.+first 1, yield 1\.0, dropped 0\.0, 3\.0 min/,
+    /\| audit-alpha low \| 1 \| 1 \| 0 \| 0 \| 0 \| 0% \| 3\.0 \|/,
   )
-  assert.match(
-    auditorReading,
-    /codex audit-admission low needs 3 more examples/,
-  )
+  assert.match(auditorReading, /audit-admission low needs 3 more examples/)
   assert.equal(
-    auditorReading.match(
-      /for planning audits, codex audit-admission low needs/g,
-    )?.length,
+    auditorReading.match(/audit-admission low needs 3 more examples/g)?.length,
     1,
   )
-  assert.equal(
-    auditorReading.match(
-      /for implementation audits, codex audit-admission low needs/g,
-    )?.length,
-    1,
-  )
-  assert.doesNotMatch(auditorReading, /codex audit-alpha low/)
-  assert.doesNotMatch(auditorReading, /codex audit-third low/)
+  assert.match(auditorReading, /audit-alpha low needs 4 more examples/)
   assert.doesNotMatch(auditorReading, /needs 0 more examples/)
   assert.match(
     output,
-    /codex audit-third low.+first none; later 1, yield 1\.0, dropped 0\.0, 1\.0 min; manual 0.+none/,
-  )
-  assert.match(
-    output,
-    /Later means a later settings-chosen round on a target that already has a finished round\. Manual means a round whose auditor the command line chose\./,
+    /\| audit-third low \| 1 \| 1 \| 0 \| 0 \| 0 \| 0% \| 1\.0 \|/,
   )
   assert.match(output, /## Coders/)
-  assert.match(
-    output,
-    /codex coder-alpha low.+mixed: mixed model records.+effort-mixed: mixed model records/,
-  )
-  assert.doesNotMatch(output, /no-assignment: /)
-  assert.match(output, /codex coder-beta low.+mixed: mixed model records/)
-  assert.match(
-    output,
-    /codex coder-alpha high.+effort-mixed: mixed model records/,
-  )
+  assert.match(output, /\| coder-alpha low \| 1 \| 1 \| 1 \| 1 \| 10\.0 \|/)
+  assert.match(output, /## Excluded plans/)
+  assert.match(output, /mixed: coder-alpha low, coder-beta low/)
+  assert.match(output, /effort-mixed: coder-alpha high, coder-alpha low/)
+  assert.doesNotMatch(output, /no-assignment:/)
   const coderReading = output
     .split("## Coders\n\n")[1]
     .split("\n\n| Model |")[0]
-  assert.equal(coderReading.match(/codex coder-alpha low needs/g)?.length, 2)
-  assert.equal(coderReading.match(/codex coder-beta low needs/g)?.length, 2)
-  assert.doesNotMatch(coderReading, /coder-alpha high/)
+  assert.equal(coderReading.match(/coder-alpha low needs/g)?.length, 2)
+  assert.equal(coderReading.match(/coder-beta low needs/g)?.length, 2)
+  assert.equal(
+    coderReading.match(/coder-alpha high needs 3 more examples/g)?.length,
+    2,
+  )
   assert.doesNotMatch(coderReading, /needs 0 more examples/)
   assert.doesNotMatch(output, /planning-fixer/)
-  assert.match(output, /the current records do not separate one coder clearly/)
+  assert.match(output, /the records do not separate one coder clearly/)
   assert.doesNotMatch(output, /codex-vet low/)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
 })
 
-test("the report names both reliability blocks on an otherwise clear coder lead", async (t) => {
+test("coder spread and worst plan do not block an otherwise clear lead", async (t) => {
   const f = await modelFixture(t)
   let planIndex = 0
   const addPlan = async (
@@ -817,28 +976,24 @@ test("the report names both reliability blocks on an otherwise clear coder lead"
 
   await addPlan("alpha-low-1", "coder-alpha", 1, 0, 1)
   await addPlan("alpha-low-2", "coder-alpha", 1, 0, 1)
-  await addPlan("alpha-variable", "coder-alpha", 2, 1, 1)
+  await addPlan("alpha-variable", "coder-alpha", 2, 1, 4)
   await addPlan("beta-steady-1", "coder-beta", 6, 1, 10)
   await addPlan("beta-steady-2", "coder-beta", 6, 1, 10)
   await addPlan("beta-steady-3", "coder-beta", 6, 1, 10)
 
   const report = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot },
-    [
-      { assistant: "codex", model: "coder-alpha", effort: "low" },
-      { assistant: "codex", model: "coder-beta", effort: "low" },
-    ],
+    {
+      ...testSettings,
+      coders: [
+        { assistant: "codex", model: "coder-alpha", effort: "low" },
+        { assistant: "codex", model: "coder-beta", effort: "low" },
+      ],
+    },
   )
-  assert.match(
-    report,
-    /codex coder-alpha low has higher spread than codex coder-beta low/,
-  )
-  assert.match(
-    report,
-    /codex coder-alpha low has the worse worst plan, alpha-variable at 0\.5 findings per step/,
-  )
-  assert.match(report, /reliability blocks the otherwise clear coder lead/)
-  assert.doesNotMatch(report, /clearly support running codex coder-alpha low/)
+  assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)
+  assert.match(report, /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 2\.5 \|/)
+  assert.match(report, /records clearly support running coder-alpha low/)
 })
 
 test("coder admission needs every archived plan share and a current whole-plan audit", async (t) => {

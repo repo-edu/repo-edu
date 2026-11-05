@@ -1021,7 +1021,7 @@ export async function runCommand(
     if (invocation.kind === "models") {
       const modelSettings = options.settings ?? (await readSettings())
       options.terminal.write(
-        await modelsReport(context, modelSettings.coders),
+        await modelsReport(context, modelSettings),
         "markdown",
       )
       return 0

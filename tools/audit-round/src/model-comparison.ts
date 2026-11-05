@@ -1,4 +1,4 @@
-import { mean, standardDeviation } from "simple-statistics"
+import { mean } from "simple-statistics"
 
 const yieldSame = 0.05
 const yieldClear = 0.5
@@ -118,19 +118,4 @@ export function clearlyPreferredMeasures(
         mean(secondYield.map((sample) => sample.yield)),
     ) < yieldSame
   return yieldsMatch && clearTimeLeader(firstTime, secondTime)
-}
-
-/** Whether the first coder's spread or worst observed plan is less reliable. */
-export function coderReliabilityDisadvantages(
-  first: readonly YieldSample[],
-  second: readonly YieldSample[],
-): { readonly spread: boolean; readonly worst: boolean } {
-  return {
-    spread:
-      standardDeviation(first.map((sample) => sample.yield)) >
-      standardDeviation(second.map((sample) => sample.yield)),
-    worst:
-      Math.max(...first.map((sample) => sample.yield)) >
-      Math.max(...second.map((sample) => sample.yield)),
-  }
 }

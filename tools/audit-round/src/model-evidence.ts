@@ -8,9 +8,10 @@ import type { ReadingSample } from "./model-comparison.js"
 import type { Assistant } from "./phase.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
-  type ModelTokenUsage,
+  type DisprovedFinding,
   parseRoundDataFile,
   type RoundData,
+  type RoundDataFile,
   type RoundFinding,
   roundDataFiles,
 } from "./round-data.js"
@@ -20,34 +21,38 @@ import { looseForm } from "./subject.js"
 export type WorkClass = "planning" | "implementation"
 
 export type ModelIdentity = {
-  readonly assistant: Assistant
+  readonly assistant: Assistant | null
   readonly model: string
   readonly effort: string | null
 }
 
-export type TokenTotals = Map<string, Omit<ModelTokenUsage, "model">>
+export type FindingCounts = {
+  readonly kept: number
+  readonly dropped: number
+  readonly downgraded: number
+  readonly disproved: number
+}
 
 export type AuditorSample = ReadingSample & {
   readonly workClass: WorkClass
-  readonly position: "first" | "later" | "manual"
-  readonly active: ReadonlySet<string>
-  readonly dropped: number
-  readonly tokens: TokenTotals
+  readonly counts: FindingCounts
 }
 
 export type AuditorRow = {
   readonly identity: ModelIdentity
   readonly samples: AuditorSample[]
-  readonly vets: Set<string>
+  readonly detachedDisproved: Record<WorkClass, number>
 }
 
 export type CoderSample = Pick<ReadingSample, "yield"> & {
   readonly stem: string
-  readonly dropped: number
+  readonly steps: number
+  readonly kept: number
 }
 
 export type CoderTimeSample = {
   readonly stem: string
+  readonly steps: number
   readonly minutes: number
 }
 
@@ -56,14 +61,42 @@ export type CoderRow = {
   readonly yieldSamples: CoderSample[]
   readonly timeSamples: CoderTimeSample[]
   readonly excluded: Map<string, string>
-  readonly tokens: TokenTotals
-  tokenSteps: number
 }
+
+type DisprovedBase = {
+  readonly stem: string
+  readonly workClass: WorkClass
+  readonly date: string
+  readonly reason: string
+  readonly auditor: ModelIdentity
+}
+
+export type DisprovedEvidence =
+  | (DisprovedBase & {
+      readonly kind: "attached"
+      readonly target: string
+      readonly round: number
+      readonly finding: number
+      readonly title: string
+      readonly tier: RoundFinding["tier"]
+      readonly vet: ModelIdentity | null
+      readonly vetVerdict: RoundFinding["vetVerdict"]
+    })
+  | (DisprovedBase & {
+      readonly kind: "detached"
+    })
 
 export type ModelEvidence = {
   readonly auditors: ReadonlyMap<string, AuditorRow>
-  readonly currentAuditors: readonly string[]
   readonly coders: ReadonlyMap<string, CoderRow>
+  readonly disproved: readonly DisprovedEvidence[]
+}
+
+type RoundFileRecord = {
+  readonly file: string
+  readonly stem: string
+  readonly workClass: WorkClass
+  readonly data: RoundDataFile
 }
 
 type RoundRecord = {
@@ -71,6 +104,7 @@ type RoundRecord = {
   readonly stem: string
   readonly workClass: WorkClass
   readonly data: RoundData
+  readonly disprovedFindingNumbers: ReadonlySet<number>
 }
 
 type HistoryCommit = LogCommit & {
@@ -91,6 +125,7 @@ type StepShare = {
 type PlanEvidence = {
   readonly stem: string
   assignment: Coder | null
+  readyCommit: HistoryCommit | null
   closed: boolean
   listedSteps: readonly PlanStep[] | null
   readonly stepShares: Map<string, StepShare>
@@ -101,8 +136,14 @@ export function modelKey(identity: ModelIdentity): string {
   return JSON.stringify([identity.assistant, identity.model, identity.effort])
 }
 
+export function auditorKey(
+  identity: Pick<ModelIdentity, "model" | "effort">,
+): string {
+  return JSON.stringify([identity.model, identity.effort])
+}
+
 export function modelText(identity: ModelIdentity): string {
-  return `${identity.assistant} ${identity.model} ${identity.effort ?? "effort unavailable"}`
+  return `${identity.model} ${identity.effort ?? "effort unavailable"}`
 }
 
 function selectionIdentity(
@@ -110,31 +151,6 @@ function selectionIdentity(
   selection: { readonly model: string; readonly effort: string | null },
 ): ModelIdentity {
   return { assistant, model: selection.model, effort: selection.effort }
-}
-
-export function addTokens(
-  target: TokenTotals,
-  source: readonly ModelTokenUsage[],
-): void {
-  for (const usage of source) {
-    const current = target.get(usage.model) ?? {
-      input: 0,
-      cached: 0,
-      output: 0,
-    }
-    target.set(usage.model, {
-      input: current.input + usage.input,
-      cached: current.cached + usage.cached,
-      output: current.output + usage.output,
-    })
-  }
-}
-
-export function mergeTokens(target: TokenTotals, source: TokenTotals): void {
-  addTokens(
-    target,
-    [...source].map(([model, usage]) => ({ model, ...usage })),
-  )
 }
 
 /** A runner round supplies settled evidence only after its commits and findings agree. */
@@ -154,29 +170,31 @@ function finalTier(finding: RoundFinding): RoundFinding["tier"] {
   return finding.finalTier ?? finding.tier
 }
 
-function acceptedYield(findings: readonly RoundFinding[]): number {
-  return findings.filter(
-    (finding) =>
-      finding.outcome === "kept" &&
-      (finalTier(finding) === "A" || finalTier(finding) === "B"),
-  ).length
+function emptyFindingCounts(): FindingCounts {
+  return { kept: 0, dropped: 0, downgraded: 0, disproved: 0 }
 }
 
-function droppedYield(findings: readonly RoundFinding[]): number {
-  return findings.filter(
-    (finding) =>
-      finding.outcome === "dropped" &&
-      (finding.tier === "A" || finding.tier === "B"),
-  ).length
-}
-
-function roundAuditKeys(round: RoundData): ReadonlySet<string> {
-  const keys = new Set<string>()
-  for (const assistant of ["claude", "codex"] as const) {
-    const selection = round.settings.audit[assistant]
-    keys.add(modelKey(selectionIdentity(assistant, selection)))
+function findingCounts(
+  findings: readonly RoundFinding[],
+  disproved: ReadonlySet<number>,
+): FindingCounts {
+  const counts = { ...emptyFindingCounts() }
+  for (const finding of findings) {
+    if (finding.tier !== "A" && finding.tier !== "B") continue
+    if (finding.outcome === "dropped") {
+      counts.dropped += 1
+      continue
+    }
+    if (finding.outcome !== "kept") continue
+    if (finding.number !== null && disproved.has(finding.number)) {
+      counts.disproved += 1
+      continue
+    }
+    if (finalTier(finding) === "A" || finalTier(finding) === "B")
+      counts.kept += 1
+    else counts.downgraded += 1
   }
-  return keys
+  return counts
 }
 
 function roundDataStem(file: string): string {
@@ -186,97 +204,172 @@ function roundDataStem(file: string): string {
   return match[1]
 }
 
-async function readRoundRecords(
-  context: ExecutionContext,
-): Promise<RoundRecord[]> {
-  const files = await roundDataFiles(context.planRoot)
-  const records = (
-    await Promise.all(
-      files.map(async (file) => {
-        const display = relative(context.planRoot, file)
-        let entries: RoundData[]
-        try {
-          entries = [
-            ...parseRoundDataFile(file, await readFile(file, "utf8")).rounds,
-          ]
-        } catch (error) {
-          throw new Error(
-            `Invalid round data in ${display}: ${error instanceof Error ? error.message : String(error)}`,
-            { cause: error },
-          )
-        }
-        return entries.map(
-          (data): RoundRecord => ({
-            file: display,
-            stem: roundDataStem(file),
-            workClass: "phase" in data ? "planning" : "implementation",
-            data,
-          }),
-        )
-      }),
-    )
-  ).flat()
-  return records.sort(
-    (first, second) =>
-      first.data.started.localeCompare(second.data.started) ||
-      first.file.localeCompare(second.file) ||
-      first.data.round - second.data.round,
+function roundWorkClass(file: string): WorkClass {
+  return file.endsWith("-plan-rounds.json") ? "planning" : "implementation"
+}
+
+function attachedNumbers(
+  disproved: readonly DisprovedFinding[],
+  round: RoundData,
+): ReadonlySet<number> {
+  return new Set(
+    disproved.flatMap((entry) =>
+      "target" in entry &&
+      entry.target === round.target &&
+      entry.round === round.round
+        ? [entry.finding]
+        : [],
+    ),
   )
 }
 
-function auditorRows(records: readonly RoundRecord[]): Map<string, AuditorRow> {
+async function readRoundFiles(
+  context: ExecutionContext,
+): Promise<RoundFileRecord[]> {
+  const files = await roundDataFiles(context.planRoot)
+  return Promise.all(
+    files.map(async (file) => {
+      const display = relative(context.planRoot, file)
+      try {
+        return {
+          file: display,
+          stem: roundDataStem(file),
+          workClass: roundWorkClass(file),
+          data: parseRoundDataFile(file, await readFile(file, "utf8")),
+        }
+      } catch (error) {
+        throw new Error(
+          `Invalid round data in ${display}: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
+        )
+      }
+    }),
+  )
+}
+
+function roundRecords(files: readonly RoundFileRecord[]): RoundRecord[] {
+  return files
+    .flatMap((file) =>
+      (file.data.rounds as readonly RoundData[]).map(
+        (data): RoundRecord => ({
+          file: file.file,
+          stem: file.stem,
+          workClass: file.workClass,
+          data,
+          disprovedFindingNumbers: attachedNumbers(file.data.disproved, data),
+        }),
+      ),
+    )
+    .sort(
+      (first, second) =>
+        first.data.started.localeCompare(second.data.started) ||
+        first.file.localeCompare(second.file) ||
+        first.data.round - second.data.round,
+    )
+}
+
+function reportedVet(round: RoundData): ModelIdentity | null {
+  const phase = round.phases.find((candidate) => candidate.phase === "vet")
+  if (phase === undefined) return null
+  return {
+    assistant: phase.assistant,
+    model: phase.model,
+    effort: phase.effort,
+  }
+}
+
+function disprovedEvidence(
+  files: readonly RoundFileRecord[],
+): DisprovedEvidence[] {
+  return files
+    .flatMap((file) =>
+      file.data.disproved.map((entry): DisprovedEvidence => {
+        if ("auditor" in entry)
+          return {
+            kind: "detached",
+            stem: file.stem,
+            workClass: file.workClass,
+            date: entry.date,
+            reason: entry.reason,
+            auditor: { assistant: null, ...entry.auditor },
+          }
+        const round = (file.data.rounds as readonly RoundData[]).find(
+          (candidate) =>
+            candidate.target === entry.target &&
+            candidate.round === entry.round,
+        )
+        const finding = round?.findings.find(
+          (candidate) => candidate.number === entry.finding,
+        )
+        if (round === undefined || finding === undefined)
+          throw new Error(
+            `Disproved finding ${entry.target} round ${entry.round} finding ${entry.finding} has no retained finding in ${file.file}`,
+          )
+        return {
+          kind: "attached",
+          stem: file.stem,
+          workClass: file.workClass,
+          date: entry.date,
+          reason: entry.reason,
+          auditor: selectionIdentity(round.auditor.assistant, round.auditor),
+          target: entry.target,
+          round: entry.round,
+          finding: entry.finding,
+          title: finding.title,
+          tier: finding.tier,
+          vet: reportedVet(round),
+          vetVerdict: finding.vetVerdict,
+        }
+      }),
+    )
+    .sort(
+      (first, second) =>
+        auditorKey(first.auditor).localeCompare(auditorKey(second.auditor)) ||
+        second.date.localeCompare(first.date) ||
+        first.stem.localeCompare(second.stem),
+    )
+}
+
+function auditorRows(
+  records: readonly RoundRecord[],
+  disproved: readonly DisprovedEvidence[],
+): Map<string, AuditorRow> {
   const rows = new Map<string, AuditorRow>()
-  const targetKey = (record: RoundRecord) =>
-    JSON.stringify([record.workClass, record.stem, record.data.target])
-  const firstFinishedRounds = new Map<string, number>()
-  for (const record of records) {
-    if (!modelRoundComplete(record.data)) continue
-    const key = targetKey(record)
-    const first = firstFinishedRounds.get(key)
-    if (first === undefined || record.data.round < first)
-      firstFinishedRounds.set(key, record.data.round)
+  const ensureRow = (identity: ModelIdentity) => {
+    const key = auditorKey(identity)
+    const row = rows.get(key) ?? {
+      identity,
+      samples: [],
+      detachedDisproved: { planning: 0, implementation: 0 },
+    }
+    rows.set(key, row)
+    return row
   }
   for (const record of records) {
     const identity = selectionIdentity(
       record.data.auditor.assistant,
       record.data.auditor,
     )
-    const key = modelKey(identity)
-    const row = rows.get(key) ?? {
-      identity,
-      samples: [],
-      vets: new Set<string>(),
-    }
-    const vetAssistant = identity.assistant === "claude" ? "codex" : "claude"
-    const vet = record.data.settings.vet[vetAssistant]
-    row.vets.add(`${vet.model} ${vet.effort ?? "effort unavailable"}`)
-    if (modelRoundComplete(record.data)) {
-      const firstFinished =
-        firstFinishedRounds.get(targetKey(record)) === record.data.round
-      const owned = record.data.phases.filter(
-        (phase) => phase.phase === "audit" || phase.phase === "rebut",
-      )
-      const tokens: TokenTotals = new Map()
-      for (const phase of owned) addTokens(tokens, phase.tokens)
-      row.samples.push({
-        workClass: record.workClass,
-        position:
-          record.data.auditor.chosenBy !== "settings"
-            ? "manual"
-            : firstFinished
-              ? "first"
-              : "later",
-        active: roundAuditKeys(record.data),
-        yield: acceptedYield(record.data.findings),
-        dropped: droppedYield(record.data.findings),
-        minutes:
-          owned.reduce((total, phase) => total + phase.milliseconds, 0) /
-          60_000,
-        tokens,
-      })
-    }
-    rows.set(key, row)
+    const row = ensureRow(identity)
+    if (!modelRoundComplete(record.data)) continue
+    const owned = record.data.phases.filter(
+      (phase) => phase.phase === "audit" || phase.phase === "rebut",
+    )
+    const counts = findingCounts(
+      record.data.findings,
+      record.disprovedFindingNumbers,
+    )
+    row.samples.push({
+      workClass: record.workClass,
+      yield: counts.kept,
+      minutes:
+        owned.reduce((total, phase) => total + phase.milliseconds, 0) / 60_000,
+      counts,
+    })
   }
+  for (const entry of disproved)
+    if (entry.kind === "detached")
+      ensureRow(entry.auditor).detachedDisproved[entry.workClass] += 1
   return rows
 }
 
@@ -308,7 +401,7 @@ function stepRecord(commit: HistoryCommit): StepRecord | null {
   try {
     minutes = readStepModelRecord(commit.body).minutes
   } catch {
-    // Older step records still create their descriptive row, but cannot rank.
+    // Step records from before active timing still contribute through their commit span.
   }
   return {
     identity: { assistant, model: selection[1], effort: selection[2] },
@@ -326,6 +419,7 @@ function planEvidence(
   const created: PlanEvidence = {
     stem,
     assignment: null,
+    readyCommit: null,
     closed: false,
     listedSteps: null,
     stepShares: new Map(),
@@ -370,14 +464,61 @@ function listedStepRecords(plan: PlanEvidence): StepRecord[] | null {
   return records
 }
 
+function stepRecords(plan: PlanEvidence, step: PlanStep): StepRecord[] | null {
+  const records: StepRecord[] = []
+  for (const repository of step.repositories) {
+    const record = plan.stepShares.get(
+      stepShareKey(repository, step.number),
+    )?.record
+    if (record === undefined || record === null) return null
+    records.push(record)
+  }
+  return records
+}
+
+function laterCommit(records: readonly StepRecord[]): HistoryCommit {
+  return records.reduce(
+    (latest, record) =>
+      Date.parse(record.commit.committedAt) > Date.parse(latest.committedAt)
+        ? record.commit
+        : latest,
+    records[0].commit,
+  )
+}
+
+function implementationMinutes(plan: PlanEvidence): number | null {
+  if (plan.listedSteps === null) return null
+  let previous = plan.readyCommit
+  let total = 0
+  for (const step of plan.listedSteps) {
+    const records = stepRecords(plan, step)
+    if (records === null) return null
+    const latest = laterCommit(records)
+    if (records.every((record) => record.minutes !== null))
+      total += records.reduce(
+        (minutes, record) => minutes + (record.minutes ?? 0),
+        0,
+      )
+    else {
+      if (previous === null) return null
+      const span =
+        Date.parse(latest.committedAt) - Date.parse(previous.committedAt)
+      if (!Number.isFinite(span) || span < 0) return null
+      total += span / 60_000
+    }
+    previous = latest
+  }
+  return total
+}
+
 function hasWholePlanAudit(
   plan: PlanEvidence,
   history: ReadonlyMap<string, HistoryCommit>,
 ): boolean {
   const finalStep = plan.listedSteps?.length ?? 0
   if (finalStep === 0) return false
-  const stepRecords = listedStepRecords(plan)
-  if (stepRecords === null) return false
+  const records = listedStepRecords(plan)
+  if (records === null) return false
   const scope = finalStep === 1 ? "1" : `1-${finalStep}`
   const newerThanStep = (audit: HistoryCommit, step: StepRecord) =>
     audit.repository === step.commit.repository
@@ -393,7 +534,7 @@ function hasWholePlanAudit(
         const form = record === undefined ? null : looseForm(record.subject)
         return (
           record !== undefined &&
-          stepRecords.every((step) => newerThanStep(record, step)) &&
+          records.every((step) => newerThanStep(record, step)) &&
           form?.stem === plan.stem &&
           form.role === `impl-audit-${scope}`
         )
@@ -468,15 +609,15 @@ async function coderRows(
     ]),
   )
   const plans = new Map<string, PlanEvidence>()
-  for (const record of records) {
+  for (const record of records)
     if (record.workClass === "implementation")
       planEvidence(record.stem, plans).rounds.push(record)
-  }
   for (const commit of [...repoEduHistory, ...planHistory]) {
     const form = looseForm(commit.subject)
     if (form === null) continue
     const plan = planEvidence(form.stem, plans)
     if (form.role === "ready" && commit.repository === "plan") {
+      if (plan.readyCommit === null) plan.readyCommit = commit
       if (plan.assignment === null)
         plan.assignment = parseCoderRecord(commit.body)
       continue
@@ -492,9 +633,7 @@ async function coderRows(
     const step = Number(scope)
     const key = stepShareKey(commit.repository, step)
     if (!plan.stepShares.has(key))
-      plan.stepShares.set(key, {
-        record: stepRecord(commit),
-      })
+      plan.stepShares.set(key, { record: stepRecord(commit) })
   }
   await Promise.all(
     [...plans.values()].map(async (plan) => {
@@ -511,8 +650,6 @@ async function coderRows(
       yieldSamples: [],
       timeSamples: [],
       excluded: new Map<string, string>(),
-      tokens: new Map<string, Omit<ModelTokenUsage, "model">>(),
-      tokenSteps: 0,
     }
     rows.set(key, row)
     return row
@@ -520,7 +657,6 @@ async function coderRows(
 
   for (const plan of plans.values()) {
     const actual = new Map<string, ModelIdentity>()
-    const tokensByModel = new Map<string, TokenTotals>()
     const expectedShares =
       plan.listedSteps === null
         ? new Set(plan.stepShares.keys())
@@ -528,54 +664,46 @@ async function coderRows(
     for (const [key, share] of plan.stepShares)
       if (expectedShares.has(key) && share.record !== null)
         actual.set(modelKey(share.record.identity), share.record.identity)
-    for (const round of plan.rounds) {
+    for (const round of plan.rounds)
       for (const phase of round.data.phases.filter(
         (candidate) => candidate.phase === "fix",
       )) {
         const identity = fixIdentity(phase)
-        const key = modelKey(identity)
-        actual.set(key, identity)
-        const tokens = tokensByModel.get(key) ?? new Map()
-        addTokens(tokens, phase.tokens)
-        tokensByModel.set(key, tokens)
+        actual.set(modelKey(identity), identity)
       }
-    }
     if (actual.size === 0) continue
     const reason = excludedPlanReason(plan, new Set(actual.keys()), history)
     const stepCount = plan.listedSteps?.length ?? 0
-    for (const [key, identity] of actual) {
+    for (const identity of actual.values()) {
       const row = ensureRow(identity)
-      const tokens = tokensByModel.get(key) ?? new Map()
-      if (stepCount > 0) {
-        mergeTokens(row.tokens, tokens)
-        row.tokenSteps += stepCount
-      }
       if (reason.length > 0) {
         row.excluded.set(plan.stem, reason)
         continue
       }
-      const completeRounds = plan.rounds.filter((round) =>
-        modelRoundComplete(round.data),
-      )
-      const findings = completeRounds.flatMap((round) => round.data.findings)
-      const stepRecords = listedStepRecords(plan)
-      if (stepRecords === null) continue
-      const fixMinutes = plan.rounds
-        .flatMap((round) => round.data.phases)
-        .filter((phase) => phase.phase === "fix")
-        .reduce((total, phase) => total + phase.milliseconds / 60_000, 0)
-      row.yieldSamples.push({
-        stem: plan.stem,
-        yield: acceptedYield(findings) / stepCount,
-        dropped: droppedYield(findings) / stepCount,
-      })
-      if (stepRecords.every((record) => record.minutes !== null)) {
-        const stepMinutes = stepRecords.reduce(
-          (total, record) => total + (record.minutes ?? 0),
+      const kept = plan.rounds
+        .filter((round) => modelRoundComplete(round.data))
+        .reduce(
+          (total, round) =>
+            total +
+            findingCounts(round.data.findings, round.disprovedFindingNumbers)
+              .kept,
           0,
         )
+      row.yieldSamples.push({
+        stem: plan.stem,
+        steps: stepCount,
+        kept,
+        yield: kept / stepCount,
+      })
+      const stepMinutes = implementationMinutes(plan)
+      if (stepMinutes !== null) {
+        const fixMinutes = plan.rounds
+          .flatMap((round) => round.data.phases)
+          .filter((phase) => phase.phase === "fix")
+          .reduce((total, phase) => total + phase.milliseconds / 60_000, 0)
         row.timeSamples.push({
           stem: plan.stem,
+          steps: stepCount,
           minutes: (stepMinutes + fixMinutes) / stepCount,
         })
       }
@@ -588,11 +716,12 @@ async function coderRows(
 export async function readModelEvidence(
   context: ExecutionContext,
 ): Promise<ModelEvidence> {
-  const records = await readRoundRecords(context)
-  const newestRound = records[records.length - 1]
+  const files = await readRoundFiles(context)
+  const records = roundRecords(files)
+  const disproved = disprovedEvidence(files)
   return {
-    auditors: auditorRows(records),
-    currentAuditors: newestRound ? [...roundAuditKeys(newestRound.data)] : [],
+    auditors: auditorRows(records, disproved),
     coders: await coderRows(context, records),
+    disproved,
   }
 }
