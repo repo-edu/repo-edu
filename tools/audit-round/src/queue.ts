@@ -1,5 +1,5 @@
 import { readFile, rm, writeFile } from "node:fs/promises"
-import type { ModelReleases, ModelSelection } from "./feedback.js"
+import type { ModelReleases } from "./feedback.js"
 import { errorMessage } from "./feedback.js"
 import { phaseSelection } from "./output-format.js"
 import {
@@ -9,12 +9,10 @@ import {
   parseAuditor,
   roundPhases,
 } from "./phase.js"
-import type { RoundSettings } from "./settings.js"
+import type { Auditor, RoundSettings } from "./settings.js"
 
 /** One selection as written, so rewriting the queue keeps the user's spelling. */
 export type AuditorEntry = AuditorSeat & { readonly text: string }
-
-export type AuditorSetting = ModelSelection & { readonly assistant: Assistant }
 
 /**
  * One entry grammar for positional lists, command options and queue files.
@@ -24,12 +22,17 @@ export function splitEntries(text: string): string[] {
   return text.split(/[\s,]+/).filter((entry) => entry.length > 0)
 }
 
-/** The exact auditor setting an entry asks the current runner invocation to use. */
+/**
+ * The exact auditor an entry asks the current runner invocation to use. The
+ * model reads as the release its CLI resolved at startup, the name the round
+ * data stores, so a queue's ending signal and the judge's series pool compare
+ * with recorded rounds by that one name.
+ */
 export function auditorSetting(
   entry: AuditorSeat,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
-): AuditorSetting {
+): Auditor {
   const audit = roundPhases(entry.assistant, entry.override, settings).audit
   return {
     assistant: entry.assistant,
@@ -91,7 +94,7 @@ async function readQueue(path: string): Promise<AuditorEntry[]> {
  */
 export async function takeNext(
   path: string,
-  ended: AuditorSetting | null,
+  ended: Auditor | null,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): Promise<{

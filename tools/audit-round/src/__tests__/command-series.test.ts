@@ -977,10 +977,18 @@ test("an automatic series switches between two listed models of one vendor", asy
     { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
     { assistant: "claude", model: "opus", effort: "xhigh" },
   ]
-  await configureJudgeAnswers(f, [
-    "Judge: continue with claude opus xhigh. Opus has not read the scope yet.",
-    "Judge: stop. Both Claude models agree.",
-  ])
+  // The alias resolves to a release at startup. The round data names each
+  // round's auditor by that release, so the pool offers it under that name.
+  await f.configure({
+    phases: {
+      ...f.phases,
+      judge: await judgePhase(f, [
+        "Judge: continue with claude claude-opus-5-5 xhigh. Opus has not read the scope yet.",
+        "Judge: stop. Both Claude models agree.",
+      ]),
+    },
+    releases: { opus: "claude-opus-5-5" },
+  })
 
   assert.equal(
     await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
@@ -1015,7 +1023,7 @@ test("an automatic series switches between two listed models of one vendor", asy
   )
   assert.match(
     judgePrompt?.prompt ?? "",
-    /Permitted judge options: stop, claude claude-fable-5-1 high or claude opus xhigh\./,
+    /Permitted judge options: stop, claude claude-fable-5-1 high or claude claude-opus-5-5 xhigh\./,
   )
   const secondLog = (await f.roundFiles()).find((name) =>
     /-02-1-round\..+\.log$/.test(name),
@@ -1023,12 +1031,21 @@ test("an automatic series switches between two listed models of one vendor", asy
   assert.ok(secondLog)
   assert.match(
     await readFile(join(f.planRoot, secondLog), "utf8"),
-    /audit +claude +opus +extra high +audit-round auditors/,
+    /audit +claude +claude-opus-5-5 +extra high +audit-round auditors/,
   )
   assert.match(
     f.visible.join("\n"),
-    /Next round: claude opus xhigh, as judged;/,
+    /Next round: claude claude-opus-5-5 xhigh, as judged;/,
   )
+  // The stored answer names the release, as every round's auditor does.
+  const stored = JSON.parse(
+    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { rounds: { judge: { answer: unknown } | null }[] }
+  assert.deepEqual(stored.rounds[0].judge?.answer, {
+    assistant: "claude",
+    model: "claude-opus-5-5",
+    effort: "xhigh",
+  })
 })
 
 test("a --first selection whose assistant the list lacks joins the series pool", async (t) => {

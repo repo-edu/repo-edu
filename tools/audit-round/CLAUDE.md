@@ -194,6 +194,10 @@ consumers.
   every pool entry after the admitted endings and validates the judge's single
   answer and reason without deriving watch-only facts. A continuation names an
   offered entry as `<assistant> <model> <effort>` and reads back as that entry.
+  Each entry's model is the release its CLI resolved at startup, through the
+  queue's `auditorSetting`. The round data names every round's auditor by that
+  release, so an alias in the settings cannot hide a listed auditor's rounds
+  from the judge.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
   topic from the audited plan for every runner glance. The episode reader

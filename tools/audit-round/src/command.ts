@@ -61,7 +61,6 @@ import {
   listedSeat,
   phaseWorkflow,
   type RoundDependencies,
-  seatAuditor,
 } from "./phase.js"
 import {
   type AuditorEntry,
@@ -1590,7 +1589,11 @@ export async function runCommand(
           ? [firstAuditor]
           : []),
       ]
-      const poolAuditors = pool.map((seat) => seatAuditor(seat, settings))
+      // The judge reads each round's auditor as the release its CLI resolved,
+      // so the pool offers every entry under that same name.
+      const poolAuditors = pool.map((seat) =>
+        auditorSetting(seat, releases, settings),
+      )
       const fixerFor = async (target: AuditTarget) => {
         const assigned =
           "plan" in target
@@ -1761,7 +1764,7 @@ export async function runCommand(
               }
               if (automatic)
                 await output?.message(
-                  `Next round: ${auditorText(seatAuditor(seat, settings))}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${judgedReason}`,
+                  `Next round: ${auditorText(auditorSetting(seat, releases, settings))}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${judgedReason}`,
                 )
             }
             const repoEduDeferrals =

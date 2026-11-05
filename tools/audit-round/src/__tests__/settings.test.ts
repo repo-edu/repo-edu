@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import { nextCoder } from "../lifecycle.js"
+import { auditorSetting } from "../queue.js"
 import { codexArguments } from "../requests.js"
 import {
   coderRecord,
@@ -18,7 +19,6 @@ import {
   noOverride,
   parseAuditor,
   roundPhases,
-  seatAuditor,
   testSettings as settings,
 } from "./configured-runner.js"
 
@@ -155,6 +155,8 @@ test("the auditors list names whole selections and replaces the audit pins", () 
     { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
   ]
   assert.equal(settingsSchema.safeParse(config).success, true)
+  // Full names resolve to themselves, so each entry runs as written.
+  const releases = { claude: new Map(), codex: new Map() }
   for (const auditor of config.auditors) {
     const seat = listedSeat(auditor)
     const phases = roundPhases(seat.assistant, seat.override, config)
@@ -167,12 +169,12 @@ test("the auditors list names whole selections and replaces the audit pins", () 
     })
     assert.deepEqual(phases.rebut, phases.audit)
     assert.equal(phases.vet.assistant, "codex")
-    assert.deepEqual(seatAuditor(seat, config), auditor)
+    assert.deepEqual(auditorSetting(seat, releases, config), auditor)
   }
   // A resolved command-line seat joins the pool as the entry it runs.
   const first = parseAuditor("otx", "--first")
   assert.ok(first)
-  assert.deepEqual(seatAuditor(first, config), {
+  assert.deepEqual(auditorSetting(first, releases, config), {
     assistant: "codex",
     model: config.strengthModels.codex.top,
     effort: "xhigh",

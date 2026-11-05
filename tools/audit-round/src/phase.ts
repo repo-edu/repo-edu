@@ -290,12 +290,6 @@ function auditModel(seat: AuditorSeat, config: RoundSettings): PinnedModel {
   }
 }
 
-/** The `auditors` entry a seat runs as, which the series pool offers the judge. */
-export function seatAuditor(seat: AuditorSeat, config: RoundSettings): Auditor {
-  const { model, effort } = auditModel(seat, config)
-  return { assistant: seat.assistant, model: model.value, effort: effort.value }
-}
-
 /**
  * The phases outside the auditor's use their configured selection, whose
  * `default` reads the assistant's default selection.
