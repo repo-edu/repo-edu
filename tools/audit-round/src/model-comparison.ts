@@ -2,8 +2,6 @@ import { mean } from "simple-statistics"
 
 const yieldSame = 0.05
 const yieldClear = 0.5
-const timeSame = 1.05
-const timeMarginal = 1.25
 const timeClear = 2
 
 export const auditorFloor = 5
@@ -23,23 +21,6 @@ function timeFactor(first: number, second: number): number {
   if (upper === 0) return 1
   if (lower === 0) return Number.POSITIVE_INFINITY
   return upper / lower
-}
-
-/** Plain graded words for the first yield relative to the second. */
-export function yieldWords(first: number, second: number): string {
-  const gap = Math.abs(first - second)
-  if (gap < yieldSame) return "the same yield"
-  const grade = gap < 0.25 ? "marginally" : gap < yieldClear ? "" : "much"
-  return `${grade.length === 0 ? "" : `${grade} `}${first > second ? "higher" : "lower"} yield`
-}
-
-/** Plain graded words for the first elapsed time relative to the second. */
-export function speedWords(first: number, second: number): string {
-  const factor = timeFactor(first, second)
-  if (factor < timeSame) return "the same speed"
-  const grade =
-    factor < timeMarginal ? "marginally" : factor < timeClear ? "" : "much"
-  return `${grade.length === 0 ? "" : `${grade} `}${first < second ? "faster" : "slower"}`
 }
 
 function clearYieldLeader(

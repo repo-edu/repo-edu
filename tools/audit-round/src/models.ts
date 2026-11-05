@@ -5,8 +5,6 @@ import {
   clearlyPreferred,
   clearlyPreferredMeasures,
   coderFloor,
-  speedWords,
-  yieldWords,
 } from "./model-comparison.js"
 import {
   type AuditorRow,
@@ -34,20 +32,24 @@ function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`
 }
 
-function shortageClause(
+/** A note line for a row below the comparison floor, or null when it is admitted. */
+function shortageNote(
   identity: ModelIdentity,
   sampleCount: number,
   floor: number,
-  context: string,
+  unit: string,
+  measure: string,
 ): string | null {
   const missing = floor - sampleCount
   if (missing <= 0) return null
-  return `${context}, ${modelText(identity)} needs ${plural(missing, "more example")} before it is compared`
+  return `${modelText(identity)} needs ${plural(missing, `more ${unit}`)} before ${measure} is compared.`
 }
 
-function joinedSentence(clauses: readonly string[]): string {
-  const joined = clauses.join("; ")
-  return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`
+/** The verdict paragraph followed by the notes as a bullet list, when any. */
+function readingLines(verdict: string, notes: readonly string[]): string[] {
+  return notes.length === 0
+    ? [verdict]
+    : [verdict, "", ...notes.map((note) => `- ${note}`)]
 }
 
 function sortedRows<Row extends { readonly identity: ModelIdentity }>(
@@ -58,14 +60,12 @@ function sortedRows<Row extends { readonly identity: ModelIdentity }>(
   )
 }
 
-type Reading = { readonly identity: ModelIdentity }
-
 /** Rows ordered by descending score, lexicographic over its parts, then by name. */
-function leaderFirst<Row extends Reading>(
-  readings: readonly Row[],
-  score: (reading: Row) => readonly number[],
+function leaderFirst<Row extends { readonly identity: ModelIdentity }>(
+  rows: readonly Row[],
+  score: (row: Row) => readonly number[],
 ): Row[] {
-  return [...readings].sort((first, second) => {
+  return [...rows].sort((first, second) => {
     const firstScore = score(first)
     const secondScore = score(second)
     for (let index = 0; index < firstScore.length; index += 1)
@@ -75,95 +75,12 @@ function leaderFirst<Row extends Reading>(
   })
 }
 
-function speedClause(minutes: number, leaderMinutes: number): string {
-  const reading = speedWords(minutes, leaderMinutes)
-  return reading === "the same speed" ? "has the same speed" : `is ${reading}`
+function meanOrNull(values: readonly number[]): number | null {
+  return values.length === 0 ? null : mean(values)
 }
 
-type AuditorReading = Reading & {
-  readonly yield: number
-  readonly minutes: number
-  readonly examples: number
-}
-
-function auditorReading(row: AuditorRow, workClass: WorkClass): AuditorReading {
-  const samples = auditorSamples(row, workClass)
-  return {
-    identity: row.identity,
-    yield: mean(samples.map((sample) => sample.yield)),
-    minutes: mean(samples.map((sample) => sample.minutes)),
-    examples: samples.length,
-  }
-}
-
-/** The admitted auditors ranked by yield, each graded against the leader. */
-function auditorRanking(
-  readings: readonly AuditorReading[],
-  workClass: WorkClass,
-): string[] {
-  if (readings.length < 2) return []
-  const [leader, ...rest] = leaderFirst(readings, (reading) => [
-    reading.yield,
-    -reading.minutes,
-  ])
-  return [
-    `for ${workClass} audits, ${modelText(leader.identity)} has the highest yield (${numberText(leader.yield)} accepted A/B findings per round at ${numberText(leader.minutes)} min, from ${plural(leader.examples, "example")})`,
-    ...rest.map(
-      (reading) =>
-        `${modelText(reading.identity)} has ${yieldWords(reading.yield, leader.yield)} (${numberText(reading.yield)}) and ${speedClause(reading.minutes, leader.minutes)} (${numberText(reading.minutes)} min), from ${plural(reading.examples, "example")}`,
-    ),
-  ]
-}
-
-type CoderReading = Reading & {
-  readonly value: number
-  readonly plans: number
-}
-
-function coderReadings(
-  rows: ReadonlyMap<string, CoderRow>,
-  samples: (row: CoderRow) => readonly { readonly value: number }[],
-): CoderReading[] {
-  return sortedRows(rows)
-    .map(([, row]) => ({ identity: row.identity, samples: samples(row) }))
-    .filter((row) => row.samples.length >= coderFloor)
-    .map((row) => ({
-      identity: row.identity,
-      value: mean(row.samples.map((sample) => sample.value)),
-      plans: row.samples.length,
-    }))
-}
-
-/** The admitted coders ranked by accepted findings against their steps, fewest first. */
-function coderYieldRanking(rows: ReadonlyMap<string, CoderRow>): string[] {
-  const readings = coderReadings(rows, (row) =>
-    row.yieldSamples.map((sample) => ({ value: sample.yield })),
-  )
-  if (readings.length < 2) return []
-  const [leader, ...rest] = leaderFirst(readings, (reading) => [-reading.value])
-  return [
-    `for coder yield, ${modelText(leader.identity)} has the lowest yield (${numberText(leader.value)} accepted A/B findings per step, from ${plural(leader.plans, "plan")})`,
-    ...rest.map(
-      (reading) =>
-        `${modelText(reading.identity)} has ${yieldWords(reading.value, leader.value)} (${numberText(reading.value)}), from ${plural(reading.plans, "plan")}`,
-    ),
-  ]
-}
-
-/** The admitted coders ranked by time per step, fastest first. */
-function coderTimeRanking(rows: ReadonlyMap<string, CoderRow>): string[] {
-  const readings = coderReadings(rows, (row) =>
-    row.timeSamples.map((sample) => ({ value: sample.minutes })),
-  )
-  if (readings.length < 2) return []
-  const [leader, ...rest] = leaderFirst(readings, (reading) => [-reading.value])
-  return [
-    `for coder time, ${modelText(leader.identity)} is fastest (${numberText(leader.value)} min per step, from ${plural(leader.plans, "plan")})`,
-    ...rest.map(
-      (reading) =>
-        `${modelText(reading.identity)} ${speedClause(reading.value, leader.value)} (${numberText(reading.value)} min), from ${plural(reading.plans, "plan")}`,
-    ),
-  ]
+function cell(value: number | null): string {
+  return value === null ? "—" : numberText(value)
 }
 
 function auditorSamples(
@@ -236,47 +153,37 @@ function currentAuditSetting(
   )
 }
 
-function auditorSentence(
+function auditorReading(
   rows: ReadonlyMap<string, AuditorRow>,
   workClass: WorkClass,
   settings: RoundSettings,
-): string {
+): string[] {
   const entries = sortedRows(rows)
   if (entries.length === 0)
-    return `No ${workClass} auditor records are available.`
-  const clauses: string[] = []
-  for (const [, row] of entries) {
-    const shortage = shortageClause(
+    return [`No ${workClass} auditor records are available.`]
+  const notes = entries.flatMap(([, row]) => {
+    const note = shortageNote(
       row.identity,
       auditorSamples(row, workClass).length,
       auditorFloor,
-      `for ${workClass} audits`,
+      "example",
+      "it",
     )
-    if (shortage !== null) clauses.push(shortage)
-  }
-  clauses.push(
-    ...auditorRanking(
-      entries
-        .filter(
-          ([, row]) => auditorSamples(row, workClass).length >= auditorFloor,
-        )
-        .map(([, row]) => auditorReading(row, workClass)),
-      workClass,
-    ),
-  )
+    return note === null ? [] : [note]
+  })
   const recommendation = auditorRecommendation(rows, workClass)
   if (recommendation === null)
-    clauses.push(`the records do not separate one ${workClass} auditor clearly`)
-  else {
-    const identity =
-      rows.get(recommendation)?.identity ?? entries[0][1].identity
-    clauses.push(
-      `the records clearly support running ${modelText(identity)} for ${workClass} audits`,
+    return readingLines(
+      `The records do not separate one ${workClass} auditor clearly.`,
+      notes,
     )
-    if (!currentAuditSetting(identity, settings))
-      clauses.push(`${modelText(identity)} is not a current audit setting`)
-  }
-  return joinedSentence(clauses)
+  const identity = rows.get(recommendation)?.identity ?? entries[0][1].identity
+  return readingLines(
+    `The records clearly support running ${modelText(identity)} for ${workClass} audits.`,
+    currentAuditSetting(identity, settings)
+      ? notes
+      : [`${modelText(identity)} is not a current audit setting.`, ...notes],
+  )
 }
 
 function addCounts(first: FindingCounts, second: FindingCounts): FindingCounts {
@@ -310,18 +217,27 @@ function auditorTable(
   rows: ReadonlyMap<string, AuditorRow>,
   workClass: WorkClass,
 ): string[] {
-  const lines = [
-    "| Model | Rounds | A/B kept | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-  ]
-  for (const [, row] of sortedRows(rows)) {
+  const readings = [...rows.values()].map((row) => {
     const samples = auditorSamples(row, workClass)
-    const counts = auditorCounts(row, workClass)
-    lines.push(
-      `| ${escapeCell(modelText(row.identity))} | ${samples.length} | ${counts.kept} | ${counts.dropped} | ${counts.downgraded} | ${counts.disproved} | ${wrongClaims(counts)} | ${samples.length === 0 ? "—" : numberText(mean(samples.map((sample) => sample.minutes)))} |`,
-    )
-  }
-  return lines
+    return {
+      identity: row.identity,
+      rounds: samples.length,
+      counts: auditorCounts(row, workClass),
+      yield: meanOrNull(samples.map((sample) => sample.yield)),
+      minutes: meanOrNull(samples.map((sample) => sample.minutes)),
+    }
+  })
+  return [
+    "| Model | Rounds | A/B kept | A/B per round | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...leaderFirst(readings, (reading) => [
+      reading.yield ?? Number.NEGATIVE_INFINITY,
+      -(reading.minutes ?? Number.POSITIVE_INFINITY),
+    ]).map(
+      (reading) =>
+        `| ${escapeCell(modelText(reading.identity))} | ${reading.rounds} | ${reading.counts.kept} | ${cell(reading.yield)} | ${reading.counts.dropped} | ${reading.counts.downgraded} | ${reading.counts.disproved} | ${wrongClaims(reading.counts)} | ${cell(reading.minutes)} |`,
+    ),
+  ]
 }
 
 function coderRecommendation(
@@ -349,50 +265,45 @@ function coderRecommendation(
   return winners.length === 1 ? winners[0][0] : null
 }
 
-function coderSentence(
+function coderReading(
   rows: ReadonlyMap<string, CoderRow>,
   settings: RoundSettings,
-): string {
+): string[] {
   const entries = sortedRows(rows)
-  if (entries.length === 0) return "No coder records are available."
-  const clauses: string[] = []
-  for (const [, row] of entries) {
-    const yieldShortage = shortageClause(
-      row.identity,
-      row.yieldSamples.length,
-      coderFloor,
-      "for coder yield",
-    )
-    if (yieldShortage !== null) clauses.push(yieldShortage)
-    const timeShortage = shortageClause(
-      row.identity,
-      row.timeSamples.length,
-      coderFloor,
-      "for coder time",
-    )
-    if (timeShortage !== null) clauses.push(timeShortage)
-  }
-  clauses.push(...coderYieldRanking(rows), ...coderTimeRanking(rows))
+  if (entries.length === 0) return ["No coder records are available."]
+  const notes = entries.flatMap(([, row]) =>
+    [
+      shortageNote(
+        row.identity,
+        row.yieldSamples.length,
+        coderFloor,
+        "plan",
+        "its yield",
+      ),
+      shortageNote(
+        row.identity,
+        row.timeSamples.length,
+        coderFloor,
+        "timed plan",
+        "its time",
+      ),
+    ].filter((note): note is string => note !== null),
+  )
   const recommendation = coderRecommendation(rows)
   if (recommendation === null)
-    clauses.push("the records do not separate one coder clearly")
-  else {
-    const identity =
-      rows.get(recommendation)?.identity ?? entries[0][1].identity
-    clauses.push(`the records clearly support running ${modelText(identity)}`)
-    const current = new Set(settings.coders.map((coder) => modelKey(coder)))
-    if (!current.has(recommendation))
-      clauses.push(`${modelText(identity)} is not in the current coder list`)
-  }
-  return joinedSentence(clauses)
+    return readingLines("The records do not separate one coder clearly.", notes)
+  const identity = rows.get(recommendation)?.identity ?? entries[0][1].identity
+  const current = new Set(settings.coders.map((coder) => modelKey(coder)))
+  return readingLines(
+    `The records clearly support running ${modelText(identity)}.`,
+    current.has(recommendation)
+      ? notes
+      : [`${modelText(identity)} is not in the current coder list.`, ...notes],
+  )
 }
 
 function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
-  const lines = [
-    "| Model | Plans | Timed plans | Steps | A/B kept | Minutes per step |",
-    "| --- | ---: | ---: | ---: | ---: | ---: |",
-  ]
-  for (const [, row] of sortedRows(rows)) {
+  const readings = [...rows.values()].map((row) => {
     const timedSteps = row.timeSamples.reduce(
       (total, sample) => total + sample.steps,
       0,
@@ -401,11 +312,30 @@ function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
       (total, sample) => total + sample.minutes * sample.steps,
       0,
     )
-    lines.push(
-      `| ${escapeCell(modelText(row.identity))} | ${row.yieldSamples.length} | ${row.timeSamples.length} | ${row.yieldSamples.reduce((total, sample) => total + sample.steps, 0)} | ${row.yieldSamples.reduce((total, sample) => total + sample.kept, 0)} | ${timedSteps === 0 ? "—" : numberText(totalMinutes / timedSteps)} |`,
-    )
-  }
-  return lines
+    return {
+      identity: row.identity,
+      plans: row.yieldSamples.length,
+      timedPlans: row.timeSamples.length,
+      steps: row.yieldSamples.reduce(
+        (total, sample) => total + sample.steps,
+        0,
+      ),
+      kept: row.yieldSamples.reduce((total, sample) => total + sample.kept, 0),
+      yield: meanOrNull(row.yieldSamples.map((sample) => sample.yield)),
+      minutes: timedSteps === 0 ? null : totalMinutes / timedSteps,
+    }
+  })
+  return [
+    "| Model | Plans | Timed plans | Steps | A/B kept | A/B per step | Minutes per step |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...leaderFirst(readings, (reading) => [
+      -(reading.yield ?? Number.POSITIVE_INFINITY),
+      -(reading.minutes ?? Number.POSITIVE_INFINITY),
+    ]).map(
+      (reading) =>
+        `| ${escapeCell(modelText(reading.identity))} | ${reading.plans} | ${reading.timedPlans} | ${reading.steps} | ${reading.kept} | ${cell(reading.yield)} | ${cell(reading.minutes)} |`,
+    ),
+  ]
 }
 
 function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
@@ -488,25 +418,25 @@ export async function modelsReport(
     "",
     "## Planning auditors",
     "",
-    auditorSentence(evidence.auditors, "planning", settings),
+    ...auditorReading(evidence.auditors, "planning", settings),
     "",
     ...auditorTable(evidence.auditors, "planning"),
     "",
     "## Implementation auditors",
     "",
-    auditorSentence(evidence.auditors, "implementation", settings),
+    ...auditorReading(evidence.auditors, "implementation", settings),
     "",
     ...auditorTable(evidence.auditors, "implementation"),
     "",
-    "A/B kept counts accepted A and B findings after later disprovals. Dropped and downgraded record the round's result. Disproved records the user's later ruling. Wrong claims is dropped, downgraded and disproved as a percentage of all four counts. Auditor time includes audit and rebuttal only.",
+    "Rows sort by A/B per round, the mean accepted A and B findings per round after later disprovals, then by time. A/B kept is their total. Dropped and downgraded record the round's result. Disproved records the user's later ruling. Wrong claims is dropped, downgraded and disproved as a percentage of all four counts. Auditor time includes audit and rebuttal only.",
     "",
     "## Coders",
     "",
-    coderSentence(evidence.coders, settings),
+    ...coderReading(evidence.coders, settings),
     "",
     ...coderTable(evidence.coders),
     "",
-    "One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",
     ...disprovedSection(evidence.disproved),
     "",

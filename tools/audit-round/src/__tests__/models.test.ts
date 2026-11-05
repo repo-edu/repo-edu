@@ -6,8 +6,6 @@ import { execa } from "execa"
 import {
   clearlyPreferred,
   clearlyPreferredMeasures,
-  speedWords,
-  yieldWords,
 } from "../model-comparison.js"
 import { modelKey, readModelEvidence } from "../model-evidence.js"
 import { modelsReport } from "../models.js"
@@ -171,20 +169,6 @@ function findings(count: number, label: string): RoundFinding[] {
   }))
 }
 
-test("graded yield and speed words cover the four bands and both directions", () => {
-  assert.equal(yieldWords(1, 1.03), "the same yield")
-  assert.equal(yieldWords(1.1, 1), "marginally higher yield")
-  assert.equal(yieldWords(1.3, 1), "higher yield")
-  assert.equal(yieldWords(1.5, 1), "much higher yield")
-  assert.equal(yieldWords(0, 0.5), "much lower yield")
-
-  assert.equal(speedWords(10, 10.4), "the same speed")
-  assert.equal(speedWords(10, 11), "marginally faster")
-  assert.equal(speedWords(10, 15), "faster")
-  assert.equal(speedWords(10, 20), "much faster")
-  assert.equal(speedWords(20, 10), "much slower")
-})
-
 test("constant rows can lead while overlapping ranges and yield-against-time trades cannot", () => {
   assert.equal(
     clearlyPreferred(modelSamples([1, 1, 1]), modelSamples([0, 0, 0]), true),
@@ -214,7 +198,7 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
   )
 })
 
-test("the auditor reading ranks every admitted row against the yield leader", async (t) => {
+test("auditor tables sort by yield per round and the reading keeps only the verdict", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -249,11 +233,34 @@ test("the auditor reading ranks every admitted row against the yield leader", as
     { repoEduRoot: f.root, planRoot: f.planRoot },
     testSettings,
   )
-  assert.match(
-    report,
-    /For planning audits, audit-strong low has the highest yield \(2\.0 accepted A\/B findings per round at 2\.0 min, from 5 examples\); audit-middle low has much lower yield \(1\.0\) and is much faster \(1\.0 min\), from 5 examples; audit-weak low has much lower yield \(0\.0\) and is slower \(3\.0 min\), from 5 examples; /,
+  const planning = report
+    .split("## Planning auditors\n\n")[1]
+    .split("\n\n## Implementation auditors")[0]
+  assert.equal(
+    planning,
+    [
+      "The records do not separate one planning auditor clearly.",
+      "",
+      "| Model | Rounds | A/B kept | A/B per round | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| audit-strong low | 5 | 10 | 2.0 | 0 | 0 | 0 | 0% | 2.0 |",
+      "| audit-middle low | 5 | 5 | 1.0 | 0 | 0 | 0 | 0% | 1.0 |",
+      "| audit-weak low | 5 | 0 | 0.0 | 0 | 0 | 0 | 0% | 3.0 |",
+    ].join("\n"),
   )
-  assert.doesNotMatch(report, / vs /)
+  const implementation = report
+    .split("## Implementation auditors\n\n")[1]
+    .split("\n\n| Model |")[0]
+  assert.equal(
+    implementation,
+    [
+      "The records do not separate one implementation auditor clearly.",
+      "",
+      "- audit-middle low needs 5 more examples before it is compared.",
+      "- audit-strong low needs 5 more examples before it is compared.",
+      "- audit-weak low needs 5 more examples before it is compared.",
+    ].join("\n"),
+  )
 })
 
 test("opposite audit-class leads block auditor recommendations", async (t) => {
@@ -421,14 +428,14 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   )
   assert.match(
     report,
-    /\| audit-strong low \| 5 \| 5 \| 1 \| 1 \| 2 \| 44% \| 1\.0 \|/,
+    /\| audit-strong low \| 5 \| 5 \| 1\.0 \| 1 \| 1 \| 2 \| 44% \| 1\.0 \|/,
   )
   assert.match(report, /audit-thin low needs 4 more examples/)
   assert.match(
     report,
     /records clearly support running audit-strong low for planning audits/,
   )
-  assert.match(report, /audit-strong low is not a current audit setting/)
+  assert.match(report, /- audit-strong low is not a current audit setting\./)
   assert.match(report, /## Disproved after the round/)
   assert.match(report, /#4 later disproved claim/)
   assert.match(report, /vet-model low; accept/)
@@ -649,7 +656,7 @@ test("coder evidence removes disproved findings and falls back to one commit spa
     { repoEduRoot: f.root, planRoot: f.planRoot },
     testSettings,
   )
-  assert.match(report, /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 30\.0 \|/)
+  assert.match(report, /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 0\.0 \| 30\.0 \|/)
   assert.match(report, /The implementation claim was wrong\./)
 })
 
@@ -909,7 +916,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     .split("\n\n| Model |")[0]
   assert.match(
     output,
-    /\| audit-alpha low \| 1 \| 1 \| 0 \| 0 \| 0 \| 0% \| 3\.0 \|/,
+    /\| audit-alpha low \| 1 \| 1 \| 1\.0 \| 0 \| 0 \| 0 \| 0% \| 3\.0 \|/,
   )
   assert.match(auditorReading, /audit-admission low needs 3 more examples/)
   assert.equal(
@@ -920,10 +927,13 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.doesNotMatch(auditorReading, /needs 0 more examples/)
   assert.match(
     output,
-    /\| audit-third low \| 1 \| 1 \| 0 \| 0 \| 0 \| 0% \| 1\.0 \|/,
+    /\| audit-third low \| 1 \| 1 \| 1\.0 \| 0 \| 0 \| 0 \| 0% \| 1\.0 \|/,
   )
   assert.match(output, /## Coders/)
-  assert.match(output, /\| coder-alpha low \| 1 \| 1 \| 1 \| 1 \| 10\.0 \|/)
+  assert.match(
+    output,
+    /\| coder-alpha low \| 1 \| 1 \| 1 \| 1 \| 1\.0 \| 10\.0 \|/,
+  )
   assert.match(output, /## Excluded plans/)
   assert.match(output, /mixed: coder-alpha low, coder-beta low/)
   assert.match(output, /effort-mixed: coder-alpha high, coder-alpha low/)
@@ -933,13 +943,17 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     .split("\n\n| Model |")[0]
   assert.equal(coderReading.match(/coder-alpha low needs/g)?.length, 2)
   assert.equal(coderReading.match(/coder-beta low needs/g)?.length, 2)
-  assert.equal(
-    coderReading.match(/coder-alpha high needs 3 more examples/g)?.length,
-    2,
+  assert.match(
+    coderReading,
+    /- coder-alpha high needs 3 more plans before its yield is compared\./,
   )
-  assert.doesNotMatch(coderReading, /needs 0 more examples/)
+  assert.match(
+    coderReading,
+    /- coder-alpha high needs 3 more timed plans before its time is compared\./,
+  )
+  assert.doesNotMatch(coderReading, /needs 0 more/)
   assert.doesNotMatch(output, /planning-fixer/)
-  assert.match(output, /the records do not separate one coder clearly/)
+  assert.match(output, /The records do not separate one coder clearly\./)
   assert.doesNotMatch(output, /codex-vet low/)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
@@ -1022,7 +1036,7 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
     },
   )
   assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)
-  assert.match(report, /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 2\.5 \|/)
+  assert.match(report, /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 0\.2 \| 2\.5 \|/)
   assert.match(report, /records clearly support running coder-alpha low/)
 })
 
