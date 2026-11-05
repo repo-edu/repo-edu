@@ -35,7 +35,17 @@ export type AnalysisSourceInput = {
   readonly concurrency: PersistedAnalysisConcurrency
 }
 
-export function useAnalysisSourceInput() {
+export type AnalysisSourceRunnerFactory = (
+  surface: PersistedActiveSurface,
+) => AnalysisSourceRunner | null
+
+export type AnalysisSourceState = {
+  readonly input: AnalysisSourceInput
+  readonly createSourceRunner: AnalysisSourceRunnerFactory
+  readonly effectiveBlameConfig: AnalysisBlameConfig | null
+}
+
+export function useAnalysisSourceInput(): AnalysisSourceState {
   const client = useWorkflowClient()
   const queryClient = useQueryClient()
   const analysisContext = useAnalysisContext()
@@ -82,7 +92,7 @@ export function useAnalysisSourceInput() {
     [contentKey],
   )
 
-  const createSourceRunner = useCallback(
+  const createSourceRunner = useCallback<AnalysisSourceRunnerFactory>(
     (surface: PersistedActiveSurface) =>
       input.config === null
         ? null

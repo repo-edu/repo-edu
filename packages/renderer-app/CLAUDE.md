@@ -48,8 +48,19 @@ It consumes:
   for the selected repository only, because it is the heavier pass over the same files. The line
   budget replaced a 1 GB byte budget whose number was never measured and whose estimator
   serialised every result as it landed.
-- `src/analysis/analysis-query-coordinator.tsx`: starts bodies and observes their cached
-  results. `App.tsx` installs its `AnalysisCoordinatorProvider` inside `QueryClientProvider`.
+- `src/analysis/analysis-query-coordinator.tsx`: composes the analysis stage hooks and publishes
+  their eight contexts. `App.tsx` installs its `AnalysisCoordinatorProvider` inside
+  `QueryClientProvider`.
+- `src/analysis/analysis-contexts.ts`: owns the eight published context values and their accessor
+  hooks.
+- `src/analysis/analysis-source-input.ts`: owns the memoised analysis input set, runner factory and
+  effective blame configuration.
+- `src/analysis/analysis-observation.ts`: observes discovery, analysis and blame queries and derives
+  their current results, status and errors.
+- `src/analysis/analysis-commands.ts`: binds Start, Search, Run, repository selection and Cancel to
+  the session operation gateway.
+- `src/analysis/analysis-views.ts`: derives the author and file projections from observed results
+  and current view choices.
 - `src/analysis/analysis-source-runner.ts`: owns snapshot-head, repository analysis and blame
   fetches. One body covers the requested repositories and the selected repository's line
   authorship. It keeps its turn until completion or Cancel and freezes input while admitted.
