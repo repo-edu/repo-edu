@@ -99,6 +99,30 @@ function auditorSamples(
   return row.samples.filter((sample) => sample.workClass === workClass)
 }
 
+/**
+ * Rows with a complete round in the class. A model whose rounds all fall in
+ * the other class has nothing to show here, so it stays out of this class's
+ * reading and table rather than printing a zero row and a shortage bullet.
+ */
+function classRows(
+  rows: ReadonlyMap<string, AuditorRow>,
+  workClass: WorkClass,
+): ReadonlyMap<string, AuditorRow> {
+  return new Map(
+    [...rows].filter(([, row]) => auditorSamples(row, workClass).length > 0),
+  )
+}
+
+/**
+ * Rows with an admitted plan. A model known only through excluded plans is
+ * named in the excluded-plans section, which already carries that evidence.
+ */
+function admittedCoders(
+  rows: ReadonlyMap<string, CoderRow>,
+): ReadonlyMap<string, CoderRow> {
+  return new Map([...rows].filter(([, row]) => row.yieldSamples.length > 0))
+}
+
 function auditorRecommendation(
   rows: ReadonlyMap<string, AuditorRow>,
   workClass: WorkClass,
@@ -411,28 +435,31 @@ export async function modelsReport(
   settings: RoundSettings,
 ): Promise<string> {
   const evidence = await readModelEvidence(context)
+  const planning = classRows(evidence.auditors, "planning")
+  const implementation = classRows(evidence.auditors, "implementation")
+  const coders = admittedCoders(evidence.coders)
   const lines = [
     "# Model read-out",
     "",
     "## Planning auditors",
     "",
-    ...auditorReading(evidence.auditors, "planning", settings),
+    ...auditorReading(planning, "planning", settings),
     "",
-    ...auditorTable(evidence.auditors, "planning"),
+    ...auditorTable(planning, "planning"),
     "",
     "## Implementation auditors",
     "",
-    ...auditorReading(evidence.auditors, "implementation", settings),
+    ...auditorReading(implementation, "implementation", settings),
     "",
-    ...auditorTable(evidence.auditors, "implementation"),
+    ...auditorTable(implementation, "implementation"),
     "",
     "Rows sort by A/B per round, the mean accepted A and B findings per round after later disprovals, then by time. A/B kept is their total. Dropped and downgraded record the round's result. Disproved records the user's later ruling. Wrong claims is dropped, downgraded and disproved as a percentage of all four counts. Auditor time includes audit and rebuttal only.",
     "",
     "## Coders",
     "",
-    ...coderReading(evidence.coders, settings),
+    ...coderReading(coders, settings),
     "",
-    ...coderTable(evidence.coders),
+    ...coderTable(coders),
     "",
     "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",

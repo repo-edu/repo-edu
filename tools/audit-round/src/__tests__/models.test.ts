@@ -249,15 +249,14 @@ test("auditor tables sort by yield per round and the reading keeps only the verd
   )
   const implementation = report
     .split("## Implementation auditors\n\n")[1]
-    .split("\n\n| Model |")[0]
+    .split("\n\nRows sort by")[0]
   assert.equal(
     implementation,
     [
-      "The records do not separate one implementation auditor clearly.",
+      "No implementation auditor records are available.",
       "",
-      "- audit-middle low needs 5 more examples before it is compared.",
-      "- audit-strong low needs 5 more examples before it is compared.",
-      "- audit-weak low needs 5 more examples before it is compared.",
+      "| Model | Rounds | A/B kept | A/B per round | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ].join("\n"),
   )
 })
@@ -1047,20 +1046,11 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(output, /mixed: coder-alpha low, coder-beta low/)
   assert.match(output, /effort-mixed: coder-alpha high, coder-alpha low/)
   assert.doesNotMatch(output, /no-assignment:/)
-  const coderReading = output
-    .split("## Coders\n\n")[1]
-    .split("\n\n| Model |")[0]
-  assert.equal(coderReading.match(/coder-alpha low needs/g)?.length, 2)
-  assert.equal(coderReading.match(/coder-beta low needs/g)?.length, 2)
-  assert.match(
-    coderReading,
-    /- coder-alpha high needs 3 more plans before its yield is compared\./,
-  )
-  assert.match(
-    coderReading,
-    /- coder-alpha high needs 3 more timed plans before its time is compared\./,
-  )
-  assert.doesNotMatch(coderReading, /needs 0 more/)
+  const coders = output.split("## Coders\n\n")[1].split("\n\nRows sort by")[0]
+  assert.equal(coders.match(/coder-alpha low needs/g)?.length, 2)
+  assert.doesNotMatch(coders, /coder-beta low/)
+  assert.doesNotMatch(coders, /coder-alpha high/)
+  assert.doesNotMatch(coders, /needs 0 more/)
   assert.doesNotMatch(output, /planning-fixer/)
   assert.match(output, /The records do not separate one coder clearly\./)
   assert.doesNotMatch(output, /codex-vet low/)
