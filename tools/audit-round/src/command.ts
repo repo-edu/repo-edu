@@ -18,6 +18,8 @@ import { type ExecutionContext, executionContext } from "./context.js"
 import {
   type AuditTargets,
   defaultPlan,
+  type LifecycleStage,
+  lifecycleStage,
   resolveTargets,
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
@@ -25,6 +27,8 @@ import { type LogCommit, readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import {
+  type ImplementationResult,
+  type PreparedImplementation,
   prepareImplementation,
   readImplementationProgress,
   runImplementation,
@@ -113,6 +117,8 @@ import {
   planPhase,
   planRepositoryPrefix,
   planStem,
+  type RoundContext,
+  type RoundKind,
   requiredActivePlan,
   resolvePlan,
   roundContext,
@@ -215,6 +221,13 @@ type Invocation =
       readonly aborted?: string
       readonly verbose?: boolean
     }
+  | { readonly kind: "run"; readonly stem: string; readonly verbose?: boolean }
+
+/** The round options one series reads; `run` supplies the defaults alone. */
+type SeriesOptions = Pick<
+  Extract<Invocation, { kind: "round" }>,
+  "auditor" | "firstAuditor" | "watch" | "brief"
+>
 
 function requestedTarget(
   invocation: Extract<Invocation, { kind: "round" | "name" }>,
@@ -500,7 +513,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round run [options] <stem>\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -699,7 +712,8 @@ Use pnpm audit-round models to read the auditor and coder results.
 Use disprove to record a finding that later evidence disproved.
 Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
-Use brief --help or close --help for their arguments and options.`,
+Use run to take a plan from its current stage through its close in one command.
+Use brief --help, close --help or run --help for their arguments and options.`,
     )
     .action(
       (
@@ -961,6 +975,16 @@ Use brief --help or close --help for their arguments and options.`,
         invocation = { kind: "close", stem, ...flags }
       },
     )
+  command
+    .command("run")
+    .description(
+      "Take a plan from its current stage through its close: the series, settle, ready, implementation, the audit ranges and the close.",
+    )
+    .argument("<stem>", "the active plan to run")
+    .option("-v, --verbose", "show tool calls as well as assistant text")
+    .action((stem: string, flags: { verbose?: boolean }) => {
+      invocation = { kind: "run", stem, ...flags }
+    })
   try {
     // A bare command line asks for help rather than reporting a missing plan.
     command.parse(argv.length === 0 ? ["--help"] : [...argv], { from: "user" })
@@ -997,6 +1021,54 @@ async function preparedClose(
   const plan = await closePlan(context, invocation)
   const { deferrals } = await deferralState(context, planStem(plan))
   return { ...invocation, plan, deferrals }
+}
+
+type PreparedClose = Awaited<ReturnType<typeof preparedClose>>
+
+/**
+ * The plan a run takes and the stage its state calls for, resolved before any
+ * assistant starts, so a refused plan starts nothing.
+ */
+async function preparedRun(
+  context: ExecutionContext,
+  invocation: Extract<Invocation, { kind: "run" }>,
+) {
+  const plan = await requiredActivePlan(
+    context.planRoot,
+    invocation.stem,
+    "run",
+  )
+  return {
+    ...invocation,
+    stem: planStem(plan),
+    stage: await lifecycleStage(context, plan),
+  }
+}
+
+type PreparedRun = Awaited<ReturnType<typeof preparedRun>>
+
+/** The run's stages in lifecycle order; the close is never a starting stage. */
+const runStageOrder = [
+  "widening",
+  "detailing",
+  "implement",
+  "ranges",
+  "close",
+] as const
+
+const runStageNames: Readonly<Record<(typeof runStageOrder)[number], string>> =
+  {
+    widening: "widening series",
+    detailing: "detailing series",
+    implement: "implementation",
+    ranges: "audit range series",
+    close: "close",
+  }
+
+function stageRoundKind(stage: LifecycleStage): RoundKind {
+  return stage === "widening" || stage === "detailing"
+    ? "planning"
+    : "implementation"
 }
 
 export async function runCommand(
@@ -1198,13 +1270,15 @@ export async function runCommand(
             }
           : invocation.kind === "close"
             ? await preparedClose(context, invocation)
-            : {
-                ...invocation,
-                targets: await resolveTargets(
-                  context,
-                  requestedTarget(invocation),
-                ),
-              }
+            : invocation.kind === "run"
+              ? await preparedRun(context, invocation)
+              : {
+                  ...invocation,
+                  targets: await resolveTargets(
+                    context,
+                    requestedTarget(invocation),
+                  ),
+                }
     if (
       prepared.kind === "round" &&
       "groups" in prepared.targets[0] &&
@@ -1255,7 +1329,9 @@ export async function runCommand(
           ? await transcriptKind(prepared.transcript)
           : prepared.kind === "close"
             ? "planning"
-            : prepared.targets[0].roundKind,
+            : prepared.kind === "run"
+              ? stageRoundKind(prepared.stage)
+              : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
@@ -1274,15 +1350,13 @@ export async function runCommand(
      * per round and retires the previous one first. Updates and releases are
      * read once; later rounds reuse them rather than re-entering the CLI.
      */
+    const { verbose } = prepared
     const open = (run: Run): RoundOutput => {
       const previous = output
       output = undefined
       previous?.close()
       runtime.signal?.throwIfAborted()
-      const active = new RoundOutput(run, {
-        ...options,
-        verbose: prepared.verbose,
-      })
+      const active = new RoundOutput(run, { ...options, verbose })
       output = active
       return active
     }
@@ -1290,8 +1364,8 @@ export async function runCommand(
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (
       active: RoundOutput,
+      phaseContext: RoundContext,
       chainDeferrals: RoundDependencies["chainDeferrals"] = async () => "none",
-      phaseContext = session,
     ): RoundDependencies => ({
       watchEvidence: readWatchEvidence,
       writeWatchDocument: async (file, document) =>
@@ -1385,30 +1459,38 @@ export async function runCommand(
       },
     })
 
-    if (prepared.kind === "implement") {
+    /** One implementation stage: a worker per pending step, then the markers due. */
+    const implementStage = async (
+      implementation: PreparedImplementation,
+    ): Promise<ImplementationResult["status"]> => {
+      const implementationSession = roundContext(context, "implementation")
       const identity = implementationIdentity(
-        prepared.coder,
+        implementation.coder,
         releases,
         settings,
       )
-      const implementation = await runImplementation(
+      const outcome = await runImplementation(
         {
           ...context,
-          plan: prepared.plan,
-          stem: prepared.stem,
-          steps: prepared.steps,
-          selectedSteps: prepared.selectedSteps,
-          coder: prepared.coder,
+          plan: implementation.plan,
+          stem: implementation.stem,
+          steps: implementation.steps,
+          selectedSteps: implementation.selectedSteps,
+          coder: implementation.coder,
           phaseRun: identity.phaseRun,
           release: identity.release,
           effort: identity.effort,
         },
         {
           readProgress: () =>
-            readImplementationProgress(context, prepared.stem, prepared.steps),
+            readImplementationProgress(
+              context,
+              implementation.stem,
+              implementation.steps,
+            ),
           openStep: async (step) => {
             const run = implementationRun(
-              prepared.plan,
+              implementation.plan,
               context.planRoot,
               step.number,
               now(),
@@ -1447,7 +1529,7 @@ export async function runCommand(
             }
             const worker = await runAssistantPhase(input, phaseOutput, {
               ...runtime,
-              cwd: session.cwd,
+              cwd: implementationSession.cwd,
               env: {
                 ...runtime.env,
                 COMMIT_AUDITOR: "",
@@ -1491,7 +1573,7 @@ export async function runCommand(
           markImplemented: (repository) =>
             markImplemented(
               context,
-              prepared.stem,
+              implementation.stem,
               repository,
               identity.tag,
               identity.record,
@@ -1502,74 +1584,76 @@ export async function runCommand(
           },
         },
       )
-      if (implementation.status === "finished") {
+      if (outcome.status === "finished") {
         await output?.message(
-          implementation.markers.length === 0
+          outcome.markers.length === 0
             ? "Implementation finished; no completion marker was due."
             : "Implementation finished.",
         )
-        if (output === undefined && implementation.markers.length === 0)
+        if (output === undefined && outcome.markers.length === 0)
           options.terminal.write(
             "Implementation finished; no completion marker was due.",
           )
         code = 0
       } else {
         const line =
-          implementation.status === "failed"
-            ? `Step ${implementation.step} failed: ${implementation.reason}`
-            : `Step ${implementation.step} stopped without a ruling reply.`
+          outcome.status === "failed"
+            ? `Step ${outcome.step} failed: ${outcome.reason}`
+            : `Step ${outcome.step} stopped without a ruling reply.`
         if (output === undefined) options.terminal.write(line)
         else await output.message(line)
-        if (implementation.session !== null) {
-          const resume = `Resume: ${recoveryCommand(implementation.session)}`
+        if (outcome.session !== null) {
+          const resume = `Resume: ${recoveryCommand(outcome.session)}`
           if (output === undefined) options.terminal.write(resume)
           else await output.message(resume)
         }
-        code = implementation.status === "failed" ? 1 : 0
+        code = outcome.status === "failed" ? 1 : 0
       }
-    } else if (prepared.kind === "brief") {
-      const { transcript } = prepared
-      const run = await briefRun(transcript, now(), releases, settings)
-      const active = open(run)
-      result = await runBrief(
-        {
-          ...session,
-          transcript,
-          brief: run.brief,
-        },
-        dependenciesFor(active),
-        settings,
-      )
-      active.finish(result, runtime.signal)
-      code = exitCode(result)
-    } else if (prepared.kind === "close") {
+      return outcome.status
+    }
+    /** One loop-close session on its plan and the open deferrals resolved before it. */
+    const closeStage = async (
+      close: PreparedClose,
+    ): Promise<CloseResult["status"]> => {
+      const closeSession = roundContext(context, "planning")
       const run = await closeRun(
-        prepared.plan,
+        close.plan,
         context.planRoot,
         now(),
         releases,
         settings,
       )
       const active = open(run)
-      result = await runClose(
+      const closed = await runClose(
         {
-          ...session,
-          plan: prepared.plan,
+          ...closeSession,
+          plan: close.plan,
           tag: run.tag,
           record: run.record,
-          reason: prepared.aborted ?? null,
-          deferrals: prepared.deferrals,
+          reason: close.aborted ?? null,
+          deferrals: close.deferrals,
         },
-        dependenciesFor(active),
+        dependenciesFor(active, closeSession),
         settings,
       )
-      active.finish(result, runtime.signal)
-      code = exitCode(result)
-    } else {
-      const targets: AuditTargets = prepared.targets
-      const [first, ...queued] = prepared.auditor ?? []
+      result = closed
+      active.finish(closed, runtime.signal)
+      code = exitCode(closed)
+      return closed.status
+    }
+    /**
+     * The audit series a resolved target list asks for, one per target in
+     * order. The ending is the last series' own, or `stopped` when a series
+     * needed the user and the rest of the list did not run.
+     */
+    const seriesStage = async (
+      targets: AuditTargets,
+      series: SeriesOptions,
+    ): Promise<SeriesEnding> => {
+      const seriesSession = roundContext(context, targets[0].roundKind)
+      const [first, ...queued] = series.auditor ?? []
       const automatic =
-        prepared.auditor === undefined &&
+        series.auditor === undefined &&
         "plan" in targets[0] &&
         isActivePlanPath(context.planRoot, targets[0].plan)
       const coin =
@@ -1585,11 +1669,11 @@ export async function runCommand(
               : 0
           ],
         )
-      const opened = first ?? prepared.firstAuditor
+      const opened = first ?? series.firstAuditor
       // The judge draws on the listed auditors and on a `--first` selection
       // whose assistant the list lacks, so the opener stays inside the series
       // for every scope the run opens.
-      const firstAuditor = prepared.firstAuditor
+      const firstAuditor = series.firstAuditor
       const pool: readonly AuditorSeat[] = [
         ...settings.auditors.map(listedSeat),
         ...(firstAuditor !== undefined &&
@@ -1646,7 +1730,7 @@ export async function runCommand(
           })),
           auditor,
           auditorSelectionSource: "settings" as const,
-          brief: prepared.brief,
+          brief: series.brief,
           deferrals,
         }
         const chainedRun = await roundRun(
@@ -1659,7 +1743,7 @@ export async function runCommand(
         const active = nested
           ? new RoundOutput(chainedRun, {
               ...options,
-              verbose: prepared.verbose,
+              verbose,
             })
           : open(chainedRun)
         try {
@@ -1668,11 +1752,11 @@ export async function runCommand(
               ...setup,
               documents: chainedRun.documents,
               transcript: chainedRun.paths.markdown,
-              watch: prepared.watch
+              watch: series.watch
                 ? { file: chainedRun.watch, cacheRoot }
                 : null,
             },
-            dependenciesFor(active, undefined, planningSession),
+            dependenciesFor(active, planningSession),
             settings,
           )
           if (!nested) result = chained
@@ -1702,15 +1786,15 @@ export async function runCommand(
         // Only an explicit auditor list owns an editable queue. Automatic series
         // keep their next seat in this invocation, and other targets run once.
         const queue =
-          prepared.auditor !== undefined && "plan" in initial
-            ? await queueFile({ ...session, ...initial })
+          series.auditor !== undefined && "plan" in initial
+            ? await queueFile({ ...seriesSession, ...initial })
             : null
         let rest: readonly AuditorEntry[] = queued
         if (queue !== null) await writeQueue(queue, rest)
         let auditorSelectionSource: AuditorSelectionSource =
           first !== undefined
             ? "--auditor"
-            : prepared.firstAuditor !== undefined
+            : series.firstAuditor !== undefined
               ? "--first"
               : "settings"
         let seat: AuditorSeat | null = opened ?? settingsOpener()
@@ -1743,7 +1827,7 @@ export async function runCommand(
         try {
           if (
             automatic &&
-            session.roundKind === "implementation" &&
+            seriesSession.roundKind === "implementation" &&
             "plan" in target
           ) {
             const openPlanDeferrals = await deferralsInto(target.plan, "plan")
@@ -1777,17 +1861,17 @@ export async function runCommand(
                 )
             }
             const repoEduDeferrals =
-              session.roundKind === "implementation" && "plan" in target
+              seriesSession.roundKind === "implementation" && "plan" in target
                 ? (await deferralsInto(target.plan, "repo-edu")).deferrals
                 : undefined
             const setup = {
-              ...session,
+              ...seriesSession,
               ...target,
               ...(await fixerFor(target)),
               auditor: seat.assistant,
               auditorSelectionSource,
               override: seat.override,
-              brief: prepared.brief,
+              brief: series.brief,
               ...(automatic ? { pool: poolAuditors } : {}),
               ...(repoEduDeferrals === undefined
                 ? {}
@@ -1812,24 +1896,28 @@ export async function runCommand(
                 ...setup,
                 documents: run.documents,
                 transcript: run.paths.markdown,
-                watch: prepared.watch
+                watch: series.watch
                   ? {
                       file: run.watch,
                       cacheRoot,
                     }
                   : null,
               },
-              dependenciesFor(active, async ({ plan, auditor }) => {
-                const openPlanDeferrals = await deferralsInto(plan, "plan")
-                if (openPlanDeferrals.deferrals.length === 0) return "none"
-                return runDeferralRound(
-                  plan,
-                  auditor,
-                  openPlanDeferrals.deferrals,
-                  true,
-                  completed + 1,
-                )
-              }),
+              dependenciesFor(
+                active,
+                seriesSession,
+                async ({ plan, auditor }) => {
+                  const openPlanDeferrals = await deferralsInto(plan, "plan")
+                  if (openPlanDeferrals.deferrals.length === 0) return "none"
+                  return runDeferralRound(
+                    plan,
+                    auditor,
+                    openPlanDeferrals.deferrals,
+                    true,
+                    completed + 1,
+                  )
+                },
+              ),
               settings,
             )
             result = round
@@ -1947,14 +2035,16 @@ export async function runCommand(
         }
         return "ended"
       }
+      let ending: SeriesEnding = "ended"
       for (const [index, target] of targets.entries()) {
         const later = targets.slice(index + 1)
         if (index > 0 && "plan" in target)
           await output?.message(
             `Next scope: ${roundSubject(target, planStem(target.plan))}; ${later.length} scope${later.length === 1 ? "" : "s"} remain after it.`,
           )
+        ending = await runSeries(target)
         // Every ending but stopped lets the next scope run.
-        if ((await runSeries(target)) !== "stopped") continue
+        if (ending !== "stopped") continue
         const unrun = later.flatMap((scope) =>
           "scope" in scope ? [scope.scope] : [],
         )
@@ -1964,7 +2054,104 @@ export async function runCommand(
           )
         break
       }
+      return ending
     }
+    /**
+     * The lifecycle from the stage the plan's state calls for. Invoking it is
+     * the user's settle, ready and close call given in advance, so the judge's
+     * settle or ready answer and a range series that needed nobody move on
+     * through the lifecycle owner's functions. Every other ending ends the
+     * run with the stage's own lines; a rerun reads the plan's state again.
+     */
+    const runStages = async (run: PreparedRun): Promise<void> => {
+      const { stem } = run
+      const completed: string[] = []
+      const say = async (text: string) => {
+        if (output === undefined) options.terminal.write(text)
+        else await output.message(text)
+      }
+      const ended = (stage: string) =>
+        say(
+          `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round run ${stem} continues from where the plan stands.`,
+        )
+      const defaults: SeriesOptions = { watch: true }
+      let current: string = runStageNames[run.stage]
+      let closed = false
+      try {
+        for (const stage of runStageOrder.slice(
+          runStageOrder.indexOf(run.stage),
+        )) {
+          current = runStageNames[stage]
+          await say(`Run of ${stem}: starting the ${current}.`)
+          if (stage === "widening" || stage === "detailing") {
+            const plan = await resolvePlan(context.planRoot, stem)
+            const call = stage === "widening" ? "settle" : "ready"
+            const ending = await seriesStage(
+              [{ roundKind: "planning", plan }],
+              defaults,
+            )
+            if (ending !== call) break
+            completed.push(current)
+            current = call
+            if (call === "settle") {
+              const settled = await settlePlan(context, plan)
+              await say(
+                `Committed ${settled.sha}: ${settled.subject}\nMarker: ${settled.marker}`,
+              )
+            } else {
+              const ready = await readyPlan(context, plan, settings.coders)
+              await say(`Committed ${ready.sha}: ${ready.subject}`)
+            }
+          } else if (stage === "implement") {
+            const status = await implementStage(
+              await prepareImplementation(context, stem),
+            )
+            if (status !== "finished") break
+          } else if (stage === "ranges") {
+            const targets = await resolveTargets(context, {
+              plan: stem,
+              scope: null,
+            })
+            if ((await seriesStage(targets, defaults)) === "stopped") break
+          } else {
+            const status = await closeStage(
+              await preparedClose(context, {
+                kind: "close",
+                stem,
+                verbose: run.verbose,
+              }),
+            )
+            closed = status === "finished"
+            break
+          }
+          completed.push(current)
+        }
+      } catch (error) {
+        await ended(current)
+        throw error
+      }
+      if (closed) await say(`Run of ${stem} finished: the plan is closed.`)
+      else await ended(current)
+    }
+    if (prepared.kind === "implement") await implementStage(prepared)
+    else if (prepared.kind === "brief") {
+      const { transcript } = prepared
+      const run = await briefRun(transcript, now(), releases, settings)
+      const active = open(run)
+      result = await runBrief(
+        {
+          ...session,
+          transcript,
+          brief: run.brief,
+        },
+        dependenciesFor(active, session),
+        settings,
+      )
+      active.finish(result, runtime.signal)
+      code = exitCode(result)
+    } else if (prepared.kind === "close") await closeStage(prepared)
+    else if (prepared.kind === "run") await runStages(prepared)
+    else await seriesStage(prepared.targets, prepared)
   } catch (error) {
     code = error instanceof InvalidArgumentError ? 2 : 1
     options.terminal.clear()

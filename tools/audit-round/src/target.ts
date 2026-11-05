@@ -321,7 +321,7 @@ export async function resolvePlan(
 export async function requiredActivePlan(
   planRoot: string,
   value: string,
-  command: "close" | "deferrals" | "implement" | "ready" | "settle",
+  command: "close" | "deferrals" | "implement" | "ready" | "run" | "settle",
 ): Promise<string> {
   refusePath(value)
   const stem = planStem(value)

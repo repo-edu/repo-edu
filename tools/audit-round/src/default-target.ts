@@ -13,6 +13,7 @@ import {
   type CommitGroupRequest,
   headOffset,
   planningScope,
+  planPhase,
   planStem,
   resolvePlan,
   type ScopeRequest,
@@ -157,11 +158,7 @@ export async function selectTargets(
   const source = await readFile(plan, "utf8")
   const listedSteps = readPlanSteps(source)
   const status = implementationProgress(logs, topic, listedSteps)
-  if (
-    status.repositories.every(
-      ({ pending, marker }) => pending.length === 0 && marker === "current",
-    )
-  ) {
+  if (implementationComplete(status)) {
     const last = listedSteps.length
     const fullRange = last === 1 ? "1" : `1-${last}`
     const ranges = readAuditRanges(source, last)
@@ -191,6 +188,39 @@ export async function selectTargets(
       : `Name a step scope, such as ${topic} ${example}.`
   throw new InvalidArgumentError(
     `${topic} is still being implemented. ${[...pending, ...markers].join(" ")} ${scopeHint}`,
+  )
+}
+
+/**
+ * The lifecycle stage an active plan's state calls for, which `run` starts
+ * at. The filename names widening, a settled plan without a ready record is
+ * detailing, and the ready plan's per-repo progress separates implementation
+ * from the audit range series, so no run file keeps a second copy of it.
+ */
+export type LifecycleStage = "widening" | "detailing" | "implement" | "ranges"
+
+export async function lifecycleStage(
+  context: ExecutionContext,
+  plan: string,
+): Promise<LifecycleStage> {
+  if (planPhase(plan) === "widening") return "widening"
+  const topic = planStem(plan)
+  const logs = await readImplementationLogs(context)
+  const ready = logs.plan.some((commit) => {
+    const form = looseForm(commit.subject)
+    return form?.stem === topic && form.role === "ready"
+  })
+  if (!ready) return "detailing"
+  const steps = readPlanSteps(await readFile(plan, "utf8"))
+  return implementationComplete(implementationProgress(logs, topic, steps))
+    ? "ranges"
+    : "implement"
+}
+
+/** Every hosted share has landed and each repo's marker follows its newest step. */
+function implementationComplete(status: ImplementationProgress): boolean {
+  return status.repositories.every(
+    ({ pending, marker }) => pending.length === 0 && marker === "current",
   )
 }
 

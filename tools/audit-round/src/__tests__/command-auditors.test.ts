@@ -324,6 +324,13 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["close", "example", "extra"],
     ["close", "example", "--aborted"],
     ["close", "example", "--aborted", " "],
+    // A run takes only its stem and -v; the stage commands keep round options.
+    ["run"],
+    ["run", "example", "extra"],
+    ["run", "example", "--auditor", "codex"],
+    ["run", "example", "--first", "codex"],
+    ["run", "example", "--brief"],
+    ["run", "example", "--no-watch"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
   // A bare command line, -h and --help all reach the same help.
@@ -337,6 +344,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["ready", "--help"],
     ["implement", "--help"],
     ["close", "--help"],
+    ["run", "--help"],
     ["models", "--help"],
     ["disprove", "--help"],
     ["plan", "--help"],
@@ -348,7 +356,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round run \[options\] <stem>\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -371,6 +379,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     "ready",
     "implement",
     "close",
+    "run",
     "plan",
   ])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
