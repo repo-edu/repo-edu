@@ -331,10 +331,19 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["run", "example", "--first", "codex"],
     ["run", "example", "--brief"],
     ["run", "example", "--no-watch"],
+    // An option before a subcommand belongs to the round, which no subcommand reads.
+    ["--no-watch", "run", "example"],
+    ["--auditor", "codex", "run", "example"],
+    ["-v", "close", "example"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
   // A bare command line, -h and --help all reach the same help.
   assert.match(f.errors.join("\n"), /Auditor entry 2 \(other\): expected/)
+  assert.match(
+    f.errors.join("\n"),
+    /--no-watch came before run\. Put options after the subcommand/,
+  )
+  assert.match(f.errors.join("\n"), /--verbose came before close\./)
   for (const argv of [
     [],
     ["-h"],

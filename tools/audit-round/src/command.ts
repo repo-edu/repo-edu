@@ -732,6 +732,21 @@ Use brief --help, close --help or run --help for their arguments and options.`,
         invocation = { kind: "round", first, rest, firstAuditor, ...rounds }
       },
     )
+    // Positional options give an option before a subcommand to the round,
+    // which the subcommand never reads. Refusing it keeps an option from
+    // being dropped without a word.
+    .hook("preSubcommand", (round, subcommand) => {
+      const given = round.options
+        .filter(
+          (option) =>
+            round.getOptionValueSource(option.attributeName()) === "cli",
+        )
+        .map((option) => option.long ?? option.short)
+      if (given.length > 0)
+        round.error(
+          `${given.join(", ")} came before ${subcommand.name()}. Put options after the subcommand, as audit-round ${subcommand.name()} --help shows.`,
+        )
+    })
   // The program owns the round, so Commander adds no `help` command of its own.
   command
     .command("name", { hidden: true })

@@ -238,7 +238,12 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
 
 test("run refuses a plan without an active artifact before any assistant starts", async (t) => {
   const f = await roundFixture(t)
-  assert.equal(await runCommand(["run", "missing"], f.runtime, f.options), 1)
+  // A trailing -v is the run's own option, so it reaches the plan lookup.
+  for (const argv of [
+    ["run", "missing"],
+    ["run", "missing", "-v"],
+  ])
+    assert.equal(await runCommand(argv, f.runtime, f.options), 1)
   assert.match(
     f.errors.join("\n"),
     /No active plan named missing .+ The run command requires an active plan\./,
