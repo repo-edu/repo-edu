@@ -581,9 +581,12 @@ Refusal: `Vet verdict 1 uses the word "Agree"; use Accept, Revise, Drop or Needs
 
 The rebuttal omits accepted findings. It has one answer for every revised,
 dropped or referred finding, in report order. Its number and tier match that
-finding. Leading and trailing whitespace carry no content. A line with the
-numbered tier-header shape is an answer attempt and is refused by name when its
-word is outside the rebuttal list.
+finding. Its word is the auditor's answer, never the verdict it answers: the
+number and tier are copied from the vet line and the word is not, so agreement
+with the vet's `1. [B] Revise` is written `1. [B] Agree`. Leading and trailing
+whitespace carry no content. A line with the numbered tier-header shape is an
+answer attempt and is refused by name when its word is outside the rebuttal
+list.
 
 ### Examples
 
