@@ -266,6 +266,29 @@ same result on every real record. Accepting that was rejected because each such
 round costs a full audit, vet and fix for a change nobody can see. The charge
 is one count read from the records per such finding.
 
+Every premise a correction rests on is one of three kinds. A claim about what a
+text says is backed by a quote and its location. A claim about how recorded
+work behaves, such as how rounds, models or people act, is backed by records or
+code read by hand and named in the finding. A design judgement is stated as a
+choice with its reason, and a real choice goes to the user under
+[Real choices](#real-choices). A behaviour claim with nothing named behind it
+is a conjecture, whatever its wording. A finding borrows no tier from a
+conjecture: strip the premise and grade what the evidence still carries. When a
+correction removes or contradicts evidence the artifact already holds, the
+finding states what that evidence says and why the correction wins against it.
+The record-reading rule above is the case where the records sit in the
+repository.
+
+This rule's case: it applies to every A to C finding, a few per round. Without
+it a conjecture written as a fact passes the quote check, because there is no
+quote to test. On 2026-11-03 one such finding replaced counts the plan carried
+with the opposite rule, the vet accepted it, and the read-out built on it
+discarded three quarters of its own evidence. Accepting that was rejected
+because the error surfaced only when the user read the records eleven rounds
+later. Each use costs one named source per premise in the finding and one check
+per premise in the vet, which the grounding rules already charge for text
+claims.
+
 At tiers A to C, explain the trade when the growth-pattern value is not `none`,
 reach is not `ordinary` and complexity is an increase. State the simplest
 mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery

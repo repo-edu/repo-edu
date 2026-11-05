@@ -111,7 +111,13 @@ report's quotes or paraphrases.
 
 A claim about behaviour is grounded when you can point at the code that
 produces it. A claim you cannot reach that way is not grounded, whatever the
-report says about it.
+report says about it. A claim about how recorded work behaves follows the
+shared protocol's premise kinds under
+[Finding explanations](../../../references/round-protocol.md#finding-explanations):
+check it against the records or code the finding names, and when it names none,
+name the conjecture in the verdict and strip it before grading. When the
+correction removes or contradicts evidence the plan or code holds, check that
+the finding answers that evidence.
 
 ### 3. Fix follows
 
