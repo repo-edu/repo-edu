@@ -196,7 +196,7 @@ test("every subject class derives only the severity its role admits", () => {
   assert.throws(() => stamp(message("oth docs(x): s")), /graded finding bullet/)
 })
 
-test("the hook accepts only plan-repo settle and ready subjects without attribution", () => {
+test("the hook accepts plan-repo lifecycle subjects without attribution", () => {
   for (const role of ["settle", "ready"] as const) {
     const input =
       role === "ready"
@@ -215,6 +215,28 @@ test("the hook accepts only plan-repo settle and ready subjects without attribut
   assert.throws(
     () => stamp("example/ready: record the marker\n", "plan"),
     /coder record/,
+  )
+  const disprove =
+    "example/disprove: example-plan round 2 finding 3\n\nThe evidence disproves this claim.\n"
+  assert.equal(stamp(disprove, "plan"), disprove)
+  const detailed =
+    "example/disprove: example-plan by gpt-5.6-sol xhigh\n\n- The first claim was wrong.\n- The second claim was wrong.\n"
+  assert.equal(stamp(detailed, "plan"), detailed)
+  assert.throws(() => stamp(disprove, "repo-edu"), /belongs to the plan/)
+  assert.throws(
+    () => stamp("example/disprove: example-plan round 2 finding 3\n", "plan"),
+    /full reason/,
+  )
+  assert.throws(
+    () =>
+      stamp(
+        message(
+          "example/disprove oth: example-plan round 2 finding 3",
+          "The evidence disproves this claim.",
+        ),
+        "plan",
+      ),
+    /carries no capability tag/,
   )
 })
 

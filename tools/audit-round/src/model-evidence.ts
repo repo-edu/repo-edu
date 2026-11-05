@@ -196,7 +196,9 @@ async function readRoundRecords(
         const display = relative(context.planRoot, file)
         let entries: RoundData[]
         try {
-          entries = [...parseRoundDataFile(file, await readFile(file, "utf8"))]
+          entries = [
+            ...parseRoundDataFile(file, await readFile(file, "utf8")).rounds,
+          ]
         } catch (error) {
           throw new Error(
             `Invalid round data in ${display}: ${error instanceof Error ? error.message : String(error)}`,

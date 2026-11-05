@@ -93,7 +93,7 @@ export function readStepModelRecord(body: string): StepModelRecord {
  * auditor the round holds, every subject parses under the repository's form,
  * a tagged subject's body opens with the model the work ran on, and a
  * single-model record agrees with the tag on the effort. Runner-written settle
- * and ready markers have neither.
+ * and ready markers and the user's disprove ruling have neither.
  */
 export function stampCommitMessage(
   text: string,
@@ -118,11 +118,10 @@ export function stampCommitMessage(
     tokens[slot] = tokens[slot].endsWith(":")
       ? `${stamps.auditor}:`
       : stamps.auditor
-  const findings = readFindings(
-    lines.slice(1).join("\n"),
-    repository,
-    form?.role ?? null,
-  )
+  const findings =
+    form?.role === "disprove"
+      ? []
+      : readFindings(lines.slice(1).join("\n"), repository, form?.role ?? null)
   for (const finding of findings) {
     const check = (id: string, kind: string, name: string) => {
       if (areaKinds.get(id) !== kind)
@@ -153,6 +152,10 @@ export function stampCommitMessage(
   const body = lines.slice(1).join("\n")
   if (subject.form?.role === "ready" && parseCoderRecord(body) === null)
     throw new SubjectError("a ready marker body must contain its coder record")
+  if (subject.form?.role === "disprove" && body.trim().length === 0)
+    throw new SubjectError(
+      "a disprove ruling body must contain its full reason",
+    )
   // A round states what every phase ran on, so its record replaces whatever the
   // session opened the body with.
   if (subject.tag !== null && stamps.phases === null) {

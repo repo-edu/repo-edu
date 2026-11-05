@@ -20,6 +20,7 @@ const tokenUsage = z.strictObject({
   output: z.number().int().nonnegative(),
 })
 const repository = z.enum(["repo-edu", "plan"])
+const effort = z.enum(["low", "medium", "high", "xhigh"])
 
 const planningLocation = z.strictObject({
   kind: z.literal("planning"),
@@ -183,8 +184,33 @@ export const roundDataSchema = z.union([
   planningRoundDataSchema,
   implementationRoundDataSchema,
 ])
-const planningRoundFileSchema = z.array(planningRoundDataSchema)
-const implementationRoundFileSchema = z.array(implementationRoundDataSchema)
+const commonDisprovedFinding = {
+  date: z.iso.date(),
+  reason: z.string().min(1),
+}
+export const disprovedFindingSchema = z.union([
+  z.strictObject({
+    ...commonDisprovedFinding,
+    target: z.string().min(1),
+    round: z.number().int().positive(),
+    finding: z.number().int().positive(),
+  }),
+  z.strictObject({
+    ...commonDisprovedFinding,
+    auditor: z.strictObject({
+      model: z.string().min(1),
+      effort,
+    }),
+  }),
+])
+const planningRoundFileSchema = z.strictObject({
+  rounds: z.array(planningRoundDataSchema),
+  disproved: z.array(disprovedFindingSchema),
+})
+const implementationRoundFileSchema = z.strictObject({
+  rounds: z.array(implementationRoundDataSchema),
+  disproved: z.array(disprovedFindingSchema),
+})
 const roundDataFilenamePattern = /-(?:plan|impl)-rounds\.json$/
 
 /** The one file name shared by round-data writers and readers. */
@@ -203,6 +229,10 @@ export type ReportFinding = Omit<
 export type VetVerdict = NonNullable<RoundFinding["vetVerdict"]>
 export type RebuttalAnswer = NonNullable<RoundFinding["rebuttalAnswer"]>
 export type RoundData = z.infer<typeof roundDataSchema>
+export type DisprovedFinding = z.infer<typeof disprovedFindingSchema>
+export type RoundDataFile =
+  | z.infer<typeof planningRoundFileSchema>
+  | z.infer<typeof implementationRoundFileSchema>
 export type PlanningRoundData = z.infer<typeof planningRoundDataSchema>
 export type ImplementationRoundData = z.infer<
   typeof implementationRoundDataSchema
@@ -284,13 +314,14 @@ export async function readPlanRoundData(
   const [planning, implementation] = await Promise.all([
     selected.planning[0] === undefined
       ? undefined
-      : readFile(selected.planning[0], "utf8").then((source) =>
-          planningRoundFileSchema.parse(JSON.parse(source)),
+      : readFile(selected.planning[0], "utf8").then(
+          (source) => planningRoundFileSchema.parse(JSON.parse(source)).rounds,
         ),
     selected.implementation[0] === undefined
       ? undefined
-      : readFile(selected.implementation[0], "utf8").then((source) =>
-          implementationRoundFileSchema.parse(JSON.parse(source)),
+      : readFile(selected.implementation[0], "utf8").then(
+          (source) =>
+            implementationRoundFileSchema.parse(JSON.parse(source)).rounds,
         ),
   ])
   return {
@@ -468,8 +499,16 @@ function fileSchema(path: string) {
 export function parseRoundDataFile(
   path: string,
   source: string,
-): readonly RoundData[] {
+): RoundDataFile {
   return fileSchema(path).parse(JSON.parse(source))
+}
+
+/** Atomically publish one complete, checked round-data file. */
+function writeRoundDataFile(path: string, value: unknown): void {
+  const checked = fileSchema(path).parse(value)
+  const temporary = `${path}.tmp`
+  writeFileSync(temporary, `${JSON.stringify(checked, null, 2)}\n`)
+  renameSync(temporary, path)
 }
 
 /** Replace or append one entry and atomically publish the complete collection. */
@@ -481,19 +520,36 @@ export function writeRoundData(path: string, value: RoundData): void {
     "scope" in data !== path.endsWith("-impl-rounds.json")
   )
     throw new Error(`Round data kind does not match ${path}`)
-  let entries: RoundData[] = []
+  let file: RoundDataFile = { rounds: [], disproved: [] }
   try {
-    entries = [...schema.parse(JSON.parse(readFileSync(path, "utf8")))]
+    file = schema.parse(JSON.parse(readFileSync(path, "utf8")))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
+  const entries: RoundData[] = [...file.rounds]
   const index = entries.findIndex(
     (entry) => entry.target === data.target && entry.round === data.round,
   )
   if (index === -1) entries.push(data)
   else entries[index] = data
-  const checked = schema.parse(entries)
-  const temporary = `${path}.tmp`
-  writeFileSync(temporary, `${JSON.stringify(checked, null, 2)}\n`)
-  renameSync(temporary, path)
+  writeRoundDataFile(path, { rounds: entries, disproved: file.disproved })
+}
+
+/** Append one user ruling while preserving the rounds in the same file. */
+export function writeDisprovedFinding(
+  path: string,
+  value: DisprovedFinding,
+): void {
+  const schema = fileSchema(path)
+  const disproved = disprovedFindingSchema.parse(value)
+  let file: RoundDataFile = { rounds: [], disproved: [] }
+  try {
+    file = schema.parse(JSON.parse(readFileSync(path, "utf8")))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+  }
+  writeRoundDataFile(path, {
+    rounds: file.rounds,
+    disproved: [...file.disproved, disproved],
+  })
 }

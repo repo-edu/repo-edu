@@ -276,13 +276,11 @@ export async function activePlan(
   return null
 }
 
-/** Resolve one active plan identity and refuse an archived target. */
-export async function resolvePlan(
+/** Archived plan artifacts with this identity, across shipped and aborted entries. */
+export async function archivedPlans(
   planRoot: string,
   stem: string,
-): Promise<string> {
-  const active = await activePlan(planRoot, stem)
-  if (active !== null) return active
+): Promise<readonly string[]> {
   const archive = join(planRoot, "archive")
   let files: string[]
   try {
@@ -301,6 +299,17 @@ export async function resolvePlan(
     )
       matches.push(path)
   }
+  return matches
+}
+
+/** Resolve one active plan identity and refuse an archived target. */
+export async function resolvePlan(
+  planRoot: string,
+  stem: string,
+): Promise<string> {
+  const active = await activePlan(planRoot, stem)
+  if (active !== null) return active
+  const matches = await archivedPlans(planRoot, stem)
   if (matches.length > 0)
     throw new Error(
       `The plan ${stem} is archived. Archived plans are not audit targets.`,

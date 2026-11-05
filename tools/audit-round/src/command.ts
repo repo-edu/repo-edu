@@ -1,11 +1,12 @@
 import { readFile, stat, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { dirname, join, relative } from "node:path"
 import {
   Command,
   CommanderError,
   InvalidArgumentError,
   Option,
 } from "commander"
+import { format } from "date-fns"
 import { execa } from "execa"
 import {
   type AssistantRuntime,
@@ -34,6 +35,7 @@ import {
 } from "./implement-output.js"
 import { readJudgeEvidence } from "./judge.js"
 import {
+  commitOnly,
   markImplemented,
   readReadyCoder,
   readyPlan,
@@ -80,6 +82,12 @@ import {
   runRound,
 } from "./round.js"
 import {
+  type DisprovedFinding,
+  parseRoundDataFile,
+  roundDataFilename,
+  writeDisprovedFinding,
+} from "./round-data.js"
+import {
   deleteRoundReports,
   type ManualPhase,
   type MarkerKind,
@@ -100,6 +108,7 @@ import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
   type AuditTarget,
   activePlan,
+  archivedPlans,
   isActivePlanPath,
   planPhase,
   planRepositoryPrefix,
@@ -120,6 +129,20 @@ type Invocation =
       readonly lines: LineRange
     }
   | { readonly kind: "models" }
+  | {
+      readonly kind: "disprove"
+      readonly stem: string
+      readonly target: string
+      readonly reason: string
+      readonly finding:
+        | { readonly round: number; readonly number: number }
+        | {
+            readonly auditor: {
+              readonly model: string
+              readonly effort: "low" | "medium" | "high" | "xhigh"
+            }
+          }
+    }
   | { readonly kind: "plan" }
   | {
       readonly kind: "deferrals"
@@ -234,6 +257,139 @@ type LineRange = {
   readonly last: number
 }
 
+type DisprovedAuditor = Extract<
+  Extract<Invocation, { kind: "disprove" }>["finding"],
+  { readonly auditor: unknown }
+>["auditor"]
+
+function disprovedAuditor(value: string): DisprovedAuditor {
+  const match = /^(\S+) (low|medium|high|xhigh)$/.exec(value)
+  if (match === null)
+    throw new InvalidArgumentError(
+      'Expected "<model> <effort>", with effort low, medium, high or xhigh.',
+    )
+  return {
+    model: match[1],
+    effort: match[2] as DisprovedAuditor["effort"],
+  }
+}
+
+function positiveInteger(value: string, name: string): number {
+  if (!/^[1-9]\d*$/.test(value))
+    throw new InvalidArgumentError(`Expected a positive ${name} number.`)
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed))
+    throw new InvalidArgumentError(`Expected a safe positive ${name} number.`)
+  return parsed
+}
+
+function disproveInvocation(
+  value: string,
+  target: string,
+  details: readonly string[],
+  auditor?: DisprovedAuditor,
+): Extract<Invocation, { kind: "disprove" }> {
+  if (/[\\/]/.test(value))
+    throw new InvalidArgumentError("Name the plan by its stem, without a path.")
+  const stem = planStem(value)
+  if (!target.startsWith(`${stem}-`) || /[\\/\s]/.test(target))
+    throw new InvalidArgumentError(
+      `Expected the stored round target to start with ${stem}-.`,
+    )
+  const reasonAt = auditor === undefined ? 2 : 0
+  const reason = details.slice(reasonAt).join(" ").trim()
+  if (reason.length === 0)
+    throw new InvalidArgumentError("Expected the full reason for the ruling.")
+  if (auditor !== undefined)
+    return {
+      kind: "disprove",
+      stem,
+      target,
+      reason,
+      finding: { auditor },
+    }
+  if (details.length < 3)
+    throw new InvalidArgumentError(
+      'Expected <round> <finding> <reason>, or --by "<model> <effort>" <reason>.',
+    )
+  return {
+    kind: "disprove",
+    stem,
+    target,
+    reason,
+    finding: {
+      round: positiveInteger(details[0], "round"),
+      number: positiveInteger(details[1], "finding"),
+    },
+  }
+}
+
+type DisproveFile = {
+  readonly path: string
+  readonly archived: boolean
+}
+
+async function disproveFile(
+  context: ExecutionContext,
+  invocation: Extract<Invocation, { kind: "disprove" }>,
+): Promise<DisproveFile> {
+  const active = await activePlan(context.planRoot, invocation.stem)
+  let directory = context.planRoot
+  let archived = false
+  if (active === null) {
+    const plans = await archivedPlans(context.planRoot, invocation.stem)
+    if (plans.length === 0)
+      throw new Error(
+        `No active or archived plan named ${invocation.stem} at ${context.planRoot}.`,
+      )
+    if (plans.length > 1)
+      throw new Error(
+        `More than one archived plan is named ${invocation.stem}: ${plans.map((plan) => relative(context.planRoot, plan)).join(", ")}`,
+      )
+    directory = dirname(plans[0])
+    archived = true
+  }
+  const kind =
+    invocation.target === `${invocation.stem}-plan`
+      ? "planning"
+      : invocation.target.startsWith(`${invocation.stem}-impl-`)
+        ? "implementation"
+        : null
+  if (kind === null)
+    throw new InvalidArgumentError(
+      `The target must be ${invocation.stem}-plan or a stored ${invocation.stem}-impl-<scope> target.`,
+    )
+  return {
+    path: join(directory, roundDataFilename(invocation.stem, kind)),
+    archived,
+  }
+}
+
+async function requireDisprovedFinding(
+  path: string,
+  target: string,
+  finding: { readonly round: number; readonly number: number },
+): Promise<void> {
+  let source: string
+  try {
+    source = await readFile(path, "utf8")
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      throw new Error(`No round data exists at ${path}.`)
+    throw error
+  }
+  const file = parseRoundDataFile(path, source)
+  const round = file.rounds.find(
+    (entry) => entry.target === target && entry.round === finding.round,
+  )
+  if (round === undefined)
+    throw new Error(`No ${target} round ${finding.round} exists in ${path}.`)
+  if (!round.findings.some((entry) => entry.number === finding.number))
+    throw new Error(
+      `No finding ${finding.number} exists in ${target} round ${finding.round}.`,
+    )
+}
+
 function lineRange(value: string): LineRange {
   const match = /^([1-9]\d*)-([1-9]\d*)$/.exec(value)
   const first = Number(match?.[1])
@@ -335,7 +491,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -527,6 +683,7 @@ Examples (from either checkout):
      $ pnpm audit-round example 2,3-5,6-7
 
 Use pnpm audit-round models to read the auditor and coder results.
+Use disprove to record a finding that later evidence disproved.
 Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
 Use brief --help or close --help for their arguments and options.`,
@@ -664,6 +821,32 @@ Use brief --help or close --help for their arguments and options.`,
     .action(() => {
       invocation = { kind: "models" }
     })
+  command
+    .command("disprove")
+    .description(
+      "Record the user's later ruling that one audit finding was disproved.",
+    )
+    .argument("<stem>", "the active or archived plan")
+    .argument("<target>", "the round-data target exactly as stored")
+    .argument(
+      "<details...>",
+      "<round> <finding> <reason>, or the reason when --by names the auditor",
+    )
+    .option(
+      "--by <model-effort>",
+      "record a finding absent from retained round data",
+      disprovedAuditor,
+    )
+    .action(
+      (
+        stem: string,
+        target: string,
+        details: string[],
+        flags: { by?: DisprovedAuditor },
+      ) => {
+        invocation = disproveInvocation(stem, target, details, flags.by)
+      },
+    )
   command
     .command("plan")
     .description(
@@ -841,6 +1024,49 @@ export async function runCommand(
         await modelsReport(context, modelSettings.coders),
         "markdown",
       )
+      return 0
+    }
+    if (invocation.kind === "disprove") {
+      const file = await disproveFile(context, invocation)
+      const date = format(new Date(now()), "yyyy-MM-dd")
+      let entry: DisprovedFinding
+      let subject: string
+      if ("round" in invocation.finding) {
+        await requireDisprovedFinding(
+          file.path,
+          invocation.target,
+          invocation.finding,
+        )
+        entry = {
+          date,
+          reason: invocation.reason,
+          target: invocation.target,
+          round: invocation.finding.round,
+          finding: invocation.finding.number,
+        }
+        subject = `${invocation.stem}/disprove: ${invocation.target} round ${invocation.finding.round} finding ${invocation.finding.number}`
+      } else {
+        entry = {
+          date,
+          reason: invocation.reason,
+          auditor: invocation.finding.auditor,
+        }
+        subject = `${invocation.stem}/disprove: ${invocation.target} by ${invocation.finding.auditor.model} ${invocation.finding.auditor.effort}`
+      }
+      writeDisprovedFinding(file.path, entry)
+      if (file.archived) {
+        const commit = await commitOnly({
+          cwd: context.planRoot,
+          subject,
+          body: invocation.reason,
+          paths: [relative(context.planRoot, file.path)],
+        })
+        options.terminal.write(`Committed ${commit.sha}: ${commit.subject}`)
+      } else {
+        options.terminal.write(
+          `Recorded the disproved finding in ${file.path}. Loop-close will commit it with the archive move.`,
+        )
+      }
       return 0
     }
     if (invocation.kind === "plan") {

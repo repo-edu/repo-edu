@@ -188,8 +188,8 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
   assert.ok(run.data)
   assert.equal(
-    parseRoundDataFile(run.data.path, await readFile(run.data.path, "utf8"))[0]
-      ?.phases[0]?.milliseconds,
+    parseRoundDataFile(run.data.path, await readFile(run.data.path, "utf8"))
+      .rounds[0]?.phases[0]?.milliseconds,
     180_000,
   )
 })
@@ -274,7 +274,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
   const [entry] = parseRoundDataFile(
     run.data.path,
     await readFile(run.data.path, "utf8"),
-  )
+  ).rounds
   assert.deepEqual(entry?.auditor, {
     assistant: "codex",
     model: "reported-auditor",
@@ -310,7 +310,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
   const [entry] = parseRoundDataFile(
     run.data.path,
     await readFile(run.data.path, "utf8"),
-  )
+  ).rounds
   assert.equal(entry?.status, "in-progress")
   assert.equal(entry?.judge, null)
 })
@@ -341,7 +341,7 @@ test("widening planning data retains the settling recommendation", async (t) => 
   const [entry] = parseRoundDataFile(
     run.data.path,
     await readFile(run.data.path, "utf8"),
-  )
+  ).rounds
   assert.ok(entry && "phase" in entry)
   assert.equal(entry.phase, "widening")
   assert.equal(entry.settling, settling)
@@ -385,7 +385,7 @@ test("the final retained write stores the judge answer", async (t) => {
   const [entry] = parseRoundDataFile(
     run.data.path,
     await readFile(run.data.path, "utf8"),
-  )
+  ).rounds
   assert.equal(entry?.status, "finished")
   assert.deepEqual(entry?.judge, {
     answer: "claude",
@@ -432,7 +432,7 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
   const [entry] = parseRoundDataFile(
     run.data.path,
     await readFile(run.data.path, "utf8"),
-  )
+  ).rounds
   assert.equal(entry?.status, "failed")
   assert.equal(entry?.judge, null)
 })
@@ -479,7 +479,7 @@ for (const [name, abortReason, status] of [
     const [entry] = parseRoundDataFile(
       run.data.path,
       await readFile(run.data.path, "utf8"),
-    )
+    ).rounds
     assert.equal(entry?.status, status)
   })
 }
@@ -582,7 +582,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const data = parseRoundDataFile(
       run.data.path,
       await readFile(run.data.path, "utf8"),
-    )[0]
+    ).rounds[0]
     assert.ok(data)
     assert.equal(data.target, "example-impl-01..01")
     assert.equal(data.round, 1)
@@ -684,7 +684,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const phase = parseRoundDataFile(
       run.data.path,
       await readFile(run.data.path, "utf8"),
-    )[0]?.phases[0]
+    ).rounds[0]?.phases[0]
     assert.deepEqual(phase?.peakContext, {
       tokens: 240_000,
       window: assistant === "codex" ? 258_400 : null,

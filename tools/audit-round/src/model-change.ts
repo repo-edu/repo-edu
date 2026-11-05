@@ -66,7 +66,7 @@ export async function readPreviousRoundModels(
     await Promise.all(
       files.map(async (file) => {
         try {
-          return parseRoundDataFile(file, await readFile(file, "utf8"))
+          return parseRoundDataFile(file, await readFile(file, "utf8")).rounds
         } catch (error) {
           throw new Error(
             `Invalid round data in ${relative(planRoot, file)}: ${error instanceof Error ? error.message : String(error)}`,

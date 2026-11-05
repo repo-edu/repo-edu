@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { readFile, stat } from "node:fs/promises"
 import { basename, join, relative } from "node:path"
 import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
@@ -34,6 +34,23 @@ export type SettleCommit = LifecycleCommit & {
 export async function commitOnly(
   input: CommitOnlyInput,
 ): Promise<LifecycleCommit> {
+  for (const path of input.paths ?? []) {
+    const tracked = await execa(
+      "git",
+      ["ls-files", "--error-unmatch", "--", path],
+      { cwd: input.cwd, reject: false },
+    )
+    if (tracked.exitCode === 0) continue
+    try {
+      await stat(join(input.cwd, path))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue
+      throw error
+    }
+    await execa("git", ["add", "--intent-to-add", "--", path], {
+      cwd: input.cwd,
+    })
+  }
   const args = [
     "commit",
     "--only",

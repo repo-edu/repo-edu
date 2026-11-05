@@ -43,14 +43,15 @@ literal, including spaces inside a production.
 
 The five slots of `<tags>` keep this order and only the last filled slot is
 followed by the colon. Which slots a subject fills is decided by its class
-under [Classes](#classes). Only the P3 `settle` and `ready` productions omit
-the `<tag>` slot.
+under [Classes](#classes). The P3 `settle` and `ready` productions and the P4
+`disprove` production omit the `<tag>` slot.
 
 ## Commit model record
 
 The body of every tagged commit opens with one of these records. Blank lines
-and Git comment lines may precede it. The P3 `settle` and `ready` subjects have
-no model record. A `ready` body instead carries the coder that owns the plan.
+and Git comment lines may precede it. The P3 `settle` and `ready` subjects and
+the P4 `disprove` subject have no model record. A `ready` body instead carries
+the coder that owns the plan. A `disprove` body carries the user's full reason.
 
 ```text
 <model-record>       ::= <single-model-record> | <step-model-record> | <round-model-record>
@@ -111,7 +112,7 @@ Audit, vet and rebuttal took 7 min.
 <form>      ::= <stem>/<role>
 <stem>      ::= <stem-char>+                ; the plan file's name without .md and without a -widen postfix
 <stem-char> ::= any character except / and space
-<role>      ::= init | plan-audit | settle | ready | impl-<n> | impl-audit-<scope> | implemented | closed
+<role>      ::= init | plan-audit | settle | ready | disprove | impl-<n> | impl-audit-<scope> | implemented | closed
 <scope>     ::= <n> | <n>-<n>
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -170,6 +171,9 @@ Plan-file commits, plan repo only. No `<kind>`:
 <P3 marker>  ::= <stem>/settle: <S>
                | <stem>/ready: <S>
                | <stem>/closed <tag>: <S>
+<P4 ruling>  ::= <stem>/disprove: <target>" round "<n>" finding "<n>
+               | <stem>/disprove: <target>" by "<model>" "<effort-name>
+<target>     ::= non-empty text without spaces
 ```
 
 Implementation commits, either repo. A commit lands in the repo whose files it
@@ -193,11 +197,14 @@ Off-plan commits, no `<form>`:
 
 Rules across the classes:
 
-- Every subject except the P3 `settle` and `ready` forms carries exactly one
-  `<tag>`, attributed under Repo Edu's **Commit Capability Tag** rule. Those two
-  runner-written markers report no assistant work.
+- Every subject except the P3 `settle` and `ready` forms and the P4 `disprove`
+  form carries exactly one `<tag>`, attributed under Repo Edu's **Commit
+  Capability Tag** rule. The two runner-written markers and the user's ruling
+  report no assistant work.
 - The P3 `ready` body consists of one `<ready-coder-record>`. The P3 `settle`
   body has no record.
+- The P4 `disprove` body contains the user's non-empty free-text reason and no
+  model record.
 - I1 carries no `<severity>`, under the plan doctrine's **Shared implementation
   forms**, and its body opens with a `<step-model-record>`. Other independently
   written tagged commits use the single-model record.
@@ -216,6 +223,7 @@ Rules across the classes:
 | `plan-audit` | plan | one planning round; its name pairs it with `impl-audit-<scope>`, so a record says which audit it was |
 | `settle` | plan | rename onto the bare topic name without changing text |
 | `ready` | plan | plan declared ready for implementation, no file change |
+| `disprove` | plan | user's later ruling that one audit finding was wrong |
 | `impl-<n>` | either | one implementation step, exactly one step per commit |
 | `impl-audit-<scope>` | either | an implementation-audit fix commit or record |
 | `implemented` | either | every step this repo hosts has landed |
@@ -237,6 +245,8 @@ P2        round-file-naming/plan-audit ath clean:
 P3        planning-rounds/settle:
 P3        planning-rounds/ready:
 P3        planning-rounds/closed oth:
+P4        planning-rounds/disprove: planning-rounds-plan round 2 finding 1
+P4        planning-rounds/disprove: planning-rounds-plan by gpt-5.6-sol xhigh
 I1        planning-rounds/impl-3 oth feat(audit-round):
 I2        round-file-naming/impl-audit-1-4 oth growth-none d1 docs(vet):
 I2        round-file-naming/impl-audit-2-3 oth pruning-low c3 docs(audit):

@@ -147,7 +147,11 @@ test("close supplies open deferrals to one close session from the plan checkout"
   const archive = join(f.planRoot, "archive/example")
   await mkdir(archive, { recursive: true })
   const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
-  for (const file of dataFiles) await writeFile(join(f.planRoot, file), "[]\n")
+  for (const file of dataFiles)
+    await writeFile(
+      join(f.planRoot, file),
+      `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
+    )
   f.phases.close = {
     ...(f.phases.close as object),
     moves: dataFiles.map((file) => ({
@@ -203,7 +207,10 @@ test("close supplies open deferrals to one close session from the plan checkout"
   assert.doesNotMatch(log, /audit +codex|fix +codex|brief +codex/)
   assert.match(f.visible.join("\n"), /Close finished\./)
   for (const file of dataFiles) {
-    assert.equal(await readFile(join(archive, file), "utf8"), "[]\n")
+    assert.equal(
+      await readFile(join(archive, file), "utf8"),
+      `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
+    )
     await assert.rejects(access(join(f.planRoot, file)), { code: "ENOENT" })
   }
 })

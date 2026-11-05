@@ -1,13 +1,83 @@
 import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { basename, join, relative } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
+import {
+  type ImplementationRoundData,
+  parseRoundDataFile,
+  writeRoundData,
+} from "../round-data.js"
 import { planRepositoryPrefix } from "../target.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
 type Fixture = Awaited<ReturnType<typeof roundFixture>>
+
+function disproveRound(
+  target = "example-impl-01..01",
+): ImplementationRoundData {
+  return {
+    target,
+    round: 1,
+    tag: "otx",
+    started: "2026-11-05T10:00:00.000Z",
+    status: "finished",
+    settings: {
+      audit: {
+        claude: { model: "claude-opus-5-5", effort: "xhigh" },
+        codex: { model: "gpt-5.6-sol", effort: "xhigh" },
+      },
+      vet: {
+        claude: { model: "claude-opus-5-5", effort: "xhigh" },
+        codex: { model: "gpt-5.6-sol", effort: "xhigh" },
+      },
+      fix: { assistant: "codex", model: "gpt-5.6-sol", effort: "xhigh" },
+    },
+    auditor: {
+      assistant: "codex",
+      model: "gpt-5.6-sol",
+      effort: "xhigh",
+      chosenBy: "settings",
+    },
+    phases: [],
+    commits: [],
+    findings: [
+      {
+        number: 1,
+        title: "Unsupported claim",
+        tier: "B",
+        reach: "developer",
+        complexity: "none",
+        growthPattern: "none",
+        location: {
+          kind: "repo-edu",
+          area: "tool-audit-round",
+          covers: [],
+        },
+        vetVerdict: "accept",
+        rebuttalAnswer: null,
+        outcome: "kept",
+        finalTier: null,
+        finalReach: null,
+      },
+    ],
+    judge: null,
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  }
+}
+
+async function archivedPlan(fixture: Fixture, stem = "example") {
+  const directory = join(fixture.planRoot, "archive", stem)
+  await mkdir(directory, { recursive: true })
+  await rm(join(fixture.planRoot, `${stem}.md`), { force: true })
+  await rm(join(fixture.planRoot, `${stem}-widen.md`), { force: true })
+  await writeFile(join(directory, "plan.md"), `# ${stem}\n`)
+  await execa("git", ["add", "-A"], { cwd: fixture.planRoot })
+  await commitFixture(fixture.planRoot, `${stem}/closed oth: archive fixture`)
+  return directory
+}
 
 async function lifecyclePlan(
   fixture: Fixture,
@@ -781,6 +851,147 @@ Audit ranges: 2.
   assert.equal(
     (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
     head,
+  )
+})
+
+test("disprove appends an attached ruling to active data without committing", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(f, "settled")
+  const path = join(f.planRoot, "example-impl-rounds.json")
+  writeRoundData(path, disproveRound())
+  const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
+    .stdout
+
+  assert.equal(
+    await runCommand(
+      [
+        "disprove",
+        "example",
+        "example-impl-01..01",
+        "1",
+        "1",
+        "The retained evidence disproves the claim.",
+      ],
+      f.runtime,
+      { ...f.options, now: () => Date.UTC(2026, 10, 5, 12) },
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+
+  assert.deepEqual(
+    parseRoundDataFile(path, await readFile(path, "utf8")).disproved,
+    [
+      {
+        date: "2026-11-05",
+        reason: "The retained evidence disproves the claim.",
+        target: "example-impl-01..01",
+        round: 1,
+        finding: 1,
+      },
+    ],
+  )
+  assert.equal(
+    (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+    head,
+  )
+  assert.match(f.visible.at(-1) ?? "", /Loop-close will commit it/)
+})
+
+test("disprove commits only an archived attached ruling with its reason body", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const archive = await archivedPlan(f)
+  const path = join(archive, "example-impl-rounds.json")
+  writeRoundData(path, disproveRound())
+  await execa("git", ["add", "--", relative(f.planRoot, path)], {
+    cwd: f.planRoot,
+  })
+  await commitFixture(f.planRoot, "fixture/init oth: track round data")
+  await writeFile(join(f.planRoot, "staged.txt"), "Staged work\n")
+  await execa("git", ["add", "staged.txt"], { cwd: f.planRoot })
+
+  assert.equal(
+    await runCommand(
+      [
+        "disprove",
+        "example",
+        "example-impl-01..01",
+        "1",
+        "1",
+        "The retained evidence disproves the claim.",
+      ],
+      f.runtime,
+      { ...f.options, now: () => Date.UTC(2026, 10, 5, 12) },
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+
+  assert.equal(
+    (
+      await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
+    ).stdout.trim(),
+    "example/disprove: example-impl-01..01 round 1 finding 1\n\nThe retained evidence disproves the claim.",
+  )
+  assert.equal(
+    (
+      await execa(
+        "git",
+        ["diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+        {
+          cwd: f.planRoot,
+        },
+      )
+    ).stdout,
+    "archive/example/example-impl-rounds.json",
+  )
+  assert.equal(
+    (
+      await execa("git", ["diff", "--cached", "--name-only"], {
+        cwd: f.planRoot,
+      })
+    ).stdout,
+    "staged.txt",
+  )
+})
+
+test("disprove creates and commits detached archived data", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const archive = await archivedPlan(f)
+  const path = join(archive, "example-plan-rounds.json")
+
+  assert.equal(
+    await runCommand(
+      [
+        "disprove",
+        "example",
+        "example-plan",
+        "--by",
+        "gpt-5.6-sol xhigh",
+        "The finding predates retained round data.",
+      ],
+      f.runtime,
+      { ...f.options, now: () => Date.UTC(2026, 10, 5, 12) },
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+
+  assert.deepEqual(parseRoundDataFile(path, await readFile(path, "utf8")), {
+    rounds: [],
+    disproved: [
+      {
+        date: "2026-11-05",
+        reason: "The finding predates retained round data.",
+        auditor: { model: "gpt-5.6-sol", effort: "xhigh" },
+      },
+    ],
+  })
+  assert.equal(
+    (
+      await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
+    ).stdout.trim(),
+    "example/disprove: example-plan by gpt-5.6-sol xhigh\n\nThe finding predates retained round data.",
   )
 })
 

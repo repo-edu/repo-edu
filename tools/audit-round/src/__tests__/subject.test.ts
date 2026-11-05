@@ -85,7 +85,10 @@ test("range examples parse and obsolete all examples are refused", async () => {
       )
     } else {
       assert.equal(
-        parseSubject(`${subject} the sentence`, repository).class,
+        parseSubject(
+          expected === "P4" ? subject : `${subject} the sentence`,
+          repository,
+        ).class,
         expected,
         subject,
       )
@@ -157,6 +160,36 @@ test("settle and ready omit the capability tag only in the plan repository", () 
       /carries no capability tag/,
     )
   }
+})
+
+test("disprove names an attached or detached user ruling only in the plan repository", () => {
+  for (const sentence of [
+    "example-plan round 2 finding 3",
+    "example-plan by gpt-5.6-sol xhigh",
+  ]) {
+    assert.deepEqual(parseSubject(`example/disprove: ${sentence}`, "plan"), {
+      class: "P4",
+      form: { stem: "example", role: "disprove", scope: null },
+      tag: null,
+      burden: null,
+      severity: null,
+      kind: null,
+      sentence,
+    })
+    assert.throws(
+      () => parseSubject(`example/disprove: ${sentence}`, "repo-edu"),
+      /belongs to the plan repository/,
+    )
+  }
+  assert.throws(
+    () =>
+      parseSubject("example/disprove: example-plan round 0 finding 1", "plan"),
+    /round <n> finding <n>/,
+  )
+  assert.throws(
+    () => parseSubject("example/disprove: example-plan by gpt-5.6-sol", "plan"),
+    /by <model> <effort>/,
+  )
 })
 
 const refusals: [Repository, string, RegExp][] = [

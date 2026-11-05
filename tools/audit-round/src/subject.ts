@@ -13,6 +13,7 @@ export const roles = [
   "plan-audit",
   "settle",
   "ready",
+  "disprove",
   "impl",
   "impl-audit",
   "implemented",
@@ -88,6 +89,7 @@ export type SubjectClass =
   | "P1"
   | "P2"
   | "P3"
+  | "P4"
   | "I1"
   | "I2"
   | "I3"
@@ -256,6 +258,19 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (tag !== null) fail(`${where} carries no capability tag`)
       if (!empty) fail(`${where} carries nothing after its form`)
       return "P3"
+    case "disprove":
+      if (repository !== "plan") fail(`${where} belongs to the plan repository`)
+      if (tag !== null) fail(`${where} carries no capability tag`)
+      if (!empty) fail(`${where} carries nothing after its form`)
+      if (
+        !/^(?:\S+ round [1-9]\d* finding [1-9]\d*|\S+ by \S+ (?:low|medium|high|xhigh))$/.test(
+          slots.sentence,
+        )
+      )
+        fail(
+          `${where} names a target and either round <n> finding <n> or by <model> <effort>`,
+        )
+      return "P4"
     case "plan-audit":
       if (tag === null) fail(`${where} needs a capability tag`)
       if (repository !== "plan") fail(`${where} belongs to the plan repository`)
@@ -333,7 +348,7 @@ export function parseSubject(line: string, repository: Repository): Subject {
   const tag = located.hasTag ? parseTag(tags[located.tag]) : null
   if (
     tag === null &&
-    (form === null || (form.role !== "settle" && form.role !== "ready"))
+    (form === null || !["settle", "ready", "disprove"].includes(form.role))
   )
     parseTag(tags[located.tag])
   const burden =

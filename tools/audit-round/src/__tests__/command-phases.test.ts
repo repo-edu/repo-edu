@@ -458,7 +458,8 @@ for (const target of ["log", "markdown"] as const) {
     )
     assert.ok(dataName)
     const path = join(f.planRoot, dataName)
-    const data = parseRoundDataFile(path, await readFile(path, "utf8"))[0]
+    const data = parseRoundDataFile(path, await readFile(path, "utf8"))
+      .rounds[0]
     assert.ok(data)
     assert.deepEqual(data.commits, [])
     assert.equal(data.phases.at(-1)?.phase, "audit")

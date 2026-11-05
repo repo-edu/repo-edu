@@ -65,9 +65,9 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.doesNotMatch(visible, /Auditor sequence stopped/)
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
-  ) as { auditor: { chosenBy: string } }[]
+  ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
-    stored.map((entry) => entry.auditor.chosenBy),
+    stored.rounds.map((entry) => entry.auditor.chosenBy),
     ["--auditor", "--auditor"],
   )
   const calls = await f.calls()
@@ -782,9 +782,11 @@ test("an automatic series follows the judged switch and ends on stop without a q
     )
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
-  ) as { status: string; judge: { answer: string } | null }[]
+  ) as {
+    rounds: { status: string; judge: { answer: string } | null }[]
+  }
   assert.deepEqual(
-    stored.map((entry) => ({
+    stored.rounds.map((entry) => ({
       status: entry.status,
       answer: entry.judge?.answer,
     })),
@@ -862,9 +864,11 @@ test("a random default auditor opens the series on the coin and the series still
   )
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
-  ) as { auditor: { assistant: string; chosenBy: string } }[]
+  ) as {
+    rounds: { auditor: { assistant: string; chosenBy: string } }[]
+  }
   assert.deepEqual(
-    stored.map((entry) => entry.auditor.chosenBy),
+    stored.rounds.map((entry) => entry.auditor.chosenBy),
     ["settings", "settings"],
   )
 })
@@ -904,9 +908,9 @@ test("--first replaces the default auditor's first round and the series still fo
   )
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
-  ) as { auditor: { chosenBy: string } }[]
+  ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
-    stored.map((entry) => entry.auditor.chosenBy),
+    stored.rounds.map((entry) => entry.auditor.chosenBy),
     ["--first", "settings"],
   )
   // Only the first round carries the selection; the judged round runs on the defaults.
@@ -983,9 +987,11 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
     f.visible.join("\n"),
     /Plan audit of example: automatic auditor series stopped after 1 round because the plan changed from detailing to widening\./,
   )
-  const [stored] = JSON.parse(
+  const {
+    rounds: [stored],
+  } = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
-  ) as { status: string; judge: unknown }[]
+  ) as { rounds: { status: string; judge: unknown }[] }
   assert.deepEqual(
     { status: stored.status, judge: stored.judge },
     { status: "finished", judge: null },
@@ -1172,13 +1178,17 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
     /Plan audit of example: automatic auditor series ended after 1 round\. The judge finds no open shape question\. Widening is done: run pnpm audit-round settle example\./,
   )
   assert.doesNotMatch(visible, /settle recommendation/)
-  const [stored] = JSON.parse(
+  const {
+    rounds: [stored],
+  } = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
   ) as {
-    phase: string
-    settling: string
-    judge: { answer: string; reason: string } | null
-  }[]
+    rounds: {
+      phase: string
+      settling: string
+      judge: { answer: string; reason: string } | null
+    }[]
+  }
   assert.equal(stored?.phase, "widening")
   assert.equal(
     stored?.settling,
@@ -1218,9 +1228,11 @@ test("a widening judge can stop the series without recommending settle", async (
     f.errors.join("\n"),
   )
   // A clean audit runs no fix, so the report's closing line is the retained recommendation.
-  const [stored] = JSON.parse(
+  const {
+    rounds: [stored],
+  } = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
-  ) as { settling: string }[]
+  ) as { rounds: { settling: string }[] }
   assert.equal(
     stored?.settling,
     "keep open. The shape question needs evidence only the user can supply.",
@@ -1386,9 +1398,11 @@ test("a scope list runs one automatic series per scope in list order", async (t)
   assert.doesNotMatch(visible, /Scope list stopped/)
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
-  ) as { target: string; round: number; scope: string }[]
+  ) as {
+    rounds: { target: string; round: number; scope: string }[]
+  }
   assert.deepEqual(
-    stored.map((entry) => [entry.target, entry.round, entry.scope]),
+    stored.rounds.map((entry) => [entry.target, entry.round, entry.scope]),
     [
       ["example-impl-01..01", 1, "1"],
       ["example-impl-02..02", 1, "2"],

@@ -13,6 +13,7 @@ import {
   roundDataFilename,
   roundDataFiles,
   settleRoundFindings,
+  writeDisprovedFinding,
   writeRoundData,
 } from "../round-data.js"
 import { fixture } from "./helpers.js"
@@ -87,14 +88,15 @@ test("per-plan data replaces a target round in place and appends new identities"
   writeRoundData(path, entry("example-impl-01..01", 2))
   writeRoundData(path, entry("example-impl-01..01", 1, "failed"))
 
-  const rounds = parseRoundDataFile(path, await readFile(path, "utf8"))
+  const file = parseRoundDataFile(path, await readFile(path, "utf8"))
   assert.deepEqual(
-    rounds.map(({ round, status }) => ({ round, status })),
+    file.rounds.map(({ round, status }) => ({ round, status })),
     [
       { round: 1, status: "failed" },
       { round: 2, status: "finished" },
     ],
   )
+  assert.deepEqual(file.disproved, [])
   await assert.rejects(access(`${path}.tmp`), { code: "ENOENT" })
 })
 
@@ -112,7 +114,7 @@ test("round data admits every end state", async (t) => {
     writeRoundData(path, entry(`example-impl-${index + 1}`, 1, status))
   })
   assert.deepEqual(
-    parseRoundDataFile(path, await readFile(path, "utf8")).map(
+    parseRoundDataFile(path, await readFile(path, "utf8")).rounds.map(
       (round) => round.status,
     ),
     statuses,
@@ -133,7 +135,12 @@ test("round data rejects the removed two-member audit setting", async (t) => {
     },
   }
 
-  assert.throws(() => parseRoundDataFile(path, JSON.stringify([paired])))
+  assert.throws(() =>
+    parseRoundDataFile(
+      path,
+      JSON.stringify({ rounds: [paired], disproved: [] }),
+    ),
+  )
 })
 
 test("a plan's watch evidence reads both round kinds and their trajectory fields", async (t) => {
@@ -199,9 +206,68 @@ test("planning round data rejects history without the required settling", async 
   assert.throws(() =>
     parseRoundDataFile(
       path,
-      JSON.stringify([{ ...common, phase: "widening" }]),
+      JSON.stringify({
+        rounds: [{ ...common, phase: "widening" }],
+        disproved: [],
+      }),
     ),
   )
+})
+
+test("round data stores attached and detached disproved findings beside rounds", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.root, "example-impl-rounds.json")
+  writeRoundData(path, entry("example-impl-01..01", 1))
+  writeDisprovedFinding(path, {
+    date: "2026-11-05",
+    reason: "The retained evidence disproves the claim.",
+    target: "example-impl-01..01",
+    round: 1,
+    finding: 2,
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-05",
+    reason: "The finding never reached retained round data.",
+    auditor: { model: "gpt-5.6-sol", effort: "xhigh" },
+  })
+
+  const file = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.equal(file.rounds.length, 1)
+  assert.deepEqual(file.disproved, [
+    {
+      date: "2026-11-05",
+      reason: "The retained evidence disproves the claim.",
+      target: "example-impl-01..01",
+      round: 1,
+      finding: 2,
+    },
+    {
+      date: "2026-11-05",
+      reason: "The finding never reached retained round data.",
+      auditor: { model: "gpt-5.6-sol", effort: "xhigh" },
+    },
+  ])
+})
+
+test("a disproved finding can create an empty round-data file", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.root, "example-plan-rounds.json")
+  writeDisprovedFinding(path, {
+    date: "2026-11-05",
+    reason: "The finding predates retained round data.",
+    auditor: { model: "gpt-5.6-sol", effort: "xhigh" },
+  })
+
+  assert.deepEqual(parseRoundDataFile(path, await readFile(path, "utf8")), {
+    rounds: [],
+    disproved: [
+      {
+        date: "2026-11-05",
+        reason: "The finding predates retained round data.",
+        auditor: { model: "gpt-5.6-sol", effort: "xhigh" },
+      },
+    ],
+  })
 })
 
 test("a plan's watch evidence omits a round kind whose file is absent", async (t) => {
