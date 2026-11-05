@@ -81,10 +81,9 @@ for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
-    settings.phases.audit[auditor] = {
-      model: "pinned-auditor",
-      effort: "medium",
-    }
+    settings.auditors = [
+      { assistant: auditor, model: "pinned-auditor", effort: "medium" },
+    ]
     assert.equal(
       await runCommand(
         [
@@ -153,11 +152,12 @@ for (const auditor of ["codex", "claude"] as const) {
 }
 
 for (const auditor of ["codex", "claude"] as const) {
-  test(`--auditor ${auditor} selects the defaults for audit and rebuttal despite phase pins`, async (t) => {
+  test(`--auditor ${auditor} selects the defaults for audit and rebuttal despite listed auditors`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
-    settings.defaultAuditor = auditor === "codex" ? "claude" : "codex"
-    settings.phases.audit[auditor] = { model: "pinned-auditor", effort: "low" }
+    settings.auditors = [
+      { assistant: auditor, model: "pinned-auditor", effort: "low" },
+    ]
     settings.coders = [
       {
         assistant: "codex",
@@ -208,8 +208,10 @@ for (const auditor of ["codex", "claude"] as const) {
 test("auditor lists keep each entry's model and effort independent", async (t) => {
   const f = await roundFixture(t, "claude")
   const settings = structuredClone(testSettings)
-  settings.phases.audit.claude = { model: "pinned-claude", effort: "low" }
-  settings.phases.audit.codex = { model: "pinned-codex", effort: "high" }
+  settings.auditors = [
+    { assistant: "claude", model: "pinned-claude", effort: "low" },
+    { assistant: "codex", model: "pinned-codex", effort: "high" },
+  ]
   assert.equal(
     await runCommand(
       [
@@ -379,7 +381,10 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /--auditor <selections>\s+auditors in round order/)
   assert.doesNotMatch(visible, /--chain/)
   assert.match(visible, /<effort>\s+l = low, m = medium, h = high, x = xhigh/)
-  assert.match(visible, /default auditor comes from\s+settings\.json/)
+  assert.match(
+    visible,
+    /default auditor is an entry of the auditors list in\s+settings\.json/,
+  )
   assert.doesNotMatch(
     visible,
     /audit pair|alternate default|member of the pair/,

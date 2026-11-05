@@ -11,6 +11,7 @@ import {
   roundDataFilename,
 } from "./round-data.js"
 import { newestWatch } from "./round-paths.js"
+import type { Auditor } from "./settings.js"
 import { looseForm, type Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
@@ -117,10 +118,17 @@ function landedGatingFinding(
   )
 }
 
-/** The decisions the current series phase admits after applying the real-bug gate. */
+/**
+ * The decisions the current series phase admits after applying the real-bug
+ * gate, followed by every series-pool entry. The gate reads the latest settled
+ * read of each assistant the pool can run: an assistant the series cannot send
+ * in again imposes nothing, so it cannot hold an ending the series can never
+ * unlock.
+ */
 export function judgeOptions(
   evidence: JudgeEvidence,
   currentRound: CurrentRound,
+  pool: readonly Auditor[],
 ): readonly JudgeDecision[] {
   let entries = evidence.roundData.rounds.filter(
     (entry) =>
@@ -149,21 +157,31 @@ export function judgeOptions(
       )
     }
   }
+  const represented = new Set(pool.map((auditor) => auditor.assistant))
   const latest = new Map<RoundData["auditor"]["assistant"], RoundData>()
   for (const entry of entries.toSorted(
     (first, second) => first.round - second.round,
   ))
-    latest.set(entry.auditor.assistant, entry)
+    if (represented.has(entry.auditor.assistant))
+      latest.set(entry.auditor.assistant, entry)
   const widening =
     current !== undefined && "phase" in current && current.phase === "widening"
   const gatingTiers = widening ? (["A"] as const) : (["A", "B"] as const)
   const canEnd = ![...latest.values()].some((entry) =>
     landedGatingFinding(entry, gatingTiers),
   )
-  const continuations = ["claude", "codex"] as const
   return widening
-    ? [...(canEnd ? (["settle"] as const) : []), "stop", ...continuations]
-    : [...(canEnd ? (["stop"] as const) : []), ...continuations]
+    ? [...(canEnd ? (["settle"] as const) : []), "stop", ...pool]
+    : [...(canEnd ? (["stop"] as const) : []), ...pool]
+}
+
+/** One series-pool entry as the runner offers it and the judge names it back. */
+export function auditorText(auditor: Auditor): string {
+  return `${auditor.assistant} ${auditor.model} ${auditor.effort}`
+}
+
+function decisionText(decision: JudgeDecision): string {
+  return typeof decision === "string" ? decision : auditorText(decision)
 }
 
 /** Read the judge's single content line after the phase-result suffix is removed. */
@@ -174,7 +192,7 @@ export function readJudgeAnswer(
   const lines = source.trim().split(/\r?\n/)
   const match =
     lines.length === 1
-      ? /^Judge: (settle|stop|continue with Claude|continue with Codex)\. (\S.*)$/.exec(
+      ? /^Judge: (settle|stop|continue with (?:claude|codex) \S+ (?:low|medium|high|xhigh))\. (\S.*)$/.exec(
           lines[0],
         )
       : null
@@ -182,23 +200,19 @@ export function readJudgeAnswer(
     throw new Error(
       "Judge answer must contain exactly one plain Judge line and a reason",
     )
-  const answer =
-    match[1] === "settle" || match[1] === "stop"
-      ? match[1]
-      : match[1] === "continue with Claude"
-        ? "claude"
-        : "codex"
-  if (!options.includes(answer))
+  // An ending reads as itself and a continuation as the entry it names, so the
+  // stored answer is the offered entry and the next round runs on that value.
+  const named = match[1].replace(/^continue with /, "")
+  const answer = options.find((option) => decisionText(option) === named)
+  if (answer === undefined)
     throw new Error(
-      `Judge answered ${answer} while the runner offered only ${formatJudgeOptions(options)}`,
+      `Judge answered ${named} while the runner offered only ${formatJudgeOptions(options)}`,
     )
   return { answer, reason: match[2] }
 }
 
 export function formatJudgeOptions(options: readonly JudgeDecision[]): string {
-  const labels = options.map((option) =>
-    option === "claude" ? "Claude" : option === "codex" ? "Codex" : option,
-  )
+  const labels = options.map(decisionText)
   return labels.length < 2
     ? (labels[0] ?? "none")
     : `${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}`

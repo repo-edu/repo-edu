@@ -126,30 +126,16 @@ function auditorRecommendation(
   return winners.length === 1 ? winners[0][0] : null
 }
 
-function configuredAuditSelections(settings: RoundSettings): Array<{
-  readonly model: string
-  readonly effort: string
-}> {
-  return (["claude", "codex"] as const).map((assistant) => {
-    const configured = settings.phases.audit[assistant]
-    const defaults = settings.defaults[assistant]
-    return {
-      model: configured.model === "default" ? defaults.model : configured.model,
-      effort:
-        configured.effort === "default" ? defaults.effort : configured.effort,
-    }
-  })
-}
-
-function currentAuditSetting(
+/** Whether an `auditors` entry runs the row's model and effort. */
+function listedAuditor(
   identity: ModelIdentity,
   settings: RoundSettings,
 ): boolean {
-  return configuredAuditSelections(settings).some(
-    (selection) =>
-      identity.effort === selection.effort &&
-      (identity.model === selection.model ||
-        identity.model.includes(selection.model)),
+  return settings.auditors.some(
+    (auditor) =>
+      identity.effort === auditor.effort &&
+      (identity.model === auditor.model ||
+        identity.model.includes(auditor.model)),
   )
 }
 
@@ -180,9 +166,12 @@ function auditorReading(
   const identity = rows.get(recommendation)?.identity ?? entries[0][1].identity
   return readingLines(
     `The records clearly support running ${modelText(identity)} for ${workClass} audits.`,
-    currentAuditSetting(identity, settings)
+    listedAuditor(identity, settings)
       ? notes
-      : [`${modelText(identity)} is not a current audit setting.`, ...notes],
+      : [
+          `${modelText(identity)} is not in the current auditors list.`,
+          ...notes,
+        ],
   )
 }
 

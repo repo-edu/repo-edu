@@ -2,9 +2,35 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { type JudgeEvidence, judgeOptions, readJudgeAnswer } from "../judge.js"
 import type { JudgeDecision, RoundData } from "../round-data.js"
+import type { Auditor } from "../settings.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
 const selection = { model: "fixture-model", effort: "low" }
+const fable: Auditor = {
+  assistant: "claude",
+  model: "claude-fable-5-1",
+  effort: "high",
+}
+const opus: Auditor = {
+  assistant: "claude",
+  model: "claude-opus-5-5",
+  effort: "xhigh",
+}
+const sol: Auditor = {
+  assistant: "codex",
+  model: "gpt-5.6-sol",
+  effort: "xhigh",
+}
+/** A series pool with two Claude models and one Codex model. */
+const pool: readonly Auditor[] = [fable, opus, sol]
+/** What the runner offered in each refused grammar example. */
+const exampleOptions: Readonly<Record<string, readonly JudgeDecision[]>> = {
+  "judge/stop-unavailable": [sol],
+  "judge/settle-unavailable": ["stop", sol],
+  "judge/continue-unoffered": [
+    { assistant: "claude", model: "opus", effort: "high" },
+  ],
+}
 
 function round(
   assistant: "claude" | "codex",
@@ -27,7 +53,6 @@ function round(
     started,
     status: options.status ?? "finished",
     settings: {
-      audit: { claude: selection, codex: selection },
       vet: { claude: selection, codex: selection },
       fix: { assistant: "codex", ...selection },
     },
@@ -98,20 +123,22 @@ function offers(
   rounds: readonly RoundData[],
   current: RoundData,
   commits?: JudgeEvidence["commits"],
+  offered: readonly Auditor[] = pool,
 ): boolean {
-  return judgeOptions(evidence(rounds, commits), identity(current)).includes(
-    decision,
-  )
+  return judgeOptions(
+    evidence(rounds, commits),
+    identity(current),
+    offered,
+  ).includes(decision)
 }
 
 test("the round grammar's judge examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("judge/")) {
-    const options: readonly JudgeDecision[] =
-      example.id === "judge/stop-unavailable"
-        ? ["claude", "codex"]
-        : example.id === "judge/settle-unavailable"
-          ? ["stop", "claude", "codex"]
-          : ["settle", "stop", "claude", "codex"]
+    const options: readonly JudgeDecision[] = exampleOptions[example.id] ?? [
+      "settle",
+      "stop",
+      ...pool,
+    ]
     if (example.outcome === "parsed") {
       assert.doesNotThrow(
         () => readJudgeAnswer(example.source, options),
@@ -135,22 +162,15 @@ test("the current in-progress settled B removes stop from the judge", () => {
   })
   assert.equal(offers("stop", [current], current), false)
   assert.throws(
-    () =>
-      readJudgeAnswer("Judge: stop. The round has converged.", [
-        "claude",
-        "codex",
-      ]),
-    /offered only Claude or Codex/,
+    () => readJudgeAnswer("Judge: stop. The round has converged.", pool),
+    /offered only claude claude-fable-5-1 high, claude claude-opus-5-5 xhigh or codex gpt-5\.6-sol xhigh$/,
   )
   assert.deepEqual(
     readJudgeAnswer(
-      "Judge: continue with Claude. Cross-check the accepted finding.",
-      ["claude", "codex"],
+      "Judge: continue with claude claude-opus-5-5 xhigh. Cross-check the accepted finding.",
+      pool,
     ),
-    {
-      answer: "claude",
-      reason: "Cross-check the accepted finding.",
-    },
+    { answer: opus, reason: "Cross-check the accepted finding." },
   )
 })
 
@@ -213,8 +233,8 @@ test("round order survives a clock moving backwards between rounds", () => {
   })
 
   assert.deepEqual(
-    judgeOptions(evidence([earlierRound, current]), identity(current)),
-    ["settle", "stop", "claude", "codex"],
+    judgeOptions(evidence([earlierRound, current]), identity(current), pool),
+    ["settle", "stop", ...pool],
   )
 })
 
@@ -254,11 +274,10 @@ test("a widening B leaves settle offered", () => {
     tier: "B",
     phase: "widening",
   })
-  assert.deepEqual(judgeOptions(evidence([claude]), identity(claude)), [
+  assert.deepEqual(judgeOptions(evidence([claude]), identity(claude), pool), [
     "settle",
     "stop",
-    "claude",
-    "codex",
+    ...pool,
   ])
 })
 
@@ -271,42 +290,61 @@ test("widening withholds settle after an A across all settled reads but always o
     round: 2,
     phase: "widening",
   })
-  assert.deepEqual(judgeOptions(evidence([claude, codex]), identity(codex)), [
-    "stop",
-    "claude",
-    "codex",
-  ])
+  assert.deepEqual(
+    judgeOptions(evidence([claude, codex]), identity(codex), pool),
+    ["stop", ...pool],
+  )
 
   const confirmed = round("claude", "2026-10-11T11:00:00Z", {
     round: 3,
     phase: "widening",
   })
   assert.deepEqual(
-    judgeOptions(evidence([claude, codex, confirmed]), identity(confirmed)),
-    ["settle", "stop", "claude", "codex"],
+    judgeOptions(
+      evidence([claude, codex, confirmed]),
+      identity(confirmed),
+      pool,
+    ),
+    ["settle", "stop", ...pool],
   )
 })
 
 test("judge answers are one plain line with one admitted decision", () => {
-  const answer = {
-    answer: "codex",
-    reason: "The other setting should inspect the evidence.",
-  } as const
   assert.deepEqual(
     readJudgeAnswer(
-      "Judge: continue with Codex. The other setting should inspect the evidence.",
-      ["stop", "claude", "codex"],
+      "Judge: continue with codex gpt-5.6-sol xhigh. The other vendor should inspect the evidence.",
+      ["stop", ...pool],
     ),
-    answer,
+    { answer: sol, reason: "The other vendor should inspect the evidence." },
   )
   for (const source of [
     "Judge: stop.",
     "Judge: continue. More work remains.",
+    "Judge: continue with Codex. The old form names no entry.",
+    "Judge: continue with codex gpt-5.6-sol. The entry needs its effort.",
     "Preface.\nJudge: stop. Enough evidence.",
     "Judge: stop. Enough evidence.\nMore text.",
   ])
     assert.throws(
-      () => readJudgeAnswer(source, ["stop", "claude", "codex"]),
+      () => readJudgeAnswer(source, ["stop", ...pool]),
       /exactly one/,
     )
+})
+
+test("the judge offers every pool entry and gates only the vendors the pool can run", () => {
+  const codexB = round("codex", "2026-10-11T09:00:00Z", { tier: "B" })
+  const claude = round("claude", "2026-10-11T10:00:00Z", { round: 2 })
+
+  // Two models of one vendor are separate options, in the pool's order.
+  assert.deepEqual(
+    judgeOptions(evidence([claude]), identity(claude), [fable, opus]),
+    ["stop", fable, opus],
+  )
+  // A Codex read with a B holds stop while the pool can send Codex in again.
+  assert.equal(offers("stop", [codexB, claude], claude), false)
+  // A Claude-only pool cannot unlock a Codex read, so that read imposes nothing.
+  assert.equal(
+    offers("stop", [codexB, claude], claude, undefined, [fable, opus]),
+    true,
+  )
 })

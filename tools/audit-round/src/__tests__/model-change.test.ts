@@ -53,10 +53,6 @@ function round(
     started,
     status: "finished",
     settings: {
-      audit: {
-        claude: { model: "claude-model", effort: "high" },
-        codex: { model: "codex-model", effort: "xhigh" },
-      },
       vet: {
         claude: { model: "claude-model", effort: "high" },
         codex: { model: "codex-model", effort: "xhigh" },

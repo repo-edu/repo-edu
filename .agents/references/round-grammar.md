@@ -1128,14 +1128,19 @@ Settling: maybe. The shape might be done.
 ### Production
 
 ```text
-<judge-answer>   ::= "Judge: "<judge-decision>". "<one-line-reason>
-<judge-decision> ::= settle | stop | continue with Claude | continue with Codex
+<judge-answer>    ::= "Judge: "<judge-decision>". "<one-line-reason>
+<judge-decision>  ::= settle | stop | "continue with "<pool-entry>
+<pool-entry>      ::= <assistant>" "<model>" "<effort>
+<assistant>       ::= claude | codex
+<model>           ::= a non-empty model name without spaces
+<effort>          ::= low | medium | high | xhigh
 <one-line-reason> ::= non-empty text on one line
 ```
 
 The answer is exactly one plain line. `settle` and `stop` are each admitted only
-when the runner offers them. Either continuation is admitted whenever it is
-offered.
+when the runner offers them. A continuation names one series-pool entry exactly
+as the runner printed it among the permitted options, and is admitted only when
+that entry is offered.
 
 ### Examples
 
@@ -1147,7 +1152,7 @@ Judge: stop. Both current reads found no remaining real bug.
 
 #### `judge/stop-unavailable` — refused
 
-Refusal: `Judge answered stop while the runner offered only Claude or Codex`
+Refusal: `Judge answered stop while the runner offered only codex gpt-5.6-sol xhigh`
 
 ```text
 Judge: stop. Both current reads found no remaining real bug.
@@ -1161,22 +1166,30 @@ Judge: settle. No concrete shape question remains.
 
 #### `judge/settle-unavailable` — refused
 
-Refusal: `Judge answered settle while the runner offered only stop, Claude or Codex`
+Refusal: `Judge answered settle while the runner offered only stop or codex gpt-5.6-sol xhigh`
 
 ```text
 Judge: settle. No concrete shape question remains.
 ```
 
-#### `judge/claude` — parsed
+#### `judge/continue-claude` — parsed
 
 ```text
-Judge: continue with Claude. Claude has the higher expected yield on the remaining scope.
+Judge: continue with claude claude-opus-5-5 xhigh. Opus has the higher expected yield on the remaining scope.
 ```
 
-#### `judge/codex` — parsed
+#### `judge/continue-codex` — parsed
 
 ```text
-Judge: continue with Codex. Codex has the higher expected yield on the remaining scope.
+Judge: continue with codex gpt-5.6-sol xhigh. Codex has no settled read of the current scope.
+```
+
+#### `judge/continue-unoffered` — refused
+
+Refusal: `Judge answered claude opus xhigh while the runner offered only claude opus high`
+
+```text
+Judge: continue with claude opus xhigh. A higher effort may find more.
 ```
 
 ## Watch record

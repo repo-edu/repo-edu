@@ -19,10 +19,6 @@ import {
 import { fixture } from "./helpers.js"
 
 const settings: ImplementationRoundData["settings"] = {
-  audit: {
-    claude: { model: "claude-opus-5", effort: "xhigh" },
-    codex: { model: "gpt-6-astra", effort: "xhigh" },
-  },
   vet: {
     claude: { model: "claude-opus-5", effort: "high" },
     codex: { model: "gpt-6.1-sol", effort: "high" },
@@ -121,25 +117,31 @@ test("round data admits every end state", async (t) => {
   )
 })
 
-test("round data rejects the removed two-member audit setting", async (t) => {
+test("round data admits only the listed-auditor judge answer and settings", async (t) => {
   const f = await fixture(t)
   const path = join(f.root, "example-impl-rounds.json")
-  const paired = {
+  const parse = (round: unknown) =>
+    parseRoundDataFile(path, JSON.stringify({ rounds: [round], disproved: [] }))
+  const judged = {
     ...entry("example-impl-01..01", 1),
-    settings: {
-      ...settings,
-      audit: {
-        ...settings.audit,
-        claude: [settings.audit.claude, settings.audit.claude],
-      },
+    judge: {
+      answer: { assistant: "claude", model: "claude-opus-5", effort: "xhigh" },
+      reason: "Opus has the higher expected yield.",
     },
   }
 
+  assert.deepEqual(parse(judged).rounds[0].judge, judged.judge)
   assert.throws(() =>
-    parseRoundDataFile(
-      path,
-      JSON.stringify({ rounds: [paired], disproved: [] }),
-    ),
+    parse({ ...judged, judge: { ...judged.judge, answer: "claude" } }),
+  )
+  assert.throws(() =>
+    parse({
+      ...judged,
+      settings: {
+        ...settings,
+        audit: { claude: settings.vet.claude, codex: settings.vet.codex },
+      },
+    }),
   )
 })
 

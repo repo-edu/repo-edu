@@ -12,8 +12,7 @@ import { commitFixture, roundFixture } from "./round-fixture.js"
 test("one supplied configuration controls auditor phase arguments and output tags", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", false, null, true)
   const settings = structuredClone(testSettings)
-  settings.defaultAuditor = "claude"
-  settings.phases.audit.claude = { model: "chosen-auditor", effort: "low" }
+  settings.defaults.claude = { model: "chosen-auditor", effort: "low" }
   settings.phases.watch = {
     assistant: "codex",
     model: "chosen-watch",
@@ -29,7 +28,7 @@ test("one supplied configuration controls auditor phase arguments and output tag
   )
   const { log, transcript } = await f.records()
   assert.ok(transcript.endsWith("-1-round.aul.md"))
-  assert.match(log, /audit +claude +chosen-auditor +low +audit-round settings/)
+  assert.match(log, /audit +claude +chosen-auditor +low +audit-round defaults/)
   assert.match(log, /watch +codex +chosen-watch +medium +audit-round settings/)
   assert.doesNotMatch(log, /watch-edit/)
   const watchCall = (await f.prompts()).find(

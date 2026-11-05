@@ -36,6 +36,7 @@ import {
   runBrief,
   runClose,
   runRound as runRoundWithAccount,
+  testSettings,
 } from "./configured-runner.js"
 import {
   areas,
@@ -62,7 +63,7 @@ const watch = `${repoRoot}/example-impl-01..01-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 const watchEvidenceText = "joined watch evidence"
 const judgeAnswer = {
-  answer: "codex",
+  answer: { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
   reason: "Another round is worth its cost.",
 } as const
 const reportFinding: ReportFinding = {
@@ -1519,7 +1520,7 @@ test("an automatic round publishes its settled entry before the fresh judge", as
       plan: "example.md",
       scope: "1",
       auditor: "codex",
-      automatic: true,
+      pool: testSettings.auditors,
     },
     {
       ...round.dependencies,
@@ -1534,7 +1535,7 @@ test("an automatic round publishes its settled entry before the fresh judge", as
       },
       runJudge: async (input) => {
         assert.equal(input.sessionId, null)
-        assert.deepEqual(input.options, ["stop", "claude", "codex"])
+        assert.deepEqual(input.options, ["stop", ...testSettings.auditors])
         return {
           status: "finished",
           sessionId: "judge-session",
@@ -1566,7 +1567,7 @@ test("a judge evidence failure follows the first retained write", async () => {
       plan: "example.md",
       scope: "1",
       auditor: "codex",
-      automatic: true,
+      pool: testSettings.auditors,
     },
     {
       ...round.dependencies,
@@ -1662,7 +1663,7 @@ test("a later clean-chain failure keeps the landed commit for final recording", 
       ...files,
       plan: "example.md",
       scope: "1",
-      automatic: true,
+      pool: testSettings.auditors,
     },
     {
       ...round.dependencies,

@@ -26,14 +26,13 @@ const selection = (model: string, effort: string | null = "low") => ({
   effort,
 })
 
-const settings = (claude: string, codex: string): RoundData["settings"] => ({
-  audit: { claude: selection(claude), codex: selection(codex) },
+const settings: RoundData["settings"] = {
   vet: {
     claude: selection("claude-vet"),
     codex: selection("codex-vet"),
   },
   fix: { assistant: "codex", ...selection("coder-beta") },
-})
+}
 
 const phase = (
   phaseName: RoundData["phases"][number]["phase"],
@@ -220,7 +219,7 @@ test("auditor tables sort by yield per round and the reading keeps only the verd
           index,
           `2026-10-${String(index).padStart(2, "0")}T${hour}:00:00.000Z`,
           { assistant, ...selection(model), chosenBy: "settings" },
-          settings("audit-strong", "audit-weak"),
+          settings,
           [phase("audit", assistant, model, duration)],
           commits,
           findings(accepted, `${model} claim`),
@@ -293,7 +292,7 @@ test("opposite audit-class leads block auditor recommendations", async (t) => {
               ...selection(model),
               chosenBy: "settings",
             },
-            settings("audit-strong", "audit-weak"),
+            settings,
             [phase("audit", assistant, model, 60_000)],
             commits,
             accepted ? findings(1, `${workClass} lead`) : [],
@@ -349,7 +348,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
           index,
           `2026-10-${String(index).padStart(2, "0")}T${assistant === "claude" ? "10" : "11"}:00:00.000Z`,
           { assistant, ...selection(model), chosenBy: "settings" },
-          settings("audit-strong", "audit-weak"),
+          settings,
           [
             phase("audit", assistant, model, 60_000),
             phase(
@@ -381,7 +380,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
           index,
           `2026-10-${String(index).padStart(2, "0")}T${assistant === "claude" ? "13" : "14"}:00:00.000Z`,
           { assistant, ...selection(model), chosenBy: "settings" },
-          settings("audit-strong", "audit-weak"),
+          settings,
           [phase("audit", assistant, model, 60_000)],
           commits,
           model === "audit-strong"
@@ -401,7 +400,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
         ...selection("audit-thin"),
         chosenBy: "command-line",
       },
-      settings("audit-strong", "audit-weak"),
+      settings,
       [phase("audit", "codex", "audit-thin", 60_000)],
       commits,
       findings(10, "thin claim"),
@@ -435,7 +434,19 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
     report,
     /records clearly support running audit-strong low for planning audits/,
   )
-  assert.match(report, /- audit-strong low is not a current audit setting\./)
+  assert.match(
+    report,
+    /- audit-strong low is not in the current auditors list\./,
+  )
+  const listed = structuredClone(testSettings)
+  listed.auditors = [
+    ...listed.auditors,
+    { assistant: "codex", model: "audit-strong", effort: "low" },
+  ]
+  assert.doesNotMatch(
+    await modelsReport({ repoEduRoot: f.root, planRoot: f.planRoot }, listed),
+    /audit-strong low is not in the current auditors list/,
+  )
   assert.match(report, /## Disproved after the round/)
   assert.match(report, /#4 later disproved claim/)
   assert.match(report, /vet-model low; accept/)
@@ -473,7 +484,7 @@ test("an archived plan with an unreadable step list stays visible but unranked",
         ...selection("audit-alpha"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-alpha"),
+      settings,
       [phase("fix", "codex", "coder-alpha", 60_000)],
       [{ repository: "repo-edu", sha: audit }],
     ),
@@ -547,7 +558,7 @@ test("coder yield accepts agreeing unassigned records without step time", async 
         ...selection("audit-alpha"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-alpha"),
+      settings,
       [phase("audit", "codex", "audit-alpha", 60_000)],
       [{ repository: "repo-edu", sha: audit }],
     ),
@@ -622,7 +633,7 @@ test("coder evidence removes disproved findings and falls back to one commit spa
         ...selection("audit-alpha"),
         chosenBy: "settings",
       },
-      settings("audit-alpha", "audit-beta"),
+      settings,
       [
         phase("audit", "claude", "audit-alpha", 60_000),
         phase("fix", "codex", "coder-alpha", 600_000),
@@ -680,7 +691,7 @@ test("an active plan remains excluded without a step count", async (t) => {
         ...selection("audit-alpha"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-alpha"),
+      settings,
       [phase("fix", "codex", "coder-alpha", 60_000)],
       [{ repository: "repo-edu", sha: audit }],
     ),
@@ -744,7 +755,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
         ...selection("audit-alpha"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-alpha"),
+      settings,
       [
         phase("audit", "codex", "audit-alpha", 60_000),
         phase("rebut", "codex", "audit-alpha", 120_000),
@@ -765,7 +776,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
         ...selection("audit-claude"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-alpha"),
+      settings,
       [
         phase("audit", "claude", "audit-claude", 60_000),
         phase("fix", "codex", "planning-fixer", 60_000),
@@ -813,7 +824,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
         ...selection("audit-admission"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-admission"),
+      settings,
       [phase("audit", "codex", "audit-admission", 60_000)],
       [{ repository: "repo-edu", sha: noAssignmentAudit }],
     ),
@@ -858,7 +869,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
         ...selection("audit-admission"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-admission"),
+      settings,
       [
         phase("audit", "codex", "audit-admission", 60_000),
         phase("fix", "codex", "coder-alpha", 60_000, "high"),
@@ -878,7 +889,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
         ...selection("audit-third"),
         chosenBy: "settings",
       },
-      settings("audit-claude", "audit-third"),
+      settings,
       [phase("audit", "codex", "audit-third", 60_000)],
       commits,
       [finding("kept yield"), finding("unmatched work", "unmatched")],
@@ -1011,7 +1022,7 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
           ...selection("audit-alpha"),
           chosenBy: "settings",
         },
-        settings("audit-claude", "audit-alpha"),
+        settings,
         [phase("audit", "codex", "audit-alpha", 60_000)],
         [{ repository: "repo-edu", sha: audit }],
         findings(acceptedFindings, `${stem} defect`),
@@ -1106,7 +1117,7 @@ test("coder admission needs every archived plan share and a current whole-plan a
           ...selection("audit-alpha"),
           chosenBy: "settings",
         },
-        settings("audit-claude", "audit-alpha"),
+        settings,
         [phase("audit", "codex", "audit-alpha", 60_000)],
         [{ repository: "plan", sha: audit }],
         findings,

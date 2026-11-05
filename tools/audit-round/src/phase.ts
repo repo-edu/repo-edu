@@ -13,7 +13,12 @@ import type {
   LandedCommit,
   RoundAccount,
 } from "./round-data.js"
-import type { Coder, PhaseSelection, RoundSettings } from "./settings.js"
+import type {
+  Auditor,
+  Coder,
+  PhaseSelection,
+  RoundSettings,
+} from "./settings.js"
 import type { Repository } from "./subject.js"
 import type { CommitGroup, RoundContext } from "./target.js"
 import type { VetReading } from "./vet.js"
@@ -106,14 +111,19 @@ export type AuditorOption = "--auditor" | "--first"
 export type AuditorSelectionSource = "settings" | AuditorOption
 
 /**
- * What the command line asked of the auditor's phases. `none` asks nothing. An
- * assistant name asks for the assistant's default selection in place of its
- * audit pins. A tag names its option, so the settings header says which one
- * set a field; a null tag field follows the audit pin. The override binds
- * audit and rebuttal because the rebuttal is the auditor's answer.
+ * What the auditor's phases run on in place of the assistant's default
+ * selection. `none` keeps the defaults, as a chained deferral round does. A
+ * listed entry names both fields from the `auditors` list. An assistant name
+ * on the command line keeps the defaults under its option's name. A tag names
+ * its option, so the settings header says which one set a field; a null tag
+ * field reads the defaults. The override binds audit and rebuttal because the
+ * rebuttal is the auditor's answer.
  */
 export type AuditorOverride =
   | "none"
+  | {
+      readonly listed: { readonly model: string; readonly effort: Effort }
+    }
   | { readonly option: AuditorOption; readonly defaults: true }
   | {
       readonly option: AuditorOption
@@ -121,7 +131,7 @@ export type AuditorOverride =
       readonly effort: Effort | null
     }
 
-/** An auditor the command line said nothing about, which every other phase is. */
+/** An auditor nothing names beyond its assistant, which every other phase is. */
 export const noOverride: AuditorOverride = "none"
 
 /**
@@ -141,10 +151,18 @@ export const effortLetters: Record<Effort, "l" | "m" | "h" | "x"> = {
   xhigh: "x",
 }
 
-/** What `--auditor` or `--first` names: who audits, and whatever it pinned of the model. */
+/** Who audits a round, and whatever the list or command line named of the model. */
 export type AuditorSeat = {
   readonly assistant: Assistant
   readonly override: AuditorOverride
+}
+
+/** The seat that runs one `auditors` entry. */
+export function listedSeat(auditor: Auditor): AuditorSeat {
+  return {
+    assistant: auditor.assistant,
+    override: { listed: { model: auditor.model, effort: auditor.effort } },
+  }
 }
 
 function named<K extends string>(
@@ -158,7 +176,7 @@ function named<K extends string>(
 
 /**
  * Assistant names select the assistant's default selection. Capability tags
- * may name a tier and effort; unnamed fields follow the audit pin. The three
+ * may name a tier and effort; unnamed fields read the defaults. The three
  * alphabets share no letter, so a partial tag says
  * which fields it named. The `u` a subject may carry says the model is on
  * neither tier, which is a reading and not a request, so it is not accepted.
@@ -240,36 +258,23 @@ export function defaultModel(
 }
 
 /**
- * Command-line fields override the audit settings, which rebuttal shares.
- * Other fields use the configured phase selection, whose `default` reads the
- * assistant's default selection.
+ * What the audit and the rebuttal it shares run on. A listed entry names both
+ * fields; a command-line name or tag names what it spells; every field nothing
+ * names reads the assistant's default selection.
  */
-function phaseModel(
-  phase: Exclude<Phase, "fix" | "implement">,
-  assistant: Assistant,
-  override: AuditorOverride,
-  config: RoundSettings,
-): PinnedModel {
-  const configuredPhase = phase === "rebut" ? "audit" : phase
-  let pin: PhaseSelection
-  if (configuredPhase === "audit") {
-    pin = config.phases.audit[assistant]
-  } else if (configuredPhase === "vet") {
-    pin = config.phases.vet[assistant]
-  } else {
-    pin = config.phases[configuredPhase]
+function auditModel(seat: AuditorSeat, config: RoundSettings): PinnedModel {
+  const { assistant, override } = seat
+  if (override === "none") return defaultModel(assistant, config)
+  if ("listed" in override) {
+    const source = "audit-round auditors"
+    return {
+      model: { value: override.listed.model, source },
+      effort: { value: override.listed.effort, source },
+    }
   }
-  const defaults = defaultModel(assistant, config)
-  const own = <Value extends string>(value: Value): PinnedField<Value> => ({
-    value,
-    source: "audit-round settings",
-  })
-  const model = pin.model === "default" ? defaults.model : own(pin.model)
-  const effort = pin.effort === "default" ? defaults.effort : own(pin.effort)
-  if (configuredPhase !== "audit" || override === "none")
-    return { model, effort }
   if ("defaults" in override)
     return defaultModel(assistant, config, override.option)
+  const defaults = defaultModel(assistant, config)
   return {
     model:
       override.strength !== null
@@ -277,11 +282,39 @@ function phaseModel(
             value: config.strengthModels[assistant][override.strength],
             source: override.option,
           }
-        : model,
+        : defaults.model,
     effort:
       override.effort !== null
         ? { value: override.effort, source: override.option }
-        : effort,
+        : defaults.effort,
+  }
+}
+
+/** The `auditors` entry a seat runs as, which the series pool offers the judge. */
+export function seatAuditor(seat: AuditorSeat, config: RoundSettings): Auditor {
+  const { model, effort } = auditModel(seat, config)
+  return { assistant: seat.assistant, model: model.value, effort: effort.value }
+}
+
+/**
+ * The phases outside the auditor's use their configured selection, whose
+ * `default` reads the assistant's default selection.
+ */
+function phaseModel(
+  phase: Exclude<Phase, "audit" | "rebut" | "fix" | "implement">,
+  assistant: Assistant,
+  config: RoundSettings,
+): PinnedModel {
+  const pin: PhaseSelection =
+    phase === "vet" ? config.phases.vet[assistant] : config.phases[phase]
+  const defaults = defaultModel(assistant, config)
+  const own = <Value extends string>(value: Value): PinnedField<Value> => ({
+    value,
+    source: "audit-round settings",
+  })
+  return {
+    model: pin.model === "default" ? defaults.model : own(pin.model),
+    effort: pin.effort === "default" ? defaults.effort : own(pin.effort),
   }
 }
 
@@ -298,19 +331,23 @@ export function roundPhases(
   fixerSource = "audit-round coders",
 ): Record<RoundPhase, PhaseRun> {
   const run = (
-    phase: Exclude<Phase, "fix" | "implement">,
+    phase: Exclude<Phase, "audit" | "rebut" | "fix" | "implement">,
     assistant: Assistant,
   ): PhaseRun => ({
     assistant,
-    model: phaseModel(phase, assistant, override, config),
+    model: phaseModel(phase, assistant, config),
   })
+  const audit: PhaseRun = {
+    assistant: auditor,
+    model: auditModel({ assistant: auditor, override }, config),
+  }
   const fix = implementationPhase(fixer, fixerSource)
   return {
-    audit: run("audit", auditor),
+    audit,
     // The vetter is the other assistant, so no assistant vets its own report.
     vet: run("vet", auditor === "codex" ? "claude" : "codex"),
     // The rebuttal is the auditor's answer, using the same model and effort.
-    rebut: run("rebut", auditor),
+    rebut: audit,
     // The plan's ready assignment chooses the fixer. Work without one uses the first coder.
     fix,
     brief: run("brief", config.phases.brief.assistant),
@@ -339,15 +376,13 @@ export function implementationPhase(
 /** Loop-close is no part of a round; it runs alone on its own settings, whoever audits. */
 export function closePhase(config: RoundSettings): PhaseRun {
   const assistant = config.phases.close.assistant
-  return {
-    assistant,
-    model: phaseModel("close", assistant, noOverride, config),
-  }
+  return { assistant, model: phaseModel("close", assistant, config) }
 }
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * the default selection, each phase's own pin and each tier a tag can ask for.
+ * the default selection, each listed auditor and coder, each phase's own pin
+ * and each tier a tag can ask for.
  */
 export function namedModels(
   assistant: Assistant,
@@ -355,9 +390,9 @@ export function namedModels(
 ): ReadonlySet<string> {
   const names = new Set<string>([
     config.defaults[assistant].model,
-    ...config.coders
-      .filter((coder) => coder.assistant === assistant)
-      .map((coder) => coder.model),
+    ...[...config.auditors, ...config.coders]
+      .filter((entry) => entry.assistant === assistant)
+      .map((entry) => entry.model),
   ])
   for (const auditor of ["claude", "codex"] as const)
     for (const strength of [null, ...strengths])

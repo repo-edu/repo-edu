@@ -32,7 +32,7 @@ import {
   settleRoundFindings,
 } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
-import type { Coder, RoundSettings } from "./settings.js"
+import type { Auditor, Coder, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
   type AuditTarget,
@@ -55,8 +55,11 @@ export type RoundSetup = RoundContext & {
   readonly override?: AuditorOverride
   /** True adds the brief to every round in the command; absent runs none. */
   readonly brief?: boolean
-  /** True only when this round belongs to the judge-led series. */
-  readonly automatic?: boolean
+  /**
+   * The series pool the judge chooses the next auditor from, present only when
+   * this round belongs to the judge-led series.
+   */
+  readonly pool?: readonly Auditor[]
   /** The open deferrals this round must judge and settle. */
   readonly deferrals?: readonly OpenDeferral[]
 } & AuditTarget
@@ -361,6 +364,7 @@ async function runWatch(
 /** Run the fresh evidence-only turn that decides an automatic series. */
 async function runSeriesJudge(
   input: RoundInput & { readonly plan: string },
+  pool: readonly Auditor[],
   dependencies: Pick<RoundDependencies, "judgeEvidence" | "runJudge">,
   settings: RoundSettings,
 ): Promise<RoundFailure | { readonly answer: JudgeAnswer }> {
@@ -375,7 +379,7 @@ async function runSeriesJudge(
     const currentRound = roundDataIdentity(
       transcriptNameStart(input.transcript),
     )
-    const options = judgeOptions(evidence, currentRound)
+    const options = judgeOptions(evidence, currentRound, pool)
     const judged = await dependencies.runJudge({
       phase: "judge",
       ...phases.judge,
@@ -405,7 +409,7 @@ async function runDeferralChain(
   dependencies: Pick<RoundDependencies, "chainDeferrals">,
 ): Promise<DeferralChainOutcome> {
   if (
-    input.automatic !== true ||
+    input.pool === undefined ||
     input.roundKind !== "implementation" ||
     !("plan" in input)
   )
@@ -508,10 +512,10 @@ export async function runRound(
         dependencies.writeSettledRound(completion.commits, account)
         const deferralChain = await runDeferralChain(input, dependencies)
         const judged =
-          input.automatic === true &&
+          input.pool !== undefined &&
           "plan" in input &&
           (deferralChain === "none" || deferralChain === "finished")
-            ? await runSeriesJudge(input, dependencies, settings)
+            ? await runSeriesJudge(input, input.pool, dependencies, settings)
             : { answer: null }
         if ("status" in judged)
           return { ...judged, commits: completion.commits, account }
@@ -809,7 +813,7 @@ export async function runRound(
         }
       }
       let currentPlan = "plan" in input ? input.plan : null
-      if (input.automatic === true && currentPlan !== null) {
+      if (input.pool !== undefined && currentPlan !== null) {
         try {
           currentPlan = await dependencies.resolvePlan(
             planRoot,
@@ -869,11 +873,11 @@ export async function runRound(
         }
       }
       const judged =
-        input.automatic === true &&
+        input.pool !== undefined &&
         "plan" in input &&
         seriesMayContinue &&
         (deferralChain === "none" || deferralChain === "finished")
-          ? await runSeriesJudge(input, dependencies, settings)
+          ? await runSeriesJudge(input, input.pool, dependencies, settings)
           : { answer: null }
       if ("status" in judged) return { ...judged, commits, account }
       return {

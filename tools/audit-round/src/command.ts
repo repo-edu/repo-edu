@@ -33,7 +33,7 @@ import {
   implementationIdentity,
   implementationRun,
 } from "./implement-output.js"
-import { readJudgeEvidence } from "./judge.js"
+import { auditorText, readJudgeEvidence } from "./judge.js"
 import {
   commitOnly,
   markImplemented,
@@ -58,9 +58,10 @@ import {
   type AuditorSeat,
   type AuditorSelectionSource,
   type DeferralChainOutcome,
-  noOverride,
+  listedSeat,
   phaseWorkflow,
   type RoundDependencies,
+  seatAuditor,
 } from "./phase.js"
 import {
   type AuditorEntry,
@@ -567,31 +568,34 @@ Auditor selection (--auditor <selections>):
   audited by Claude, then a round audited by Codex. Each entry is one of:
 
     claude | codex
-      Use that assistant's default selection in settings.json, not its audit pins.
+      Use that assistant's default selection in settings.json.
 
     <assistant>[<tier>][<effort>]
       A capability tag, written without spaces. Brackets mark optional fields.
       <assistant>  a = Claude, o = Codex
       <tier>       b = base model, t = top model
       <effort>     l = low, m = medium, h = high, x = xhigh
-      Omitted fields use the audit pin in settings.json.
+      Omitted fields use the assistant's default selection in settings.json.
 
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
-  The default auditor comes from settings.json.
+  The default auditor is an entry of the auditors list in settings.json.
   Without --auditor, an active plan starts an automatic series with that
   default.
   --first <selection> takes one entry in the same form and runs it instead of the
-  default for the first round. It cannot be combined with --auditor.
+  default for the first round. When the auditors list has no entry for its
+  assistant, the series may also choose it again. It cannot be combined with
+  --auditor.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
 
   Automatic series (active plan without --auditor):
     - The configured default auditor runs first, or the --first selection. A
-      random default flips a coin for the opener in each scope's series.
-    - After each non-red round, a fresh judge picks the next assistant or an
-      ending. In widening it may recommend settle or stop; in detailing and
+      random default picks the opener from the auditors list in each scope's
+      series.
+    - After each non-red round, a fresh judge picks the next listed auditor or
+      an ending. In widening it may recommend settle or stop; in detailing and
       implementation it may stop. A settled A finding removes settle in
       widening; a settled A or B finding removes stop otherwise.
     - No queue file is written.
@@ -995,8 +999,8 @@ export async function runCommand(
     readonly repoEduRoot?: string
     readonly settings?: RoundSettings
     readonly readReply?: () => Promise<string | null>
-    /** Supplies a random default's opener in deterministic tests. */
-    readonly coin?: () => 0 | 1
+    /** Supplies a random default's opener index below the count in deterministic tests. */
+    readonly coin?: (count: number) => number
   },
 ): Promise<number> {
   const invocation = parseInvocation(argv, options)
@@ -1559,16 +1563,34 @@ export async function runCommand(
         prepared.auditor === undefined &&
         "plan" in targets[0] &&
         isActivePlanPath(context.planRoot, targets[0].plan)
-      const coin = options.coin ?? (() => (Math.random() < 0.5 ? 0 : 1))
+      const coin =
+        options.coin ?? ((count: number) => Math.floor(Math.random() * count))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
-      // A random default spreads first looks over both assistants without
-      // binding either assistant to the first position on every target.
-      const settingsOpener = (): Assistant => {
-        return settings.defaultAuditor === "random"
-          ? (["claude", "codex"] as const)[coin()]
-          : settings.defaultAuditor
-      }
+      // A random default spreads first looks over every listed auditor without
+      // binding any entry to the first position on every target.
+      const settingsOpener = (): AuditorSeat =>
+        listedSeat(
+          settings.auditors[
+            settings.defaultAuditor === "random"
+              ? coin(settings.auditors.length)
+              : 0
+          ],
+        )
       const opened = first ?? prepared.firstAuditor
+      // The judge draws on the listed auditors and on a `--first` selection
+      // whose assistant the list lacks, so the opener stays inside the series
+      // for every scope the run opens.
+      const firstAuditor = prepared.firstAuditor
+      const pool: readonly AuditorSeat[] = [
+        ...settings.auditors.map(listedSeat),
+        ...(firstAuditor !== undefined &&
+        !settings.auditors.some(
+          (auditor) => auditor.assistant === firstAuditor.assistant,
+        )
+          ? [firstAuditor]
+          : []),
+      ]
+      const poolAuditors = pool.map((seat) => seatAuditor(seat, settings))
       const fixerFor = async (target: AuditTarget) => {
         const assigned =
           "plan" in target
@@ -1612,7 +1634,6 @@ export async function runCommand(
           auditor,
           auditorSelectionSource: "settings" as const,
           brief: prepared.brief,
-          automatic: false,
           deferrals,
         }
         const chainedRun = await roundRun(
@@ -1680,10 +1701,7 @@ export async function runCommand(
             : prepared.firstAuditor !== undefined
               ? "--first"
               : "settings"
-        let seat: AuditorSeat | null = opened ?? {
-          assistant: settingsOpener(),
-          override: noOverride,
-        }
+        let seat: AuditorSeat | null = opened ?? settingsOpener()
         let target = initial
         let completed = 0
         // The reason behind the judge answer that chose the next seat, printed
@@ -1743,7 +1761,7 @@ export async function runCommand(
               }
               if (automatic)
                 await output?.message(
-                  `Next round: ${seat.assistant}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${judgedReason}`,
+                  `Next round: ${auditorText(seatAuditor(seat, settings))}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${judgedReason}`,
                 )
             }
             const repoEduDeferrals =
@@ -1758,7 +1776,7 @@ export async function runCommand(
               auditorSelectionSource,
               override: seat.override,
               brief: prepared.brief,
-              automatic,
+              ...(automatic ? { pool: poolAuditors } : {}),
               ...(repoEduDeferrals === undefined
                 ? {}
                 : { deferrals: repoEduDeferrals }),
@@ -1874,10 +1892,15 @@ export async function runCommand(
                 await printDeferrals()
                 break
               }
-              seat = {
-                assistant: judge.answer,
-                override: noOverride,
-              }
+              const chosen = judge.answer
+              const index = poolAuditors.findIndex(
+                (auditor) => auditorText(auditor) === auditorText(chosen),
+              )
+              if (index === -1)
+                throw new Error(
+                  `The judge chose ${auditorText(chosen)}, which the series pool does not hold`,
+                )
+              seat = pool[index]
               judgedReason = judge.reason
               auditorSelectionSource = "settings"
               continue

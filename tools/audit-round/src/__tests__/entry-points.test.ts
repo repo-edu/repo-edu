@@ -7,7 +7,7 @@ import { execa } from "execa"
 import { installationRoot } from "../context.js"
 import type { PhaseInput } from "../phase.js"
 import { phasePrompt } from "../requests.js"
-import { pinned, runCommand } from "./configured-runner.js"
+import { pinned, runCommand, testSettings } from "./configured-runner.js"
 import { fixture, testContext } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
@@ -52,9 +52,12 @@ test("the judge sees only its permitted options and retained evidence", async (t
     sessionId: null,
     arguments: [],
     evidence,
-    options: ["stop", "claude", "codex"],
+    options: ["stop", ...testSettings.auditors],
   })
-  assert.match(text, /Permitted judge options: stop, Claude or Codex\./)
+  assert.match(
+    text,
+    /Permitted judge options: stop, codex gpt-5\.6-sol high or claude opus high\./,
+  )
   assert.doesNotMatch(text, /Permitted judge options: settle/)
   assert.match(text, /"file": "example-impl-rounds\.json"/)
   assert.match(log, /Judge evidence:\n"\(contents omitted from log\)"$/)

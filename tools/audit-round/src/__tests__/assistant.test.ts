@@ -10,7 +10,12 @@ import {
   phaseRequest,
   recoveryCommand,
 } from "../requests.js"
-import { type Assistant, type PhaseInput, pinned } from "./configured-runner.js"
+import {
+  type Assistant,
+  type PhaseInput,
+  pinned,
+  testSettings,
+} from "./configured-runner.js"
 import {
   finishedText,
   fixture,
@@ -700,7 +705,7 @@ test("judge cancellation stops and awaits its fresh CLI", async (t) => {
         commits: [],
         latestWatch: null,
       },
-      options: ["stop", "claude", "codex"],
+      options: ["stop", ...testSettings.auditors],
       sessionId: null,
     },
     {

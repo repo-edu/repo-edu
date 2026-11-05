@@ -744,7 +744,7 @@ test("an automatic series follows the judged switch and ends on stop without a q
     true,
   )
   await configureJudgeAnswers(f, [
-    "Judge: continue with Claude. Claude should check the remaining concern.",
+    "Judge: continue with claude opus high. Claude should check the remaining concern.",
     "Judge: stop. The cross-check found no reason for another round.",
   ])
 
@@ -761,10 +761,10 @@ test("an automatic series follows the judged switch and ends on stop without a q
     ["codex", "claude"],
   )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Judge: continue with Claude\./)
+  assert.match(visible, /Judge: continue with claude opus high\./)
   assert.match(
     visible,
-    /Next round: claude, as judged; \d+ rounds remain before the maximum\. Claude should check the remaining concern\./,
+    /Next round: claude opus high, as judged; \d+ rounds remain before the maximum\. Claude should check the remaining concern\./,
   )
   assert.match(visible, /Judge: stop\./)
   assert.match(
@@ -778,12 +778,12 @@ test("an automatic series follows the judged switch and ends on stop without a q
   for (const transcript of transcripts)
     assert.match(
       await readFile(join(f.planRoot, transcript), "utf8"),
-      /\n## judge \(\w+, fresh\)\n[\s\S]*\nJudge: (continue with Claude|stop)\. /,
+      /\n## judge \(\w+, fresh\)\n[\s\S]*\nJudge: (continue with claude opus high|stop)\. /,
     )
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
-    rounds: { status: string; judge: { answer: string } | null }[]
+    rounds: { status: string; judge: { answer: unknown } | null }[]
   }
   assert.deepEqual(
     stored.rounds.map((entry) => ({
@@ -791,7 +791,10 @@ test("an automatic series follows the judged switch and ends on stop without a q
       answer: entry.judge?.answer,
     })),
     [
-      { status: "finished", answer: "claude" },
+      {
+        status: "finished",
+        answer: { assistant: "claude", model: "opus", effort: "high" },
+      },
       { status: "finished", answer: "stop" },
     ],
   )
@@ -842,15 +845,19 @@ test("a random default auditor opens the series on the coin and the series still
   const settings = structuredClone(testSettings)
   settings.defaultAuditor = "random"
   await configureJudgeAnswers(f, [
-    "Judge: continue with Codex. Codex should cross-check the first round.",
+    "Judge: continue with codex gpt-5.6-sol high. Codex should cross-check the first round.",
     "Judge: stop. The cross-check found no reason for another round.",
   ])
+  const counts: number[] = []
 
   assert.equal(
     await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
       settings,
-      coin: () => 0,
+      coin: (count) => {
+        counts.push(count)
+        return 1
+      },
     }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
@@ -862,6 +869,8 @@ test("a random default auditor opens the series on the coin and the series still
     audits.map((call) => call.assistant),
     ["claude", "codex"],
   )
+  // The coin picks one entry of the whole list, once for the scope's series.
+  assert.deepEqual(counts, [settings.auditors.length])
   const stored = JSON.parse(
     await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
@@ -886,7 +895,7 @@ test("--first replaces the default auditor's first round and the series still fo
     true,
   )
   await configureJudgeAnswers(f, [
-    "Judge: continue with Codex. Codex should check the first round.",
+    "Judge: continue with codex gpt-5.6-sol high. Codex should check the first round.",
     "Judge: stop. The cross-check found no reason for another round.",
   ])
 
@@ -913,7 +922,8 @@ test("--first replaces the default auditor's first round and the series still fo
     stored.rounds.map((entry) => entry.auditor.chosenBy),
     ["--first", "settings"],
   )
-  // Only the first round carries the selection; the judged round runs on the defaults.
+  // Claude has a listed entry, so the selection runs only the first round and
+  // the judge chooses among the listed auditors.
   for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
   for (const argument of [
@@ -931,8 +941,15 @@ test("--first replaces the default auditor's first round and the series still fo
     await readFile(join(f.planRoot, firstLog), "utf8"),
     /audit +claude +claude-fable-5-1 +extra high +--first/,
   )
+  const judgePrompt = (await f.prompts()).find((call) =>
+    call.prompt.startsWith("Run the judge phase "),
+  )
+  assert.match(
+    judgePrompt?.prompt ?? "",
+    /Permitted judge options: (stop, )?codex gpt-5\.6-sol high or claude opus high\./,
+  )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Next round: codex, as judged;/)
+  assert.match(visible, /Next round: codex gpt-5\.6-sol high, as judged;/)
   assert.match(
     visible,
     /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\./,
@@ -940,6 +957,147 @@ test("--first replaces the default auditor's first round and the series still fo
   await assert.rejects(
     readFile(join(f.planRoot, "example-impl-01..01-queue.md")),
     { code: "ENOENT" },
+  )
+})
+
+test("an automatic series switches between two listed models of one vendor", async (t) => {
+  const f = await roundFixture(
+    t,
+    "claude",
+    "repo-edu",
+    false,
+    "c",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  const settings = structuredClone(testSettings)
+  settings.auditors = [
+    { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
+    { assistant: "claude", model: "opus", effort: "xhigh" },
+  ]
+  await configureJudgeAnswers(f, [
+    "Judge: continue with claude opus xhigh. Opus has not read the scope yet.",
+    "Judge: stop. Both Claude models agree.",
+  ])
+
+  assert.equal(
+    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings,
+    }),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const prompts = await f.prompts()
+  const audits = prompts.filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["claude", "claude"],
+  )
+  for (const argument of ["--model", "claude-fable-5-1", "--effort", "high"])
+    assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
+  for (const argument of ["--model", "opus", "--effort", "xhigh"])
+    assert.ok(audits[1].args.includes(argument), audits[1].args.join(" "))
+  // The vet stays with the other vendor whichever Claude model audited.
+  assert.deepEqual(
+    prompts
+      .filter((call) => call.prompt.startsWith("Run the vet phase "))
+      .map((call) => call.assistant),
+    ["codex", "codex"],
+  )
+  // A Claude-only pool offers no Codex continuation.
+  const judgePrompt = prompts.find((call) =>
+    call.prompt.startsWith("Run the judge phase "),
+  )
+  assert.match(
+    judgePrompt?.prompt ?? "",
+    /Permitted judge options: stop, claude claude-fable-5-1 high or claude opus xhigh\./,
+  )
+  const secondLog = (await f.roundFiles()).find((name) =>
+    /-02-1-round\..+\.log$/.test(name),
+  )
+  assert.ok(secondLog)
+  assert.match(
+    await readFile(join(f.planRoot, secondLog), "utf8"),
+    /audit +claude +opus +extra high +audit-round auditors/,
+  )
+  assert.match(
+    f.visible.join("\n"),
+    /Next round: claude opus xhigh, as judged;/,
+  )
+})
+
+test("a --first selection whose assistant the list lacks joins the series pool", async (t) => {
+  const f = await roundFixture(
+    t,
+    "claude",
+    "repo-edu",
+    false,
+    "c",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  const settings = structuredClone(testSettings)
+  settings.auditors = [
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ]
+  await configureJudgeAnswers(f, [
+    "Judge: continue with codex gpt-5.6-sol high. Codex has no settled read.",
+    "Judge: continue with claude claude-fable-5-1 xhigh. Fable should confirm the Codex read.",
+    "Judge: stop. Both vendors have read the scope.",
+  ])
+
+  assert.equal(
+    await runCommand(
+      ["example.md", "1", "--first", "atx", "--no-watch"],
+      f.runtime,
+      { ...f.options, settings },
+    ),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const prompts = await f.prompts()
+  const audits = prompts.filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["claude", "codex", "claude"],
+  )
+  for (const index of [0, 2])
+    for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
+      assert.ok(
+        audits[index].args.includes(argument),
+        audits[index].args.join(" "),
+      )
+  const judgePrompt = prompts.find((call) =>
+    call.prompt.startsWith("Run the judge phase "),
+  )
+  assert.match(
+    judgePrompt?.prompt ?? "",
+    /Permitted judge options: (stop, )?codex gpt-5\.6-sol high or claude claude-fable-5-1 xhigh\./,
+  )
+  const stored = JSON.parse(
+    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { rounds: { auditor: { chosenBy: string } }[] }
+  assert.deepEqual(
+    stored.rounds.map((entry) => entry.auditor.chosenBy),
+    ["--first", "settings", "settings"],
+  )
+  // The judged round reruns the selection the option resolved, so the option names it.
+  const thirdLog = (await f.roundFiles()).find((name) =>
+    /-03-1-round\..+\.log$/.test(name),
+  )
+  assert.ok(thirdLog)
+  assert.match(
+    await readFile(join(f.planRoot, thirdLog), "utf8"),
+    /audit +claude +claude-fable-5-1 +extra high +--first/,
   )
 })
 
@@ -1068,8 +1226,8 @@ test("an automatic series stops at its configured maximum", async (t) => {
     true,
   )
   await configureJudgeAnswers(f, [
-    "Judge: continue with Claude. Cross-check the first result.",
-    "Judge: continue with Codex. Continue after the cross-check.",
+    "Judge: continue with claude opus high. Cross-check the first result.",
+    "Judge: continue with codex gpt-5.6-sol high. Continue after the cross-check.",
   ])
   const settings = structuredClone(testSettings)
   settings.maximumAutomaticRounds = 2
@@ -1106,7 +1264,7 @@ test("a clean automatic audit follows its judge", async (t) => {
     true,
   )
   await configureJudgeAnswers(f, [
-    "Judge: continue with Claude. Claude should confirm the clean audit.",
+    "Judge: continue with claude opus high. Claude should confirm the clean audit.",
     "Judge: stop. The other assistant confirmed the clean audit.",
   ])
 

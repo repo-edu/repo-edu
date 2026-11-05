@@ -127,8 +127,6 @@ function roundSettingsData(
   settings: RoundSettings,
   fix: PhaseRun,
 ): RoundData["settings"] {
-  const audit = (assistant: Assistant) =>
-    resolvedRun(roundPhases(assistant, noOverride, settings).audit, releases)
   const vet = (assistant: Assistant) =>
     resolvedRun(
       roundPhases(
@@ -139,7 +137,6 @@ function roundSettingsData(
       releases,
     )
   return {
-    audit: { claude: audit("claude"), codex: audit("codex") },
     vet: { claude: vet("claude"), codex: vet("codex") },
     fix: { assistant: fix.assistant, ...resolvedRun(fix, releases) },
   }
@@ -238,7 +235,7 @@ export async function roundRun(
       entry("fix"),
       ...(setup.brief === true ? [entry("brief")] : []),
       ...("plan" in setup ? [entry("watch")] : []),
-      ...(setup.automatic === true ? [entry("judge")] : []),
+      ...(setup.pool !== undefined ? [entry("judge")] : []),
     ],
     paths: {
       claim: join(setup.planRoot, `${nameStart}-0-claim.md`),

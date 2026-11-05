@@ -641,7 +641,9 @@ test("the settings header names what set each phase's model and effort", async (
           scope: "1",
           auditor,
           auditorSelectionSource:
-            typeof override === "object" ? override.option : "settings",
+            typeof override === "object" && "option" in override
+              ? override.option
+              : "settings",
           override,
           brief: true,
         },
@@ -699,6 +701,17 @@ test("the settings header names what set each phase's model and effort", async (
     [
       "audit  codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
       "rebut  codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
+    ],
+  )
+  // A listed auditor names both fields from the auditors list.
+  assert.deepEqual(
+    (await header({ listed: { model: "gpt-6-astra", effort: "xhigh" } })).slice(
+      0,
+      2,
+    ),
+    [
+      "audit  codex   gpt-6-astra     extra high  audit-round auditors",
+      "rebut  codex   gpt-6-astra     extra high  audit-round auditors",
     ],
   )
   // A --first tag names its own option.

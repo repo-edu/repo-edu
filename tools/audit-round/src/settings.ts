@@ -21,17 +21,30 @@ const selection = z.strictObject({
   model: z.union([model, defaulted]),
   effort: z.union([effort, defaulted]),
 })
+/** A model the selection names outright, because `default` would defer the choice elsewhere. */
+const namedModel = (owner: string) =>
+  model.refine((value) => value !== defaulted.value, {
+    message: `${owner} must name a model`,
+  })
 /** The selection a phase's `default` reads, so it names a model outright. */
 const defaultSelection = z.strictObject({
-  model: model.refine((value) => value !== defaulted.value, {
-    message: "The defaults must name a model",
-  }),
+  model: namedModel("The defaults"),
   effort,
 })
 export type PhaseSelection = z.infer<typeof selection>
 const assignedPhase = selection.extend({ assistant })
 export const coderSchema = z.strictObject({ assistant, model, effort })
 export type Coder = z.infer<typeof coderSchema>
+/**
+ * One auditor the series may run. The list is the choice, so an entry names
+ * its model outright rather than reading the defaults.
+ */
+const auditorSchema = z.strictObject({
+  assistant,
+  model: namedModel("An auditor"),
+  effort,
+})
+export type Auditor = z.infer<typeof auditorSchema>
 const assistantPhase = z.strictObject({
   claude: selection,
   codex: selection,
@@ -40,19 +53,20 @@ const strengths = z.strictObject({ base: model, top: model })
 
 export const settingsSchema = z.strictObject({
   /**
-   * Who opens a series without a command-line choice. `random` flips a coin
-   * for each scope's series.
+   * Which `auditors` entry opens a series without a command-line choice.
+   * `random` picks one entry for each scope's series.
    */
-  defaultAuditor: z.enum(["claude", "codex", "random"]),
+  defaultAuditor: z.enum(["first", "random"]),
   maximumAutomaticRounds: z.number().int().positive(),
   strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   defaults: z.strictObject({
     claude: defaultSelection,
     codex: defaultSelection,
   }),
+  /** The ordered pool the automatic series opens from and the judge draws on. */
+  auditors: z.array(auditorSchema).min(1),
   coders: z.array(coderSchema).min(1),
   phases: z.strictObject({
-    audit: assistantPhase,
     vet: assistantPhase,
     brief: assignedPhase,
     watch: assignedPhase,

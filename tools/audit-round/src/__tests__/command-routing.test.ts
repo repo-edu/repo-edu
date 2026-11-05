@@ -24,10 +24,6 @@ function disproveRound(
     started: "2026-11-05T10:00:00.000Z",
     status: "finished",
     settings: {
-      audit: {
-        claude: { model: "claude-opus-5-5", effort: "xhigh" },
-        codex: { model: "gpt-5.6-sol", effort: "xhigh" },
-      },
       vet: {
         claude: { model: "claude-opus-5-5", effort: "xhigh" },
         codex: { model: "gpt-5.6-sol", effort: "xhigh" },
@@ -371,11 +367,11 @@ for (const working of ["repo-edu", "plan"] as const) {
       await writeFile(join(root, `${target}-09-2-audit.oth.md`), "Peer report")
       const before = await readdir(root)
       const settings = structuredClone(testSettings)
-      for (const assistant of ["claude", "codex"] as const)
-        settings.phases.audit[assistant] = {
-          model: settings.strengthModels[assistant].top,
-          effort: "medium",
-        }
+      settings.auditors = (["claude", "codex"] as const).map((assistant) => ({
+        assistant,
+        model: settings.strengthModels[assistant].top,
+        effort: "medium",
+      }))
       const args = [
         "name",
         "example.md",

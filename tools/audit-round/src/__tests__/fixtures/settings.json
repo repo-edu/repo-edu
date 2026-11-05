@@ -1,5 +1,5 @@
 {
-  "defaultAuditor": "codex",
+  "defaultAuditor": "first",
   "maximumAutomaticRounds": 10,
   "strengthModels": {
     "claude": {
@@ -21,6 +21,18 @@
       "effort": "high"
     }
   },
+  "auditors": [
+    {
+      "assistant": "codex",
+      "model": "gpt-5.6-sol",
+      "effort": "high"
+    },
+    {
+      "assistant": "claude",
+      "model": "opus",
+      "effort": "high"
+    }
+  ],
   "coders": [
     {
       "assistant": "codex",
@@ -29,16 +41,6 @@
     }
   ],
   "phases": {
-    "audit": {
-      "claude": {
-        "model": "default",
-        "effort": "default"
-      },
-      "codex": {
-        "model": "default",
-        "effort": "default"
-      }
-    },
     "vet": {
       "claude": {
         "model": "default",

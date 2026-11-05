@@ -290,7 +290,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      automatic: true,
+      pool: testSettings.auditors,
     },
     Date.now(),
     releases,
@@ -354,7 +354,7 @@ test("the final retained write stores the judge answer", async (t) => {
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      automatic: true,
+      pool: testSettings.auditors,
     },
     Date.now(),
     releases,
@@ -374,7 +374,10 @@ test("the final retained write stores the judge answer", async (t) => {
     status: "finished",
     report: "REPORT.md",
     cleanAudit: true,
-    judge: { answer: "claude", reason: "Cross-check the retained result." },
+    judge: {
+      answer: testSettings.auditors[1],
+      reason: "Cross-check the retained result.",
+    },
     watch: null,
     deferralChain: "none",
     commits: [],
@@ -388,7 +391,7 @@ test("the final retained write stores the judge answer", async (t) => {
   ).rounds
   assert.equal(entry?.status, "finished")
   assert.deepEqual(entry?.judge, {
-    answer: "claude",
+    answer: { assistant: "claude", model: "opus", effort: "high" },
     reason: "Cross-check the retained result.",
   })
 })
@@ -400,7 +403,7 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      automatic: true,
+      pool: testSettings.auditors,
     },
     Date.now(),
     releases,

@@ -312,7 +312,7 @@ test("an automatic judge needs no capability tag because it writes no file", asy
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      automatic: true,
+      pool: testSettings.auditors,
     },
     0,
     releases,

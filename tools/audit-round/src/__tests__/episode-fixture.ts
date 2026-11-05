@@ -62,10 +62,6 @@ export const episode = (
 ) => computeEpisode(log, repository, stem, areas)
 
 const roundSettings: RoundData["settings"] = {
-  audit: {
-    claude: { model: "claude-opus-5", effort: "xhigh" },
-    codex: { model: "gpt-6-astra", effort: "xhigh" },
-  },
   vet: {
     claude: { model: "claude-opus-5", effort: "high" },
     codex: { model: "gpt-6.1-sol", effort: "high" },

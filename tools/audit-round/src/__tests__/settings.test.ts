@@ -13,10 +13,12 @@ import {
   settingsSchema,
 } from "../settings.js"
 import {
+  listedSeat,
   modelStrength,
   noOverride,
   parseAuditor,
   roundPhases,
+  seatAuditor,
   testSettings as settings,
 } from "./configured-runner.js"
 
@@ -100,16 +102,19 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
   config.coders = [
     { assistant: "codex", model: "assigned-coder", effort: "xhigh" },
   ]
-  config.phases.audit.codex = { model: "configured-auditor", effort: "medium" }
+  config.auditors = [
+    { assistant: "codex", model: "listed-auditor", effort: "medium" },
+  ]
   config.phases.watch = { assistant: "codex", model: "default", effort: "low" }
   const phases = roundPhases(
     "codex",
     { option: "--auditor", strength: "top", effort: null },
     config,
   )
+  // A field the tag leaves unnamed reads the defaults, never a listed auditor.
   assert.deepEqual(phases.audit.model, {
     model: { value: "custom-top-model", source: "--auditor" },
-    effort: { value: "medium", source: "audit-round settings" },
+    effort: { value: "xhigh", source: "audit-round defaults" },
   })
   assert.deepEqual(phases.rebut, phases.audit)
   assert.deepEqual(phases.watch.model, {
@@ -138,46 +143,78 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
     config,
   )
   assert.deepEqual(effortOnly.audit.model, {
-    model: { value: "configured-auditor", source: "audit-round settings" },
+    model: { value: "codex-default", source: "audit-round defaults" },
     effort: { value: "high", source: "--first" },
   })
 })
 
-test("audit settings accept exactly one setting per assistant", () => {
+test("the auditors list names whole selections and replaces the audit pins", () => {
   const config = structuredClone(settings)
-  config.phases.audit.codex = { model: "one-auditor", effort: "medium" }
+  config.auditors = [
+    { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
+    { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
+  ]
   assert.equal(settingsSchema.safeParse(config).success, true)
-  const phases = roundPhases("codex", noOverride, config)
-  assert.deepEqual(phases.audit.model, {
-    model: { value: "one-auditor", source: "audit-round settings" },
-    effort: { value: "medium", source: "audit-round settings" },
+  for (const auditor of config.auditors) {
+    const seat = listedSeat(auditor)
+    const phases = roundPhases(seat.assistant, seat.override, config)
+    assert.deepEqual(phases.audit, {
+      assistant: "claude",
+      model: {
+        model: { value: auditor.model, source: "audit-round auditors" },
+        effort: { value: auditor.effort, source: "audit-round auditors" },
+      },
+    })
+    assert.deepEqual(phases.rebut, phases.audit)
+    assert.equal(phases.vet.assistant, "codex")
+    assert.deepEqual(seatAuditor(seat, config), auditor)
+  }
+  // A resolved command-line seat joins the pool as the entry it runs.
+  const first = parseAuditor("otx", "--first")
+  assert.ok(first)
+  assert.deepEqual(seatAuditor(first, config), {
+    assistant: "codex",
+    model: config.strengthModels.codex.top,
+    effort: "xhigh",
   })
-  assert.deepEqual(phases.rebut, phases.audit)
+  // No pin remains, so an unnamed seat runs the assistant's defaults.
+  assert.deepEqual(
+    roundPhases("codex", noOverride, config).audit.model,
+    roundPhases(
+      "codex",
+      { option: "--auditor", strength: null, effort: null },
+      config,
+    ).audit.model,
+  )
 
-  for (const audit of [
+  for (const auditors of [
     [],
-    [{ model: "only", effort: "high" }],
-    [
-      { model: "one", effort: "high" },
-      { model: "two", effort: "high" },
-      { model: "three", effort: "high" },
-    ],
+    [{ assistant: "codex", model: "default", effort: "high" }],
+    [{ assistant: "codex", model: "gpt-5.6-sol", effort: "default" }],
+    [{ assistant: "codex", model: "gpt-5.6-sol" }],
   ])
     assert.equal(
-      settingsSchema.safeParse({
-        ...settings,
-        phases: {
-          ...settings.phases,
-          audit: { ...settings.phases.audit, codex: audit },
-        },
-      }).success,
+      settingsSchema.safeParse({ ...config, auditors }).success,
       false,
     )
   assert.equal(
-    settingsSchema.safeParse({ ...settings, defaultAuditor: "alternate" })
-      .success,
+    settingsSchema.safeParse({
+      ...config,
+      phases: {
+        ...config.phases,
+        audit: {
+          claude: { model: "default", effort: "default" },
+          codex: { model: "default", effort: "default" },
+        },
+      },
+    }).success,
     false,
   )
+  for (const defaultAuditor of ["claude", "codex", "alternate"])
+    assert.equal(
+      settingsSchema.safeParse({ ...config, defaultAuditor }).success,
+      false,
+    )
 })
 
 test("the coder and assigned phases follow their configured assistants independently of the auditor", () => {
@@ -219,10 +256,12 @@ test("the coder and assigned phases follow their configured assistants independe
   }
 })
 
-test("assistant names select the defaults while letter tags keep audit pins across chained auditors", () => {
+test("assistant names and bare letter tags both read the defaults across chained auditors", () => {
   const config = structuredClone(settings)
-  config.phases.audit.claude = { model: "claude-auditor", effort: "high" }
-  config.phases.audit.codex = { model: "codex-auditor", effort: "medium" }
+  config.auditors = [
+    { assistant: "claude", model: "claude-auditor", effort: "high" },
+    { assistant: "codex", model: "codex-auditor", effort: "medium" },
+  ]
   for (const value of ["claude", "codex", "a", "o"]) {
     const seat = parseAuditor(value, "--first")
     assert.ok(seat)
@@ -234,15 +273,11 @@ test("assistant names select the defaults while letter tags keep audit pins acro
       const phases = roundPhases(assistant, seat.override, config)
       const configured = roundPhases(assistant, noOverride, config)
       const { model, effort } = config.defaults[assistant]
-      assert.deepEqual(
-        phases.audit.model,
-        value.length > 1
-          ? {
-              model: { value: model, source: "--first" },
-              effort: { value: effort, source: "--first" },
-            }
-          : configured.audit.model,
-      )
+      const source = value.length > 1 ? "--first" : "audit-round defaults"
+      assert.deepEqual(phases.audit.model, {
+        model: { value: model, source },
+        effort: { value: effort, source },
+      })
       assert.deepEqual(phases.rebut, phases.audit)
       for (const phase of ["vet", "fix", "brief", "watch", "judge"] as const)
         assert.deepEqual(phases[phase], configured[phase])
@@ -252,13 +287,17 @@ test("assistant names select the defaults while letter tags keep audit pins acro
 
 test("alternating auditors and vetters keep their own configured models", () => {
   const config = structuredClone(settings)
-  config.phases.audit.claude = { model: "claude-auditor", effort: "high" }
-  config.phases.audit.codex = { model: "codex-auditor", effort: "medium" }
+  config.auditors = [
+    { assistant: "claude", model: "claude-auditor", effort: "high" },
+    { assistant: "codex", model: "codex-auditor", effort: "medium" },
+  ]
   config.phases.vet.claude = { model: "claude-vetter", effort: "low" }
   config.phases.vet.codex = { model: "codex-vetter", effort: "xhigh" }
-  for (const assistant of ["claude", "codex"] as const) {
+  for (const auditor of config.auditors) {
+    const assistant = auditor.assistant
     const vetter = assistant === "claude" ? "codex" : "claude"
-    const phases = roundPhases(assistant, noOverride, config)
+    const seat = listedSeat(auditor)
+    const phases = roundPhases(assistant, seat.override, config)
     assert.equal(phases.audit.model.model?.value, `${assistant}-auditor`)
     assert.equal(phases.vet.model.model?.value, `${vetter}-vetter`)
     assert.equal(
@@ -290,7 +329,7 @@ test("settings reject null fields, unsupported effort, misspelt fields and indep
   assert.equal(
     settingsSchema.safeParse({
       ...settings,
-      phases: { ...settings.phases, rebut: settings.phases.audit },
+      phases: { ...settings.phases, rebut: settings.phases.vet },
     }).success,
     false,
   )

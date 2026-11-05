@@ -105,9 +105,13 @@ const roundStatus = z.enum([
   "interrupted",
   "awaiting-ruling",
 ])
+/** A continuation names the series-pool entry the next round runs on. */
 export const judgeAnswerSchema = z
   .strictObject({
-    answer: z.enum(["settle", "stop", "claude", "codex"]),
+    answer: z.union([
+      z.enum(["settle", "stop"]),
+      z.strictObject({ assistant, model: z.string().min(1), effort }),
+    ]),
     reason: z.string().min(1),
   })
   .nullable()
@@ -118,10 +122,6 @@ const commonRoundData = z.strictObject({
   started: z.string().min(1),
   status: roundStatus,
   settings: z.strictObject({
-    audit: z.strictObject({
-      claude: modelSelection,
-      codex: modelSelection,
-    }),
     vet: z.strictObject({
       claude: modelSelection,
       codex: modelSelection,
