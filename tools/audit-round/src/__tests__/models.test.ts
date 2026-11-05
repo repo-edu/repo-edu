@@ -656,7 +656,10 @@ test("coder evidence removes disproved findings and falls back to one commit spa
     { repoEduRoot: f.root, planRoot: f.planRoot },
     testSettings,
   )
-  assert.match(report, /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 0\.0 \| 30\.0 \|/)
+  assert.match(
+    report,
+    /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 0\.0 \| 30\.0 \|/,
+  )
   assert.match(report, /The implementation claim was wrong\./)
 })
 
@@ -1036,7 +1039,10 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
     },
   )
   assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)
-  assert.match(report, /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 0\.2 \| 2\.5 \|/)
+  assert.match(
+    report,
+    /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 0\.2 \| 2\.5 \|/,
+  )
   assert.match(report, /records clearly support running coder-alpha low/)
 })
 

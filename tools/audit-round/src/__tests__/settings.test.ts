@@ -41,6 +41,24 @@ test("a missing settings file is generated from the built-in defaults", async (t
   assert.equal(await readFile(path, "utf8"), contents)
 })
 
+test("settings may carry comments and trailing commas", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "audit-settings-"))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const path = join(root, "settings.json")
+  const edited = structuredClone(settings)
+  edited.coders = [{ assistant: "claude", model: "opus", effort: "high" }]
+  const contents = JSON.stringify(edited, null, 2)
+    .replace(
+      '"coders": [',
+      '"coders": [\n    // { "assistant": "codex", "model": "gpt-5.6-sol", "effort": "high" },',
+    )
+    .replace('"effort": "high" }\n  ]', '"effort": "high" },\n  ]')
+    .replace("{\n", "{ /* local selection */\n")
+  await writeFile(path, contents)
+  assert.deepEqual(await readSettings(path), edited)
+  assert.equal(await readFile(path, "utf8"), contents)
+})
+
 test("malformed and invalid settings report their path without replacing the file", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "audit-settings-"))
   t.after(() => rm(root, { recursive: true, force: true }))

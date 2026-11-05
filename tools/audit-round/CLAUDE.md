@@ -756,10 +756,13 @@ the plan and removes its sidecars under the plan repo workflow.
 
 Edit `tools/audit-round/settings.json` to change model selection for runs from
 either checkout. Changes apply to the next invocation. This local file is
-gitignored. When it is missing, the runner creates it from
+gitignored. It is JSON with comments: `//` and `/* */` comments and trailing
+commas are allowed, so an alternative selection can stay commented out beside
+the live one, and editors already open a file named `settings.json` that way.
+When it is missing, the runner creates it from
 [default-settings.json](default-settings.json), the version-controlled
-defaults. An invalid file stops the command with a validation error and is
-left unchanged.
+defaults, as plain JSON. An invalid file stops the command with a validation
+error and is left unchanged.
 
 - `defaultAuditor` selects Claude or Codex when neither `--auditor` nor `--first` is given.
   `random` flips a coin for the opener in each scope's series, so neither assistant always takes

@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises"
+import { type ParseError, parse, printParseErrorCode } from "jsonc-parser"
 import { z } from "zod"
 import defaults from "../default-settings.json" with { type: "json" }
 import { efforts } from "./phase.js"
@@ -86,6 +87,23 @@ export function parseCoderRecord(body: string): Coder | null {
   })
 }
 
+/**
+ * The file is JSON with comments and trailing commas, so an operator can keep
+ * an alternative selection beside the live one without a second file. The
+ * generated default copy stays plain JSON.
+ */
+function parseSettingsText(content: string): unknown {
+  const errors: ParseError[] = []
+  const value = parse(content, errors, { allowTrailingComma: true })
+  if (errors.length > 0) {
+    const first = errors[0]
+    throw new Error(
+      `${printParseErrorCode(first.error)} at offset ${first.offset}`,
+    )
+  }
+  return value
+}
+
 /** Both checkout entry points use the editable file beside this tool. */
 export async function readSettings(
   path: string | URL = new URL("../settings.json", import.meta.url),
@@ -99,7 +117,7 @@ export async function readSettings(
     await writeFile(path, content, { flag: "wx" })
   }
   try {
-    return settingsSchema.parse(JSON.parse(content))
+    return settingsSchema.parse(parseSettingsText(content))
   } catch (error) {
     throw new Error(
       `Invalid audit-round settings in ${path}: ${error instanceof Error ? error.message : String(error)}`,
