@@ -391,11 +391,15 @@ consumers.
   comparisons. Every recorded auditor and coder gets one row. Planning and
   implementation auditors have separate tables. Every complete round enters
   its auditor's class, and every row with at least five rounds enters that
-  class's comparisons. A thinner row stays visible, states its shortage and
-  blocks no recommendation. Auditor cost adds audit and rebuttal time. Kept,
-  dropped, downgraded and disproved findings are exclusive counts; wrong claims
-  is the last three as a percentage of all four. A later disproval removes a
-  kept finding from coder evidence too. Coder
+  class's pairwise comparisons. A row needs five rounds in both classes before
+  it can be named or block a name. A row is named for one class only when it
+  clearly leads every eligible row there and no eligible row clearly leads it
+  in the other class. A row may therefore enter one class's pairwise clauses
+  while staying out of the naming check. A thinner row stays visible, states
+  its shortage and blocks no recommendation. Auditor cost adds audit and
+  rebuttal time. Kept, dropped, downgraded and disproved findings are exclusive
+  counts; wrong claims is the last three as a percentage of all four. A later
+  disproval removes a kept finding from coder evidence too. Coder
   yield comparisons use one closed plan per example. The archived plan
   supplies the listed steps, every hosted share must have a readable model
   record and the whole-plan audit must follow the final share. Records admit a
@@ -871,8 +875,11 @@ planning auditors, implementation auditors, coders, disproved findings and
 excluded plans. Each comparison admits every row that reaches its minimum;
 thin rows remain visible and block nothing. It gives a recommendation only
 where the admitted rows' observed ranges separate and yield does not conflict
-with a clear time lead. A winner outside the current audit defaults or coder
-list is labelled. Auditor tables count complete rounds and their kept, dropped,
+with a clear time lead. An auditor row enters the naming check only after it
+has five rounds in both audit classes. It is named for one class only when it
+clearly leads every eligible row there and no eligible row clearly leads it in
+the other class. A winner outside the current audit defaults or coder list is
+labelled. Auditor tables count complete rounds and their kept, dropped,
 downgraded and later-disproved A/B findings, with wrong claims as the last three
 over all four and audit plus rebuttal time per round. The coder table shows
 plans, timed plans, steps, kept A/B findings and time per step. A missing step

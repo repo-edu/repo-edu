@@ -91,19 +91,33 @@ function auditorRecommendation(
   rows: ReadonlyMap<string, AuditorRow>,
   workClass: WorkClass,
 ): string | null {
-  const ranked = sortedRows(rows).filter(
-    ([, row]) => auditorSamples(row, workClass).length >= auditorFloor,
+  const eligible = sortedRows(rows).filter(([, row]) =>
+    (["planning", "implementation"] as const).every(
+      (candidateClass) =>
+        auditorSamples(row, candidateClass).length >= auditorFloor,
+    ),
   )
-  if (ranked.length < 2) return null
-  const winners = ranked.filter(([candidateKey, candidate]) =>
-    ranked.every(
+  if (eligible.length < 2) return null
+  const winners = eligible.filter(([candidateKey, candidate]) =>
+    eligible.every(
       ([otherKey, other]) =>
         candidateKey === otherKey ||
-        clearlyPreferred(
+        (clearlyPreferred(
           auditorSamples(candidate, workClass),
           auditorSamples(other, workClass),
           true,
-        ),
+        ) &&
+          !clearlyPreferred(
+            auditorSamples(
+              other,
+              workClass === "planning" ? "implementation" : "planning",
+            ),
+            auditorSamples(
+              candidate,
+              workClass === "planning" ? "implementation" : "planning",
+            ),
+            true,
+          )),
     ),
   )
   return winners.length === 1 ? winners[0][0] : null

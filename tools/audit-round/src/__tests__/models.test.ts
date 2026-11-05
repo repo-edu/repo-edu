@@ -220,7 +220,7 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
   )
 })
 
-test("the report names an auditor only with a clear lead in both audit classes", async (t) => {
+test("opposite audit-class leads block auditor recommendations", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -233,10 +233,12 @@ test("the report names an auditor only with a clear lead in both audit classes",
       f.planRoot,
       `auditor-${workClass === "planning" ? "plan" : "impl"}-rounds.json`,
     )
-    for (const [assistant, model, accepted] of [
-      ["claude", "audit-strong", true],
-      ["codex", "audit-weak", false],
-    ] as const)
+    for (const [assistant, model] of [
+      ["claude", "audit-strong"],
+      ["codex", "audit-weak"],
+    ] as const) {
+      const accepted =
+        model === (workClass === "planning" ? "audit-strong" : "audit-weak")
       for (let index = 1; index <= 5; index += 1)
         writeRoundData(path, {
           ...round(
@@ -257,6 +259,7 @@ test("the report names an auditor only with a clear lead in both audit classes",
             ? { phase: "detailing" as const, settling: "" }
             : { scope: "1", judgedRepos: ["repo-edu" as const] }),
         })
+    }
   }
   addClass("planning")
   addClass("implementation")
@@ -265,40 +268,9 @@ test("the report names an auditor only with a clear lead in both audit classes",
     { repoEduRoot: f.root, planRoot: f.planRoot },
     testSettings,
   )
+  assert.match(report, /records do not separate one planning auditor clearly/)
   assert.match(
     report,
-    /records clearly support running audit-strong low for planning audits/,
-  )
-
-  const path = join(f.planRoot, "auditor-impl-rounds.json")
-  writeRoundData(path, {
-    ...round(
-      "implementation-audit-strong-5",
-      1,
-      "2026-10-05T10:00:00.000Z",
-      {
-        assistant: "claude",
-        ...selection("audit-strong"),
-        chosenBy: "settings",
-      },
-      settings("audit-strong", "audit-weak"),
-      [phase("audit", "claude", "audit-strong", 60_000)],
-      commits,
-      [],
-    ),
-    scope: "1",
-    judgedRepos: ["repo-edu"],
-  })
-  const overlapping = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot },
-    testSettings,
-  )
-  assert.match(
-    overlapping,
-    /records clearly support running audit-strong low for planning audits/,
-  )
-  assert.match(
-    overlapping,
     /records do not separate one implementation auditor clearly/,
   )
 })
@@ -353,6 +325,28 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
         ),
         phase: "detailing",
         settling: "",
+      })
+  const implementationPath = join(f.planRoot, "evidence-impl-rounds.json")
+  for (const [assistant, model] of [
+    ["claude", "audit-strong"],
+    ["codex", "audit-weak"],
+  ] as const)
+    for (let index = 1; index <= 5; index += 1)
+      writeRoundData(implementationPath, {
+        ...round(
+          `${model}-implementation`,
+          index,
+          `2026-10-${String(index).padStart(2, "0")}T${assistant === "claude" ? "13" : "14"}:00:00.000Z`,
+          { assistant, ...selection(model), chosenBy: "settings" },
+          settings("audit-strong", "audit-weak"),
+          [phase("audit", assistant, model, 60_000)],
+          commits,
+          model === "audit-strong"
+            ? findings(1, `implementation claim ${index}`)
+            : [],
+        ),
+        scope: "1",
+        judgedRepos: ["repo-edu"],
       })
   writeRoundData(path, {
     ...round(
