@@ -2,7 +2,7 @@ import { Button, Checkbox, Label } from "@repo-edu/ui"
 import {
   useAnalysisAuthorView,
   useAnalysisSelection,
-} from "../../../analysis/analysis-query-coordinator.js"
+} from "../../../analysis/analysis-contexts.js"
 import {
   selectSelectedAuthorsForScope,
   useAnalysisStore,

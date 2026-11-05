@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useAnalysisDiscovery } from "../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisDiscovery } from "../../../analysis/analysis-contexts.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { buildFileTree, collectFolderPaths } from "./analysis-tree.js"
 

@@ -6,7 +6,7 @@ import {
   RadioGroupItem,
   Separator,
 } from "@repo-edu/ui"
-import { useAnalysisResult } from "../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisResult } from "../../../analysis/analysis-contexts.js"
 import {
   type AnalysisActiveMetric,
   type AnalysisDisplayMode,

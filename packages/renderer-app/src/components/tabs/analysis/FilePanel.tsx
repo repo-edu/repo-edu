@@ -22,7 +22,7 @@ import {
   useAnalysisAuthorView,
   useAnalysisFileView,
   useAnalysisResult,
-} from "../../../analysis/analysis-query-coordinator.js"
+} from "../../../analysis/analysis-contexts.js"
 import {
   FILES_PANEL_CHART_FLEX,
   FILES_PANEL_TABLE_FLEX,

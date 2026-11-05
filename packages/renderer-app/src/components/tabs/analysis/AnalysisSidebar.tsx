@@ -16,7 +16,7 @@ import {
   useAnalysisFileView,
   useAnalysisResult,
   useAnalysisSelection,
-} from "../../../analysis/analysis-query-coordinator.js"
+} from "../../../analysis/analysis-contexts.js"
 import { selectEffectiveFileSelection } from "../../../analysis/analysis-view-models.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { useDirectoryPicker } from "../../../hooks/use-picker.js"

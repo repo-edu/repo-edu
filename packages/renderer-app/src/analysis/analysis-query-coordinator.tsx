@@ -1,26 +1,13 @@
-import type {
-  AnalysisDiscoverReposResult,
-  AnalysisProgress,
-  DiscoveredRepo,
-} from "@repo-edu/application-contract"
+import type { AnalysisDiscoverReposResult } from "@repo-edu/application-contract"
 import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import type {
   AnalysisBlameConfig,
   AnalysisResult,
-  AuthorStats,
   BlameResult,
-  FileStats,
 } from "@repo-edu/domain/analysis"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  type Context,
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useMemo,
-} from "react"
+import { type ReactNode, useCallback, useMemo } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useAnalysisContext } from "../hooks/use-analysis-context.js"
 import {
@@ -44,6 +31,30 @@ import {
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
+import {
+  AnalysisAuthorViewContext,
+  type AnalysisAuthorViewValue,
+  AnalysisBlameProgressContext,
+  type AnalysisBlameProgressValue,
+  AnalysisBlameResultContext,
+  type AnalysisBlameResultValue,
+  AnalysisBlameStatusContext,
+  type AnalysisBlameStatusValue,
+  AnalysisDiscoveryContext,
+  type AnalysisDiscoveryValue,
+  AnalysisFileViewContext,
+  type AnalysisFileViewValue,
+  AnalysisResultContext,
+  type AnalysisResultValue,
+  AnalysisSelectionContext,
+  type AnalysisSelectionValue,
+  type AnalysisWorkflowStatus,
+  type DiscoveryStatus,
+} from "./analysis-contexts.js"
+import {
+  selectCurrentAnalysisResult,
+  selectCurrentBlameResult,
+} from "./analysis-observation.js"
 import { discoverRepositories } from "./analysis-query-bodies.js"
 import {
   type AnalysisQueryIdentity,
@@ -73,178 +84,8 @@ import {
 } from "./analysis-view-models.js"
 import { buildEffectiveBlameWorkflowConfig } from "./analysis-workflow-inputs.js"
 
-export type AnalysisWorkflowStatus = "idle" | "running" | "error"
-export type DiscoveryStatus = "idle" | "loading" | "error"
-
-export type AnalysisDiscoveryValue = {
-  discoveredRepos: readonly DiscoveredRepo[]
-  discoveryStatus: DiscoveryStatus
-  discoveryError: string | null
-  discoveryCurrentFolder: string | null
-  discoveryCompleted: boolean
-  runRepoDiscovery: (folder: string) => void
-  startAnalysis: (folder: string) => void
-  clearRepositoryDiscovery: () => void
-  cancelDiscovery: () => void
-}
-
-export type AnalysisSelectionValue = {
-  selectedRepoPath: string | null
-  selectRepository: (repoPath: string) => void
-  analyseSelectedRepository: () => void
-  runAnalysis: () => void
-  cancelAnalysis: () => void
-  snapshotCommitOid: string | null
-  analysisIdentity: AnalysisQueryIdentity | null
-  analysisScopeKey: string | null
-}
-
-export type AnalysisResultValue = {
-  result: AnalysisResult | null
-  analysisStatus: AnalysisWorkflowStatus
-  analysisProgress: AnalysisProgress | null
-  analysisErrorMessage: string | null
-}
-
-export type AnalysisBlameResultValue = {
-  blameResult: BlameResult | null
-}
-
-export type AnalysisBlameStatusValue = {
-  blameStatus: AnalysisWorkflowStatus
-  blameErrorMessage: string | null
-}
-
-export type AnalysisBlameProgressValue = {
-  blameStatus: AnalysisWorkflowStatus
-  blameProgress: AnalysisProgress | null
-  blamePartialAuthorLines: ReadonlyMap<string, number>
-}
-
-export type AnalysisAuthorViewValue = {
-  mergedAuthorStats: AuthorStats[]
-  filteredAuthorStats: AuthorStats[]
-  authorColorsByPersonId: ReadonlyMap<string, string>
-  authorDisplayByPersonId: ReturnType<typeof buildAuthorDisplayByPersonId>
-  rosterMatchByPersonId: ReturnType<typeof buildRosterMatchByPersonId>
-}
-
-export type AnalysisFileViewValue = {
-  mergedFileStats: FileStats[]
-  filteredFileStats: FileStats[]
-}
-
-const AnalysisDiscoveryContext = createContext<AnalysisDiscoveryValue | null>(
-  null,
-)
-const AnalysisSelectionContext = createContext<AnalysisSelectionValue | null>(
-  null,
-)
-const AnalysisResultContext = createContext<AnalysisResultValue | null>(null)
-const AnalysisBlameResultContext =
-  createContext<AnalysisBlameResultValue | null>(null)
-const AnalysisBlameStatusContext =
-  createContext<AnalysisBlameStatusValue | null>(null)
-const AnalysisBlameProgressContext =
-  createContext<AnalysisBlameProgressValue | null>(null)
-const AnalysisAuthorViewContext = createContext<AnalysisAuthorViewValue | null>(
-  null,
-)
-const AnalysisFileViewContext = createContext<AnalysisFileViewValue | null>(
-  null,
-)
-
-function useRequiredAnalysisContext<T>(
-  context: Context<T | null>,
-  name: string,
-): T {
-  const value = useContext(context)
-  if (value === null) {
-    throw new Error(`${name} must be used inside AnalysisCoordinatorProvider.`)
-  }
-  return value
-}
-
-export function useAnalysisDiscovery(): AnalysisDiscoveryValue {
-  return useRequiredAnalysisContext(
-    AnalysisDiscoveryContext,
-    "useAnalysisDiscovery",
-  )
-}
-
-export function useAnalysisSelection(): AnalysisSelectionValue {
-  return useRequiredAnalysisContext(
-    AnalysisSelectionContext,
-    "useAnalysisSelection",
-  )
-}
-
-export function useAnalysisResult(): AnalysisResultValue {
-  return useRequiredAnalysisContext(AnalysisResultContext, "useAnalysisResult")
-}
-
-export function useAnalysisBlameResult(): AnalysisBlameResultValue {
-  return useRequiredAnalysisContext(
-    AnalysisBlameResultContext,
-    "useAnalysisBlameResult",
-  )
-}
-
-export function useAnalysisBlameStatus(): AnalysisBlameStatusValue {
-  return useRequiredAnalysisContext(
-    AnalysisBlameStatusContext,
-    "useAnalysisBlameStatus",
-  )
-}
-
-export function useAnalysisBlameProgress(): AnalysisBlameProgressValue {
-  return useRequiredAnalysisContext(
-    AnalysisBlameProgressContext,
-    "useAnalysisBlameProgress",
-  )
-}
-
-export function useAnalysisAuthorView(): AnalysisAuthorViewValue {
-  return useRequiredAnalysisContext(
-    AnalysisAuthorViewContext,
-    "useAnalysisAuthorView",
-  )
-}
-
-export function useAnalysisFileView(): AnalysisFileViewValue {
-  return useRequiredAnalysisContext(
-    AnalysisFileViewContext,
-    "useAnalysisFileView",
-  )
-}
-
 function toAppErrorMessage(error: unknown, fallback: string): string {
   return getErrorMessage(error, fallback)
-}
-
-export function selectCurrentAnalysisResult(params: {
-  snapshotCommitOid: string | null
-  analysisIsFetching: boolean
-  analysisIsError: boolean
-  data: AnalysisResult | undefined
-}): AnalysisResult | null {
-  if (
-    params.snapshotCommitOid === null ||
-    params.analysisIsFetching ||
-    params.analysisIsError
-  ) {
-    return null
-  }
-  return params.data ?? null
-}
-
-export function selectCurrentBlameResult(params: {
-  blameIsFetching: boolean
-  blameIsError: boolean
-  data: BlameResult | undefined
-}): BlameResult | null {
-  if (params.blameIsFetching || params.blameIsError) return null
-  return params.data ?? null
 }
 
 export function AnalysisCoordinatorProvider({

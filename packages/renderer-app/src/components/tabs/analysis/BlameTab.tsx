@@ -16,7 +16,7 @@ import {
   useAnalysisBlameStatus,
   useAnalysisResult,
   useAnalysisSelection,
-} from "../../../analysis/analysis-query-coordinator.js"
+} from "../../../analysis/analysis-contexts.js"
 import { selectEffectiveBlameVisibleAuthors } from "../../../analysis/analysis-view-models.js"
 import { selectSyntaxTheme } from "../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../session/session-controller-context.js"

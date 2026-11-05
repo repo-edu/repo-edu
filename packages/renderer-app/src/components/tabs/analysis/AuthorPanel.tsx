@@ -26,7 +26,7 @@ import {
   useAnalysisAuthorView,
   useAnalysisResult,
   useAnalysisSelection,
-} from "../../../analysis/analysis-query-coordinator.js"
+} from "../../../analysis/analysis-contexts.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"

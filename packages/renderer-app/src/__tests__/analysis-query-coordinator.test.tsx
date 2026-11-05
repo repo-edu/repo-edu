@@ -14,11 +14,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { Window } from "happy-dom"
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
-  AnalysisCoordinatorProvider,
-  selectCurrentAnalysisResult,
-  selectCurrentBlameResult,
   useAnalysisAuthorView,
   useAnalysisBlameProgress,
   useAnalysisBlameResult,
@@ -27,7 +23,13 @@ import {
   useAnalysisFileView,
   useAnalysisResult,
   useAnalysisSelection,
-} from "../analysis/analysis-query-coordinator.js"
+} from "../analysis/analysis-contexts.js"
+import {
+  selectCurrentAnalysisResult,
+  selectCurrentBlameResult,
+} from "../analysis/analysis-observation.js"
+import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
+import { AnalysisCoordinatorProvider } from "../analysis/analysis-query-coordinator.js"
 import {
   analysisQueryKeys,
   analysisSourceKeyParts,

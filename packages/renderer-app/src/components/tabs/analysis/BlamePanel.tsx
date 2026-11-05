@@ -4,7 +4,7 @@ import {
   useAnalysisBlameStatus,
   useAnalysisResult,
   useAnalysisSelection,
-} from "../../../analysis/analysis-query-coordinator.js"
+} from "../../../analysis/analysis-contexts.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
   selectActiveBlameFileForScope,

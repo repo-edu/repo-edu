@@ -1,4 +1,4 @@
-import { useAnalysisBlameProgress } from "../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisBlameProgress } from "../../../analysis/analysis-contexts.js"
 import { useElapsedSeconds } from "./use-elapsed-seconds.js"
 
 export function BlameProgressBar() {

@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { useAnalysisAuthorView } from "../../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisAuthorView } from "../../../../analysis/analysis-contexts.js"
 import type { AnalysisActiveMetric } from "../../../../stores/analysis-store.js"
 import { formatCount } from "../../../../utils/analysis-format.js"
 
