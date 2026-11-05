@@ -6,7 +6,6 @@ import { execa } from "execa"
 import {
   clearlyPreferred,
   clearlyPreferredMeasures,
-  comparisonPreposition,
   speedWords,
   yieldWords,
 } from "../model-comparison.js"
@@ -184,11 +183,6 @@ test("graded yield and speed words cover the four bands and both directions", ()
   assert.equal(speedWords(10, 15), "faster")
   assert.equal(speedWords(10, 20), "much faster")
   assert.equal(speedWords(20, 10), "much slower")
-
-  assert.equal(comparisonPreposition(yieldWords(1, 1.03)), "as")
-  assert.equal(comparisonPreposition(speedWords(10, 10.4)), "as")
-  assert.equal(comparisonPreposition(yieldWords(1.1, 1)), "than")
-  assert.equal(comparisonPreposition(speedWords(10, 11)), "than")
 })
 
 test("constant rows can lead while overlapping ranges and yield-against-time trades cannot", () => {
@@ -218,6 +212,48 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
     ),
     false,
   )
+})
+
+test("the auditor reading ranks every admitted row against the yield leader", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
+  )
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
+  const path = join(f.planRoot, "ranking-plan-rounds.json")
+  const auditors = [
+    ["claude", "audit-strong", 2, 120_000, "10"],
+    ["codex", "audit-middle", 1, 60_000, "11"],
+    ["codex", "audit-weak", 0, 180_000, "12"],
+  ] as const
+  for (const [assistant, model, accepted, duration, hour] of auditors)
+    for (let index = 1; index <= 5; index += 1)
+      writeRoundData(path, {
+        ...round(
+          `${model}-plan`,
+          index,
+          `2026-10-${String(index).padStart(2, "0")}T${hour}:00:00.000Z`,
+          { assistant, ...selection(model), chosenBy: "settings" },
+          settings("audit-strong", "audit-weak"),
+          [phase("audit", assistant, model, duration)],
+          commits,
+          findings(accepted, `${model} claim`),
+        ),
+        phase: "detailing",
+        settling: "",
+      })
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot },
+    testSettings,
+  )
+  assert.match(
+    report,
+    /For planning audits, audit-strong low has the highest yield \(2\.0 accepted A\/B findings per round at 2\.0 min, from 5 examples\); audit-middle low has much lower yield \(1\.0\) and is much faster \(1\.0 min\), from 5 examples; audit-weak low has much lower yield \(0\.0\) and is slower \(3\.0 min\), from 5 examples; /,
+  )
+  assert.doesNotMatch(report, / vs /)
 })
 
 test("opposite audit-class leads block auditor recommendations", async (t) => {

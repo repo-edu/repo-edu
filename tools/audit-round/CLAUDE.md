@@ -391,10 +391,13 @@ consumers.
   comparisons. Every recorded auditor and coder gets one row. Planning and
   implementation auditors have separate tables. Every complete round enters
   its auditor's class, and every row with at least five rounds enters that
-  class's pairwise comparisons. A row needs five rounds in both classes before
+  class's ranked reading: the rows sort by yield, the leader states its yield
+  and time, and every other row is graded against the leader. One reading per
+  class replaces a clause per pair, which repeated each mean once per
+  opponent. A row needs five rounds in both classes before
   it can be named or block a name. A row is named for one class only when it
   clearly leads every eligible row there and no eligible row clearly leads it
-  in the other class. A row may therefore enter one class's pairwise clauses
+  in the other class. A row may therefore enter one class's ranked reading
   while staying out of the naming check. A thinner row stays visible, states
   its shortage and blocks no recommendation. Auditor cost adds audit and
   rebuttal time. Kept, dropped, downgraded and disproved findings are exclusive
@@ -411,8 +414,10 @@ consumers.
   implementation-fix time and excludes planning fixes.
   Mean comes from `simple-statistics`.
   Direct observed-range comparisons own the graded reading and clear-cut
-  recommendation. Every row that reaches its minimum enters the pairwise
-  comparison. A winning auditor outside the current audit defaults, or a
+  recommendation. Every row that reaches its minimum enters the ranked
+  reading. Coders rank once by yield, fewest accepted findings first, and once
+  by time, fastest first, because their yield and time samples come from
+  different plan sets. A winning auditor outside the current audit defaults, or a
   winning coder outside the live coder list, is named as such. Disproved
   findings are also listed with the user's full reason, and excluded plans are
   grouped by reason with their recorded models. The command starts no assistant

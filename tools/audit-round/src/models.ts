@@ -5,8 +5,6 @@ import {
   clearlyPreferred,
   clearlyPreferredMeasures,
   coderFloor,
-  comparisonPreposition,
-  type ReadingSample,
   speedWords,
   yieldWords,
 } from "./model-comparison.js"
@@ -60,24 +58,112 @@ function sortedRows<Row extends { readonly identity: ModelIdentity }>(
   )
 }
 
-function comparisonClause(
-  role: "auditor" | "coder",
-  first: ModelIdentity,
-  second: ModelIdentity,
-  firstSamples: readonly ReadingSample[],
-  secondSamples: readonly ReadingSample[],
-  context: string,
-): string {
-  const firstYield = mean(firstSamples.map((sample) => sample.yield))
-  const secondYield = mean(secondSamples.map((sample) => sample.yield))
-  const firstMinutes = mean(firstSamples.map((sample) => sample.minutes))
-  const secondMinutes = mean(secondSamples.map((sample) => sample.minutes))
-  const speedReading = speedWords(firstMinutes, secondMinutes)
-  const speedClause =
-    speedReading === "the same speed"
-      ? `has the same speed (${numberText(firstMinutes)} vs ${numberText(secondMinutes)} min) as`
-      : `is ${speedReading} (${numberText(firstMinutes)} vs ${numberText(secondMinutes)} min) than`
-  return `${context}, ${modelText(first)} has ${yieldWords(firstYield, secondYield)} (${numberText(firstYield)} vs ${numberText(secondYield)} accepted A/B findings per ${role === "auditor" ? "round" : "step"}) and ${speedClause} ${modelText(second)}, from ${firstSamples.length} and ${secondSamples.length} examples`
+type Reading = { readonly identity: ModelIdentity }
+
+/** Rows ordered by descending score, lexicographic over its parts, then by name. */
+function leaderFirst<Row extends Reading>(
+  readings: readonly Row[],
+  score: (reading: Row) => readonly number[],
+): Row[] {
+  return [...readings].sort((first, second) => {
+    const firstScore = score(first)
+    const secondScore = score(second)
+    for (let index = 0; index < firstScore.length; index += 1)
+      if (firstScore[index] !== secondScore[index])
+        return secondScore[index] - firstScore[index]
+    return modelText(first.identity).localeCompare(modelText(second.identity))
+  })
+}
+
+function speedClause(minutes: number, leaderMinutes: number): string {
+  const reading = speedWords(minutes, leaderMinutes)
+  return reading === "the same speed" ? "has the same speed" : `is ${reading}`
+}
+
+type AuditorReading = Reading & {
+  readonly yield: number
+  readonly minutes: number
+  readonly examples: number
+}
+
+function auditorReading(row: AuditorRow, workClass: WorkClass): AuditorReading {
+  const samples = auditorSamples(row, workClass)
+  return {
+    identity: row.identity,
+    yield: mean(samples.map((sample) => sample.yield)),
+    minutes: mean(samples.map((sample) => sample.minutes)),
+    examples: samples.length,
+  }
+}
+
+/** The admitted auditors ranked by yield, each graded against the leader. */
+function auditorRanking(
+  readings: readonly AuditorReading[],
+  workClass: WorkClass,
+): string[] {
+  if (readings.length < 2) return []
+  const [leader, ...rest] = leaderFirst(readings, (reading) => [
+    reading.yield,
+    -reading.minutes,
+  ])
+  return [
+    `for ${workClass} audits, ${modelText(leader.identity)} has the highest yield (${numberText(leader.yield)} accepted A/B findings per round at ${numberText(leader.minutes)} min, from ${plural(leader.examples, "example")})`,
+    ...rest.map(
+      (reading) =>
+        `${modelText(reading.identity)} has ${yieldWords(reading.yield, leader.yield)} (${numberText(reading.yield)}) and ${speedClause(reading.minutes, leader.minutes)} (${numberText(reading.minutes)} min), from ${plural(reading.examples, "example")}`,
+    ),
+  ]
+}
+
+type CoderReading = Reading & {
+  readonly value: number
+  readonly plans: number
+}
+
+function coderReadings(
+  rows: ReadonlyMap<string, CoderRow>,
+  samples: (row: CoderRow) => readonly { readonly value: number }[],
+): CoderReading[] {
+  return sortedRows(rows)
+    .map(([, row]) => ({ identity: row.identity, samples: samples(row) }))
+    .filter((row) => row.samples.length >= coderFloor)
+    .map((row) => ({
+      identity: row.identity,
+      value: mean(row.samples.map((sample) => sample.value)),
+      plans: row.samples.length,
+    }))
+}
+
+/** The admitted coders ranked by accepted findings against their steps, fewest first. */
+function coderYieldRanking(rows: ReadonlyMap<string, CoderRow>): string[] {
+  const readings = coderReadings(rows, (row) =>
+    row.yieldSamples.map((sample) => ({ value: sample.yield })),
+  )
+  if (readings.length < 2) return []
+  const [leader, ...rest] = leaderFirst(readings, (reading) => [-reading.value])
+  return [
+    `for coder yield, ${modelText(leader.identity)} has the lowest yield (${numberText(leader.value)} accepted A/B findings per step, from ${plural(leader.plans, "plan")})`,
+    ...rest.map(
+      (reading) =>
+        `${modelText(reading.identity)} has ${yieldWords(reading.value, leader.value)} (${numberText(reading.value)}), from ${plural(reading.plans, "plan")}`,
+    ),
+  ]
+}
+
+/** The admitted coders ranked by time per step, fastest first. */
+function coderTimeRanking(rows: ReadonlyMap<string, CoderRow>): string[] {
+  const readings = coderReadings(rows, (row) =>
+    row.timeSamples.map((sample) => ({ value: sample.minutes })),
+  )
+  if (readings.length < 2) return []
+  const [leader, ...rest] = leaderFirst(readings, (reading) => [-reading.value])
+  return [
+    `for coder time, ${modelText(leader.identity)} is fastest (${numberText(leader.value)} min per step, from ${plural(leader.plans, "plan")})`,
+    ...rest.map(
+      (reading) =>
+        `${modelText(reading.identity)} ${speedClause(reading.value, leader.value)} (${numberText(reading.value)} min), from ${plural(reading.plans, "plan")}`,
+    ),
+  ]
 }
 
 function auditorSamples(
@@ -168,24 +254,16 @@ function auditorSentence(
     )
     if (shortage !== null) clauses.push(shortage)
   }
-  const ranked = entries.filter(
-    ([, row]) => auditorSamples(row, workClass).length >= auditorFloor,
+  clauses.push(
+    ...auditorRanking(
+      entries
+        .filter(
+          ([, row]) => auditorSamples(row, workClass).length >= auditorFloor,
+        )
+        .map(([, row]) => auditorReading(row, workClass)),
+      workClass,
+    ),
   )
-  for (let first = 0; first < ranked.length; first += 1)
-    for (let second = first + 1; second < ranked.length; second += 1) {
-      const firstRow = ranked[first][1]
-      const secondRow = ranked[second][1]
-      clauses.push(
-        comparisonClause(
-          "auditor",
-          firstRow.identity,
-          secondRow.identity,
-          auditorSamples(firstRow, workClass),
-          auditorSamples(secondRow, workClass),
-          `for ${workClass} audits`,
-        ),
-      )
-    }
   const recommendation = auditorRecommendation(rows, workClass)
   if (recommendation === null)
     clauses.push(`the records do not separate one ${workClass} auditor clearly`)
@@ -277,12 +355,6 @@ function coderSentence(
 ): string {
   const entries = sortedRows(rows)
   if (entries.length === 0) return "No coder records are available."
-  const yieldRanked = entries.filter(
-    ([, row]) => row.yieldSamples.length >= coderFloor,
-  )
-  const timeRanked = entries.filter(
-    ([, row]) => row.timeSamples.length >= coderFloor,
-  )
   const clauses: string[] = []
   for (const [, row] of entries) {
     const yieldShortage = shortageClause(
@@ -300,36 +372,7 @@ function coderSentence(
     )
     if (timeShortage !== null) clauses.push(timeShortage)
   }
-  for (let first = 0; first < yieldRanked.length; first += 1)
-    for (let second = first + 1; second < yieldRanked.length; second += 1) {
-      const firstRow = yieldRanked[first][1]
-      const secondRow = yieldRanked[second][1]
-      const firstYield = mean(
-        firstRow.yieldSamples.map((sample) => sample.yield),
-      )
-      const secondYield = mean(
-        secondRow.yieldSamples.map((sample) => sample.yield),
-      )
-      const reading = yieldWords(firstYield, secondYield)
-      clauses.push(
-        `for coder yield, ${modelText(firstRow.identity)} has ${reading} (${numberText(firstYield)} vs ${numberText(secondYield)} accepted A/B findings per step) ${comparisonPreposition(reading)} ${modelText(secondRow.identity)}, from ${firstRow.yieldSamples.length} and ${secondRow.yieldSamples.length} plans`,
-      )
-    }
-  for (let first = 0; first < timeRanked.length; first += 1)
-    for (let second = first + 1; second < timeRanked.length; second += 1) {
-      const firstRow = timeRanked[first][1]
-      const secondRow = timeRanked[second][1]
-      const firstMinutes = mean(
-        firstRow.timeSamples.map((sample) => sample.minutes),
-      )
-      const secondMinutes = mean(
-        secondRow.timeSamples.map((sample) => sample.minutes),
-      )
-      const reading = speedWords(firstMinutes, secondMinutes)
-      clauses.push(
-        `for coder time, ${modelText(firstRow.identity)} is ${reading} (${numberText(firstMinutes)} vs ${numberText(secondMinutes)} min per step) ${comparisonPreposition(reading)} ${modelText(secondRow.identity)}, from ${firstRow.timeSamples.length} and ${secondRow.timeSamples.length} plans`,
-      )
-    }
+  clauses.push(...coderYieldRanking(rows), ...coderTimeRanking(rows))
   const recommendation = coderRecommendation(rows)
   if (recommendation === null)
     clauses.push("the records do not separate one coder clearly")

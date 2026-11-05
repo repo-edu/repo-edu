@@ -17,10 +17,6 @@ export type ReadingSample = {
 export type YieldSample = Pick<ReadingSample, "yield">
 export type TimeSample = Pick<ReadingSample, "minutes">
 
-export function comparisonPreposition(reading: string): "as" | "than" {
-  return reading.startsWith("the same ") ? "as" : "than"
-}
-
 function timeFactor(first: number, second: number): number {
   const lower = Math.min(first, second)
   const upper = Math.max(first, second)
