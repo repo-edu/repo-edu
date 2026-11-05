@@ -574,9 +574,25 @@ async function readArchivedPlanSteps(
   return null
 }
 
+/**
+ * The ready marker records the launched selection, which may be a family
+ * alias such as `opus`, while every step record names the release the CLI
+ * reported. The read-out performs no release lookup, so it matches the
+ * assignment on assistant and effort and leaves the release to the records.
+ */
+function matchesAssignment(
+  assignment: Coder,
+  identity: ModelIdentity,
+): boolean {
+  return (
+    identity.assistant === assignment.assistant &&
+    identity.effort === assignment.effort
+  )
+}
+
 function excludedPlanReason(
   plan: PlanEvidence,
-  actual: ReadonlySet<string>,
+  actual: ReadonlyMap<string, ModelIdentity>,
   history: ReadonlyMap<string, HistoryCommit>,
 ): string {
   if (!plan.closed) return "not closed"
@@ -590,8 +606,9 @@ function excludedPlanReason(
   if (!hasWholePlanAudit(plan, history))
     return "no complete whole-plan audit after the final step"
   if (actual.size !== 1) return "mixed model records"
-  if (plan.assignment !== null && !actual.has(modelKey(plan.assignment)))
-    return "mixed model records"
+  const [identity] = actual.values()
+  if (plan.assignment !== null && !matchesAssignment(plan.assignment, identity))
+    return "coder differs from the ready assignment"
   return ""
 }
 
@@ -672,7 +689,7 @@ async function coderRows(
         actual.set(modelKey(identity), identity)
       }
     if (actual.size === 0) continue
-    const reason = excludedPlanReason(plan, new Set(actual.keys()), history)
+    const reason = excludedPlanReason(plan, actual, history)
     const stepCount = plan.listedSteps?.length ?? 0
     for (const identity of actual.values()) {
       const row = ensureRow(identity)

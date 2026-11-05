@@ -411,7 +411,9 @@ consumers.
   yield comparisons use one closed plan per example. The archived plan supplies the listed steps,
   every hosted share must have a readable model record and the whole-plan audit must follow the
   final share. Records admit a plan without a ready assignment when they name one model and effort.
-  An assignment, when present, must match. A readable step record without active time falls back to
+  An assignment, when present, must match on assistant and effort; its model may be a family alias
+  the implement worker resolved at run time, so the records' release is not compared with it and a
+  mismatch is its own exclusion reason. A readable step record without active time falls back to
   the span from the ready marker or previous step to that step's later share commit. A two-repo span
   counts once. Incomplete or mixed records move to the excluded-plans section. Time adds step and
   implementation-fix time and excludes planning fixes. Mean comes from `simple-statistics`. Direct

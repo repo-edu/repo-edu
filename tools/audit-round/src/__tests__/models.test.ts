@@ -242,9 +242,9 @@ test("auditor tables sort by yield per round and the reading keeps only the verd
       "",
       "| Model | Rounds | A/B kept | A/B per round | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
       "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-      "| audit-strong low | 5 | 10 | 2.0 | 0 | 0 | 0 | 0% | 2.0 |",
-      "| audit-middle low | 5 | 5 | 1.0 | 0 | 0 | 0 | 0% | 1.0 |",
-      "| audit-weak low | 5 | 0 | 0.0 | 0 | 0 | 0 | 0% | 3.0 |",
+      "| audit-strong low | 5 | 10 | 2.00 | 0 | 0 | 0 | 0% | 2.0 |",
+      "| audit-middle low | 5 | 5 | 1.00 | 0 | 0 | 0 | 0% | 1.0 |",
+      "| audit-weak low | 5 | 0 | 0.00 | 0 | 0 | 0 | 0% | 3.0 |",
     ].join("\n"),
   )
   const implementation = report
@@ -427,7 +427,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   )
   assert.match(
     report,
-    /\| audit-strong low \| 5 \| 5 \| 1\.0 \| 1 \| 1 \| 2 \| 44% \| 1\.0 \|/,
+    /\| audit-strong low \| 5 \| 5 \| 1\.00 \| 1 \| 1 \| 2 \| 44% \| 1\.0 \|/,
   )
   assert.match(report, /audit-thin low needs 4 more examples/)
   assert.match(
@@ -582,6 +582,101 @@ test("coder yield accepts agreeing unassigned records without step time", async 
   assert.equal(row.excluded.has(stem), false)
 })
 
+test("coder admission matches the ready assignment on assistant and effort, not on the release name", async (t) => {
+  const f = await modelFixture(t)
+  const addPlan = async (
+    stem: string,
+    assignment: string,
+    record: string,
+    tag: string,
+    at: string,
+  ) => {
+    await commit(
+      f.planRoot,
+      `${stem}/ready: declare the plan ready for implementation`,
+      `Coder: ${assignment}`,
+      `${at}T08:00:00Z`,
+    )
+    await commit(
+      f.root,
+      `${stem}/impl-1 ${tag} feat(audit-round): fixture step`,
+      `${record}\nImplementation took 10 min.`,
+      `${at}T09:00:00Z`,
+    )
+    const audit = await commit(
+      f.root,
+      `${stem}/impl-audit-1 ${tag} clean: record the whole-plan audit`,
+      record,
+      `${at}T10:00:00Z`,
+    )
+    await commit(
+      f.planRoot,
+      `${stem}/closed ${tag}: close the fixture plan`,
+      record,
+      `${at}T11:00:00Z`,
+    )
+    const archive = await archivePlan(f.planRoot, stem, ["repo-edu"])
+    writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
+      ...round(
+        `${stem}-impl-01..01`,
+        1,
+        `${at}T10:00:00.000Z`,
+        {
+          assistant: "codex",
+          ...selection("audit-alpha"),
+          chosenBy: "settings",
+        },
+        settings,
+        [phase("audit", "codex", "audit-alpha", 60_000)],
+        [{ repository: "repo-edu", sha: audit }],
+      ),
+      scope: "1",
+      judgedRepos: ["repo-edu"],
+    })
+  }
+  await addPlan(
+    "alias",
+    "claude opus xhigh",
+    "claude-opus-5-5 xhigh",
+    "abx",
+    "2026-10-01",
+  )
+  await addPlan(
+    "other-effort",
+    "codex coder-alpha low",
+    "coder-alpha high",
+    "obh",
+    "2026-10-02",
+  )
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+  })
+  const alias = evidence.coders.get(
+    modelKey({
+      assistant: "claude",
+      model: "claude-opus-5-5",
+      effort: "xhigh",
+    }),
+  )
+  assert.ok(alias)
+  assert.deepEqual(
+    alias.yieldSamples.map((sample) => sample.stem),
+    ["alias"],
+  )
+  assert.equal(alias.excluded.has("alias"), false)
+  const otherEffort = evidence.coders.get(
+    modelKey({ assistant: "codex", model: "coder-alpha", effort: "high" }),
+  )
+  assert.ok(otherEffort)
+  assert.deepEqual(otherEffort.yieldSamples, [])
+  assert.equal(
+    otherEffort.excluded.get("other-effort"),
+    "coder differs from the ready assignment",
+  )
+})
+
 test("coder evidence removes disproved findings and falls back to one commit span per step", async (t) => {
   const f = await modelFixture(t)
   const stem = "commit-span"
@@ -669,7 +764,7 @@ test("coder evidence removes disproved findings and falls back to one commit spa
   )
   assert.match(
     report,
-    /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 0\.0 \| 30\.0 \|/,
+    /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 0\.00 \| 30\.0 \|/,
   )
   assert.match(report, /The implementation claim was wrong\./)
 })
@@ -930,7 +1025,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     .split("\n\n| Model |")[0]
   assert.match(
     output,
-    /\| audit-alpha low \| 1 \| 1 \| 1\.0 \| 0 \| 0 \| 0 \| 0% \| 3\.0 \|/,
+    /\| audit-alpha low \| 1 \| 1 \| 1\.00 \| 0 \| 0 \| 0 \| 0% \| 3\.0 \|/,
   )
   assert.match(auditorReading, /audit-admission low needs 3 more examples/)
   assert.equal(
@@ -941,12 +1036,12 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.doesNotMatch(auditorReading, /needs 0 more examples/)
   assert.match(
     output,
-    /\| audit-third low \| 1 \| 1 \| 1\.0 \| 0 \| 0 \| 0 \| 0% \| 1\.0 \|/,
+    /\| audit-third low \| 1 \| 1 \| 1\.00 \| 0 \| 0 \| 0 \| 0% \| 1\.0 \|/,
   )
   assert.match(output, /## Coders/)
   assert.match(
     output,
-    /\| coder-alpha low \| 1 \| 1 \| 1 \| 1 \| 1\.0 \| 10\.0 \|/,
+    /\| coder-alpha low \| 1 \| 1 \| 1 \| 1 \| 1\.00 \| 10\.0 \|/,
   )
   assert.match(output, /## Excluded plans/)
   assert.match(output, /mixed: coder-alpha low, coder-beta low/)
@@ -1052,7 +1147,7 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
   assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)
   assert.match(
     report,
-    /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 0\.2 \| 2\.5 \|/,
+    /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 0\.17 \| 2\.5 \|/,
   )
   assert.match(report, /records clearly support running coder-alpha low/)
 })

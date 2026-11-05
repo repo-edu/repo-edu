@@ -28,6 +28,11 @@ function numberText(value: number): string {
   return value.toFixed(1)
 }
 
+/** Yields are small means, so one decimal hides the differences the sort rests on. */
+function yieldText(value: number): string {
+  return value.toFixed(2)
+}
+
 function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`
 }
@@ -81,6 +86,10 @@ function meanOrNull(values: readonly number[]): number | null {
 
 function cell(value: number | null): string {
   return value === null ? "—" : numberText(value)
+}
+
+function yieldCell(value: number | null): string {
+  return value === null ? "—" : yieldText(value)
 }
 
 function auditorSamples(
@@ -224,7 +233,7 @@ function auditorTable(
       -(reading.minutes ?? Number.POSITIVE_INFINITY),
     ]).map(
       (reading) =>
-        `| ${escapeCell(modelText(reading.identity))} | ${reading.rounds} | ${reading.counts.kept} | ${cell(reading.yield)} | ${reading.counts.dropped} | ${reading.counts.downgraded} | ${reading.counts.disproved} | ${wrongClaims(reading.counts)} | ${cell(reading.minutes)} |`,
+        `| ${escapeCell(modelText(reading.identity))} | ${reading.rounds} | ${reading.counts.kept} | ${yieldCell(reading.yield)} | ${reading.counts.dropped} | ${reading.counts.downgraded} | ${reading.counts.disproved} | ${wrongClaims(reading.counts)} | ${cell(reading.minutes)} |`,
     ),
   ]
 }
@@ -322,7 +331,7 @@ function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
       -(reading.minutes ?? Number.POSITIVE_INFINITY),
     ]).map(
       (reading) =>
-        `| ${escapeCell(modelText(reading.identity))} | ${reading.plans} | ${reading.timedPlans} | ${reading.steps} | ${reading.kept} | ${cell(reading.yield)} | ${cell(reading.minutes)} |`,
+        `| ${escapeCell(modelText(reading.identity))} | ${reading.plans} | ${reading.timedPlans} | ${reading.steps} | ${reading.kept} | ${yieldCell(reading.yield)} | ${cell(reading.minutes)} |`,
     ),
   ]
 }
@@ -425,7 +434,7 @@ export async function modelsReport(
     "",
     ...coderTable(evidence.coders),
     "",
-    "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",
     ...disprovedSection(evidence.disproved),
     "",
