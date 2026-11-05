@@ -479,8 +479,9 @@ Round sequence:
     - If the audit finds nothing, it skips vet, rebuttal, fix and watch. An
       automatic series still runs the judge.
     - The judge's answer and reason print inside the round, enter the round
-      transcript and repeat in the line that ends the series or opens the
-      next round.
+      transcript and repeat in the line that stops the series or opens the
+      next round. A settle answer ends the series with the settle command to
+      run; its reason stays in the round.
     - In a manual queue, a clean audit skips entries that resolve to the same
       assistant, model and effort. Other settings still run.
     - A fix that records a clean result does not skip later rounds.
@@ -1635,7 +1636,7 @@ export async function runCommand(
               }
               if (judge.answer === "settle") {
                 await active.message(
-                  `${series} ended on the judge's settle recommendation after ${completed} round${completed === 1 ? "" : "s"}. ${judge.reason} The plan remains widening until you run pnpm audit-round settle ${planStem(target.plan)}.`,
+                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. The judge finds no open shape question. Widening is done: run pnpm audit-round settle ${planStem(target.plan)}.`,
                 )
                 await printDeferrals()
                 break

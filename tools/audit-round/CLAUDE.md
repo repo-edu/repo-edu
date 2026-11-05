@@ -959,8 +959,9 @@ at the plan root, or takes the most recently modified one when none is named. It
 the transcript title, writes beside it without claiming a new number and overwrites its standalone
 log on each run. Without `--auditor`, an active plan runs an automatic series from the `--first`
 selection or the configured default, follows each fresh judge answer and stops at settle, stop or
-its maximum without writing a queue. A settle answer prints its reason and leaves the widening plan
-unchanged for the user to settle or keep widening. A detailing stop whose reason recommends ready
+its maximum without writing a queue. A settle answer ends the series with the settle command to run
+and leaves the widening plan unchanged for the user to settle or keep widening; its reason stays in
+the round. A detailing stop whose reason recommends ready
 leaves the settled plan unchanged for the user to mark ready or keep detailing. Commit targets run
 once. A scope list runs that series once per scope in list order, each scope on its own target, and
 stops the whole list only where a series needs the user: a failure, an unanswered ruling, a red

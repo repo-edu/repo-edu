@@ -1169,12 +1169,9 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   assert.match(visible, /Judge: settle\. No concrete shape question remains\./)
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended on the judge's settle recommendation after 1 round\. No concrete shape question remains\. The plan remains widening/,
+    /Plan audit of example: automatic auditor series ended after 1 round\. The judge finds no open shape question\. Widening is done: run pnpm audit-round settle example\./,
   )
-  assert.match(
-    visible,
-    /The plan remains widening until you run pnpm audit-round settle example\./,
-  )
+  assert.doesNotMatch(visible, /settle recommendation/)
   const [stored] = JSON.parse(
     await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
   ) as {
