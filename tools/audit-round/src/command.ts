@@ -118,6 +118,7 @@ import {
   archivedPlans,
   type CommitGroup,
   type CommitTarget,
+  commitAuditGroups,
   isActivePlanPath,
   planPhase,
   planRepositoryPrefix,
@@ -628,7 +629,8 @@ Targets and scope:
            Bare references first form the Repo Edu group. The first plan@ reference
            opens the plan group, which runs to the end of the target. Either group
            may appear alone, or both may appear in that order. HEAD-1 is the previous
-           first-parent commit in its group's repo. Ranges include both ends.
+           first-parent commit in its group's repo. Ranges include both ends. The
+           ordered exact set owns one bounded commit- label and round-data file.
   Omitted  round alone, or with options only, takes the active plan with the
            newest stem commit in either repo, which audit-round plan prints, as
            if named alone.
@@ -652,8 +654,8 @@ Auditor selection (--auditor <selections>):
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor is an entry of the auditors list in settings.json.
-  Without --auditor, an active plan starts an automatic series with that
-  default.
+  Without --auditor, an active plan or commit target starts an automatic series
+  with that default.
   --first <selection> takes one entry in the same form and runs it instead of the
   default for the first round. When the auditors list has no entry for its
   assistant, the series may also choose it again. It cannot be combined with
@@ -662,7 +664,7 @@ Auditor selection (--auditor <selections>):
 
 Round sequence:
 
-  Automatic series (active plan without --auditor):
+  Automatic series (active plan or commit target without --auditor):
     - The configured default auditor runs first, or the --first selection. A
       random default picks the opener from the auditors list in each scope's
       series.
@@ -673,7 +675,9 @@ Round sequence:
       ready and stop otherwise.
     - No queue file is written.
     - settings.json sets the maximum round count, including the first round.
-    - Commit targets still run once. A phase change ends a plan series.
+    - A commit round keeps the original bounded label, then adds earlier landed
+      fixes to the next round's exact scope and advances its repository heads.
+      It has no watch. A phase change ends a plan series.
 
   Scope list (2,3-5,6-7):
     - Each scope runs its own series on its own target and files, in list order.
@@ -684,11 +688,11 @@ Round sequence:
     - A scope list is refused beside --auditor, whose queue belongs to one scope.
 
   Manual order (--auditor):
-    - Every round runs on the same target and step scope.
+    - Every round runs on the same plan scope or commit series. A later commit
+      round reads the original commits and earlier landed fixes.
     - Repeat a name or tag to run another round with that auditor.
-    - Multiple rounds require a plan target. Commit audits run once.
 
-  Queue file (plan targets):
+  Queue file (manual series):
     - The entries after the current round wait in <target>-queue.md at the
       active folder. Each round prints its path and what it holds.
     - Edit it at any time to add, remove or reorder rounds. It takes the same
@@ -1339,7 +1343,7 @@ export async function runCommand(
                   target.plan,
                   ...(target.roundKind === "planning" ? [] : [target.scope]),
                 ]
-              : target.groups),
+              : commitAuditGroups(target)),
           ],
         }),
       )

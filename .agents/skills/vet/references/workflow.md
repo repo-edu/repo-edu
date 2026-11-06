@@ -42,23 +42,17 @@ for the judged repos and heads. The report filename identifies the auditor for
 Follow the shared [Vet checks](../../../references/round-protocol.md#vet-checks)
 for input and output resolution and the other-assistant requirement.
 
-Check two mismatches before vetting:
+Check head drift and the plan-target filename before vetting:
 
 - An audited head differs from its repo's current head. Follow
   [Head drift](../../../references/round-protocol.md#head-drift) and note the
   changes in the verdicts. When the moved tree already resolved the defect,
   drop the finding and name the resolving commit.
-- The target in the name differs from the report's `Target:` line after the line is translated under
-  the runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) rule. For a commit
-  target, split the typed references into the Repo Edu group before the first `plan@` reference and
-  the plan group from that reference onwards. For each group, take its first reference without the
-  `plan@` prefix, resolve each commit in it with `git rev-parse` in that repo, reading `HEAD` and
-  `HEAD-<n>` against the head the report's `Judged repos:` line names for that repo, cut each result
-  to six characters and keep a range's `..`; append `-plus-<n>` for a list after that reference.
-  Join the group labels with `+` in command-line order and prefix `commit-`. One of the filename and
-  report target is wrong when the result differs, so refuse and name both. The runner refuses a
-  report whose line is missing or names another target before it starts a vet, so this check fires
-  only in a hand-run session.
+- For a plan target, the plan file in the filename differs from the report's
+  `Target:` line. Refuse and name both. A commit series keeps its original
+  bounded filename while later reports name their advancing exact commit set,
+  so no filename translation applies. The runner refuses any report whose line
+  is missing or differs from the target it supplied before it starts a vet.
 
 ## Axes
 

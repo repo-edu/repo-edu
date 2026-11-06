@@ -1317,7 +1317,10 @@ for (const ruling of [false, true]) {
     )
     assert.equal(result.status, ruling ? "awaiting-ruling" : "finished")
     assert.deepEqual(round.glances, [])
-    assert.deepEqual(round.calls[0].arguments, [files.documents.report, group])
+    assert.deepEqual(round.calls[0].arguments, [
+      files.documents.report,
+      { ...group, originalCommits: group.commits },
+    ])
     assert.deepEqual(
       round.calls.map((call) => call.phase),
       ruling ? rulingPhases : phases,
@@ -1364,7 +1367,10 @@ test("commit groups keep their starting head after document allocation", async (
   )
   assert.deepEqual(round.calls[0].arguments, [
     allocated.documents.report,
-    ...target.groups,
+    ...target.groups.map((group) => ({
+      ...group,
+      originalCommits: group.commits,
+    })),
   ])
 })
 

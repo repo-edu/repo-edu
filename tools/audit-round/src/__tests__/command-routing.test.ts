@@ -465,6 +465,7 @@ test("name shares commit range and list targets with the runner", async (t) => {
         startingHead,
         commits: ordered,
         shortReferences,
+        originalCommits: ordered,
       },
     ])
   }
@@ -499,7 +500,7 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const { log, markdown, transcript } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead, commits, shortReferences: [label] }])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead, commits, shortReferences: [label], originalCommits: commits }])}`,
     ),
   )
   assert.equal(
@@ -537,6 +538,7 @@ test("name passes two parsed commit groups to a hand-run audit", async (t) => {
       startingHead: f.heads["repo-edu"],
       commits: [repoCommit],
       shortReferences: [f.heads["repo-edu"].slice(0, 6)],
+      originalCommits: [repoCommit],
     },
     {
       repository: "plan",
@@ -544,6 +546,7 @@ test("name passes two parsed commit groups to a hand-run audit", async (t) => {
       startingHead: f.heads.plan,
       commits: [planCommit],
       shortReferences: [f.heads.plan.slice(0, 6)],
+      originalCommits: [planCommit],
     },
   ])
   assert.equal(
@@ -588,6 +591,7 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
       startingHead: f.heads["repo-edu"],
       commits: [repoCommit],
       shortReferences: [f.heads["repo-edu"].slice(0, 6)],
+      originalCommits: [repoCommit],
     },
     {
       repository: "plan",
@@ -595,6 +599,7 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
       startingHead: f.heads.plan,
       commits: [planCommit],
       shortReferences: [f.heads.plan.slice(0, 6)],
+      originalCommits: [planCommit],
     },
   ]
   assert.ok(

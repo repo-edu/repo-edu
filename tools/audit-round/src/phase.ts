@@ -21,7 +21,7 @@ import type {
   RoundSettings,
 } from "./settings.js"
 import type { Repository } from "./subject.js"
-import type { CommitGroup, RoundContext } from "./target.js"
+import type { CommitAuditGroup, RoundContext } from "./target.js"
 import type { VetReading } from "./vet.js"
 
 export type Assistant = "claude" | "codex"
@@ -432,8 +432,8 @@ type PhaseArguments = {
   audit: {
     readonly arguments: readonly [
       report: string,
-      target: string | CommitGroup,
-      ...scopeGroupsOrDeferrals: (string | CommitGroup | DeferralScope)[],
+      target: string | CommitAuditGroup,
+      ...scopeGroupsOrDeferrals: (string | CommitAuditGroup | DeferralScope)[],
     ]
     readonly sessionId: null
   }

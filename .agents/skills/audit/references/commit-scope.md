@@ -15,48 +15,33 @@ finding metadata meanings, growth-pattern tags and trade pricing. The
 [round grammar](../../../references/round-grammar.md) owns report, twin and
 record-bullet shapes.
 
-The round's repo set is the repositories carried by the parsed commit groups. The phase arguments
-keep the group boundary, repository, typed references, starting HEAD and the resolved short
-references the round's filename uses, so this workflow does not derive that boundary or read HEAD
-again. A repo outside that set may be read as evidence, never as a source of intent.
+The round's repo set is the repositories carried by the parsed commit groups.
+The phase arguments keep the group boundary, repository, references, starting
+HEAD, exact current commit set, original commit set and resolved short
+references. The original set passed the first round's gate and owns the series
+label. The current set advances with landed fixes. This workflow does not
+derive the repository boundary or read HEAD again. A repo outside that set may
+be read as evidence, never as a source of intent.
 
 ## Range
 
-The user names each group's range. Follow every group exactly. Never select,
-propose or replace one. A group may be given as `<from>..<to>`, as a list of
-commits or as one commit reference, which scopes that group to that commit
-alone. The group's repository comes from its parsed `repository` field. Its
-`references` field preserves the typed `plan@` prefix on the first plan
-reference. Ignore prose around the commits the user names and never resolve a
-range from prose alone. When the invocation names no group, ask for one and
-wait.
+The user's first invocation owns each group's original scope. Follow it
+exactly. Never select, propose or replace it. A group may begin as an inclusive
+`<from>..<to>` range, a list or one commit. The runner has already resolved it
+against the captured head and ordered its full commit IDs in
+`originalCommits`. It refuses invalid references before this phase starts.
 
-After the optional prefix, each reference may be a sha, `HEAD` or `HEAD-<n>`.
-`HEAD` names the group's `startingHead`, the short commit captured before the
-round files were named. `HEAD-<n>` names its nth first-parent ancestor, with
-`<n>` a non-negative integer: `HEAD-0` is `HEAD` and `HEAD-1` is the commit
-before it. Translate `HEAD-<n>` to `<startingHead>~<n>` before resolving it.
-These forms also work in lists and at either end of a range, including
-alongside shas. For example, prefixing `HEAD-2..HEAD` with `plan@` includes the
-three commits ending at the plan group's starting HEAD.
+Check that each original list is contiguous in its repo's first-parent history.
+A later round keeps the same original set but receives a runner-built `commits`
+set containing those commits and the fixes landed by earlier rounds. Audit that
+exact set. Do not turn it into a span and do not run a gap check over the
+current set: unrelated commits between its members are deliberately outside the
+scope.
 
-Resolve a group's references against its `startingHead` and keep the resulting
-shas as that group's scope. If a reference is invalid or its ancestor does not
-exist, name its repo and reference and stop for corrected input.
-
-Every form names an inclusive set of commits. Resolve each named commit on its
-own and take the span between the oldest and the newest, which are the round's
-`<from>` and `<to>`. The order the user typed them in carries no meaning. Never
-pass the user's text to Git as a range expression: `<from>..<to>` read
-literally drops `<from>`, and `<to>..<from>` read literally resolves to no
-commits at all.
-
-A named set must be contiguous in its repo's first-parent history. When it is
-not, name the repo and commits lying between the named ones, say the range has
-a gap and stop. Continue only when the user explicitly says to.
-
-The scope is every group's commits and the state of the files they touched,
-read at that group's `startingHead`.
+The scope is every group's current `commits` and the state of the files they
+touched, read at that group's `startingHead`. The `references` field is the
+spelling the report's `Target:` line repeats. In a later round it is the exact
+full-ID set built by the runner.
 
 ## Gate
 
@@ -67,8 +52,9 @@ Before any audit work, check three things.
   uncommitted edit there would be judged as the range's work. A dirty file
   outside the touched set is never read and does not block the round. When
   the check fails, name the repo and every dirty touched path and stop.
-- Every commit in each group is reachable from that repo's HEAD.
-- No commit in any group carries a plan stem.
+- Every current commit in each group is reachable from that repo's HEAD.
+- No commit in `originalCommits` carries a plan stem. Earlier round fixes have
+  already passed the runner's subject validation and do not repeat this gate.
 
 A commit carrying a plan stem belongs to a plan-scoped round, which judges it
 against a plan this round cannot read. Name every such commit, say those
@@ -140,9 +126,9 @@ it apart from the range's own work.
 Follow the [audit report grammar](../../../references/round-grammar.md#audit-report)
 and the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports).
-In place of plan and step evidence, supply every group's commit references as
-typed, each resolved range with its prefixed six-character SHAs and the statement that
-no plan covers the work. Open `Judged repos:` with every group's
+In place of plan and step evidence, supply every group's carried references,
+its original commit set, its exact current commit set and the statement that no
+plan covers the original work. Open `Judged repos:` with every group's
 `startingHead` in the grammar's order, `plan@<sha>, repo-edu@<sha>` when both
 are present. Use the commit coverage table above. Naming and allocation follow the
 runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) and
@@ -165,14 +151,17 @@ because no stem scan reads one for a commit target.
 
 ## Settlement
 
-A commit-scoped round is one-shot. The range is the scope, and the round ends at its report. The fix
-lands its record and follows the runner's
+A commit target is a series under its bounded `commit-` label. After each
+finished round, the judge reads the label's round data, the original commits
+and earlier landed fixes. It receives no watch. The judge stops the series or
+chooses another listed auditor under the same A or B gate used after a ready
+plan. A clean round lands no record, but its finished data entry can settle the
+read. The fix follows the runner's
 [Report lifecycle](../../../../tools/audit-round/CLAUDE.md#report-lifecycle).
-There is no episode, no
-`implemented:` or `closed:` marker and no trajectory watch. A later round over later commits is a
-new round, not a continuation of this one.
+There is no plan episode, `implemented:` or `closed:` marker and no trajectory
+watch.
 
-`pnpm audit-round round` accepts these same references as its target arguments.
-It passes them to the audit phase unchanged, which resolves and fixes the
-scope under **Range** above. Commit targets reject multiple auditor entries and run no
-trajectory glance or watch after the fix and brief.
+`pnpm audit-round round` accepts the original references as its target
+arguments. Without `--auditor` it runs the automatic series. With
+`--auditor`, it runs the entries in order through the editable queue. No commit
+round runs a trajectory glance or watch after its fix or brief.

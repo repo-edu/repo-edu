@@ -49,7 +49,26 @@ export type CommitTarget = CommitTargetWith<CommitGroup> & {
   /** The immutable scope that owns this commit series' label and evidence. */
   readonly originalGroups: readonly [CommitGroup, ...CommitGroup[]]
 }
+export type CommitAuditGroup = CommitGroup & {
+  /** The immutable commits whose plan-stem gate the first round passed. */
+  readonly originalCommits: CommitGroup["commits"]
+}
 export type CommitTargetRequest = CommitTargetWith<CommitGroupRequest>
+
+/** Pair every advancing group with the original commits its workflow gates. */
+export function commitAuditGroups(
+  target: CommitTarget,
+): readonly [CommitAuditGroup, ...CommitAuditGroup[]] {
+  const groups = target.groups.map((group) => {
+    const original = target.originalGroups.find(
+      (candidate) => candidate.repository === group.repository,
+    )
+    if (original === undefined)
+      throw new Error(`Commit group ${group.repository} has no original scope`)
+    return { ...group, originalCommits: original.commits }
+  })
+  return groups as [CommitAuditGroup, ...CommitAuditGroup[]]
+}
 
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =

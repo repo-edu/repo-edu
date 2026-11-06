@@ -508,6 +508,7 @@ for (const auditor of ["codex", "claude"] as const) {
           ? [`${await back(2)}..${await back(0)}`]
           : [await back(1), await back(0)],
     }
+    const auditGroup = { ...group, originalCommits: group.commits }
     assert.equal(
       await runCommand(
         [
@@ -526,7 +527,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const { log, markdown, transcript } = await f.records()
     assert.ok(
       log.includes(
-        `Phase arguments (JSON array): ${JSON.stringify([f.report, group])}`,
+        `Phase arguments (JSON array): ${JSON.stringify([f.report, auditGroup])}`,
       ),
     )
     assert.ok(markdown.startsWith(`# Commit audit of ${commits.join(" ")}\n`))

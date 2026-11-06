@@ -142,16 +142,17 @@ The workflow phrase, exactly one plain `Target:` line and exactly one plain
 `Judged repos:` line occur in the opening. A report field heading ends the
 opening; another level-2 heading remains part of its free Markdown. The target
 line repeats the round's target as the runner resolved it: the plan's filename
-for a planning round, the filename and the step scope the user named for a
-step audit, or the typed commit references for a commit-scoped round. The plan
-filename carries the phase, so the opening names no phase of its own. The
-runner compares the line with the round it is running and refuses a report
-that names another target or none before any later phase starts, so a vet never
-has to ask which target a report judged. A planning report uses only the plan
-head. An implementation report uses one of the three ordered repository sets
-above. A finding's token line is the first block after its heading. Finding
-numbers run from 1 without gaps across all fields and titles are distinct
-across the report.
+for a planning round, the filename and step scope for a step audit or the
+carried commit references for a commit-scoped round. The first commit round
+carries the user's spelling. A later commit-series round carries the
+runner-built exact set as full commit IDs. The plan filename carries the phase,
+so the opening names no phase of its own. The runner compares the line with the
+round it is running and refuses a report that names another target or none
+before any later phase starts, so a vet never has to ask which target a report
+judged. A planning report uses only the plan head. An implementation report
+uses one of the three ordered repository sets above. A finding's token line is
+the first block after its heading. Finding numbers run from 1 without gaps
+across all fields and titles are distinct across the report.
 
 Each field contains findings or its exact empty sentence, never both.
 
@@ -299,6 +300,19 @@ Settling: settle. No concrete shape question remains.
 
 Target: example.md 1
 Judged repos: plan@abc123, repo-edu@def456
+
+## Findings
+
+No findings.
+```
+
+#### `report/implementation-exact-commit-set` — parsed
+
+```markdown
+# Implementation audit workflow
+
+Target: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+Judged repos: repo-edu@def456
 
 ## Findings
 

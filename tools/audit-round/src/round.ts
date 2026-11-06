@@ -36,6 +36,7 @@ import type { Auditor, Coder, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
   type AuditTarget,
+  commitAuditGroups,
   planPhase,
   planStem,
   type RoundContext,
@@ -446,7 +447,7 @@ export async function runRound(
     ...context,
     arguments:
       "groups" in input
-        ? [input.documents.report, ...input.groups]
+        ? [input.documents.report, ...commitAuditGroups(input)]
         : input.roundKind === "planning"
           ? [
               input.documents.report,

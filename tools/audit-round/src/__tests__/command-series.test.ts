@@ -891,12 +891,14 @@ test("a commit series keeps its label while the next auditor reads the original 
     string,
     {
       commits: string[]
+      originalCommits: string[]
       references: string[]
       startingHead: string
     },
   ]
   assert.equal(secondGroup.commits.length, 3)
   assert.deepEqual(secondGroup.commits.slice(0, 2), original)
+  assert.deepEqual(secondGroup.originalCommits, original)
   assert.equal(secondGroup.commits.includes(omitted), false)
   assert.deepEqual(secondGroup.references, secondGroup.commits)
   assert.equal(secondGroup.startingHead, secondGroup.commits[2])
