@@ -56,6 +56,13 @@ displays it and resumes this same session with the user's reply. The resumed
 arguments carry no time value; keep the clock readings already held by this
 session.
 
+When a turn fails, the runner prints its own entry command with this session
+and step. Running that command resumes this same session with the generic
+continuation and no reply. The phase arguments then name only the
+shares Git still shows pending. Read the worktree and both Git histories before
+continuing, because the failed turn may have left uncommitted work or landed a
+share. Keep the clock readings already held, as after a ruling.
+
 When the step cannot complete inside one context window and cannot be split
 into independently complete parts, follow the supplied oversized-step rules.
 

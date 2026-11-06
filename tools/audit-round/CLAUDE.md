@@ -101,10 +101,14 @@ consumers.
   landed-share scan and sequential worker loop. It starts one fresh worker for
   each selected step with pending shares. A ruling resumes only that worker.
   A failed worker or missing share stops before the next step and retains its
-  recovery session. After the loop, each hosting repo with every share landed
-  receives its current `implemented` marker.
+  recovery session. A recovery binds at most one resumed session to the step
+  it served. It uses that session only while Git shows the step selected and
+  pending; otherwise the session stays unused and the remaining pending steps
+  start fresh workers. After the loop, each hosting repo with every share
+  landed receives its current `implemented` marker.
 - `implement-output.ts` resolves the assigned coder's release, effort, tag and
-  model record once. It names one retained log and ruling path per step.
+  model record once. It names one retained log and ruling path per step. A
+  recovery appends to that step's log, so the log keeps the failed turn.
 - `plan-steps.ts` reads the first ordered list below the depth-2
   `Implementation plan` heading. It requires each item to open with a bold
   title and one closed host sentence, then returns the steps and their hosting
@@ -718,7 +722,11 @@ read-out ignore it. These are machine artifacts and are never edited by hand.
 The implement command retains one log and one possible ruling in the active
 folder as `<stem>-impl-<step>-implement.<tag>.log` and
 `<stem>-impl-<step>-implement-ruling.<tag>.md`. These are phase files, not audit
-round files. A fresh worker owns each step log.
+round files. A fresh worker owns each step log and starts it empty. A recovery
+reopens it for appending through `RunPaths.reopenLog`, the only append route in
+`run-files.ts`, and writes a new invocation opening before the resumed phase.
+The one log then shows the failed turn, the recovery and the later ending in
+order.
 
 ## Phase routing
 
@@ -750,8 +758,9 @@ to the audit, before any later phase starts, so a vet never has to ask which
 target a report judged. The brief writes its supplied output. The watch returns Markdown
 and its grade; `round.ts` publishes the admitted document and cadence entry. A
 fix or implementation worker receives its ruling path separately and reuses it
-when the same session resumes. An implementation resume carries the user's
-reply but no time value.
+when the same session resumes. An implementation resume after a ruling carries
+the user's reply. One after a failed worker carries the generic continuation
+and no reply. Neither carries a time value.
 
 Hand-run phases use the same resolver. `name [target] [scope-or-commits...]
 --auditor <full tag>` claims a new round and prints `cwd`, `workflow`, `claim`
@@ -992,31 +1001,44 @@ earlier assigned ready marker, and records the assigned coder in the body of
 that preserves unrelated staged work. It reads settings but starts no assistant
 process or release lookup.
 
-`implement <stem> [scope]` requires an active plan with an assigned `ready`
-marker. It parses the plan's implementation steps and scans each hosting
-repo's log independently. It starts one fresh worker per selected step that
-still has a missing share, in step order, on the assigned coder's resolved
-release and effort. A ruling reply resumes that worker without adding a time
-argument. A failed worker, unanswered ruling or missing landed share stops
-before the next step and prints the worker's recovery command. Once all shares
-hosted by a repo have landed, the runner writes that repo's `implemented`
-marker. The command retains one phase log per started step.
+`implement <stem> [scope] [-v] [--resume <step>:<session-id>]` requires an
+active plan with an assigned `ready` marker. It parses the plan's
+implementation steps and scans each hosting repo's log independently. It starts
+one fresh worker per selected step that still has a missing share, in step
+order, on the assigned coder's resolved release and effort. A ruling reply
+resumes that worker without adding a time argument. A failed worker,
+unanswered ruling or missing landed share stops before the next step. Once all
+shares hosted by a repo have landed, the runner writes that repo's
+`implemented` marker. The command retains one phase log per started step.
 
-`<stem> [-v]`, the bare command, takes an active plan from the stage its state calls for
-through its close: a `-widen` plan opens the widening series, a settled plan
-without a ready marker the detailing series, a ready plan with a pending share
-or a missing or stale marker the implementation and an implemented plan the
-audit range series, which the close follows. Invoking it is the user's settle,
-ready and close call, so the run settles on the widening judge's `settle`
-answer, marks the plan ready on the detailing judge's `ready` answer and closes
-after a range series that needed nobody, through the same lifecycle functions
-and commit forms as `settle`, `ready` and `close`. Any other ending ends the
-run with the stage's own lines and recovery command, then one line naming the
-stage it ended in and the stages it completed. Running the same command again
-continues from where the plan stands; no run file or cursor exists. The run
-takes `-v` and no round option: every series it opens starts with the default
-auditor, runs the glance and the watch and writes no brief. A user who wants
-another opener, a brief, no watch or a read between stages runs the stage
+A failed worker or missing landed share with a known session prints the entry
+that owned the worker, with `--resume <step>:<session-id>` naming the step and
+its session. That entry is `pnpm audit-round implement <stem> [scope]` or the
+bare `pnpm audit-round <stem>`, with `-v` when it was typed. A failure without
+a session prints no runner command, and the ordinary rerun remains. An
+unanswered ruling prints the worker's assistant recovery command instead: the
+user answers in that session and reruns the runner. The printed command reads
+Git first and resumes the session with the generic continuation, on the same
+coder and release a fresh worker would get. It uses the session only while
+that step is selected and has a pending share. Otherwise it says the session
+stays unused. Fresh workers then take the remaining pending steps and the entry
+continues as typed. No recovery file exists, and the runner never retries a
+failed worker on its own.
+
+`<stem> [-v] [--resume <step>:<session-id>]`, the bare command, takes an active plan from the stage
+its state calls for through its close: a `-widen` plan opens the widening series, a settled plan
+without a ready marker the detailing series, a ready plan with a pending share or a missing or stale
+marker the implementation and an implemented plan the audit range series, which the close follows.
+Invoking it is the user's settle, ready and close call, so the run settles on the widening judge's
+`settle` answer, marks the plan ready on the detailing judge's `ready` answer and closes after a
+range series that needed nobody, through the same lifecycle functions and commit forms as `settle`,
+`ready` and `close`. Any other ending ends the run with the stage's own lines and recovery command,
+then one line naming the stage it ended in and the stages it completed. Running the same command
+again continues from where the plan stands; no run file or cursor exists. The run takes `-v`, the
+implementation recovery option `--resume` and no round option: every series it opens starts with the
+default auditor, runs the glance and the watch and writes no brief. A resumed session attaches only
+when the run starts in the implementation; a run starting in another stage says the session stays
+unused. A user who wants another opener, a brief, no watch or a read between stages runs the stage
 commands.
 
 `disprove <stem> <target> <round> <finding> <reason>` resolves a finding in the plan's checked round
