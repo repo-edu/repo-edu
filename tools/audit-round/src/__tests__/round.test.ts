@@ -77,6 +77,13 @@ const reportFinding: ReportFinding = {
   location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
 }
 
+const fixPhaseStamp = [
+  "audit, rebut: gpt-5.6-sol high",
+  "vet: claude-opus-5 high",
+  "fix: gpt-5.6-sol high",
+  "Audit, vet and rebuttal took 3 min.",
+].join("\n")
+
 function commitTarget(group: CommitGroup) {
   return { originalGroups: [group] as const, groups: [group] as const }
 }
@@ -94,7 +101,7 @@ const landedRecords = (
     repository,
     sha: String(index + 1).padStart(40, "0"),
     subject,
-    message: subject,
+    message: `${subject}\n\n${fixPhaseStamp}\n`,
   }))
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
@@ -253,6 +260,7 @@ function controlledRound(
     fileExists: async () => planRemains,
     readRecords: async (root, _before, repository) =>
       root === repoRoot ? landedRecords(repository, evidence.subjects) : [],
+    commitPhaseStamps: () => [fixPhaseStamp],
     runJudge: async (input) => {
       await record(input)
       return {
@@ -1144,22 +1152,27 @@ test("a plan round records only the landed commits that carry its stem", async (
   assert.equal(round.settledWrites[0]?.account.findings[0]?.outcome, "kept")
 })
 
-test("a commit round records only unstemmed landed commits", async () => {
+test("a commit round records only stamped unstemmed landed commits", async () => {
   const round = controlledRound()
   const foreign = {
     repository: "repo-edu" as const,
     sha: "1".repeat(40),
     subject:
       "other/impl-audit-1 obx growth-none b1 fix(audit-round): correct the other plan",
-    message:
-      "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+    message: `other/impl-audit-1 obx growth-none b1 fix(audit-round): correct the other plan\n\n${fixPhaseStamp}\n\n- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.`,
   }
   const own = {
     repository: "repo-edu" as const,
     sha: "2".repeat(40),
     subject: "obx growth-none b1 fix(audit-round): correct the commit audit",
+    message: `obx growth-none b1 fix(audit-round): correct the commit audit\n\n${fixPhaseStamp}\n\n- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.`,
+  }
+  const manual = {
+    repository: "repo-edu" as const,
+    sha: "3".repeat(40),
+    subject: "obh growth-none c1 fix(audit-round): unrelated hand-run fix",
     message:
-      "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+      "obh growth-none c1 fix(audit-round): unrelated hand-run fix\n\ngpt-5.6-sol high",
   }
   const group = {
     references: ["HEAD"] as const,
@@ -1173,7 +1186,8 @@ test("a commit round records only unstemmed landed commits", async () => {
     { ...files, ...commitTarget(group) },
     {
       ...round.dependencies,
-      readRecords: async (root) => (root === repoRoot ? [foreign, own] : []),
+      readRecords: async (root) =>
+        root === repoRoot ? [foreign, own, manual] : [],
     },
   )
 

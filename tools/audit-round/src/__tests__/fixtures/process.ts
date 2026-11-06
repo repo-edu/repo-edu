@@ -207,7 +207,14 @@ if (scenario.phases !== undefined) {
   }
 }
 
-for (const commit of scenario.commits ?? [])
+for (const commit of scenario.commits ?? []) {
+  const phaseStamp = process.env.COMMIT_PHASES?.trim()
+  const body = [
+    ...(commit.roundStamp === false || phaseStamp === undefined
+      ? []
+      : [phaseStamp]),
+    ...(commit.body === undefined ? [] : [commit.body]),
+  ].join("\n\n")
   await promisify(execFile)(
     "git",
     [
@@ -226,10 +233,11 @@ for (const commit of scenario.commits ?? [])
       commitTarget && commit.commitSubject !== undefined
         ? commit.commitSubject
         : commit.subject,
-      ...(commit.body === undefined ? [] : ["-m", commit.body]),
+      ...(body.length === 0 ? [] : ["-m", body]),
     ],
     { cwd: commit.cwd },
   )
+}
 
 // A close moves its plan out of the active folder.
 for (const move of scenario.moves ?? []) {

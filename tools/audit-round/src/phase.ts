@@ -657,6 +657,8 @@ export type RoundDependencies = {
     before: string,
     repository: LandedRecord["repository"],
   ) => Promise<readonly LandedRecord[]>
+  /** The exact leading phase records supplied to this round's fix sessions. */
+  readonly commitPhaseStamps: () => readonly string[]
   readonly runJudge: (input: PhaseInput<"judge">) => Promise<JudgeResult>
   readonly runPhase: {
     readonly [P in Exclude<Phase, "judge" | "implement">]: (

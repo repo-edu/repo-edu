@@ -861,10 +861,29 @@ test("a commit series keeps its label while the next auditor reads the original 
     await execa("git", ["rev-parse", "HEAD~1"], { cwd: f.repoRoot })
   ).stdout
   const label = `commit-${original[0].slice(0, 6)}..${original[1].slice(0, 6)}`
-  await configureJudgeAnswers(f, [
-    "Judge: continue with claude opus high. Claude should read the landed correction.",
-    "Judge: stop. Both assistants have read the exact scope.",
-  ])
+  const manualSubject =
+    "obh growth-none c1 fix(audit-round): unrelated hand-run correction"
+  await f.configure({
+    phases: {
+      ...f.phases,
+      judge: await judgePhase(f, [
+        "Judge: continue with claude opus high. Claude should read the landed correction.",
+        "Judge: stop. Both assistants have read the exact scope.",
+      ]),
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        commits: [
+          ...((f.phases.fix as { commits: unknown[] }).commits ?? []),
+          {
+            cwd: f.repoRoot,
+            subject: manualSubject,
+            body: "gpt-5.6-sol high",
+            roundStamp: false,
+          },
+        ],
+      },
+    },
+  })
 
   assert.equal(
     await runCommand(
@@ -900,8 +919,17 @@ test("a commit series keeps its label while the next auditor reads the original 
   assert.deepEqual(secondGroup.commits.slice(0, 2), original)
   assert.deepEqual(secondGroup.originalCommits, original)
   assert.equal(secondGroup.commits.includes(omitted), false)
+  const manual = (
+    await execa(
+      "git",
+      ["log", "--reverse", "--format=%H", "--grep", manualSubject],
+      { cwd: f.repoRoot },
+    )
+  ).stdout.split("\n")
+  assert.equal(manual.length, 2)
+  assert.ok(manual.every((commit) => !secondGroup.commits.includes(commit)))
   assert.deepEqual(secondGroup.references, secondGroup.commits)
-  assert.equal(secondGroup.startingHead, secondGroup.commits[2])
+  assert.equal(secondGroup.startingHead, manual[0])
 
   const data = JSON.parse(
     await readFile(join(f.activeRoot, `${label}-rounds.json`), "utf8"),

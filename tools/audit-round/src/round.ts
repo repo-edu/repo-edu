@@ -1,3 +1,4 @@
+import { readModelRecord } from "./commit-msg.js"
 import { errorMessage } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
 import { judgeOptions } from "./judge.js"
@@ -11,6 +12,7 @@ import {
   type DeferralChainOutcome,
   type DeferralScope,
   type InteractiveSession,
+  type LandedRecord,
   noOverride,
   type Phase,
   type PhaseFailure,
@@ -42,6 +44,22 @@ import {
   type RoundContext,
   reportTarget,
 } from "./target.js"
+
+/** Compare the commit body's complete leading model record with this round's stamps. */
+function carriesPhaseStamp(
+  record: LandedRecord,
+  stamps: readonly string[],
+): boolean {
+  const body = record.message.startsWith(`${record.subject}\n`)
+    ? record.message.slice(record.subject.length + 1)
+    : record.message
+  try {
+    const recordStamp = readModelRecord(body).join("\n")
+    return stamps.includes(recordStamp)
+  } catch {
+    return false
+  }
+}
 
 /** What names a round before it starts: its target, who audits and on what. */
 export type RoundSetup = RoundContext & {
@@ -758,17 +776,22 @@ export async function runRound(
         // round may land in the same checkout while the fix runs, and its
         // records number their findings from one as well.
         const stem = "plan" in input ? planStem(input.plan) : null
+        const phaseStamps =
+          stem === null ? dependencies.commitPhaseStamps() : []
+        if (stem === null && phaseStamps.length === 0)
+          throw new Error("Missing fix phase stamp for a commit target")
+        const belongsToRound = (record: LandedRecord): boolean => {
+          if ((looseForm(record.subject)?.stem ?? null) !== stem) return false
+          if (stem !== null) return true
+          return carriesPhaseStamp(record, phaseStamps)
+        }
         const landed = (
           await Promise.all(
             repositories.map(({ root, repository }, index) =>
               dependencies.readRecords(root, before[index], repository),
             ),
           )
-        ).map((records) =>
-          records.filter(
-            ({ subject }) => (looseForm(subject)?.stem ?? null) === stem,
-          ),
-        )
+        ).map((records) => records.filter(belongsToRound))
         commits = landed
           .flat()
           .map(({ repository, sha }) => ({ repository, sha }))

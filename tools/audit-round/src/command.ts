@@ -1397,98 +1397,113 @@ export async function runCommand(
       active: RoundOutput,
       phaseContext: RoundContext,
       chainDeferrals: RoundDependencies["chainDeferrals"] = async () => "none",
-    ): RoundDependencies => ({
-      watchEvidence: readWatchEvidence,
-      writeWatchDocument: async (file, document) =>
-        writeFile(file, `${document}\n`, "utf8"),
-      writeWatchRecord,
-      deleteRoundReports,
-      checkFile: async (file) => {
-        if (!(await readFile(file, "utf8")).trim())
-          throw new Error(`Phase output is empty: ${file}`)
-      },
-      showBrief: async (document) => {
-        active.showBrief(await readFile(document, "utf8"))
-      },
-      completeClean: async (input) => {
+    ): RoundDependencies => {
+      const fixPhaseStamps = new Set<string>()
+      const childCommitStamps = () => {
         const stamps = active.commitStamps()
-        if (stamps === undefined) throw new Error("Missing audit model record")
-        const completion = await completeClean(input, stamps)
-        active.cleanCompletion(completion.message)
-        return completion
-      },
-      readReport: async (file, kind, target) =>
-        readReport(await readFile(file, "utf8"), kind, target),
-      readVet: async (file, findings) =>
-        readVet(await readFile(file, "utf8"), findings),
-      readRebuttal: async (file, findings, reviews) =>
-        readRebuttal(await readFile(file, "utf8"), findings, reviews),
-      judgeEvidence: readJudgeEvidence,
-      chainDeferrals,
-      readHead: async (cwd) =>
-        (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
-      resolvePlan,
-      fileExists: async (file) => {
-        try {
-          await stat(file)
-          return true
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === "ENOENT") return false
-          throw error
-        }
-      },
-      readRecords: async (cwd, before, repository) => {
-        const { stdout } = await execa(
-          "git",
-          ["rev-list", "--reverse", `${before}..HEAD`],
-          { cwd },
+        if (
+          stamps?.phases
+            .split("\n")
+            .some((line) => line.split(":", 1)[0].split(", ").includes("fix"))
         )
-        const shas = stdout.length === 0 ? [] : stdout.split("\n")
-        return Promise.all(
-          shas.map(async (sha) => {
-            const [subject, message] = await Promise.all([
-              execa("git", ["show", "-s", "--format=%s", sha], { cwd }),
-              execa("git", ["show", "-s", "--format=%B", sha], { cwd }),
-            ])
-            return {
-              repository,
-              sha,
-              subject: subject.stdout,
-              message: message.stdout,
-            }
-          }),
-        )
-      },
-      ...assistantDependencies(
-        { ...runtime, cwd: phaseContext.cwd, commit: active.commitStamps },
-        active.phase,
-      ),
-      writeSettledRound: (commits, account) =>
-        active.writeSettledRound(commits, account),
-      requestRuling: async (document) => {
-        active.beginRuling(document, await readFile(document, "utf8"))
-        let reply: string | null = null
-        try {
-          reply = await (
-            options.readReply ??
-            (() =>
-              readRulingReply(process.stdin, process.stdout, runtime.signal))
-          )()
-          return reply
-        } finally {
-          active.endRuling(reply)
-        }
-      },
-      // The glance decides in the runner; its sentence opens the watch's section
-      // of the log and terminal, whether or not a watch follows.
-      glance: async (input) => {
-        const decision = await runGlance(input)
-        await active.section(
-          `[glance] ${decision.due ? "due" : "not due"}: ${decision.text}`,
-        )
-        return decision
-      },
-    })
+          fixPhaseStamps.add(stamps.phases)
+        return stamps
+      }
+      return {
+        watchEvidence: readWatchEvidence,
+        writeWatchDocument: async (file, document) =>
+          writeFile(file, `${document}\n`, "utf8"),
+        writeWatchRecord,
+        deleteRoundReports,
+        checkFile: async (file) => {
+          if (!(await readFile(file, "utf8")).trim())
+            throw new Error(`Phase output is empty: ${file}`)
+        },
+        showBrief: async (document) => {
+          active.showBrief(await readFile(document, "utf8"))
+        },
+        completeClean: async (input) => {
+          const stamps = active.commitStamps()
+          if (stamps === undefined)
+            throw new Error("Missing audit model record")
+          const completion = await completeClean(input, stamps)
+          active.cleanCompletion(completion.message)
+          return completion
+        },
+        readReport: async (file, kind, target) =>
+          readReport(await readFile(file, "utf8"), kind, target),
+        readVet: async (file, findings) =>
+          readVet(await readFile(file, "utf8"), findings),
+        readRebuttal: async (file, findings, reviews) =>
+          readRebuttal(await readFile(file, "utf8"), findings, reviews),
+        judgeEvidence: readJudgeEvidence,
+        chainDeferrals,
+        readHead: async (cwd) =>
+          (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
+        resolvePlan,
+        fileExists: async (file) => {
+          try {
+            await stat(file)
+            return true
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return false
+            throw error
+          }
+        },
+        readRecords: async (cwd, before, repository) => {
+          const { stdout } = await execa(
+            "git",
+            ["rev-list", "--reverse", `${before}..HEAD`],
+            { cwd },
+          )
+          const shas = stdout.length === 0 ? [] : stdout.split("\n")
+          return Promise.all(
+            shas.map(async (sha) => {
+              const [subject, message] = await Promise.all([
+                execa("git", ["show", "-s", "--format=%s", sha], { cwd }),
+                execa("git", ["show", "-s", "--format=%B", sha], { cwd }),
+              ])
+              return {
+                repository,
+                sha,
+                subject: subject.stdout,
+                message: message.stdout,
+              }
+            }),
+          )
+        },
+        commitPhaseStamps: () => [...fixPhaseStamps],
+        ...assistantDependencies(
+          { ...runtime, cwd: phaseContext.cwd, commit: childCommitStamps },
+          active.phase,
+        ),
+        writeSettledRound: (commits, account) =>
+          active.writeSettledRound(commits, account),
+        requestRuling: async (document) => {
+          active.beginRuling(document, await readFile(document, "utf8"))
+          let reply: string | null = null
+          try {
+            reply = await (
+              options.readReply ??
+              (() =>
+                readRulingReply(process.stdin, process.stdout, runtime.signal))
+            )()
+            return reply
+          } finally {
+            active.endRuling(reply)
+          }
+        },
+        // The glance decides in the runner; its sentence opens the watch's section
+        // of the log and terminal, whether or not a watch follows.
+        glance: async (input) => {
+          const decision = await runGlance(input)
+          await active.section(
+            `[glance] ${decision.due ? "due" : "not due"}: ${decision.text}`,
+          )
+          return decision
+        },
+      }
+    }
 
     /** One implementation stage: a worker per pending step, then the markers due. */
     const implementStage = async (
