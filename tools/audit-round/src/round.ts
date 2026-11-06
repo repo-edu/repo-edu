@@ -380,6 +380,7 @@ async function runSeriesJudge(
     const evidence = await dependencies.judgeEvidence({
       ...context,
       stem: "plan" in input ? planStem(input.plan) : currentRound.target,
+      seriesKind: "groups" in input ? "commit" : "plan",
     })
     const options = judgeOptions(evidence, currentRound, pool)
     const judged = await dependencies.runJudge({

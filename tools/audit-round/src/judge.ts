@@ -2,11 +2,13 @@ import { readFile } from "node:fs/promises"
 import { basename } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import { episodeMembers } from "./episode.js"
-import { readLog } from "./episode-log.js"
+import { readCommitHeaders, readLog } from "./episode-log.js"
 import {
+  type CommitRoundData,
   type JudgeAnswer,
   type JudgeDecision,
   type RoundData,
+  readCommitRoundData,
   readPlanRoundData,
   roundDataFilename,
 } from "./round-data.js"
@@ -38,10 +40,10 @@ export type JudgeEvidence = {
 export type JudgeEvidenceInput = ExecutionContext & {
   readonly stem: string
   readonly roundKind: RoundKind
+  readonly seriesKind: "plan" | "commit"
 }
 
-/** Read the judge's bounded four inputs without watch-only derived facts. */
-export async function readJudgeEvidence(
+async function readPlanJudgeEvidence(
   input: JudgeEvidenceInput,
 ): Promise<JudgeEvidence> {
   const [roundData, planLog, repoEduLog, watch] = await Promise.all([
@@ -85,17 +87,99 @@ export async function readJudgeEvidence(
   }
 }
 
+function sameOriginalGroups(
+  first: readonly CommitRoundData["originalGroups"][number][],
+  second: readonly CommitRoundData["originalGroups"][number][],
+): boolean {
+  return JSON.stringify(first) === JSON.stringify(second)
+}
+
+async function readCommitJudgeEvidence(
+  input: JudgeEvidenceInput,
+): Promise<JudgeEvidence> {
+  const rounds = await readCommitRoundData(input, input.stem)
+  const ordered = rounds.toSorted((first, second) => first.round - second.round)
+  const first = ordered[0]
+  if (first === undefined)
+    throw new Error(`Commit series ${input.stem} has no round data`)
+  const drifted = ordered.find(
+    (entry) => !sameOriginalGroups(first.originalGroups, entry.originalGroups),
+  )
+  if (drifted !== undefined)
+    throw new Error(
+      `Commit series ${input.stem} changed its original groups in round ${drifted.round}`,
+    )
+
+  const wanted = new Map<Repository, string[]>()
+  const add = (repository: Repository, sha: string) => {
+    const commits = wanted.get(repository) ?? []
+    if (!commits.includes(sha)) commits.push(sha)
+    wanted.set(repository, commits)
+  }
+  for (const group of first.originalGroups)
+    for (const sha of group.commits) add(group.repository, sha)
+  for (const entry of ordered)
+    for (const commit of entry.commits) add(commit.repository, commit.sha)
+
+  const commits = (
+    await Promise.all(
+      (["repo-edu", "plan"] as const).flatMap((repository) => {
+        const shas = wanted.get(repository)
+        if (shas === undefined) return []
+        const cwd =
+          repository === "repo-edu" ? input.repoEduRoot : input.planRoot
+        return [
+          readCommitHeaders(cwd, shas).then((headers) =>
+            headers.map((commit) => ({
+              repository,
+              sha: commit.sha,
+              committed: new Date(commit.committedAt).toISOString(),
+              subject: commit.subject,
+              role: looseForm(commit.subject)?.role ?? null,
+            })),
+          ),
+        ]
+      }),
+    )
+  ).flat()
+
+  return {
+    roundData: {
+      file: roundDataFilename(input.stem, "commit"),
+      rounds,
+    },
+    commits,
+    latestWatch: null,
+  }
+}
+
+/** Read the judge's bounded inputs without watch-only derived facts. */
+export async function readJudgeEvidence(
+  input: JudgeEvidenceInput,
+): Promise<JudgeEvidence> {
+  return input.seriesKind === "commit"
+    ? readCommitJudgeEvidence(input)
+    : readPlanJudgeEvidence(input)
+}
+
 type CurrentRound = Pick<RoundData, "target" | "round">
 
 function settled(entry: RoundData, current: CurrentRound): boolean {
+  const currentInProgress =
+    entry.status === "in-progress" &&
+    entry.target === current.target &&
+    entry.round === current.round
+  const statusSettled =
+    entry.status === "finished" ||
+    entry.status === "failed" ||
+    entry.status === "interrupted" ||
+    currentInProgress
+  const emptyCommitSettled =
+    "originalGroups" in entry &&
+    (entry.status === "finished" || currentInProgress)
   return (
-    (entry.status === "finished" ||
-      entry.status === "failed" ||
-      entry.status === "interrupted" ||
-      (entry.status === "in-progress" &&
-        entry.target === current.target &&
-        entry.round === current.round)) &&
-    entry.commits.length > 0 &&
+    statusSettled &&
+    (entry.commits.length > 0 || emptyCommitSettled) &&
     entry.findings.every((finding) => finding.outcome !== null)
   )
 }

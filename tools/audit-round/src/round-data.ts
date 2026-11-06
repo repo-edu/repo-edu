@@ -354,6 +354,16 @@ export async function readPlanRoundData(
   }
 }
 
+/** Read one active commit series' checked data file by its bounded label. */
+export async function readCommitRoundData(
+  roots: Pick<PlanRoots, "activeRoot">,
+  label: string,
+): Promise<readonly CommitRoundData[]> {
+  const path = join(roots.activeRoot, roundDataFilename(label, "commit"))
+  return commitRoundFileSchema.parse(JSON.parse(await readFile(path, "utf8")))
+    .rounds
+}
+
 /** Split the allocated name into the target-wide identity stored in JSON. */
 export function roundDataIdentity(nameStart: string): {
   readonly target: string

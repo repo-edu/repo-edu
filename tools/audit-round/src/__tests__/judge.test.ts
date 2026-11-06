@@ -1,12 +1,24 @@
 import assert from "node:assert/strict"
+import { writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { test } from "node:test"
-import { type JudgeEvidence, judgeOptions, readJudgeAnswer } from "../judge.js"
+import { execa } from "execa"
+import {
+  type JudgeEvidence,
+  judgeOptions,
+  readJudgeAnswer,
+  readJudgeEvidence,
+} from "../judge.js"
 import type {
+  CommitRoundData,
   JudgeDecision,
   PlanningRoundData,
   RoundData,
 } from "../round-data.js"
+import { writeRoundData } from "../round-data.js"
 import type { Auditor } from "../settings.js"
+import { fixture } from "./helpers.js"
+import { commitFixture } from "./round-fixture.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
 const selection = { model: "fixture-model", effort: "low" }
@@ -97,6 +109,26 @@ function round(
     judge: null,
     phase: options.phase ?? "detailing",
     settling: "",
+  }
+}
+
+function commitRound(
+  assistant: "claude" | "codex",
+  started: string,
+  group: CommitRoundData["originalGroups"][number],
+  options: Parameters<typeof round>[2] = {},
+): CommitRoundData {
+  const {
+    phase: _phase,
+    settling: _settling,
+    ...common
+  } = round(assistant, started, options)
+  return {
+    ...common,
+    target: "commit-abcdef",
+    originalGroups: [group],
+    groups: [group],
+    judgedRepos: [group.repository],
   }
 }
 
@@ -196,6 +228,56 @@ test("an earlier assistant's unconfirmed A blocks stop", () => {
 
   const confirmed = round("claude", "2026-10-11T12:00:00Z", { round: 3 })
   assert.equal(offers("stop", [claude, codex, confirmed], confirmed), true)
+})
+
+test("a clean current commit read clears the same assistant's earlier gate without landing a record", () => {
+  const group = {
+    repository: "repo-edu" as const,
+    commits: ["a".repeat(40)],
+    startingHead: "b".repeat(40),
+  }
+  const gated = commitRound("codex", "2026-10-11T10:00:00Z", group, {
+    tier: "B",
+  })
+  const clean = commitRound("codex", "2026-10-11T11:00:00Z", group, {
+    round: 2,
+    status: "in-progress",
+    landed: false,
+  })
+
+  assert.deepEqual(
+    judgeOptions(evidence([gated, clean]), identity(clean), pool),
+    ["stop", ...pool],
+  )
+})
+
+test("failed and interrupted empty commit reads do not clear an earlier gate", () => {
+  const group = {
+    repository: "repo-edu" as const,
+    commits: ["a".repeat(40)],
+    startingHead: "b".repeat(40),
+  }
+  for (const status of ["failed", "interrupted"] as const) {
+    const gated = commitRound("codex", "2026-10-11T10:00:00Z", group, {
+      tier: "B",
+    })
+    const empty = commitRound("codex", "2026-10-11T11:00:00Z", group, {
+      round: 2,
+      status,
+      landed: false,
+    })
+    const current = commitRound("claude", "2026-10-11T12:00:00Z", group, {
+      round: 3,
+      status: "in-progress",
+      landed: false,
+    })
+
+    assert.equal(
+      offers("stop", [gated, empty, current], current),
+      false,
+      status,
+    )
+  }
 })
 
 test("a failed round with a landed B still removes stop", () => {
@@ -409,4 +491,70 @@ test("detailing offers ready beside stop until the plan's ready marker", () => {
     judgeOptions(evidence([implementation]), identity(implementation), pool),
     ["stop", ...pool],
   )
+})
+
+test("commit judge evidence contains only original commits and landed fixes and no watch", async (t) => {
+  const f = await fixture(t)
+  const original = await commitFixture(
+    f.runtime.repoEduRoot,
+    "Original audited commit",
+    "2026-10-11T08:00:00Z",
+  )
+  await commitFixture(
+    f.runtime.repoEduRoot,
+    "Unrelated commit",
+    "2026-10-11T09:00:00Z",
+  )
+  const fix = await commitFixture(
+    f.runtime.repoEduRoot,
+    "series/fix obh growth-none c1 fix(audit-round): landed correction",
+    "2026-10-11T10:00:00Z",
+  )
+  const full = async (revision: string) =>
+    (
+      await execa("git", ["rev-parse", revision], {
+        cwd: f.runtime.repoEduRoot,
+      })
+    ).stdout
+  const originalSha = await full(original)
+  const fixSha = await full(fix)
+  const label = `commit-${original}`
+  const group = {
+    repository: "repo-edu" as const,
+    commits: [originalSha],
+    startingHead: originalSha,
+  }
+  const first: CommitRoundData = {
+    ...commitRound("codex", "2026-10-11T11:00:00Z", group),
+    target: label,
+    commits: [{ repository: "repo-edu", sha: fixSha }],
+  }
+  writeRoundData(join(f.runtime.activeRoot, `${label}-rounds.json`), first)
+  await writeFile(
+    join(f.runtime.activeRoot, `${label}-01-9-watch.obh.md`),
+    "# Must not reach a commit judge\n",
+  )
+
+  const result = await readJudgeEvidence({
+    ...f.runtime,
+    stem: label,
+    roundKind: "implementation",
+    seriesKind: "commit",
+  })
+
+  assert.equal(result.roundData.file, `${label}-rounds.json`)
+  assert.equal(result.roundData.rounds.length, 1)
+  assert.deepEqual(
+    result.commits.map(({ sha, subject, role }) => ({ sha, subject, role })),
+    [
+      { sha: originalSha, subject: "Original audited commit", role: null },
+      {
+        sha: fixSha,
+        subject:
+          "series/fix obh growth-none c1 fix(audit-round): landed correction",
+        role: "fix",
+      },
+    ],
+  )
+  assert.equal(result.latestWatch, null)
 })
