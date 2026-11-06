@@ -135,6 +135,12 @@ test("the hook inserts and overwrites severity while preserving the burden mark,
     stamp(message("oth growth-none docs(repo): s", codeFinding).trimEnd()),
     message("oth growth-none c1 docs(repo): s", codeFinding).trimEnd(),
   )
+  assert.equal(
+    stamp(
+      `oth growth-none docs(repo): s\ngpt-6-astra high\n\n${codeFinding}\n`,
+    ),
+    message("oth growth-none c1 docs(repo): s", codeFinding),
+  )
 })
 
 test("every subject class derives only the severity its role admits", () => {
@@ -299,11 +305,6 @@ test("a refused subject, missing model and disagreeing effort still stop the com
       /model line, not/,
     ],
     ["example/impl-1 oth feat(x): s\n", "repo-edu", /open with the model/],
-    [
-      `oth growth-none docs(repo): s\ngpt-6-astra high\n\n${codeFinding}\n`,
-      "repo-edu",
-      /blank line separates the subject/,
-    ],
     [
       message("oth update(repo): s", codeFinding),
       "repo-edu",

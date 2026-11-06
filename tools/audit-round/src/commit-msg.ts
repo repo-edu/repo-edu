@@ -137,14 +137,15 @@ export function stampCommitMessage(
   const subject = parseSubject(subjectLine, repository)
 
   // Git strips comment lines and reads the body from the first blank line, so
-  // a model record right after the subject joins it in every one-line log and
-  // stem scan. A session composing from `%s%n%b` output, which hides that
-  // blank line, has landed this shape more than once.
+  // a model record right after the subject would join it in every one-line log
+  // and stem scan. The grammar fixes the subject at one line, so anything after
+  // it is body and the hook separates it rather than refusing and making the
+  // session retry.
   const afterSubject = lines.findIndex(
     (line, at) => at > 0 && !line.startsWith("#"),
   )
   if (afterSubject !== -1 && lines[afterSubject] !== "")
-    throw new SubjectError("a blank line separates the subject from the body")
+    lines.splice(afterSubject, 0, "")
 
   const first = lines.findIndex(
     (line, at) => at > 0 && line !== "" && !line.startsWith("#"),
