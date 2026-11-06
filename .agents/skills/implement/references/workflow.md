@@ -1,5 +1,7 @@
 ---
 reads:
+  - ../../../references/round-protocol.md
+  - ../../../references/round-grammar.md
   - oversized-step.md
   - ../../fix/references/ruling.md
   - ../../../../../plan/GROWTH-PATTERNS.md
