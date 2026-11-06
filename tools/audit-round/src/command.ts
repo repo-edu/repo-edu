@@ -567,7 +567,9 @@ The run takes the named active plan from the stage its state calls for through
 its close: the widening series, settle, the detailing series, ready, the
 implementation, the audit range series and the close. Invoking it is your settle,
 ready and close call. Any other ending stops the run with the stage's own lines,
-and the same command continues from where the plan stands. Every series it opens
+and the same command continues from where the plan stands. Once the full step
+range's newest series has ended on a judge stop and no plan commit has changed a
+file since, the run goes straight to the close. Every series it opens
 starts with the default auditor, runs the glance and the watch and writes no brief.
 A failed implementation worker prints this command with --resume, which resumes
 that worker's session on its step before the run continues.
@@ -1122,10 +1124,7 @@ async function preparedRun(
 
 type PreparedRun = Awaited<ReturnType<typeof preparedRun>>
 
-/** A stage of the run; the close follows the range series and never starts one. */
-type RunStage = LifecycleStage | "close"
-
-const runStageNames: Readonly<Record<RunStage, string>> = {
+const runStageNames: Readonly<Record<LifecycleStage, string>> = {
   widening: "widening series",
   detailing: "detailing series",
   implement: "implementation",
@@ -1133,8 +1132,9 @@ const runStageNames: Readonly<Record<RunStage, string>> = {
   close: "close",
 }
 
+/** The close works in the plan checkout, as the planning stages do. */
 function stageRoundKind(stage: LifecycleStage): RoundKind {
-  return stage === "widening" || stage === "detailing"
+  return stage === "widening" || stage === "detailing" || stage === "close"
     ? "planning"
     : "implementation"
 }
@@ -2256,7 +2256,7 @@ export async function runCommand(
         await say(
           `${stem} starts in the ${runStageNames[run.stage]}, so session ${run.resume.sessionId} stays unused.`,
         )
-      let stage: RunStage = run.stage
+      let stage: LifecycleStage = run.stage
       let current: string = runStageNames[stage]
       let closed = false
       try {

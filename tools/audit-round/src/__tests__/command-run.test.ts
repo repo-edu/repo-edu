@@ -1,9 +1,14 @@
 import assert from "node:assert/strict"
 import { access, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { test } from "node:test"
+import { type TestContext, test } from "node:test"
 import { execa } from "execa"
 import { lifecycleStage } from "../default-target.js"
+import {
+  type ImplementationRoundData,
+  roundDataFilename,
+  writeRoundData,
+} from "../round-data.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { finishedText, phaseStream, recorded } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
@@ -464,4 +469,139 @@ test("the plan's state names the stage a run starts at", async (t) => {
     "example/implemented obh: complete the Repo Edu share",
   )
   assert.equal(await lifecycleStage(context, settled), "ranges")
+})
+
+/** One finished round on the fixture's full step range, as the runner retains it. */
+function fullRangeRound(
+  round: number,
+  started: number,
+  answer: NonNullable<ImplementationRoundData["judge"]>["answer"],
+  commits: ImplementationRoundData["commits"] = [],
+): ImplementationRoundData {
+  return {
+    target: "example-impl-01..01",
+    round,
+    tag: "obx",
+    started: new Date(started).toISOString(),
+    status: "finished",
+    settings: {
+      vet: {
+        claude: { model: "claude-opus-5", effort: "high" },
+        codex: { model: "gpt-5.6-sol", effort: "high" },
+      },
+      fix: { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+    },
+    auditor: {
+      assistant: "codex",
+      model: "gpt-5.6-sol",
+      effort: "xhigh",
+      chosenBy: "settings",
+    },
+    phases: [],
+    commits,
+    findings: [],
+    judge: { answer, reason: "The fixture's reads have converged." },
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  }
+}
+
+/** One file-changing commit at a fixed time, returned as its full commit ID. */
+async function fileCommit(cwd: string, subject: string, at: number) {
+  await writeFile(join(cwd, "change.md"), `${subject}\n`)
+  await execa("git", ["add", "change.md"], { cwd })
+  await commitFixture(cwd, subject, new Date(at).toISOString())
+  return (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout
+}
+
+/** Ready and implemented, so the plan's state has left the implementation. */
+async function implementedFixture(t: TestContext) {
+  const f = await roundFixture(t)
+  await commitFixture(
+    f.planRoot,
+    "example/ready: declare the plan ready for implementation\n\nCoder: codex gpt-5.6-sol xhigh",
+  )
+  await commitFixture(
+    f.repoRoot,
+    "example/implemented obx: complete the Repo Edu share",
+  )
+  return {
+    ...f,
+    roundData: join(
+      f.activeRoot,
+      roundDataFilename("example", "implementation"),
+    ),
+  }
+}
+
+test("a full range whose newest series stopped with no later plan change starts at the close", async (t) => {
+  const f = await implementedFixture(t)
+  const context = {
+    repoEduRoot: f.repoRoot,
+    planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
+  }
+  const plan = join(f.activeRoot, "example.md")
+  const minute = 60_000
+  const start = Date.now() + minute
+  writeRoundData(
+    f.roundData,
+    fullRangeRound(1, start, {
+      assistant: "claude",
+      model: "claude-opus-5",
+      effort: "high",
+    }),
+  )
+  assert.equal(await lifecycleStage(context, plan), "ranges")
+  // The stopping round's own fix lands after it starts and stays judged.
+  const fix = await fileCommit(
+    f.repoRoot,
+    "example/impl-audit-1 abh growth-none c1 fix(audit-round): fixture",
+    start + 11 * minute,
+  )
+  writeRoundData(
+    f.roundData,
+    fullRangeRound(2, start + 10 * minute, "stop", [
+      { repository: "repo-edu", sha: fix },
+    ]),
+  )
+  assert.equal(await lifecycleStage(context, plan), "close")
+  // An empty clean record and a commit outside the plan change nothing it judged.
+  await commitFixture(
+    f.repoRoot,
+    "example/impl-audit-1 abh clean: record audit with no findings",
+    new Date(start + 20 * minute).toISOString(),
+  )
+  await fileCommit(
+    f.repoRoot,
+    "abh growth-none c1 fix(audit-round): unrelated",
+    start + 21 * minute,
+  )
+  assert.equal(await lifecycleStage(context, plan), "close")
+  await fileCommit(
+    f.repoRoot,
+    "example/impl-audit-1 abh growth-none c1 fix(audit-round): later",
+    start + 30 * minute,
+  )
+  assert.equal(await lifecycleStage(context, plan), "ranges")
+})
+
+test("run closes a plan whose full range has settled without another audit", async (t) => {
+  const f = await implementedFixture(t)
+  writeRoundData(f.roundData, fullRangeRound(1, Date.now() + 60_000, "stop"))
+  assert.equal(
+    await runCommand(["example"], f.runtime, {
+      ...f.options,
+      settings: runSettings,
+    }),
+    0,
+    [...f.errors, ...f.visible].join("\n"),
+  )
+  const phases = (await f.prompts()).map(
+    (call) => /^Run the (\w+) phase/.exec(call.prompt)?.[1],
+  )
+  assert.deepEqual(phases, ["close"])
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Run of example: starting the close\./)
+  assert.match(visible, /Run of example finished: the plan is closed\./)
 })

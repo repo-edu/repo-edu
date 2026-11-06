@@ -520,7 +520,12 @@ consumers.
   bare-plan audit selection. `lifecycleStage` reads the stage the run starts at from the same state:
   a `-widen` filename is widening, a settled plan whose plan-repo stem commits hold no `ready`
   record is detailing, and a ready plan is implementation until every hosted share has landed with
-  a current marker, then the audit range series. No run file keeps a second copy of that state.
+  a current marker, then the audit range series. An implemented plan starts at the close once the
+  newest round on its full step range carries a judge stop and no file-changing stem commit in
+  either repo has landed since that round started, other than the round's own. That stop judged
+  every step's current code, so the listed ranges have nothing left to read, and empty clean
+  records change no code. Without the check, a rerun after a finished range series audits every
+  range again before the close. No run file keeps a second copy of that state.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor` and
   `--first` options. It reads both values with the queue's entry grammar and refuses a list with no
   entries. `--first` takes exactly one entry and is refused beside `--auditor`, because the list's
@@ -1031,7 +1036,9 @@ failed worker on its own.
 its state calls for through its close: a `-widen` plan opens the widening series, a settled plan
 without a ready marker the detailing series, a ready plan with a pending share or a missing or stale
 marker the implementation and an implemented plan the audit range series, which the close follows.
-Invoking it is the user's settle, ready and close call, so the run settles on the widening judge's
+An implemented plan whose full step range has settled starts at the close: the newest round on that
+range carries a judge stop, and no file-changing stem commit has landed since it started. Invoking
+it is the user's settle, ready and close call, so the run settles on the widening judge's
 `settle` answer, marks the plan ready on the detailing judge's `ready` answer and closes after a
 range series that needed nobody, through the same lifecycle functions and commit forms as `settle`,
 `ready` and `close`. Any other ending ends the run with the stage's own lines and recovery command,

@@ -5,6 +5,10 @@ import type { ExecutionContext, PlanRoots } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog, shortSha } from "./episode-log.js"
 import { type PlanStep, readAuditRanges, readPlanSteps } from "./plan-steps.js"
+import {
+  type ImplementationRoundData,
+  readPlanRoundData,
+} from "./round-data.js"
 import { looseForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
@@ -12,6 +16,7 @@ import {
   type CommitGroup,
   type CommitGroupRequest,
   headOffset,
+  parseStepScope,
   planningScope,
   planPhase,
   planStem,
@@ -244,9 +249,15 @@ export async function selectTargets(
  * The lifecycle stage an active plan's state calls for, which the run starts
  * at. The filename names widening, a settled plan without a ready record is
  * detailing, and the ready plan's per-repo progress separates implementation
- * from the audit range series, so no run file keeps a second copy of it.
+ * from the audit range series. An implemented plan whose full range has
+ * settled goes on to the close. No run file keeps a second copy of this state.
  */
-export type LifecycleStage = "widening" | "detailing" | "implement" | "ranges"
+export type LifecycleStage =
+  | "widening"
+  | "detailing"
+  | "implement"
+  | "ranges"
+  | "close"
 
 export async function lifecycleStage(
   context: ExecutionContext,
@@ -261,9 +272,49 @@ export async function lifecycleStage(
   })
   if (!ready) return "detailing"
   const steps = readPlanSteps(await readFile(plan, "utf8"))
-  return implementationComplete(implementationProgress(logs, topic, steps))
-    ? "ranges"
-    : "implement"
+  if (!implementationComplete(implementationProgress(logs, topic, steps)))
+    return "implement"
+  const { implementation = [] } = await readPlanRoundData(context, topic)
+  return fullRangeSettled(logs, topic, steps.length, implementation)
+    ? "close"
+    : "ranges"
+}
+
+/**
+ * Whether the newest round on the full step range ended its series on a judge
+ * stop and no file-changing commit of the plan has landed since that round
+ * started, other than the round's own. That stop judged the current code of
+ * every step, so the audit range series has nothing left to read. Empty
+ * commits such as clean records change no code and leave it settled.
+ */
+function fullRangeSettled(
+  logs: ImplementationLogs,
+  topic: string,
+  stepCount: number,
+  rounds: readonly ImplementationRoundData[],
+): boolean {
+  const newest = rounds
+    .filter((entry) => {
+      const scope = parseStepScope(entry.scope)
+      return scope.ok && scope.first === 1 && scope.last === stepCount
+    })
+    .reduce<ImplementationRoundData | undefined>(
+      (latest, entry) =>
+        latest === undefined || entry.round > latest.round ? entry : latest,
+      undefined,
+    )
+  if (newest?.judge?.answer !== "stop") return false
+  const started = Date.parse(newest.started)
+  const own = new Set(newest.commits.map((commit) => commit.sha))
+  return Object.values(logs).every((commits) =>
+    commits.every(
+      (commit) =>
+        looseForm(commit.subject)?.stem !== topic ||
+        commit.files.length === 0 ||
+        own.has(commit.sha) ||
+        Date.parse(commit.committedAt) < started,
+    ),
+  )
 }
 
 /** Every hosted share has landed and each repo's marker follows its newest step. */
