@@ -3,67 +3,84 @@ title: /audit
 description: Run one read-only planning or implementation audit against a plan, step range or commit set
 ---
 
-`/audit` checks one planning document or one body of implemented work. Use it when you want to run
-the audit phase by hand, inspect its report and decide how the findings should proceed. Codex uses
-the equivalent `$audit` command.
+Use `/audit` to check one plan or one body of implemented work without starting an automatic series.
 
-## When should I use it?
+## How do I run it?
 
-Use `/audit` when you want one audit rather than an automatic series, or when you want to read its
-report before starting a vet or fix. The target decides which kind of audit runs.
+Run the command in Claude chat from the Repo Edu or plan checkout. Use `$audit` for the same command
+in Codex.
 
-| Target | Example | What the audit checks |
-| --- | --- | --- |
-| A plan | `/audit tooling-guide-usability plan` | The active planning document as the brief for work that has not landed |
-| A step or range | `/audit tooling-guide-usability 1-2` | The implementation of those numbered plan steps in every hosting repo |
-| Commits | `/audit HEAD-2..HEAD` | Work outside a plan in the named contiguous commits |
-| Nothing | `/audit` | The active plan selected by the runner, or an explanation when selection is ambiguous |
+```text
+/audit                              audit the active plan selected by the runner
+/audit <stem>                       audit that plan before implementation
+/audit <stem> plan                  audit that plan after implementation has started
+/audit <stem> <step>                audit one implemented step
+/audit <stem> <first>-<last>        audit an inclusive implemented step range
+/audit <commit>                     audit one commit outside a plan
+/audit <commit> <commit> [...]      audit an ordered commit set outside a plan
+```
 
-A stem without a scope audits the planning document before implementation. After implementation it
-selects the implementation scope only when the plan's audit-range rules make that scope unambiguous.
+Examples:
+
+```text
+/audit tooling-guide-usability
+/audit tooling-guide-usability plan
+/audit tooling-guide-usability 1-2
+/audit HEAD-2..HEAD
+/audit HEAD plan@HEAD
+```
+
+The command has no flags. A stem is the plan filename without `.md` or `-widen`. Prefix a plan-repo
+commit with `plan@`; unprefixed commits belong to Repo Edu.
+
+## When do I use it?
+
+Use `/audit` when you want one audit report to read before deciding whether to vet or fix it. Use an
+automatic `pnpm audit-round round ...` series when you want the runner to choose later auditors and
+carry accepted findings through the remaining phases.
 
 ## What does it read?
 
-The launcher asks `pnpm audit-round name` to resolve the target, choose the working checkout and
-allocate the report. A planning audit reads the whole plan and its governing decisions. An
-implementation audit reads the whole plan, the selected steps, their current code and the relevant
-history. A commit audit reads the exact commits resolved by the runner.
+The target selects the evidence:
 
-An implementation audit requires the plan's `ready` marker. A commit audit also requires clean
-touched files, reachable commits and work that is not already attached to a plan.
+1. A planning audit reads the whole plan and the decisions that govern it.
+2. A step audit reads the whole plan, the selected steps, their current implementation and relevant
+   history.
+3. A commit audit reads the exact commits resolved before the audit starts.
 
-## What does it produce?
+An implementation audit normally requires the plan's `ready` marker. A commit audit also requires
+clean touched files, reachable commits and work that is not already attached to a plan.
 
-An audit with findings produces a Markdown report and a round claim. A planning report separates
-excess and missing functionality. An implementation report includes a coverage table and one field
-of findings.
+## Where does it stop and what do I type?
 
-A clean plan or step audit lands the workflow's clean record automatically and removes its report
-set. A clean commit audit keeps its report and lands no record. The audit itself does not apply a
-finding; that belongs to the later fix.
+1. **The target is ambiguous.** The command names what is missing. Run `/audit <stem>` for a plan or
+   `/audit <commits>` for work outside a plan.
+2. **An audit gate fails.** If the plan lacks a `ready` marker and you still want the audit, type
+   `Continue without the ready marker.` For a commit gate, correct the named history or worktree
+   problem and run the command again.
+3. **The report has findings.** Run the vet in the other assistant: use `$vet <report-file>` in
+   Codex after a Claude audit, or `/vet <report-file>` in Claude after a Codex audit. If the vet
+   revises, drops or refers a finding, return to the original auditor and run `/rebut <report-file>`
+   or `$rebut <report-file>`. When the outcome is settled, approve its corrections by running
+   `/fix <report-file>` or `$fix <report-file>`.
+4. **The report is clean.** Type nothing. A clean plan or step audit lands its clean record. A clean
+   commit audit leaves its report for you to read and lands no record.
 
-## Where does it stop for me?
+## What does it leave behind?
 
-1. **Target selection.** If an omitted target has no unique active plan, the command stops and tells
-   you what must be named. Reply by running `/audit` again with the plan stem or commit references.
-2. **Audit gate.** If a plan has no `ready` marker or a commit target fails its clean-history gates,
-   the audit states the failed gate and stops. For the missing ready marker, explicitly say whether
-   the audit should continue. Otherwise correct the target and rerun it.
-3. **Findings.** The report is the audit's normal stopping point. Read it, then run `/vet` for an
-   independent check or discuss the findings and authorise their fix. The audit changes no source
-   at this point.
-4. **No findings.** A clean plan or step audit completes without asking you anything. A clean commit
-   report is the final output for you to read.
+All round files live under `../plan/active/`:
+
+1. `<target>-<round>-0-claim.md` is an empty reservation for the round number. It prevents two
+   rounds from using the same number and remains after the round.
+2. `<target>-<round>-2-audit.<tag>.md` is the audit report. A report with findings remains until the
+   fix completes. A clean hand-run plan or step audit deletes its report after landing the clean
+   record; a clean commit report remains.
+
+A clean plan or step audit also leaves a Git commit named for the round. An audit with findings
+changes no source until `/fix` is authorised.
 
 ## What owns this page?
 
-This page is a mirror. The plan repo launchers `home/claude/commands/audit.md` and
-`home/agents/skills/audit/SKILL.md` own how `/audit` and `$audit` enter the runner. The selected
-workflow owns the audit itself:
-
-1. Planning audits: `plan/.agents/skills/audit/references/workflow.md`.
-2. Step and commit audits: `repo-edu/.agents/skills/audit/references/workflow.md`, with
-   `commit-scope.md` for commit targets.
-3. Target resolution and phase routing: `repo-edu/tools/audit-round/CLAUDE.md`.
-
-Those sources win when this page differs.
+`../plan/home/claude/commands/audit.md`, `../plan/home/agents/skills/audit/SKILL.md` and
+`.agents/skills/audit/references/workflow.md` own this page; `tools/audit-round/CLAUDE.md` owns
+paths.

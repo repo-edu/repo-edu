@@ -3,63 +3,70 @@ title: /sweep
 description: Review one large source file and decide whether its current contents should be split
 ---
 
-`/sweep` is a periodic check against source files growing without a deliberate decision. It surfaces
-the largest file that has not been judged at its current contents, then asks whether that file holds
-too much responsibility. Codex uses the equivalent `$sweep` command.
+Use `/sweep` to review the largest unreviewed source file and decide whether it should be split.
 
-## When should I use it?
+## How do I run it?
 
-Run `/sweep` from the Repo Edu checkout when you want to inspect the next unreviewed source file.
-It is not a general architecture check and file size is only the ordering signal. A large cohesive
-file can be fine.
+Run the command in Claude chat from the Repo Edu checkout. Use `$sweep` for the same command in
+Codex.
 
-The default is one file per chat. That keeps the complete read and judgement focused. Invoke the
-command again in a fresh chat for the next file unless you explicitly want to continue in the same
-one.
+```text
+/sweep         review one file, record or act on your answer, then stop
+/sweep help    show the command usage without reviewing a file
+```
+
+The command has no other arguments or options. Invoke it again in a fresh chat for the next file
+unless you explicitly ask to continue in the same one.
+
+## When do I use it?
+
+Use `/sweep` when you want to inspect the next source file whose current contents have no recorded
+file-growth judgement. It is not a general architecture check, and file size only decides which
+file appears first. A large cohesive file can be fine.
 
 ## What does it read?
 
-The launcher checks that the working directory is Repo Edu, then runs `pnpm sweep`. The tool shares
-the architecture check's tracked TypeScript and TSX source inventory. It ranks unreviewed files by
-line count and prints either one `path` and line count or `clean:`.
+The launcher runs `pnpm sweep` and reads the largest unreviewed tracked TypeScript or TSX file. The
+tool uses the architecture check's source inventory and prints either one path with its line count
+or `clean:`.
 
-The assistant reads that one file end to end and checks its responsibilities, natural split points
-and whether it fits in one reading. If a split looks worthwhile, it also checks for an unfinished
-planning episode on the file's primary area before recommending the route.
+The assistant reads that file end to end and checks its responsibilities, natural split points and
+whether it fits in one reading. If a split looks worthwhile, it also checks for an unfinished plan
+on the file's primary area before recommending whether to plan or refactor it now.
 
-## Where does it stop for me?
+## Where does it stop and what do I type?
 
-The command shows the file, a verdict and its reason before it writes or changes anything. Answer
-with one of these choices.
+The command shows the file, a verdict and its reason before writing or changing anything. Type one
+of these answers:
 
-1. **Fine.** The assistant runs `pnpm sweep ok <path>` and records that the current contents do not
-   need splitting.
-2. **Flag for later.** The assistant runs `pnpm sweep flag <path> --reason "<why>"` and adds the
-   file to the refactor backlog.
-3. **Plan now.** The assistant opens a plan in the sibling plan checkout, then flags the file with
-   that plan's stem.
-4. **Refactor inline now.** The assistant refactors the agreed file, verifies the change and asks
-   separately before committing. It records no sweep verdict because the changed contents need a
-   fresh judgement later.
-5. **Skip.** Nothing is recorded, so the same file can surface again next time.
+1. **Fine.** Type `Fine.` The assistant runs `pnpm sweep ok <path>` and records that the current
+   contents do not need splitting.
+2. **Flag for later.** Type `Flag for later.` The assistant runs
+   `pnpm sweep flag <path> --reason "<why>"` and adds the file to the refactor backlog.
+3. **Plan now.** Type `Plan now.` The assistant opens a plan in the sibling plan checkout, then
+   flags the file with that plan's stem.
+4. **Refactor inline now.** Type `Refactor inline now.` The assistant refactors the agreed file,
+   verifies the change and asks separately before committing. It records no sweep verdict because
+   the changed contents need a fresh judgement later.
+5. **Skip.** Type `Skip.` Nothing is recorded, so the same file can appear again next time.
 
-If the command starts outside the Repo Edu checkout, it stops before surfacing a file and waits for
-you to move the work to the correct checkout. If the tool prints `clean:`, the command ends without
-a decision.
+If the command starts outside Repo Edu, move the chat to that checkout and run `/sweep` again. If
+the tool prints `clean:`, the command ends without asking for an answer.
 
-## What does it write?
+## What does it leave behind?
 
-An `ok` verdict appends the content hash and path to the gitignored `tools/sweep/skip-cache.tsv`. A
-`flag` verdict writes the path, current size, reason and content hash to the tracked
-`tools/sweep/refactor-backlog.tsv`. Changing the file changes its hash, so it becomes eligible for
-review again.
+1. **Fine** appends the content hash and path to the gitignored
+   `tools/sweep/skip-cache.tsv`.
+2. **Flag for later** and **Plan now** write the path, size, reason and content hash to the tracked
+   `tools/sweep/refactor-backlog.tsv`. **Plan now** also creates
+   `../plan/active/<topic>.md` or `../plan/active/<topic>-widen.md`.
+3. **Refactor inline now** changes the agreed source files and, after separate approval, leaves a
+   Git commit. It does not write either sweep verdict file.
+4. **Skip** and `clean:` leave no output file.
 
-Apart from a plan or inline refactor that you choose, `/sweep` writes only those bookkeeping files
-through the tool. It stops after recording your answer.
+Changing a judged file changes its content hash, so its new contents can appear in a later sweep.
 
 ## What owns this page?
 
-This page is a mirror. The plan repo's `home/claude/commands/sweep.md` owns the shared `/sweep` and
-`$sweep` contract. `home/agents/skills/sweep/SKILL.md` is the Codex launcher.
-`repo-edu/tools/sweep/CLAUDE.md` owns the `pnpm sweep` commands and state files. Those sources win
-when this page differs.
+`../plan/home/claude/commands/sweep.md` owns the launcher contract;
+`tools/sweep/CLAUDE.md` owns the tool and its state files.

@@ -117,16 +117,29 @@ export default defineConfig({
             {
               label: "Tooling Guide",
               link: "/tooling/",
-              icon: "seti:config",
+              icon: "puzzle",
               id: "tooling-guide",
               items: [
+                { label: "Overview", slug: "tooling" },
                 {
-                  label: "Sample commands",
+                  label: "Audit phases",
                   items: [
-                    { label: "Overview", slug: "tooling" },
                     { label: "/audit", slug: "tooling/audit" },
+                  ],
+                },
+                {
+                  label: "Other chat commands",
+                  items: [
                     { label: "/sweep", slug: "tooling/sweep" },
-                    { label: "Full plan run", slug: "tooling/full-plan-run" },
+                  ],
+                },
+                {
+                  label: "Runner commands",
+                  items: [
+                    {
+                      label: "pnpm audit-round <stem>",
+                      slug: "tooling/full-plan-run",
+                    },
                   ],
                 },
               ],
