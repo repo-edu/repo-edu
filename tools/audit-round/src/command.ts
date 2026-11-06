@@ -646,12 +646,14 @@ Targets and scope:
            automatic series per scope in that order; see Round sequence below.
            A step scope is refused until a step has landed. The word plan selects
            the planning audit whatever has landed, for a plan edited after ready.
-  Commits  SHA, HEAD, HEAD-<n>, a comma-or-space-separated list or <from>..<to>.
-           Bare references first form the Repo Edu group. The first plan@ reference
-           opens the plan group, which runs to the end of the target. Either group
-           may appear alone, or both may appear in that order. HEAD-1 is the previous
-           first-parent commit in its group's repo. Ranges include both ends. The
-           ordered exact set owns one bounded commit- label and round-data file.
+  Commits  A commit ID, HEAD or HEAD-<n>, a comma-or-space-separated list of them,
+           or an inclusive range <from>..<to>.
+           A reference without a prefix is a Repo Edu commit. plan@ marks a plan
+           repo commit, as in plan@HEAD or plan@5c71e0a. Every reference after the
+           first plan@ one is also a plan repo commit, so list Repo Edu commits
+           first. HEAD-1 is the previous first-parent commit in that reference's
+           repo. The ordered exact set owns one bounded commit- label and
+           round-data file.
   Omitted  round alone, or with options only, takes the active plan with the
            newest stem commit in either repo, which audit-round plan prints, as
            if named alone.
@@ -766,19 +768,23 @@ Examples (from either checkout):
 
      $ pnpm audit-round round HEAD ${planRepositoryPrefix}HEAD
 
-  4. Audit an inclusive commit range in the plan repo.
+  4. Audit one Repo Edu commit and one plan repo commit by ID as one round.
+
+     $ pnpm audit-round round 3f2a1c9 ${planRepositoryPrefix}5c71e0a
+
+  5. Audit an inclusive commit range in the plan repo.
 
      $ pnpm audit-round round ${planRepositoryPrefix}HEAD-2..HEAD
 
-  5. Run the audit the newest plan calls for with Codex.
+  6. Run the audit the newest plan calls for with Codex.
 
      $ pnpm audit-round round --auditor codex
 
-  6. Start an automatic series on steps 1-4 with Codex instead of the default.
+  7. Start an automatic series on steps 1-4 with Codex instead of the default.
 
      $ pnpm audit-round round example 1-4 --first codex
 
-  7. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
+  8. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
 
      $ pnpm audit-round round example 2,3-5,6-7
 
