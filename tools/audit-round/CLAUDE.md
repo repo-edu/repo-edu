@@ -364,35 +364,36 @@ consumers.
   atomic replace-or-append writer, the disproved-finding writer, the read of one plan's existing
   round-kind files from the active root or closed-plan archive and the read of one active commit
   series. Each file is an object whose `rounds` list holds the round entries. Plan files also hold
-  the user's later rulings in `disproved`; commit files are judge-only and do not. A finding review
-  carries its report number, tier and verdict; retained finding data stores the verdict word and
-  rebuttal answer. A planning entry's required `settling` field keeps the widening round's settling
-  recommendation as it stands when the round ends: the fix's settling line, or the audit report's
-  closing settling line when the clean audit ran no fix; detailing entries use `""`. The planning,
-  implementation and commit files each hold a time-ordered entry per round. A commit entry also
-  records its original groups, advancing groups and judged repos. An entry records state, settings,
-  chosen auditor and source, phase measurements including peak context and compactions, landed
-  commits, finding review and outcome data and any judge answer. `RoundOutput` writes the settled
-  findings as `in-progress` before later phases, then replaces the entry with its final state. The
-  writer checks the whole object and publishes it by temporary file rename. `run-files.ts` completes
-  each required write before returning to the invocation; no complete transcript accumulates in
-  memory. `terminal.ts` renders assistant Markdown through the `pi-tui` Markdown component at the
-  current terminal width, preserving paragraph spacing, nested lists and source finding numbers. It
-  uses cyan for inline code without background blocks and honours `NO_COLOR`. It writes the rendered
-  document directly and uses log-update only for the live status line, so permanent text is not
-  wrapped twice. Redirected output retains the original Markdown. The log records each tool
-  invocation once, with shell wrappers removed and no event envelopes or result payloads. Invocation
-  lines stay complete in the log; assistant texts stay complete in Markdown. Only terminal tool
-  lines shorten. The terminal omits the final `PHASE RESULT` control line; the transcript retains
-  it. `showBrief` renders the saved brief after validation and appends it to the log, keeping it out
-  of the transcript it retells. The brief's assistant text is not displayed, so a writer echo cannot
-  duplicate the saved document. Both full rounds and standalone briefs use this route. `beginRuling`
-  releases the live status display and renders the fix's ruling. `endRuling` excludes the user's
-  waiting time and records a submitted reply in the log and transcript before any resumed process
-  starts. Assistant replies use the normal phase output, so launch prompts stay in the log and never
-  reach the terminal. Supplied instruction files appear there by path only; their full contents go
-  to the assistant. Each assistant's reported model line is followed by the model-change notice from
-  `model-change.ts` when that comparison differs.
+  the user's later rulings in `disproved`. The series runner reads commit files before reruns and
+  the judge reads them after automatic rounds. Commit files have no `disproved` list. A finding
+  review carries its report number, tier and verdict; retained finding data stores the verdict word
+  and rebuttal answer. A planning entry's required `settling` field keeps the widening round's
+  settling recommendation as it stands when the round ends: the fix's settling line, or the audit
+  report's closing settling line when the clean audit ran no fix; detailing entries use `""`. The
+  planning, implementation and commit files each hold a time-ordered entry per round. A commit entry
+  also records its original groups, advancing groups and judged repos. An entry records state,
+  settings, chosen auditor and source, phase measurements including peak context and compactions,
+  landed commits, finding review and outcome data and any judge answer. `RoundOutput` writes the
+  settled findings as `in-progress` before later phases, then replaces the entry with its final
+  state. The writer checks the whole object and publishes it by temporary file rename.
+  `run-files.ts` completes each required write before returning to the invocation; no complete
+  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
+  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
+  source finding numbers. It uses cyan for inline code without background blocks and honours
+  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
+  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
+  log records each tool invocation once, with shell wrappers removed and no event envelopes or
+  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
+  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
+  line; the transcript retains it. `showBrief` renders the saved brief after validation and appends
+  it to the log, keeping it out of the transcript it retells. The brief's assistant text is not
+  displayed, so a writer echo cannot duplicate the saved document. Both full rounds and standalone
+  briefs use this route. `beginRuling` releases the live status display and renders the fix's
+  ruling. `endRuling` excludes the user's waiting time and records a submitted reply in the log and
+  transcript before any resumed process starts. Assistant replies use the normal phase output, so
+  launch prompts stay in the log and never reach the terminal. Supplied instruction files appear
+  there by path only; their full contents go to the assistant. Each assistant's reported model line
+  is followed by the model-change notice from `model-change.ts` when that comparison differs.
 - `model-change.ts` owns the non-blocking model and effort notice. Every
   round phase and the close compare the same way: the notice reads every
   active and archived plan's checked round data and compares the report with
