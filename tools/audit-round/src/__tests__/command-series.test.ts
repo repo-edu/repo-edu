@@ -920,6 +920,71 @@ test("a commit series keeps its label while the next auditor reads the original 
   assert.deepEqual(data.rounds[1].groups[0].commits, secondGroup.commits)
 })
 
+test("a rerun starts with fixes retained by the same commit-series label", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    "c",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  await commitFixture(f.repoRoot, "Original newest commit")
+  const original = await Promise.all(
+    ["HEAD~1", "HEAD"].map(
+      async (revision) =>
+        (await execa("git", ["rev-parse", revision], { cwd: f.repoRoot }))
+          .stdout,
+    ),
+  )
+  const label = `commit-${original[0].slice(0, 6)}..${original[1].slice(0, 6)}`
+  await configureJudgeAnswers(f, [
+    "Judge: stop. The first run stops after its correction.",
+    "Judge: stop. The rerun has read the retained correction.",
+  ])
+
+  for (const expected of [
+    "The first run stops after its correction.",
+    "The rerun has read the retained correction.",
+  ]) {
+    assert.equal(
+      await runCommand(
+        ["round", ...original, "--no-watch"],
+        f.runtime,
+        f.options,
+      ),
+      0,
+      `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+    )
+    assert.match(f.visible.at(-1) ?? "", new RegExp(expected))
+  }
+
+  const data = JSON.parse(
+    await readFile(join(f.activeRoot, `${label}-rounds.json`), "utf8"),
+  ) as {
+    rounds: { commits: { repository: string; sha: string }[] }[]
+  }
+  const retainedFix = data.rounds[0].commits[0]
+  assert.ok(retainedFix)
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.equal(audits.length, 2)
+  const secondArguments = /^Phase arguments \(JSON array\): (.+)$/m.exec(
+    audits[1].prompt,
+  )
+  assert.ok(secondArguments)
+  const [, secondGroup] = JSON.parse(secondArguments[1]) as [
+    string,
+    { commits: string[]; originalCommits: string[] },
+  ]
+  assert.deepEqual(secondGroup.originalCommits, original)
+  assert.deepEqual(secondGroup.commits, [...original, retainedFix.sha])
+})
+
 test("an archived plan without --auditor is refused", async (t) => {
   const f = await roundFixture(
     t,

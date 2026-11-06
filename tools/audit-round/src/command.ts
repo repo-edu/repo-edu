@@ -90,10 +90,12 @@ import {
   type DisprovedFinding,
   type LandedCommit,
   parseRoundDataFile,
+  readCommitRoundData,
   roundDataFilename,
   writeDisprovedFinding,
 } from "./round-data.js"
 import {
+  commitTargetLabel,
   deleteRoundReports,
   type ManualPhase,
   type MarkerKind,
@@ -1885,6 +1887,18 @@ export async function runCommand(
             ...value,
             groups,
           }
+        }
+        if ("groups" in target) {
+          let retainedCommits: readonly LandedCommit[] = []
+          try {
+            retainedCommits = (
+              await readCommitRoundData(context, commitTargetLabel(target))
+            ).flatMap((round) => round.commits)
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+          }
+          if (retainedCommits.length > 0)
+            target = await advanceCommitTarget(target, retainedCommits)
         }
         const printDeferrals = async () => {
           if (!("plan" in target)) return
