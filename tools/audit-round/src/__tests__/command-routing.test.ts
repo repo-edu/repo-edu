@@ -1188,8 +1188,6 @@ for (const working of ["repo-edu", "plan"] as const) {
       `${target}-0-claim.md`,
       `${target}-1-round.oux.md`,
       `${target}-1-round.oux.log`,
-      `${target}-6-brief.obm.md`,
-      `${target}-6-brief.obm.log`,
       `${target}-7-ruling.oth.md`,
       `${target}-9-watch.oth.md`,
       `${target}-1-audit.oux.md`,

@@ -102,7 +102,6 @@ for (const auditor of ["codex", "claude"] as const) {
           "round",
           "example.md",
           "3",
-          "--brief",
           "--auditor",
           auditor === "codex" ? "otx" : "atx",
         ],
@@ -138,8 +137,6 @@ for (const auditor of ["codex", "claude"] as const) {
           false,
           invocations[index].args.join(" "),
         )
-    // The brief names its own model whatever the command line asked for.
-    assert.ok(invocations[4].args.includes("gpt-5.6-terra"))
     const { log } = await f.records()
     assert.match(
       log,
@@ -148,7 +145,6 @@ for (const auditor of ["codex", "claude"] as const) {
         : /audit +claude +claude-fable-5-1 +extra high +--auditor/,
     )
     assert.match(log, /fix +codex +gpt-5\.6-sol +high +audit-round coders/)
-    assert.match(log, /brief +codex +gpt-5\.6-terra +low +audit-round settings/)
     // The requested model and effort stay in the arguments above.
     // The fix receives the release and effort reported by each phase instead.
     assert.deepEqual(
@@ -367,8 +363,6 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["round", "example.md", "1", "--auditor", "atxx"],
     ["round", "example.md", "--chain", "extra", "3"],
     ["round", "example.md", "--unknown"],
-    ["round", "example.md", "--no-brief"],
-    ["brief", "ROUND-example.md", "extra"],
     ["settle", "example", "extra"],
     ["ready", "example", "extra"],
     ["implement", "example", "1", "extra"],
@@ -379,7 +373,6 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example", "extra"],
     ["example", "--auditor", "codex"],
     ["example", "--first", "codex"],
-    ["example", "--brief"],
     ["example", "--no-watch"],
     // An option before a subcommand belongs to the run, which no subcommand reads.
     ["-v", "round", "example"],
@@ -397,7 +390,6 @@ test("argument errors and help start no assistant processes", async (t) => {
     [],
     ["-h"],
     ["--help"],
-    ["brief", "--help"],
     ["settle", "--help"],
     ["ready", "--help"],
     ["implement", "--help"],
@@ -414,7 +406,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -432,7 +424,6 @@ test("argument errors and help start no assistant processes", async (t) => {
   for (const name of [
     "models",
     "disprove",
-    "brief",
     "settle",
     "ready",
     "implement",
@@ -444,7 +435,6 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /--aborted <reason>/)
   assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /assistant set in settings\.json\s+fixes/)
-  assert.match(visible, /plain-words brief/)
   assert.match(visible, /--auditor <selections>\s+auditors in round order/)
   assert.doesNotMatch(visible, /--chain/)
   assert.match(visible, /<effort>\s+l = low, m = medium, h = high, x = xhigh/)
@@ -511,13 +501,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const auditGroup = { ...group, originalCommits: group.commits }
     assert.equal(
       await runCommand(
-        [
-          "round",
-          ...commits,
-          "--brief",
-          "--auditor",
-          auditor === "codex" ? "o" : "a",
-        ],
+        ["round", ...commits, "--auditor", auditor === "codex" ? "o" : "a"],
         f.runtime,
         f.options,
       ),
@@ -536,7 +520,7 @@ for (const auditor of ["codex", "claude"] as const) {
         `commit-${group.commits[0].slice(0, 6)}..${group.commits.at(-1)?.slice(0, 6)}`,
       ),
     )
-    for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
+    for (const phase of ["audit", "vet", "rebut", "fix"])
       assert.ok(log.includes(`[${phase}] finished`))
     assert.doesNotMatch(log, /\[(?:glance|watch)\]|watch +codex|Chained round/)
     const invocations = (await f.calls()).filter(
@@ -545,6 +529,6 @@ for (const auditor of ["codex", "claude"] as const) {
         (call.args[0] === "-p" &&
           !call.args.includes("--no-session-persistence")),
     )
-    assert.equal(invocations.length, 5)
+    assert.equal(invocations.length, 4)
   })
 }

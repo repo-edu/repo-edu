@@ -109,7 +109,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const { log, markdown } = await f.records()
     assert.match(markdown, /Premise needs a decision/)
     assert.match(log, /\[audit\] failed: Premise conflict/)
-    assert.doesNotMatch(log, /\[(?:vet|rebut|fix|brief|rule|watch)\] starting/)
+    assert.doesNotMatch(log, /\[(?:vet|rebut|fix|rule|watch)\] starting/)
     assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
       "cd",
       f.planRoot,
@@ -184,14 +184,14 @@ for (const auditor of ["codex", "claude"] as const) {
   })
 }
 
-for (const phase of ["vet", "rebut", "fix", "brief", "watch"] as const) {
+for (const phase of ["vet", "rebut", "fix", "watch"] as const) {
   test(`planning ${phase} failure ends the chain in the plan repository`, async (t) => {
     const f = await roundFixture(t, "codex", "plan", false, null, true, "plan")
     f.phases[phase] = { stream: "", exitCode: 7 }
     await f.configure({ phases: f.phases })
     assert.equal(
       await runCommand(
-        ["round", "example.md", "--brief", "--auditor", "codex,claude"],
+        ["round", "example.md", "--auditor", "codex,claude"],
         f.runtime,
         f.options,
       ),
@@ -263,7 +263,7 @@ for (const working of ["repo-edu", "plan"] as const) {
             join(f.repoRoot, ".agents/skills/watch/references/workflow.md"),
           ),
         )
-        assert.ok(log.indexOf("[brief] finished") < log.indexOf("[glance] due"))
+        assert.ok(log.indexOf("[fix] finished") < log.indexOf("[glance] due"))
         assert.ok(log.includes(`Working directory: ${f.runtime.cwd}`))
         assert.ok(log.includes(`Repo Edu checkout: ${f.repoRoot}`))
         assert.ok(log.includes(`Plan checkout: ${f.planRoot}`))

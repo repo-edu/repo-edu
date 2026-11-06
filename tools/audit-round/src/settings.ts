@@ -68,7 +68,6 @@ export const settingsSchema = z.strictObject({
   coders: z.array(coderSchema).min(1),
   phases: z.strictObject({
     vet: assistantPhase,
-    brief: assignedPhase,
     watch: assignedPhase,
     judge: assignedPhase,
     close: assignedPhase,

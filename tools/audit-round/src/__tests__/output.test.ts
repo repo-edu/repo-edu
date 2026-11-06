@@ -1,6 +1,5 @@
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
-import { join } from "node:path"
 import { Writable } from "node:stream"
 import { test } from "node:test"
 import { decodeClaude } from "../claude.js"
@@ -10,7 +9,6 @@ import { RunClock } from "../run-clock.js"
 import { createTerminal } from "../terminal.js"
 import type { Assistant, AuditorOverride } from "./configured-runner.js"
 import {
-  briefRun,
   commandText,
   pinned,
   RoundOutput,
@@ -129,7 +127,7 @@ test("commit stamps retain each phase's reported selection across later phases",
     ["vet", { model: "gpt-6-astra", effort: "medium" }],
     ["rebut", { model: "claude-fable-5-1", effort: "xhigh" }],
     ["fix", { model: "gpt-6-astra", effort: "medium" }],
-    ["brief", { model: "gpt-5.6-terra", effort: "low" }],
+    ["watch", { model: "gpt-5.6-sol", effort: "low" }],
   ] as const) {
     await output.phase.start(
       {
@@ -151,7 +149,9 @@ test("commit stamps retain each phase's reported selection across later phases",
                   arguments: ["/report.md"] as const,
                   rulingFile: "/ruling.md",
                 }
-              : { phase, arguments: ["/report.md", "/output.md"] as const }),
+              : phase === "watch"
+                ? { phase, evidence: "Episode facts", arguments: [] as const }
+                : { phase, arguments: ["/report.md", "/output.md"] as const }),
 
         sessionId: null,
       },
@@ -635,7 +635,6 @@ test("the settings header groups phases by assistant in aligned columns", async 
           scope: "1",
           auditor,
           auditorSelectionSource: "settings",
-          brief: true,
         },
         Date.now(),
         releases,
@@ -668,7 +667,6 @@ test("the settings header groups phases by assistant in aligned columns", async 
     "audit  codex   gpt-5.6-sol       high  audit-round defaults",
     "rebut  codex   gpt-5.6-sol       high  audit-round defaults",
     "fix    codex   gpt-5.6-sol       high  audit-round coders",
-    "brief  codex   gpt-5.6-terra     low   audit-round settings",
     "watch  codex   gpt-5.6-sol       high  audit-round defaults",
     "vet    claude  claude-opus-5[1m] high  audit-round defaults",
   ]
@@ -679,7 +677,6 @@ test("the settings header groups phases by assistant in aligned columns", async 
       "rebut  claude  claude-opus-5[1m] high  audit-round defaults",
       "vet    codex   gpt-5.6-sol       high  audit-round defaults",
       "fix    codex   gpt-5.6-sol       high  audit-round coders",
-      "brief  codex   gpt-5.6-terra     low   audit-round settings",
       "watch  codex   gpt-5.6-sol       high  audit-round defaults",
     ].join("\n"),
   )
@@ -709,7 +706,6 @@ test("the settings header names what set each phase's model and effort", async (
               ? override.option
               : "settings",
           override,
-          brief: true,
         },
         Date.now(),
         releases,
@@ -744,7 +740,6 @@ test("the settings header names what set each phase's model and effort", async (
       "audit  codex   gpt-6-astra     extra high  --auditor",
       "rebut  codex   gpt-6-astra     extra high  --auditor",
       "fix    codex   gpt-5.6-sol     high        audit-round coders",
-      "brief  codex   gpt-5.6-terra   low         audit-round settings",
       "watch  codex   gpt-5.6-sol     high        audit-round defaults",
       "vet    claude  claude-opus-5-5 high        audit-round defaults",
     ],
@@ -802,106 +797,6 @@ test("the settings header names what set each phase's model and effort", async (
       "rebut  claude  claude-opus-5-5 extra high  --auditor",
     ],
   )
-})
-
-test("the brief's text stays out of the transcript it retells", async (t) => {
-  const f = await fixture(t)
-  const visible: string[] = []
-  const output = new RoundOutput(
-    await roundRun(
-      { ...testSetup(f.root), plan: "example.md", scope: "1" },
-      Date.now(),
-      releases,
-    ),
-    {
-      clock: new RunClock(Date.now),
-      terminal: {
-        write: (text) => {
-          visible.push(text)
-        },
-        status: () => {},
-        clear: () => {},
-      },
-    },
-  )
-  t.after(() => output.close())
-  await output.phase.start(
-    {
-      phase: "brief",
-      assistant: "claude",
-      model: pinned("claude"),
-      ...testContext(f.root),
-      arguments: [output.paths.markdown, "/brief.md"],
-      sessionId: null,
-    },
-    "Brief prompt",
-  )
-  await output.phase.observe({ type: "text", text: "Plain words" })
-  output.showBrief("# Saved brief\n\nThe full explanation.")
-  const markdown = await readFile(output.paths.markdown, "utf8")
-  assert.doesNotMatch(markdown, /## brief|Plain words|The full explanation/)
-  assert.doesNotMatch(visible.join("\n"), /Plain words/)
-  assert.equal(visible.at(-1), "# Saved brief\n\nThe full explanation.")
-  assert.match(await readFile(output.paths.log, "utf8"), /Brief prompt/)
-  assert.match(
-    await readFile(output.paths.log, "utf8"),
-    /# Saved brief\n\nThe full explanation\./,
-  )
-})
-
-test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
-  const f = await fixture(t)
-  const transcript = join(
-    f.runtime.activeRoot,
-    "example-impl-01..01-01-1-round.oth.md",
-  )
-  const visible: string[] = []
-  const markdown: string[] = []
-  const output = new RoundOutput(
-    await briefRun(
-      transcript,
-      f.runtime,
-      Date.parse("2026-09-13T08:00:00Z"),
-      releases,
-    ),
-    {
-      clock: new RunClock(Date.now),
-      terminal: {
-        write: (text) => {
-          visible.push(text)
-        },
-        status: () => {},
-        clear: () => {},
-      },
-      openFiles: (paths) => {
-        assert.equal(paths.markdown, null)
-        return {
-          log: () => {},
-          markdown: null,
-          close: () => {},
-        }
-      },
-    },
-  )
-  t.after(() => output.close())
-  assert.match(output.paths.log, /example-impl-01..01-01-6-brief\.oul\.log$/)
-  assert.equal(output.paths.markdown, null)
-  assert.match(
-    visible[0] as string,
-    /^\n═{72}\nBrief of example-impl-01..01-01-1-round\.oth\.md\n/,
-  )
-  assert.doesNotMatch(visible[0] as string, /Texts:/)
-  output.models(releases)
-  assert.equal(
-    visible.at(-1),
-    "brief  codex  gpt-5.6-terra low  audit-round settings",
-  )
-  assert.deepEqual(markdown, [])
-  output.finish({
-    status: "finished",
-    brief: `${transcript.slice(0, -3)}-brief.md`,
-  })
-  assert.deepEqual(visible.slice(-2), ["Brief finished.", "═".repeat(72)])
 })
 
 test("shell display decoding retains unrecognised commands without evaluating them", () => {

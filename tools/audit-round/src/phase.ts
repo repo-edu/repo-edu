@@ -42,24 +42,19 @@ export type Phase =
   | "rebut"
   | "fix"
   | "implement"
-  | "brief"
   | "watch"
   | "judge"
   | "close"
 
 export type RoundPhase = Exclude<Phase, "implement">
 
-/**
- * Each phase's skill name, which names its workflow folder and launchers. The
- * brief's name keeps the round brief apart from the home plan brief.
- */
+/** Each phase's skill name, which names its workflow folder and launchers. */
 export const phaseSkills: Record<Phase, string> = {
   audit: "audit",
   vet: "vet",
   rebut: "rebut",
   fix: "fix",
   implement: "implement",
-  brief: "brief-round",
   watch: "watch",
   judge: "judge",
   close: "close",
@@ -345,7 +340,6 @@ export function roundPhases(
     rebut: audit,
     // The plan's ready assignment chooses the fixer. Work without one uses the first coder.
     fix,
-    brief: run("brief", config.phases.brief.assistant),
     // The watch reads joined trajectory evidence, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
     // The judge reads retained evidence and uses its own cheap setting.
@@ -405,7 +399,7 @@ export function namedModels(
 /**
  * The phases that carry out the round's work: each runs from the working
  * checkout under a launcher and the round's commit model record names it. The
- * brief, the ruling and the watch are separate documents.
+ * ruling and the watch are separate documents.
  */
 export function recorded(phase: Phase): boolean {
   return (
@@ -475,10 +469,6 @@ type PhaseArguments = {
         readonly rulingReply?: string
       }
   )
-  brief: {
-    readonly arguments: readonly [transcript: string, brief: string]
-    readonly sessionId: null
-  }
   watch: {
     readonly evidence: string
     readonly arguments: readonly []
@@ -580,7 +570,6 @@ type PhaseControlResults = {
   rebut: ReportResult
   fix: FixResult
   implement: ImplementResult
-  brief: ReportResult
   watch: ReportResult
   judge: ReportResult
   close: ReportResult
@@ -597,7 +586,6 @@ type PhaseResults = {
   rebut: ReportResult
   fix: FixResult
   implement: ImplementResult
-  brief: ReportResult
   watch: WatchResult
   judge: ReportResult
   close: ReportResult
@@ -631,8 +619,6 @@ export type RoundDependencies = {
     nameStart: string,
   ) => Promise<readonly string[]>
   readonly checkFile: (file: string) => Promise<void>
-  /** Prints the saved brief after its phase and output validation have completed. */
-  readonly showBrief: (document: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<CleanCompletion>
   readonly readReport: (
     file: string,

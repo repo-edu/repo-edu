@@ -86,7 +86,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       const { log, markdown } = await f.records()
       assert.doesNotMatch(
         log,
-        /\[(?:vet|rebut|fix|brief|watch)\] starting|\[glance\]/,
+        /\[(?:vet|rebut|fix|watch)\] starting|\[glance\]/,
       )
       assert.match(markdown, /Clean audit recorded/)
     })
@@ -145,7 +145,7 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
   assert.equal(await shortCommit(f.repoRoot, "HEAD"), f.heads["repo-edu"])
   assert.match(await readFile(f.report, "utf8"), /No findings/)
   const { log, markdown } = await f.records()
-  assert.doesNotMatch(log, /\[(?:vet|rebut|fix|brief|watch)\] starting/)
+  assert.doesNotMatch(log, /\[(?:vet|rebut|fix|watch)\] starting/)
   assert.match(markdown, /Clean audit\. Report retained/)
 })
 
@@ -271,7 +271,7 @@ test("a refused clean commit fails without starting a fix or deleting the eviden
   )
   const { log } = await f.records()
   assert.match(log, /\[complete\] failed/)
-  assert.doesNotMatch(log, /\[(?:fix|brief|watch)\] starting|Resume:/)
+  assert.doesNotMatch(log, /\[(?:fix|watch)\] starting|Resume:/)
   assert.match(await readFile(f.report, "utf8"), /No missing findings/)
 })
 

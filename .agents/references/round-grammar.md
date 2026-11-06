@@ -1038,8 +1038,8 @@ Audit ranges: 1-2, 2-4.
 ```
 
 The phase result is the response's last line and stays outside a code fence.
-The JSON object has exactly the two fields shown. Audit, vet, rebuttal, brief,
-watch, judge and close admit `finished` or `failed`. Fix and implement also
+The JSON object has exactly the two fields shown. Audit, vet, rebuttal, watch,
+judge and close admit `finished` or `failed`. Fix and implement also
 admit `needs-ruling`.
 
 ### Phase table

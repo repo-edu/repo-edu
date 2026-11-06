@@ -1,12 +1,5 @@
 import assert from "node:assert/strict"
-import {
-  access,
-  mkdir,
-  readdir,
-  readFile,
-  utimes,
-  writeFile,
-} from "node:fs/promises"
+import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -76,29 +69,6 @@ gpt-6.1-sol xhigh
     title: "Plan choice",
   } as const
 }
-
-test("a brief without a transcript retells the newest round in the active folder", async (t) => {
-  const f = await roundFixture(t)
-  const brief = async () => {
-    f.errors.length = 0
-    return runCommand(["brief"], f.runtime, f.options)
-  }
-  assert.equal(await brief(), 1)
-  assert.match(f.errors[0], /No round transcript/)
-  const [older, newer] = ["example-02", "example-impl-07..07-01"].map((start) =>
-    join(f.activeRoot, `${start}-1-round.abx.md`),
-  )
-  await writeFile(older, "# Plan audit of example.md\n")
-  await writeFile(newer, "# Implementation audit of example.md, step 7\n")
-  // The later name carries the earlier date, so the date decides rather than the name.
-  await utimes(older, 1_000, 1_000)
-  assert.equal(await brief(), 0, f.errors.join("\n"))
-  const log = await readFile(
-    join(f.activeRoot, "example-impl-07..07-01-6-brief.oul.log"),
-    "utf8",
-  )
-  assert.ok(log.includes(JSON.stringify([newer, f.brief])))
-})
 
 test("plan prints the newest active plan without claiming a round", async (t) => {
   const f = await roundFixture(t)
@@ -207,7 +177,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
       `Workflow: ${join(f.planRoot, ".agents/skills/close/references/workflow.md")}`,
     ),
   )
-  assert.doesNotMatch(log, /audit +codex|fix +codex|brief +codex/)
+  assert.doesNotMatch(log, /audit +codex|fix +codex/)
   assert.match(f.visible.join("\n"), /Close finished\./)
   for (const file of dataFiles) {
     assert.equal(
@@ -293,62 +263,6 @@ test("close refuses paths and plans without an active artifact before any assist
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
-})
-
-test("a brief on its own retells the named transcript without a new round pair", async (t) => {
-  const f = await roundFixture(t)
-  const transcript = join(f.activeRoot, "example-impl-07..07-01-1-round.abx.md")
-  await writeFile(transcript, "# Implementation audit of example.md, step 7\n")
-  assert.equal(
-    await runCommand(
-      ["brief", "example-impl-07..07-01-1-round.abx.md"],
-      f.runtime,
-      f.options,
-    ),
-    0,
-    f.errors.join("\n"),
-  )
-  const invocations = (await f.calls()).filter(
-    (call) =>
-      call.args[0] === "exec" ||
-      (call.args[0] === "-p" &&
-        !call.args.includes("--no-session-persistence")),
-  )
-  assert.deepEqual(
-    invocations.map((call) => call.assistant),
-    ["codex"],
-  )
-  const names = (await readdir(f.activeRoot)).filter((name) =>
-    name.startsWith("example-impl-07..07-01-"),
-  )
-  const logName = names.find((name) => name.endsWith(".log")) as string
-  assert.match(logName, /^example-impl-07\.\.07-01-6-brief\.oul\.log$/)
-  assert.deepEqual(
-    names.toSorted(),
-    [
-      logName,
-      "example-impl-07..07-01-1-round.abx.md",
-      "example-impl-07..07-01-6-brief.oul.md",
-    ].toSorted(),
-  )
-  const log = await readFile(join(f.activeRoot, logName), "utf8")
-  assert.match(log, /Brief of example-impl-07\.\.07-01-1-round\.abx\.md\n/)
-  assert.ok(
-    log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
-    ),
-  )
-  assert.match(log, /brief +codex +gpt-5\.6-terra +low/)
-  assert.doesNotMatch(log, /audit +codex|fix +codex/)
-  const visible = f.visible.join("\n")
-  assert.equal(visible.includes("Complete brief text."), false)
-  assert.equal(f.visible.filter((text) => text === "Written brief").length, 1)
-  assert.match(log, /Written brief/)
-  assert.match(visible, /Brief finished\./)
-  assert.equal(
-    await readFile(transcript, "utf8"),
-    "# Implementation audit of example.md, step 7\n",
-  )
 })
 
 test("a plan named without its extension runs as its .md file", async (t) => {
@@ -461,29 +375,6 @@ test("an archived plan is refused before any assistant starts", async (t) => {
     f.errors.at(-1) as string,
     /Archived plans are not audit targets/,
   )
-  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-    code: "ENOENT",
-  })
-})
-
-test("a brief on its own refuses a transcript that is not a Markdown file at the root", async (t) => {
-  const f = await roundFixture(t)
-  await writeFile(join(f.repoRoot, "ROUND-example-old.md"), "Old transcript")
-  await writeFile(
-    join(f.repoRoot, "../plan/example-01-1-round.oth.md"),
-    "Peer transcript",
-  )
-  for (const name of [
-    "missing.md",
-    "pnpm-workspace.yaml",
-    "ROUND-example-old.md",
-  ]) {
-    assert.equal(await runCommand(["brief", name], f.runtime, f.options), 1)
-    assert.match(
-      f.errors.at(-1) as string,
-      /Name a round's \*-1-round\.<tag>\.md transcript/,
-    )
-  }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })

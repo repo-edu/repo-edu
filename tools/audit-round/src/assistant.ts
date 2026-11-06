@@ -208,7 +208,6 @@ export function assistantDependencies(
       vet: (input) => runAssistantPhase(input, output, runtime),
       rebut: (input) => runAssistantPhase(input, output, runtime),
       fix: (input) => runAssistantPhase(input, output, runtime),
-      brief: (input) => runAssistantPhase(input, output, runtime),
       watch: (input) => runAssistantPhase(input, output, runtime),
       close: (input) => runAssistantPhase(input, output, runtime),
     },

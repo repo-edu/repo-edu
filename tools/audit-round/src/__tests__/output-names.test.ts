@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -12,7 +12,6 @@ import {
   unprefixedCommitReference,
 } from "../target.js"
 import {
-  briefRun,
   RoundOutput,
   roundRun,
   testSettings,
@@ -40,7 +39,6 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
       ...testSetup(f.root),
       originalGroups: [group],
       groups: [group],
-      brief: true,
     },
     0,
     releases,
@@ -60,7 +58,6 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     "commit-abcdef..123abc-01-2-audit.obh.md",
     "commit-abcdef..123abc-01-3-vet.abh.md",
     "commit-abcdef..123abc-01-4-rebut.obh.md",
-    "commit-abcdef..123abc-01-6-brief.oul.md",
     "commit-abcdef..123abc-01-7-ruling.obh.md",
     "commit-abcdef..123abc-01-9-watch.obh.md",
   ])
@@ -73,8 +70,6 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     transcriptNameStart(run.paths.markdown),
     "commit-abcdef..123abc-01",
   )
-  const brief = await briefRun(run.paths.markdown, f.runtime, 0, releases)
-  assert.equal(brief.paths.log, brief.brief.replace(/\.md$/, ".log"))
   assert.equal(
     basename(run.paths.claim as string),
     "commit-abcdef..123abc-01-0-claim.md",
@@ -137,8 +132,6 @@ test("only retained numbered files in the active folder reserve numbers across a
       "2-audit.abh.md",
       "3-vet.otm.md",
       "4-rebut.abh.md",
-      "6-brief.oul.md",
-      "6-brief.oul.log",
       "7-ruling.obh.md",
       "9-watch.abh.md",
     ]) {
@@ -291,35 +284,6 @@ test("single steps and ranges keep separate padded numbering", async (t) => {
     assert.ok(run.data)
     new RoundOutput(run, options).close()
   }
-})
-
-test("a standalone brief reuses the number and overwrites only its pinned writer's log", async (t) => {
-  const f = await fixture(t)
-  const transcript = join(
-    f.runtime.activeRoot,
-    "example-impl-01..01-09-1-round.abh.md",
-  )
-  await writeFile(transcript, "Original transcript")
-  const run = await briefRun(transcript, f.runtime, 0, releases)
-  assert.equal(
-    basename(run.paths.log),
-    "example-impl-01..01-09-6-brief.oul.log",
-  )
-  const first = new RoundOutput(run, options)
-  await first.message("First brief")
-  first.close()
-  new RoundOutput(
-    await briefRun(transcript, f.runtime, 1000, releases),
-    options,
-  ).close()
-  assert.doesNotMatch(await readFile(run.paths.log, "utf8"), /First brief/)
-  assert.equal(await readFile(transcript, "utf8"), "Original transcript")
-  assert.deepEqual(
-    (await readdir(f.runtime.activeRoot)).filter((name) =>
-      name.endsWith("-0-claim.md"),
-    ),
-    [],
-  )
 })
 
 test("an automatic judge needs no capability tag because it writes no file", async (t) => {

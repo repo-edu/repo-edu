@@ -7,7 +7,6 @@ report completion under the shared protocol's
 [Runner result](../../../references/round-protocol.md#runner-result). Review it
 for clarity in this same session. No separate drafting or editing session
 follows. The runner displays the ruling directly and collects the user's reply.
-The brief runs only after a full audit fix has completed.
 
 ## Evidence and scope
 
@@ -47,7 +46,7 @@ Price the request under the plan doctrine's
 [Mechanism cases](../../../../../plan/CLAUDE.md#mechanism-cases).
 Do not invent a disadvantage for every option. Explain changes to owners, state or rules when they
 affect the choice. Include the finding context needed to decide each open item. The full round's
-findings and ratings belong in the brief after the fix completes.
+findings and ratings stay in the round transcript.
 
 ## Review and replies
 

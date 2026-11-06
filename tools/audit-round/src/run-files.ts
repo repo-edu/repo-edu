@@ -1,10 +1,10 @@
 import { closeSync, openSync, writeFileSync } from "node:fs"
 
 export type RunPaths = {
-  /** Null for a standalone brief or contract probe, which reserves no round. */
+  /** Null for a close, implementation step or contract probe, which reserves no round. */
   readonly claim: string | null
   readonly log: string
-  /** Null when the run keeps no transcript: a brief on its own retells an existing one. */
+  /** Null when the run keeps no transcript: a close and an implementation step only log. */
   readonly markdown: string | null
   /**
    * True only when a recovery reopens a retained implementation step log,

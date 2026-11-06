@@ -382,8 +382,8 @@ the doer's reasoning. So:
   to, the area model, the named plan and the episode's earlier watch documents
   in the plan checkout's `active/` folder. Inspect named commits as needed to verify a claim; do not
   repeat the episode walk or token counts.
-- Do not read the round's transcript, its brief, its report or its vet and
-  rebuttal twins, and do not read the fix session. The invocation gives you
+- Do not read the round's transcript, its report or its vet and rebuttal
+  twins, and do not read the fix session. The invocation gives you
   none of them on purpose.
 - The watch session is read-only. Change no file or code, run no writing
   command and land no commit. The runner publishes an admitted automated result.
@@ -505,7 +505,7 @@ reads only the record and the next watch rebuilds its evidence from the view.
 The full form then costs the watch's output and every later judge's input for
 nothing either acts on.
 
-Nothing else belongs in the file. The round's own brief holds its findings.
+Nothing else belongs in the file. The round's own transcript holds its findings.
 
 ## Final wording
 

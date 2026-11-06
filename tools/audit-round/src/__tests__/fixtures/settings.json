@@ -51,11 +51,6 @@
         "effort": "default"
       }
     },
-    "brief": {
-      "assistant": "codex",
-      "model": "gpt-5.6-terra",
-      "effort": "low"
-    },
     "watch": {
       "assistant": "codex",
       "model": "default",

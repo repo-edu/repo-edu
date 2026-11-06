@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath, stat, unlink } from "node:fs/promises"
+import { readdir, realpath, stat, unlink } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import {
@@ -6,7 +6,6 @@ import {
   type CommitGroup,
   type CommitTarget,
   planStem,
-  type RoundKind,
 } from "./target.js"
 
 type NamingTarget = ExecutionContext & AuditTarget
@@ -17,7 +16,6 @@ const phaseOrder = {
   vet: 3,
   rebut: 4,
   fix: 5,
-  brief: 6,
   ruling: 7,
   glance: 8,
   watch: 9,
@@ -43,14 +41,14 @@ function readPhaseFilename(name: string): {
   extension: "md" | "log"
 } | null {
   const match =
-    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|brief|ruling|watch)\.([ao][btu][lmhx])\.(md|log)$/.exec(
+    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|ruling|watch)\.([ao][btu][lmhx])\.(md|log)$/.exec(
       name,
     )
   if (match === null) return null
   const kind = match[3] as FileKind
   if (
     Number(match[2]) !== phaseOrder[kind] ||
-    (match[5] === "log" && kind !== "round" && kind !== "brief")
+    (match[5] === "log" && kind !== "round")
   )
     return null
   return {
@@ -202,7 +200,7 @@ export async function queueFile(setup: NamingTarget): Promise<string> {
   )
 }
 
-/** A later writer reuses the transcript's target and number, replacing its tag and kind. */
+/** The transcript's target and round number, which start every file of its round. */
 export function transcriptNameStart(transcript: string): string {
   const parsed = readPhaseFilename(basename(transcript))
   if (parsed?.kind !== "round" || parsed.extension !== "md")
@@ -212,20 +210,11 @@ export function transcriptNameStart(transcript: string): string {
   return parsed.nameStart
 }
 
-/** The runner's transcript title records the kind independently of its file name. */
-export async function transcriptKind(transcript: string): Promise<RoundKind> {
-  const title = (await readFile(transcript, "utf8")).split("\n", 1)[0]
-  if (title.startsWith("# Plan audit of ")) return "planning"
-  if (/^# (Implementation|Commit) audit of /.test(title))
-    return "implementation"
-  throw new Error(`Missing round kind in transcript title: ${transcript}`)
-}
-
-/** Read an existing phase document named without a path in the active folder. */
-export async function roundDocument(
+/** Read an existing report or twin named without a path in the active folder. */
+async function roundDocument(
   context: ExecutionContext,
   file: string,
-  kind: FileKind,
+  kind: "audit" | "vet" | "rebut",
 ): Promise<{ path: string; nameStart: string }> {
   try {
     if (/[\\/]/.test(file)) throw new Error("Expected a bare file name")
@@ -242,7 +231,7 @@ export async function roundDocument(
     // Report the required document form below when the input cannot be opened.
   }
   throw new Error(
-    `Name a round's *-${phaseOrder[kind]}-${kind}.<tag>.md ${kind === "round" ? "transcript" : "report"} by its bare file name in the plan checkout's active folder: ${file}`,
+    `Name a round's *-${phaseOrder[kind]}-${kind}.<tag>.md report by its bare file name in the plan checkout's active folder: ${file}`,
   )
 }
 
@@ -273,20 +262,6 @@ export async function newestWatch(
       })
       .map((document) => document.path),
   )
-}
-
-/** A brief given no transcript retells the most recent round in the active folder. */
-export async function newestTranscript(
-  context: ExecutionContext,
-): Promise<string> {
-  const newest = await newestDocument(
-    (await phaseDocuments(context.activeRoot, "round")).map(
-      (document) => document.path,
-    ),
-  )
-  if (newest === undefined)
-    throw new Error(`No round transcript at ${context.activeRoot}. Name one.`)
-  return newest
 }
 
 /** Resolve one existing round without claiming it or consulting future writers' settings. */

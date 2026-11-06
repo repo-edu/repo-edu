@@ -10,14 +10,7 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
     await runCommand(
-      [
-        "round",
-        "example.md",
-        "3",
-        "--brief",
-        "--auditor",
-        "codex,codex,codex,codex",
-      ],
+      ["round", "example.md", "3", "--auditor", "codex,codex,codex,codex"],
       f.runtime,
       f.options,
     ),
@@ -41,9 +34,9 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
       (call.args[0] === "-p" &&
         !call.args.includes("--no-session-persistence")),
   )
-  // Four rounds of the five phases; the glance after each runs in the runner
+  // Four rounds of the four phases; the glance after each runs in the runner
   // and a finished fix opens no ruling.
-  assert.equal(invocations.length, 20)
+  assert.equal(invocations.length, 16)
   const visible = f.visible.join("\n")
   assert.match(visible, /Next round: codex; 3 auditor entries remain\./)
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
@@ -238,7 +231,7 @@ test("a compacted watch publishes neither its document nor cadence record", asyn
 })
 
 for (const target of ["implementation", "planning", "commits"] as const) {
-  test(`rounds without --brief omit briefs from ${target} rounds while preserving completion and watch`, async (t) => {
+  test(`${target} rounds complete and delete their reports while the watch still runs`, async (t) => {
     const working = target === "planning" ? "plan" : "repo-edu"
     const f = await roundFixture(
       t,
@@ -265,13 +258,6 @@ for (const target of ["implementation", "planning", "commits"] as const) {
       f.errors.join("\n"),
     )
     const visible = f.visible.join("\n")
-    assert.doesNotMatch(visible, /\[brief\]|^brief\s|Written brief/m)
-    assert.equal(
-      (await f.prompts()).some((call) =>
-        call.prompt.startsWith("Run the brief phase "),
-      ),
-      false,
-    )
     assert.match(visible, /Audit round finished\./)
     if (target !== "commits") {
       // The fixture's red record stops the sequence after the first watch.
@@ -280,16 +266,11 @@ for (const target of ["implementation", "planning", "commits"] as const) {
     }
     const files = await readdir(f.activeRoot)
     assert.equal(
-      files.some((name) => /-6-brief\./.test(name)),
-      false,
-    )
-    assert.equal(
       files.some((name) => /-[123]-(audit|vet|rebut)\./.test(name)),
       false,
     )
     for (const name of await f.roundFiles()) {
       const text = await readFile(join(f.activeRoot, name), "utf8")
-      assert.doesNotMatch(text, /\[brief\]|^brief\s|Written brief/m)
       assert.match(text, /## fix|\[fix\] finished/)
     }
   })

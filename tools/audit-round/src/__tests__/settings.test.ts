@@ -281,7 +281,7 @@ test("assistant names and bare letter tags both read the defaults across chained
         effort: { value: effort, source },
       })
       assert.deepEqual(phases.rebut, phases.audit)
-      for (const phase of ["vet", "fix", "brief", "watch", "judge"] as const)
+      for (const phase of ["vet", "fix", "watch", "judge"] as const)
         assert.deepEqual(phases[phase], configured[phase])
     }
   }

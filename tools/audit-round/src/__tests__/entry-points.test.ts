@@ -77,7 +77,6 @@ for (const working of ["repo-edu", "plan"] as const) {
         "vet",
         "rebut",
         "fix",
-        "brief",
         "watch",
         "judge",
       ] as const) {
@@ -99,7 +98,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           `${working} ${assistant} ${phase}`,
         )
         assert.ok(prompt.includes("End of supplied phase instructions."))
-        if (["brief", "watch"].includes(phase)) {
+        if (phase === "watch") {
           assert.ok(
             prompt.includes(
               `Source file: ${join(context.planRoot, "home/claude/commands/simple.md")}\n`,
@@ -145,7 +144,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     const invalid = [
       ["round", "example.md", "0"],
       ["round", "../plan/example.md", "1"],
-      ["paths", "brief"],
+      ["paths", "watch"],
     ]
     for (const args of invalid) {
       const result = await execa("pnpm", ["audit-round", ...args], options)
@@ -155,16 +154,6 @@ for (const working of ["repo-edu", "plan"] as const) {
         /positive step number|Name the plan by its stem|Expected vet, rebut or fix/,
       )
     }
-    const brief = await execa(
-      "pnpm",
-      ["audit-round", "brief", "missing-01-1-round.oth.md"],
-      options,
-    )
-    assert.equal(brief.exitCode, 1)
-    assert.match(
-      brief.stderr,
-      /Name a round's \*-1-round\.<tag>\.md transcript/,
-    )
     await assert.rejects(readFile(calls), { code: "ENOENT" })
   })
 }

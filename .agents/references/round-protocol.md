@@ -557,8 +557,8 @@ path resolution and argument order. With no findings, follow
 
 ## Direct clean completion
 
-An audit with no findings completes without vet, rebuttal, fix, brief, glance
-or watch. An automatic series still runs its judge. This route avoids a fresh
+An audit with no findings completes without vet, rebuttal, fix, glance or
+watch. An automatic series still runs its judge. This route avoids a fresh
 fix session whose only work would be an empty record.
 
 For an unattended plan target, return the complete report under
@@ -608,7 +608,7 @@ body. Commit-scoped rounds use their own series settlement rule.
 
 When the prompt identifies an unattended phase, follow this rule for every
 ending, including an early stop. It is shared by audit, vet, rebuttal, fix,
-implement, brief, watch, judge and close. Ordinary interactive invocations add
+implement, watch, judge and close. Ordinary interactive invocations add
 no result line.
 
 The [phase-result grammar](round-grammar.md#phase-result) owns the final control

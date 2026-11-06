@@ -238,14 +238,7 @@ test("watch receives Repo Edu's workflow and joined evidence without a launcher"
   assert.ok(writer.endsWith("Joined watch evidence:\nJoined episode facts"))
 })
 
-for (const phase of [
-  "audit",
-  "vet",
-  "rebut",
-  "fix",
-  "brief",
-  "watch",
-] as const) {
+for (const phase of ["audit", "vet", "rebut", "fix", "watch"] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
     const finished = { status: "finished", reason: null }
     const text = (value: unknown) =>

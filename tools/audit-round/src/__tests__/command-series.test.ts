@@ -12,25 +12,13 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   const reply = "Choose option 1.\nKeep the existing range."
   let requests = 0
   const code = await runCommand(
-    [
-      "round",
-      "example.md",
-      "1",
-      "--auditor",
-      "codex,claude",
-      "--no-watch",
-      "--brief",
-    ],
+    ["round", "example.md", "1", "--auditor", "codex,claude", "--no-watch"],
     f.runtime,
     {
       ...f.options,
       readReply: async () => {
         requests++
         assert.ok(f.visible.includes("Written ruling by fix"))
-        assert.doesNotMatch(
-          f.visible.join("\n"),
-          /\[brief\] starting|Written brief/,
-        )
         const stream = await phaseStream(
           "codex",
           'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
@@ -60,10 +48,6 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.equal(requests, 1)
   const visible = f.visible.join("\n")
   assert.match(visible, /Applied the ruling/)
-  assert.equal(f.visible.filter((text) => text === "Written brief").length, 2)
-  assert.ok(
-    visible.indexOf("Applied the ruling") < visible.indexOf("Written brief"),
-  )
   assert.doesNotMatch(
     visible,
     /Run the .* phase|Phase arguments|SKILL\.md|OpenAI Codex/,
@@ -102,9 +86,6 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.ok(markdown.includes(`## User ruling\n\n${reply}`))
   assert.ok(log.includes(reply))
   assert.match(log, /Run the fix phase .* resumed session/)
-  assert.equal(log.match(/\[brief\] starting/g)?.length, 1)
-  assert.match(log, /Written brief/)
-  assert.doesNotMatch(markdown, /Written brief/)
 })
 
 /** The ruling pause lets a test act as the user editing the queue mid-round. */

@@ -38,7 +38,6 @@ import {
 import { withoutPhaseResult } from "./phase-result.js"
 import { recoveryCommand } from "./requests.js"
 import {
-  type BriefResult,
   type CloseResult,
   failureResumeSessionId,
   type RoundResult,
@@ -53,12 +52,7 @@ import {
   roundDataIdentity,
   writeRoundData,
 } from "./round-data.js"
-import {
-  type FileKind,
-  phaseFilename,
-  roundIdentity,
-  transcriptNameStart,
-} from "./round-paths.js"
+import { type FileKind, phaseFilename, roundIdentity } from "./round-paths.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { RoundSettings } from "./settings.js"
@@ -69,7 +63,6 @@ export type RoundDocuments = {
   readonly report: string
   readonly vet: string
   readonly rebut: string
-  readonly brief: string | null
   readonly ruling: string
 }
 
@@ -196,12 +189,7 @@ export async function roundRun(
   // The judge writes no file, and the close runs alone, so a round needs
   // neither tag.
   for (const phase of Object.keys(phases) as RoundPhase[]) {
-    if (
-      phase !== "close" &&
-      phase !== "judge" &&
-      (phase !== "brief" || setup.brief === true)
-    )
-      tag(phase)
+    if (phase !== "close" && phase !== "judge") tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
   const previousModels = await readPreviousRoundModels(setup)
@@ -266,7 +254,6 @@ export async function roundRun(
       report: `${path("audit", "audit")}.md`,
       vet: `${path("vet", "vet")}.md`,
       rebut: `${path("rebut", "rebut")}.md`,
-      brief: setup.brief === true ? `${path("brief", "brief")}.md` : null,
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
@@ -276,7 +263,6 @@ export async function roundRun(
       entry("vet"),
       entry("rebut"),
       entry("fix"),
-      ...(setup.brief === true ? [entry("brief")] : []),
       ...("plan" in setup ? [entry("watch")] : []),
       ...(setup.pool !== undefined ? [entry("judge")] : []),
     ],
@@ -290,44 +276,6 @@ export async function roundRun(
     ...(data === undefined ? {} : { data }),
     releases,
     settings,
-    started,
-  }
-}
-
-/** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */
-export async function briefRun(
-  transcript: string,
-  roots: PlanRoots,
-  started: number,
-  releases: Record<Assistant, ModelReleases>,
-  settings: RoundSettings,
-): Promise<Run & { readonly brief: string }> {
-  const phase = {
-    phase: "brief",
-    ...roundPhases("codex", noOverride, settings).brief,
-  } as const
-  const base = join(
-    roots.activeRoot,
-    phaseFilename(
-      transcriptNameStart(transcript),
-      "brief",
-      fileTag(phase, releases, settings),
-    ),
-  )
-  return {
-    brief: `${base}.md`,
-    name: "Brief",
-    title: `Brief of ${basename(transcript)}`,
-    phases: [phase],
-    settings,
-    releases,
-    paths: {
-      claim: null,
-      log: `${base}.log`,
-      markdown: null,
-      reopenLog: false,
-    },
-    previousModels: await readPreviousRoundModels(roots),
     started,
   }
 }
@@ -617,8 +565,6 @@ export class RoundOutput<R extends Run = Run> {
         break
       }
       case "text":
-        // The saved brief is displayed once after validation, even if its writer echoes it.
-        if (active.input.phase === "brief") break
         if (feedback.text.length > 0) {
           this.say(this.report())
           if (transcribed(active.input.phase)) {
@@ -672,12 +618,6 @@ export class RoundOutput<R extends Run = Run> {
     return { compactions: run.compactions }
   }
 
-  showBrief(text: string): void {
-    this.release()
-    this.files.log(text)
-    this.options.terminal.write(text, "markdown")
-  }
-
   beginRuling(document: string, text: string): void {
     this.release()
     this.say(`\n${separator}\nYour ruling is needed.\nDocument: ${document}`)
@@ -703,10 +643,7 @@ export class RoundOutput<R extends Run = Run> {
     this.writeRoundData("in-progress", commits, account, null)
   }
 
-  finish(
-    result: RoundResult | BriefResult | CloseResult,
-    signal?: AbortSignal,
-  ): void {
+  finish(result: RoundResult | CloseResult, signal?: AbortSignal): void {
     const unsettledReport =
       this.active === undefined
         ? ""

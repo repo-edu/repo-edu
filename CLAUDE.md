@@ -370,8 +370,8 @@ spending subject width on it. Those two commits run no model and carry no model
 record. The [subject grammar](.agents/references/subject-grammar.md#commit-model-record)
 owns both record forms and their examples.
 
-The brief and watch phases stay out because they write documents rather than
-landing work. A later implementation audit uses the recorded audit, vet and
+The watch phase stays out because it writes a document rather than landing
+work. A later implementation audit uses the recorded audit, vet and
 rebuttal time as the cost of the round on the same scope.
 
 The model is the one the CLI reported running, never the one the round asked

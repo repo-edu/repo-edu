@@ -164,4 +164,4 @@ watch.
 `pnpm audit-round round` accepts the original references as its target
 arguments. Without `--auditor` it runs the automatic series. With
 `--auditor`, it runs the entries in order through the editable queue. No commit
-round runs a trajectory glance or watch after its fix or brief.
+round runs a trajectory glance or watch after its fix.

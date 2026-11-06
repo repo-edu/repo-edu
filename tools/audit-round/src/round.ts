@@ -72,8 +72,6 @@ export type RoundSetup = RoundContext & {
   readonly auditorSelectionSource: AuditorSelectionSource
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
-  /** True adds the brief to every round in the command; absent runs none. */
-  readonly brief?: boolean
   /**
    * The series pool the judge chooses the next auditor from, present only when
    * this round belongs to the judge-led series.
@@ -93,15 +91,10 @@ export type WatchTarget = {
 
 export type RoundInput = RoundSetup & {
   readonly documents: RoundDocuments
-  /** The round's Markdown transcript, which the brief retells once the fix has finished. */
+  /** The round's Markdown transcript, whose name starts every file of the round. */
   readonly transcript: string
   /** Null when the user asked for no watch, whatever the commit record says. */
   readonly watch: WatchTarget | null
-}
-
-export type BriefInput = RoundContext & {
-  readonly transcript: string
-  readonly brief: string
 }
 
 export type RoundFailure = PhaseFailure &
@@ -142,10 +135,6 @@ export type RoundResult = (
   readonly commits: readonly LandedCommit[]
   readonly account: RoundAccount
 }
-
-export type BriefResult =
-  | { readonly status: "finished"; readonly brief: string }
-  | RoundFailure
 
 export type CloseInput = RoundContext & {
   /** The active plan the close archives. */
@@ -188,49 +177,6 @@ async function reportPhase<R extends PhaseResult>(
       reason: errorMessage(error),
     }
   }
-}
-
-/**
- * The brief reads only the transcript, so it runs the same way after a round
- * and on its own over an earlier transcript. Its workflow always belongs to
- * the Repo Edu root; output belongs beside the transcript in the active folder.
- */
-export async function runBrief(
-  input: BriefInput,
-  dependencies: Pick<RoundDependencies, "runPhase" | "checkFile" | "showBrief">,
-  settings: RoundSettings,
-): Promise<BriefResult> {
-  // The brief uses its own settings, so no auditor override reaches this phase.
-  const run = roundPhases("codex", noOverride, settings).brief
-  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
-  const brief = await reportPhase(
-    () =>
-      dependencies.runPhase.brief({
-        phase: "brief",
-        ...run,
-        ...context,
-        arguments: [input.transcript, input.brief],
-        sessionId: null,
-      }),
-    input.brief,
-    dependencies,
-  )
-  if (brief.status === "failed")
-    return { ...brief, phase: "brief", ...run, ...context }
-  try {
-    await dependencies.showBrief(input.brief)
-  } catch (error) {
-    return {
-      status: "failed",
-      sessionId: brief.sessionId,
-      phase: "brief",
-      ...run,
-      ...context,
-      reason: errorMessage(error),
-    }
-  }
-  return { status: "finished", brief: input.brief }
 }
 
 /**
@@ -888,19 +834,6 @@ export async function runRound(
             account,
           }
         }
-      }
-      // Retell the complete fix, including every ruling and resumed invocation.
-      if (input.documents.brief !== null) {
-        const brief = await runBrief(
-          {
-            ...context,
-            transcript: input.transcript,
-            brief: input.documents.brief,
-          },
-          dependencies,
-          settings,
-        )
-        if (brief.status === "failed") return { ...brief, commits, account }
       }
       const watched =
         "plan" in input

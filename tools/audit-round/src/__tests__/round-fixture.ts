@@ -213,14 +213,11 @@ Audit ranges: 1.
     "vet",
     "rebut",
     "fix",
-    "brief",
     "watch",
     "judge",
     "close",
   ] as const) {
-    const assistant = ["fix", "brief", "watch", "judge", "close"].includes(
-      phase,
-    )
+    const assistant = ["fix", "watch", "judge", "close"].includes(phase)
       ? "codex"
       : phase === "vet"
         ? auditor === "codex"
@@ -243,13 +240,9 @@ Audit ranges: 1.
             ? { source: join(f.root, owner, "VET-example.md") }
             : phase === "rebut"
               ? { text: "1. [B] Agree\n" }
-              : phase === "fix"
-                ? ruling
-                  ? { text: "Written ruling by fix" }
-                  : undefined
-                : phase === "close" || phase === "judge" || phase === "watch"
-                  ? undefined
-                  : { text: `Written ${phase}` },
+              : phase === "fix" && ruling
+                ? { text: "Written ruling by fix" }
+                : undefined,
       commits:
         phase === "fix" && !ruling
           ? [
@@ -356,9 +349,6 @@ Audit ranges: 1.
     recordHeads,
     get report() {
       return document("audit", report)
-    },
-    get brief() {
-      return document("brief", "")
     },
     get vet() {
       return document("vet", "")

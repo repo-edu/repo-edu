@@ -104,12 +104,10 @@ for (const auditor of ["claude", "codex"] as const) {
     for (const ruling of [false, true]) {
       test(`command runs ${auditor} audit, ${owner} routing and ${ruling ? "ruling" : "completion"}`, async (t) => {
         const f = await roundFixture(t, auditor, owner, ruling)
-        const { repoRoot } = f
         const argv = [
           "round",
           "example.md",
           "2-3",
-          "--brief",
           "--auditor",
           auditor === "claude" ? "a" : "o",
         ]
@@ -127,13 +125,7 @@ for (const auditor of ["claude", "codex"] as const) {
         )
         assert.deepEqual(
           invocations.map((call) => call.assistant),
-          [
-            auditor,
-            auditor === "codex" ? "claude" : "codex",
-            auditor,
-            "codex",
-            ...(ruling ? [] : ["codex"]),
-          ],
+          [auditor, auditor === "codex" ? "claude" : "codex", auditor, "codex"],
         )
         assert.equal(
           invocations[0].args.includes("resume") ||
@@ -179,7 +171,7 @@ for (const auditor of ["claude", "codex"] as const) {
             )
             .every((call) => call.args.includes("--approve-for-me")),
         )
-        const { log, markdown, transcript } = await f.records()
+        const { log, markdown } = await f.records()
         for (const path of [f.report, f.vet, f.rebut]) {
           if (ruling) {
             const text = await readFile(path, "utf8")
@@ -204,7 +196,6 @@ for (const auditor of ["claude", "codex"] as const) {
             /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C audit correction commits since\. No area reached the green limit of 3/,
           )
         assert.match(log, /fix +codex +gpt-5.6-sol +high/)
-        assert.match(log, /brief +codex +gpt-5\.6-terra +low/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
           const text = {
@@ -217,34 +208,11 @@ for (const auditor of ["claude", "codex"] as const) {
           assert.ok(visible.includes(text))
           assert.equal(log.includes(text), false)
         }
-        // The brief retells the transcript, so the transcript never carries it.
-        assert.equal(markdown.includes("## brief ("), false)
-        assert.equal(markdown.includes("Complete brief text."), false)
-        assert.equal(visible.includes("Complete brief text."), false)
-        assert.equal(
-          f.visible.filter((text) => text === "Written brief").length,
-          ruling ? 0 : 1,
-        )
-        assert.equal(log.includes("Written brief"), !ruling)
-        assert.equal(markdown.includes("Written brief"), false)
         assert.ok(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.activeRoot, "example.md"), "2-3", { deferrals: [] }])}`,
           ),
         )
-        assert.equal(
-          log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
-          ),
-          !ruling,
-        )
-        assert.equal(
-          log.includes(
-            join(repoRoot, ".agents/skills/brief-round/references/workflow.md"),
-          ),
-          !ruling,
-        )
-        assert.equal(log.includes(`[brief] finished`), !ruling)
         for (const args of [
           [f.report, f.vet],
           [f.report, f.vet, f.rebut],
@@ -269,7 +237,6 @@ for (const auditor of ["claude", "codex"] as const) {
             ),
           )
           assert.doesNotMatch(log, /\[rule(?:-edit)?\] starting/)
-          assert.doesNotMatch(log, /\[brief\] starting/)
           assert.match(visible, /Stopped without a ruling/)
           assert.doesNotMatch(visible, /Opening codex session/)
           assert.doesNotMatch(visible, /Audit round finished\./)
@@ -327,7 +294,7 @@ for (const auditor of ["claude", "codex"] as const) {
     const { log, markdown } = await f.records()
     assert.doesNotMatch(
       log,
-      /\[(?:vet|rebut|fix|brief|rule|watch)\] starting|\[glance\]/,
+      /\[(?:vet|rebut|fix|rule|watch)\] starting|\[glance\]/,
     )
     assert.match(markdown, /## Clean completion/)
     assert.match(f.visible.join("\n"), /Audit round finished\./)
@@ -351,7 +318,6 @@ for (const auditor of ["claude", "codex"] as const) {
       "round",
       "example.md",
       "2-3",
-      "--brief",
       "--auditor",
       auditor === "claude" ? "a" : "o",
     ]
@@ -370,7 +336,7 @@ for (const auditor of ["claude", "codex"] as const) {
     const vetter = auditor === "codex" ? "claude" : "codex"
     assert.deepEqual(
       invocations.map((call) => call.assistant),
-      [auditor, vetter, "codex", "codex"],
+      [auditor, vetter, "codex"],
     )
     // The auditor had nothing to answer, so the rebuttal that never ran is
     // not stamped into the record.
@@ -391,7 +357,6 @@ for (const auditor of ["claude", "codex"] as const) {
       files.some((name) => name.includes("-4-rebut.")),
       false,
     )
-    assert.ok(files.includes("example-impl-02..03-01-6-brief.oul.md"))
     for (const phase of ["audit", "vet", "fix"] as const)
       assert.ok(markdown.includes(`## ${phase} (`))
     assert.equal(markdown.includes("## rebut ("), false)
@@ -399,14 +364,14 @@ for (const auditor of ["claude", "codex"] as const) {
   })
 }
 
-for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
+for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
   test(`command stops at ${phase} failure and retains recovery evidence`, async (t) => {
     const f = await roundFixture(t)
     f.phases[phase] = { stream: "", exitCode: 7 }
     await f.configure({ phases: f.phases })
     assert.equal(
       await runCommand(
-        ["round", "example.md", "1", "--brief", "--auditor", "o"],
+        ["round", "example.md", "1", "--auditor", "o"],
         f.runtime,
         f.options,
       ),
@@ -426,7 +391,7 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     )
     assert.equal(
       calls.length,
-      ["audit", "vet", "rebut", "fix", "brief"].indexOf(phase) + 1,
+      ["audit", "vet", "rebut", "fix"].indexOf(phase) + 1,
     )
   })
 }

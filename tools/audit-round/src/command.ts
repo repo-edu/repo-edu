@@ -51,7 +51,6 @@ import {
 import { modelsReport } from "./models.js"
 import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
-  briefRun,
   closeRun,
   type OutputOptions,
   RoundOutput,
@@ -80,11 +79,9 @@ import {
 import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
-  type BriefResult,
   type CloseResult,
   failureResumeSessionId,
   type RoundResult,
-  runBrief,
   runClose,
   runRound,
 } from "./round.js"
@@ -103,13 +100,10 @@ import {
   type MarkerKind,
   manualPhasePaths,
   markerPath,
-  newestTranscript,
   phaseFilename,
   queueFile,
-  roundDocument,
   roundIdentity,
   roundSubject,
-  transcriptKind,
 } from "./round-paths.js"
 import { readRulingReply } from "./ruling-input.js"
 import { RunClock } from "./run-clock.js"
@@ -215,14 +209,6 @@ type Invocation =
       readonly firstAuditor?: AuditorEntry
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
-      /** True when `--brief` was given; rounds run no brief otherwise. */
-      readonly brief?: boolean
-      readonly verbose?: boolean
-    }
-  | {
-      readonly kind: "brief"
-      /** Absent when the brief retells the newest round in the active folder. */
-      readonly transcript?: string
       readonly verbose?: boolean
     }
   | {
@@ -244,7 +230,7 @@ type Invocation =
 /** The round options one series reads; the run supplies the defaults alone. */
 type SeriesOptions = Pick<
   Extract<Invocation, { kind: "round" }>,
-  "auditor" | "firstAuditor" | "watch" | "brief"
+  "auditor" | "firstAuditor" | "watch"
 >
 
 function requestedTarget(
@@ -550,7 +536,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -570,7 +556,7 @@ ready and close call. Any other ending stops the run with the stage's own lines,
 and the same command continues from where the plan stands. Once the full step
 range's newest series has ended on a judge stop and no plan commit has changed a
 file since, the run goes straight to the close. Every series it opens
-starts with the default auditor, runs the glance and the watch and writes no brief.
+starts with the default auditor and runs the glance and the watch.
 A failed implementation worker prints this command with --resume, which resumes
 that worker's session on its step before the run continues.
 
@@ -579,7 +565,7 @@ Use models to read the auditor and coder results.
 Use disprove to record a finding that later evidence disproved.
 Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
-Use round --help, brief --help or close --help for their arguments and options.`,
+Use round --help or close --help for their arguments and options.`,
     )
     .action(
       (stem: string, flags: { verbose?: boolean; resume?: WorkerResume }) => {
@@ -640,7 +626,6 @@ Use round --help, brief --help or close --help for their arguments and options.`
       "--no-watch",
       "skip the trajectory glance and watch after every round",
     )
-    .option("--brief", "write the final brief after every round")
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .addHelpText(
       "after",
@@ -743,10 +728,8 @@ Round sequence:
     3. Rebuttal  The auditor answers the vet's revisions, drops or ruling items.
                  Skipped if the vet accepts every finding.
     4. Fix       The assistant set in settings.json fixes the accepted findings.
-    5. Brief     A plain-words summary follows the fix.
-                 Runs only with --brief.
-    6. Watch     The trajectory watch runs when its glance says it is due.
-    7. Judge     A fresh evidence-only turn ends or continues an automatic series.
+    5. Watch     The trajectory watch runs when its glance says it is due.
+    6. Judge     A fresh evidence-only turn ends or continues an automatic series.
 
   Skipping rounds and stopping:
     - If the audit finds nothing, it skips vet, rebuttal, fix and watch. An
@@ -809,7 +792,6 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
           auditor?: readonly AuditorEntry[]
           first?: AuditorEntry
           watch: boolean
-          brief?: boolean
           verbose?: boolean
         },
       ) => {
@@ -1023,19 +1005,6 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       })
   }
   command
-    .command("brief")
-    .description(
-      "Write the plain-words brief of a finished round from its *-1-round.<tag>.md transcript.",
-    )
-    .argument(
-      "[transcript]",
-      "the round's Markdown transcript; defaults to the newest in the active folder",
-    )
-    .option("-v, --verbose", "show tool calls as well as assistant text")
-    .action((transcript: string | undefined, flags: { verbose?: boolean }) => {
-      invocation = { kind: "brief", transcript, ...flags }
-    })
-  command
     .command("close")
     .description(
       "Close a plan's loop: archive the plan, write each repo's closed commit and delete its sidecars.",
@@ -1160,7 +1129,7 @@ export async function runCommand(
   const invocation = parseInvocation(argv, options)
   if (typeof invocation === "number") return invocation
   let output: RoundOutput | undefined
-  let result: RoundResult | BriefResult | CloseResult | undefined
+  let result: RoundResult | CloseResult | undefined
   let code = 1
   /** A finished or interrupted outcome exits clean; only a failure exits 1. */
   const exitCode = (outcome: { readonly status: string }): number =>
@@ -1326,31 +1295,17 @@ export async function runCommand(
               invocation.scope,
             )),
           }
-        : invocation.kind === "brief"
-          ? {
-              ...invocation,
-              transcript:
-                invocation.transcript === undefined
-                  ? await newestTranscript(context)
-                  : (
-                      await roundDocument(
-                        context,
-                        invocation.transcript,
-                        "round",
-                      )
-                    ).path,
-            }
-          : invocation.kind === "close"
-            ? await preparedClose(context, invocation)
-            : invocation.kind === "run"
-              ? await preparedRun(context, invocation)
-              : {
-                  ...invocation,
-                  targets: await resolveTargets(
-                    context,
-                    requestedTarget(invocation),
-                  ),
-                }
+        : invocation.kind === "close"
+          ? await preparedClose(context, invocation)
+          : invocation.kind === "run"
+            ? await preparedRun(context, invocation)
+            : {
+                ...invocation,
+                targets: await resolveTargets(
+                  context,
+                  requestedTarget(invocation),
+                ),
+              }
     if (prepared.kind === "round" || prepared.kind === "name")
       requireSingleTarget(prepared, prepared.targets)
     if (prepared.kind === "name") {
@@ -1389,13 +1344,11 @@ export async function runCommand(
       context,
       prepared.kind === "implement"
         ? "implementation"
-        : prepared.kind === "brief"
-          ? await transcriptKind(prepared.transcript)
-          : prepared.kind === "close"
-            ? "planning"
-            : prepared.kind === "run"
-              ? stageRoundKind(prepared.stage)
-              : prepared.targets[0].roundKind,
+        : prepared.kind === "close"
+          ? "planning"
+          : prepared.kind === "run"
+            ? stageRoundKind(prepared.stage)
+            : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
@@ -1451,9 +1404,6 @@ export async function runCommand(
         checkFile: async (file) => {
           if (!(await readFile(file, "utf8")).trim())
             throw new Error(`Phase output is empty: ${file}`)
-        },
-        showBrief: async (document) => {
-          active.showBrief(await readFile(document, "utf8"))
         },
         completeClean: async (input) => {
           const stamps = active.commitStamps()
@@ -1823,7 +1773,6 @@ export async function runCommand(
           })),
           auditor,
           auditorSelectionSource: "settings" as const,
-          brief: series.brief,
           deferrals,
         }
         const chainedRun = await roundRun(
@@ -2035,7 +1984,6 @@ export async function runCommand(
               auditor: seat.assistant,
               auditorSelectionSource,
               override: seat.override,
-              brief: series.brief,
               ...(automatic ? { pool: poolAuditors } : {}),
               ...(repoEduDeferrals === undefined
                 ? {}
@@ -2343,22 +2291,7 @@ export async function runCommand(
         ],
         resume: prepared.resume ?? null,
       })
-    else if (prepared.kind === "brief") {
-      const { transcript } = prepared
-      const run = await briefRun(transcript, context, now(), releases, settings)
-      const active = open(run)
-      result = await runBrief(
-        {
-          ...session,
-          transcript,
-          brief: run.brief,
-        },
-        dependenciesFor(active, session),
-        settings,
-      )
-      active.finish(result, runtime.signal)
-      code = exitCode(result)
-    } else if (prepared.kind === "close") await closeStage(prepared)
+    else if (prepared.kind === "close") await closeStage(prepared)
     else if (prepared.kind === "run") await runStages(prepared)
     else await seriesStage(prepared.targets, prepared)
   } catch (error) {

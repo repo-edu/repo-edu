@@ -141,15 +141,7 @@ const commonRoundData = z.strictObject({
   }),
   phases: z.array(
     z.strictObject({
-      phase: z.enum([
-        "audit",
-        "vet",
-        "rebut",
-        "fix",
-        "brief",
-        "watch",
-        "judge",
-      ]),
+      phase: z.enum(["audit", "vet", "rebut", "fix", "watch", "judge"]),
       assistant,
       model: z.string().min(1),
       effort: z.string().min(1).nullable(),

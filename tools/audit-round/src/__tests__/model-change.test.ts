@@ -80,7 +80,6 @@ test("the same launched selection reporting another release warns in every phase
     "vet",
     "rebut",
     "fix",
-    "brief",
     "watch",
     "judge",
     "close",
