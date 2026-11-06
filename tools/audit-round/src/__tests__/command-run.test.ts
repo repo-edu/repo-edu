@@ -239,6 +239,72 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
   )
 })
 
+test("run continues a plan reopened after ready from its state once it settles", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    null,
+    false,
+    "plan",
+    true,
+    false,
+    false,
+  )
+  await rm(join(f.planRoot, "example.md"))
+  await commitPlan(f, "example-widen.md")
+  // The marker stands through the reopen, and every hosted share has landed.
+  await commitFixture(
+    f.planRoot,
+    "example/ready: declare the plan ready for implementation\n\nCoder: codex gpt-5.6-sol xhigh",
+  )
+  await commitFixture(
+    f.repoRoot,
+    "example/impl-1 obx feat(audit-round): implement fixture",
+  )
+  await commitFixture(
+    f.repoRoot,
+    "example/implemented obx: complete the Repo Edu share",
+  )
+  const implementation = join(f.planRoot, "implementation-source.md")
+  await writeFile(
+    implementation,
+    `Implementation audit workflow\nTarget: <arguments>\nJudged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
+  )
+  await writeFile(
+    f.report,
+    `${await readFile(f.report, "utf8")}\nSettling: settle. No shape question remains.\n`,
+  )
+  await configureRun(f, { codex: f.report, claude: implementation }, [
+    "Judge: settle. No concrete shape question remains.",
+    "Judge: stop. The clean read leaves no remaining real bug in the range.",
+  ])
+
+  assert.equal(
+    await runCommand(["run", "example"], f.runtime, {
+      ...f.options,
+      settings: runSettings,
+      coin: openers(0, 1),
+    }),
+    0,
+    [...f.errors, ...f.visible].join("\n"),
+  )
+  const phases = (await f.prompts()).flatMap((call) => {
+    const phase = /^Run the (\w+) phase/.exec(call.prompt)?.[1]
+    return phase === undefined ? [] : [phase]
+  })
+  assert.deepEqual(phases, ["audit", "judge", "audit", "judge", "close"])
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Committed [0-9a-f]+: example\/settle: settle/)
+  assert.doesNotMatch(visible, /starting the detailing series/)
+  assert.match(visible, /Run of example: starting the audit range series\./)
+  assert.match(
+    visible,
+    /Run of example finished: the plan is closed\. Run time \d\d:\d\d\./,
+  )
+})
+
 test("run refuses a plan without an active artifact before any assistant starts", async (t) => {
   const f = await roundFixture(t)
   // A trailing -v is the run's own option, so it reaches the plan lookup.

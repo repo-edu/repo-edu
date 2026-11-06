@@ -1066,23 +1066,16 @@ async function preparedRun(
 
 type PreparedRun = Awaited<ReturnType<typeof preparedRun>>
 
-/** The run's stages in lifecycle order; the close is never a starting stage. */
-const runStageOrder = [
-  "widening",
-  "detailing",
-  "implement",
-  "ranges",
-  "close",
-] as const
+/** A stage of the run; the close follows the range series and never starts one. */
+type RunStage = LifecycleStage | "close"
 
-const runStageNames: Readonly<Record<(typeof runStageOrder)[number], string>> =
-  {
-    widening: "widening series",
-    detailing: "detailing series",
-    implement: "implementation",
-    ranges: "audit range series",
-    close: "close",
-  }
+const runStageNames: Readonly<Record<RunStage, string>> = {
+  widening: "widening series",
+  detailing: "detailing series",
+  implement: "implementation",
+  ranges: "audit range series",
+  close: "close",
+}
 
 function stageRoundKind(stage: LifecycleStage): RoundKind {
   return stage === "widening" || stage === "detailing"
@@ -2102,12 +2095,11 @@ export async function runCommand(
           `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round run ${stem} continues from where the plan stands. ${runTime()}`,
         )
       const defaults: SeriesOptions = { watch: true }
-      let current: string = runStageNames[run.stage]
+      let stage: RunStage = run.stage
+      let current: string = runStageNames[stage]
       let closed = false
       try {
-        for (const stage of runStageOrder.slice(
-          runStageOrder.indexOf(run.stage),
-        )) {
+        for (;;) {
           current = runStageNames[stage]
           await say(`Run of ${stem}: starting the ${current}.`)
           if (stage === "widening" || stage === "detailing") {
@@ -2129,17 +2121,25 @@ export async function runCommand(
               const ready = await readyPlan(context, plan, settings.coders)
               await say(`Committed ${ready.sha}: ${ready.subject}`)
             }
+            // A plan reopened after its ready marker keeps that marker, so
+            // the plan's state, not the stage just run, names the next stage.
+            stage = await lifecycleStage(
+              context,
+              await resolvePlan(context.planRoot, stem),
+            )
           } else if (stage === "implement") {
             const status = await implementStage(
               await prepareImplementation(context, stem),
             )
             if (status !== "finished") break
+            stage = "ranges"
           } else if (stage === "ranges") {
             const targets = await resolveTargets(context, {
               plan: stem,
               scope: null,
             })
             if ((await seriesStage(targets, defaults)) === "stopped") break
+            stage = "close"
           } else {
             const status = await closeStage(
               await preparedClose(context, {
