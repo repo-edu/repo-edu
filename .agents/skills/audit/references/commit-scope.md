@@ -172,7 +172,7 @@ There is no episode, no
 `implemented:` or `closed:` marker and no trajectory watch. A later round over later commits is a
 new round, not a continuation of this one.
 
-`pnpm audit-round` accepts these same references as its target arguments.
+`pnpm audit-round round` accepts these same references as its target arguments.
 It passes them to the audit phase unchanged, which resolves and fixes the
 scope under **Range** above. Commit targets reject multiple auditor entries and run no
 trajectory glance or watch after the fix and brief.

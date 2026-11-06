@@ -355,7 +355,7 @@ test("a plan named without its extension runs as its .md file", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
     await runCommand(
-      ["example", "2-3", "--auditor", "o"],
+      ["round", "example", "2-3", "--auditor", "o"],
       f.runtime,
       f.options,
     ),
@@ -375,7 +375,11 @@ test("a completed bare range series is refused beside --auditor", async (t) => {
   await completeRangePlan(f)
 
   assert.equal(
-    await runCommand(["example", "--auditor", "codex"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example", "--auditor", "codex"],
+      f.runtime,
+      f.options,
+    ),
     2,
   )
   assert.match(f.errors.join("\n"), /Use --auditor with one scope/)
@@ -436,7 +440,10 @@ test("options without a target run the audit the newest plan's history calls for
 test("a missing plan file is refused before any assistant starts", async (t) => {
   const f = await roundFixture(t)
   for (const name of ["missing", "missing.md"]) {
-    assert.equal(await runCommand([name, "3"], f.runtime, f.options), 1)
+    assert.equal(
+      await runCommand(["round", name, "3"], f.runtime, f.options),
+      1,
+    )
     assert.match(f.errors.at(-1) as string, /No active plan named missing/)
   }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -449,7 +456,7 @@ test("an archived plan is refused before any assistant starts", async (t) => {
   const archive = join(f.planRoot, "archive/old")
   await mkdir(archive, { recursive: true })
   await writeFile(join(archive, "plan.md"), "# Old plan\n")
-  assert.equal(await runCommand(["old", "1"], f.runtime, f.options), 1)
+  assert.equal(await runCommand(["round", "old", "1"], f.runtime, f.options), 1)
   assert.match(
     f.errors.at(-1) as string,
     /Archived plans are not audit targets/,

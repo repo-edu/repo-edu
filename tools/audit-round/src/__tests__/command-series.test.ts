@@ -12,7 +12,15 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   const reply = "Choose option 1.\nKeep the existing range."
   let requests = 0
   const code = await runCommand(
-    ["example.md", "1", "--auditor", "codex,claude", "--no-watch", "--brief"],
+    [
+      "round",
+      "example.md",
+      "1",
+      "--auditor",
+      "codex,claude",
+      "--no-watch",
+      "--brief",
+    ],
     f.runtime,
     {
       ...f.options,
@@ -163,7 +171,7 @@ for (const { auditors, seeded, edit, rounds } of [
     const f = await roundFixture(t, "codex", "repo-edu", true)
     const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
     const code = await runCommand(
-      ["example.md", "1", "--auditor", auditors, "--no-watch"],
+      ["round", "example.md", "1", "--auditor", auditors, "--no-watch"],
       f.runtime,
       {
         ...f.options,
@@ -198,7 +206,7 @@ test("a malformed queue edit stops the sequence and names the entry", async (t) 
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
   const code = await runCommand(
-    ["example.md", "1", "--auditor", "codex,claude", "--no-watch"],
+    ["round", "example.md", "1", "--auditor", "codex,claude", "--no-watch"],
     f.runtime,
     {
       ...f.options,
@@ -222,7 +230,7 @@ test("a malformed queue edit stops the sequence and names the entry", async (t) 
 test("a commit audit keeps no queue file", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["HEAD", "--no-watch"], f.runtime, f.options),
+    await runCommand(["round", "HEAD", "--no-watch"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
@@ -403,7 +411,7 @@ test("an implementation audit receives open deferrals into Repo Edu", async (t) 
 
   assert.equal(
     await runCommand(
-      ["example.md", "1", "--auditor", "codex", "--no-watch"],
+      ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
       f.runtime,
       f.options,
     ),
@@ -463,7 +471,11 @@ test("an implementation deferral chains a clean planning round before the judge"
   })
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -524,7 +536,7 @@ test("a red implementation watch leaves a new plan deferral open", async (t) => 
   })
 
   assert.equal(
-    await runCommand(["example.md", "1"], f.runtime, f.options),
+    await runCommand(["round", "example.md", "1"], f.runtime, f.options),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -571,7 +583,11 @@ test("an automatic series opens with a chained deferral round", async (t) => {
   })
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -615,7 +631,11 @@ test("a ruling in the chained deferral round stops the implementation series", a
   })
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -664,7 +684,11 @@ test("an applied deferral does not start a chained planning round", async (t) =>
   })
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -718,7 +742,11 @@ test("a vet-dropped deferral lands an untiered citation", async (t) => {
   })
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -749,7 +777,11 @@ test("an automatic series follows the judged switch and ends on stop without a q
   ])
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -823,7 +855,11 @@ test("an archived plan without --auditor is refused", async (t) => {
   await rename(join(f.activeRoot, "example.md"), archivedPlan)
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     1,
   )
   assert.match(f.errors.join("\n"), /Archived plans are not audit targets/)
@@ -851,7 +887,7 @@ test("a random default auditor opens the series on the coin and the series still
   const counts: number[] = []
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
       settings,
       coin: (count) => {
@@ -901,7 +937,7 @@ test("--first replaces the default auditor's first round and the series still fo
 
   assert.equal(
     await runCommand(
-      ["example.md", "1", "--first", "atx", "--no-watch"],
+      ["round", "example.md", "1", "--first", "atx", "--no-watch"],
       f.runtime,
       f.options,
     ),
@@ -991,7 +1027,7 @@ test("an automatic series switches between two listed models of one vendor", asy
   })
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
       settings,
     }),
@@ -1072,7 +1108,7 @@ test("a --first selection whose assistant the list lacks joins the series pool",
 
   assert.equal(
     await runCommand(
-      ["example.md", "1", "--first", "atx", "--no-watch"],
+      ["round", "example.md", "1", "--first", "atx", "--no-watch"],
       f.runtime,
       { ...f.options, settings },
     ),
@@ -1135,7 +1171,7 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
   const widening = join(f.activeRoot, "example-widen.md")
 
   assert.equal(
-    await runCommand(["example.md", "--no-watch"], f.runtime, {
+    await runCommand(["round", "example.md", "--no-watch"], f.runtime, {
       ...f.options,
       readReply: async () => {
         await rm(widening)
@@ -1193,7 +1229,7 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
 
   assert.equal(
     await runCommand(
-      ["example.md", "--auditor", "codex,claude", "--no-watch"],
+      ["round", "example.md", "--auditor", "codex,claude", "--no-watch"],
       f.runtime,
       {
         ...f.options,
@@ -1250,7 +1286,7 @@ test("an automatic series stops at its configured maximum", async (t) => {
   settings.maximumAutomaticRounds = 2
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, {
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
       settings,
     }),
@@ -1286,7 +1322,11 @@ test("a clean automatic audit follows its judge", async (t) => {
   ])
 
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1328,7 +1368,11 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   )
 
   assert.equal(
-    await runCommand(["example-widen.md", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example-widen.md", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1398,7 +1442,11 @@ test("a widening judge can stop the series without recommending settle", async (
   ])
 
   assert.equal(
-    await runCommand(["example-widen.md", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example-widen.md", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1439,7 +1487,11 @@ test("a detailing series ends on the judge's ready recommendation", async (t) =>
   ])
 
   assert.equal(
-    await runCommand(["example.md", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1491,7 +1543,7 @@ test("a failed round stops a scope list before later scopes", async (t) => {
 
   assert.equal(
     await runCommand(
-      ["example-widen.md", "1,2", "--no-watch"],
+      ["round", "example-widen.md", "1,2", "--no-watch"],
       f.runtime,
       f.options,
     ),
@@ -1511,7 +1563,11 @@ test("a failed round stops a scope list before later scopes", async (t) => {
 test("an automatic rebuttal round gives the fresh judge retained evidence", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")
   assert.equal(
-    await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1537,7 +1593,7 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
   const settings = structuredClone(testSettings)
   settings.coders[0].assistant = "claude"
   const code = await runCommand(
-    ["example.md", "1", "--auditor", "a", "--no-watch"],
+    ["round", "example.md", "1", "--auditor", "a", "--no-watch"],
     f.runtime,
     {
       ...f.options,
@@ -1598,7 +1654,11 @@ test("a scope list runs one automatic series per scope in list order", async (t)
     true,
   )
   assert.equal(
-    await runCommand(["example.md", "1,2", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "1,2", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1640,7 +1700,7 @@ test("a ruling left unanswered stops the scope list before its later scopes", as
   const f = await roundFixture(t, "codex", "repo-edu", true)
   assert.equal(
     await runCommand(
-      ["example.md", "1,2,3-4", "--no-watch"],
+      ["round", "example.md", "1,2,3-4", "--no-watch"],
       f.runtime,
       f.options,
     ),
@@ -1664,7 +1724,7 @@ test("a ruling left unanswered stops the scope list before its later scopes", as
 test("a scope list is refused beside --auditor and for a hand-run claim", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
-    ["example.md", "1,2", "--auditor", "codex"],
+    ["round", "example.md", "1,2", "--auditor", "codex"],
     ["name", "example.md", "1", "2", "--auditor", "oth"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)

@@ -12,20 +12,24 @@ test("an unavailable writer still prints the known session to the emergency chan
   const f = await roundFixture(t)
   let failed = false
   assert.equal(
-    await runCommand(["example.md", "1", "--auditor", "o"], f.runtime, {
-      ...f.options,
-      openFiles(paths) {
-        const files = openRunFiles(paths)
-        return {
-          ...files,
-          log(text) {
-            if (text.includes("printf audit-round-probe")) failed = true
-            if (failed) throw new Error("Disk full")
-            files.log(text)
-          },
-        }
+    await runCommand(
+      ["round", "example.md", "1", "--auditor", "o"],
+      f.runtime,
+      {
+        ...f.options,
+        openFiles(paths) {
+          const files = openRunFiles(paths)
+          return {
+            ...files,
+            log(text) {
+              if (text.includes("printf audit-round-probe")) failed = true
+              if (failed) throw new Error("Disk full")
+              files.log(text)
+            },
+          }
+        },
       },
-    }),
+    ),
     1,
   )
   assert.match(
@@ -37,17 +41,21 @@ test("an unavailable writer still prints the known session to the emergency chan
 test("a terminal failure during startup stops before any round file is created", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md", "1", "--auditor", "o"], f.runtime, {
-      ...f.options,
-      terminal: {
-        ...f.options.terminal,
-        write(text) {
-          if (text === "claude update output")
-            throw new Error("Update presentation failed")
-          f.options.terminal.write(text)
+    await runCommand(
+      ["round", "example.md", "1", "--auditor", "o"],
+      f.runtime,
+      {
+        ...f.options,
+        terminal: {
+          ...f.options.terminal,
+          write(text) {
+            if (text === "claude update output")
+              throw new Error("Update presentation failed")
+            f.options.terminal.write(text)
+          },
         },
       },
-    }),
+    ),
     1,
   )
   assert.equal((await f.calls()).length, 1)
@@ -58,14 +66,18 @@ test("a terminal failure during startup stops before any round file is created",
 test("startup writes only to the terminal before the models table opens the run log", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["example.md", "1", "--auditor", "o"], f.runtime, {
-      ...f.options,
-      openFiles(paths) {
-        assert.ok(f.visible.includes("Checking claude updates..."))
-        assert.ok(f.visible.includes("claude update output"))
-        return openRunFiles(paths)
+    await runCommand(
+      ["round", "example.md", "1", "--auditor", "o"],
+      f.runtime,
+      {
+        ...f.options,
+        openFiles(paths) {
+          assert.ok(f.visible.includes("Checking claude updates..."))
+          assert.ok(f.visible.includes("claude update output"))
+          return openRunFiles(paths)
+        },
       },
-    }),
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -87,6 +99,7 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.equal(
       await runCommand(
         [
+          "round",
           "example.md",
           "3",
           "--brief",
@@ -166,10 +179,14 @@ for (const auditor of ["codex", "claude"] as const) {
       },
     ]
     assert.equal(
-      await runCommand(["example.md", "1", "--auditor", auditor], f.runtime, {
-        ...f.options,
-        settings,
-      }),
+      await runCommand(
+        ["round", "example.md", "1", "--auditor", auditor],
+        f.runtime,
+        {
+          ...f.options,
+          settings,
+        },
+      ),
       0,
       f.errors.join("\n"),
     )
@@ -215,6 +232,7 @@ test("auditor lists keep each entry's model and effort independent", async (t) =
   assert.equal(
     await runCommand(
       [
+        "round",
         "example.md",
         "2-3",
         "--auditor",
@@ -290,33 +308,33 @@ test("auditor lists keep each entry's model and effort independent", async (t) =
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
-    ["HEAD", "--auditor", "codex,claude"],
-    ["HEAD-2..HEAD", "--auditor", "codex,claude"],
-    ["23674f", "--auditor", "codex,claude"],
-    ["HEAD--1"],
-    ["HEAD", "3"],
-    ["example.md", "HEAD"],
-    ["example.md", "3-1"],
-    ["example.md", "0"],
-    ["example.md", "1", "--auditor", "other"],
-    ["example.md", "1", "--auditor", ""],
-    ["example.md", "1", "--auditor", ","],
-    ["example.md", "1", "--auditor", " , "],
-    ["example.md", "1", "--auditor", "codex,other"],
+    ["round", "HEAD", "--auditor", "codex,claude"],
+    ["round", "HEAD-2..HEAD", "--auditor", "codex,claude"],
+    ["round", "23674f", "--auditor", "codex,claude"],
+    ["round", "HEAD--1"],
+    ["round", "HEAD", "3"],
+    ["round", "example.md", "HEAD"],
+    ["round", "example.md", "3-1"],
+    ["round", "example.md", "0"],
+    ["round", "example.md", "1", "--auditor", "other"],
+    ["round", "example.md", "1", "--auditor", ""],
+    ["round", "example.md", "1", "--auditor", ","],
+    ["round", "example.md", "1", "--auditor", " , "],
+    ["round", "example.md", "1", "--auditor", "codex,other"],
     // --first names one round, and --auditor already names the first.
-    ["example.md", "1", "--first", "codex,claude"],
-    ["example.md", "1", "--first", "other"],
-    ["example.md", "1", "--first", "codex", "--auditor", "claude"],
-    ["example.md", "--chain"],
+    ["round", "example.md", "1", "--first", "codex,claude"],
+    ["round", "example.md", "1", "--first", "other"],
+    ["round", "example.md", "1", "--first", "codex", "--auditor", "claude"],
+    ["round", "example.md", "--chain"],
     ["name", "example.md", "--auditor", "oth,ath"],
     // A tag names its fields by letter, in order, and never asks for `u`.
-    ["example.md", "1", "--auditor", "claudex"],
-    ["example.md", "1", "--auditor", "xa"],
-    ["example.md", "1", "--auditor", "aux"],
-    ["example.md", "1", "--auditor", "atxx"],
-    ["example.md", "--chain", "extra", "3"],
-    ["example.md", "--unknown"],
-    ["example.md", "--no-brief"],
+    ["round", "example.md", "1", "--auditor", "claudex"],
+    ["round", "example.md", "1", "--auditor", "xa"],
+    ["round", "example.md", "1", "--auditor", "aux"],
+    ["round", "example.md", "1", "--auditor", "atxx"],
+    ["round", "example.md", "--chain", "extra", "3"],
+    ["round", "example.md", "--unknown"],
+    ["round", "example.md", "--no-brief"],
     ["brief", "ROUND-example.md", "extra"],
     ["settle", "example", "extra"],
     ["ready", "example", "extra"],
@@ -324,16 +342,14 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["close", "example", "extra"],
     ["close", "example", "--aborted"],
     ["close", "example", "--aborted", " "],
-    // A run takes only its stem and -v; the stage commands keep round options.
-    ["run"],
-    ["run", "example", "extra"],
-    ["run", "example", "--auditor", "codex"],
-    ["run", "example", "--first", "codex"],
-    ["run", "example", "--brief"],
-    ["run", "example", "--no-watch"],
-    // An option before a subcommand belongs to the round, which no subcommand reads.
-    ["--no-watch", "run", "example"],
-    ["--auditor", "codex", "run", "example"],
+    // The run takes only its stem and -v; the round keeps the round options.
+    ["example", "extra"],
+    ["example", "--auditor", "codex"],
+    ["example", "--first", "codex"],
+    ["example", "--brief"],
+    ["example", "--no-watch"],
+    // An option before a subcommand belongs to the run, which no subcommand reads.
+    ["-v", "round", "example"],
     ["-v", "close", "example"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
@@ -341,7 +357,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(f.errors.join("\n"), /Auditor entry 2 \(other\): expected/)
   assert.match(
     f.errors.join("\n"),
-    /--no-watch came before run\. Put options after the subcommand/,
+    /--verbose came before round\. Put options after the subcommand/,
   )
   assert.match(f.errors.join("\n"), /--verbose came before close\./)
   for (const argv of [
@@ -353,7 +369,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["ready", "--help"],
     ["implement", "--help"],
     ["close", "--help"],
-    ["run", "--help"],
+    ["round", "--help"],
     ["models", "--help"],
     ["disprove", "--help"],
     ["plan", "--help"],
@@ -365,7 +381,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round run \[options\] <stem>\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -373,7 +389,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   )
   assert.match(
     visible,
-    /Omitted +Options without a target take the active plan/,
+    /Omitted +round alone, or with options only, takes the active plan/,
   )
   // Hand-run launchers call the housekeeping commands; help shows what a user runs.
   assert.doesNotMatch(
@@ -388,7 +404,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     "ready",
     "implement",
     "close",
-    "run",
+    "round",
     "plan",
   ])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
@@ -417,8 +433,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /<target>-queue\.md at the\s+active folder/)
   assert.match(visible, /Examples \(from either checkout\):/)
   assert.ok(visible.split("\n").every((line) => line.length <= 88))
-  // A round is the command itself, and each command carries its own help.
-  assert.doesNotMatch(visible, /^\s+round\b/m)
+  // The run is the command itself, and each command carries its own help.
   assert.doesNotMatch(visible, /^\s+help\b/m)
 })
 
@@ -456,7 +471,13 @@ for (const auditor of ["codex", "claude"] as const) {
     }
     assert.equal(
       await runCommand(
-        [...commits, "--brief", "--auditor", auditor === "codex" ? "o" : "a"],
+        [
+          "round",
+          ...commits,
+          "--brief",
+          "--auditor",
+          auditor === "codex" ? "o" : "a",
+        ],
         f.runtime,
         f.options,
       ),

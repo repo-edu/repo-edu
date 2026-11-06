@@ -20,10 +20,14 @@ test("one supplied configuration controls auditor phase arguments and output tag
   }
   settings.strengthModels.codex.top = "chosen-watch"
   assert.equal(
-    await runCommand(["example.md", "3", "--auditor", "a"], f.runtime, {
-      ...f.options,
-      settings,
-    }),
+    await runCommand(
+      ["round", "example.md", "3", "--auditor", "a"],
+      f.runtime,
+      {
+        ...f.options,
+        settings,
+      },
+    ),
     0,
   )
   const { log, transcript } = await f.records()
@@ -69,10 +73,14 @@ for (const route of [
       )
     const target = route === "named commit" ? ["HEAD"] : ["example.md", "plan"]
     assert.equal(
-      await runCommand([...target, "--auditor", "o", "--no-watch"], f.runtime, {
-        ...f.options,
-        settings,
-      }),
+      await runCommand(
+        ["round", ...target, "--auditor", "o", "--no-watch"],
+        f.runtime,
+        {
+          ...f.options,
+          settings,
+        },
+      ),
       0,
       f.errors.join("\n"),
     )
@@ -98,6 +106,7 @@ for (const auditor of ["claude", "codex"] as const) {
         const f = await roundFixture(t, auditor, owner, ruling)
         const { repoRoot } = f
         const argv = [
+          "round",
           "example.md",
           "2-3",
           "--brief",
@@ -284,6 +293,7 @@ for (const auditor of ["claude", "codex"] as const) {
       true,
     )
     const argv = [
+      "round",
       "example.md",
       "2-3",
       "--auditor",
@@ -338,6 +348,7 @@ for (const auditor of ["claude", "codex"] as const) {
       true,
     )
     const argv = [
+      "round",
       "example.md",
       "2-3",
       "--brief",
@@ -395,7 +406,7 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     await f.configure({ phases: f.phases })
     assert.equal(
       await runCommand(
-        ["example.md", "1", "--brief", "--auditor", "o"],
+        ["round", "example.md", "1", "--brief", "--auditor", "o"],
         f.runtime,
         f.options,
       ),
@@ -428,7 +439,7 @@ for (const target of ["log", "markdown"] as const) {
       audit: { ...(f.phases.audit as object), wait: true },
     }
     await f.configure({ phases })
-    const code = await runCommand(["example.md", "1"], f.runtime, {
+    const code = await runCommand(["round", "example.md", "1"], f.runtime, {
       ...f.options,
       openFiles(paths) {
         const files = openRunFiles(paths)

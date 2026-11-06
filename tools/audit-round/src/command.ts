@@ -225,7 +225,7 @@ type Invocation =
     }
   | { readonly kind: "run"; readonly stem: string; readonly verbose?: boolean }
 
-/** The round options one series reads; `run` supplies the defaults alone. */
+/** The round options one series reads; the run supplies the defaults alone. */
 type SeriesOptions = Pick<
   Extract<Invocation, { kind: "round" }>,
   "auditor" | "firstAuditor" | "watch" | "brief"
@@ -510,20 +510,63 @@ function parseInvocation(
   const command = new Command("audit-round")
     .enablePositionalOptions()
     .description(
-      "Audit a plan or its implementation, review the findings and apply agreed fixes.\nArguments have the same meaning from either checkout.",
+      "Take a plan from its current stage through its close, or run one of its stages.\nArguments have the same meaning from either checkout.",
     )
     .configureHelp({
       helpWidth: 88,
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round run [options] <stem>\n       audit-round plan",
+      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
       writeErr: (text) => options.emergency(text.trimEnd()),
     })
     .exitOverride()
+    .argument("<stem>", "the active plan to run")
+    .option("-v, --verbose", "show tool calls as well as assistant text")
+    .addHelpText(
+      "after",
+      `
+The run takes the named active plan from the stage its state calls for through
+its close: the widening series, settle, the detailing series, ready, the
+implementation, the audit range series and the close. Invoking it is your settle,
+ready and close call. Any other ending stops the run with the stage's own lines,
+and the same command continues from where the plan stands. Every series it opens
+starts with the default auditor, runs the glance and the watch and writes no brief.
+
+Use round to run one audit round or series on a plan scope or on commits.
+Use models to read the auditor and coder results.
+Use disprove to record a finding that later evidence disproved.
+Use implement to land ready plan steps on their assigned coder.
+Use settle, ready or close to record the corresponding plan lifecycle call.
+Use round --help, brief --help or close --help for their arguments and options.`,
+    )
+    .action((stem: string, flags: { verbose?: boolean }) => {
+      invocation = { kind: "run", stem, ...flags }
+    })
+    // Positional options give an option before a subcommand to the run,
+    // which the subcommand never reads. Refusing it keeps an option from
+    // being dropped without a word.
+    .hook("preSubcommand", (run, subcommand) => {
+      const given = run.options
+        .filter(
+          (option) =>
+            run.getOptionValueSource(option.attributeName()) === "cli",
+        )
+        .map((option) => option.long ?? option.short)
+      if (given.length > 0)
+        run.error(
+          `${given.join(", ")} came before ${subcommand.name()}. Put options after the subcommand, as audit-round ${subcommand.name()} --help shows.`,
+        )
+    })
+  // The program owns the run, so Commander adds no `help` command of its own.
+  command
+    .command("round")
+    .description(
+      "Run one audit round or series on a plan scope or on commits: audit, vet, rebuttal and the fix that lands the agreed corrections.",
+    )
     .argument(
       "[target]",
       "a plan stem or commit references; see Targets and scope below",
@@ -583,9 +626,10 @@ Targets and scope:
            opens the plan group, which runs to the end of the target. Either group
            may appear alone, or both may appear in that order. HEAD-1 is the previous
            first-parent commit in its group's repo. Ranges include both ends.
-  Omitted  Options without a target take the active plan with the newest stem
-           commit in either repo, which audit-round plan prints, as if named alone.
-  The first line of every run names the round it resolved.
+  Omitted  round alone, or with options only, takes the active plan with the
+           newest stem commit in either repo, which audit-round plan prints, as
+           if named alone.
+  The first line of every round names the target it resolved.
 
 Auditor selection (--auditor <selections>):
   <selections> is a list of names or tags, separated by commas or spaces.
@@ -685,39 +729,34 @@ Examples (from either checkout):
 
   1. Audit steps 1-3, first with Codex and then with Claude.
 
-     $ pnpm audit-round example 1-3 --auditor codex,claude
+     $ pnpm audit-round round example 1-3 --auditor codex,claude
 
   2. Audit step 3 with Claude's top model at xhigh effort (atx),
      then Codex's base model at medium effort (obm).
 
-     $ pnpm audit-round example 3 --auditor atx,obm
+     $ pnpm audit-round round example 3 --auditor atx,obm
 
   3. Audit both repo shares of one change as one round.
 
-     $ pnpm audit-round HEAD ${planRepositoryPrefix}HEAD
+     $ pnpm audit-round round HEAD ${planRepositoryPrefix}HEAD
 
   4. Audit an inclusive commit range in the plan repo.
 
-     $ pnpm audit-round ${planRepositoryPrefix}HEAD-2..HEAD
+     $ pnpm audit-round round ${planRepositoryPrefix}HEAD-2..HEAD
 
   5. Run the audit the newest plan calls for with Codex.
 
-     $ pnpm audit-round --auditor codex
+     $ pnpm audit-round round --auditor codex
 
   6. Start an automatic series on steps 1-4 with Codex instead of the default.
 
-     $ pnpm audit-round example 1-4 --first codex
+     $ pnpm audit-round round example 1-4 --first codex
 
   7. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
 
-     $ pnpm audit-round example 2,3-5,6-7
+     $ pnpm audit-round round example 2,3-5,6-7
 
-Use pnpm audit-round models to read the auditor and coder results.
-Use disprove to record a finding that later evidence disproved.
-Use implement to land ready plan steps on their assigned coder.
-Use settle, ready or close to record the corresponding plan lifecycle call.
-Use run to take a plan from its current stage through its close in one command.
-Use brief --help, close --help or run --help for their arguments and options.`,
+Use pnpm audit-round <stem> to take a plan from its current stage through its close.`,
     )
     .action(
       (
@@ -736,22 +775,6 @@ Use brief --help, close --help or run --help for their arguments and options.`,
         invocation = { kind: "round", first, rest, firstAuditor, ...rounds }
       },
     )
-    // Positional options give an option before a subcommand to the round,
-    // which the subcommand never reads. Refusing it keeps an option from
-    // being dropped without a word.
-    .hook("preSubcommand", (round, subcommand) => {
-      const given = round.options
-        .filter(
-          (option) =>
-            round.getOptionValueSource(option.attributeName()) === "cli",
-        )
-        .map((option) => option.long ?? option.short)
-      if (given.length > 0)
-        round.error(
-          `${given.join(", ")} came before ${subcommand.name()}. Put options after the subcommand, as audit-round ${subcommand.name()} --help shows.`,
-        )
-    })
-  // The program owns the round, so Commander adds no `help` command of its own.
   command
     .command("name", { hidden: true })
     .description(
@@ -995,16 +1018,6 @@ Use brief --help, close --help or run --help for their arguments and options.`,
         invocation = { kind: "close", stem, ...flags }
       },
     )
-  command
-    .command("run")
-    .description(
-      "Take a plan from its current stage through its close: the series, settle, ready, implementation, the audit ranges and the close.",
-    )
-    .argument("<stem>", "the active plan to run")
-    .option("-v, --verbose", "show tool calls as well as assistant text")
-    .action((stem: string, flags: { verbose?: boolean }) => {
-      invocation = { kind: "run", stem, ...flags }
-    })
   try {
     // A bare command line asks for help rather than reporting a missing plan.
     command.parse(argv.length === 0 ? ["--help"] : [...argv], { from: "user" })
@@ -2078,7 +2091,7 @@ export async function runCommand(
         `Run time ${elapsedText(clock.elapsed(clock.invocation))}.`
       const ended = (stage: string) =>
         say(
-          `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round run ${stem} continues from where the plan stands. ${runTime()}`,
+          `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round ${stem} continues from where the plan stands. ${runTime()}`,
         )
       const defaults: SeriesOptions = { watch: true }
       let stage: RunStage = run.stage

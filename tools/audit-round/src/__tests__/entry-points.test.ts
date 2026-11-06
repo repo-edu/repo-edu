@@ -143,9 +143,9 @@ for (const working of ["repo-edu", "plan"] as const) {
     assert.equal(help.exitCode, 0, help.stderr)
     assert.match(help.stdout, /Usage: audit-round/)
     const invalid = [
-      ["example.md", "0"],
-      ["HEAD", "--auditor", "codex,claude"],
-      ["../plan/example.md", "1"],
+      ["round", "example.md", "0"],
+      ["round", "HEAD", "--auditor", "codex,claude"],
+      ["round", "../plan/example.md", "1"],
       ["paths", "brief"],
     ]
     for (const args of invalid) {
@@ -186,7 +186,7 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       assert.equal(
         await runCommand(
-          ["example.md", "--auditor", auditor === "codex" ? "o" : "a"],
+          ["round", "example.md", "--auditor", auditor === "codex" ? "o" : "a"],
           f.runtime,
           f.options,
         ),

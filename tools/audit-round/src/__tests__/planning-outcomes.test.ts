@@ -22,6 +22,7 @@ for (const auditor of ["codex", "claude"] as const) {
       assert.equal(
         await runCommand(
           [
+            "round",
             "example-widen.md",
             "--auditor",
             auditor === "codex" ? "o,a,a" : "a,o,o",
@@ -94,7 +95,12 @@ for (const auditor of ["codex", "claude"] as const) {
     })
     assert.equal(
       await runCommand(
-        ["example.md", "--auditor", auditor === "codex" ? "o,a" : "a,o"],
+        [
+          "round",
+          "example.md",
+          "--auditor",
+          auditor === "codex" ? "o,a" : "a,o",
+        ],
         f.runtime,
         f.options,
       ),
@@ -142,7 +148,12 @@ for (const auditor of ["codex", "claude"] as const) {
     const f = await roundFixture(t, auditor, "plan", true, null, true, "plan")
     assert.equal(
       await runCommand(
-        ["example.md", "--auditor", auditor === "codex" ? "o,a" : "a,o"],
+        [
+          "round",
+          "example.md",
+          "--auditor",
+          auditor === "codex" ? "o,a" : "a,o",
+        ],
         f.runtime,
         f.options,
       ),
@@ -180,7 +191,7 @@ for (const phase of ["vet", "rebut", "fix", "brief", "watch"] as const) {
     await f.configure({ phases: f.phases })
     assert.equal(
       await runCommand(
-        ["example.md", "--brief", "--auditor", "codex,claude"],
+        ["round", "example.md", "--brief", "--auditor", "codex,claude"],
         f.runtime,
         f.options,
       ),
@@ -225,7 +236,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       await writeFile(record, history)
       assert.equal(
         await runCommand(
-          ["example", ...(working === "plan" ? [] : ["1"])],
+          ["round", "example", ...(working === "plan" ? [] : ["1"])],
           f.runtime,
           f.options,
         ),

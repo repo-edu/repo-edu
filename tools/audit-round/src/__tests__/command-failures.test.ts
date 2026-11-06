@@ -11,7 +11,7 @@ test("a single explicit auditor claims one round", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
     await runCommand(
-      ["example.md", "3", "--auditor", "o"],
+      ["round", "example.md", "3", "--auditor", "o"],
       f.runtime,
       f.options,
     ),
@@ -43,6 +43,7 @@ for (const auditor of ["codex", "claude"] as const) {
       assert.equal(
         await runCommand(
           [
+            "round",
             "example-widen.md",
             "--brief",
             "--auditor",
@@ -265,7 +266,10 @@ for (const phase of ["audit", "vet"] as const) {
     const file =
       phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
     await writeFile(file, "Malformed evidence")
-    assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
+    assert.equal(
+      await runCommand(["round", "example.md", "1"], f.runtime, f.options),
+      1,
+    )
     const { log } = await f.records()
     assert.ok(log.includes(`[${phase}] failed:`))
     assert.ok(log.includes(`${phase}-session`))
@@ -283,7 +287,11 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     }
     await f.configure({ phases: f.phases })
     assert.equal(
-      await runCommand(["example.md", "1", "--brief"], f.runtime, f.options),
+      await runCommand(
+        ["round", "example.md", "1", "--brief"],
+        f.runtime,
+        f.options,
+      ),
       1,
     )
     const { log } = await f.records()
@@ -303,7 +311,10 @@ test("an empty returned watch cannot complete its phase", async (t) => {
   watch.stream = await phaseStream("codex", final, "watch-session")
   watch.assistants.codex.stream = watch.stream
   await f.configure({ phases: f.phases })
-  assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
+  assert.equal(
+    await runCommand(["round", "example.md", "1"], f.runtime, f.options),
+    1,
+  )
   const { log } = await f.records()
   assert.ok(log.includes("[watch] failed: Watch document is empty"))
   assert.ok(log.includes("Session: watch-session"))
@@ -313,7 +324,10 @@ test("a fix cannot request a ruling without writing its supplied document", asyn
   const f = await roundFixture(t, "codex", "repo-edu", true)
   f.phases.fix = { ...(f.phases.fix as object), document: undefined }
   await f.configure({ phases: f.phases })
-  assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
+  assert.equal(
+    await runCommand(["round", "example.md", "1"], f.runtime, f.options),
+    1,
+  )
   const { log } = await f.records()
   assert.match(log, /\[fix\] failed:/)
   assert.match(log, /Session: fix-session/)
@@ -325,7 +339,10 @@ test("a finished fix with no actual commit cannot complete a plan round with fin
   const f = await roundFixture(t)
   f.phases.fix = { ...(f.phases.fix as object), commits: [] }
   await f.configure({ phases: f.phases })
-  assert.equal(await runCommand(["example.md", "1"], f.runtime, f.options), 1)
+  assert.equal(
+    await runCommand(["round", "example.md", "1"], f.runtime, f.options),
+    1,
+  )
   const { log } = await f.records()
   assert.match(log, /\[fix\] failed:.*landed no commit/)
   assert.doesNotMatch(log, /\[brief\] starting|\[glance\]/)
@@ -345,7 +362,11 @@ test("a failed planning audit retains its root and recovery session without star
     },
   })
   assert.equal(
-    await runCommand(["example.md", "--auditor", "a"], f.runtime, f.options),
+    await runCommand(
+      ["round", "example.md", "--auditor", "a"],
+      f.runtime,
+      f.options,
+    ),
     1,
   )
   const { log } = await f.records()

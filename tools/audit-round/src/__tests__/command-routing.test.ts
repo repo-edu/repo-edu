@@ -481,7 +481,7 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const label = `${await shortCommit(f.planRoot, "HEAD~2")}..${await shortCommit(f.planRoot, "HEAD")}`
 
   assert.equal(
-    await runCommand([reference], f.runtime, f.options),
+    await runCommand(["round", reference], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
@@ -548,7 +548,7 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
   const references = ["HEAD", `${planRepositoryPrefix}HEAD`] as const
 
   assert.equal(
-    await runCommand([...references], f.runtime, f.options),
+    await runCommand(["round", ...references], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )

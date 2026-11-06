@@ -44,8 +44,8 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.equal(
         await runCommand(
           working === "plan"
-            ? ["example-widen.md", "--auditor", "o"]
-            : ["example", "2-3", "--auditor", "o"],
+            ? ["round", "example-widen.md", "--auditor", "o"]
+            : ["round", "example", "2-3", "--auditor", "o"],
           f.runtime,
           f.options,
         ),
@@ -112,7 +112,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       `Implementation audit workflow\nTarget: example.md 1\nJudged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
-      await runCommand(["example.md", "1"], f.runtime, f.options),
+      await runCommand(["round", "example.md", "1"], f.runtime, f.options),
       0,
       f.errors.join("\n"),
     )
@@ -141,7 +141,7 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
     "repo-edu",
     true,
   )
-  assert.equal(await runCommand(["HEAD"], f.runtime, f.options), 0)
+  assert.equal(await runCommand(["round", "HEAD"], f.runtime, f.options), 0)
   assert.equal(await shortCommit(f.repoRoot, "HEAD"), f.heads["repo-edu"])
   assert.match(await readFile(f.report, "utf8"), /No findings/)
   const { log, markdown } = await f.records()
@@ -214,7 +214,7 @@ test("a clean audit prunes its resolved setting and preserves another setting", 
   )
   assert.equal(
     await runCommand(
-      ["example.md", "--auditor", "codex,o,otl,codex"],
+      ["round", "example.md", "--auditor", "codex,o,otl,codex"],
       f.runtime,
       f.options,
     ),
@@ -263,7 +263,7 @@ test("a refused clean commit fails without starting a fix or deleting the eviden
   await execa("git", ["config", "core.hooksPath", hooks], { cwd: f.planRoot })
   assert.equal(
     await runCommand(
-      ["example.md", "--auditor", "codex,otl,claude,atx,codex"],
+      ["round", "example.md", "--auditor", "codex,otl,claude,atx,codex"],
       f.runtime,
       f.options,
     ),

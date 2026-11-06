@@ -98,7 +98,7 @@ test("run settles on the widening judge's answer and ends where the detailing ju
   ])
 
   assert.equal(
-    await runCommand(["run", "example"], f.runtime, {
+    await runCommand(["example"], f.runtime, {
       ...f.options,
       settings: runSettings,
       coin: openers(0, 1),
@@ -135,7 +135,7 @@ test("run settles on the widening judge's answer and ends where the detailing ju
   )
   assert.match(
     visible,
-    /Run of example ended in the detailing series after the widening series, settle\. Once that ending is handled, pnpm audit-round run example continues from where the plan stands\. Run time \d\d:\d\d\./,
+    /Run of example ended in the detailing series after the widening series, settle\. Once that ending is handled, pnpm audit-round example continues from where the plan stands\. Run time \d\d:\d\d\./,
   )
   assert.doesNotMatch(visible, /starting the implementation/)
 })
@@ -179,7 +179,7 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
   ])
 
   assert.equal(
-    await runCommand(["run", "example"], f.runtime, {
+    await runCommand(["example"], f.runtime, {
       ...f.options,
       settings: runSettings,
       coin: openers(0, 1),
@@ -282,7 +282,7 @@ test("run continues a plan reopened after ready from its state once it settles",
   ])
 
   assert.equal(
-    await runCommand(["run", "example"], f.runtime, {
+    await runCommand(["example"], f.runtime, {
       ...f.options,
       settings: runSettings,
       coin: openers(0, 1),
@@ -308,10 +308,7 @@ test("run continues a plan reopened after ready from its state once it settles",
 test("run refuses a plan without an active artifact before any assistant starts", async (t) => {
   const f = await roundFixture(t)
   // A trailing -v is the run's own option, so it reaches the plan lookup.
-  for (const argv of [
-    ["run", "missing"],
-    ["run", "missing", "-v"],
-  ])
+  for (const argv of [["missing"], ["missing", "-v"]])
     assert.equal(await runCommand(argv, f.runtime, f.options), 1)
   assert.match(
     f.errors.join("\n"),

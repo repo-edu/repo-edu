@@ -188,7 +188,7 @@ export async function selectTargets(
 }
 
 /**
- * The lifecycle stage an active plan's state calls for, which `run` starts
+ * The lifecycle stage an active plan's state calls for, which the run starts
  * at. The filename names widening, a settled plan without a ready record is
  * detailing, and the ready plan's per-repo progress separates implementation
  * from the audit range series, so no run file keeps a second copy of it.
