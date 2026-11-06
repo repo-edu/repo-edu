@@ -239,6 +239,127 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
   )
 })
 
+test("a whole-life recovery resumes the failed worker and continues through markers, ranges and close", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "plan",
+    false,
+    null,
+    false,
+    "plan",
+    true,
+    false,
+    false,
+  )
+  await rm(join(f.activeRoot, "example-widen.md"))
+  await commitPlan(f, "example.md")
+  await commitFixture(
+    f.planRoot,
+    "example/ready: declare the plan ready for implementation\n\nCoder: codex gpt-5.6-sol xhigh",
+  )
+  const usage = {
+    path: `${f.root}/rollout-implementation-session.jsonl`,
+    text: await recorded("codex-rollout.jsonl"),
+  }
+  f.phases.implement = {
+    stream: await phaseStream(
+      "codex",
+      'Lost the stream.\nPHASE RESULT: {"status":"failed","reason":"The stream disconnected."}',
+      "implementation-session",
+    ),
+    usage,
+  }
+  await f.configure({ phases: f.phases })
+  assert.equal(
+    await runCommand(["example"], f.runtime, {
+      ...f.options,
+      settings: runSettings,
+    }),
+    1,
+  )
+  assert.match(
+    f.visible.join("\n"),
+    /^Resume: pnpm audit-round example --resume 1:implementation-session$/m,
+  )
+
+  const implementation = join(f.activeRoot, "implementation-source.md")
+  await writeFile(
+    implementation,
+    `Implementation audit workflow\nTarget: <arguments>\nJudged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
+  )
+  f.phases.implement = {
+    commits: [
+      {
+        cwd: f.repoRoot,
+        subject: "example/impl-1 obx feat(audit-round): implement fixture",
+      },
+    ],
+    stream: await phaseStream("codex", finishedText, "implementation-session"),
+    usage,
+  }
+  await configureRun(f, { codex: implementation, claude: implementation }, [
+    "Judge: stop. The clean read leaves no remaining real bug in the range.",
+  ])
+  assert.equal(
+    await runCommand(
+      ["example", "--resume", "1:implementation-session"],
+      f.runtime,
+      { ...f.options, settings: runSettings },
+    ),
+    0,
+    [...f.errors, ...f.visible].join("\n"),
+  )
+  const calls = (await f.prompts()).flatMap((call) => {
+    const phase = /^Run the (\w+) phase/.exec(call.prompt)?.[1]
+    return phase === undefined ? [] : [{ phase, call }]
+  })
+  assert.deepEqual(
+    calls.map(({ phase }) => phase),
+    ["implement", "implement", "audit", "judge", "close"],
+  )
+  assert.ok(calls[1].call.args.includes("implementation-session"))
+  const repoEduSubjects = (
+    await execa("git", ["log", "--format=%s"], { cwd: f.repoRoot })
+  ).stdout.split("\n")
+  assert.deepEqual(repoEduSubjects.slice(1, 3), [
+    "example/implemented obx: complete the Repo Edu share",
+    "example/impl-1 obx feat(audit-round): implement fixture",
+  ])
+  assert.match(repoEduSubjects[0], /^example\/impl-audit-1 /)
+  assert.match(
+    f.visible.join("\n"),
+    /Run of example finished: the plan is closed\./,
+  )
+})
+
+test("a recovery whose plan has left the implementation leaves the session unused", async (t) => {
+  const f = await roundFixture(t)
+  await commitFixture(
+    f.planRoot,
+    "example/ready: declare the plan ready for implementation\n\nCoder: codex gpt-5.6-sol xhigh",
+  )
+  await commitFixture(
+    f.repoRoot,
+    "example/implemented obx: complete the Repo Edu share",
+  )
+  await configureRun(f, { codex: f.report, claude: f.report }, [
+    "Judge: stop. The read leaves no remaining real bug in the range.",
+  ])
+  await runCommand(["example", "--resume", "1:old-session"], f.runtime, {
+    ...f.options,
+    settings: runSettings,
+  })
+  assert.match(
+    f.visible.join("\n"),
+    /example starts in the audit range series, so session old-session stays unused\./,
+  )
+  const phases = (await f.prompts()).map(
+    (call) => /^Run the (\w+) phase/.exec(call.prompt)?.[1],
+  )
+  assert.ok(!phases.includes("implement"))
+})
+
 test("run continues a plan reopened after ready from its state once it settles", async (t) => {
   const f = await roundFixture(
     t,

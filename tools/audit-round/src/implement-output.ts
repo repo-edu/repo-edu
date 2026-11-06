@@ -32,7 +32,11 @@ export function implementationIdentity(
   }
 }
 
-/** One worker owns one retained step log and ruling document. */
+/**
+ * One worker owns one retained step log and ruling document. A recovery
+ * names the session it resumes and appends to that step's log, so the log
+ * keeps the failed turn beside the new invocation's opening.
+ */
 export function implementationRun(
   plan: string,
   activeRoot: string,
@@ -41,6 +45,7 @@ export function implementationRun(
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
   identity: ImplementationIdentity,
+  resumedSession: string | null,
 ): Run & { readonly ruling: string } {
   const stem = planStem(plan)
   const number = String(step).padStart(2, "0")
@@ -51,7 +56,7 @@ export function implementationRun(
       `${stem}-impl-${number}-implement-ruling.${identity.tag}.md`,
     ),
     name: "Implementation",
-    title: `Implementation of ${basename(plan)}, step ${step}`,
+    title: `Implementation of ${basename(plan)}, step ${step}${resumedSession === null ? "" : `, resuming session ${resumedSession}`}`,
     phases: [{ phase: "implement", ...identity.phaseRun }],
     settings,
     releases,
@@ -59,6 +64,7 @@ export function implementationRun(
       claim: null,
       log: join(activeRoot, `${base}.log`),
       markdown: null,
+      reopenLog: resumedSession !== null,
     },
     previousModels: [],
     started,

@@ -88,6 +88,16 @@ export async function readImplementationProgress(
   )
 }
 
+/**
+ * A failed worker's session and the step it served, as the user pastes them
+ * back through `--resume`. Git cannot say which step a session served, so the
+ * pair travels together and attaches only to that step.
+ */
+export type WorkerResume = {
+  readonly step: number
+  readonly sessionId: string
+}
+
 type OpenStep = {
   readonly rulingFile: string
 }
@@ -102,6 +112,7 @@ export type ImplementationDependencies = {
   readonly openStep: (
     step: PlanStep,
     shares: readonly Repository[],
+    resumedSession: string | null,
   ) => Promise<OpenStep>
   readonly runWorker: (
     input: PhaseInput<"implement">,
@@ -117,6 +128,8 @@ export type ImplementationInput = PreparedImplementation &
     readonly phaseRun: PhaseRun
     readonly release: string
     readonly effort: Coder["effort"]
+    /** The one session a recovery resumes, bound to the step it served. */
+    readonly resume: WorkerResume | null
   }
 
 export type ImplementationResult =
@@ -155,7 +168,11 @@ function repositoryNames(repositories: readonly Repository[]): string {
     .join(" and ")
 }
 
-/** Run selected missing shares in plan order, one fresh worker per step. */
+/**
+ * Run selected missing shares in plan order, one fresh worker per step. A
+ * recovery resumes its session only on the step it served while Git still
+ * shows that step selected and pending; otherwise the session stays unused.
+ */
 export async function runImplementation(
   input: ImplementationInput,
   dependencies: ImplementationDependencies,
@@ -174,16 +191,31 @@ export async function runImplementation(
     sessionId,
   })
   let progress = await dependencies.readProgress()
+  const { resume } = input
+  if (
+    resume !== null &&
+    !input.selectedSteps.some(
+      (step) =>
+        step.number === resume.step && pendingShares(progress, step).length > 0,
+    )
+  )
+    await dependencies.message(
+      `Step ${resume.step} has no pending selected share, so session ${resume.sessionId} stays unused.`,
+    )
 
   for (const step of input.selectedSteps) {
     const shares = pendingShares(progress, step)
     if (shares.length === 0) continue
 
+    const resumed = resume?.step === step.number ? resume.sessionId : null
+    const share = `share${shares.length === 1 ? "" : "s"} in ${repositoryNames(shares)}`
     await dependencies.message(
-      `Step ${step.number}: implementing the remaining share${shares.length === 1 ? "" : "s"} in ${repositoryNames(shares)}.`,
+      resumed === null
+        ? `Step ${step.number}: implementing the remaining ${share}.`
+        : `Step ${step.number}: resuming session ${resumed} for the remaining ${share}.`,
     )
-    const opened = await dependencies.openStep(step, shares)
-    let sessionId: string | null = null
+    const opened = await dependencies.openStep(step, shares, resumed)
+    let sessionId = resumed
     let rulingReply: string | undefined
     while (true) {
       const common = {
@@ -199,10 +231,15 @@ export async function runImplementation(
         ] as const,
         rulingFile: opened.rulingFile,
       }
+      // A resumed session without a reply receives the generic continuation.
       const result = await dependencies.runWorker(
         sessionId === null
           ? { ...common, sessionId: null }
-          : { ...common, sessionId, rulingReply: rulingReply as string },
+          : {
+              ...common,
+              sessionId,
+              ...(rulingReply === undefined ? {} : { rulingReply }),
+            },
       )
       if (result.status === "failed")
         return {

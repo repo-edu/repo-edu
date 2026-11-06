@@ -471,7 +471,8 @@ type PhaseArguments = {
     | { readonly sessionId: null; readonly rulingReply?: never }
     | {
         readonly sessionId: string
-        readonly rulingReply: string
+        /** Absent when a failed worker resumes on the generic continuation. */
+        readonly rulingReply?: string
       }
   )
   brief: {

@@ -187,6 +187,7 @@ export async function recordContracts(
             claim: null,
             log: join(scratch, `${assistant}.log`),
             markdown: join(scratch, `${assistant}.md`),
+            reopenLog: false,
           },
           previousModels: [],
           started: Date.now(),

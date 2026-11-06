@@ -6,6 +6,12 @@ export type RunPaths = {
   readonly log: string
   /** Null when the run keeps no transcript: a brief on its own retells an existing one. */
   readonly markdown: string | null
+  /**
+   * True only when a recovery reopens a retained implementation step log,
+   * which it appends to. Other logs without a transcript start empty and
+   * round files are created exclusively.
+   */
+  readonly reopenLog: boolean
 }
 
 export type RunFiles = {
@@ -23,7 +29,10 @@ export function claimRound(path: string): void {
 export function openRunFiles(paths: RunPaths): RunFiles {
   // A claim is retained even when opening or writing the tagged files fails.
   if (paths.claim !== null) claimRound(paths.claim)
-  const log = openSync(paths.log, paths.markdown === null ? "w" : "wx")
+  const log = openSync(
+    paths.log,
+    paths.reopenLog ? "a" : paths.markdown === null ? "w" : "wx",
+  )
   let markdown: number | null = null
   try {
     if (paths.markdown !== null) markdown = openSync(paths.markdown, "wx")

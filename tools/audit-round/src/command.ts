@@ -8,6 +8,7 @@ import {
 } from "commander"
 import { format } from "date-fns"
 import { execa } from "execa"
+import { join as shellJoin } from "shellwords"
 import {
   type AssistantRuntime,
   assistantDependencies,
@@ -32,6 +33,7 @@ import {
   prepareImplementation,
   readImplementationProgress,
   runImplementation,
+  type WorkerResume,
 } from "./implement.js"
 import {
   implementationIdentity,
@@ -194,6 +196,8 @@ type Invocation =
       readonly stem: string
       readonly scope?: string
       readonly verbose?: boolean
+      /** A failed worker's step and session, which this entry resumes. */
+      readonly resume?: WorkerResume
     }
   | {
       readonly kind: "mark"
@@ -229,7 +233,13 @@ type Invocation =
       readonly aborted?: string
       readonly verbose?: boolean
     }
-  | { readonly kind: "run"; readonly stem: string; readonly verbose?: boolean }
+  | {
+      readonly kind: "run"
+      readonly stem: string
+      readonly verbose?: boolean
+      /** A failed worker's step and session, which this entry resumes. */
+      readonly resume?: WorkerResume
+    }
 
 /** The round options one series reads; the run supplies the defaults alone. */
 type SeriesOptions = Pick<
@@ -427,6 +437,23 @@ function lineRange(value: string): LineRange {
   return { first, last }
 }
 
+/** One value keeps a session with the step it served; a session ID holds no colon. */
+function workerResume(value: string): WorkerResume {
+  const match = /^([1-9]\d*):([^:\s]+)$/.exec(value)
+  const step = Number(match?.[1])
+  if (match === null || !Number.isSafeInteger(step))
+    throw new InvalidArgumentError(
+      "Expected <step>:<session-id>, as a failed implementation worker prints it.",
+    )
+  return { step, sessionId: match[2] }
+}
+
+const resumeOption = () =>
+  new Option(
+    "--resume <step:session-id>",
+    "resume a failed implementation worker's session on its step",
+  ).argParser(workerResume)
+
 function watchEvidencePage(evidence: string, range: LineRange): string {
   const lines = evidence.split("\n")
   const page = lines.slice(range.first - 1, range.last)
@@ -532,6 +559,7 @@ function parseInvocation(
     .exitOverride()
     .argument("<stem>", "the active plan to run")
     .option("-v, --verbose", "show tool calls as well as assistant text")
+    .addOption(resumeOption())
     .addHelpText(
       "after",
       `
@@ -541,6 +569,8 @@ implementation, the audit range series and the close. Invoking it is your settle
 ready and close call. Any other ending stops the run with the stage's own lines,
 and the same command continues from where the plan stands. Every series it opens
 starts with the default auditor, runs the glance and the watch and writes no brief.
+A failed implementation worker prints this command with --resume, which resumes
+that worker's session on its step before the run continues.
 
 Use round to run one audit round or series on a plan scope or on commits.
 Use models to read the auditor and coder results.
@@ -549,9 +579,11 @@ Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
 Use round --help, brief --help or close --help for their arguments and options.`,
     )
-    .action((stem: string, flags: { verbose?: boolean }) => {
-      invocation = { kind: "run", stem, ...flags }
-    })
+    .action(
+      (stem: string, flags: { verbose?: boolean; resume?: WorkerResume }) => {
+        invocation = { kind: "run", stem, ...flags }
+      },
+    )
     // Positional options give an option before a subcommand to the run,
     // which the subcommand never reads. Refusing it keeps an option from
     // being dropped without a word.
@@ -882,11 +914,12 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
     .argument("<stem>", "the active ready plan to implement")
     .argument("[scope]", "one step or an inclusive increasing step range")
     .option("-v, --verbose", "show tool calls as well as assistant text")
+    .addOption(resumeOption())
     .action(
       (
         stem: string,
         scope: string | undefined,
-        flags: { verbose?: boolean },
+        flags: { verbose?: boolean; resume?: WorkerResume },
       ) => {
         invocation = { kind: "implement", stem, scope, ...flags }
       },
@@ -1505,9 +1538,17 @@ export async function runCommand(
       }
     }
 
-    /** One implementation stage: a worker per pending step, then the markers due. */
+    /**
+     * One implementation stage: a worker per pending step, then the markers
+     * due. The entry is the typed runner command that owns the stage, so a
+     * failed worker's recovery re-enters it with the same authority.
+     */
     const implementStage = async (
       implementation: PreparedImplementation,
+      entry: {
+        readonly command: readonly string[]
+        readonly resume: WorkerResume | null
+      },
     ): Promise<ImplementationResult["status"]> => {
       const implementationSession = roundContext(context, "implementation")
       const identity = implementationIdentity(
@@ -1526,6 +1567,7 @@ export async function runCommand(
           phaseRun: identity.phaseRun,
           release: identity.release,
           effort: identity.effort,
+          resume: entry.resume,
         },
         {
           readProgress: () =>
@@ -1534,7 +1576,7 @@ export async function runCommand(
               implementation.stem,
               implementation.steps,
             ),
-          openStep: async (step) => {
+          openStep: async (step, _shares, resumedSession) => {
             const run = implementationRun(
               implementation.plan,
               context.activeRoot,
@@ -1543,6 +1585,7 @@ export async function runCommand(
               releases,
               settings,
               identity,
+              resumedSession,
             )
             open(run)
             return { rulingFile: run.ruling }
@@ -1648,8 +1691,18 @@ export async function runCommand(
             : `Step ${outcome.step} stopped without a ruling reply.`
         if (output === undefined) options.terminal.write(line)
         else await output.message(line)
+        // A failed worker returns through its runner entry; an unanswered
+        // ruling is answered in the worker's own session.
         if (outcome.session !== null) {
-          const resume = `Resume: ${recoveryCommand(outcome.session)}`
+          const resume = `Resume: ${
+            outcome.status === "failed"
+              ? shellJoin([
+                  ...entry.command,
+                  "--resume",
+                  `${outcome.step}:${outcome.session.sessionId}`,
+                ])
+              : recoveryCommand(outcome.session)
+          }`
           if (output === undefined) options.terminal.write(resume)
           else await output.message(resume)
         }
@@ -2198,6 +2251,11 @@ export async function runCommand(
           `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round ${stem} continues from where the plan stands. ${runTime()}`,
         )
       const defaults: SeriesOptions = { watch: true }
+      // A worker's session belongs to the implementation the run starts in.
+      if (run.resume !== undefined && run.stage !== "implement")
+        await say(
+          `${stem} starts in the ${runStageNames[run.stage]}, so session ${run.resume.sessionId} stays unused.`,
+        )
       let stage: RunStage = run.stage
       let current: string = runStageNames[stage]
       let closed = false
@@ -2233,6 +2291,15 @@ export async function runCommand(
           } else if (stage === "implement") {
             const status = await implementStage(
               await prepareImplementation(context, stem),
+              {
+                command: [
+                  "pnpm",
+                  "audit-round",
+                  stem,
+                  ...(run.verbose === true ? ["-v"] : []),
+                ],
+                resume: run.stage === "implement" ? (run.resume ?? null) : null,
+              },
             )
             if (status !== "finished") break
             stage = "ranges"
@@ -2264,7 +2331,18 @@ export async function runCommand(
         await say(`Run of ${stem} finished: the plan is closed. ${runTime()}`)
       else await ended(current)
     }
-    if (prepared.kind === "implement") await implementStage(prepared)
+    if (prepared.kind === "implement")
+      await implementStage(prepared, {
+        command: [
+          "pnpm",
+          "audit-round",
+          "implement",
+          prepared.stem,
+          ...(prepared.scope === undefined ? [] : [prepared.scope]),
+          ...(prepared.verbose === true ? ["-v"] : []),
+        ],
+        resume: prepared.resume ?? null,
+      })
     else if (prepared.kind === "brief") {
       const { transcript } = prepared
       const run = await briefRun(transcript, context, now(), releases, settings)
