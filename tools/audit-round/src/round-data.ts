@@ -22,6 +22,12 @@ const tokenUsage = z.strictObject({
 })
 const repository = z.enum(["repo-edu", "plan"])
 const effort = z.enum(["low", "medium", "high", "xhigh"])
+const fullCommit = z.string().regex(/^[0-9a-f]{40}$/i)
+const commitGroup = z.strictObject({
+  repository,
+  commits: z.array(fullCommit).min(1),
+  startingHead: z.string().regex(/^[0-9a-f]{6,40}$/i),
+})
 
 const planningLocation = z.strictObject({
   kind: z.literal("planning"),
@@ -166,7 +172,7 @@ const commonRoundData = z.strictObject({
   commits: z.array(
     z.strictObject({
       repository,
-      sha: z.string().regex(/^[0-9a-f]{40}$/i),
+      sha: fullCommit,
     }),
   ),
   findings: z.array(roundFindingSchema),
@@ -181,9 +187,15 @@ export const implementationRoundDataSchema = commonRoundData.extend({
   scope: z.string().min(1),
   judgedRepos: z.array(repository),
 })
+export const commitRoundDataSchema = commonRoundData.extend({
+  originalGroups: z.array(commitGroup).min(1),
+  groups: z.array(commitGroup).min(1),
+  judgedRepos: z.array(repository),
+})
 export const roundDataSchema = z.union([
   planningRoundDataSchema,
   implementationRoundDataSchema,
+  commitRoundDataSchema,
 ])
 const commonDisprovedFinding = {
   date: z.iso.date(),
@@ -212,11 +224,20 @@ const implementationRoundFileSchema = z.strictObject({
   rounds: z.array(implementationRoundDataSchema),
   disproved: z.array(disprovedFindingSchema),
 })
+const commitRoundFileSchema = z.strictObject({
+  rounds: z.array(commitRoundDataSchema),
+  disproved: z.array(disprovedFindingSchema),
+})
 const roundDataFilenamePattern = /-(?:plan|impl)-rounds\.json$/
 
 /** The one file name shared by round-data writers and readers. */
-export function roundDataFilename(stem: string, kind: RoundKind): string {
-  return `${stem}-${kind === "planning" ? "plan" : "impl"}-rounds.json`
+export function roundDataFilename(
+  stem: string,
+  kind: RoundKind | "commit",
+): string {
+  return kind === "commit"
+    ? `${stem}-rounds.json`
+    : `${stem}-${kind === "planning" ? "plan" : "impl"}-rounds.json`
 }
 
 export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
@@ -234,10 +255,12 @@ export type DisprovedFinding = z.infer<typeof disprovedFindingSchema>
 export type RoundDataFile =
   | z.infer<typeof planningRoundFileSchema>
   | z.infer<typeof implementationRoundFileSchema>
+  | z.infer<typeof commitRoundFileSchema>
 export type PlanningRoundData = z.infer<typeof planningRoundDataSchema>
 export type ImplementationRoundData = z.infer<
   typeof implementationRoundDataSchema
 >
+export type CommitRoundData = z.infer<typeof commitRoundDataSchema>
 export type PlanRoundData = {
   readonly planning?: readonly PlanningRoundData[]
   readonly implementation?: readonly ImplementationRoundData[]
@@ -493,7 +516,9 @@ export function settleRoundFindings(
 function fileSchema(path: string) {
   if (path.endsWith("-plan-rounds.json")) return planningRoundFileSchema
   if (path.endsWith("-impl-rounds.json")) return implementationRoundFileSchema
-  throw new Error(`Invalid per-plan round data path: ${path}`)
+  if (/^commit-.+-rounds\.json$/.test(basename(path)))
+    return commitRoundFileSchema
+  throw new Error(`Invalid round data path: ${path}`)
 }
 
 /** Parse one round-kind file under the schema its name selects. */
@@ -516,11 +541,12 @@ function writeRoundDataFile(path: string, value: unknown): void {
 export function writeRoundData(path: string, value: RoundData): void {
   const schema = fileSchema(path)
   const data = roundDataSchema.parse(value)
-  if (
-    "phase" in data !== path.endsWith("-plan-rounds.json") ||
-    "scope" in data !== path.endsWith("-impl-rounds.json")
-  )
-    throw new Error(`Round data kind does not match ${path}`)
+  const matches = path.endsWith("-plan-rounds.json")
+    ? "phase" in data
+    : path.endsWith("-impl-rounds.json")
+      ? "scope" in data
+      : "originalGroups" in data
+  if (!matches) throw new Error(`Round data kind does not match ${path}`)
   let file: RoundDataFile = { rounds: [], disproved: [] }
   try {
     file = schema.parse(JSON.parse(readFileSync(path, "utf8")))

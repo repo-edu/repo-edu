@@ -114,10 +114,20 @@ export type Run = {
   } & (
     | { readonly phase: "widening" | "detailing" }
     | { readonly scope: string }
+    | {
+        readonly originalGroups: RoundDataCommitGroups
+        readonly groups: RoundDataCommitGroups
+      }
   )
   /** The reading that dates the run files. */
   readonly started: number
 }
+
+type RoundDataCommitGroups = readonly {
+  readonly repository: "repo-edu" | "plan"
+  readonly commits: readonly [string, ...string[]]
+  readonly startingHead: string
+}[]
 
 function resolvedRun(
   run: PhaseRun,
@@ -199,16 +209,17 @@ export async function roundRun(
     join(setup.activeRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
   const audit = entry("audit")
+  const identity = roundDataIdentity(nameStart)
   const activePlan =
     "plan" in setup && isActivePlanPath(setup.activeRoot, setup.plan)
   const data =
-    "plan" in setup && activePlan
+    "groups" in setup
       ? {
           path: join(
             setup.activeRoot,
-            roundDataFilename(planStem(setup.plan), setup.roundKind),
+            roundDataFilename(identity.target, "commit"),
           ),
-          ...roundDataIdentity(nameStart),
+          ...identity,
           tag: tag("audit"),
           settings: roundSettingsData(releases, settings, phases.fix),
           auditor: {
@@ -216,11 +227,38 @@ export async function roundRun(
             ...resolvedRun(audit, releases),
             chosenBy: setup.auditorSelectionSource,
           },
-          ...(setup.roundKind === "planning"
-            ? { phase: planPhase(setup.plan) }
-            : { scope: setup.scope }),
+          originalGroups: setup.groups.map(
+            ({ repository, commits, startingHead }) => ({
+              repository,
+              commits,
+              startingHead,
+            }),
+          ),
+          groups: setup.groups.map(({ repository, commits, startingHead }) => ({
+            repository,
+            commits,
+            startingHead,
+          })),
         }
-      : undefined
+      : activePlan
+        ? {
+            path: join(
+              setup.activeRoot,
+              roundDataFilename(planStem(setup.plan), setup.roundKind),
+            ),
+            ...identity,
+            tag: tag("audit"),
+            settings: roundSettingsData(releases, settings, phases.fix),
+            auditor: {
+              assistant: audit.assistant,
+              ...resolvedRun(audit, releases),
+              chosenBy: setup.auditorSelectionSource,
+            },
+            ...(setup.roundKind === "planning"
+              ? { phase: planPhase(setup.plan) }
+              : { scope: setup.scope }),
+          }
+        : undefined
   return {
     nameStart,
     watch: `${path("watch", "watch")}.md`,
@@ -792,10 +830,22 @@ export class RoundOutput<R extends Run = Run> {
       judge,
       ...("phase" in this.run.data
         ? { phase: this.run.data.phase, settling: account.settling }
-        : {
-            scope: this.run.data.scope,
-            judgedRepos: [...account.judgedRepos],
-          }),
+        : "scope" in this.run.data
+          ? {
+              scope: this.run.data.scope,
+              judgedRepos: [...account.judgedRepos],
+            }
+          : {
+              originalGroups: this.run.data.originalGroups.map((group) => ({
+                ...group,
+                commits: [...group.commits],
+              })),
+              groups: this.run.data.groups.map((group) => ({
+                ...group,
+                commits: [...group.commits],
+              })),
+              judgedRepos: [...account.judgedRepos],
+            }),
     })
   }
 }

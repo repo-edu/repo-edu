@@ -83,7 +83,7 @@ async function resolveCommitGroup(
   const startingHead = shortSha(
     (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
   )
-  const shortCommit = async (endpoint: string): Promise<string> => {
+  const fullCommit = async (endpoint: string): Promise<string> => {
     const offset = headOffset(endpoint)
     const revision = offset === null ? endpoint : `${startingHead}~${offset}`
     const resolved = await execa(
@@ -95,22 +95,74 @@ async function resolveCommitGroup(
       throw new InvalidArgumentError(
         `${endpoint} names no commit in the ${group.repository} checkout.`,
       )
-    return shortSha(resolved.stdout)
+    return resolved.stdout
   }
-  const shortReferences = await Promise.all(
+  const resolvedReferences = await Promise.all(
     group.references.map(async (reference) =>
-      (
-        await Promise.all(
-          unprefixedCommitReference(reference).split("..").map(shortCommit),
-        )
-      ).join(".."),
+      Promise.all(
+        unprefixedCommitReference(reference).split("..").map(fullCommit),
+      ),
     ),
   )
+  const shortReferences = resolvedReferences.map((reference) =>
+    reference.map(shortSha).join(".."),
+  )
+  const commits =
+    resolvedReferences.length === 1 && resolvedReferences[0].length === 2
+      ? await inclusiveRange(
+          cwd,
+          resolvedReferences[0][0],
+          resolvedReferences[0][1],
+        )
+      : await orderedCommits(cwd, resolvedReferences.flat())
   return {
     ...group,
     startingHead,
+    commits: commits as [string, ...string[]],
     shortReferences: shortReferences as [string, ...string[]],
   }
+}
+
+/** Expand an inclusive ancestry range in repository order. */
+async function inclusiveRange(
+  cwd: string,
+  first: string,
+  last: string,
+): Promise<string[]> {
+  const ancestry = await execa(
+    "git",
+    ["merge-base", "--is-ancestor", first, last],
+    { cwd, reject: false },
+  )
+  if (ancestry.exitCode !== 0)
+    throw new InvalidArgumentError(
+      `${shortSha(first)}..${shortSha(last)} is not an increasing ancestry range.`,
+    )
+  const afterFirst = await execa(
+    "git",
+    ["rev-list", "--reverse", "--ancestry-path", `${first}..${last}`],
+    { cwd },
+  )
+  return [first, ...afterFirst.stdout.split("\n").filter(Boolean)]
+}
+
+/** Put an exact commit list in repository order, independent of typed order. */
+async function orderedCommits(
+  cwd: string,
+  commits: readonly string[],
+): Promise<string[]> {
+  if (commits.length === 1) return [...commits]
+  const wanted = new Set(commits)
+  const ordered = (
+    await execa("git", ["rev-list", "--reverse", "--topo-order", ...commits], {
+      cwd,
+    })
+  ).stdout
+    .split("\n")
+    .filter((commit) => wanted.has(commit))
+  if (ordered.length !== wanted.size)
+    throw new Error("Git did not return every resolved commit in the group")
+  return ordered
 }
 
 /**

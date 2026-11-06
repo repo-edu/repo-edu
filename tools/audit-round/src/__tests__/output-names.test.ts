@@ -36,6 +36,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
           references: ["abcdef..123abc"],
           repository: "repo-edu",
           startingHead: "unused",
+          commits: ["a".repeat(40)],
           shortReferences: ["abcdef..123abc"],
         },
       ],
@@ -63,7 +64,10 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     "commit-abcdef..123abc-01-7-ruling.obh.md",
     "commit-abcdef..123abc-01-9-watch.obh.md",
   ])
-  assert.equal(run.data, undefined)
+  assert.equal(
+    run.data?.path,
+    join(f.runtime.activeRoot, "commit-abcdef..123abc-rounds.json"),
+  )
   assert.equal(run.paths.log, run.paths.markdown.replace(/\.md$/, ".log"))
   assert.equal(
     transcriptNameStart(run.paths.markdown),
@@ -86,6 +90,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
               references: ["abcdef..123abc"],
               repository: "repo-edu",
               startingHead: "unused",
+              commits: ["a".repeat(40)],
               shortReferences: ["abcdef..123abc"],
             },
           ],

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import type { ModelSelection } from "../feedback.js"
@@ -175,4 +175,14 @@ test("round history joins active and archived plans before choosing the newest e
   assert.deepEqual(references, [
     { assistant: "codex", launched: pinnedRelease, reported: newRelease },
   ])
+})
+
+test("model-change history ignores commit round data", async (t) => {
+  const f = await fixture(t)
+  await writeFile(
+    join(f.runtime.activeRoot, "commit-abc123-rounds.json"),
+    "not plan round data\n",
+  )
+
+  assert.deepEqual(await readPreviousRoundModels(f.runtime), [])
 })

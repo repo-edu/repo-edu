@@ -460,10 +460,16 @@ for (const auditor of ["codex", "claude"] as const) {
     const head = await shortCommit(f.repoRoot, "HEAD")
     const commits = auditor === "codex" ? ["HEAD-2..HEAD"] : ["HEAD-1", "HEAD"]
     const back = (n: number) => shortCommit(f.repoRoot, `HEAD~${n}`)
+    const full = async (revision: string) =>
+      (await execa("git", ["rev-parse", revision], { cwd: f.repoRoot })).stdout
     const group = {
       repository: "repo-edu",
       references: commits,
       startingHead: head,
+      commits:
+        auditor === "codex"
+          ? await Promise.all(["HEAD~2", "HEAD~1", "HEAD"].map(full))
+          : await Promise.all(["HEAD~1", "HEAD"].map(full)),
       shortReferences:
         auditor === "codex"
           ? [`${await back(2)}..${await back(0)}`]

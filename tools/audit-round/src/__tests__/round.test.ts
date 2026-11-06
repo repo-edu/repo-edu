@@ -621,6 +621,7 @@ for (const accepted of [false, true]) {
           references: ["HEAD"] as const,
           repository: "repo-edu" as const,
           startingHead: "abc1234",
+          commits: ["a".repeat(40)] as const,
           shortReferences: ["abc123"] as const,
         },
       ] as const,
@@ -1307,6 +1308,7 @@ for (const ruling of [false, true]) {
       references: commits,
       repository: "repo-edu" as const,
       startingHead: "abc1234",
+      commits: ["a".repeat(40)] as const,
       shortReferences: ["abc111", "abc222", "abc123"] as const,
     }
     const result = await runRound(
@@ -2105,6 +2107,7 @@ test("a finished fix on a plan target requires a landed commit; clean audits use
           references: ["HEAD"] as const,
           repository: "repo-edu" as const,
           startingHead: "abc1234",
+          commits: ["a".repeat(40)] as const,
           shortReferences: ["abc123"] as const,
         },
       ] as const,

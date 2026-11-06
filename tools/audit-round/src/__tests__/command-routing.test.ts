@@ -431,6 +431,9 @@ test("name shares commit range and list targets with the runner", async (t) => {
     await shortCommit(f.repoRoot, "HEAD~1"),
     await shortCommit(f.repoRoot, "HEAD~2"),
   ]
+  const full = async (revision: string) =>
+    (await execa("git", ["rev-parse", revision], { cwd: f.repoRoot })).stdout
+  const ordered = await Promise.all(["HEAD~2", "HEAD~1", "HEAD"].map(full))
   for (const [references, shortReferences, target] of [
     [["HEAD-2..HEAD"], [`${back[1]}..${head}`], `commit-${back[1]}..${head}`],
     [
@@ -457,6 +460,7 @@ test("name shares commit range and list targets with the runner", async (t) => {
         references,
         repository: "repo-edu",
         startingHead,
+        commits: ordered,
         shortReferences,
       },
     ])
@@ -479,6 +483,9 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   for (const n of [1, 2])
     startingHead = await commitFixture(f.planRoot, `Plan fixture ${n}`)
   const label = `${await shortCommit(f.planRoot, "HEAD~2")}..${await shortCommit(f.planRoot, "HEAD")}`
+  const full = async (revision: string) =>
+    (await execa("git", ["rev-parse", revision], { cwd: f.planRoot })).stdout
+  const commits = await Promise.all(["HEAD~2", "HEAD~1", "HEAD"].map(full))
 
   assert.equal(
     await runCommand(["round", reference], f.runtime, f.options),
@@ -489,7 +496,7 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const { log, markdown, transcript } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead, shortReferences: [label] }])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead, commits, shortReferences: [label] }])}`,
     ),
   )
   assert.ok(markdown.startsWith(`# Commit audit of ${reference}\n`))
@@ -511,17 +518,25 @@ test("name passes two parsed commit groups to a hand-run audit", async (t) => {
   )
 
   const named = JSON.parse(f.visible[0])
+  const repoCommit = (
+    await execa("git", ["rev-parse", "HEAD"], { cwd: f.repoRoot })
+  ).stdout
+  const planCommit = (
+    await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
+  ).stdout
   assert.deepEqual(named.arguments.slice(1), [
     {
       repository: "repo-edu",
       references: ["HEAD"],
       startingHead: f.heads["repo-edu"],
+      commits: [repoCommit],
       shortReferences: [f.heads["repo-edu"].slice(0, 6)],
     },
     {
       repository: "plan",
       references: [`${planRepositoryPrefix}HEAD`],
       startingHead: f.heads.plan,
+      commits: [planCommit],
       shortReferences: [f.heads.plan.slice(0, 6)],
     },
   ])
@@ -554,17 +569,25 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
   )
 
   const { log, markdown, transcript } = await f.records()
+  const repoCommit = (
+    await execa("git", ["rev-parse", "HEAD"], { cwd: f.repoRoot })
+  ).stdout
+  const planCommit = (
+    await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
+  ).stdout
   const groups = [
     {
       repository: "repo-edu",
       references: ["HEAD"],
       startingHead: f.heads["repo-edu"],
+      commits: [repoCommit],
       shortReferences: [f.heads["repo-edu"].slice(0, 6)],
     },
     {
       repository: "plan",
       references: [`${planRepositoryPrefix}HEAD`],
       startingHead: f.heads.plan,
+      commits: [planCommit],
       shortReferences: [f.heads.plan.slice(0, 6)],
     },
   ]

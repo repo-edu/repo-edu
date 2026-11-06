@@ -3,6 +3,7 @@ import { access, mkdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import {
+  type CommitRoundData,
   type ImplementationRoundData,
   type PlanningRoundData,
   parseRoundDataFile,
@@ -66,6 +67,24 @@ const entry = (
   judgedRepos: ["repo-edu"],
 })
 
+const commitEntry = (
+  target: string,
+  round: number,
+  status: CommitRoundData["status"] = "finished",
+): CommitRoundData => {
+  const { scope: _scope, ...common } = entry(target, round, status)
+  const group = {
+    repository: "repo-edu" as const,
+    commits: ["a".repeat(40)],
+    startingHead: "b".repeat(40),
+  }
+  return {
+    ...common,
+    originalGroups: [group],
+    groups: [group],
+  }
+}
+
 test("round data names both files from the round kind", () => {
   assert.equal(
     roundDataFilename("example", "planning"),
@@ -75,6 +94,29 @@ test("round data names both files from the round kind", () => {
     roundDataFilename("example", "implementation"),
     "example-impl-rounds.json",
   )
+  assert.equal(
+    roundDataFilename("commit-abc123", "commit"),
+    "commit-abc123-rounds.json",
+  )
+})
+
+test("commit data replaces a target round in place and appends new identities", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.activeRoot, "commit-abc123-rounds.json")
+  writeRoundData(path, commitEntry("commit-abc123", 1, "in-progress"))
+  writeRoundData(path, commitEntry("commit-abc123", 2))
+  writeRoundData(path, commitEntry("commit-abc123", 1, "finished"))
+
+  const file = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.deepEqual(
+    file.rounds.map(({ round, status }) => ({ round, status })),
+    [
+      { round: 1, status: "finished" },
+      { round: 2, status: "finished" },
+    ],
+  )
+  assert.deepEqual(file.disproved, [])
+  await assert.rejects(access(`${path}.tmp`), { code: "ENOENT" })
 })
 
 test("per-plan data replaces a target round in place and appends new identities", async (t) => {
@@ -350,6 +392,15 @@ test("round data discovery ignores archive directories with data-file names", as
   writeRoundData(path, entry("example-impl-01..01", 1))
 
   assert.deepEqual(await roundDataFiles(f.runtime), [path])
+})
+
+test("plan round data discovery ignores commit round data", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.activeRoot, "commit-abc123-rounds.json")
+  writeRoundData(path, commitEntry("commit-abc123", 1))
+
+  assert.deepEqual(await roundDataFiles(f.runtime), [])
+  assert.deepEqual(await readPlanRoundData(f.runtime, "commit-abc123"), {})
 })
 
 test("review and rebuttal outcomes stay attached to report finding identity", () => {

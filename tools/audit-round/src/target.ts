@@ -30,6 +30,8 @@ export type CommitGroupRequest = {
 
 export type CommitGroup = CommitGroupRequest & {
   readonly startingHead: string
+  /** The exact commits this group audits, resolved once against the starting head. */
+  readonly commits: readonly [string, ...string[]]
   /**
    * Each typed reference with every commit at the six-character length the
    * plan doctrine fixes for commit names, so one scope keeps one filename and

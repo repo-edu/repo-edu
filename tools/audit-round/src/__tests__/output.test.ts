@@ -5,6 +5,7 @@ import { Writable } from "node:stream"
 import { test } from "node:test"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
+import { parseRoundDataFile } from "../round-data.js"
 import { RunClock } from "../run-clock.js"
 import { createTerminal } from "../terminal.js"
 import type { Assistant, AuditorOverride } from "./configured-runner.js"
@@ -32,6 +33,7 @@ test("long commit lists record every reference without exceeding filename limits
           references: commits,
           repository: "repo-edu",
           startingHead: "unused",
+          commits,
           shortReferences: commits.map((commit) => commit.slice(0, 6)) as [
             string,
             ...string[],
@@ -49,6 +51,56 @@ test("long commit lists record every reference without exceeding filename limits
   output.close()
   const transcript = await readFile(run.paths.markdown, "utf8")
   assert.ok(transcript.includes(`Commit audit of ${commits.join(" ")}`))
+})
+
+test("a clean commit audit records its complete commit scope", async (t) => {
+  const f = await fixture(t)
+  const commit = "a".repeat(40)
+  const startingHead = "b".repeat(40)
+  const run = await roundRun(
+    {
+      ...testSetup(f.root),
+      groups: [
+        {
+          references: [commit],
+          repository: "repo-edu",
+          startingHead,
+          commits: [commit],
+          shortReferences: [commit.slice(0, 6)],
+        },
+      ],
+    },
+    Date.now(),
+    releases,
+  )
+  const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
+    terminal: { write() {}, status() {}, clear() {} },
+  })
+  t.after(() => output.close())
+  output.finish({
+    status: "finished",
+    report: "REPORT.md",
+    cleanAudit: true,
+    judge: null,
+    watch: null,
+    deferralChain: "none",
+    commits: [],
+    account: { settling: "", judgedRepos: ["repo-edu"], findings: [] },
+  })
+
+  assert.ok(run.data)
+  const [entry] = parseRoundDataFile(
+    run.data.path,
+    await readFile(run.data.path, "utf8"),
+  ).rounds
+  assert.ok(entry && "originalGroups" in entry)
+  assert.deepEqual(entry.originalGroups, [
+    { repository: "repo-edu", commits: [commit], startingHead },
+  ])
+  assert.deepEqual(entry.groups, entry.originalGroups)
+  assert.deepEqual(entry.judgedRepos, ["repo-edu"])
+  assert.equal(entry.status, "finished")
 })
 
 test("commit stamps retain each phase's reported selection across later phases", async (t) => {

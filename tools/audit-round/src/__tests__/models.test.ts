@@ -125,6 +125,22 @@ async function modelFixture(t: TestContext) {
   return { ...f, planRoot, activeRoot }
 }
 
+test("the model read-out ignores commit round data", async (t) => {
+  const f = await modelFixture(t)
+  await writeFile(
+    join(f.activeRoot, "commit-abc123-rounds.json"),
+    "not plan round data\n",
+  )
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
+  })
+  assert.equal(evidence.auditors.size, 0)
+  assert.deepEqual(evidence.disproved, [])
+})
+
 type StepHost = "repo-edu" | "plan" | "both"
 
 function archivedPlanSource(hosts: readonly StepHost[]): string {
