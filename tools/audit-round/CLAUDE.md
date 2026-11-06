@@ -720,9 +720,11 @@ beside the archived plan. A commit file stays beside its round files in
 read-out ignore it. These are machine artifacts and are never edited by hand.
 
 The implement command retains one log and one possible ruling in the active
-folder as `<stem>-impl-<step>-implement.<tag>.log` and
+folder as `<stem>-impl-<step>-implement.log` and
 `<stem>-impl-<step>-implement-ruling.<tag>.md`. These are phase files, not audit
-round files. A fresh worker owns each step log and starts it empty. A recovery
+round files. The log name carries no tag. Settings may change the coder's tag
+between a failed run and its recovery, and the log opening already records the
+model. A fresh worker owns each step log and starts it empty. A recovery
 reopens it for appending through `RunPaths.reopenLog`, the only append route in
 `run-files.ts`, and writes a new invocation opening before the resumed phase.
 The one log then shows the failed turn, the recovery and the later ending in

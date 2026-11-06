@@ -19,7 +19,7 @@ import type { PlanStep } from "../plan-steps.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import type { Coder } from "../settings.js"
 import type { Repository } from "../subject.js"
-import { runCommand } from "./configured-runner.js"
+import { runCommand, testSettings } from "./configured-runner.js"
 import {
   finishedText,
   fixture,
@@ -560,9 +560,9 @@ test("the command launches the assigned worker, verifies its share and writes th
   )
   assert.deepEqual(
     (await readdir(f.activeRoot)).filter((name) =>
-      name.endsWith("-implement.obx.log"),
+      name.endsWith("-implement.log"),
     ),
-    ["example-impl-01-implement.obx.log"],
+    ["example-impl-01-implement.log"],
   )
 })
 
@@ -610,7 +610,7 @@ Audit ranges: 1-2.
   return { f, usage, failed }
 }
 
-test("a standalone recovery re-enters its scoped entry, appends its log and stops at its scope", async (t) => {
+test("a standalone recovery re-enters its scoped entry, appends its log after a tag-setting change and stops at its scope", async (t) => {
   const { f, usage, failed } = await recoveryFixture(t)
   f.phases.implement = { stream: failed, usage }
   await f.configure({ phases: f.phases })
@@ -626,7 +626,7 @@ test("a standalone recovery re-enters its scoped entry, appends its log and stop
     /^Resume: pnpm audit-round implement example 1 --resume 1:implementation-session$/m,
   )
   assert.doesNotMatch(printed, /codex .*resume/)
-  const log = join(f.activeRoot, "example-impl-01-implement.obx.log")
+  const log = join(f.activeRoot, "example-impl-01-implement.log")
   const failedLog = await readFile(log, "utf8")
 
   f.phases.implement = {
@@ -641,11 +641,15 @@ test("a standalone recovery re-enters its scoped entry, appends its log and stop
   }
   await f.configure({ phases: f.phases })
   f.visible.length = 0
+  // Reclassifying the coder's release changes its capability tag, but the
+  // recovery still appends to the step log the failed turn wrote.
+  const settings = structuredClone(testSettings)
+  settings.strengthModels.codex.base = "another-base-model"
   assert.equal(
     await runCommand(
       ["implement", "example", "1", "--resume", "1:implementation-session"],
       f.runtime,
-      f.options,
+      { ...f.options, settings },
     ),
     0,
     [...f.errors, ...f.visible].join("\n"),
