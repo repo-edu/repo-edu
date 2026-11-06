@@ -536,7 +536,29 @@ export function writeRoundData(path: string, value: RoundData): void {
   writeRoundDataFile(path, { rounds: entries, disproved: file.disproved })
 }
 
-/** Append one user ruling while preserving the rounds in the same file. */
+/**
+ * Whether two disproved entries rule on the same retained finding. One finding
+ * is disproved or it is not, so a second ruling on it replaces the first and a
+ * reworded reason needs no second entry. A detached entry names an auditor and
+ * no finding, so two of them may both be real and never match.
+ */
+function sameDisprovedFinding(
+  first: DisprovedFinding,
+  second: DisprovedFinding,
+): boolean {
+  return (
+    "target" in first &&
+    "target" in second &&
+    first.target === second.target &&
+    first.round === second.round &&
+    first.finding === second.finding
+  )
+}
+
+/**
+ * Replace or append one user ruling while preserving the rounds in the same
+ * file.
+ */
 export function writeDisprovedFinding(
   path: string,
   value: DisprovedFinding,
@@ -549,8 +571,11 @@ export function writeDisprovedFinding(
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
+  const kept = file.disproved.filter(
+    (entry) => !sameDisprovedFinding(entry, disproved),
+  )
   writeRoundDataFile(path, {
     rounds: file.rounds,
-    disproved: [...file.disproved, disproved],
+    disproved: [...kept, disproved],
   })
 }

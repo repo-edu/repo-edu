@@ -996,14 +996,15 @@ auditor, runs the glance and the watch and writes no brief. A user who wants
 another opener, a brief, no watch or a read between stages runs the stage
 commands.
 
-`disprove <stem> <target> <round> <finding> <reason>` resolves a finding in
-the plan's checked round data and appends the user's date and full reason.
-`disprove <stem> <target> --by "<model> <effort>" <reason>` records a finding
-that retained round data does not hold and creates the round-kind file when it
-does not exist. An active plan's ignored file in the active folder remains uncommitted for
-loop-close. An archived plan's file is committed alone as the tag-free
-`<stem>/disprove:` form with the reason as its body. The command starts no
-assistant and reads no settings.
+`disprove <stem> <target> <round> <finding> <reason>` resolves a finding in the plan's checked round
+data and writes the user's date and full reason. A rerun on the same target, round and finding
+replaces that entry, because one finding is disproved or it is not, so a reworded reason needs no
+second entry. `disprove <stem> <target> --by "<model> <effort>" <reason>` records a finding that
+retained round data does not hold and creates the round-kind file when it does not exist; each such
+ruling appends, because two unrecorded findings by one auditor may both be real. An active plan's
+ignored file in the active folder remains uncommitted for loop-close. An archived plan's file is
+committed alone as the tag-free `<stem>/disprove:` form with the reason as its body. The command
+starts no assistant and reads no settings.
 
 `close [stem]` closes a plan's loop under the plan repo's
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It takes an active
