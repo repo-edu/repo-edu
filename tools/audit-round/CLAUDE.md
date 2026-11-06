@@ -437,11 +437,13 @@ consumers.
   clear-cut recommendation. Every row that reaches its minimum enters it. The coder table sorts by
   accepted findings per step, fewest first, then by time. A winning auditor outside the current
   `auditors` list, or a winning coder outside the live coder list, is named as such. Disproved
-  findings are also listed with the user's full reason. Excluded plans, grouped by reason with their
-  recorded models, print only under `--all`, because a reader comparing models does not need the
-  plans that supplied no evidence every time. The command starts no assistant and writes no round
-  file or round data. Like other commands that read settings, it creates a missing `settings.json`
-  from the defaults.
+  findings print per auditor as a numbered table that shows each reason's first sentence, because a
+  full reason wraps the terminal table into an unreadable grid. A numbered list of the full reasons
+  follows each table, numbered across the section so each ruling keeps one number. Excluded plans,
+  grouped by reason with their recorded models, print only under `--all`, because a reader comparing
+  models does not need the plans that supplied no evidence every time. The command starts no
+  assistant and writes no round file or round data. Like other commands that read settings, it
+  creates a missing `settings.json` from the defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -947,11 +949,12 @@ labelled. Auditor tables count complete rounds and their kept, per-round, droppe
 later-disproved A/B findings, with wrong claims as the last three over all four and audit plus
 rebuttal time per round. The coder table shows plans, timed plans, steps, kept A/B findings, kept
 per step and time per step. A missing step time uses the span from the ready marker or previous
-step, with a two-repo step ending at its later share commit. The disproved section retains each full
-reason. The excluded-plans section groups plans by reason and names their recorded models; it prints
-only under `--all`. The command renders Markdown, starts no assistant and writes no round file or
-round data. Like other commands that read settings, it creates a missing `settings.json` from the
-defaults.
+step, with a two-repo step ending at its later share commit. The disproved section shows each
+reason's first sentence in a numbered table per auditor, then the full reasons as a numbered list
+below it, numbered across the section. The excluded-plans section groups plans by reason and names
+their recorded models; it prints only under `--all`. The command renders Markdown, starts no
+assistant and writes no round file or round data. Like other commands that read settings, it creates
+a missing `settings.json` from the defaults.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved plan and scope, or

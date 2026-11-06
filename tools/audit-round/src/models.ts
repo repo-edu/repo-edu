@@ -360,6 +360,23 @@ function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
   ]
 }
 
+/** The text through the first `.`, `!` or `?` that ends a sentence, or all of it when none does. */
+function firstSentence(text: string): string {
+  return /^.*?[.!?](?=\s|$)/s.exec(text)?.[0] ?? text
+}
+
+function disprovedRow(number: number, entry: DisprovedEvidence): string {
+  const reason = escapeCell(firstSentence(entry.reason))
+  return entry.kind === "detached"
+    ? `| ${number} | ${entry.date} | ${escapeCell(`${entry.stem}; no retained round data holds this finding`)} | — | — | — | ${reason} |`
+    : `| ${number} | ${entry.date} | ${escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`)} | ${escapeCell(`#${entry.finding} ${entry.title}`)} | ${entry.tier} | ${escapeCell(`${entry.vet === null ? "no recorded vet" : modelText(entry.vet)}; ${entry.vetVerdict ?? "no verdict"}`)} | ${reason} |`
+}
+
+/**
+ * Each auditor's table shows a reason's first sentence and the numbered list
+ * below it the full reason, because a whole reason wraps a terminal table into
+ * an unreadable grid. Numbers run across the section, so each ruling has one.
+ */
 function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
   const lines = ["## Disproved after the round", ""]
   if (entries.length === 0)
@@ -371,29 +388,27 @@ function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
     group.push(entry)
     groups.set(key, group)
   }
+  let numbered = 0
   for (const [auditor, group] of [...groups].sort(([first], [second]) =>
     first.localeCompare(second),
   )) {
+    const rows = group.sort(
+      (first, second) =>
+        second.date.localeCompare(first.date) ||
+        first.stem.localeCompare(second.stem),
+    )
+    const start = numbered + 1
+    numbered += rows.length
     if (lines.length > 2) lines.push("")
     lines.push(
       `### ${auditor}`,
       "",
-      "| Date | Plan and round | Finding | Tier | Vet | Reason |",
-      "| --- | --- | --- | --- | --- | --- |",
+      "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- |",
+      ...rows.map((entry, index) => disprovedRow(start + index, entry)),
+      "",
+      ...rows.map((entry, index) => `${start + index}. ${entry.reason}`),
     )
-    for (const entry of group.sort(
-      (first, second) =>
-        second.date.localeCompare(first.date) ||
-        first.stem.localeCompare(second.stem),
-    ))
-      if (entry.kind === "detached")
-        lines.push(
-          `| ${entry.date} | ${escapeCell(`${entry.stem}; no retained round data holds this finding`)} | — | — | — | ${escapeCell(entry.reason)} |`,
-        )
-      else
-        lines.push(
-          `| ${entry.date} | ${escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`)} | ${escapeCell(`#${entry.finding} ${entry.title}`)} | ${entry.tier} | ${escapeCell(`${entry.vet === null ? "no recorded vet" : modelText(entry.vet)}; ${entry.vetVerdict ?? "no verdict"}`)} | ${escapeCell(entry.reason)} |`,
-        )
   }
   return lines
 }

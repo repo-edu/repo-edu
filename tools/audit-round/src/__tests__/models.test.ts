@@ -474,6 +474,100 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   assert.match(report, /No retained round held this finding\./)
 })
 
+test("disproved rulings table each reason's first sentence and list the full reasons numbered across auditors", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
+  )
+  const path = join(f.activeRoot, "evidence-plan-rounds.json")
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
+  for (const [assistant, model] of [
+    ["claude", "audit-alpha"],
+    ["codex", "audit-beta"],
+  ] as const)
+    writeRoundData(path, {
+      ...round(
+        `${model}-plan`,
+        1,
+        `2026-10-01T${assistant === "claude" ? "10" : "11"}:00:00.000Z`,
+        { assistant, ...selection(model), chosenBy: "settings" },
+        settings,
+        [
+          phase("audit", assistant, model, 60_000),
+          phase(
+            "vet",
+            assistant === "claude" ? "codex" : "claude",
+            "vet-model",
+            60_000,
+          ),
+        ],
+        commits,
+        findings(2, `${model} claim`),
+      ),
+      phase: "detailing",
+      settling: "",
+    })
+  writeDisprovedFinding(path, {
+    date: "2026-11-01",
+    reason:
+      "The claim misread the guard. The guard runs before the write, so no race exists.",
+    target: "audit-alpha-plan",
+    round: 1,
+    finding: 1,
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-02",
+    reason: "The vet accepted a stale reading",
+    target: "audit-alpha-plan",
+    round: 1,
+    finding: 2,
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-03",
+    reason: "It predates the data! No retained round holds it.",
+    auditor: { model: "audit-alpha", effort: "low" },
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-04",
+    reason: "Version 1.2 | the guard? It already handles this.",
+    target: "audit-beta-plan",
+    round: 1,
+    finding: 2,
+  })
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+    testSettings,
+  )
+  assert.equal(
+    report.split("## Disproved after the round\n\n")[1],
+    [
+      "### audit-alpha low",
+      "",
+      "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- |",
+      "| 1 | 2026-11-03 | evidence; no retained round data holds this finding | — | — | — | It predates the data! |",
+      "| 2 | 2026-11-02 | evidence; audit-alpha-plan round 1 | #2 audit-alpha claim 2 | B | vet-model low; accept | The vet accepted a stale reading |",
+      "| 3 | 2026-11-01 | evidence; audit-alpha-plan round 1 | #1 audit-alpha claim 1 | B | vet-model low; accept | The claim misread the guard. |",
+      "",
+      "1. It predates the data! No retained round holds it.",
+      "2. The vet accepted a stale reading",
+      "3. The claim misread the guard. The guard runs before the write, so no race exists.",
+      "",
+      "### audit-beta low",
+      "",
+      "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- |",
+      "| 4 | 2026-11-04 | evidence; audit-beta-plan round 1 | #2 audit-beta claim 2 | B | vet-model low; accept | Version 1.2 \\| the guard? |",
+      "",
+      "4. Version 1.2 | the guard? It already handles this.",
+      "",
+    ].join("\n"),
+  )
+})
+
 test("a closed plan whose archive holds no plan file names the missing plan", async (t) => {
   const f = await modelFixture(t)
   const stem = "lost-plan"
