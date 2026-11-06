@@ -914,18 +914,17 @@ test("disprove appends an attached ruling to active data without committing", as
     f.errors.join("\n"),
   )
 
-  assert.deepEqual(
-    parseRoundDataFile(path, await readFile(path, "utf8")).disproved,
-    [
-      {
-        date: "2026-11-05",
-        reason: "The retained evidence disproves the claim.",
-        target: "example-impl-01..01",
-        round: 1,
-        finding: 1,
-      },
-    ],
-  )
+  const data = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in data)
+  assert.deepEqual(data.disproved, [
+    {
+      date: "2026-11-05",
+      reason: "The retained evidence disproves the claim.",
+      target: "example-impl-01..01",
+      round: 1,
+      finding: 1,
+    },
+  ])
   assert.equal(
     (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
     head,

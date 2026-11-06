@@ -881,7 +881,9 @@ for (const auditor of ["claude", "codex"] as const) {
       status: "awaiting-ruling",
       report: `${repoRoot}/AUDIT-example.md`,
       session,
-      commits: [],
+      commits: landedRecords("repo-edu", round.evidence.subjects).map(
+        ({ repository, sha }) => ({ repository, sha }),
+      ),
     })
   })
 
@@ -919,7 +921,7 @@ for (const auditor of ["claude", "codex"] as const) {
                 : pinned(runner(phase, auditor, vetAssistant)),
           ...testContext(repoRoot),
           commits:
-            phase === "brief" || phase === "watch"
+            phase === "fix" || phase === "brief" || phase === "watch"
               ? landedRecords("repo-edu", round.evidence.subjects).map(
                   ({ repository, sha }) => ({ repository, sha }),
                 )
@@ -1198,6 +1200,46 @@ test("a commit round records only stamped unstemmed landed commits", async () =>
   assert.equal(round.settledWrites[0]?.account.findings[0]?.outcome, "kept")
 })
 
+for (const ending of ["failed", "awaiting-ruling"] as const) {
+  test(`a commit round retains stamped records when its fix ends ${ending}`, async () => {
+    const round = controlledRound()
+    round.results.fix =
+      ending === "failed"
+        ? {
+            status: "failed",
+            sessionId: "fix-session",
+            reason: "The fix stopped after its commit.",
+          }
+        : { status: "needs-ruling", sessionId: "fix-session" }
+    const own = {
+      repository: "repo-edu" as const,
+      sha: "2".repeat(40),
+      subject: "obx growth-none b1 fix(audit-round): retain the landed fix",
+      message: `obx growth-none b1 fix(audit-round): retain the landed fix\n\n${fixPhaseStamp}\n`,
+    }
+    const group = {
+      references: ["HEAD"] as const,
+      repository: "repo-edu" as const,
+      startingHead: "abc1234",
+      commits: ["a".repeat(40)] as const,
+      shortReferences: ["abc123"] as const,
+    }
+
+    const result = await runRound(
+      { ...files, ...commitTarget(group) },
+      {
+        ...round.dependencies,
+        readRecords: async (root) => (root === repoRoot ? [own] : []),
+      },
+    )
+
+    assert.equal(result.status, ending)
+    assert.deepEqual(result.commits, [{ repository: "repo-edu", sha: own.sha }])
+    assert.deepEqual(round.deletedReports, [])
+    assert.deepEqual(round.settledWrites, [])
+  })
+}
+
 test("a clean widening audit retains the report's settling line as the settling recommendation", async () => {
   const round = controlledRound()
   round.evidence.settling = "settle. No concrete shape question remains."
@@ -1474,7 +1516,7 @@ for (const [ending, sequence] of endings) {
         ...testContext(repoRoot),
         reason: failure.message,
         commits:
-          phase === "brief" || phase === "watch"
+          phase === "fix" || phase === "brief" || phase === "watch"
             ? landedRecords("repo-edu", round.evidence.subjects).map(
                 ({ repository, sha }) => ({ repository, sha }),
               )
@@ -1550,7 +1592,9 @@ for (const operation of ["requestRuling"] as const) {
       sessionId: "fix-session",
       ...testContext(repoRoot),
       reason: "Ruling input unavailable",
-      commits: [],
+      commits: landedRecords("repo-edu", round.evidence.subjects).map(
+        ({ repository, sha }) => ({ repository, sha }),
+      ),
     })
   })
 }
@@ -1878,7 +1922,9 @@ test("a missing ruling fails the fix before the brief or user input", async () =
     model: pinnedCoder(),
     ...testContext(repoRoot),
     reason: "Missing ruling",
-    commits: [],
+    commits: landedRecords("repo-edu", round.evidence.subjects).map(
+      ({ repository, sha }) => ({ repository, sha }),
+    ),
   })
   assert.deepEqual(
     round.calls.map((call) => call.phase),
@@ -2225,10 +2271,10 @@ test("a fix needing a ruling is not graded or required to have landed work", asy
     { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
-      readRecords: async () => {
-        throw new Error("No grade before the ruling")
-      },
+      readRecords: async () => [],
     },
   )
   assert.equal(result.status, "awaiting-ruling")
+  assert.deepEqual(result.commits, [])
+  assert.deepEqual(round.settledWrites, [])
 })

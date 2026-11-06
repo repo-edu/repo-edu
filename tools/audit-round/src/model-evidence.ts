@@ -9,9 +9,9 @@ import type { Assistant } from "./phase.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
   type DisprovedFinding,
+  type PlanRoundDataFile,
   parseRoundDataFile,
   type RoundData,
-  type RoundDataFile,
   type RoundFinding,
   roundDataFiles,
 } from "./round-data.js"
@@ -96,7 +96,7 @@ type RoundFileRecord = {
   readonly file: string
   readonly stem: string
   readonly workClass: WorkClass
-  readonly data: RoundDataFile
+  readonly data: PlanRoundDataFile
 }
 
 type RoundRecord = {
@@ -234,11 +234,14 @@ async function readRoundFiles(
     files.map(async (file) => {
       const display = relative(context.planRoot, file)
       try {
+        const data = parseRoundDataFile(file, await readFile(file, "utf8"))
+        if (!("disproved" in data))
+          throw new Error(`Plan round data has no disproved list: ${display}`)
         return {
           file: display,
           stem: roundDataStem(file),
           workClass: roundWorkClass(file),
-          data: parseRoundDataFile(file, await readFile(file, "utf8")),
+          data,
         }
       } catch (error) {
         throw new Error(

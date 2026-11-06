@@ -226,7 +226,6 @@ const implementationRoundFileSchema = z.strictObject({
 })
 const commitRoundFileSchema = z.strictObject({
   rounds: z.array(commitRoundDataSchema),
-  disproved: z.array(disprovedFindingSchema),
 })
 const roundDataFilenamePattern = /-(?:plan|impl)-rounds\.json$/
 
@@ -252,10 +251,11 @@ export type VetVerdict = NonNullable<RoundFinding["vetVerdict"]>
 export type RebuttalAnswer = NonNullable<RoundFinding["rebuttalAnswer"]>
 export type RoundData = z.infer<typeof roundDataSchema>
 export type DisprovedFinding = z.infer<typeof disprovedFindingSchema>
-export type RoundDataFile =
+export type PlanRoundDataFile =
   | z.infer<typeof planningRoundFileSchema>
   | z.infer<typeof implementationRoundFileSchema>
-  | z.infer<typeof commitRoundFileSchema>
+export type CommitRoundDataFile = z.infer<typeof commitRoundFileSchema>
+export type RoundDataFile = PlanRoundDataFile | CommitRoundDataFile
 export type PlanningRoundData = z.infer<typeof planningRoundDataSchema>
 export type ImplementationRoundData = z.infer<
   typeof implementationRoundDataSchema
@@ -523,11 +523,18 @@ export function settleRoundFindings(
   ]
 }
 
+function isCommitRoundDataPath(path: string): boolean {
+  return (
+    !path.endsWith("-plan-rounds.json") &&
+    !path.endsWith("-impl-rounds.json") &&
+    /^commit-.+-rounds\.json$/.test(basename(path))
+  )
+}
+
 function fileSchema(path: string) {
   if (path.endsWith("-plan-rounds.json")) return planningRoundFileSchema
   if (path.endsWith("-impl-rounds.json")) return implementationRoundFileSchema
-  if (/^commit-.+-rounds\.json$/.test(basename(path)))
-    return commitRoundFileSchema
+  if (isCommitRoundDataPath(path)) return commitRoundFileSchema
   throw new Error(`Invalid round data path: ${path}`)
 }
 
@@ -551,13 +558,16 @@ function writeRoundDataFile(path: string, value: unknown): void {
 export function writeRoundData(path: string, value: RoundData): void {
   const schema = fileSchema(path)
   const data = roundDataSchema.parse(value)
+  const commitFile = isCommitRoundDataPath(path)
   const matches = path.endsWith("-plan-rounds.json")
     ? "phase" in data
     : path.endsWith("-impl-rounds.json")
       ? "scope" in data
       : "originalGroups" in data
   if (!matches) throw new Error(`Round data kind does not match ${path}`)
-  let file: RoundDataFile = { rounds: [], disproved: [] }
+  let file: RoundDataFile = commitFile
+    ? { rounds: [] }
+    : { rounds: [], disproved: [] }
   try {
     file = schema.parse(JSON.parse(readFileSync(path, "utf8")))
   } catch (error) {
@@ -569,7 +579,15 @@ export function writeRoundData(path: string, value: RoundData): void {
   )
   if (index === -1) entries.push(data)
   else entries[index] = data
-  writeRoundDataFile(path, { rounds: entries, disproved: file.disproved })
+  writeRoundDataFile(
+    path,
+    commitFile
+      ? { rounds: entries }
+      : {
+          rounds: entries,
+          disproved: "disproved" in file ? file.disproved : [],
+        },
+  )
 }
 
 /**
@@ -599,11 +617,16 @@ export function writeDisprovedFinding(
   path: string,
   value: DisprovedFinding,
 ): void {
+  if (isCommitRoundDataPath(path))
+    throw new Error("Commit round data has no disproved findings")
   const schema = fileSchema(path)
   const disproved = disprovedFindingSchema.parse(value)
-  let file: RoundDataFile = { rounds: [], disproved: [] }
+  let file: PlanRoundDataFile = { rounds: [], disproved: [] }
   try {
-    file = schema.parse(JSON.parse(readFileSync(path, "utf8")))
+    const parsed = schema.parse(JSON.parse(readFileSync(path, "utf8")))
+    if (!("disproved" in parsed))
+      throw new Error(`Plan round data has no disproved list: ${path}`)
+    file = parsed
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }

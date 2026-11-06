@@ -115,7 +115,7 @@ test("commit data replaces a target round in place and appends new identities", 
       { round: 2, status: "finished" },
     ],
   )
-  assert.deepEqual(file.disproved, [])
+  assert.equal("disproved" in file, false)
   await assert.rejects(access(`${path}.tmp`), { code: "ENOENT" })
 })
 
@@ -127,6 +127,7 @@ test("per-plan data replaces a target round in place and appends new identities"
   writeRoundData(path, entry("example-impl-01..01", 1, "failed"))
 
   const file = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in file)
   assert.deepEqual(
     file.rounds.map(({ round, status }) => ({ round, status })),
     [
@@ -282,6 +283,7 @@ test("round data stores attached and detached disproved findings beside rounds",
   })
 
   const file = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in file)
   assert.equal(file.rounds.length, 1)
   assert.deepEqual(file.disproved, [
     {
@@ -329,6 +331,7 @@ test("a second ruling on the same finding replaces the first while detached ruli
   })
 
   const file = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in file)
   assert.deepEqual(file.disproved, [
     {
       date: "2026-11-05",

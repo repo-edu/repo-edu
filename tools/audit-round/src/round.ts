@@ -713,14 +713,70 @@ export async function runRound(
     sessionId: null,
   }
   let commits: readonly LandedCommit[] = []
+  let landed: readonly (readonly LandedRecord[])[] = repositories.map(() => [])
+  // A fix may commit before it fails, is interrupted or asks for a ruling.
+  // Read its records after every invocation so every exit retains the same
+  // exact scope evidence as a finished fix.
+  const readFixRecords = async (): Promise<
+    readonly (readonly LandedRecord[])[]
+  > => {
+    const stem = "plan" in input ? planStem(input.plan) : null
+    const phaseStamps = stem === null ? dependencies.commitPhaseStamps() : []
+    if (stem === null && phaseStamps.length === 0)
+      throw new Error("Missing fix phase stamp for a commit target")
+    const belongsToRound = (record: LandedRecord): boolean => {
+      if ((looseForm(record.subject)?.stem ?? null) !== stem) return false
+      if (stem !== null) return true
+      return carriesPhaseStamp(record, phaseStamps)
+    }
+    return (
+      await Promise.all(
+        repositories.map(({ root, repository }, index) =>
+          dependencies.readRecords(root, before[index], repository),
+        ),
+      )
+    ).map((records) => records.filter(belongsToRound))
+  }
+  const collectFixRecords = async (): Promise<void> => {
+    landed = await readFixRecords()
+    commits = landed.flat().map(({ repository, sha }) => ({ repository, sha }))
+  }
   while (true) {
     let fix: PhaseResult<"fix">
     try {
       fix = await dependencies.runPhase.fix(fixInput)
     } catch (error) {
+      try {
+        await collectFixRecords()
+      } catch (recordError) {
+        return {
+          status: "failed",
+          sessionId: fixInput.sessionId,
+          phase: "fix",
+          ...phases.fix,
+          ...context,
+          reason: errorMessage(recordError),
+          commits,
+          account,
+        }
+      }
       return {
         status: "failed",
         sessionId: fixInput.sessionId,
+        phase: "fix",
+        ...phases.fix,
+        ...context,
+        reason: errorMessage(error),
+        commits,
+        account,
+      }
+    }
+    try {
+      await collectFixRecords()
+    } catch (error) {
+      return {
+        status: "failed",
+        sessionId: fix.sessionId,
         phase: "fix",
         ...phases.fix,
         ...context,
@@ -772,29 +828,6 @@ export async function runRound(
           throw new Error("Only a widening fix returns a settling line")
         if (fix.settling !== null)
           account = { ...account, settling: fix.settling }
-        // A plan round's records are the commits that carry its stem. Another
-        // round may land in the same checkout while the fix runs, and its
-        // records number their findings from one as well.
-        const stem = "plan" in input ? planStem(input.plan) : null
-        const phaseStamps =
-          stem === null ? dependencies.commitPhaseStamps() : []
-        if (stem === null && phaseStamps.length === 0)
-          throw new Error("Missing fix phase stamp for a commit target")
-        const belongsToRound = (record: LandedRecord): boolean => {
-          if ((looseForm(record.subject)?.stem ?? null) !== stem) return false
-          if (stem !== null) return true
-          return carriesPhaseStamp(record, phaseStamps)
-        }
-        const landed = (
-          await Promise.all(
-            repositories.map(({ root, repository }, index) =>
-              dependencies.readRecords(root, before[index], repository),
-            ),
-          )
-        ).map((records) => records.filter(belongsToRound))
-        commits = landed
-          .flat()
-          .map(({ repository, sha }) => ({ repository, sha }))
         if ("plan" in input && landed.every((records) => records.length === 0))
           throw new Error("The finished fix landed no commit for a plan target")
         for (const [index, records] of landed.entries()) {
