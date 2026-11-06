@@ -1,16 +1,5 @@
 {
     "defaultAuditor": "random",
-    "maximumAutomaticRounds": 10,
-    "strengthModels": {
-        "claude": {
-            "base": "opus",
-            "top": "claude-fable-5-1"
-        },
-        "codex": {
-            "base": "gpt-5.6-sol",
-            "top": "gpt-6.1-astra"
-        }
-    },
     "defaults": {
         "claude": {
             "model": "opus",
@@ -70,6 +59,17 @@
             "assistant": "codex",
             "model": "default",
             "effort": "default"
+        }
+    },
+    "maximumAutomaticRounds": 10,
+    "strengthModels": {
+        "claude": {
+            "base": "opus",
+            "top": "claude-fable-5-1"
+        },
+        "codex": {
+            "base": "gpt-5.6-sol",
+            "top": "gpt-6.1-astra"
         }
     }
 }
