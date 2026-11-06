@@ -417,7 +417,9 @@ consumers.
   exclusive counts; wrong claims is the last three as a percentage of all four. A later disproval
   removes a kept finding from coder evidence too. Coder yield comparisons use one closed plan per
   example. The archived plan supplies the listed steps, every hosted share must have a readable
-  model record and the whole-plan audit must follow the final share. Records admit a plan without a
+  model record and the whole-plan audit must follow the final share. A missing archived plan and a
+  step list the current grammar cannot read are separate exclusion reasons, because the read-out
+  names what it found and never rewrites the archive. Records admit a plan without a
   ready assignment when they name one model and effort. An assignment, when present, must match on
   assistant and effort; its model may be a family alias the implement worker resolved at run time,
   so the records' release is not compared with it and a mismatch is its own exclusion reason. A
@@ -428,9 +430,10 @@ consumers.
   clear-cut recommendation. Every row that reaches its minimum enters it. The coder table sorts by
   accepted findings per step, fewest first, then by time. A winning auditor outside the current
   `auditors` list, or a winning coder outside the live coder list, is named as such. Disproved
-  findings are also listed with the user's full reason, and excluded plans are grouped by reason
-  with their recorded models. The command starts no assistant and writes no round file or round
-  data. Like other commands that read settings, it creates a missing `settings.json` from the
+  findings are also listed with the user's full reason. Excluded plans, grouped by reason with
+  their recorded models, print only under `--all`, because a reader comparing models does not need
+  the plans that supplied no evidence every time. The command starts no assistant and writes no
+  round file or round data. Like other commands that read settings, it creates a missing `settings.json` from the
   defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
@@ -879,6 +882,7 @@ pnpm audit-round --auditor codex
 pnpm audit-round brief example-impl-03..03-01-1-round.otm.md
 pnpm audit-round brief
 pnpm audit-round models
+pnpm audit-round models --all
 pnpm audit-round disprove example example-plan 2 1 "The claim did not hold."
 pnpm audit-round disprove example example-plan --by "gpt-5.6-sol xhigh" "The finding predates the data."
 pnpm audit-round plan
@@ -917,8 +921,8 @@ Phase files use
 runner owns both writes.
 
 `models` reads every retained round-data file and both Git histories. It prints
-planning auditors, implementation auditors, coders, disproved findings and
-excluded plans. Each section opens with its verdict line, lists thin rows and
+planning auditors, implementation auditors, coders and disproved findings, and
+under `--all` the excluded plans. Each section opens with its verdict line, lists thin rows and
 out-of-setting winners as bullets and then prints its table sorted by yield,
 so no number appears in prose. Each comparison admits every row that reaches
 its minimum; thin rows remain visible and block nothing. It gives a
@@ -936,7 +940,7 @@ time per step. A missing step
 time uses the span from the ready marker or previous step, with a two-repo step
 ending at its later share commit. The disproved section retains each full
 reason. The excluded-plans section groups plans by reason and names their
-recorded models. The command renders Markdown, starts no assistant and writes
+recorded models; it prints only under `--all`. The command renders Markdown, starts no assistant and writes
 no round file or round data. Like other commands that read settings, it creates
 a missing `settings.json` from the defaults.
 

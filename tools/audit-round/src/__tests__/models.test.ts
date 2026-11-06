@@ -454,7 +454,51 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   assert.match(report, /No retained round held this finding\./)
 })
 
-test("an archived plan with an unreadable step list stays visible but unranked", async (t) => {
+test("a closed plan whose archive holds no plan file names the missing plan", async (t) => {
+  const f = await modelFixture(t)
+  const stem = "lost-plan"
+  const audit = await commit(
+    f.root,
+    `${stem}/impl-audit-1 obl clean: record the whole-plan audit`,
+    "coder-alpha low",
+  )
+  await commit(
+    f.planRoot,
+    `${stem}/closed obl: close the fixture plan`,
+    "coder-alpha low",
+  )
+  const archive = join(f.planRoot, "archive", stem)
+  await mkdir(archive, { recursive: true })
+  writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
+    ...round(
+      `${stem}-impl-01..01`,
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      settings,
+      [phase("fix", "codex", "coder-alpha", 60_000)],
+      [{ repository: "repo-edu", sha: audit }],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+  })
+  const row = evidence.coders.get(
+    modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
+  )
+  assert.ok(row)
+  assert.equal(row.excluded.get(stem), "archived plan unavailable")
+})
+
+test("an archived plan written before the step grammar is unreadable, not missing", async (t) => {
   const f = await modelFixture(t)
   const stem = "old-plan"
   const audit = await commit(
@@ -499,7 +543,7 @@ test("an archived plan with an unreadable step list stays visible but unranked",
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
   assert.ok(row)
-  assert.equal(row.excluded.get(stem), "archived plan unavailable")
+  assert.equal(row.excluded.get(stem), "archived step list unreadable")
 })
 
 test("a closed plan without implementation round data names the missing evidence", async (t) => {
@@ -994,7 +1038,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
 
   const visible: { readonly text: string; readonly format?: "markdown" }[] = []
   const errors: string[] = []
-  const code = await runCommand(["models"], f.runtime, {
+  const commandOptions = {
     repoEduRoot: f.root,
     settings: {
       ...testSettings,
@@ -1009,7 +1053,8 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
       clear: () => {},
     },
     emergency: (text) => errors.push(text),
-  })
+  } satisfies Parameters<typeof runCommand>[2]
+  const code = await runCommand(["models", "--all"], f.runtime, commandOptions)
   assert.equal(code, 0, errors.join("\n"))
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
@@ -1057,6 +1102,14 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
+  visible.length = 0
+  assert.equal(await runCommand(["models"], f.runtime, commandOptions), 0)
+  assert.equal(visible.length, 1)
+  assert.doesNotMatch(visible[0].text, /## Excluded plans/)
+  assert.doesNotMatch(visible[0].text, /mixed:/)
+  assert.match(visible[0].text, /## Disproved after the round/)
+  assert.ok(visible[0].text.endsWith("\n"))
+  assert.ok(!visible[0].text.endsWith("\n\n"))
 })
 
 test("coder spread and worst plan do not block an otherwise clear lead", async (t) => {

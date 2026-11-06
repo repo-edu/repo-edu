@@ -136,7 +136,7 @@ type Invocation =
       readonly target?: string
       readonly lines: LineRange
     }
-  | { readonly kind: "models" }
+  | { readonly kind: "models"; readonly all: boolean }
   | {
       readonly kind: "disprove"
       readonly stem: string
@@ -517,7 +517,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] [target] [scope-or-commits...]\n       audit-round models\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round run [options] <stem>\n       audit-round plan",
+      "[options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round brief [options] [transcript]\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round run [options] <stem>\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -864,8 +864,9 @@ Use brief --help, close --help or run --help for their arguments and options.`,
     .description(
       "Read auditor and coder results from retained records without starting assistants.",
     )
-    .action(() => {
-      invocation = { kind: "models" }
+    .option("--all", "print the excluded plans after the readings")
+    .action((flags: { all?: boolean }) => {
+      invocation = { kind: "models", all: flags.all === true }
     })
   command
     .command("disprove")
@@ -1122,7 +1123,7 @@ export async function runCommand(
     if (invocation.kind === "models") {
       const modelSettings = options.settings ?? (await readSettings())
       options.terminal.write(
-        await modelsReport(context, modelSettings),
+        await modelsReport(context, modelSettings, { all: invocation.all }),
         "markdown",
       )
       return 0

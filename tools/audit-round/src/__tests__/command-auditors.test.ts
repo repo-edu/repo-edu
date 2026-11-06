@@ -365,7 +365,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round run \[options\] <stem>\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round brief \[options\] \[transcript\]\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round run \[options\] <stem>\n {7}audit-round plan/,
   )
   assert.match(
     visible,
