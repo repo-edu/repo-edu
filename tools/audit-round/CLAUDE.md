@@ -330,8 +330,8 @@ consumers.
   `audit-round auditors` for a listed auditor, `audit-round settings` for the phase's own pin, or
   `audit-round defaults` when the phase says `default`. A phase whose two fields came from different
   places names both, model first. A pinned model reads as the release its CLI resolved it to at
-  startup, so every row names a release. The output holds the run start and current phase timing. It
-  keeps context observations and each started phase's model selection, time, tokens, peak context
+  startup, so every row names a release. The output holds its round mark and current phase timing.
+  It keeps context observations and each started phase's model selection, time, tokens, peak context
   and compaction count. It warns once when audit, vet, rebuttal or fix first compacts. The watch
   returns the final count to `round.ts`, which fails a compacted result with the evidence size and
   the need for one uncompacted session. A phase starts with its launch selection, then its CLI's
@@ -339,17 +339,23 @@ consumers.
   Both assistants' latest session totals replace the earlier reading, so a resumed fix counts each
   token once. Each phase prints its per-model input, cached input and output totals beside its
   elapsed time. Commit stamps use those phase selections and add a time line for the audit, vet and
-  rebuttal that finished. Every status stamp shows the phase's elapsed time and the round's total.
-  Every logged tool line opens with its step's own time, the assistant time since the previous tool
-  line or since the phase start for the first, followed by the round's total assistant time.
-  `run-clock.ts` owns what those readings count. A round measures its assistants, so time the user
-  holds is not the run's. Displaying the ruling opens a wait and submitting or cancelling the reply
-  closes it. Each phase and the run read the same waiting total through their own mark, so one rule
-  serves every reading. Two baselines measure context growth: a written status stamp reports the
-  tokens added since the previous written stamp, and a logged tool line reports the tokens added
-  since the previous tool line, beside the time since it. Both chain into the totals beside them; a
-  fresh phase starts its stamp baseline at zero and a resumed phase reports no first change.
-  `round-data.ts` owns the checked JSON schemas, the atomic replace-or-append writer, the
+  rebuttal that finished. Every status stamp shows three assistant times, as
+  `[fix] 01:00  round 03:05  run 42:10`: the phase's, the round's and the runner invocation's. Every
+  logged tool line opens with its step's own time, the assistant time since the previous tool line
+  or since the phase start for the first, followed by the round's and the invocation's totals.
+  `run`'s ending lines repeat the invocation's reading, so it survives the last stamp. Minutes count
+  on past the hour, as `102:10`, so every reading keeps one shape. `run-clock.ts` owns what those
+  readings count. `runCommand` creates one clock per invocation and hands it to every output, so a
+  chained run's rounds, implementation and close share it. Each output takes its round mark at
+  construction. A round measures its assistants, so time the user holds is not the run's. Displaying
+  the ruling opens a wait and submitting or cancelling the reply closes it. Each phase, each round
+  and the invocation read the same waiting total through their own mark, so a wait leaves all three
+  alike and one rule serves every reading. The readings are display only; round data keeps per-phase
+  milliseconds and no run total. Two baselines measure context growth: a written status stamp
+  reports the tokens added since the previous written stamp, and a logged tool line reports the
+  tokens added since the previous tool line, beside the time since it. Both chain into the totals
+  beside them; a fresh phase starts its stamp baseline at zero and a resumed phase reports no first
+  change. `round-data.ts` owns the checked JSON schemas, the atomic replace-or-append writer, the
   disproved-finding writer and the read of one plan's existing round-kind files from the active root
   or closed-plan archive. Each file is an object whose `rounds` list holds the round entries and
   whose `disproved` list holds the user's later rulings. A finding review carries its report number,

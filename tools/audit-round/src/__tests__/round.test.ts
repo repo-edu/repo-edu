@@ -21,6 +21,7 @@ import type {
   ReportFinding,
   RoundAccount,
 } from "../round-data.js"
+import { RunClock } from "../run-clock.js"
 import { targetRequest } from "../target.js"
 import {
   type Assistant,
@@ -1330,6 +1331,7 @@ test("commit groups keep their starting head after document allocation", async (
   const setup = { ...testSetup(fixture.repoRoot), ...target }
   const allocated = await allocateRound(setup, 0, releases)
   const output = new RoundOutput(allocated, {
+    clock: new RunClock(Date.now),
     terminal: { write() {}, status() {}, clear() {} },
   })
   t.after(() => output.close())

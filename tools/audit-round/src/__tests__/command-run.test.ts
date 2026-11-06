@@ -135,7 +135,7 @@ test("run settles on the widening judge's answer and ends where the detailing ju
   )
   assert.match(
     visible,
-    /Run of example ended in the detailing series after the widening series, settle\. Once that ending is handled, pnpm audit-round run example continues from where the plan stands\./,
+    /Run of example ended in the detailing series after the widening series, settle\. Once that ending is handled, pnpm audit-round run example continues from where the plan stands\. Run time \d\d:\d\d\./,
   )
   assert.doesNotMatch(visible, /starting the implementation/)
 })
@@ -233,7 +233,10 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
     visible,
     /Committed [0-9a-f]+: example\/ready: declare the plan ready/,
   )
-  assert.match(visible, /Run of example finished: the plan is closed\./)
+  assert.match(
+    visible,
+    /Run of example finished: the plan is closed\. Run time \d\d:\d\d\./,
+  )
 })
 
 test("run refuses a plan without an active artifact before any assistant starts", async (t) => {

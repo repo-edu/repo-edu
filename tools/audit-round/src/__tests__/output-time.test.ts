@@ -5,6 +5,7 @@ import { test } from "node:test"
 import { roundRun as buildRoundRun } from "../output.js"
 import { pinnedSelection } from "../output-format.js"
 import { parseRoundDataFile } from "../round-data.js"
+import { RunClock } from "../run-clock.js"
 import {
   noOverride,
   pinned,
@@ -71,7 +72,7 @@ for (const { zone, instant, timestamp } of [
         releases,
       ),
       {
-        now: () => Date.parse(instant),
+        clock: new RunClock(() => Date.parse(instant)),
         terminal: {
           write: (text) => {
             visible.push(text)
@@ -115,6 +116,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     releases,
   )
   const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
     openFiles: () => ({
       log: (text) => {
@@ -142,7 +144,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   )
   t.mock.timers.tick(60_000)
   await output.phase.observe({ type: "text", text: "A ruling is needed." })
-  assert.equal(stamp(), "\n[fix] 01:00  total 01:05")
+  assert.equal(stamp(), "\n[fix] 01:00  round 01:05  run 01:05")
   await output.phase.finish({
     status: "needs-ruling",
     sessionId: "session",
@@ -169,11 +171,11 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     "Continue the fix",
   )
   await output.phase.observe({ type: "text", text: "Applying your ruling." })
-  assert.equal(stamp(), "\n[fix] 00:00  total 01:05")
+  assert.equal(stamp(), "\n[fix] 00:00  round 01:05  run 01:05")
 
   t.mock.timers.tick(120_000)
   await output.phase.observe({ type: "text", text: "Applied." })
-  assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
+  assert.equal(stamp(), "\n[fix] 02:00  round 03:05  run 03:05")
 
   output.beginRuling("RULING.md", "Another choice.")
   t.mock.timers.tick(10 * 60_000)
@@ -185,13 +187,81 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     commits: [],
     account: { settling: "", judgedRepos: ["repo-edu"], findings: [] },
   })
-  assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
+  assert.equal(stamp(), "\n[fix] 02:00  round 03:05  run 03:05")
   assert.ok(run.data)
   assert.equal(
     parseRoundDataFile(run.data.path, await readFile(run.data.path, "utf8"))
       .rounds[0]?.phases[0]?.milliseconds,
     180_000,
   )
+})
+
+test("outputs sharing one clock carry the run reading across rounds and subtract a later wait", async (t) => {
+  const f = await fixture(t)
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
+  const clock = new RunClock(Date.now)
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+  const fix = {
+    phase: "fix" as const,
+    rulingFile: "RULING.md",
+    assistant: "codex" as const,
+    model: pinned("codex"),
+    ...testContext("/repo"),
+    arguments: ["REPORT.md"] as const,
+  }
+  const open = async () => {
+    const log: string[] = []
+    const output = new RoundOutput(
+      await roundRun(setup, Date.now(), releases),
+      {
+        clock,
+        terminal: { write: () => {}, status: () => {}, clear: () => {} },
+        openFiles: () => ({
+          log: (text) => {
+            log.push(text)
+          },
+          markdown: () => {},
+          close: () => {},
+        }),
+      },
+    )
+    t.after(() => output.close())
+    const stamp = () => log.filter((text) => text.startsWith("\n[fix]")).at(-1)
+    return { output, stamp }
+  }
+
+  // Startup work before the first round counts for the run alone.
+  t.mock.timers.tick(2 * 60_000)
+  const first = await open()
+  await first.output.phase.start({ ...fix, sessionId: null }, "Full prompt")
+  t.mock.timers.tick(3 * 60_000)
+  await first.output.phase.observe({ type: "text", text: "Fixed." })
+  assert.equal(first.stamp(), "\n[fix] 03:00  round 03:00  run 05:00")
+  await first.output.phase.finish({ status: "finished", sessionId: "first" })
+  first.output.close()
+
+  // Runner work between the rounds belongs to the run too.
+  t.mock.timers.tick(60_000)
+  const second = await open()
+  await second.output.phase.start({ ...fix, sessionId: null }, "Full prompt")
+  t.mock.timers.tick(60_000)
+  await second.output.phase.observe({ type: "text", text: "A ruling." })
+  assert.equal(second.stamp(), "\n[fix] 01:00  round 01:00  run 07:00")
+  await second.output.phase.finish({
+    status: "needs-ruling",
+    sessionId: "second",
+  })
+  second.output.beginRuling("RULING.md", "Choose a design.")
+  t.mock.timers.tick(30 * 60_000)
+  second.output.endRuling("Take the redesign.")
+  await second.output.phase.start(
+    { ...fix, sessionId: "second", rulingReply: "Take the redesign." },
+    "Continue the fix",
+  )
+  t.mock.timers.tick(2 * 60_000)
+  await second.output.phase.observe({ type: "text", text: "Applied." })
+  // The half hour with the ruling leaves the round and the run alike.
+  assert.equal(second.stamp(), "\n[fix] 02:00  round 03:00  run 09:00")
 })
 
 test("a finished phase stops its status timer", async (t) => {
@@ -205,6 +275,7 @@ test("a finished phase stops its status timer", async (t) => {
       releases,
     ),
     {
+      clock: new RunClock(Date.now),
       terminal: {
         write: () => {},
         status: (text) => statuses.push(text),
@@ -240,6 +311,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const run = await buildRoundRun(setup, Date.now(), releases, testSettings)
   const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
   t.after(() => output.close())
@@ -297,6 +369,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
     testSettings,
   )
   const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
   output.writeSettledRound([], {
@@ -327,6 +400,7 @@ test("widening planning data retains the settling recommendation", async (t) => 
     testSettings,
   )
   const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
   const settling = "keep open. Settle once finding 1 has landed."
@@ -361,6 +435,7 @@ test("the final retained write stores the judge answer", async (t) => {
     testSettings,
   )
   const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
   t.after(() => output.close())
@@ -410,6 +485,7 @@ test("a later judge failure replaces the settled entry with failure", async (t) 
     testSettings,
   )
   const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
   })
   t.after(() => output.close())
@@ -453,6 +529,7 @@ for (const [name, abortReason, status] of [
       testSettings,
     )
     const output = new RoundOutput(run, {
+      clock: new RunClock(Date.now),
       terminal: { write: () => {}, status: () => {}, clear: () => {} },
     })
     t.after(() => output.close())
@@ -499,6 +576,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const log: string[] = []
     const output = new RoundOutput(run, {
+      clock: new RunClock(Date.now),
       terminal: { write: () => {}, status: () => {}, clear: () => {} },
       openFiles: () => ({
         log: (text) => {
@@ -640,6 +718,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const output = new RoundOutput(run, {
+      clock: new RunClock(Date.now),
       terminal: {
         write: (text) => visible.push(text),
         status: () => {},
@@ -710,6 +789,7 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const phases = roundPhases("codex", noOverride)
   const output = new RoundOutput(await roundRun(setup, Date.now(), releases), {
+    clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
     openFiles: () => ({ log: () => {}, markdown: () => {}, close: () => {} }),
   })
@@ -775,6 +855,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
       releases,
     ),
     {
+      clock: new RunClock(Date.now),
       terminal: { write: () => {}, status: () => {}, clear: () => {} },
       openFiles: () => ({
         log: (text) => {
@@ -809,13 +890,19 @@ test("tool lines report step and total assistant time, excluding user waits", as
   )
   t.mock.timers.tick(7_000)
   await tool("first")
-  assert.match(line() as string, /^ {2}00:07 {2}00:07\s+--\s+--\s+--\s+first$/)
+  assert.match(
+    line() as string,
+    /^ {2}00:07 {2}00:07 {2}00:07\s+--\s+--\s+--\s+first$/,
+  )
   // A written stamp in between does not reset the step: it counts tool line to tool line.
   t.mock.timers.tick(60_000)
   await output.phase.observe({ type: "text", text: "Half way." })
   t.mock.timers.tick(11 * 60_000)
   await tool("second")
-  assert.match(line() as string, /^ {2}12:00 {2}12:07\s+--\s+--\s+--\s+second$/)
+  assert.match(
+    line() as string,
+    /^ {2}12:00 {2}12:07 {2}12:07\s+--\s+--\s+--\s+second$/,
+  )
 
   const session = {
     assistant: "codex" as const,
@@ -845,5 +932,8 @@ test("tool lines report step and total assistant time, excluding user waits", as
     stage: "started",
   })
   // The resumed fix restarted the step and the user's half hour was theirs.
-  assert.match(line() as string, /^ {2}00:04 {2}12:11\s+--\s+--\s+--\s+third$/)
+  assert.match(
+    line() as string,
+    /^ {2}00:04 {2}12:11 {2}12:11\s+--\s+--\s+--\s+third$/,
+  )
 })

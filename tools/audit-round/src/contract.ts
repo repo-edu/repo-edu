@@ -26,6 +26,7 @@ import { RoundOutput } from "./output.js"
 import { phaseSelection } from "./output-format.js"
 import { type Assistant, defaultModel } from "./phase.js"
 import { claudeSettingsRequest } from "./requests.js"
+import { RunClock } from "./run-clock.js"
 import { defaultSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
 
@@ -189,7 +190,7 @@ export async function recordContracts(
           previousModels: [],
           started: Date.now(),
         },
-        { terminal, verbose: true },
+        { terminal, verbose: true, clock: new RunClock(Date.now) },
       )
       try {
         terminal.write(

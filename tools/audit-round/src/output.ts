@@ -58,7 +58,7 @@ import {
   roundIdentity,
   transcriptNameStart,
 } from "./round-paths.js"
-import { RunClock, type RunMark } from "./run-clock.js"
+import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { RoundSettings } from "./settings.js"
 import { isActivePlanPath, planPhase, planStem } from "./target.js"
@@ -83,7 +83,11 @@ const runRule = "═".repeat(72)
 export type OutputOptions = {
   readonly terminal: Terminal
   readonly verbose?: boolean
-  readonly now?: () => number
+  /**
+   * The invocation's one clock. Every output of a chained run shares it, so
+   * the run reading spans them and each user wait leaves every reading alike.
+   */
+  readonly clock: RunClock
   readonly openFiles?: typeof openRunFiles
 }
 
@@ -110,7 +114,7 @@ export type Run = {
     | { readonly phase: "widening" | "detailing" }
     | { readonly scope: string }
   )
-  /** The reading that dates the run files; the timers count from it too. */
+  /** The reading that dates the run files. */
   readonly started: number
 }
 
@@ -327,6 +331,8 @@ export class RoundOutput<R extends Run = Run> {
   readonly phase: PhaseOutput
   private readonly files: RunFiles
   private readonly clock: RunClock
+  /** Where this round's reading counts from: the output's construction. */
+  private readonly round: RunMark
   private active:
     | {
         input: AssistantTurnInput
@@ -353,7 +359,8 @@ export class RoundOutput<R extends Run = Run> {
     private readonly run: R,
     private readonly options: OutputOptions,
   ) {
-    this.clock = new RunClock(options.now ?? Date.now, run.started)
+    this.clock = options.clock
+    this.round = options.clock.mark()
     this.paths = run.paths
     this.files = (options.openFiles ?? openRunFiles)(this.paths)
     this.phase = {
@@ -450,7 +457,7 @@ export class RoundOutput<R extends Run = Run> {
     if (this.active === undefined) return ""
     const { input, started, context, statusTokens } = this.active
     const measurement = contextText(context, changeSince(context, statusTokens))
-    return `\n[${input.phase}] ${elapsedText(this.clock.elapsed(started))}  total ${elapsedText(this.clock.elapsed(this.clock.run))}${measurement ? `  ${measurement}` : ""}`
+    return `\n[${input.phase}] ${elapsedText(this.clock.elapsed(started))}  round ${elapsedText(this.clock.elapsed(this.round))}  run ${elapsedText(this.clock.elapsed(this.clock.invocation))}${measurement ? `  ${measurement}` : ""}`
   }
 
   /** Written stamps chain: each reports the context added since the previous one. */
@@ -586,7 +593,8 @@ export class RoundOutput<R extends Run = Run> {
           const line = toolText(
             feedback.invocation,
             elapsedText(this.clock.elapsed(active.previousToolMark)),
-            elapsedText(this.clock.elapsed(this.clock.run)),
+            elapsedText(this.clock.elapsed(this.round)),
+            elapsedText(this.clock.elapsed(this.clock.invocation)),
             active.context,
             changeSince(active.context, active.previousToolTokens),
           )

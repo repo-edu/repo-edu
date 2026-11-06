@@ -5,6 +5,7 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { resolveTargets } from "../default-target.js"
 import { roundRun as buildRoundRun } from "../output.js"
+import { RunClock } from "../run-clock.js"
 import {
   planRepositoryPrefix,
   targetRequest,
@@ -20,7 +21,10 @@ import {
 import { fixture, releases, testContext, testSetup } from "./helpers.js"
 import { commitFixture, shortCommit } from "./round-fixture.js"
 
-const options = { terminal: { write() {}, status() {}, clear() {} } }
+const options = {
+  terminal: { write() {}, status() {}, clear() {} },
+  clock: new RunClock(Date.now),
+}
 
 test("phase files sort in fixed order with paired logs and dotted commit-range targets", async (t) => {
   const f = await fixture(t)

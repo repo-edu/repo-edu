@@ -56,6 +56,7 @@ import {
   type Run,
   roundRun,
 } from "./output.js"
+import { elapsedText } from "./output-format.js"
 import {
   type Assistant,
   type AuditorOption,
@@ -106,6 +107,7 @@ import {
   transcriptKind,
 } from "./round-paths.js"
 import { readRulingReply } from "./ruling-input.js"
+import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
@@ -500,7 +502,9 @@ function auditorEntries(value: string, option: AuditorOption): AuditorEntry[] {
 
 function parseInvocation(
   argv: readonly string[],
-  options: OutputOptions & { readonly emergency: (text: string) => void },
+  options: Pick<OutputOptions, "terminal"> & {
+    readonly emergency: (text: string) => void
+  },
 ): Invocation | number {
   let invocation: Invocation | undefined
   const command = new Command("audit-round")
@@ -1089,7 +1093,9 @@ function stageRoundKind(stage: LifecycleStage): RoundKind {
 export async function runCommand(
   argv: readonly string[],
   runtime: AssistantRuntime,
-  options: OutputOptions & {
+  options: Omit<OutputOptions, "clock"> & {
+    /** The invocation's time source; its clock and every dated record read it. */
+    readonly now?: () => number
     readonly emergency: (text: string) => void
     readonly cacheRoot?: string
     readonly repoEduRoot?: string
@@ -1099,6 +1105,9 @@ export async function runCommand(
     readonly coin?: (count: number) => number
   },
 ): Promise<number> {
+  const now = options.now ?? Date.now
+  // One clock per invocation, so the run reading spans every output it opens.
+  const clock = new RunClock(now)
   const invocation = parseInvocation(argv, options)
   if (typeof invocation === "number") return invocation
   let output: RoundOutput | undefined
@@ -1107,7 +1116,6 @@ export async function runCommand(
   /** A finished or interrupted outcome exits clean; only a failure exits 1. */
   const exitCode = (outcome: { readonly status: string }): number =>
     outcome.status === "failed" ? 1 : 0
-  const now = options.now ?? Date.now
   try {
     const context = await executionContext(options.repoEduRoot)
     if (invocation.kind === "episode") {
@@ -1371,7 +1379,7 @@ export async function runCommand(
       output = undefined
       previous?.close()
       runtime.signal?.throwIfAborted()
-      const active = new RoundOutput(run, { ...options, verbose })
+      const active = new RoundOutput(run, { ...options, verbose, clock })
       output = active
       return active
     }
@@ -1759,6 +1767,7 @@ export async function runCommand(
           ? new RoundOutput(chainedRun, {
               ...options,
               verbose,
+              clock,
             })
           : open(chainedRun)
         try {
@@ -2085,9 +2094,12 @@ export async function runCommand(
         if (output === undefined) options.terminal.write(text)
         else await output.message(text)
       }
+      // The ending repeats the invocation's reading, so it survives the last stamp.
+      const runTime = () =>
+        `Run time ${elapsedText(clock.elapsed(clock.invocation))}.`
       const ended = (stage: string) =>
         say(
-          `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round run ${stem} continues from where the plan stands.`,
+          `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round run ${stem} continues from where the plan stands. ${runTime()}`,
         )
       const defaults: SeriesOptions = { watch: true }
       let current: string = runStageNames[run.stage]
@@ -2145,7 +2157,8 @@ export async function runCommand(
         await ended(current)
         throw error
       }
-      if (closed) await say(`Run of ${stem} finished: the plan is closed.`)
+      if (closed)
+        await say(`Run of ${stem} finished: the plan is closed. ${runTime()}`)
       else await ended(current)
     }
     if (prepared.kind === "implement") await implementStage(prepared)

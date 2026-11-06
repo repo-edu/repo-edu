@@ -240,6 +240,7 @@ export function contextText(context: Context | null, change: string): string {
   return `context  ${change}  ${tokenText(context.tokens)}${percent}`
 }
 
+/** `mm:ss`, with minutes counting on past the hour, so every reading has one shape. */
 export function elapsedText(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000))
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
@@ -261,12 +262,14 @@ export function commandText(command: string): string {
 
 /**
  * One logged tool invocation. It opens with the step's own time, the assistant
- * time since the previous tool line, followed by the run's total assistant time.
+ * time since the previous tool line, followed by the round's and then the
+ * invocation's total assistant time.
  */
 export function toolText(
   invocation: string,
   elapsed: string,
-  runningTotal: string,
+  roundTotal: string,
+  runTotal: string,
   context: Context | null,
   change: string,
 ): string {
@@ -275,7 +278,7 @@ export function toolText(
     context?.window == null
       ? "--"
       : `${Math.round((context.tokens / context.window) * 100)}%`
-  return `  ${elapsed.padStart(5)}  ${runningTotal.padStart(5)}  ${change.padStart(6)}  ${total.padStart(4)}  ${percent.padStart(4)}  ${invocation.replace(/[\r\n\t]/g, " ")}`
+  return `  ${elapsed.padStart(5)}  ${roundTotal.padStart(5)}  ${runTotal.padStart(5)}  ${change.padStart(6)}  ${total.padStart(4)}  ${percent.padStart(4)}  ${invocation.replace(/[\r\n\t]/g, " ")}`
 }
 
 export function toolInputText(input: Record<string, unknown>): string {

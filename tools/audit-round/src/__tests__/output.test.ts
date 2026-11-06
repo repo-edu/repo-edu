@@ -5,6 +5,7 @@ import { Writable } from "node:stream"
 import { test } from "node:test"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
+import { RunClock } from "../run-clock.js"
 import { createTerminal } from "../terminal.js"
 import type { Assistant, AuditorOverride } from "./configured-runner.js"
 import {
@@ -42,6 +43,7 @@ test("long commit lists record every reference without exceeding filename limits
     releases,
   )
   const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
     terminal: { write() {}, status() {}, clear() {} },
   })
   output.close()
@@ -65,6 +67,7 @@ test("commit stamps retain each phase's reported selection across later phases",
   }
   const phases = roundPhases(setup.auditor, setup.override)
   const output = new RoundOutput(await roundRun(setup, 0, releases), {
+    clock: new RunClock(Date.now),
     terminal: { write() {}, status() {}, clear() {} },
   })
   t.after(() => output.close())
@@ -131,6 +134,7 @@ test("reported model feedback prints a change notice after the phase line", asyn
       ],
     },
     {
+      clock: new RunClock(Date.now),
       terminal: {
         write: (text) => visible.push(text),
         status() {},
@@ -175,6 +179,7 @@ test("output records complete invocations incrementally and refreshes only while
       releases,
     ),
     {
+      clock: new RunClock(Date.now),
       verbose: true,
       terminal: {
         write: (text, format) => {
@@ -219,10 +224,10 @@ test("output records complete invocations incrementally and refreshes only while
       if (event.type === "tool") await output.phase.observe(event)
   }
   await tool("first command")
-  // The step time counts from the phase start, the total from the run start.
+  // The step time counts from the phase start, the totals from the round and invocation starts.
   assert.match(
     visible.at(-1) as string,
-    /^ {2}00:00 {2}00:05\s+--\s+--\s+--\s+first command/,
+    /^ {2}00:00 {2}00:05 {2}00:05\s+--\s+--\s+--\s+first command/,
   )
   await output.phase.observe({ type: "context", tokens: 26000, window: 100000 })
   await tool("/bin/zsh -lc 'printf audit-round-probe'")
@@ -236,7 +241,7 @@ test("output records complete invocations incrementally and refreshes only while
   t.mock.timers.tick(3000)
   assert.match(
     status.at(-1) as string,
-    /\[audit\] 00:03\s+total 00:08\s+context\s+26\.2k\s+26k\s+26%/,
+    /\[audit\] 00:03\s+round 00:08\s+run 00:08\s+context\s+26\.2k\s+26k\s+26%/,
   )
   await output.phase.observe({
     type: "text",
@@ -288,7 +293,10 @@ test("output records complete invocations incrementally and refreshes only while
   assert.ok(clears > 0)
   await start()
   await tool("new phase")
-  assert.match(visible.at(-1) as string, /^ {2}00:00 {2}00:13\s+--\s+--\s+--/)
+  assert.match(
+    visible.at(-1) as string,
+    /^ {2}00:00 {2}00:13 {2}00:13\s+--\s+--\s+--/,
+  )
 })
 
 test("written status stamps chain into the running total", async (t) => {
@@ -301,6 +309,7 @@ test("written status stamps chain into the running total", async (t) => {
       releases,
     ),
     {
+      clock: new RunClock(Date.now),
       terminal: {
         write: (text) => {
           visible.push(text)
@@ -367,6 +376,7 @@ for (const assistant of ["claude", "codex"] as const) {
           releases,
         ),
         {
+          clock: new RunClock(Date.now),
           verbose,
           terminal: {
             write: (text) => {
@@ -505,7 +515,7 @@ for (const assistant of ["claude", "codex"] as const) {
           .map((line) =>
             line
               .trimStart()
-              .replace(/^\d+:\d\d\s+\d+:\d\d\s+--\s+--\s+--\s+/, ""),
+              .replace(/^\d+:\d\d\s+\d+:\d\d\s+\d+:\d\d\s+--\s+--\s+--\s+/, ""),
           )
       const log = (await readFile(output.paths.log, "utf8")).slice(
         logBefore.length,
@@ -531,6 +541,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
       releases,
     ),
     {
+      clock: new RunClock(Date.now),
       terminal: {
         write: (text) => {
           visible.push(text)
@@ -578,6 +589,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
         releases,
       ),
       {
+        clock: new RunClock(Date.now),
         terminal: {
           write: (text) => {
             visible.push(text)
@@ -651,6 +663,7 @@ test("the settings header names what set each phase's model and effort", async (
         releases,
       ),
       {
+        clock: new RunClock(Date.now),
         terminal: {
           write: (text) => {
             visible.push(text)
@@ -749,6 +762,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
       releases,
     ),
     {
+      clock: new RunClock(Date.now),
       terminal: {
         write: (text) => {
           visible.push(text)
@@ -791,6 +805,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
   const output = new RoundOutput(
     await briefRun(transcript, Date.parse("2026-09-13T08:00:00Z"), releases),
     {
+      clock: new RunClock(Date.now),
       terminal: {
         write: (text) => {
           visible.push(text)
