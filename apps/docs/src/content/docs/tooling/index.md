@@ -53,7 +53,7 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | I want to check every range of a finished plan | `pnpm audit-round round <stem>` | One series for each range in the plan, followed by a series over the full range |
 | I want to check several ranges in one sitting | `pnpm audit-round round <stem> 2,3-5,6-7` | One series per scope in list order |
 | I want to check work outside a plan | `pnpm audit-round round <commits>` | A series over the named commits and any fixes it lands |
-| I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), `/vet`, `/rebut` or `/fix` | One phase at a time; the other assistant vets and the original auditor answers |
+| I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; the other assistant vets and the original auditor answers |
 | I want to check a round's trajectory | `/watch [stem\|commit]` | A grounded green, amber or red judgement; you decide the response |
 | I want to compare the recorded auditors and coders | `pnpm audit-round models` | A graded reading and a recommendation when the records support one |
 | I found that an earlier audit finding was wrong | `pnpm audit-round disprove ...` | Your dated ruling and full reason enter the plan's round data |
@@ -69,8 +69,8 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
-| The runner is waiting for a ruling | Reply in the runner and submit a blank line | The same assistant session resumes with your answer |
-| A phase failed or I left without replying | Run the recovery command printed by the runner | The retained session and files continue that specific work |
+| The runner is waiting for a ruling | [Reply in the runner](/repo-edu/tooling/answer-ruling/) and submit a blank line | The same assistant session resumes with your answer |
+| A phase failed or I left without replying | [Run the recovery command](/repo-edu/tooling/recover-run/) printed by the runner | The retained session and files continue that specific work |
 
 ### Source upkeep
 

@@ -125,6 +125,9 @@ export default defineConfig({
                   label: "Audit phases",
                   items: [
                     { label: "/audit", slug: "tooling/audit" },
+                    { label: "/vet", slug: "tooling/vet" },
+                    { label: "/rebut", slug: "tooling/rebut" },
+                    { label: "/fix", slug: "tooling/fix" },
                   ],
                 },
                 {
@@ -140,6 +143,16 @@ export default defineConfig({
                       label: "pnpm audit-round <stem>",
                       slug: "tooling/full-plan-run",
                     },
+                  ],
+                },
+                {
+                  label: "Guides",
+                  items: [
+                    { label: "Plan lifecycle", slug: "tooling/plan-lifecycle" },
+                    { label: "Run an audit round", slug: "tooling/run-audit-round" },
+                    { label: "Answer a ruling", slug: "tooling/answer-ruling" },
+                    { label: "Recover a run", slug: "tooling/recover-run" },
+                    { label: "Find round outputs", slug: "tooling/find-round-outputs" },
                   ],
                 },
               ],
