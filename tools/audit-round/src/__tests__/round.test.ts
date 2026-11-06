@@ -1144,6 +1144,46 @@ test("a plan round records only the landed commits that carry its stem", async (
   assert.equal(round.settledWrites[0]?.account.findings[0]?.outcome, "kept")
 })
 
+test("a commit round records only unstemmed landed commits", async () => {
+  const round = controlledRound()
+  const foreign = {
+    repository: "repo-edu" as const,
+    sha: "1".repeat(40),
+    subject:
+      "other/impl-audit-1 obx growth-none b1 fix(audit-round): correct the other plan",
+    message:
+      "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+  }
+  const own = {
+    repository: "repo-edu" as const,
+    sha: "2".repeat(40),
+    subject: "obx growth-none b1 fix(audit-round): correct the commit audit",
+    message:
+      "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+  }
+  const group = {
+    references: ["HEAD"] as const,
+    repository: "repo-edu" as const,
+    startingHead: "abc1234",
+    commits: ["a".repeat(40)] as const,
+    shortReferences: ["abc123"] as const,
+  }
+
+  const result = await runRound(
+    { ...files, ...commitTarget(group) },
+    {
+      ...round.dependencies,
+      readRecords: async (root) => (root === repoRoot ? [foreign, own] : []),
+    },
+  )
+
+  assert.equal(result.status, "finished")
+  assert.deepEqual(round.settledWrites[0]?.commits, [
+    { repository: "repo-edu", sha: own.sha },
+  ])
+  assert.equal(round.settledWrites[0]?.account.findings[0]?.outcome, "kept")
+})
+
 test("a clean widening audit retains the report's settling line as the settling recommendation", async () => {
   const round = controlledRound()
   round.evidence.settling = "settle. No concrete shape question remains."

@@ -765,11 +765,9 @@ export async function runRound(
             ),
           )
         ).map((records) =>
-          stem === null
-            ? records
-            : records.filter(
-                ({ subject }) => looseForm(subject)?.stem === stem,
-              ),
+          records.filter(
+            ({ subject }) => (looseForm(subject)?.stem ?? null) === stem,
+          ),
         )
         commits = landed
           .flat()

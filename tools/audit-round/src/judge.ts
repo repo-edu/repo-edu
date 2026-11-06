@@ -4,7 +4,6 @@ import type { ExecutionContext } from "./context.js"
 import { episodeMembers } from "./episode.js"
 import { readCommitHeaders, readLog } from "./episode-log.js"
 import {
-  type CommitRoundData,
   type JudgeAnswer,
   type JudgeDecision,
   type RoundData,
@@ -87,28 +86,13 @@ async function readPlanJudgeEvidence(
   }
 }
 
-function sameOriginalGroups(
-  first: readonly CommitRoundData["originalGroups"][number][],
-  second: readonly CommitRoundData["originalGroups"][number][],
-): boolean {
-  return JSON.stringify(first) === JSON.stringify(second)
-}
-
 async function readCommitJudgeEvidence(
   input: JudgeEvidenceInput,
 ): Promise<JudgeEvidence> {
   const rounds = await readCommitRoundData(input, input.stem)
   const ordered = rounds.toSorted((first, second) => first.round - second.round)
-  const first = ordered[0]
-  if (first === undefined)
+  if (ordered.length === 0)
     throw new Error(`Commit series ${input.stem} has no round data`)
-  const drifted = ordered.find(
-    (entry) => !sameOriginalGroups(first.originalGroups, entry.originalGroups),
-  )
-  if (drifted !== undefined)
-    throw new Error(
-      `Commit series ${input.stem} changed its original groups in round ${drifted.round}`,
-    )
 
   const wanted = new Map<Repository, string[]>()
   const add = (repository: Repository, sha: string) => {
@@ -116,8 +100,9 @@ async function readCommitJudgeEvidence(
     if (!commits.includes(sha)) commits.push(sha)
     wanted.set(repository, commits)
   }
-  for (const group of first.originalGroups)
-    for (const sha of group.commits) add(group.repository, sha)
+  for (const entry of ordered)
+    for (const group of entry.originalGroups)
+      for (const sha of group.commits) add(group.repository, sha)
   for (const entry of ordered)
     for (const commit of entry.commits) add(commit.repository, commit.sha)
 

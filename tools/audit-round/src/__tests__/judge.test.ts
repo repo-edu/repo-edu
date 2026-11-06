@@ -493,7 +493,7 @@ test("detailing offers ready beside stop until the plan's ready marker", () => {
   )
 })
 
-test("commit judge evidence contains only original commits and landed fixes and no watch", async (t) => {
+test("commit judge evidence merges retained original groups and landed fixes without a watch", async (t) => {
   const f = await fixture(t)
   const original = await commitFixture(
     f.runtime.repoEduRoot,
@@ -502,13 +502,18 @@ test("commit judge evidence contains only original commits and landed fixes and 
   )
   await commitFixture(
     f.runtime.repoEduRoot,
-    "Unrelated commit",
+    "Unnamed gap commit",
     "2026-10-11T09:00:00Z",
+  )
+  const laterOriginal = await commitFixture(
+    f.runtime.repoEduRoot,
+    "Later audited commit",
+    "2026-10-11T10:00:00Z",
   )
   const fix = await commitFixture(
     f.runtime.repoEduRoot,
     "series/fix obh growth-none c1 fix(audit-round): landed correction",
-    "2026-10-11T10:00:00Z",
+    "2026-10-11T11:00:00Z",
   )
   const full = async (revision: string) =>
     (
@@ -517,6 +522,7 @@ test("commit judge evidence contains only original commits and landed fixes and 
       })
     ).stdout
   const originalSha = await full(original)
+  const laterOriginalSha = await full(laterOriginal)
   const fixSha = await full(fix)
   const label = `commit-${original}`
   const group = {
@@ -530,6 +536,30 @@ test("commit judge evidence contains only original commits and landed fixes and 
     commits: [{ repository: "repo-edu", sha: fixSha }],
   }
   writeRoundData(join(f.runtime.activeRoot, `${label}-rounds.json`), first)
+  writeRoundData(join(f.runtime.activeRoot, `${label}-rounds.json`), {
+    ...commitRound(
+      "claude",
+      "2026-10-11T12:00:00Z",
+      { ...group, startingHead: laterOriginalSha },
+      { round: 2 },
+    ),
+    target: label,
+    commits: [],
+  })
+  writeRoundData(join(f.runtime.activeRoot, `${label}-rounds.json`), {
+    ...commitRound(
+      "codex",
+      "2026-10-11T13:00:00Z",
+      {
+        ...group,
+        commits: [originalSha, laterOriginalSha],
+        startingHead: laterOriginalSha,
+      },
+      { round: 3 },
+    ),
+    target: label,
+    commits: [],
+  })
   await writeFile(
     join(f.runtime.activeRoot, `${label}-01-9-watch.obh.md`),
     "# Must not reach a commit judge\n",
@@ -543,11 +573,16 @@ test("commit judge evidence contains only original commits and landed fixes and 
   })
 
   assert.equal(result.roundData.file, `${label}-rounds.json`)
-  assert.equal(result.roundData.rounds.length, 1)
+  assert.equal(result.roundData.rounds.length, 3)
   assert.deepEqual(
     result.commits.map(({ sha, subject, role }) => ({ sha, subject, role })),
     [
       { sha: originalSha, subject: "Original audited commit", role: null },
+      {
+        sha: laterOriginalSha,
+        subject: "Later audited commit",
+        role: null,
+      },
       {
         sha: fixSha,
         subject:

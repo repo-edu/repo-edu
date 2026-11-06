@@ -259,6 +259,11 @@ Audit ranges: 1.
                   tier === null
                     ? "example/impl-audit-1 oth clean: fixture"
                     : `example/impl-audit-1 oth growth-none ${tier}1 fix(audit-round): fixture`,
+                ...(tier === null
+                  ? {}
+                  : {
+                      commitSubject: `oth growth-none ${tier}1 fix(audit-round): fixture`,
+                    }),
               },
             ]
           : [],

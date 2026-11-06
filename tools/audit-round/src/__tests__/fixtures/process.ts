@@ -15,6 +15,7 @@ import { promisify } from "node:util"
 const [root, assistant, ...args] = process.argv.slice(2)
 let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
 let prompt: string | undefined
+let commitTarget = false
 await appendFile(
   join(root, "calls.jsonl"),
   `${JSON.stringify({
@@ -125,6 +126,10 @@ if (scenario.phases !== undefined) {
   const phaseArguments = JSON.parse(
     /^Phase arguments \(JSON array\): (.+)$/m.exec(prompt ?? "")?.[1] ?? "[]",
   )
+  commitTarget =
+    phase === "fix" &&
+    typeof phaseArguments[0] === "string" &&
+    basename(phaseArguments[0]).startsWith("commit-")
   const document = selected?.documents?.[assistant] ?? selected?.document
   if (document !== undefined) {
     const outputIndex = {
@@ -218,7 +223,9 @@ for (const commit of scenario.commits ?? [])
       "--allow-empty",
       "-q",
       "-m",
-      commit.subject,
+      commitTarget && commit.commitSubject !== undefined
+        ? commit.commitSubject
+        : commit.subject,
       ...(commit.body === undefined ? [] : ["-m", commit.body]),
     ],
     { cwd: commit.cwd },
