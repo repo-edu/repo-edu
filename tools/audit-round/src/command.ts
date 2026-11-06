@@ -355,7 +355,7 @@ async function disproveFile(
     const plans = await archivedPlans(context.planRoot, invocation.stem)
     if (plans.length === 0)
       throw new Error(
-        `No active or archived plan named ${invocation.stem} at ${context.activeRoot}.`,
+        `No active or archived plan named ${invocation.stem} in plan checkout ${context.planRoot}.`,
       )
     if (plans.length > 1)
       throw new Error(

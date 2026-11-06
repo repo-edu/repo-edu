@@ -318,9 +318,9 @@ consumers.
   run, lists the phases it may run and locates its files: every round records a log and transcript,
   a round on an active plan also updates one machine-readable per-plan data file, and a commit audit
   writes no plan data entry. A brief on its own records a log beside the transcript it retells and
-  keeps no transcript of its own, and a close records only `<stem>-close.<tag>.log` at the plan
-  root. The close's run also yields the tag and model record its session hands its commits. It uses
-  `round-paths.ts` for file names and round identity. It validates all file-writing phase tags
+  keeps no transcript of its own, and a close records only `<stem>-close.<tag>.log` in the active
+  folder. The close's run also yields the tag and model record its session hands its commits. It
+  uses `round-paths.ts` for file names and round identity. It validates all file-writing phase tags
   before `run-files.ts` exclusively creates the tagless claim, then opens the transcript and log.
   The claim remains after success or failure, and a conflict stops without retrying. Each entry
   carries its phase, so the settings header reports the model and effort that phase will run on,
@@ -694,8 +694,8 @@ complete replacement through a temporary file. Loop-close moves existing files
 beside the archived plan. These are machine artifacts and are never edited by
 hand.
 
-The implement command retains one log and one possible ruling beside the plan
-root as `<stem>-impl-<step>-implement.<tag>.log` and
+The implement command retains one log and one possible ruling in the active
+folder as `<stem>-impl-<step>-implement.<tag>.log` and
 `<stem>-impl-<step>-implement-ruling.<tag>.md`. These are phase files, not audit
 round files. A fresh worker owns each step log.
 
@@ -1000,7 +1000,7 @@ commands.
 the plan's checked round data and appends the user's date and full reason.
 `disprove <stem> <target> --by "<model> <effort>" <reason>` records a finding
 that retained round data does not hold and creates the round-kind file when it
-does not exist. An active plan's ignored root file remains uncommitted for
+does not exist. An active plan's ignored file in the active folder remains uncommitted for
 loop-close. An archived plan's file is committed alone as the tag-free
 `<stem>/disprove:` form with the reason as its body. The command starts no
 assistant and reads no settings.
