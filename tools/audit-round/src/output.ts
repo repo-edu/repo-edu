@@ -1,5 +1,6 @@
-import { basename, dirname, join } from "node:path"
+import { basename, join } from "node:path"
 import { format } from "date-fns"
+import type { PlanRoots } from "./context.js"
 import type { Feedback, ModelReleases, PhaseOutput } from "./feedback.js"
 import {
   type ModelReference,
@@ -193,18 +194,18 @@ export async function roundRun(
       tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
-  const previousModels = await readPreviousRoundModels(setup.planRoot)
+  const previousModels = await readPreviousRoundModels(setup)
   const path = (kind: FileKind, phase: RoundPhase) =>
-    join(setup.planRoot, phaseFilename(nameStart, kind, tag(phase)))
+    join(setup.activeRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
   const audit = entry("audit")
   const activePlan =
-    "plan" in setup && isActivePlanPath(setup.planRoot, setup.plan)
+    "plan" in setup && isActivePlanPath(setup.activeRoot, setup.plan)
   const data =
     "plan" in setup && activePlan
       ? {
           path: join(
-            setup.planRoot,
+            setup.activeRoot,
             roundDataFilename(planStem(setup.plan), setup.roundKind),
           ),
           ...roundDataIdentity(nameStart),
@@ -242,7 +243,7 @@ export async function roundRun(
       ...(setup.pool !== undefined ? [entry("judge")] : []),
     ],
     paths: {
-      claim: join(setup.planRoot, `${nameStart}-0-claim.md`),
+      claim: join(setup.activeRoot, `${nameStart}-0-claim.md`),
       log: `${base}.log`,
       markdown: `${base}.md`,
     },
@@ -257,6 +258,7 @@ export async function roundRun(
 /** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */
 export async function briefRun(
   transcript: string,
+  roots: PlanRoots,
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
@@ -266,7 +268,7 @@ export async function briefRun(
     ...roundPhases("codex", noOverride, settings).brief,
   } as const
   const base = join(
-    dirname(transcript),
+    roots.activeRoot,
     phaseFilename(
       transcriptNameStart(transcript),
       "brief",
@@ -285,19 +287,19 @@ export async function briefRun(
       log: `${base}.log`,
       markdown: null,
     },
-    previousModels: await readPreviousRoundModels(dirname(transcript)),
+    previousModels: await readPreviousRoundModels(roots),
     started,
   }
 }
 
 /**
- * A close logs at the plan root under the plan's stem and keeps no transcript.
+ * A close logs in the active folder under the plan's stem and keeps no transcript.
  * Its session cannot tell its own capability, so the run hands it the tag and
  * model record its commits carry.
  */
 export async function closeRun(
   plan: string,
-  planRoot: string,
+  roots: PlanRoots,
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
@@ -318,10 +320,10 @@ export async function closeRun(
     releases,
     paths: {
       claim: null,
-      log: join(planRoot, `${planStem(plan)}-close.${tag}.log`),
+      log: join(roots.activeRoot, `${planStem(plan)}-close.${tag}.log`),
       markdown: null,
     },
-    previousModels: await readPreviousRoundModels(planRoot),
+    previousModels: await readPreviousRoundModels(roots),
     started,
   }
 }

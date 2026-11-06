@@ -174,7 +174,7 @@ async function reportPhase<R extends PhaseResult>(
 /**
  * The brief reads only the transcript, so it runs the same way after a round
  * and on its own over an earlier transcript. Its workflow always belongs to
- * the Repo Edu root; output belongs beside the transcript at the plan root.
+ * the Repo Edu root; output belongs beside the transcript in the active folder.
  */
 export async function runBrief(
   input: BriefInput,
@@ -183,8 +183,8 @@ export async function runBrief(
 ): Promise<BriefResult> {
   // The brief uses its own settings, so no auditor override reaches this phase.
   const run = roundPhases("codex", noOverride, settings).brief
-  const { cwd, repoEduRoot, planRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   const brief = await reportPhase(
     () =>
       dependencies.runPhase.brief({
@@ -226,8 +226,8 @@ export async function runClose(
   settings: RoundSettings,
 ): Promise<CloseResult> {
   const run = closePhase(settings)
-  const { cwd, repoEduRoot, planRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   const close = await dependencies.runPhase.close({
     phase: "close",
     ...run,
@@ -257,7 +257,9 @@ export async function runClose(
   })
   try {
     if (await dependencies.fileExists(input.plan))
-      return failed(`The finished close left ${input.plan} at the plan root`)
+      return failed(
+        `The finished close left ${input.plan} in the active folder`,
+      )
   } catch (error) {
     return failed(errorMessage(error))
   }
@@ -297,8 +299,8 @@ async function runWatch(
   if (target === null) return { grade: null }
   // The watch uses its configured assistant, independently of the auditor.
   const phases = roundPhases("codex", noOverride, settings)
-  const { cwd, repoEduRoot, planRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   const stem = planStem(input.plan)
   try {
     const glance = await dependencies.glance({
@@ -369,8 +371,8 @@ async function runSeriesJudge(
   settings: RoundSettings,
 ): Promise<RoundFailure | { readonly answer: JudgeAnswer }> {
   const phases = roundPhases("codex", noOverride, settings)
-  const { cwd, repoEduRoot, planRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   try {
     const evidence = await dependencies.judgeEvidence({
       ...context,
@@ -433,8 +435,8 @@ export async function runRound(
     input.fixer,
     input.fixerSource,
   )
-  const { cwd, repoEduRoot, planRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   const deferralScope: DeferralScope | null =
     input.deferrals === undefined ? null : { deferrals: input.deferrals }
   const auditInput: PhaseInput<"audit"> = {
@@ -783,7 +785,7 @@ export async function runRound(
           findings: settleRoundFindings(account.findings, landed.flat()),
         }
         await dependencies.deleteRoundReports(
-          planRoot,
+          input.activeRoot,
           transcriptNameStart(input.transcript),
         )
       } catch (error) {
@@ -816,7 +818,7 @@ export async function runRound(
       if (input.pool !== undefined && currentPlan !== null) {
         try {
           currentPlan = await dependencies.resolvePlan(
-            planRoot,
+            input,
             planStem(currentPlan),
           )
         } catch (error) {

@@ -121,18 +121,18 @@ export async function settlePlan(
     )
   await requireCommittedPlan(context.planRoot, plan)
 
-  const settledName = `${planStem(plan)}.md`
+  const settled = join(context.activeRoot, `${planStem(plan)}.md`)
   const source = relative(context.planRoot, plan)
-  await execa("git", ["mv", "--", source, settledName], {
+  const destination = relative(context.planRoot, settled)
+  await execa("git", ["mv", "--", source, destination], {
     cwd: context.planRoot,
   })
   const subject = `${planStem(plan)}/settle: settle the plan's shape`
   const commit = await commitOnly({
     cwd: context.planRoot,
     subject,
-    paths: [source, settledName],
+    paths: [source, destination],
   })
-  const settled = join(context.planRoot, settledName)
   const marker = await markerPath(context, settled, "settle")
   claimRound(marker)
   return { ...commit, marker }

@@ -414,7 +414,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /--auditor atx,obm/)
   assert.match(visible, /Round sequence:/)
   assert.match(visible, /Scope list \(2,3-5,6-7\):/)
-  assert.match(visible, /<target>-queue\.md at the\s+plan root/)
+  assert.match(visible, /<target>-queue\.md at the\s+active folder/)
   assert.match(visible, /Examples \(from either checkout\):/)
   assert.ok(visible.split("\n").every((line) => line.length <= 88))
   // A round is the command itself, and each command carries its own help.

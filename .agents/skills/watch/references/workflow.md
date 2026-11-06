@@ -275,7 +275,7 @@ settling work after a redesign from being graded as another repetition of the
 shape the redesign retired.
 
 This workflow is the single source of the watch's rules across both repos.
-The plan root keeps the **AI in watch** role and points here. Keep the episode
+The plan doctrine keeps the **AI in watch** role and points here. Keep the episode
 rules, grades, response classes and trajectory diagnostic here so consumers
 cannot drift.
 
@@ -380,7 +380,7 @@ the doer's reasoning. So:
 
 - The writer reads the supplied evidence, the current artifact at the area it points
   to, the area model, the named plan and the episode's earlier watch documents
-  at the plan root. Inspect named commits as needed to verify a claim; do not
+  in the plan checkout's `active/` folder. Inspect named commits as needed to verify a claim; do not
   repeat the episode walk or token counts.
 - Do not read the round's transcript, its brief, its report or its vet and
   rebuttal twins, and do not read the fix session. The invocation gives you

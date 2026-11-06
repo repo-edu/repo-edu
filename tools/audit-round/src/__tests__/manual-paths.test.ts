@@ -31,11 +31,11 @@ for (const working of ["repo-edu", "plan"] as const) {
     ]) {
       const report = `${name}-01-2-audit.obh.md`
       await writeFile(
-        join(f.planRoot, report),
+        join(f.activeRoot, report),
         `# ${opening}\n\nJudged repos: plan@abc123\n`,
       )
       for (const phase of ["vet", "rebut", "fix"]) {
-        await writeFile(join(f.planRoot, `${name}-01-3-vet.ath.md`), "Vet")
+        await writeFile(join(f.activeRoot, `${name}-01-3-vet.ath.md`), "Vet")
         f.visible.length = 0
         assert.equal(
           await runCommand(
@@ -58,12 +58,12 @@ for (const working of ["repo-edu", "plan"] as const) {
           route.workflow,
           join(cwd, `.agents/skills/${phase}/references/workflow.md`),
         )
-        assert.equal(route.arguments[0], join(f.planRoot, report))
+        assert.equal(route.arguments[0], join(f.activeRoot, report))
       }
     }
     const report = "unknown-01-2-audit.obh.md"
     await writeFile(
-      join(f.planRoot, report),
+      join(f.activeRoot, report),
       "Judged repos: plan@abc123\n\n## Findings\n\nNo findings.",
     )
     assert.equal(
@@ -89,7 +89,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       false,
     )
-    const root = f.planRoot
+    const root = f.activeRoot
     const invoke = async (args: string[]) => {
       f.visible.length = 0
       assert.equal(
@@ -158,7 +158,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       working,
     )
-    const root = f.planRoot
+    const root = f.activeRoot
     const peer = f.repoRoot
     const report = join(root, "task-modifier-05-2-audit.ath.md")
     const ownReport = join(root, "other-06-2-audit.oux.md")
@@ -219,7 +219,7 @@ for (const phase of ["vet", "rebut", "fix"] as const) {
     const f = await roundFixture(t)
     const tag = phase === "vet" ? "ath" : "otm"
     const files = ["first-01", "second-02"].map((start) =>
-      join(f.planRoot, `${start}-2-audit.${tag}.md`),
+      join(f.activeRoot, `${start}-2-audit.${tag}.md`),
     )
     const invoke = async (input?: string) => {
       f.visible.length = 0
@@ -302,7 +302,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
 
 test("several twins resolve to the round's newest unless one is selected", async (t) => {
   const f = await roundFixture(t)
-  const report = join(f.planRoot, "example-impl-01..01-01-2-audit.obh.md")
+  const report = join(f.activeRoot, "example-impl-01..01-01-2-audit.obh.md")
   await writeFile(report, "# Implementation audit workflow")
   const invoke = async (args: string[]) => {
     f.visible.length = 0
@@ -314,16 +314,16 @@ test("several twins resolve to the round's newest unless one is selected", async
   assert.equal(await invoke(["rebut", basename(report), "--writer", "obh"]), 1)
   assert.match(f.errors[0], /No vet file/)
   const vets = ["abl", "ath"].map((tag) =>
-    join(f.planRoot, `example-impl-01..01-01-3-vet.${tag}.md`),
+    join(f.activeRoot, `example-impl-01..01-01-3-vet.${tag}.md`),
   )
   const rebuts = ["otm", "oux"].map((tag) =>
-    join(f.planRoot, `example-impl-01..01-01-4-rebut.${tag}.md`),
+    join(f.activeRoot, `example-impl-01..01-01-4-rebut.${tag}.md`),
   )
   for (const file of [...vets, ...rebuts]) await writeFile(file, "Review")
   // The later names carry the earlier dates, so the date decides rather than the name.
   for (const file of [vets[1], rebuts[1]]) await utimes(file, 1_000, 1_000)
   // A newer review of another round never joins this one.
-  const other = join(f.planRoot, "example-impl-01..01-02-3-vet.ath.md")
+  const other = join(f.activeRoot, "example-impl-01..01-02-3-vet.ath.md")
   await writeFile(other, "Other round")
   assert.equal(
     await invoke(["rebut", basename(report), "--writer", "obh"]),

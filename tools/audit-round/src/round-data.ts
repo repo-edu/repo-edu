@@ -2,6 +2,7 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { z } from "zod"
+import type { PlanRoots } from "./context.js"
 import { complexitySchema, reachSchema } from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
 import { parseSubject, type Repository } from "./subject.js"
@@ -269,13 +270,13 @@ type FindingRecord = {
 }
 
 /** Find retained round data beside active plans and inside closed-plan archives. */
-export async function roundDataFiles(planRoot: string): Promise<string[]> {
-  const active = (await readdir(planRoot, { withFileTypes: true }))
+export async function roundDataFiles(roots: PlanRoots): Promise<string[]> {
+  const active = (await readdir(roots.activeRoot, { withFileTypes: true }))
     .filter(
       (entry) => entry.isFile() && roundDataFilenamePattern.test(entry.name),
     )
-    .map((entry) => join(planRoot, entry.name))
-  const archive = join(planRoot, "archive")
+    .map((entry) => join(roots.activeRoot, entry.name))
+  const archive = join(roots.planRoot, "archive")
   let closed: string[] = []
   try {
     closed = (await readdir(archive, { recursive: true, withFileTypes: true }))
@@ -291,10 +292,10 @@ export async function roundDataFiles(planRoot: string): Promise<string[]> {
 
 /** Read the two round-kind files that exist for one active or closed plan. */
 export async function readPlanRoundData(
-  planRoot: string,
+  roots: PlanRoots,
   stem: string,
 ): Promise<PlanRoundData> {
-  const files = await roundDataFiles(planRoot)
+  const files = await roundDataFiles(roots)
   const selected = {
     planning: files.filter(
       (file) => basename(file) === roundDataFilename(stem, "planning"),

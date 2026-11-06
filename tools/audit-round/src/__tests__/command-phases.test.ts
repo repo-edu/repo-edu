@@ -220,7 +220,7 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(markdown.includes("Written brief"), false)
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3", { deferrals: [] }])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.activeRoot, "example.md"), "2-3", { deferrals: [] }])}`,
           ),
         )
         assert.equal(
@@ -375,7 +375,7 @@ for (const auditor of ["claude", "codex"] as const) {
     )
     const { log, markdown } = await f.records()
     assert.doesNotMatch(log, /\[rebut\] starting/)
-    const files = await readdir(f.planRoot)
+    const files = await readdir(f.activeRoot)
     assert.equal(
       files.some((name) => name.includes("-4-rebut.")),
       false,
@@ -452,11 +452,11 @@ for (const target of ["log", "markdown"] as const) {
     const calls = await f.calls()
     assert.equal(calls.filter((call) => call.args[0] === "exec").length, 1)
     assert.throws(() => process.kill(calls.at(-1).pid, 0), { code: "ESRCH" })
-    const dataName = (await readdir(f.planRoot)).find((name) =>
+    const dataName = (await readdir(f.activeRoot)).find((name) =>
       name.endsWith("-impl-rounds.json"),
     )
     assert.ok(dataName)
-    const path = join(f.planRoot, dataName)
+    const path = join(f.activeRoot, dataName)
     const data = parseRoundDataFile(path, await readFile(path, "utf8"))
       .rounds[0]
     assert.ok(data)

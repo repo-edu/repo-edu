@@ -19,9 +19,9 @@ The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
 This workflow is the fix phase of an implementation-audit round. The audit is read-only and writes
-its report to the plan repo root. An audit with findings stops there. This workflow starts from
-that report: it reads the report, its vet twin and its rebuttal twin, presents the outcome for the
-user's ruling, applies the accepted corrections, lands the round's records.
+its report to the plan checkout's `active/` folder. An audit with findings stops there. This
+workflow starts from that report: it reads the report, its vet twin and its rebuttal twin, presents
+the outcome for the user's ruling, applies the accepted corrections, lands the round's records.
 
 An audit with no findings
 uses the shared protocol's **Direct clean completion**.

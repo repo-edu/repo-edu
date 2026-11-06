@@ -344,8 +344,7 @@ export async function readWatchEvidence(
       topic = planStem(input.target)
     }
   }
-  const roundData =
-    topic === null ? {} : await readPlanRoundData(input.planRoot, topic)
+  const roundData = topic === null ? {} : await readPlanRoundData(input, topic)
   return formatWatchEvidence(
     joinedEpisode(logs, topic, loadAreaModel(input.repoEduRoot).areas, anchor),
     roundData,

@@ -229,7 +229,7 @@ function attachedNumbers(
 async function readRoundFiles(
   context: ExecutionContext,
 ): Promise<RoundFileRecord[]> {
-  const files = await roundDataFiles(context.planRoot)
+  const files = await roundDataFiles(context)
   return Promise.all(
     files.map(async (file) => {
       const display = relative(context.planRoot, file)

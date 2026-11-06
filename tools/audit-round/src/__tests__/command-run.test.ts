@@ -12,7 +12,7 @@ type Fixture = Awaited<ReturnType<typeof roundFixture>>
 
 /** A plan file the lifecycle commands preflight must be committed as it stands. */
 async function commitPlan(f: Fixture, name: string) {
-  await execa("git", ["add", name], { cwd: f.planRoot })
+  await execa("git", ["add", join("active", name)], { cwd: f.planRoot })
   await commitFixture(f.planRoot, `example/init ath: add ${name}`)
 }
 
@@ -84,9 +84,9 @@ test("run settles on the widening judge's answer and ends where the detailing ju
     false,
     false,
   )
-  await rm(join(f.planRoot, "example.md"))
+  await rm(join(f.activeRoot, "example.md"))
   await commitPlan(f, "example-widen.md")
-  const detailing = join(f.planRoot, "detailing-source.md")
+  const detailing = join(f.activeRoot, "detailing-source.md")
   await writeFile(detailing, await readFile(f.report, "utf8"))
   await writeFile(
     f.report,
@@ -114,8 +114,8 @@ test("run settles on the widening judge's answer and ends where the detailing ju
     subjects.some((subject) => subject.startsWith("example/ready")),
     false,
   )
-  await access(join(f.planRoot, "example.md"))
-  await assert.rejects(access(join(f.planRoot, "example-widen.md")), {
+  await access(join(f.activeRoot, "example.md"))
+  await assert.rejects(access(join(f.activeRoot, "example-widen.md")), {
     code: "ENOENT",
   })
   const audits = (await f.prompts()).filter((call) =>
@@ -153,9 +153,9 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
     false,
     false,
   )
-  await rm(join(f.planRoot, "example-widen.md"))
+  await rm(join(f.activeRoot, "example-widen.md"))
   await commitPlan(f, "example.md")
-  const implementation = join(f.planRoot, "implementation-source.md")
+  const implementation = join(f.activeRoot, "implementation-source.md")
   await writeFile(
     implementation,
     `Implementation audit workflow\nTarget: <arguments>\nJudged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
@@ -215,7 +215,7 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
     "judge",
     "close",
   ])
-  await assert.rejects(access(join(f.planRoot, "example.md")), {
+  await assert.rejects(access(join(f.activeRoot, "example.md")), {
     code: "ENOENT",
   })
   const visible = f.visible.join("\n")
@@ -252,7 +252,7 @@ test("run continues a plan reopened after ready from its state once it settles",
     false,
     false,
   )
-  await rm(join(f.planRoot, "example.md"))
+  await rm(join(f.activeRoot, "example.md"))
   await commitPlan(f, "example-widen.md")
   // The marker stands through the reopen, and every hosted share has landed.
   await commitFixture(
@@ -267,7 +267,7 @@ test("run continues a plan reopened after ready from its state once it settles",
     f.repoRoot,
     "example/implemented obx: complete the Repo Edu share",
   )
-  const implementation = join(f.planRoot, "implementation-source.md")
+  const implementation = join(f.activeRoot, "implementation-source.md")
   await writeFile(
     implementation,
     `Implementation audit workflow\nTarget: <arguments>\nJudged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
@@ -324,10 +324,14 @@ test("run refuses a plan without an active artifact before any assistant starts"
 
 test("the plan's state names the stage a run starts at", async (t) => {
   const f = await roundFixture(t)
-  const context = { repoEduRoot: f.repoRoot, planRoot: f.planRoot }
-  const settled = join(f.planRoot, "example.md")
+  const context = {
+    repoEduRoot: f.repoRoot,
+    planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
+  }
+  const settled = join(f.activeRoot, "example.md")
   assert.equal(
-    await lifecycleStage(context, join(f.planRoot, "example-widen.md")),
+    await lifecycleStage(context, join(f.activeRoot, "example-widen.md")),
     "widening",
   )
   assert.equal(await lifecycleStage(context, settled), "detailing")

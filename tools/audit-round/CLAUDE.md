@@ -16,66 +16,64 @@ consumers.
   answer; the fix then reads the report with its vet twin alone. The coordinator reads the twin
   through `vet.ts` to decide whether every finding was accepted from its verdict lines. Rebuttal
   uses the audit's resolved model and effort, including `--auditor` or `--first` fields, because it
-  is the auditor's answer. Its workflow grounds answers in current sources. The settings file
-  holds the auditors and coder lists and selects the default auditor and the assistants that write
-  documents. A plan's
-  ready marker selects its fixer from that list; work without an assignment uses the first coder.
-  The brief follows
-  only a finished fix, after all rulings and resumed fix invocations have completed. Only `--brief`
-  adds that phase and its settings row to every round. Its input is the round transcript, never the
-  report, and its workflow belongs to the Repo Edu root. `runBrief` runs that one phase on its own
-  over an earlier transcript. The fix receives a ruling output path separately from its report
-  arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
-  The runner checks that file, then displays it and collects a reply without running the brief. A
-  missing or empty ruling fails the fix with its recovery session. The same fix session resumes in
-  the background with that reply. Further open decisions repeat this route. A completed fix follows
-  the same report deletion, commit checks, brief and watch as an uninterrupted fix. Stopping without
-  a reply retains the round files and reports the fix's recovery command and ends the auditor
-  sequence. A submitted reply lets a completed round continue any remaining auditor entries. Further
-  open decisions replace the ruling in that same session under
-  [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate ruling phases run.
-  `runWatch` owns the watch that follows a round: the glance decides from the commit record and the
-  watch's own history whether a watch is due, and only a due glance runs `watch` to return the
-  finished document and grade. The audited plan's stem comes from `planStem` and selects both the
-  glance record and joined watch evidence. Only a due glance computes and formats the Git episode
-  and the plan's existing round-kind data files, once after the fix. Only the writer's prompt
-  receives the snapshot separately from its empty phase-argument list. The glance is a dependency
-  the runner supplies from `glance.ts`, not a phase, so a not-due round starts no session for it.
-  The watch writer owns both the judgement and final wording. Its model and effort live in
-  `settings.json`, beside the brief's settings. The watch runs only after a plan round with audit
-  findings that finished, because a round awaiting a ruling has not proved its work landed; nothing
-  is lost, since the glance counts audit correction commits and not rounds. A round given no watch
-  target, which is what `--no-watch` does, consults no glance at all. The watch reads the Git record
-  and retained round data, so `runWatch` passes it no transcript or report. The watch-specific
-  result returns its Markdown, parsed grade and the final compaction count owned by `RoundOutput`.
-  `runWatch` rejects a compacted result before writing, then saves an admitted document before
-  atomically replacing only its episode's cadence entry. A failed document write skips the record
-  write. A failed record write leaves the valid document and earlier record in place. A finished
-  round reports the returned grade, and the command runner ends the auditor sequence on red, so no
-  queued round starts before the user acts on the watch. Before the brief and watch, `round.ts`
-  publishes the settled findings as the current `in-progress` round-data entry. After the fix, it
-  resolves the plan's current filename. A widening fix must end with the grammar's settling line,
-  which replaces the audit report's closing line as the entry's retained settling recommendation,
-  because the fix ends the round and has answered every ruling it asked; a fix outside widening must
-  return none. The watch still runs when the fix changed the plan's phase, but the judge does not.
-  After any other non-red round in an active plan's automatic series, it starts a fresh judge turn
-  over the plan's round-kind data, episode commits, stop conditions and latest watch. The series
-  pool is the `auditors` list plus a `--first` selection whose assistant the list lacks. The
-  runner's real-bug gate removes settle in widening while the latest settled read of the scope by
-  an assistant the pool can run carries an accepted A, and removes ready and stop otherwise while
-  that read carries an accepted A or B. A widening judge chooses settle, stop or a pool entry; a
-  detailing judge before the plan's ready marker chooses ready, stop or a pool entry; every other
+  is the auditor's answer. Its workflow grounds answers in current sources. The settings file holds
+  the auditors and coder lists and selects the default auditor and the assistants that write
+  documents. A plan's ready marker selects its fixer from that list; work without an assignment uses
+  the first coder. The brief follows only a finished fix, after all rulings and resumed fix
+  invocations have completed. Only `--brief` adds that phase and its settings row to every round.
+  Its input is the round transcript, never the report, and its workflow belongs to the Repo Edu
+  root. `runBrief` runs that one phase on its own over an earlier transcript. The fix receives a
+  ruling output path separately from its report arguments. It writes the final ruling and checks it
+  for clarity before returning `needs-ruling`. The runner checks that file, then displays it and
+  collects a reply without running the brief. A missing or empty ruling fails the fix with its
+  recovery session. The same fix session resumes in the background with that reply. Further open
+  decisions repeat this route. A completed fix follows the same report deletion, commit checks,
+  brief and watch as an uninterrupted fix. Stopping without a reply retains the round files and
+  reports the fix's recovery command and ends the auditor sequence. A submitted reply lets a
+  completed round continue any remaining auditor entries. Further open decisions replace the ruling
+  in that same session under [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No
+  separate ruling phases run. `runWatch` owns the watch that follows a round: the glance decides
+  from the commit record and the watch's own history whether a watch is due, and only a due glance
+  runs `watch` to return the finished document and grade. The audited plan's stem comes from
+  `planStem` and selects both the glance record and joined watch evidence. Only a due glance
+  computes and formats the Git episode and the plan's existing round-kind data files, once after the
+  fix. Only the writer's prompt receives the snapshot separately from its empty phase-argument list.
+  The glance is a dependency the runner supplies from `glance.ts`, not a phase, so a not-due round
+  starts no session for it. The watch writer owns both the judgement and final wording. Its model
+  and effort live in `settings.json`, beside the brief's settings. The watch runs only after a plan
+  round with audit findings that finished, because a round awaiting a ruling has not proved its work
+  landed; nothing is lost, since the glance counts audit correction commits and not rounds. A round
+  given no watch target, which is what `--no-watch` does, consults no glance at all. The watch reads
+  the Git record and retained round data, so `runWatch` passes it no transcript or report. The
+  watch-specific result returns its Markdown, parsed grade and the final compaction count owned by
+  `RoundOutput`. `runWatch` rejects a compacted result before writing, then saves an admitted
+  document before atomically replacing only its episode's cadence entry. A failed document write
+  skips the record write. A failed record write leaves the valid document and earlier record in
+  place. A finished round reports the returned grade, and the command runner ends the auditor
+  sequence on red, so no queued round starts before the user acts on the watch. Before the brief and
+  watch, `round.ts` publishes the settled findings as the current `in-progress` round-data entry.
+  After the fix, it resolves the plan's current filename. A widening fix must end with the grammar's
+  settling line, which replaces the audit report's closing line as the entry's retained settling
+  recommendation, because the fix ends the round and has answered every ruling it asked; a fix
+  outside widening must return none. The watch still runs when the fix changed the plan's phase, but
+  the judge does not. After any other non-red round in an active plan's automatic series, it starts
+  a fresh judge turn over the plan's round-kind data, episode commits, stop conditions and latest
+  watch. The series pool is the `auditors` list plus a `--first` selection whose assistant the list
+  lacks. The runner's real-bug gate removes settle in widening while the latest settled read of the
+  scope by an assistant the pool can run carries an accepted A, and removes ready and stop otherwise
+  while that read carries an accepted A or B. A widening judge chooses settle, stop or a pool entry;
+  a detailing judge before the plan's ready marker chooses ready, stop or a pool entry; every other
   judge chooses stop or a pool entry. The output stores its answer, the chosen entry for a
-  continuation, in the final entry. Manual queues and commit targets run no
-  judge. The round records both repositories' HEADs before the fix, reads the landed records and
-  validates every subject under its repository's grammar. A plan target keeps only the records whose
-  subject carries its stem, because another plan's round may land in the same checkout while the fix
-  runs. A plan target fails when a finished fix landed no commit. A commit target may land nothing.
-  Reader failures retain the owning phase and its session for recovery. The coordinator deletes the
-  report set after these checks, then runs the brief. Other outcomes retain the set. `runClose` runs
-  the loop-close phase alone on its own settings. It passes the active plan, the capability tag and
-  model record its commits carry, the open deferrals resolved before assistant startup and any abort
-  reason. A finished close that left its plan at the root fails, because the move is the close.
+  continuation, in the final entry. Manual queues and commit targets run no judge. The round records
+  both repositories' HEADs before the fix, reads the landed records and validates every subject
+  under its repository's grammar. A plan target keeps only the records whose subject carries its
+  stem, because another plan's round may land in the same checkout while the fix runs. A plan target
+  fails when a finished fix landed no commit. A commit target may land nothing. Reader failures
+  retain the owning phase and its session for recovery. The coordinator deletes the report set after
+  these checks, then runs the brief. Other outcomes retain the set. `runClose` runs the loop-close
+  phase alone on its own settings. It passes the active plan, the capability tag and model record
+  its commits carry, the open deferrals resolved before assistant startup and any abort reason. A
+  finished close that left its plan in the active folder fails, because the move is the close.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -400,16 +398,16 @@ consumers.
   the launched selection was kept matches nothing. Invalid round data still
   stops the run before an assistant starts.
 - `models.ts` owns the model read-out and its five sections. `model-evidence.ts` reads checked round
-  data once at the plan root and closed-plan archives, then joins the step, ready and closed records
-  from both Git histories. `model-comparison.ts` owns the direct range comparisons behind the
-  verdict. An auditor gets a row in each class where it has a complete round, and a coder gets a row
-  once one of its plans is admitted; a model known only through excluded plans or the other class
-  prints no zero row and no shortage bullet, because the excluded-plans section or the other table
-  already names it. Planning and implementation auditors have separate tables. Every complete round
-  enters its auditor's class, and every row with at least five rounds enters that class's naming
-  check. Each class prints its verdict as one line, then a bullet per row below the floor and per
-  winner outside the current settings, then its table. The table sorts by yield per round, then by
-  time, and carries every number the verdict rests on, so the prose repeats none of them. A row
+  data once in the active folder and closed-plan archives, then joins the step, ready and closed
+  records from both Git histories. `model-comparison.ts` owns the direct range comparisons behind
+  the verdict. An auditor gets a row in each class where it has a complete round, and a coder gets a
+  row once one of its plans is admitted; a model known only through excluded plans or the other
+  class prints no zero row and no shortage bullet, because the excluded-plans section or the other
+  table already names it. Planning and implementation auditors have separate tables. Every complete
+  round enters its auditor's class, and every row with at least five rounds enters that class's
+  naming check. Each class prints its verdict as one line, then a bullet per row below the floor and
+  per winner outside the current settings, then its table. The table sorts by yield per round, then
+  by time, and carries every number the verdict rests on, so the prose repeats none of them. A row
   needs five rounds in both classes before it can be named or block a name. A row is named for one
   class only when it clearly leads every eligible row there and no eligible row clearly leads it in
   the other class. A thinner row stays visible, states its shortage and blocks no recommendation.
@@ -441,23 +439,22 @@ consumers.
   commit roles. A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
   `Implementation audit of <plan>, steps 1-6`, and `transcriptKind` reads the kind back from it. It
   uses each commit group's captured starting HEAD, drops the first plan reference's `plan@` prefix,
-  shortens each group after its first reference, joins group labels with `+` and
-  scans the plan root for the next target-wide number.
-  Automated rounds supply every phase path. A manual audit names only its claim and report; later
-  manual phases retain that report's round and name their output with the current session's writer
-  tag. `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
-  the exact round at the report's root. With no input, it selects the most recently modified
-  eligible document at the plan root: the other assistant's audit for vet, the current assistant's
-  audit for rebuttal or either assistant's audit for fix. Several reviews of one round resolve the
-  same way unless one is selected. `deleteRoundReports` deletes only audit, vet and rebuttal files
-  for that exact round, using recorded filenames without consulting model settings, and returns
-  their names. Per-plan round data does not participate in numbered allocation.
-  `queueFile` names a plan target's `<target>-queue.md` beside its rounds. It
-  carries no round number because it
-  belongs to the whole sequence: one path stays valid across rounds, so an
-  editor holding it open keeps editing the file the runner reads.
-- `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
-  It reads no invoking directory and carries no round kind.
+  shortens each group after its first reference, joins group labels with `+` and scans the active
+  folder for the next target-wide number. Automated rounds supply every phase path. A manual audit
+  names only its claim and report; later manual phases retain that report's round and name their
+  output with the current session's writer tag. `manualPhasePaths` returns the ordinary phase
+  arguments and finds review inputs only within the exact round at the report's root. With no input,
+  it selects the most recently modified eligible document in the active folder: the other
+  assistant's audit for vet, the current assistant's audit for rebuttal or either assistant's audit
+  for fix. Several reviews of one round resolve the same way unless one is selected.
+  `deleteRoundReports` deletes only audit, vet and rebuttal files for that exact round, using
+  recorded filenames without consulting model settings, and returns their names. Per-plan round data
+  does not participate in numbered allocation. `queueFile` names a plan target's `<target>-queue.md`
+  beside its rounds. It carries no round number because it belongs to the whole sequence: one path
+  stays valid across rounds, so an editor holding it open keeps editing the file the runner reads.
+- `context.ts` resolves the installed Repo Edu checkout, its sibling plan checkout and that
+  checkout's `active/` folder, which holds every active plan and round file. It reads no invoking
+  directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
   plan stem with an optional scope, or commit references, which are a complete target. A plan's
   scope is the word `plan` for its planning round, or step scopes in audit order, each a step or an
@@ -468,9 +465,9 @@ consumers.
   every reference after it form the plan group. Each request group keeps its repository and
   references as typed; `default-target.ts` adds the resolved short references the filename uses. A
   commit-shaped plan stem keeps `.md` to identify it as a plan. Plan arguments drop `.md` and
-  `-widen` and refuse paths with a stem example. `resolvePlan` accepts the active artifact at the
-  plan root and reports an archived plan as unavailable for audit. `requiredActivePlan` accepts only
-  the active artifact. It keeps path validation common while `close`, `settle`, `ready` and
+  `-widen` and refuse paths with a stem example. `resolvePlan` accepts the active artifact in the
+  active folder and reports an archived plan as unavailable for audit. `requiredActivePlan` accepts
+  only the active artifact. It keeps path validation common while `close`, `settle`, `ready` and
   `implement` supply their own reason when no active plan exists. The audit workflow owns Git
   resolution and inclusive-range admission. `default-target.ts` captures each request group's
   starting HEAD once before round files are allocated and resolves every typed reference against it
@@ -623,7 +620,8 @@ loop-close are plan doctrine.
 `phaseSkills` names each phase's skill folder and launchers. The brief phase's skill is
 `brief-round`, so its name stays apart from the home `/brief-plan`.
 Planning sessions work in the plan checkout; implementation and commit sessions work in Repo Edu.
-Every round file lives at the plan root. The runner names all input and output paths before the
+Every round file lives in the plan checkout's `active/` folder. The runner names all input and
+output paths before the
 audit. The runner saves audit, vet and rebuttal final responses; the brief session writes its own
 document and the watch returns its document for the runner to publish. The judge returns its one
 answer to the runner. Report phases finish only when their supplied output exists and is non-empty.
@@ -642,8 +640,8 @@ assistant adapters independent of the product LLM adapters.
 
 ## Round files
 
-`round-paths.ts` owns every round filename and order number. Files live at the
-plan repo root and use
+`round-paths.ts` owns every round filename and order number. Files live in the
+plan checkout's `active/` folder, beside the active plans, and use
 `<target>-<round>-<order>-<kind>.<tag>.<ext>`. Markdown documents use `.md`;
 the transcript and standalone brief logs use `.log`. Five forms omit the tag:
 the number claim, the settle and reopen markers, the handoff and the
@@ -739,7 +737,7 @@ Hand-run phases use the same resolver. `name [target] [scope-or-commits...]
 and ordered `arguments`. `paths <vet|rebut|fix> [report]` prints `cwd`,
 `workflow` and ordered `arguments` for an existing round. Vet and rebuttal also
 take `--writer <full tag>`. With no input, `paths` selects the most recently
-modified eligible report at the plan root: the other assistant's for vet, the
+modified eligible report in the active folder: the other assistant's for vet, the
 current assistant's for rebuttal and either assistant's for fix. It keeps the
 newest matching review twin unless `--vet` or `--rebut` selects one. Neither
 command loads settings or starts an assistant, and `paths` writes nothing.
@@ -911,7 +909,7 @@ pnpm audit-round:contract codex
 ```
 
 The round names the report, vet, rebuttal, brief, ruling and watch before the
-audit starts. It writes the tagless claim, transcript and log at the plan root.
+audit starts. It writes the tagless claim, transcript and log in the active folder.
 A round on an active plan also updates `<stem>-plan-rounds.json` or
 `<stem>-impl-rounds.json` there. Closed-plan data remains archive evidence.
 Phase files use
@@ -949,7 +947,7 @@ under [Plan targets](#plan-targets).
 `paths <vet|rebut|fix> [input]` resolves a later manual phase and prints its working checkout,
 workflow and arguments as one JSON object. Vet and rebuttal take `--writer <full tag>` from
 the current session. Fix writes no phase report and needs no writer tag. Without an input, the
-command selects the most recently modified eligible file at the plan root. Several reviews of
+command selects the most recently modified eligible file in the active folder. Several reviews of
 that round resolve to the newest unless `--vet <file>` or `--rebut <file>` selects one. The
 command writes nothing and never
 claims another number. [Phase routing](#phase-routing) owns the manual
@@ -1015,23 +1013,23 @@ any assistant starts, because the unmarked archive form records shipped work. `-
 archives an episode that never shipped and passes the reason for its README. One session, on the
 `close` settings, moves the plan, rewrites the links to it, writes each repo's `closed` commit,
 moves its round-data files into the archive folder and deletes the topic's sidecars. It works in the
-plan checkout and writes only `<stem>-close.<tag>.log` beside the plan root's other runner files.
-The runner resolves the plan's open deferrals before the session starts and supplies them in its
-phase arguments. Where close would need the user's answer, including permission to archive with an
-open deferral, it fails with the question, and its printed resume command continues that session.
+plan checkout and writes only `<stem>-close.<tag>.log` beside the active folder's other runner
+files. The runner resolves the plan's open deferrals before the session starts and supplies them in
+its phase arguments. Where close would need the user's answer, including permission to archive with
+an open deferral, it fails with the question, and its printed resume command continues that session.
 
 `deferrals [stem]` prints one active plan's open deferrals through the shared owner. It resolves the
 same default plan as close when the stem is omitted. It starts no assistant, performs no release
 resolution and writes nothing. The command is hidden because only the hand-run implementation
 audit and close workflows need the list before their sessions start.
 
-`delete-reports` deletes the audit and twins for its exact target and round at the
-plan root and lists each deleted file. It fails when no report matches. Claims, markers and
+`delete-reports` deletes the audit and twins for its exact target and round in the
+active folder and lists each deleted file. It fails when no report matches. Claims, markers and
 runner documents remain.
 
 `mark reopen [stem]` claims the next plan-round number of an active plan, or of
 the plan `plan` prints when none is named, writes the empty
-`<stem>-plan-<round>-0-reopen.md` at the plan root and prints its path. The
+`<stem>-plan-<round>-0-reopen.md` in the active folder and prints its path. The
 marker takes a number so a file list shows where the reopen fell among the
 rounds. The plan repo's
 [Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle) owns when each marker is
@@ -1053,27 +1051,27 @@ automatic clean round still runs its judge. A fix that stops for a ruling adds a
 finished plan round with audit findings ends with a glance at the commit record, and a due glance
 adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is how its
 cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an earlier transcript
-at the plan root, or takes the most recently modified one when none is named. It reads its kind from
-the transcript title, writes beside it without claiming a new number and overwrites its standalone
-log on each run. Without `--auditor`, an active plan runs an automatic series from the `--first`
-selection or the configured default, follows each fresh judge answer and stops at settle, ready,
-stop or its maximum without writing a queue. A settle answer ends the series with the settle command
-to run and leaves the widening plan unchanged for the user to settle or keep widening; its reason
-stays in the round. A detailing ready answer ends the series with the ready command to run and
-leaves the settled plan unchanged for the user to mark ready or keep detailing. Under `run` both
-lines still print and the run records the call itself. Commit targets run
-once. A scope list runs that series once per scope in list order, each scope on its own target, and
-stops the whole list only where a series needs the user: a failure, an unanswered ruling, a red
-watch or a plan phase change. `--auditor` accepts one selection or a sequence on the named plan
-scope, separated by commas or spaces. Repeated entries request separate rounds. The entries after
-the current round wait in `<target>-queue.md` at the plan root. Edit it to add, remove or reorder
-rounds; the runner reads it between rounds and deletes it when the sequence ends. An empty or
-deleted file ends the sequence after the current round. Every completed automatic round prints its
-judge answer and reason, keeps them in the round transcript and repeats the reason in the series
-ending or the next round's opening line. In a manual series, a clean audit skips queued entries with
-the same resolved assistant, model and effort; other settings remain. Failure or leaving a ruling
-without a reply stops either sequence. A submitted reply resumes the fix, then the sequence after
-the round completes. Each header records the round's start time; filenames carry no timestamp.
+in the active folder, or takes the most recently modified one when none is named. It reads its kind
+from the transcript title, writes beside it without claiming a new number and overwrites its
+standalone log on each run. Without `--auditor`, an active plan runs an automatic series from the
+`--first` selection or the configured default, follows each fresh judge answer and stops at settle,
+ready, stop or its maximum without writing a queue. A settle answer ends the series with the settle
+command to run and leaves the widening plan unchanged for the user to settle or keep widening; its
+reason stays in the round. A detailing ready answer ends the series with the ready command to run
+and leaves the settled plan unchanged for the user to mark ready or keep detailing. Under `run` both
+lines still print and the run records the call itself. Commit targets run once. A scope list runs
+that series once per scope in list order, each scope on its own target, and stops the whole list
+only where a series needs the user: a failure, an unanswered ruling, a red watch or a plan phase
+change. `--auditor` accepts one selection or a sequence on the named plan scope, separated by commas
+or spaces. Repeated entries request separate rounds. The entries after the current round wait in
+`<target>-queue.md` in the active folder. Edit it to add, remove or reorder rounds; the runner reads
+it between rounds and deletes it when the sequence ends. An empty or deleted file ends the sequence
+after the current round. Every completed automatic round prints its judge answer and reason, keeps
+them in the round transcript and repeats the reason in the series ending or the next round's opening
+line. In a manual series, a clean audit skips queued entries with the same resolved assistant, model
+and effort; other settings remain. Failure or leaving a ruling without a reply stops either
+sequence. A submitted reply resumes the fix, then the sequence after the round completes. Each
+header records the round's start time; filenames carry no timestamp.
 
 Before an automatic implementation series starts, the runner chains one
 planning round when the shared owner finds an open deferral into the plan repo.

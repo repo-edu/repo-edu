@@ -211,7 +211,7 @@ type Invocation =
     }
   | {
       readonly kind: "brief"
-      /** Absent when the brief retells the newest round at the plan root. */
+      /** Absent when the brief retells the newest round in the active folder. */
       readonly transcript?: string
       readonly verbose?: boolean
     }
@@ -348,14 +348,14 @@ async function disproveFile(
   context: ExecutionContext,
   invocation: Extract<Invocation, { kind: "disprove" }>,
 ): Promise<DisproveFile> {
-  const active = await activePlan(context.planRoot, invocation.stem)
-  let directory = context.planRoot
+  const active = await activePlan(context.activeRoot, invocation.stem)
+  let directory = context.activeRoot
   let archived = false
   if (active === null) {
     const plans = await archivedPlans(context.planRoot, invocation.stem)
     if (plans.length === 0)
       throw new Error(
-        `No active or archived plan named ${invocation.stem} at ${context.planRoot}.`,
+        `No active or archived plan named ${invocation.stem} at ${context.activeRoot}.`,
       )
     if (plans.length > 1)
       throw new Error(
@@ -643,7 +643,7 @@ Round sequence:
 
   Queue file (plan targets):
     - The entries after the current round wait in <target>-queue.md at the
-      plan root. Each round prints its path and what it holds.
+      active folder. Each round prints its path and what it holds.
     - Edit it at any time to add, remove or reorder rounds. It takes the same
       names and tags, separated by commas, spaces or line breaks. The runner
       reads it between rounds, so an edit applies from the next round on.
@@ -791,7 +791,7 @@ Use brief --help, close --help or run --help for their arguments and options.`,
     })
     .argument(
       "[input]",
-      "bare audit report name; defaults to the newest eligible file at the plan root",
+      "bare audit report name; defaults to the newest eligible file in the active folder",
     )
     .option(
       "--writer <tag>",
@@ -905,7 +905,7 @@ Use brief --help, close --help or run --help for their arguments and options.`,
   command
     .command("delete-reports", { hidden: true })
     .description(
-      "Delete one round's audit, vet and rebuttal reports at the plan root and list them.",
+      "Delete one round's audit, vet and rebuttal reports in the active folder and list them.",
     )
     .argument(
       "<target-round>",
@@ -962,7 +962,7 @@ Use brief --help, close --help or run --help for their arguments and options.`,
     )
     .argument(
       "[transcript]",
-      "the round's Markdown transcript; defaults to the newest at the plan root",
+      "the round's Markdown transcript; defaults to the newest in the active folder",
     )
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .action((transcript: string | undefined, flags: { verbose?: boolean }) => {
@@ -1028,7 +1028,7 @@ async function closePlan(
   const plan =
     invocation.stem === undefined
       ? await defaultPlan(context)
-      : await requiredActivePlan(context.planRoot, invocation.stem, "close")
+      : await requiredActivePlan(context.activeRoot, invocation.stem, "close")
   if (invocation.aborted === undefined)
     await requireReadyMarker(context.planRoot, plan)
   return plan
@@ -1054,7 +1054,7 @@ async function preparedRun(
   invocation: Extract<Invocation, { kind: "run" }>,
 ) {
   const plan = await requiredActivePlan(
-    context.planRoot,
+    context.activeRoot,
     invocation.stem,
     "run",
   )
@@ -1180,7 +1180,7 @@ export async function runCommand(
         invocation.stem === undefined
           ? await defaultPlan(context)
           : await requiredActivePlan(
-              context.planRoot,
+              context.activeRoot,
               invocation.stem,
               "deferrals",
             )
@@ -1191,12 +1191,12 @@ export async function runCommand(
     }
     if (invocation.kind === "delete-reports") {
       const deleted = await deleteRoundReports(
-        context.planRoot,
+        context.activeRoot,
         invocation.nameStart,
       )
       if (deleted.length === 0)
         throw new Error(
-          `No audit, vet or rebuttal report of ${invocation.nameStart} at ${context.planRoot}.`,
+          `No audit, vet or rebuttal report of ${invocation.nameStart} at ${context.activeRoot}.`,
         )
       options.terminal.write(
         deleted.map((name) => `Deleted ${name}`).join("\n"),
@@ -1208,10 +1208,10 @@ export async function runCommand(
       if (invocation.stem === undefined) plan = await defaultPlan(context)
       else {
         const stem = planStem(invocation.stem)
-        const active = await activePlan(context.planRoot, stem)
+        const active = await activePlan(context.activeRoot, stem)
         if (active === null)
           throw new Error(
-            `No active plan named ${stem} at ${context.planRoot}. A marker records a phase change of an active plan.`,
+            `No active plan named ${stem} at ${context.activeRoot}. A marker records a phase change of an active plan.`,
           )
         plan = active
       }
@@ -1225,7 +1225,7 @@ export async function runCommand(
         invocation.stem === undefined
           ? await defaultPlan(context)
           : await requiredActivePlan(
-              context.planRoot,
+              context.activeRoot,
               invocation.stem,
               invocation.kind,
             )
@@ -1312,10 +1312,10 @@ export async function runCommand(
         ...context,
         ...target,
       })
-      const claim = join(context.planRoot, `${nameStart}-0-claim.md`)
+      const claim = join(context.activeRoot, `${nameStart}-0-claim.md`)
       claimRound(claim)
       const report = join(
-        context.planRoot,
+        context.activeRoot,
         `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
       )
       const session = roundContext(context, target.roundKind)
@@ -1508,7 +1508,7 @@ export async function runCommand(
           openStep: async (step) => {
             const run = implementationRun(
               implementation.plan,
-              context.planRoot,
+              context.activeRoot,
               step.number,
               now(),
               releases,
@@ -1633,13 +1633,7 @@ export async function runCommand(
       close: PreparedClose,
     ): Promise<CloseResult["status"]> => {
       const closeSession = roundContext(context, "planning")
-      const run = await closeRun(
-        close.plan,
-        context.planRoot,
-        now(),
-        releases,
-        settings,
-      )
+      const run = await closeRun(close.plan, context, now(), releases, settings)
       const active = open(run)
       const closed = await runClose(
         {
@@ -1672,7 +1666,7 @@ export async function runCommand(
       const automatic =
         series.auditor === undefined &&
         "plan" in targets[0] &&
-        isActivePlanPath(context.planRoot, targets[0].plan)
+        isActivePlanPath(context.activeRoot, targets[0].plan)
       const coin =
         options.coin ?? ((count: number) => Math.floor(Math.random() * count))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
@@ -1735,7 +1729,7 @@ export async function runCommand(
         nested: boolean,
         roundNumber: number,
       ): Promise<DeferralChainOutcome> => {
-        const currentPlan = await resolvePlan(context.planRoot, planStem(plan))
+        const currentPlan = await resolvePlan(context, planStem(plan))
         const planningSession = roundContext(context, "planning")
         const setup = {
           ...planningSession,
@@ -1781,10 +1775,7 @@ export async function runCommand(
           active.finish(chained, runtime.signal)
           if (chained.status === "failed") return "failed"
           if (chained.status === "awaiting-ruling") return "awaiting-ruling"
-          const landedPlan = await resolvePlan(
-            context.planRoot,
-            planStem(currentPlan),
-          )
+          const landedPlan = await resolvePlan(context, planStem(currentPlan))
           if (planPhase(landedPlan) !== planPhase(currentPlan))
             return "phase-change"
           if (chained.watch === "red") return "red-watch"
@@ -1867,10 +1858,7 @@ export async function runCommand(
           do {
             if (completed > 0 && "plan" in target) {
               if (!automatic) {
-                const plan = await resolvePlan(
-                  context.planRoot,
-                  planStem(target.plan),
-                )
+                const plan = await resolvePlan(context, planStem(target.plan))
                 target = { ...target, plan }
               }
               if (automatic)
@@ -1960,10 +1948,7 @@ export async function runCommand(
             if (!automatic && queue === null) break
             if (automatic && "plan" in target) {
               const previousPhase = planPhase(target.plan)
-              const plan = await resolvePlan(
-                context.planRoot,
-                planStem(target.plan),
-              )
+              const plan = await resolvePlan(context, planStem(target.plan))
               target = { ...target, plan }
               const currentPhase = planPhase(plan)
               if (currentPhase !== previousPhase) {
@@ -2104,7 +2089,7 @@ export async function runCommand(
           current = runStageNames[stage]
           await say(`Run of ${stem}: starting the ${current}.`)
           if (stage === "widening" || stage === "detailing") {
-            const plan = await resolvePlan(context.planRoot, stem)
+            const plan = await resolvePlan(context, stem)
             const call = stage === "widening" ? "settle" : "ready"
             const ending = await seriesStage(
               [{ roundKind: "planning", plan }],
@@ -2126,7 +2111,7 @@ export async function runCommand(
             // the plan's state, not the stage just run, names the next stage.
             stage = await lifecycleStage(
               context,
-              await resolvePlan(context.planRoot, stem),
+              await resolvePlan(context, stem),
             )
           } else if (stage === "implement") {
             const status = await implementStage(
@@ -2165,7 +2150,7 @@ export async function runCommand(
     if (prepared.kind === "implement") await implementStage(prepared)
     else if (prepared.kind === "brief") {
       const { transcript } = prepared
-      const run = await briefRun(transcript, now(), releases, settings)
+      const run = await briefRun(transcript, context, now(), releases, settings)
       const active = open(run)
       result = await runBrief(
         {

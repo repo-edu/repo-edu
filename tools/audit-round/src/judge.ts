@@ -45,10 +45,10 @@ export async function readJudgeEvidence(
   input: JudgeEvidenceInput,
 ): Promise<JudgeEvidence> {
   const [roundData, planLog, repoEduLog, watch] = await Promise.all([
-    readPlanRoundData(input.planRoot, input.stem),
+    readPlanRoundData(input, input.stem),
     readLog(input.planRoot),
     readLog(input.repoEduRoot),
-    newestWatch(input.planRoot, input.stem),
+    newestWatch(input.activeRoot, input.stem),
   ])
   const kind = input.roundKind
   const commits = (

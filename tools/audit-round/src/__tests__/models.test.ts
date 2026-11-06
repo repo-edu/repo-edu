@@ -120,8 +120,9 @@ async function modelFixture(t: TestContext) {
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root)
   const planRoot = join(f.root, "../plan")
+  const activeRoot = join(planRoot, "active")
   await commitFixture(planRoot)
-  return { ...f, planRoot }
+  return { ...f, planRoot, activeRoot }
 }
 
 type StepHost = "repo-edu" | "plan" | "both"
@@ -205,7 +206,7 @@ test("auditor tables sort by yield per round and the reading keeps only the verd
     "coder-alpha low",
   )
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
-  const path = join(f.planRoot, "ranking-plan-rounds.json")
+  const path = join(f.activeRoot, "ranking-plan-rounds.json")
   const auditors = [
     ["claude", "audit-strong", 2, 120_000, "10"],
     ["codex", "audit-middle", 1, 60_000, "11"],
@@ -229,7 +230,7 @@ test("auditor tables sort by yield per round and the reading keeps only the verd
       })
 
   const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot },
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
   )
   const planning = report
@@ -271,7 +272,7 @@ test("opposite audit-class leads block auditor recommendations", async (t) => {
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
   const addClass = (workClass: "planning" | "implementation") => {
     const path = join(
-      f.planRoot,
+      f.activeRoot,
       `auditor-${workClass === "planning" ? "plan" : "impl"}-rounds.json`,
     )
     for (const [assistant, model] of [
@@ -306,7 +307,7 @@ test("opposite audit-class leads block auditor recommendations", async (t) => {
   addClass("implementation")
 
   const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot },
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
   )
   assert.match(report, /records do not separate one planning auditor clearly/)
@@ -323,7 +324,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
     "evidence/impl-audit-1 obl clean: fixture audit",
     "coder-alpha low",
   )
-  const path = join(f.planRoot, "evidence-plan-rounds.json")
+  const path = join(f.activeRoot, "evidence-plan-rounds.json")
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
   const special = [
     { ...finding("kept claim"), number: 1 },
@@ -367,7 +368,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
         phase: "detailing",
         settling: "",
       })
-  const implementationPath = join(f.planRoot, "evidence-impl-rounds.json")
+  const implementationPath = join(f.activeRoot, "evidence-impl-rounds.json")
   for (const [assistant, model] of [
     ["claude", "audit-strong"],
     ["codex", "audit-weak"],
@@ -421,7 +422,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   })
 
   const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot },
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
   )
   assert.match(
@@ -443,7 +444,10 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
     { assistant: "codex", model: "audit-strong", effort: "low" },
   ]
   assert.doesNotMatch(
-    await modelsReport({ repoEduRoot: f.root, planRoot: f.planRoot }, listed),
+    await modelsReport(
+      { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+      listed,
+    ),
     /audit-strong low is not in the current auditors list/,
   )
   assert.match(report, /## Disproved after the round/)
@@ -490,6 +494,7 @@ test("a closed plan whose archive holds no plan file names the missing plan", as
   const evidence = await readModelEvidence({
     repoEduRoot: f.root,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   })
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
@@ -538,6 +543,7 @@ test("an archived plan written before the step grammar is unreadable, not missin
   const evidence = await readModelEvidence({
     repoEduRoot: f.root,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   })
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
@@ -564,6 +570,7 @@ test("a closed plan without implementation round data names the missing evidence
   const evidence = await readModelEvidence({
     repoEduRoot: f.root,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   })
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
@@ -612,6 +619,7 @@ test("coder yield accepts agreeing unassigned records without step time", async 
   const evidence = await readModelEvidence({
     repoEduRoot: f.root,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   })
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
@@ -695,6 +703,7 @@ test("coder admission matches the ready assignment on assistant and effort, not 
   const evidence = await readModelEvidence({
     repoEduRoot: f.root,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   })
   const alias = evidence.coders.get(
     modelKey({
@@ -793,6 +802,7 @@ test("coder evidence removes disproved findings and falls back to one commit spa
   const evidence = await readModelEvidence({
     repoEduRoot: f.root,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   })
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
@@ -802,7 +812,7 @@ test("coder evidence removes disproved findings and falls back to one commit spa
   assert.deepEqual(row.timeSamples, [{ stem, steps: 2, minutes: 30 }])
 
   const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot },
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
   )
   assert.match(
@@ -819,7 +829,7 @@ test("an active plan remains excluded without a step count", async (t) => {
     "active/impl-audit-1 obl clean: record the current audit",
     "coder-alpha low",
   )
-  writeRoundData(join(f.planRoot, "active-impl-rounds.json"), {
+  writeRoundData(join(f.activeRoot, "active-impl-rounds.json"), {
     ...round(
       "active-impl-01..01",
       1,
@@ -840,6 +850,7 @@ test("an active plan remains excluded without a step count", async (t) => {
   const evidence = await readModelEvidence({
     repoEduRoot: f.root,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   })
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
@@ -853,6 +864,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root)
   const planRoot = join(f.root, "../plan")
+  const activeRoot = join(planRoot, "active")
   await commitFixture(planRoot)
 
   await commit(
@@ -904,7 +916,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     scope: "1",
     judgedRepos: ["repo-edu"],
   })
-  writeRoundData(join(planRoot, "mixed-plan-rounds.json"), {
+  writeRoundData(join(activeRoot, "mixed-plan-rounds.json"), {
     ...round(
       "mixed-plan",
       1,
@@ -1017,7 +1029,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     scope: "1",
     judgedRepos: ["repo-edu"],
   })
-  writeRoundData(join(planRoot, "mixed-plan-rounds.json"), {
+  writeRoundData(join(activeRoot, "mixed-plan-rounds.json"), {
     ...round(
       "mixed-plan",
       2,
@@ -1178,7 +1190,7 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
   await addPlan("beta-steady-3", "coder-beta", 6, 1, 10)
 
   const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot },
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     {
       ...testSettings,
       coders: [
@@ -1200,6 +1212,7 @@ test("coder admission needs every archived plan share and a current whole-plan a
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root, undefined, "2026-09-29T10:00:00Z")
   const planRoot = join(f.root, "../plan")
+  const activeRoot = join(planRoot, "active")
   await commitFixture(planRoot, undefined, "2026-09-29T10:00:00Z")
 
   const coder = {
@@ -1346,7 +1359,11 @@ test("coder admission needs every archived plan share and a current whole-plan a
     "2026-10-03T11:00:00.000Z",
   )
 
-  const evidence = await readModelEvidence({ repoEduRoot: f.root, planRoot })
+  const evidence = await readModelEvidence({
+    repoEduRoot: f.root,
+    planRoot,
+    activeRoot,
+  })
   const row = evidence.coders.get(modelKey(coder))
   assert.ok(row)
   assert.deepEqual(

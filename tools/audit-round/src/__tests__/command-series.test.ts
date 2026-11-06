@@ -64,7 +64,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.match(visible, /Auditor sequence finished after 2 rounds\./)
   assert.doesNotMatch(visible, /Auditor sequence stopped/)
   const stored = JSON.parse(
-    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
     stored.rounds.map((entry) => entry.auditor.chosenBy),
@@ -89,8 +89,8 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   const firstLog = roundFiles.find((name) => /-01-1-round\..+\.log$/.test(name))
   assert.ok(firstMarkdown)
   assert.ok(firstLog)
-  const markdown = await readFile(join(f.planRoot, firstMarkdown), "utf8")
-  const log = await readFile(join(f.planRoot, firstLog), "utf8")
+  const markdown = await readFile(join(f.activeRoot, firstMarkdown), "utf8")
+  const log = await readFile(join(f.activeRoot, firstLog), "utf8")
   assert.ok(markdown.includes(`## User ruling\n\n${reply}`))
   assert.ok(log.includes(reply))
   assert.match(log, /Run the fix phase .* resumed session/)
@@ -161,7 +161,7 @@ for (const { auditors, seeded, edit, rounds } of [
 ]) {
   test(`the queue file seeded with ${JSON.stringify(seeded)} takes ${JSON.stringify(edit)} before the next round`, async (t) => {
     const f = await roundFixture(t, "codex", "repo-edu", true)
-    const queue = join(f.planRoot, "example-impl-01..01-queue.md")
+    const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
     const code = await runCommand(
       ["example.md", "1", "--auditor", auditors, "--no-watch"],
       f.runtime,
@@ -196,7 +196,7 @@ for (const { auditors, seeded, edit, rounds } of [
 
 test("a malformed queue edit stops the sequence and names the entry", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
-  const queue = join(f.planRoot, "example-impl-01..01-queue.md")
+  const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
   const code = await runCommand(
     ["example.md", "1", "--auditor", "codex,claude", "--no-watch"],
     f.runtime,
@@ -777,11 +777,11 @@ test("an automatic series follows the judged switch and ends on stop without a q
   assert.equal(transcripts.length, 2)
   for (const transcript of transcripts)
     assert.match(
-      await readFile(join(f.planRoot, transcript), "utf8"),
+      await readFile(join(f.activeRoot, transcript), "utf8"),
       /\n## judge \(\w+, fresh\)\n[\s\S]*\nJudge: (continue with claude opus high|stop)\. /,
     )
   const stored = JSON.parse(
-    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: { status: string; judge: { answer: unknown } | null }[]
   }
@@ -799,7 +799,7 @@ test("an automatic series follows the judged switch and ends on stop without a q
     ],
   )
   await assert.rejects(
-    readFile(join(f.planRoot, "example-impl-01..01-queue.md")),
+    readFile(join(f.activeRoot, "example-impl-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -819,8 +819,8 @@ test("an archived plan without --auditor is refused", async (t) => {
   const archive = join(f.planRoot, "archive/example")
   const archivedPlan = join(archive, "plan.md")
   await mkdir(archive, { recursive: true })
-  await rm(join(f.planRoot, "example-widen.md"))
-  await rename(join(f.planRoot, "example.md"), archivedPlan)
+  await rm(join(f.activeRoot, "example-widen.md"))
+  await rename(join(f.activeRoot, "example.md"), archivedPlan)
 
   assert.equal(
     await runCommand(["example.md", "1", "--no-watch"], f.runtime, f.options),
@@ -872,7 +872,7 @@ test("a random default auditor opens the series on the coin and the series still
   // The coin picks one entry of the whole list, once for the scope's series.
   assert.deepEqual(counts, [settings.auditors.length])
   const stored = JSON.parse(
-    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: { auditor: { assistant: string; chosenBy: string } }[]
   }
@@ -916,7 +916,7 @@ test("--first replaces the default auditor's first round and the series still fo
     ["claude", "codex"],
   )
   const stored = JSON.parse(
-    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
     stored.rounds.map((entry) => entry.auditor.chosenBy),
@@ -938,7 +938,7 @@ test("--first replaces the default auditor's first round and the series still fo
   )
   assert.ok(firstLog)
   assert.match(
-    await readFile(join(f.planRoot, firstLog), "utf8"),
+    await readFile(join(f.activeRoot, firstLog), "utf8"),
     /audit +claude +claude-fable-5-1 +extra high +--first/,
   )
   const judgePrompt = (await f.prompts()).find((call) =>
@@ -955,7 +955,7 @@ test("--first replaces the default auditor's first round and the series still fo
     /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\./,
   )
   await assert.rejects(
-    readFile(join(f.planRoot, "example-impl-01..01-queue.md")),
+    readFile(join(f.activeRoot, "example-impl-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -1030,7 +1030,7 @@ test("an automatic series switches between two listed models of one vendor", asy
   )
   assert.ok(secondLog)
   assert.match(
-    await readFile(join(f.planRoot, secondLog), "utf8"),
+    await readFile(join(f.activeRoot, secondLog), "utf8"),
     /audit +claude +claude-opus-5-5 +extra high +audit-round auditors/,
   )
   assert.match(
@@ -1039,7 +1039,7 @@ test("an automatic series switches between two listed models of one vendor", asy
   )
   // The stored answer names the release, as every round's auditor does.
   const stored = JSON.parse(
-    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { judge: { answer: unknown } | null }[] }
   assert.deepEqual(stored.rounds[0].judge?.answer, {
     assistant: "claude",
@@ -1101,7 +1101,7 @@ test("a --first selection whose assistant the list lacks joins the series pool",
     /Permitted judge options: (stop, )?codex gpt-5\.6-sol high or claude claude-fable-5-1 xhigh\./,
   )
   const stored = JSON.parse(
-    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
     stored.rounds.map((entry) => entry.auditor.chosenBy),
@@ -1113,7 +1113,7 @@ test("a --first selection whose assistant the list lacks joins the series pool",
   )
   assert.ok(thirdLog)
   assert.match(
-    await readFile(join(f.planRoot, thirdLog), "utf8"),
+    await readFile(join(f.activeRoot, thirdLog), "utf8"),
     /audit +claude +claude-fable-5-1 +extra high +--first/,
   )
 })
@@ -1131,8 +1131,8 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
     true,
     false,
   )
-  const settled = join(f.planRoot, "example.md")
-  const widening = join(f.planRoot, "example-widen.md")
+  const settled = join(f.activeRoot, "example.md")
+  const widening = join(f.activeRoot, "example-widen.md")
 
   assert.equal(
     await runCommand(["example.md", "--no-watch"], f.runtime, {
@@ -1165,7 +1165,7 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
   ) as { rounds: { status: string; judge: unknown }[] }
   assert.deepEqual(
     { status: stored.status, judge: stored.judge },
@@ -1188,8 +1188,8 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
   )
   const reportSource = f.report
   const detailingReport = await readFile(reportSource, "utf8")
-  const settled = join(f.planRoot, "example.md")
-  const widening = join(f.planRoot, "example-widen.md")
+  const settled = join(f.activeRoot, "example.md")
+  const widening = join(f.activeRoot, "example-widen.md")
 
   assert.equal(
     await runCommand(
@@ -1316,7 +1316,7 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
     true,
     false,
   )
-  await rm(join(f.planRoot, "example.md"))
+  await rm(join(f.activeRoot, "example.md"))
   await writeFile(
     f.report,
     `${await readFile(f.report, "utf8")}\nSettling: keep open. Finding 1 must land before the shape can close.\n`,
@@ -1356,7 +1356,7 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
   ) as {
     rounds: {
       phase: string
@@ -1388,7 +1388,7 @@ test("a widening judge can stop the series without recommending settle", async (
     false,
     false,
   )
-  await rm(join(f.planRoot, "example.md"))
+  await rm(join(f.activeRoot, "example.md"))
   await writeFile(
     f.report,
     `${await readFile(f.report, "utf8")}\nSettling: keep open. The shape question needs evidence only the user can supply.\n`,
@@ -1406,7 +1406,7 @@ test("a widening judge can stop the series without recommending settle", async (
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
   ) as { rounds: { settling: string }[] }
   assert.equal(
     stored?.settling,
@@ -1433,7 +1433,7 @@ test("a detailing series ends on the judge's ready recommendation", async (t) =>
     false,
     false,
   )
-  await rm(join(f.planRoot, "example-widen.md"))
+  await rm(join(f.activeRoot, "example-widen.md"))
   await configureJudgeAnswers(f, [
     "Judge: ready. The clean read leaves no remaining real bug in the brief.",
   ])
@@ -1457,7 +1457,7 @@ test("a detailing series ends on the judge's ready recommendation", async (t) =>
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.planRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
   ) as {
     rounds: {
       phase: string
@@ -1473,7 +1473,7 @@ test("a detailing series ends on the judge's ready recommendation", async (t) =>
 
 test("a failed round stops a scope list before later scopes", async (t) => {
   const f = await roundFixture(t)
-  await rm(join(f.planRoot, "example.md"))
+  await rm(join(f.activeRoot, "example.md"))
   await f.configure({
     phases: {
       ...f.phases,
@@ -1623,7 +1623,7 @@ test("a scope list runs one automatic series per scope in list order", async (t)
   )
   assert.doesNotMatch(visible, /Scope list stopped/)
   const stored = JSON.parse(
-    await readFile(join(f.planRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: { target: string; round: number; scope: string }[]
   }

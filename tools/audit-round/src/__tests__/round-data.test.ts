@@ -79,7 +79,7 @@ test("round data names both files from the round kind", () => {
 
 test("per-plan data replaces a target round in place and appends new identities", async (t) => {
   const f = await fixture(t)
-  const path = join(f.root, "example-impl-rounds.json")
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   writeRoundData(path, entry("example-impl-01..01", 1, "in-progress"))
   writeRoundData(path, entry("example-impl-01..01", 2))
   writeRoundData(path, entry("example-impl-01..01", 1, "failed"))
@@ -98,7 +98,7 @@ test("per-plan data replaces a target round in place and appends new identities"
 
 test("round data admits every end state", async (t) => {
   const f = await fixture(t)
-  const path = join(f.root, "example-impl-rounds.json")
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   const statuses = [
     "in-progress",
     "finished",
@@ -119,7 +119,7 @@ test("round data admits every end state", async (t) => {
 
 test("round data admits only the listed-auditor judge answer and settings", async (t) => {
   const f = await fixture(t)
-  const path = join(f.root, "example-impl-rounds.json")
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   const parse = (round: unknown) =>
     parseRoundDataFile(path, JSON.stringify({ rounds: [round], disproved: [] }))
   const judged = {
@@ -187,10 +187,16 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
       },
     ],
   }
-  writeRoundData(join(f.root, "example-plan-rounds.json"), planning)
-  writeRoundData(join(f.root, "example-impl-rounds.json"), implementation)
+  writeRoundData(
+    join(f.runtime.activeRoot, "example-plan-rounds.json"),
+    planning,
+  )
+  writeRoundData(
+    join(f.runtime.activeRoot, "example-impl-rounds.json"),
+    implementation,
+  )
 
-  const evidence = await readPlanRoundData(f.root, "example")
+  const evidence = await readPlanRoundData(f.runtime, "example")
   assert.equal(evidence.planning?.[0]?.findings[0]?.outcome, "dropped")
   assert.equal(evidence.implementation?.[0]?.status, "failed")
   assert.equal(evidence.implementation?.[0]?.phases[0]?.compactions, 1)
@@ -203,7 +209,7 @@ test("planning round data rejects history without the required settling", async 
     judgedRepos: _judgedRepos,
     ...common
   } = entry("example-plan", 1)
-  const path = join(f.root, "example-plan-rounds.json")
+  const path = join(f.runtime.activeRoot, "example-plan-rounds.json")
 
   assert.throws(() =>
     parseRoundDataFile(
@@ -218,7 +224,7 @@ test("planning round data rejects history without the required settling", async 
 
 test("round data stores attached and detached disproved findings beside rounds", async (t) => {
   const f = await fixture(t)
-  const path = join(f.root, "example-impl-rounds.json")
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   writeRoundData(path, entry("example-impl-01..01", 1))
   writeDisprovedFinding(path, {
     date: "2026-11-05",
@@ -253,7 +259,7 @@ test("round data stores attached and detached disproved findings beside rounds",
 
 test("a disproved finding can create an empty round-data file", async (t) => {
   const f = await fixture(t)
-  const path = join(f.root, "example-plan-rounds.json")
+  const path = join(f.runtime.activeRoot, "example-plan-rounds.json")
   writeDisprovedFinding(path, {
     date: "2026-11-05",
     reason: "The finding predates retained round data.",
@@ -275,24 +281,24 @@ test("a disproved finding can create an empty round-data file", async (t) => {
 test("a plan's watch evidence omits a round kind whose file is absent", async (t) => {
   const f = await fixture(t)
   writeRoundData(
-    join(f.root, "example-impl-rounds.json"),
+    join(f.runtime.activeRoot, "example-impl-rounds.json"),
     entry("example-impl-01..01", 1),
   )
 
-  assert.deepEqual(await readPlanRoundData(f.root, "example"), {
+  assert.deepEqual(await readPlanRoundData(f.runtime, "example"), {
     implementation: [entry("example-impl-01..01", 1)],
   })
 })
 
 test("round data discovery ignores archive directories with data-file names", async (t) => {
   const f = await fixture(t)
-  const archive = join(f.root, "archive")
+  const archive = join(f.runtime.planRoot, "archive")
   const path = join(archive, "example", "example-impl-rounds.json")
   await mkdir(join(archive, "sample-plan-rounds.json"), { recursive: true })
   await mkdir(join(archive, "example"), { recursive: true })
   writeRoundData(path, entry("example-impl-01..01", 1))
 
-  assert.deepEqual(await roundDataFiles(f.root), [path])
+  assert.deepEqual(await roundDataFiles(f.runtime), [path])
 })
 
 test("review and rebuttal outcomes stay attached to report finding identity", () => {

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { relative } from "node:path"
+import type { PlanRoots } from "./context.js"
 import type { ModelSelection } from "./feedback.js"
 import type { Assistant, Phase } from "./phase.js"
 import {
@@ -59,9 +60,9 @@ export function previousRoundModels(
 
 /** Read active and archived plans' checked round data as one model history. */
 export async function readPreviousRoundModels(
-  planRoot: string,
+  roots: PlanRoots,
 ): Promise<readonly ModelReference[]> {
-  const files = await roundDataFiles(planRoot)
+  const files = await roundDataFiles(roots)
   const rounds = (
     await Promise.all(
       files.map(async (file) => {
@@ -69,7 +70,7 @@ export async function readPreviousRoundModels(
           return parseRoundDataFile(file, await readFile(file, "utf8")).rounds
         } catch (error) {
           throw new Error(
-            `Invalid round data in ${relative(planRoot, file)}: ${error instanceof Error ? error.message : String(error)}`,
+            `Invalid round data in ${relative(roots.planRoot, file)}: ${error instanceof Error ? error.message : String(error)}`,
             { cause: error },
           )
         }

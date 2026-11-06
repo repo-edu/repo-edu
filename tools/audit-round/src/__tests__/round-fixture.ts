@@ -139,9 +139,11 @@ export async function roundFixture(
       ),
     ),
   )
-  // The command checks the plan where the phases open it, so both roots hold
-  // the plan and its widening artifact.
-  for (const root of [repoRoot, planDirectory])
+  // The command checks the plan where the phases open it, so the Repo Edu
+  // root and the plan checkout's active folder hold the plan and its widening
+  // artifact.
+  await mkdir(join(planDirectory, "active"), { recursive: true })
+  for (const root of [repoRoot, join(planDirectory, "active")])
     for (const name of ["example.md", "example-widen.md"])
       await writeFile(
         join(root, name),
@@ -157,7 +159,8 @@ Audit ranges: 1.
 `,
       )
   const planRoot = await realpath(planDirectory)
-  const outputRoot = planRoot
+  const activeRoot = join(planRoot, "active")
+  const outputRoot = activeRoot
   const recordHeads = {
     "repo-edu": await commitFixture(
       repoRoot,
@@ -259,7 +262,7 @@ Audit ranges: 1.
               },
             ]
           : [],
-      remove: phase === "close" ? [join(planRoot, "example.md")] : [],
+      remove: phase === "close" ? [join(activeRoot, "example.md")] : [],
       stream: await phaseStream(assistant, final, sessionId),
       // Either CLI may run a phase when the next auditor changes, so both answer.
       assistants: {
@@ -316,10 +319,7 @@ Audit ranges: 1.
   }
   const document = (kind: string, fallback: string) => {
     // Finished fixes remove their reports; the run log retains the paths passed to phases.
-    for (const root of [
-      outputRoot,
-      outputRoot === repoRoot ? planRoot : repoRoot,
-    ]) {
+    for (const root of [outputRoot, repoRoot]) {
       for (const name of readdirSync(root)
         .filter((name) => name.endsWith(".log"))
         .sort()
@@ -346,6 +346,7 @@ Audit ranges: 1.
     ...f,
     repoRoot,
     planRoot,
+    activeRoot,
     heads,
     recordHeads,
     get report() {

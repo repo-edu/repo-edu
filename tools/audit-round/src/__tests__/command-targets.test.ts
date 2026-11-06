@@ -23,11 +23,11 @@ async function declareReady(planRoot: string) {
 
 /** A completed plan whose bare name resolves to its two groups and full range. */
 async function completeRangePlan(fixture: {
-  readonly planRoot: string
+  readonly activeRoot: string
   readonly repoRoot: string
 }) {
   await writeFile(
-    join(fixture.planRoot, "example.md"),
+    join(fixture.activeRoot, "example.md"),
     `# Example plan
 
 ## Implementation plan
@@ -77,7 +77,7 @@ gpt-6.1-sol xhigh
   } as const
 }
 
-test("a brief without a transcript retells the newest round at the plan root", async (t) => {
+test("a brief without a transcript retells the newest round in the active folder", async (t) => {
   const f = await roundFixture(t)
   const brief = async () => {
     f.errors.length = 0
@@ -86,7 +86,7 @@ test("a brief without a transcript retells the newest round at the plan root", a
   assert.equal(await brief(), 1)
   assert.match(f.errors[0], /No round transcript/)
   const [older, newer] = ["example-02", "example-impl-07..07-01"].map((start) =>
-    join(f.planRoot, `${start}-1-round.abx.md`),
+    join(f.activeRoot, `${start}-1-round.abx.md`),
   )
   await writeFile(older, "# Plan audit of example.md\n")
   await writeFile(newer, "# Implementation audit of example.md, step 7\n")
@@ -94,7 +94,7 @@ test("a brief without a transcript retells the newest round at the plan root", a
   await utimes(older, 1_000, 1_000)
   assert.equal(await brief(), 0, f.errors.join("\n"))
   const log = await readFile(
-    join(f.planRoot, "example-impl-07..07-01-6-brief.oul.log"),
+    join(f.activeRoot, "example-impl-07..07-01-6-brief.oul.log"),
     "utf8",
   )
   assert.ok(log.includes(JSON.stringify([newer, f.brief])))
@@ -113,14 +113,14 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
     "example/settle ath: newest active",
     `@${nextDay} +0000`,
   )
-  const before = await readdir(f.planRoot)
+  const before = await readdir(f.activeRoot)
   assert.equal(
     await runCommand(["plan"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
-  assert.deepEqual(f.visible, [join(f.planRoot, "example.md")])
-  assert.deepEqual(await readdir(f.planRoot), before)
+  assert.deepEqual(f.visible, [join(f.activeRoot, "example.md")])
+  assert.deepEqual(await readdir(f.activeRoot), before)
 })
 
 test("deferrals prints only the active plan's open deferrals", async (t) => {
@@ -149,18 +149,18 @@ test("close supplies open deferrals to one close session from the plan checkout"
   const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
   for (const file of dataFiles)
     await writeFile(
-      join(f.planRoot, file),
+      join(f.activeRoot, file),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
   f.phases.close = {
     ...(f.phases.close as object),
     moves: dataFiles.map((file) => ({
-      from: join(f.planRoot, file),
+      from: join(f.activeRoot, file),
       to: join(archive, file),
     })),
   }
   await f.configure({ phases: f.phases })
-  const before = await readdir(f.planRoot)
+  const before = await readdir(f.activeRoot)
   assert.equal(
     await runCommand(["close", "example-widen.md"], f.runtime, f.options),
     0,
@@ -178,10 +178,13 @@ test("close supplies open deferrals to one close session from the plan checkout"
   )
   // The close writes only its log, under the plan's stem and its own tag.
   assert.deepEqual(
-    (await readdir(f.planRoot)).filter((name) => !before.includes(name)),
+    (await readdir(f.activeRoot)).filter((name) => !before.includes(name)),
     ["example-close.obh.log"],
   )
-  const log = await readFile(join(f.planRoot, "example-close.obh.log"), "utf8")
+  const log = await readFile(
+    join(f.activeRoot, "example-close.obh.log"),
+    "utf8",
+  )
   assert.match(log, /Close of plan example\.md\n/)
   assert.match(log, /\[close\] starting codex \(fresh\)/)
   assert.ok(
@@ -194,7 +197,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
   )?.[1]
   assert.ok(phaseArguments)
   assert.deepEqual(JSON.parse(phaseArguments), [
-    join(f.planRoot, "example.md"),
+    join(f.activeRoot, "example.md"),
     "obh",
     "gpt-5.6-sol high",
     { deferrals: [deferral] },
@@ -211,20 +214,23 @@ test("close supplies open deferrals to one close session from the plan checkout"
       await readFile(join(archive, file), "utf8"),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
-    await assert.rejects(access(join(f.planRoot, file)), { code: "ENOENT" })
+    await assert.rejects(access(join(f.activeRoot, file)), { code: "ENOENT" })
   }
 })
 
-test("a finished close that left its plan at the root fails with a resume command", async (t) => {
+test("a finished close that left its plan in the active folder fails with a resume command", async (t) => {
   const f = await roundFixture(t)
   await declareReady(f.planRoot)
   f.phases.close = { ...(f.phases.close as object), remove: [] }
   await f.configure({ phases: f.phases })
   assert.equal(await runCommand(["close"], f.runtime, f.options), 1)
-  const log = await readFile(join(f.planRoot, "example-close.obh.log"), "utf8")
+  const log = await readFile(
+    join(f.activeRoot, "example-close.obh.log"),
+    "utf8",
+  )
   assert.match(
     log,
-    /\[close\] failed: The finished close left .+example\.md at the plan root/,
+    /\[close\] failed: The finished close left .+example\.md in the active folder/,
   )
   assert.match(log, /Resume: .*codex .*resume .*close-session/)
 })
@@ -240,17 +246,20 @@ test("close without a stem takes the plan that plan prints and passes an abort r
     0,
     f.errors.join("\n"),
   )
-  const log = await readFile(join(f.planRoot, "example-close.obh.log"), "utf8")
+  const log = await readFile(
+    join(f.activeRoot, "example-close.obh.log"),
+    "utf8",
+  )
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, "example.md"), "obh", "gpt-5.6-sol high", { deferrals: [] }, "The check cost more than it gave."])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([join(f.activeRoot, "example.md"), "obh", "gpt-5.6-sol high", { deferrals: [] }, "The check cost more than it gave."])}`,
     ),
   )
 })
 
 test("close without an abort reason refuses a plan that never reached ready", async (t) => {
   const f = await roundFixture(t)
-  const before = await readdir(f.planRoot)
+  const before = await readdir(f.activeRoot)
   for (const args of [["close"], ["close", "example"]]) {
     f.errors.length = 0
     assert.equal(await runCommand(args, f.runtime, f.options), 1)
@@ -259,7 +268,7 @@ test("close without an abort reason refuses a plan that never reached ready", as
       /example\.md has no ready marker\. Run pnpm audit-round ready first, or close it with --aborted <reason>\./,
     )
   }
-  assert.deepEqual(await readdir(f.planRoot), before)
+  assert.deepEqual(await readdir(f.activeRoot), before)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
@@ -288,7 +297,7 @@ test("close refuses paths and plans without an active artifact before any assist
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
   const f = await roundFixture(t)
-  const transcript = join(f.planRoot, "example-impl-07..07-01-1-round.abx.md")
+  const transcript = join(f.activeRoot, "example-impl-07..07-01-1-round.abx.md")
   await writeFile(transcript, "# Implementation audit of example.md, step 7\n")
   assert.equal(
     await runCommand(
@@ -309,7 +318,7 @@ test("a brief on its own retells the named transcript without a new round pair",
     invocations.map((call) => call.assistant),
     ["codex"],
   )
-  const names = (await readdir(f.planRoot)).filter((name) =>
+  const names = (await readdir(f.activeRoot)).filter((name) =>
     name.startsWith("example-impl-07..07-01-"),
   )
   const logName = names.find((name) => name.endsWith(".log")) as string
@@ -322,7 +331,7 @@ test("a brief on its own retells the named transcript without a new round pair",
       "example-impl-07..07-01-6-brief.oul.md",
     ].toSorted(),
   )
-  const log = await readFile(join(f.planRoot, logName), "utf8")
+  const log = await readFile(join(f.activeRoot, logName), "utf8")
   assert.match(log, /Brief of example-impl-07\.\.07-01-1-round\.abx\.md\n/)
   assert.ok(
     log.includes(
@@ -356,7 +365,7 @@ test("a plan named without its extension runs as its .md file", async (t) => {
   const { log } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.planRoot, "example.md"), "2-3", { deferrals: [] }])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.activeRoot, "example.md"), "2-3", { deferrals: [] }])}`,
     ),
   )
 })
@@ -418,8 +427,8 @@ test("options without a target run the audit the newest plan's history calls for
   await commit(f.planRoot, "example/plan-audit ath clean: plan round", 3)
   assert.equal(await name(), 0, f.errors.join("\n"))
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
-    join(f.planRoot, "example-impl-01..01-01-2-audit.oth.md"),
-    join(f.planRoot, "example.md"),
+    join(f.activeRoot, "example-impl-01..01-01-2-audit.oth.md"),
+    join(f.activeRoot, "example.md"),
     "1",
   ])
 })

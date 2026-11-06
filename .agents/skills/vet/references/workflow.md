@@ -20,7 +20,7 @@ The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
 The vet's input is another AI assistant's implementation-audit report, an `*-2-audit.<tag>.md` file
-at the plan repo root.
+in the plan checkout's `active/` folder.
 [Report discovery](#report-discovery) says how the file is found. Vet its graded findings. Do not
 run an audit round of your own. Whether a finding is a good idea is not an axis: a finding can be
 appealing and still unauthorised.

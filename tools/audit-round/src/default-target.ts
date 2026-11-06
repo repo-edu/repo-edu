@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { InvalidArgumentError } from "commander"
 import { execa } from "execa"
-import type { ExecutionContext } from "./context.js"
+import type { ExecutionContext, PlanRoots } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog, shortSha } from "./episode-log.js"
 import { type PlanStep, readAuditRanges, readPlanSteps } from "./plan-steps.js"
@@ -42,7 +42,7 @@ export async function readImplementationLogs(
 /** The plan an omitted stem names, for the plan brief and close as for an omitted target. */
 export async function defaultPlan(context: ExecutionContext): Promise<string> {
   return (
-    await newestPlan(await readImplementationLogs(context), context.planRoot)
+    await newestPlan(await readImplementationLogs(context), context.activeRoot)
   ).path
 }
 
@@ -67,11 +67,7 @@ export async function resolveTargets(
       },
     ]
   }
-  return selectTargets(
-    await readImplementationLogs(context),
-    context.planRoot,
-    request,
-  )
+  return selectTargets(await readImplementationLogs(context), context, request)
 }
 
 /**
@@ -127,7 +123,7 @@ async function resolveCommitGroup(
  */
 export async function selectTargets(
   logs: ImplementationLogs,
-  planRoot: string,
+  roots: PlanRoots,
   request: {
     readonly plan: string
     readonly scope: ScopeRequest | null
@@ -135,8 +131,8 @@ export async function selectTargets(
 ): Promise<AuditTargets> {
   const plan =
     request === null
-      ? (await newestPlan(logs, planRoot)).path
-      : await resolvePlan(planRoot, request.plan)
+      ? (await newestPlan(logs, roots.activeRoot)).path
+      : await resolvePlan(roots, request.plan)
   const topic = planStem(plan)
   const implementation = (scope: string): AuditTarget => ({
     roundKind: "implementation",
@@ -307,15 +303,15 @@ export function implementationProgress(
 }
 
 /** The active plan whose stem commit is newest in either history. */
-async function newestPlan(logs: ImplementationLogs, planRoot: string) {
+async function newestPlan(logs: ImplementationLogs, activeRoot: string) {
   const inactive = new Set<string>()
   for (const { topic } of stemCommits(logs)) {
     if (inactive.has(topic)) continue
-    const path = await activePlan(planRoot, topic)
+    const path = await activePlan(activeRoot, topic)
     if (path !== null) return { topic, path }
     inactive.add(topic)
   }
   throw new InvalidArgumentError(
-    "No active plan at the plan root has a stem commit. Name one.",
+    "No active plan in the active folder has a stem commit. Name one.",
   )
 }

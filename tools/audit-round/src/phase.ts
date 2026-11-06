@@ -1,5 +1,6 @@
 import { join } from "node:path"
 import type { CleanCompletion, CleanInput } from "./clean.js"
+import type { PlanRoots } from "./context.js"
 import type { WatchEvidence, WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { JudgeEvidence, JudgeEvidenceInput } from "./judge.js"
@@ -648,7 +649,7 @@ export type RoundDependencies = {
   ) => Promise<readonly FindingRebuttal[]>
   readonly readHead: (root: string) => Promise<string>
   /** Resolve the plan's current file after a fix may have changed its phase. */
-  readonly resolvePlan: (planRoot: string, stem: string) => Promise<string>
+  readonly resolvePlan: (roots: PlanRoots, stem: string) => Promise<string>
   /** Whether a file exists, which tells a finished close that left its plan in place. */
   readonly fileExists: (file: string) => Promise<boolean>
   readonly readRecords: (

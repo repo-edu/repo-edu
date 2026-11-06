@@ -103,7 +103,7 @@ exactly, so one citation cannot close two deferrals whose short forms collide.
 <target>                  ::= <plan-file>                        ; planning round
                             | <plan-file>" "<step-scope>         ; step audit
                             | <commit-reference>(" "<commit-reference>)*
-<plan-file>               ::= the plan's current filename at the plan root
+<plan-file>               ::= the plan's current filename in the plan checkout's active folder
 <step-scope>              ::= <n> | <n>"-"<n>
 <commit-reference>        ::= a reference as typed, plan@ prefix included
 

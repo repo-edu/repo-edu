@@ -28,16 +28,17 @@ export const roundRun = (
 
 export const briefRun = (
   transcript: string,
+  roots: Parameters<typeof output.briefRun>[1],
   started: number,
-  selections: Parameters<typeof output.briefRun>[2],
-) => output.briefRun(transcript, started, selections, testSettings)
+  selections: Parameters<typeof output.briefRun>[3],
+) => output.briefRun(transcript, roots, started, selections, testSettings)
 
 export const closeRun = (
   plan: string,
-  planRoot: string,
+  roots: Parameters<typeof output.closeRun>[1],
   started: number,
   selections: Parameters<typeof output.closeRun>[3],
-) => output.closeRun(plan, planRoot, started, selections, testSettings)
+) => output.closeRun(plan, roots, started, selections, testSettings)
 
 export const runRound = (
   input: round.RoundInput,

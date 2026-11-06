@@ -1,17 +1,20 @@
 import assert from "node:assert/strict"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { type TestContext, test } from "node:test"
 import { InvalidArgumentError } from "commander"
+import type { PlanRoots } from "../context.js"
 import { selectTargets } from "../default-target.js"
 import type { LogCommit } from "../episode-log.js"
 import type { Repository } from "../subject.js"
 import { type AuditTarget, planningScope, planStem } from "../target.js"
 
-async function planRoot(t: TestContext): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "default-target-"))
-  t.after(() => rm(root, { recursive: true, force: true }))
+async function planRoots(t: TestContext): Promise<PlanRoots> {
+  const planRoot = await mkdtemp(join(tmpdir(), "default-target-"))
+  t.after(() => rm(planRoot, { recursive: true, force: true }))
+  const root = join(planRoot, "active")
+  await mkdir(root)
   await writeFile(
     join(root, "example.md"),
     `# Plan
@@ -71,7 +74,7 @@ The shape is still open, so no implementation steps exist yet.
 Audit ranges: 1, 3.
 `,
   )
-  return root
+  return { planRoot, activeRoot: root }
 }
 
 /** Each repository's commits are supplied oldest first and returned in Git order. */
@@ -111,7 +114,7 @@ const implemented = logs(
 )
 
 test("the plan's history selects what its name or no target audits", async (t) => {
-  const root = await planRoot(t)
+  const root = await planRoots(t)
   const cases: [
     Record<Repository, LogCommit[]>,
     readonly Extract<AuditTarget, { plan: string }>[],
@@ -121,7 +124,7 @@ test("the plan's history selects what its name or no target audits", async (t) =
         ["plan", 1, "example/init ath: start"],
         ["repo-edu", 2, "oth growth-none c1 fix(x): unstemmed and newer"],
       ),
-      [{ roundKind: "planning", plan: join(root, "example.md") }],
+      [{ roundKind: "planning", plan: join(root.activeRoot, "example.md") }],
     ],
     [
       logs(
@@ -129,28 +132,38 @@ test("the plan's history selects what its name or no target audits", async (t) =
         ["plan", 3, "archived/closed ath: archived and newest"],
         ["plan", 2, "widened/plan-audit oth growth-none B1: widening round"],
       ),
-      [{ roundKind: "planning", plan: join(root, "widened-widen.md") }],
+      [
+        {
+          roundKind: "planning",
+          plan: join(root.activeRoot, "widened-widen.md"),
+        },
+      ],
     ],
     [
       logs(["plan", 1, "unstructured/init ath: start"]),
-      [{ roundKind: "planning", plan: join(root, "unstructured-widen.md") }],
+      [
+        {
+          roundKind: "planning",
+          plan: join(root.activeRoot, "unstructured-widen.md"),
+        },
+      ],
     ],
     [
       implemented,
       [
         {
           roundKind: "implementation",
-          plan: join(root, "example.md"),
+          plan: join(root.activeRoot, "example.md"),
           scope: "1-2",
         },
         {
           roundKind: "implementation",
-          plan: join(root, "example.md"),
+          plan: join(root.activeRoot, "example.md"),
           scope: "3",
         },
         {
           roundKind: "implementation",
-          plan: join(root, "example.md"),
+          plan: join(root.activeRoot, "example.md"),
           scope: "1-3",
         },
       ],
@@ -163,7 +176,7 @@ test("the plan's history selects what its name or no target audits", async (t) =
       [
         {
           roundKind: "implementation",
-          plan: join(root, "one.md"),
+          plan: join(root.activeRoot, "one.md"),
           scope: "1",
         },
       ],
@@ -182,7 +195,7 @@ test("the plan's history selects what its name or no target audits", async (t) =
 })
 
 test("a completed bare plan refuses malformed audit ranges", async (t) => {
-  const root = await planRoot(t)
+  const root = await planRoots(t)
   await assert.rejects(
     selectTargets(
       logs(
@@ -198,8 +211,8 @@ test("a completed bare plan refuses malformed audit ranges", async (t) => {
 })
 
 test("named step scopes audit implementation in list order once a step has landed", async (t) => {
-  const root = await planRoot(t)
-  const plan = join(root, "example.md")
+  const root = await planRoots(t)
+  const plan = join(root.activeRoot, "example.md")
   assert.deepEqual(
     await selectTargets(implemented, root, { plan: "example", scope: ["1-2"] }),
     [{ roundKind: "implementation", plan, scope: "1-2" }],
@@ -224,7 +237,7 @@ test("named step scopes audit implementation in list order once a step has lande
     [
       {
         roundKind: "implementation",
-        plan: join(root, "malformed.md"),
+        plan: join(root.activeRoot, "malformed.md"),
         scope: "1",
       },
     ],
@@ -240,8 +253,11 @@ test("named step scopes audit implementation in list order once a step has lande
 })
 
 test("the planning word selects the planning round whatever the plan's history holds", async (t) => {
-  const root = await planRoot(t)
-  const planning = { roundKind: "planning", plan: join(root, "example.md") }
+  const root = await planRoots(t)
+  const planning = {
+    roundKind: "planning",
+    plan: join(root.activeRoot, "example.md"),
+  }
   for (const history of [
     logs(["plan", 1, "example/ready: ready"]),
     implemented,
@@ -265,7 +281,7 @@ test("the planning word selects the planning round whatever the plan's history h
       root,
       { plan: "malformed", scope: planningScope },
     ),
-    [{ roundKind: "planning", plan: join(root, "malformed.md") }],
+    [{ roundKind: "planning", plan: join(root.activeRoot, "malformed.md") }],
   )
   await assert.rejects(
     selectTargets(implemented, root, { plan: "missing", scope: planningScope }),
@@ -274,7 +290,7 @@ test("the planning word selects the planning round whatever the plan's history h
 })
 
 test("marker freshness follows Git order when commit dates disagree", async (t) => {
-  const root = await planRoot(t)
+  const root = await planRoots(t)
   assert.deepEqual(
     await selectTargets(
       logs(
@@ -290,17 +306,17 @@ test("marker freshness follows Git order when commit dates disagree", async (t) 
     [
       {
         roundKind: "implementation",
-        plan: join(root, "example.md"),
+        plan: join(root.activeRoot, "example.md"),
         scope: "1-2",
       },
       {
         roundKind: "implementation",
-        plan: join(root, "example.md"),
+        plan: join(root.activeRoot, "example.md"),
         scope: "3",
       },
       {
         roundKind: "implementation",
-        plan: join(root, "example.md"),
+        plan: join(root.activeRoot, "example.md"),
         scope: "1-3",
       },
     ],
@@ -322,7 +338,7 @@ test("marker freshness follows Git order when commit dates disagree", async (t) 
 })
 
 test("a plan between its listed steps and current markers stops with its reason", async (t) => {
-  const root = await planRoot(t)
+  const root = await planRoots(t)
   const cases: [Record<Repository, LogCommit[]>, RegExp][] = [
     [
       logs(
@@ -366,7 +382,7 @@ test("a plan between its listed steps and current markers stops with its reason"
 })
 
 test("an unfinished plan omits the scope example when no listed step has landed", async (t) => {
-  const root = await planRoot(t)
+  const root = await planRoots(t)
   await assert.rejects(
     selectTargets(
       logs(["repo-edu", 1, "example/impl-4 obx feat(x): removed step"]),

@@ -50,7 +50,7 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
     ).length,
     namedModels("claude", testSettings).size,
   )
-  const second = await readFile(join(f.planRoot, names[2]), "utf8")
+  const second = await readFile(join(f.activeRoot, names[2]), "utf8")
   assert.match(
     second,
     /Implementation audit of .*example\.md, step 3 \(round 2\)/,
@@ -126,7 +126,7 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
 test("a red watch stops the auditor sequence before the next queued round", async (t) => {
   // The fixture's record is red, and the watch leaves it red.
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
-  const queue = join(f.planRoot, "example-impl-01..01-queue.md")
+  const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
   assert.equal(
     await runCommand(
       ["example.md", "1", "--auditor", "codex,claude"],
@@ -218,7 +218,7 @@ test("a compacted watch publishes neither its document nor cadence record", asyn
   assert.match(f.visible.join("\n"), /Session: watch-session/)
   assert.doesNotMatch(f.visible.join("\n"), /Resume:/)
   assert.equal(
-    (await readdir(f.planRoot)).some((name) => /-9-watch\./.test(name)),
+    (await readdir(f.activeRoot)).some((name) => /-9-watch\./.test(name)),
     false,
   )
   assert.equal(
@@ -267,7 +267,7 @@ for (const target of ["implementation", "planning", "commits"] as const) {
       assert.match(visible, /Auditor sequence stopped: the watch graded red\./)
       assert.equal(visible.match(/\[watch\] finished/g)?.length, 1)
     }
-    const files = await readdir(f.planRoot)
+    const files = await readdir(f.activeRoot)
     assert.equal(
       files.some((name) => /-6-brief\./.test(name)),
       false,
@@ -277,7 +277,7 @@ for (const target of ["implementation", "planning", "commits"] as const) {
       false,
     )
     for (const name of await f.roundFiles()) {
-      const text = await readFile(join(f.planRoot, name), "utf8")
+      const text = await readFile(join(f.activeRoot, name), "utf8")
       assert.doesNotMatch(text, /\[brief\]|^brief\s|Written brief/m)
       assert.match(text, /## fix|\[fix\] finished/)
     }

@@ -61,7 +61,7 @@ function input(steps: readonly PlanStep[]) {
   const context = testContext("/repo-edu")
   return {
     ...context,
-    plan: `${context.planRoot}/example.md`,
+    plan: `${context.activeRoot}/example.md`,
     stem: "example",
     steps,
     selectedSteps: steps,
@@ -78,6 +78,7 @@ test("implementation requires an assigned ready marker before workers start", as
     ...f.runtime,
     repoEduRoot: f.repoRoot,
     planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
   }
   await assert.rejects(
     prepareImplementation(context, "example"),
@@ -297,13 +298,13 @@ test("the implement phase uses Repo Edu's worker workflow without a chat launche
     phase: "implement",
     sessionId: null,
     arguments: [
-      `${context.planRoot}/example.md`,
+      `${context.activeRoot}/example.md`,
       3,
       ["plan", "repo-edu"],
       coder.model,
       coder.effort,
     ],
-    rulingFile: `${context.planRoot}/ruling.md`,
+    rulingFile: `${context.activeRoot}/ruling.md`,
   }
   const prompt = phasePrompt(phase).text
   assert.match(prompt, /\.agents\/skills\/implement\/references\/workflow\.md/)
@@ -365,7 +366,7 @@ test("the command launches the assigned worker, verifies its share and writes th
   assert.ok(
     worker.prompt.includes(
       `Phase arguments (JSON array): ${JSON.stringify([
-        `${f.planRoot}/example.md`,
+        `${f.activeRoot}/example.md`,
         1,
         ["repo-edu"],
         "gpt-5.6-sol",
@@ -389,7 +390,7 @@ test("the command launches the assigned worker, verifies its share and writes th
     "gpt-5.6-sol xhigh",
   )
   assert.deepEqual(
-    (await readdir(f.planRoot)).filter((name) =>
+    (await readdir(f.activeRoot)).filter((name) =>
       name.endsWith("-implement.obx.log"),
     ),
     ["example-impl-01-implement.obx.log"],

@@ -134,12 +134,12 @@ export function roundSubject(
   return `Implementation audit of ${plan}, ${steps}`
 }
 
-/** Read every retained numbered kind at the plan root; opening the run claims this candidate. */
+/** Read every retained numbered kind in the active folder; opening the run claims this candidate. */
 async function nextNameStart(
   context: ExecutionContext,
   target: string,
 ): Promise<string> {
-  const files = await readdir(context.planRoot, { withFileTypes: true })
+  const files = await readdir(context.activeRoot, { withFileTypes: true })
   const numbers = files
     .filter((file) => file.isFile())
     .map((file) => file.name)
@@ -185,13 +185,13 @@ export async function markerPath(
     roundKind: "planning",
     plan,
   })
-  return join(context.planRoot, `${nameStart}-0-${kind}.md`)
+  return join(context.activeRoot, `${nameStart}-0-${kind}.md`)
 }
 
 /** The editable list of auditors still to run on this target, beside its rounds. */
 export async function queueFile(setup: NamingTarget): Promise<string> {
   return join(
-    setup.planRoot,
+    setup.activeRoot,
     `${(await targetDescription(setup)).label}-queue.md`,
   )
 }
@@ -201,7 +201,7 @@ export function transcriptNameStart(transcript: string): string {
   const parsed = readPhaseFilename(basename(transcript))
   if (parsed?.kind !== "round" || parsed.extension !== "md")
     throw new Error(
-      "Name a round's *-1-round.<tag>.md transcript at the plan checkout root.",
+      "Name a round's *-1-round.<tag>.md transcript in the plan checkout's active folder.",
     )
   return parsed.nameStart
 }
@@ -215,7 +215,7 @@ export async function transcriptKind(transcript: string): Promise<RoundKind> {
   throw new Error(`Missing round kind in transcript title: ${transcript}`)
 }
 
-/** Read an existing phase document named without a path at the plan root. */
+/** Read an existing phase document named without a path in the active folder. */
 export async function roundDocument(
   context: ExecutionContext,
   file: string,
@@ -223,11 +223,11 @@ export async function roundDocument(
 ): Promise<{ path: string; nameStart: string }> {
   try {
     if (/[\\/]/.test(file)) throw new Error("Expected a bare file name")
-    const path = await realpath(resolve(context.planRoot, file))
+    const path = await realpath(resolve(context.activeRoot, file))
     const parsed = readPhaseFilename(basename(path))
     if (
       (await stat(path)).isFile() &&
-      dirname(path) === context.planRoot &&
+      dirname(path) === context.activeRoot &&
       parsed?.kind === kind &&
       parsed.extension === "md"
     )
@@ -236,7 +236,7 @@ export async function roundDocument(
     // Report the required document form below when the input cannot be opened.
   }
   throw new Error(
-    `Name a round's *-${phaseOrder[kind]}-${kind}.<tag>.md ${kind === "round" ? "transcript" : "report"} by its bare file name at the plan checkout root: ${file}`,
+    `Name a round's *-${phaseOrder[kind]}-${kind}.<tag>.md ${kind === "round" ? "transcript" : "report"} by its bare file name in the plan checkout's active folder: ${file}`,
   )
 }
 
@@ -254,12 +254,12 @@ async function newestDocument(
 
 /** The newest watch for one episode, across its planning and step scopes. */
 export async function newestWatch(
-  planRoot: string,
+  activeRoot: string,
   stem: string,
 ): Promise<string | undefined> {
   const prefix = `${stem}-`
   return newestDocument(
-    (await phaseDocuments(planRoot, "watch"))
+    (await phaseDocuments(activeRoot, "watch"))
       .filter((document) => {
         if (!document.nameStart.startsWith(prefix)) return false
         const target = document.nameStart.slice(prefix.length)
@@ -269,17 +269,17 @@ export async function newestWatch(
   )
 }
 
-/** A brief given no transcript retells the most recent round at the plan root. */
+/** A brief given no transcript retells the most recent round in the active folder. */
 export async function newestTranscript(
   context: ExecutionContext,
 ): Promise<string> {
   const newest = await newestDocument(
-    (await phaseDocuments(context.planRoot, "round")).map(
+    (await phaseDocuments(context.activeRoot, "round")).map(
       (document) => document.path,
     ),
   )
   if (newest === undefined)
-    throw new Error(`No round transcript at ${context.planRoot}. Name one.`)
+    throw new Error(`No round transcript at ${context.activeRoot}. Name one.`)
   return newest
 }
 
@@ -300,7 +300,7 @@ export async function manualPhasePaths(
     )
   if (input === undefined) {
     const newest = await newestDocument(
-      (await phaseDocuments(context.planRoot, "audit"))
+      (await phaseDocuments(context.activeRoot, "audit"))
         .filter((document) => {
           const sameAssistant = document.tag[0] === options.writer?.[0]
           if (phase === "vet") return !sameAssistant
@@ -311,7 +311,7 @@ export async function manualPhasePaths(
     )
     if (newest === undefined)
       throw new Error(
-        `No eligible audit report for ${phase} at ${context.planRoot}. Supply a file name.`,
+        `No eligible audit report for ${phase} at ${context.activeRoot}. Supply a file name.`,
       )
     input = basename(newest)
   }

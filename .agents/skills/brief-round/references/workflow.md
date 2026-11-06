@@ -21,7 +21,7 @@ repo.
 
 The brief is the plain-words twin of one round transcript, written for the
 user. The transcript is the `*-1-round.<tag>.md` file the audit-round runner writes
-at the plan repo root: the audit report, the vet's verdicts, the rebuttal and
+in the plan checkout's `active/` folder: the audit report, the vet's verdicts, the rebuttal and
 the fix phase's text, one section per phase. The user reads it to learn what
 the round found, what was agreed, what was fixed and what still needs a
 ruling. The transcript is written for the assistants that run the later
@@ -34,10 +34,10 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 
 For `help`, `-h`, `--help` or `?`, show usage for the invoking
 `/brief-round` or `$brief-round` command and stop: an optional transcript at
-the plan root selects the round, and omission takes the most recently modified
+the active folder selects the round, and omission takes the most recently modified
 transcript there.
 
-Resolve the plan root as `../plan` from either checkout. An argument names a
+Resolve the active folder as `../plan/active` from either checkout. An argument names a
 transcript the way `pnpm audit-round brief` accepts it. Read that transcript
 under **Input**, then write the brief in chat under **Voice** and **Shape**, as
 ordinary chat Markdown. The brief is the whole reply: no line before it and no
@@ -55,10 +55,10 @@ transcript and output arguments. The shared
 missing input or a transcript outside the shared grammar fails under the result
 rule when unattended.
 `pnpm audit-round brief [transcript]` starts a separate brief session, on the most recently
-modified transcript at the plan root when none is named.
+modified transcript in the active folder when none is named.
 
 Resolve workflow references from Repo Edu. The transcript and any output live
-at the plan root; use the supplied output path.
+in the active folder; use the supplied output path.
 
 Read the whole transcript. The supplied growth patterns explain its pattern labels.
 Read nothing else about the round: no code, no

@@ -32,7 +32,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       await git("add", "staged.txt")
       const staged = await git("diff", "--cached")
       const handoff = join(
-        f.planRoot,
+        f.activeRoot,
         `example-handoff.${f.heads.plan.slice(0, 6)}.md`,
       )
       await writeFile(handoff, "Prior reasoning\n")
@@ -76,7 +76,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.doesNotMatch(message, /Round yield:|Structure:/)
       assert.match(message, /\nAudit took \d+ min\.\n/)
       assert.equal(await readFile(f.report, "utf8"), report)
-      assert.equal(dirname(f.report), f.planRoot)
+      assert.equal(dirname(f.report), f.activeRoot)
       const peer = owner === "plan" ? f.repoRoot : f.planRoot
       assert.equal(
         await shortCommit(peer, "HEAD"),
@@ -158,6 +158,7 @@ test("clean deferral citations stay in one bullet list", async (t) => {
       cwd: f.planRoot,
       repoEduRoot: f.repoRoot,
       planRoot: f.planRoot,
+      activeRoot: f.activeRoot,
       roundKind: "planning",
       plan: "example.md",
       report: f.report,
@@ -254,7 +255,7 @@ test("a refused clean commit fails without starting a fix or deleting the eviden
     "plan",
     true,
   )
-  const hooks = join(f.planRoot, ".test-hooks")
+  const hooks = join(f.activeRoot, ".test-hooks")
   await mkdir(hooks)
   await writeFile(join(hooks, "pre-commit"), "#!/bin/sh\nexit 1\n", {
     mode: 0o755,
@@ -276,13 +277,14 @@ test("a refused clean commit fails without starting a fix or deleting the eviden
 
 test("clean records share archived and widening plan identities with output files", async () => {
   assert.equal(planStem("../plan/archive/topic/plan.md"), "topic")
-  assert.equal(planStem("../plan/topic-widen.md"), "topic")
+  assert.equal(planStem("../plan/active/topic-widen.md"), "topic")
   await assert.rejects(
     completeClean(
       {
         cwd: "/repo",
         repoEduRoot: "/repo",
         planRoot: "/plan",
+        activeRoot: "/plan/active",
         roundKind: "planning",
         plan: "topic.md",
         report: "/repo/topic-01-2-audit.oth.md",

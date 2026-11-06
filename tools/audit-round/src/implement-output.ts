@@ -35,7 +35,7 @@ export function implementationIdentity(
 /** One worker owns one retained step log and ruling document. */
 export function implementationRun(
   plan: string,
-  planRoot: string,
+  activeRoot: string,
   step: number,
   started: number,
   releases: Record<Assistant, ModelReleases>,
@@ -47,7 +47,7 @@ export function implementationRun(
   const base = `${stem}-impl-${number}-implement.${identity.tag}`
   return {
     ruling: join(
-      planRoot,
+      activeRoot,
       `${stem}-impl-${number}-implement-ruling.${identity.tag}.md`,
     ),
     name: "Implementation",
@@ -57,7 +57,7 @@ export function implementationRun(
     releases,
     paths: {
       claim: null,
-      log: join(planRoot, `${base}.log`),
+      log: join(activeRoot, `${base}.log`),
       markdown: null,
     },
     previousModels: [],

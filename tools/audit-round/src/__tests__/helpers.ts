@@ -42,6 +42,7 @@ export function testContext(
   return {
     repoEduRoot,
     planRoot,
+    activeRoot: join(planRoot, "active"),
     roundKind,
     cwd: roundKind === "planning" ? planRoot : repoEduRoot,
   }
@@ -210,7 +211,7 @@ export async function fixture(
   t.after(() => rm(directory, { recursive: true, force: true }))
   const root = join(directory, "repo-edu")
   await mkdir(root)
-  await mkdir(join(directory, "plan"))
+  await mkdir(join(directory, "plan/active"), { recursive: true })
   await writePhaseInstructions(root, join(directory, "plan"))
   await writeFile(join(root, "scenario.json"), JSON.stringify(scenario))
   const executable = (assistant: Assistant) => ({

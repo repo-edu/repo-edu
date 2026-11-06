@@ -5,8 +5,14 @@ import { fileURLToPath } from "node:url"
 /** One command-owned context, independent of any phase's workflow owner. */
 export type ExecutionContext = {
   readonly repoEduRoot: string
+  /** The plan checkout, where commands run and the archive and doctrine live. */
   readonly planRoot: string
+  /** The checkout's `active/` folder, which holds every active plan and round file. */
+  readonly activeRoot: string
 }
+
+/** The two plan folders a plan lookup reads: the active folder and the archive beneath the checkout. */
+export type PlanRoots = Pick<ExecutionContext, "planRoot" | "activeRoot">
 
 export const installationRoot = fileURLToPath(
   new URL("../../../", import.meta.url),
@@ -32,6 +38,7 @@ export async function executionContext(
   return {
     repoEduRoot,
     planRoot,
+    activeRoot: resolve(planRoot, "active"),
   }
 }
 

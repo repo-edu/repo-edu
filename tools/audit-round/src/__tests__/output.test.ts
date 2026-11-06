@@ -799,11 +799,19 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
 
 test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-impl-01..01-01-1-round.oth.md")
+  const transcript = join(
+    f.runtime.activeRoot,
+    "example-impl-01..01-01-1-round.oth.md",
+  )
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
-    await briefRun(transcript, Date.parse("2026-09-13T08:00:00Z"), releases),
+    await briefRun(
+      transcript,
+      f.runtime,
+      Date.parse("2026-09-13T08:00:00Z"),
+      releases,
+    ),
     {
       clock: new RunClock(Date.now),
       terminal: {

@@ -1,7 +1,7 @@
 import { readdir, stat } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { InvalidArgumentError } from "commander"
-import type { ExecutionContext } from "./context.js"
+import type { ExecutionContext, PlanRoots } from "./context.js"
 import { splitEntries } from "./queue.js"
 import type { Repository } from "./subject.js"
 
@@ -118,9 +118,9 @@ export function planPhase(plan: string): PlanPhase {
   return basename(plan).endsWith("-widen.md") ? "widening" : "detailing"
 }
 
-/** An active plan sits directly at the plan root. */
-export function isActivePlanPath(planRoot: string, plan: string): boolean {
-  return dirname(resolve(planRoot, plan)) === resolve(planRoot)
+/** An active plan sits directly in the active folder. */
+export function isActivePlanPath(activeRoot: string, plan: string): boolean {
+  return dirname(resolve(activeRoot, plan)) === resolve(activeRoot)
 }
 
 function stepScope(value: string): string {
@@ -260,13 +260,13 @@ export function targetRequest(
   }
 }
 
-/** The plan's artifact at the plan root, or null once it is archived or absent. */
+/** The plan's artifact in the active folder, or null once it is archived or absent. */
 export async function activePlan(
-  planRoot: string,
+  activeRoot: string,
   stem: string,
 ): Promise<string | null> {
   for (const name of [`${stem}.md`, `${stem}-widen.md`]) {
-    const path = join(planRoot, name)
+    const path = join(activeRoot, name)
     try {
       if ((await stat(path)).isFile()) return path
     } catch (error) {
@@ -304,34 +304,34 @@ export async function archivedPlans(
 
 /** Resolve one active plan identity and refuse an archived target. */
 export async function resolvePlan(
-  planRoot: string,
+  roots: PlanRoots,
   stem: string,
 ): Promise<string> {
-  const active = await activePlan(planRoot, stem)
+  const active = await activePlan(roots.activeRoot, stem)
   if (active !== null) return active
-  const matches = await archivedPlans(planRoot, stem)
+  const matches = await archivedPlans(roots.planRoot, stem)
   if (matches.length > 0)
     throw new Error(
       `The plan ${stem} is archived. Archived plans are not audit targets.`,
     )
-  throw new Error(`No active plan named ${stem} at ${planRoot}.`)
+  throw new Error(`No active plan named ${stem} at ${roots.activeRoot}.`)
 }
 
 /** Resolve the active plan a lifecycle command names. */
 export async function requiredActivePlan(
-  planRoot: string,
+  activeRoot: string,
   value: string,
   command: "close" | "deferrals" | "implement" | "ready" | "run" | "settle",
 ): Promise<string> {
   refusePath(value)
   const stem = planStem(value)
-  const plan = await activePlan(planRoot, stem)
+  const plan = await activePlan(activeRoot, stem)
   if (plan === null) {
     const reason =
       command === "close"
         ? "An archived plan is already closed."
         : `The ${command} command requires an active plan.`
-    throw new Error(`No active plan named ${stem} at ${planRoot}. ${reason}`)
+    throw new Error(`No active plan named ${stem} at ${activeRoot}. ${reason}`)
   }
   return plan
 }

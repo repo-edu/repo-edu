@@ -245,7 +245,7 @@ function controlledRound(
     readRebuttal: async () =>
       evidence.accepted ? [] : [{ number: 1, tier: "B", answer: "agree" }],
     readHead: async (root) => `before-${root}`,
-    resolvePlan: async (planRoot, stem) => join(planRoot, `${stem}.md`),
+    resolvePlan: async (roots, stem) => join(roots.activeRoot, `${stem}.md`),
     fileExists: async () => planRemains,
     readRecords: async (root, _before, repository) =>
       root === repoRoot ? landedRecords(repository, evidence.subjects) : [],
@@ -630,7 +630,7 @@ for (const accepted of [false, true]) {
       const round = controlledRound(async (input) => {
         if (input.phase === "brief")
           assert.deepEqual(round.deletedReports, [
-            { cwd: files.planRoot, nameStart: "example-impl-01..01-01" },
+            { cwd: files.activeRoot, nameStart: "example-impl-01..01-01" },
           ])
       })
       round.evidence.accepted = accepted
@@ -1861,7 +1861,7 @@ for (const reason of [null, "The check cost more than it gave."]) {
   test(`a close${reason === null ? "" : " with an abort reason"} runs only the close phase from the plan checkout`, async () => {
     const round = controlledRound()
     const context = testContext(repoRoot, "planning")
-    const plan = join(context.planRoot, "example.md")
+    const plan = join(context.activeRoot, "example.md")
     const deferrals = reason === null ? [openDeferral] : []
 
     const result = await runClose(
@@ -1929,11 +1929,11 @@ test("a failed close keeps its session for recovery", async () => {
   })
 })
 
-test("a finished close that left its plan at the root fails with its session", async () => {
+test("a finished close that left its plan in the active folder fails with its session", async () => {
   const round = controlledRound()
   round.leavePlan()
   const context = testContext(repoRoot, "planning")
-  const plan = join(context.planRoot, "example.md")
+  const plan = join(context.activeRoot, "example.md")
 
   const result = await runClose(
     {
@@ -1954,7 +1954,7 @@ test("a finished close that left its plan at the root fails with its session", a
     assistant: "codex",
     model: pinned("codex"),
     ...context,
-    reason: `The finished close left ${plan} at the plan root`,
+    reason: `The finished close left ${plan} in the active folder`,
   })
 })
 

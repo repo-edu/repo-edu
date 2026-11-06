@@ -224,7 +224,7 @@ for (const commit of scenario.commits ?? [])
     { cwd: commit.cwd },
   )
 
-// A close moves its plan out of the plan root.
+// A close moves its plan out of the active folder.
 for (const move of scenario.moves ?? []) {
   await mkdir(dirname(move.to), { recursive: true })
   await rename(move.from, move.to)

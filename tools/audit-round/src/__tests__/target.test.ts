@@ -183,8 +183,9 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
 test("stem resolution accepts active plans and refuses archived targets", async (t) => {
   const f = await fixture(t)
   const planRoot = join(f.root, "../plan")
+  const activeRoot = join(planRoot, "active")
   for (const file of [
-    "example-widen.md",
+    "active/example-widen.md",
     "archive/example/plan.md",
     "archive/closed/plan.md",
     "archive/group/peer.md",
@@ -193,19 +194,20 @@ test("stem resolution accepts active plans and refuses archived targets", async 
     await mkdir(join(path, ".."), { recursive: true })
     await writeFile(path, "# Plan\n")
   }
+  const roots = { planRoot, activeRoot }
   assert.equal(
-    await resolvePlan(planRoot, "example"),
-    join(planRoot, "example-widen.md"),
+    await resolvePlan(roots, "example"),
+    join(activeRoot, "example-widen.md"),
   )
-  await writeFile(join(planRoot, "example.md"), "# Settled plan\n")
+  await writeFile(join(activeRoot, "example.md"), "# Settled plan\n")
   assert.equal(
-    await resolvePlan(planRoot, "example"),
-    join(planRoot, "example.md"),
+    await resolvePlan(roots, "example"),
+    join(activeRoot, "example.md"),
   )
-  await assert.rejects(resolvePlan(planRoot, "peer"), /not audit targets/)
-  await assert.rejects(resolvePlan(planRoot, "closed"), /not audit targets/)
+  await assert.rejects(resolvePlan(roots, "peer"), /not audit targets/)
+  await assert.rejects(resolvePlan(roots, "closed"), /not audit targets/)
   await assert.rejects(
-    resolvePlan(planRoot, "missing"),
+    resolvePlan(roots, "missing"),
     /No active plan named missing/,
   )
 })

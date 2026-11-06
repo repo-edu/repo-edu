@@ -67,8 +67,8 @@ function disproveRound(
 async function archivedPlan(fixture: Fixture, stem = "example") {
   const directory = join(fixture.planRoot, "archive", stem)
   await mkdir(directory, { recursive: true })
-  await rm(join(fixture.planRoot, `${stem}.md`), { force: true })
-  await rm(join(fixture.planRoot, `${stem}-widen.md`), { force: true })
+  await rm(join(fixture.activeRoot, `${stem}.md`), { force: true })
+  await rm(join(fixture.activeRoot, `${stem}-widen.md`), { force: true })
   await writeFile(join(directory, "plan.md"), `# ${stem}\n`)
   await execa("git", ["add", "-A"], { cwd: fixture.planRoot })
   await commitFixture(fixture.planRoot, `${stem}/closed oth: archive fixture`)
@@ -95,16 +95,18 @@ Audit ranges: 1.
 ) {
   const name = phase === "settled" ? `${stem}.md` : `${stem}-widen.md`
   const other = phase === "settled" ? `${stem}-widen.md` : `${stem}.md`
-  await rm(join(fixture.planRoot, other), { force: true })
-  await writeFile(join(fixture.planRoot, name), source)
+  await rm(join(fixture.activeRoot, other), { force: true })
+  await writeFile(join(fixture.activeRoot, name), source)
   if (tracked) {
-    await execa("git", ["add", "--", name], { cwd: fixture.planRoot })
+    await execa("git", ["add", "--", join("active", name)], {
+      cwd: fixture.planRoot,
+    })
     await commitFixture(
       fixture.planRoot,
       "example/plan-audit ath clean: track the active plan",
     )
   }
-  return join(fixture.planRoot, name)
+  return join(fixture.activeRoot, name)
 }
 
 async function enableLifecycleHook(fixture: Fixture) {
@@ -362,7 +364,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         false,
         working,
       )
-      const root = f.planRoot
+      const root = f.activeRoot
       const target = working === "plan" ? "example-plan" : "example-impl-02..02"
       await writeFile(join(root, `${target}-09-2-audit.oth.md`), "Peer report")
       const before = await readdir(root)
@@ -448,7 +450,7 @@ test("name shares commit range and list targets with the runner", async (t) => {
     )
     assert.equal(
       JSON.parse(f.visible[0]).arguments[0],
-      join(f.planRoot, `${target}-01-2-audit.oux.md`),
+      join(f.activeRoot, `${target}-01-2-audit.oux.md`),
     )
     assert.deepEqual(JSON.parse(f.visible[0]).arguments.slice(1), [
       {
@@ -526,7 +528,7 @@ test("name passes two parsed commit groups to a hand-run audit", async (t) => {
   assert.equal(
     named.claim,
     join(
-      f.planRoot,
+      f.activeRoot,
       `commit-${f.heads["repo-edu"].slice(0, 6)}+${f.heads.plan.slice(0, 6)}-01-0-claim.md`,
     ),
   )
@@ -600,7 +602,7 @@ test("name requires a complete session tag before any assistant or claim", async
   })
 })
 
-test("name preserves the hand-run implementation-step route at the plan root", async (t) => {
+test("name preserves the hand-run implementation-step route from the plan checkout", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -623,7 +625,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
   )
   assert.equal(
     JSON.parse(f.visible[0]).arguments[0],
-    join(f.planRoot, "example-impl-02..03-01-2-audit.oux.md"),
+    join(f.activeRoot, "example-impl-02..03-01-2-audit.oux.md"),
   )
   assert.equal(
     await runCommand(
@@ -640,7 +642,7 @@ test("settle commits only the widening rename through hooks and then leaves its 
   const plan = await lifecyclePlan(f, "widening")
   const hook = await enableLifecycleHook(f)
   await writeFile(
-    join(f.planRoot, "example-plan-03-2-audit.oth.md"),
+    join(f.activeRoot, "example-plan-03-2-audit.oth.md"),
     "Peer report",
   )
   await writeFile(join(f.planRoot, "staged.txt"), "Staged work\n")
@@ -653,8 +655,8 @@ test("settle commits only the widening rename through hooks and then leaves its 
     f.errors.join("\n"),
   )
 
-  const settled = join(f.planRoot, "example.md")
-  const marker = join(f.planRoot, "example-plan-04-0-settle.md")
+  const settled = join(f.activeRoot, "example.md")
+  const marker = join(f.activeRoot, "example-plan-04-0-settle.md")
   await assert.rejects(readFile(plan), { code: "ENOENT" })
   assert.equal(await readFile(settled, "utf8"), "# Example plan\n")
   assert.equal(await readFile(marker, "utf8"), "")
@@ -679,7 +681,7 @@ test("settle commits only the widening rename through hooks and then leaves its 
         { cwd: f.planRoot },
       )
     ).stdout,
-    /^R100\texample-widen\.md\texample\.md$/,
+    /^R100\tactive\/example-widen\.md\tactive\/example\.md$/,
   )
   assert.equal(
     (
@@ -853,7 +855,7 @@ Audit ranges: 2.
 test("disprove appends an attached ruling to active data without committing", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   await lifecyclePlan(f, "settled")
-  const path = join(f.planRoot, "example-impl-rounds.json")
+  const path = join(f.activeRoot, "example-impl-rounds.json")
   writeRoundData(path, disproveRound())
   const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
     .stdout
@@ -1044,7 +1046,7 @@ for (const command of ["settle", "ready"] as const) {
       )
       const stem = state === "ignored" ? "implementation-audit" : "example"
       if (state === "ignored") {
-        await writeFile(join(f.planRoot, ".gitignore"), "/*-audit.md\n")
+        await writeFile(join(f.planRoot, ".gitignore"), "/active/*-audit.md\n")
         await execa("git", ["add", ".gitignore"], { cwd: f.planRoot })
         await commitFixture(
           f.planRoot,
@@ -1089,7 +1091,7 @@ for (const command of ["settle", "ready"] as const) {
 
 test("mark claims the plan's next number only for an empty reopen marker that later rounds skip", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
-  const root = f.planRoot
+  const root = f.activeRoot
   await writeFile(join(root, "example-plan-03-2-audit.oth.md"), "Peer report")
   const before = await readdir(root)
   assert.equal(
@@ -1138,7 +1140,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       working,
     )
-    const root = f.planRoot
+    const root = f.activeRoot
     const target = "abcd-2..ef01-01"
     const removed = [
       "2-audit.oux.md",

@@ -147,10 +147,11 @@ test("a phase recorded without its launched selection is no reference", () => {
 test("round history joins active and archived plans before choosing the newest entry", async (t) => {
   const f = await fixture(t)
   const planRoot = join(f.root, "../plan")
+  const activeRoot = join(planRoot, "active")
   const archived = join(planRoot, "archive/closed-plan")
   await mkdir(archived, { recursive: true })
   writeRoundData(
-    join(planRoot, roundDataFilename("active-plan", "implementation")),
+    join(activeRoot, roundDataFilename("active-plan", "implementation")),
     round("2026-11-01T10:00:00.000Z", [
       phase("watch", "codex", pinnedRelease, oldRelease),
     ]),
@@ -170,7 +171,7 @@ test("round history joins active and archived plans before choosing the newest e
     phase: "detailing",
     settling: "",
   })
-  const references = await readPreviousRoundModels(planRoot)
+  const references = await readPreviousRoundModels({ planRoot, activeRoot })
   assert.deepEqual(references, [
     { assistant: "codex", launched: pinnedRelease, reported: newRelease },
   ])

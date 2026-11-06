@@ -38,7 +38,7 @@ export async function prepareImplementation(
   scope?: string,
 ): Promise<PreparedImplementation> {
   const plan = await requiredActivePlan(
-    context.planRoot,
+    context.activeRoot,
     requestedStem,
     "implement",
   )
@@ -164,6 +164,7 @@ export async function runImplementation(
     {
       repoEduRoot: input.repoEduRoot,
       planRoot: input.planRoot,
+      activeRoot: input.activeRoot,
     },
     "implementation",
   )

@@ -44,11 +44,11 @@ for (const auditor of ["codex", "claude"] as const) {
           file,
           `example-plan-0${index + 1}-1-round.${writer === "codex" ? "obh" : "abh"}.log`,
         )
-        const log = await readFile(join(f.planRoot, file), "utf8")
+        const log = await readFile(join(f.activeRoot, file), "utf8")
         assert.match(log, /Plan audit of .*example\.md/)
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, file.replace("-1-round.", "-2-audit.").replace(".log", ".md")), join(f.planRoot, "example.md")])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([join(f.activeRoot, file.replace("-1-round.", "-2-audit.").replace(".log", ".md")), join(f.activeRoot, "example.md")])}`,
           ),
         )
         assert.match(log, /\[glance\] not due: episode example recorded green/)
