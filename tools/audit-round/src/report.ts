@@ -22,7 +22,12 @@ type Paragraph = Extract<Block, { type: "paragraph" }>
 
 function openingEndIndex(children: readonly Block[]): number {
   const end = children.findIndex(
-    (node) => node.type === "heading" && node.depth === 2,
+    (node) =>
+      node.type === "heading" &&
+      node.depth === 2 &&
+      ["Excess functionality", "Missing functionality", "Findings"].includes(
+        plain(node),
+      ),
   )
   return end === -1 ? children.length : end
 }

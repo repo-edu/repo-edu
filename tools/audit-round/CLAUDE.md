@@ -110,6 +110,8 @@ consumers.
   depth-3 `Execution and audits` subsection and requires its scopes to tile the
   listed steps in order.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
+  The first grammar-owned field heading ends the opening; other level-2 headings stay inside it, so
+  presentation depth cannot hide the workflow, target or judged repositories from the reader.
   A widening report must end with the grammar's settling line as its last paragraph, read from its
   source so a formatted reason keeps its words; the reader returns that line as the report's
   settling value, refuses one on any other report class and returns an empty value there. A clean

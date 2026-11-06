@@ -97,7 +97,10 @@ exactly, so one citation cannot close two deferrals whose short forms collide.
                               <target-line><planning-judged-line><opening-markdown>
 <implementation-opening>  ::= <opening containing "Implementation audit workflow">
                               <target-line><implementation-judged-line><opening-markdown>
-<opening-markdown>        ::= free Markdown before the first depth-2 heading
+<opening-markdown>        ::= free Markdown before the first <report-field-heading>
+<report-field-heading>    ::= "## Excess functionality"
+                            | "## Missing functionality"
+                            | "## Findings"
 
 <target-line>             ::= "Target: "<target>
 <target>                  ::= <plan-file>                        ; planning round
@@ -136,17 +139,19 @@ exactly, so one citation cannot close two deferrals whose short forms collide.
 ```
 
 The workflow phrase, exactly one plain `Target:` line and exactly one plain
-`Judged repos:` line occur in the opening. The target line repeats the round's
-target as the runner resolved it: the plan's filename for a planning round, the
-filename and the step scope the user named for a step audit, or the typed
-commit references for a commit-scoped round. The plan filename carries the
-phase, so the opening names no phase of its own. The runner compares the line
-with the round it is running and refuses a report that names another target or
-none before any later phase starts, so a vet never has to ask which target a
-report judged. A planning report uses only the plan head. An implementation
-report uses one of the three ordered repository sets above. A finding's token
-line is the first block after its heading. Finding numbers run from 1 without
-gaps across all fields and titles are distinct across the report.
+`Judged repos:` line occur in the opening. A report field heading ends the
+opening; another level-2 heading remains part of its free Markdown. The target
+line repeats the round's target as the runner resolved it: the plan's filename
+for a planning round, the filename and the step scope the user named for a
+step audit, or the typed commit references for a commit-scoped round. The plan
+filename carries the phase, so the opening names no phase of its own. The
+runner compares the line with the round it is running and refuses a report
+that names another target or none before any later phase starts, so a vet never
+has to ask which target a report judged. A planning report uses only the plan
+head. An implementation report uses one of the three ordered repository sets
+above. A finding's token line is the first block after its heading. Finding
+numbers run from 1 without gaps across all fields and titles are distinct
+across the report.
 
 Each field contains findings or its exact empty sentence, never both.
 
@@ -198,6 +203,23 @@ The target state needs one owner.
 
 ```markdown
 # Planning round workflow
+
+Target: example.md
+Judged repos: plan@abc123
+
+## Excess functionality
+
+No excess findings.
+
+## Missing functionality
+
+No missing findings.
+```
+
+#### `report/planning-depth-two-workflow` — parsed
+
+```markdown
+## Planning round workflow
 
 Target: example.md
 Judged repos: plan@abc123

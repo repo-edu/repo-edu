@@ -92,6 +92,12 @@ test("report routing reads the named workflow only in the opening", () => {
   )
   assert.equal(
     reportKind(
+      "## Planning round workflow\n\nTarget: example.md\nJudged repos: plan@abc123\n\n## Excess functionality",
+    ),
+    "planning",
+  )
+  assert.equal(
+    reportKind(
       "**Implementation audit workflow**\n\nJudged repos: plan@abc123",
     ),
     "implementation",
