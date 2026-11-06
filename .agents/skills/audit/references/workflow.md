@@ -30,14 +30,20 @@ the plan's **Implementation plan** numbering.
 An invocation that names no plan file and names commit references, including
 `HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan
 covers. After the report output path, its phase arguments contain the parsed
-commit groups in command-line order. Each group carries its repository and its
-references as typed, plus the starting HEAD captured before the round files
-were named. Bare references before the first `plan@` reference form the Repo
-Edu group. That reference and every reference after it form the plan group.
-Resolve each group under **Range** in `commit-scope.md` before asking Git to
-resolve it; `HEAD-<n>` is workflow shorthand. Use `commit-scope.md` beside this
-file for that round's scope, gate, baseline, coverage, report name, record and
-settlement, and follow the rest of this workflow unchanged.
+commit groups in command-line order. Each group carries its repository,
+`references`, `startingHead`, `commits`, `originalCommits` and
+`shortReferences`. The runner has resolved every original reference and
+validated any typed inclusive range. It builds each later exact `commits` set
+from the original commits and earlier landed fixes. Use `commit-scope.md`
+beside this file for that round's scope, gate, baseline, coverage, report name,
+record and settlement. Its workflow checks only these facts:
+
+1. No file a group touched has uncommitted changes.
+2. Each original list is contiguous in first-parent history.
+3. Every current commit is reachable from HEAD.
+4. No commit in `originalCommits` carries a plan stem.
+
+Follow the rest of this workflow unchanged.
 
 This procedure also serves implementation-audit rounds on changes hosted by the plan repo. Follow
 the `CLAUDE.md` of every repo the round judges. Use the shared protocol's **Finding metadata** for

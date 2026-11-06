@@ -244,7 +244,7 @@ function refusePath(value: string): void {
     )
 }
 
-/** Git resolution and inclusive-range admission belong to the audit workflow. */
+/** Keep typed references for the runner's Git resolution and range admission. */
 export function targetRequest(
   first: string,
   rest: readonly string[],

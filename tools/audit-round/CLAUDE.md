@@ -476,18 +476,20 @@ consumers.
   nothing a list could sequence. A commit target carries parsed groups across the phase boundary:
   bare references before the first `plan@` reference form the Repo Edu group, and that reference and
   every reference after it form the plan group. Each request group keeps its repository and
-  references as typed; `default-target.ts` adds the ordered exact full commit set and the resolved
-  short references the filename uses. A
+  references as typed. `default-target.ts` resolves each original reference, admits only an
+  increasing typed range and adds the ordered exact full commit set and the resolved short
+  references the filename uses. `command.ts` builds each later exact set from those original
+  commits and the earlier landed fixes. A
   commit-shaped plan stem keeps `.md` to identify it as a plan. Plan arguments drop `.md` and
   `-widen` and refuse paths with a stem example. `resolvePlan` accepts the active artifact in the
   active folder and reports an archived plan as unavailable for audit. `requiredActivePlan` accepts
   only the active artifact. It keeps path validation common while `close`, `settle`, `ready` and
-  `implement` supply their own reason when no active plan exists. The audit workflow owns Git
-  resolution and inclusive-range admission. `default-target.ts` captures each request group's
-  starting HEAD once before round files are allocated and resolves every typed reference against it,
-  refusing a reference that names no commit before any round file is claimed. The original exact
-  groups own the label. Each audit phase group carries those original commits beside its advancing
-  exact set. Commit targets run without a trajectory glance or watch.
+  `implement` supply their own reason when no active plan exists. `default-target.ts` captures each
+  request group's starting HEAD once before round files are allocated. It resolves every typed
+  reference against that head, refuses a reference that names no commit and admits only an
+  increasing inclusive range. The original exact groups own the label. Each audit phase group
+  carries those original commits beside its advancing exact set. Commit targets run without a
+  trajectory glance or watch.
 - `default-target.ts` owns the round a plan argument or no target selects, under
   [Plan targets](#plan-targets), so the plan's history rather than a typed word decides between
   planning and implementation. It reads both histories. Each repository's own Git order decides
@@ -650,9 +652,10 @@ Runner result rule in
 meaning. Phase results carry only status and reason. The runner reads reports,
 vet twins and the fix's landed subjects for routing and completion checks. It also reads
 each commit group's starting HEAD before naming, resolves the typed references
-against it for the filename, and reads the log the glance counts; the audit
-workflow resolves the audited scope against that carried starting HEAD. Keep
-assistant adapters independent of the product LLM adapters.
+against it for the filename, validates any typed inclusive range and reads the
+log the glance counts. For later commit rounds, the runner builds each exact
+set from the original commits and earlier landed fixes. Keep assistant
+adapters independent of the product LLM adapters.
 
 ## Round files
 

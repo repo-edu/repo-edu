@@ -78,7 +78,7 @@ test("commit-shaped stems keep .md to name a plan", () => {
     })
 })
 
-test("commit targets preserve references for the workflow to resolve", () => {
+test("commit targets keep typed references for the runner to resolve", () => {
   for (const references of [
     ["HEAD"],
     ["HEAD-0"],

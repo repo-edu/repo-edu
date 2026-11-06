@@ -602,7 +602,7 @@ Loop-close follows on the user's word through the
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md).
 That workflow writes each repo's closing form under the plan doctrine. Stem
 scans already show every round, so no compiled history belongs in a closing
-body. Commit-scoped rounds use their own one-shot settlement rule.
+body. Commit-scoped rounds use their own series settlement rule.
 
 ## Runner result
 
