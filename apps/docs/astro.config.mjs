@@ -133,7 +133,17 @@ export default defineConfig({
                 {
                   label: "Other chat commands",
                   items: [
+                    { label: "/simple", slug: "tooling/simple" },
+                    { label: "/rewrite", slug: "tooling/rewrite" },
+                    { label: "/brief-plan", slug: "tooling/brief-plan" },
+                    { label: "/watch", slug: "tooling/watch" },
+                    { label: "/close", slug: "tooling/close" },
+                    { label: "/yield", slug: "tooling/yield" },
+                    { label: "/yield-vet", slug: "tooling/yield-vet" },
+                    { label: "/yield-rebut", slug: "tooling/yield-rebut" },
+                    { label: "/yield-final", slug: "tooling/yield-final" },
                     { label: "/sweep", slug: "tooling/sweep" },
+                    { label: "/refactor", slug: "tooling/refactor" },
                   ],
                 },
                 {
