@@ -419,8 +419,8 @@ consumers.
   example. The archived plan supplies the listed steps, every hosted share must have a readable
   model record and the whole-plan audit must follow the final share. A missing archived plan and a
   step list the current grammar cannot read are separate exclusion reasons, because the read-out
-  names what it found and never rewrites the archive. Records admit a plan without a
-  ready assignment when they name one model and effort. An assignment, when present, must match on
+  names what it found and never rewrites the archive. Records admit a plan without a ready
+  assignment when they name one model and effort. An assignment, when present, must match on
   assistant and effort; its model may be a family alias the implement worker resolved at run time,
   so the records' release is not compared with it and a mismatch is its own exclusion reason. A
   readable step record without active time falls back to the span from the ready marker or previous
@@ -430,11 +430,11 @@ consumers.
   clear-cut recommendation. Every row that reaches its minimum enters it. The coder table sorts by
   accepted findings per step, fewest first, then by time. A winning auditor outside the current
   `auditors` list, or a winning coder outside the live coder list, is named as such. Disproved
-  findings are also listed with the user's full reason. Excluded plans, grouped by reason with
-  their recorded models, print only under `--all`, because a reader comparing models does not need
-  the plans that supplied no evidence every time. The command starts no assistant and writes no
-  round file or round data. Like other commands that read settings, it creates a missing `settings.json` from the
-  defaults.
+  findings are also listed with the user's full reason. Excluded plans, grouped by reason with their
+  recorded models, print only under `--all`, because a reader comparing models does not need the
+  plans that supplied no evidence every time. The command starts no assistant and writes no round
+  file or round data. Like other commands that read settings, it creates a missing `settings.json`
+  from the defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -920,29 +920,24 @@ Phase files use
 [Phase routing](#phase-routing); the watch has no path argument because the
 runner owns both writes.
 
-`models` reads every retained round-data file and both Git histories. It prints
-planning auditors, implementation auditors, coders and disproved findings, and
-under `--all` the excluded plans. Each section opens with its verdict line, lists thin rows and
-out-of-setting winners as bullets and then prints its table sorted by yield,
-so no number appears in prose. Each comparison admits every row that reaches
-its minimum; thin rows remain visible and block nothing. It gives a
-recommendation only
-where the admitted rows' observed ranges separate and yield does not conflict
-with a clear time lead. An auditor row enters the naming check only after it
-has five rounds in both audit classes. It is named for one class only when it
-clearly leads every eligible row there and no eligible row clearly leads it in
-the other class. A winner outside the current auditors or coder list is
-labelled. Auditor tables count complete rounds and their kept, per-round,
-dropped, downgraded and later-disproved A/B findings, with wrong claims as the
-last three over all four and audit plus rebuttal time per round. The coder
-table shows plans, timed plans, steps, kept A/B findings, kept per step and
-time per step. A missing step
-time uses the span from the ready marker or previous step, with a two-repo step
-ending at its later share commit. The disproved section retains each full
-reason. The excluded-plans section groups plans by reason and names their
-recorded models; it prints only under `--all`. The command renders Markdown, starts no assistant and writes
-no round file or round data. Like other commands that read settings, it creates
-a missing `settings.json` from the defaults.
+`models` reads every retained round-data file and both Git histories. It prints planning auditors,
+implementation auditors, coders and disproved findings, and under `--all` the excluded plans. Each
+section opens with its verdict line, lists thin rows and out-of-setting winners as bullets and then
+prints its table sorted by yield, so no number appears in prose. Each comparison admits every row
+that reaches its minimum; thin rows remain visible and block nothing. It gives a recommendation only
+where the admitted rows' observed ranges separate and yield does not conflict with a clear time
+lead. An auditor row enters the naming check only after it has five rounds in both audit classes. It
+is named for one class only when it clearly leads every eligible row there and no eligible row
+clearly leads it in the other class. A winner outside the current auditors or coder list is
+labelled. Auditor tables count complete rounds and their kept, per-round, dropped, downgraded and
+later-disproved A/B findings, with wrong claims as the last three over all four and audit plus
+rebuttal time per round. The coder table shows plans, timed plans, steps, kept A/B findings, kept
+per step and time per step. A missing step time uses the span from the ready marker or previous
+step, with a two-repo step ending at its later share commit. The disproved section retains each full
+reason. The excluded-plans section groups plans by reason and names their recorded models; it prints
+only under `--all`. The command renders Markdown, starts no assistant and writes no round file or
+round data. Like other commands that read settings, it creates a missing `settings.json` from the
+defaults.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved plan and scope, or

@@ -122,12 +122,15 @@ type StepShare = {
   readonly record: StepRecord | null
 }
 
+/** Why a closed plan's step list could not be read, worded as its exclusion reason. */
+type StepListGap = "archived plan unavailable" | "archived step list unreadable"
+
 type PlanEvidence = {
   readonly stem: string
   assignment: Coder | null
   readyCommit: HistoryCommit | null
   closed: boolean
-  listedSteps: readonly PlanStep[] | null
+  listedSteps: readonly PlanStep[] | StepListGap
   readonly stepShares: Map<string, StepShare>
   readonly rounds: RoundRecord[]
 }
@@ -421,7 +424,7 @@ function planEvidence(
     assignment: null,
     readyCommit: null,
     closed: false,
-    listedSteps: null,
+    listedSteps: "archived plan unavailable",
     stepShares: new Map(),
     rounds: [],
   }
@@ -454,7 +457,7 @@ function expectedStepShareKeys(steps: readonly PlanStep[]): string[] {
 }
 
 function listedStepRecords(plan: PlanEvidence): StepRecord[] | null {
-  if (plan.listedSteps === null) return null
+  if (typeof plan.listedSteps === "string") return null
   const records: StepRecord[] = []
   for (const key of expectedStepShareKeys(plan.listedSteps)) {
     const share = plan.stepShares.get(key)
@@ -487,7 +490,7 @@ function laterCommit(records: readonly StepRecord[]): HistoryCommit {
 }
 
 function implementationMinutes(plan: PlanEvidence): number | null {
-  if (plan.listedSteps === null) return null
+  if (typeof plan.listedSteps === "string") return null
   let previous = plan.readyCommit
   let total = 0
   for (const step of plan.listedSteps) {
@@ -515,7 +518,8 @@ function hasWholePlanAudit(
   plan: PlanEvidence,
   history: ReadonlyMap<string, HistoryCommit>,
 ): boolean {
-  const finalStep = plan.listedSteps?.length ?? 0
+  if (typeof plan.listedSteps === "string") return false
+  const finalStep = plan.listedSteps.length
   if (finalStep === 0) return false
   const records = listedStepRecords(plan)
   if (records === null) return false
@@ -545,11 +549,11 @@ function hasWholePlanAudit(
 async function readArchivedPlanSteps(
   context: ExecutionContext,
   plan: PlanEvidence,
-): Promise<readonly PlanStep[] | null> {
+): Promise<readonly PlanStep[] | StepListGap> {
   const archivedRound = plan.rounds.find(
     (round) => round.file.split(sep)[0] === "archive",
   )
-  if (archivedRound === undefined) return null
+  if (archivedRound === undefined) return "archived plan unavailable"
   const directory = dirname(join(context.planRoot, archivedRound.file))
   for (const path of [
     join(directory, `${plan.stem}.md`),
@@ -568,10 +572,10 @@ async function readArchivedPlanSteps(
     try {
       return readPlanSteps(source)
     } catch {
-      return null
+      return "archived step list unreadable"
     }
   }
-  return null
+  return "archived plan unavailable"
 }
 
 /**
@@ -597,7 +601,7 @@ function excludedPlanReason(
 ): string {
   if (!plan.closed) return "not closed"
   if (plan.rounds.length === 0) return "no implementation round data"
-  if (plan.listedSteps === null) return "archived plan unavailable"
+  if (typeof plan.listedSteps === "string") return plan.listedSteps
   const expectedShares = expectedStepShareKeys(plan.listedSteps)
   if (expectedShares.some((key) => !plan.stepShares.has(key)))
     return "implementation shares missing"
@@ -675,7 +679,7 @@ async function coderRows(
   for (const plan of plans.values()) {
     const actual = new Map<string, ModelIdentity>()
     const expectedShares =
-      plan.listedSteps === null
+      typeof plan.listedSteps === "string"
         ? new Set(plan.stepShares.keys())
         : new Set(expectedStepShareKeys(plan.listedSteps))
     for (const [key, share] of plan.stepShares)
@@ -690,7 +694,8 @@ async function coderRows(
       }
     if (actual.size === 0) continue
     const reason = excludedPlanReason(plan, actual, history)
-    const stepCount = plan.listedSteps?.length ?? 0
+    const stepCount =
+      typeof plan.listedSteps === "string" ? 0 : plan.listedSteps.length
     for (const identity of actual.values()) {
       const row = ensureRow(identity)
       if (reason.length > 0) {
