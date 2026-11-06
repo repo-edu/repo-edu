@@ -164,6 +164,40 @@ for (const auditor of ["codex", "claude"] as const) {
   })
 }
 
+test("a commit target accepts two explicit auditors and advances their shared scope", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "c")
+  assert.equal(
+    await runCommand(
+      ["round", "HEAD", "--auditor", "codex,claude"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const prompts = await f.prompts()
+  const audits = prompts.filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["codex", "claude"],
+  )
+  assert.equal(
+    prompts.some((call) => call.prompt.startsWith("Run the judge phase ")),
+    false,
+  )
+  const secondArguments = /^Phase arguments \(JSON array\): (.+)$/m.exec(
+    audits[1].prompt,
+  )
+  assert.ok(secondArguments)
+  const [, secondGroup] = JSON.parse(secondArguments[1]) as [
+    string,
+    { commits: string[] },
+  ]
+  assert.equal(secondGroup.commits.length, 2)
+})
+
 for (const auditor of ["codex", "claude"] as const) {
   test(`--auditor ${auditor} selects the defaults for audit and rebuttal despite listed auditors`, async (t) => {
     const f = await roundFixture(t, auditor)
@@ -308,7 +342,6 @@ test("auditor lists keep each entry's model and effort independent", async (t) =
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
-    ["round", "HEAD", "--auditor", "codex,claude"],
     ["round", "HEAD-2..HEAD", "--auditor", "codex,claude"],
     ["round", "23674f", "--auditor", "codex,claude"],
     ["round", "HEAD--1"],
@@ -497,7 +530,11 @@ for (const auditor of ["codex", "claude"] as const) {
       ),
     )
     assert.ok(markdown.startsWith(`# Commit audit of ${commits.join(" ")}\n`))
-    assert.ok(transcript.includes(`commit-${group.shortReferences[0]}`))
+    assert.ok(
+      transcript.includes(
+        `commit-${group.commits[0].slice(0, 6)}..${group.commits.at(-1)?.slice(0, 6)}`,
+      ),
+    )
     for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
       assert.ok(log.includes(`[${phase}] finished`))
     assert.doesNotMatch(log, /\[(?:glance|watch)\]|watch +codex|Chained round/)

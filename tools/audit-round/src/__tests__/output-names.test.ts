@@ -28,18 +28,18 @@ const options = {
 
 test("phase files sort in fixed order with paired logs and dotted commit-range targets", async (t) => {
   const f = await fixture(t)
+  const group = {
+    references: ["abcdef..123abc"] as const,
+    repository: "repo-edu" as const,
+    startingHead: "unused",
+    commits: ["abcdef".padEnd(40, "0"), "123abc".padEnd(40, "0")] as const,
+    shortReferences: ["abcdef..123abc"] as const,
+  }
   const run = await roundRun(
     {
       ...testSetup(f.root),
-      groups: [
-        {
-          references: ["abcdef..123abc"],
-          repository: "repo-edu",
-          startingHead: "unused",
-          commits: ["a".repeat(40)],
-          shortReferences: ["abcdef..123abc"],
-        },
-      ],
+      originalGroups: [group],
+      groups: [group],
       brief: true,
     },
     0,
@@ -85,15 +85,8 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
       await roundRun(
         {
           ...testSetup(f.root),
-          groups: [
-            {
-              references: ["abcdef..123abc"],
-              repository: "repo-edu",
-              startingHead: "unused",
-              commits: ["a".repeat(40)],
-              shortReferences: ["abcdef..123abc"],
-            },
-          ],
+          originalGroups: [group],
+          groups: [group],
         },
         0,
         releases,
@@ -225,7 +218,14 @@ test("commit filenames resolve each group's references to six characters and joi
     [["HEAD"], `commit-${head}`],
     [["HEAD-4"], `commit-${await back(4)}`],
     [["HEAD-4..HEAD"], `commit-${await back(4)}..${head}`],
-    [["HEAD-4", "HEAD-1", "HEAD"], `commit-${await back(4)}-plus-2`],
+    [
+      ["HEAD-4", "HEAD-3", "HEAD-2", "HEAD-1", "HEAD"],
+      `commit-${await back(4)}..${head}`,
+    ],
+    [
+      ["HEAD", "HEAD-1", "HEAD-2", "HEAD-3", "HEAD-4"],
+      `commit-${await back(4)}..${head}`,
+    ],
     // A typed SHA names the same file at any length.
     [[fullSha], `commit-${await back(1)}`],
     [[fullSha.slice(0, 9)], `commit-${await back(1)}`],
@@ -254,7 +254,7 @@ test("commit filenames resolve each group's references to six characters and joi
   const run = await roundRun({ ...testSetup(f.root), ...target }, 0, releases)
   assert.equal(
     basename(run.paths.markdown),
-    `commit-${await back(1)}-plus-1+${planHead}-01-1-round.obh.md`,
+    `commit-${await back(1)}..${head}+${planHead}-01-1-round.obh.md`,
   )
   assert.equal(run.title, `Commit audit of ${references.join(" ")}`)
 

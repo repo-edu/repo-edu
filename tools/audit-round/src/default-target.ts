@@ -63,6 +63,7 @@ export async function resolveTargets(
     return [
       {
         ...request,
+        originalGroups: groups as [CommitGroup, ...CommitGroup[]],
         groups: groups as [CommitGroup, ...CommitGroup[]],
       },
     ]

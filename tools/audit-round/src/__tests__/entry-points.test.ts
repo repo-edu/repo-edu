@@ -144,7 +144,6 @@ for (const working of ["repo-edu", "plan"] as const) {
     assert.match(help.stdout, /Usage: audit-round/)
     const invalid = [
       ["round", "example.md", "0"],
-      ["round", "HEAD", "--auditor", "codex,claude"],
       ["round", "../plan/example.md", "1"],
       ["paths", "brief"],
     ]
@@ -153,7 +152,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       assert.equal(result.exitCode, 2, result.stderr)
       assert.match(
         result.stderr,
-        /positive step number|Multiple auditors require a plan target|Name the plan by its stem|Expected vet, rebut or fix/,
+        /positive step number|Name the plan by its stem|Expected vet, rebut or fix/,
       )
     }
     const brief = await execa(

@@ -99,9 +99,12 @@ async function targetDescription(target: NamingTarget): Promise<{
   if ("groups" in target) {
     // The fixed `commit-` word groups every commit audit in a sorted file list,
     // as `-plan` and `-impl-` do for plan targets.
-    const groupLabel = (group: CommitGroup): string =>
-      `${group.shortReferences[0]}${group.shortReferences.length === 1 ? "" : `-plus-${group.shortReferences.length - 1}`}`
-    const labels = target.groups.map(groupLabel)
+    const groupLabel = (group: CommitGroup): string => {
+      const first = group.commits[0].slice(0, 6)
+      const last = group.commits.at(-1)?.slice(0, 6)
+      return group.commits.length === 1 ? first : `${first}..${last}`
+    }
+    const labels = target.originalGroups.map(groupLabel)
     const references = target.groups.flatMap((group) => group.references)
     // Keep list filenames bounded; the title and phase arguments carry every reference.
     return {

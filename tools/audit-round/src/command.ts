@@ -88,6 +88,7 @@ import {
 } from "./round.js"
 import {
   type DisprovedFinding,
+  type LandedCommit,
   parseRoundDataFile,
   roundDataFilename,
   writeDisprovedFinding,
@@ -115,6 +116,8 @@ import {
   type AuditTarget,
   activePlan,
   archivedPlans,
+  type CommitGroup,
+  type CommitTarget,
   isActivePlanPath,
   planPhase,
   planRepositoryPrefix,
@@ -1309,14 +1312,6 @@ export async function runCommand(
                     requestedTarget(invocation),
                   ),
                 }
-    if (
-      prepared.kind === "round" &&
-      "groups" in prepared.targets[0] &&
-      (prepared.auditor?.length ?? 1) > 1
-    )
-      throw new InvalidArgumentError(
-        "Commit audits run once. Multiple auditors require a plan target.",
-      )
     if (prepared.kind === "round" || prepared.kind === "name")
       requireSingleTarget(prepared, prepared.targets)
     if (prepared.kind === "name") {
@@ -1678,8 +1673,8 @@ export async function runCommand(
       const [first, ...queued] = series.auditor ?? []
       const automatic =
         series.auditor === undefined &&
-        "plan" in targets[0] &&
-        isActivePlanPath(context.activeRoot, targets[0].plan)
+        ("groups" in targets[0] ||
+          isActivePlanPath(context.activeRoot, targets[0].plan))
       const coin =
         options.coin ?? ((count: number) => Math.floor(Math.random() * count))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
@@ -1805,10 +1800,10 @@ export async function runCommand(
        * needs the user stops the whole list.
        */
       const runSeries = async (initial: AuditTarget): Promise<SeriesEnding> => {
-        // Only an explicit auditor list owns an editable queue. Automatic series
-        // keep their next seat in this invocation, and other targets run once.
+        // Only an explicit auditor list owns an editable queue. Automatic
+        // series keep their next seat in this invocation.
         const queue =
-          series.auditor !== undefined && "plan" in initial
+          series.auditor !== undefined
             ? await queueFile({ ...seriesSession, ...initial })
             : null
         let rest: readonly AuditorEntry[] = queued
@@ -1825,6 +1820,68 @@ export async function runCommand(
         // The reason behind the judge answer that chose the next seat, printed
         // with the next round's opening line so the log carries it.
         let judgedReason: string | null = null
+        const seriesName = (value: AuditTarget): string =>
+          "plan" in value
+            ? `${roundSubject(value, planStem(value.plan))}: automatic auditor series`
+            : "Commit audit: automatic auditor series"
+        const advanceCommitTarget = async (
+          value: CommitTarget,
+          landed: readonly LandedCommit[],
+        ): Promise<CommitTarget> => {
+          const repositories = new Set(
+            value.groups.map((group) => group.repository),
+          )
+          const unexpected = landed.find(
+            (commit) => !repositories.has(commit.repository),
+          )
+          if (unexpected !== undefined)
+            throw new Error(
+              `Commit round landed ${unexpected.repository}@${unexpected.sha} outside its original repository groups`,
+            )
+          const rebuilt = await Promise.all(
+            value.groups.map(async (group) => {
+              const fixes = landed
+                .filter((commit) => commit.repository === group.repository)
+                .map((commit) => commit.sha)
+              const commits = [...new Set([...group.commits, ...fixes])] as [
+                string,
+                ...string[],
+              ]
+              const cwd =
+                group.repository === "plan"
+                  ? context.planRoot
+                  : context.repoEduRoot
+              const startingHead = (
+                await execa("git", ["rev-parse", "HEAD"], { cwd })
+              ).stdout
+              const references = commits.map((commit, index) =>
+                group.repository === "plan" && index === 0
+                  ? `${planRepositoryPrefix}${commit}`
+                  : commit,
+              ) as [string, ...string[]]
+              return {
+                repository: group.repository,
+                references,
+                startingHead,
+                commits,
+                shortReferences: commits.map((commit) =>
+                  commit.slice(0, 6),
+                ) as [string, ...string[]],
+              }
+            }),
+          )
+          const first = rebuilt[0]
+          if (first === undefined)
+            throw new Error("Commit target lost its required repository group")
+          const groups: [CommitGroup, ...CommitGroup[]] = [
+            first,
+            ...rebuilt.slice(1),
+          ]
+          return {
+            ...value,
+            groups,
+          }
+        }
         const printDeferrals = async () => {
           if (!("plan" in target)) return
           const state = await deferralState(context, planStem(target.plan))
@@ -1869,10 +1926,12 @@ export async function runCommand(
             }
           }
           do {
-            if (completed > 0 && "plan" in target) {
+            if (completed > 0) {
               if (!automatic) {
-                const plan = await resolvePlan(context, planStem(target.plan))
-                target = { ...target, plan }
+                if ("plan" in target) {
+                  const plan = await resolvePlan(context, planStem(target.plan))
+                  target = { ...target, plan }
+                }
               }
               if (automatic)
                 await output?.message(
@@ -1980,12 +2039,12 @@ export async function runCommand(
               if (automatic) await printDeferrals()
               return "stopped"
             }
-            if (automatic && "plan" in target) {
-              const series = `${roundSubject(target, planStem(target.plan))}: automatic auditor series`
+            if (automatic) {
+              const series = seriesName(target)
               const judge = round.judge
               if (judge === null)
                 throw new Error(
-                  "Automatic plan round finished without a judge answer",
+                  "Automatic round finished without a judge answer",
                 )
               if (judge.answer === "stop") {
                 await active.message(
@@ -1995,6 +2054,10 @@ export async function runCommand(
                 break
               }
               if (judge.answer === "settle") {
+                if (!("plan" in target))
+                  throw new Error(
+                    "Commit series judge returned the plan-only settle answer",
+                  )
                 await active.message(
                   `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. The judge finds no open shape question. Widening is done: run pnpm audit-round settle ${planStem(target.plan)}.`,
                 )
@@ -2002,6 +2065,10 @@ export async function runCommand(
                 return "settle"
               }
               if (judge.answer === "ready") {
+                if (!("plan" in target))
+                  throw new Error(
+                    "Commit series judge returned the plan-only ready answer",
+                  )
                 await active.message(
                   `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. The judge finds the brief complete. Detailing is done: run pnpm audit-round ready ${planStem(target.plan)}.`,
                 )
@@ -2026,6 +2093,8 @@ export async function runCommand(
               seat = pool[index]
               judgedReason = judge.reason
               auditorSelectionSource = "settings"
+              if ("groups" in target)
+                target = await advanceCommitTarget(target, round.commits)
               continue
             }
             const ending = round.cleanAudit ? "Clean audit" : null
@@ -2040,6 +2109,8 @@ export async function runCommand(
             seat = taken.next
             auditorSelectionSource = "--auditor"
             rest = taken.rest
+            if (seat !== null && "groups" in target)
+              target = await advanceCommitTarget(target, round.commits)
             await active.message(
               seat === null
                 ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`

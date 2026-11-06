@@ -254,18 +254,18 @@ for (const phase of ["vet", "rebut", "fix"] as const) {
 
 test("manual resolution reuses runner filenames without writes or assistant discovery", async (t) => {
   const f = await roundFixture(t)
+  const group = {
+    references: ["abc123..def456"] as const,
+    repository: "repo-edu" as const,
+    startingHead: "unused",
+    commits: ["abc123".padEnd(40, "0"), "def456".padEnd(40, "0")] as const,
+    shortReferences: ["abc123..def456"] as const,
+  }
   const run = await roundRun(
     {
       ...testSetup(f.repoRoot),
-      groups: [
-        {
-          references: ["abc123..def456"],
-          repository: "repo-edu",
-          startingHead: "unused",
-          commits: ["a".repeat(40)],
-          shortReferences: ["abc123..def456"],
-        },
-      ],
+      originalGroups: [group],
+      groups: [group],
     },
     0,
     releases,

@@ -365,7 +365,7 @@ async function runWatch(
 
 /** Run the fresh evidence-only turn that decides an automatic series. */
 async function runSeriesJudge(
-  input: RoundInput & { readonly plan: string },
+  input: RoundInput,
   pool: readonly Auditor[],
   dependencies: Pick<RoundDependencies, "judgeEvidence" | "runJudge">,
   settings: RoundSettings,
@@ -374,13 +374,13 @@ async function runSeriesJudge(
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   try {
-    const evidence = await dependencies.judgeEvidence({
-      ...context,
-      stem: planStem(input.plan),
-    })
     const currentRound = roundDataIdentity(
       transcriptNameStart(input.transcript),
     )
+    const evidence = await dependencies.judgeEvidence({
+      ...context,
+      stem: "plan" in input ? planStem(input.plan) : currentRound.target,
+    })
     const options = judgeOptions(evidence, currentRound, pool)
     const judged = await dependencies.runJudge({
       phase: "judge",
@@ -515,7 +515,6 @@ export async function runRound(
         const deferralChain = await runDeferralChain(input, dependencies)
         const judged =
           input.pool !== undefined &&
-          "plan" in input &&
           (deferralChain === "none" || deferralChain === "finished")
             ? await runSeriesJudge(input, input.pool, dependencies, settings)
             : { answer: null }
@@ -853,10 +852,10 @@ export async function runRound(
           : { grade: null }
       if ("status" in watched) return { ...watched, commits, account }
       const seriesMayContinue =
-        "plan" in input &&
-        currentPlan !== null &&
-        planPhase(currentPlan) === planPhase(input.plan) &&
-        watched.grade !== "red"
+        "groups" in input ||
+        (currentPlan !== null &&
+          planPhase(currentPlan) === planPhase(input.plan) &&
+          watched.grade !== "red")
       let deferralChain: DeferralChainOutcome = "none"
       if (seriesMayContinue) {
         try {
@@ -876,7 +875,6 @@ export async function runRound(
       }
       const judged =
         input.pool !== undefined &&
-        "plan" in input &&
         seriesMayContinue &&
         (deferralChain === "none" || deferralChain === "finished")
           ? await runSeriesJudge(input, input.pool, dependencies, settings)

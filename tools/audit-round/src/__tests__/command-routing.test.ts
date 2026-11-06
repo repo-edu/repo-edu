@@ -434,14 +434,14 @@ test("name shares commit range and list targets with the runner", async (t) => {
   const full = async (revision: string) =>
     (await execa("git", ["rev-parse", revision], { cwd: f.repoRoot })).stdout
   const ordered = await Promise.all(["HEAD~2", "HEAD~1", "HEAD"].map(full))
-  for (const [references, shortReferences, target] of [
+  for (const [index, [references, shortReferences, target]] of [
     [["HEAD-2..HEAD"], [`${back[1]}..${head}`], `commit-${back[1]}..${head}`],
     [
       [back[1], "HEAD", back[0]],
       [back[1], head, back[0]],
-      `commit-${back[1]}-plus-2`,
+      `commit-${back[1]}..${head}`,
     ],
-  ] as const) {
+  ].entries()) {
     f.visible.length = 0
     assert.equal(
       await runCommand(
@@ -453,7 +453,10 @@ test("name shares commit range and list targets with the runner", async (t) => {
     )
     assert.equal(
       JSON.parse(f.visible[0]).arguments[0],
-      join(f.activeRoot, `${target}-01-2-audit.oux.md`),
+      join(
+        f.activeRoot,
+        `${target}-${String(index + 1).padStart(2, "0")}-2-audit.oux.md`,
+      ),
     )
     assert.deepEqual(JSON.parse(f.visible[0]).arguments.slice(1), [
       {
@@ -499,7 +502,10 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
       `Phase arguments (JSON array): ${JSON.stringify([f.report, { repository: "plan", references: [reference], startingHead, commits, shortReferences: [label] }])}`,
     ),
   )
-  assert.ok(markdown.startsWith(`# Commit audit of ${reference}\n`))
+  assert.equal(
+    markdown.split("\n")[0],
+    `# Commit audit of ${reference} (round 1)`,
+  )
   assert.ok(basename(transcript).startsWith(`commit-${label}-01-1-round.`))
 })
 
@@ -596,7 +602,10 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
       `Phase arguments (JSON array): ${JSON.stringify([f.report, ...groups])}`,
     ),
   )
-  assert.ok(markdown.startsWith(`# Commit audit of ${references.join(" ")}\n`))
+  assert.equal(
+    markdown.split("\n")[0],
+    `# Commit audit of ${references.join(" ")} (round 1)`,
+  )
   assert.ok(
     basename(transcript).startsWith(
       `commit-${f.heads["repo-edu"].slice(0, 6)}+${f.heads.plan.slice(0, 6)}-01-1-round.`,

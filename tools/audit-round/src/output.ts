@@ -227,7 +227,7 @@ export async function roundRun(
             ...resolvedRun(audit, releases),
             chosenBy: setup.auditorSelectionSource,
           },
-          originalGroups: setup.groups.map(
+          originalGroups: setup.originalGroups.map(
             ({ repository, commits, startingHead }) => ({
               repository,
               commits,

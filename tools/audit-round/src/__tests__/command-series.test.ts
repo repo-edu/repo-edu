@@ -5,7 +5,7 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
-import { roundFixture, shortCommit } from "./round-fixture.js"
+import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
 test("a ruling resumes the fix and the remaining auditor sequence without replaying internal prompts", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
@@ -834,6 +834,88 @@ test("an automatic series follows the judged switch and ends on stop without a q
     readFile(join(f.activeRoot, "example-impl-01..01-queue.md")),
     { code: "ENOENT" },
   )
+})
+
+test("a commit series keeps its label while the next auditor reads the original commits and landed fix", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    "c",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  await commitFixture(f.repoRoot, "Unrelated middle commit")
+  await commitFixture(f.repoRoot, "Original newest commit")
+  const original = await Promise.all(
+    ["HEAD~2", "HEAD"].map(
+      async (revision) =>
+        (await execa("git", ["rev-parse", revision], { cwd: f.repoRoot }))
+          .stdout,
+    ),
+  )
+  const omitted = (
+    await execa("git", ["rev-parse", "HEAD~1"], { cwd: f.repoRoot })
+  ).stdout
+  const label = `commit-${original[0].slice(0, 6)}..${original[1].slice(0, 6)}`
+  await configureJudgeAnswers(f, [
+    "Judge: continue with claude opus high. Claude should read the landed correction.",
+    "Judge: stop. Both assistants have read the exact scope.",
+  ])
+
+  assert.equal(
+    await runCommand(
+      ["round", "HEAD-2", "HEAD", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["codex", "claude"],
+  )
+  const secondArguments = /^Phase arguments \(JSON array\): (.+)$/m.exec(
+    audits[1].prompt,
+  )
+  assert.ok(secondArguments)
+  const [, secondGroup] = JSON.parse(secondArguments[1]) as [
+    string,
+    {
+      commits: string[]
+      references: string[]
+      startingHead: string
+    },
+  ]
+  assert.equal(secondGroup.commits.length, 3)
+  assert.deepEqual(secondGroup.commits.slice(0, 2), original)
+  assert.equal(secondGroup.commits.includes(omitted), false)
+  assert.deepEqual(secondGroup.references, secondGroup.commits)
+  assert.equal(secondGroup.startingHead, secondGroup.commits[2])
+
+  const data = JSON.parse(
+    await readFile(join(f.activeRoot, `${label}-rounds.json`), "utf8"),
+  ) as {
+    rounds: {
+      target: string
+      originalGroups: { commits: string[] }[]
+      groups: { commits: string[] }[]
+    }[]
+  }
+  assert.deepEqual(
+    data.rounds.map((entry) => entry.target),
+    [label, label],
+  )
+  assert.deepEqual(data.rounds[1].originalGroups[0].commits, original)
+  assert.deepEqual(data.rounds[1].groups[0].commits, secondGroup.commits)
 })
 
 test("an archived plan without --auditor is refused", async (t) => {

@@ -45,7 +45,10 @@ type CommitTargetWith<Group> = {
   readonly groups: readonly [Group, ...Group[]]
 }
 
-export type CommitTarget = CommitTargetWith<CommitGroup>
+export type CommitTarget = CommitTargetWith<CommitGroup> & {
+  /** The immutable scope that owns this commit series' label and evidence. */
+  readonly originalGroups: readonly [CommitGroup, ...CommitGroup[]]
+}
 export type CommitTargetRequest = CommitTargetWith<CommitGroupRequest>
 
 /** One scope owner for argument validation, phase routing and run presentation. */

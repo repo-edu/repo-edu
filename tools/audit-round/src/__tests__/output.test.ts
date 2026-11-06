@@ -25,21 +25,21 @@ test("long commit lists record every reference without exceeding filename limits
     "a".repeat(40),
     ...Array.from({ length: 9 }, (_, n) => String(n).repeat(40)),
   ] as const
+  const group = {
+    references: commits,
+    repository: "repo-edu" as const,
+    startingHead: "unused",
+    commits,
+    shortReferences: commits.map((commit) => commit.slice(0, 6)) as [
+      string,
+      ...string[],
+    ],
+  }
   const run = await roundRun(
     {
       ...testSetup(f.root),
-      groups: [
-        {
-          references: commits,
-          repository: "repo-edu",
-          startingHead: "unused",
-          commits,
-          shortReferences: commits.map((commit) => commit.slice(0, 6)) as [
-            string,
-            ...string[],
-          ],
-        },
-      ],
+      originalGroups: [group],
+      groups: [group],
     },
     Date.now(),
     releases,
@@ -57,18 +57,18 @@ test("a clean commit audit records its complete commit scope", async (t) => {
   const f = await fixture(t)
   const commit = "a".repeat(40)
   const startingHead = "b".repeat(40)
+  const group = {
+    references: [commit] as const,
+    repository: "repo-edu" as const,
+    startingHead,
+    commits: [commit] as const,
+    shortReferences: [commit.slice(0, 6)] as const,
+  }
   const run = await roundRun(
     {
       ...testSetup(f.root),
-      groups: [
-        {
-          references: [commit],
-          repository: "repo-edu",
-          startingHead,
-          commits: [commit],
-          shortReferences: [commit.slice(0, 6)],
-        },
-      ],
+      originalGroups: [group],
+      groups: [group],
     },
     Date.now(),
     releases,

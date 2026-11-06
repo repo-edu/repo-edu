@@ -22,7 +22,7 @@ import type {
   RoundAccount,
 } from "../round-data.js"
 import { RunClock } from "../run-clock.js"
-import { targetRequest } from "../target.js"
+import { type CommitGroup, targetRequest } from "../target.js"
 import {
   type Assistant,
   roundRun as allocateRound,
@@ -75,6 +75,10 @@ const reportFinding: ReportFinding = {
   complexity: "none",
   growthPattern: "none",
   location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+}
+
+function commitTarget(group: CommitGroup) {
+  return { originalGroups: [group] as const, groups: [group] as const }
 }
 const secondReportFinding: ReportFinding = {
   ...reportFinding,
@@ -615,17 +619,13 @@ test("a due watch receives the current round's dropped findings from joined evid
 for (const accepted of [false, true]) {
   for (const target of [
     { plan: "example.md", scope: "1" },
-    {
-      groups: [
-        {
-          references: ["HEAD"] as const,
-          repository: "repo-edu" as const,
-          startingHead: "abc1234",
-          commits: ["a".repeat(40)] as const,
-          shortReferences: ["abc123"] as const,
-        },
-      ] as const,
-    },
+    commitTarget({
+      references: ["HEAD"] as const,
+      repository: "repo-edu" as const,
+      startingHead: "abc1234",
+      commits: ["a".repeat(40)] as const,
+      shortReferences: ["abc123"] as const,
+    }),
   ]) {
     test(`a finished ${"plan" in target ? "plan" : "commit"} fix deletes its reports once before the brief with accepted=${accepted}`, async () => {
       const round = controlledRound(async (input) => {
@@ -1312,7 +1312,7 @@ for (const ruling of [false, true]) {
       shortReferences: ["abc111", "abc222", "abc123"] as const,
     }
     const result = await runRound(
-      { ...files, groups: [group] },
+      { ...files, ...commitTarget(group) },
       round.dependencies,
     )
     assert.equal(result.status, ruling ? "awaiting-ruling" : "finished")
@@ -2101,17 +2101,13 @@ for (const [reader, phase, sessionId, called] of [
 test("a finished fix on a plan target requires a landed commit; clean audits use direct completion", async () => {
   for (const target of [
     { plan: "example.md", scope: "1" },
-    {
-      groups: [
-        {
-          references: ["HEAD"] as const,
-          repository: "repo-edu" as const,
-          startingHead: "abc1234",
-          commits: ["a".repeat(40)] as const,
-          shortReferences: ["abc123"] as const,
-        },
-      ] as const,
-    },
+    commitTarget({
+      references: ["HEAD"] as const,
+      repository: "repo-edu" as const,
+      startingHead: "abc1234",
+      commits: ["a".repeat(40)] as const,
+      shortReferences: ["abc123"] as const,
+    }),
   ]) {
     for (const findings of [[], [reportFinding]]) {
       const round = controlledRound()
