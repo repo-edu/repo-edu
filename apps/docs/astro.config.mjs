@@ -114,6 +114,23 @@ export default defineConfig({
                 },
               ],
             },
+            {
+              label: "Tooling Guide",
+              link: "/tooling/",
+              icon: "seti:config",
+              id: "tooling-guide",
+              items: [
+                {
+                  label: "Sample commands",
+                  items: [
+                    { label: "Overview", slug: "tooling" },
+                    { label: "/audit", slug: "tooling/audit" },
+                    { label: "/sweep", slug: "tooling/sweep" },
+                    { label: "Full plan run", slug: "tooling/full-plan-run" },
+                  ],
+                },
+              ],
+            },
           ],
           {
             exclude: ["/404"],
