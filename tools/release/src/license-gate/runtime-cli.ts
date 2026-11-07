@@ -63,7 +63,7 @@ type BunLinkedRuntimeAttestation = {
 
 const bunLinkedRuntimeAttestations = [
   {
-    versions: ["1.3.11", "1.3.14", "1.4.0", "1.4.2"],
+    versions: ["1.3.11", "1.3.14", "1.4.0", "1.4.2", "1.4.4"],
     linkedRuntimes: [
       {
         id: "javascriptcore",
