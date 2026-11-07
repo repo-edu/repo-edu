@@ -12,13 +12,27 @@ import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { Window } from "happy-dom"
 import React from "react"
 import type { ExaminationSource } from "../components/tabs/examination/source.js"
-import type { ExaminationEngineViewModel } from "../components/tabs/examination/use-examination-engine.js"
+import {
+  type ExaminationEngineViewModel,
+  useExaminationEngine,
+} from "../components/tabs/examination/use-examination-engine.js"
 import {
   makeSettings,
   resetStores,
   startController,
   workflowClient,
 } from "./session-controller.test-support.js"
+
+function EngineProbe({
+  source,
+  onView,
+}: {
+  source: ExaminationSource
+  onView: (view: ExaminationEngineViewModel) => void
+}) {
+  onView(useExaminationEngine({ source, emptyBlocker: null }))
+  return null
+}
 
 it("starts no lookup for input or connection edits while Settings is open", {
   timeout: 10000,
@@ -41,9 +55,6 @@ it("starts no lookup for input or connection edits while Settings is open", {
     })
   }
   const { createRoot } = await import("react-dom/client")
-  const { useExaminationEngine } = await import(
-    "../components/tabs/examination/use-examination-engine.js"
-  )
   const {
     SessionControllerProvider,
     setSessionController,
@@ -144,10 +155,6 @@ it("starts no lookup for input or connection edits while Settings is open", {
     }
   })
   let view: ExaminationEngineViewModel | undefined
-  function Probe() {
-    view = useExaminationEngine({ source, emptyBlocker: null })
-    return null
-  }
   function getView() {
     assert.ok(view, "The examination probe must render before reading its view")
     return view
@@ -158,7 +165,12 @@ it("starts no lookup for input or connection edits while Settings is open", {
         <SessionControllerProvider controller={controller}>
           <WorkflowClientProvider value={controller.operations}>
             <RendererHostProvider value={{} as RendererHost}>
-              <Probe />
+              <EngineProbe
+                source={source}
+                onView={(next) => {
+                  view = next
+                }}
+              />
             </RendererHostProvider>
           </WorkflowClientProvider>
         </SessionControllerProvider>,

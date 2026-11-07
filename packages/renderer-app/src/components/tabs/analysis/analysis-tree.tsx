@@ -6,23 +6,19 @@ import {
   FolderOpen,
   GitBranch,
 } from "@repo-edu/ui/components/icons"
-import { createContext, type ReactNode, useContext } from "react"
+import { type Context, createContext, type ReactNode, useContext } from "react"
 
 // ---------------------------------------------------------------------------
-// Generic tree context factory
+// Required tree context access
 // ---------------------------------------------------------------------------
 
-function createTreeContext<T>(displayName: string) {
-  const Ctx = createContext<T | null>(null)
-  const useCtx = () => {
-    const v = useContext(Ctx)
-    if (!v) throw new Error(`Missing ${displayName}`)
-    return v
-  }
-  const Provider = ({ value, children }: { value: T; children: ReactNode }) => (
-    <Ctx.Provider value={value}>{children}</Ctx.Provider>
-  )
-  return [Provider, useCtx] as const
+function useRequiredContext<T>(
+  context: Context<T | null>,
+  providerName: string,
+): T {
+  const value = useContext(context)
+  if (!value) throw new Error(`Missing ${providerName}`)
+  return value
 }
 
 // ---------------------------------------------------------------------------
@@ -125,10 +121,25 @@ type FileTreeContextValue = {
   onFileClick: (path: string) => void
 }
 
-const [FileTreeProvider, useFileTreeContext] =
-  createTreeContext<FileTreeContextValue>("FileTreeProvider")
+const FileTreeContext = createContext<FileTreeContextValue | null>(null)
 
-export { FileTreeProvider }
+export function FileTreeProvider({
+  value,
+  children,
+}: {
+  value: FileTreeContextValue
+  children: ReactNode
+}) {
+  return (
+    <FileTreeContext.Provider value={value}>
+      {children}
+    </FileTreeContext.Provider>
+  )
+}
+
+function useFileTreeContext(): FileTreeContextValue {
+  return useRequiredContext(FileTreeContext, "FileTreeProvider")
+}
 
 // ---------------------------------------------------------------------------
 // Recursive folder node component
@@ -212,10 +223,25 @@ type RepoTreeContextValue = {
   viewMode: "list" | "tree"
 }
 
-const [RepoTreeProvider, useRepoTreeContext] =
-  createTreeContext<RepoTreeContextValue>("RepoTreeProvider")
+const RepoTreeContext = createContext<RepoTreeContextValue | null>(null)
 
-export { RepoTreeProvider }
+export function RepoTreeProvider({
+  value,
+  children,
+}: {
+  value: RepoTreeContextValue
+  children: ReactNode
+}) {
+  return (
+    <RepoTreeContext.Provider value={value}>
+      {children}
+    </RepoTreeContext.Provider>
+  )
+}
+
+function useRepoTreeContext(): RepoTreeContextValue {
+  return useRequiredContext(RepoTreeContext, "RepoTreeProvider")
+}
 
 // ---------------------------------------------------------------------------
 // Repo leaf button (single repo entry in the tree)

@@ -13,7 +13,10 @@ import { useCloneAllRepositories } from "../components/tabs/groups-assignments/G
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { selectCredentials } from "../session/selectors.js"
-import { SessionControllerProvider } from "../session/session-controller-context.js"
+import {
+  SessionControllerProvider,
+  useSessionController,
+} from "../session/session-controller-context.js"
 import {
   deferred,
   makeSettings,
@@ -21,6 +24,46 @@ import {
   startController,
   testSessionStart,
 } from "./session-controller.test-support.js"
+
+type CloneAllView = ReturnType<typeof useCloneAllRepositories>
+
+function Panel({ onValue }: { onValue: (value: CloneAllView) => void }) {
+  onValue(
+    useCloneAllRepositories({
+      activeConnectionId: "git",
+      organization: "org",
+      initialTargetDirectory: "/repos",
+    }),
+  )
+  return null
+}
+
+function Controls({ initialNamespace }: { initialNamespace: string }) {
+  const controller = useSessionController()
+  const [organization, setOrganization] = React.useState<string | null>(
+    initialNamespace,
+  )
+  const gitConnections = selectCredentials(
+    controller.getSnapshot(),
+  ).gitConnections
+  return (
+    <CloneAllRepositoriesPanel
+      groupSetId="test"
+      operations={
+        {
+          activeGitConnection: gitConnections[0],
+          activeGitConnectionId: "git",
+          gitConnections: [gitConnections[0]],
+          organization,
+          setOrganization: (next) => {
+            controller.operations.change(() => setOrganization(next))
+          },
+          cloneTargetDirectory: "/repos",
+        } as RepoOperations
+      }
+    />
+  )
+}
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 const typingPause = () =>
@@ -107,39 +150,9 @@ it("lists only on Search and clones only matching results", {
   })
   await controller.waitForIdle()
   const client = createRendererQueryClient()
-  let value: ReturnType<typeof useCloneAllRepositories> | undefined
-  function Panel() {
-    value = useCloneAllRepositories({
-      activeConnectionId: "git",
-      organization: "org",
-      initialTargetDirectory: "/repos",
-    })
-    return null
-  }
-  function Controls({ initialNamespace }: { initialNamespace: string }) {
-    const [organization, setOrganization] = React.useState<string | null>(
-      initialNamespace,
-    )
-    const gitConnections = selectCredentials(
-      controller.getSnapshot(),
-    ).gitConnections
-    return (
-      <CloneAllRepositoriesPanel
-        groupSetId="test"
-        operations={
-          {
-            activeGitConnection: gitConnections[0],
-            activeGitConnectionId: "git",
-            gitConnections: [gitConnections[0]],
-            organization,
-            setOrganization: (next) => {
-              controller.operations.change(() => setOrganization(next))
-            },
-            cloneTargetDirectory: "/repos",
-          } as RepoOperations
-        }
-      />
-    )
+  let value: CloneAllView | undefined
+  const onValue = (next: CloneAllView) => {
+    value = next
   }
   // Happy DOM implements the DOM the renderer expects, so the container is
   // typed as the DOM element it stands in for.
@@ -162,7 +175,7 @@ it("lists only on Search and clones only matching results", {
                 showControls ? (
                   <Controls initialNamespace={initialNamespace} />
                 ) : (
-                  <Panel />
+                  <Panel onValue={onValue} />
                 )
               ) : null}
             </QueryClientProvider>

@@ -100,6 +100,15 @@ function questionSet(count: number): ExaminationGenerateQuestionsResult {
   }
 }
 
+function EngineProbe({
+  onView,
+}: {
+  onView: (view: ExaminationEngineViewModel) => void
+}) {
+  onView(useExaminationEngine({ source, emptyBlocker: null }))
+  return null
+}
+
 async function harness(
   run: Parameters<typeof workflowClient>[0],
   host: Pick<RendererHost, "pickUserFile" | "pickSaveTarget"> = {
@@ -144,10 +153,6 @@ async function harness(
     },
   })
   let view: ExaminationEngineViewModel | undefined
-  function Probe() {
-    view = useExaminationEngine({ source, emptyBlocker: null })
-    return null
-  }
   // Keep the commands from this render while a lookup publishes later.
   renderToStaticMarkup(
     jsx(SessionControllerProvider, {
@@ -156,7 +161,11 @@ async function harness(
         value: controller.operations,
         children: jsx(RendererHostProvider, {
           value: host as RendererHost,
-          children: jsx(Probe, {}),
+          children: jsx(EngineProbe, {
+            onView: (next: ExaminationEngineViewModel) => {
+              view = next
+            },
+          }),
         }),
       }),
     }),

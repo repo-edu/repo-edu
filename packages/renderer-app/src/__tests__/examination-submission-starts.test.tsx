@@ -10,7 +10,13 @@ import type {
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { Window } from "happy-dom"
 import React from "react"
-import type { ExaminationEngineViewModel } from "../components/tabs/examination/use-examination-engine.js"
+import { submissionPreparationKey } from "../components/tabs/examination/submission-source-preparation.js"
+import {
+  type ExaminationEngineViewModel,
+  useExaminationEngine,
+} from "../components/tabs/examination/use-examination-engine.js"
+import { sessionCancellationControl } from "../session/session-controller-context.js"
+import { useExaminationStore } from "../stores/examination-store.js"
 import {
   deferred,
   makeSettings,
@@ -18,6 +24,41 @@ import {
   startController,
   testSessionStart,
 } from "./session-controller.test-support.js"
+
+function GenerateProbe({
+  input,
+  onView,
+}: {
+  input: ExaminationPrepareSubmissionSourceInput
+  onView: (view: ExaminationEngineViewModel) => void
+}) {
+  const source = useExaminationStore(
+    (state) =>
+      state.preparedSubmissionSources.get(submissionPreparationKey(input)) ??
+      null,
+  )
+  const view = useExaminationEngine({
+    source,
+    submissionInput: input,
+    emptyBlocker: null,
+  })
+  onView(view)
+  return (
+    <button
+      type="button"
+      {...(view.isGenerating
+        ? { [sessionCancellationControl]: "examination.generateQuestions" }
+        : {})}
+      onClick={
+        view.isGenerating
+          ? view.commands.stopGeneration
+          : view.commands.generate
+      }
+    >
+      {view.isGenerating ? "Stop" : "Generate"}
+    </button>
+  )
+}
 
 it("Load and Generate own submission preparation, cached returns and cancellation", {
   timeout: 15000,
@@ -40,12 +81,6 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
     })
   }
   const { createRoot } = await import("react-dom/client")
-  const { useExaminationEngine } = await import(
-    "../components/tabs/examination/use-examination-engine.js"
-  )
-  const { submissionPreparationKey } = await import(
-    "../components/tabs/examination/submission-source-preparation.js"
-  )
   const { listSubmissionFiles, openSubmissionFolder } = await import(
     "../components/tabs/examination/submission-file-listing.js"
   )
@@ -53,13 +88,11 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
     SessionControllerProvider,
     setSessionController,
     clearSessionController,
-    sessionCancellationControl,
   } = await import("../session/session-controller-context.js")
   const { WorkflowClientProvider } = await import(
     "../contexts/workflow-client.js"
   )
   const { RendererHostProvider } = await import("../contexts/renderer-host.js")
-  const { useExaminationStore } = await import("../stores/examination-store.js")
   const { useToastStore } = await import("../stores/toast-store.js")
   resetStores()
   useExaminationStore.getState().reset()
@@ -210,33 +243,6 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
     }
   })
   let view: ExaminationEngineViewModel | undefined
-  function Probe() {
-    const source = useExaminationStore(
-      (state) =>
-        state.preparedSubmissionSources.get(submissionPreparationKey(input)) ??
-        null,
-    )
-    view = useExaminationEngine({
-      source,
-      submissionInput: input,
-      emptyBlocker: null,
-    })
-    return (
-      <button
-        type="button"
-        {...(view.isGenerating
-          ? { [sessionCancellationControl]: "examination.generateQuestions" }
-          : {})}
-        onClick={
-          view.isGenerating
-            ? view.commands.stopGeneration
-            : view.commands.generate
-        }
-      >
-        {view.isGenerating ? "Stop" : "Generate"}
-      </button>
-    )
-  }
   function current() {
     assert.ok(view)
     return view
@@ -247,7 +253,15 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
         <SessionControllerProvider controller={controller}>
           <WorkflowClientProvider value={controller.operations}>
             <RendererHostProvider value={{} as RendererHost}>
-              {visible ? <Probe key={key} /> : null}
+              {visible ? (
+                <GenerateProbe
+                  key={key}
+                  input={input}
+                  onView={(next) => {
+                    view = next
+                  }}
+                />
+              ) : null}
             </RendererHostProvider>
           </WorkflowClientProvider>
         </SessionControllerProvider>,

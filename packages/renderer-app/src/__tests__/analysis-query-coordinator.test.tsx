@@ -92,6 +92,15 @@ function useAnalysisTestView() {
 
 type AnalysisTestView = ReturnType<typeof useAnalysisTestView>
 
+function ReadAnalysis({
+  onView,
+}: {
+  onView: (view: AnalysisTestView) => void
+}) {
+  onView(useAnalysisTestView())
+  return null
+}
+
 async function mountCoordinator(
   t: TestContext,
   analyse: (
@@ -258,10 +267,6 @@ async function mountCoordinator(
       })
   }
   let value: AnalysisTestView | undefined
-  function ReadAnalysis() {
-    value = useAnalysisTestView()
-    return null
-  }
   // Happy DOM implements the DOM the renderer expects, so the container is
   // typed as the DOM element it stands in for.
   const container = window.document.createElement(
@@ -289,7 +294,11 @@ async function mountCoordinator(
           <WorkflowClientProvider value={controller.operations}>
             <QueryClientProvider client={queryClient}>
               <AnalysisCoordinatorProvider>
-                <ReadAnalysis />
+                <ReadAnalysis
+                  onView={(next) => {
+                    value = next
+                  }}
+                />
                 {options.blameFilePath !== undefined && (
                   <BlameTab filePath={options.blameFilePath} />
                 )}

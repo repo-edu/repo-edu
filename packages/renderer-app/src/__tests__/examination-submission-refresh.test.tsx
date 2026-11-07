@@ -7,6 +7,7 @@ import type {
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { Window } from "happy-dom"
 import React from "react"
+import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
 import { selectDefaultExtensions } from "../session/selectors.js"
 import {
   deferred,
@@ -15,6 +16,15 @@ import {
   startController,
   workflowClient,
 } from "./session-controller.test-support.js"
+
+function OpenSubmission() {
+  const open = useOpenSubmissionFolder()
+  return (
+    <button type="button" onClick={() => void open()}>
+      Open submission
+    </button>
+  )
+}
 
 it("keeps Settings edits uninterrupted and applies extensions only on submission Refresh", {
   timeout: 10000,
@@ -54,9 +64,6 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
   const { createPortal } = await import("react-dom")
   const { SubmissionExaminationTab } = await import(
     "../components/tabs/SubmissionExaminationTab.js"
-  )
-  const { useOpenSubmissionFolder } = await import(
-    "../hooks/use-open-submission-folder.js"
   )
   const { AnalysisPane } = await import(
     "../components/settings/AnalysisPane.js"
@@ -156,14 +163,6 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
     }
   })
   let settingsClicks = 0
-  function OpenSubmission() {
-    const open = useOpenSubmissionFolder()
-    return (
-      <button type="button" onClick={() => void open()}>
-        Open submission
-      </button>
-    )
-  }
   const render = (tabKey: string) =>
     root.render(
       <SessionControllerProvider controller={controller}>

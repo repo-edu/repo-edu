@@ -27,12 +27,31 @@ import {
   workflowClient,
 } from "./session-controller.test-support.js"
 
-function useCloneTargetPicker() {
-  return useCloneAllRepositories({
-    activeConnectionId: null,
-    organization: null,
-    initialTargetDirectory: "/original",
-  }).browseTargetDirectory
+type PickerProbeProps = { onOpen: (open: () => Promise<void>) => void }
+
+function RepositoriesFolderPicker({ onOpen }: PickerProbeProps) {
+  onOpen(useOpenRepositoriesFolder())
+  return null
+}
+
+function SubmissionFolderPicker({
+  onOpen,
+}: {
+  onOpen: (open: ReturnType<typeof useOpenSubmissionFolder>) => void
+}) {
+  onOpen(useOpenSubmissionFolder())
+  return null
+}
+
+function CloneTargetPicker({ onOpen }: PickerProbeProps) {
+  onOpen(
+    useCloneAllRepositories({
+      activeConnectionId: null,
+      organization: null,
+      initialTargetDirectory: "/original",
+    }).browseTargetDirectory,
+  )
+  return null
 }
 
 beforeEach(resetStores)
@@ -68,16 +87,16 @@ it("opens each submission folder with the course passed to the bound handler", a
     },
   }
   let open: ReturnType<typeof useOpenSubmissionFolder> | undefined
-  function Probe() {
-    open = useOpenSubmissionFolder()
-    return null
-  }
   renderToStaticMarkup(
     jsx(WorkflowClientProvider, {
       value: controller.operations,
       children: jsx(RendererHostProvider, {
         value: host as RendererHost,
-        children: jsx(Probe, {}),
+        children: jsx(SubmissionFolderPicker, {
+          onOpen: (next: ReturnType<typeof useOpenSubmissionFolder>) => {
+            open = next
+          },
+        }),
       }),
     }),
   )
@@ -100,11 +119,13 @@ it("opens each submission folder with the course passed to the bound handler", a
 })
 
 describe("directory picker errors", () => {
-  for (const [name, usePicker] of [
-    ["repository folder", useOpenRepositoriesFolder],
-    ["submission folder", useOpenSubmissionFolder],
-    ["clone target", useCloneTargetPicker],
-  ] as const) {
+  for (const [name, Picker] of [
+    ["repository folder", RepositoriesFolderPicker],
+    ["submission folder", SubmissionFolderPicker],
+    ["clone target", CloneTargetPicker],
+  ] as const satisfies ReadonlyArray<
+    readonly [string, (props: PickerProbeProps) => null]
+  >) {
     for (const outcome of ["failure", "cancel"] as const) {
       it(`handles ${name} picker ${outcome} before its body retires`, async (t) => {
         const controller = startController({
@@ -127,9 +148,8 @@ describe("directory picker errors", () => {
           },
         }
         let open: (() => Promise<void>) | undefined
-        function Probe() {
-          open = usePicker()
-          return null
+        const onOpen = (next: () => Promise<void>) => {
+          open = next
         }
         renderToStaticMarkup(
           jsx(SessionControllerProvider, {
@@ -140,7 +160,7 @@ describe("directory picker errors", () => {
                 value: host as RendererHost,
                 children: jsx(QueryClientProvider, {
                   client: queryClient,
-                  children: jsx(Probe, {}),
+                  children: jsx(Picker, { onOpen }),
                 }),
               }),
             }),

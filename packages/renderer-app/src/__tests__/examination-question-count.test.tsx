@@ -6,8 +6,12 @@ import type {
 } from "@repo-edu/application-contract"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { Window } from "happy-dom"
-import React from "react"
+import React, { type ReactNode } from "react"
 import type { SubmissionExaminationSource } from "../components/tabs/examination/source.js"
+import {
+  type ExaminationEngineViewModel,
+  useExaminationEngine,
+} from "../components/tabs/examination/use-examination-engine.js"
 import {
   deferred,
   makeSettings,
@@ -15,6 +19,16 @@ import {
   startController,
   workflowClient,
 } from "./session-controller.test-support.js"
+
+function EngineView({
+  source,
+  children,
+}: {
+  source: SubmissionExaminationSource
+  children: (view: ExaminationEngineViewModel) => ReactNode
+}) {
+  return children(useExaminationEngine({ source, emptyBlocker: null }))
+}
 
 it("changes question counts freely and looks up only on Load questions", {
   timeout: 10000,
@@ -52,9 +66,6 @@ it("changes question counts freely and looks up only on Load questions", {
   const { createRoot } = await import("react-dom/client")
   const { ExaminationControlsCard } = await import(
     "../components/tabs/examination/ExaminationControlsCard.js"
-  )
-  const { useExaminationEngine } = await import(
-    "../components/tabs/examination/use-examination-engine.js"
   )
   const { SessionControllerProvider } = await import(
     "../session/session-controller-context.js"
@@ -147,34 +158,32 @@ it("changes question counts freely and looks up only on Load questions", {
       else Reflect.deleteProperty(globalThis, key)
     }
   })
-  function Controls() {
-    const view = useExaminationEngine({ source, emptyBlocker: null })
-    return (
-      <ExaminationControlsCard
-        questionCount={view.questionCount}
-        showAnswers={view.showAnswers}
-        blocker={view.blocker}
-        isGenerating={view.isGenerating}
-        hasLoadedQuestions={view.hasLoadedQuestions}
-        onLoadQuestions={view.commands.loadQuestions}
-        canRegenerate={false}
-        canToggleAnswers={false}
-        canCopyMarkdown={false}
-        onQuestionCountChange={view.commands.changeQuestionCount}
-        onShowAnswersChange={view.commands.changeShowAnswers}
-        onGenerate={view.commands.generate}
-        onStopGeneration={view.commands.stopGeneration}
-        onRegenerate={view.commands.regenerate}
-        onCopyMarkdown={view.commands.copyMarkdown}
-      />
-    )
-  }
   await React.act(async () => {
     root.render(
       <SessionControllerProvider controller={controller}>
         <WorkflowClientProvider value={controller.operations}>
           <RendererHostProvider value={{} as RendererHost}>
-            <Controls />
+            <EngineView source={source}>
+              {(view) => (
+                <ExaminationControlsCard
+                  questionCount={view.questionCount}
+                  showAnswers={view.showAnswers}
+                  blocker={view.blocker}
+                  isGenerating={view.isGenerating}
+                  hasLoadedQuestions={view.hasLoadedQuestions}
+                  onLoadQuestions={view.commands.loadQuestions}
+                  canRegenerate={false}
+                  canToggleAnswers={false}
+                  canCopyMarkdown={false}
+                  onQuestionCountChange={view.commands.changeQuestionCount}
+                  onShowAnswersChange={view.commands.changeShowAnswers}
+                  onGenerate={view.commands.generate}
+                  onStopGeneration={view.commands.stopGeneration}
+                  onRegenerate={view.commands.regenerate}
+                  onCopyMarkdown={view.commands.copyMarkdown}
+                />
+              )}
+            </EngineView>
           </RendererHostProvider>
         </WorkflowClientProvider>
       </SessionControllerProvider>,
