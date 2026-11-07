@@ -14,7 +14,8 @@
   "lockFileMaintenance": {
     "enabled": true,
     "updateNotScheduled": false,
-    "schedule": ["* 0-4 2 */2 *"]
+    "schedule": ["* 0-4 2 */2 *"],
+    "minimumReleaseAge": null
   },
   "vulnerabilityAlerts": {
     "labels": ["security"],

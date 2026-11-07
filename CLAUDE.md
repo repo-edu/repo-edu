@@ -235,8 +235,12 @@ resolved version lagging its latest published release, not how it got there.
 Renovate is the standing mechanism (`renovate.json`): it groups and schedules
 updates (AI SDKs on a tighter cadence than the long tail), holds each new
 release for a maturity window before adopting it so others hit the early bugs
-first, raises security fixes immediately, and runs lock-file maintenance to
-re-resolve transitives forward within range. Green updates fast-forward onto
+first, raises security fixes immediately and runs lock-file maintenance to
+re-resolve transitives forward within range. A lock-file refresh gives Renovate
+no release date to check, so Renovate's maturity window would keep it pending
+forever. That window is therefore off for lock-file maintenance, and pnpm's own
+`minimumReleaseAge` default holds new transitive releases back instead. Green
+updates fast-forward onto
 `main` once CI passes on a `renovate/**` branch; a PR surfaces only when CI
 fails. So an upstream release produces a gated branch, never a direct build
 failure on `main`.
