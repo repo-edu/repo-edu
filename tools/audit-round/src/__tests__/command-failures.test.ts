@@ -22,7 +22,7 @@ test("a single explicit auditor claims one round", async (t) => {
   assert.equal(names.length, 2)
   assert.ok(
     names.every((name) =>
-      name.startsWith("example-impl-03..03-01-1-round.obh."),
+      name.startsWith("example-impl-audit-03..03-01-1-round.obh."),
     ),
   )
   assert.doesNotMatch(f.visible.join("\n"), /Chain/)
@@ -59,7 +59,7 @@ for (const auditor of ["codex", "claude"] as const) {
         transcript,
         join(
           f.activeRoot,
-          `example-plan-01-1-round.${auditor === "codex" ? "obh" : "abh"}.md`,
+          `example-plan-audit-01-1-round.${auditor === "codex" ? "obh" : "abh"}.md`,
         ),
       )
       assert.match(log, /Plan audit of .*example\.md/)
@@ -155,16 +155,16 @@ for (const working of ["repo-edu", "plan"] as const) {
     assert.equal(await name(["example"]), 0, f.errors.join("\n"))
     assert.equal(
       JSON.parse(f.visible[0]).claim,
-      join(f.activeRoot, "example-plan-01-0-claim.md"),
+      join(f.activeRoot, "example-plan-audit-01-0-claim.md"),
     )
     const head = await commitFixture(
       f.repoRoot,
       "example/impl-1 ath feat(x): step",
     )
     for (const [args, target] of [
-      [["example", "1"], "example-impl-01..01"],
-      [["example", "1-2"], "example-impl-01..02"],
-      [["example", "9-12"], "example-impl-09..12"],
+      [["example", "1"], "example-impl-audit-01..01"],
+      [["example", "1-2"], "example-impl-audit-01..02"],
+      [["example", "9-12"], "example-impl-audit-09..12"],
       [["HEAD"], `commit-${head.slice(0, 6)}`],
     ] as const) {
       f.visible.length = 0

@@ -19,7 +19,7 @@ in Codex.
 Example:
 
 ```text
-/vet tooling-guide-usability-impl-03..05-01-2-audit.oth.md
+/vet tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
 The command has no flags. The report must have been written by the other assistant. The runner

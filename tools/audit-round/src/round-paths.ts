@@ -6,9 +6,28 @@ import {
   type CommitGroup,
   type CommitTarget,
   planStem,
+  type RoundKind,
 } from "./target.js"
 
 type NamingTarget = ExecutionContext & AuditTarget
+
+/**
+ * A plan round's target names its kind with the commit role its records use.
+ * Step logs keep the step role `impl-<n>`, so a sorted file list holds
+ * implementation steps, implementation audits and plan audits in three groups.
+ */
+const planTargetRole = {
+  planning: "plan-audit",
+  implementation: "impl-audit",
+} as const satisfies Record<RoundKind, string>
+
+/** The round kind a plan's stored target names, or null for any other target. */
+export function planTargetKind(stem: string, target: string): RoundKind | null {
+  if (target === `${stem}-${planTargetRole.planning}`) return "planning"
+  if (target.startsWith(`${stem}-${planTargetRole.implementation}-`))
+    return "implementation"
+  return null
+}
 
 const phaseOrder = {
   round: 1,
@@ -115,13 +134,17 @@ async function targetDescription(target: NamingTarget): Promise<{
   }
   const stem = planStem(target.plan)
   const title = roundSubject(target, target.plan)
-  if (target.roundKind === "planning") return { label: `${stem}-plan`, title }
+  if (target.roundKind === "planning")
+    return { label: `${stem}-${planTargetRole.planning}`, title }
   // Padded `first..last` scopes sort the same in `ls` and Finder and keep the
   // round and phase numbers aligned, since a single step is a one-step range.
   const [first, last = first] = target.scope
     .split("-")
     .map((step) => step.padStart(2, "0"))
-  return { label: `${stem}-impl-${first}..${last}`, title }
+  return {
+    label: `${stem}-${planTargetRole.implementation}-${first}..${last}`,
+    title,
+  }
 }
 
 /**
@@ -252,14 +275,13 @@ export async function newestWatch(
   activeRoot: string,
   stem: string,
 ): Promise<string | undefined> {
-  const prefix = `${stem}-`
   return newestDocument(
     (await phaseDocuments(activeRoot, "watch"))
-      .filter((document) => {
-        if (!document.nameStart.startsWith(prefix)) return false
-        const target = document.nameStart.slice(prefix.length)
-        return target.startsWith("plan-") || target.startsWith("impl-")
-      })
+      .filter(
+        (document) =>
+          planTargetKind(stem, document.nameStart.replace(/-\d{2,}$/, "")) !==
+          null,
+      )
       .map((document) => document.path),
   )
 }

@@ -683,9 +683,12 @@ name.
 | 8 | glance | Reserved, no report |
 | 9 | watch | Watch |
 
-Skipped phases leave gaps. A plan audit target ends in `-plan`; an
-implementation target ends in `-impl-<a>..<b>`, with step and round numbers
-padded to at least two digits. A single step repeats its endpoint. A commit
+Skipped phases leave gaps. A plan audit target ends in `-plan-audit`; an
+implementation audit target ends in `-impl-audit-<a>..<b>`, with step and round
+numbers padded to at least two digits. A single step repeats its endpoint. Both
+targets use the commit role of their records, as step logs use `impl-<n>`, so a
+sorted file list keeps a plan's step logs, implementation audits and plan
+audits in three separate groups. A commit
 target opens with the fixed word `commit-`, so every commit audit sits together
 in a sorted file list as plan targets do under their stem. Each group's original
 ordered exact set owns its label: one commit uses its six-character ID and a
@@ -801,7 +804,7 @@ has an earlier implementation-audit record. Once a step has landed, no
 unscoped invocation selects a planning audit. The scope word `plan`, as in
 `pnpm audit-round <stem> plan`,
 selects the planning audit whatever has landed, without reading the step list.
-It continues the plan's `-plan` round series and data file, so the round lands
+It continues the plan's `-plan-audit` round series and data file, so the round lands
 the ordinary `plan-audit` record. The plan doctrine's
 [Ready marker](../../../plan/CLAUDE.md#ready-marker) owns when the user
 reaches for it. With no target, the runner selects the active artifact whose
@@ -912,8 +915,8 @@ pnpm audit-round round HEAD plan@HEAD
 pnpm audit-round round --auditor codex
 pnpm audit-round models
 pnpm audit-round models --all
-pnpm audit-round disprove example example-plan 2 1 "The claim did not hold."
-pnpm audit-round disprove example example-plan --by "gpt-5.6-sol xhigh" "The finding predates the data."
+pnpm audit-round disprove example example-plan-audit 2 1 "The claim did not hold."
+pnpm audit-round disprove example example-plan-audit --by "gpt-5.6-sol xhigh" "The finding predates the data."
 pnpm audit-round plan
 pnpm audit-round settle example
 pnpm audit-round settle
@@ -928,10 +931,10 @@ pnpm audit-round example
 pnpm audit-round example -v
 pnpm audit-round name example 3 --auditor oth
 pnpm audit-round name --auditor oth
-pnpm audit-round paths vet example-impl-03..03-01-2-audit.oth.md --writer abx
-pnpm audit-round paths rebut example-impl-03..03-01-2-audit.oth.md --writer otm
-pnpm audit-round paths fix example-impl-03..03-01-2-audit.oth.md
-pnpm audit-round delete-reports example-impl-03..03-01
+pnpm audit-round paths vet example-impl-audit-03..03-01-2-audit.oth.md --writer abx
+pnpm audit-round paths rebut example-impl-audit-03..03-01-2-audit.oth.md --writer otm
+pnpm audit-round paths fix example-impl-audit-03..03-01-2-audit.oth.md
+pnpm audit-round delete-reports example-impl-audit-03..03-01
 pnpm audit-round mark reopen
 pnpm audit-round episode example --lines 1-200
 pnpm audit-round episode HEAD-2 --lines 201-400
@@ -1078,7 +1081,7 @@ runner documents remain.
 
 `mark reopen [stem]` claims the next plan-round number of an active plan, or of
 the plan `plan` prints when none is named, writes the empty
-`<stem>-plan-<round>-0-reopen.md` in the active folder and prints its path. The
+`<stem>-plan-audit-<round>-0-reopen.md` in the active folder and prints its path. The
 marker takes a number so a file list shows where the reopen fell among the
 rounds. The plan repo's
 [Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle) owns when each marker is

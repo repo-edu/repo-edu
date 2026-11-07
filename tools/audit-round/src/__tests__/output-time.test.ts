@@ -94,7 +94,7 @@ for (const { zone, instant, timestamp } of [
     t.after(() => output.close())
 
     const logName = basename(output.paths.log)
-    assert.equal(logName, "example-impl-01..01-01-1-round.obh.log")
+    assert.equal(logName, "example-impl-audit-01..01-01-1-round.obh.log")
     assert.doesNotMatch(logName, /[:<>"|?*]/)
     assert.equal(
       output.paths.markdown,
@@ -321,7 +321,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
       ...setup,
       ...audit,
       phase: "audit",
-      arguments: ["example-impl-01..01-01", "example.md"],
+      arguments: ["example-impl-audit-01..01-01", "example.md"],
       sessionId: null,
     },
     "Run the audit",
@@ -665,7 +665,7 @@ for (const assistant of ["claude", "codex"] as const) {
       await readFile(run.data.path, "utf8"),
     ).rounds[0]
     assert.ok(data)
-    assert.equal(data.target, "example-impl-01..01")
+    assert.equal(data.target, "example-impl-audit-01..01")
     assert.equal(data.round, 1)
     assert.equal(data.started, "1970-01-01T00:00:10.000Z")
     assert.equal(data.settings.fix.assistant, assistant)
@@ -803,7 +803,10 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
         ...(phase === "audit"
           ? {
               phase,
-              arguments: ["example-impl-01..01-01", "example.md"] as const,
+              arguments: [
+                "example-impl-audit-01..01-01",
+                "example.md",
+              ] as const,
             }
           : phase === "rebut"
             ? {

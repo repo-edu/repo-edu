@@ -18,7 +18,7 @@ in Codex.
 Example:
 
 ```text
-/fix tooling-guide-usability-impl-03..05-01-2-audit.oth.md
+/fix tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
 The command has no flags. An omitted input selects the newest eligible report and that round's

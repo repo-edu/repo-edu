@@ -136,7 +136,10 @@ test("commit stamps retain each phase's reported selection across later phases",
         ...(phase === "audit"
           ? {
               phase,
-              arguments: ["example-impl-01..01-01", "example.md"] as const,
+              arguments: [
+                "example-impl-audit-01..01-01",
+                "example.md",
+              ] as const,
             }
           : phase === "rebut"
             ? {
@@ -202,7 +205,7 @@ test("reported model feedback prints a change notice after the phase line", asyn
       assistant: "codex",
       model: pinned("codex"),
       ...testContext(f.root),
-      arguments: ["example-impl-01..01-01", "example.md"],
+      arguments: ["example-impl-audit-01..01-01", "example.md"],
       sessionId: null,
     },
     "prompt",
@@ -255,7 +258,7 @@ test("output records complete invocations incrementally and refreshes only while
         assistant: "codex",
         model: pinned("codex"),
         ...testContext(f.root),
-        arguments: ["example-impl-01..01-01", "example.md"],
+        arguments: ["example-impl-audit-01..01-01", "example.md"],
         sessionId: null,
       },
       "Full prompt\nMore prompt",
@@ -382,7 +385,7 @@ test("written status stamps chain into the running total", async (t) => {
       assistant: "codex",
       model: pinned("codex"),
       ...testContext(f.root),
-      arguments: ["example-impl-01..01-01", "example.md"],
+      arguments: ["example-impl-audit-01..01-01", "example.md"],
       sessionId: null,
     },
     "Prompt",
@@ -446,7 +449,7 @@ for (const assistant of ["claude", "codex"] as const) {
           assistant,
           model: pinned(assistant),
           ...testContext(f.root),
-          arguments: ["example-impl-01..01-01", "example.md"],
+          arguments: ["example-impl-audit-01..01-01", "example.md"],
           sessionId: null,
         },
         "prompt",

@@ -43,7 +43,7 @@ function phase(
 function round(
   started: string,
   phases: RoundData["phases"],
-  target = "fixture-impl-01..01",
+  target = "fixture-impl-audit-01..01",
   number = 1,
 ): ImplementationRoundData {
   return {
@@ -124,7 +124,7 @@ test("the newest report on a launched selection is the reference, whatever phase
     round(
       "2026-11-01T10:00:00.000Z",
       [phase("audit", "claude", alias, oldRelease)],
-      "another-plan-impl-01..01",
+      "another-plan-impl-audit-01..01",
       2,
     ),
   ])

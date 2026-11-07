@@ -101,7 +101,7 @@ test("different auditors cannot open the same candidate and the next run advance
   }
   const codex = await roundRun({ ...setup, auditor: "codex" }, 0, releases)
   const claude = await roundRun({ ...setup, auditor: "claude" }, 0, releases)
-  assert.equal(codex.nameStart, "example-impl-02..04-01")
+  assert.equal(codex.nameStart, "example-impl-audit-02..04-01")
   assert.equal(claude.nameStart, codex.nameStart)
   new RoundOutput(codex, options).close()
   assert.throws(() => new RoundOutput(claude, options), { code: "EEXIST" })
@@ -109,12 +109,15 @@ test("different auditors cannot open the same candidate and the next run advance
   await assert.rejects(readFile(claude.paths.log), { code: "ENOENT" })
   await assert.rejects(readFile(claude.paths.markdown), { code: "ENOENT" })
   const next = await roundRun({ ...setup, auditor: "claude" }, 0, releases)
-  assert.equal(next.nameStart, "example-impl-02..04-02")
+  assert.equal(next.nameStart, "example-impl-audit-02..04-02")
   assert.equal(
     basename(next.paths.markdown),
-    "example-impl-02..04-02-1-round.abh.md",
+    "example-impl-audit-02..04-02-1-round.abh.md",
   )
-  assert.equal(basename(next.watch), "example-impl-02..04-02-9-watch.obh.md")
+  assert.equal(
+    basename(next.watch),
+    "example-impl-audit-02..04-02-9-watch.obh.md",
+  )
   new RoundOutput(next, options).close()
 })
 
@@ -135,29 +138,35 @@ test("only retained numbered files in the active folder reserve numbers across a
       "7-ruling.obh.md",
       "9-watch.abh.md",
     ]) {
-      const path = join(root, `example-impl-01..01-09-${suffix}`)
+      const path = join(root, `example-impl-audit-01..01-09-${suffix}`)
       await writeFile(path, "")
       const run = await roundRun(setup, 0, releases)
       assert.equal(
         run.nameStart,
         root === setup.activeRoot && suffix !== "1-round.abh.json"
-          ? "example-impl-01..01-10"
-          : "example-impl-01..01-01",
+          ? "example-impl-audit-01..01-10"
+          : "example-impl-audit-01..01-01",
         path,
       )
       await rm(path)
     }
   }
-  await writeFile(join(f.root, "ROUND-example-impl-01..01-codex-old.md"), "")
-  await writeFile(join(f.root, "example-impl-01..01-99-otm-unknown.md"), "")
   await writeFile(
-    join(f.root, "example-impl-01..01-other-99-2-audit.otm.md"),
+    join(f.root, "ROUND-example-impl-audit-01..01-codex-old.md"),
     "",
   )
-  await mkdir(join(f.root, "example-impl-01..01-99-1-round.otm.md"))
+  await writeFile(
+    join(f.root, "example-impl-audit-01..01-99-otm-unknown.md"),
+    "",
+  )
+  await writeFile(
+    join(f.root, "example-impl-audit-01..01-other-99-2-audit.otm.md"),
+    "",
+  )
+  await mkdir(join(f.root, "example-impl-audit-01..01-99-1-round.otm.md"))
   assert.equal(
     (await roundRun(setup, 0, releases)).nameStart,
-    "example-impl-01..01-01",
+    "example-impl-audit-01..01-01",
   )
 })
 
@@ -172,12 +181,12 @@ test("an active-folder report survives partial cleanup and full cleanup restarts
     await rm(path as string)
   assert.equal(
     (await roundRun(setup, 0, releases)).nameStart,
-    "example-impl-01..01-02",
+    "example-impl-audit-01..01-02",
   )
   await rm(report)
   assert.equal(
     (await roundRun(setup, 0, releases)).nameStart,
-    "example-impl-01..01-01",
+    "example-impl-audit-01..01-01",
   )
 })
 
@@ -190,7 +199,7 @@ test("a failed tagged-file open retains the number's claim", async (t) => {
   assert.equal(await readFile(run.paths.claim as string, "utf8"), "")
   assert.equal(
     (await roundRun(setup, 0, releases)).nameStart,
-    "example-impl-01..01-02",
+    "example-impl-audit-01..01-02",
   )
 })
 
@@ -267,9 +276,9 @@ test("commit filenames resolve each group's references to six characters and joi
 test("single steps and ranges keep separate padded numbering", async (t) => {
   const f = await fixture(t)
   for (const [scope, target] of [
-    ["1", "impl-01..01"],
-    ["3", "impl-03..03"],
-    ["2-4", "impl-02..04"],
+    ["1", "impl-audit-01..01"],
+    ["3", "impl-audit-03..03"],
+    ["2-4", "impl-audit-02..04"],
   ] as const) {
     const run = await roundRun(
       {
@@ -312,21 +321,24 @@ test("an automatic judge needs no capability tag because it writes no file", asy
 test("planning rounds number their bare target in the active folder and write there", async (t) => {
   const f = await fixture(t)
   const context = testSetup(f.root, "planning")
-  await writeFile(join(context.activeRoot, "example-plan-05-0-claim.md"), "")
+  await writeFile(
+    join(context.activeRoot, "example-plan-audit-05-0-claim.md"),
+    "",
+  )
   const run = await roundRun(
     { ...context, plan: "example-widen.md" },
     0,
     releases,
   )
   assert.ok(run.data)
-  assert.equal(run.nameStart, "example-plan-06")
+  assert.equal(run.nameStart, "example-plan-audit-06")
   assert.equal(
     run.paths.claim,
-    join(context.activeRoot, "example-plan-06-0-claim.md"),
+    join(context.activeRoot, "example-plan-audit-06-0-claim.md"),
   )
   assert.equal(
     run.paths.markdown,
-    join(context.activeRoot, "example-plan-06-1-round.obh.md"),
+    join(context.activeRoot, "example-plan-audit-06-1-round.obh.md"),
   )
   assert.equal(
     run.data.path,
@@ -334,13 +346,13 @@ test("planning rounds number their bare target in the active folder and write th
   )
   assert.equal(
     run.watch,
-    join(context.activeRoot, "example-plan-06-9-watch.obh.md"),
+    join(context.activeRoot, "example-plan-audit-06-9-watch.obh.md"),
   )
   const archived = await roundRun(
     { ...context, plan: "archive/topic/plan.md" },
     0,
     releases,
   )
-  assert.equal(archived.nameStart, "topic-plan-01")
+  assert.equal(archived.nameStart, "topic-plan-audit-01")
   assert.equal(archived.data, undefined)
 })

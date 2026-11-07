@@ -49,9 +49,9 @@ import { releases, testContext, testSetup } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/example-impl-01..01-01-1-round.oth.md`
-const ruling = `${repoRoot}/example-impl-01..01-01-7-ruling.abx.md`
-const watch = `${repoRoot}/example-impl-01..01-01-9-watch.abx.md`
+const transcript = `${repoRoot}/example-impl-audit-01..01-01-1-round.oth.md`
+const ruling = `${repoRoot}/example-impl-audit-01..01-01-7-ruling.abx.md`
+const watch = `${repoRoot}/example-impl-audit-01..01-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 const watchEvidenceText = "joined watch evidence"
 const judgeAnswer = {
@@ -567,7 +567,7 @@ test("a due watch receives the current round's dropped findings from joined evid
             roundData: {
               implementation: [
                 {
-                  target: "example-impl-01..01",
+                  target: "example-impl-audit-01..01",
                   round: 1,
                   findings: settled.account.findings,
                 },
@@ -610,7 +610,7 @@ for (const accepted of [false, true]) {
         "finished",
       )
       assert.deepEqual(round.deletedReports, [
-        { cwd: files.activeRoot, nameStart: "example-impl-01..01-01" },
+        { cwd: files.activeRoot, nameStart: "example-impl-audit-01..01-01" },
       ])
     })
   }

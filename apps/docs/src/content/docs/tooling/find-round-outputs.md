@@ -14,8 +14,10 @@ The common form is:
 <target>-<round>-<order>-<kind>.<tag>.<ext>
 ```
 
-The target ends in `-plan` for a planning round and `-impl-<a>..<b>` for an implementation range.
-A one-step range repeats its endpoint. Commit targets begin with `commit-`. The round number is not
+The target ends in `-plan-audit` for a planning round and `-impl-audit-<a>..<b>` for an
+implementation range. A one-step range repeats its endpoint. Implementation worker logs use
+`-impl-<step>`, so a sorted file list shows a plan's worker logs, implementation audits and plan
+audits as three separate groups. Commit targets begin with `commit-`. The round number is not
 a commit number. The three-letter tag identifies the assistant, model tier and effort that wrote
 the file.
 

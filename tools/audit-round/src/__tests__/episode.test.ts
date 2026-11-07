@@ -360,7 +360,7 @@ test("the watch view keeps dropped findings from finished rounds and all unfinis
   assert.ok(implementationSource)
   assert.deepEqual(evidence.roundData.planning, [
     {
-      target: "example-plan",
+      target: "example-plan-audit",
       round: 3,
       commits: [{ repository: "repo-edu", sha: "aaaaaa" }],
       status: "finished",
@@ -373,7 +373,7 @@ test("the watch view keeps dropped findings from finished rounds and all unfinis
   ])
   assert.deepEqual(evidence.roundData.implementation, [
     {
-      target: "example-impl-01..01",
+      target: "example-impl-audit-01..01",
       round: 4,
       commits: [{ repository: "repo-edu", sha: "bbbbbb" }],
       status: "failed",

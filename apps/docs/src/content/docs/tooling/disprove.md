@@ -17,8 +17,8 @@ pnpm audit-round disprove <stem> <target> --by "<model> <effort>" <reason>
 Examples:
 
 ```text
-pnpm audit-round disprove example example-plan 2 1 "The cited behaviour was absent."
-pnpm audit-round disprove example example-plan --by "gpt-5.6-sol high" "The report predates the data."
+pnpm audit-round disprove example example-plan-audit 2 1 "The cited behaviour was absent."
+pnpm audit-round disprove example example-plan-audit --by "gpt-5.6-sol high" "The report predates the data."
 ```
 
 Use the target, round and finding numbers stored in the plan's round data. Use `--by` only when the

@@ -232,7 +232,7 @@ test("auditor tables sort by yield per round and the reading keeps only the verd
     for (let index = 1; index <= 5; index += 1)
       writeRoundData(path, {
         ...round(
-          `${model}-plan`,
+          `${model}-plan-audit`,
           index,
           `2026-10-${String(index).padStart(2, "0")}T${hour}:00:00.000Z`,
           { assistant, ...selection(model), chosenBy: "settings" },
@@ -360,7 +360,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
     for (let index = 1; index <= 5; index += 1)
       writeRoundData(path, {
         ...round(
-          `${model}-plan`,
+          `${model}-plan-audit`,
           index,
           `2026-10-${String(index).padStart(2, "0")}T${assistant === "claude" ? "10" : "11"}:00:00.000Z`,
           { assistant, ...selection(model), chosenBy: "settings" },
@@ -427,7 +427,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   writeDisprovedFinding(path, {
     date: "2026-11-01",
     reason: "The retained claim did not hold.",
-    target: "audit-strong-plan",
+    target: "audit-strong-plan-audit",
     round: 1,
     finding: 4,
   })
@@ -489,7 +489,7 @@ test("disproved rulings table each reason's first sentence and list the full rea
   ] as const)
     writeRoundData(path, {
       ...round(
-        `${model}-plan`,
+        `${model}-plan-audit`,
         1,
         `2026-10-01T${assistant === "claude" ? "10" : "11"}:00:00.000Z`,
         { assistant, ...selection(model), chosenBy: "settings" },
@@ -513,14 +513,14 @@ test("disproved rulings table each reason's first sentence and list the full rea
     date: "2026-11-01",
     reason:
       "The claim misread the guard. The guard runs before the write, so no race exists.",
-    target: "audit-alpha-plan",
+    target: "audit-alpha-plan-audit",
     round: 1,
     finding: 1,
   })
   writeDisprovedFinding(path, {
     date: "2026-11-02",
     reason: "The vet accepted a stale reading",
-    target: "audit-alpha-plan",
+    target: "audit-alpha-plan-audit",
     round: 1,
     finding: 2,
   })
@@ -532,7 +532,7 @@ test("disproved rulings table each reason's first sentence and list the full rea
   writeDisprovedFinding(path, {
     date: "2026-11-04",
     reason: "Version 1.2 | the guard? It already handles this.",
-    target: "audit-beta-plan",
+    target: "audit-beta-plan-audit",
     round: 1,
     finding: 2,
   })
@@ -549,8 +549,8 @@ test("disproved rulings table each reason's first sentence and list the full rea
       "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- |",
       "| 1 | 2026-11-03 | evidence; no retained round data holds this finding | — | — | — | It predates the data! |",
-      "| 2 | 2026-11-02 | evidence; audit-alpha-plan round 1 | #2 audit-alpha claim 2 | B | vet-model low; accept | The vet accepted a stale reading |",
-      "| 3 | 2026-11-01 | evidence; audit-alpha-plan round 1 | #1 audit-alpha claim 1 | B | vet-model low; accept | The claim misread the guard. |",
+      "| 2 | 2026-11-02 | evidence; audit-alpha-plan-audit round 1 | #2 audit-alpha claim 2 | B | vet-model low; accept | The vet accepted a stale reading |",
+      "| 3 | 2026-11-01 | evidence; audit-alpha-plan-audit round 1 | #1 audit-alpha claim 1 | B | vet-model low; accept | The claim misread the guard. |",
       "",
       "1. It predates the data! No retained round holds it.",
       "2. The vet accepted a stale reading",
@@ -560,7 +560,7 @@ test("disproved rulings table each reason's first sentence and list the full rea
       "",
       "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- |",
-      "| 4 | 2026-11-04 | evidence; audit-beta-plan round 1 | #2 audit-beta claim 2 | B | vet-model low; accept | Version 1.2 \\| the guard? |",
+      "| 4 | 2026-11-04 | evidence; audit-beta-plan-audit round 1 | #2 audit-beta claim 2 | B | vet-model low; accept | Version 1.2 \\| the guard? |",
       "",
       "4. Version 1.2 | the guard? It already handles this.",
       "",
@@ -585,7 +585,7 @@ test("a closed plan whose archive holds no plan file names the missing plan", as
   await mkdir(archive, { recursive: true })
   writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
     ...round(
-      `${stem}-impl-01..01`,
+      `${stem}-impl-audit-01..01`,
       1,
       "2026-10-01T10:00:00.000Z",
       {
@@ -634,7 +634,7 @@ test("an archived plan written before the step grammar is unreadable, not missin
   )
   writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
     ...round(
-      `${stem}-impl-01..01`,
+      `${stem}-impl-audit-01..01`,
       1,
       "2026-10-01T10:00:00.000Z",
       {
@@ -710,7 +710,7 @@ test("coder yield accepts agreeing unassigned records without step time", async 
   const archive = await archivePlan(f.planRoot, stem, ["repo-edu"])
   writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
     ...round(
-      `${stem}-impl-01..01`,
+      `${stem}-impl-audit-01..01`,
       1,
       "2026-10-01T10:00:00.000Z",
       {
@@ -779,7 +779,7 @@ test("coder admission matches the ready assignment on assistant and effort, not 
     const archive = await archivePlan(f.planRoot, stem, ["repo-edu"])
     writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
       ...round(
-        `${stem}-impl-01..01`,
+        `${stem}-impl-audit-01..01`,
         1,
         `${at}T10:00:00.000Z`,
         {
@@ -882,7 +882,7 @@ test("coder evidence removes disproved findings and falls back to one commit spa
   const path = join(archive, `${stem}-impl-rounds.json`)
   writeRoundData(path, {
     ...round(
-      `${stem}-impl-01..02`,
+      `${stem}-impl-audit-01..02`,
       1,
       "2026-10-01T11:00:00.000Z",
       {
@@ -904,7 +904,7 @@ test("coder evidence removes disproved findings and falls back to one commit spa
   writeDisprovedFinding(path, {
     date: "2026-11-01",
     reason: "The implementation claim was wrong.",
-    target: `${stem}-impl-01..02`,
+    target: `${stem}-impl-audit-01..02`,
     round: 1,
     finding: 1,
   })
@@ -941,7 +941,7 @@ test("an active plan remains excluded without a step count", async (t) => {
   )
   writeRoundData(join(f.activeRoot, "active-impl-rounds.json"), {
     ...round(
-      "active-impl-01..01",
+      "active-impl-audit-01..01",
       1,
       "2026-10-01T10:00:00.000Z",
       {
@@ -1007,7 +1007,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   const mixedArchive = await archivePlan(planRoot, "mixed", ["repo-edu"])
   writeRoundData(join(mixedArchive, "mixed-impl-rounds.json"), {
     ...round(
-      "mixed-impl-01..01",
+      "mixed-impl-audit-01..01",
       1,
       "2026-10-01T10:00:00.000Z",
       {
@@ -1028,7 +1028,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   })
   writeRoundData(join(activeRoot, "mixed-plan-rounds.json"), {
     ...round(
-      "mixed-plan",
+      "mixed-plan-audit",
       1,
       "2026-10-02T10:00:00.000Z",
       {
@@ -1076,7 +1076,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   ])
   writeRoundData(join(noAssignmentArchive, "no-assignment-impl-rounds.json"), {
     ...round(
-      "no-assignment-impl-01..01",
+      "no-assignment-impl-audit-01..01",
       1,
       "2026-10-04T10:00:00.000Z",
       {
@@ -1121,7 +1121,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   ])
   writeRoundData(join(effortMixedArchive, "effort-mixed-impl-rounds.json"), {
     ...round(
-      "effort-mixed-impl-01..01",
+      "effort-mixed-impl-audit-01..01",
       1,
       "2026-10-05T10:00:00.000Z",
       {
@@ -1141,7 +1141,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   })
   writeRoundData(join(activeRoot, "mixed-plan-rounds.json"), {
     ...round(
-      "mixed-plan",
+      "mixed-plan-audit",
       2,
       "2026-10-03T10:00:00.000Z",
       {
@@ -1274,7 +1274,7 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
     )
     writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
       ...round(
-        `${stem}-impl-${scope.replace("-", "..")}`,
+        `${stem}-impl-audit-${scope.replace("-", "..")}`,
         1,
         `2026-10-${String(planIndex).padStart(2, "0")}T10:00:00.000Z`,
         {
@@ -1370,7 +1370,7 @@ test("coder admission needs every archived plan share and a current whole-plan a
     const archive = await archivePlan(planRoot, stem, hosts, splitPeer)
     writeRoundData(join(archive, `${stem}-impl-rounds.json`), {
       ...round(
-        `${stem}-impl-${scope.replace("-", "..")}`,
+        `${stem}-impl-audit-${scope.replace("-", "..")}`,
         1,
         started,
         {

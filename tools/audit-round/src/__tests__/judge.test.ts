@@ -64,7 +64,7 @@ function round(
   const tier = options.tier
   const outcome = options.outcome ?? "kept"
   return {
-    target: "example-plan",
+    target: "example-plan-audit",
     round: options.round ?? 1,
     tag: assistant === "claude" ? "abl" : "obl",
     started,
@@ -483,7 +483,7 @@ test("detailing offers ready beside stop until the plan's ready marker", () => {
   const { phase: _phase, settling: _settling, ...common } = current
   const implementation: RoundData = {
     ...common,
-    target: "example-impl-01..02",
+    target: "example-impl-audit-01..02",
     scope: "1-2",
     judgedRepos: ["repo-edu"],
   }

@@ -151,7 +151,7 @@ function commonRound(
 /** Complete saved rounds whose watch view exercises both finding filters. */
 export function watchRoundDataFixture(): PlanRoundData {
   const planning: PlanningRoundData = {
-    ...commonRound("example-plan", 3, "finished", "a".repeat(40), [
+    ...commonRound("example-plan-audit", 3, "finished", "a".repeat(40), [
       roundFinding(1, "Dropped finding", "dropped", {
         kind: "planning",
         field: "missing",
@@ -167,7 +167,7 @@ export function watchRoundDataFixture(): PlanRoundData {
     settling: "settle. No concrete shape question remains.",
   }
   const implementation: ImplementationRoundData = {
-    ...commonRound("example-impl-01..01", 4, "failed", "b".repeat(40), [
+    ...commonRound("example-impl-audit-01..01", 4, "failed", "b".repeat(40), [
       roundFinding(1, "Unsettled finding", null, {
         kind: "repo-edu",
         area: "tool-audit-round",

@@ -19,14 +19,14 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-impl-03..03-01-1-round.obh.log",
-    "example-impl-03..03-01-1-round.obh.md",
-    "example-impl-03..03-02-1-round.obh.log",
-    "example-impl-03..03-02-1-round.obh.md",
-    "example-impl-03..03-03-1-round.obh.log",
-    "example-impl-03..03-03-1-round.obh.md",
-    "example-impl-03..03-04-1-round.obh.log",
-    "example-impl-03..03-04-1-round.obh.md",
+    "example-impl-audit-03..03-01-1-round.obh.log",
+    "example-impl-audit-03..03-01-1-round.obh.md",
+    "example-impl-audit-03..03-02-1-round.obh.log",
+    "example-impl-audit-03..03-02-1-round.obh.md",
+    "example-impl-audit-03..03-03-1-round.obh.log",
+    "example-impl-audit-03..03-03-1-round.obh.md",
+    "example-impl-audit-03..03-04-1-round.obh.log",
+    "example-impl-audit-03..03-04-1-round.obh.md",
   ])
   const invocations = (await f.calls()).filter(
     (call) =>
@@ -111,12 +111,12 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-impl-01..01-01-1-round.obh.log",
-    "example-impl-01..01-01-1-round.obh.md",
-    "example-impl-01..01-02-1-round.obh.log",
-    "example-impl-01..01-02-1-round.obh.md",
-    "example-impl-01..01-03-1-round.abh.log",
-    "example-impl-01..01-03-1-round.abh.md",
+    "example-impl-audit-01..01-01-1-round.obh.log",
+    "example-impl-audit-01..01-01-1-round.obh.md",
+    "example-impl-audit-01..01-02-1-round.obh.log",
+    "example-impl-audit-01..01-02-1-round.obh.md",
+    "example-impl-audit-01..01-03-1-round.abh.log",
+    "example-impl-audit-01..01-03-1-round.abh.md",
   ])
   const visible = f.visible.join("\n")
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
@@ -126,7 +126,7 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
 test("a red watch stops the auditor sequence before the next queued round", async (t) => {
   // The fixture's record is red, and the watch leaves it red.
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
-  const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
+  const queue = join(f.activeRoot, "example-impl-audit-01..01-queue.md")
   assert.equal(
     await runCommand(
       ["round", "example.md", "1", "--auditor", "codex,claude"],

@@ -245,8 +245,8 @@ P2        round-file-naming/plan-audit ath clean:
 P3        planning-rounds/settle:
 P3        planning-rounds/ready:
 P3        planning-rounds/closed oth:
-P4        planning-rounds/disprove: planning-rounds-plan round 2 finding 1
-P4        planning-rounds/disprove: planning-rounds-plan by gpt-5.6-sol xhigh
+P4        planning-rounds/disprove: planning-rounds-plan-audit round 2 finding 1
+P4        planning-rounds/disprove: planning-rounds-plan-audit by gpt-5.6-sol xhigh
 I1        planning-rounds/impl-3 oth feat(audit-round):
 I2        round-file-naming/impl-audit-1-4 oth growth-none d1 docs(vet):
 I2        round-file-naming/impl-audit-2-3 oth pruning-low c3 docs(audit):

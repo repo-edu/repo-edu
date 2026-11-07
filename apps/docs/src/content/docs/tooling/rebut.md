@@ -19,7 +19,7 @@ in Codex.
 Example:
 
 ```text
-/rebut tooling-guide-usability-impl-03..05-01-2-audit.oth.md
+/rebut tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
 The command has no flags. Run it in the assistant that wrote the audit report, not the assistant

@@ -223,21 +223,22 @@ test("the hook accepts plan-repo lifecycle subjects without attribution", () => 
     /coder record/,
   )
   const disprove =
-    "example/disprove: example-plan round 2 finding 3\n\nThe evidence disproves this claim.\n"
+    "example/disprove: example-plan-audit round 2 finding 3\n\nThe evidence disproves this claim.\n"
   assert.equal(stamp(disprove, "plan"), disprove)
   const detailed =
-    "example/disprove: example-plan by gpt-5.6-sol xhigh\n\n- The first claim was wrong.\n- The second claim was wrong.\n"
+    "example/disprove: example-plan-audit by gpt-5.6-sol xhigh\n\n- The first claim was wrong.\n- The second claim was wrong.\n"
   assert.equal(stamp(detailed, "plan"), detailed)
   assert.throws(() => stamp(disprove, "repo-edu"), /belongs to the plan/)
   assert.throws(
-    () => stamp("example/disprove: example-plan round 2 finding 3\n", "plan"),
+    () =>
+      stamp("example/disprove: example-plan-audit round 2 finding 3\n", "plan"),
     /full reason/,
   )
   assert.throws(
     () =>
       stamp(
         message(
-          "example/disprove oth: example-plan round 2 finding 3",
+          "example/disprove oth: example-plan-audit round 2 finding 3",
           "The evidence disproves this claim.",
         ),
         "plan",

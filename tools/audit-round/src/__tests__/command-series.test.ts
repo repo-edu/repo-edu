@@ -150,7 +150,7 @@ for (const { auditors, seeded, edit, rounds } of [
 ]) {
   test(`the queue file seeded with ${JSON.stringify(seeded)} takes ${JSON.stringify(edit)} before the next round`, async (t) => {
     const f = await roundFixture(t, "codex", "repo-edu", true)
-    const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
+    const queue = join(f.activeRoot, "example-impl-audit-01..01-queue.md")
     const code = await runCommand(
       ["round", "example.md", "1", "--auditor", auditors, "--no-watch"],
       f.runtime,
@@ -185,7 +185,7 @@ for (const { auditors, seeded, edit, rounds } of [
 
 test("a malformed queue edit stops the sequence and names the entry", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
-  const queue = join(f.activeRoot, "example-impl-01..01-queue.md")
+  const queue = join(f.activeRoot, "example-impl-audit-01..01-queue.md")
   const code = await runCommand(
     ["round", "example.md", "1", "--auditor", "codex,claude", "--no-watch"],
     f.runtime,
@@ -812,7 +812,7 @@ test("an automatic series follows the judged switch and ends on stop without a q
     ],
   )
   await assert.rejects(
-    readFile(join(f.activeRoot, "example-impl-01..01-queue.md")),
+    readFile(join(f.activeRoot, "example-impl-audit-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -1149,7 +1149,7 @@ test("--first replaces the default auditor's first round and the series still fo
     /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\./,
   )
   await assert.rejects(
-    readFile(join(f.activeRoot, "example-impl-01..01-queue.md")),
+    readFile(join(f.activeRoot, "example-impl-audit-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -1848,8 +1848,8 @@ test("a scope list runs one automatic series per scope in list order", async (t)
   assert.deepEqual(
     stored.rounds.map((entry) => [entry.target, entry.round, entry.scope]),
     [
-      ["example-impl-01..01", 1, "1"],
-      ["example-impl-02..02", 1, "2"],
+      ["example-impl-audit-01..01", 1, "1"],
+      ["example-impl-audit-02..02", 1, "2"],
     ],
   )
 })

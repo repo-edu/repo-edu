@@ -15,7 +15,7 @@ import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 type Fixture = Awaited<ReturnType<typeof roundFixture>>
 
 function disproveRound(
-  target = "example-impl-01..01",
+  target = "example-impl-audit-01..01",
 ): ImplementationRoundData {
   return {
     target,
@@ -365,7 +365,8 @@ for (const working of ["repo-edu", "plan"] as const) {
         working,
       )
       const root = f.activeRoot
-      const target = working === "plan" ? "example-plan" : "example-impl-02..02"
+      const target =
+        working === "plan" ? "example-plan-audit" : "example-impl-audit-02..02"
       await writeFile(join(root, `${target}-09-2-audit.oth.md`), "Peer report")
       const before = await readdir(root)
       const settings = structuredClone(testSettings)
@@ -662,7 +663,7 @@ test("name preserves the hand-run implementation-step route from the plan checko
   )
   assert.equal(
     JSON.parse(f.visible[0]).arguments[0],
-    join(f.activeRoot, "example-impl-02..03-01-2-audit.oux.md"),
+    join(f.activeRoot, "example-impl-audit-02..03-01-2-audit.oux.md"),
   )
   assert.equal(
     await runCommand(
@@ -679,7 +680,7 @@ test("settle commits only the widening rename through hooks and then leaves its 
   const plan = await lifecyclePlan(f, "widening")
   const hook = await enableLifecycleHook(f)
   await writeFile(
-    join(f.activeRoot, "example-plan-03-2-audit.oth.md"),
+    join(f.activeRoot, "example-plan-audit-03-2-audit.oth.md"),
     "Peer report",
   )
   await writeFile(join(f.planRoot, "staged.txt"), "Staged work\n")
@@ -693,7 +694,7 @@ test("settle commits only the widening rename through hooks and then leaves its 
   )
 
   const settled = join(f.activeRoot, "example.md")
-  const marker = join(f.activeRoot, "example-plan-04-0-settle.md")
+  const marker = join(f.activeRoot, "example-plan-audit-04-0-settle.md")
   await assert.rejects(readFile(plan), { code: "ENOENT" })
   assert.equal(await readFile(settled, "utf8"), "# Example plan\n")
   assert.equal(await readFile(marker, "utf8"), "")
@@ -902,7 +903,7 @@ test("disprove appends an attached ruling to active data without committing", as
       [
         "disprove",
         "example",
-        "example-impl-01..01",
+        "example-impl-audit-01..01",
         "1",
         "1",
         "The retained evidence disproves the claim.",
@@ -920,7 +921,7 @@ test("disprove appends an attached ruling to active data without committing", as
     {
       date: "2026-11-05",
       reason: "The retained evidence disproves the claim.",
-      target: "example-impl-01..01",
+      target: "example-impl-audit-01..01",
       round: 1,
       finding: 1,
     },
@@ -949,7 +950,7 @@ test("disprove commits only an archived attached ruling with its reason body", a
       [
         "disprove",
         "example",
-        "example-impl-01..01",
+        "example-impl-audit-01..01",
         "1",
         "1",
         "The retained evidence disproves the claim.",
@@ -965,7 +966,7 @@ test("disprove commits only an archived attached ruling with its reason body", a
     (
       await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
     ).stdout.trim(),
-    "example/disprove: example-impl-01..01 round 1 finding 1\n\nThe retained evidence disproves the claim.",
+    "example/disprove: example-impl-audit-01..01 round 1 finding 1\n\nThe retained evidence disproves the claim.",
   )
   assert.equal(
     (
@@ -999,7 +1000,7 @@ test("disprove creates and commits detached archived data", async (t) => {
       [
         "disprove",
         "example",
-        "example-plan",
+        "example-plan-audit",
         "--by",
         "gpt-5.6-sol xhigh",
         "The finding predates retained round data.",
@@ -1025,7 +1026,7 @@ test("disprove creates and commits detached archived data", async (t) => {
     (
       await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
     ).stdout.trim(),
-    "example/disprove: example-plan by gpt-5.6-sol xhigh\n\nThe finding predates retained round data.",
+    "example/disprove: example-plan-audit by gpt-5.6-sol xhigh\n\nThe finding predates retained round data.",
   )
 })
 
@@ -1128,18 +1129,21 @@ for (const command of ["settle", "ready"] as const) {
 test("mark claims the plan's next number only for an empty reopen marker that later rounds skip", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   const root = f.activeRoot
-  await writeFile(join(root, "example-plan-03-2-audit.oth.md"), "Peer report")
+  await writeFile(
+    join(root, "example-plan-audit-03-2-audit.oth.md"),
+    "Peer report",
+  )
   const before = await readdir(root)
   assert.equal(
     await runCommand(["mark", "reopen", "example"], f.runtime, f.options),
     0,
     f.errors.join("\n"),
   )
-  const reopen = join(root, "example-plan-04-0-reopen.md")
+  const reopen = join(root, "example-plan-audit-04-0-reopen.md")
   assert.equal(f.visible[0], reopen)
   assert.deepEqual(
     (await readdir(root)).filter((name) => !before.includes(name)),
-    ["example-plan-04-0-reopen.md"],
+    ["example-plan-audit-04-0-reopen.md"],
   )
   assert.equal(await readFile(reopen, "utf8"), "")
   assert.equal(
@@ -1152,7 +1156,7 @@ test("mark claims the plan's next number only for an empty reopen marker that la
   )
   assert.equal(
     JSON.parse(f.visible[1]).claim,
-    join(root, "example-plan-05-0-claim.md"),
+    join(root, "example-plan-audit-05-0-claim.md"),
   )
   for (const args of [
     ["mark", "close", "example"],

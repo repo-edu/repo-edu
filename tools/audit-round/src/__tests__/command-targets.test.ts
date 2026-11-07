@@ -345,7 +345,7 @@ test("options without a target run the audit the newest plan's history calls for
   await commit(f.planRoot, "example/plan-audit ath clean: plan round", 3)
   assert.equal(await name(), 0, f.errors.join("\n"))
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
-    join(f.activeRoot, "example-impl-01..01-01-2-audit.oth.md"),
+    join(f.activeRoot, "example-impl-audit-01..01-01-2-audit.oth.md"),
     join(f.activeRoot, "example.md"),
     "1",
   ])

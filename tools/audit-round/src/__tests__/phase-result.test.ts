@@ -341,11 +341,11 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
     ...testContext(f.root),
 
     sessionId: null,
-    arguments: ["example-impl-02..03-01", plan, "2-3"],
+    arguments: ["example-impl-audit-02..03-01", plan, "2-3"],
   })
   assert.ok(
     prompt.includes(
-      `Phase arguments (JSON array): ${JSON.stringify(["example-impl-02..03-01", plan, "2-3"])}`,
+      `Phase arguments (JSON array): ${JSON.stringify(["example-impl-audit-02..03-01", plan, "2-3"])}`,
     ),
   )
   const sessionId = "session; $(touch forbidden) '"

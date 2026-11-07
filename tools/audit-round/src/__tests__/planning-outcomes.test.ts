@@ -43,7 +43,7 @@ for (const auditor of ["codex", "claude"] as const) {
           index === 0 ? auditor : auditor === "codex" ? "claude" : "codex"
         assert.equal(
           file,
-          `example-plan-0${index + 1}-1-round.${writer === "codex" ? "obh" : "abh"}.log`,
+          `example-plan-audit-0${index + 1}-1-round.${writer === "codex" ? "obh" : "abh"}.log`,
         )
         const log = await readFile(join(f.activeRoot, file), "utf8")
         assert.match(log, /Plan audit of .*example\.md/)

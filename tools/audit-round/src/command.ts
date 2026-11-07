@@ -101,6 +101,7 @@ import {
   manualPhasePaths,
   markerPath,
   phaseFilename,
+  planTargetKind,
   queueFile,
   roundIdentity,
   roundSubject,
@@ -366,15 +367,10 @@ async function disproveFile(
     directory = dirname(plans[0])
     archived = true
   }
-  const kind =
-    invocation.target === `${invocation.stem}-plan`
-      ? "planning"
-      : invocation.target.startsWith(`${invocation.stem}-impl-`)
-        ? "implementation"
-        : null
+  const kind = planTargetKind(invocation.stem, invocation.target)
   if (kind === null)
     throw new InvalidArgumentError(
-      `The target must be ${invocation.stem}-plan or a stored ${invocation.stem}-impl-<scope> target.`,
+      `The target must be ${invocation.stem}-plan-audit or a stored ${invocation.stem}-impl-audit-<scope> target.`,
     )
   return {
     path: join(directory, roundDataFilename(invocation.stem, kind)),
@@ -964,11 +960,11 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
     )
     .argument(
       "<target-round>",
-      "exact target and round, such as example-impl-02..02-01",
+      "exact target and round, such as example-impl-audit-02..02-01",
       (value: string) => {
         if (!/^[^/]+-\d{2,}$/.test(value))
           throw new InvalidArgumentError(
-            "Expected a target and round, such as example-impl-02..02-01.",
+            "Expected a target and round, such as example-impl-audit-02..02-01.",
           )
         return value
       },
