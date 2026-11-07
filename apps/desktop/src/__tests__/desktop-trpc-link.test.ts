@@ -132,11 +132,17 @@ it("sends an immediate unsubscribe to the accepted call before its handler start
     starts++
   })
   h.admission.dispatch({ type: "bootstrap-acknowledged" })
-  const subscription = h.client["course.list"].subscribe(undefined, {})
+  let events = 0
+  const subscription = h.client["course.list"].subscribe(undefined, {
+    onData() {
+      events++
+    },
+  })
   subscription.unsubscribe()
   subscription.unsubscribe()
   await flushTransport()
   assert.equal(starts, 0)
+  assert.equal(events, 0)
   assert.equal(h.listeners.size, 0)
   assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
 })
