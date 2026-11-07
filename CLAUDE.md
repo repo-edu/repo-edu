@@ -9,8 +9,8 @@ Plans and design documents live in the sibling `../plan` repository, never in
 this repo.
 
 The [tooling design document](../plan/notes/tooling-design.md) explains how the planning and audit
-tooling fits together and why. The [tooling user guide](../plan/notes/tooling-guide.md) explains
-which commands to use and which decisions are the user's. The plan doctrine's
+tooling fits together and why. The [tooling user guide](apps/docs/src/content/docs/tooling/index.md)
+explains which commands to use and which decisions are the user's. The plan doctrine's
 [Layout](../plan/CLAUDE.md#layout) owns their mirror status and the duty to keep them in sync with
 changes to the tooling.
 
