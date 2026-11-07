@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
+import defaults from "../../default-settings.json" with { type: "json" }
 import { nextCoder } from "../lifecycle.js"
 import { auditorSetting } from "../queue.js"
 import { codexArguments } from "../requests.js"
@@ -27,7 +28,8 @@ test("a missing settings file is generated from the built-in defaults", async (t
   t.after(() => rm(root, { recursive: true, force: true }))
   const path = join(root, "settings.json")
   assert.deepEqual(await readSettings(path), defaultSettings)
-  assert.deepEqual(JSON.parse(await readFile(path, "utf8")), defaultSettings)
+  // The generated file keeps each list entry's `default` as the built-in copy writes it.
+  assert.deepEqual(JSON.parse(await readFile(path, "utf8")), defaults)
   assert.equal(defaultSettings.defaultAuditor, "random")
 
   const edited = structuredClone(settings)
@@ -189,12 +191,7 @@ test("the auditors list names whole selections and replaces the audit pins", () 
     ).audit.model,
   )
 
-  for (const auditors of [
-    [],
-    [{ assistant: "codex", model: "default", effort: "high" }],
-    [{ assistant: "codex", model: "gpt-5.6-sol", effort: "default" }],
-    [{ assistant: "codex", model: "gpt-5.6-sol" }],
-  ])
+  for (const auditors of [[], [{ assistant: "codex", model: "gpt-5.6-sol" }]])
     assert.equal(
       settingsSchema.safeParse({ ...config, auditors }).success,
       false,
@@ -217,6 +214,37 @@ test("the auditors list names whole selections and replaces the audit pins", () 
       settingsSchema.safeParse({ ...config, defaultAuditor }).success,
       false,
     )
+})
+
+test("list entries that say default read the assistant's defaults when the file loads", () => {
+  const config = settingsSchema.parse({
+    ...settings,
+    defaults: {
+      claude: { model: "claude-default", effort: "xhigh" },
+      codex: { model: "codex-default", effort: "medium" },
+    },
+    auditors: [
+      { assistant: "claude", model: "default", effort: "default" },
+      { assistant: "codex", model: "listed-auditor", effort: "default" },
+    ],
+    coders: [{ assistant: "codex", model: "default", effort: "high" }],
+  })
+  assert.deepEqual(config.auditors, [
+    { assistant: "claude", model: "claude-default", effort: "xhigh" },
+    { assistant: "codex", model: "listed-auditor", effort: "medium" },
+  ])
+  assert.deepEqual(config.coders, [
+    { assistant: "codex", model: "codex-default", effort: "high" },
+  ])
+  // A ready marker records the resolved selection, never the word default.
+  assert.equal(
+    coderRecord(nextCoder(config.coders, null)),
+    "Coder: codex codex-default high",
+  )
+  assert.deepEqual(roundPhases("codex", noOverride, config).fix.model, {
+    model: { value: "codex-default", source: "audit-round coders" },
+    effort: { value: "high", source: "audit-round coders" },
+  })
 })
 
 test("the coder and assigned phases follow their configured assistants independently of the auditor", () => {

@@ -145,7 +145,8 @@ consumers.
   default selections and the model tier table.
   `settings.ts` loads and validates it once at command entry, independently of the working
   directory. That configuration is passed through routing, output naming and commit stamps.
-  A listed auditor names both fields. `--auditor` and `--first` override each field they name,
+  A listed auditor carries both fields, each resolved at load when it says `default`.
+  `--auditor` and `--first` override each field they name,
   using the configured tier table for its model, and a field nothing names reads the assistant's
   defaults. Listed auditors and command-line overrides bind the audit and rebuttal together,
   because the rebuttal is the auditor's answer. Each named field carries what named it, including
@@ -845,19 +846,24 @@ error and is left unchanged.
   such as `opus` follows the CLI's current release; a full model name pins it.
   The settings header shows the release either one resolves to.
 - `defaults` names each assistant's default model and effort outright. A phase
-  field that says `default` reads it, and `--auditor claude` or `--auditor
-  codex` runs the audit on it. Neither CLI's own model configuration is ever
-  read, so this file alone decides what every phase runs on.
+  or list field that says `default` reads it, and `--auditor claude` or
+  `--auditor codex` runs the audit on it. Neither CLI's own model configuration
+  is ever read, so this file alone decides what every phase runs on.
+- A list field's `default` resolves when the file loads. The series pool, the
+  judge's entries, the `models` read-out and a ready marker therefore all name
+  the resolved selection. A ready marker keeps the coder it recorded when
+  `defaults` changes later.
 - `auditors` is a non-empty ordered list, in the shape of `coders`. Each entry
-  names its assistant, a model outright and an effort, such as Claude Fable at
-  high and Claude Opus at xhigh. An automatic series opens from the list, and
-  after each round the judge picks the next entry from the series pool: the
-  list plus a `--first` selection whose assistant has no entry. Two models of
-  one vendor are two entries. A one-entry list runs every settings-chosen
-  round on that entry.
-- `coders` is a non-empty ordered list. Each coder names its assistant, full
-  model and effort. Ready advances from the newest earlier assigned plan and
-  wraps at the end. A one-entry list always selects that coder.
+  names its assistant, a model and an effort, such as Claude Fable at high and
+  Claude Opus at xhigh; either field may say `default`. An automatic series
+  opens from the list, and after each round the judge picks the next entry
+  from the series pool: the list plus a `--first` selection whose assistant
+  has no entry. Two models of one vendor are two entries. A one-entry list
+  runs every settings-chosen round on that entry.
+- `coders` is a non-empty ordered list. Each coder names its assistant, model
+  and effort, and either field may say `default`. Ready advances from the
+  newest earlier assigned plan and wraps at the end. A one-entry list always
+  selects that coder.
 - `phases` sets the model and effort of the vet, the document phases, the
   judge and the close. Each field names a value or says `default`; `null` is
   refused. A named model must suit the selected CLI.

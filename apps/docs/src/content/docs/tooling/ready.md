@@ -33,8 +33,10 @@ a stem whose history already has a ready marker.
 ## What does it leave behind?
 
 The plan repository receives the empty, tag-free `<stem>/ready` commit. Its body names the assigned
-coder. Later implementation workers use that assignment's assistant and effort, resolving its model
-release when the implementation command starts.
+coder. A list entry that says `default` is recorded as the model and effort it read from `defaults`,
+so a later change to `defaults` leaves the assignment as it was. Later implementation workers use
+that assignment's assistant and effort, resolving its model release when the implementation command
+starts.
 
 ## What owns this page?
 

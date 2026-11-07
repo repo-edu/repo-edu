@@ -12,67 +12,85 @@ const model = z
   .regex(/^\S+$/, "Model names contain no spaces")
 const effort = z.enum(efforts)
 /**
- * A phase field either names its own value or says `default`, which reads the
- * assistant's default selection. Null is not a value: a field left unset would
- * be the CLI's choice, which the runner never consults.
+ * A phase or list field either names its own value or says `default`, which
+ * reads the assistant's default selection. Null is not a value: a field left
+ * unset would be the CLI's choice, which the runner never consults.
  */
 const defaulted = z.literal("default")
 const selection = z.strictObject({
   model: z.union([model, defaulted]),
   effort: z.union([effort, defaulted]),
 })
-/** A model the selection names outright, because `default` would defer the choice elsewhere. */
-const namedModel = (owner: string) =>
-  model.refine((value) => value !== defaulted.value, {
-    message: `${owner} must name a model`,
-  })
-/** The selection a phase's `default` reads, so it names a model outright. */
+/** The selection a `default` reads names its model outright, so it defers nowhere else. */
 const defaultSelection = z.strictObject({
-  model: namedModel("The defaults"),
+  model: model.refine((value) => value !== defaulted.value, {
+    message: "The defaults must name a model",
+  }),
   effort,
+})
+const assistantDefaults = z.strictObject({
+  claude: defaultSelection,
+  codex: defaultSelection,
 })
 export type PhaseSelection = z.infer<typeof selection>
-const assignedPhase = selection.extend({ assistant })
+const assignedSelection = selection.extend({ assistant })
+type AssignedSelection = z.infer<typeof assignedSelection>
 export const coderSchema = z.strictObject({ assistant, model, effort })
 export type Coder = z.infer<typeof coderSchema>
-/**
- * One auditor the series may run. The list is the choice, so an entry names
- * its model outright rather than reading the defaults.
- */
-const auditorSchema = z.strictObject({
-  assistant,
-  model: namedModel("An auditor"),
-  effort,
-})
-export type Auditor = z.infer<typeof auditorSchema>
+/** One auditor the series may run, in the coder's resolved shape. */
+export type Auditor = Coder
 const assistantPhase = z.strictObject({
   claude: selection,
   codex: selection,
 })
 const strengths = z.strictObject({ base: model, top: model })
 
-export const settingsSchema = z.strictObject({
-  /**
-   * Which `auditors` entry opens a series without a command-line choice.
-   * `random` picks one entry for each scope's series.
-   */
-  defaultAuditor: z.enum(["first", "random"]),
-  maximumAutomaticRounds: z.number().int().positive(),
-  strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
-  defaults: z.strictObject({
-    claude: defaultSelection,
-    codex: defaultSelection,
-  }),
-  /** The ordered pool the automatic series opens from and the judge draws on. */
-  auditors: z.array(auditorSchema).min(1),
-  coders: z.array(coderSchema).min(1),
-  phases: z.strictObject({
-    vet: assistantPhase,
-    watch: assignedPhase,
-    judge: assignedPhase,
-    close: assignedPhase,
-  }),
-})
+/**
+ * A list entry's `default` resolves once, when the file loads, so every reader
+ * of the lists sees the selection the entry runs. A ready marker therefore
+ * records that selection, and a later change to `defaults` leaves it as it was.
+ */
+function resolveEntry(
+  entry: AssignedSelection,
+  defaults: z.infer<typeof assistantDefaults>,
+): Coder {
+  const own = defaults[entry.assistant]
+  return {
+    assistant: entry.assistant,
+    model: entry.model === defaulted.value ? own.model : entry.model,
+    effort: entry.effort === defaulted.value ? own.effort : entry.effort,
+  }
+}
+
+export const settingsSchema = z
+  .strictObject({
+    /**
+     * Which `auditors` entry opens a series without a command-line choice.
+     * `random` picks one entry for each scope's series.
+     */
+    defaultAuditor: z.enum(["first", "random"]),
+    maximumAutomaticRounds: z.number().int().positive(),
+    strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
+    defaults: assistantDefaults,
+    /** The ordered pool the automatic series opens from and the judge draws on. */
+    auditors: z.array(assignedSelection).min(1),
+    coders: z.array(assignedSelection).min(1),
+    phases: z.strictObject({
+      vet: assistantPhase,
+      watch: assignedSelection,
+      judge: assignedSelection,
+      close: assignedSelection,
+    }),
+  })
+  .transform((settings) => ({
+    ...settings,
+    auditors: settings.auditors.map((entry) =>
+      resolveEntry(entry, settings.defaults),
+    ),
+    coders: settings.coders.map((entry) =>
+      resolveEntry(entry, settings.defaults),
+    ),
+  }))
 
 export type RoundSettings = z.infer<typeof settingsSchema>
 
@@ -103,7 +121,7 @@ export function parseCoderRecord(body: string): Coder | null {
 /**
  * The file is JSON with comments and trailing commas, so an operator can keep
  * an alternative selection beside the live one without a second file. The
- * generated default copy stays plain JSON.
+ * generated default copy stays plain JSON and keeps each `default` as written.
  */
 function parseSettingsText(content: string): unknown {
   const errors: ParseError[] = []
@@ -126,7 +144,7 @@ export async function readSettings(
     content = await readFile(path, "utf8")
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-    content = `${JSON.stringify(defaultSettings, null, 2)}\n`
+    content = `${JSON.stringify(defaults, null, 2)}\n`
     await writeFile(path, content, { flag: "wx" })
   }
   try {

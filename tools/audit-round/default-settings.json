@@ -13,20 +13,20 @@
     "auditors": [
         {
             "assistant": "claude",
-            "model": "opus",
-            "effort": "high"
+            "model": "default",
+            "effort": "default"
         },
         {
             "assistant": "codex",
-            "model": "gpt-5.6-sol",
-            "effort": "high"
+            "model": "default",
+            "effort": "default"
         }
     ],
     "coders": [
         {
             "assistant": "codex",
-            "model": "gpt-5.6-sol",
-            "effort": "high"
+            "model": "default",
+            "effort": "default"
         }
     ],
     "phases": {
