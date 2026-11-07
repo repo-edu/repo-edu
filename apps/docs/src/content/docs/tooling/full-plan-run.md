@@ -62,13 +62,19 @@ retained worker session and reads both worktrees before continuing.
    runner and submit a blank line. The same assistant session resumes with your answer.
 2. **A phase or worker failed.** Run the exact recovery command printed by the runner. It names the
    retained session when one can continue. Fix any external problem named by the failure first.
-3. **The judge stops the series.** A fresh assistant has decided that another listed auditor would
-   not resolve the missing evidence or decision. Read the reason, supply the named evidence or
-   decision, then run `pnpm audit-round <stem>` again.
-4. **Close finds an open deferral.** An accepted correction still belongs in the other repository
-   and has not been applied there. Type whether to close with that correction still open or keep the
-   plan active for it; the close route asks the concrete question.
-5. **The run finishes.** Type nothing. The plan has been closed and the runner prints the stages it
+3. **The watch grades the work red.** Read the named `-watch.md` file and choose its response before
+   running `pnpm audit-round <stem>` again.
+4. **A round changes the plan's phase.** This stop can happen in any series. For example, an
+   implementation-audit fix may reopen the plan by renaming it to `<topic>-widen.md`. Read the
+   correction, then run `pnpm audit-round <stem>` again to start from the new phase.
+5. **Widening or detailing ends before the next stage.** A judge stop or the round maximum ends the
+   full run during these stages. Read the reason, supply any named evidence or decision, then run
+   `pnpm audit-round <stem>` again. During the audit ranges, a judge stop or the round maximum does
+   not stop the full run; it continues to the next range or close.
+6. **Close finds an open deferral.** An accepted correction still belongs in the other repository
+   and has not been applied there. Run the printed `Resume:` command to reopen the retained close
+   session, then answer whether to close with the correction still open or keep the plan active.
+7. **The run finishes.** Type nothing. The plan has been closed and the runner prints the stages it
    completed.
 
 ## What does it leave behind?

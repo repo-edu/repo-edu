@@ -53,8 +53,11 @@ clean touched files, reachable commits and work that is not already attached to 
 
 ## Where does it stop and what do I type?
 
-1. **The target is ambiguous.** The command names what is missing. Run `/audit <stem>` for a plan or
-   `/audit <commits>` for work outside a plan.
+1. **The target is ambiguous.** The command names what is missing. Use one of these forms:
+   1. Run `/audit <stem>` for a planning audit before any implementation step has landed.
+   2. Run `/audit <stem> plan` for a planning audit after a step has landed.
+   3. Run `/audit <stem> <step>` or `/audit <stem> <first>-<last>` to audit implemented steps.
+   4. Run `/audit <commits>` for work outside a plan.
 2. **An audit gate fails.** If the plan lacks a `ready` marker and you still want the audit, type
    `Continue without the ready marker.` For a commit gate, correct the named history or worktree
    problem and run the command again.
