@@ -1,9 +1,10 @@
 ---
 title: pnpm sweep done
-description: Remove a completed source path from the tracked refactor backlog
+description: Remove a completed path or plan from the tracked refactor backlog
 ---
 
-Use `pnpm sweep done` to clear every outstanding backlog entry for one path.
+Use `pnpm sweep done` to clear every outstanding backlog entry for one path or
+for one completed plan.
 
 ## How do I run it?
 
@@ -19,27 +20,44 @@ Example:
 pnpm sweep done packages/example/src/large-file.ts
 ```
 
+Loop-close uses the plan form with the plan's filename stem, without `.md` or
+`-widen`:
+
+```text
+pnpm sweep done --plan <stem>
+```
+
+The path and `--plan` forms exclude each other.
+
 ## When do I use it?
 
-Use this command after `/refactor` has completed the flagged work or proved that the backlog item no
-longer belongs there. It is backlog bookkeeping, not a verdict on the file's new content.
+Use the path form after `/refactor` has proved that one backlog item no longer
+belongs there. Loop-close uses the plan form after a non-aborted plan has
+shipped. It is backlog bookkeeping, not a verdict on the file's new content.
 
 ## What does it read?
 
-The command reads `tools/sweep/refactor-backlog.tsv` and finds every row whose path exactly matches
-the argument. The path may already be absent.
+The path form finds every row whose path exactly matches the argument. The plan
+form finds every row whose reason is exactly `planned in <stem>`. Either match
+may already be absent.
 
 ## Where does it stop and what do I type?
 
 1. **Matching entries exist.** Type nothing. The command reports how many it dropped.
 2. **No entry matches.** Type nothing. The command reports that no backlog entry existed.
 
+The plan form reports each dropped path and whether it staged a row deletion
+against `HEAD`.
+
 ## What does it leave behind?
 
-The command rewrites `tools/sweep/refactor-backlog.tsv` without the matching path, preserving the
-canonical order of the remaining rows. It does not add an ok verdict to the skip cache.
+The command rewrites `tools/sweep/refactor-backlog.tsv` without the matching
+rows and preserves the canonical order of the rest. The plan form also builds
+the staged backlog from the `HEAD` copy, so unrelated working backlog changes
+stay unstaged. It does not add an ok verdict to the skip cache.
 
 ## What owns this page?
 
-`tools/sweep/CLAUDE.md`, `tools/sweep/src/main.ts` and `tools/sweep/src/sweep-store.ts` own this
-page.
+`tools/sweep/CLAUDE.md`, `tools/sweep/src/main.ts`,
+`tools/sweep/src/sweep.ts`, `tools/sweep/src/sweep-store.ts` and
+`tools/sweep/src/git-index.ts` own this page.

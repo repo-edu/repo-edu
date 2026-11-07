@@ -21,6 +21,13 @@ intended callers; the CLI is their backend.
   `path (<line count> lines)` followed by its indented reason, with a blank
   line between entries.
 - `done <path>`: drop every backlog entry for a path.
+- `done --plan <stem>`: drop every row whose reason is exactly
+  `planned in <stem>` from the working backlog. It stages the same deletion
+  against the `HEAD` backlog without staging any other working backlog change,
+  then reports the dropped paths and whether a committed row was deleted.
+
+The path argument and `--plan` exclude each other. A plan stem is its filename
+without `.md` or `-widen`; the reason stays valid when a widening plan settles.
 
 ## State files
 
@@ -56,6 +63,10 @@ file forever; it silences that exact content.
 The backlog tracks a file's outstanding refactor, not each judgment event: a
 re-flag supersedes the path's prior row at write time (`recordFlag`), so the
 stored file never holds two rows for one path.
+
+A route to a plan records the reason as `planned in <stem>`. Loop-close uses
+that exact reason through `done --plan`, so the sweep tool remains the backlog's
+only writer.
 
 ## Source inventory
 

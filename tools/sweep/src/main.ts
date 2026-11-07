@@ -3,6 +3,7 @@ import { Command } from "commander"
 import {
   findNextCandidate,
   markDone,
+  markPlanDone,
   readQueue,
   recordFlag,
   recordOk,
@@ -75,9 +76,32 @@ function buildProgram(): Command {
 
   program
     .command("done")
-    .argument("<path>", "Repo-relative path to drop from the backlog.")
-    .description("Drop a path from the refactor backlog.")
-    .action((filePath: string) => {
+    .argument("[path]", "Repo-relative path to drop from the backlog.")
+    .option("--plan <stem>", "Plan stem whose backlog rows should be dropped.")
+    .description("Drop a path or one plan's rows from the refactor backlog.")
+    .action((filePath: string | undefined, options: { plan?: string }) => {
+      if ((filePath === undefined) === (options.plan === undefined)) {
+        throw new Error("done needs exactly one of <path> or --plan <stem>.")
+      }
+
+      if (options.plan !== undefined) {
+        const result = markPlanDone(options.plan)
+        if (result.droppedPaths.length === 0) {
+          console.log(
+            `done: no working backlog row for planned in ${options.plan}.`,
+          )
+        } else {
+          for (const droppedPath of result.droppedPaths) {
+            console.log(`done: dropped ${droppedPath}.`)
+          }
+        }
+        console.log(
+          `done: staged deletion against HEAD: ${result.stagedDeletion ? "yes" : "no"}.`,
+        )
+        return
+      }
+
+      if (filePath === undefined) return
       const dropped = markDone(filePath)
       console.log(
         dropped > 0

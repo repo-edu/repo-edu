@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/main.ts",
+    "test": "node --import tsx --test src/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "pnpm run typecheck"
   },

@@ -15,6 +15,7 @@ const TOOL_DIR = path.resolve(
   "..",
 )
 const SKIP_CACHE = path.join(TOOL_DIR, "skip-cache.tsv")
+export const REFACTOR_BACKLOG_REPO_PATH = "tools/sweep/refactor-backlog.tsv"
 const REFACTOR_BACKLOG = path.join(TOOL_DIR, "refactor-backlog.tsv")
 
 const FIELD_SEPARATOR = "\t"
@@ -45,8 +46,12 @@ export function appendSkipEntry(entry: SkipEntry): void {
   appendRecord(SKIP_CACHE, [entry.hash, entry.path])
 }
 
-export function readFlagEntries(): FlagEntry[] {
-  return readRecords(REFACTOR_BACKLOG).flatMap((fields) => {
+export function readFlagEntries(file = REFACTOR_BACKLOG): FlagEntry[] {
+  return parseFlagEntries(readFile(file))
+}
+
+export function parseFlagEntries(content: string): FlagEntry[] {
+  return parseRecords(content).flatMap((fields) => {
     const [lineCount, repoPath, reason, hash] = fields
     const lines = Number(lineCount)
     if (
@@ -68,13 +73,19 @@ export function readFlagEntries(): FlagEntry[] {
  * descending with path as tie-break, so one set of outstanding flags produces
  * one byte-identical file and its diffs show only real backlog changes.
  */
-export function writeFlagEntries(entries: readonly FlagEntry[]): void {
+export function writeFlagEntries(
+  entries: readonly FlagEntry[],
+  file = REFACTOR_BACKLOG,
+): void {
+  fs.writeFileSync(file, serializeFlagEntries(entries))
+}
+
+export function serializeFlagEntries(entries: readonly FlagEntry[]): string {
   const ordered = [...entries].sort(
     (left, right) =>
       right.lines - left.lines || left.path.localeCompare(right.path),
   )
-  writeRecords(
-    REFACTOR_BACKLOG,
+  return serializeRecords(
     ordered.map((entry) => [
       String(entry.lines),
       entry.path,
@@ -85,13 +96,19 @@ export function writeFlagEntries(entries: readonly FlagEntry[]): void {
 }
 
 function readRecords(file: string): string[][] {
-  let content: string
+  return parseRecords(readFile(file))
+}
+
+function readFile(file: string): string {
   try {
-    content = fs.readFileSync(file, "utf8")
+    return fs.readFileSync(file, "utf8")
   } catch (error) {
-    if (isMissingFileError(error)) return []
+    if (isMissingFileError(error)) return ""
     throw error
   }
+}
+
+function parseRecords(content: string): string[][] {
   return content
     .split("\n")
     .filter((line) => line.length > 0)
@@ -102,9 +119,9 @@ function appendRecord(file: string, fields: readonly string[]): void {
   fs.appendFileSync(file, `${fields.join(FIELD_SEPARATOR)}\n`)
 }
 
-function writeRecords(file: string, records: readonly string[][]): void {
+function serializeRecords(records: readonly string[][]): string {
   const body = records.map((fields) => fields.join(FIELD_SEPARATOR)).join("\n")
-  fs.writeFileSync(file, body.length > 0 ? `${body}\n` : "")
+  return body.length > 0 ? `${body}\n` : ""
 }
 
 function isMissingFileError(error: unknown): error is NodeJS.ErrnoException {

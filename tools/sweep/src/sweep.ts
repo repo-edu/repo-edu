@@ -1,3 +1,5 @@
+import * as path from "node:path"
+
 import { readSourceInventory } from "../../architecture-check/src/inventory.js"
 import {
   normalizeRepoPath,
@@ -5,9 +7,11 @@ import {
 } from "../../architecture-check/src/repo-paths.js"
 import { countRepoFileLines } from "../../architecture-check/src/source-lines.js"
 import { gitHashObject } from "./git-hash.js"
+import { stageHeadBacklogWithoutReason } from "./git-index.js"
 import {
   appendSkipEntry,
   type FlagEntry,
+  REFACTOR_BACKLOG_REPO_PATH,
   readFlagEntries,
   readSkipEntries,
   type SkipEntry,
@@ -26,6 +30,11 @@ export type QueueItem = {
   readonly path: string
   readonly lines: number
   readonly reason: string
+}
+
+export type PlanDoneResult = {
+  readonly droppedPaths: readonly string[]
+  readonly stagedDeletion: boolean
 }
 
 /**
@@ -106,6 +115,27 @@ export function markDone(filePath: string): number {
   const kept = entries.filter((entry) => entry.path !== repoPath)
   if (kept.length !== entries.length) writeFlagEntries(kept)
   return entries.length - kept.length
+}
+
+/** Drop working and committed backlog rows whose reason names one plan. */
+export function markPlanDone(planStem: string, root = ROOT): PlanDoneResult {
+  const reason = `planned in ${planStem}`
+  const backlogFile = path.join(root, REFACTOR_BACKLOG_REPO_PATH)
+  const entries = readFlagEntries(backlogFile)
+  const dropped = entries.filter((entry) => entry.reason === reason)
+  const stagedDeletion = stageHeadBacklogWithoutReason(root, reason)
+
+  if (dropped.length > 0) {
+    writeFlagEntries(
+      entries.filter((entry) => entry.reason !== reason),
+      backlogFile,
+    )
+  }
+
+  return {
+    droppedPaths: dropped.map((entry) => entry.path),
+    stagedDeletion,
+  }
 }
 
 function judgedKeys(): Set<string> {
