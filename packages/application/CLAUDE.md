@@ -45,7 +45,9 @@ It composes:
   command changed nothing. Any other failure passes through. Git username
   import uses it, so a failed username lookup refuses the import. A reply that
   leaves out a requested username refuses it too.
-- Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`;
+- Import/export adapters in `src/adapters/tabular/` use `papaparse` and
+  `@e965/xlsx`. That package republishes SheetJS releases to npm, because the
+  npm `xlsx` package stops at 0.18.5 with unpatched advisories.
   `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
 - Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for LMS- and
   RepoBee-backed `PersistedCourse` documents.

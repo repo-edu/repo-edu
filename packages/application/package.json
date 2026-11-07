@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@e965/xlsx": "^0.20.3",
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",
     "@repo-edu/host-runtime-contract": "workspace:*",
@@ -13,8 +14,7 @@
     "filenamify": "^7.0.2",
     "linkify-it": "^6.1.0",
     "papaparse": "^5.5.3",
-    "partial-json": "^0.1.7",
-    "xlsx": "^0.18.5"
+    "partial-json": "^0.1.7"
   },
   "exports": {
     "./course-store": {
