@@ -43,7 +43,7 @@ audit is recent enough or needs your explicit confirmation.
 A shipped plan moves with its round data to `../plan/archive/<name>/`; an aborted plan moves under
 `../plan/archive/aborted/`. The workflow writes each hosting repository's `closed` commit, rewrites
 links to the archived plan and removes the topic's active sidecars. The close session leaves
-`../plan/active/<stem>-close.<tag>.log` while it runs.
+`../plan/active/<stem>-close.<tag>.log` in `active/`.
 
 ## What owns this page?
 

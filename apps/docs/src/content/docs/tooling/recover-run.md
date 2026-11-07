@@ -18,8 +18,14 @@ fix the startup problem and rerun the original command.
 ## Recover a failed audit phase
 
 A failed audit, vet, rebuttal, fix, watch or close prints its assistant recovery command when the
-runner knows the session. Run it as printed. The resumed session receives a generic continuation,
-reads its retained work and completes the same phase.
+runner knows the session. Run it as printed. The command reopens the stopped session in the
+terminal and waits for input. It sends no prompt. Type what the session should do, such as continue
+the phase or answer the question it stopped on.
+
+The runner has already stopped. It does not check or save the resumed session's work. A resumed
+audit, vet, rebuttal or watch cannot finish the stopped round because only the runner saves or
+publishes the text those phases return. A resumed fix or close may finish the files and commits it
+owns. Start the next runner command yourself after the session finishes.
 
 Do not run `/audit` again for the same work. A new audit would claim another round number instead of
 completing the open one.
@@ -54,9 +60,13 @@ second worker. Git shows the runner which shares remain.
 
 ## Know when recovery is complete
 
-Recovery is complete only when the phase reports success and the runner verifies its required file
-or landed commit. A known session by itself proves neither. If recovery fails again, use the newest
-printed command because it carries the current resumable session.
+For an implementation `--resume <step>:<session-id>` route, recovery is complete only when the
+worker reports success and the runner verifies its landed commit. A known session by itself proves
+neither.
+
+For an assistant recovery command, read the resumed session's final result. The stopped runner does
+not verify it. If recovery fails again, use the newest printed command because it carries the
+current resumable session.
 
 ## What owns this page?
 
