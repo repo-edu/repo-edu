@@ -14,7 +14,7 @@
     "linkify-it": "^6.1.0",
     "papaparse": "^5.5.3",
     "partial-json": "^0.1.7",
-    "xlsx": "^0.18.5"
+    "@e965/xlsx": "^0.20.3"
   },
   "exports": {
     "./course-store": {
