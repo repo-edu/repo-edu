@@ -222,6 +222,12 @@ describe("release workflow wiring", () => {
         workflow.includes("validate-program-gate-artifact.mjs"),
         hasCliBuild,
       )
+      // The CLI notice attests the installed Bun package, so the compile must
+      // embed that runtime rather than a separately installed Bun.
+      assert.equal(
+        workflow.includes("pnpm exec bun build --compile"),
+        hasCliBuild,
+      )
       assert.doesNotMatch(workflow, /--metafile/)
       assert.doesNotMatch(workflow, /--bun-metafile/)
       assert.doesNotMatch(workflow, /--desktop-bundle-manifest/)
@@ -292,7 +298,6 @@ describe("release workflow wiring", () => {
       ".github/workflows/linux-x64-release.yml",
     ]) {
       const workflow = await readFile(join(repoRoot, file), "utf8")
-      assert.match(workflow, /bun-version: 1\.4\.2/)
       assert.match(workflow, /validate-program-gate-artifact\.mjs --cli/)
     }
   })

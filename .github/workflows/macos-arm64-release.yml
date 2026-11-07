@@ -118,10 +118,6 @@ jobs:
       - name: Assert arm64 runner
         run: test "$(uname -m)" = "arm64"
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.2
-
       - name: Build CLI workspace dependencies
         run: pnpm build:types
 
