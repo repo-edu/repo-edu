@@ -22,8 +22,9 @@ brief is complete. It records the lifecycle decision without starting an assista
 ## What does it read?
 
 The runner reads the active settled plan, its Git history and the ordered `coders` list in
-`tools/audit-round/settings.json`. It refuses a widening plan, pending changes to the target plan or
-a stem whose history already has a ready marker.
+`tools/audit-round/settings.json`. It checks that the **Implementation plan** steps and the
+`Audit ranges:` sentence use their fixed forms. It refuses a widening plan, a plan that fails those
+checks, pending changes to the target plan or a stem whose history already has a ready marker.
 
 ## Where does it stop and what do I type?
 

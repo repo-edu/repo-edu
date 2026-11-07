@@ -57,10 +57,11 @@ A finished fix removes only its audit, vet and rebuttal twins. Claims, transcrip
 watches and round data remain. A direct clean automatic audit retains its report because no fix
 phase consumes it. The sequence queue disappears when the sequence ends.
 
-At loop-close, the plan and its plan-scoped round data move into the plan's archive folder, and the
-topic's other sidecars are deleted. Commit series data stays in `active/` beside its round files
-until those files are removed by hand. The JSON files are machine artifacts and must never be
-edited manually.
+At loop-close, the plan and its plan-scoped round data move into the plan's archive folder. Close
+deletes the plan's handoffs, claims, audit reports, vet and rebuttal twins, phase-change markers and
+yield reports. Round transcripts and logs, implementation logs, briefs, rulings, watches and the
+close log stay in `active/`. Commit series data stays there beside its round files until those files
+are removed by hand. The JSON files are machine artifacts and must never be edited manually.
 
 ## What is separate from the round files?
 

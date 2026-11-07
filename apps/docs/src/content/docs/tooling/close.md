@@ -39,7 +39,8 @@ or uncommitted plan work before moving anything.
 4. **Open deferrals remain.** Reply whether to archive the plan with the named deferrals still open.
 5. **The plan has uncommitted changes or either index has staged work.** Resolve that work, then run
    `/close` again.
-6. **All checks pass.** The command closes the episode and stops. Type nothing.
+6. **A split peer closes first.** Reply with the shared archive folder name its peers will use.
+7. **All checks pass.** The command closes the episode and stops. Type nothing.
 
 ## What does it leave behind?
 

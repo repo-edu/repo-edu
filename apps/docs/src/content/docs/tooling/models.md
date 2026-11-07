@@ -21,9 +21,10 @@ It reports observed yield and time rather than starting a new comparison round.
 
 ## What does it read?
 
-The command reads checked planning, implementation and commit round data from active plans and the
-archive. It joins that data with ready, step and close records from both Git histories and reads the
-current settings. Incomplete plans remain outside the coder comparison and appear under `--all`.
+The command reads checked planning and implementation round data from active plans and the archive.
+Commit-series data is not part of the read-out. It joins the plan data with ready, step and close
+records from both Git histories and reads the current settings. Incomplete plans remain outside the
+coder comparison and appear under `--all`.
 
 ## Where does it stop and what do I type?
 

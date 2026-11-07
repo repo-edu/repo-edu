@@ -20,7 +20,7 @@ later lifecycle stages without a planned reading between them.
 ## What can a round target?
 
 ```text
-pnpm audit-round round <stem>                 planning round before implementation
+pnpm audit-round round <stem>                 round selected from the plan's history
 pnpm audit-round round <stem> plan            planning round after a step has landed
 pnpm audit-round round <stem> <n>             one implementation step
 pnpm audit-round round <stem> <a>-<b>         one implementation step range
@@ -30,6 +30,10 @@ pnpm audit-round round <commits>               work outside a plan
 
 Prefix a plan-repository commit with `plan@`. Unprefixed commit references belong to Repo Edu. An
 omitted target selects the active plan whose stem commit is newest across both repositories.
+
+Before implementation, a bare stem selects the planning round its history calls for. After every
+step share and implementation marker has landed, it runs the plan's listed audit ranges and then
+the full implementation range.
 
 ## What happens inside one round?
 
@@ -53,9 +57,9 @@ An automatic series stops when the judge returns its lifecycle answer, the confi
 is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes the
 plan's phase. A submitted ruling reply resumes the same fix before the series continues.
 
-For a widening plan, the judge may recommend settle. During detailing it may recommend ready. On an
-implementation or commit target it may stop. These answers do not make the user's lifecycle call;
-the bare full-plan run acts on settle and ready only because its invocation granted them in advance.
+The judge may stop in every phase. For a widening plan, it may also recommend settle. During
+detailing, it may also recommend ready. These answers do not make the user's lifecycle call; the
+bare full-plan run acts on settle and ready only because its invocation granted them in advance.
 
 ## How do I follow one round?
 
