@@ -57,14 +57,14 @@ export async function resolveTargets(
   request: TargetRequest | null,
 ): Promise<AuditTargets> {
   if (request !== null && "groups" in request) {
-    const groups = await Promise.all(
-      request.groups.map((group) =>
-        resolveCommitGroup(
+    const groups: CommitGroup[] = []
+    for (const group of request.groups)
+      groups.push(
+        await resolveCommitGroup(
           group,
           group.repository === "plan" ? context.planRoot : context.repoEduRoot,
         ),
-      ),
-    )
+      )
     return [
       {
         ...request,
@@ -80,7 +80,9 @@ export async function resolveTargets(
  * A group's starting HEAD is captured once, and every typed reference is
  * resolved against it, so the filename names the commits the round judges
  * even when the repo moves before the audit starts. A reference that names no
- * commit is refused here, before any round file is claimed.
+ * commit is refused here, before any round file is claimed. Groups, references
+ * and endpoints resolve one at a time in typed order, so a refusal names the
+ * first bad reference and leaves no Git read running in the checkout.
  */
 async function resolveCommitGroup(
   group: CommitGroupRequest,
@@ -103,13 +105,13 @@ async function resolveCommitGroup(
       )
     return resolved.stdout
   }
-  const resolvedReferences = await Promise.all(
-    group.references.map(async (reference) =>
-      Promise.all(
-        unprefixedCommitReference(reference).split("..").map(fullCommit),
-      ),
-    ),
-  )
+  const resolvedReferences: string[][] = []
+  for (const reference of group.references) {
+    const endpoints: string[] = []
+    for (const endpoint of unprefixedCommitReference(reference).split(".."))
+      endpoints.push(await fullCommit(endpoint))
+    resolvedReferences.push(endpoints)
+  }
   const shortReferences = resolvedReferences.map((reference) =>
     reference.map(shortSha).join(".."),
   )

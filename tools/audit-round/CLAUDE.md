@@ -486,7 +486,9 @@ consumers.
   `implement` supply their own reason when no active plan exists. `default-target.ts` captures each
   request group's starting HEAD once before round files are allocated. It resolves every typed
   reference against that head, refuses a reference that names no commit and admits only an
-  increasing inclusive range. The original exact groups own the label. Each audit phase group
+  increasing inclusive range. Groups, references and endpoints resolve one at a time in typed
+  order, so a refusal names the first bad reference and leaves no Git read running in a checkout.
+  The original exact groups own the label. Each audit phase group
   carries those original commits beside its advancing exact set. Commit targets run without a
   trajectory glance or watch.
 - `default-target.ts` owns the round a plan argument or no target selects, under

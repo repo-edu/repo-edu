@@ -264,13 +264,16 @@ test("commit filenames resolve each group's references to six characters and joi
     ["abcd1234", "repo-edu"],
     ["HEAD-9", "repo-edu"],
     [`${planRepositoryPrefix}abcd1234..HEAD`, "plan"],
-  ] as const)
+  ] as const) {
     await assert.rejects(
       resolveTargets(context, targetRequest(reference, [])),
       {
         message: `${unprefixedCommitReference(reference).split("..")[0]} names no commit in the ${repository} checkout.`,
       },
     )
+    // A live Git read keeps its checkout busy, which Windows refuses to remove.
+    assert.ok(!process.getActiveResourcesInfo().includes("ProcessWrap"))
+  }
 })
 
 test("single steps and ranges keep separate padded numbering", async (t) => {
