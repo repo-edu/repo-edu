@@ -27,7 +27,8 @@ preview.
 
 The command reads the plan, its step and audit history, open deferrals and both repositories' Git
 state. It checks for a ready marker, current implementation markers, a whole-plan audit and staged
-or uncommitted plan work before moving anything.
+or uncommitted plan work before moving anything. For a completed plan it then asks the sweep tool
+to clear backlog rows whose reason names that plan.
 
 ## Where does it stop and what do I type?
 
@@ -48,8 +49,11 @@ A lone plan moves to `../plan/archive/<stem>/plan.md`. A split peer keeps its fi
 shared archive folder chosen for its peers. An aborted plan moves to
 `../plan/archive/aborted/<stem>/plan.md` with a reason in `README.md`. Round data moves beside the
 plan. Links outside the archive follow the move. The plan repo gets its `<stem>/closed` commit, and
-Repo Edu gets an empty closing commit when it hosted a landed step. The command deletes the plan's
-handoffs, claims, audit reports, review files, phase markers and yield reports from `active/`.
+Repo Edu gets an empty closing commit when it hosted a landed step. When the plan had a committed
+refactor-backlog row, Repo Edu first gets a separate `chore(sweep)` commit containing only that row
+deletion. A matching row added only in the working file is removed without a commit. An aborted
+close leaves backlog rows in place. The command deletes the plan's handoffs, claims, audit reports,
+review files, phase markers and yield reports from `active/`.
 
 ## What owns this page?
 

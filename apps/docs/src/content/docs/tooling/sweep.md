@@ -47,7 +47,8 @@ of these answers:
 2. **Flag for later.** Type `Flag for later.` The assistant runs
    `pnpm sweep flag <path> --reason "<why>"` and adds the file to the refactor backlog.
 3. **Plan now.** Type `Plan now.` The assistant opens a plan in the sibling plan checkout, then
-   flags the file with that plan's stem.
+   flags the file with that plan's stem. The row stays until loop-close archives the completed plan,
+   then the close clears it automatically.
 4. **Refactor inline now.** Type `Refactor inline now.` The assistant refactors the agreed file,
    verifies the change and asks separately before committing. It records no sweep verdict because
    the changed contents need a fresh judgement later.
@@ -62,7 +63,8 @@ the tool prints `clean:`, the command ends without asking for an answer.
    `tools/sweep/skip-cache.tsv`.
 2. **Flag for later** and **Plan now** write the path, size, reason and content hash to the tracked
    `tools/sweep/refactor-backlog.tsv`. **Plan now** also creates
-   `../plan/active/<topic>.md` or `../plan/active/<topic>-widen.md`.
+   `../plan/active/<topic>.md` or `../plan/active/<topic>-widen.md`. Its backlog reason is
+   `planned in <stem>`, which lets loop-close clear the row when that plan ships.
 3. **Refactor inline now** changes the agreed source files and, after separate approval, leaves a
    Git commit. It does not write either sweep verdict file.
 4. **Skip** and `clean:` leave no output file.

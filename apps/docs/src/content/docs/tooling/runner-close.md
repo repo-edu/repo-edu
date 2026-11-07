@@ -28,7 +28,8 @@ loop-close session; it does not run missing audits first.
 
 The runner resolves the active plan, its hosting repositories, open deferrals and stem history. The
 close workflow reads the plan and plan doctrine, then checks whether a whole-plan implementation
-audit is recent enough or needs your explicit confirmation.
+audit is recent enough or needs your explicit confirmation. For a completed plan it also runs
+`pnpm sweep done --plan <stem>` from Repo Edu after those checks.
 
 ## Where does it stop and what do I type?
 
@@ -42,8 +43,10 @@ audit is recent enough or needs your explicit confirmation.
 
 A shipped plan moves with its round data to `../plan/archive/<name>/`; an aborted plan moves under
 `../plan/archive/aborted/`. The workflow writes each hosting repository's `closed` commit, rewrites
-links to the archived plan and removes the topic's active sidecars. The close session leaves
-`../plan/active/<stem>-close.<tag>.log` in `active/`.
+links to the archived plan and removes the topic's active sidecars. Before Repo Edu's closing
+marker, it removes backlog rows whose reason names the shipped plan. A deletion present in `HEAD`
+lands alone in a `chore(sweep)` commit; a matching working-only row needs no commit. Aborted plans
+skip this step. The close session leaves `../plan/active/<stem>-close.<tag>.log` in `active/`.
 
 ## What owns this page?
 
