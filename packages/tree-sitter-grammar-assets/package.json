@@ -6,8 +6,8 @@
     "@repo-edu/domain": "workspace:*"
   },
   "devDependencies": {
-    "tree-sitter-cli": "0.27.0",
-    "web-tree-sitter": "0.27.0"
+    "tree-sitter-cli": "0.27.1",
+    "web-tree-sitter": "0.27.1"
   },
   "exports": {
     ".": {
