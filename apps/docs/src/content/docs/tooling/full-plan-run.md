@@ -45,7 +45,7 @@ between them. The runner derives the start from the plan filename and Git histor
 | The plan is settled but has no `ready` marker | Detailing audits that complete the brief |
 | The plan is ready and has a missing step share or completion marker | Implementation, one fresh worker per remaining step |
 | All implementation shares are present | The audit ranges written in the plan |
-| The full implementation range has settled and no later plan edit intervened | Close |
+| The full implementation range has settled and no later file-changing stem commit has landed in either repository | Close |
 
 A later invocation reads the repositories again. There is no separate run cursor.
 
