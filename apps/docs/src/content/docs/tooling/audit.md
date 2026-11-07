@@ -59,8 +59,10 @@ clean touched files, reachable commits and work that is not already attached to 
    3. Run `/audit <stem> <step>` or `/audit <stem> <first>-<last>` to audit implemented steps.
    4. Run `/audit <commits>` for work outside a plan.
 2. **An audit gate fails.** If the plan lacks a `ready` marker and you still want the audit, type
-   `Continue without the ready marker.` For a commit gate, correct the named history or worktree
-   problem and run the command again.
+   `Continue without the ready marker.` For uncommitted touched files or unreachable commits,
+   correct the named problem and run the command again. If a named commit carries a plan stem, run
+   the matching plan audit instead. To continue without those commits, type
+   `Continue with the named commits excluded.`
 3. **The report has findings.** Run the vet in the other assistant: use `$vet <report-file>` in
    Codex after a Claude audit, or `/vet <report-file>` in Claude after a Codex audit. If the vet
    revises, drops or refers a finding, return to the original auditor and run `/rebut <report-file>`

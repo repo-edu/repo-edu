@@ -41,7 +41,8 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | I want to settle a plan's shape | `pnpm audit-round settle [stem]` | The widening filename is changed to its settled name; the command starts no assistant |
 | I want to mark a detailed plan ready | `pnpm audit-round ready [stem]` | The ready marker records your call and assigns the next coder |
 | I want one command to take a plan through its whole life | [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) | The plan advances from its current stage; a stop that needs you ends the run and the same command continues later |
-| I want to close a finished or abandoned plan | `/close [aborted] [stem]` or `pnpm audit-round close [stem]` | The plan and its round data move to the archive; the command asks before closing with an open decision |
+| I want to close a finished plan | `/close [stem]` or `pnpm audit-round close [stem]` | The plan and its round data move to the archive; the command asks before closing with an open decision |
+| I want to archive an abandoned plan | `/close aborted [stem]` or `pnpm audit-round close <stem> --aborted "<reason>"` | The abandoned episode and its reason move to the archive |
 
 ### Audits
 

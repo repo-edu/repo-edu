@@ -81,18 +81,27 @@ retained worker session and reads both worktrees before continuing.
 
 The exact outputs depend on the stages that ran:
 
-1. Planning and implementation rounds leave claims, transcripts, reports and reviews under
-   `../plan/active/<target>-<round>-<order>-<kind>...`, plus machine-owned
-   `../plan/active/<stem>-plan-rounds.json` and `../plan/active/<stem>-impl-rounds.json`.
-2. An implementation worker leaves `../plan/active/<stem>-impl-<step>-implement.log` and, while it
-   waits for an answer, `../plan/active/<stem>-impl-<step>-implement-ruling.<tag>.md`.
+1. Each round reserves `../plan/active/<target>-<round>-0-claim.md` and writes its transcript to
+   `../plan/active/<target>-<round>-1-round.<tag>.md` and its log to the same path ending in `.log`.
+   A round may also write an audit at order 2, a vet at order 3, a rebuttal at order 4, a ruling at
+   order 7 and a watch at order 9, all under
+   `../plan/active/<target>-<round>-<order>-<kind>.<tag>.md`.
+2. Plan rounds update `../plan/active/<stem>-plan-rounds.json` or
+   `../plan/active/<stem>-impl-rounds.json`. An implementation worker writes
+   `../plan/active/<stem>-impl-<step>-implement.log` and, while it waits for an answer,
+   `../plan/active/<stem>-impl-<step>-implement-ruling.<tag>.md`.
 3. Settle and ready leave Git markers in the plan repository. Implementation leaves one checked
    step commit in each hosting repository and later leaves each repository's `implemented` marker.
-4. A completed close moves the plan and its round data to `../plan/archive/<name>/` and leaves the
-   closing commits in the hosting repositories.
+4. Close writes `../plan/active/<stem>-close.<tag>.log`. It moves the plan and both existing round
+   data files to `../plan/archive/<name>/` and leaves the closing commits in the hosting
+   repositories.
+5. Close deletes the plan's handoffs, claims, audit reports, vet and rebuttal twins, phase-change
+   markers and yield reports. Round transcripts and logs, implementation logs, briefs, rulings,
+   watches and the close log stay under `../plan/active/`.
 
-Reports from completed fixes are removed after their findings enter the durable Git record. Claims,
-transcripts, logs and round data remain until close.
+A completed fix removes its audit, vet and rebuttal files after their findings enter the Git
+record. The round's claim, transcript, log, ruling, watch and round data remain until close applies
+the rules above.
 
 ## What owns this page?
 

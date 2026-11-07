@@ -11,12 +11,15 @@ Run the command in Claude chat from the Repo Edu checkout. Use `$sweep` for the 
 Codex.
 
 ```text
-/sweep         review one file, record or act on your answer, then stop
-/sweep help    show the command usage without reviewing a file
+/sweep          review one file, record or act on your answer, then stop
+/sweep help     show the command usage without reviewing a file
+/sweep -h       show the command usage without reviewing a file
+/sweep --help   show the command usage without reviewing a file
+/sweep ?        show the command usage without reviewing a file
 ```
 
-The command has no other arguments or options. Invoke it again in a fresh chat for the next file
-unless you explicitly ask to continue in the same one.
+Invoke the command again in a fresh chat for the next file unless you explicitly ask to continue
+in the same one.
 
 ## When do I use it?
 
