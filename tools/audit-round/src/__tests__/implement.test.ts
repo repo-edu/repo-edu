@@ -467,16 +467,23 @@ test("the implement phase uses Repo Edu's worker workflow without a chat launche
     phase: "implement",
     sessionId: null,
     arguments: [
-      `${context.activeRoot}/example.md`,
+      join(context.activeRoot, "example.md"),
       3,
       ["plan", "repo-edu"],
       coder.model,
       coder.effort,
     ],
-    rulingFile: `${context.activeRoot}/ruling.md`,
+    rulingFile: join(context.activeRoot, "ruling.md"),
   }
   const prompt = phasePrompt(phase).text
-  assert.match(prompt, /\.agents\/skills\/implement\/references\/workflow\.md/)
+  assert.ok(
+    prompt.includes(
+      join(
+        context.repoEduRoot,
+        ".agents/skills/implement/references/workflow.md",
+      ),
+    ),
+  )
   assert.doesNotMatch(prompt, /launcher|SKILL\.md/)
   assert.ok(prompt.includes(JSON.stringify(phase.arguments)))
   const resumed = phasePrompt({
@@ -535,7 +542,7 @@ test("the command launches the assigned worker, verifies its share and writes th
   assert.ok(
     worker.prompt.includes(
       `Phase arguments (JSON array): ${JSON.stringify([
-        `${f.activeRoot}/example.md`,
+        join(f.activeRoot, "example.md"),
         1,
         ["repo-edu"],
         "gpt-5.6-sol",
