@@ -15,7 +15,7 @@ services:
       retries: 30
       start_period: 10s
   gitlab:
-    image: gitlab/gitlab-ce:19.4.1-ce.0@sha256:9b33b45b9f42d176bada85ee5ecb81ddab7e506c435f44cd582206e284b2809c
+    image: gitlab/gitlab-ce:19.5.3-ce.0@sha256:6863d156a1a477bd6f69fc674b671d0163cd8b06bf63bb17cc4a4a803b78b27c
     hostname: gitlab.local
     environment:
       - GITLAB_OMNIBUS_CONFIG=external_url 'http://localhost:${GITLAB_PORT:-8929}'; nginx['listen_port'] = ${GITLAB_PORT:-8929}; gitlab_rails['initial_root_password'] = '${GITLAB_INITIAL_ROOT_PASSWORD:-R7vK2pQ9mL4xT8nC5bH3jF6sD1wZ}';
