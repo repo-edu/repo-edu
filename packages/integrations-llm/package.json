@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
+    "@anthropic-ai/sdk": "^0.137.0",
     "@openai/codex-sdk": "catalog:",
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "vscode-jsonrpc": "9.0.2"
