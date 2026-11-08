@@ -1081,7 +1081,11 @@ archives an episode that never shipped and passes the reason for its README. One
 deletes the topic's sidecars. It works in the plan checkout and writes only `<stem>-close.<tag>.log`
 beside the active folder's other runner files. Once the session has moved the plan, the runner moves
 the plan's round-data files into the same archive folder and commits them as its own `<stem>/closed`
-record, so the files never depend on the session remembering them. The runner resolves the plan's
+record, so the files never depend on the session remembering them. A close named for a plan already
+under `archive/` whose round data still sits in `active/` does only that move and starts no
+session: a resumed close session moved the plan without the runner there, so the rerun finishes the
+close. It stamps the commit from the close selection alone. Without such leftover data an archived
+plan is refused as already closed. The runner resolves the plan's
 open deferrals before the session starts and supplies them in its phase arguments. Where close would
 need the user's answer, including permission to archive with an open deferral, it fails with the
 question, and its printed resume command continues that session.

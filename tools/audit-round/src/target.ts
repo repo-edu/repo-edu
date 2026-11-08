@@ -237,7 +237,7 @@ function commitGroup(
 }
 
 /** A plan argument names a stem, never a path. */
-function refusePath(value: string): void {
+export function refusePath(value: string): void {
   if (/[\\/]/.test(value))
     throw new InvalidArgumentError(
       `Name the plan by its stem, such as ${planStem(value.replaceAll("\\", "/"))}, without a path.`,

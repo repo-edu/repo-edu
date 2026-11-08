@@ -1,5 +1,13 @@
 import assert from "node:assert/strict"
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises"
+import {
+  access,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -274,6 +282,60 @@ test("close refuses paths and plans without an active artifact before any assist
     )
   }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
+test("close of an archived plan finishes its round-data move without a session", async (t) => {
+  const f = await roundFixture(t)
+  const archive = join(f.planRoot, "archive/example")
+  await mkdir(archive, { recursive: true })
+  await rename(join(f.activeRoot, "example.md"), join(archive, "plan.md"))
+  await rm(join(f.activeRoot, "example-widen.md"))
+  const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
+  for (const file of dataFiles)
+    await writeFile(
+      join(f.activeRoot, file),
+      `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
+    )
+
+  assert.equal(
+    await runCommand(["close", "example"], f.runtime, f.options),
+    0,
+    [...f.errors, ...f.visible, ...f.status].join("\n"),
+  )
+  // Release resolution is the only CLI call; no close session starts.
+  const sessions = (await f.calls()).filter(
+    (call) =>
+      call.args[0] === "exec" ||
+      (call.args[0] === "-p" &&
+        !call.args.includes("--no-session-persistence")),
+  )
+  assert.deepEqual(sessions, [])
+  const [sha, subject, body] = (
+    await execa("git", ["log", "-1", "--format=%H%n%s%n%b"], {
+      cwd: f.planRoot,
+    })
+  ).stdout.split("\n")
+  assert.equal(subject, "example/closed obh: archive the round data")
+  assert.equal(body, "gpt-5.6-sol high")
+  assert.deepEqual(
+    (
+      await execa("git", ["show", "--name-only", "--format=", sha], {
+        cwd: f.planRoot,
+      })
+    ).stdout
+      .split("\n")
+      .sort(),
+    dataFiles.map((file) => `archive/example/${file}`).sort(),
+  )
+  for (const file of dataFiles)
+    await assert.rejects(access(join(f.activeRoot, file)), { code: "ENOENT" })
+  assert.equal(
+    f.visible.at(-1),
+    `Committed ${sha}: example/closed obh: archive the round data`,
+  )
+  await assert.rejects(access(join(f.activeRoot, "example-close.obh.log")), {
     code: "ENOENT",
   })
 })

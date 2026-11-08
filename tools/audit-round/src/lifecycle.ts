@@ -219,6 +219,24 @@ export async function markImplemented(
   })
 }
 
+/** The plan's round-data file names that still sit in the gitignored active folder. */
+export async function activeRoundData(
+  context: Pick<ExecutionContext, "activeRoot">,
+  stem: string,
+): Promise<readonly string[]> {
+  const names: string[] = []
+  for (const kind of ["planning", "implementation"] as const) {
+    const name = roundDataFilename(stem, kind)
+    try {
+      if ((await stat(join(context.activeRoot, name))).isFile())
+        names.push(name)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    }
+  }
+  return names
+}
+
 /**
  * Move a closed plan's round data from the gitignored active folder to the
  * folder its archived plan now sits in, and commit the moved files. The
@@ -233,16 +251,7 @@ export async function archiveRoundData(
   tag: string,
   record: string,
 ): Promise<LifecycleCommit | null> {
-  const names: string[] = []
-  for (const kind of ["planning", "implementation"] as const) {
-    const name = roundDataFilename(stem, kind)
-    try {
-      if ((await stat(join(context.activeRoot, name))).isFile())
-        names.push(name)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-    }
-  }
+  const names = await activeRoundData(context, stem)
   if (names.length === 0) return null
 
   const archived = await archivedPlans(context.planRoot, stem)

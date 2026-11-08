@@ -282,6 +282,26 @@ export async function roundRun(
 }
 
 /**
+ * The capability tag and model record the close's commits carry, resolved
+ * from the close selection alone so a close that starts no session can still
+ * stamp the commit it writes.
+ */
+export function closeStamps(
+  releases: Record<Assistant, ModelReleases>,
+  settings: RoundSettings,
+): { readonly tag: string; readonly record: string } {
+  const phase = { phase: "close", ...closePhase(settings) } as const
+  const { model, effort } = phaseSelection(
+    phase.model,
+    releases[phase.assistant],
+  )
+  return {
+    tag: fileTag(phase, releases, settings),
+    record: `${model} ${effort}`,
+  }
+}
+
+/**
  * A close logs in the active folder under the plan's stem and keeps no transcript.
  * Its session cannot tell its own capability, so the run hands it the tag and
  * model record its commits carry.
@@ -294,14 +314,10 @@ export async function closeRun(
   settings: RoundSettings,
 ): Promise<Run & { readonly tag: string; readonly record: string }> {
   const phase = { phase: "close", ...closePhase(settings) } as const
-  const tag = fileTag(phase, releases, settings)
-  const { model, effort } = phaseSelection(
-    phase.model,
-    releases[phase.assistant],
-  )
+  const { tag, record } = closeStamps(releases, settings)
   return {
     tag,
-    record: `${model} ${effort}`,
+    record,
     name: "Close",
     title: `Close of plan ${basename(plan)}`,
     phases: [phase],

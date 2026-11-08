@@ -41,6 +41,7 @@ import {
 } from "./implement-output.js"
 import { auditorText, readSeriesEvidence } from "./judge.js"
 import {
+  activeRoundData,
   archiveRoundData,
   commitOnly,
   markImplemented,
@@ -53,6 +54,7 @@ import { modelsReport } from "./models.js"
 import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
   closeRun,
+  closeStamps,
   type OutputOptions,
   RoundOutput,
   type Run,
@@ -125,6 +127,7 @@ import {
   planStem,
   type RoundContext,
   type RoundKind,
+  refusePath,
   requiredActivePlan,
   resolvePlan,
   roundContext,
@@ -1069,10 +1072,26 @@ async function closePlan(
   return plan
 }
 
+/**
+ * A close of an active plan runs the close session. A close of a plan already
+ * under `archive/` whose round data still sits in `active/` has one thing left
+ * to do: a resumed close session moved the plan without the runner there to
+ * move the data, so the rerun finishes that move and starts no session.
+ */
 async function preparedClose(
   context: ExecutionContext,
   invocation: Extract<Invocation, { kind: "close" }>,
 ) {
+  if (invocation.stem !== undefined) {
+    refusePath(invocation.stem)
+    const stem = planStem(invocation.stem)
+    if (
+      (await activePlan(context.activeRoot, stem)) === null &&
+      (await activeRoundData(context, stem)).length > 0 &&
+      (await archivedPlans(context.planRoot, stem)).length > 0
+    )
+      return { ...invocation, leftover: stem }
+  }
   const plan = await closePlan(context, invocation)
   const { deferrals } = await deferralState(context, planStem(plan))
   return { ...invocation, plan, deferrals }
@@ -1675,6 +1694,22 @@ export async function runCommand(
     const closeStage = async (
       close: PreparedClose,
     ): Promise<CloseResult["status"]> => {
+      if ("leftover" in close) {
+        const { tag, record } = closeStamps(releases, settings)
+        const commit = await archiveRoundData(
+          context,
+          close.leftover,
+          tag,
+          record,
+        )
+        options.terminal.write(
+          commit === null
+            ? `No round data of ${close.leftover} is left in ${context.activeRoot}.`
+            : `Committed ${commit.sha}: ${commit.subject}`,
+        )
+        code = 0
+        return "finished"
+      }
       const closeSession = roundContext(context, "planning")
       const run = await closeRun(close.plan, context, now(), releases, settings)
       const active = open(run)

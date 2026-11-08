@@ -85,8 +85,10 @@ argument refusal exits with status 2 and any other with status 1.
 
 1. **The plan has no ready marker and no `--aborted` was given.** `<stem>.md has no ready marker.
    Run pnpm audit-round ready first, or close it with --aborted <reason>.`
-2. **The plan is archived.** `No active plan named <stem> at <active folder>. An archived plan is
-   already closed.`
+2. **The plan is archived and no round data of it is left in `../plan/active/`.** `No active plan
+   named <stem> at <active folder>. An archived plan is already closed.` When round data is left,
+   the command instead moves and commits it without starting a session, which is how a close
+   finishes after you answered in a resumed session.
 3. **The abort reason is empty**, or the stem is a path.
 
 ## Stop and recovery
@@ -95,7 +97,8 @@ argument refusal exits with status 2 and any other with status 1.
    archive with open deferrals. The session fails with the question and the runner prints a
    `Resume:` command. Run it and answer in that session. The resumed session moves the plan but the
    runner is no longer there to move the round data, so run `pnpm audit-round close <stem>` again
-   afterwards.
+   afterwards: it finds the archived plan and the leftover data, moves and commits the data and
+   starts no session.
 2. **A close action fails.** Fix the outside problem it names, such as uncommitted plan changes or
    staged work, then run the printed `Resume:` command, or the same close command when none was
    printed. See [Recover a run](/repo-edu/tooling/recover-run/).
