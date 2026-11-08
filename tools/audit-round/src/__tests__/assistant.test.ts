@@ -10,11 +10,7 @@ import {
   phaseRequest,
   recoveryCommand,
 } from "../requests.js"
-import {
-  type Assistant,
-  type PhaseInput,
-  pinned,
-} from "./configured-runner.js"
+import { type Assistant, type PhaseInput, pinned } from "./configured-runner.js"
 import {
   finishedText,
   fixture,

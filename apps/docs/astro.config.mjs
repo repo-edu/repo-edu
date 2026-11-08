@@ -189,6 +189,7 @@ export default defineConfig({
             exclude: ["/404"],
             topics: {
               "user-guide": ["index"],
+              "tooling-guide": ["tooling/yield", "tooling/chat-helpers"],
             },
           },
         ),
