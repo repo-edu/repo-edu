@@ -54,10 +54,16 @@ The audit changes no tracked file.
    in the usage block.
 2. **The plan has no `ready` marker.** An implementation audit names the newest stem commit and
    stops. Type `Continue without the ready marker.` to audit anyway.
-3. **A commit audit's hard gate fails.** The gate refuses uncommitted changes in touched files,
+3. **A whole-plan step audit finds an `implemented` marker missing or stale.** The audit names each
+   hosting repo whose marker is missing or older than that repo's newest step, then waits. Type
+   `Continue without the implemented marker.` to audit anyway. Later rounds do not ask again.
+4. **A planning audit meets an unresolved premise error.** The report holds no graded findings. It
+   names the inputs that conflict, where each is recorded and the decision you must make. Give your
+   decision in the chat. The audit then starts again from its premise check.
+5. **A commit audit's hard gate fails.** The gate refuses uncommitted changes in touched files,
    an unreachable commit and a typed list that is not contiguous in history. Correct the named
    problem and rerun. No answer continues past this stop.
-4. **A commit carries a plan stem.** The command names each such commit as out of scope. Run the
+6. **A commit carries a plan stem.** The command names each such commit as out of scope. Run the
    matching plan audit for those commits, or type `Continue with the named commits excluded.` to
    audit the rest. The named commits then stay out of the coverage table.
 
