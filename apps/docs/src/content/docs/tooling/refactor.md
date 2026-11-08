@@ -20,8 +20,8 @@ your go.
 /refactor help | -h | --help | ?   show the usage
 ```
 
-The sweep only judges and records; this command is the deliberate half that changes source. Its
-place in the loop is described on the [Sweep](/repo-edu/tooling/sweep/#the-loop) page.
+`/sweep` flags files one at a time; this command works through the flagged backlog. Its place in
+the loop is described on the [Sweep](/repo-edu/tooling/sweep/#the-loop) page.
 
 ## What it shows you
 
