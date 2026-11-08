@@ -12,6 +12,11 @@ catalog:
 # node_modules must warn there, never start an install that strips the tree.
 verifyDepsBeforeRun: warn
 
+# Bun's postinstall moves its binary out of the platform package. A reused
+# orphan folder from an earlier install has no binary, so the rerun fails.
+# Remove orphans on every install so a returning version links fresh.
+modulesCacheMaxAge: 0
+
 allowBuilds:
   bun: true
   electron: true
