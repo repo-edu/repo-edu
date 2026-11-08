@@ -78,7 +78,7 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
 | I want to inspect growing source files | [`/sweep`](/repo-edu/tooling/sweep/) in Repo Edu | One file and a proposed verdict; you choose whether to record, plan or refactor it |
-| I want to work through flagged refactors | Claude `/refactor` in Repo Edu | The backlog head and a recommended route; work starts only after your answer |
+| I want to work through flagged refactors | Claude [`/refactor`](/repo-edu/tooling/refactor/) in Repo Edu | The backlog head and a recommended route; work starts only after your answer |
 
 ### Chat helpers
 
