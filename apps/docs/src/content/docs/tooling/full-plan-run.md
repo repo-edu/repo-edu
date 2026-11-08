@@ -46,7 +46,7 @@ The start comes from the plan filename and both Git histories:
 | Settled, with no `ready` marker in the plan repo | The detailing series, which completes the brief |
 | Ready, with a pending step share or a missing or stale `implemented` marker | The [implementation](/repo-edu/tooling/implement/), one fresh worker per pending step |
 | Every share landed with current markers | The audit range series: each listed range, then the full range |
-| The full range's newest round ended on a judge stop and no file-changing stem commit landed in either repo since it started | The close |
+| The full range's newest round ended on a judge stop and no file-changing stem commit landed in either repo since it started, other than the round's own | The close |
 
 After settle or ready the run reads the stage again, because a plan reopened after its ready marker
 keeps the marker and goes on to the implementation or the range series. During the audit ranges a

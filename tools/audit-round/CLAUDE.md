@@ -1036,7 +1036,8 @@ its state calls for through its close: a `-widen` plan opens the widening series
 without a ready marker the detailing series, a ready plan with a pending share or a missing or stale
 marker the implementation and an implemented plan the audit range series, which the close follows.
 An implemented plan whose full step range has settled starts at the close: the newest round on that
-range carries a judge stop, and no file-changing stem commit has landed since it started. Invoking
+range carries a judge stop, and no file-changing stem commit has landed since it started, other
+than the round's own. Invoking
 it is the user's settle, ready and close call, so the run settles on the widening judge's
 `settle` answer, marks the plan ready on the detailing judge's `ready` answer and closes after a
 range series that needed nobody, through the same lifecycle functions and commit forms as `settle`,
