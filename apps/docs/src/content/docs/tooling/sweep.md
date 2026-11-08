@@ -73,6 +73,18 @@ is skipped while its current path and hash appear in either state file. Editing 
 its hash, so an ok verdict silences only that exact content. Uncommitted edits count, because the
 hash is taken from the working tree.
 
+## State files
+
+Both files live in `tools/sweep/`, are tab-separated and are written only through `pnpm sweep`.
+They stay out of the source inventory, and a missing file reads as empty.
+
+1. **`skip-cache.tsv`** holds ok verdicts as `<hash><TAB><path>`. It is gitignored because it
+   churns on every edit and costs only machine time to rebuild. Rows are only appended.
+2. **`refactor-backlog.tsv`** holds flag verdicts as `<lines><TAB><path><TAB><reason><TAB><hash>`,
+   with the line count and hash taken at flag time. It is committed because its reasons are durable
+   work. Every flag and done rewrites it whole in one order, flagged line count descending with the
+   path as tie-break, so its diffs show only real backlog changes.
+
 ## Chat command
 
 `/sweep` handles one file per chat. Reading and judging a file fills the chat's context, and the
@@ -89,25 +101,25 @@ you answer.
 
 ### Your answers
 
-1. **Fine.** The assistant runs `pnpm sweep ok <path>`.
-2. **Flag for later.** The assistant runs `pnpm sweep flag <path> --reason "<why>"`, which hands
-   the file to `/refactor`.
+1. **Fine.** The assistant runs `pnpm sweep ok <path>`, which adds a row to the skip cache. The file
+   stays quiet until its content changes.
+2. **Flag for later.** The assistant runs `pnpm sweep flag <path> --reason "<why>"`, which writes a
+   backlog row and hands the file to `/refactor`.
 3. **Plan now.** The assistant opens `<topic>.md` in the plan checkout while the file is fresh, then
-   runs `pnpm sweep flag <path> --reason "planned in <stem>"`. Without that flag the unchanged file
-   would top every later sweep.
+   runs `pnpm sweep flag <path> --reason "planned in <stem>"`. It leaves the new plan in
+   `../plan/active/` and a backlog row. Without that flag the unchanged file would top every later
+   sweep.
 4. **Refactor inline now.** The assistant refactors the agreed files, folds any new file whose
-   surface only extends another into that one and runs Repo Edu's checks and tests. It commits only
-   after you approve separately and records no verdict.
-5. **Skip.** Nothing is recorded, so the file comes back next time.
+   surface only extends another into that one and runs Repo Edu's checks and tests. It leaves the
+   changed source files and records no verdict. It commits them as one Repo Edu commit only after
+   you approve separately.
+5. **Skip.** Nothing runs and nothing is recorded, so the file comes back next time.
 
 You can also redirect the verdict in your own words; the five answers are the routes it can take.
 
 ### Afterwards
 
-Fine adds a row to the skip cache. Flag for later and plan now write a backlog row; plan now also
-leaves a new plan in `../plan/active/`. Refactor inline now leaves changed source files and, after
-your approval, a Repo Edu commit. Skip leaves nothing. The assistant then reports what it did and
-stops without surfacing the next file.
+Whatever you answer, the assistant reports what it did and stops without surfacing the next file.
 
 ### Early stops
 
@@ -182,15 +194,3 @@ It prints `done: dropped <path>.` for each working row, or
 fails, and prints `Unable to find tools/sweep/refactor-backlog.tsv in HEAD.` or the failing Git
 command. The staging runs first, so the working backlog is still unchanged. Fix the Git state and
 run the same command again.
-
-## State files
-
-Both files live in `tools/sweep/`, are tab-separated and are written only through `pnpm sweep`.
-They stay out of the source inventory, and a missing file reads as empty.
-
-1. **`skip-cache.tsv`** holds ok verdicts as `<hash><TAB><path>`. It is gitignored because it
-   churns on every edit and costs only machine time to rebuild. Rows are only appended.
-2. **`refactor-backlog.tsv`** holds flag verdicts as `<lines><TAB><path><TAB><reason><TAB><hash>`,
-   with the line count and hash taken at flag time. It is committed because its reasons are durable
-   work. Every flag and done rewrites it whole in one order, flagged line count descending with the
-   path as tie-break, so its diffs show only real backlog changes.
