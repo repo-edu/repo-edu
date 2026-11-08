@@ -38,33 +38,33 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
 | I want to start or reopen a plan | Give the start or reopen instruction in the plan checkout | A planning document whose open shape can be audited |
-| I want to settle a plan's shape | `pnpm audit-round settle [stem]` | The widening filename is changed to its settled name; the command starts no assistant |
-| I want to mark a detailed plan ready | `pnpm audit-round ready [stem]` | The ready marker records your call and assigns the next coder |
+| I want to settle a plan's shape | [`pnpm audit-round settle [stem]`](/repo-edu/tooling/settle/) | The widening filename is changed to its settled name; the command starts no assistant |
+| I want to mark a detailed plan ready | [`pnpm audit-round ready [stem]`](/repo-edu/tooling/ready/) | The ready marker records your call and assigns the next coder |
 | I want one command to take a plan through its whole life | [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) | The plan advances from its current stage; a stop that needs you ends the run and the same command continues later |
-| I want to close a finished plan | `/close [stem]` or `pnpm audit-round close [stem]` | The plan and its round data move to the archive; the command asks before closing with an open decision |
-| I want to archive an abandoned plan | `/close aborted [stem]` or `pnpm audit-round close <stem> --aborted "<reason>"` | The abandoned episode and its reason move to the archive |
+| I want to close a finished plan | [`/close [stem]`](/repo-edu/tooling/close/) or [`pnpm audit-round close [stem]`](/repo-edu/tooling/runner-close/) | The plan and its round data move to the archive; the command asks before closing with an open decision |
+| I want to archive an abandoned plan | [`/close aborted [stem]`](/repo-edu/tooling/close/) or [`pnpm audit-round close <stem> --aborted "<reason>"`](/repo-edu/tooling/runner-close/) | The abandoned episode and its reason move to the archive |
 
 ### Audits
 
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
-| I want a plan checked and settled corrections applied | `pnpm audit-round round <stem>` | Audit findings, an independent vet, any rebuttal and the fix |
-| I want a plan checked after a step has landed | `pnpm audit-round round <stem> plan` | A planning round that treats landed steps as fixed inputs |
-| I want to check implemented steps | `pnpm audit-round round <stem> <n\|a-b>` | Coverage and findings for that step range, followed by another auditor when the series judge calls for one |
-| I want to check every range of a finished plan | `pnpm audit-round round <stem>` | One series for each range in the plan, followed by a series over the full range |
-| I want to check several ranges in one sitting | `pnpm audit-round round <stem> 2,3-5,6-7` | One series per scope in list order |
-| I want to check work outside a plan | `pnpm audit-round round <commits>` | A series over the named commits and any fixes it lands |
+| I want a plan checked and settled corrections applied | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | Audit findings, an independent vet, any rebuttal and the fix |
+| I want a plan checked after a step has landed | [`pnpm audit-round round <stem> plan`](/repo-edu/tooling/runner-round/) | A planning round that treats landed steps as fixed inputs |
+| I want to check implemented steps | [`pnpm audit-round round <stem> <n\|a-b>`](/repo-edu/tooling/runner-round/) | Coverage and findings for that step range, followed by another auditor when the series judge calls for one |
+| I want to check every range of a finished plan | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | One series for each range in the plan, followed by a series over the full range |
+| I want to check several ranges in one sitting | [`pnpm audit-round round <stem> 2,3-5,6-7`](/repo-edu/tooling/runner-round/) | One series per scope in list order |
+| I want to check work outside a plan | [`pnpm audit-round round <commits>`](/repo-edu/tooling/runner-round/) | A series over the named commits and any fixes it lands |
 | I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; the other assistant vets and the original auditor answers |
-| I want to check a round's trajectory | `/watch [stem\|commit]` | A grounded green, amber or red judgement; you decide the response |
-| I want to compare the recorded auditors and coders | `pnpm audit-round models` | A graded reading and a recommendation when the records support one |
-| I found that an earlier audit finding was wrong | `pnpm audit-round disprove ...` | Your dated ruling and full reason enter the plan's round data |
+| I want to check a round's trajectory | [`/watch [stem\|commit]`](/repo-edu/tooling/watch/) | A grounded green, amber or red judgement; you decide the response |
+| I want to compare the recorded auditors and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | A graded reading and a recommendation when the records support one |
+| I found that an earlier audit finding was wrong | [`pnpm audit-round disprove ...`](/repo-edu/tooling/disprove/) | Your dated ruling and full reason enter the plan's round data |
 
 ### Implementation
 
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
-| I want to implement a ready plan | `pnpm audit-round implement <stem> [scope]` | One fresh worker per remaining step, checked commits and completion markers |
-| I want to see which plan an omitted stem selects | `pnpm audit-round plan` | The active plan with the newest stem commit; nothing is written |
+| I want to implement a ready plan | [`pnpm audit-round implement <stem> [scope]`](/repo-edu/tooling/implement/) | One fresh worker per remaining step, checked commits and completion markers |
+| I want to see which plan an omitted stem selects | [`pnpm audit-round plan`](/repo-edu/tooling/plan/) | The active plan with the newest stem commit; nothing is written |
 
 ### Waiting and recovery
 
@@ -84,7 +84,7 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
-| I want a plain-words read of a plan | `/brief-plan [chat\|file] [stem]` | A reading of the plan, in chat by default; no audit or plan change |
+| I want a plain-words read of a plan | [`/brief-plan [chat\|file] [stem]`](/repo-edu/tooling/brief-plan/) | A reading of the plan, in chat by default; no audit or plan change |
 | I want the last reply explained more clearly | [`/rewrite`](/repo-edu/tooling/chat-helpers/#rewrite) | New wording of the selected reply; its judgements stay intact |
 | I want to judge whether a plan is worth its complexity | [`/yield <plan.md>`](/repo-edu/tooling/yield/#yield) in the plan checkout | Ratings grouped by yield-to-complexity ratio; no plan edit without your instruction |
 | I want plain words throughout this chat | [`/simple [prompt]`](/repo-edu/tooling/chat-helpers/#simple) | The plain-language requirement applies to chat and files for that session |
