@@ -214,10 +214,9 @@ Audit ranges: 1.
     "rebut",
     "fix",
     "watch",
-    "judge",
     "close",
   ] as const) {
-    const assistant = ["fix", "watch", "judge", "close"].includes(phase)
+    const assistant = ["fix", "watch", "close"].includes(phase)
       ? "codex"
       : phase === "vet"
         ? auditor === "codex"
@@ -227,11 +226,9 @@ Audit ranges: 1.
     const sessionId = `${phase}-session`
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
     const final =
-      phase === "judge"
-        ? 'Judge: stop. The retained evidence has converged.\n\nPHASE RESULT: {"status":"finished","reason":null}'
-        : phase === "watch"
-          ? `# Example: trajectory watch\n\nComplete watch text.\nWatch grade: ${watch ? "red" : "green"}\nPHASE RESULT: {"status":"finished","reason":null}`
-          : `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
+      phase === "watch"
+        ? `# Example: trajectory watch\n\nComplete watch text.\nWatch grade: ${watch ? "red" : "green"}\nPHASE RESULT: {"status":"finished","reason":null}`
+        : `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
     phases[phase] = {
       document:
         phase === "audit"

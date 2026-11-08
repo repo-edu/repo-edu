@@ -3,15 +3,13 @@ import type { CleanCompletion, CleanInput } from "./clean.js"
 import type { PlanRoots } from "./context.js"
 import type { WatchEvidence, WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
-import type { JudgeEvidence, JudgeEvidenceInput } from "./judge.js"
+import type { SeriesEvidence, SeriesEvidenceInput } from "./judge.js"
 import type { LifecycleCommit } from "./lifecycle.js"
 import type { OpenDeferral } from "./open-deferrals.js"
 import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
 import type {
   FindingRebuttal,
   FindingReview,
-  JudgeAnswer,
-  JudgeDecision,
   LandedCommit,
   RoundAccount,
 } from "./round-data.js"
@@ -44,7 +42,6 @@ export type Phase =
   | "fix"
   | "implement"
   | "watch"
-  | "judge"
   | "close"
 
 export type RoundPhase = Exclude<Phase, "implement">
@@ -57,7 +54,6 @@ export const phaseSkills: Record<Phase, string> = {
   fix: "fix",
   implement: "implement",
   watch: "watch",
-  judge: "judge",
   close: "close",
 }
 
@@ -67,7 +63,7 @@ export const phaseSkills: Record<Phase, string> = {
  */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root =
-    input.phase === "close" || input.phase === "judge"
+    input.phase === "close"
       ? input.planRoot
       : input.phase === "implement"
         ? input.repoEduRoot
@@ -343,8 +339,6 @@ export function roundPhases(
     fix,
     // The watch reads joined trajectory evidence, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
-    // The judge reads retained evidence and uses its own cheap setting.
-    judge: run("judge", config.phases.judge.assistant),
     close: closePhase(config),
   }
 }
@@ -408,14 +402,9 @@ export function recorded(phase: Phase): boolean {
   )
 }
 
-/**
- * The phases whose texts enter the round transcript. The judge's one-line
- * answer joins the recorded phases because it is the round's recommendation on
- * how to continue, which the user reads from the transcript after the terminal
- * has scrolled; it has no launcher and no place in the model record.
- */
+/** The assistant phase texts that enter the round transcript. */
 export function transcribed(phase: Phase): boolean {
-  return recorded(phase) || phase === "judge"
+  return recorded(phase)
 }
 
 /** The open-deferral object a phase receives. */
@@ -472,12 +461,6 @@ type PhaseArguments = {
   )
   watch: {
     readonly evidence: string
-    readonly arguments: readonly []
-    readonly sessionId: null
-  }
-  judge: {
-    readonly evidence: JudgeEvidence
-    readonly options: readonly JudgeDecision[]
     readonly arguments: readonly []
     readonly sessionId: null
   }
@@ -572,7 +555,6 @@ type PhaseControlResults = {
   fix: FixResult
   implement: ImplementResult
   watch: ReportResult
-  judge: ReportResult
   close: ReportResult
 }
 
@@ -588,7 +570,6 @@ type PhaseResults = {
   fix: FixResult
   implement: ImplementResult
   watch: WatchResult
-  judge: ReportResult
   close: ReportResult
 }
 
@@ -596,14 +577,6 @@ type PhaseResults = {
 export type PhaseResult<P extends Phase = Phase> =
   | PhaseFailure
   | PhaseResults[P]
-
-export type JudgeResult =
-  | PhaseFailure
-  | {
-      readonly status: "finished"
-      readonly sessionId: string
-      readonly answer: JudgeAnswer
-    }
 
 /**
  * A session the user is handed or told how to resume. It carries its phase's run, so
@@ -653,9 +626,8 @@ export type RoundDependencies = {
   ) => Promise<readonly LandedRecord[]>
   /** The exact leading phase records supplied to this round's fix sessions. */
   readonly commitPhaseStamps: () => readonly string[]
-  readonly runJudge: (input: PhaseInput<"judge">) => Promise<JudgeResult>
   readonly runPhase: {
-    readonly [P in Exclude<Phase, "judge" | "implement">]: (
+    readonly [P in Exclude<Phase, "implement">]: (
       input: PhaseInput<P>,
     ) => Promise<PhaseResult<P>>
   }
@@ -666,13 +638,15 @@ export type RoundDependencies = {
    */
   readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
   readonly watchEvidence: (input: WatchEvidenceInput) => Promise<WatchEvidence>
-  readonly judgeEvidence: (input: JudgeEvidenceInput) => Promise<JudgeEvidence>
-  /** Apply open plan-bound deferrals before the implementation series judge runs. */
+  readonly seriesEvidence: (
+    input: SeriesEvidenceInput,
+  ) => Promise<SeriesEvidence>
+  /** Apply open plan-bound deferrals before the implementation series decision. */
   readonly chainDeferrals: (input: {
     readonly plan: string
     readonly auditor: Assistant
   }) => Promise<DeferralChainOutcome>
-  /** Publish settled findings before the watch and judge read the current entry. */
+  /** Publish settled findings before the watch and series rules read the current entry. */
   readonly writeSettledRound: (
     commits: readonly LandedCommit[],
     account: RoundAccount,

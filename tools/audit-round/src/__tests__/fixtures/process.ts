@@ -100,15 +100,15 @@ await appendFile(
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
   const phase =
-    /^Run the (audit|vet|rebut|fix|implement|watch|judge|close) phase\b/.exec(
+    /^Run the (audit|vet|rebut|fix|implement|watch|close) phase\b/.exec(
       prompt ?? "",
     )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
   // A chained round changes who audits, so a phase may answer as either CLI.
   scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
-  // A phase may answer differently on each call: one judge per round, or a
-  // fix resumed in a detailing round and then started fresh in a widening one.
+  // A fix may answer differently when resumed in detailing and then started
+  // fresh in widening.
   if (selected?.streams !== undefined) {
     const counter = join(root, `${phase}-count`)
     let index = 0
@@ -130,7 +130,23 @@ if (scenario.phases !== undefined) {
     phase === "fix" &&
     typeof phaseArguments[0] === "string" &&
     basename(phaseArguments[0]).startsWith("commit-")
-  const document = selected?.documents?.[assistant] ?? selected?.document
+  const configuredDocument =
+    selected?.documents?.[assistant] ?? selected?.document
+  let document = configuredDocument
+  if (configuredDocument?.sources !== undefined) {
+    const counter = join(root, `${phase}-${assistant}-document-count`)
+    let index = 0
+    try {
+      index = Number(await readFile(counter, "utf8"))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    }
+    await writeFile(counter, String(index + 1))
+    document = {
+      source:
+        configuredDocument.sources[index] ?? configuredDocument.sources.at(-1),
+    }
+  }
   if (document !== undefined) {
     const outputIndex = {
       audit: 0,

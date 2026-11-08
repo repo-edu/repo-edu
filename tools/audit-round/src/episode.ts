@@ -196,8 +196,7 @@ export function computeEpisode(
 
 /**
  * Select one episode's commits without deriving watch-only finding facts. The
- * judge uses the same membership as the watch but receives only commit dates,
- * subjects and roles.
+ * series rules use the same membership as the watch with their smaller facts.
  */
 export function episodeMembers(
   log: readonly LogCommit[],

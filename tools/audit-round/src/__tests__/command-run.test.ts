@@ -33,31 +33,22 @@ function openers(...indexes: readonly number[]) {
 
 async function configureRun(
   f: Fixture,
-  documents: { readonly codex: string; readonly claude: string },
-  judgeAnswers: readonly string[],
+  documents: {
+    readonly codex: string | readonly string[]
+    readonly claude: string | readonly string[]
+  },
 ) {
-  const judge = f.phases.judge as Record<string, unknown>
+  const configured = (value: string | readonly string[]) =>
+    typeof value === "string" ? { source: value } : { sources: value }
   await f.configure({
     phases: {
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
         documents: {
-          codex: { source: documents.codex },
-          claude: { source: documents.claude },
+          codex: configured(documents.codex),
+          claude: configured(documents.claude),
         },
-      },
-      judge: {
-        ...judge,
-        streams: await Promise.all(
-          judgeAnswers.map((answer) =>
-            phaseStream(
-              "codex",
-              `${answer}\n\nPHASE RESULT: {"status":"finished","reason":null}`,
-              "judge-session",
-            ),
-          ),
-        ),
       },
     },
   })
@@ -66,7 +57,8 @@ async function configureRun(
 /** The recorded Codex stream reports xhigh, so the assigned coder runs on it. */
 const runSettings = {
   ...testSettings,
-  defaultAuditor: "random" as const,
+  defaultAuditor: "first" as const,
+  auditors: [testSettings.auditors[0]],
   coders: [
     {
       assistant: "codex" as const,
@@ -75,75 +67,6 @@ const runSettings = {
     },
   ],
 }
-
-test("run settles on the widening judge's answer and ends where the detailing judge stops", async (t) => {
-  const f = await roundFixture(
-    t,
-    "codex",
-    "plan",
-    false,
-    null,
-    false,
-    "plan",
-    true,
-    false,
-    false,
-  )
-  await rm(join(f.activeRoot, "example.md"))
-  await commitPlan(f, "example-widen.md")
-  const detailing = join(f.activeRoot, "detailing-source.md")
-  await writeFile(detailing, await readFile(f.report, "utf8"))
-  await writeFile(
-    f.report,
-    `${await readFile(f.report, "utf8")}\nSettling: settle. No shape question remains.\n`,
-  )
-  await configureRun(f, { codex: f.report, claude: detailing }, [
-    "Judge: settle. No concrete shape question remains.",
-    "Judge: stop. The brief waits on evidence only the user can supply.",
-  ])
-
-  assert.equal(
-    await runCommand(["example"], f.runtime, {
-      ...f.options,
-      settings: runSettings,
-      coin: openers(0, 1),
-    }),
-    0,
-    [...f.errors, ...f.visible].join("\n"),
-  )
-  const subjects = (
-    await execa("git", ["log", "--format=%s"], { cwd: f.planRoot })
-  ).stdout.split("\n")
-  assert.ok(subjects.includes("example/settle: settle the plan's shape"))
-  assert.equal(
-    subjects.some((subject) => subject.startsWith("example/ready")),
-    false,
-  )
-  await access(join(f.activeRoot, "example.md"))
-  await assert.rejects(access(join(f.activeRoot, "example-widen.md")), {
-    code: "ENOENT",
-  })
-  const audits = (await f.prompts()).filter((call) =>
-    call.prompt.startsWith("Run the audit phase "),
-  )
-  assert.deepEqual(
-    audits.map((call) => call.assistant),
-    ["codex", "claude"],
-  )
-  const visible = f.visible.join("\n")
-  assert.match(visible, /Run of example: starting the widening series\./)
-  assert.match(visible, /Committed [0-9a-f]+: example\/settle: settle/)
-  assert.match(visible, /Run of example: starting the detailing series\./)
-  assert.match(
-    visible,
-    /Plan audit of example: automatic auditor series stopped on the judge answer after 1 round\./,
-  )
-  assert.match(
-    visible,
-    /Run of example ended in the detailing series after the widening series, settle\. Once that ending is handled, pnpm audit-round example continues from where the plan stands\. Run time \d\d:\d\d\./,
-  )
-  assert.doesNotMatch(visible, /starting the implementation/)
-})
 
 test("run marks a detailing plan ready, implements it, audits its ranges and closes it", async (t) => {
   const f = await roundFixture(
@@ -178,10 +101,10 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
       text: await recorded("codex-rollout.jsonl"),
     },
   }
-  await configureRun(f, { codex: f.report, claude: implementation }, [
-    "Judge: ready. The clean read leaves no remaining real bug in the brief.",
-    "Judge: stop. The clean read leaves no remaining real bug in the range.",
-  ])
+  await configureRun(f, {
+    codex: [f.report, implementation],
+    claude: [f.report, implementation],
+  })
 
   assert.equal(
     await runCommand(["example"], f.runtime, {
@@ -204,7 +127,7 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
     await execa("git", ["log", "--format=%s"], { cwd: f.repoRoot })
   ).stdout.split("\n")
   assert.deepEqual(repoEduSubjects.slice(0, 3), [
-    "example/impl-audit-1 abh clean: record audit with no findings",
+    "example/impl-audit-1 obx clean: record audit with no findings",
     "example/implemented obx: complete the Repo Edu share",
     "example/impl-1 obx feat(audit-round): implement fixture",
   ])
@@ -212,14 +135,7 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
     const phase = /^Run the (\w+) phase/.exec(call.prompt)?.[1]
     return phase === undefined ? [] : [phase]
   })
-  assert.deepEqual(phases, [
-    "audit",
-    "judge",
-    "implement",
-    "audit",
-    "judge",
-    "close",
-  ])
+  assert.deepEqual(phases, ["audit", "implement", "audit", "close"])
   await assert.rejects(access(join(f.activeRoot, "example.md")), {
     code: "ENOENT",
   })
@@ -303,9 +219,7 @@ test("a whole-life recovery resumes the failed worker and continues through mark
     stream: await phaseStream("codex", finishedText, "implementation-session"),
     usage,
   }
-  await configureRun(f, { codex: implementation, claude: implementation }, [
-    "Judge: stop. The clean read leaves no remaining real bug in the range.",
-  ])
+  await configureRun(f, { codex: implementation, claude: implementation })
   assert.equal(
     await runCommand(
       ["example", "--resume", "1:implementation-session"],
@@ -321,7 +235,7 @@ test("a whole-life recovery resumes the failed worker and continues through mark
   })
   assert.deepEqual(
     calls.map(({ phase }) => phase),
-    ["implement", "implement", "audit", "judge", "close"],
+    ["implement", "implement", "audit", "close"],
   )
   assert.ok(calls[1].call.args.includes("implementation-session"))
   const repoEduSubjects = (
@@ -348,9 +262,7 @@ test("a recovery whose plan has left the implementation leaves the session unuse
     f.repoRoot,
     "example/implemented obx: complete the Repo Edu share",
   )
-  await configureRun(f, { codex: f.report, claude: f.report }, [
-    "Judge: stop. The read leaves no remaining real bug in the range.",
-  ])
+  await configureRun(f, { codex: f.report, claude: f.report })
   await runCommand(["example", "--resume", "1:old-session"], f.runtime, {
     ...f.options,
     settings: runSettings,
@@ -402,10 +314,10 @@ test("run continues a plan reopened after ready from its state once it settles",
     f.report,
     `${await readFile(f.report, "utf8")}\nSettling: settle. No shape question remains.\n`,
   )
-  await configureRun(f, { codex: f.report, claude: implementation }, [
-    "Judge: settle. No concrete shape question remains.",
-    "Judge: stop. The clean read leaves no remaining real bug in the range.",
-  ])
+  await configureRun(f, {
+    codex: [f.report, implementation],
+    claude: [f.report, implementation],
+  })
 
   assert.equal(
     await runCommand(["example"], f.runtime, {
@@ -420,7 +332,7 @@ test("run continues a plan reopened after ready from its state once it settles",
     const phase = /^Run the (\w+) phase/.exec(call.prompt)?.[1]
     return phase === undefined ? [] : [phase]
   })
-  assert.deepEqual(phases, ["audit", "judge", "audit", "judge", "close"])
+  assert.deepEqual(phases, ["audit", "audit", "close"])
   const visible = f.visible.join("\n")
   assert.match(visible, /Committed [0-9a-f]+: example\/settle: settle/)
   assert.doesNotMatch(visible, /starting the detailing series/)

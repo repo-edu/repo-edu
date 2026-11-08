@@ -160,13 +160,17 @@ test("round data admits every end state", async (t) => {
   )
 })
 
-test("round data admits only the listed-auditor judge answer and settings", async (t) => {
+test("round data admits the series answer, resolved pool and model settings", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   const parse = (round: unknown) =>
     parseRoundDataFile(path, JSON.stringify({ rounds: [round], disproved: [] }))
   const judged = {
     ...entry("example-impl-audit-01..01", 1),
+    pool: [
+      { assistant: "claude", model: "claude-opus-5", effort: "xhigh" },
+      { assistant: "codex", model: "gpt-6.1-sol", effort: "high" },
+    ],
     judge: {
       answer: { assistant: "claude", model: "claude-opus-5", effort: "xhigh" },
       reason: "Opus has the higher expected yield.",
@@ -174,6 +178,8 @@ test("round data admits only the listed-auditor judge answer and settings", asyn
   }
 
   assert.deepEqual(parse(judged).rounds[0].judge, judged.judge)
+  assert.deepEqual(parse(judged).rounds[0].pool, judged.pool)
+  assert.equal(parse({ ...judged, pool: undefined }).rounds[0].pool, undefined)
   assert.throws(() =>
     parse({ ...judged, judge: { ...judged.judge, answer: "claude" } }),
   )

@@ -81,7 +81,6 @@ test("the same launched selection reporting another release warns in every phase
     "rebut",
     "fix",
     "watch",
-    "judge",
     "close",
   ] as const) {
     const references = previousRoundModels([

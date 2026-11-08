@@ -298,7 +298,7 @@ test("single steps and ranges keep separate padded numbering", async (t) => {
   }
 })
 
-test("an automatic judge needs no capability tag because it writes no file", async (t) => {
+test("an automatic series adds no assistant phase for its decision", async (t) => {
   const f = await fixture(t)
   const run = await buildRoundRun(
     {
@@ -309,16 +309,10 @@ test("an automatic judge needs no capability tag because it writes no file", asy
     },
     0,
     releases,
-    {
-      ...testSettings,
-      phases: {
-        ...testSettings.phases,
-        judge: { assistant: "claude", model: "default", effort: "default" },
-      },
-    },
+    testSettings,
   )
 
-  assert.equal(run.phases.at(-1)?.phase, "judge")
+  assert.notEqual(run.phases.at(-1)?.phase, "judge")
 })
 
 test("planning rounds number their bare target in the active folder and write there", async (t) => {

@@ -7,6 +7,11 @@ import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
+const singleAuditorSettings = {
+  ...testSettings,
+  auditors: [testSettings.auditors[0]],
+}
+
 test("a ruling resumes the fix and the remaining auditor sequence without replaying internal prompts", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const reply = "Choose option 1.\nKeep the existing range."
@@ -91,7 +96,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
 /** The ruling pause lets a test act as the user editing the queue mid-round. */
 async function finishFixOnReply(
   f: Awaited<ReturnType<typeof roundFixture>>,
-  judgeAnswers?: readonly string[],
+  _judgeAnswers?: readonly string[],
   /** The settling line a widening fix that follows the resumed one must end with. */
   settling?: string,
 ) {
@@ -126,9 +131,6 @@ async function finishFixOnReply(
           },
         ],
       },
-      ...(judgeAnswers === undefined
-        ? {}
-        : { judge: await judgePhase(f, judgeAnswers) }),
     },
   })
 }
@@ -221,37 +223,10 @@ test("a commit audit keeps no queue file", async (t) => {
   )
 })
 
-async function judgePhase(
-  f: Awaited<ReturnType<typeof roundFixture>>,
-  answers: readonly string[],
-): Promise<Record<string, unknown>> {
-  const judge = f.phases.judge as Record<string, unknown>
-  const streams = await Promise.all(
-    answers.map((answer) =>
-      phaseStream(
-        "codex",
-        `${answer}\n\nPHASE RESULT: {"status":"finished","reason":null}`,
-        "judge-session",
-      ),
-    ),
-  )
-  return { ...judge, streams }
-}
-
-async function configureJudgeAnswers(
-  f: Awaited<ReturnType<typeof roundFixture>>,
-  answers: readonly string[],
-) {
-  await f.configure({
-    phases: { ...f.phases, judge: await judgePhase(f, answers) },
-  })
-}
-
 /** A widening fix ends on its settling line, so the fixture's fix response carries one. */
 async function configureWideningSeries(
   f: Awaited<ReturnType<typeof roundFixture>>,
   settling: string,
-  answers: readonly string[],
 ) {
   const stream = await phaseStream(
     "codex",
@@ -266,7 +241,6 @@ async function configureWideningSeries(
         stream,
         assistants: { claude: { stream }, codex: { stream } },
       },
-      judge: await judgePhase(f, answers),
     },
   })
 }
@@ -394,7 +368,7 @@ test("an implementation audit receives open deferrals into Repo Edu", async (t) 
     await runCommand(
       ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
       f.runtime,
-      f.options,
+      { ...f.options, settings: singleAuditorSettings },
     ),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
@@ -421,7 +395,7 @@ test("an implementation audit receives open deferrals into Repo Edu", async (t) 
   })
 })
 
-test("an implementation deferral chains a clean planning round before the judge", async (t) => {
+test("an implementation deferral chains a clean planning round before the series decision", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")
   await f.configure({
     phases: {
@@ -452,11 +426,10 @@ test("an implementation deferral chains a clean planning round before the judge"
   })
 
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -473,10 +446,10 @@ test("an implementation deferral chains a clean planning round before the judge"
       ["codex", "planning"],
     ],
   )
-  const judge = prompts.find((call) =>
-    call.prompt.startsWith("Run the judge phase"),
+  assert.equal(
+    prompts.some((call) => call.prompt.startsWith("Run the judge phase")),
+    false,
   )
-  assert.ok(judge)
   const planBody = (
     await execa("git", ["show", "-s", "--format=%B", "HEAD"], {
       cwd: f.planRoot,
@@ -564,11 +537,10 @@ test("an automatic series opens with a chained deferral round", async (t) => {
   })
 
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -612,11 +584,10 @@ test("a ruling in the chained deferral round stops the implementation series", a
   })
 
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )
@@ -665,11 +636,10 @@ test("an applied deferral does not start a chained planning round", async (t) =>
   })
 
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )
@@ -723,11 +693,10 @@ test("a vet-dropped deferral lands an untiered citation", async (t) => {
   })
 
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -740,7 +709,7 @@ test("a vet-dropped deferral lands an untiered citation", async (t) => {
   assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
 })
 
-test("an automatic series follows the judged switch and ends on stop without a queue", async (t) => {
+test("an automatic series follows the deterministic switch and stores its decision without a queue", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -752,11 +721,6 @@ test("an automatic series follows the judged switch and ends on stop without a q
     false,
     true,
   )
-  await configureJudgeAnswers(f, [
-    "Judge: continue with claude opus high. Claude should check the remaining concern.",
-    "Judge: stop. The cross-check found no reason for another round.",
-  ])
-
   assert.equal(
     await runCommand(
       ["round", "example.md", "1", "--no-watch"],
@@ -774,29 +738,26 @@ test("an automatic series follows the judged switch and ends on stop without a q
     ["codex", "claude"],
   )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Judge: continue with claude opus high\./)
   assert.match(
     visible,
-    /Next round: claude opus high, as judged; \d+ rounds remain before the maximum\. Claude should check the remaining concern\./,
+    /Next round: claude opus high; \d+ rounds remain before the maximum\. Rule 3: claude has no current read and did not audit this round\./,
   )
-  assert.match(visible, /Judge: stop\./)
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\. The cross-check found no reason for another round\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 2 rounds\. Rule 2: every assistant in the pool has a current read; the series stops\./,
   )
   const transcripts = (await f.roundFiles()).filter((name) =>
     /-1-round\..+\.md$/.test(name),
   )
   assert.equal(transcripts.length, 2)
-  for (const transcript of transcripts)
-    assert.match(
-      await readFile(join(f.activeRoot, transcript), "utf8"),
-      /\n## judge \(\w+, fresh\)\n[\s\S]*\nJudge: (continue with claude opus high|stop)\. /,
-    )
   const stored = JSON.parse(
     await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
-    rounds: { status: string; judge: { answer: unknown } | null }[]
+    rounds: {
+      status: string
+      pool?: unknown[]
+      judge: { answer: unknown } | null
+    }[]
   }
   assert.deepEqual(
     stored.rounds.map((entry) => ({
@@ -811,6 +772,10 @@ test("an automatic series follows the judged switch and ends on stop without a q
       { status: "finished", answer: "stop" },
     ],
   )
+  assert.deepEqual(stored.rounds[0].pool, [
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+    { assistant: "claude", model: "opus", effort: "high" },
+  ])
   await assert.rejects(
     readFile(join(f.activeRoot, "example-impl-audit-01..01-queue.md")),
     { code: "ENOENT" },
@@ -847,10 +812,6 @@ test("a commit series keeps its label while the next auditor reads the original 
   await f.configure({
     phases: {
       ...f.phases,
-      judge: await judgePhase(f, [
-        "Judge: continue with claude opus high. Claude should read the landed correction.",
-        "Judge: stop. Both assistants have read the exact scope.",
-      ]),
       fix: {
         ...(f.phases.fix as Record<string, unknown>),
         commits: [
@@ -950,21 +911,12 @@ test("a rerun starts with fixes retained by the same commit-series label", async
     ),
   )
   const label = `commit-${original[0].slice(0, 6)}..${original[1].slice(0, 6)}`
-  await configureJudgeAnswers(f, [
-    "Judge: stop. The first run stops after its correction.",
-    "Judge: stop. The rerun has read the retained correction.",
-  ])
-
-  for (const expected of [
-    "The first run stops after its correction.",
-    "The rerun has read the retained correction.",
-  ]) {
+  for (const expected of ["Rule 2", "Rule 2"]) {
     assert.equal(
-      await runCommand(
-        ["round", ...original, "--no-watch"],
-        f.runtime,
-        f.options,
-      ),
+      await runCommand(["round", ...original, "--no-watch"], f.runtime, {
+        ...f.options,
+        settings: singleAuditorSettings,
+      }),
       0,
       `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
     )
@@ -1024,7 +976,7 @@ test("an archived plan without --auditor is refused", async (t) => {
   await assert.rejects(f.prompts())
 })
 
-test("a random default auditor opens the series on the coin and the series still follows judges", async (t) => {
+test("a random default auditor opens the series on the coin before deterministic selection", async (t) => {
   const f = await roundFixture(
     t,
     "claude",
@@ -1038,10 +990,6 @@ test("a random default auditor opens the series on the coin and the series still
   )
   const settings = structuredClone(testSettings)
   settings.defaultAuditor = "random"
-  await configureJudgeAnswers(f, [
-    "Judge: continue with codex gpt-5.6-sol high. Codex should cross-check the first round.",
-    "Judge: stop. The cross-check found no reason for another round.",
-  ])
   const counts: number[] = []
 
   assert.equal(
@@ -1076,7 +1024,7 @@ test("a random default auditor opens the series on the coin and the series still
   )
 })
 
-test("--first replaces the default auditor's first round and the series still follows judges", async (t) => {
+test("--first replaces the default auditor's first round before deterministic selection", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -1088,11 +1036,6 @@ test("--first replaces the default auditor's first round and the series still fo
     false,
     true,
   )
-  await configureJudgeAnswers(f, [
-    "Judge: continue with codex gpt-5.6-sol high. Codex should check the first round.",
-    "Judge: stop. The cross-check found no reason for another round.",
-  ])
-
   assert.equal(
     await runCommand(
       ["round", "example.md", "1", "--first", "atx", "--no-watch"],
@@ -1117,7 +1060,7 @@ test("--first replaces the default auditor's first round and the series still fo
     ["--first", "settings"],
   )
   // Claude has a listed entry, so the selection runs only the first round and
-  // the judge chooses among the listed auditors.
+  // the runner chooses among the listed auditors.
   for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
   for (const argument of [
@@ -1135,18 +1078,11 @@ test("--first replaces the default auditor's first round and the series still fo
     await readFile(join(f.activeRoot, firstLog), "utf8"),
     /audit +claude +claude-fable-5-1 +extra high +--first/,
   )
-  const judgePrompt = (await f.prompts()).find((call) =>
-    call.prompt.startsWith("Run the judge phase "),
-  )
-  assert.match(
-    judgePrompt?.prompt ?? "",
-    /Permitted judge options: (stop, )?codex gpt-5\.6-sol high or claude opus high\./,
-  )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Next round: codex gpt-5\.6-sol high, as judged;/)
+  assert.match(visible, /Next round: codex gpt-5\.6-sol high;/)
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 2 rounds\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 2 rounds\./,
   )
   await assert.rejects(
     readFile(join(f.activeRoot, "example-impl-audit-01..01-queue.md")),
@@ -1154,7 +1090,7 @@ test("--first replaces the default auditor's first round and the series still fo
   )
 })
 
-test("an automatic series switches between two listed models of one vendor", async (t) => {
+test("an automatic series treats two listed models of one assistant as one represented reader", async (t) => {
   const f = await roundFixture(
     t,
     "claude",
@@ -1174,13 +1110,7 @@ test("an automatic series switches between two listed models of one vendor", asy
   // The alias resolves to a release at startup. The round data names each
   // round's auditor by that release, so the pool offers it under that name.
   await f.configure({
-    phases: {
-      ...f.phases,
-      judge: await judgePhase(f, [
-        "Judge: continue with claude claude-opus-5-5 xhigh. Opus has not read the scope yet.",
-        "Judge: stop. Both Claude models agree.",
-      ]),
-    },
+    phases: f.phases,
     releases: { opus: "claude-opus-5-5" },
   })
 
@@ -1198,48 +1128,29 @@ test("an automatic series switches between two listed models of one vendor", asy
   )
   assert.deepEqual(
     audits.map((call) => call.assistant),
-    ["claude", "claude"],
+    ["claude"],
   )
   for (const argument of ["--model", "claude-fable-5-1", "--effort", "high"])
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
-  for (const argument of ["--model", "opus", "--effort", "xhigh"])
-    assert.ok(audits[1].args.includes(argument), audits[1].args.join(" "))
   // The vet stays with the other vendor whichever Claude model audited.
   assert.deepEqual(
     prompts
       .filter((call) => call.prompt.startsWith("Run the vet phase "))
       .map((call) => call.assistant),
-    ["codex", "codex"],
-  )
-  // A Claude-only pool offers no Codex continuation.
-  const judgePrompt = prompts.find((call) =>
-    call.prompt.startsWith("Run the judge phase "),
-  )
-  assert.match(
-    judgePrompt?.prompt ?? "",
-    /Permitted judge options: stop, claude claude-fable-5-1 high or claude claude-opus-5-5 xhigh\./,
-  )
-  const secondLog = (await f.roundFiles()).find((name) =>
-    /-02-1-round\..+\.log$/.test(name),
-  )
-  assert.ok(secondLog)
-  assert.match(
-    await readFile(join(f.activeRoot, secondLog), "utf8"),
-    /audit +claude +claude-opus-5-5 +extra high +audit-round auditors/,
+    ["codex"],
   )
   assert.match(
     f.visible.join("\n"),
-    /Next round: claude claude-opus-5-5 xhigh, as judged;/,
+    /automatic auditor series stopped after 1 round\. Rule 2:/,
   )
-  // The stored answer names the release, as every round's auditor does.
   const stored = JSON.parse(
     await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
-  ) as { rounds: { judge: { answer: unknown } | null }[] }
-  assert.deepEqual(stored.rounds[0].judge?.answer, {
-    assistant: "claude",
-    model: "claude-opus-5-5",
-    effort: "xhigh",
-  })
+  ) as { rounds: { pool?: unknown[]; judge: { answer: unknown } | null }[] }
+  assert.equal(stored.rounds[0].judge?.answer, "stop")
+  assert.deepEqual(stored.rounds[0].pool, [
+    { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
+    { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
+  ])
 })
 
 test("a --first selection whose assistant the list lacks joins the series pool", async (t) => {
@@ -1258,12 +1169,6 @@ test("a --first selection whose assistant the list lacks joins the series pool",
   settings.auditors = [
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
   ]
-  await configureJudgeAnswers(f, [
-    "Judge: continue with codex gpt-5.6-sol high. Codex has no settled read.",
-    "Judge: continue with claude claude-fable-5-1 xhigh. Fable should confirm the Codex read.",
-    "Judge: stop. Both vendors have read the scope.",
-  ])
-
   assert.equal(
     await runCommand(
       ["round", "example.md", "1", "--first", "atx", "--no-watch"],
@@ -1279,36 +1184,16 @@ test("a --first selection whose assistant the list lacks joins the series pool",
   )
   assert.deepEqual(
     audits.map((call) => call.assistant),
-    ["claude", "codex", "claude"],
+    ["claude", "codex"],
   )
-  for (const index of [0, 2])
-    for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
-      assert.ok(
-        audits[index].args.includes(argument),
-        audits[index].args.join(" "),
-      )
-  const judgePrompt = prompts.find((call) =>
-    call.prompt.startsWith("Run the judge phase "),
-  )
-  assert.match(
-    judgePrompt?.prompt ?? "",
-    /Permitted judge options: (stop, )?codex gpt-5\.6-sol high or claude claude-fable-5-1 xhigh\./,
-  )
+  for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
+    assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
   const stored = JSON.parse(
     await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
     stored.rounds.map((entry) => entry.auditor.chosenBy),
-    ["--first", "settings", "settings"],
-  )
-  // The judged round reruns the selection the option resolved, so the option names it.
-  const thirdLog = (await f.roundFiles()).find((name) =>
-    /-03-1-round\..+\.log$/.test(name),
-  )
-  assert.ok(thirdLog)
-  assert.match(
-    await readFile(join(f.activeRoot, thirdLog), "utf8"),
-    /audit +claude +claude-fable-5-1 +extra high +--first/,
+    ["--first", "settings"],
   )
 })
 
@@ -1436,12 +1321,8 @@ test("an automatic series stops at its configured maximum", async (t) => {
     false,
     true,
   )
-  await configureJudgeAnswers(f, [
-    "Judge: continue with claude opus high. Cross-check the first result.",
-    "Judge: continue with codex gpt-5.6-sol high. Continue after the cross-check.",
-  ])
   const settings = structuredClone(testSettings)
-  settings.maximumAutomaticRounds = 2
+  settings.maximumAutomaticRounds = 1
 
   assert.equal(
     await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
@@ -1455,15 +1336,15 @@ test("an automatic series stops at its configured maximum", async (t) => {
     (await f.prompts()).filter((call) =>
       call.prompt.startsWith("Run the audit phase "),
     ).length,
-    2,
+    1,
   )
   assert.match(
     f.visible.join("\n"),
-    /Implementation audit of example, step 1: automatic auditor series reached its maximum of 2 rounds\./,
+    /Implementation audit of example, step 1: automatic auditor series reached its maximum of 1 round\./,
   )
 })
 
-test("a clean automatic audit follows its judge", async (t) => {
+test("a clean automatic audit follows the deterministic selection", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -1474,11 +1355,6 @@ test("a clean automatic audit follows its judge", async (t) => {
     "repo-edu",
     true,
   )
-  await configureJudgeAnswers(f, [
-    "Judge: continue with claude opus high. Claude should confirm the clean audit.",
-    "Judge: stop. The other assistant confirmed the clean audit.",
-  ])
-
   assert.equal(
     await runCommand(
       ["round", "example.md", "1", "--no-watch"],
@@ -1501,7 +1377,7 @@ test("a clean automatic audit follows its judge", async (t) => {
   )
 })
 
-test("a widening series ends on the judge's settle recommendation", async (t) => {
+test("a widening series ends on its settled recommendation", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -1522,15 +1398,13 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   await configureWideningSeries(
     f,
     "Settling: settle. Finding 1 landed and no shape question remains.",
-    ["Judge: settle. No concrete shape question remains."],
   )
 
   assert.equal(
-    await runCommand(
-      ["round", "example-widen.md", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example-widen.md", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )
@@ -1540,19 +1414,10 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
     ).length,
     1,
   )
-  const judge = (await f.prompts()).find((call) =>
-    call.prompt.startsWith("Run the judge phase"),
-  )
-  assert.ok(judge)
-  assert.match(
-    judge.prompt,
-    /"settling": "settle\. Finding 1 landed and no shape question remains\."/,
-  )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Judge: settle\. No concrete shape question remains\./)
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended after 1 round\. The judge finds no open shape question\. Widening is done: run pnpm audit-round settle example\./,
+    /Plan audit of example: automatic auditor series ended after 1 round\. Widening is done: run pnpm audit-round settle example\. Rule 2: every assistant in the pool has a current read, and the widening recommendation is settle\./,
   )
   assert.doesNotMatch(visible, /settle recommendation/)
   const {
@@ -1563,6 +1428,7 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
     rounds: {
       phase: string
       settling: string
+      pool?: unknown[]
       judge: { answer: string; reason: string } | null
     }[]
   }
@@ -1573,11 +1439,15 @@ test("a widening series ends on the judge's settle recommendation", async (t) =>
   )
   assert.deepEqual(stored?.judge, {
     answer: "settle",
-    reason: "No concrete shape question remains.",
+    reason:
+      "Rule 2: every assistant in the pool has a current read, and the widening recommendation is settle.",
   })
+  assert.deepEqual(stored?.pool, [
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ])
 })
 
-test("a widening judge can stop the series without recommending settle", async (t) => {
+test("a widening keep-open recommendation stops the series without settling", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -1595,16 +1465,11 @@ test("a widening judge can stop the series without recommending settle", async (
     f.report,
     `${await readFile(f.report, "utf8")}\nSettling: keep open. The shape question needs evidence only the user can supply.\n`,
   )
-  await configureJudgeAnswers(f, [
-    "Judge: stop. The shape question needs evidence only the user can supply.",
-  ])
-
   assert.equal(
-    await runCommand(
-      ["round", "example-widen.md", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example-widen.md", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )
@@ -1619,14 +1484,13 @@ test("a widening judge can stop the series without recommending settle", async (
     "keep open. The shape question needs evidence only the user can supply.",
   )
   const visible = f.visible.join("\n")
-  assert.match(visible, /Judge: stop\. The shape question needs evidence/)
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series stopped on the judge answer after 1 round\./,
+    /Plan audit of example: automatic auditor series stopped after 1 round\. Rule 2: every assistant in the pool has a current read; keep open\. The shape question needs evidence only the user can supply\./,
   )
 })
 
-test("a detailing series ends on the judge's ready recommendation", async (t) => {
+test("a detailing series ends ready after every represented assistant has a current read", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -1640,29 +1504,18 @@ test("a detailing series ends on the judge's ready recommendation", async (t) =>
     false,
   )
   await rm(join(f.activeRoot, "example-widen.md"))
-  await configureJudgeAnswers(f, [
-    "Judge: ready. The clean read leaves no remaining real bug in the brief.",
-  ])
-
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example.md", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )
-  const judge = (await f.prompts()).find((call) =>
-    call.prompt.startsWith("Run the judge phase"),
-  )
-  assert.ok(judge)
-  assert.match(judge.prompt, /Permitted judge options: ready, stop, /)
   const visible = f.visible.join("\n")
-  assert.match(visible, /Judge: ready\. The clean read leaves no remaining/)
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended after 1 round\. The judge finds the brief complete\. Detailing is done: run pnpm audit-round ready example\./,
+    /Plan audit of example: automatic auditor series ended after 1 round\. Detailing is done: run pnpm audit-round ready example\. Rule 2: every assistant in the pool has a current read; the detailing plan is ready\./,
   )
   const {
     rounds: [stored],
@@ -1671,14 +1524,19 @@ test("a detailing series ends on the judge's ready recommendation", async (t) =>
   ) as {
     rounds: {
       phase: string
+      pool?: unknown[]
       judge: { answer: string; reason: string } | null
     }[]
   }
   assert.equal(stored?.phase, "detailing")
   assert.deepEqual(stored?.judge, {
     answer: "ready",
-    reason: "The clean read leaves no remaining real bug in the brief.",
+    reason:
+      "Rule 2: every assistant in the pool has a current read; the detailing plan is ready.",
   })
+  assert.deepEqual(stored?.pool, [
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ])
 })
 
 test("a failed round stops a scope list before later scopes", async (t) => {
@@ -1716,34 +1574,6 @@ test("a failed round stops a scope list before later scopes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(visible, /Auditor sequence stopped: this round failed\./)
   assert.match(visible, /Scope list stopped before 2\./)
-})
-
-test("an automatic rebuttal round gives the fresh judge retained evidence", async (t) => {
-  const f = await roundFixture(t, "codex", "repo-edu", false, "c")
-  assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
-    0,
-    f.errors.join("\n"),
-  )
-  const judge = (await f.prompts()).find((call) =>
-    call.prompt.startsWith("Run the judge phase"),
-  )
-  assert.ok(judge)
-  assert.equal(judge.assistant, "codex")
-  assert.equal(judge.args.includes("audit-session"), false)
-  assert.match(judge.prompt, /"status": "in-progress"/)
-  assert.match(judge.prompt, /"outcome": "dropped"/)
-  assert.match(judge.prompt, /example\/impl-audit-1 oth growth-none c1/)
-  const visible = f.visible.join("\n")
-  assert.match(visible, /Judge: stop\. The retained evidence has converged\./)
-  assert.match(
-    visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer/,
-  )
 })
 
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
@@ -1812,11 +1642,10 @@ test("a scope list runs one automatic series per scope in list order", async (t)
     true,
   )
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1,2", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["round", "example.md", "1,2", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )
@@ -1829,7 +1658,7 @@ test("a scope list runs one automatic series per scope in list order", async (t)
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped on the judge answer after 1 round\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 1 round\./,
   )
   assert.match(
     visible,
@@ -1837,7 +1666,7 @@ test("a scope list runs one automatic series per scope in list order", async (t)
   )
   assert.match(
     visible,
-    /Implementation audit of example, step 2: automatic auditor series stopped on the judge answer after 1 round\./,
+    /Implementation audit of example, step 2: automatic auditor series stopped after 1 round\./,
   )
   assert.doesNotMatch(visible, /Scope list stopped/)
   const stored = JSON.parse(

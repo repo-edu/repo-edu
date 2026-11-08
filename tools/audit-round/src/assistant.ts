@@ -8,10 +8,8 @@ import {
   type PhaseCompletion,
   type PhaseOutput,
 } from "./feedback.js"
-import { readJudgeAnswer } from "./judge.js"
 import type {
   AssistantTurnInput,
-  JudgeResult,
   Phase,
   PhaseControlResult,
   PhaseFailure,
@@ -88,34 +86,6 @@ export function runAssistantInvocation(
       }
     },
     record,
-  )
-}
-
-/** Run the fresh judge turn and admit its one-line answer. */
-export function runJudge(
-  input: PhaseInput<"judge">,
-  output: PhaseOutput,
-  runtime: AssistantRuntime,
-): Promise<JudgeResult> {
-  return runAssistantTurn<JudgeResult>(
-    input,
-    phasePrompt(input),
-    output,
-    runtime,
-    async (sessionId, finalText) => {
-      const result = phaseResult(input.phase, sessionId, finalText)
-      if (result.status !== "finished")
-        return { phaseResult: result, complete: () => result }
-      const value = {
-        status: "finished",
-        sessionId,
-        answer: readJudgeAnswer(withoutPhaseResult(finalText), input.options),
-      } as const
-      return {
-        phaseResult: result,
-        complete: () => value,
-      }
-    },
   )
 }
 
@@ -200,9 +170,8 @@ async function runAssistantTurn<T>(
 export function assistantDependencies(
   runtime: AssistantRuntime,
   output: PhaseOutput,
-): Pick<RoundDependencies, "runPhase" | "runJudge"> {
+): Pick<RoundDependencies, "runPhase"> {
   return {
-    runJudge: (input) => runJudge(input, output, runtime),
     runPhase: {
       audit: (input) => runAssistantPhase(input, output, runtime),
       vet: (input) => runAssistantPhase(input, output, runtime),

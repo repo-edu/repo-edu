@@ -112,13 +112,15 @@ const roundStatus = z.enum([
   "interrupted",
   "awaiting-ruling",
 ])
+const seriesPoolEntry = z.strictObject({
+  assistant,
+  model: z.string().min(1),
+  effort,
+})
 /** A continuation names the series-pool entry the next round runs on. */
-export const judgeAnswerSchema = z
+export const seriesAnswerSchema = z
   .strictObject({
-    answer: z.union([
-      z.enum(["settle", "ready", "stop"]),
-      z.strictObject({ assistant, model: z.string().min(1), effort }),
-    ]),
+    answer: z.union([z.enum(["settle", "ready", "stop"]), seriesPoolEntry]),
     reason: z.string().min(1),
   })
   .nullable()
@@ -168,7 +170,10 @@ const commonRoundData = z.strictObject({
     }),
   ),
   findings: z.array(roundFindingSchema),
-  judge: judgeAnswerSchema,
+  /** New automatic rounds retain the resolved ordered pool used for this answer. */
+  pool: z.array(seriesPoolEntry).min(1).optional(),
+  /** Historical field name retained because replay reads the stored corpus. */
+  judge: seriesAnswerSchema,
 })
 
 export const planningRoundDataSchema = commonRoundData.extend({
@@ -233,8 +238,8 @@ export function roundDataFilename(
 
 export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
 export type RoundFinding = z.infer<typeof roundFindingSchema>
-export type JudgeAnswer = NonNullable<z.infer<typeof judgeAnswerSchema>>
-export type JudgeDecision = JudgeAnswer["answer"]
+export type SeriesAnswer = NonNullable<z.infer<typeof seriesAnswerSchema>>
+export type SeriesDecision = SeriesAnswer["answer"]
 export type ReportFinding = Omit<
   RoundFinding,
   "vetVerdict" | "rebuttalAnswer" | "outcome" | "finalTier" | "finalReach"

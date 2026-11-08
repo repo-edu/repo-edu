@@ -72,13 +72,12 @@ export const settingsSchema = z
     maximumAutomaticRounds: z.number().int().positive(),
     strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
     defaults: assistantDefaults,
-    /** The ordered pool the automatic series opens from and the judge draws on. */
+    /** The ordered pool the automatic series opens from and routes between. */
     auditors: z.array(assignedSelection).min(1),
     coders: z.array(assignedSelection).min(1),
     phases: z.strictObject({
       vet: assistantPhase,
       watch: assignedSelection,
-      judge: assignedSelection,
       close: assignedSelection,
     }),
   })

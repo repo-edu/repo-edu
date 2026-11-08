@@ -7,6 +7,11 @@ import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream, recordedTag } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
+const singleAuditorSettings = {
+  ...testSettings,
+  auditors: [testSettings.auditors[0]],
+}
+
 for (const auditor of ["codex", "claude"] as const) {
   for (const tier of ["a", "b", "c", "d", null] as const) {
     test(`planning chain with ${auditor} and ${tier ?? "clean"} follows the requested sequence regardless of landed severity`, async (t) => {
@@ -238,7 +243,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         await runCommand(
           ["round", "example", ...(working === "plan" ? [] : ["1"])],
           f.runtime,
-          f.options,
+          { ...f.options, settings: singleAuditorSettings },
         ),
         0,
       )

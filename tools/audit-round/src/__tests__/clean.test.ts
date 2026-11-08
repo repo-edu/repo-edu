@@ -6,9 +6,14 @@ import { execa } from "execa"
 import { completeClean } from "../clean.js"
 import { stampCommitMessage } from "../commit-msg.js"
 import { planStem } from "../target.js"
-import { runCommand } from "./configured-runner.js"
+import { runCommand, testSettings } from "./configured-runner.js"
 import { recordedTag } from "./helpers.js"
 import { roundFixture, shortCommit } from "./round-fixture.js"
+
+const singleAuditorSettings = {
+  ...testSettings,
+  auditors: [testSettings.auditors[0]],
+}
 
 for (const working of ["plan", "repo-edu"] as const) {
   for (const owner of working === "plan"
@@ -112,7 +117,10 @@ for (const working of ["repo-edu", "plan"] as const) {
       `Implementation audit workflow\nTarget: example.md 1\nJudged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
-      await runCommand(["round", "example.md", "1"], f.runtime, f.options),
+      await runCommand(["round", "example.md", "1"], f.runtime, {
+        ...f.options,
+        settings: singleAuditorSettings,
+      }),
       0,
       f.errors.join("\n"),
     )
@@ -141,7 +149,13 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
     "repo-edu",
     true,
   )
-  assert.equal(await runCommand(["round", "HEAD"], f.runtime, f.options), 0)
+  assert.equal(
+    await runCommand(["round", "HEAD"], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
+    0,
+  )
   assert.equal(await shortCommit(f.repoRoot, "HEAD"), f.heads["repo-edu"])
   assert.match(await readFile(f.report, "utf8"), /No findings/)
   const { log, markdown } = await f.records()

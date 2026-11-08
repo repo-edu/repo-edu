@@ -44,18 +44,18 @@ import {
   type RoundSetup,
 } from "./round.js"
 import {
-  type JudgeAnswer,
   type ModelTokenUsage,
   type RoundAccount,
   type RoundData,
   roundDataFilename,
   roundDataIdentity,
+  type SeriesAnswer,
   writeRoundData,
 } from "./round-data.js"
 import { type FileKind, phaseFilename, roundIdentity } from "./round-paths.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
-import type { RoundSettings } from "./settings.js"
+import type { Auditor, RoundSettings } from "./settings.js"
 import { isActivePlanPath, planPhase, planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
@@ -104,6 +104,7 @@ export type Run = {
     readonly tag: string
     readonly settings: RoundData["settings"]
     readonly auditor: RoundData["auditor"]
+    readonly pool?: readonly Auditor[]
   } & (
     | { readonly phase: "widening" | "detailing" }
     | { readonly scope: string }
@@ -186,10 +187,9 @@ export async function roundRun(
   const entry = (phase: RoundPhase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: RoundPhase): string =>
     fileTag(entry(phase), releases, settings)
-  // The judge writes no file, and the close runs alone, so a round needs
-  // neither tag.
+  // The close runs alone, so a round needs no close tag.
   for (const phase of Object.keys(phases) as RoundPhase[]) {
-    if (phase !== "close" && phase !== "judge") tag(phase)
+    if (phase !== "close") tag(phase)
   }
   const { nameStart, title } = await roundIdentity(setup)
   const previousModels = await readPreviousRoundModels(setup)
@@ -215,6 +215,7 @@ export async function roundRun(
             ...resolvedRun(audit, releases),
             chosenBy: setup.auditorSelectionSource,
           },
+          ...(setup.pool === undefined ? {} : { pool: setup.pool }),
           originalGroups: setup.originalGroups.map(
             ({ repository, commits, startingHead }) => ({
               repository,
@@ -242,6 +243,7 @@ export async function roundRun(
               ...resolvedRun(audit, releases),
               chosenBy: setup.auditorSelectionSource,
             },
+            ...(setup.pool === undefined ? {} : { pool: setup.pool }),
             ...(setup.roundKind === "planning"
               ? { phase: planPhase(setup.plan) }
               : { scope: setup.scope }),
@@ -264,7 +266,6 @@ export async function roundRun(
       entry("rebut"),
       entry("fix"),
       ...("plan" in setup ? [entry("watch")] : []),
-      ...(setup.pool !== undefined ? [entry("judge")] : []),
     ],
     paths: {
       claim: join(setup.activeRoot, `${nameStart}-0-claim.md`),
@@ -635,7 +636,7 @@ export class RoundOutput<R extends Run = Run> {
     this.transcribe(`## User ruling\n\n${reply}\n`)
   }
 
-  /** Publish the settled account before the watch and judge read this round. */
+  /** Publish the settled account before the watch and series rules read this round. */
   writeSettledRound(
     commits: readonly RoundData["commits"][number][],
     account: RoundAccount,
@@ -664,7 +665,7 @@ export class RoundOutput<R extends Run = Run> {
               : "failed",
         result.commits,
         result.account,
-        result.status === "finished" ? result.judge : null,
+        result.status === "finished" ? result.decision : null,
       )
     }
     this.release()
@@ -727,7 +728,7 @@ export class RoundOutput<R extends Run = Run> {
     status: RoundData["status"],
     commits: readonly RoundData["commits"][number][],
     account: RoundAccount,
-    judge: JudgeAnswer | null,
+    decision: SeriesAnswer | null,
   ): void {
     if (this.run.data === undefined) return
     const auditor = this.ran.get("audit")?.selection ?? this.run.data.auditor
@@ -767,7 +768,10 @@ export class RoundOutput<R extends Run = Run> {
       }),
       commits: [...commits],
       findings: [...account.findings],
-      judge,
+      ...(this.run.data.pool === undefined
+        ? {}
+        : { pool: [...this.run.data.pool] }),
+      judge: decision,
       ...("phase" in this.run.data
         ? { phase: this.run.data.phase, settling: account.settling }
         : "scope" in this.run.data

@@ -1,7 +1,7 @@
 import { readModelRecord } from "./commit-msg.js"
 import { errorMessage } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
-import { judgeOptions } from "./judge.js"
+import { decideSeries } from "./judge.js"
 import type { LifecycleCommit } from "./lifecycle.js"
 import type { OpenDeferral } from "./open-deferrals.js"
 import type { RoundDocuments } from "./output.js"
@@ -27,11 +27,11 @@ import type { AuditReport } from "./report.js"
 import {
   type FindingRebuttal,
   type FindingReview,
-  type JudgeAnswer,
   type LandedCommit,
   type RoundAccount,
   reviewedRoundFindings,
   roundDataIdentity,
+  type SeriesAnswer,
   settleRoundFindings,
 } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
@@ -74,11 +74,11 @@ export type RoundSetup = RoundContext & {
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
   /**
-   * The series pool the judge chooses the next auditor from, present only when
-   * this round belongs to the judge-led series.
+   * The series pool the runner routes between, present only for an automatic
+   * series.
    */
   readonly pool?: readonly Auditor[]
-  /** The open deferrals this round must judge and settle. */
+  /** The open deferrals this round must inspect and settle. */
   readonly deferrals?: readonly OpenDeferral[]
 } & AuditTarget
 
@@ -119,11 +119,11 @@ export type RoundResult = (
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
-      /** The fresh judge's answer; manual, red-watch and phase-change rounds have none. */
-      readonly judge: JudgeAnswer | null
+      /** The runner's series answer; manual, red-watch and phase-change rounds have none. */
+      readonly decision: SeriesAnswer | null
       /** The grade the watch that followed the round recorded; null when none ran. */
       readonly watch: WatchGrade | null
-      /** The chained planning round's outcome before this round's judge. */
+      /** The chained planning round's outcome before this round's decision. */
       readonly deferralChain: DeferralChainOutcome
     }
   | {
@@ -344,44 +344,38 @@ async function runWatch(
   }
 }
 
-/** Run the fresh evidence-only turn that decides an automatic series. */
-async function runSeriesJudge(
+/** Apply the runner's deterministic rules after an automatic-series round. */
+async function runSeriesDecision(
   input: RoundInput,
   pool: readonly Auditor[],
-  dependencies: Pick<RoundDependencies, "judgeEvidence" | "runJudge">,
+  dependencies: Pick<RoundDependencies, "seriesEvidence">,
   settings: RoundSettings,
-): Promise<RoundFailure | { readonly answer: JudgeAnswer }> {
-  const phases = roundPhases("codex", noOverride, settings)
+): Promise<RoundFailure | { readonly answer: SeriesAnswer }> {
+  const phases = roundPhases(
+    input.auditor,
+    input.override ?? noOverride,
+    settings,
+    input.fixer,
+    input.fixerSource,
+  )
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   try {
     const currentRound = roundDataIdentity(
       transcriptNameStart(input.transcript),
     )
-    const evidence = await dependencies.judgeEvidence({
+    const evidence = await dependencies.seriesEvidence({
       ...context,
       stem: "plan" in input ? planStem(input.plan) : currentRound.target,
       seriesKind: "groups" in input ? "commit" : "plan",
     })
-    const options = judgeOptions(evidence, currentRound, pool)
-    const judged = await dependencies.runJudge({
-      phase: "judge",
-      ...phases.judge,
-      ...context,
-      arguments: [],
-      evidence,
-      options,
-      sessionId: null,
-    })
-    if (judged.status === "failed")
-      return { ...judged, phase: "judge", ...phases.judge, ...context }
-    return { answer: judged.answer }
+    return { answer: decideSeries(evidence, currentRound, pool) }
   } catch (error) {
     return {
       status: "failed",
       sessionId: null,
-      phase: "judge",
-      ...phases.judge,
+      phase: "complete",
+      ...phases.audit,
       ...context,
       reason: errorMessage(error),
     }
@@ -495,18 +489,18 @@ export async function runRound(
       try {
         dependencies.writeSettledRound(completion.commits, account)
         const deferralChain = await runDeferralChain(input, dependencies)
-        const judged =
+        const decided =
           input.pool !== undefined &&
           (deferralChain === "none" || deferralChain === "finished")
-            ? await runSeriesJudge(input, input.pool, dependencies, settings)
+            ? await runSeriesDecision(input, input.pool, dependencies, settings)
             : { answer: null }
-        if ("status" in judged)
-          return { ...judged, commits: completion.commits, account }
+        if ("status" in decided)
+          return { ...decided, commits: completion.commits, account }
         return {
           status: "finished",
           report,
           cleanAudit: true,
-          judge: judged.answer,
+          decision: decided.answer,
           watch: null,
           deferralChain,
           commits: completion.commits,
@@ -778,7 +772,7 @@ export async function runRound(
     if (fix.status === "finished") {
       try {
         // The fix ends the round and has answered every ruling it asked, so
-        // its settling line is the recommendation the judge reads. The audit
+        // its settling line is the recommendation the series rules read. The audit
         // report's closing line stands only when no fix ran.
         const widening =
           "plan" in input &&
@@ -878,18 +872,18 @@ export async function runRound(
           }
         }
       }
-      const judged =
+      const decided =
         input.pool !== undefined &&
         seriesMayContinue &&
         (deferralChain === "none" || deferralChain === "finished")
-          ? await runSeriesJudge(input, input.pool, dependencies, settings)
+          ? await runSeriesDecision(input, input.pool, dependencies, settings)
           : { answer: null }
-      if ("status" in judged) return { ...judged, commits, account }
+      if ("status" in decided) return { ...decided, commits, account }
       return {
         status: "finished",
         report,
         cleanAudit: false,
-        judge: judged.answer,
+        decision: decided.answer,
         watch: watched.grade,
         deferralChain,
         commits,

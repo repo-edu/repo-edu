@@ -253,7 +253,6 @@ test("the coder and assigned phases follow their configured assistants independe
       const config = structuredClone(settings)
       config.coders = [{ assistant, model: "custom-fixer", effort: "high" }]
       config.phases.watch = { assistant, model: "default", effort: "default" }
-      config.phases.judge = { assistant, model: "cheap-judge", effort: "low" }
       const phases = roundPhases(auditor, noOverride, config)
       assert.deepEqual(phases.fix, {
         assistant,
@@ -268,13 +267,6 @@ test("the coder and assigned phases follow their configured assistants independe
         model: {
           model: { value: model, source: "audit-round defaults" },
           effort: { value: effort, source: "audit-round defaults" },
-        },
-      })
-      assert.deepEqual(phases.judge, {
-        assistant,
-        model: {
-          model: { value: "cheap-judge", source: "audit-round settings" },
-          effort: { value: "low", source: "audit-round settings" },
         },
       })
       assert.equal(
@@ -309,7 +301,7 @@ test("assistant names and bare letter tags both read the defaults across chained
         effort: { value: effort, source },
       })
       assert.deepEqual(phases.rebut, phases.audit)
-      for (const phase of ["vet", "fix", "watch", "judge"] as const)
+      for (const phase of ["vet", "fix", "watch"] as const)
         assert.deepEqual(phases[phase], configured[phase])
     }
   }

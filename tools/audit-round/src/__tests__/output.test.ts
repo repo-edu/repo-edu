@@ -80,7 +80,7 @@ test("a clean commit audit records its complete commit scope", async (t) => {
     status: "finished",
     report: "REPORT.md",
     cleanAudit: true,
-    judge: null,
+    decision: null,
     watch: null,
     deferralChain: "none",
     commits: [],

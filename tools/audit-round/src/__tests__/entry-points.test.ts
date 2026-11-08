@@ -7,7 +7,7 @@ import { execa } from "execa"
 import { installationRoot } from "../context.js"
 import type { PhaseInput } from "../phase.js"
 import { phasePrompt } from "../requests.js"
-import { pinned, runCommand, testSettings } from "./configured-runner.js"
+import { pinned, runCommand } from "./configured-runner.js"
 import { fixture, testContext } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
@@ -37,32 +37,6 @@ test("watch evidence reaches the assistant but is omitted from the log prompt", 
   assert.ok(!log.includes(evidence))
 })
 
-test("the judge sees only its permitted options and retained evidence", async (t) => {
-  const f = await fixture(t)
-  const evidence = {
-    roundData: { file: "example-impl-rounds.json", rounds: [] },
-    commits: [],
-    latestWatch: null,
-  }
-  const { text, log } = phasePrompt({
-    ...testContext(f.root),
-    phase: "judge",
-    assistant: "codex",
-    model: pinned("codex"),
-    sessionId: null,
-    arguments: [],
-    evidence,
-    options: ["stop", ...testSettings.auditors],
-  })
-  assert.match(
-    text,
-    /Permitted judge options: stop, codex gpt-5\.6-sol high or claude opus high\./,
-  )
-  assert.doesNotMatch(text, /Permitted judge options: settle/)
-  assert.match(text, /"file": "example-impl-rounds\.json"/)
-  assert.match(log, /Judge evidence:\n"\(contents omitted from log\)"$/)
-})
-
 for (const working of ["repo-edu", "plan"] as const) {
   test(`published ${working} workflow headers supply every phase's current instructions`, {
     skip: checkoutRequirement,
@@ -72,14 +46,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       working === "plan" ? "planning" : "implementation",
     )
     for (const assistant of ["claude", "codex"] as const) {
-      for (const phase of [
-        "audit",
-        "vet",
-        "rebut",
-        "fix",
-        "watch",
-        "judge",
-      ] as const) {
+      for (const phase of ["audit", "vet", "rebut", "fix", "watch"] as const) {
         const { text: prompt } = phasePrompt({
           ...context,
           phase,

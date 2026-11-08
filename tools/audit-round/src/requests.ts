@@ -5,7 +5,6 @@ import { VFile } from "vfile"
 import { matter } from "vfile-matter"
 import { z } from "zod"
 import { peerRoot } from "./context.js"
-import { formatJudgeOptions } from "./judge.js"
 import type {
   AssistantTurnInput,
   InteractiveSession,
@@ -186,7 +185,7 @@ ${instructions === null ? "Continue the supplied workflow in this resumed sessio
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Workflow: ${phaseWorkflow(input)}
 The supplied workflow and phase arguments are already resolved. Do not run name or paths again. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
-For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : input.phase === "judge" ? `\n\nPermitted judge options: ${formatJudgeOptions(input.options)}.\n\nJudge evidence:\n${JSON.stringify(omitEvidence ? "(contents omitted from log)" : input.evidence, null, 2)}` : ""}`
+For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : ""}`
   if (input.phase !== "fix" && input.phase !== "implement") return prompt
   const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md at that path.`
   if (input.rulingReply === undefined) return fixPrompt

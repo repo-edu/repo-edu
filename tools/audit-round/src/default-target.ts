@@ -283,9 +283,9 @@ export async function lifecycleStage(
 }
 
 /**
- * Whether the newest round on the full step range ended its series on a judge
+ * Whether the newest round on the full step range ended its series on a stop
  * stop and no file-changing commit of the plan has landed since that round
- * started, other than the round's own. That stop judged the current code of
+ * started, other than the round's own. That stop covered the current code of
  * every step, so the audit range series has nothing left to read. Empty
  * commits such as clean records change no code and leave it settled.
  */

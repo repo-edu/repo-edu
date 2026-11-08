@@ -25,7 +25,7 @@ export function splitEntries(text: string): string[] {
 /**
  * The exact auditor an entry asks the current runner invocation to use. The
  * model reads as the release its CLI resolved at startup, the name the round
- * data stores, so a queue's ending signal and the judge's series pool compare
+ * data stores, so a queue's ending signal and the automatic series pool compare
  * with recorded rounds by that one name.
  */
 export function auditorSetting(

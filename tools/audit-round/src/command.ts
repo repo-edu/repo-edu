@@ -39,7 +39,7 @@ import {
   implementationIdentity,
   implementationRun,
 } from "./implement-output.js"
-import { auditorText, readJudgeEvidence } from "./judge.js"
+import { auditorText, readSeriesEvidence } from "./judge.js"
 import {
   archiveRoundData,
   commitOnly,
@@ -448,8 +448,8 @@ function watchEvidencePage(evidence: string, range: LineRange): string {
 }
 
 /**
- * How one auditor series ended. `settle` and `ready` carry the judge's
- * recommended lifecycle call, `ended` a judge stop, the round maximum or an
+ * How one auditor series ended. `settle` and `ready` carry the runner's
+ * lifecycle answer, `ended` a stop answer, the round maximum or an
  * exhausted manual queue, and `stopped` an ending that needs the user: a
  * failure, an unanswered ruling, a red watch, a phase change or a chained
  * deferral round that ended the series.
@@ -551,7 +551,7 @@ its close: the widening series, settle, the detailing series, ready, the
 implementation, the audit range series and the close. Invoking it is your settle,
 ready and close call. Any other ending stops the run with the stage's own lines,
 and the same command continues from where the plan stands. Once the full step
-range's newest series has ended on a judge stop and no plan commit has changed a
+range's newest series has ended on stop and no plan commit has changed a
 file since, the run goes straight to the close. Every series it opens
 starts with the default auditor and runs the glance and the watch.
 A failed implementation worker prints this command with --resume, which resumes
@@ -688,11 +688,12 @@ Round sequence:
     - The configured default auditor runs first, or the --first selection. A
       random default picks the opener from the auditors list in each scope's
       series.
-    - After each non-red round, a fresh judge picks the next listed auditor or
-      an ending. In widening it may recommend settle or stop; in detailing
-      before the ready marker, ready or stop; otherwise it may stop. A settled
-      A finding removes settle in widening; a settled A or B finding removes
-      ready and stop otherwise.
+    - After each non-red round, the runner applies fixed rules. A read is current
+      when it started after the latest real-bug audit, lifecycle change, plan
+      step or outside plan edit. When every represented assistant has a current
+      read, widening settles or stops from its settling line, detailing answers
+      ready before its marker and every other case stops. Otherwise the runner
+      chooses an assistant without a current read, preferring a switch.
     - No queue file is written.
     - settings.json sets the maximum round count, including the first round.
     - A commit round keeps the original bounded label, then adds earlier landed
@@ -702,7 +703,7 @@ Round sequence:
   Scope list (2,3-5,6-7):
     - Each scope runs its own series on its own target and files, in list order.
       The opener is chosen again for each scope, and --first opens every scope.
-    - A judge stop or the maximum ends only that scope.
+    - A stop answer or the maximum ends only that scope.
     - A failure, an unanswered ruling, a red watch or a plan phase change
       ends the whole list and names the scopes that did not run.
     - A scope list is refused beside --auditor, whose queue belongs to one scope.
@@ -728,15 +729,13 @@ Round sequence:
                  Skipped if the vet accepts every finding.
     4. Fix       The assistant set in settings.json fixes the accepted findings.
     5. Watch     The trajectory watch runs when its glance says it is due.
-    6. Judge     A fresh evidence-only turn ends or continues an automatic series.
 
   Skipping rounds and stopping:
-    - If the audit finds nothing, it skips vet, rebuttal, fix and watch. An
-      automatic series still runs the judge.
-    - The judge's answer and reason print inside the round, enter the round
-      transcript and repeat in the line that stops the series or opens the
-      next round. A settle or ready answer ends the series with that command
-      to run; its reason stays in the round.
+    - If the audit finds nothing, it skips vet, rebuttal, fix and watch. The
+      automatic series still applies the runner rules.
+    - The runner's answer and reason print after the round, stay in its retained
+      data and repeat in the line that stops the series or opens the next round.
+      A settle or ready answer ends the series with that command to run.
     - In a manual queue, a clean audit skips entries that resolve to the same
       assistant, model and effort. Other settings still run.
     - A fix that records a clean result does not skip later rounds.
@@ -1429,7 +1428,7 @@ export async function runCommand(
           readVet(await readFile(file, "utf8"), findings),
         readRebuttal: async (file, findings, reviews) =>
           readRebuttal(await readFile(file, "utf8"), findings, reviews),
-        judgeEvidence: readJudgeEvidence,
+        seriesEvidence: readSeriesEvidence,
         chainDeferrals,
         readHead: async (cwd) =>
           (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
@@ -1729,7 +1728,7 @@ export async function runCommand(
           ],
         )
       const opened = first ?? series.firstAuditor
-      // The judge draws on the listed auditors and on a `--first` selection
+      // The series routes among the listed auditors and a `--first` selection
       // whose assistant the list lacks, so the opener stays inside the series
       // for every scope the run opens.
       const firstAuditor = series.firstAuditor
@@ -1742,8 +1741,8 @@ export async function runCommand(
           ? [firstAuditor]
           : []),
       ]
-      // The judge reads each round's auditor as the release its CLI resolved,
-      // so the pool offers every entry under that same name.
+      // The rules read each round's auditor as the release its CLI resolved,
+      // so the pool keeps every entry under that same name.
       const poolAuditors = pool.map((seat) =>
         auditorSetting(seat, releases, settings),
       )
@@ -1834,7 +1833,7 @@ export async function runCommand(
       /**
        * One auditor series on one target. Each scope of a list opens as its
        * own series, so the opener is chosen again and the round count starts
-       * over. A judge settle or ready names that lifecycle call; a judge stop,
+       * over. A settle or ready answer names that lifecycle call; stop,
        * the maximum or an exhausted queue ends the series; an ending that
        * needs the user stops the whole list.
        */
@@ -1856,9 +1855,9 @@ export async function runCommand(
         let seat: AuditorSeat | null = opened ?? settingsOpener()
         let target = initial
         let completed = 0
-        // The reason behind the judge answer that chose the next seat, printed
+        // The reason behind the rule answer that chose the next seat, printed
         // with the next round's opening line so the log carries it.
-        let judgedReason: string | null = null
+        let decisionReason: string | null = null
         const seriesName = (value: AuditTarget): string =>
           "plan" in value
             ? `${roundSubject(value, planStem(value.plan))}: automatic auditor series`
@@ -1986,7 +1985,7 @@ export async function runCommand(
               }
               if (automatic)
                 await output?.message(
-                  `Next round: ${auditorText(auditorSetting(seat, releases, settings))}, as judged; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${judgedReason}`,
+                  `Next round: ${auditorText(auditorSetting(seat, releases, settings))}; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${decisionReason}`,
                 )
             }
             const repoEduDeferrals =
@@ -2091,57 +2090,57 @@ export async function runCommand(
             }
             if (automatic) {
               const series = seriesName(target)
-              const judge = round.judge
-              if (judge === null)
+              const decision = round.decision
+              if (decision === null)
                 throw new Error(
-                  "Automatic round finished without a judge answer",
+                  "Automatic round finished without a series answer",
                 )
-              if (judge.answer === "stop") {
+              if (decision.answer === "stop") {
                 await active.message(
-                  `${series} stopped on the judge answer after ${completed} round${completed === 1 ? "" : "s"}. ${judge.reason}`,
+                  `${series} stopped after ${completed} round${completed === 1 ? "" : "s"}. ${decision.reason}`,
                 )
                 await printDeferrals()
                 break
               }
-              if (judge.answer === "settle") {
+              if (decision.answer === "settle") {
                 if (!("plan" in target))
                   throw new Error(
-                    "Commit series judge returned the plan-only settle answer",
+                    "Commit series returned the plan-only settle answer",
                   )
                 await active.message(
-                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. The judge finds no open shape question. Widening is done: run pnpm audit-round settle ${planStem(target.plan)}.`,
+                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. Widening is done: run pnpm audit-round settle ${planStem(target.plan)}. ${decision.reason}`,
                 )
                 await printDeferrals()
                 return "settle"
               }
-              if (judge.answer === "ready") {
+              if (decision.answer === "ready") {
                 if (!("plan" in target))
                   throw new Error(
-                    "Commit series judge returned the plan-only ready answer",
+                    "Commit series returned the plan-only ready answer",
                   )
                 await active.message(
-                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. The judge finds the brief complete. Detailing is done: run pnpm audit-round ready ${planStem(target.plan)}.`,
+                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. Detailing is done: run pnpm audit-round ready ${planStem(target.plan)}. ${decision.reason}`,
                 )
                 await printDeferrals()
                 return "ready"
               }
               if (completed >= settings.maximumAutomaticRounds) {
                 await active.message(
-                  `${series} reached its maximum of ${settings.maximumAutomaticRounds} rounds.`,
+                  `${series} reached its maximum of ${settings.maximumAutomaticRounds} round${settings.maximumAutomaticRounds === 1 ? "" : "s"}.`,
                 )
                 await printDeferrals()
                 break
               }
-              const chosen = judge.answer
+              const chosen = decision.answer
               const index = poolAuditors.findIndex(
                 (auditor) => auditorText(auditor) === auditorText(chosen),
               )
               if (index === -1)
                 throw new Error(
-                  `The judge chose ${auditorText(chosen)}, which the series pool does not hold`,
+                  `The series rules chose ${auditorText(chosen)}, which the series pool does not hold`,
                 )
               seat = pool[index]
-              judgedReason = judge.reason
+              decisionReason = decision.reason
               auditorSelectionSource = "settings"
               if ("groups" in target)
                 target = await advanceCommitTarget(target, round.commits)
@@ -2195,7 +2194,7 @@ export async function runCommand(
     }
     /**
      * The lifecycle from the stage the plan's state calls for. Invoking it is
-     * the user's settle, ready and close call given in advance, so the judge's
+     * the user's settle, ready and close call given in advance, so the runner's
      * settle or ready answer and a range series that needed nobody move on
      * through the lifecycle owner's functions. Every other ending ends the
      * run with the stage's own lines; a rerun reads the plan's state again.

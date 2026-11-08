@@ -335,7 +335,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
     status: "finished",
     report: "REPORT.md",
     cleanAudit: true,
-    judge: null,
+    decision: null,
     watch: null,
     deferralChain: "none",
     commits: [],
@@ -421,7 +421,7 @@ test("widening planning data retains the settling recommendation", async (t) => 
   assert.equal(entry.settling, settling)
 })
 
-test("the final retained write stores the judge answer", async (t) => {
+test("the final retained write stores the series answer and resolved pool", async (t) => {
   const f = await fixture(t)
   const run = await buildRoundRun(
     {
@@ -449,7 +449,7 @@ test("the final retained write stores the judge answer", async (t) => {
     status: "finished",
     report: "REPORT.md",
     cleanAudit: true,
-    judge: {
+    decision: {
       answer: testSettings.auditors[1],
       reason: "Cross-check the retained result.",
     },
@@ -469,51 +469,7 @@ test("the final retained write stores the judge answer", async (t) => {
     answer: { assistant: "claude", model: "opus", effort: "high" },
     reason: "Cross-check the retained result.",
   })
-})
-
-test("a later judge failure replaces the settled entry with failure", async (t) => {
-  const f = await fixture(t)
-  const run = await buildRoundRun(
-    {
-      ...testSetup(f.root),
-      plan: "example.md",
-      scope: "1",
-      pool: testSettings.auditors,
-    },
-    Date.now(),
-    releases,
-    testSettings,
-  )
-  const output = new RoundOutput(run, {
-    clock: new RunClock(Date.now),
-    terminal: { write: () => {}, status: () => {}, clear: () => {} },
-  })
-  t.after(() => output.close())
-  const account = {
-    settling: "",
-    judgedRepos: ["repo-edu"] as const,
-    findings: [],
-  }
-  output.writeSettledRound([], account)
-  output.finish({
-    status: "failed",
-    phase: "judge",
-    sessionId: "judge-session",
-    assistant: "codex",
-    model: pinned("codex"),
-    ...testContext(f.root),
-    reason: "Judge process stopped",
-    commits: [],
-    account,
-  })
-
-  assert.ok(run.data)
-  const [entry] = parseRoundDataFile(
-    run.data.path,
-    await readFile(run.data.path, "utf8"),
-  ).rounds
-  assert.equal(entry?.status, "failed")
-  assert.equal(entry?.judge, null)
+  assert.deepEqual(entry?.pool, testSettings.auditors)
 })
 
 for (const [name, abortReason, status] of [
@@ -647,7 +603,7 @@ for (const assistant of ["claude", "codex"] as const) {
       status: "finished",
       report: "REPORT.md",
       cleanAudit: false,
-      judge: null,
+      decision: null,
       watch: null,
       deferralChain: "none",
       commits: [
@@ -755,7 +711,7 @@ for (const assistant of ["claude", "codex"] as const) {
       status: "finished",
       report: "REPORT.md",
       cleanAudit: false,
-      judge: null,
+      decision: null,
       watch: null,
       deferralChain: "none",
       commits: [],

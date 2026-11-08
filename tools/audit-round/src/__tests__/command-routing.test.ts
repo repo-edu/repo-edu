@@ -14,6 +14,11 @@ import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
 type Fixture = Awaited<ReturnType<typeof roundFixture>>
 
+const singleAuditorSettings = {
+  ...testSettings,
+  auditors: [testSettings.auditors[0]],
+}
+
 function disproveRound(
   target = "example-impl-audit-01..01",
 ): ImplementationRoundData {
@@ -493,7 +498,10 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const commits = await Promise.all(["HEAD~2", "HEAD~1", "HEAD"].map(full))
 
   assert.equal(
-    await runCommand(["round", reference], f.runtime, f.options),
+    await runCommand(["round", reference], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )
@@ -573,7 +581,10 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
   const references = ["HEAD", `${planRepositoryPrefix}HEAD`] as const
 
   assert.equal(
-    await runCommand(["round", ...references], f.runtime, f.options),
+    await runCommand(["round", ...references], f.runtime, {
+      ...f.options,
+      settings: singleAuditorSettings,
+    }),
     0,
     f.errors.join("\n"),
   )

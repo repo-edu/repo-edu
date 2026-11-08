@@ -1,57 +1,71 @@
-import { readFile } from "node:fs/promises"
-import { basename } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import { episodeMembers } from "./episode.js"
-import { readCommitHeaders, readLog } from "./episode-log.js"
+import { readCommitEvidence, readLog } from "./episode-log.js"
+import { readFindings } from "./findings.js"
 import {
-  type JudgeAnswer,
-  type JudgeDecision,
   type RoundData,
   readCommitRoundData,
   readPlanRoundData,
   roundDataFilename,
+  type SeriesAnswer,
 } from "./round-data.js"
-import { newestWatch } from "./round-paths.js"
 import type { Auditor } from "./settings.js"
 import { looseForm, type Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
-export type JudgeCommit = {
+export type SeriesCommit = {
   readonly repository: Repository
   readonly sha: string
   readonly committed: string
   readonly subject: string
   readonly role: string | null
+  readonly files: readonly string[]
+  readonly renames: readonly { readonly from: string; readonly to: string }[]
+  readonly acceptedTiers: readonly ("A" | "B" | "C" | "D")[]
 }
 
-export type JudgeEvidence = {
+export type SeriesEvidence = {
   readonly roundData: {
     readonly file: string
     readonly rounds: readonly RoundData[]
   }
-  readonly commits: readonly JudgeCommit[]
-  readonly latestWatch: {
-    readonly file: string
-    readonly text: string
-  } | null
+  /** Commits recorded by every round kind, used to distinguish outside edits. */
+  readonly roundCommits: ReadonlySet<string>
+  readonly commits: readonly SeriesCommit[]
 }
 
-export type JudgeEvidenceInput = ExecutionContext & {
+export type SeriesEvidenceInput = ExecutionContext & {
   readonly stem: string
   readonly roundKind: RoundKind
   readonly seriesKind: "plan" | "commit"
 }
 
-async function readPlanJudgeEvidence(
-  input: JudgeEvidenceInput,
-): Promise<JudgeEvidence> {
-  const [roundData, planLog, repoEduLog, watch] = await Promise.all([
+function acceptedTiers(
+  body: string,
+  repository: Repository,
+  role: string | null,
+): SeriesCommit["acceptedTiers"] {
+  try {
+    return readFindings(body, repository, role).map(
+      (finding) => finding.tier.toUpperCase() as "A" | "B" | "C" | "D",
+    )
+  } catch {
+    return []
+  }
+}
+
+async function readPlanSeriesEvidence(
+  input: SeriesEvidenceInput,
+): Promise<SeriesEvidence> {
+  const [roundData, planLog, repoEduLog] = await Promise.all([
     readPlanRoundData(input, input.stem),
     readLog(input.planRoot),
     readLog(input.repoEduRoot),
-    newestWatch(input.activeRoot, input.stem),
   ])
-  const kind = input.roundKind
+  const allRounds = [
+    ...(roundData.planning ?? []),
+    ...(roundData.implementation ?? []),
+  ]
   const commits = (
     [
       ["plan", planLog],
@@ -61,13 +75,19 @@ async function readPlanJudgeEvidence(
     .flatMap(([repository, log]) =>
       episodeMembers(log, repository, input.stem)
         .members.toReversed()
-        .map((commit) => ({
-          repository,
-          sha: commit.sha,
-          committed: new Date(commit.committedAt).toISOString(),
-          subject: commit.subject,
-          role: looseForm(commit.subject)?.role ?? null,
-        })),
+        .map((commit): SeriesCommit => {
+          const role = looseForm(commit.subject)?.role ?? null
+          return {
+            repository,
+            sha: commit.sha,
+            committed: new Date(commit.committedAt).toISOString(),
+            subject: commit.subject,
+            role,
+            files: commit.files,
+            renames: commit.renames,
+            acceptedTiers: acceptedTiers(commit.body, repository, role),
+          }
+        }),
     )
     .sort(
       (first, second) =>
@@ -75,20 +95,19 @@ async function readPlanJudgeEvidence(
     )
   return {
     roundData: {
-      file: roundDataFilename(input.stem, kind),
-      rounds: roundData[kind] ?? [],
+      file: roundDataFilename(input.stem, input.roundKind),
+      rounds: roundData[input.roundKind] ?? [],
     },
+    roundCommits: new Set(
+      allRounds.flatMap((round) => round.commits.map((commit) => commit.sha)),
+    ),
     commits,
-    latestWatch:
-      watch === undefined
-        ? null
-        : { file: basename(watch), text: await readFile(watch, "utf8") },
   }
 }
 
-async function readCommitJudgeEvidence(
-  input: JudgeEvidenceInput,
-): Promise<JudgeEvidence> {
+async function readCommitSeriesEvidence(
+  input: SeriesEvidenceInput,
+): Promise<SeriesEvidence> {
   const rounds = await readCommitRoundData(input, input.stem)
   const ordered = rounds.toSorted((first, second) => first.round - second.round)
   if (ordered.length === 0)
@@ -114,14 +133,20 @@ async function readCommitJudgeEvidence(
         const cwd =
           repository === "repo-edu" ? input.repoEduRoot : input.planRoot
         return [
-          readCommitHeaders(cwd, shas).then((headers) =>
-            headers.map((commit) => ({
-              repository,
-              sha: commit.sha,
-              committed: new Date(commit.committedAt).toISOString(),
-              subject: commit.subject,
-              role: looseForm(commit.subject)?.role ?? null,
-            })),
+          readCommitEvidence(cwd, shas).then((commits) =>
+            commits.map((commit): SeriesCommit => {
+              const role = looseForm(commit.subject)?.role ?? null
+              return {
+                repository,
+                sha: commit.sha,
+                committed: new Date(commit.committedAt).toISOString(),
+                subject: commit.subject,
+                role,
+                files: [],
+                renames: [],
+                acceptedTiers: acceptedTiers(commit.body, repository, role),
+              }
+            }),
           ),
         ]
       }),
@@ -133,18 +158,20 @@ async function readCommitJudgeEvidence(
       file: roundDataFilename(input.stem, "commit"),
       rounds,
     },
+    roundCommits: new Set(
+      ordered.flatMap((round) => round.commits.map((commit) => commit.sha)),
+    ),
     commits,
-    latestWatch: null,
   }
 }
 
-/** Read the judge's bounded inputs without watch-only derived facts. */
-export async function readJudgeEvidence(
-  input: JudgeEvidenceInput,
-): Promise<JudgeEvidence> {
+/** Read the retained round data and bounded commit facts used by the series rules. */
+export async function readSeriesEvidence(
+  input: SeriesEvidenceInput,
+): Promise<SeriesEvidence> {
   return input.seriesKind === "commit"
-    ? readCommitJudgeEvidence(input)
-    : readPlanJudgeEvidence(input)
+    ? readCommitSeriesEvidence(input)
+    : readPlanSeriesEvidence(input)
 }
 
 type CurrentRound = Pick<RoundData, "target" | "round">
@@ -169,17 +196,12 @@ function settled(entry: RoundData, current: CurrentRound): boolean {
   )
 }
 
-/**
- * Whether the entry landed a finding at one of the gating tiers. Widening gates
- * on A alone: a widening B is a fixable issue inside the shape that the vet
- * checked and the fix landed, so the retained settling recommendation already
- * says whether a shape question remains. Detailing and implementation gate on A
- * and B, where B is a real bug the other assistant has not confirmed.
- */
-function landedGatingFinding(
-  entry: RoundData,
-  tiers: readonly ("A" | "B")[],
-): boolean {
+/** Whether this round found a real bug under its phase's settled threshold. */
+function foundRealBug(entry: RoundData): boolean {
+  const tiers =
+    "phase" in entry && entry.phase === "widening"
+      ? (["A"] as const)
+      : (["A", "B"] as const)
   return entry.findings.some(
     (finding) =>
       (finding.outcome === "kept" || finding.outcome === "unmatched") &&
@@ -187,110 +209,194 @@ function landedGatingFinding(
   )
 }
 
+function timestamp(value: string): number {
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed))
+    throw new Error(`Invalid series timestamp: ${value}`)
+  return parsed
+}
+
+function isAuditRole(role: string | null): boolean {
+  return (
+    role === "audit" ||
+    role === "plan-audit" ||
+    role?.startsWith("impl-audit-") === true
+  )
+}
+
+function reopens(commit: SeriesCommit): boolean {
+  return commit.renames.some(({ to }) => to.endsWith("-widen.md"))
+}
+
 /**
- * The decisions the current series phase admits after applying the real-bug
- * gate, followed by every series-pool entry. Widening may end on settle or
- * stop; detailing before the ready marker on ready or stop; every other phase
- * on stop. The gate reads the latest settled read of each assistant the pool
- * can run: an assistant the series cannot send in again imposes nothing, so it
- * cannot hold an ending the series can never unlock.
+ * Events represented only by Git still invalidate older reads. Round-owned
+ * audit commits are excluded because their round start is the event's time.
  */
-export function judgeOptions(
-  evidence: JudgeEvidence,
+function commitEvents(evidence: SeriesEvidence): number[] {
+  let planningPhase: "widening" | "detailing" = "widening"
+  const events: number[] = []
+  for (const commit of evidence.commits) {
+    const time = timestamp(commit.committed)
+    if (commit.role === "settle") {
+      planningPhase = "detailing"
+      events.push(time)
+      continue
+    }
+    if (commit.role === "init" || reopens(commit)) {
+      planningPhase = "widening"
+      events.push(time)
+      continue
+    }
+    if (commit.role !== null && /^impl-\d+$/.test(commit.role)) {
+      events.push(time)
+      continue
+    }
+    const recorded = evidence.roundCommits.has(commit.sha)
+    if (
+      !recorded &&
+      isAuditRole(commit.role) &&
+      (commit.acceptedTiers.includes("A") ||
+        (planningPhase === "detailing" && commit.acceptedTiers.includes("B")) ||
+        (commit.role?.startsWith("impl-audit-") === true &&
+          commit.acceptedTiers.includes("B")))
+    ) {
+      events.push(time)
+      continue
+    }
+    if (
+      !recorded &&
+      !isAuditRole(commit.role) &&
+      commit.repository === "plan" &&
+      commit.files.length > 0
+    )
+      events.push(time)
+  }
+  return events
+}
+
+function currentRoundEntry(
+  rounds: readonly RoundData[],
+  current: CurrentRound,
+): RoundData {
+  const entry = rounds.find(
+    (candidate) =>
+      candidate.target === current.target && candidate.round === current.round,
+  )
+  if (entry === undefined)
+    throw new Error(
+      `Series data has no current round ${current.target} ${current.round}`,
+    )
+  return entry
+}
+
+function wideningEnding(entry: RoundData): "settle" | "stop" {
+  if (!("phase" in entry) || entry.phase !== "widening") return "stop"
+  const match = /^(settle|keep open)\. \S.*$/.exec(entry.settling)
+  if (match === null)
+    throw new Error("The current widening round has no parsed settling line")
+  return match[1] === "settle" ? "settle" : "stop"
+}
+
+function leastRecentEntry(
+  assistant: Auditor["assistant"],
+  pool: readonly Auditor[],
+  entries: readonly RoundData[],
+): Auditor {
+  const candidates = pool.filter((entry) => entry.assistant === assistant)
+  const latest = (candidate: Auditor): number =>
+    Math.max(
+      -Infinity,
+      ...entries
+        .filter(
+          (entry) =>
+            entry.auditor.assistant === candidate.assistant &&
+            entry.auditor.model === candidate.model &&
+            entry.auditor.effort === candidate.effort,
+        )
+        .map((entry) => timestamp(entry.started)),
+    )
+  const selected = candidates.toSorted(
+    (first, second) => latest(first) - latest(second),
+  )[0]
+  if (selected === undefined)
+    throw new Error(`The series pool has no ${assistant} entry`)
+  return selected
+}
+
+/**
+ * Apply the three automatic-series rules. A read is current only when it
+ * started after the newest event that changed its scope. Every represented
+ * assistant must have one current read before the phase can end.
+ */
+export function decideSeries(
+  evidence: SeriesEvidence,
   currentRound: CurrentRound,
   pool: readonly Auditor[],
-): readonly JudgeDecision[] {
-  let entries = evidence.roundData.rounds.filter(
-    (entry) =>
-      entry.target === currentRound.target && settled(entry, currentRound),
+): SeriesAnswer {
+  if (pool.length === 0) throw new Error("The automatic series pool is empty")
+  const current = currentRoundEntry(evidence.roundData.rounds, currentRound)
+  const entries = evidence.roundData.rounds.filter(
+    (entry) => entry.target === current.target && settled(entry, currentRound),
   )
-  const current = entries.find(
-    (entry) =>
-      entry.target === currentRound.target &&
-      entry.round === currentRound.round,
-  )
-  const planCommits = evidence.commits.filter(
-    (commit) => commit.repository === "plan",
-  )
-  const detailing =
-    current !== undefined && "phase" in current && current.phase === "detailing"
-  if (detailing) {
-    const cutoff =
-      planCommits.findLast((commit) => commit.role === "settle") ??
-      planCommits.findLast((commit) => commit.role === "init")
-    if (cutoff !== undefined) {
-      const cutoffTime = Date.parse(cutoff.committed)
-      entries = entries.filter(
-        (entry) => Date.parse(entry.started) >= cutoffTime,
+  const eventTimes = [
+    ...commitEvents(evidence),
+    ...entries.filter(foundRealBug).map((entry) => timestamp(entry.started)),
+  ]
+  const latestEvent = Math.max(-Infinity, ...eventTimes)
+  const assistants = [...new Set(pool.map((entry) => entry.assistant))]
+  const latestCurrentRead = new Map<Auditor["assistant"], RoundData>()
+  for (const entry of entries)
+    if (
+      assistants.includes(entry.auditor.assistant) &&
+      timestamp(entry.started) > latestEvent
+    ) {
+      const earlier = latestCurrentRead.get(entry.auditor.assistant)
+      if (
+        earlier === undefined ||
+        timestamp(entry.started) > timestamp(earlier.started)
       )
+        latestCurrentRead.set(entry.auditor.assistant, entry)
+    }
+
+  const missing = assistants.filter(
+    (assistant) => !latestCurrentRead.has(assistant),
+  )
+  if (missing.length === 0) {
+    const answer = wideningEnding(current)
+    if (answer === "settle")
+      return {
+        answer,
+        reason:
+          "Rule 2: every assistant in the pool has a current read, and the widening recommendation is settle.",
+      }
+    if ("phase" in current && current.phase === "widening")
+      return {
+        answer,
+        reason: `Rule 2: every assistant in the pool has a current read; ${current.settling}`,
+      }
+    const readyOpen =
+      "phase" in current &&
+      current.phase === "detailing" &&
+      !evidence.commits.some((commit) => commit.role === "ready")
+    return {
+      answer: readyOpen ? "ready" : "stop",
+      reason: `Rule 2: every assistant in the pool has a current read; the ${readyOpen ? "detailing plan is ready" : "series stops"}.`,
     }
   }
-  const represented = new Set(pool.map((auditor) => auditor.assistant))
-  const latest = new Map<RoundData["auditor"]["assistant"], RoundData>()
-  for (const entry of entries.toSorted(
-    (first, second) => first.round - second.round,
-  ))
-    if (represented.has(entry.auditor.assistant))
-      latest.set(entry.auditor.assistant, entry)
-  const widening =
-    current !== undefined && "phase" in current && current.phase === "widening"
-  const gatingTiers = widening ? (["A"] as const) : (["A", "B"] as const)
-  const canEnd = ![...latest.values()].some((entry) =>
-    landedGatingFinding(entry, gatingTiers),
-  )
-  // A detailing round before the plan's ready marker may recommend that call
-  // as a value. After the marker the planning round keeps stop alone.
-  const readyOpen =
-    detailing && !planCommits.some((commit) => commit.role === "ready")
-  const endings: readonly JudgeDecision[] = widening
-    ? [...(canEnd ? (["settle"] as const) : []), "stop"]
-    : !canEnd
-      ? []
-      : readyOpen
-        ? ["ready", "stop"]
-        : ["stop"]
-  return [...endings, ...pool]
+
+  const nextAssistant =
+    missing.find((assistant) => assistant !== current.auditor.assistant) ??
+    missing[0]
+  if (nextAssistant === undefined)
+    throw new Error("The series rules found no next assistant")
+  const answer = leastRecentEntry(nextAssistant, pool, entries)
+  return {
+    answer,
+    reason: `Rule 3: ${nextAssistant} has no current read${nextAssistant === current.auditor.assistant ? "" : " and did not audit this round"}.`,
+  }
 }
 
-/** One series-pool entry as the runner offers it and the judge names it back. */
+/** One series-pool entry as terminal messages and retained answers spell it. */
 export function auditorText(auditor: Auditor): string {
   return `${auditor.assistant} ${auditor.model} ${auditor.effort}`
-}
-
-function decisionText(decision: JudgeDecision): string {
-  return typeof decision === "string" ? decision : auditorText(decision)
-}
-
-/** Read the judge's single content line after the phase-result suffix is removed. */
-export function readJudgeAnswer(
-  source: string,
-  options: readonly JudgeDecision[],
-): JudgeAnswer {
-  const lines = source.trim().split(/\r?\n/)
-  const match =
-    lines.length === 1
-      ? /^Judge: (settle|ready|stop|continue with (?:claude|codex) \S+ (?:low|medium|high|xhigh))\. (\S.*)$/.exec(
-          lines[0],
-        )
-      : null
-  if (match === null)
-    throw new Error(
-      "Judge answer must contain exactly one plain Judge line and a reason",
-    )
-  // An ending reads as itself and a continuation as the entry it names, so the
-  // stored answer is the offered entry and the next round runs on that value.
-  const named = match[1].replace(/^continue with /, "")
-  const answer = options.find((option) => decisionText(option) === named)
-  if (answer === undefined)
-    throw new Error(
-      `Judge answered ${named} while the runner offered only ${formatJudgeOptions(options)}`,
-    )
-  return { answer, reason: match[2] }
-}
-
-export function formatJudgeOptions(options: readonly JudgeDecision[]): string {
-  const labels = options.map(decisionText)
-  return labels.length < 2
-    ? (labels[0] ?? "none")
-    : `${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}`
 }
