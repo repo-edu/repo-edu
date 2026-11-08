@@ -57,8 +57,9 @@ The command never rewrites the old report, commit or finding metadata.
 
 ## Refuses when
 
-The runner prints `audit-round: <reason>` and records nothing. An argument refusal exits with status
-2 and any other with status 1.
+The runner prints `audit-round: <reason>` and records nothing. Item 3 is a refusal from the argument
+parser, which prints its own `error:` line without that prefix. An argument refusal exits with
+status 2 and any other with status 1.
 
 1. **The stem is a path, or the target does not start with `<stem>-`.**
 2. **The reason is empty, or the round or finding is not a positive number.**

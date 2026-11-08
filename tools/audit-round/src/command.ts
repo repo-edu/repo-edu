@@ -1037,6 +1037,13 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
     // A bare command line asks for help rather than reporting a missing plan.
     command.parse(argv.length === 0 ? ["--help"] : [...argv], { from: "user" })
   } catch (error) {
+    // Commander reports its own refusals before its exit override throws a
+    // plain CommanderError. A refusal thrown from an action reaches here
+    // unreported, so it takes the runner's prefix like a later refusal.
+    if (error instanceof InvalidArgumentError) {
+      options.emergency(`audit-round: ${error.message}`)
+      return 2
+    }
     if (error instanceof CommanderError) return error.exitCode === 0 ? 0 : 2
     throw error
   }

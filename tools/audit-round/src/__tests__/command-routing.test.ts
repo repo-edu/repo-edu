@@ -1030,6 +1030,33 @@ test("disprove creates and commits detached archived data", async (t) => {
   )
 })
 
+test("disprove prints an action refusal with the runner prefix and a parser refusal without it", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+
+  assert.equal(
+    await runCommand(
+      ["disprove", "a/example", "example-plan-audit", "1", "1", "Reason."],
+      f.runtime,
+      f.options,
+    ),
+    2,
+  )
+  assert.equal(
+    f.errors.at(-1),
+    "audit-round: Name the plan by its stem, without a path.",
+  )
+
+  assert.equal(
+    await runCommand(
+      ["disprove", "example", "example-plan-audit", "--by", "bad", "Reason."],
+      f.runtime,
+      f.options,
+    ),
+    2,
+  )
+  assert.match(f.errors.at(-1) ?? "", /^error: option '--by <model-effort>'/)
+})
+
 for (const [command, phase, pattern] of [
   ["settle", "settled", /active plan is not at example-widen\.md/],
   ["ready", "widening", /still widening/],

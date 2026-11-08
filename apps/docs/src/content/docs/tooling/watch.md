@@ -23,8 +23,8 @@ response.
 
 A commit match wins over a stem match, and `HEAD` forms mean Repo Edu. Claude runs the watch in a
 background subagent with a fresh context, so the chat stays free while it reads. An automatic
-runner series also runs a watch after a round with findings when its glance says one is due; this
-command is the hand-run route.
+runner series on a plan also runs a watch after a round with findings when its glance says one is
+due. A commit series runs no watch. This command is the hand-run route.
 
 ## What it shows you
 

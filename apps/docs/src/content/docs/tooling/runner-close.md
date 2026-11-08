@@ -56,8 +56,9 @@ the close.
 
 ## Refuses when
 
-The runner prints `audit-round: <reason>` and starts no session. An argument refusal exits with
-status 2 and any other with status 1.
+The runner prints `audit-round: <reason>` and starts no session. The empty abort reason in item 3 is
+a refusal from the argument parser, which prints its own `error:` line without that prefix. An
+argument refusal exits with status 2 and any other with status 1.
 
 1. **The plan has no ready marker and no `--aborted` was given.** `<stem>.md has no ready marker.
    Run pnpm audit-round ready first, or close it with --aborted <reason>.`

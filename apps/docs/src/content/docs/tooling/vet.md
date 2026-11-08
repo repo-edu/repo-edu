@@ -34,8 +34,8 @@ source a finding relies on. When the tree moved since the audit, it reads the ch
 finding the move already resolved. It checks each finding on three axes, in order:
 
 1. **Authorised.** The round was allowed to raise it. A finding on completed commits' labels, a
-   correct departure from the plan, work the episode has not reached or a reopened settled decision
-   does not stand.
+   correct departure from the plan or work the episode has not reached does not stand. A finding
+   may reopen a settled decision with correctness or quality evidence, but never on taste alone.
 2. **Grounded.** Its claims follow from the current plan, code, records and instructions.
 3. **Fixed right.** Its correction resolves the cause at the stated tier, and any trade between
    added machinery and user benefit is priced.

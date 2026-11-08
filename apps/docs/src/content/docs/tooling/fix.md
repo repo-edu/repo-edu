@@ -36,8 +36,14 @@ change. It then shows one outcome per finding:
 3. **Open.** A real choice between options with different costs, or a contest the evidence leaves
    unclear, goes to you.
 
-A choice is not open when one option is at least as good on every cost, or when the finding is rare
-and the option with the least upkeep wins. Planning corrections change only the plan repo. An
+A choice is not open in three cases:
+
+1. One option is at least as good as every other on every cost.
+2. The finding is rare, so the option with the least upkeep wins.
+3. The costlier option only guards against a mistake no round has found, so the option with the
+   least upkeep wins.
+
+Planning corrections change only the plan repo. An
 implementation round may change Repo Edu, the plan repo or both, as the report's judged repos and
 finding locations allow.
 
