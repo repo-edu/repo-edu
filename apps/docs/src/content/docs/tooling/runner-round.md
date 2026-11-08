@@ -3,60 +3,158 @@ title: pnpm audit-round round
 description: Run one audit round or series on a plan scope or commit set
 ---
 
-Use `pnpm audit-round round` to run the audit, vet, rebuttal and fix sequence on one bounded target.
+`pnpm audit-round round` runs the audit, vet, rebuttal and fix sequence on one plan scope or commit
+set, and lets a judge or your own queue decide whether another auditor follows, without granting any
+later plan stage.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | A terminal at the Repo Edu or plan checkout root; arguments mean the same from either |
+| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/command.ts` own the command; the workflows under `.agents/skills/` and `../plan/.agents/skills/` own each phase |
 
-Run the command in a terminal from the Repo Edu or plan checkout.
+## Usage
 
 ```text
-pnpm audit-round round <stem>                         audit the plan stage its history selects
-pnpm audit-round round <stem> plan                    audit the plan after implementation starts
-pnpm audit-round round <stem> <step-or-range>         audit implemented steps
-pnpm audit-round round <stem> 2,3-5                   audit several scopes in order
-pnpm audit-round round <commit-or-range> [...]        audit commits outside a plan
-pnpm audit-round round                                use the newest active plan
-pnpm audit-round round <target> --first <selection>   choose the automatic-series opener
-pnpm audit-round round <target> --auditor <list>      run the named manual series
-pnpm audit-round round <target> --no-watch            skip the trajectory glance and watch
-pnpm audit-round round <target> -v                    show assistant tool calls
+pnpm audit-round round <stem>                        audit the stage the plan's history selects
+pnpm audit-round round <stem> plan                   audit the plan document whatever has landed
+pnpm audit-round round <stem> <step>|<first>-<last>  audit implemented steps
+pnpm audit-round round <stem> 2,3-5,6-7              one automatic series per scope, in order
+pnpm audit-round round <commit> [<commit> ...]       audit commits outside a plan
+pnpm audit-round round <from>..<to>                  audit an inclusive commit range
+pnpm audit-round round                               use the plan pnpm audit-round plan prints
+pnpm audit-round round <target> --first <selection>  open the automatic series with this auditor
+pnpm audit-round round <target> --auditor <list>     run a manual series in this auditor order
+pnpm audit-round round <target> --no-watch           skip the trajectory glance and watch
+pnpm audit-round round <target> -v | --verbose       also show assistant tool calls
+pnpm audit-round round -h | --help                   show the command's help
 ```
 
-Prefix a plan-repository commit with `plan@`. Auditor selections are `claude`, `codex` or capability
-tags such as `atx`; quote a list that contains spaces. `--first` and `--auditor` cannot be combined.
+```text
+pnpm audit-round round tooling-help-pages 3-5
+pnpm audit-round round tooling-help-pages 3 --auditor atx,obm
+pnpm audit-round round HEAD plan@HEAD
+pnpm audit-round round HEAD-2..HEAD
+```
 
-## When do I use it?
+An auditor selection is `claude`, `codex` or a capability tag without spaces: `a` or `o` for the
+assistant, then optionally `b` or `t` for the base or top model and `l`, `m`, `h` or `x` for the
+effort. A field a tag omits reads that assistant's `defaults` in `tools/audit-round/settings.json`.
+Separate list entries with commas or spaces, and quote a list that holds spaces.
 
-Use this command when you want to audit one plan scope or commit set without granting later plan
-stages. With no `--auditor`, a fresh judge may continue the automatic series with another configured
-auditor. Use `--auditor` when you want a fixed sequence that you can edit between rounds.
+## Behaviour
 
-## What does it read?
+### Targets
 
-For a plan target, the runner reads the active plan, both repositories' stem history, current round
-data and `tools/audit-round/settings.json`. For a commit target, it resolves the exact commits
-against each repository's starting head. Each phase also reads the sources named by its workflow.
+1. **A plan stem alone** runs the audit its history calls for. Before any step lands it is a
+   planning audit of the plan document. Once every listed share has landed and each hosting repo's
+   `implemented` marker follows its newest hosted step, it runs each `Audit ranges:` scope in order,
+   then the full listed range; a sentence listing only the full range runs that range once.
+2. **The word `plan`** selects the planning audit whatever has landed, for a plan edited after
+   ready. It continues the plan's `-plan-audit` series.
+3. **A step or range** selects an implementation audit of those steps. A list of scopes runs one
+   automatic series per scope, each on its own target and files.
+4. **Commit references** are a commit ID, `HEAD`, `HEAD-<n>`, a list of them or an inclusive
+   `<from>..<to>` range. An unprefixed reference is a Repo Edu commit. `plan@` marks a plan-repo
+   commit, and every reference after the first `plan@` one belongs to the plan repo too, so list
+   Repo Edu commits first. A commit series has no watch.
+5. **No target** takes the active plan with the newest stem commit in either repo, as if named
+   alone.
 
-## Where does it stop and what do I type?
+The first line of every round names the target it resolved. A plan whose name looks like a commit
+reference keeps `.md` to mark it as a plan.
 
-1. **A fix needs a ruling.** Read the displayed choice, type your answer and submit a blank line.
-   The same fix session resumes.
-2. **A phase fails.** Correct the named external problem, then run the exact recovery command the
-   runner prints.
-3. **A watch grades the episode red.** Read the watch and act on its structural concern before
-   starting another round.
-4. **The judge ends the series.** Type nothing. Its reason says whether the plan may settle, become
-   ready or needs no further auditor on this target.
+### Phases of a round
 
-## What does it leave behind?
+1. **Audit.** The selected auditor reports findings.
+2. **Vet.** The other assistant checks the findings, so no assistant vets its own report.
+3. **Rebuttal.** The auditor answers the vet's revisions, drops and ruling items on the audit's
+   model and effort. It is skipped when the vet accepts every finding.
+4. **Fix.** The plan's assigned coder, or the first coder for work without one, applies the agreed
+   corrections and lands the record. It may stop for your ruling.
+5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
+   commit record whether a trajectory watch is due, and a due watch writes its grade.
+6. **Judge.** In an automatic series a fresh turn reads the evidence and ends the series or names
+   the next auditor.
 
-Each round leaves a claim, transcript and log under `../plan/active/`. Reports and review twins stay
-there until a finished fix records their outcome. A plan target updates `<stem>-plan-rounds.json` or
-`<stem>-impl-rounds.json`; a commit target updates `<commit-label>-rounds.json`. A due watch adds a
-`-watch.md` file. A manual series temporarily uses `<target>-queue.md` and removes it when the
-series ends.
+A clean audit skips the vet, rebuttal, fix, glance and watch. A plan target lands its `clean` record
+directly; a commit target lands nothing. An automatic series still runs its judge.
 
-## What owns this page?
+### Series
 
-`tools/audit-round/CLAUDE.md` and `tools/audit-round/src/command.ts` own this command; the workflows
-under `.agents/skills/` own the individual phases.
+1. **Automatic series**, without `--auditor`. The `--first` selection or the configured default
+   auditor opens; a `random` default picks the opener again for each scope. After each round that is
+   not red, the judge chooses another entry from the `auditors` list, plus the `--first` selection
+   when the list has no entry for its assistant, or an ending. A widening judge may answer settle or
+   stop. A detailing judge before the ready marker may answer ready or stop. Every other judge may
+   answer stop. In widening an accepted A finding withholds settle; elsewhere an accepted A or B
+   finding withholds ready and stop. `maximumAutomaticRounds` in the settings caps the series,
+   counting its first round.
+2. **Scope list.** Each scope runs its own automatic series in list order, and `--first` opens every
+   scope. A judge stop or the maximum ends only that scope.
+3. **Manual series**, with `--auditor`. The entries run left to right on the same target. The ones
+   after the current round wait in `../plan/active/<target>-queue.md`, which each round prints. Edit
+   it at any time to add, remove or reorder entries; the runner reads it between rounds, and an
+   empty or deleted file ends the series after the current round. A clean audit removes queued
+   entries that resolve to the same assistant, model and effort.
+
+A settle or ready answer ends the series and prints the `settle` or `ready` command to run; the
+plan itself is left unchanged for your call. A commit series' later rounds read the original commits
+plus the fixes landed so far.
+
+### Deferrals
+
+Before an automatic implementation series, and again after each finished implementation-audit round,
+the runner checks for an open deferral into the plan repo. When one exists and the series would
+continue to its judge, it chains one planning round for those deferrals on the deferring auditor's
+defaults; that round does not count against the series maximum. Each plan-scoped implementation
+audit also receives the open deferrals into Repo Edu. Every automatic series ending prints the
+remaining open deferrals or says there are none.
+
+## Output
+
+All files live in `../plan/active/`:
+
+1. **Every round** claims `<target>-<round>-0-claim.md` and writes its transcript
+   `<target>-<round>-1-round.<tag>.md` with a log beside it.
+2. **The audit, vet and rebuttal** stay as `-2-audit`, `-3-vet` and `-4-rebut` files until a
+   finished fix records their outcome and the runner deletes them. A clean plan-target audit keeps
+   its report.
+3. **A ruling** adds `-7-ruling.<tag>.md` and **a due watch** `-9-watch.<tag>.md`.
+4. **Round data** goes to `<stem>-plan-rounds.json` or `<stem>-impl-rounds.json` for a plan target
+   and to `<commit-label>-rounds.json` for a commit target.
+5. **A manual series** keeps `<target>-queue.md` until the series ends.
+
+Each finished fix lands its record commits in the repos it judged. The target is
+`<stem>-plan-audit`, `<stem>-impl-audit-<a>..<b>` or `commit-<label>`. See
+[Find round outputs](/repo-edu/tooling/find-round-outputs/) for every order number.
+
+## Refuses when
+
+The runner prints `audit-round: <reason>` before it claims a round. An argument refusal exits with
+status 2 and any other with status 1.
+
+1. **The scope is malformed.** A step scope is a positive number or an increasing range, and the
+   word `plan` joins no list.
+2. **A step scope names a plan with no landed step.** `No step of <stem> has landed, so it has no
+   implementation to audit.` Name the plan alone for a planning round.
+3. **A bare plan is mid-implementation.** `<stem> is still being implemented.` The message names
+   pending steps per repo and each missing or stale marker. Name a landed step scope instead.
+4. **The plan is archived, missing or given as a path.**
+5. **A commit reference names no commit, or a range is not an increasing ancestry range.**
+6. **Options conflict.** `--first` cannot join `--auditor`, and a scope list cannot run with
+   `--auditor`, whose queue belongs to one scope.
+
+## Stop and recovery
+
+1. **A fix needs your ruling.** Type your reply and submit it with a blank line; the fix resumes and
+   the series continues. Leaving without a reply keeps the round's files, prints the fix's recovery
+   command and ends the series. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Resume:`
+   command. See [Recover a run](/repo-edu/tooling/recover-run/).
+3. **The watch grades the episode red.** The series stops before another round. Read the watch and
+   act on it first.
+4. **A fix changed the plan's phase.** The round finishes without a judge and the series ends. Rerun
+   against the plan's new phase.
+
+A failure, an unanswered ruling, a red watch or a phase change also ends a scope list and names the
+scopes that did not run.

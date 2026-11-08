@@ -3,46 +3,56 @@ title: pnpm audit-round:contract
 description: Refresh the runner's recorded Claude and Codex command-line contracts
 ---
 
-Use `pnpm audit-round:contract` to record the live assistant command-line streams consumed by tests.
+`pnpm audit-round:contract` records what the installed Claude and Codex command-line programs
+actually stream, so the runner's tests check its readers against real output without making live
+model calls.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | A terminal at the Repo Edu root, with the selected command-line programs installed and signed in |
+| Owners | `tools/audit-round/CLAUDE.md`, `tools/audit-round/src/contract.ts` and `tools/audit-round/src/__tests__/fixtures/README.md` |
 
-Run the command in a terminal from the Repo Edu checkout.
+## Usage
 
 ```text
-pnpm audit-round:contract          record Claude and Codex
-pnpm audit-round:contract claude   record Claude only
-pnpm audit-round:contract codex    record Codex only
-pnpm audit-round:contract both     record both explicitly
+pnpm audit-round:contract                record Claude and Codex
+pnpm audit-round:contract claude         record Claude only
+pnpm audit-round:contract codex          record Codex only
+pnpm audit-round:contract both           record both, the same as no argument
+pnpm audit-round:contract -h | --help    show the recorder's help
 ```
 
-The selected command-line programs must be installed and authenticated.
+## Behaviour
 
-## When do I use it?
+Run it when an assistant release changes the event stream the runner reads. It is a fixture
+recorder, not part of an audit round or of `pnpm check`.
 
-Use this command when an assistant command-line release changes the event stream the runner
-consumes. It is a fixture recorder, not a general runner check and not part of an audit round.
+The recorder starts each selected assistant on the built-in default model and effort and sends it
+trivial shell probes through the runner's real invocation, validation and output code. It runs no
+workflow.
 
-## What does it read?
+1. **The first probe** needs one successful and one deliberately failed shell call. The Claude probe
+   also ends a turn on a background command, and the recorder needs that second turn, so the
+   recording holds one result per turn.
+2. **The second probe** resumes the first session and needs token usage from both invocations.
 
-The recorder starts the selected assistant on the committed default model and effort. It runs
-trivial success, deliberate failure and resume probes through the real invocation, validation and
-output boundaries. It reads the assistant's reported version and validates that every required
-event appeared before replacing fixtures.
+Every required event must appear before any selected fixture is replaced, so a failed probe leaves
+the earlier recordings in place.
 
-## Where does it stop and what do I type?
+## Output
 
-1. **Every selected probe passes.** Type nothing. The selected recordings are replaced together.
-2. **A probe or validation fails.** Correct the named installation, authentication or stream
-   problem and run the command again. Existing selected fixtures remain unchanged.
+The selected recordings under `tools/audit-round/src/__tests__/fixtures/` are replaced together: the
+fresh and resumed streams, each assistant's version file and `recorded-at.txt`. A Codex recording
+also replaces its session-file records. Temporary probe files are removed. The recordings are
+generated only through this command, never by hand.
 
-## What does it leave behind?
+## Refuses when
 
-The command updates selected recordings under `tools/audit-round/src/__tests__/fixtures/`, including
-the fresh and resumed streams, assistant version files and `recorded-at.txt`. Codex recording also
-updates its selected rollout streams. Temporary probe files are removed.
+The assistant argument is not `claude`, `codex` or `both`. The argument parser prints its own
+`error:` line and the recorder starts nothing.
 
-## What owns this page?
+## Stop and recovery
 
-`tools/audit-round/CLAUDE.md`, `tools/audit-round/src/contract.ts` and the fixture directory's
-`README.md` own this page.
+A probe or its validation fails: the recorder prints `Contract check failed: <reason>`, exits with
+status 1 and replaces no selected fixture. Fix the named installation, sign-in or stream problem and
+run the command again.

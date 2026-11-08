@@ -3,52 +3,82 @@ title: pnpm audit-round implement
 description: Implement ready plan steps with one assigned-coder worker per step
 ---
 
-Use `pnpm audit-round implement` to land the remaining shares of a ready plan in step order.
+`pnpm audit-round implement` lands a ready plan's remaining steps in order, one fresh worker per
+step on the plan's assigned coder, and stops there instead of going on to the implementation audits
+and the close as the full run does.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | A terminal at the Repo Edu or plan checkout root; each worker works in the repos its step names |
+| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/implement.ts` own the command; `.agents/skills/implement/references/workflow.md` owns the worker |
 
-Run the command in a terminal from the Repo Edu or plan checkout.
+## Usage
 
 ```text
-pnpm audit-round implement <stem>                         implement every pending step
-pnpm audit-round implement <stem> <step>                  implement one pending step
-pnpm audit-round implement <stem> <first>-<last>          implement an inclusive step range
-pnpm audit-round implement <stem> -v                      show worker tool calls
-pnpm audit-round implement <stem> --resume <step>:<id>    resume the printed failed worker
+pnpm audit-round implement <stem>                           implement every pending step
+pnpm audit-round implement <stem> <step>                    implement one step if it is pending
+pnpm audit-round implement <stem> <first>-<last>            implement the pending steps in a range
+pnpm audit-round implement <stem> [scope] -v | --verbose    also show worker tool calls
+pnpm audit-round implement <stem> [scope] --resume <step>:<session-id>
+                                                            resume the failed worker it printed
+pnpm audit-round implement -h | --help                      show the command's help
 ```
 
-Use `--resume` only with the exact value printed after a failed worker.
+## Behaviour
 
-## When do I use it?
+The command needs an active plan whose `ready` marker assigns a coder. It reads the plan's
+**Implementation plan** steps and their hosting sentences, then scans each hosting repo's history on
+its own for the step commits already landed. A step hosted in both repos has two shares, one per
+repo.
 
-Use this command after the plan has a ready marker. It is the bounded implementation route when you
-do not want the bare full-plan command to continue automatically into implementation audits and
-close.
+For each selected step that still has a missing share, in step order, it starts one fresh worker on
+the assigned coder's model release and effort. It resolves the release once, when the command
+starts. The worker reads the whole plan and the owning repos' instructions, implements the step,
+runs the step's checks and commits one share per hosting repo. After each worker the runner checks
+the landed share subjects before it starts the next step. A step whose shares have all landed is
+skipped.
 
-## What does it read?
+Once every share a repo hosts has landed, the runner writes that repo's current `implemented`
+marker, carrying the coder's model record and capability tag.
 
-The runner reads the plan's implementation steps, hosting repositories, ready assignment and both
-Git histories. Before each step it checks which repository shares remain. A worker reads the whole
-plan and the owning repository instructions. A recovery also reads both worktrees and reopens the
-retained session.
+A worker that needs a product decision writes a ruling and waits for your reply in the runner. Your
+reply resumes the same worker session. Time spent waiting is not counted as implementation time.
 
-## Where does it stop and what do I type?
+`--resume` takes only the value the runner printed after a failure. The resumed session first reads
+Git and the worktrees, because the failed turn may have left uncommitted work or landed a share. The
+runner uses the session only while that step is selected and still pending; otherwise it prints that
+the session stays unused. Fresh workers then take the remaining pending steps.
 
-1. **A worker needs a product ruling.** Read its displayed ruling, type your answer and submit a
-   blank line. The same worker resumes and waiting time is not counted as implementation time.
-2. **A worker fails.** Fix the named external problem, then run the exact `--resume` command the
-   runner prints. The same session continues only while that step still has a pending share.
-3. **A step lands.** Type nothing. The runner verifies its share commits before starting the next
-   selected step.
+## Output
 
-## What does it leave behind?
+1. **Step commits.** One checked `<stem>/impl-<n>` commit in each repo that hosts the step.
+2. **Markers.** Each repo's `<stem>/implemented` marker once all its shares have landed.
+3. **A log per started step** at `../plan/active/<stem>-impl-<step>-implement.log`. A recovery
+   appends to it, so the log shows the failed turn, the recovery and the later ending in order.
+4. **A ruling** at `../plan/active/<stem>-impl-<step>-implement-ruling.<tag>.md` while a worker
+   waits for your answer.
 
-Each started step has `../plan/active/<stem>-impl-<step>-implement.log`. A worker waiting for a
-ruling also has `<stem>-impl-<step>-implement-ruling.<tag>.md`. Each complete step leaves one
-checked step commit in every hosting repository. Once all shares in a repository have landed, the
-runner writes that repository's current `implemented` marker.
+## Refuses when
 
-## What owns this page?
+The runner prints `audit-round: <reason>` and starts no worker. An argument refusal exits with
+status 2 and any other with status 1.
 
-`tools/audit-round/CLAUDE.md`, `tools/audit-round/src/implement.ts` and the implementation workflow
-under `.agents/skills/implement/` own this page.
+1. **The plan has no ready marker.** `<stem>.md has no ready marker. Run pnpm audit-round ready
+   first, or close it with --aborted <reason>.`
+2. **The ready marker assigns no coder.** `<stem> has a ready marker without a coder assignment.`
+3. **The scope is malformed or runs past the last step.** `<stem> has <n> implementation steps;
+   scope <scope> ends at step <m>.`
+4. **No active plan has the stem**, or the stem is a path.
+
+## Stop and recovery
+
+A failed worker, an unanswered ruling or a missing landed share stops the command before the next
+step. The runner never retries a worker on its own.
+
+1. **A worker needs a ruling.** Read the displayed ruling, type your reply and submit it with a
+   blank line. Leaving without a reply prints the worker's own assistant recovery command; answer in
+   that session, then run the runner again. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+2. **A worker failed or landed no share.** Fix any outside problem the failure names, then run the
+   printed command. It repeats the command you typed, `-v` included, with `--resume <step>:<id>`.
+   A failure without a known session prints no command; run the same command again and a fresh
+   worker takes the step. See [Recover a run](/repo-edu/tooling/recover-run/).

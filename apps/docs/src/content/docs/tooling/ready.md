@@ -3,43 +3,57 @@ title: pnpm audit-round ready
 description: Assign a coder and mark a settled plan ready for implementation
 ---
 
-Use `pnpm audit-round ready` to record that detailing is complete and assign the plan's coder.
+`pnpm audit-round ready` is your call that a settled plan's implementation brief is complete: it
+lands the ready marker and assigns the coder every later implementation worker and fix runs on.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | A terminal at the Repo Edu or plan checkout root |
+| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/lifecycle.ts` own the command; the plan doctrine at `../plan/CLAUDE.md` owns the ready marker |
 
-Run the command in a terminal from the Repo Edu or plan checkout.
+## Usage
 
 ```text
-pnpm audit-round ready <stem>   mark the named active settled plan ready
-pnpm audit-round ready          use the plan printed by pnpm audit-round plan
+pnpm audit-round ready <stem>        mark the named active settled plan ready
+pnpm audit-round ready               mark the plan pnpm audit-round plan prints
+pnpm audit-round ready -h | --help   show the command's help
 ```
 
-## When do I use it?
+## Behaviour
 
-Use this command after a detailing series recommends ready and you agree that the implementation
-brief is complete. It records the lifecycle decision without starting an assistant.
+Run it after a detailing series ends with the judge's ready answer, or whenever you judge the brief
+complete. The judge only recommends; this command makes the call. The full run
+[`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) makes the same call itself on a ready
+answer.
 
-## What does it read?
+Before it commits, the command reads the committed plan and checks the two forms the runner later
+parses: the **Implementation plan** step list, where each step opens with a bold title and a hosting
+sentence, and the one `Audit ranges:` sentence under **Execution and audits**, whose scopes must
+cover the steps in order without gaps or overlap.
 
-The runner reads the active settled plan, its Git history and the ordered `coders` list in
-`tools/audit-round/settings.json`. It checks that the **Implementation plan** steps and the
-`Audit ranges:` sentence use their fixed forms. It refuses a widening plan, a plan that fails those
-checks, pending changes to the target plan or a stem whose history already has a ready marker.
+The coder comes from the ordered `coders` list in `tools/audit-round/settings.json`. The command
+takes the entry after the one the newest earlier ready marker assigned and wraps at the end, so
+plans rotate through the list. A one-entry list always assigns that coder. An entry that says
+`default` is recorded as the model and effort `defaults` named at that moment, so a later change to
+`defaults` leaves the assignment as it was. The command reads settings but starts no assistant and
+resolves no model release; the implementation command resolves the release when it starts.
 
-## Where does it stop and what do I type?
+## Output
 
-1. **The plan passes its gate.** Type nothing. The coder assignment lands immediately.
-2. **A gate fails.** Resolve the named plan state or worktree condition, then run the command again.
+The plan repo receives the empty `<stem>/ready: declare the plan ready for implementation` commit.
+It carries no capability tag or model record, and its body names the assigned coder. The command
+commits only the marker, so staged unrelated work in the plan checkout stays staged, and it prints
+`Committed <sha>: <subject>`.
 
-## What does it leave behind?
+## Refuses when
 
-The plan repository receives the empty, tag-free `<stem>/ready` commit. Its body names the assigned
-coder. A list entry that says `default` is recorded as the model and effort it read from `defaults`,
-so a later change to `defaults` leaves the assignment as it was. Later implementation workers use
-that assignment's assistant and effort, resolving its model release when the implementation command
-starts.
+The runner prints `audit-round: <reason>` and lands nothing.
 
-## What owns this page?
-
-`tools/audit-round/CLAUDE.md` and `tools/audit-round/src/lifecycle.ts` own this page; the plan
-doctrine owns the ready marker.
+1. **The plan is still widening.**
+   `Cannot declare <stem>-widen.md ready while it is still widening.` Run
+   [`pnpm audit-round settle`](/repo-edu/tooling/settle/) first.
+2. **The plan already has a ready marker.** `<stem>.md already has ready marker <sha> <subject>.`
+3. **The step list or audit ranges do not parse.** The message names the item or range that broke
+   the form, such as a missing full stop after a bold title or a gap before a step.
+4. **The plan file is not committed as it stands**, or no active plan has the stem.
+5. **The `coders` list is empty.**

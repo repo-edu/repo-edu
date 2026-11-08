@@ -1,109 +1,113 @@
 ---
 title: "pnpm audit-round <stem>"
-description: Take one active plan from its current stage through close with pnpm audit-round
+description: Take one active plan from its current stage through its close with pnpm audit-round
 ---
 
-Use `pnpm audit-round <stem>` to move one active plan from its current stage towards close.
+`pnpm audit-round <stem>` takes one active plan from the stage it stands at through its close, by
+running the same stages the single runner commands run, in lifecycle order.
 
-:::caution[This command grants changes]
-Running this command grants the plan's settle, ready, implementation and close actions. Use the
-individual stage commands when you want to read or decide between those stages.
-:::
-
-## How do I run it?
-
-Run the command in a terminal from the Repo Edu or plan checkout. The stem is the plan filename
-without `.md` or `-widen`.
-
-```text
-pnpm audit-round <stem>                              run from the plan's current stage
-pnpm audit-round <stem> -v                           show assistant tool calls
-pnpm audit-round <stem> --verbose                    same as -v
-pnpm audit-round <stem> --resume <step>:<session-id> resume one failed implementation worker
-```
-
-Examples:
-
-```text
-pnpm audit-round tooling-guide-usability
-pnpm audit-round tooling-guide-usability -v
-pnpm audit-round tooling-guide-usability --resume 2:019a5d7d-example
-```
-
-`--resume` is used only when the runner printed that exact value after an implementation failure.
-The full run accepts no audit-series options. Use `pnpm audit-round round ...` when you need to pick
-an opening auditor, disable a watch or run one selected audit scope.
-
-## When do I use it?
-
-Use the full run when the plan may proceed through its remaining stages without a planned reading
-between them. The runner derives the start from the plan filename and Git history:
-
-| Current plan state | Stage that starts |
+| Fact | Detail |
 | --- | --- |
-| The filename ends in `-widen` | Widening audits that challenge the plan's shape |
-| The plan is settled but has no `ready` marker | Detailing audits that complete the brief |
-| The plan is ready and has a missing step share or completion marker | Implementation, one fresh worker per remaining step |
-| All implementation shares are present | The audit ranges written in the plan |
-| The full implementation range has settled and no later file-changing stem commit has landed in either repository | Close |
+| Runs in | A terminal at the Repo Edu or plan checkout root; arguments mean the same from either |
+| Owners | `tools/audit-round/CLAUDE.md` owns the run and its output paths; the workflows under `.agents/skills/` and `../plan/.agents/skills/` own each stage |
 
-A later invocation reads the repositories again. There is no separate run cursor.
+## Usage
 
-## What does it read?
+```text
+pnpm audit-round <stem>                               run the plan from its current stage to close
+pnpm audit-round <stem> -v | --verbose                also show assistant tool calls
+pnpm audit-round <stem> --resume <step>:<session-id>  resume the failed worker the runner printed
+pnpm audit-round -h | --help                          show the runner's help; a bare call does too
+```
 
-The runner reads the active plan at `../plan/active/<stem>.md`, its implementation steps and audit
-ranges, the joined stem history in both repositories and `tools/audit-round/settings.json`. Every
-stage then reads the sources its own workflow names. A resumed implementation also reopens the
-retained worker session and reads both worktrees before continuing.
+```text
+pnpm audit-round tooling-help-pages
+pnpm audit-round tooling-help-pages --resume 2:019a5d7d-example
+```
 
-## Where does it stop and what do I type?
+The stem is the plan filename without `.md` or `-widen`. The run takes no round option: every series
+it opens starts with the default auditor from `tools/audit-round/settings.json` and runs the glance
+and the watch. Use [`pnpm audit-round round`](/repo-edu/tooling/runner-round/) for another opener,
+no watch or a single scope, and the stage commands when you want to read between stages.
 
-1. **A ruling needs your answer.** Read the displayed question, type the requested decision in the
-   runner and submit a blank line. The same assistant session resumes with your answer.
-2. **A phase or worker failed.** Run the exact recovery command printed by the runner. It names the
-   retained session when one can continue. Fix any external problem named by the failure first.
-3. **The watch grades the work red.** Read the named `-watch.md` file and choose its response before
-   running `pnpm audit-round <stem>` again.
-4. **A round changes the plan's phase.** This stop can happen in any series. For example, an
-   implementation-audit fix may reopen the plan by renaming it to `<topic>-widen.md`. Read the
-   correction, then run `pnpm audit-round <stem>` again to start from the new phase.
-5. **Widening or detailing ends before the next stage.** A judge stop or the round maximum ends the
-   full run during these stages. Read the reason, supply any named evidence or decision, then run
-   `pnpm audit-round <stem>` again. During the audit ranges, a judge stop or the round maximum does
-   not stop the full run; it continues to the next range or close.
-6. **Close finds an open deferral.** An accepted correction still belongs in the other repository
-   and has not been applied there. Run the printed `Resume:` command to reopen the retained close
-   session, then answer whether to close with the correction still open or keep the plan active.
-7. **The run finishes.** Type nothing. The plan has been closed and the runner prints the stages it
-   completed.
+## Behaviour
 
-## What does it leave behind?
+Invoking the run is your settle, ready and close call given in advance. The run settles the plan
+when the widening judge answers settle, marks it ready when the detailing judge answers ready and
+closes it after a range series that needed nobody, through the same functions and commit forms as
+[`settle`](/repo-edu/tooling/settle/), [`ready`](/repo-edu/tooling/ready/) and
+[`close`](/repo-edu/tooling/runner-close/).
 
-The exact outputs depend on the stages that ran:
+The start comes from the plan filename and both Git histories:
 
-1. Each round reserves `../plan/active/<target>-<round>-0-claim.md` and writes its transcript to
-   `../plan/active/<target>-<round>-1-round.<tag>.md` and its log to the same path ending in `.log`.
-   A round may also write an audit at order 2, a vet at order 3, a rebuttal at order 4, a ruling at
-   order 7 and a watch at order 9, all under
-   `../plan/active/<target>-<round>-<order>-<kind>.<tag>.md`.
-2. Plan rounds update `../plan/active/<stem>-plan-rounds.json` or
-   `../plan/active/<stem>-impl-rounds.json`. An implementation worker writes
-   `../plan/active/<stem>-impl-<step>-implement.log` and, while it waits for an answer,
-   `../plan/active/<stem>-impl-<step>-implement-ruling.<tag>.md`.
-3. Settle and ready leave Git markers in the plan repository. Implementation leaves one checked
-   step commit in each hosting repository and later leaves each repository's `implemented` marker.
-4. Close writes `../plan/active/<stem>-close.<tag>.log`. It moves the plan and both existing round
-   data files to `../plan/archive/<name>/` and leaves the closing commits in the hosting
-   repositories.
-5. Close deletes the plan's handoffs, claims, audit reports, vet and rebuttal twins, phase-change
-   markers and yield reports. Round transcripts and logs, implementation logs, briefs, rulings,
-   watches and the close log stay under `../plan/active/`.
+| Plan state | Stage that starts |
+| --- | --- |
+| The filename ends in `-widen` | The widening series, which challenges the plan's shape |
+| Settled, with no `ready` marker in the plan repo | The detailing series, which completes the brief |
+| Ready, with a pending step share or a missing or stale `implemented` marker | The [implementation](/repo-edu/tooling/implement/), one fresh worker per pending step |
+| Every share landed with current markers | The audit range series: each listed range, then the full range |
+| The full range's newest round ended on a judge stop and no file-changing stem commit landed in either repo since it started | The close |
 
-A completed fix removes its audit, vet and rebuttal files after their findings enter the Git
-record. The round's claim, transcript, log, ruling, watch and round data remain until close applies
-the rules above.
+After settle or ready the run reads the stage again, because a plan reopened after its ready marker
+keeps the marker and goes on to the implementation or the range series. During the audit ranges a
+judge stop or the round maximum ends only that range, and the run continues to the next range or
+the close.
 
-## What owns this page?
+The run keeps no state of its own. Each stage prints its own lines and keeps its own files, and the
+run adds one line per stage start and one ending line naming the stage it ended in and the stages it
+completed. Running the same command again reads both repos again and continues from where the plan
+stands.
 
-`tools/audit-round/CLAUDE.md` owns the full-run command and output paths; the workflows under
-`.agents/skills/` own each stage's behaviour.
+`--resume` attaches the printed worker session only when the run starts in the implementation and
+that step is still pending. Otherwise the run prints that the session stays unused and continues
+with fresh workers.
+
+## Output
+
+The run leaves what its stages leave:
+
+1. **Each audit round** leaves its claim, transcript, log and round data in `../plan/active/`, as
+   [`pnpm audit-round round`](/repo-edu/tooling/runner-round/#output) describes.
+2. **Settle** renames the plan and commits `<stem>/settle`; **ready** commits the empty
+   `<stem>/ready` marker with the assigned coder.
+3. **The implementation** leaves one checked step commit per hosting repo, each repo's `implemented`
+   marker and one log per started step.
+4. **The close** archives the plan, writes the closing commits and leaves
+   `../plan/active/<stem>-close.<tag>.log`.
+
+[Find round outputs](/repo-edu/tooling/find-round-outputs/) names every file and when it goes.
+
+## Refuses when
+
+The runner prints `audit-round: <reason>` and starts nothing. An argument refusal exits with status
+2 and any other refusal with status 1.
+
+1. **No active plan has that stem.** `No active plan named <stem> at <active folder>. The run
+   command requires an active plan.` An archived plan gives the same refusal.
+2. **The stem is a path.** `Name the plan by its stem, such as <stem>, without a path.`
+3. **An option comes before a subcommand.** For example `pnpm audit-round -v round <stem>`. Put the
+   option after the subcommand.
+
+## Stop and recovery
+
+Any ending other than the stages' own progress ends the run with that stage's lines and recovery
+command. Each recovery ends with running `pnpm audit-round <stem>` again unless a resume command
+continues the run itself.
+
+1. **A ruling needs your answer.** A fix or an implementation worker displays its question. Type
+   your reply and submit it with a blank line; the same session resumes and the run continues.
+   Ctrl-C or end of input leaves the question unanswered, ends the run and prints the session's
+   recovery command. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+2. **A phase or worker failed.** Fix any outside problem the failure names, then run the printed
+   `Resume:` command or the printed `--resume` form of this command. See
+   [Recover a run](/repo-edu/tooling/recover-run/).
+3. **The watch grades the episode red.** Read the named `-watch.md` file and act on it before you
+   rerun.
+4. **A fix changed the plan's phase.** For example an implementation-audit fix renamed the plan to
+   `<topic>-widen.md`. Read the correction, then rerun to start from the new phase.
+5. **Widening or detailing ended without settle or ready.** A judge stop or the round maximum ends
+   the run in these stages. Supply the evidence or decision its reason names, then rerun.
+6. **Settle or ready refused.** The lifecycle call refuses, for example when the plan file has
+   uncommitted changes. Resolve the named condition and rerun.
+7. **The close needs your word.** It asks, for example, to archive with an open deferral, and fails
+   with the question. Run its printed `Resume:` command and answer in that session.
