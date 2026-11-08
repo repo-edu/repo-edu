@@ -79,13 +79,15 @@ The run leaves what its stages leave:
 
 ## Refuses when
 
-The runner prints `audit-round: <reason>` and starts nothing. An argument refusal exits with status
-2 and any other refusal with status 1.
+The runner prints `audit-round: <reason>` and starts nothing. A refusal from the argument parser
+prints its own line without that prefix. An argument refusal exits with status 2 and any other
+refusal with status 1.
 
 1. **No active plan has that stem.** `No active plan named <stem> at <active folder>. The run
    command requires an active plan.` An archived plan gives the same refusal.
 2. **The stem is a path.** `Name the plan by its stem, such as <stem>, without a path.`
-3. **An option comes before a subcommand.** For example `pnpm audit-round -v round <stem>`. Put the
+3. **An option comes before a subcommand.** For example `pnpm audit-round -v round <stem>`. The
+   argument parser prints `--verbose came before round.` without the `audit-round:` prefix. Put the
    option after the subcommand.
 
 ## Stop and recovery

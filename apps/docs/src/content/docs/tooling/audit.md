@@ -54,10 +54,12 @@ The audit changes no tracked file.
    in the usage block.
 2. **The plan has no `ready` marker.** An implementation audit names the newest stem commit and
    stops. Type `Continue without the ready marker.` to audit anyway.
-3. **A commit audit's gate fails.** The gate refuses uncommitted changes in touched files,
-   unreachable commits, a typed list that is not contiguous in history and a commit that carries a
-   plan stem. Correct the named problem and rerun, or run the matching plan audit for a plan
-   commit. Type `Continue with the named commits excluded.` to audit the rest.
+3. **A commit audit's hard gate fails.** The gate refuses uncommitted changes in touched files,
+   an unreachable commit and a typed list that is not contiguous in history. Correct the named
+   problem and rerun. No answer continues past this stop.
+4. **A commit carries a plan stem.** The command names each such commit as out of scope. Run the
+   matching plan audit for those commits, or type `Continue with the named commits excluded.` to
+   audit the rest. The named commits then stay out of the coverage table.
 
 ## Afterwards
 

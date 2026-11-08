@@ -124,14 +124,17 @@ All files live in `../plan/active/`:
    and to `<commit-label>-rounds.json` for a commit target.
 5. **A manual series** keeps `<target>-queue.md` until the series ends.
 
-Each finished fix lands its record commits in the repos it judged. The target is
+A finished fix lands its local records only in the judged repos whose files took accepted findings.
+A finding whose correction belongs outside the judged set is carried as a deferral record in the
+sole judged repo. A repo gets no record just because it was judged. The target is
 `<stem>-plan-audit`, `<stem>-impl-audit-<a>..<b>` or `commit-<label>`. See
 [Find round outputs](/repo-edu/tooling/find-round-outputs/) for every order number.
 
 ## Refuses when
 
-The runner prints `audit-round: <reason>` before it claims a round. An argument refusal exits with
-status 2 and any other with status 1.
+The runner prints `audit-round: <reason>` before it claims a round. A refusal from the argument
+parser prints its own `error:` line without that prefix. An argument refusal exits with status 2
+and any other with status 1.
 
 1. **The scope is malformed.** A step scope is a positive number or an increasing range, and the
    word `plan` joins no list.
@@ -141,8 +144,8 @@ status 2 and any other with status 1.
    pending steps per repo and each missing or stale marker. Name a landed step scope instead.
 4. **The plan is archived, missing or given as a path.**
 5. **A commit reference names no commit, or a range is not an increasing ancestry range.**
-6. **Options conflict.** `--first` cannot join `--auditor`, and a scope list cannot run with
-   `--auditor`, whose queue belongs to one scope.
+6. **Options conflict.** `--first` cannot join `--auditor`; the argument parser refuses that pair.
+   A scope list cannot run with `--auditor`, whose queue belongs to one scope.
 
 ## Stop and recovery
 
