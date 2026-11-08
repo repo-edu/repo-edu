@@ -9,6 +9,7 @@ import {
 import {
   type RetainedPlanRoundData,
   type RoundData,
+  readAllCommitRoundData,
   readAllPlanRoundData,
   type SeriesDecision,
 } from "./round-data.js"
@@ -42,7 +43,7 @@ export type ReplayRow = {
   readonly stem: string
   readonly target: string
   readonly round: number
-  readonly phase: "widening" | "detailing" | "implementation"
+  readonly phase: "widening" | "detailing" | "implementation" | "commit"
   readonly started: string
   readonly computed: SeriesDecision
   readonly stored: SeriesDecision
@@ -173,15 +174,56 @@ function answerText(answer: SeriesDecision): string {
 }
 
 function phase(entry: RoundData): ReplayRow["phase"] {
+  if ("originalGroups" in entry) return "commit"
   return "phase" in entry ? entry.phase : "implementation"
 }
 
-/** Replay every retained plan-series answer against the current fixed rules. */
+function appendRows(
+  rows: ReplayRow[],
+  stem: string,
+  entries: readonly RoundData[],
+  evidence: SeriesEvidence,
+): void {
+  const answered = entries.filter((entry) => entry.judge !== null)
+  for (const entry of answered) {
+    const pool = entry.pool ?? legacyPool
+    const computed = decideSeries(
+      historicalEvidence(evidence, entry),
+      { target: entry.target, round: entry.round },
+      pool,
+    ).answer
+    const stored = entry.judge?.answer
+    if (stored === undefined) continue
+    const next = entries
+      .filter(
+        (candidate) =>
+          candidate.target === entry.target &&
+          timestamp(candidate.started) > timestamp(entry.started),
+      )
+      .toSorted(
+        (first, second) => timestamp(first.started) - timestamp(second.started),
+      )[0]
+    rows.push({
+      stem,
+      target: entry.target,
+      round: entry.round,
+      phase: phase(entry),
+      started: entry.started,
+      computed,
+      stored,
+      nextFindings: findings(next),
+      matches: replayAnswersMatch(computed, stored, entry.pool !== undefined),
+    })
+  }
+}
+
+/** Replay every retained automatic-series answer against the current fixed rules. */
 export async function replayRows(
   roots: ExecutionContext,
 ): Promise<readonly ReplayRow[]> {
-  const [files, plan, repoEdu] = await Promise.all([
+  const [files, commitFiles, plan, repoEdu] = await Promise.all([
     readAllPlanRoundData(roots),
+    readAllCommitRoundData(roots),
     readLog(roots.planRoot),
     readLog(roots.repoEduRoot),
   ])
@@ -204,44 +246,15 @@ export async function replayRows(
         roundData,
         logs: { plan, "repo-edu": repoEdu },
       })
-      const answered = file.rounds.filter((entry) => entry.judge !== null)
-      for (const entry of answered) {
-        const pool = entry.pool ?? legacyPool
-        const computed = decideSeries(
-          historicalEvidence(evidence, entry),
-          { target: entry.target, round: entry.round },
-          pool,
-        ).answer
-        const stored = entry.judge?.answer
-        if (stored === undefined) continue
-        const next = file.rounds
-          .filter(
-            (candidate) =>
-              candidate.target === entry.target &&
-              timestamp(candidate.started) > timestamp(entry.started),
-          )
-          .toSorted(
-            (first, second) =>
-              timestamp(first.started) - timestamp(second.started),
-          )[0]
-        rows.push({
-          stem,
-          target: entry.target,
-          round: entry.round,
-          phase: phase(entry),
-          started: entry.started,
-          computed,
-          stored,
-          nextFindings: findings(next),
-          matches: replayAnswersMatch(
-            computed,
-            stored,
-            entry.pool !== undefined,
-          ),
-        })
-      }
+      appendRows(rows, stem, file.rounds, evidence)
     }
   }
+  for (const file of commitFiles)
+    appendRows(rows, file.label, file.rounds, {
+      roundData: { file: file.file, rounds: file.rounds },
+      roundCommits: new Set(),
+      commits: [],
+    })
   return rows.toSorted(
     (first, second) =>
       timestamp(first.started) - timestamp(second.started) ||
@@ -250,14 +263,25 @@ export async function replayRows(
   )
 }
 
-function totals(rows: readonly ReplayRow[]): string[] {
-  return (["widening", "detailing", "implementation", "all"] as const).map(
-    (phase) => {
-      const selected =
-        phase === "all" ? rows : rows.filter((row) => row.phase === phase)
-      const matches = selected.filter((row) => row.matches).length
-      return `| ${phase} | ${selected.length} | ${matches} | ${selected.length - matches} |`
-    },
+function totals(rows: readonly ReplayRow[], includeCommit: boolean): string[] {
+  const phases: readonly (ReplayRow["phase"] | "all")[] = [
+    "widening",
+    "detailing",
+    "implementation",
+    ...(includeCommit ? (["commit"] as const) : []),
+    "all",
+  ]
+  return phases.map((phase) => {
+    const selected =
+      phase === "all" ? rows : rows.filter((row) => row.phase === phase)
+    const matches = selected.filter((row) => row.matches).length
+    return `| ${phase} | ${selected.length} | ${matches} | ${selected.length - matches} |`
+  })
+}
+
+function inFixedCorpus(row: ReplayRow): boolean {
+  return (
+    row.phase !== "commit" && timestamp(row.started) < timestamp(baselineBefore)
   )
 }
 
@@ -267,30 +291,28 @@ function cell(value: string): string {
 
 /** Format the complete ordinary replay and the fixed published corpus. */
 export function formatReplay(rows: readonly ReplayRow[]): string {
-  const fixed = rows.filter(
-    (row) => timestamp(row.started) < timestamp(baselineBefore),
-  )
+  const fixed = rows.filter(inFixedCorpus)
   return [
     "# Automatic-series replay",
     "",
-    "| Target | Round | Phase | Rules | Stored | Next findings | Result |",
-    "| --- | ---: | --- | --- | --- | --- | --- |",
+    "| Target | Round | Phase | Corpus | Rules | Stored | Next findings | Result |",
+    "| --- | ---: | --- | --- | --- | --- | --- | --- |",
     ...rows.map(
       (row) =>
-        `| ${cell(row.target)} | ${row.round} | ${row.phase} | ${cell(answerText(row.computed))} | ${cell(answerText(row.stored))} | ${row.nextFindings} | ${row.matches ? "match" : "difference"} |`,
+        `| ${cell(row.target)} | ${row.round} | ${row.phase} | ${inFixedCorpus(row) ? "fixed" : "ordinary only"} | ${cell(answerText(row.computed))} | ${cell(answerText(row.stored))} | ${row.nextFindings} | ${row.matches ? "match" : "difference"} |`,
     ),
     "",
     "## Ordinary totals",
     "",
     "| Phase | Answers | Matches | Differences |",
     "| --- | ---: | ---: | ---: |",
-    ...totals(rows),
+    ...totals(rows, true),
     "",
     `## Fixed corpus before ${baselineBefore}`,
     "",
     "| Phase | Answers | Matches | Differences |",
     "| --- | ---: | ---: | ---: |",
-    ...totals(fixed),
+    ...totals(fixed, false),
   ].join("\n")
 }
 

@@ -1,6 +1,6 @@
 import type { ExecutionContext } from "./context.js"
 import { episodeMembers } from "./episode.js"
-import { type LogCommit, readCommitEvidence, readLog } from "./episode-log.js"
+import { type LogCommit, readLog } from "./episode-log.js"
 import { readFindings } from "./findings.js"
 import {
   type PlanRoundData,
@@ -137,62 +137,16 @@ async function readCommitSeriesEvidence(
   input: SeriesEvidenceInput,
 ): Promise<SeriesEvidence> {
   const rounds = await readCommitRoundData(input, input.stem)
-  const ordered = rounds.toSorted((first, second) => first.round - second.round)
-  if (ordered.length === 0)
+  if (rounds.length === 0)
     throw new Error(`Commit series ${input.stem} has no round data`)
-
-  const wanted = new Map<Repository, string[]>()
-  const add = (repository: Repository, sha: string) => {
-    const commits = wanted.get(repository) ?? []
-    if (!commits.includes(sha)) commits.push(sha)
-    wanted.set(repository, commits)
-  }
-  for (const entry of ordered)
-    for (const group of entry.originalGroups)
-      for (const sha of group.commits) add(group.repository, sha)
-  for (const entry of ordered)
-    for (const commit of entry.commits) add(commit.repository, commit.sha)
-
-  const commits = (
-    await Promise.all(
-      (["repo-edu", "plan"] as const).flatMap((repository) => {
-        const shas = wanted.get(repository)
-        if (shas === undefined) return []
-        const cwd =
-          repository === "repo-edu" ? input.repoEduRoot : input.planRoot
-        return [
-          readCommitEvidence(cwd, shas).then((commits) =>
-            commits.map((commit): SeriesCommit => {
-              const form = looseForm(commit.subject)
-              const role = form?.role ?? null
-              return {
-                repository,
-                sha: commit.sha,
-                committed: new Date(commit.committedAt).toISOString(),
-                subject: commit.subject,
-                role,
-                files: [],
-                renames: [],
-                acceptedTiers: acceptedTiers(commit.body, repository, role),
-                changesPlan: false,
-                ownStem: form?.stem === input.stem,
-              }
-            }),
-          ),
-        ]
-      }),
-    )
-  ).flat()
 
   return {
     roundData: {
       file: roundDataFilename(input.stem, "commit"),
       rounds,
     },
-    roundCommits: new Set(
-      ordered.flatMap((round) => round.commits.map((commit) => commit.sha)),
-    ),
-    commits,
+    roundCommits: new Set(),
+    commits: [],
   }
 }
 

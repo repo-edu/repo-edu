@@ -18,36 +18,6 @@ export type LogCommit = {
   readonly renames: readonly { readonly from: string; readonly to: string }[]
 }
 
-export type CommitEvidence = Pick<
-  LogCommit,
-  "sha" | "committedAt" | "subject" | "body"
->
-
-/** Read exact commits even when they are outside the current HEAD's ancestry. */
-export async function readCommitEvidence(
-  cwd: string,
-  shas: readonly string[],
-): Promise<CommitEvidence[]> {
-  return Promise.all(
-    shas.map(async (sha) => {
-      const { stdout } = await execa(
-        "git",
-        ["show", "-s", "--format=%H%x00%cI%x00%s%x00%b", sha],
-        { cwd },
-      )
-      const [resolved, committedAt, subject, body] = stdout.split("\0")
-      if (
-        resolved === undefined ||
-        committedAt === undefined ||
-        subject === undefined ||
-        body === undefined
-      )
-        throw new Error(`Git returned an incomplete header for ${sha}`)
-      return { sha: resolved, committedAt, subject, body }
-    }),
-  )
-}
-
 /** Git supplies rename detection and NUL-delimited paths, including unusual names. */
 export async function readLog(cwd: string): Promise<LogCommit[]> {
   const { stdout } = await execa(

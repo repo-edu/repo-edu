@@ -226,6 +226,13 @@ const commitRoundFileSchema = z.strictObject({
 })
 const roundDataFilenamePattern = /-(?:plan|impl)-rounds\.json$/
 
+function isCommitRoundDataName(name: string): boolean {
+  return (
+    !roundDataFilenamePattern.test(name) &&
+    /^commit-.+-rounds\.json$/.test(name)
+  )
+}
+
 /** The one file name shared by round-data writers and readers. */
 export function roundDataFilename(
   stem: string,
@@ -275,6 +282,11 @@ export type RetainedPlanRoundData =
       readonly kind: "implementation"
       readonly rounds: readonly ImplementationRoundData[]
     }
+export type RetainedCommitRoundData = {
+  readonly file: string
+  readonly label: string
+  readonly rounds: readonly CommitRoundData[]
+}
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
 
@@ -346,6 +358,28 @@ export async function readAllPlanRoundData(
         stem: match[1],
         kind: "implementation" as const,
         rounds: implementationRoundFileSchema.parse(source).rounds,
+      }
+    }),
+  )
+}
+
+/** Read every active commit-series round-data file under its checked schema. */
+export async function readAllCommitRoundData(
+  roots: Pick<PlanRoots, "activeRoot">,
+): Promise<readonly RetainedCommitRoundData[]> {
+  const files = (await readdir(roots.activeRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && isCommitRoundDataName(entry.name))
+    .map((entry) => join(roots.activeRoot, entry.name))
+    .sort()
+  return Promise.all(
+    files.map(async (file) => {
+      const name = basename(file)
+      return {
+        file,
+        label: name.slice(0, -"-rounds.json".length),
+        rounds: commitRoundFileSchema.parse(
+          JSON.parse(await readFile(file, "utf8")),
+        ).rounds,
       }
     }),
   )
@@ -562,11 +596,7 @@ export function settleRoundFindings(
 }
 
 function isCommitRoundDataPath(path: string): boolean {
-  return (
-    !path.endsWith("-plan-rounds.json") &&
-    !path.endsWith("-impl-rounds.json") &&
-    /^commit-.+-rounds\.json$/.test(basename(path))
-  )
+  return isCommitRoundDataName(basename(path))
 }
 
 function fileSchema(path: string) {

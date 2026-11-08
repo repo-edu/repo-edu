@@ -1,24 +1,16 @@
 import assert from "node:assert/strict"
-import { writeFile } from "node:fs/promises"
-import { join } from "node:path"
 import { test } from "node:test"
-import { execa } from "execa"
 import {
   decideSeries,
-  readSeriesEvidence,
   type SeriesCommit,
   type SeriesEvidence,
 } from "../judge.js"
 import type {
-  CommitRoundData,
   ImplementationRoundData,
   PlanningRoundData,
   RoundData,
 } from "../round-data.js"
-import { writeRoundData } from "../round-data.js"
 import type { Auditor } from "../settings.js"
-import { fixture } from "./helpers.js"
-import { commitFixture } from "./round-fixture.js"
 
 const selection = { model: "fixture-model", effort: "low" }
 const fable: Auditor = {
@@ -306,81 +298,5 @@ test("two models of one assistant choose the least recently read entry", () => {
   assert.deepEqual(
     decideSeries(evidence([neither]), current(neither), [fable, opus]).answer,
     fable,
-  )
-})
-
-function commitRound(
-  auditor: Auditor,
-  round: number,
-  started: string,
-  group: CommitRoundData["originalGroups"][number],
-): CommitRoundData {
-  const {
-    phase: _phase,
-    settling: _settling,
-    ...common
-  } = planningRound(auditor, round, started)
-  return {
-    ...common,
-    target: "commit-abcdef",
-    originalGroups: [group],
-    groups: [group],
-    judgedRepos: [group.repository],
-  }
-}
-
-test("commit series evidence merges original commits and landed fixes", async (t) => {
-  const f = await fixture(t)
-  const original = await commitFixture(
-    f.runtime.repoEduRoot,
-    "Original audited commit",
-    "2026-11-08T08:00:00Z",
-  )
-  const fix = await commitFixture(
-    f.runtime.repoEduRoot,
-    "series/fix obh growth-none c1 fix(audit-round): correction",
-    "2026-11-08T09:00:00Z",
-  )
-  const full = async (revision: string) =>
-    (
-      await execa("git", ["rev-parse", revision], {
-        cwd: f.runtime.repoEduRoot,
-      })
-    ).stdout
-  const originalSha = await full(original)
-  const fixSha = await full(fix)
-  const label = `commit-${original}`
-  const group = {
-    repository: "repo-edu" as const,
-    commits: [originalSha],
-    startingHead: originalSha,
-  }
-  writeRoundData(join(f.runtime.activeRoot, `${label}-rounds.json`), {
-    ...commitRound(sol, 1, "2026-11-08T10:00:00Z", group),
-    target: label,
-    commits: [{ repository: "repo-edu", sha: fixSha }],
-  })
-  await writeFile(
-    join(f.runtime.activeRoot, `${label}-01-9-watch.obh.md`),
-    "# Must not affect a commit series\n",
-  )
-
-  const result = await readSeriesEvidence({
-    ...f.runtime,
-    stem: label,
-    roundKind: "implementation",
-    seriesKind: "commit",
-  })
-
-  assert.equal(result.roundData.file, `${label}-rounds.json`)
-  assert.deepEqual(
-    result.commits.map(({ sha, subject }) => ({ sha, subject })),
-    [
-      { sha: originalSha, subject: "Original audited commit" },
-      {
-        sha: fixSha,
-        subject: "series/fix obh growth-none c1 fix(audit-round): correction",
-      },
-    ],
   )
 })

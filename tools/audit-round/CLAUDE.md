@@ -54,7 +54,7 @@ consumers.
   The watch still runs when the fix changed the plan's phase, but the series decision does not.
   After any other non-red round in an automatic series, the runner applies the three fixed rules in
   `judge.ts`. A plan target supplies its round-kind data and episode commits. A commit target
-  supplies its commit data, original commits and landed fixes. The series pool is the `auditors`
+  supplies only its round data. The series pool is the `auditors`
   list plus a `--first` selection whose assistant the list lacks. A read is current only after the
   latest settle, reopen, plan step, plan-file edit outside a round or audit with a real bug. Once
   every assistant in the pool has a current read, widening follows its retained settling line,
@@ -193,8 +193,8 @@ consumers.
   current total on every call, including an out-of-range call that returns no evidence lines.
 - `judge.ts` builds bounded automatic-series evidence and applies the three fixed rules in
   `STOP-CONDITIONS.md`. A plan target supplies all of the stem's planning and implementation round
-  data plus its episode commits. A commit target supplies its round data, original commits and
-  earlier landed fixes. A read is settled when its findings have outcomes and it has a landed
+  data plus its episode commits. A commit target supplies only its round data. A read is settled
+  when its findings have outcomes and it has a landed
   record, except that a finished or current clean commit round needs none. The current
   `in-progress` entry is eligible. The latest event is a settle, reopen, plan step, plan-file edit
   outside a round or audit with a real bug. A real bug is an accepted A in widening and an accepted
@@ -365,8 +365,9 @@ consumers.
   since it. Both chain into the totals beside them; a fresh phase starts its stamp baseline at zero
   and a resumed phase reports no first change. `round-data.ts` owns the checked JSON schemas, the
   atomic replace-or-append writer, the disproved-finding writer, the read of one plan's existing
-  round-kind files from the active root or closed-plan archive and the read of one active commit
-  series. Each file is an object whose `rounds` list holds the round entries. Plan files also hold
+  round-kind files from the active root or closed-plan archive and the commit-series readers. The
+  series decision reads one active commit series. The replay reads every active commit series. Each
+  file is an object whose `rounds` list holds the round entries. Plan files also hold
   the user's later rulings in `disproved`. The series runner reads commit files before reruns and
   the runner reads them after automatic rounds. Commit files have no `disproved` list. A finding
   review carries its report number, tier and verdict; retained finding data stores the verdict word
@@ -536,8 +537,9 @@ consumers.
   `close`, `round`, `plan`, `name`, `paths`, `delete-reports`, `mark`, `episode` and `deferrals`.
   Help lists the run, `round`, `models`, `replay`, `disprove`, `settle`, `ready`, `implement`,
   `close` and `plan`, the commands a user runs. `models` reads its retained data and current coder
-  list before assistant startup or release resolution. `replay` reads the retained automatic-series
-  answers and applies the same fixed decision function without starting an assistant. The hand-run
+  list before assistant startup or release resolution. `replay` reads the retained plan-series
+  answers and every active commit-series answer. It applies the same fixed decision function
+  without starting an assistant. The hand-run
   launchers call `name`, `paths`, `delete-reports`, `episode` and `deferrals`, and the reopen step
   calls `mark`, so help hides them. `plan` prints the plan an omitted target selects, as its
   absolute path, and writes nothing, so a user can see it before a round or close takes it. `close`
@@ -721,8 +723,8 @@ model and effort the tool reported and the launched selection the settings
 named. The writer publishes a
 complete replacement through a temporary file. Loop-close moves existing files
 beside the archived plan. A commit file stays beside its round files in
-`active/` until those files are removed by hand. The plan readers and model
-read-out ignore it. These are machine artifacts and are never edited by hand.
+`active/` until those files are removed by hand. The replay reads it. Plan
+readers and the model read-out ignore it. These are machine artifacts and are never edited by hand.
 
 The implement command retains one log and one possible ruling in the active
 folder as `<stem>-impl-<step>-implement.log` and
@@ -978,11 +980,13 @@ their recorded models; it prints only under `--all`. The command renders Markdow
 assistant and writes no round file or round data. Like other commands that read settings, it creates
 a missing `settings.json` from the defaults.
 
-`replay` reads every active and archived plan's retained round data, applies the same
-automatic-series decision function to each stored answer and prints the computed answer, stored
-answer and next round's findings. Its ordinary totals cover every stored answer. Its fixed Baseline
-totals use entries started before `2026-11-08T18:53:13Z` and the historical pool fixed by the
-deterministic-judge plan. The command starts no assistant and writes nothing.
+`replay` reads every active and archived plan's retained round data and every active commit-series
+file. It applies the same automatic-series decision function to each stored answer and prints the
+computed answer, stored answer, next round's findings and whether the row is in the fixed corpus.
+Its ordinary totals cover every stored answer and count commit series as their own phase. Its fixed
+Baseline totals exclude commit series and use plan entries started before `2026-11-08T18:53:13Z`
+with the historical pool fixed by the deterministic-judge plan. The command starts no assistant and
+writes nothing.
 
 `name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
 The arguments hold the report path followed by the resolved plan and scope, or
