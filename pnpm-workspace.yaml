@@ -28,6 +28,15 @@ allowBuilds:
 patchedDependencies:
   outmatch@1.0.0: patches/outmatch-1.0.0.patch
 
+# astro2tsx 0.1.3 pins @emnapi/core 1.11.3 but publishes the matching
+# @emnapi/runtime as a devDependency only. pnpm then fills the runtime peer of
+# @napi-rs/wasm-runtime with Rolldown's 2.0 beta, and astro check crashes on the
+# mismatch. Declare the runtime the package was built with.
+packageExtensions:
+  '@astrojs/astro2tsx@0.1.3':
+    dependencies:
+      '@emnapi/runtime': 1.11.3
+
 minimumReleaseAgeExclude:
   - '@openai/codex@0.149.0-darwin-arm64 || 0.149.0-darwin-x64 || 0.149.0-linux-arm64 || 0.149.0-linux-x64 || 0.149.0-win32-arm64 || 0.149.0-win32-x64 || 0.149.0'
   - zod@4.6.2

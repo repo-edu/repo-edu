@@ -114,6 +114,9 @@ jobs:
             throw "Expected x64 Node.js, got $nodeArch"
           }
 
+      - name: Peer dependencies
+        run: pnpm peers check
+
       - name: Format check
         if: inputs.format_check
         run: pnpm fmt:check
