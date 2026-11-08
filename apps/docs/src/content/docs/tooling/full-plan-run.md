@@ -33,9 +33,9 @@ no watch or a single scope, and the stage commands when you want to read between
 ## Behaviour
 
 Invoking the run is your settle, ready and close call given in advance. The run settles the plan
-when the widening judge answers settle, marks it ready when the detailing judge answers ready and
-closes it after a range series that needed nobody, through the same functions and commit forms as
-[`settle`](/repo-edu/tooling/settle/), [`ready`](/repo-edu/tooling/ready/) and
+when the runner answers settle after the widening read floor, marks it ready after the detailing
+read floor and closes it after a range series that needed nobody, through the same functions and
+commit forms as [`settle`](/repo-edu/tooling/settle/), [`ready`](/repo-edu/tooling/ready/) and
 [`close`](/repo-edu/tooling/runner-close/).
 
 The start comes from the plan filename and both Git histories:
@@ -46,11 +46,11 @@ The start comes from the plan filename and both Git histories:
 | Settled, with no `ready` marker in the plan repo | The detailing series, which completes the brief |
 | Ready, with a pending step share or a missing or stale `implemented` marker | The [implementation](/repo-edu/tooling/implement/), one fresh worker per pending step |
 | Every share landed with current markers | The audit range series: each listed range, then the full range |
-| The full range's newest round ended on a judge stop and no file-changing stem commit landed in either repo since it started, other than the round's own | The close |
+| The full range's newest round ended on a runner stop and no file-changing stem commit landed in either repo since it started, other than the round's own | The close |
 
 After settle or ready the run reads the stage again, because a plan reopened after its ready marker
 keeps the marker and goes on to the implementation or the range series. During the audit ranges a
-judge stop or the round maximum ends only that range, and the run continues to the next range or
+runner stop or the round maximum ends only that range, and the run continues to the next range or
 the close.
 
 The run keeps no state of its own. Each stage prints its own lines and keeps its own files, and the
@@ -107,8 +107,9 @@ continues the run itself.
    rerun.
 4. **A fix changed the plan's phase.** For example an implementation-audit fix renamed the plan to
    `<topic>-widen.md`. Read the correction, then rerun to start from the new phase.
-5. **Widening or detailing ended without settle or ready.** A judge stop or the round maximum ends
-   the run in these stages. Supply the evidence or decision its reason names, then rerun.
+5. **Widening or detailing ended without settle or ready.** A retained `keep open` line or the
+   round maximum ends the run in these stages. Supply the evidence or decision its reason names,
+   then rerun.
 6. **Settle or ready refused.** The lifecycle call refuses, for example when the plan file has
    uncommitted changes. Resolve the named condition and rerun.
 7. **The close needs your word.** It asks, for example, to archive with an open deferral, and fails

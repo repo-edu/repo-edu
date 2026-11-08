@@ -224,7 +224,7 @@ Use only three parts of the round data beside that Git evidence:
   that limit when relying on its audit, and discount the completeness of the
   read. Compaction alone does not change the grade or suggest a response.
 
-Do not use the other round data fields to take over the judge's stop decision,
+Do not use the other round data fields to take over the runner's series decision,
 the model read-out's comparison or Git's ownership of episode membership and
 accepted records.
 
@@ -500,10 +500,9 @@ sentences. It omits **What is drifting**, the four-part price of any run,
 dropped and unfinished findings and every evidence limit except a compaction
 note. The watch still reads and prices in full to reach the grade; it publishes
 that reasoning only on amber and red, where the user acts on it. Reason: on
-green no mechanism reads the body beyond the judge's response class. The glance
-reads only the record and the next watch rebuilds its evidence from the view.
-The full form then costs the watch's output and every later judge's input for
-nothing either acts on.
+green no mechanism reads the body beyond its grade and response class. The
+glance reads only the record and the next watch rebuilds its evidence from the
+view. The full form then costs output that nothing acts on.
 
 Nothing else belongs in the file. The round's own transcript holds its findings.
 

@@ -6,9 +6,9 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The eleven forms are the audit report, vet twin, rebuttal twin, commit record
+The ten forms are the audit report, vet twin, rebuttal twin, commit record
 bullet, implementation-plan step, audit-range sentence, phase result, watch
-grade, settling line, judge answer and watch record.
+grade, settling line and watch record.
 
 ## Notation
 
@@ -1053,8 +1053,8 @@ Audit ranges: 1-2, 2-4.
 ```
 
 The phase result is the response's last line and stays outside a code fence.
-The JSON object has exactly the two fields shown. Audit, vet, rebuttal, watch,
-judge and close admit `finished` or `failed`. Fix and implement also
+The JSON object has exactly the two fields shown. Audit, vet, rebuttal, watch
+and close admit `finished` or `failed`. Fix and implement also
 admit `needs-ruling`.
 
 ### Phase table
@@ -1150,7 +1150,7 @@ immediately before the final `PHASE RESULT` line. Every other report and fix
 carries none, and the reader refuses a line where none is required. A fix that
 needs a ruling returns no line, because the round has not ended. It is control
 data for the runner, which retains the audit's line, replaced by the fix's line
-when a fix runs, as the round's settling recommendation for the series judge.
+when a fix runs, as the round's settling recommendation for the series decision.
 
 ### Examples
 
@@ -1172,89 +1172,6 @@ Refusal: `Invalid settling line`
 
 ```text
 Settling: maybe. The shape might be done.
-```
-
-## Judge answer
-
-### Production
-
-```text
-<judge-answer>    ::= "Judge: "<judge-decision>". "<one-line-reason>
-<judge-decision>  ::= settle | ready | stop | "continue with "<pool-entry>
-<pool-entry>      ::= <assistant>" "<model>" "<effort>
-<assistant>       ::= claude | codex
-<model>           ::= a non-empty model name without spaces
-<effort>          ::= low | medium | high | xhigh
-<one-line-reason> ::= non-empty text on one line
-```
-
-The answer is exactly one plain line. `settle`, `ready` and `stop` are each
-admitted only when the runner offers them. A continuation names one series-pool entry exactly
-as the runner printed it among the permitted options, and is admitted only when
-that entry is offered.
-
-### Examples
-
-#### `judge/stop-available` — parsed
-
-```text
-Judge: stop. Both current reads found no remaining real bug.
-```
-
-#### `judge/stop-unavailable` — refused
-
-Refusal: `Judge answered stop while the runner offered only codex gpt-5.6-sol xhigh`
-
-```text
-Judge: stop. Both current reads found no remaining real bug.
-```
-
-#### `judge/settle-available` — parsed
-
-```text
-Judge: settle. No concrete shape question remains.
-```
-
-#### `judge/settle-unavailable` — refused
-
-Refusal: `Judge answered settle while the runner offered only stop or codex gpt-5.6-sol xhigh`
-
-```text
-Judge: settle. No concrete shape question remains.
-```
-
-#### `judge/ready-available` — parsed
-
-```text
-Judge: ready. Both current reads found the brief complete with no remaining real bug.
-```
-
-#### `judge/ready-unavailable` — refused
-
-Refusal: `Judge answered ready while the runner offered only stop or codex gpt-5.6-sol xhigh`
-
-```text
-Judge: ready. Both current reads found the brief complete with no remaining real bug.
-```
-
-#### `judge/continue-claude` — parsed
-
-```text
-Judge: continue with claude claude-opus-5-5 xhigh. Opus has the higher expected yield on the remaining scope.
-```
-
-#### `judge/continue-codex` — parsed
-
-```text
-Judge: continue with codex gpt-5.6-sol xhigh. Codex has no settled read of the current scope.
-```
-
-#### `judge/continue-unoffered` — refused
-
-Refusal: `Judge answered claude opus xhigh while the runner offered only claude opus high`
-
-```text
-Judge: continue with claude opus xhigh. A higher effort may find more.
 ```
 
 ## Watch record

@@ -318,7 +318,7 @@ is smaller than the correction round needed after unpriced machinery lands.
 
 ## History reads
 
-Cross-round scans belong to the judge, glance and watch. Other phases read
+Cross-round scans belong to the automatic-series decision, glance and watch. Other phases read
 history when needed to establish a specific finding, prior ruling, a rule's
 origin or an implementation departure. Lifecycle, scope discovery and handoff
 lookups remain required. This keeps current-work review separate from series
@@ -558,7 +558,7 @@ path resolution and argument order. With no findings, follow
 ## Direct clean completion
 
 An audit with no findings completes without vet, rebuttal, fix, glance or
-watch. An automatic series still runs its judge. This route avoids a fresh
+watch. An automatic series still applies its fixed decision rules. This route avoids a fresh
 fix session whose only work would be an empty record.
 
 For an unattended plan target, return the complete report under
@@ -608,7 +608,7 @@ body. Commit-scoped rounds use their own series settlement rule.
 
 When the prompt identifies an unattended phase, follow this rule for every
 ending, including an early stop. It is shared by audit, vet, rebuttal, fix,
-implement, watch, judge and close. Ordinary interactive invocations add
+implement, watch and close. Ordinary interactive invocations add
 no result line.
 
 The [phase-result grammar](round-grammar.md#phase-result) owns the final control

@@ -49,7 +49,8 @@ The audit report opening is the quickest authority for what was judged. It names
 target, repository set and the heads captured when the audit began.
 
 The round-data files record each round's scope, settings, phases with their reported models, landed
-commits, findings, status and judge answer. [`pnpm audit-round models`](/repo-edu/tooling/models/)
+commits, findings, status, series answer and the resolved pool for new automatic rounds.
+[`pnpm audit-round models`](/repo-edu/tooling/models/)
 reads them, and [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/) adds your later rulings
 to them. They are machine artifacts and must never be edited by hand.
 

@@ -22,10 +22,10 @@ pnpm audit-round settle -h | --help   show the command's help
 
 ## Behaviour
 
-Run it after a widening series ends with the judge's settle answer, or whenever you judge that no
-concrete shape question remains. The judge only recommends; this command makes the call. The full
-run [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) makes the same call itself on a
-settle answer.
+Run it after a widening series ends with the runner's settle answer, or whenever you judge that no
+concrete shape question remains. The runner only reports what the fixed rules decide; this command
+makes the call. The full run [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) makes the
+same call itself on a settle answer.
 
 The command renames `<stem>-widen.md` to `<stem>.md` in `../plan/active/` and commits only that
 rename, with the plan checkout's normal hooks, so unrelated work in the plan checkout stays as it

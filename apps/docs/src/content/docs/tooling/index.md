@@ -22,8 +22,8 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 ## What do the guide's terms mean?
 
 - **Stem:** the plan filename without `.md` and without the optional `-widen` ending.
-- **Series:** consecutive audit rounds on one target, with a fresh assistant deciding after each
-  round whether another reading is useful.
+- **Series:** consecutive audit rounds on one target, with the runner applying fixed rules after
+  each round to decide whether another assistant needs a current read.
 - **Vet:** an independent check of an audit report by the other assistant.
 - **Rebuttal:** the original auditor's evidence-based answer to vet disagreements.
 - **Ruling:** a saved question that needs your decision before the same assistant session can
@@ -50,7 +50,8 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | --- | --- | --- |
 | I want a plan checked and settled corrections applied | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | Audit findings, an independent vet, any rebuttal and the fix |
 | I want a plan checked after a step has landed | [`pnpm audit-round round <stem> plan`](/repo-edu/tooling/runner-round/) | A planning round that treats landed steps as fixed inputs |
-| I want to check implemented steps | [`pnpm audit-round round <stem> <n\|a-b>`](/repo-edu/tooling/runner-round/) | Coverage and findings for that step range, followed by another auditor when the series judge calls for one |
+| I want to check implemented steps | [`pnpm audit-round round <stem> <n\|a-b>`](/repo-edu/tooling/runner-round/) | Coverage and findings for that step range, followed by any auditor the fixed series rules require |
+| I want to replay the automatic-series rules | [`pnpm audit-round replay`](/repo-edu/tooling/runner-round/#replay-the-rules) | Computed and stored answers, the next round's findings and totals; nothing is written |
 | I want to check every range of a finished plan | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | One series for each range in the plan, followed by a series over the full range |
 | I want to check several ranges in one sitting | [`pnpm audit-round round <stem> 2,3-5,6-7`](/repo-edu/tooling/runner-round/) | One series per scope in list order |
 | I want to check work outside a plan | [`pnpm audit-round round <commits>`](/repo-edu/tooling/runner-round/) | A series over the named commits and any fixes it lands |

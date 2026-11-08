@@ -1,6 +1,6 @@
 ---
 title: Run an audit round
-description: Choose a target and carry one audit through vet, rebuttal, fix and series judgement
+description: Choose a target and carry one audit through vet, rebuttal, fix and the series decision
 ---
 
 An audit round turns one bounded plan, implementation range or commit set into a checked report and
@@ -27,8 +27,8 @@ work so no phase checks itself:
    decision, applies the settled corrections and lands the records.
 
 The audit, vet and rebuttal are read-only. The fix is the phase that receives authority to change
-the judged repositories. Where due, a watch then checks the episode's trajectory, and in an
-automatic series a fresh judge chooses whether another listed auditor should read the same target.
+the judged repositories. Where due, a watch then checks the episode's trajectory. In an automatic
+series the runner applies fixed rules to decide whether another assistant needs a current read.
 
 ## One phase or a series
 
@@ -37,8 +37,8 @@ runs only the audit phase. You then run [`/vet`](/repo-edu/tooling/vet/),
 [`/rebut`](/repo-edu/tooling/rebut/) when needed and [`/fix`](/repo-edu/tooling/fix/) by hand.
 
 Use [`pnpm audit-round round ...`](/repo-edu/tooling/runner-round/) when you want the runner to
-carry the report through those phases and let a fresh judge decide whether another auditor is
-useful. Use the bare [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may
+carry the report through those phases and apply the automatic-series rules. Use the bare
+[`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may
 also proceed through later lifecycle stages without a planned reading between them.
 
 ## Targets
@@ -61,13 +61,14 @@ the full implementation range.
 
 ## When a series stops
 
-An automatic series stops when the judge returns its lifecycle answer, the configured round maximum
-is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes the
-plan's phase. A submitted ruling reply resumes the same fix before the series continues.
+An automatic series stops when every assistant in the pool has a current read, the configured round
+maximum is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes
+the plan's phase. A submitted ruling reply resumes the same fix before the series continues.
 
-The judge may stop in every phase. For a widening plan, it may also recommend settle. During
-detailing, it may also recommend ready. These answers do not make the user's lifecycle call; the
-bare full-plan run acts on settle and ready only because its invocation granted them in advance.
+The runner answers stop after the read floor. For a widening plan, the retained settling line may
+instead answer settle. During detailing before the ready marker, the answer is ready. These answers
+do not make the user's lifecycle call; the bare full-plan run acts on settle and ready only because
+its invocation granted them in advance.
 
 ## Following a round
 

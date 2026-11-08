@@ -4,8 +4,8 @@ description: Run one audit round or series on a plan scope or commit set
 ---
 
 `pnpm audit-round round` runs the audit, vet, rebuttal and fix sequence on one plan scope or commit
-set, and lets a judge or your own queue decide whether another auditor follows, without granting any
-later plan stage.
+set, and lets fixed runner rules or your own queue decide whether another auditor follows, without
+granting any later plan stage.
 
 | Fact | Detail |
 | --- | --- |
@@ -27,6 +27,7 @@ pnpm audit-round round <target> --auditor <list>     run a manual series in this
 pnpm audit-round round <target> --no-watch           skip the trajectory glance and watch
 pnpm audit-round round <target> -v | --verbose       also show assistant tool calls
 pnpm audit-round round -h | --help                   show the command's help
+pnpm audit-round replay                              replay stored answers through the fixed rules
 ```
 
 ```text
@@ -73,24 +74,25 @@ reference keeps `.md` to mark it as a plan.
    corrections and lands the record. It may stop for your ruling.
 5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade.
-6. **Judge.** In an automatic series a fresh turn reads the evidence and ends the series or names
-   the next auditor.
+6. **Series decision.** In an automatic series the runner reads retained data and bounded commit
+   evidence, then ends the series or names the next auditor without starting an assistant.
 
 A clean audit skips the vet, rebuttal, fix, glance and watch. A plan target lands its `clean` record
-directly; a commit target lands nothing. An automatic series still runs its judge.
+directly; a commit target lands nothing. An automatic series still applies its decision rules.
 
 ### Series
 
 1. **Automatic series**, without `--auditor`. The `--first` selection or the configured default
    auditor opens; a `random` default picks the opener again for each scope. After each round that is
-   not red, the judge chooses another entry from the `auditors` list, plus the `--first` selection
-   when the list has no entry for its assistant, or an ending. A widening judge may answer settle or
-   stop. A detailing judge before the ready marker may answer ready or stop. Every other judge may
-   answer stop. In widening an accepted A finding withholds settle; elsewhere an accepted A or B
-   finding withholds ready and stop. `maximumAutomaticRounds` in the settings caps the series,
-   counting its first round.
+   not red, the runner applies three rules. A read is current only after the latest settle, reopen,
+   plan step, plan edit outside a round or audit with a real bug. Once every assistant in the pool
+   has a current read, widening follows the retained settling line, detailing answers ready before
+   the ready marker and every other series answers stop. Otherwise the next round goes to an
+   assistant without a current read, preferring one that did not audit this round. Within that
+   assistant, the least recently used pool entry goes next. `maximumAutomaticRounds` in the
+   settings caps the series, counting its first round.
 2. **Scope list.** Each scope runs its own automatic series in list order, and `--first` opens every
-   scope. A judge stop or the maximum ends only that scope.
+   scope. A runner stop or the maximum ends only that scope.
 3. **Manual series**, with `--auditor`. The entries run left to right on the same target. The ones
    after the current round wait in `../plan/active/<target>-queue.md`, which each round prints. Edit
    it at any time to add, remove or reorder entries; the runner reads it between rounds, and an
@@ -105,10 +107,17 @@ plus the fixes landed so far.
 
 Before an automatic implementation series, and again after each finished implementation-audit round,
 the runner checks for an open deferral into the plan repo. When one exists and the series would
-continue to its judge, it chains one planning round for those deferrals on the deferring auditor's
-defaults; that round does not count against the series maximum. Each plan-scoped implementation
-audit also receives the open deferrals into Repo Edu. Every automatic series ending prints the
-remaining open deferrals or says there are none.
+continue to its decision, it chains one planning round for those deferrals on the deferring
+auditor's defaults; that round does not count against the series maximum. Each plan-scoped
+implementation audit also receives the open deferrals into Repo Edu. Every automatic series ending
+prints the remaining open deferrals or says there are none.
+
+### Replay the rules
+
+`pnpm audit-round replay` applies the same decision function to every retained automatic-series
+answer. It prints the computed answer, stored answer and next round's findings, followed by ordinary
+totals and the fixed Baseline totals. It starts no assistant and writes nothing. Use its output when
+considering a change to the rules in `../plan/STOP-CONDITIONS.md`.
 
 ## Output
 
@@ -156,8 +165,8 @@ and any other with status 1.
    command. See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and
    act on it first.
-4. **A fix changed the plan's phase.** The round finishes without a judge and the series ends. Rerun
-   against the plan's new phase.
+4. **A fix changed the plan's phase.** The round finishes without a series decision and the series
+   ends. Rerun against the plan's new phase.
 
 A failure, an unanswered ruling, a red watch or a phase change also ends a scope list and names the
 scopes that did not run.

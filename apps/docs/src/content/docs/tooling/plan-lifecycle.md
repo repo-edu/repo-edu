@@ -36,7 +36,7 @@ of it.
 | Detail | Audits complete the decisions, implementation steps and checks | You run [`pnpm audit-round ready [stem]`](/repo-edu/tooling/ready/) or grant ready through the bare full-plan run |
 | Ready | The runner records the assigned coder without starting implementation | The ready marker lands |
 | Implement | [One fresh worker](/repo-edu/tooling/implement/) implements and commits each remaining step share in order | Every hosting repository has every step share and a current `implemented` marker |
-| Audit implementation | [Series](/repo-edu/tooling/runner-round/) inspect the plan's listed audit ranges, then the full step range | The series judge stops on settled code and the user accepts that state |
+| Audit implementation | [Series](/repo-edu/tooling/runner-round/) inspect the plan's listed audit ranges, then the full step range | The fixed series rules stop after every available assistant has a current read and the user accepts that state |
 | Close | [Loop-close](/repo-edu/tooling/runner-close/) moves the plan and retained round data from `active/` into an archive folder | Each hosting repository and the plan repository carry their closing record |
 
 A detailing finding that undermines a settled decision may reopen the shape when you agree. The fix

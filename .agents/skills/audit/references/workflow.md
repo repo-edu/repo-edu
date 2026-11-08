@@ -222,8 +222,8 @@ route cites every supplied deferral.
 
 An automatic implementation series reads the open set before its first round
 and after each finished implementation-audit round. Open deferrals into the plan
-repo chain one planning round on the supplied deferrals before the series judge
-runs. The next user-selected implementation audit receives deferrals into Repo
+repo chain one planning round on the supplied deferrals before the series
+decision. The next user-selected implementation audit receives deferrals into Repo
 Edu without starting another round. Every automatic series ending prints what
 remains, and loop-close reads the same set before archiving.
 
