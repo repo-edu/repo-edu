@@ -3,9 +3,10 @@ title: pnpm audit-round close
 description: Archive a finished or aborted plan episode and write its closing records
 ---
 
-`pnpm audit-round close` is the runner's entry to loop-close: it runs one close session that
+`pnpm audit-round close` is the one entry to loop-close: it runs one close session that
 archives an active plan, writes each hosting repo's closing commit and removes the plan's live
-sidecars.
+sidecars, then moves and commits the plan's round data itself. The chat commands
+[`/close`](/repo-edu/tooling/close/) and `$close` run it for you.
 
 | Fact | Detail |
 | --- | --- |
@@ -35,12 +36,25 @@ corrections that still belong in the other repo. A close without `--aborted` nee
 loop-close workflow on the `close` selection in `tools/audit-round/settings.json` and receives the
 deferrals in its arguments.
 
-The session's checks, questions and closing records are those of
-[`/close`](/repo-edu/tooling/close/): it confirms a whole-plan implementation audit, current
-`implemented` markers and clean commits, clears the plan's refactor backlog rows through
-`pnpm sweep done --plan <stem>`, moves the plan, rewrites links to it, writes each repo's
-`<stem>/closed` commit and deletes the plan's sidecars. An aborted plan skips the audit checks and
-keeps its backlog rows.
+Before it moves anything, a completed plan's close session checks four things. An aborted plan
+skips the first three.
+
+1. **A whole-plan audit.** Either repo holds an implementation-audit record over steps 1 to the
+   last step that is newer than the last step commit.
+2. **Current `implemented` markers.** Each hosting repo has one newer than its last hosted step. A
+   missing or stale marker is named once in the report and does not stop the close.
+3. **Open deferrals.** The runner supplies them in the session's arguments.
+4. **Clean commits.** The plan file has no uncommitted changes and neither repo's index holds
+   staged work, so no closing commit carries other work.
+
+The session asks only when a check needs your word: to close without a whole-plan audit or with no
+step landed, to archive with open deferrals, or for the shared folder name when this plan is the
+first of its split peers to close. Nobody can answer during an unattended run, so the session fails
+with the question and the runner prints a `Resume:` command.
+
+Then the session clears the plan's refactor backlog rows through `pnpm sweep done --plan <stem>`,
+moves the plan, rewrites links to it, writes each repo's `<stem>/closed` commit and deletes the
+plan's sidecars. An aborted plan skips the audit checks and keeps its backlog rows.
 
 The round-data files are the one part the runner does itself. Once the session has moved the plan,
 the runner moves `<stem>-plan-rounds.json` and `<stem>-impl-rounds.json` from `../plan/active/` into
@@ -79,7 +93,9 @@ argument refusal exits with status 2 and any other with status 1.
 
 1. **The close needs your answer.** It asks, for example, to close without a whole-plan audit or to
    archive with open deferrals. The session fails with the question and the runner prints a
-   `Resume:` command. Run it and answer in that session.
+   `Resume:` command. Run it and answer in that session. The resumed session moves the plan but the
+   runner is no longer there to move the round data, so run `pnpm audit-round close <stem>` again
+   afterwards.
 2. **A close action fails.** Fix the outside problem it names, such as uncommitted plan changes or
    staged work, then run the printed `Resume:` command, or the same close command when none was
    printed. See [Recover a run](/repo-edu/tooling/recover-run/).

@@ -522,7 +522,7 @@ consumers.
   once. Otherwise it names pending steps by repo and every missing or stale marker. It does not skip
   a listed range because an implementation-audit record already exists for it. `defaultPlan`
   applies the same plan rule alone for the `plan` command and a `close` given no stem. The home
-  `/brief-plan` and `/close` run `plan` for an omitted stem.
+  `/brief-plan` runs `plan` for an omitted stem, and `/close` runs `close` itself.
   The implement command reuses this per-repo progress reader without applying
   bare-plan audit selection. `lifecycleStage` reads the stage the run starts at from the same state:
   a `-widen` filename is widening, a settled plan whose plan-repo stem commits hold no `ready`
@@ -549,7 +549,7 @@ consumers.
   user can see it before a round or close takes it. `close` resolves its plan and open deferrals
   before startup, then runs the close phase alone with its own log. The `deferrals` command prints
   the active plan's open set through the shared owner. It exists only for the hand-run
-  implementation audit and close, so help hides it beside `episode` and the other launcher
+  implementation audit, so help hides it beside `episode` and the other launcher
   interfaces. The `episode` command prints the requested line range from joined watch evidence
   produced by the shared reader and formatter, with its returned range and current total. Every call
   rebuilds the view. It performs no release resolution, assistant startup or file writes. The `name`
@@ -1071,7 +1071,8 @@ committed alone as the tag-free `<stem>/disprove:` form with the reason as its b
 starts no assistant and reads no settings.
 
 `close [stem]` closes a plan's loop under the plan repo's
-[loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It takes an active
+[loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It is the one
+entry to loop-close; the home `/close` and `$close` launchers run it. It takes an active
 plan's stem, or the plan `plan` prints when none is named, and refuses an archived plan as already
 closed. Without `--aborted` it also refuses a plan whose stem scan holds no `ready` marker, before
 any assistant starts, because the unmarked archive form records shipped work. `--aborted <reason>`
@@ -1088,7 +1089,7 @@ question, and its printed resume command continues that session.
 `deferrals [stem]` prints one active plan's open deferrals through the shared owner. It resolves the
 same default plan as close when the stem is omitted. It starts no assistant, performs no release
 resolution and writes nothing. The command is hidden because only the hand-run implementation
-audit and close workflows need the list before their sessions start.
+audit workflow needs the list before its session starts.
 
 `delete-reports` deletes the audit and twins for its exact target and round in the
 active folder and lists each deleted file. It fails when no report matches. Claims, markers and
