@@ -85,7 +85,7 @@ They stay out of the source inventory, and a missing file reads as empty.
    work. Every flag and done rewrites it whole in one order, flagged line count descending with the
    path as tie-break, so its diffs show only real backlog changes.
 
-## Chat command
+## `/sweep`
 
 `/sweep` handles one file per chat. Reading and judging a file fills the chat's context, and the
 next file is read better in a fresh one. Ask explicitly to continue in the same chat.
@@ -184,7 +184,7 @@ widening plan settles. The command does two things:
 
 It prints `done: dropped <path>.` for each working row, or
 `done: no working backlog row for planned in <stem>.`, then
-`done: staged deletion against HEAD: yes` or `no`. Loop-close commits the staged deletion only on
+`done: staged deletion against HEAD: yes.` or `no.` Loop-close commits the staged deletion only on
 `yes`.
 
 **Refuses when** both or neither of `<path>` and `--plan` are given:
