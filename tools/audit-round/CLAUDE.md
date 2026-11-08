@@ -72,7 +72,12 @@ consumers.
   retain the set. `runClose` runs the loop-close phase alone on its own
   settings. It passes the active plan, the capability tag and model record its commits carry, the
   open deferrals resolved before assistant startup and any abort reason. A finished close that left
-  its plan in the active folder fails, because the move is the close.
+  its plan in the active folder fails, because the move is the close. After that check the runner
+  itself moves the plan's round-data files beside the archived plan and commits them through
+  `lifecycle.ts`, as a second `<stem>/closed` record with the same tag and model record. The
+  session does not move them: the files are gitignored while they sit in `active/`, so a session
+  that forgot them lost the plan's whole round account to the next hand clean-up. A plan with no
+  round data commits nothing. The printed `Committed` line names that commit.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -86,7 +91,10 @@ consumers.
 - `lifecycle.ts` owns the shared plan-file preflight and the Git operations for
   the user's `settle` and `ready` calls, whether the `settle` and `ready`
   commands or the run record them, plus each hosting repo's runner-written
-  `implemented` marker. It refuses an untracked,
+  `implemented` marker and the close's round-data archive commit. That commit
+  finds the one archived plan with the stem, moves each existing round-data
+  file from `active/` into its folder with a plain rename and commits only
+  those paths. No archived plan, or more than one, fails the close. It refuses an untracked,
   staged or unstaged target plan while leaving unrelated work alone. Settle
   commits only the widening rename before claiming its marker. Ready shares
   the `git commit --only --allow-empty` route with direct clean completion and
@@ -1068,12 +1076,14 @@ plan's stem, or the plan `plan` prints when none is named, and refuses an archiv
 closed. Without `--aborted` it also refuses a plan whose stem scan holds no `ready` marker, before
 any assistant starts, because the unmarked archive form records shipped work. `--aborted <reason>`
 archives an episode that never shipped and passes the reason for its README. One session, on the
-`close` settings, moves the plan, rewrites the links to it, writes each repo's `closed` commit,
-moves its round-data files into the archive folder and deletes the topic's sidecars. It works in the
-plan checkout and writes only `<stem>-close.<tag>.log` beside the active folder's other runner
-files. The runner resolves the plan's open deferrals before the session starts and supplies them in
-its phase arguments. Where close would need the user's answer, including permission to archive with
-an open deferral, it fails with the question, and its printed resume command continues that session.
+`close` settings, moves the plan, rewrites the links to it, writes each repo's `closed` commit and
+deletes the topic's sidecars. It works in the plan checkout and writes only `<stem>-close.<tag>.log`
+beside the active folder's other runner files. Once the session has moved the plan, the runner moves
+the plan's round-data files into the same archive folder and commits them as its own `<stem>/closed`
+record, so the files never depend on the session remembering them. The runner resolves the plan's
+open deferrals before the session starts and supplies them in its phase arguments. Where close would
+need the user's answer, including permission to archive with an open deferral, it fails with the
+question, and its printed resume command continues that session.
 
 `deferrals [stem]` prints one active plan's open deferrals through the shared owner. It resolves the
 same default plan as close when the stem is omitted. It starts no assistant, performs no release

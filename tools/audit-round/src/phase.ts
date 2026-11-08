@@ -4,6 +4,7 @@ import type { PlanRoots } from "./context.js"
 import type { WatchEvidence, WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { JudgeEvidence, JudgeEvidenceInput } from "./judge.js"
+import type { LifecycleCommit } from "./lifecycle.js"
 import type { OpenDeferral } from "./open-deferrals.js"
 import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
 import type {
@@ -639,6 +640,12 @@ export type RoundDependencies = {
   readonly resolvePlan: (roots: PlanRoots, stem: string) => Promise<string>
   /** Whether a file exists, which tells a finished close that left its plan in place. */
   readonly fileExists: (file: string) => Promise<boolean>
+  /** Move a closed plan's round data beside its archived plan and commit it; null without data. */
+  readonly archiveRoundData: (
+    stem: string,
+    tag: string,
+    record: string,
+  ) => Promise<LifecycleCommit | null>
   readonly readRecords: (
     root: string,
     before: string,

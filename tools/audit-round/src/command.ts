@@ -41,6 +41,7 @@ import {
 } from "./implement-output.js"
 import { auditorText, readJudgeEvidence } from "./judge.js"
 import {
+  archiveRoundData,
   commitOnly,
   markImplemented,
   readReadyCoder,
@@ -1442,6 +1443,8 @@ export async function runCommand(
             throw error
           }
         },
+        archiveRoundData: (stem, tag, record) =>
+          archiveRoundData(context, stem, tag, record),
         readRecords: async (cwd, before, repository) => {
           const { stdout } = await execa(
             "git",
@@ -1689,6 +1692,10 @@ export async function runCommand(
         settings,
       )
       result = closed
+      if (closed.status === "finished" && closed.archived !== null)
+        await active.message(
+          `Committed ${closed.archived.sha}: ${closed.archived.subject}`,
+        )
       active.finish(closed, runtime.signal)
       code = exitCode(closed)
       return closed.status

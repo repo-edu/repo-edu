@@ -1,14 +1,15 @@
-import { readFile, stat } from "node:fs/promises"
-import { basename, join, relative } from "node:path"
+import { readFile, rename, stat } from "node:fs/promises"
+import { basename, dirname, join, relative } from "node:path"
 import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
 import { readAuditRanges, readPlanSteps } from "./plan-steps.js"
+import { roundDataFilename } from "./round-data.js"
 import { markerPath } from "./round-paths.js"
 import { claimRound } from "./run-files.js"
 import { type Coder, coderRecord, parseCoderRecord } from "./settings.js"
 import { looseForm, type Repository } from "./subject.js"
-import { planStem } from "./target.js"
+import { archivedPlans, planStem } from "./target.js"
 
 type CommitOnlyInput = {
   readonly cwd: string
@@ -215,6 +216,54 @@ export async function markImplemented(
     cwd,
     subject: `${stem}/implemented ${tag}: complete the ${share} share`,
     body: record,
+  })
+}
+
+/**
+ * Move a closed plan's round data from the gitignored active folder to the
+ * folder its archived plan now sits in, and commit the moved files. The
+ * runner does this itself after the close session, because the files are the
+ * plan's complete round account and nothing else keeps them: left in
+ * `active/` they are ignored by Git and go with the next hand clean-up.
+ * Returns null when the plan had no round data.
+ */
+export async function archiveRoundData(
+  context: ExecutionContext,
+  stem: string,
+  tag: string,
+  record: string,
+): Promise<LifecycleCommit | null> {
+  const names: string[] = []
+  for (const kind of ["planning", "implementation"] as const) {
+    const name = roundDataFilename(stem, kind)
+    try {
+      if ((await stat(join(context.activeRoot, name))).isFile())
+        names.push(name)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    }
+  }
+  if (names.length === 0) return null
+
+  const archived = await archivedPlans(context.planRoot, stem)
+  if (archived.length !== 1)
+    throw new Error(
+      archived.length === 0
+        ? `No archived plan named ${stem} to hold its round data.`
+        : `More than one archived plan named ${stem}: ${archived.join(", ")}.`,
+    )
+  const folder = dirname(archived[0])
+  const paths: string[] = []
+  for (const name of names) {
+    const destination = join(folder, name)
+    await rename(join(context.activeRoot, name), destination)
+    paths.push(relative(context.planRoot, destination))
+  }
+  return commitOnly({
+    cwd: context.planRoot,
+    subject: `${stem}/closed ${tag}: archive the round data`,
+    body: record,
+    paths,
   })
 }
 

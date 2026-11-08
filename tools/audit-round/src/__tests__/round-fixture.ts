@@ -260,7 +260,17 @@ Audit ranges: 1.
               },
             ]
           : [],
-      remove: phase === "close" ? [join(activeRoot, "example.md")] : [],
+      // A close session moves its plan into the archive; the runner then
+      // archives the plan's round data itself.
+      moves:
+        phase === "close"
+          ? [
+              {
+                from: join(activeRoot, "example.md"),
+                to: join(planRoot, "archive/example/plan.md"),
+              },
+            ]
+          : [],
       stream: await phaseStream(assistant, final, sessionId),
       // Either CLI may run a phase when the next auditor changes, so both answer.
       assistants: {

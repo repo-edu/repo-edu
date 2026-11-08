@@ -15,6 +15,7 @@ import {
   type WatchGrade,
 } from "../glance.js"
 import type { JudgeEvidence } from "../judge.js"
+import type { LifecycleCommit } from "../lifecycle.js"
 import { phaseWorkflow } from "../phase.js"
 import type {
   LandedCommit,
@@ -147,6 +148,9 @@ function controlledRound(
   const watchRecords: Parameters<RoundDependencies["writeWatchRecord"]>[0][] =
     []
   const rulings: string[] = []
+  const archived: { stem: string; tag: string; record: string }[] = []
+  // A close finds round data to archive only when a test says it has some.
+  let roundDataCommit: LifecycleCommit | null = null
   const settledWrites: {
     commits: readonly LandedCommit[]
     account: RoundAccount
@@ -239,6 +243,11 @@ function controlledRound(
     readHead: async (root) => `before-${root}`,
     resolvePlan: async (roots, stem) => join(roots.activeRoot, `${stem}.md`),
     fileExists: async () => planRemains,
+    archiveRoundData: async (stem, tag, record) => {
+      assert.equal(planRemains, false)
+      archived.push({ stem, tag, record })
+      return roundDataCommit
+    },
     readRecords: async (root, _before, repository) =>
       root === repoRoot ? landedRecords(repository, evidence.subjects) : [],
     commitPhaseStamps: () => [fixPhaseStamp],
@@ -303,6 +312,7 @@ function controlledRound(
     watchRecords,
     settledWrites,
     rulings,
+    archived,
     results,
     dependencies,
     evidence,
@@ -316,6 +326,9 @@ function controlledRound(
     },
     leavePlan() {
       planRemains = true
+    },
+    holdRoundData(commit: LifecycleCommit) {
+      roundDataCommit = commit
     },
   }
 }
@@ -1860,7 +1873,10 @@ for (const reason of [null, "The check cost more than it gave."]) {
       round.dependencies,
     )
 
-    assert.deepEqual(result, { status: "finished" })
+    assert.deepEqual(result, { status: "finished", archived: null })
+    assert.deepEqual(round.archived, [
+      { stem: "example", tag: "obh", record: "gpt-6-astra high" },
+    ])
     assert.deepEqual(round.calls, [
       {
         phase: "close",
@@ -1939,6 +1955,64 @@ test("a finished close that left its plan in the active folder fails with its se
     model: pinned("codex"),
     ...context,
     reason: `The finished close left ${plan} in the active folder`,
+  })
+  assert.deepEqual(round.archived, [])
+})
+
+test("a finished close returns the runner's commit of the archived round data", async () => {
+  const round = controlledRound()
+  const commit = {
+    sha: "abc1234",
+    subject: "example/closed obh: archive the round data",
+  }
+  round.holdRoundData(commit)
+  const context = testContext(repoRoot, "planning")
+
+  const result = await runClose(
+    {
+      ...context,
+      plan: join(context.activeRoot, "example.md"),
+      tag: "obh",
+      record: "gpt-6-astra high",
+      reason: null,
+      deferrals: [],
+    },
+    round.dependencies,
+  )
+
+  assert.deepEqual(result, { status: "finished", archived: commit })
+})
+
+test("a finished close whose round data cannot be archived fails with its session", async () => {
+  const round = controlledRound()
+  round.dependencies = {
+    ...round.dependencies,
+    archiveRoundData: async () => {
+      throw new Error("No archived plan named example to hold its round data.")
+    },
+  }
+  const context = testContext(repoRoot, "planning")
+
+  const result = await runClose(
+    {
+      ...context,
+      plan: join(context.activeRoot, "example.md"),
+      tag: "obh",
+      record: "gpt-6-astra high",
+      reason: null,
+      deferrals: [],
+    },
+    round.dependencies,
+  )
+
+  assert.deepEqual(result, {
+    status: "failed",
+    sessionId: "close-session",
+    phase: "close",
+    assistant: "codex",
+    model: pinned("codex"),
+    ...context,
+    reason: "No archived plan named example to hold its round data.",
   })
 })
 

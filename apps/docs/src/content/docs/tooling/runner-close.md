@@ -38,21 +38,30 @@ deferrals in its arguments.
 The session's checks, questions and closing records are those of
 [`/close`](/repo-edu/tooling/close/): it confirms a whole-plan implementation audit, current
 `implemented` markers and clean commits, clears the plan's refactor backlog rows through
-`pnpm sweep done --plan <stem>`, moves the plan with its round data, rewrites links to it, writes
-each repo's `<stem>/closed` commit and deletes the plan's sidecars. An aborted plan skips the audit
-checks and keeps its backlog rows.
+`pnpm sweep done --plan <stem>`, moves the plan, rewrites links to it, writes each repo's
+`<stem>/closed` commit and deletes the plan's sidecars. An aborted plan skips the audit checks and
+keeps its backlog rows.
+
+The round-data files are the one part the runner does itself. Once the session has moved the plan,
+the runner moves `<stem>-plan-rounds.json` and `<stem>-impl-rounds.json` from `../plan/active/` into
+the plan's archive folder and commits them as a second `<stem>/closed` record. While they sit in
+`active/` Git ignores them, so a session that forgot the move would lose the plan's whole round
+account to the next hand clean-up.
 
 ## Output
 
 1. **The archive.** A shipped plan moves to `../plan/archive/<name>/` with its round-data files. An
    aborted plan moves under `../plan/archive/aborted/` with a `README.md` holding the reason.
-2. **Closing commits.** The plan repo's `<stem>/closed` archive commit, Repo Edu's empty
+2. **Closing commits.** The plan repo's `<stem>/closed` archive commit, the runner's
+   `<stem>/closed` commit of the round-data files when the plan had any, Repo Edu's empty
    `<stem>/closed` commit when Repo Edu hosted a landed step and, before it, a `chore(sweep)` commit
-   when a committed backlog row named the plan.
+   when a committed backlog row named the plan. The runner prints `Committed <sha>: <subject>` for
+   its own commit.
 3. **The close log** at `../plan/active/<stem>-close.<tag>.log`, which stays after the close.
 
 A close session that finishes with the plan still in `../plan/active/` fails, because the move is
-the close.
+the close. A finished session whose plan the runner cannot find once under `../plan/archive/` fails
+too, because the round data then has no folder to join.
 
 ## Refuses when
 

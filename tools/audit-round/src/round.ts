@@ -2,6 +2,7 @@ import { readModelRecord } from "./commit-msg.js"
 import { errorMessage } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
 import { judgeOptions } from "./judge.js"
+import type { LifecycleCommit } from "./lifecycle.js"
 import type { OpenDeferral } from "./open-deferrals.js"
 import type { RoundDocuments } from "./output.js"
 import {
@@ -148,7 +149,13 @@ export type CloseInput = RoundContext & {
   readonly deferrals: readonly OpenDeferral[]
 }
 
-export type CloseResult = { readonly status: "finished" } | RoundFailure
+export type CloseResult =
+  | {
+      readonly status: "finished"
+      /** The runner's own commit of the archived round data, or null when the plan had none. */
+      readonly archived: LifecycleCommit | null
+    }
+  | RoundFailure
 
 /** A completed report phase must have written its supplied output. */
 async function reportPhase<R extends PhaseResult>(
@@ -182,12 +189,16 @@ async function reportPhase<R extends PhaseResult>(
 /**
  * Loop-close runs alone, on its own settings, and belongs to no round. The
  * session cannot tell its own capability, so it receives the tag and model
- * record its commits carry; its workflow owns the move, the commits and the
- * sidecars it deletes.
+ * record its commits carry; its workflow owns the plan move, the commits and
+ * the sidecars it deletes. The runner itself then moves and commits the plan's
+ * round data, so that account never depends on the session remembering it.
  */
 export async function runClose(
   input: CloseInput,
-  dependencies: Pick<RoundDependencies, "runPhase" | "fileExists">,
+  dependencies: Pick<
+    RoundDependencies,
+    "runPhase" | "fileExists" | "archiveRoundData"
+  >,
   settings: RoundSettings,
 ): Promise<CloseResult> {
   const run = closePhase(settings)
@@ -225,10 +236,15 @@ export async function runClose(
       return failed(
         `The finished close left ${input.plan} in the active folder`,
       )
+    const archived = await dependencies.archiveRoundData(
+      planStem(input.plan),
+      input.tag,
+      input.record,
+    )
+    return { status: "finished", archived }
   } catch (error) {
     return failed(errorMessage(error))
   }
-  return { status: "finished" }
 }
 
 /**

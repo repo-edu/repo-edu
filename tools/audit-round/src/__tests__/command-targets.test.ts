@@ -115,21 +115,12 @@ test("close supplies open deferrals to one close session from the plan checkout"
   const deferral = await deferPlanChoice(f.repoRoot)
   await declareReady(f.planRoot)
   const archive = join(f.planRoot, "archive/example")
-  await mkdir(archive, { recursive: true })
   const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
   for (const file of dataFiles)
     await writeFile(
       join(f.activeRoot, file),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
-  f.phases.close = {
-    ...(f.phases.close as object),
-    moves: dataFiles.map((file) => ({
-      from: join(f.activeRoot, file),
-      to: join(archive, file),
-    })),
-  }
-  await f.configure({ phases: f.phases })
   const before = await readdir(f.activeRoot)
   assert.equal(
     await runCommand(["close", "example-widen.md"], f.runtime, f.options),
@@ -150,6 +141,28 @@ test("close supplies open deferrals to one close session from the plan checkout"
   assert.deepEqual(
     (await readdir(f.activeRoot)).filter((name) => !before.includes(name)),
     ["example-close.obh.log"],
+  )
+  // The session moved the plan; the runner moved the round data and committed it.
+  const [sha, subject, body] = (
+    await execa("git", ["log", "-1", "--format=%H%n%s%n%b"], {
+      cwd: f.planRoot,
+    })
+  ).stdout.split("\n")
+  assert.equal(subject, "example/closed obh: archive the round data")
+  assert.equal(body, "gpt-5.6-sol high")
+  assert.deepEqual(
+    (
+      await execa("git", ["show", "--name-only", "--format=", sha], {
+        cwd: f.planRoot,
+      })
+    ).stdout
+      .split("\n")
+      .sort(),
+    dataFiles.map((file) => `archive/example/${file}`).sort(),
+  )
+  assert.match(
+    f.visible.join("\n"),
+    new RegExp(`Committed ${sha}: example/closed obh: archive the round data`),
   )
   const log = await readFile(
     join(f.activeRoot, "example-close.obh.log"),
@@ -191,7 +204,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
 test("a finished close that left its plan in the active folder fails with a resume command", async (t) => {
   const f = await roundFixture(t)
   await declareReady(f.planRoot)
-  f.phases.close = { ...(f.phases.close as object), remove: [] }
+  f.phases.close = { ...(f.phases.close as object), moves: [] }
   await f.configure({ phases: f.phases })
   assert.equal(await runCommand(["close"], f.runtime, f.options), 1)
   const log = await readFile(
