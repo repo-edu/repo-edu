@@ -3,61 +3,68 @@ title: /fix
 description: Reconcile one audited round and land its authorised corrections and records
 ---
 
-Use `/fix` to reconcile an audit, its vet and any rebuttal, then land the authorised corrections.
+`/fix` ends an audit round with findings: it reconciles the report, its vet and any rebuttal, then
+lands the settled corrections and the round's record.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | Claude chat in the Repo Edu or plan checkout; `$fix` is the Codex counterpart |
+| Owners | `../plan/home/claude/commands/fix.md` and `../plan/home/agents/skills/fix/SKILL.md` launch it; `.agents/skills/fix/references/workflow.md` and `../plan/.agents/skills/fix/references/workflow.md` own the fix; `.agents/references/round-protocol.md` owns reconciliation |
 
-Run the command in Claude chat from the Repo Edu or plan checkout. Use `$fix` for the same command
-in Codex.
+## Usage
 
 ```text
 /fix                         fix the newest eligible audit round
 /fix <report-file>           fix the round belonging to one named audit report
 ```
 
-Example:
-
 ```text
 /fix tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
-The command has no flags. An omitted input selects the newest eligible report and that round's
-newest vet and rebuttal twins. The report opening chooses the planning or implementation workflow
-and the repositories the fix may change.
+The command has no flags. Without a report it takes the newest eligible report from either
+assistant and that round's newest vet and rebuttal twins. Invoking it grants the settled corrections
+and their record commits. The whole session uses the `/simple` wording requirement.
 
-## When do I use it?
+## What it shows you
 
-Use `/fix` after the vet, and after a rebuttal when the vet did not accept every finding. Invoking
-the fix grants the settled corrections and their round records. A clean audit completes directly
-and needs no fix.
+The fix reads the report and every twin, checks for head drift and reads each file a correction will
+change. It then shows one outcome per finding:
 
-## What does it read?
+1. **Agreed.** An accepted finding, or a revision or drop the auditor agreed to, stands as agreed.
+2. **Decided.** For a contested verdict the fix reads the evidence and decides, with its reason.
+3. **Open.** A real choice between options with different costs, or a contest the evidence leaves
+   unclear, goes to you.
 
-The fix reads the complete report and every available twin, then checks current repository heads
-and the sources each retained correction will change. It reconciles every numbered finding,
-applies the accepted result at its owning boundary and runs the checks required by that repository.
+A choice is not open when one option is at least as good on every cost, or when the finding is rare
+and the option with the least upkeep wins. Planning corrections change only the plan repo. An
+implementation round may change Repo Edu, the plan repo or both, as the report's judged repos and
+finding locations allow.
 
-Planning corrections change only the plan repository. An implementation round may change Repo Edu,
-the plan repository or both when the report's judged set and finding locations permit it.
+## Your answers
 
-## Where does it stop and what do I type?
+1. **Nothing is open.** You type nothing. The fix applies every outcome, runs the checks for what it
+   changed and lands the record.
+2. **Go.** A go on the presented outcome accepts it as shown, and the fix applies it.
+3. **A reservation on one item.** The fix reads the evidence for that item again and answers before
+   applying anything.
+4. **A reply to an open choice.** In a hand-run chat, reply directly. In an automatic run, type the
+   reply in the runner and submit it with a blank line; see
+   [Answer a ruling](/repo-edu/tooling/answer-ruling/). You may ask a question first. A choice that
+   stays open produces a revised ruling.
 
-1. **An input is missing or ambiguous.** Run `/fix <report-file>` with the audit report. Complete a
-   missing vet or rebuttal first when the round requires it.
-2. **A real decision remains open.** Read the alternatives and recommendation. In an automatic
-   runner, type your reply and submit it with a blank line. In a hand-run chat, reply directly. You
-   may ask a question; an unresolved decision produces a revised ruling.
-3. **A required edit, check or commit fails.** Correct the named external problem, then use the
-   printed recovery command when one is available. The retained session continues the same fix.
-4. **The fix finishes.** Type nothing. The corrections and round records have landed.
+## Early stops
 
-## What does it leave behind?
+1. **An input is missing or ambiguous.** Rerun with the report name. Run a missing vet or rebuttal
+   first when the round needs it.
+2. **A required edit, check or commit fails.** Correct the named problem, then run the recovery
+   command the runner printed, if any. The retained session continues the same fix; see
+   [Recover a run](/repo-edu/tooling/recover-run/).
 
-The fix leaves the accepted source or plan changes, their Git records and any required handoff. A
-finished round removes its `-2-audit`, `-3-vet` and `-4-rebut` files. Its claim, transcript, log,
-round data, rulings and watch remain until their normal retention owner removes or archives them.
+## Afterwards
 
-## What owns this page?
-
-`../plan/.agents/skills/fix/references/workflow.md` and
-`.agents/skills/fix/references/workflow.md` own this page; the shared protocol owns reconciliation.
+The accepted changes and their record commits have landed, together with the handoff for the next
+round. A finished round deletes its `-2-audit`, `-3-vet` and `-4-rebut` files. Its claim,
+transcript, log, round data, rulings and watch stay until their own owner removes or archives them.
+A correction that needs a CI run on pushed commits is applied and the owed run is named in the
+handoff.

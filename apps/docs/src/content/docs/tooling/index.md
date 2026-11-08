@@ -85,9 +85,9 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
 | I want a plain-words read of a plan | `/brief-plan [chat\|file] [stem]` | A reading of the plan, in chat by default; no audit or plan change |
-| I want the last reply explained more clearly | `/rewrite` | New wording of the selected reply; its judgements stay intact |
-| I want to judge whether a plan is worth its complexity | `/yield <plan.md>` in the plan checkout | Ratings grouped by yield-to-complexity ratio; no plan edit without your instruction |
-| I want plain words throughout this chat | `/simple [prompt]` | The plain-language requirement applies to chat and files for that session |
+| I want the last reply explained more clearly | [`/rewrite`](/repo-edu/tooling/chat-helpers/#rewrite) | New wording of the selected reply; its judgements stay intact |
+| I want to judge whether a plan is worth its complexity | [`/yield <plan.md>`](/repo-edu/tooling/yield/#yield) in the plan checkout | Ratings grouped by yield-to-complexity ratio; no plan edit without your instruction |
+| I want plain words throughout this chat | [`/simple [prompt]`](/repo-edu/tooling/chat-helpers/#simple) | The plain-language requirement applies to chat and files for that session |
 
 ## What owns this page?
 

@@ -3,55 +3,62 @@ title: /refactor
 description: Work through source files that the sweep marked for refactoring
 ---
 
-Use `/refactor` to inspect the largest flagged source file and choose whether to refactor or plan
-it.
+`/refactor` drains the refactor backlog that [`/sweep`](/repo-edu/tooling/sweep/) builds: it takes
+the largest flagged file, recommends refactoring it inline or routing it to a plan, and acts only on
+your go.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | Claude chat in the Repo Edu checkout; there is no Codex counterpart |
+| Owner | `../plan/home/claude/commands/refactor.md` |
 
-Run this Claude-only command from the Repo Edu checkout.
+## Usage
 
 ```text
-/refactor          inspect the queue head and recommend a route
-/refactor help     show usage
+/refactor                          take the largest flagged Repo Edu file, recommend a route, then
+                                   on go refactor inline or route to a plan, walk to the next
+/refactor help | -h | --help | ?   show the usage
 ```
 
-The help forms `-h`, `--help` and `?` also work. There is no Codex counterpart.
+The sweep only judges and records; this command is the deliberate half that changes source. Its
+place in the loop is described on the [Sweep](/repo-edu/tooling/sweep/#the-loop) page.
 
-## When do I use it?
+## What it shows you
 
-Use `/refactor` after `/sweep` has flagged one or more source files. It handles the backlog from the
-largest file down. The command recommends an inline refactor or a plan, but you choose the route and
-nothing changes before your go.
+The command runs `pnpm sweep queue` and takes the first entry as the head. It rereads that file and
+tells you why it was flagged, the recorded reason and its read of the split, then recommends a
+route. It weighs whether the change preserves behaviour, whether the target shape is obvious and
+whether a shared contract is involved. Those inform the recommendation; the route is your call.
 
-## What does it read?
+1. **An earlier plan on the file's primary area never reached its `ready` marker.** It recommends a
+   plan under a wide name that states the problem, not an inline refactor.
+2. **The file no longer matches its reason.** It says so and recommends dropping the stale entry.
 
-The command runs `pnpm sweep queue`, reads the first backlog entry and rereads that source file. It
-checks the recorded reason, the likely split, shared contracts and any earlier unfinished planning
-episode for the file's primary area.
+Nothing changes before your go. You can push on the route, ask how hard it is or what the seams are
+first.
 
-An unfinished prior plan makes the command recommend another plan. A file that no longer matches
-its reason gets a recommendation to remove the stale queue entry.
+## Your answers
 
-## Where does it stop and what do I type?
+1. **Go on refactor inline.** The assistant refactors the agreed files, folds any new file whose
+   surface only extends another into that one, and runs Repo Edu's checks and tests. It asks before
+   committing. After an approved commit it runs `pnpm sweep done <path>`, which removes the backlog
+   row. It leaves the refactored source in one Repo Edu commit.
+2. **Go on route to a plan.** The assistant writes the plan's init while the file is fresh, as
+   `../plan/active/<topic>-widen.md` or, when the requirement has one reasonable shape,
+   `<topic>.md`. It asks before committing the `<stem>/init`. After an approved commit it runs
+   `pnpm sweep flag <path> --reason "planned in <stem>"` and prints `pnpm audit-round <stem>` as the
+   next command. It leaves the new plan and a backlog row that names it.
+3. **Go on dropping a stale entry.** The assistant runs `pnpm sweep done <path>` and leaves no
+   commit.
+4. **Name the other route.** Go applies the route you name instead of the recommendation.
 
-1. **The queue is empty.** The command says so and stops.
-2. **A current entry needs a route.** Read the explanation and recommendation. Type `Go.` to accept
-   it, name the other route or keep discussing the shape.
-3. **The inline change is ready to commit.** Approve or refuse the commit when asked. After an
-   approved commit, the command removes the old backlog entry.
-4. **The plan is ready to commit.** Approve or refuse the plan init when asked. After an approved
-   commit, the command links the backlog entry to the plan and prints `pnpm audit-round <stem>`.
-5. **One entry is complete.** The command reads the next queue head. Tell it to stop, or continue
-   until the queue is empty.
+## Afterwards
 
-## What does it leave behind?
+After one entry is done the command reads the next queue head and repeats. Tell it to stop, or let
+it run until the queue is empty. A refactored file changes content, so it and any new sibling files
+come back in a later `/sweep` for a fresh judgement.
 
-Before your go, it leaves only the recommendation in chat. An inline route leaves the refactored
-source and its checked Git commit, then removes the matching row from
-`tools/sweep/refactor-backlog.tsv`. A plan route leaves `../plan/active/<topic>.md` or
-`../plan/active/<topic>-widen.md` and changes the backlog reason to name that plan. A stale-entry
-route removes the row after your approval.
+## Early stops
 
-## What owns this page?
-
-`../plan/home/claude/commands/refactor.md` owns this command. It has no Codex launcher.
+1. **The queue is empty.** `pnpm sweep queue` prints `queue: empty.`; the command says so and stops.
+2. **You asked for help.** It prints the usage and stops.

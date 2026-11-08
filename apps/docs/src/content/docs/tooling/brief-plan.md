@@ -3,11 +3,15 @@ title: /brief-plan
 description: Explain one plan in plain words without auditing or changing it
 ---
 
-Use `/brief-plan` to read a plain-language explanation of one plan without changing the plan.
+`/brief-plan` gives you a plain-words reading of one plan, its problem, proposal, settled decisions
+and open points, when you want to understand it without reading its evidence trail.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | Claude chat in the Repo Edu or plan checkout; `$brief-plan` is the Codex counterpart |
+| Owners | `../plan/.agents/skills/brief-plan/references/workflow.md` owns the brief; `../plan/home/claude/commands/brief-plan.md` and `../plan/home/agents/skills/brief-plan/SKILL.md` launch it |
 
-Run the command from the Repo Edu or plan checkout. Use `$brief-plan` for the same command in Codex.
+## Usage
 
 ```text
 /brief-plan                       explain the active plan in chat
@@ -16,36 +20,38 @@ Run the command from the Repo Edu or plan checkout. Use `$brief-plan` for the sa
 /brief-plan file <stem>           write the explanation beside the plan
 ```
 
-A stem is the filename without `.md` or `-widen`. Pass a stem, not a path.
+A stem is the plan filename without `.md` or `-widen`; pass a stem, not a path. Without a stem the
+command reads the plan `pnpm audit-round plan` prints. A stem is looked up in `../plan/active/`
+first, then in the archive. The whole session uses the `/simple` wording requirement.
 
-## When do I use it?
+## What it shows you
 
-Use `/brief-plan` when you want the plan's problem, proposal, settled decisions and open points
-without its implementation detail and evidence trail. The brief is a reading aid, not an audit.
+The brief reads the selected plan and nothing else. Its one measure is how fast a reader who did not
+write the plan understands it, so it is short where that helps and longer where a step needs
+spelling out.
 
-## What does it read?
+1. **One summary first.** It rewrites the plan's own summary, such as its **User summary**, or adds
+   one when the plan has none.
+2. **The plan's headings in the plan's order.** You can jump from the brief to the same place in the
+   plan.
+3. **Behaviour, not code.** It says what the app does and what the plan wants instead, without
+   function or module names.
+4. **Exact anchors.** Commit hashes, decision numbers, other plans and named documents stay exact.
 
-The command reads only the selected plan. Without a stem, it uses the active plan printed by
-`pnpm audit-round plan`. With a stem, it first looks in `../plan/active/`, then in the archive.
+The brief never adds a claim, settles an open question or reports a defect. A brief is a reading
+aid, not an audit, and the plan stays the record.
 
-The brief keeps the plan's heading order and exact anchors such as decision numbers and commit
-hashes. It does not inspect code or other sources to correct the plan.
+## Early stops
 
-## Where does it stop and what do I type?
+1. **The word before the stem is not `chat` or `file`.** The command names the word and stops.
+   Rerun with `chat <stem>` or `file <stem>`.
+2. **A path was given.** The command shows the stem form and stops.
 
-1. **The input begins with `chat` or `file`.** The command writes to that destination and stops.
-2. **The output word is missing.** The command uses chat and stops after the brief.
-3. **The output word or target is invalid.** Reply with `chat <stem>` or `file <stem>`, using a stem
-   rather than a path.
+## Afterwards
 
-## What does it leave behind?
+1. **Chat**, the default, leaves only the brief as the whole reply.
+2. **`file`** writes `<plan-name>-brief-plan.md` beside the plan, in `../plan/active/` or the
+   archive folder, and replies with that path alone. The file is gitignored, replaces an earlier
+   brief of the same plan and goes stale at the plan's next commit.
 
-The default leaves only the brief in chat. `file` writes
-`../plan/active/<plan-name>-brief-plan.md`, or the matching path beside an archived plan. The file
-is gitignored, replaces an earlier brief at the same path and becomes stale when the plan changes.
 The plan itself is never edited.
-
-## What owns this page?
-
-`../plan/.agents/skills/brief-plan/references/workflow.md` owns the brief;
-`../plan/home/claude/commands/brief-plan.md` and the Codex skill launch it.

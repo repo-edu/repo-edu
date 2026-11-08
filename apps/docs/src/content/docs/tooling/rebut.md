@@ -3,59 +3,53 @@ title: /rebut
 description: Let an audit's original writer answer the other assistant's vet verdicts
 ---
 
-Use `/rebut` to let the audit's original writer answer revisions, drops and ruling items from the
-other assistant's vet.
+`/rebut` lets the assistant that wrote an audit answer the vet's revisions, drops and ruling items
+with evidence, after a vet that did not accept every finding.
 
-## How do I run it?
+| Fact | Detail |
+| --- | --- |
+| Runs in | Claude chat in the Repo Edu or plan checkout, in the assistant that wrote the audit; `$rebut` is the Codex counterpart |
+| Owners | `../plan/home/claude/commands/rebut.md` and `../plan/home/agents/skills/rebut/SKILL.md` launch it; `.agents/skills/rebut/references/workflow.md` and `../plan/.agents/skills/rebut/references/workflow.md` own the rebuttal; `.agents/references/round-protocol.md` owns the answers |
 
-Run the command in Claude chat from the Repo Edu or plan checkout. Use `$rebut` for the same command
-in Codex.
+## Usage
 
 ```text
 /rebut                       answer the newest vet of this assistant's newest report
 /rebut <report-file>         answer the newest vet of one named report
 ```
 
-Example:
-
 ```text
 /rebut tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
-The command has no flags. Run it in the assistant that wrote the audit report, not the assistant
-that wrote the vet.
+The command has no flags. Skip it when every vet verdict was Accept. The whole session uses the
+`/simple` wording requirement.
 
-## When do I use it?
+## What it shows you
 
-Use `/rebut` when the vet revised or dropped a finding, or said that a finding needs your ruling.
-Skip it when every finding was accepted. The rebuttal is the auditor's evidence-based answer, not a
-second audit.
+The rebuttal reads the report and that round's newest vet twin. Accepted findings carry forward
+without a fresh read. For every other verdict it reads the source that decides the disagreement
+itself, rather than trusting either quotation: the plan, the code, a boundary or the episode's
+commit bodies. It answers only revised, dropped and referred findings, in report order:
 
-## What does it read?
+1. **Agree** keeps the vet's verdict. Agreement with a revision carries the revised correction in
+   full, so the fix has one text to apply.
+2. **Contest** quotes the evidence the vet misread and says what the verdict should have been. A
+   difference of taste is agreement with a note, not a contest.
+3. **For user's ruling** keeps a real choice open and states the auditor's position briefly.
 
-The rebuttal reads the audit report and that round's newest vet twin. It carries accepted findings
-forward without rereading them. For every other verdict it reads the current source that decides
-the disagreement, including the plan, code, governing boundary or retained record where needed.
+The rebuttal is an answer, not a second audit. It edits no source, runs no formatter and lands no
+commit.
 
-Each answer is Agree, Contest or For user's ruling. The rebuttal answers only revised, dropped and
-referred findings, in report order.
+## Early stops
 
-## Where does it stop and what do I type?
+1. **No matching report or vet is found.** Rerun with the report name. When the report has no vet
+   yet, run the vet first in the other assistant.
+2. **The report belongs to the other assistant.** Run `/rebut` or `$rebut` in the assistant that
+   wrote it.
 
-1. **No matching report or vet is found.** Run `/rebut <report-file>` with the audit report. If the
-   report has not been vetted, run the vet first in the other assistant.
-2. **The report belongs to the other assistant.** Return to the auditor that wrote it and run the
-   matching `/rebut` or `$rebut` command there.
-3. **The answers are complete.** Run `/fix <report-file>` or `$fix <report-file>`. The fix
-   reconciles both assistants' views and asks you only about a decision that remains genuinely
-   open.
+## Afterwards
 
-## What does it leave behind?
-
-The command writes its answers to chat and to the round's `-4-rebut.<tag>.md` twin under the plan
-checkout's `active/` folder. It makes no source edit, runs no formatter and creates no commit.
-
-## What owns this page?
-
-`../plan/.agents/skills/rebut/references/workflow.md` and
-`.agents/skills/rebut/references/workflow.md` own this page; the shared round protocol owns answers.
+The answers appear in chat and in the round's `-4-rebut.<tag>.md` twin under `../plan/active/`. Run
+`/fix <report-file>` or `$fix <report-file>` next. The fix reconciles both views and asks you only
+about a decision that stays genuinely open.
