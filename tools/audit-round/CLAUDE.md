@@ -127,7 +127,9 @@ consumers.
   them; round data joins findings to record bullets by the `[finding:<n>]` number each bullet opens
   with. Quoted evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict and
   answer lines and ignores every other line. It requires verdicts for the report's finding numbers
-  in order and rebuttal answers for each revise, drop and ruling verdict. Only Accept verdicts skip
+  in order and rebuttal answers for each revise, drop and ruling verdict. It refuses by name an
+  answer numbered for an accepted finding, so a misnumbered answer fails on its own line rather
+  than as a missing one. Only Accept verdicts skip
   the rebuttal. Both readers are supplied through `RoundDependencies`, alongside the HEAD and
   subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole

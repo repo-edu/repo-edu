@@ -617,25 +617,30 @@ Refusal: `Vet verdict 1 uses the word "Agree"; use Accept, Revise, Drop or Needs
 
 The rebuttal omits accepted findings. It has one answer for every revised,
 dropped or referred finding, in report order. Its number and tier match that
-finding. Its word is the auditor's answer, never the verdict it answers: the
-number and tier are copied from the vet line and the word is not, so agreement
-with the vet's `1. [B] Revise` is written `1. [B] Agree`. Leading and trailing
-whitespace carry no content. A line with the numbered tier-header shape is an
-answer attempt and is refused by name when its word is outside the rebuttal
-list.
+finding. The number is the finding's report number, not the answer's place in
+the twin. When the vet accepts finding 1 and revises finding 2, the twin's only
+answer is numbered 2. Its word is the auditor's answer, never the verdict it
+answers. The number and tier are copied from the vet line and the word is not,
+so agreement with the vet's `2. [C] Revise` is written `2. [C] Agree`. Leading
+and trailing whitespace carry no content. A line with the numbered tier-header
+shape is an answer attempt. It is refused by name when its word is outside the
+rebuttal list or its number names an accepted finding.
 
 ### Examples
+
+The examples answer a vet that accepted finding 1 `[B]` and revised finding 2
+`[C]`.
 
 #### `rebuttal/agree` — parsed
 
 ```text
-1. [B] Agree
+2. [C] Agree
 ```
 
 #### `rebuttal/contest` — parsed
 
 ```text
-1. [B] Contest
+2. [C] Contest
 
 The cited source says the opposite.
 ```
@@ -643,17 +648,27 @@ The cited source says the opposite.
 #### `rebuttal/for-user-ruling` — parsed
 
 ```text
-1. [B] For user's ruling
+2. [C] For user's ruling
 
 The evidence leaves a real choice.
 ```
 
 #### `rebuttal/wrong-phase-word` — refused
 
-Refusal: `Rebuttal answer 1 uses the word "Drop"; use Agree, Contest or For user's ruling`
+Refusal: `Rebuttal answer 2 uses the word "Drop"; use Agree, Contest or For user's ruling`
 
 ```text
-1. [B] Drop
+2. [C] Drop
+```
+
+#### `rebuttal/accepted-finding` — refused
+
+Refusal: `Rebuttal answer 1 names an accepted finding; copy the number from the verdict it answers`
+
+```text
+1. [B] Agree
+
+The vet's revision of finding 2 holds.
 ```
 
 ## Commit record bullet

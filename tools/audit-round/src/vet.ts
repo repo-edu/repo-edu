@@ -99,7 +99,11 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
   }
 }
 
-/** Read the numbered subset of findings the auditor answered after vetting. */
+/**
+ * Read the numbered subset of findings the auditor answered after vetting.
+ * An answer numbered for an accepted finding is refused by name, so a
+ * misnumbered answer fails on its own line instead of as a missing one.
+ */
 export function readRebuttal(
   source: string,
   findings: ReportFindings,
@@ -110,6 +114,13 @@ export function readRebuttal(
     const header = readHeader(line, "Rebuttal answer", rebuttalAnswers)
     if (header === null) continue
     checkFindingIdentity(header.number, header.tier, findings)
+    if (
+      reviews.find((review) => review.number === header.number)?.verdict ===
+      "accept"
+    )
+      throw new Error(
+        `Rebuttal answer ${header.number} names an accepted finding; copy the number from the verdict it answers`,
+      )
     if (rebuttals.some((rebuttal) => rebuttal.number === header.number))
       throw new Error(
         `Rebuttal answers finding ${header.number} more than once`,

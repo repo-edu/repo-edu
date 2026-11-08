@@ -697,8 +697,8 @@ test("the round grammar's vet examples cover every verdict and named refusal", (
 })
 
 test("the round grammar's rebuttal examples cover every answer and named refusal", () => {
-  const findings = twoFindings.slice(0, 1)
-  const reviews = [{ number: 1, tier: "B", verdict: "revise" }] as const
+  const findings = twoFindings
+  const reviews = readVet("1. [B] Accept\n2. [C] Revise", findings).reviews
   const examples = roundGrammarExamples("rebuttal/")
   for (const answer of Object.keys(rebuttalAnswers))
     assert.ok(
