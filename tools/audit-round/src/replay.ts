@@ -1,0 +1,299 @@
+import type { ExecutionContext } from "./context.js"
+import { readLog } from "./episode-log.js"
+import {
+  auditorText,
+  decideSeries,
+  planSeriesEvidence,
+  type SeriesEvidence,
+} from "./judge.js"
+import {
+  type RetainedPlanRoundData,
+  type RoundData,
+  readAllPlanRoundData,
+  type SeriesDecision,
+} from "./round-data.js"
+import type { Auditor } from "./settings.js"
+
+const baselineBefore = "2026-11-08T18:53:13Z"
+const legacyPool: readonly Auditor[] = [
+  {
+    assistant: "claude",
+    model: "claude-opus-5-5",
+    effort: "high",
+  },
+  { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+]
+const legacySettledRounds = new Set([
+  "audit-range-series-plan/4",
+  "open-deferrals-plan/1",
+  "two-repo-commit-audits-plan/2",
+  "watch-evidence-plan/2",
+  "watch-evidence-plan/4",
+  "watch-evidence-plan/5",
+  "watch-evidence-plan/6",
+  "watch-evidence-plan/7",
+  "watch-evidence-plan/8",
+  "watch-evidence-plan/9",
+  "watch-evidence-plan/10",
+  "watch-evidence-plan/12",
+])
+
+export type ReplayRow = {
+  readonly stem: string
+  readonly target: string
+  readonly round: number
+  readonly phase: "widening" | "detailing" | "implementation"
+  readonly started: string
+  readonly computed: SeriesDecision
+  readonly stored: SeriesDecision
+  readonly nextFindings: string
+  readonly matches: boolean
+}
+
+function retainedFile(
+  files: readonly RetainedPlanRoundData[],
+  stem: string,
+  kind: "planning",
+): Extract<RetainedPlanRoundData, { readonly kind: "planning" }> | undefined
+function retainedFile(
+  files: readonly RetainedPlanRoundData[],
+  stem: string,
+  kind: "implementation",
+):
+  | Extract<RetainedPlanRoundData, { readonly kind: "implementation" }>
+  | undefined
+function retainedFile(
+  files: readonly RetainedPlanRoundData[],
+  stem: string,
+  kind: RetainedPlanRoundData["kind"],
+): RetainedPlanRoundData | undefined {
+  const matches = files.filter(
+    (file) => file.stem === stem && file.kind === kind,
+  )
+  if (matches.length > 1)
+    throw new Error(`More than one ${kind} round data file exists for ${stem}`)
+  return matches[0]
+}
+
+function timestamp(value: string): number {
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed))
+    throw new Error(`Invalid replay timestamp: ${value}`)
+  return parsed
+}
+
+/** The legacy judge started after the earlier recorded phase durations. */
+function decisionTime(entry: RoundData): number {
+  const judgeAt = entry.phases.findIndex((phase) => phase.phase === "judge")
+  const earlier = judgeAt === -1 ? entry.phases : entry.phases.slice(0, judgeAt)
+  return (
+    timestamp(entry.started) +
+    earlier.reduce((total, phase) => total + phase.milliseconds, 0)
+  )
+}
+
+function replayCurrent(entry: RoundData): RoundData {
+  if (!("phase" in entry) || entry.phase !== "widening")
+    return { ...entry, status: "in-progress" }
+  if (/^(settle|keep open)\. \S.*$/.test(entry.settling))
+    return { ...entry, status: "in-progress" }
+  const key = `${entry.target}/${entry.round}`
+  if (!legacySettledRounds.has(key))
+    throw new Error(`No replay reading exists for legacy settling value ${key}`)
+  return {
+    ...entry,
+    status: "in-progress",
+    settling: "settle. The completed legacy round left no shape question open.",
+  }
+}
+
+function historicalEvidence(
+  evidence: SeriesEvidence,
+  entry: RoundData,
+): SeriesEvidence {
+  const current = replayCurrent(entry)
+  const currentCommits = new Set(entry.commits.map((commit) => commit.sha))
+  const before = decisionTime(entry)
+  return {
+    roundData: {
+      file: evidence.roundData.file,
+      rounds: evidence.roundData.rounds
+        .filter(
+          (candidate) =>
+            candidate.target === entry.target &&
+            timestamp(candidate.started) <= timestamp(entry.started),
+        )
+        .map((candidate) =>
+          candidate.target === entry.target && candidate.round === entry.round
+            ? current
+            : candidate,
+        ),
+    },
+    roundCommits: evidence.roundCommits,
+    commits: evidence.commits.filter(
+      (commit) =>
+        timestamp(commit.committed) <= before || currentCommits.has(commit.sha),
+    ),
+  }
+}
+
+export function replayAnswersMatch(
+  computed: SeriesDecision,
+  stored: SeriesDecision,
+  hasStoredPool: boolean,
+): boolean {
+  if (typeof computed === "string" || typeof stored === "string")
+    return computed === stored
+  return hasStoredPool
+    ? computed.assistant === stored.assistant &&
+        computed.model === stored.model &&
+        computed.effort === stored.effort
+    : computed.assistant === stored.assistant
+}
+
+function findings(entry: RoundData | undefined): string {
+  if (entry === undefined) return "no next round"
+  const counts = new Map<string, number>()
+  for (const finding of entry.findings)
+    if (finding.outcome === "kept" || finding.outcome === "unmatched") {
+      const tier = finding.finalTier ?? finding.tier
+      counts.set(tier, (counts.get(tier) ?? 0) + 1)
+    }
+  const text = ["A", "B", "C", "D"]
+    .flatMap((tier) => {
+      const count = counts.get(tier)
+      return count === undefined ? [] : [`${tier}${count}`]
+    })
+    .join("")
+  return text || "none"
+}
+
+function answerText(answer: SeriesDecision): string {
+  return typeof answer === "string" ? answer : auditorText(answer)
+}
+
+function phase(entry: RoundData): ReplayRow["phase"] {
+  return "phase" in entry ? entry.phase : "implementation"
+}
+
+/** Replay every retained plan-series answer against the current fixed rules. */
+export async function replayRows(
+  roots: ExecutionContext,
+): Promise<readonly ReplayRow[]> {
+  const [files, plan, repoEdu] = await Promise.all([
+    readAllPlanRoundData(roots),
+    readLog(roots.planRoot),
+    readLog(roots.repoEduRoot),
+  ])
+  const stems = [...new Set(files.map((file) => file.stem))].sort()
+  const rows: ReplayRow[] = []
+  for (const stem of stems) {
+    const planning = retainedFile(files, stem, "planning")
+    const implementation = retainedFile(files, stem, "implementation")
+    const roundData = {
+      ...(planning === undefined ? {} : { planning: planning.rounds }),
+      ...(implementation === undefined
+        ? {}
+        : { implementation: implementation.rounds }),
+    }
+    for (const file of [planning, implementation]) {
+      if (file === undefined) continue
+      const evidence = planSeriesEvidence({
+        stem,
+        roundKind: file.kind,
+        roundData,
+        logs: { plan, "repo-edu": repoEdu },
+      })
+      const answered = file.rounds.filter((entry) => entry.judge !== null)
+      for (const entry of answered) {
+        const pool = entry.pool ?? legacyPool
+        const computed = decideSeries(
+          historicalEvidence(evidence, entry),
+          { target: entry.target, round: entry.round },
+          pool,
+        ).answer
+        const stored = entry.judge?.answer
+        if (stored === undefined) continue
+        const next = file.rounds
+          .filter(
+            (candidate) =>
+              candidate.target === entry.target &&
+              timestamp(candidate.started) > timestamp(entry.started),
+          )
+          .toSorted(
+            (first, second) =>
+              timestamp(first.started) - timestamp(second.started),
+          )[0]
+        rows.push({
+          stem,
+          target: entry.target,
+          round: entry.round,
+          phase: phase(entry),
+          started: entry.started,
+          computed,
+          stored,
+          nextFindings: findings(next),
+          matches: replayAnswersMatch(
+            computed,
+            stored,
+            entry.pool !== undefined,
+          ),
+        })
+      }
+    }
+  }
+  return rows.toSorted(
+    (first, second) =>
+      timestamp(first.started) - timestamp(second.started) ||
+      first.target.localeCompare(second.target) ||
+      first.round - second.round,
+  )
+}
+
+function totals(rows: readonly ReplayRow[]): string[] {
+  return (["widening", "detailing", "implementation", "all"] as const).map(
+    (phase) => {
+      const selected =
+        phase === "all" ? rows : rows.filter((row) => row.phase === phase)
+      const matches = selected.filter((row) => row.matches).length
+      return `| ${phase} | ${selected.length} | ${matches} | ${selected.length - matches} |`
+    },
+  )
+}
+
+function cell(value: string): string {
+  return value.replaceAll("|", "\\|")
+}
+
+/** Format the complete ordinary replay and the fixed published corpus. */
+export function formatReplay(rows: readonly ReplayRow[]): string {
+  const fixed = rows.filter(
+    (row) => timestamp(row.started) < timestamp(baselineBefore),
+  )
+  return [
+    "# Automatic-series replay",
+    "",
+    "| Target | Round | Phase | Rules | Stored | Next findings | Result |",
+    "| --- | ---: | --- | --- | --- | --- | --- |",
+    ...rows.map(
+      (row) =>
+        `| ${cell(row.target)} | ${row.round} | ${row.phase} | ${cell(answerText(row.computed))} | ${cell(answerText(row.stored))} | ${row.nextFindings} | ${row.matches ? "match" : "difference"} |`,
+    ),
+    "",
+    "## Ordinary totals",
+    "",
+    "| Phase | Answers | Matches | Differences |",
+    "| --- | ---: | ---: | ---: |",
+    ...totals(rows),
+    "",
+    `## Fixed corpus before ${baselineBefore}`,
+    "",
+    "| Phase | Answers | Matches | Differences |",
+    "| --- | ---: | ---: | ---: |",
+    ...totals(fixed),
+  ].join("\n")
+}
+
+export async function replayReport(roots: ExecutionContext): Promise<string> {
+  return formatReplay(await replayRows(roots))
+}

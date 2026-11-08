@@ -79,6 +79,7 @@ import {
   takeNext,
   writeQueue,
 } from "./queue.js"
+import { replayReport } from "./replay.js"
 import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
@@ -144,6 +145,7 @@ type Invocation =
       readonly lines: LineRange
     }
   | { readonly kind: "models"; readonly all: boolean }
+  | { readonly kind: "replay" }
   | {
       readonly kind: "disprove"
       readonly stem: string
@@ -536,7 +538,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round replay\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -562,6 +564,7 @@ that worker's session on its step before the run continues.
 
 Use round to run one audit round or series on a plan scope or on commits.
 Use models to read the auditor and coder results.
+Use replay to compare retained automatic-series answers with the fixed rules.
 Use disprove to record a finding that later evidence disproved.
 Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
@@ -923,6 +926,14 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       invocation = { kind: "models", all: flags.all === true }
     })
   command
+    .command("replay")
+    .description(
+      "Replay retained automatic-series answers through the fixed runner rules.",
+    )
+    .action(() => {
+      invocation = { kind: "replay" }
+    })
+  command
     .command("disprove")
     .description(
       "Record the user's later ruling that one audit finding was disproved.",
@@ -1178,6 +1189,10 @@ export async function runCommand(
         await modelsReport(context, modelSettings, { all: invocation.all }),
         "markdown",
       )
+      return 0
+    }
+    if (invocation.kind === "replay") {
+      options.terminal.write(await replayReport(context), "markdown")
       return 0
     }
     if (invocation.kind === "disprove") {

@@ -1,8 +1,9 @@
 import type { ExecutionContext } from "./context.js"
 import { episodeMembers } from "./episode.js"
-import { readCommitEvidence, readLog } from "./episode-log.js"
+import { type LogCommit, readCommitEvidence, readLog } from "./episode-log.js"
 import { readFindings } from "./findings.js"
 import {
+  type PlanRoundData,
   type RoundData,
   readCommitRoundData,
   readPlanRoundData,
@@ -22,6 +23,8 @@ export type SeriesCommit = {
   readonly files: readonly string[]
   readonly renames: readonly { readonly from: string; readonly to: string }[]
   readonly acceptedTiers: readonly ("A" | "B" | "C" | "D")[]
+  readonly changesPlan: boolean
+  readonly ownStem: boolean
 }
 
 export type SeriesEvidence = {
@@ -54,29 +57,30 @@ function acceptedTiers(
   }
 }
 
-async function readPlanSeriesEvidence(
-  input: SeriesEvidenceInput,
-): Promise<SeriesEvidence> {
-  const [roundData, planLog, repoEduLog] = await Promise.all([
-    readPlanRoundData(input, input.stem),
-    readLog(input.planRoot),
-    readLog(input.repoEduRoot),
-  ])
+/** Build one plan's evidence from already-read data and Git logs. */
+export function planSeriesEvidence(input: {
+  readonly stem: string
+  readonly roundKind: RoundKind
+  readonly roundData: PlanRoundData
+  readonly logs: Readonly<Record<Repository, readonly LogCommit[]>>
+}): SeriesEvidence {
+  const { roundData } = input
   const allRounds = [
     ...(roundData.planning ?? []),
     ...(roundData.implementation ?? []),
   ]
   const commits = (
     [
-      ["plan", planLog],
-      ["repo-edu", repoEduLog],
+      ["plan", input.logs.plan],
+      ["repo-edu", input.logs["repo-edu"]],
     ] as const
   )
     .flatMap(([repository, log]) =>
       episodeMembers(log, repository, input.stem)
         .members.toReversed()
         .map((commit): SeriesCommit => {
-          const role = looseForm(commit.subject)?.role ?? null
+          const form = looseForm(commit.subject)
+          const role = form?.role ?? null
           return {
             repository,
             sha: commit.sha,
@@ -86,6 +90,14 @@ async function readPlanSeriesEvidence(
             files: commit.files,
             renames: commit.renames,
             acceptedTiers: acceptedTiers(commit.body, repository, role),
+            changesPlan:
+              repository === "plan" &&
+              commit.files.some(
+                (file) =>
+                  file === `active/${input.stem}.md` ||
+                  file === `active/${input.stem}-widen.md`,
+              ),
+            ownStem: form?.stem === input.stem,
           }
         }),
     )
@@ -103,6 +115,22 @@ async function readPlanSeriesEvidence(
     ),
     commits,
   }
+}
+
+async function readPlanSeriesEvidence(
+  input: SeriesEvidenceInput,
+): Promise<SeriesEvidence> {
+  const [roundData, plan, repoEdu] = await Promise.all([
+    readPlanRoundData(input, input.stem),
+    readLog(input.planRoot),
+    readLog(input.repoEduRoot),
+  ])
+  return planSeriesEvidence({
+    stem: input.stem,
+    roundKind: input.roundKind,
+    roundData,
+    logs: { plan, "repo-edu": repoEdu },
+  })
 }
 
 async function readCommitSeriesEvidence(
@@ -135,7 +163,8 @@ async function readCommitSeriesEvidence(
         return [
           readCommitEvidence(cwd, shas).then((commits) =>
             commits.map((commit): SeriesCommit => {
-              const role = looseForm(commit.subject)?.role ?? null
+              const form = looseForm(commit.subject)
+              const role = form?.role ?? null
               return {
                 repository,
                 sha: commit.sha,
@@ -145,6 +174,8 @@ async function readCommitSeriesEvidence(
                 files: [],
                 renames: [],
                 acceptedTiers: acceptedTiers(commit.body, repository, role),
+                changesPlan: false,
+                ownStem: form?.stem === input.stem,
               }
             }),
           ),
@@ -237,23 +268,28 @@ function commitEvents(evidence: SeriesEvidence): number[] {
   const events: number[] = []
   for (const commit of evidence.commits) {
     const time = timestamp(commit.committed)
-    if (commit.role === "settle") {
+    if (commit.ownStem && commit.role === "settle") {
       planningPhase = "detailing"
       events.push(time)
       continue
     }
-    if (commit.role === "init" || reopens(commit)) {
+    if (commit.ownStem && (commit.role === "init" || reopens(commit))) {
       planningPhase = "widening"
       events.push(time)
       continue
     }
-    if (commit.role !== null && /^impl-\d+$/.test(commit.role)) {
+    if (
+      commit.ownStem &&
+      commit.role !== null &&
+      /^impl-\d+$/.test(commit.role)
+    ) {
       events.push(time)
       continue
     }
     const recorded = evidence.roundCommits.has(commit.sha)
     if (
       !recorded &&
+      commit.ownStem &&
       isAuditRole(commit.role) &&
       (commit.acceptedTiers.includes("A") ||
         (planningPhase === "detailing" && commit.acceptedTiers.includes("B")) ||
@@ -263,12 +299,7 @@ function commitEvents(evidence: SeriesEvidence): number[] {
       events.push(time)
       continue
     }
-    if (
-      !recorded &&
-      !isAuditRole(commit.role) &&
-      commit.repository === "plan" &&
-      commit.files.length > 0
-    )
+    if (!recorded && !isAuditRole(commit.role) && commit.changesPlan)
       events.push(time)
   }
   return events
@@ -377,7 +408,9 @@ export function decideSeries(
     const readyOpen =
       "phase" in current &&
       current.phase === "detailing" &&
-      !evidence.commits.some((commit) => commit.role === "ready")
+      !evidence.commits.some(
+        (commit) => commit.ownStem && commit.role === "ready",
+      )
     return {
       answer: readyOpen ? "ready" : "stop",
       reason: `Rule 2: every assistant in the pool has a current read; the ${readyOpen ? "detailing plan is ready" : "series stops"}.`,

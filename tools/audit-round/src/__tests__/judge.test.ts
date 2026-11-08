@@ -120,6 +120,8 @@ function commit(
     files: ["active/example.md"],
     renames: [],
     acceptedTiers: [],
+    changesPlan: true,
+    ownStem: true,
     ...overrides,
   }
 }
@@ -240,6 +242,44 @@ test("a hand-run A audit in the commit list invalidates older reads", () => {
       reason:
         "Rule 3: claude has no current read and did not audit this round.",
     },
+  )
+})
+
+test("only the current stem's steps and audits invalidate its reads", () => {
+  const claude = planningRound(opus, 1, "2026-11-08T10:00:00Z")
+  const codex = planningRound(sol, 2, "2026-11-08T11:00:00Z")
+  const foreignStep = commit({
+    committed: "2026-11-08T10:30:00Z",
+    role: "impl-2",
+    ownStem: false,
+    changesPlan: false,
+  })
+  const sharedDocument = commit({
+    committed: "2026-11-08T10:45:00Z",
+    role: null,
+    ownStem: false,
+    changesPlan: false,
+  })
+  assert.equal(
+    decideSeries(
+      evidence([claude, codex], [foreignStep, sharedDocument]),
+      current(codex),
+      pool,
+    ).answer,
+    "ready",
+  )
+
+  const outsidePlanEdit = {
+    ...sharedDocument,
+    changesPlan: true,
+  }
+  assert.deepEqual(
+    decideSeries(
+      evidence([claude, codex], [outsidePlanEdit]),
+      current(codex),
+      pool,
+    ).answer,
+    opus,
   )
 })
 

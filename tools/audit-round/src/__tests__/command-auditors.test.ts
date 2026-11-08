@@ -396,6 +396,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["close", "--help"],
     ["round", "--help"],
     ["models", "--help"],
+    ["replay", "--help"],
     ["disprove", "--help"],
     ["plan", "--help"],
   ])
@@ -406,7 +407,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round replay\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -423,6 +424,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   )
   for (const name of [
     "models",
+    "replay",
     "disprove",
     "settle",
     "ready",

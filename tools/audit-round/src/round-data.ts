@@ -262,6 +262,19 @@ export type PlanRoundData = {
   readonly planning?: readonly PlanningRoundData[]
   readonly implementation?: readonly ImplementationRoundData[]
 }
+export type RetainedPlanRoundData =
+  | {
+      readonly file: string
+      readonly stem: string
+      readonly kind: "planning"
+      readonly rounds: readonly PlanningRoundData[]
+    }
+  | {
+      readonly file: string
+      readonly stem: string
+      readonly kind: "implementation"
+      readonly rounds: readonly ImplementationRoundData[]
+    }
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
 
@@ -308,6 +321,34 @@ export async function roundDataFiles(roots: PlanRoots): Promise<string[]> {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
   return [...active, ...closed].sort()
+}
+
+/** Read every active and archived plan round-data file under its checked schema. */
+export async function readAllPlanRoundData(
+  roots: PlanRoots,
+): Promise<readonly RetainedPlanRoundData[]> {
+  return Promise.all(
+    (await roundDataFiles(roots)).map(async (file) => {
+      const name = basename(file)
+      const match = /^(.+)-(plan|impl)-rounds\.json$/.exec(name)
+      if (match === null)
+        throw new Error(`Invalid plan round data path: ${file}`)
+      const source = JSON.parse(await readFile(file, "utf8"))
+      if (match[2] === "plan")
+        return {
+          file,
+          stem: match[1],
+          kind: "planning" as const,
+          rounds: planningRoundFileSchema.parse(source).rounds,
+        }
+      return {
+        file,
+        stem: match[1],
+        kind: "implementation" as const,
+        rounds: implementationRoundFileSchema.parse(source).rounds,
+      }
+    }),
+  )
 }
 
 /** Read the two round-kind files that exist for one active or closed plan. */
