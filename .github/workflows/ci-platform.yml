@@ -133,6 +133,8 @@ jobs:
       - name: Check architecture
         run: pnpm check:architecture
 
+      - uses: ./.github/actions/electron-cache
+
       - name: Build
         run: pnpm build
 

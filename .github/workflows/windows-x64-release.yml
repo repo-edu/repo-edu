@@ -32,14 +32,7 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
       - uses: ./.github/actions/setup
-      - name: Cache Electron artifacts
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~\AppData\Local\electron\Cache
-            ~\AppData\Local\electron-builder\Cache
-          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-electron-
+      - uses: ./.github/actions/electron-cache
       - name: Build
         run: pnpm build
       - name: Runtime validation

@@ -31,14 +31,7 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
       - uses: ./.github/actions/setup
-      - name: Cache Electron artifacts
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-electron-
+      - uses: ./.github/actions/electron-cache
       - name: Install xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Build

@@ -781,9 +781,6 @@ importers:
         specifier: workspace:*
         version: link:../domain
     devDependencies:
-      tree-sitter-cli:
-        specifier: 0.27.0
-        version: 0.27.0
       web-tree-sitter:
         specifier: 0.27.0
         version: 0.27.0
@@ -6604,11 +6601,6 @@ packages:
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
-
-  tree-sitter-cli@0.27.0:
-    resolution: {integrity: sha512-E42kR0og1mFlZBxPj7K4fBXCTjxPTGe19U9RXGWNq0FQKzXOxIp8bhCYFMKhddiVZUsJwW35MYGU9Q1oVYtpbA==}
-    engines: {node: '>=12.0.0'}
-    hasBin: true
 
   treeify@1.1.0:
     resolution: {integrity: sha512-1m4RA7xVAJrSGrrXGs0L3YTwyvBs2S8PbRHaLZAkFw7JR8oIFwYtysxlBZhYIa7xSyiYJKZ3iGrrk55cGA3i9A==}
@@ -13259,8 +13251,6 @@ snapshots:
       is-number: 7.0.0
 
   toidentifier@1.0.1: {}
-
-  tree-sitter-cli@0.27.0: {}
 
   treeify@1.1.0: {}
 

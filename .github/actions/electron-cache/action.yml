@@ -1,0 +1,52 @@
+name: Electron cache
+description: Cache the Electron and electron-builder downloads for the installed versions
+
+# Packaging downloads the Electron zip, its checksums and electron-builder's
+# helper binaries from GitHub Releases. Serving them from this cache keeps a
+# GitHub release outage from failing a run whose versions are unchanged.
+#
+# The key is the exact installed Electron and electron-builder versions, with
+# no fallback key, so each entry holds one version set and never accumulates
+# old downloads. Run after the setup action, which installs both packages.
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve Electron cache
+      id: resolve
+      shell: bash
+      run: |
+        electron_version=$(node -p "require('./apps/desktop/node_modules/electron/package.json').version")
+        builder_version=$(node -p "require('./apps/desktop/node_modules/electron-builder/package.json').version")
+        # Each tool's default cache folder on this runner OS.
+        case "$RUNNER_OS" in
+          Linux)
+            cache_root="${XDG_CACHE_HOME:-$HOME/.cache}"
+            electron_dir="$cache_root/electron"
+            builder_dir="$cache_root/electron-builder"
+            ;;
+          macOS)
+            electron_dir="$HOME/Library/Caches/electron"
+            builder_dir="$HOME/Library/Caches/electron-builder"
+            ;;
+          Windows)
+            electron_dir="$LOCALAPPDATA/electron/Cache"
+            builder_dir="$LOCALAPPDATA/electron-builder/Cache"
+            ;;
+          *)
+            echo "Unsupported runner OS: $RUNNER_OS" >&2
+            exit 1
+            ;;
+        esac
+        {
+          echo "key=$RUNNER_OS-$RUNNER_ARCH-electron-$electron_version-builder-$builder_version"
+          echo "paths<<EOF"
+          echo "$electron_dir"
+          echo "$builder_dir"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v6
+      with:
+        path: ${{ steps.resolve.outputs.paths }}
+        key: ${{ steps.resolve.outputs.key }}

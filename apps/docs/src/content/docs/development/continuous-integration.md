@@ -82,7 +82,7 @@ A few small fixes removed recurring noise and drift from every run:
   workspace-wide to run JavaScript actions on Node 24 and suppress the Node 20
   deprecation warnings the runners emit.
 - **Build-script gating.** Native packages that need a postinstall build step
-  (Electron, esbuild, sharp, tree-sitter-cli, bun, electron-winstaller) are
+  (Electron, esbuild, sharp, koffi, bun, electron-winstaller) are
   listed under `allowBuilds` in `pnpm-workspace.yaml`. This is pnpm's canonical
   mechanism for letting trusted packages run their install scripts.
 
