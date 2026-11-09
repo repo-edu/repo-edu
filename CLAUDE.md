@@ -492,8 +492,8 @@ identifiers, because identifier lists go stale with every rename.
   does, so a repository name cannot use a group name.
 - **host**: four senses share the word, so name the sense. The host process
   and the Codex SDK host process are the process senses that
-  `glossaries/child-process-lifetime.md` defines; the second is a child of the
-  first, never a host process itself. A host package is one of the packages
+  `glossaries/child-process-lifetime.md` defines; the second is never a host
+  process itself. A host package is one of the packages
   named for the host side: `host-node`, `host-runtime-contract` and
   `renderer-host-contract`. The renderer host bridge is the interface the
   desktop gives the sandboxed renderer for native actions such as file pickers
