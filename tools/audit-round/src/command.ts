@@ -559,7 +559,9 @@ ready and close call. Any other ending stops the run with the stage's own lines,
 and the same command continues from where the plan stands. Once the full step
 range's newest series has ended on stop and no plan commit has changed a
 file since, the run goes straight to the close. Every series it opens
-starts with the default auditor and runs the glance and the watch.
+uses this opener order: a round --first selection, an assistant without a
+current read when another has one, then the configured default. It runs the
+glance and the watch.
 A failed implementation worker prints this command with --resume, which resumes
 that worker's session on its step before the run continues.
 
@@ -681,20 +683,20 @@ Auditor selection (--auditor <selections>):
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor is an entry of the auditors list in settings.json.
-  Without --auditor, an active plan or commit target starts an automatic series
-  with that default.
-  --first <selection> takes one entry in the same form and runs it instead of the
-  default for the first round. When the auditors list has no entry for its
-  assistant, the series may also choose it again. It cannot be combined with
-  --auditor.
+  Without --auditor, an active plan or commit target starts an automatic series.
+  A --first <selection> opens it when supplied. Otherwise, an assistant without
+  a current read opens when another assistant has one. Otherwise, the configured
+  default opens. When the auditors list has no entry for the --first assistant,
+  the series may also choose it again. --first cannot be combined with --auditor.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
 
   Automatic series (active plan or commit target without --auditor):
-    - The configured default auditor runs first, or the --first selection. A
-      random default picks the opener from the auditors list in each scope's
-      series.
+    - A --first selection opens the series when supplied. Otherwise, an assistant
+      without a current read opens when another assistant has one. Otherwise,
+      the configured default opens. A random default picks that opener from the
+      auditors list in each scope's series.
     - After each non-red round, the runner applies fixed rules. A read is current
       when it started after the latest real-bug audit, lifecycle change, plan
       step or outside plan edit. When every represented assistant has a current
