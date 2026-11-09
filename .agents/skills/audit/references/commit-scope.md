@@ -152,10 +152,12 @@ because no stem scan reads one for a commit target.
 ## Settlement
 
 A commit target is a series under its bounded `commit-` label. After each
-finished round, the runner reads the label's round data, the original commits
-and earlier landed fixes. It stops once every assistant in the pool has a
-current read or chooses an assistant without one. A clean round lands no
-record, but its finished data entry can settle the read. The fix follows the runner's
+finished round, the runner reads the label's retained round data and the commit
+times of its landed records. The original references and earlier landed fixes
+define each later round's exact audit scope. It stops once every assistant in
+the pool has a current read or chooses an assistant without one. A clean round
+lands no record, but its finished data entry can settle the read. The fix
+follows the runner's
 [Report lifecycle](../../../../tools/audit-round/CLAUDE.md#report-lifecycle).
 There is no plan episode, `implemented:` or `closed:` marker and no trajectory
 watch.
