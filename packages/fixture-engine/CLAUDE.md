@@ -13,6 +13,26 @@ The CLI lives in `tools/fixture-cli` (`pnpm fixture`) — that thin entry calls
 [`src/README.md`](src/README.md) for the user-facing CLI docs (subcommands,
 postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
 
+## Vocabulary
+
+These terms belong to the fixture engine alone. The root `CLAUDE.md`
+**Vocabulary** entry for fixture owns the word's two senses.
+
+- **fixture coder round**: one turn of the coder model that writes one planned
+  commit of a fixture repo, as a build, review or refactor commit. A round that
+  makes no commit leaves the repository at its last commit.
+- **fixture repo**: this package's short name for a generated fixture
+  repository: the Git repository one repo run writes inside its plan's folder,
+  with that run's logs, summary and frozen settings beside it.
+- **plan postfix**: the folder name a fixture plan gets. It encodes the plan
+  settings that shaped the plan, such as team size, style and commit counts.
+- **repo postfix**: the folder name a fixture repo gets inside its plan folder.
+  It encodes the coder and reviewer models and the comment density, leaving out
+  everything the project and plan folders already carry.
+- **sweep mode**: a run that generates several plans or repositories in one go,
+  one for each variant a sweep file lists. It is unrelated to the sweep tool's
+  file-growth triage.
+
 ## Responsibility
 
 - `fixture.ts` — subcommand dispatcher (`project|plan|repo|sweep|evaluate|init`)

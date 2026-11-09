@@ -7,6 +7,24 @@ changes. It runs via `pnpm sweep` from the workspace root, which is
 `tsx tools/sweep/src/main.ts`. The `/sweep` and `/refactor` skills are the
 intended callers; the CLI is their backend.
 
+## Vocabulary
+
+These terms belong to the sweep tool alone.
+
+- **flag verdict**: a judgement that a source file is worth refactoring,
+  recorded with a required reason. It stays in the refactor backlog until the
+  refactor is done or a plan that took it over closes.
+- **judged content**: a file's exact bytes at the moment a verdict was
+  recorded, identified by content hash and path together. A file whose current
+  content is judged stays quiet; any edit makes it unjudged and surfaces it
+  again.
+- **ok verdict**: a judgement that a source file is not worth splitting. It is
+  kept only on this machine and silences that exact content until the file
+  changes.
+- **refactor backlog**: the committed list of outstanding flag verdicts, at
+  most one per file, biggest first. It records which files still wait for a
+  refactor, not the history of judgements.
+
 ## Commands
 
 `src/main.ts` is a Commander program with five subcommands:

@@ -4,6 +4,15 @@ Read [`glossaries/analysis.md`](../../glossaries/analysis.md) before working in 
 
 This package contains pure domain types and rules (`@repo-edu/domain`).
 
+## Vocabulary
+
+This term belongs to the domain package alone. It builds on **person database**
+from the analysis glossary.
+
+- **identity bridge**: the read-only match from the persons of a person database
+  to the members of a course roster. It matches by email first and by normalised name
+  second, and reports each match's confidence and every person and member left unmatched.
+
 ## Responsibility
 
 `@repo-edu/domain` is side-effect free and host-agnostic. It defines:

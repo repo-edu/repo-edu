@@ -7,6 +7,28 @@ This is the release tool (`@repo-edu/release`). It owns version release
 preflight, macOS signing setup and cleanup, and third-party runtime notices for
 the shipped desktop and CLI artifacts.
 
+## Vocabulary
+
+These terms belong to the release tool alone.
+
+- **license gate**: the release check that gathers a notice for every
+  third-party package and runtime that one exact app, platform and
+  artifact-target combination ships. It applies the license policy to each and
+  writes the notice manifest; a missing, unknown or disallowed license fails
+  the release.
+- **production dependency closure**: every package the shipped app reaches
+  through production dependencies, as pnpm resolves them. It decides which
+  installed packages count as shipped; development-only packages stay outside
+  it.
+- **runtime record**: a notice entry for something the artifact ships that the
+  package scan cannot see, such as the Electron or Bun runtime or a binary
+  vendored inside a package. It names the package that supplied the shipped
+  binary.
+- **version-coupled attestation**: license evidence checked by hand for
+  libraries built into a runtime binary, recorded against the exact runtime
+  versions it was checked for. Any other version fails the license gate until
+  the evidence is checked again and that version is added.
+
 ## Entry points
 
 - `src/main.ts`: checks a clean tree and unused tag, runs repository and release
