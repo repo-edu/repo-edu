@@ -438,7 +438,7 @@ spreads silently through code, tests, instructions and plans, and its only
 repair is a rename plan: unwinding three such names once took a plan of about
 700 lines across more than 50 files.
 
-Each entry is a bold term followed by one or two plain sentences that teach the
+Each entry is a bold term followed by a short plain explanation that teaches the
 concept to a reader who does not know the source ecosystem's jargon, without
 pointing at an outside reference. Entries name concepts and roles, never code
 identifiers, because identifier lists go stale with every rename.
