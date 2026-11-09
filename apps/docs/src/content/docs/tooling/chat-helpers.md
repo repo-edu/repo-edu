@@ -35,8 +35,8 @@ watch workflow applies it too.
 
 Both helpers hold output to the same rules:
 
-1. **No term you must look up.** Words in the vocabulary lists of the home `CLAUDE.md` may still
-   appear bare.
+1. **No term you must look up.** A term may appear bare only when it passes the reading tests of the
+   home `CLAUDE.md` **Vocabulary** rule, wherever the term is defined.
 2. **No sentence held in parts.** A sentence that makes you keep several parts in mind is split.
 3. **Exact data stays exact.** Paths, commit hashes, names, numbers and code identifiers are not
    reworded.
