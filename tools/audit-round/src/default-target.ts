@@ -286,7 +286,7 @@ export async function lifecycleStage(
 }
 
 /**
- * Whether the newest round on the full step range ended its series on a stop
+ * Whether the newest round on the full step range ended its series on a runner
  * stop and no file-changing commit of the plan has landed since that round
  * started, other than the round's own. That stop covered the current code of
  * every step, so the audit range series has nothing left to read. Empty
