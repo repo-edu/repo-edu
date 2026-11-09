@@ -198,8 +198,10 @@ consumers.
   clean commit round needs none. The current `in-progress` entry is eligible. The latest event is a
   settle, reopen, plan step, plan-file edit outside a round or audit with a real bug. A real bug is
   an accepted A in widening and an accepted A or B elsewhere. A hand-run audit represented only by
-  Git still contributes its event. Reads that started after the latest event are current. When every
-  assistant in the pool has one, widening follows the current round's parsed settling line,
+  Git still contributes its event. A retained real-bug round takes its event time from its latest
+  landed record commit, so an overlapping audit that started before the fix is not current. Reads
+  that started after the latest event are current. When every assistant in the pool has one,
+  widening follows the current round's parsed settling line,
   detailing answers ready before the ready marker and every other series answers stop. Otherwise it
   selects an assistant without a current read, preferring one that did not audit this round. Within
   that assistant it selects the least recently used pool entry, with list order breaking a
@@ -368,7 +370,7 @@ consumers.
   since it. Both chain into the totals beside them; a fresh phase starts its stamp baseline at zero
   and a resumed phase reports no first change. `round-data.ts` owns the checked JSON schemas, the
   atomic replace-or-append writer, the disproved-finding writer, the read of one plan's existing
-  round-kind files from the active root or closed-plan archive and the commit-series readers. The
+  round-kind files from one selected active or archive folder and the commit-series readers. The
   series decision reads one active commit series. The replay reads every active commit series. Each
   file is an object whose `rounds` list holds the round entries. Plan files also hold
   the user's later rulings in `disproved`. The series runner reads commit files before reruns and

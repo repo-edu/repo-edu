@@ -1,9 +1,11 @@
+import { dirname } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import { readLog } from "./episode-log.js"
 import {
   auditorText,
   decideSeries,
   planSeriesEvidence,
+  retainedRoundCommitTimes,
   type SeriesEvidence,
 } from "./judge.js"
 import {
@@ -53,27 +55,39 @@ export type ReplayRow = {
 
 function retainedFile(
   files: readonly RetainedPlanRoundData[],
-  stem: string,
   kind: "planning",
 ): Extract<RetainedPlanRoundData, { readonly kind: "planning" }> | undefined
 function retainedFile(
   files: readonly RetainedPlanRoundData[],
-  stem: string,
   kind: "implementation",
 ):
   | Extract<RetainedPlanRoundData, { readonly kind: "implementation" }>
   | undefined
 function retainedFile(
   files: readonly RetainedPlanRoundData[],
-  stem: string,
   kind: RetainedPlanRoundData["kind"],
 ): RetainedPlanRoundData | undefined {
-  const matches = files.filter(
-    (file) => file.stem === stem && file.kind === kind,
-  )
+  const matches = files.filter((file) => file.kind === kind)
   if (matches.length > 1)
-    throw new Error(`More than one ${kind} round data file exists for ${stem}`)
+    throw new Error(
+      `More than one ${kind} round data file exists in ${dirname(matches[0]?.file ?? "")}`,
+    )
   return matches[0]
+}
+
+function planEpisodes(
+  files: readonly RetainedPlanRoundData[],
+): readonly (readonly RetainedPlanRoundData[])[] {
+  const episodes = new Map<string, RetainedPlanRoundData[]>()
+  for (const file of files) {
+    const key = `${dirname(file.file)}\0${file.stem}`
+    const episode = episodes.get(key)
+    if (episode === undefined) episodes.set(key, [file])
+    else episode.push(file)
+  }
+  return [...episodes.values()].toSorted(
+    (first, second) => first[0]?.file.localeCompare(second[0]?.file ?? "") ?? 0,
+  )
 }
 
 function timestamp(value: string): number {
@@ -130,6 +144,7 @@ function historicalEvidence(
         ),
     },
     roundCommits: evidence.roundCommits,
+    roundCommitTimes: evidence.roundCommitTimes,
     commits: evidence.commits.filter(
       (commit) =>
         timestamp(commit.committed) <= before || currentCommits.has(commit.sha),
@@ -226,11 +241,12 @@ export async function replayRows(
     readLog(roots.planRoot),
     readLog(roots.repoEduRoot),
   ])
-  const stems = [...new Set(files.map((file) => file.stem))].sort()
   const rows: ReplayRow[] = []
-  for (const stem of stems) {
-    const planning = retainedFile(files, stem, "planning")
-    const implementation = retainedFile(files, stem, "implementation")
+  for (const episode of planEpisodes(files)) {
+    const stem = episode[0]?.stem
+    if (stem === undefined) continue
+    const planning = retainedFile(episode, "planning")
+    const implementation = retainedFile(episode, "implementation")
     const roundData = {
       ...(planning === undefined ? {} : { planning: planning.rounds }),
       ...(implementation === undefined
@@ -252,6 +268,10 @@ export async function replayRows(
     appendRows(rows, file.label, file.rounds, {
       roundData: { file: file.file, rounds: file.rounds },
       roundCommits: new Set(),
+      roundCommitTimes: retainedRoundCommitTimes(file.rounds, {
+        plan,
+        "repo-edu": repoEdu,
+      }),
       commits: [],
     })
   return rows.toSorted(

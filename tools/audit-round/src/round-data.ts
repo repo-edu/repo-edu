@@ -385,40 +385,38 @@ export async function readAllCommitRoundData(
   )
 }
 
-/** Read the two round-kind files that exist for one active or closed plan. */
+/** Read the two round-kind files for one plan from its selected episode folder. */
 export async function readPlanRoundData(
-  roots: PlanRoots,
+  roundDataRoot: string,
   stem: string,
 ): Promise<PlanRoundData> {
-  const files = await roundDataFiles(roots)
-  const selected = {
-    planning: files.filter(
-      (file) => basename(file) === roundDataFilename(stem, "planning"),
-    ),
-    implementation: files.filter(
-      (file) => basename(file) === roundDataFilename(stem, "implementation"),
-    ),
+  const readPlanning = async () => {
+    try {
+      const source = await readFile(
+        join(roundDataRoot, roundDataFilename(stem, "planning")),
+        "utf8",
+      )
+      return planningRoundFileSchema.parse(JSON.parse(source)).rounds
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
+      throw error
+    }
   }
-  const duplicate = Object.entries(selected).find(
-    ([, matches]) => matches.length > 1,
-  )
-  if (duplicate !== undefined)
-    throw new Error(
-      `More than one ${duplicate[0]} round data file exists for ${stem}`,
-    )
-
+  const readImplementation = async () => {
+    try {
+      const source = await readFile(
+        join(roundDataRoot, roundDataFilename(stem, "implementation")),
+        "utf8",
+      )
+      return implementationRoundFileSchema.parse(JSON.parse(source)).rounds
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
+      throw error
+    }
+  }
   const [planning, implementation] = await Promise.all([
-    selected.planning[0] === undefined
-      ? undefined
-      : readFile(selected.planning[0], "utf8").then(
-          (source) => planningRoundFileSchema.parse(JSON.parse(source)).rounds,
-        ),
-    selected.implementation[0] === undefined
-      ? undefined
-      : readFile(selected.implementation[0], "utf8").then(
-          (source) =>
-            implementationRoundFileSchema.parse(JSON.parse(source)).rounds,
-        ),
+    readPlanning(),
+    readImplementation(),
   ])
   return {
     ...(planning === undefined ? {} : { planning }),

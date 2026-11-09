@@ -1,6 +1,6 @@
 import type { ExecutionContext } from "./context.js"
 import { episodeMembers } from "./episode.js"
-import { type LogCommit, readLog } from "./episode-log.js"
+import { type LogCommit, readCommitTimes, readLog } from "./episode-log.js"
 import { readFindings } from "./findings.js"
 import {
   type CommitRoundData,
@@ -35,6 +35,8 @@ export type SeriesEvidence = {
   }
   /** Commits recorded by every round kind, used to distinguish outside edits. */
   readonly roundCommits: ReadonlySet<string>
+  /** Commit times for the bounded set of records landed by retained rounds. */
+  readonly roundCommitTimes: ReadonlyMap<string, number>
   readonly commits: readonly SeriesCommit[]
 }
 
@@ -56,6 +58,61 @@ function acceptedTiers(
   } catch {
     return []
   }
+}
+
+function roundCommitKey(repository: Repository, sha: string): string {
+  return `${repository}@${sha}`
+}
+
+/** Keep commit times only for records named by retained rounds. */
+export function retainedRoundCommitTimes(
+  rounds: readonly RoundData[],
+  logs: Readonly<Record<Repository, readonly LogCommit[]>>,
+): ReadonlyMap<string, number> {
+  const retained = new Set(
+    rounds.flatMap((round) =>
+      round.commits.map((commit) =>
+        roundCommitKey(commit.repository, commit.sha),
+      ),
+    ),
+  )
+  const times = new Map<string, number>()
+  for (const [repository, log] of Object.entries(logs) as [
+    Repository,
+    readonly LogCommit[],
+  ][]) {
+    for (const commit of log) {
+      const key = roundCommitKey(repository, commit.sha)
+      if (retained.has(key)) times.set(key, timestamp(commit.committedAt))
+    }
+  }
+  return times
+}
+
+async function readRetainedRoundCommitTimes(
+  input: ExecutionContext,
+  rounds: readonly RoundData[],
+): Promise<ReadonlyMap<string, number>> {
+  const repositories = ["plan", "repo-edu"] as const
+  const entries = await Promise.all(
+    repositories.map(async (repository) => {
+      const commits = rounds.flatMap((round) =>
+        round.commits
+          .filter((commit) => commit.repository === repository)
+          .map((commit) => commit.sha),
+      )
+      const root = repository === "plan" ? input.planRoot : input.repoEduRoot
+      return [repository, await readCommitTimes(root, commits)] as const
+    }),
+  )
+  return new Map(
+    entries.flatMap(([repository, times]) =>
+      [...times].map(
+        ([sha, committedAt]) =>
+          [roundCommitKey(repository, sha), timestamp(committedAt)] as const,
+      ),
+    ),
+  )
 }
 
 /** Build one plan's evidence from already-read data and Git logs. */
@@ -114,6 +171,7 @@ export function planSeriesEvidence(input: {
     roundCommits: new Set(
       allRounds.flatMap((round) => round.commits.map((commit) => commit.sha)),
     ),
+    roundCommitTimes: retainedRoundCommitTimes(allRounds, input.logs),
     commits,
   }
 }
@@ -122,7 +180,7 @@ async function readPlanSeriesEvidence(
   input: SeriesEvidenceInput,
 ): Promise<SeriesEvidence> {
   const [roundData, plan, repoEdu] = await Promise.all([
-    readPlanRoundData(input, input.stem),
+    readPlanRoundData(input.activeRoot, input.stem),
     readLog(input.planRoot),
     readLog(input.repoEduRoot),
   ])
@@ -150,6 +208,7 @@ async function readCommitSeriesEvidence(
       rounds,
     },
     roundCommits: new Set(),
+    roundCommitTimes: await readRetainedRoundCommitTimes(input, rounds),
     commits: [],
   }
 }
@@ -198,6 +257,20 @@ function foundRealBug(entry: RoundData): boolean {
   )
 }
 
+function realBugEventTime(evidence: SeriesEvidence, entry: RoundData): number {
+  const times = entry.commits.flatMap((commit) => {
+    const time = evidence.roundCommitTimes.get(
+      roundCommitKey(commit.repository, commit.sha),
+    )
+    return time === undefined ? [] : [time]
+  })
+  if (times.length === 0)
+    throw new Error(
+      `Real-bug round ${entry.target} ${entry.round} has no landed commit time`,
+    )
+  return Math.max(...times)
+}
+
 function timestamp(value: string): number {
   const parsed = Date.parse(value)
   if (Number.isNaN(parsed))
@@ -228,7 +301,8 @@ function initialPlanningPhase(commit: SeriesCommit): "widening" | "detailing" {
 
 /**
  * Events represented only by Git still invalidate older reads. Round-owned
- * audit commits are excluded because their round start is the event's time.
+ * audit commits are excluded because retained data dates them from the latest
+ * landed record.
  */
 function commitEvents(evidence: SeriesEvidence): number[] {
   let planningPhase: "widening" | "detailing" = "widening"
@@ -350,7 +424,7 @@ function currentReads(
     ...commitEvents(evidence),
     ...settledEntries
       .filter(foundRealBug)
-      .map((entry) => timestamp(entry.started)),
+      .map((entry) => realBugEventTime(evidence, entry)),
   ]
   const latestEvent = Math.max(-Infinity, ...eventTimes)
   const assistants = [...new Set(pool.map((entry) => entry.assistant))]

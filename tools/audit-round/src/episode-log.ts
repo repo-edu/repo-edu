@@ -18,6 +18,28 @@ export type LogCommit = {
   readonly renames: readonly { readonly from: string; readonly to: string }[]
 }
 
+/** Read commit times for one bounded set of full commit IDs. */
+export async function readCommitTimes(
+  cwd: string,
+  shas: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+  const unique = [...new Set(shas)]
+  if (unique.length === 0) return new Map()
+  const { stdout } = await execa(
+    "git",
+    ["show", "-s", "--format=%H%x09%cI", ...unique],
+    { cwd },
+  )
+  return new Map(
+    stdout.split("\n").map((line) => {
+      const [sha, committedAt, extra] = line.split("\t")
+      if (sha === undefined || committedAt === undefined || extra !== undefined)
+        throw new Error(`Invalid Git commit time: ${line}`)
+      return [sha, committedAt] as const
+    }),
+  )
+}
+
 /** Git supplies rename detection and NUL-delimited paths, including unusual names. */
 export async function readLog(cwd: string): Promise<LogCommit[]> {
   const { stdout } = await execa(

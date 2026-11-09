@@ -277,6 +277,7 @@ function controlledRound(
     seriesEvidence: async (): Promise<SeriesEvidence> => ({
       roundData: { file: "example-impl-rounds.json", rounds: [] },
       roundCommits: new Set(),
+      roundCommitTimes: new Map(),
       commits: [],
     }),
     chainDeferrals: async () => "none",
@@ -1629,6 +1630,7 @@ test("an automatic round publishes its settled entry before the series decision"
             ],
           },
           roundCommits: new Set(),
+          roundCommitTimes: new Map(),
           commits: [],
         }
       },

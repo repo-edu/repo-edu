@@ -276,7 +276,10 @@ export async function lifecycleStage(
   const steps = readPlanSteps(await readFile(plan, "utf8"))
   if (!implementationComplete(implementationProgress(logs, topic, steps)))
     return "implement"
-  const { implementation = [] } = await readPlanRoundData(context, topic)
+  const { implementation = [] } = await readPlanRoundData(
+    context.activeRoot,
+    topic,
+  )
   return fullRangeSettled(logs, topic, steps.length, implementation)
     ? "close"
     : "ranges"

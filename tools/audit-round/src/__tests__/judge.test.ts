@@ -122,12 +122,24 @@ function commit(
 function evidence(
   rounds: readonly RoundData[],
   commits: readonly SeriesCommit[] = [],
+  commitTimes: ReadonlyMap<string, number> = new Map(
+    rounds.flatMap((round) =>
+      round.commits.map(
+        (entry) =>
+          [
+            `${entry.repository}@${entry.sha}`,
+            Date.parse(round.started),
+          ] as const,
+      ),
+    ),
+  ),
 ): SeriesEvidence {
   return {
     roundData: { file: "example-plan-rounds.json", rounds },
     roundCommits: new Set(
       rounds.flatMap((round) => round.commits.map((entry) => entry.sha)),
     ),
+    roundCommitTimes: commitTimes,
     commits,
   }
 }
@@ -287,6 +299,29 @@ test("real bugs on every retained target invalidate older reads", () => {
           "Rule 3: claude has no current read and did not audit this round.",
       },
     )
+})
+
+test("a real bug becomes an event when its latest record lands", () => {
+  const bug = implementationRound(opus, 1, "2026-11-08T10:00:00Z", "B")
+  const overlapping = implementationRound(sol, 2, "2026-11-08T10:15:00Z")
+  const latest = implementationRound(opus, 3, "2026-11-08T11:00:00Z")
+  const commitTimes = new Map([
+    [`plan@${"1".repeat(40)}`, Date.parse("2026-11-08T10:30:00Z")],
+    [`plan@${"2".repeat(40)}`, Date.parse("2026-11-08T10:45:00Z")],
+    [`plan@${"3".repeat(40)}`, Date.parse("2026-11-08T11:15:00Z")],
+  ])
+
+  assert.deepEqual(
+    decideSeries(
+      evidence([bug, overlapping, latest], [], commitTimes),
+      current(latest),
+      pool,
+    ),
+    {
+      answer: sol,
+      reason: "Rule 3: codex has no current read and did not audit this round.",
+    },
+  )
 })
 
 test("only the current stem's steps and audits invalidate its reads", () => {

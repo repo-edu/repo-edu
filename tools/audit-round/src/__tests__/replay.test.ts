@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -77,6 +78,10 @@ function commitRound(
   number: number,
   started: string,
   answer: CommitRoundData["judge"],
+  options: {
+    readonly commit?: string
+    readonly tier?: "A" | "B" | "C" | "D"
+  } = {},
 ): CommitRoundData {
   const {
     phase: _phase,
@@ -91,7 +96,11 @@ function commitRound(
   return {
     ...common,
     target: "commit-abcdef",
-    commits: [],
+    commits:
+      options.commit === undefined
+        ? []
+        : [{ repository: "repo-edu", sha: options.commit }],
+    findings: options.tier === undefined ? [] : [bugFinding(options.tier)],
     originalGroups: [group],
     groups: [group],
     judgedRepos: ["repo-edu"],
@@ -118,11 +127,11 @@ function implementationRound(
   }
 }
 
-function bugFinding() {
+function bugFinding(tier: "A" | "B" | "C" | "D" = "B") {
   return {
     number: 1,
-    title: "B finding",
-    tier: "B" as const,
+    title: `${tier} finding`,
+    tier,
     reach: "developer" as const,
     complexity: "none" as const,
     growthPattern: "none",
@@ -195,6 +204,44 @@ test("replay uses the fixed legacy pool and reports the next round's findings", 
   assert.match(formatReplay(rows), /\| Phase \| Corpus \|/)
 })
 
+test("replay keeps reused stems in separate episode folders", async (t) => {
+  const f = await fixture(t)
+  const initial = await commitFixture(
+    f.runtime.planRoot,
+    "example/init abh: initialise fixture",
+    "2026-11-08T09:00:00Z",
+  )
+  await commitFixture(
+    f.runtime.repoEduRoot,
+    "fixture commit",
+    "2026-11-08T09:00:00Z",
+  )
+  const sha = (
+    await execa("git", ["rev-parse", initial], { cwd: f.runtime.planRoot })
+  ).stdout
+  const archive = join(f.runtime.planRoot, "archive", "example")
+  await mkdir(archive, { recursive: true })
+  writeRoundData(
+    join(f.runtime.activeRoot, "example-plan-rounds.json"),
+    round(claude, 1, "2026-11-08T10:00:00Z", sha, {
+      answer: codex,
+      reason: "Stored continuation",
+    }),
+  )
+  writeRoundData(
+    join(archive, "example-plan-rounds.json"),
+    round(claude, 1, "2026-11-08T12:00:00Z", sha, {
+      answer: codex,
+      reason: "Stored continuation",
+    }),
+  )
+
+  assert.deepEqual(
+    (await replayRows(f.runtime)).map((row) => row.computed),
+    [codex, codex],
+  )
+})
+
 test("replay includes active commit-series answers outside the fixed corpus", async (t) => {
   const f = await fixture(t)
   await commitFixture(
@@ -241,6 +288,58 @@ test("replay includes active commit-series answers outside the fixed corpus", as
   )
 })
 
+test("commit-series replay dates a real bug from its landed record", async (t) => {
+  const f = await fixture(t)
+  await commitFixture(
+    f.runtime.planRoot,
+    "example/init abh: initialise fixture",
+    "2026-11-08T09:00:00Z",
+  )
+  await commitFixture(
+    f.runtime.repoEduRoot,
+    "fixture commit",
+    "2026-11-08T09:00:00Z",
+  )
+  const record = await commitFixture(
+    f.runtime.repoEduRoot,
+    "fixture record",
+    "2026-11-09T10:30:00Z",
+  )
+  const recordSha = (
+    await execa("git", ["rev-parse", record], { cwd: f.runtime.repoEduRoot })
+  ).stdout
+  const file = join(f.runtime.activeRoot, "commit-abcdef-rounds.json")
+  writeRoundData(
+    file,
+    commitRound(
+      claude,
+      1,
+      "2026-11-09T10:00:00Z",
+      { answer: codex, reason: "Stored continuation" },
+      { commit: recordSha, tier: "B" },
+    ),
+  )
+  writeRoundData(
+    file,
+    commitRound(codex, 2, "2026-11-09T10:15:00Z", {
+      answer: claude,
+      reason: "Stored continuation",
+    }),
+  )
+  writeRoundData(
+    file,
+    commitRound(claude, 3, "2026-11-09T11:00:00Z", {
+      answer: codex,
+      reason: "Stored continuation",
+    }),
+  )
+
+  assert.deepEqual(
+    (await replayRows(f.runtime)).map((row) => row.computed),
+    [codex, claude, codex],
+  )
+})
+
 test("replay keeps real-bug events from other round kinds", async (t) => {
   const f = await fixture(t)
   const initial = await commitFixture(
@@ -256,12 +355,20 @@ test("replay keeps real-bug events from other round kinds", async (t) => {
   const sha = (
     await execa("git", ["rev-parse", initial], { cwd: f.runtime.planRoot })
   ).stdout
+  const bugRecord = await commitFixture(
+    f.runtime.planRoot,
+    "example/plan-audit abh growth-none c1: fixture record",
+    "2026-11-08T10:45:00Z",
+  )
+  const bugSha = (
+    await execa("git", ["rev-parse", bugRecord], { cwd: f.runtime.planRoot })
+  ).stdout
   const first = implementationRound(claude, 1, "2026-11-08T10:00:00Z", sha, {
     answer: codex,
     reason: "Stored continuation",
   })
   const planningBug = {
-    ...round(codex, 1, "2026-11-08T10:30:00Z", sha, null),
+    ...round(codex, 1, "2026-11-08T10:30:00Z", bugSha, null),
     findings: [bugFinding()],
   }
   const second = implementationRound(codex, 2, "2026-11-08T11:00:00Z", sha, {

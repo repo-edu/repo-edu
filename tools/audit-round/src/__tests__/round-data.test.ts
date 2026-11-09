@@ -245,7 +245,7 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
     implementation,
   )
 
-  const evidence = await readPlanRoundData(f.runtime, "example")
+  const evidence = await readPlanRoundData(f.runtime.activeRoot, "example")
   assert.equal(evidence.planning?.[0]?.findings[0]?.outcome, "dropped")
   assert.equal(evidence.implementation?.[0]?.status, "failed")
   assert.equal(evidence.implementation?.[0]?.phases[0]?.compactions, 1)
@@ -387,8 +387,29 @@ test("a plan's watch evidence omits a round kind whose file is absent", async (t
     entry("example-impl-audit-01..01", 1),
   )
 
-  assert.deepEqual(await readPlanRoundData(f.runtime, "example"), {
+  assert.deepEqual(await readPlanRoundData(f.runtime.activeRoot, "example"), {
     implementation: [entry("example-impl-audit-01..01", 1)],
+  })
+})
+
+test("active and closed episodes read their own reused stem", async (t) => {
+  const f = await fixture(t)
+  const archive = join(f.runtime.planRoot, "archive", "example")
+  await mkdir(archive, { recursive: true })
+  writeRoundData(
+    join(f.runtime.activeRoot, "example-impl-rounds.json"),
+    entry("example-impl-audit-01..01", 1),
+  )
+  writeRoundData(
+    join(archive, "example-impl-rounds.json"),
+    entry("example-impl-audit-01..01", 2),
+  )
+
+  assert.deepEqual(await readPlanRoundData(f.runtime.activeRoot, "example"), {
+    implementation: [entry("example-impl-audit-01..01", 1)],
+  })
+  assert.deepEqual(await readPlanRoundData(archive, "example"), {
+    implementation: [entry("example-impl-audit-01..01", 2)],
   })
 })
 
@@ -409,7 +430,10 @@ test("plan round data discovery ignores commit round data", async (t) => {
   writeRoundData(path, commitEntry("commit-abc123", 1))
 
   assert.deepEqual(await roundDataFiles(f.runtime), [])
-  assert.deepEqual(await readPlanRoundData(f.runtime, "commit-abc123"), {})
+  assert.deepEqual(
+    await readPlanRoundData(f.runtime.activeRoot, "commit-abc123"),
+    {},
+  )
 })
 
 test("review and rebuttal outcomes stay attached to report finding identity", () => {
