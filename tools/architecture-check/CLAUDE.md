@@ -42,15 +42,12 @@ implementation audits own that drift where the import graph cannot express it.
 
 ## Area model
 
-The committed model is `src/area-model.json` (schema version 1). It has two
-kinds of area:
+The committed model is `src/area-model.json` (schema version 1). The root
+`CLAUDE.md` **Vocabulary** defines its partition and cover areas. Here:
 
-- Partition areas tile the source inventory exactly once and define the primary
-  owner of each file. They feed the dependency-cruiser boundary rules. Members
-  are patterns only; literal file members are rejected.
-- Cover areas may overlap the partition and record cross-cutting concerns for
-  audit and drift. They never create graph boundaries. Their IDs use the
-  `cover-` prefix.
+- Partition areas feed the dependency-cruiser boundary rules. Members are
+  patterns only; literal file members are rejected.
+- Cover areas never create graph boundaries. Their IDs use the `cover-` prefix.
 
 `splitFrom` records lineage when one area is split out of another. The schema
 rejects duplicate IDs, self-references, cross-kind parents and lineage cycles.

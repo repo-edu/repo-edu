@@ -12,6 +12,38 @@ It consumes:
 - `WorkflowClient` from `@repo-edu/application-contract`
 - `RendererHost` from `@repo-edu/renderer-host-contract`
 
+## Vocabulary
+
+These terms belong to the renderer session alone. The root `CLAUDE.md`
+**Vocabulary** owns the app-wide terms they build on, such as body, session,
+surface and worker.
+
+- **bootstrap**: the session's startup sequence: load settings, fill the stores,
+  start the workers, show the first surface. It can fail and be retried.
+- **disposal**: the synchronous, terminal teardown of a session; late results
+  land nowhere and a queued body that has not started never runs.
+- **drop**: the task modifier that refuses a new start while one is still
+  running. Every operation and command uses it at the input layer. While any
+  work is admitted, the capture gate refuses input except that work's Cancel.
+  Wheel, scroll, focus, blur, Tab and Shift+Tab pass through.
+- **enqueue**: the task modifier that makes a new start wait for the running one
+  and then take its turn. The app never holds a teacher's input to replay later;
+  a wait sign does not make that acceptable. The queue orders bodies that one
+  start chains, such as Start's search followed by its analysis pass. Startup
+  and host close also use the queue without teacher input.
+- **hydrate**: fill in-memory stores from data persisted on disk, typically
+  during bootstrap.
+- **keep-latest**: the task modifier that lets the running work finish, holds
+  only the most recent start that arrived meanwhile and drops the ones before
+  it. The app does not use it.
+- **restartable**: the task modifier that stops the running work when a new
+  start arrives and runs the new one instead. The app does not use it. An
+  analysis pass keeps its turn until it ends or the teacher presses Cancel.
+- **task modifier**: which of restartable, enqueue, drop and keep-latest a piece
+  of work uses when a second start arrives while the first is still running. It
+  is always drop in this app, so there is no per-operation modifier field.
+  The four standard names remain here to describe the choices.
+
 ## Architecture
 
 - `src/configure-app.ts`: app wiring and dependency injection

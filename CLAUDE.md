@@ -119,11 +119,6 @@ repo-edu/
     └── sweep/                     # Source-growth triage (pnpm sweep)
 ```
 
-The committed area model is
-`tools/architecture-check/src/area-model.json`. Partition areas tile the current
-Git worktree source files exactly once and define primary ownership. Cover areas
-overlap the partition for cross-cutting audit and drift context only.
-
 After adding, removing or moving a `CLAUDE.md`, run
 `node scripts/claude2assistants.mjs` to refresh the gitignored `AGENTS.md`
 symlinks other assistants read. Content edits need no run; the symlinks serve
@@ -405,63 +400,131 @@ the assigned coder.
 
 ## Vocabulary
 
-These are this repository's code and domain terms, and they may be used bare. A
-word not listed here or in the home policy's planning vocabulary is expanded
-where it is used. A word enters this list only when both admission tests pass:
-its plain expansion reads worse at every use, and it is met often enough in what
-the user reads to be learned rather than looked up. Each entry teaches the term
-in plain words rather than pointing at an external reference, because the reader
-is not assumed to know the source ecosystem's jargon.
+Every project term has exactly one defining entry, in one of three tiers. A term
+used across the app is defined in this section. A term shared by a few packages
+is defined in one file under `glossaries/`, named after a subject the code
+already carries: a package family or a domain name. A term used in one package
+only is defined in a **Vocabulary** section of that package's `CLAUDE.md`. A
+term the home planning vocabulary defines keeps that entry as its only owner.
+Plans, audit rounds and other instruction files use a term by reference and
+never copy its definition, because a copy drifts from its owner.
 
+The glossary files are `glossaries/child-process-lifetime.md`,
+`glossaries/program-gate.md` and `glossaries/analysis.md`. A package
+`CLAUDE.md` that one of them governs names it in its opening sentence. Before
+working on a rule in this file, or on a root-level file, that uses a glossary
+file's terms, read that file. The renderer session's own terms, such as
+bootstrap and hydrate, are in `packages/renderer-app/CLAUDE.md`.
+
+Two tests answer two different questions:
+
+1. The entry test decides whether a term gets an entry. It does when a fresh
+   session could plausibly coin a different name for the concept or misread
+   the word. Ordinary domain nouns such as course, roster or assignment stay
+   out.
+2. The reading test decides whether a defined term may be used bare in chat.
+   It is the home policy's pair of tests: the plain expansion reads worse at
+   every use, and the user meets the term often enough to learn it. A term
+   that fails it is expanded where it is used, wherever its entry lives.
+
+One test cannot do both jobs. The reading test would keep a rarely met name
+out, and the entry test would license a bare word the user has never met.
+
+A change that introduces a project term passing the entry test adds its entry
+in the same change, in the tier above. An audit treats a coined name without an
+entry, or a second name for a concept that already has one, as a finding under
+the ordinary tiers. The rule exists because a name coined without an entry
+spreads silently through code, tests, instructions and plans, and its only
+repair is a rename plan: unwinding three such names once took a plan of about
+700 lines across more than 50 files.
+
+Each entry is a bold term followed by one or two plain sentences that teach the
+concept to a reader who does not know the source ecosystem's jargon, without
+pointing at an outside reference. Entries name concepts and roles, never code
+identifiers, because identifier lists go stale with every rename.
+
+- **adapter**: an implementation that maps one contract onto something outside
+  it. Name the sense wherever the bare word could mislead. A provider adapter
+  talks to one outside service, such as an LMS, a Git host or an LLM provider.
+  A platform adapter is the operating-system sense that
+  `glossaries/child-process-lifetime.md` defines. A coding adapter is the plan
+  runner's driver for one Claude or Codex coding session, kept apart from the
+  product's LLM provider adapters. Other adapters, such as the desktop's
+  workflow transport adapter, take only the general meaning.
 - **admission**: the check run at the moment a result or record arrives that
   decides whether it is allowed to land, into session state or into the archive.
+- **area model**: the committed `tools/architecture-check/src/area-model.json`
+  that gives every source file in the source inventory one primary owner and
+  records cross-cutting concerns. It is made of partition areas and cover areas,
+  each with a stable ID.
 - **body**: the function a queued session command runs when its turn comes; it
   awaits its host work and commits its result before the next body starts.
-- **bootstrap**: the session's startup sequence: load settings, fill the stores,
-  start the workers, show the first surface. It can fail and be retried.
+- **browser-safe**: free of Node built-ins across the whole runtime import
+  closure, so the sandboxed renderer can load it. The architecture check proves
+  it for the renderer and for each independently browser-safe root.
 - **commit**: the final step that makes a result count by writing it into the
   session's official state; only queued bodies may commit.
+- **contract package**: a package, named with a `-contract` suffix, that
+  declares the types, schemas and interfaces one side implements and the other
+  calls, without the implementation itself.
+- **course backing**: where a course's people come from, chosen when the course
+  is set up. An LMS-backed course keeps a student roster and may link to a
+  course in the school's LMS. A RepoBee-backed course has no LMS link and works
+  from teams of Git usernames instead of a roster.
 - **course data**: the content of one course: its name, student and team roster,
   LMS link, repository template and clone settings, analysis settings and
   revision number. Saved and loaded only as one whole course, never in parts.
 - **course database**: the one shared file holding every course at rest; the
   only saved home of course data. Settings, window state and the examination
   archive live elsewhere.
-- **disposal**: the synchronous, terminal teardown of a session; late results
-  land nowhere and a queued body that has not started never runs.
-- **drop**: the task modifier that refuses a new start while one is still
-  running. Every operation and command uses it at the input layer. While any
-  work is admitted, the capture gate refuses input except that work's Cancel.
-  Wheel, scroll, focus, blur, Tab and Shift+Tab pass through.
-- **enqueue**: the task modifier that makes a new start wait for the running one
-  and then take its turn. The app never holds a teacher's input to replay later;
-  a wait sign does not make that acceptable. The queue orders bodies that one
-  start chains, such as Start's search followed by its analysis pass. Startup
-  and host close also use the queue without teacher input.
-- **hydrate**: fill in-memory stores from data persisted on disk, typically
-  during bootstrap.
-- **keep-latest**: the task modifier that lets the running work finish, holds
-  only the most recent start that arrived meanwhile and drops the ones before
-  it. The app does not use it.
+- **cover area**: an area-model area that may overlap others and marks a
+  cross-cutting concern, used as audit and drift context. It never owns a file
+  and never creates an import boundary.
+- **fixture**: generated stand-in data. Two senses share the word, so name the
+  sense. Deterministic fixture data is the seeded course, settings and file
+  data that tests across the monorepo share. A generated fixture repository is
+  a realistic student Git repository that the fixture engine, a developer-only
+  AI-driven tool, writes for the analysis features; its own terms live in
+  `packages/fixture-engine/CLAUDE.md`.
+- **group-set naming mode**: whether a group set is named or unnamed. A named
+  group set holds named groups of roster members. An unnamed group set holds
+  teams listed only by their members' Git usernames, as a RepoBee student list
+  does, so a repository name cannot use a group name.
+- **host**: four senses share the word, so name the sense. The host process
+  and the Codex SDK host process are the process senses that
+  `glossaries/child-process-lifetime.md` defines; the second is a child of the
+  first, never a host process itself. A host package is one of the packages
+  named for the host side: `host-node`, `host-runtime-contract` and
+  `renderer-host-contract`. The renderer host bridge is the interface the
+  desktop gives the sandboxed renderer for native actions such as file pickers
+  and clean close.
+- **partition area**: an area-model area that owns source files. The partition
+  areas together cover every file in the source inventory exactly once, and
+  their import boundaries are enforced. The partition area that owns a file is
+  its primary area.
+- **port**: an interface for one outside capability that the application
+  depends on, such as HTTP, processes, the file system or an LLM. The
+  `host-runtime-contract` package declares the ports and `host-node` implements
+  them for Node.
 - **reducer**: a function that takes the current state and one event and returns
   the next state; the only place session state is allowed to change.
-- **restartable**: the task modifier that stops the running work when a new
-  start arrives and runs the new one instead. The app does not use it. An
-  analysis pass keeps its turn until it ends or the teacher presses Cancel.
 - **row**: one entry in a database, like one line in a table. In the course
   database each row is one complete course: all its course data in one entry,
   replaced whole on every save.
 - **session**: the renderer's live working context from startup to teardown:
   loaded settings, courses, the active surface, the stores and the workers
   persisting them.
+- **source inventory**: the list of current TypeScript source files under
+  `apps/*/src`, `packages/*/src` and `tools/*/src`, untracked ones included,
+  that the area model must cover and every architecture check reads.
 - **surface**: the main content view the session has active, a course view or
   home; changing it is a surface transition.
-- **task modifier**: which of restartable, enqueue, drop and keep-latest a piece
-  of work uses when a second start arrives while the first is still running. It
-  is always drop in this app, so there is no per-operation modifier field.
-  The four standard names remain here to describe the choices.
 - **worker**: a long-lived background helper that writes changes to disk on its
   own schedule; it reports status but may not commit session state.
+- **workflow**: one named unit of application work with a fixed input and
+  result shape, listed in the application contract's catalogue. The desktop
+  runs it through its entry gateway and the command-line program runs it
+  in-process.
 
 ## Testing Strategy
 
