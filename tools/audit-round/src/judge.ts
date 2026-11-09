@@ -108,7 +108,7 @@ export function planSeriesEvidence(input: {
   return {
     roundData: {
       file: roundDataFilename(input.stem, input.roundKind),
-      rounds: roundData[input.roundKind] ?? [],
+      rounds: allRounds,
     },
     roundCommits: new Set(
       allRounds.flatMap((round) => round.commits.map((commit) => commit.sha)),
@@ -213,6 +213,15 @@ function reopens(commit: SeriesCommit): boolean {
   return commit.renames.some(({ to }) => to.endsWith("-widen.md"))
 }
 
+function initialPlanningPhase(commit: SeriesCommit): "widening" | "detailing" {
+  const stem = looseForm(commit.subject)?.stem
+  return commit.files.some(
+    (file) => file.split("/").at(-1) === `${stem}-widen.md`,
+  )
+    ? "widening"
+    : "detailing"
+}
+
 /**
  * Events represented only by Git still invalidate older reads. Round-owned
  * audit commits are excluded because their round start is the event's time.
@@ -227,7 +236,12 @@ function commitEvents(evidence: SeriesEvidence): number[] {
       events.push(time)
       continue
     }
-    if (commit.ownStem && (commit.role === "init" || reopens(commit))) {
+    if (commit.ownStem && commit.role === "init") {
+      planningPhase = initialPlanningPhase(commit)
+      events.push(time)
+      continue
+    }
+    if (commit.ownStem && reopens(commit)) {
       planningPhase = "widening"
       events.push(time)
       continue
@@ -320,12 +334,17 @@ export function decideSeries(
 ): SeriesAnswer {
   if (pool.length === 0) throw new Error("The automatic series pool is empty")
   const current = currentRoundEntry(evidence.roundData.rounds, currentRound)
-  const entries = evidence.roundData.rounds.filter(
-    (entry) => entry.target === current.target && settled(entry, currentRound),
+  const settledEntries = evidence.roundData.rounds.filter((entry) =>
+    settled(entry, currentRound),
+  )
+  const entries = settledEntries.filter(
+    (entry) => entry.target === current.target,
   )
   const eventTimes = [
     ...commitEvents(evidence),
-    ...entries.filter(foundRealBug).map((entry) => timestamp(entry.started)),
+    ...settledEntries
+      .filter(foundRealBug)
+      .map((entry) => timestamp(entry.started)),
   ]
   const latestEvent = Math.max(-Infinity, ...eventTimes)
   const assistants = [...new Set(pool.map((entry) => entry.assistant))]

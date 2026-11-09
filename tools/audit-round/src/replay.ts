@@ -121,7 +121,6 @@ function historicalEvidence(
       rounds: evidence.roundData.rounds
         .filter(
           (candidate) =>
-            candidate.target === entry.target &&
             timestamp(candidate.started) <= timestamp(entry.started),
         )
         .map((candidate) =>

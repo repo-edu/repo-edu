@@ -237,6 +237,57 @@ test("a hand-run A audit in the commit list invalidates older reads", () => {
   )
 })
 
+test("a bare init makes a hand-run B audit invalidate older reads", () => {
+  const claude = planningRound(opus, 1, "2026-11-08T09:30:00Z")
+  const codex = planningRound(sol, 2, "2026-11-08T11:00:00Z")
+  const init = commit({
+    committed: "2026-11-08T09:00:00Z",
+    role: "init",
+    files: ["example.md"],
+    acceptedTiers: [],
+  })
+  const handRun = commit({
+    committed: "2026-11-08T10:00:00Z",
+    sha: "b".repeat(40),
+    acceptedTiers: ["B"],
+  })
+  assert.deepEqual(
+    decideSeries(
+      evidence([claude, codex], [init, handRun]),
+      current(codex),
+      pool,
+    ),
+    {
+      answer: opus,
+      reason:
+        "Rule 3: claude has no current read and did not audit this round.",
+    },
+  )
+})
+
+test("real bugs on every retained target invalidate older reads", () => {
+  const claude = implementationRound(opus, 1, "2026-11-08T09:00:00Z")
+  const codex = implementationRound(sol, 2, "2026-11-08T11:00:00Z")
+  const planningBug = planningRound(sol, 3, "2026-11-08T10:00:00Z", {
+    tier: "B",
+  })
+  const otherScopeBug = {
+    ...implementationRound(sol, 3, "2026-11-08T10:00:00Z", "B"),
+    target: "example-impl-audit-03..03",
+    scope: "3",
+  }
+
+  for (const bug of [planningBug, otherScopeBug])
+    assert.deepEqual(
+      decideSeries(evidence([claude, bug, codex]), current(codex), pool),
+      {
+        answer: opus,
+        reason:
+          "Rule 3: claude has no current read and did not audit this round.",
+      },
+    )
+})
+
 test("only the current stem's steps and audits invalidate its reads", () => {
   const claude = planningRound(opus, 1, "2026-11-08T10:00:00Z")
   const codex = planningRound(sol, 2, "2026-11-08T11:00:00Z")
