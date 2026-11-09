@@ -165,10 +165,6 @@ export async function roundRun(
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
-  /**
-   * The round's place in a chain, for the title only. Disk claims own filenames.
-   */
-  round?: number,
 ): Promise<
   Run & {
     readonly nameStart: string
@@ -259,7 +255,8 @@ export async function roundRun(
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
-    title: `${title}${round === undefined ? "" : ` (round ${round})`}`,
+    // The claimed number, so the title names the round the data records.
+    title: `${title} (round ${identity.round})`,
     phases: [
       entry("audit"),
       entry("vet"),

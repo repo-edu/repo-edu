@@ -120,30 +120,31 @@ export function commitTargetLabel(target: CommitTarget): string {
   return `commit-${target.originalGroups.map(groupLabel).join("+")}`
 }
 
-async function targetDescription(target: NamingTarget): Promise<{
-  label: string
-  title: string
-}> {
-  if ("groups" in target) {
-    const references = target.groups.flatMap((group) => group.references)
-    // Keep list filenames bounded; the title and phase arguments carry every reference.
-    return {
-      label: commitTargetLabel(target),
-      title: `Commit audit of ${references.join(" ")}`,
-    }
-  }
+/** The bounded label that owns one target's round files and round data. */
+export function targetLabel(target: AuditTarget): string {
+  // Keep list filenames bounded; the title and phase arguments carry every reference.
+  if ("groups" in target) return commitTargetLabel(target)
   const stem = planStem(target.plan)
-  const title = roundSubject(target, target.plan)
   if (target.roundKind === "planning")
-    return { label: `${stem}-${planTargetRole.planning}`, title }
+    return `${stem}-${planTargetRole.planning}`
   // Padded `first..last` scopes sort the same in `ls` and Finder and keep the
   // round and phase numbers aligned, since a single step is a one-step range.
   const [first, last = first] = target.scope
     .split("-")
     .map((step) => step.padStart(2, "0"))
+  return `${stem}-${planTargetRole.implementation}-${first}..${last}`
+}
+
+async function targetDescription(target: NamingTarget): Promise<{
+  label: string
+  title: string
+}> {
   return {
-    label: `${stem}-${planTargetRole.implementation}-${first}..${last}`,
-    title,
+    label: targetLabel(target),
+    title:
+      "groups" in target
+        ? `Commit audit of ${target.groups.flatMap((group) => group.references).join(" ")}`
+        : roundSubject(target, target.plan),
   }
 }
 

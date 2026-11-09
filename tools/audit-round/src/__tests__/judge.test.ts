@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import {
   decideSeries,
+  openingAuditor,
   type SeriesCommit,
   type SeriesEvidence,
 } from "../judge.js"
@@ -350,4 +351,43 @@ test("two models of one assistant choose the least recently read entry", () => {
     decideSeries(evidence([neither]), current(neither), [fable, opus]).answer,
     fable,
   )
+})
+
+test("a series opens on the assistant without a current read when another has one", () => {
+  const claude = implementationRound(opus, 1, "2026-11-08T10:00:00Z", "C")
+  const failed: RoundData = {
+    ...implementationRound(sol, 2, "2026-11-08T11:00:00Z", "C"),
+    status: "failed",
+    findings: [{ ...finding("C"), vetVerdict: null, outcome: null }],
+  }
+  const target = claude.target
+  assert.deepEqual(openingAuditor(evidence([claude, failed]), target, pool), {
+    answer: sol,
+    reason: "Rule 3: codex has no current read.",
+  })
+
+  // No settled read, or one for every assistant, leaves the opener to the settings.
+  assert.equal(openingAuditor(evidence([]), target, pool), null)
+  assert.equal(openingAuditor(evidence([failed]), target, pool), null)
+  const codex = implementationRound(sol, 3, "2026-11-08T12:00:00Z")
+  assert.equal(openingAuditor(evidence([claude, codex]), target, pool), null)
+
+  // A later step makes the one read stale, so no assistant has one.
+  const step = commit({
+    committed: "2026-11-08T10:30:00Z",
+    repository: "repo-edu",
+    sha: "c".repeat(40),
+    subject: "example/impl-2 oth feat(audit-round): step",
+    role: "impl-2",
+    files: [],
+    changesPlan: false,
+  })
+  assert.equal(openingAuditor(evidence([claude], [step]), target, pool), null)
+
+  // Another scope's read is not a read of this target.
+  const otherScope: RoundData = {
+    ...implementationRound(opus, 1, "2026-11-08T10:00:00Z"),
+    target: "example-impl-audit-03..03",
+  }
+  assert.equal(openingAuditor(evidence([otherScope]), target, pool), null)
 })

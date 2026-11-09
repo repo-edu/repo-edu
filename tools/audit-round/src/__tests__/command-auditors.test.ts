@@ -516,7 +516,9 @@ for (const auditor of ["codex", "claude"] as const) {
         `Phase arguments (JSON array): ${JSON.stringify([f.report, auditGroup])}`,
       ),
     )
-    assert.ok(markdown.startsWith(`# Commit audit of ${commits.join(" ")}\n`))
+    assert.ok(
+      markdown.startsWith(`# Commit audit of ${commits.join(" ")} (round 1)\n`),
+    )
     assert.ok(
       transcript.includes(
         `commit-${group.commits[0].slice(0, 6)}..${group.commits.at(-1)?.slice(0, 6)}`,

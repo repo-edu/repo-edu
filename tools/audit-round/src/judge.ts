@@ -3,6 +3,7 @@ import { episodeMembers } from "./episode.js"
 import { type LogCommit, readLog } from "./episode-log.js"
 import { readFindings } from "./findings.js"
 import {
+  type CommitRoundData,
   type PlanRoundData,
   type RoundData,
   readCommitRoundData,
@@ -136,10 +137,13 @@ async function readPlanSeriesEvidence(
 async function readCommitSeriesEvidence(
   input: SeriesEvidenceInput,
 ): Promise<SeriesEvidence> {
-  const rounds = await readCommitRoundData(input, input.stem)
-  if (rounds.length === 0)
-    throw new Error(`Commit series ${input.stem} has no round data`)
-
+  // A series opening on a fresh commit target has no file yet.
+  let rounds: readonly CommitRoundData[] = []
+  try {
+    rounds = await readCommitRoundData(input, input.stem)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+  }
   return {
     roundData: {
       file: roundDataFilename(input.stem, "commit"),
@@ -161,10 +165,10 @@ export async function readSeriesEvidence(
 
 type CurrentRound = Pick<RoundData, "target" | "round">
 
-function settled(entry: RoundData, current: CurrentRound): boolean {
+function settled(entry: RoundData, current?: CurrentRound): boolean {
   const currentInProgress =
     entry.status === "in-progress" &&
-    entry.target === current.target &&
+    entry.target === current?.target &&
     entry.round === current.round
   const statusSettled =
     entry.status === "finished" ||
@@ -323,6 +327,67 @@ function leastRecentEntry(
 }
 
 /**
+ * Rule 1 over one target: its settled reads and, per pool assistant, whether
+ * one of them started after the newest event that changed the scope.
+ */
+function currentReads(
+  evidence: SeriesEvidence,
+  target: string,
+  pool: readonly Auditor[],
+  current?: CurrentRound,
+): {
+  readonly entries: readonly RoundData[]
+  readonly assistants: readonly Auditor["assistant"][]
+  readonly missing: readonly Auditor["assistant"][]
+} {
+  if (pool.length === 0) throw new Error("The automatic series pool is empty")
+  // A real bug on any of the stem's targets is an event; reads belong to this one.
+  const settledEntries = evidence.roundData.rounds.filter((entry) =>
+    settled(entry, current),
+  )
+  const entries = settledEntries.filter((entry) => entry.target === target)
+  const eventTimes = [
+    ...commitEvents(evidence),
+    ...settledEntries
+      .filter(foundRealBug)
+      .map((entry) => timestamp(entry.started)),
+  ]
+  const latestEvent = Math.max(-Infinity, ...eventTimes)
+  const assistants = [...new Set(pool.map((entry) => entry.assistant))]
+  const read = new Set(
+    entries
+      .filter((entry) => timestamp(entry.started) > latestEvent)
+      .map((entry) => entry.auditor.assistant),
+  )
+  return {
+    entries,
+    assistants,
+    missing: assistants.filter((assistant) => !read.has(assistant)),
+  }
+}
+
+/**
+ * Rule 3 at a series' opening. When the retained data holds a current read by
+ * one pool assistant and none by another, the series continues where it
+ * stood and opens on an assistant without one. With no current read at all,
+ * or one for every assistant, the configured default opens instead, because
+ * the rules give that round no reader and the user asked for one.
+ */
+export function openingAuditor(
+  evidence: SeriesEvidence,
+  target: string,
+  pool: readonly Auditor[],
+): { readonly answer: Auditor; readonly reason: string } | null {
+  const { entries, assistants, missing } = currentReads(evidence, target, pool)
+  if (missing.length === 0 || missing.length === assistants.length) return null
+  const nextAssistant = missing[0]
+  return {
+    answer: leastRecentEntry(nextAssistant, pool, entries),
+    reason: `Rule 3: ${nextAssistant} has no current read.`,
+  }
+}
+
+/**
  * Apply the three automatic-series rules. A read is current only when it
  * started after the newest event that changed its scope. Every represented
  * assistant must have one current read before the phase can end.
@@ -332,38 +397,12 @@ export function decideSeries(
   currentRound: CurrentRound,
   pool: readonly Auditor[],
 ): SeriesAnswer {
-  if (pool.length === 0) throw new Error("The automatic series pool is empty")
   const current = currentRoundEntry(evidence.roundData.rounds, currentRound)
-  const settledEntries = evidence.roundData.rounds.filter((entry) =>
-    settled(entry, currentRound),
-  )
-  const entries = settledEntries.filter(
-    (entry) => entry.target === current.target,
-  )
-  const eventTimes = [
-    ...commitEvents(evidence),
-    ...settledEntries
-      .filter(foundRealBug)
-      .map((entry) => timestamp(entry.started)),
-  ]
-  const latestEvent = Math.max(-Infinity, ...eventTimes)
-  const assistants = [...new Set(pool.map((entry) => entry.assistant))]
-  const latestCurrentRead = new Map<Auditor["assistant"], RoundData>()
-  for (const entry of entries)
-    if (
-      assistants.includes(entry.auditor.assistant) &&
-      timestamp(entry.started) > latestEvent
-    ) {
-      const earlier = latestCurrentRead.get(entry.auditor.assistant)
-      if (
-        earlier === undefined ||
-        timestamp(entry.started) > timestamp(earlier.started)
-      )
-        latestCurrentRead.set(entry.auditor.assistant, entry)
-    }
-
-  const missing = assistants.filter(
-    (assistant) => !latestCurrentRead.has(assistant),
+  const { entries, missing } = currentReads(
+    evidence,
+    current.target,
+    pool,
+    currentRound,
   )
   if (missing.length === 0) {
     const answer = wideningEnding(current)

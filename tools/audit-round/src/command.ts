@@ -39,7 +39,7 @@ import {
   implementationIdentity,
   implementationRun,
 } from "./implement-output.js"
-import { auditorText, readSeriesEvidence } from "./judge.js"
+import { auditorText, openingAuditor, readSeriesEvidence } from "./judge.js"
 import {
   activeRoundData,
   archiveRoundData,
@@ -109,11 +109,12 @@ import {
   queueFile,
   roundIdentity,
   roundSubject,
+  targetLabel,
 } from "./round-paths.js"
 import { readRulingReply } from "./ruling-input.js"
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
-import { type RoundSettings, readSettings } from "./settings.js"
+import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import {
   type AuditTarget,
@@ -1824,7 +1825,6 @@ export async function runCommand(
         auditor: Assistant,
         deferrals: readonly OpenDeferral[],
         nested: boolean,
-        roundNumber: number,
       ): Promise<DeferralChainOutcome> => {
         const currentPlan = await resolvePlan(context, planStem(plan))
         const planningSession = roundContext(context, "planning")
@@ -1840,13 +1840,7 @@ export async function runCommand(
           auditorSelectionSource: "settings" as const,
           deferrals,
         }
-        const chainedRun = await roundRun(
-          setup,
-          now(),
-          releases,
-          settings,
-          roundNumber,
-        )
+        const chainedRun = await roundRun(setup, now(), releases, settings)
         const active = nested
           ? new RoundOutput(chainedRun, {
               ...options,
@@ -1902,12 +1896,45 @@ export async function runCommand(
             : series.firstAuditor !== undefined
               ? "--first"
               : "settings"
-        let seat: AuditorSeat | null = opened ?? settingsOpener()
         let target = initial
         let completed = 0
         // The reason behind the rule answer that chose the next seat, printed
         // with the next round's opening line so the log carries it.
         let decisionReason: string | null = null
+        const seatFor = (chosen: Auditor): AuditorSeat => {
+          const index = poolAuditors.findIndex(
+            (auditor) => auditorText(auditor) === auditorText(chosen),
+          )
+          if (index === -1)
+            throw new Error(
+              `The series rules chose ${auditorText(chosen)}, which the series pool does not hold`,
+            )
+          return pool[index]
+        }
+        /**
+         * An automatic series with no `--first` continues where the target's
+         * retained data left it: rule 3 opens on an assistant without a
+         * current read when another has one, so a rerun after a failed round
+         * picks up that round's reader rather than the configured default.
+         */
+        const retainedOpener = async (): Promise<AuditorSeat | null> => {
+          if (opened !== undefined || !automatic) return null
+          const label = targetLabel(initial)
+          const opening = openingAuditor(
+            await readSeriesEvidence({
+              ...seriesSession,
+              stem: "plan" in initial ? planStem(initial.plan) : label,
+              seriesKind: "groups" in initial ? "commit" : "plan",
+            }),
+            label,
+            poolAuditors,
+          )
+          if (opening === null) return null
+          decisionReason = opening.reason
+          return seatFor(opening.answer)
+        }
+        let seat: AuditorSeat | null =
+          opened ?? (await retainedOpener()) ?? settingsOpener()
         const seriesName = (value: AuditTarget): string =>
           "plan" in value
             ? `${roundSubject(value, planStem(value.plan))}: automatic auditor series`
@@ -2019,24 +2046,23 @@ export async function runCommand(
                 ),
                 openPlanDeferrals.deferrals,
                 false,
-                completed + 1,
               )
               if (outcome !== "none" && outcome !== "finished")
                 return stopForChain(outcome)
             }
           }
           do {
-            if (completed > 0) {
-              if (!automatic) {
-                if ("plan" in target) {
-                  const plan = await resolvePlan(context, planStem(target.plan))
-                  target = { ...target, plan }
-                }
-              }
-              if (automatic)
-                await output?.message(
-                  `Next round: ${auditorText(auditorSetting(seat, releases, settings))}; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${decisionReason}`,
-                )
+            if (completed > 0 && !automatic && "plan" in target) {
+              const plan = await resolvePlan(context, planStem(target.plan))
+              target = { ...target, plan }
+            }
+            if (automatic && decisionReason !== null) {
+              const text =
+                completed === 0
+                  ? `Opening round: ${auditorText(auditorSetting(seat, releases, settings))}. ${decisionReason}`
+                  : `Next round: ${auditorText(auditorSetting(seat, releases, settings))}; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${decisionReason}`
+              if (output === undefined) options.terminal.write(text)
+              else await output.message(text)
             }
             const repoEduDeferrals =
               seriesSession.roundKind === "implementation" && "plan" in target
@@ -2054,15 +2080,7 @@ export async function runCommand(
                 ? {}
                 : { deferrals: repoEduDeferrals }),
             }
-            const run = await roundRun(
-              setup,
-              now(),
-              releases,
-              settings,
-              automatic || completed > 0 || rest.length > 0
-                ? completed + 1
-                : undefined,
-            )
+            const run = await roundRun(setup, now(), releases, settings)
             const active = open(run)
             if (queue !== null)
               await active.message(
@@ -2091,7 +2109,6 @@ export async function runCommand(
                     auditor,
                     openPlanDeferrals.deferrals,
                     true,
-                    completed + 1,
                   )
                 },
               ),
@@ -2181,15 +2198,7 @@ export async function runCommand(
                 await printDeferrals()
                 break
               }
-              const chosen = decision.answer
-              const index = poolAuditors.findIndex(
-                (auditor) => auditorText(auditor) === auditorText(chosen),
-              )
-              if (index === -1)
-                throw new Error(
-                  `The series rules chose ${auditorText(chosen)}, which the series pool does not hold`,
-                )
-              seat = pool[index]
+              seat = seatFor(decision.answer)
               decisionReason = decision.reason
               auditorSelectionSource = "settings"
               if ("groups" in target)

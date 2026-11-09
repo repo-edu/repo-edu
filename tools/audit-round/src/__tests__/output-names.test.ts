@@ -240,7 +240,7 @@ test("commit filenames resolve each group's references to six characters and joi
     const [target] = await resolveTargets(context, targetRequest(first, rest))
     const run = await roundRun({ ...testSetup(f.root), ...target }, 0, releases)
     assert.equal(basename(run.paths.markdown), `${label}-01-1-round.obh.md`)
-    assert.equal(run.title, `Commit audit of ${commits.join(" ")}`)
+    assert.equal(run.title, `Commit audit of ${commits.join(" ")} (round 1)`)
   }
 
   const references = ["HEAD-1", "HEAD", `${planRepositoryPrefix}HEAD`] as const
@@ -258,7 +258,7 @@ test("commit filenames resolve each group's references to six characters and joi
     basename(run.paths.markdown),
     `commit-${await back(1)}..${head}+${planHead}-01-1-round.obh.md`,
   )
-  assert.equal(run.title, `Commit audit of ${references.join(" ")}`)
+  assert.equal(run.title, `Commit audit of ${references.join(" ")} (round 1)`)
 
   for (const [reference, repository] of [
     ["abcd1234", "repo-edu"],

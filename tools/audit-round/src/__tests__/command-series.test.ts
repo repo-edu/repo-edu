@@ -1720,3 +1720,74 @@ test("a scope list is refused beside --auditor and for a hand-run claim", async 
   assert.match(errors, /claims one scope/)
   assert.deepEqual(await f.roundFiles(), [])
 })
+
+test("a rerun opens on the assistant without a current read and names its claimed round", async (t) => {
+  const f = await roundFixture(
+    t,
+    "claude",
+    "repo-edu",
+    false,
+    "c",
+    false,
+    "repo-edu",
+    false,
+    true,
+  )
+  assert.equal(
+    await runCommand(
+      ["round", "example.md", "1", "--auditor", "a", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const settings = structuredClone(testSettings)
+  settings.defaultAuditor = "random"
+  const counts: number[] = []
+  assert.equal(
+    await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
+      ...f.options,
+      settings,
+      coin: (count) => {
+        counts.push(count)
+        return 1
+      },
+    }),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["claude", "codex"],
+  )
+  // The retained claude read opens the rerun on codex; the coin is never thrown.
+  assert.deepEqual(counts, [])
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Opening round: codex gpt-5\.6-sol high\. Rule 3: codex has no current read\./,
+  )
+  assert.match(
+    visible,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 1 round\. Rule 2: every assistant in the pool has a current read; the series stops\./,
+  )
+  const transcripts = (await f.roundFiles()).filter((name) =>
+    /-1-round\..+\.md$/.test(name),
+  )
+  assert.deepEqual(transcripts.toSorted(), [
+    "example-impl-audit-01..01-01-1-round.abh.md",
+    "example-impl-audit-01..01-02-1-round.obh.md",
+  ])
+  const second = await readFile(
+    join(f.activeRoot, "example-impl-audit-01..01-02-1-round.obh.md"),
+    "utf8",
+  )
+  assert.match(
+    second,
+    /^# Implementation audit of .*example\.md, step 1 \(round 2\)\n/,
+  )
+})

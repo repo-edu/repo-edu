@@ -82,9 +82,11 @@ directly; a commit target lands nothing. An automatic series still applies its d
 
 ### Series
 
-1. **Automatic series**, without `--auditor`. The `--first` selection or the configured default
-   auditor opens; a `random` default picks the opener again for each scope. After each round that is
-   not red, the runner applies three rules. A read is current only after the latest settle, reopen,
+1. **Automatic series**, without `--auditor`. The `--first` selection opens. Without it, the
+   retained round data opens on an assistant without a current read when another assistant has
+   one, so a rerun continues where the series stood; otherwise the configured default auditor
+   opens, and a `random` default picks it again for each scope. After each round that is not red,
+   the runner applies three rules. A read is current only after the latest settle, reopen,
    plan step, plan edit outside a round or audit with a real bug. Once every assistant in the pool
    has a current read, widening follows the retained settling line, detailing answers ready before
    the ready marker and every other series answers stop. Otherwise the next round goes to an

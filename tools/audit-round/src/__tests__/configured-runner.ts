@@ -23,8 +23,7 @@ export const roundRun = (
   setup: Parameters<typeof output.roundRun>[0],
   started: number,
   selections: Parameters<typeof output.roundRun>[2],
-  roundNumber?: number,
-) => output.roundRun(setup, started, selections, testSettings, roundNumber)
+) => output.roundRun(setup, started, selections, testSettings)
 
 export const closeRun = (
   plan: string,
