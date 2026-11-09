@@ -25,9 +25,10 @@ pnpm audit-round tooling-help-pages
 pnpm audit-round tooling-help-pages --resume 2:019a5d7d-example
 ```
 
-The stem is the plan filename without `.md` or `-widen`. The run takes no round option: every series
-it opens starts with the ordinary opener, the series rules over retained data and then the default
-auditor from `tools/audit-round/settings.json`, and runs the glance and the watch. Use
+The stem is the plan filename without `.md` or `-widen`. The run takes no round option. When one
+assistant has a current read and another has none, an assistant without one opens the series. With
+no current read, or one from every assistant, the default auditor from
+`tools/audit-round/settings.json` opens it. Every series also runs the glance and the watch. Use
 [`pnpm audit-round round`](/repo-edu/tooling/runner-round/) for another opener, no watch or a single
 scope, and the stage commands when you want to read between stages.
 
