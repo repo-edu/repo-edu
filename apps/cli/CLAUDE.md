@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Read [`glossaries/child-process-lifetime.md`](../../glossaries/child-process-lifetime.md) and
+[`glossaries/program-gate.md`](../../glossaries/program-gate.md) before working in this package.
+
 This is the TypeScript CLI app (`@repo-edu/cli`).
 
 Run the CLI in Node development with

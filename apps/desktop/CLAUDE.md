@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Read [`glossaries/child-process-lifetime.md`](../../glossaries/child-process-lifetime.md) and
+[`glossaries/program-gate.md`](../../glossaries/program-gate.md) before working in this package.
+
 This is the Electron desktop shell (`@repo-edu/desktop`).
 
 Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,

@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-@../../glossaries/child-process-lifetime.md
+Read [`glossaries/child-process-lifetime.md`](../../glossaries/child-process-lifetime.md) and
+[`glossaries/program-gate.md`](../../glossaries/program-gate.md) before working in this package.
 
 Node.js implementations of the runtime ports defined in `@repo-edu/host-runtime-contract`.
 

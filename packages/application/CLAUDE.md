@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+Read [`glossaries/analysis.md`](../../glossaries/analysis.md) before working in this package.
+
 This package contains shared workflow orchestration (`@repo-edu/application`).
 
 ## Responsibility

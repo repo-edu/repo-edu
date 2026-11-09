@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Read [`glossaries/child-process-lifetime.md`](../../glossaries/child-process-lifetime.md) before
+working in this package.
+
 This is the architecture-check tool (`@repo-edu/architecture-check`). It is the
 CI-facing owner of source area identity and graph-level boundary rules. It runs
 via `pnpm check:architecture` from the workspace root.

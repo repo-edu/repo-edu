@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Read [`glossaries/program-gate.md`](../../glossaries/program-gate.md) before working in this
+package.
+
 This is the release tool (`@repo-edu/release`). It owns version release
 preflight, macOS signing setup and cleanup, and third-party runtime notices for
 the shipped desktop and CLI artifacts.

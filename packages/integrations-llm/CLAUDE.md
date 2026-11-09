@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Read [`glossaries/child-process-lifetime.md`](../../glossaries/child-process-lifetime.md) before
+working in this package.
+
 Provider adapters for the `LlmTextClient` contract from
 `@repo-edu/integrations-llm-contract`, plus the dispatcher.
 

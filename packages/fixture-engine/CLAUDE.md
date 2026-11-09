@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Read [`glossaries/child-process-lifetime.md`](../../glossaries/child-process-lifetime.md) before
+working in this package.
+
 AI-driven generator of realistic student-repo fixtures used by the analysis
 features (`@repo-edu/fixture-engine`). A TypeScript orchestrator owns the plan
 and the loop; the LLM is only invoked for parts that need creative judgement

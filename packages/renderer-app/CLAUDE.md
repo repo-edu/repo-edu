@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+Read [`glossaries/analysis.md`](../../glossaries/analysis.md) before working in this package.
+
 This package contains the shared React app (`@repo-edu/renderer-app`).
 
 ## Purpose

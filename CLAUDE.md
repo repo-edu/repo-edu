@@ -192,7 +192,7 @@ Core flow:
 - Keep side effects in adapters/ports (`host-node`, integration adapters), not
   in domain logic.
 - The desktop and compiled CLI claim the same program gate at the resolved
-  application-data root before product work starts. Hold the claim until no
+  app-data root before product work starts. Hold the claim until no
   more product work can run. The gate and app-data-root resolution belong to
   `host-node`.
 - Preserve the packaged Windows child-process lifetime proof: a fixed launcher entry,
