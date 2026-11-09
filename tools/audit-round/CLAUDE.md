@@ -457,22 +457,22 @@ consumers.
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
   commit roles. A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
-  `Implementation audit of <plan>, steps 1-6`, and `transcriptKind` reads the kind back from it. It
-  derives each commit group label from its original ordered exact set: one commit uses its
-  six-character ID and a longer set uses `<oldest>..<newest>`. It joins group labels with `+` and
-  scans the active folder for the next target-wide number. Later rounds keep that bounded label
-  while their report target advances. Automated rounds supply every phase path. A manual audit
-  names only its claim and report; later manual phases retain that report's round and name their
-  output with the current session's writer tag. `manualPhasePaths` returns the ordinary phase
-  arguments and finds review inputs only within the exact round at the report's root. With no input,
-  it selects the most recently modified eligible document in the active folder: the other
-  assistant's audit for vet, the current assistant's audit for rebuttal or either assistant's audit
-  for fix. Several reviews of one round resolve the same way unless one is selected.
-  `deleteRoundReports` deletes only audit, vet and rebuttal files for that exact round, using
-  recorded filenames without consulting model settings, and returns their names. Round data does
-  not participate in numbered allocation. `queueFile` names a manual series' `<target>-queue.md`
-  beside its rounds. It carries no round number because it belongs to the whole sequence: one path
-  stays valid across rounds, so an editor holding it open keeps editing the file the runner reads.
+  `Implementation audit of <plan>, steps 1-6`. It derives each commit group label from its original
+  ordered exact set: one commit uses its six-character ID and a longer set uses
+  `<oldest>..<newest>`. It joins group labels with `+` and scans the active folder for the next
+  target-wide number. Later rounds keep that bounded label while their report target advances.
+  Automated rounds supply every phase path. A manual audit names only its claim and report; later
+  manual phases retain that report's round and name their output with the current session's writer
+  tag. `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
+  the exact round at the report's root. With no input, it selects the most recently modified
+  eligible document in the active folder: the other assistant's audit for vet, the current
+  assistant's audit for rebuttal or either assistant's audit for fix. Several reviews of one round
+  resolve the same way unless one is selected. `deleteRoundReports` deletes only audit, vet and
+  rebuttal files for that exact round, using recorded filenames without consulting model settings,
+  and returns their names. Round data does not participate in numbered allocation. `queueFile` names
+  a manual series' `<target>-queue.md` beside its rounds. It carries no round number because it
+  belongs to the whole sequence: one path stays valid across rounds, so an editor holding it open
+  keeps editing the file the runner reads.
 - `context.ts` resolves the installed Repo Edu checkout, its sibling plan checkout and that
   checkout's `active/` folder, which holds every active plan and round file. It reads no invoking
   directory and carries no round kind.

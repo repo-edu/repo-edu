@@ -213,7 +213,7 @@ type Invocation =
       readonly first?: string
       readonly rest: readonly string[]
       readonly auditor?: readonly AuditorEntry[]
-      /** The `--first` selection, which replaces the default auditor's first round. */
+      /** The `--first` selection, which replaces the series opener. */
       readonly firstAuditor?: AuditorEntry
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
