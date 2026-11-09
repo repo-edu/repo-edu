@@ -1131,19 +1131,20 @@ An automatic clean round still applies the series rules. A fix that stops for a 
 twin. A finished plan round with audit findings ends with a glance at the commit record, and a due
 glance adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is
 how its cadence survives between rounds, and `--no-watch` skips both. Without `--auditor`, an active
-plan or commit target runs an automatic series from the `--first` selection or the configured
-default, follows each runner answer and stops at settle, ready, stop or its maximum without writing
-a queue. A settle answer ends the series with the settle command to run and leaves the widening plan
-unchanged for the user to settle or keep widening; its reason stays in the round. A detailing ready
-answer ends the series with the ready command to run and leaves the settled plan unchanged for the
-user to mark ready or keep detailing. Under the run both lines still print and the run records the
-call itself. A commit series has no lifecycle answer or watch; the runner stops it or chooses
-another listed auditor. A scope list runs that series once per scope in list order, each scope on
-its own target, and stops the whole list only where a series needs the user: a failure, an
-unanswered ruling, a red watch or a plan phase change. `--auditor` accepts one selection or a
-sequence on the named plan scope or commit series, separated by commas or spaces. Repeated entries
-request separate rounds. The entries after the current round wait in `<target>-queue.md` in the
-active folder. Edit it to add, remove or reorder rounds; the runner reads it between rounds and
+plan or commit target runs an automatic series from the `--first` selection when supplied. Without
+it, an assistant without a current read opens when another assistant has one. The configured default
+opens otherwise. The series follows each runner answer and stops at settle, ready, stop or its
+maximum without writing a queue. A settle answer ends the series with the settle command to run and
+leaves the widening plan unchanged for the user to settle or keep widening; its reason stays in the
+round. A detailing ready answer ends the series with the ready command to run and leaves the settled
+plan unchanged for the user to mark ready or keep detailing. Under the run both lines still print
+and the run records the call itself. A commit series has no lifecycle answer or watch; the runner
+stops it or chooses another listed auditor. A scope list runs that series once per scope in list
+order, each scope on its own target, and stops the whole list only where a series needs the user: a
+failure, an unanswered ruling, a red watch or a plan phase change. `--auditor` accepts one selection
+or a sequence on the named plan scope or commit series, separated by commas or spaces. Repeated
+entries request separate rounds. The entries after the current round wait in `<target>-queue.md` in
+the active folder. Edit it to add, remove or reorder rounds; the runner reads it between rounds and
 deletes it when the sequence ends. An empty or deleted file ends the sequence after the current
 round. Every completed automatic round prints its runner answer and reason, stores them in retained
 data and repeats the reason in the series ending or the next round's opening line. In a manual
