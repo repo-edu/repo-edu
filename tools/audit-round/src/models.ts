@@ -1,10 +1,14 @@
 import { mean } from "simple-statistics"
 import type { ExecutionContext } from "./context.js"
 import {
+  type AuditorPlanComparison,
   auditorFloor,
-  clearlyPreferred,
+  auditorTimeGroup,
+  auditorYieldGroups,
   clearlyPreferredMeasures,
   coderFloor,
+  compareAuditorPlans,
+  hasUnevenOpeners,
 } from "./model-comparison.js"
 import {
   type AuditorRow,
@@ -123,42 +127,6 @@ function admittedCoders(
   return new Map([...rows].filter(([, row]) => row.yieldSamples.length > 0))
 }
 
-function auditorRecommendation(
-  rows: ReadonlyMap<string, AuditorRow>,
-  workClass: WorkClass,
-): string | null {
-  const eligible = sortedRows(rows).filter(([, row]) =>
-    (["planning", "implementation"] as const).every(
-      (candidateClass) =>
-        auditorSamples(row, candidateClass).length >= auditorFloor,
-    ),
-  )
-  if (eligible.length < 2) return null
-  const winners = eligible.filter(([candidateKey, candidate]) =>
-    eligible.every(
-      ([otherKey, other]) =>
-        candidateKey === otherKey ||
-        (clearlyPreferred(
-          auditorSamples(candidate, workClass),
-          auditorSamples(other, workClass),
-          true,
-        ) &&
-          !clearlyPreferred(
-            auditorSamples(
-              other,
-              workClass === "planning" ? "implementation" : "planning",
-            ),
-            auditorSamples(
-              candidate,
-              workClass === "planning" ? "implementation" : "planning",
-            ),
-            true,
-          )),
-    ),
-  )
-  return winners.length === 1 ? winners[0][0] : null
-}
-
 /** Whether an `auditors` entry runs the row's model and effort. */
 function listedAuditor(
   identity: ModelIdentity,
@@ -169,42 +137,6 @@ function listedAuditor(
       identity.effort === auditor.effort &&
       (identity.model === auditor.model ||
         identity.model.includes(auditor.model)),
-  )
-}
-
-function auditorReading(
-  rows: ReadonlyMap<string, AuditorRow>,
-  workClass: WorkClass,
-  settings: RoundSettings,
-): string[] {
-  const entries = sortedRows(rows)
-  if (entries.length === 0)
-    return [`No ${workClass} auditor records are available.`]
-  const notes = entries.flatMap(([, row]) => {
-    const note = shortageNote(
-      row.identity,
-      auditorSamples(row, workClass).length,
-      auditorFloor,
-      "example",
-      "it",
-    )
-    return note === null ? [] : [note]
-  })
-  const recommendation = auditorRecommendation(rows, workClass)
-  if (recommendation === null)
-    return readingLines(
-      `The records do not separate one ${workClass} auditor clearly.`,
-      notes,
-    )
-  const identity = rows.get(recommendation)?.identity ?? entries[0][1].identity
-  return readingLines(
-    `The records clearly support running ${modelText(identity)} for ${workClass} audits.`,
-    listedAuditor(identity, settings)
-      ? notes
-      : [
-          `${modelText(identity)} is not in the current auditors list.`,
-          ...notes,
-        ],
   )
 }
 
@@ -235,30 +167,175 @@ function wrongClaims(counts: FindingCounts): string {
   return `${Math.round(((counts.dropped + counts.downgraded + counts.disproved) / total) * 100)}%`
 }
 
-function auditorTable(
+type AuditorReading = {
+  readonly identity: ModelIdentity
+  readonly comparison: AuditorPlanComparison
+  readonly counts: FindingCounts
+  readonly minutes: number
+}
+
+function auditorReadings(
   rows: ReadonlyMap<string, AuditorRow>,
   workClass: WorkClass,
-): string[] {
-  const readings = [...rows.values()].map((row) => {
-    const samples = auditorSamples(row, workClass)
-    return {
-      identity: row.identity,
-      rounds: samples.length,
-      counts: auditorCounts(row, workClass),
-      yield: meanOrNull(samples.map((sample) => sample.yield)),
-      minutes: meanOrNull(samples.map((sample) => sample.minutes)),
-    }
-  })
-  return [
-    "| Model | Rounds | A/B kept | A/B per round | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ...leaderFirst(readings, (reading) => [
-      reading.yield ?? Number.NEGATIVE_INFINITY,
-      -(reading.minutes ?? Number.POSITIVE_INFINITY),
-    ]).map(
-      (reading) =>
-        `| ${escapeCell(modelText(reading.identity))} | ${reading.rounds} | ${reading.counts.kept} | ${yieldCell(reading.yield)} | ${reading.counts.dropped} | ${reading.counts.downgraded} | ${reading.counts.disproved} | ${wrongClaims(reading.counts)} | ${cell(reading.minutes)} |`,
+): AuditorReading[] {
+  const classEntries = [...rows.values()].map((row) => ({
+    row,
+    samples: auditorSamples(row, workClass),
+  }))
+  return classEntries.map(({ row, samples }) => ({
+    identity: row.identity,
+    comparison: compareAuditorPlans(
+      samples,
+      classEntries
+        .filter((entry) => entry.row !== row)
+        .map((entry) => entry.samples),
     ),
+    counts: auditorCounts(row, workClass),
+    minutes: mean(samples.map((sample) => sample.minutes)),
+  }))
+}
+
+function orderedAuditorReadings(readings: readonly AuditorReading[]) {
+  return leaderFirst(readings, (reading) => [
+    reading.comparison.ownAverage === null ||
+    reading.comparison.otherAverage === null
+      ? Number.NEGATIVE_INFINITY
+      : reading.comparison.ownAverage - reading.comparison.otherAverage,
+    -reading.minutes,
+  ])
+}
+
+function modelList(readings: readonly AuditorReading[]): string {
+  const names = readings.map((reading) => `\`${modelText(reading.identity)}\``)
+  if (names.length < 2) return names[0] ?? ""
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+}
+
+function subjectVerb(count: number, singular: string, pluralForm: string) {
+  return count === 1 ? singular : pluralForm
+}
+
+function auditorEvaluation(readings: readonly AuditorReading[]): string[] {
+  const eligible = readings.filter(
+    (reading) => reading.comparison.plans >= auditorFloor,
+  )
+  if (eligible.length === 0)
+    return [
+      "- No auditor has five shared plans for the yield comparison.",
+      "- No auditor has five shared plans for the time comparison.",
+    ]
+  const yieldGroups = auditorYieldGroups(
+    eligible,
+    (reading) => reading.comparison,
+  )
+  const more =
+    yieldGroups.more.length === 0
+      ? "no auditor finds more than the others"
+      : `${modelList(yieldGroups.more)} ${subjectVerb(yieldGroups.more.length, "finds", "find")} more than the other auditors`
+  const fewer =
+    yieldGroups.fewer.length === 0
+      ? "no auditor finds fewer than the others"
+      : `${modelList(yieldGroups.fewer)} ${subjectVerb(yieldGroups.fewer.length, "finds", "find")} fewer than the other auditors`
+  const timeCandidates =
+    yieldGroups.more.length >= 2 ? yieldGroups.more : eligible
+  const timeGroup = auditorTimeGroup(
+    timeCandidates,
+    (reading) => reading.minutes,
+  )
+  if (timeGroup.fastest === null)
+    throw new Error("Admitted auditor rows need a time sample")
+  const fastest = `${modelList([timeGroup.fastest])} is the fastest${
+    yieldGroups.more.length >= 2 ? " of those ahead" : ""
+  }`
+  const slower =
+    timeGroup.slower.length === 0
+      ? ""
+      : `; ${modelList(timeGroup.slower)} ${subjectVerb(timeGroup.slower.length, "takes", "take")} more than twice as long`
+  return [
+    `- On the same plans ${more}, and ${fewer}.`,
+    `- ${fastest}${slower}.`,
+  ]
+}
+
+function auditorNotes(
+  readings: readonly AuditorReading[],
+  workClass: WorkClass,
+  settings: RoundSettings,
+): string[] {
+  const shortage = readings.flatMap((reading) => {
+    const missing = auditorFloor - reading.comparison.plans
+    return missing <= 0
+      ? []
+      : [
+          `- \`${modelText(reading.identity)}\` needs ${plural(missing, "more shared plan")} before it is compared.`,
+        ]
+  })
+  if (workClass !== "planning") return shortage
+  return [
+    ...shortage,
+    ...readings
+      .filter(
+        (reading) =>
+          hasUnevenOpeners(reading.comparison) &&
+          listedAuditor(reading.identity, settings),
+      )
+      .map(
+        (reading) =>
+          `- \`${modelText(reading.identity)}\` opened ${reading.comparison.openedPlans} of ${reading.comparison.plans} plans.`,
+      ),
+  ]
+}
+
+function auditorTable(readings: readonly AuditorReading[]): string[] {
+  return [
+    "| Model | Plans | Own findings in rounds | Own average by plan | Others on same plans | Others average by plan | Minutes per round | Wrong claims |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...readings.map(
+      (reading) =>
+        `| ${escapeCell(modelText(reading.identity))} | ${reading.comparison.plans} | ${reading.comparison.ownFindings} in ${reading.comparison.ownRounds} | ${yieldCell(reading.comparison.ownAverage)} | ${reading.comparison.otherFindings} in ${reading.comparison.otherRounds} | ${yieldCell(reading.comparison.otherAverage)} | ${numberText(reading.minutes)} | ${wrongClaims(reading.counts)} |`,
+    ),
+  ]
+}
+
+function unlistedOpenerLine(
+  readings: readonly AuditorReading[],
+  settings: RoundSettings,
+): string | null {
+  const entries = readings.filter(
+    (reading) =>
+      hasUnevenOpeners(reading.comparison) &&
+      !listedAuditor(reading.identity, settings),
+  )
+  if (entries.length === 0) return null
+  return `Not in the current auditors list, opened an uneven share: ${entries
+    .map(
+      (reading) =>
+        `\`${modelText(reading.identity)}\` ${reading.comparison.openedPlans} of ${reading.comparison.plans}`,
+    )
+    .join("; ")}.`
+}
+
+function auditorSection(
+  rows: ReadonlyMap<string, AuditorRow>,
+  workClass: WorkClass,
+  settings: RoundSettings,
+): string[] {
+  if (rows.size === 0)
+    return [
+      `No ${workClass} auditor records are available.`,
+      "",
+      ...auditorTable([]),
+    ]
+  const readings = orderedAuditorReadings(auditorReadings(rows, workClass))
+  const notes = auditorNotes(readings, workClass, settings)
+  const unlisted =
+    workClass === "planning" ? unlistedOpenerLine(readings, settings) : null
+  return [
+    ...auditorEvaluation(readings),
+    ...notes,
+    "",
+    ...auditorTable(readings),
+    ...(unlisted === null ? [] : ["", unlisted]),
   ]
 }
 
@@ -463,17 +540,13 @@ export async function modelsReport(
     "",
     "## Planning auditors",
     "",
-    ...auditorReading(planning, "planning", settings),
-    "",
-    ...auditorTable(planning, "planning"),
+    ...auditorSection(planning, "planning", settings),
     "",
     "## Implementation auditors",
     "",
-    ...auditorReading(implementation, "implementation", settings),
+    ...auditorSection(implementation, "implementation", settings),
     "",
-    ...auditorTable(implementation, "implementation"),
-    "",
-    "Rows sort by A/B per round, the mean accepted A and B findings per round after later disprovals, then by time. A/B kept is their total. Dropped and downgraded record the round's result. Disproved records the user's later ruling. Wrong claims is dropped, downgraded and disproved as a percentage of all four counts. Auditor time includes audit and rebuttal only.",
+    "Auditor rows sort by the gap between the two averages, then by time. Each average first divides kept A and B findings by rounds within one shared plan, then gives every shared plan equal weight. The count cells show the measured findings and rounds behind those plans. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.",
     "",
     "## Coders",
     "",

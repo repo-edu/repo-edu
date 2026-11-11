@@ -4,8 +4,14 @@ import { join } from "node:path"
 import { type TestContext, test } from "node:test"
 import { execa } from "execa"
 import {
+  type AuditorPlanComparison,
+  type AuditorPlanSample,
+  auditorTimeGroup,
+  auditorYieldGroups,
   clearlyPreferred,
   clearlyPreferredMeasures,
+  compareAuditorPlans,
+  hasUnevenOpeners,
 } from "../model-comparison.js"
 import { modelKey, readModelEvidence } from "../model-evidence.js"
 import { modelsReport } from "../models.js"
@@ -20,6 +26,17 @@ const modelSamples = (
   minutes = 10,
 ): { readonly yield: number; readonly minutes: number }[] =>
   yields.map((yieldValue) => ({ yield: yieldValue, minutes }))
+
+const planSample = (
+  plan: string,
+  yieldValue: number,
+  options: { readonly first?: boolean; readonly minutes?: number } = {},
+): AuditorPlanSample => ({
+  plan,
+  yield: yieldValue,
+  first: options.first ?? false,
+  minutes: options.minutes ?? 10,
+})
 
 const selection = (model: string, effort: string | null = "low") => ({
   model,
@@ -214,7 +231,7 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
   )
 })
 
-test("auditor tables sort by yield per round and the reading keeps only the verdict", async (t) => {
+test("auditor tables compare the same plans and sort by the average gap", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -255,30 +272,34 @@ test("auditor tables sort by yield per round and the reading keeps only the verd
   assert.equal(
     planning,
     [
-      "The records do not separate one planning auditor clearly.",
+      "- No auditor has five shared plans for the yield comparison.",
+      "- No auditor has five shared plans for the time comparison.",
+      "- `audit-strong low` needs 4 more shared plans before it is compared.",
+      "- `audit-middle low` needs 4 more shared plans before it is compared.",
+      "- `audit-weak low` needs 4 more shared plans before it is compared.",
       "",
-      "| Model | Rounds | A/B kept | A/B per round | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
-      "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-      "| audit-strong low | 5 | 10 | 2.00 | 0 | 0 | 0 | 0% | 2.0 |",
-      "| audit-middle low | 5 | 5 | 1.00 | 0 | 0 | 0 | 0% | 1.0 |",
-      "| audit-weak low | 5 | 0 | 0.00 | 0 | 0 | 0 | 0% | 3.0 |",
+      "| Model | Plans | Own findings in rounds | Own average by plan | Others on same plans | Others average by plan | Minutes per round | Wrong claims |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| audit-strong low | 1 | 10 in 5 | 2.00 | 5 in 10 | 0.50 | 2.0 | 0% |",
+      "| audit-middle low | 1 | 5 in 5 | 1.00 | 10 in 10 | 1.00 | 1.0 | 0% |",
+      "| audit-weak low | 1 | 0 in 5 | 0.00 | 15 in 10 | 1.50 | 3.0 | 0% |",
     ].join("\n"),
   )
   const implementation = report
     .split("## Implementation auditors\n\n")[1]
-    .split("\n\nRows sort by")[0]
+    .split("\n\nAuditor rows sort by")[0]
   assert.equal(
     implementation,
     [
       "No implementation auditor records are available.",
       "",
-      "| Model | Rounds | A/B kept | A/B per round | Dropped | Downgraded | Disproved | Wrong claims | Minutes per round |",
-      "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| Model | Plans | Own findings in rounds | Own average by plan | Others on same plans | Others average by plan | Minutes per round | Wrong claims |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ].join("\n"),
   )
 })
 
-test("opposite audit-class leads block auditor recommendations", async (t) => {
+test("same-plan gap sorting does not reward a model for auditing harder plans", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -286,51 +307,259 @@ test("opposite audit-class leads block auditor recommendations", async (t) => {
     "coder-alpha low",
   )
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
-  const addClass = (workClass: "planning" | "implementation") => {
-    const path = join(
-      f.activeRoot,
-      `auditor-${workClass === "planning" ? "plan" : "impl"}-rounds.json`,
-    )
-    for (const [assistant, model] of [
-      ["claude", "audit-strong"],
-      ["codex", "audit-weak"],
-    ] as const) {
-      const accepted =
-        model === (workClass === "planning" ? "audit-strong" : "audit-weak")
-      for (let index = 1; index <= 5; index += 1)
-        writeRoundData(path, {
-          ...round(
-            `${workClass}-${model}-${index}`,
-            1,
-            `2026-10-${String(index).padStart(2, "0")}T${assistant === "claude" ? "10" : "11"}:00:00.000Z`,
-            {
-              assistant,
-              ...selection(model),
-              chosenBy: "settings",
-            },
-            settings,
-            [phase("audit", assistant, model, 60_000)],
-            commits,
-            accepted ? findings(1, `${workClass} lead`) : [],
-          ),
-          ...(workClass === "planning"
-            ? { phase: "detailing" as const, settling: "" }
-            : { scope: "1", judgedRepos: ["repo-edu" as const] }),
-        })
-    }
+  for (let plan = 1; plan <= 5; plan += 1) {
+    const hardPath = join(f.activeRoot, `hard-${plan}-plan-rounds.json`)
+    for (const [model, kept, hour] of [
+      ["hard-model", 2, "10"],
+      ["hard-peer", 3, "11"],
+    ] as const)
+      writeRoundData(hardPath, {
+        ...round(
+          `${model}-planning`,
+          1,
+          `2026-10-${String(plan).padStart(2, "0")}T${hour}:00:00.000Z`,
+          {
+            assistant: model === "hard-model" ? "claude" : "codex",
+            ...selection(model),
+            chosenBy: "settings",
+          },
+          settings,
+          [
+            phase(
+              "audit",
+              model === "hard-model" ? "claude" : "codex",
+              model,
+              60_000,
+            ),
+          ],
+          commits,
+          findings(kept, `${model} claim`),
+        ),
+        phase: "detailing",
+        settling: "",
+      })
+
+    const easyPath = join(f.activeRoot, `easy-${plan}-plan-rounds.json`)
+    for (let roundNumber = 1; roundNumber <= 5; roundNumber += 1)
+      writeRoundData(easyPath, {
+        ...round(
+          "easy-model-planning",
+          roundNumber,
+          `2026-10-${String(plan).padStart(2, "0")}T12:0${roundNumber}:00.000Z`,
+          {
+            assistant: "claude",
+            ...selection("easy-model"),
+            chosenBy: "settings",
+          },
+          settings,
+          [phase("audit", "claude", "easy-model", 60_000)],
+          commits,
+          roundNumber === 1 ? findings(1, "easy claim") : [],
+        ),
+        phase: "detailing",
+        settling: "",
+      })
+    writeRoundData(easyPath, {
+      ...round(
+        "easy-peer-planning",
+        1,
+        `2026-10-${String(plan).padStart(2, "0")}T13:00:00.000Z`,
+        {
+          assistant: "codex",
+          ...selection("easy-peer"),
+          chosenBy: "settings",
+        },
+        settings,
+        [phase("audit", "codex", "easy-peer", 60_000)],
+        commits,
+        [],
+      ),
+      phase: "detailing",
+      settling: "",
+    })
   }
-  addClass("planning")
-  addClass("implementation")
 
   const report = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
   )
-  assert.match(report, /records do not separate one planning auditor clearly/)
-  assert.match(
-    report,
-    /records do not separate one implementation auditor clearly/,
+  const planning = report
+    .split("## Planning auditors\n\n")[1]
+    .split("\n\n## Implementation auditors")[0]
+  assert.ok(
+    planning.indexOf("| easy-model low |") <
+      planning.indexOf("| hard-model low |"),
   )
+  assert.match(
+    planning,
+    /\| easy-model low \| 5 \| 5 in 25 \| 0\.20 \| 0 in 5 \| 0\.00/,
+  )
+  assert.match(
+    planning,
+    /\| hard-model low \| 5 \| 10 in 5 \| 2\.00 \| 15 in 5 \| 3\.00/,
+  )
+})
+
+test("same-plan comparison gives each plan equal weight and pools every other auditor within it", () => {
+  const comparison = compareAuditorPlans(
+    [
+      planSample("alpha", 2, { first: true }),
+      planSample("alpha", 0),
+      planSample("beta", 0),
+      planSample("solo", 9, { first: true }),
+    ],
+    [
+      [planSample("alpha", 1), planSample("beta", 2, { first: true })],
+      [planSample("beta", 0), planSample("beta", 1)],
+    ],
+  )
+
+  assert.deepEqual(comparison, {
+    plans: 2,
+    ownFindings: 2,
+    ownRounds: 3,
+    ownAverage: 0.5,
+    otherFindings: 4,
+    otherRounds: 4,
+    otherAverage: 1,
+    openedPlans: 1,
+    evenOpenedPlans: 1 / 3 + 1 / 2,
+  })
+})
+
+test("auditor groupings cover yield factors, zeroes, time bounds and thin-row exclusion", () => {
+  const row = (
+    name: string,
+    ownAverage: number,
+    otherAverage: number,
+    minutes: number,
+    plans = 5,
+  ) => ({
+    name,
+    minutes,
+    comparison: {
+      plans,
+      ownFindings: 0,
+      ownRounds: 0,
+      ownAverage,
+      otherFindings: 0,
+      otherRounds: 0,
+      otherAverage,
+      openedPlans: 0,
+      evenOpenedPlans: 0,
+    },
+  })
+  const ahead = row("ahead", 1.25, 1, 4)
+  const behind = row("behind", 0, 1, 9)
+  const evenZero = row("zero", 0, 0, 3)
+  const thin = row("thin", 9, 0, 1, 4)
+  const eligible = [ahead, behind, evenZero, thin].filter(
+    (candidate) => candidate.comparison.plans >= 5,
+  )
+  const groups = auditorYieldGroups(
+    eligible,
+    (candidate) => candidate.comparison,
+  )
+  assert.deepEqual(
+    groups.more.map((candidate) => candidate.name),
+    ["ahead"],
+  )
+  assert.deepEqual(
+    groups.fewer.map((candidate) => candidate.name),
+    ["behind"],
+  )
+  assert.deepEqual(
+    auditorTimeGroup(eligible, (candidate) => candidate.minutes),
+    { fastest: evenZero, slower: [behind] },
+  )
+  assert.deepEqual(
+    auditorTimeGroup(
+      [row("fast", 1, 1, 5), row("twice", 1, 1, 10)],
+      (candidate) => candidate.minutes,
+    ).slower,
+    [],
+  )
+})
+
+test("opener bounds require both a tenth of the shared plans and two opened plans", () => {
+  const comparison = (
+    plans: number,
+    openedPlans: number,
+    evenOpenedPlans: number,
+  ): AuditorPlanComparison => ({
+    plans,
+    ownFindings: 0,
+    ownRounds: 0,
+    ownAverage: 0,
+    otherFindings: 0,
+    otherRounds: 0,
+    otherAverage: 0,
+    openedPlans,
+    evenOpenedPlans,
+  })
+  assert.equal(hasUnevenOpeners(comparison(8, 2, 4.5)), true)
+  assert.equal(hasUnevenOpeners(comparison(8, 3, 4.5)), false)
+  assert.equal(hasUnevenOpeners(comparison(22, 9, 11)), false)
+  assert.equal(hasUnevenOpeners(comparison(12, 6, 4)), true)
+})
+
+test("planning opener notes separate current and unlisted auditors and stay out of implementation", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
+  )
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
+  const auditors = [
+    ["claude", "listed", 2, "10"],
+    ["codex", "old-one", 1, "11"],
+    ["claude", "old-two", 0, "12"],
+  ] as const
+  for (let plan = 1; plan <= 6; plan += 1)
+    for (const workClass of ["planning", "implementation"] as const)
+      for (const [assistant, model, kept, hour] of auditors)
+        writeRoundData(
+          join(
+            f.activeRoot,
+            `opener-${plan}-${workClass === "planning" ? "plan" : "impl"}-rounds.json`,
+          ),
+          {
+            ...round(
+              `${model}-${workClass}`,
+              1,
+              `2026-10-${String(plan).padStart(2, "0")}T${hour}:00:00.000Z`,
+              { assistant, ...selection(model), chosenBy: "settings" },
+              settings,
+              [phase("audit", assistant, model, 60_000)],
+              commits,
+              findings(kept, `${model} claim`),
+            ),
+            ...(workClass === "planning"
+              ? { phase: "detailing" as const, settling: "" }
+              : { scope: "1", judgedRepos: ["repo-edu" as const] }),
+          },
+        )
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+    {
+      ...testSettings,
+      auditors: [{ assistant: "claude", model: "listed", effort: "low" }],
+    },
+  )
+  const planning = report
+    .split("## Planning auditors\n\n")[1]
+    .split("\n\n## Implementation auditors")[0]
+  assert.match(planning, /- `listed low` opened 6 of 6 plans\./)
+  assert.match(
+    planning,
+    /Not in the current auditors list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6\./,
+  )
+  const implementation = report
+    .split("## Implementation auditors\n\n")[1]
+    .split("\n\nAuditor rows sort by")[0]
+  assert.doesNotMatch(implementation, /opened|uneven share/)
 })
 
 test("all complete rounds count, thin rows do not block and disproved claims stay visible", async (t) => {
@@ -340,7 +569,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
     "evidence/impl-audit-1 obl clean: fixture audit",
     "coder-alpha low",
   )
-  const path = join(f.activeRoot, "evidence-plan-rounds.json")
+  const path = join(f.activeRoot, "evidence-1-plan-rounds.json")
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
   const special = [
     { ...finding("kept claim"), number: 1 },
@@ -358,7 +587,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
     ["codex", "audit-weak"],
   ] as const)
     for (let index = 1; index <= 5; index += 1)
-      writeRoundData(path, {
+      writeRoundData(join(f.activeRoot, `evidence-${index}-plan-rounds.json`), {
         ...round(
           `${model}-plan-audit`,
           index,
@@ -406,7 +635,7 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
         scope: "1",
         judgedRepos: ["repo-edu"],
       })
-  writeRoundData(path, {
+  writeRoundData(join(f.activeRoot, "audit-thin-plan-rounds.json"), {
     ...round(
       "audit-thin-plan",
       1,
@@ -443,29 +672,11 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   )
   assert.match(
     report,
-    /\| audit-strong low \| 5 \| 5 \| 1\.00 \| 1 \| 1 \| 2 \| 44% \| 1\.0 \|/,
+    /\| audit-strong low \| 5 \| 5 in 5 \| 1\.00 \| 0 in 5 \| 0\.00 \| 1\.0 \| 44% \|/,
   )
-  assert.match(report, /audit-thin low needs 4 more examples/)
-  assert.match(
-    report,
-    /records clearly support running audit-strong low for planning audits/,
-  )
-  assert.match(
-    report,
-    /- audit-strong low is not in the current auditors list\./,
-  )
-  const listed = structuredClone(testSettings)
-  listed.auditors = [
-    ...listed.auditors,
-    { assistant: "codex", model: "audit-strong", effort: "low" },
-  ]
-  assert.doesNotMatch(
-    await modelsReport(
-      { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-      listed,
-    ),
-    /audit-strong low is not in the current auditors list/,
-  )
+  assert.match(report, /audit-thin low` needs 5 more shared plans/)
+  assert.match(report, /`audit-strong low` finds more than the other auditors/)
+  assert.match(report, /`audit-weak low` finds fewer than the other auditors/)
   assert.match(report, /## Disproved after the round/)
   assert.match(report, /#4 later disproved claim/)
   assert.match(report, /vet-model low; accept/)
@@ -1191,18 +1402,19 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     .split("\n\n| Model |")[0]
   assert.match(
     output,
-    /\| audit-alpha low \| 1 \| 1 \| 1\.00 \| 0 \| 0 \| 0 \| 0% \| 3\.0 \|/,
+    /\| audit-alpha low \| 0 \| 0 in 0 \| — \| 0 in 0 \| — \| 3\.0 \| 0% \|/,
   )
-  assert.match(auditorReading, /audit-admission low needs 3 more examples/)
+  assert.match(auditorReading, /audit-admission low` needs 5 more shared plans/)
   assert.equal(
-    auditorReading.match(/audit-admission low needs 3 more examples/g)?.length,
+    auditorReading.match(/audit-admission low` needs 5 more shared plans/g)
+      ?.length,
     1,
   )
-  assert.match(auditorReading, /audit-alpha low needs 4 more examples/)
-  assert.doesNotMatch(auditorReading, /needs 0 more examples/)
+  assert.match(auditorReading, /audit-alpha low` needs 5 more shared plans/)
+  assert.doesNotMatch(auditorReading, /needs 0 more shared plans/)
   assert.match(
     output,
-    /\| audit-third low \| 1 \| 1 \| 1\.00 \| 0 \| 0 \| 0 \| 0% \| 1\.0 \|/,
+    /\| audit-third low \| 1 \| 1 in 1 \| 1\.00 \| 1 in 1 \| 1\.00 \| 1\.0 \| 0% \|/,
   )
   assert.match(output, /## Coders/)
   assert.match(

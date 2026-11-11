@@ -28,10 +28,10 @@ histories. Commit-series data is not part of the read-out. It starts no assistan
 
 The read-out compares rather than ranks by taste:
 
-1. **Auditors** have separate planning and implementation tables. Every complete round enters its
-   auditor's class. A row is named as the winner of a class only when it has at least five rounds in
-   both classes, clearly leads every eligible row in that class and no eligible row clearly leads it
-   in the other. A thinner row stays visible, states its shortage and blocks nothing.
+1. **Auditors** have separate planning and implementation tables. Each row compares the model with
+   the other auditors only on plans they share. Findings per round are calculated within each plan,
+   then those plan figures are averaged so an easy or long-running plan gets no extra weight. A row
+   enters the evaluation at five shared plans. A thinner row stays visible and states its shortage.
 2. **Coders** are compared on closed plans whose archived step list the current grammar reads, whose
    every hosted share has a readable model record and whose whole-plan audit follows the final
    share. A step record without active time falls back to the span from the ready marker or the
@@ -40,19 +40,24 @@ The read-out compares rather than ranks by taste:
    [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/), count against the auditor that wrote
    them and remove a kept finding from coder evidence.
 
-A recommendation appears only where the observed ranges of the admitted rows separate and yield does
-not conflict with a clear time lead. A winner outside the current settings lists is labelled.
+The auditor evaluation names models finding at least 1.25 times more or fewer findings than the
+other auditors on the same plans. Its second bullet names the fastest relevant model and models
+taking more than twice as long. It makes no recommendation. Coder recommendations keep the direct
+observed-range rule.
 
 ## Output
 
 Terminal Markdown in up to five sections: planning auditors, implementation auditors, coders,
-disproved findings and, under `--all`, excluded plans. Each comparison opens with its verdict line,
-lists thin rows and out-of-settings winners as bullets and then prints its table, so no number
-appears in prose.
+disproved findings and, under `--all`, excluded plans. Each auditor class opens with the two short
+evaluation bullets, then lists thin rows and prints its table.
 
-1. **Auditor tables** sort by yield per round, then by time. They count complete rounds and kept,
-   per-round, dropped, downgraded and later-disproved A and B findings. Wrong claims is the last
-   three as a percentage of all four. Cost is audit plus rebuttal time per round.
+1. **Auditor tables** sort by the gap between the model's plan average and the other auditors' plan
+   average, then by time. Each side shows its kept A and B findings in rounds, beside the average
+   that gives every shared plan equal weight. Wrong claims is dropped, downgraded and disproved as a
+   percentage of all four finding outcomes. Cost is audit plus rebuttal time per complete round.
+   Planning also reports a model whose first-round count differs from its even share by more than a
+   tenth of its shared plans and by at least two. A current auditor gets a bullet above the table,
+   where `--first` can correct the count. Other models share one line below the table.
 2. **The coder table** sorts by kept A and B findings per step, fewest first, then by time. It shows
    plans, timed plans, steps, kept findings, kept per step and time per step.
 3. **Disproved findings** print as a numbered table per auditor with each reason's first sentence,

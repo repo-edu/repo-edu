@@ -4,7 +4,7 @@ import { readModelRecord, readStepModelRecord } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
 import { readImplementationLogs } from "./default-target.js"
 import type { LogCommit } from "./episode-log.js"
-import type { ReadingSample } from "./model-comparison.js"
+import type { AuditorPlanSample, ReadingSample } from "./model-comparison.js"
 import type { Assistant } from "./phase.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
@@ -33,7 +33,7 @@ export type FindingCounts = {
   readonly disproved: number
 }
 
-export type AuditorSample = ReadingSample & {
+export type AuditorSample = AuditorPlanSample & {
   readonly workClass: WorkClass
   readonly counts: FindingCounts
 }
@@ -341,6 +341,7 @@ function auditorRows(
   disproved: readonly DisprovedEvidence[],
 ): Map<string, AuditorRow> {
   const rows = new Map<string, AuditorRow>()
+  const firstCompleteRounds = new Set<string>()
   const ensureRow = (identity: ModelIdentity) => {
     const key = auditorKey(identity)
     const row = rows.get(key) ?? {
@@ -365,7 +366,12 @@ function auditorRows(
       record.data.findings,
       record.disprovedFindingNumbers,
     )
+    const planClass = `${record.workClass}:${record.stem}`
+    const first = !firstCompleteRounds.has(planClass)
+    firstCompleteRounds.add(planClass)
     row.samples.push({
+      plan: record.stem,
+      first,
       workClass: record.workClass,
       yield: counts.kept,
       minutes:
