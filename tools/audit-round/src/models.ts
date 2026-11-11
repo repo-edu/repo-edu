@@ -13,6 +13,7 @@ import {
 import {
   type AuditorRow,
   type AuditorSample,
+  auditorKey,
   type CoderRow,
   type DisprovedEvidence,
   type FindingCounts,
@@ -297,6 +298,82 @@ function auditorTable(readings: readonly AuditorReading[]): string[] {
   ]
 }
 
+type AuditorPlanReading = {
+  readonly plan: string
+  readonly identity: ModelIdentity
+  rounds: number
+  counts: FindingCounts
+  minutes: number
+}
+
+function auditorPlanReadings(
+  rows: ReadonlyMap<string, AuditorRow>,
+  disproved: readonly DisprovedEvidence[],
+  workClass: WorkClass,
+): AuditorPlanReading[] {
+  const readings = new Map<string, AuditorPlanReading>()
+  const ensureReading = (plan: string, identity: ModelIdentity) => {
+    const key = `${plan}\u0000${auditorKey(identity)}`
+    const reading = readings.get(key) ?? {
+      plan,
+      identity: rows.get(auditorKey(identity))?.identity ?? identity,
+      rounds: 0,
+      counts: { kept: 0, dropped: 0, downgraded: 0, disproved: 0 },
+      minutes: 0,
+    }
+    readings.set(key, reading)
+    return reading
+  }
+
+  for (const row of rows.values())
+    for (const sample of auditorSamples(row, workClass)) {
+      const reading = ensureReading(sample.plan, row.identity)
+      reading.rounds += 1
+      reading.counts = addCounts(reading.counts, sample.counts)
+      reading.minutes += sample.minutes
+    }
+
+  for (const entry of disproved)
+    if (entry.kind === "detached" && entry.workClass === workClass) {
+      const reading = ensureReading(entry.stem, entry.auditor)
+      reading.counts = {
+        ...reading.counts,
+        disproved: reading.counts.disproved + 1,
+      }
+    }
+
+  return [...readings.values()].sort(
+    (first, second) =>
+      first.plan.localeCompare(second.plan) ||
+      modelText(first.identity).localeCompare(modelText(second.identity)),
+  )
+}
+
+function auditorPlanTable(readings: readonly AuditorPlanReading[]): string[] {
+  let previousPlan: string | null = null
+  return [
+    "| Plan | Model | Rounds | A/B kept | Dropped | Downgraded | Disproved | Minutes per round |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...readings.map((reading) => {
+      const plan = reading.plan === previousPlan ? "" : reading.plan
+      previousPlan = reading.plan
+      return `| ${escapeCell(plan)} | ${escapeCell(modelText(reading.identity))} | ${reading.rounds} | ${reading.counts.kept} | ${reading.counts.dropped} | ${reading.counts.downgraded} | ${reading.counts.disproved} | ${reading.rounds === 0 ? "—" : numberText(reading.minutes / reading.rounds)} |`
+    }),
+  ]
+}
+
+function auditorPlanSection(
+  rows: ReadonlyMap<string, AuditorRow>,
+  disproved: readonly DisprovedEvidence[],
+  workClass: WorkClass,
+): string[] {
+  return [
+    `## ${workClass === "planning" ? "Planning" : "Implementation"} rounds by plan`,
+    "",
+    ...auditorPlanTable(auditorPlanReadings(rows, disproved, workClass)),
+  ]
+}
+
 function unlistedOpenerLine(
   readings: readonly AuditorReading[],
   settings: RoundSettings,
@@ -557,7 +634,24 @@ export async function modelsReport(
     "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",
     ...disprovedSection(evidence.disproved),
-    ...(options.all ? ["", ...excludedSection(evidence.coders)] : []),
+    ...(options.all
+      ? [
+          "",
+          ...auditorPlanSection(
+            evidence.auditors,
+            evidence.disproved,
+            "planning",
+          ),
+          "",
+          ...auditorPlanSection(
+            evidence.auditors,
+            evidence.disproved,
+            "implementation",
+          ),
+          "",
+          ...excludedSection(evidence.coders),
+        ]
+      : []),
   ]
   return `${lines.join("\n")}\n`
 }

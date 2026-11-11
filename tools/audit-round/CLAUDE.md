@@ -415,49 +415,53 @@ consumers.
   and an unchanged report produce no notice. A phase entry recorded before
   the launched selection was kept matches nothing. Invalid round data still
   stops the run before an assistant starts.
-- `models.ts` owns the model read-out and its five sections. `model-evidence.ts` reads checked round
-  data once in the active folder and closed-plan archives, records each auditor sample's plan and
-  whether it is that class's first complete round on the plan, then joins the step, ready and closed
-  records from both Git histories. `model-comparison.ts` owns the same-plan averages, yield and time
-  groups, opener bounds and the direct range comparisons that remain for coders. An auditor gets a
-  row in each class where it has a complete round, and a coder gets a row once one of its plans is
-  admitted; a model known only through excluded plans or the other class prints no zero row and no
-  shortage bullet, because the excluded-plans section or the other table already names it. Planning
-  and implementation auditors have separate tables. An auditor row compares only plans where
-  another auditor has a complete round. It first calculates each side's kept A and B findings per
-  round within a plan, then averages those plan figures so every shared plan has equal weight. The
-  two measured count cells retain the findings and rounds behind those averages. A row enters the
-  evaluation with five shared plans. The two evaluation bullets group rows whose averages differ by
-  a factor of at least 1.25, then name the fastest relevant row and rows taking more than twice as
-  long. They never recommend a model. A thinner row stays visible and states its shortage. The table
-  sorts by the gap between the averages, then by time. Planning also reports an opener count when it
-  differs from its even share by more than a tenth of the row's shared plans and by at least two.
-  Current auditors get correctable bullets above the table; other auditors share one line below it.
-  Auditor cost remains the mean audit and rebuttal time over every complete round. Kept, dropped,
-  downgraded and disproved findings are exclusive counts; wrong claims is the last three as a
-  percentage of all four across those rounds. A later disproval removes a kept finding from coder
-  evidence too. Coder yield comparisons use one closed plan per
-  example. The archived plan supplies the listed steps, every hosted share must have a readable
-  model record and the whole-plan audit must follow the final share. A missing archived plan and a
-  step list the current grammar cannot read are separate exclusion reasons, because the read-out
-  names what it found and never rewrites the archive. Records admit a plan without a ready
-  assignment when they name one model and effort. An assignment, when present, must match on
-  assistant and effort; its model may be a family alias the implement worker resolved at run time,
-  so the records' release is not compared with it and a mismatch is its own exclusion reason. A
-  readable step record without active time falls back to the span from the ready marker or previous
-  step to that step's later share commit. A two-repo span counts once. Incomplete or mixed records
-  move to the excluded-plans section. Time adds step and implementation-fix time and excludes
-  planning fixes. Mean comes from `simple-statistics`. Direct observed-range comparisons own the
-  clear-cut recommendation. Every row that reaches its minimum enters it. The coder table sorts by
-  accepted findings per step, fewest first, then by time. A winning auditor outside the current
-  `auditors` list, or a winning coder outside the live coder list, is named as such. Disproved
-  findings print per auditor as a numbered table that shows each reason's first sentence, because a
-  full reason wraps the terminal table into an unreadable grid. A numbered list of the full reasons
-  follows each table, numbered across the section so each ruling keeps one number. Excluded plans,
-  grouped by reason with their recorded models, print only under `--all`, because a reader comparing
-  models does not need the plans that supplied no evidence every time. The command starts no
-  assistant and writes no round file or round data. Like other commands that read settings, it
-  creates a missing `settings.json` from the defaults.
+- `models.ts` owns the model read-out and its core and optional detail sections. `model-evidence.ts`
+  reads checked round data once in the active folder and closed-plan archives, records each auditor
+  sample's plan and whether it is that class's first complete round on the plan, then joins the
+  step, ready and closed records from both Git histories. `model-comparison.ts` owns the same-plan
+  averages, yield and time groups, opener bounds and the direct range comparisons that remain for
+  coders. An auditor gets a row in each class where it has a complete round, and a coder gets a row
+  once one of its plans is admitted; a model known only through excluded plans or the other class
+  prints no zero row and no shortage bullet, because the excluded-plans section or the other table
+  already names it. Planning and implementation auditors have separate tables. An auditor row
+  compares only plans where another auditor has a complete round. It first calculates each side's
+  kept A and B findings per round within a plan, then averages those plan figures so every shared
+  plan has equal weight. The two measured count cells retain the findings and rounds behind those
+  averages. A row enters the evaluation with five shared plans. The two evaluation bullets group
+  rows whose averages differ by a factor of at least 1.25, then name the fastest relevant row and
+  rows taking more than twice as long. They never recommend a model. A thinner row stays visible and
+  states its shortage. The table sorts by the gap between the averages, then by time. Planning also
+  reports an opener count when it differs from its even share by more than a tenth of the row's
+  shared plans and by at least two. Current auditors get correctable bullets above the table; other
+  auditors share one line below it. Auditor cost remains the mean audit and rebuttal time over every
+  complete round. Kept, dropped, downgraded and disproved findings are exclusive counts; wrong
+  claims is the last three as a percentage of all four across those rounds. A later disproval
+  removes a kept finding from coder evidence too. Under `--all`, planning and implementation each
+  gain a measured-data table with one row per plan and auditor. The rows contain rounds, all four
+  finding outcomes and mean minutes per round, sorted by plan and then model. A detached disproved
+  finding creates a zero-round row when its auditor has no round on that plan. These tables precede
+  the excluded plans. Coder yield comparisons use one closed plan per example. The archived plan
+  supplies the listed steps, every hosted share must have a readable model record and the whole-plan
+  audit must follow the final share. A missing archived plan and a step list the current grammar
+  cannot read are separate exclusion reasons, because the read-out names what it found and never
+  rewrites the archive. Records admit a plan without a ready assignment when they name one model and
+  effort. An assignment, when present, must match on assistant and effort; its model may be a family
+  alias the implement worker resolved at run time, so the records' release is not compared with it
+  and a mismatch is its own exclusion reason. A readable step record without active time falls back
+  to the span from the ready marker or previous step to that step's later share commit. A two-repo
+  span counts once. Incomplete or mixed records move to the excluded-plans section. Time adds step
+  and implementation-fix time and excludes planning fixes. Mean comes from `simple-statistics`.
+  Direct observed-range comparisons own the clear-cut recommendation. Every row that reaches its
+  minimum enters it. The coder table sorts by accepted findings per step, fewest first, then by
+  time. A winning auditor outside the current `auditors` list, or a winning coder outside the live
+  coder list, is named as such. Disproved findings print per auditor as a numbered table that shows
+  each reason's first sentence, because a full reason wraps the terminal table into an unreadable
+  grid. A numbered list of the full reasons follows each table, numbered across the section so each
+  ruling keeps one number. Excluded plans, grouped by reason with their recorded models, print only
+  under `--all`, because a reader comparing models does not need the measured rows or plans that
+  supplied no evidence every time. The command starts no assistant and writes no round file or round
+  data. Like other commands that read settings, it creates a missing `settings.json` from the
+  defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -973,7 +977,8 @@ Phase files use
 runner owns both writes.
 
 `models` reads every retained round-data file and both Git histories. It prints planning auditors,
-implementation auditors, coders and disproved findings, and under `--all` the excluded plans. Each
+implementation auditors, coders and disproved findings. Under `--all` it also prints planning and
+implementation rounds by plan before the excluded plans. Each
 auditor section opens with two evaluation bullets and then lists rows below five shared plans. The
 first bullet groups models finding at least 1.25 times as much as the other auditors on the same
 plans, or at most the inverse. The second names the fastest relevant model and models taking more

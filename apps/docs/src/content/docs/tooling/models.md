@@ -16,7 +16,7 @@ recorded yield and time rather than on impressions.
 
 ```text
 pnpm audit-round models              print the auditor, coder and disproved-finding read-out
-pnpm audit-round models --all        also print the plans excluded from coder evidence
+pnpm audit-round models --all        also print measured per-plan data and excluded plans
 pnpm audit-round models -h | --help  show the command's help
 ```
 
@@ -45,11 +45,17 @@ other auditors on the same plans. Its second bullet names the fastest relevant m
 taking more than twice as long. It makes no recommendation. Coder recommendations keep the direct
 observed-range rule.
 
+Under `--all`, the read-out also prints the measured planning and implementation data behind the
+auditor rows. Each table has one row per plan and auditor with its rounds, all four finding outcomes
+and mean minutes per round. A detached disproved finding has a zero-round row when its auditor did
+not audit that plan.
+
 ## Output
 
-Terminal Markdown in up to five sections: planning auditors, implementation auditors, coders,
-disproved findings and, under `--all`, excluded plans. Each auditor class opens with the two short
-evaluation bullets, then lists thin rows and prints its table.
+Terminal Markdown in four core sections: planning auditors, implementation auditors, coders and
+disproved findings. Under `--all`, planning rounds by plan, implementation rounds by plan and
+excluded plans follow. Each auditor class opens with the two short evaluation bullets, then lists
+thin rows and prints its table.
 
 1. **Auditor tables** sort by the gap between the model's plan average and the other auditors' plan
    average, then by time. Each side shows its kept A and B findings in rounds, beside the average
@@ -62,7 +68,9 @@ evaluation bullets, then lists thin rows and prints its table.
    plans, timed plans, steps, kept findings, kept per step and time per step.
 3. **Disproved findings** print as a numbered table per auditor with each reason's first sentence,
    then the full reasons as a numbered list, numbered across the section.
-4. **Excluded plans** group by reason with their recorded models.
+4. **Rounds by plan** sort by plan and then model. Their finding columns sum to the class totals
+   behind wrong claims, and their kept findings and rounds rebuild both plan averages.
+5. **Excluded plans** group by reason with their recorded models.
 
 The command writes no round file or round data. When `tools/audit-round/settings.json` is missing,
 it creates it from the committed defaults, as every command that reads settings does.

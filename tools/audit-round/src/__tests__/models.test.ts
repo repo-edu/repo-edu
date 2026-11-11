@@ -685,6 +685,159 @@ test("all complete rounds count, thin rows do not block and disproved claims sta
   assert.match(report, /No retained round held this finding\./)
 })
 
+test("--all prints measured rows that rebuild plan averages and wrong-claim totals", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
+  )
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
+  const alphaPath = join(f.activeRoot, "alpha-plan-rounds.json")
+  const alphaFindings = [
+    { ...finding("kept claim"), number: 1 },
+    {
+      ...finding("dropped claim"),
+      number: 2,
+      vetVerdict: "drop" as const,
+      outcome: "dropped" as const,
+    },
+    { ...finding("downgraded claim"), number: 3, finalTier: "C" as const },
+    { ...finding("later disproved claim"), number: 4 },
+  ]
+  const addPlanningRound = (
+    path: string,
+    target: string,
+    roundNumber: number,
+    started: string,
+    assistant: "claude" | "codex",
+    model: string,
+    milliseconds: number,
+    roundFindings: RoundFinding[],
+  ) =>
+    writeRoundData(path, {
+      ...round(
+        target,
+        roundNumber,
+        started,
+        { assistant, ...selection(model), chosenBy: "settings" },
+        settings,
+        [phase("audit", assistant, model, milliseconds)],
+        commits,
+        roundFindings,
+      ),
+      phase: "detailing",
+      settling: "",
+    })
+
+  addPlanningRound(
+    alphaPath,
+    "model-a-alpha",
+    1,
+    "2026-10-01T10:00:00.000Z",
+    "claude",
+    "model-a",
+    60_000,
+    alphaFindings,
+  )
+  addPlanningRound(
+    alphaPath,
+    "model-a-alpha",
+    2,
+    "2026-10-01T11:00:00.000Z",
+    "claude",
+    "model-a",
+    180_000,
+    findings(1, "second kept claim"),
+  )
+  addPlanningRound(
+    alphaPath,
+    "model-b-alpha",
+    3,
+    "2026-10-01T12:00:00.000Z",
+    "codex",
+    "model-b",
+    240_000,
+    [],
+  )
+
+  const betaPath = join(f.activeRoot, "beta-plan-rounds.json")
+  addPlanningRound(
+    betaPath,
+    "model-a-beta",
+    1,
+    "2026-10-02T10:00:00.000Z",
+    "claude",
+    "model-a",
+    120_000,
+    [],
+  )
+  for (const [roundNumber, milliseconds] of [
+    [2, 120_000],
+    [3, 360_000],
+  ] as const)
+    addPlanningRound(
+      betaPath,
+      "model-b-beta",
+      roundNumber,
+      `2026-10-02T1${roundNumber}:00:00.000Z`,
+      "codex",
+      "model-b",
+      milliseconds,
+      findings(2, `model-b beta ${roundNumber}`),
+    )
+
+  writeDisprovedFinding(alphaPath, {
+    date: "2026-11-01",
+    reason: "The attached claim did not hold.",
+    target: "model-a-alpha",
+    round: 1,
+    finding: 4,
+  })
+  writeDisprovedFinding(join(f.activeRoot, "gamma-plan-rounds.json"), {
+    date: "2026-11-02",
+    reason: "The detached claim did not hold.",
+    auditor: { model: "model-a", effort: "low" },
+  })
+
+  const context = {
+    repoEduRoot: f.root,
+    planRoot: f.planRoot,
+    activeRoot: f.activeRoot,
+  }
+  const report = await modelsReport(context, testSettings, { all: true })
+  assert.match(
+    report,
+    /\| model-a low \| 2 \| 2 in 3 \| 0\.50 \| 4 in 3 \| 1\.00 \| 2\.0 \| 67% \|/,
+  )
+  assert.equal(
+    report
+      .split("## Planning rounds by plan\n\n")[1]
+      .split("\n\n## Implementation rounds by plan")[0],
+    [
+      "| Plan | Model | Rounds | A/B kept | Dropped | Downgraded | Disproved | Minutes per round |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| alpha | model-a low | 2 | 2 | 1 | 1 | 1 | 2.0 |",
+      "|  | model-b low | 1 | 0 | 0 | 0 | 0 | 4.0 |",
+      "| beta | model-a low | 1 | 0 | 0 | 0 | 0 | 2.0 |",
+      "|  | model-b low | 2 | 4 | 0 | 0 | 0 | 4.0 |",
+      "| gamma | model-a low | 0 | 0 | 0 | 0 | 1 | — |",
+    ].join("\n"),
+  )
+  assert.match(report, /## Implementation rounds by plan\n\n\| Plan \|/)
+  assert.ok(
+    report.indexOf("## Planning rounds by plan") <
+      report.indexOf("## Implementation rounds by plan"),
+  )
+  assert.ok(
+    report.indexOf("## Implementation rounds by plan") <
+      report.indexOf("## Excluded plans"),
+  )
+
+  const shortReport = await modelsReport(context, testSettings)
+  assert.doesNotMatch(shortReport, /rounds by plan/)
+})
+
 test("disproved rulings table each reason's first sentence and list the full reasons numbered across auditors", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
@@ -1422,6 +1575,8 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     /\| coder-alpha low \| 1 \| 1 \| 1 \| 1 \| 1\.00 \| 10\.0 \|/,
   )
   assert.match(output, /## Excluded plans/)
+  assert.match(output, /## Planning rounds by plan/)
+  assert.match(output, /## Implementation rounds by plan/)
   assert.match(output, /mixed: coder-alpha low, coder-beta low/)
   assert.match(output, /effort-mixed: coder-alpha high, coder-alpha low/)
   assert.doesNotMatch(output, /no-assignment:/)
@@ -1440,6 +1595,8 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.equal(await runCommand(["models"], f.runtime, commandOptions), 0)
   assert.equal(visible.length, 1)
   assert.doesNotMatch(visible[0].text, /## Excluded plans/)
+  assert.doesNotMatch(visible[0].text, /## Planning rounds by plan/)
+  assert.doesNotMatch(visible[0].text, /## Implementation rounds by plan/)
   assert.doesNotMatch(visible[0].text, /mixed:/)
   assert.match(visible[0].text, /## Disproved after the round/)
   assert.ok(visible[0].text.endsWith("\n"))

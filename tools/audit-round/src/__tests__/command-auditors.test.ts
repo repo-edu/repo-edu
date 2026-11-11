@@ -435,6 +435,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   ])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
   assert.match(visible, /--aborted <reason>/)
+  assert.match(visible, /--all\s+print per-plan round data and excluded plans/)
   assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /assistant set in settings\.json\s+fixes/)
   assert.match(visible, /--auditor <selections>\s+auditors in round order/)

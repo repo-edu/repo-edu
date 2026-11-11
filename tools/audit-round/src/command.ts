@@ -924,7 +924,7 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
     .description(
       "Read auditor and coder results from retained records without starting assistants.",
     )
-    .option("--all", "print the excluded plans after the readings")
+    .option("--all", "print per-plan round data and excluded plans")
     .action((flags: { all?: boolean }) => {
       invocation = { kind: "models", all: flags.all === true }
     })
