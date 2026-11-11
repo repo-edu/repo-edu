@@ -35,7 +35,8 @@ The read-out compares rather than ranks by taste:
 2. **Coders** are compared on closed plans whose archived step list the current grammar reads, whose
    every hosted share has a readable model record and whose whole-plan audit follows the final
    share. A step record without active time falls back to the span from the ready marker or the
-   previous step to that step's later share commit.
+   previous step to that step's later share commit. A plan whose step time cannot be read is
+   excluded.
 3. **Disproved findings**, recorded with
    [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/), count against the auditor that wrote
    them and remove a kept finding from coder evidence.
@@ -65,7 +66,7 @@ excluded plans follow. Each auditor class prints its main table, then a second t
    above the main table, where `--first` can correct the count. Other models share one line below
    the last table.
 2. **The coder table** sorts by kept A and B findings per step, fewest first, then by time. It shows
-   plans, timed plans, steps, kept findings, kept per step and time per step.
+   plans, steps, kept findings, kept per step and time per step.
 3. **Disproved findings** print as a numbered table per auditor with each reason's first sentence,
    then the full reasons as a numbered list, numbered across the section.
 4. **Rounds by plan** sort by plan and then model. Their finding columns sum to the class totals

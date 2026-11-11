@@ -12,8 +12,8 @@ export type ReadingSample = {
   readonly minutes: number
 }
 
-export type YieldSample = Pick<ReadingSample, "yield">
-export type TimeSample = Pick<ReadingSample, "minutes">
+type YieldSample = Pick<ReadingSample, "yield">
+type TimeSample = Pick<ReadingSample, "minutes">
 
 export type AuditorPlanSample = ReadingSample & {
   readonly plan: string
@@ -148,36 +148,13 @@ export function clearlyPreferred(
   second: readonly ReadingSample[],
   moreYieldIsBetter: boolean,
 ): boolean {
-  return clearlyPreferredMeasures(
-    first,
-    second,
-    first,
-    second,
-    moreYieldIsBetter,
-  )
-}
-
-/** Whether separate yield and time evidence gives one row a clear lead. */
-export function clearlyPreferredMeasures(
-  firstYield: readonly YieldSample[],
-  secondYield: readonly YieldSample[],
-  firstTime: readonly TimeSample[],
-  secondTime: readonly TimeSample[],
-  moreYieldIsBetter: boolean,
-): boolean {
-  if (
-    firstYield.length === 0 ||
-    secondYield.length === 0 ||
-    firstTime.length === 0 ||
-    secondTime.length === 0
-  )
-    return false
-  if (clearYieldLeader(firstYield, secondYield, moreYieldIsBetter))
-    return !clearTimeLeader(secondTime, firstTime)
+  if (first.length === 0 || second.length === 0) return false
+  if (clearYieldLeader(first, second, moreYieldIsBetter))
+    return !clearTimeLeader(second, first)
   const yieldsMatch =
     Math.abs(
-      mean(firstYield.map((sample) => sample.yield)) -
-        mean(secondYield.map((sample) => sample.yield)),
+      mean(first.map((sample) => sample.yield)) -
+        mean(second.map((sample) => sample.yield)),
     ) < yieldSame
-  return yieldsMatch && clearTimeLeader(firstTime, secondTime)
+  return yieldsMatch && clearTimeLeader(first, second)
 }

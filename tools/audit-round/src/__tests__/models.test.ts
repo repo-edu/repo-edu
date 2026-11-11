@@ -7,7 +7,6 @@ import {
   type AuditorPlanComparison,
   type AuditorPlanSample,
   clearlyPreferred,
-  clearlyPreferredMeasures,
   compareAuditorPlans,
   hasUnevenOpeners,
 } from "../model-comparison.js"
@@ -217,16 +216,7 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
     ),
     false,
   )
-  assert.equal(
-    clearlyPreferredMeasures(
-      modelSamples([0, 0, 0]),
-      modelSamples([1, 1, 1]),
-      [],
-      [],
-      false,
-    ),
-    false,
-  )
+  assert.equal(clearlyPreferred(modelSamples([0, 0, 0]), [], false), false)
 })
 
 test("auditor tables compare the same plans and sort by the per-round gap", async (t) => {
@@ -1126,9 +1116,9 @@ test("a closed plan without implementation round data names the missing evidence
   assert.equal(row.excluded.get(stem), "no implementation round data")
 })
 
-test("coder yield accepts agreeing unassigned records without step time", async (t) => {
+test("a plan whose step time cannot be read is excluded from coder evidence", async (t) => {
   const f = await modelFixture(t)
-  const stem = "yield-only"
+  const stem = "untimed"
   await commit(
     f.root,
     `${stem}/impl-1 obl feat(audit-round): fixture step`,
@@ -1172,12 +1162,8 @@ test("coder yield accepts agreeing unassigned records without step time", async 
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
   assert.ok(row)
-  assert.deepEqual(
-    row.yieldSamples.map((sample) => sample.stem),
-    [stem],
-  )
-  assert.deepEqual(row.timeSamples, [])
-  assert.equal(row.excluded.has(stem), false)
+  assert.deepEqual(row.samples, [])
+  assert.equal(row.excluded.get(stem), "implementation time unreadable")
 })
 
 test("coder admission matches the ready assignment on assistant and effort, not on the release name", async (t) => {
@@ -1261,7 +1247,7 @@ test("coder admission matches the ready assignment on assistant and effort, not 
   )
   assert.ok(alias)
   assert.deepEqual(
-    alias.yieldSamples.map((sample) => sample.stem),
+    alias.samples.map((sample) => sample.stem),
     ["alias"],
   )
   assert.equal(alias.excluded.has("alias"), false)
@@ -1269,7 +1255,7 @@ test("coder admission matches the ready assignment on assistant and effort, not 
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "high" }),
   )
   assert.ok(otherEffort)
-  assert.deepEqual(otherEffort.yieldSamples, [])
+  assert.deepEqual(otherEffort.samples, [])
   assert.equal(
     otherEffort.excluded.get("other-effort"),
     "coder differs from the ready assignment",
@@ -1355,17 +1341,15 @@ test("coder evidence removes disproved findings and falls back to one commit spa
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
   assert.ok(row)
-  assert.deepEqual(row.yieldSamples, [{ stem, steps: 2, kept: 0, yield: 0 }])
-  assert.deepEqual(row.timeSamples, [{ stem, steps: 2, minutes: 30 }])
+  assert.deepEqual(row.samples, [
+    { stem, steps: 2, kept: 0, yield: 0, minutes: 30 },
+  ])
 
   const report = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
   )
-  assert.match(
-    report,
-    /\| coder-alpha low \| 1 \| 1 \| 2 \| 0 \| 0\.00 \| 30\.0 \|/,
-  )
+  assert.match(report, /\| coder-alpha low \| 1 \| 2 \| 0 \| 0\.00 \| 30\.0 \|/)
   assert.match(report, /The implementation claim was wrong\./)
 })
 
@@ -1641,10 +1625,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     /\| audit-third low \| 1 \| 1 in 1 \| 1\.00 \| 1 in 1 \| 1\.00 \| 1\.0 \| 0% \|/,
   )
   assert.match(output, /## Coders/)
-  assert.match(
-    output,
-    /\| coder-alpha low \| 1 \| 1 \| 1 \| 1 \| 1\.00 \| 10\.0 \|/,
-  )
+  assert.match(output, /\| coder-alpha low \| 1 \| 1 \| 1 \| 1\.00 \| 10\.0 \|/)
   assert.match(output, /## Excluded plans/)
   assert.match(output, /## Planning rounds by plan/)
   assert.match(output, /## Implementation rounds by plan/)
@@ -1652,7 +1633,11 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(output, /effort-mixed: coder-alpha high, coder-alpha low/)
   assert.doesNotMatch(output, /no-assignment:/)
   const coders = output.split("## Coders\n\n")[1].split("\n\nRows sort by")[0]
-  assert.equal(coders.match(/coder-alpha low needs/g)?.length, 2)
+  assert.match(
+    coders,
+    /coder-alpha low needs 2 more plans before it is compared\./,
+  )
+  assert.equal(coders.match(/coder-alpha low needs/g)?.length, 1)
   assert.doesNotMatch(coders, /coder-beta low/)
   assert.doesNotMatch(coders, /coder-alpha high/)
   assert.doesNotMatch(coders, /needs 0 more/)
@@ -1750,10 +1735,7 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
     },
   )
   assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)
-  assert.match(
-    report,
-    /\| coder-alpha low \| 3 \| 3 \| 4 \| 1 \| 0\.17 \| 2\.5 \|/,
-  )
+  assert.match(report, /\| coder-alpha low \| 3 \| 4 \| 1 \| 0\.17 \| 2\.5 \|/)
   assert.match(report, /records clearly support running coder-alpha low/)
 })
 
@@ -1917,15 +1899,11 @@ test("coder admission needs every archived plan share and a current whole-plan a
   const row = evidence.coders.get(modelKey(coder))
   assert.ok(row)
   assert.deepEqual(
-    row.yieldSamples.map((sample) => ({
+    row.samples.map((sample) => ({
       stem: sample.stem,
       yield: sample.yield,
     })),
     [{ stem: "plan-only", yield: 1 }],
-  )
-  assert.deepEqual(
-    row.timeSamples.map((sample) => sample.stem),
-    ["plan-only"],
   )
   assert.equal(row.excluded.get("partial"), "implementation shares missing")
   assert.equal(

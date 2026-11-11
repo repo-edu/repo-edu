@@ -3,7 +3,7 @@ import type { ExecutionContext } from "./context.js"
 import {
   type AuditorPlanComparison,
   auditorFloor,
-  clearlyPreferredMeasures,
+  clearlyPreferred,
   coderFloor,
   compareAuditorPlans,
   hasUnevenOpeners,
@@ -40,17 +40,11 @@ function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`
 }
 
-/** A note line for a row below the comparison floor, or null when it is admitted. */
-function shortageNote(
-  identity: ModelIdentity,
-  sampleCount: number,
-  floor: number,
-  unit: string,
-  measure: string,
-): string | null {
-  const missing = floor - sampleCount
+/** A note line for a coder below the comparison floor, or null when it is compared. */
+function shortageNote(row: CoderRow): string | null {
+  const missing = coderFloor - row.samples.length
   if (missing <= 0) return null
-  return `${modelText(identity)} needs ${plural(missing, `more ${unit}`)} before ${measure} is compared.`
+  return `${modelText(row.identity)} needs ${plural(missing, "more plan")} before it is compared.`
 }
 
 /** The verdict paragraph followed by the notes as a bullet list, when any. */
@@ -81,14 +75,6 @@ function leaderFirst<Row extends { readonly identity: ModelIdentity }>(
         return secondScore[index] - firstScore[index]
     return modelText(first.identity).localeCompare(modelText(second.identity))
   })
-}
-
-function meanOrNull(values: readonly number[]): number | null {
-  return values.length === 0 ? null : mean(values)
-}
-
-function cell(value: number | null): string {
-  return value === null ? "—" : numberText(value)
 }
 
 function yieldCell(value: number | null): string {
@@ -123,7 +109,7 @@ function classRows(
 function admittedCoders(
   rows: ReadonlyMap<string, CoderRow>,
 ): ReadonlyMap<string, CoderRow> {
-  return new Map([...rows].filter(([, row]) => row.yieldSamples.length > 0))
+  return new Map([...rows].filter(([, row]) => row.samples.length > 0))
 }
 
 /** Whether an `auditors` entry runs the row's model and effort. */
@@ -364,22 +350,14 @@ function coderRecommendation(
   rows: ReadonlyMap<string, CoderRow>,
 ): string | null {
   const ranked = sortedRows(rows).filter(
-    ([, row]) =>
-      row.yieldSamples.length >= coderFloor &&
-      row.timeSamples.length >= coderFloor,
+    ([, row]) => row.samples.length >= coderFloor,
   )
   if (ranked.length < 2) return null
   const winners = ranked.filter(([candidateKey, candidate]) =>
     ranked.every(
       ([otherKey, other]) =>
         candidateKey === otherKey ||
-        clearlyPreferredMeasures(
-          candidate.yieldSamples,
-          other.yieldSamples,
-          candidate.timeSamples,
-          other.timeSamples,
-          false,
-        ),
+        clearlyPreferred(candidate.samples, other.samples, false),
     ),
   )
   return winners.length === 1 ? winners[0][0] : null
@@ -391,24 +369,9 @@ function coderReading(
 ): string[] {
   const entries = sortedRows(rows)
   if (entries.length === 0) return ["No coder records are available."]
-  const notes = entries.flatMap(([, row]) =>
-    [
-      shortageNote(
-        row.identity,
-        row.yieldSamples.length,
-        coderFloor,
-        "plan",
-        "its yield",
-      ),
-      shortageNote(
-        row.identity,
-        row.timeSamples.length,
-        coderFloor,
-        "timed plan",
-        "its time",
-      ),
-    ].filter((note): note is string => note !== null),
-  )
+  const notes = entries
+    .map(([, row]) => shortageNote(row))
+    .filter((note): note is string => note !== null)
   const recommendation = coderRecommendation(rows)
   if (recommendation === null)
     return readingLines("The records do not separate one coder clearly.", notes)
@@ -424,36 +387,29 @@ function coderReading(
 
 function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
   const readings = [...rows.values()].map((row) => {
-    const timedSteps = row.timeSamples.reduce(
-      (total, sample) => total + sample.steps,
-      0,
-    )
-    const totalMinutes = row.timeSamples.reduce(
+    const steps = row.samples.reduce((total, sample) => total + sample.steps, 0)
+    const totalMinutes = row.samples.reduce(
       (total, sample) => total + sample.minutes * sample.steps,
       0,
     )
     return {
       identity: row.identity,
-      plans: row.yieldSamples.length,
-      timedPlans: row.timeSamples.length,
-      steps: row.yieldSamples.reduce(
-        (total, sample) => total + sample.steps,
-        0,
-      ),
-      kept: row.yieldSamples.reduce((total, sample) => total + sample.kept, 0),
-      yield: meanOrNull(row.yieldSamples.map((sample) => sample.yield)),
-      minutes: timedSteps === 0 ? null : totalMinutes / timedSteps,
+      plans: row.samples.length,
+      steps,
+      kept: row.samples.reduce((total, sample) => total + sample.kept, 0),
+      yield: mean(row.samples.map((sample) => sample.yield)),
+      minutes: totalMinutes / steps,
     }
   })
   return [
-    "| Model | Plans | Timed plans | Steps | A/B kept | A/B per step | Minutes per step |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Model | Plans | Steps | A/B kept | A/B per step | Minutes per step |",
+    "| --- | ---: | ---: | ---: | ---: | ---: |",
     ...leaderFirst(readings, (reading) => [
-      -(reading.yield ?? Number.POSITIVE_INFINITY),
-      -(reading.minutes ?? Number.POSITIVE_INFINITY),
+      -reading.yield,
+      -reading.minutes,
     ]).map(
       (reading) =>
-        `| ${escapeCell(modelText(reading.identity))} | ${reading.plans} | ${reading.timedPlans} | ${reading.steps} | ${reading.kept} | ${yieldCell(reading.yield)} | ${cell(reading.minutes)} |`,
+        `| ${escapeCell(modelText(reading.identity))} | ${reading.plans} | ${reading.steps} | ${reading.kept} | ${yieldText(reading.yield)} | ${numberText(reading.minutes)} |`,
     ),
   ]
 }
@@ -575,7 +531,7 @@ export async function modelsReport(
     "",
     ...coderTable(coders),
     "",
-    "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit, and a plan whose step time cannot be read is excluded. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",
     ...disprovedSection(evidence.disproved),
     ...(options.all

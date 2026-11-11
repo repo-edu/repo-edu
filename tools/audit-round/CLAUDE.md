@@ -450,7 +450,9 @@ consumers.
   implement worker resolved at run time, so the records' release is not compared with it and a
   mismatch is its own exclusion reason. A readable step record without active time falls back to the
   span from the ready marker or previous step to that step's later share commit. A two-repo span
-  counts once. Incomplete or mixed records move to the excluded-plans section. Time adds step and
+  counts once. A plan with a step time that neither source gives is excluded with its own reason,
+  so every admitted plan supplies both its yield and its time and a row holds one sample list.
+  Incomplete or mixed records move to the excluded-plans section. Time adds step and
   implementation-fix time and excludes planning fixes. Mean comes from `simple-statistics`. Direct
   observed-range comparisons own the clear-cut recommendation. Every row that reaches its minimum
   enters it. The coder table sorts by accepted findings per step, fewest first, then by time. A
@@ -987,13 +989,14 @@ rounds differ from an even share by both report bounds print either as a correct
 the main table or, when the current `auditors` list cannot run them, in one line below the last
 table. Auditor time and wrong claims still cover every complete round in the class. Coder
 comparisons keep their direct observed-range rule, three-plan floors and recommendation. The coder
-table shows plans, timed plans, steps, kept A/B findings, kept per step and time per step. A missing
-step time uses the span from the ready marker or previous step, with a two-repo step ending at its
-later share commit. The disproved section shows each reason's first sentence in a numbered table per
-auditor, then the full reasons as a numbered list below it, numbered across the section. The
-excluded-plans section groups plans by reason and names their recorded models; it prints only under
-`--all`. The command renders Markdown, starts no assistant and writes no round file or round data.
-Like other commands that read settings, it creates a missing `settings.json` from the defaults.
+table shows plans, steps, kept A/B findings, kept per step and time per step. A missing step time
+uses the span from the ready marker or previous step, with a two-repo step ending at its later share
+commit. A plan whose step time cannot be read is an excluded plan. The disproved section shows each
+reason's first sentence in a numbered table per auditor, then the full reasons as a numbered list
+below it, numbered across the section. The excluded-plans section groups plans by reason and names
+their recorded models; it prints only under `--all`. The command renders Markdown, starts no
+assistant and writes no round file or round data. Like other commands that read settings, it creates
+a missing `settings.json` from the defaults.
 
 `replay` reads every active and archived plan's retained round data and every active commit-series
 file. It applies the same automatic-series decision function to each stored answer and prints the

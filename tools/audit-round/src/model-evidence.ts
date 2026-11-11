@@ -44,22 +44,16 @@ export type AuditorRow = {
   readonly detachedDisproved: Record<WorkClass, number>
 }
 
-export type CoderSample = Pick<ReadingSample, "yield"> & {
+/** One admitted plan: its kept findings per step and its minutes per step. */
+export type CoderSample = ReadingSample & {
   readonly stem: string
   readonly steps: number
   readonly kept: number
 }
 
-export type CoderTimeSample = {
-  readonly stem: string
-  readonly steps: number
-  readonly minutes: number
-}
-
 export type CoderRow = {
   readonly identity: ModelIdentity
-  readonly yieldSamples: CoderSample[]
-  readonly timeSamples: CoderTimeSample[]
+  readonly samples: CoderSample[]
   readonly excluded: Map<string, string>
 }
 
@@ -625,6 +619,17 @@ function excludedPlanReason(
   return ""
 }
 
+/** An admitted plan's implementation minutes, or the reason the plan is excluded. */
+function planAdmission(
+  plan: PlanEvidence,
+  actual: ReadonlyMap<string, ModelIdentity>,
+  history: ReadonlyMap<string, HistoryCommit>,
+): number | string {
+  const reason = excludedPlanReason(plan, actual, history)
+  if (reason.length > 0) return reason
+  return implementationMinutes(plan) ?? "implementation time unreadable"
+}
+
 async function coderRows(
   context: ExecutionContext,
   records: readonly RoundRecord[],
@@ -677,8 +682,7 @@ async function coderRows(
     const key = modelKey(identity)
     const row = rows.get(key) ?? {
       identity,
-      yieldSamples: [],
-      timeSamples: [],
+      samples: [],
       excluded: new Map<string, string>(),
     }
     rows.set(key, row)
@@ -702,13 +706,13 @@ async function coderRows(
         actual.set(modelKey(identity), identity)
       }
     if (actual.size === 0) continue
-    const reason = excludedPlanReason(plan, actual, history)
+    const admission = planAdmission(plan, actual, history)
     const stepCount =
       typeof plan.listedSteps === "string" ? 0 : plan.listedSteps.length
     for (const identity of actual.values()) {
       const row = ensureRow(identity)
-      if (reason.length > 0) {
-        row.excluded.set(plan.stem, reason)
+      if (typeof admission === "string") {
+        row.excluded.set(plan.stem, admission)
         continue
       }
       const kept = plan.rounds
@@ -720,24 +724,17 @@ async function coderRows(
               .kept,
           0,
         )
-      row.yieldSamples.push({
+      const fixMinutes = plan.rounds
+        .flatMap((round) => round.data.phases)
+        .filter((phase) => phase.phase === "fix")
+        .reduce((total, phase) => total + phase.milliseconds / 60_000, 0)
+      row.samples.push({
         stem: plan.stem,
         steps: stepCount,
         kept,
         yield: kept / stepCount,
+        minutes: (admission + fixMinutes) / stepCount,
       })
-      const stepMinutes = implementationMinutes(plan)
-      if (stepMinutes !== null) {
-        const fixMinutes = plan.rounds
-          .flatMap((round) => round.data.phases)
-          .filter((phase) => phase.phase === "fix")
-          .reduce((total, phase) => total + phase.milliseconds / 60_000, 0)
-        row.timeSamples.push({
-          stem: plan.stem,
-          steps: stepCount,
-          minutes: (stepMinutes + fixMinutes) / stepCount,
-        })
-      }
     }
   }
   return rows
