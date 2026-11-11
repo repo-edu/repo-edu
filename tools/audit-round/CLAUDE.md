@@ -453,8 +453,8 @@ consumers.
   and implementation-fix time and excludes planning fixes. Mean comes from `simple-statistics`.
   Direct observed-range comparisons own the clear-cut recommendation. Every row that reaches its
   minimum enters it. The coder table sorts by accepted findings per step, fewest first, then by
-  time. A winning auditor outside the current `auditors` list, or a winning coder outside the live
-  coder list, is named as such. Disproved findings print per auditor as a numbered table that shows
+  time. A winning coder outside the live coder list is named as such. Disproved findings print per
+  auditor as a numbered table that shows
   each reason's first sentence, because a full reason wraps the terminal table into an unreadable
   grid. A numbered list of the full reasons follows each table, numbered across the section so each
   ruling keeps one number. Excluded plans, grouped by reason with their recorded models, print only

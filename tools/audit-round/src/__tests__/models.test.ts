@@ -400,6 +400,92 @@ test("same-plan gap sorting does not reward a model for auditing harder plans", 
   )
 })
 
+test("auditor evaluation prints both yield and time scopes", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
+  )
+  const commits = [{ repository: "repo-edu" as const, sha: audit }]
+
+  for (let plan = 1; plan <= 5; plan += 1) {
+    for (const [assistant, model, kept, milliseconds, hour] of [
+      ["claude", "ahead-fast", 4, 60_000, "10"],
+      ["codex", "ahead-slow", 4, 180_000, "11"],
+      ["claude", "behind", 0, 30_000, "12"],
+    ] as const)
+      writeRoundData(
+        join(f.activeRoot, `evaluation-${plan}-plan-rounds.json`),
+        {
+          ...round(
+            `${model}-planning`,
+            1,
+            `2026-10-${String(plan).padStart(2, "0")}T${hour}:00:00.000Z`,
+            { assistant, ...selection(model), chosenBy: "settings" },
+            settings,
+            [phase("audit", assistant, model, milliseconds)],
+            commits,
+            findings(kept, `${model} claim`),
+          ),
+          phase: "detailing",
+          settling: "",
+        },
+      )
+
+    for (const [assistant, model, milliseconds, hour] of [
+      ["claude", "equal-fast", 60_000, "13"],
+      ["codex", "equal-twice", 120_000, "14"],
+      ["claude", "equal-over-twice", 121_000, "15"],
+    ] as const)
+      writeRoundData(
+        join(f.activeRoot, `evaluation-${plan}-impl-rounds.json`),
+        {
+          ...round(
+            `${model}-implementation`,
+            1,
+            `2026-10-${String(plan).padStart(2, "0")}T${hour}:00:00.000Z`,
+            { assistant, ...selection(model), chosenBy: "settings" },
+            settings,
+            [phase("audit", assistant, model, milliseconds)],
+            commits,
+            findings(1, `${model} claim`),
+          ),
+          scope: "1",
+          judgedRepos: ["repo-edu"],
+        },
+      )
+  }
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+    testSettings,
+  )
+  const planning = report
+    .split("## Planning auditors\n\n")[1]
+    .split("\n\n## Implementation auditors")[0]
+  assert.match(
+    planning,
+    /On the same plans `ahead-fast low` and `ahead-slow low` find more than the other auditors, and `behind low` finds fewer than the other auditors\./,
+  )
+  assert.match(
+    planning,
+    /`ahead-fast low` is the fastest of those ahead; `ahead-slow low` takes more than twice as long\./,
+  )
+
+  const implementation = report
+    .split("## Implementation auditors\n\n")[1]
+    .split("\n\nAuditor rows sort by")[0]
+  assert.match(
+    implementation,
+    /On the same plans no auditor finds more than the others, and no auditor finds fewer than the others\./,
+  )
+  assert.match(
+    implementation,
+    /`equal-fast low` is the fastest; `equal-over-twice low` takes more than twice as long\./,
+  )
+})
+
 test("same-plan comparison gives each plan equal weight and pools every other auditor within it", () => {
   const comparison = compareAuditorPlans(
     [
@@ -452,8 +538,9 @@ test("auditor groupings cover yield factors, zeroes, time bounds and thin-row ex
   const ahead = row("ahead", 1.25, 1, 4)
   const behind = row("behind", 0, 1, 9)
   const evenZero = row("zero", 0, 0, 3)
+  const insideFactor = row("inside", 1.24, 1, 6)
   const thin = row("thin", 9, 0, 1, 4)
-  const eligible = [ahead, behind, evenZero, thin].filter(
+  const eligible = [ahead, behind, evenZero, insideFactor, thin].filter(
     (candidate) => candidate.comparison.plans >= 5,
   )
   const groups = auditorYieldGroups(
@@ -474,10 +561,14 @@ test("auditor groupings cover yield factors, zeroes, time bounds and thin-row ex
   )
   assert.deepEqual(
     auditorTimeGroup(
-      [row("fast", 1, 1, 5), row("twice", 1, 1, 10)],
+      [
+        row("fast", 1, 1, 5),
+        row("twice", 1, 1, 10),
+        row("over-twice", 1, 1, 10.01),
+      ],
       (candidate) => candidate.minutes,
-    ).slower,
-    [],
+    ).slower.map((candidate) => candidate.name),
+    ["over-twice"],
   )
 })
 
