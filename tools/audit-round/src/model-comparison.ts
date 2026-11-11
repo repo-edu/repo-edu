@@ -24,10 +24,10 @@ export type AuditorPlanComparison = {
   readonly plans: number
   readonly ownFindings: number
   readonly ownRounds: number
-  readonly ownAverage: number | null
+  readonly ownPerRound: number | null
   readonly otherFindings: number
   readonly otherRounds: number
-  readonly otherAverage: number | null
+  readonly otherPerRound: number | null
   readonly openedPlans: number
   readonly evenOpenedPlans: number
 }
@@ -44,7 +44,10 @@ function samplesByPlan(
   return grouped
 }
 
-/** Compare one auditor with every other auditor on the plans they share. */
+/**
+ * Compare one auditor with every other auditor on the plans they share. Each
+ * side's figure divides its kept findings by its rounds over all those plans.
+ */
 export function compareAuditorPlans(
   ownSamples: readonly AuditorPlanSample[],
   otherAuditors: readonly (readonly AuditorPlanSample[])[],
@@ -55,10 +58,9 @@ export function compareAuditorPlans(
   let ownRounds = 0
   let otherFindings = 0
   let otherRounds = 0
+  let plans = 0
   let openedPlans = 0
   let evenOpenedPlans = 0
-  const ownPlanYields: number[] = []
-  const otherPlanYields: number[] = []
 
   for (const [plan, own] of ownByPlan) {
     const otherGroups = othersByAuditor.flatMap((auditor) => {
@@ -67,26 +69,23 @@ export function compareAuditorPlans(
     })
     if (otherGroups.length === 0) continue
     const others = otherGroups.flat()
-    const ownKept = own.reduce((total, sample) => total + sample.yield, 0)
-    const otherKept = others.reduce((total, sample) => total + sample.yield, 0)
-    ownFindings += ownKept
+    plans += 1
+    ownFindings += own.reduce((total, sample) => total + sample.yield, 0)
     ownRounds += own.length
-    otherFindings += otherKept
+    otherFindings += others.reduce((total, sample) => total + sample.yield, 0)
     otherRounds += others.length
-    ownPlanYields.push(ownKept / own.length)
-    otherPlanYields.push(otherKept / others.length)
     if (own.some((sample) => sample.first)) openedPlans += 1
     evenOpenedPlans += 1 / (otherGroups.length + 1)
   }
 
   return {
-    plans: ownPlanYields.length,
+    plans,
     ownFindings,
     ownRounds,
-    ownAverage: ownPlanYields.length === 0 ? null : mean(ownPlanYields),
+    ownPerRound: plans === 0 ? null : ownFindings / ownRounds,
     otherFindings,
     otherRounds,
-    otherAverage: otherPlanYields.length === 0 ? null : mean(otherPlanYields),
+    otherPerRound: plans === 0 ? null : otherFindings / otherRounds,
     openedPlans,
     evenOpenedPlans,
   }

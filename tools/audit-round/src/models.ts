@@ -196,10 +196,10 @@ function auditorReadings(
 
 function orderedAuditorReadings(readings: readonly AuditorReading[]) {
   return leaderFirst(readings, (reading) => [
-    reading.comparison.ownAverage === null ||
-    reading.comparison.otherAverage === null
+    reading.comparison.ownPerRound === null ||
+    reading.comparison.otherPerRound === null
       ? Number.NEGATIVE_INFINITY
-      : reading.comparison.ownAverage - reading.comparison.otherAverage,
+      : reading.comparison.ownPerRound - reading.comparison.otherPerRound,
     -reading.minutes,
   ])
 }
@@ -223,11 +223,11 @@ function listedOpenerBullets(
 
 function auditorTable(readings: readonly AuditorReading[]): string[] {
   return [
-    "| Model | Plans | Own findings in rounds | Own average by plan | Others on same plans | Others average by plan | Minutes per round | Wrong claims |",
+    "| Model | Plans | Own findings in rounds | Own per round | Others on same plans | Others per round | Minutes per round | Wrong claims |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...readings.map(
       (reading) =>
-        `| ${escapeCell(modelText(reading.identity))} | ${reading.comparison.plans} | ${reading.comparison.ownFindings} in ${reading.comparison.ownRounds} | ${yieldCell(reading.comparison.ownAverage)} | ${reading.comparison.otherFindings} in ${reading.comparison.otherRounds} | ${yieldCell(reading.comparison.otherAverage)} | ${numberText(reading.minutes)} | ${wrongClaims(reading.counts)} |`,
+        `| ${escapeCell(modelText(reading.identity))} | ${reading.comparison.plans} | ${reading.comparison.ownFindings} in ${reading.comparison.ownRounds} | ${yieldCell(reading.comparison.ownPerRound)} | ${reading.comparison.otherFindings} in ${reading.comparison.otherRounds} | ${yieldCell(reading.comparison.otherPerRound)} | ${numberText(reading.minutes)} | ${wrongClaims(reading.counts)} |`,
     ),
   ]
 }
@@ -567,7 +567,7 @@ export async function modelsReport(
     "",
     ...auditorSection(implementation, "implementation", settings),
     "",
-    `Auditor rows sort by the gap between the two averages, then by time. A model with fewer than ${auditorFloor} shared plans in a class is printed in a second table below the main one. Each average first divides kept A and B findings by rounds within one shared plan, then gives every shared plan equal weight. The count cells show the measured findings and rounds behind those plans. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
+    `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a class is printed in a second table below the main one. Each per-round figure divides the kept A and B findings by the rounds in the count cell beside it, over all shared plans. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
     "",
     "## Coders",
     "",

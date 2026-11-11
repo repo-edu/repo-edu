@@ -29,10 +29,9 @@ histories. Commit-series data is not part of the read-out. It starts no assistan
 The read-out compares rather than ranks by taste:
 
 1. **Auditors** have separate planning and implementation tables. Each row compares the model with
-   the other auditors only on plans they share. Findings per round are calculated within each plan,
-   then those plan figures are averaged so an easy or long-running plan gets no extra weight. A
-   model with fewer than five shared plans in a class is printed in a second table below the main
-   one.
+   the other auditors only on plans they share. Each side's kept findings are divided by its rounds
+   on those plans, so a model is not rewarded for auditing easier plans than the others. A model
+   with fewer than five shared plans in a class is printed in a second table below the main one.
 2. **Coders** are compared on closed plans whose archived step list the current grammar reads, whose
    every hosted share has a readable model record and whose whole-plan audit follows the final
    share. A step record without active time falls back to the span from the ready marker or the
@@ -57,19 +56,20 @@ disproved findings. Under `--all`, planning rounds by plan, implementation round
 excluded plans follow. Each auditor class prints its main table, then a second table under
 `Fewer than 5 shared plans:` when a model is below that floor.
 
-1. **Auditor tables** sort by the gap between the model's plan average and the other auditors' plan
-   average, then by time. Each side shows its kept A and B findings in rounds, beside the average
-   that gives every shared plan equal weight. Wrong claims is dropped, downgraded and disproved as a
-   percentage of all four finding outcomes. Cost is audit plus rebuttal time per complete round.
-   Planning also reports a model whose first-round count differs from its even share by more than a
-   tenth of its shared plans and by at least two. A current auditor gets a bullet above the main
-   table, where `--first` can correct the count. Other models share one line below the last table.
+1. **Auditor tables** sort by the gap between the model's findings per round and the other auditors'
+   findings per round, then by time. Each side shows its kept A and B findings in rounds, such as
+   `16 in 79`, beside the per-round figure that division gives. Wrong claims is dropped, downgraded
+   and disproved as a percentage of all four finding outcomes. Cost is audit plus rebuttal time per
+   complete round. Planning also reports a model whose first-round count differs from its even share
+   by more than a tenth of its shared plans and by at least two. A current auditor gets a bullet
+   above the main table, where `--first` can correct the count. Other models share one line below
+   the last table.
 2. **The coder table** sorts by kept A and B findings per step, fewest first, then by time. It shows
    plans, timed plans, steps, kept findings, kept per step and time per step.
 3. **Disproved findings** print as a numbered table per auditor with each reason's first sentence,
    then the full reasons as a numbered list, numbered across the section.
 4. **Rounds by plan** sort by plan and then model. Their finding columns sum to the class totals
-   behind wrong claims, and their kept findings and rounds rebuild both plan averages.
+   behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.
 5. **Excluded plans** group by reason with their recorded models.
 
 The command writes no round file or round data. When `tools/audit-round/settings.json` is missing,

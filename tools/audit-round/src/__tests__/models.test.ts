@@ -229,7 +229,7 @@ test("constant rows can lead while overlapping ranges and yield-against-time tra
   )
 })
 
-test("auditor tables compare the same plans and sort by the average gap", async (t) => {
+test("auditor tables compare the same plans and sort by the per-round gap", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -272,7 +272,7 @@ test("auditor tables compare the same plans and sort by the average gap", async 
     [
       "Fewer than 5 shared plans:",
       "",
-      "| Model | Plans | Own findings in rounds | Own average by plan | Others on same plans | Others average by plan | Minutes per round | Wrong claims |",
+      "| Model | Plans | Own findings in rounds | Own per round | Others on same plans | Others per round | Minutes per round | Wrong claims |",
       "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
       "| audit-strong low | 1 | 10 in 5 | 2.00 | 5 in 10 | 0.50 | 2.0 | 0% |",
       "| audit-middle low | 1 | 5 in 5 | 1.00 | 10 in 10 | 1.00 | 1.0 | 0% |",
@@ -287,7 +287,7 @@ test("auditor tables compare the same plans and sort by the average gap", async 
     [
       "No implementation auditor records are available.",
       "",
-      "| Model | Plans | Own findings in rounds | Own average by plan | Others on same plans | Others average by plan | Minutes per round | Wrong claims |",
+      "| Model | Plans | Own findings in rounds | Own per round | Others on same plans | Others per round | Minutes per round | Wrong claims |",
       "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ].join("\n"),
   )
@@ -462,7 +462,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
     testSettings,
   )
   const header = [
-    "| Model | Plans | Own findings in rounds | Own average by plan | Others on same plans | Others average by plan | Minutes per round | Wrong claims |",
+    "| Model | Plans | Own findings in rounds | Own per round | Others on same plans | Others per round | Minutes per round | Wrong claims |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ]
   const planning = report
@@ -472,8 +472,8 @@ test("auditor classes print no evaluation and move models below the floor to a s
     planning,
     [
       ...header,
-      "| main-strong low | 5 | 10 in 5 | 2.00 | 36 in 9 | 3.60 | 1.0 | 0% |",
-      "| main-weak low | 5 | 0 in 5 | 0.00 | 46 in 9 | 4.80 | 1.0 | 0% |",
+      "| main-strong low | 5 | 10 in 5 | 2.00 | 36 in 9 | 4.00 | 1.0 | 0% |",
+      "| main-weak low | 5 | 0 in 5 | 0.00 | 46 in 9 | 5.11 | 1.0 | 0% |",
       "",
       "Fewer than 5 shared plans:",
       "",
@@ -497,7 +497,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
   )
 })
 
-test("same-plan comparison gives each plan equal weight and pools every other auditor within it", () => {
+test("same-plan comparison divides each side's findings by its rounds over all shared plans", () => {
   const comparison = compareAuditorPlans(
     [
       planSample("alpha", 2, { first: true }),
@@ -515,10 +515,10 @@ test("same-plan comparison gives each plan equal weight and pools every other au
     plans: 2,
     ownFindings: 2,
     ownRounds: 3,
-    ownAverage: 0.5,
+    ownPerRound: 2 / 3,
     otherFindings: 4,
     otherRounds: 4,
-    otherAverage: 1,
+    otherPerRound: 1,
     openedPlans: 1,
     evenOpenedPlans: 1 / 3 + 1 / 2,
   })
@@ -533,10 +533,10 @@ test("opener bounds require both a tenth of the shared plans and two opened plan
     plans,
     ownFindings: 0,
     ownRounds: 0,
-    ownAverage: 0,
+    ownPerRound: 0,
     otherFindings: 0,
     otherRounds: 0,
-    otherAverage: 0,
+    otherPerRound: 0,
     openedPlans,
     evenOpenedPlans,
   })
@@ -758,7 +758,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
   assert.match(report, /No retained round held this finding\./)
 })
 
-test("--all prints measured rows that rebuild plan averages and wrong-claim totals", async (t) => {
+test("--all prints measured rows that rebuild the per-round figures and wrong-claim totals", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -881,7 +881,7 @@ test("--all prints measured rows that rebuild plan averages and wrong-claim tota
   const report = await modelsReport(context, testSettings, { all: true })
   assert.match(
     report,
-    /\| model-a low \| 2 \| 2 in 3 \| 0\.50 \| 4 in 3 \| 1\.00 \| 2\.0 \| 67% \|/,
+    /\| model-a low \| 2 \| 2 in 3 \| 0\.67 \| 4 in 3 \| 1\.33 \| 2\.0 \| 67% \|/,
   )
   assert.equal(
     report
