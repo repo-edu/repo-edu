@@ -347,11 +347,13 @@ test("round data attributes the auditor to the audit phase's reported model", as
     run.data.path,
     await readFile(run.data.path, "utf8"),
   ).rounds
+  // The reported selection names the auditor; the seat keeps what it launched on.
   assert.deepEqual(entry?.auditor, {
     assistant: "codex",
     model: "reported-auditor",
     effort: "xhigh",
     chosenBy: "settings",
+    seat: resolved("codex"),
   })
 })
 
@@ -629,6 +631,7 @@ for (const assistant of ["claude", "codex"] as const) {
       assistant: "codex",
       ...resolved("codex"),
       chosenBy: "settings",
+      seat: resolved("codex"),
     })
     assert.deepEqual(data.phases, [
       {

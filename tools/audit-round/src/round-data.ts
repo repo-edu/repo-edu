@@ -140,6 +140,13 @@ const commonRoundData = z.strictObject({
   auditor: modelSelection.extend({
     assistant,
     chosenBy: z.enum(["settings", "--first", "--auditor", "command-line"]),
+    /**
+     * The selection the audit launched on, with its alias resolved at startup.
+     * The series rules match it against the pool, because the CLI may report
+     * another model or effort than it was asked for. Entries written before it
+     * was recorded carry none and match by the reported selection.
+     */
+    seat: z.strictObject({ model: z.string().min(1), effort }).optional(),
   }),
   phases: z.array(
     z.strictObject({

@@ -1605,8 +1605,7 @@ test("an automatic round publishes its settled entry before the series decision"
   const round = controlledRound()
   const answer = {
     answer: "stop",
-    reason:
-      "Rule 2: every assistant in the pool has a current read; the series stops.",
+    reason: "Rule 2: every pool entry has a current read; the series stops.",
   } as const
   const result = await runRound(
     {

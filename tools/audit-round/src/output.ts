@@ -210,6 +210,7 @@ export async function roundRun(
             assistant: audit.assistant,
             ...resolvedRun(audit, releases),
             chosenBy: setup.auditorSelectionSource,
+            seat: resolvedRun(audit, releases),
           },
           ...(setup.pool === undefined ? {} : { pool: setup.pool }),
           originalGroups: setup.originalGroups.map(
@@ -238,6 +239,7 @@ export async function roundRun(
               assistant: audit.assistant,
               ...resolvedRun(audit, releases),
               chosenBy: setup.auditorSelectionSource,
+              seat: resolvedRun(audit, releases),
             },
             ...(setup.pool === undefined ? {} : { pool: setup.pool }),
             ...(setup.roundKind === "planning"

@@ -82,17 +82,18 @@ directly; a commit target lands nothing. An automatic series still applies its d
 
 ### Series
 
-1. **Automatic series**, without `--auditor`. The `--first` selection opens. Without it, the
-   retained round data opens on an assistant without a current read when another assistant has
-   one, so a rerun continues where the series stood; otherwise the configured default auditor
-   opens, and a `random` default picks it again for each scope. After each round that is not red,
-   the runner applies three rules. A read is current only after the latest settle, reopen,
-   plan step, plan edit outside a round or audit with a real bug. Once every assistant in the pool
-   has a current read, widening follows the retained settling line, detailing answers ready before
-   the ready marker and every other series answers stop. Otherwise the next round goes to an
-   assistant without a current read, preferring one that did not audit this round. Within that
-   assistant, the least recently used pool entry goes next. `maximumAutomaticRounds` in the
-   settings caps the series, counting its first round.
+1. **Automatic series**, without `--auditor`. The `--first` selection opens; it must name an
+   auditor from the `auditors` list. Without it, the retained round data opens on a listed auditor
+   without a current read when another has one, so a rerun continues where the series stood;
+   otherwise the configured default auditor opens, and a `random` default picks it again for each
+   scope. After each round that is not red, the runner applies three rules. A read is current only
+   after the latest settle, reopen, plan step, plan edit outside a round or audit with a real bug.
+   Each listed auditor needs its own current read, so two models or efforts of one assistant are
+   two readers. Once every listed auditor has a current read, widening follows the retained
+   settling line, detailing answers ready before the ready marker and every other series answers
+   stop. Otherwise the next round goes to the listed auditor without a current read that read the
+   scope least recently. `maximumAutomaticRounds` in the settings caps the series, counting its
+   first round.
 2. **Scope list.** Each scope runs its own automatic series in list order, and `--first` opens every
    scope. A runner stop or the maximum ends only that scope.
 3. **Manual series**, with `--auditor`. The entries run left to right on the same target. The ones
@@ -157,6 +158,8 @@ and any other with status 1.
 5. **A commit reference names no commit, or a range is not an increasing ancestry range.**
 6. **Options conflict.** `--first` cannot join `--auditor`; the argument parser refuses that pair.
    A scope list cannot run with `--auditor`, whose queue belongs to one scope.
+7. **`--first` names an unlisted auditor.** The message names what the selection resolved to and
+   the listed auditors. Use `--auditor` for a round with an auditor outside the list.
 
 ## Stop and recovery
 

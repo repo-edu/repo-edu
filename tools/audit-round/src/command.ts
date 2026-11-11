@@ -559,7 +559,7 @@ ready and close call. Any other ending stops the run with the stage's own lines,
 and the same command continues from where the plan stands. Once the full step
 range's newest series has ended on stop and no plan commit has changed a
 file since, the run goes straight to the close. Every series it opens
-uses this opener order: a round --first selection, an assistant without a
+uses this opener order: a round --first selection, a listed auditor without a
 current read when another has one, then the configured default. It runs the
 glance and the watch.
 A failed implementation worker prints this command with --resume, which resumes
@@ -684,25 +684,26 @@ Auditor selection (--auditor <selections>):
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
   The default auditor is an entry of the auditors list in settings.json.
   Without --auditor, an active plan or commit target starts an automatic series.
-  A --first <selection> opens it when supplied. Otherwise, an assistant without
-  a current read opens when another assistant has one. Otherwise, the configured
-  default opens. When the auditors list has no entry for the --first assistant,
-  the series may also choose it again. --first cannot be combined with --auditor.
+  A --first <selection> opens it when supplied and must resolve to a listed
+  auditor. Otherwise, a listed auditor without a current read opens when another
+  has one. Otherwise, the configured default opens. --first cannot be combined
+  with --auditor.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
 
 Round sequence:
 
   Automatic series (active plan or commit target without --auditor):
-    - A --first selection opens the series when supplied. Otherwise, an assistant
-      without a current read opens when another assistant has one. Otherwise,
+    - A --first selection opens the series when supplied. Otherwise, a listed
+      auditor without a current read opens when another has one. Otherwise,
       the configured default opens. A random default picks that opener from the
       auditors list in each scope's series.
     - After each non-red round, the runner applies fixed rules. A read is current
       when it started after the latest real-bug audit, lifecycle change, plan
-      step or outside plan edit. When every represented assistant has a current
-      read, widening settles or stops from its settling line, detailing answers
+      step or outside plan edit. When every listed auditor has a current read,
+      widening settles or stops from its settling line, detailing answers
       ready before its marker and every other case stops. Otherwise the runner
-      chooses an assistant without a current read, preferring a switch.
+      chooses the listed auditor without a current read that read least
+      recently.
     - No queue file is written.
     - settings.json sets the maximum round count, including the first round.
     - A commit round keeps the original bounded label, then adds earlier landed
@@ -1781,24 +1782,24 @@ export async function runCommand(
           ],
         )
       const opened = first ?? series.firstAuditor
-      // The series routes among the listed auditors and a `--first` selection
-      // whose assistant the list lacks, so the opener stays inside the series
-      // for every scope the run opens.
-      const firstAuditor = series.firstAuditor
-      const pool: readonly AuditorSeat[] = [
-        ...settings.auditors.map(listedSeat),
-        ...(firstAuditor !== undefined &&
-        !settings.auditors.some(
-          (auditor) => auditor.assistant === firstAuditor.assistant,
-        )
-          ? [firstAuditor]
-          : []),
-      ]
+      // The series routes among the listed auditors only.
+      const pool: readonly AuditorSeat[] = settings.auditors.map(listedSeat)
       // The rules read each round's auditor as the release its CLI resolved,
       // so the pool keeps every entry under that same name.
       const poolAuditors = pool.map((seat) =>
         auditorSetting(seat, releases, settings),
       )
+      // The series ends on one current read per listed auditor, so a
+      // `--first` auditor outside the list would read without counting.
+      if (series.firstAuditor !== undefined) {
+        const firstText = auditorText(
+          auditorSetting(series.firstAuditor, releases, settings),
+        )
+        if (!poolAuditors.some((auditor) => auditorText(auditor) === firstText))
+          throw new InvalidArgumentError(
+            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the auditors list in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
+          )
+      }
       const fixerFor = async (target: AuditTarget) => {
         const assigned =
           "plan" in target
@@ -1915,7 +1916,7 @@ export async function runCommand(
         }
         /**
          * An automatic series with no `--first` continues where the target's
-         * retained data left it: rule 3 opens on an assistant without a
+         * retained data left it: rule 3 opens on a listed auditor without a
          * current read when another has one, so a rerun after a failed round
          * picks up that round's reader rather than the configured default.
          */

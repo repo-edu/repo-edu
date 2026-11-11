@@ -54,27 +54,26 @@ consumers.
   The watch still runs when the fix changed the plan's phase, but the series decision does not.
   After any other non-red round in an automatic series, the runner applies the three fixed rules in
   `judge.ts`. A plan target supplies its round-kind data and episode commits. A commit target
-  supplies only its round data. The series pool is the `auditors`
-  list plus a `--first` selection whose assistant the list lacks. A read is current only after the
-  latest settle, reopen, plan step, plan-file edit outside a round or audit with a real bug. Once
-  every assistant in the pool has a current read, widening follows its retained settling line,
-  detailing answers ready before the ready marker and every other series answers stop. Otherwise the
-  runner selects an assistant without a current read, preferring one that did not audit the current
-  round. The output stores the answer, reason and ordered resolved pool in the final entry. Manual
-  queues apply no automatic decision. The round records both repositories' HEADs before the fix,
-  reads the landed records and validates every subject under its repository's grammar. A plan target
-  keeps only the records whose subject carries its stem, because another plan's round may land in
-  the same checkout while the fix runs. A plan target fails when a finished fix landed no commit. A
-  commit target may land nothing, and a finished clean commit entry settles the runner's read
-  without a landed record. Reader failures retain the owning phase and its session for recovery. The
-  coordinator deletes the report set after these checks. Other outcomes retain the set. `runClose`
-  runs the loop-close phase alone on its own settings. It passes the active plan, the capability tag
-  and model record its commits carry, the open deferrals resolved before assistant startup and any
-  abort reason. A finished close that left its plan in the active folder fails, because the move is
-  the close. After that check the runner itself moves the plan's round-data files beside the
-  archived plan and commits them through `lifecycle.ts`, as a second `<stem>/closed` record with the
-  same tag and model record. The session does not move them: the files are gitignored while they sit
-  in `active/`, so a session that forgot them lost the plan's whole round account to the next hand
+  supplies only its round data. The series pool is the `auditors` list. A read is current only after
+  the latest settle, reopen, plan step, plan-file edit outside a round or audit with a real bug.
+  Once every pool entry has a current read, widening follows its retained settling line, detailing
+  answers ready before the ready marker and every other series answers stop. Otherwise the runner
+  selects the pool entry without a current read that read the scope least recently. The output
+  stores the answer, reason and ordered resolved pool in the final entry. Manual queues apply no
+  automatic decision. The round records both repositories' HEADs before the fix, reads the landed
+  records and validates every subject under its repository's grammar. A plan target keeps only the
+  records whose subject carries its stem, because another plan's round may land in the same checkout
+  while the fix runs. A plan target fails when a finished fix landed no commit. A commit target may
+  land nothing, and a finished clean commit entry settles the runner's read without a landed record.
+  Reader failures retain the owning phase and its session for recovery. The coordinator deletes the
+  report set after these checks. Other outcomes retain the set. `runClose` runs the loop-close phase
+  alone on its own settings. It passes the active plan, the capability tag and model record its
+  commits carry, the open deferrals resolved before assistant startup and any abort reason. A
+  finished close that left its plan in the active folder fails, because the move is the close. After
+  that check the runner itself moves the plan's round-data files beside the archived plan and
+  commits them through `lifecycle.ts`, as a second `<stem>/closed` record with the same tag and
+  model record. The session does not move them: the files are gitignored while they sit in
+  `active/`, so a session that forgot them lost the plan's whole round account to the next hand
   clean-up. A plan with no round data commits nothing. The printed `Committed` line names that
   commit.
 - `clean.ts` owns direct completion when the audit report has no findings. A
@@ -200,16 +199,19 @@ consumers.
   an accepted A in widening and an accepted A or B elsewhere. A hand-run audit represented only by
   Git still contributes its event. A retained real-bug round takes its event time from its latest
   landed record commit, so an overlapping audit that started before the fix is not current. Reads
-  that started after the latest event are current. When every assistant in the pool has one,
+  that started after the latest event are current. A read belongs to the pool entry its audit
+  launched on, as the round data's seat records it, because a CLI may report another model or
+  effort than it was asked for. When every pool entry has a current read,
   widening follows the current round's parsed settling line,
   detailing answers ready before the ready marker and every other series answers stop. Otherwise it
-  selects an assistant without a current read, preferring one that did not audit this round. Within
-  that assistant it selects the least recently used pool entry, with list order breaking a
-  never-read tie. The same decision function serves `replay.ts`. `openingAuditor` applies rule 3
+  selects the pool entry without a current read that read the scope least recently, with list order
+  breaking a never-read tie, so the auditor of this round goes last. The same decision function
+  serves `replay.ts`, which reads each answer stored without a pool as the assistant-keyed rules
+  that produced it. `openingAuditor` applies rule 3
   when a series opens: when the retained data holds a current read of the target by one pool
-  assistant and none by another, the series opens on an assistant without one, so a rerun after a
+  entry and none by another, the series opens on an entry without one, so a rerun after a
   failed round continues where the series stood. With no current read at all, or one for every
-  assistant, the configured default opens, because the rules give that round no reader and the user
+  entry, the configured default opens, because the rules give that round no reader and the user
   asked for one. `auditorText` owns the answer's `<assistant> <model> <effort>` spelling.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
@@ -372,20 +374,20 @@ consumers.
   atomic replace-or-append writer, the disproved-finding writer, the read of one plan's existing
   round-kind files from one selected active or archive folder and the commit-series readers. The
   series decision reads one active commit series. The replay reads every active commit series. Each
-  file is an object whose `rounds` list holds the round entries. Plan files also hold
-  the user's later rulings in `disproved`. The series runner reads commit files before reruns and
-  the runner reads them after automatic rounds. Commit files have no `disproved` list. A finding
-  review carries its report number, tier and verdict; retained finding data stores the verdict word
-  and rebuttal answer. A planning entry's required `settling` field keeps the widening round's
-  settling recommendation as it stands when the round ends: the fix's settling line, or the audit
-  report's closing settling line when the clean audit ran no fix; detailing entries use `""`. The
-  planning, implementation and commit files each hold a time-ordered entry per round. A commit entry
-  also records its original groups, advancing groups and judged repos. An entry records state,
-  settings, chosen auditor and source, phase measurements including peak context and compactions,
-  landed commits, finding review and outcome data and any series answer. New automatic rounds also
-  store the ordered resolved pool used for that answer. `RoundOutput` writes the
-  settled findings as `in-progress` before later phases, then replaces the entry with its final
-  state. The writer checks the whole object and publishes it by temporary file rename.
+  file is an object whose `rounds` list holds the round entries. Plan files also hold the user's
+  later rulings in `disproved`. The series runner reads commit files before reruns and the runner
+  reads them after automatic rounds. Commit files have no `disproved` list. A finding review carries
+  its report number, tier and verdict; retained finding data stores the verdict word and rebuttal
+  answer. A planning entry's required `settling` field keeps the widening round's settling
+  recommendation as it stands when the round ends: the fix's settling line, or the audit report's
+  closing settling line when the clean audit ran no fix; detailing entries use `""`. The planning,
+  implementation and commit files each hold a time-ordered entry per round. A commit entry also
+  records its original groups, advancing groups and judged repos. An entry records state, settings,
+  chosen auditor and source, the seat its audit launched on, phase measurements including peak
+  context and compactions, landed commits, finding review and outcome data and any series answer.
+  New automatic rounds also store the ordered resolved pool used for that answer. `RoundOutput`
+  writes the settled findings as `in-progress` before later phases, then replaces the entry with its
+  final state. The writer checks the whole object and publishes it by temporary file rename.
   `run-files.ts` completes each required write before returning to the invocation; no complete
   transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
   Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
@@ -546,62 +548,62 @@ consumers.
 - `command.ts` owns the command grammar, startup and final reporting, including the `--auditor` and
   `--first` options. It reads both values with the queue's entry grammar and refuses a list with no
   entries. `--first` takes exactly one entry and is refused beside `--auditor`, because the list's
-  first entry already names the first round. The run is the command itself, taking the plan stem as
-  its own argument; `round` runs one audit round or series on a target. A run option given before a
-  subcommand is refused, because the run owns it and no subcommand reads it; options go after the
-  subcommand. Its subcommands are `models`, `replay`, `disprove`, `settle`, `ready`, `implement`,
-  `close`, `round`, `plan`, `name`, `paths`, `delete-reports`, `mark`, `episode` and `deferrals`.
-  Help lists the run, `round`, `models`, `replay`, `disprove`, `settle`, `ready`, `implement`,
-  `close` and `plan`, the commands a user runs. `models` reads its retained data and current coder
-  list before assistant startup or release resolution. `replay` reads the retained plan-series
-  answers and every active commit-series answer. It applies the same fixed decision function without
-  starting an assistant. The hand-run launchers call `name`, `paths`, `delete-reports`, `episode`
-  and `deferrals`, and the reopen step calls `mark`, so help hides them. `plan` prints the plan an
-  omitted target selects, as its absolute path, and writes nothing, so a user can see it before a
-  round or close takes it. `close` resolves its plan and open deferrals before startup, then runs
-  the close phase alone with its own log. The `deferrals` command prints the active plan's open set
-  through the shared owner. It exists only for the hand-run implementation audit, so help hides it
-  beside `episode` and the other launcher interfaces. The `episode` command prints the requested
-  line range from joined watch evidence produced by the shared reader and formatter, with its
-  returned range and current total. Every call rebuilds the view. It performs no release resolution,
-  assistant startup or file writes. The `name` command claims a round and prints its claim,
-  workflow, working checkout and audit arguments. Its required `--auditor` is the hand-run session's
-  full tag, including `u`, checked separately from a round's model request. The `paths` command
-  prints the workflow, working checkout and argument paths for an existing report as a JSON object.
-  It reads the report opening's named workflow to select its kind. Both commands bypass assistant
-  startup and release resolution; `paths` writes nothing. The `delete-reports` command uses the same
-  deletion function as the coordinator and starts no assistant or release resolution. `disprove`
-  resolves one active or archived plan's round data, checks an attached finding or records the
-  manually named auditor of a detached finding, writes through the shared atomic writer and commits
-  only an archived file. It starts no assistant and reads no settings. `settle` and `ready` resolve
-  the active plan that `plan` prints when no stem is given and run only the lifecycle Git owner. The
-  run resolves its named active plan and the stage `lifecycleStage` reads before startup, then reads
-  settings and releases once and calls the stage functions the single commands use, in lifecycle
-  order: the series, `settlePlan`, the series, `readyPlan`, the implementation, the range series and
-  the close. The user's invocation is the settle, ready and close call given in advance, so a runner
-  `settle` or `ready` ending and a range series that ended without needing the user move on to the
-  next stage. After `settlePlan` or `readyPlan` the run reads the next stage through
-  `lifecycleStage`, because a plan reopened after its ready marker keeps the marker and goes on to
-  the implementation or the range series. Every other ending, a refused lifecycle call included,
-  ends the run. Each stage keeps its own files, logs and printed lines; the run adds one line per
-  stage start and one ending line naming the stage it ended in, the stages it completed and that a
-  rerun continues from the plan's state. It takes `-v` and no round option, so every series it opens
-  uses the ordinary opener, the glance and the watch. The hidden `mark` command claims an active
-  plan's next round number for an empty `reopen` marker and prints its path, with no release
-  resolution or assistant. So the program carries an action handler, Commander adds no `help`
-  command, and each command's own `-h` prints its help. A bare command line prints that help;
-  options without a target take `defaultTarget`. `implement` requires its named active plan's
-  assigned ready marker before assistant startup. It uses the assigned coder for every selected
-  pending step and verifies the landed share subjects after each worker before continuing. It also
-  owns the round sequence and its counter. Without `--auditor`, an active plan or commit target runs
-  an automatic series. The `--first` selection runs first. Without it, `openingAuditor` reads the
-  target's retained data and opens on an assistant without a current read when another has one, and
-  the configured default entry opens otherwise. Then each runner answer names the next series-pool
-  entry or an ending. The pool is the `auditors` list plus the resolved `--first` selection when the
-  list has no entry for its assistant, for every scope the run opens; otherwise the selection runs
-  only the first round. A `first` default opens on the first entry and a `random` default picks an
-  entry for each scope's series. The series writes no queue and ends on settle, ready or stop, the
-  configured maximum, a failure, an unanswered ruling, a red watch or a phase change. It returns
+  first entry already names the first round. A `--first` entry that does not resolve to a listed
+  auditor is refused before any round, because the series ends on the listed auditors' reads alone.
+  The run is the command itself, taking the plan stem as its own argument; `round` runs one audit
+  round or series on a target. A run option given before a subcommand is refused, because the run
+  owns it and no subcommand reads it; options go after the subcommand. Its subcommands are `models`,
+  `replay`, `disprove`, `settle`, `ready`, `implement`, `close`, `round`, `plan`, `name`, `paths`,
+  `delete-reports`, `mark`, `episode` and `deferrals`. Help lists the run, `round`, `models`,
+  `replay`, `disprove`, `settle`, `ready`, `implement`, `close` and `plan`, the commands a user
+  runs. `models` reads its retained data and current coder list before assistant startup or release
+  resolution. `replay` reads the retained plan-series answers and every active commit-series answer.
+  It applies the same fixed decision function without starting an assistant. The hand-run launchers
+  call `name`, `paths`, `delete-reports`, `episode` and `deferrals`, and the reopen step calls
+  `mark`, so help hides them. `plan` prints the plan an omitted target selects, as its absolute
+  path, and writes nothing, so a user can see it before a round or close takes it. `close` resolves
+  its plan and open deferrals before startup, then runs the close phase alone with its own log. The
+  `deferrals` command prints the active plan's open set through the shared owner. It exists only for
+  the hand-run implementation audit, so help hides it beside `episode` and the other launcher
+  interfaces. The `episode` command prints the requested line range from joined watch evidence
+  produced by the shared reader and formatter, with its returned range and current total. Every call
+  rebuilds the view. It performs no release resolution, assistant startup or file writes. The `name`
+  command claims a round and prints its claim, workflow, working checkout and audit arguments. Its
+  required `--auditor` is the hand-run session's full tag, including `u`, checked separately from a
+  round's model request. The `paths` command prints the workflow, working checkout and argument
+  paths for an existing report as a JSON object. It reads the report opening's named workflow to
+  select its kind. Both commands bypass assistant startup and release resolution; `paths` writes
+  nothing. The `delete-reports` command uses the same deletion function as the coordinator and
+  starts no assistant or release resolution. `disprove` resolves one active or archived plan's round
+  data, checks an attached finding or records the manually named auditor of a detached finding,
+  writes through the shared atomic writer and commits only an archived file. It starts no assistant
+  and reads no settings. `settle` and `ready` resolve the active plan that `plan` prints when no
+  stem is given and run only the lifecycle Git owner. The run resolves its named active plan and the
+  stage `lifecycleStage` reads before startup, then reads settings and releases once and calls the
+  stage functions the single commands use, in lifecycle order: the series, `settlePlan`, the series,
+  `readyPlan`, the implementation, the range series and the close. The user's invocation is the
+  settle, ready and close call given in advance, so a runner `settle` or `ready` ending and a range
+  series that ended without needing the user move on to the next stage. After `settlePlan` or
+  `readyPlan` the run reads the next stage through `lifecycleStage`, because a plan reopened after
+  its ready marker keeps the marker and goes on to the implementation or the range series. Every
+  other ending, a refused lifecycle call included, ends the run. Each stage keeps its own files,
+  logs and printed lines; the run adds one line per stage start and one ending line naming the stage
+  it ended in, the stages it completed and that a rerun continues from the plan's state. It takes
+  `-v` and no round option, so every series it opens uses the ordinary opener, the glance and the
+  watch. The hidden `mark` command claims an active plan's next round number for an empty `reopen`
+  marker and prints its path, with no release resolution or assistant. So the program carries an
+  action handler, Commander adds no `help` command, and each command's own `-h` prints its help. A
+  bare command line prints that help; options without a target take `defaultTarget`. `implement`
+  requires its named active plan's assigned ready marker before assistant startup. It uses the
+  assigned coder for every selected pending step and verifies the landed share subjects after each
+  worker before continuing. It also owns the round sequence and its counter. Without `--auditor`, an
+  active plan or commit target runs an automatic series. The `--first` selection runs first. Without
+  it, `openingAuditor` reads the target's retained data and opens on a listed auditor without a
+  current read when another has one, and the configured default entry opens otherwise. Then each
+  runner answer names the next series-pool entry or an ending. The pool is the `auditors` list for
+  every scope the run opens. A `first` default opens on the first entry and a `random` default picks
+  an entry for each scope's series. The series writes no queue and ends on settle, ready or stop,
+  the configured maximum, a failure, an unanswered ruling, a red watch or a phase change. It returns
   that ending as a value: `settle` or `ready` for the runner's lifecycle answer, `ended` for a
   runner stop, the maximum or an emptied manual queue, and `stopped` for an ending that needs the
   user, so a reader never parses the printed lines. Before an automatic implementation series
@@ -884,9 +886,10 @@ error and is left unchanged.
   names its assistant, a model and an effort, such as Claude Fable at high and
   Claude Opus at xhigh; either field may say `default`. An automatic series
   opens from the list, and after each round the runner picks the next entry
-  from the series pool: the list plus a `--first` selection whose assistant
-  has no entry. Two models of one vendor are two entries. A one-entry list
-  runs every settings-chosen round on that entry.
+  from it. Two models of one vendor are two entries, and each needs its own
+  current read before the series ends. A `--first` selection must resolve to
+  a listed entry. A one-entry list runs every settings-chosen round on that
+  entry.
 - `coders` is a non-empty ordered list. Each coder names its assistant, model
   and effort, and either field may say `default`. Ready advances from the
   newest earlier assigned plan and wraps at the end. A one-entry list always
@@ -1142,27 +1145,27 @@ An automatic clean round still applies the series rules. A fix that stops for a 
 twin. A finished plan round with audit findings ends with a glance at the commit record, and a due
 glance adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is
 how its cadence survives between rounds, and `--no-watch` skips both. Without `--auditor`, an active
-plan or commit target runs an automatic series from the `--first` selection when supplied. Without
-it, an assistant without a current read opens when another assistant has one. The configured default
-opens otherwise. The series follows each runner answer and stops at settle, ready, stop or its
-maximum without writing a queue. A settle answer ends the series with the settle command to run and
-leaves the widening plan unchanged for the user to settle or keep widening; its reason stays in the
-round. A detailing ready answer ends the series with the ready command to run and leaves the settled
-plan unchanged for the user to mark ready or keep detailing. Under the run both lines still print
-and the run records the call itself. A commit series has no lifecycle answer or watch; the runner
-stops it or chooses another listed auditor. A scope list runs that series once per scope in list
-order, each scope on its own target, and stops the whole list only where a series needs the user: a
-failure, an unanswered ruling, a red watch or a plan phase change. `--auditor` accepts one selection
-or a sequence on the named plan scope or commit series, separated by commas or spaces. Repeated
-entries request separate rounds. The entries after the current round wait in `<target>-queue.md` in
-the active folder. Edit it to add, remove or reorder rounds; the runner reads it between rounds and
-deletes it when the sequence ends. An empty or deleted file ends the sequence after the current
-round. Every completed automatic round prints its runner answer and reason, stores them in retained
-data and repeats the reason in the series ending or the next round's opening line. In a manual
-series, a clean audit skips queued entries with the same resolved assistant, model and effort; other
-settings remain. Failure or leaving a ruling without a reply stops either sequence. A submitted
-reply resumes the fix, then the sequence after the round completes. Each header records the round's
-start time; filenames carry no timestamp.
+plan or commit target runs an automatic series from the `--first` selection when supplied, which
+must name a listed auditor. Without it, a listed auditor without a current read opens when another
+has one. The configured default opens otherwise. The series follows each runner answer and stops at
+settle, ready, stop or its maximum without writing a queue. A settle answer ends the series with the
+settle command to run and leaves the widening plan unchanged for the user to settle or keep
+widening; its reason stays in the round. A detailing ready answer ends the series with the ready
+command to run and leaves the settled plan unchanged for the user to mark ready or keep detailing.
+Under the run both lines still print and the run records the call itself. A commit series has no
+lifecycle answer or watch; the runner stops it or chooses another listed auditor. A scope list runs
+that series once per scope in list order, each scope on its own target, and stops the whole list
+only where a series needs the user: a failure, an unanswered ruling, a red watch or a plan phase
+change. `--auditor` accepts one selection or a sequence on the named plan scope or commit series,
+separated by commas or spaces. Repeated entries request separate rounds. The entries after the
+current round wait in `<target>-queue.md` in the active folder. Edit it to add, remove or reorder
+rounds; the runner reads it between rounds and deletes it when the sequence ends. An empty or
+deleted file ends the sequence after the current round. Every completed automatic round prints its
+runner answer and reason, stores them in retained data and repeats the reason in the series ending
+or the next round's opening line. In a manual series, a clean audit skips queued entries with the
+same resolved assistant, model and effort; other settings remain. Failure or leaving a ruling
+without a reply stops either sequence. A submitted reply resumes the fix, then the sequence after
+the round completes. Each header records the round's start time; filenames carry no timestamp.
 
 Before an automatic implementation series starts, the runner chains one
 planning round when the shared owner finds an open deferral into the plan repo.

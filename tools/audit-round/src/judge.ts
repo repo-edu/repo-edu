@@ -374,35 +374,42 @@ function wideningEnding(entry: RoundData): "settle" | "stop" {
   return match[1] === "settle" ? "settle" : "stop"
 }
 
+/** Whether a round launched its audit on this pool entry. */
+function readBy(entry: RoundData, auditor: Auditor): boolean {
+  const seat = entry.auditor.seat ?? entry.auditor
+  return (
+    entry.auditor.assistant === auditor.assistant &&
+    seat.model === auditor.model &&
+    seat.effort === auditor.effort
+  )
+}
+
+/**
+ * Rule 3's choice among the pool entries without a current read: the one that
+ * read the scope least recently, with list order breaking a never-read tie.
+ */
 function leastRecentEntry(
-  assistant: Auditor["assistant"],
-  pool: readonly Auditor[],
+  missing: readonly Auditor[],
   entries: readonly RoundData[],
 ): Auditor {
-  const candidates = pool.filter((entry) => entry.assistant === assistant)
   const latest = (candidate: Auditor): number =>
     Math.max(
       -Infinity,
       ...entries
-        .filter(
-          (entry) =>
-            entry.auditor.assistant === candidate.assistant &&
-            entry.auditor.model === candidate.model &&
-            entry.auditor.effort === candidate.effort,
-        )
+        .filter((entry) => readBy(entry, candidate))
         .map((entry) => timestamp(entry.started)),
     )
-  const selected = candidates.toSorted(
+  const selected = missing.toSorted(
     (first, second) => latest(first) - latest(second),
   )[0]
   if (selected === undefined)
-    throw new Error(`The series pool has no ${assistant} entry`)
+    throw new Error("The series rules found no pool entry without a read")
   return selected
 }
 
 /**
- * Rule 1 over one target: its settled reads and, per pool assistant, whether
- * one of them started after the newest event that changed the scope.
+ * Rule 1 over one target: its settled reads and the pool entries with no
+ * read that started after the newest event that changed the scope.
  */
 function currentReads(
   evidence: SeriesEvidence,
@@ -411,8 +418,7 @@ function currentReads(
   current?: CurrentRound,
 ): {
   readonly entries: readonly RoundData[]
-  readonly assistants: readonly Auditor["assistant"][]
-  readonly missing: readonly Auditor["assistant"][]
+  readonly missing: readonly Auditor[]
 } {
   if (pool.length === 0) throw new Error("The automatic series pool is empty")
   // A real bug on any of the stem's targets is an event; reads belong to this one.
@@ -427,44 +433,42 @@ function currentReads(
       .map((entry) => realBugEventTime(evidence, entry)),
   ]
   const latestEvent = Math.max(-Infinity, ...eventTimes)
-  const assistants = [...new Set(pool.map((entry) => entry.assistant))]
-  const read = new Set(
-    entries
-      .filter((entry) => timestamp(entry.started) > latestEvent)
-      .map((entry) => entry.auditor.assistant),
+  const reads = entries.filter(
+    (entry) => timestamp(entry.started) > latestEvent,
   )
   return {
     entries,
-    assistants,
-    missing: assistants.filter((assistant) => !read.has(assistant)),
+    missing: pool.filter(
+      (auditor) => !reads.some((entry) => readBy(entry, auditor)),
+    ),
   }
 }
 
 /**
  * Rule 3 at a series' opening. When the retained data holds a current read by
- * one pool assistant and none by another, the series continues where it
- * stood and opens on an assistant without one. With no current read at all,
- * or one for every assistant, the configured default opens instead, because
- * the rules give that round no reader and the user asked for one.
+ * one pool entry and none by another, the series continues where it stood and
+ * opens on an entry without one. With no current read at all, or one for
+ * every entry, the configured default opens instead, because the rules give
+ * that round no reader and the user asked for one.
  */
 export function openingAuditor(
   evidence: SeriesEvidence,
   target: string,
   pool: readonly Auditor[],
 ): { readonly answer: Auditor; readonly reason: string } | null {
-  const { entries, assistants, missing } = currentReads(evidence, target, pool)
-  if (missing.length === 0 || missing.length === assistants.length) return null
-  const nextAssistant = missing[0]
+  const { entries, missing } = currentReads(evidence, target, pool)
+  if (missing.length === 0 || missing.length === pool.length) return null
+  const answer = leastRecentEntry(missing, entries)
   return {
-    answer: leastRecentEntry(nextAssistant, pool, entries),
-    reason: `Rule 3: ${nextAssistant} has no current read.`,
+    answer,
+    reason: `Rule 3: ${auditorText(answer)} has no current read.`,
   }
 }
 
 /**
  * Apply the three automatic-series rules. A read is current only when it
- * started after the newest event that changed its scope. Every represented
- * assistant must have one current read before the phase can end.
+ * started after the newest event that changed its scope. Every pool entry
+ * must have one current read before the phase can end.
  */
 export function decideSeries(
   evidence: SeriesEvidence,
@@ -484,12 +488,12 @@ export function decideSeries(
       return {
         answer,
         reason:
-          "Rule 2: every assistant in the pool has a current read, and the widening recommendation is settle.",
+          "Rule 2: every pool entry has a current read, and the widening recommendation is settle.",
       }
     if ("phase" in current && current.phase === "widening")
       return {
         answer,
-        reason: `Rule 2: every assistant in the pool has a current read; ${current.settling}`,
+        reason: `Rule 2: every pool entry has a current read; ${current.settling}`,
       }
     const readyOpen =
       "phase" in current &&
@@ -499,19 +503,14 @@ export function decideSeries(
       )
     return {
       answer: readyOpen ? "ready" : "stop",
-      reason: `Rule 2: every assistant in the pool has a current read; the ${readyOpen ? "detailing plan is ready" : "series stops"}.`,
+      reason: `Rule 2: every pool entry has a current read; the ${readyOpen ? "detailing plan is ready" : "series stops"}.`,
     }
   }
 
-  const nextAssistant =
-    missing.find((assistant) => assistant !== current.auditor.assistant) ??
-    missing[0]
-  if (nextAssistant === undefined)
-    throw new Error("The series rules found no next assistant")
-  const answer = leastRecentEntry(nextAssistant, pool, entries)
+  const answer = leastRecentEntry(missing, entries)
   return {
     answer,
-    reason: `Rule 3: ${nextAssistant} has no current read${nextAssistant === current.auditor.assistant ? "" : " and did not audit this round"}.`,
+    reason: `Rule 3: ${auditorText(answer)} has no current read${readBy(current, answer) ? "" : " and did not audit this round"}.`,
   }
 }
 

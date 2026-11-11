@@ -740,11 +740,11 @@ test("an automatic series follows the deterministic switch and stores its decisi
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Next round: claude opus high; \d+ rounds remain before the maximum\. Rule 3: claude has no current read and did not audit this round\./,
+    /Next round: claude opus high; \d+ rounds remain before the maximum\. Rule 3: claude opus high has no current read and did not audit this round\./,
   )
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped after 2 rounds\. Rule 2: every assistant in the pool has a current read; the series stops\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 2 rounds\. Rule 2: every pool entry has a current read; the series stops\./,
   )
   const transcripts = (await f.roundFiles()).filter((name) =>
     /-1-round\..+\.md$/.test(name),
@@ -1038,7 +1038,7 @@ test("--first replaces the default auditor's first round before deterministic se
   )
   assert.equal(
     await runCommand(
-      ["round", "example.md", "1", "--first", "atx", "--no-watch"],
+      ["round", "example.md", "1", "--first", "ab", "--no-watch"],
       f.runtime,
       f.options,
     ),
@@ -1059,9 +1059,9 @@ test("--first replaces the default auditor's first round before deterministic se
     stored.rounds.map((entry) => entry.auditor.chosenBy),
     ["--first", "settings"],
   )
-  // Claude has a listed entry, so the selection runs only the first round and
-  // the runner chooses among the listed auditors.
-  for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
+  // The selection names the listed Claude auditor, so it opens the series in
+  // the configured first entry's place and the runner continues the list.
+  for (const argument of ["--model", "opus", "--effort", "high"])
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
   for (const argument of [
     "-m",
@@ -1076,7 +1076,7 @@ test("--first replaces the default auditor's first round before deterministic se
   assert.ok(firstLog)
   assert.match(
     await readFile(join(f.activeRoot, firstLog), "utf8"),
-    /audit +claude +claude-fable-5-1 +extra high +--first/,
+    /audit +claude +\S+ +high +--first/,
   )
   const visible = f.visible.join("\n")
   assert.match(visible, /Next round: codex gpt-5\.6-sol high;/)
@@ -1090,7 +1090,7 @@ test("--first replaces the default auditor's first round before deterministic se
   )
 })
 
-test("an automatic series treats two listed models of one assistant as one represented reader", async (t) => {
+test("an automatic series needs a current read from each listed model of one assistant", async (t) => {
   const f = await roundFixture(
     t,
     "claude",
@@ -1128,32 +1128,39 @@ test("an automatic series treats two listed models of one assistant as one repre
   )
   assert.deepEqual(
     audits.map((call) => call.assistant),
-    ["claude"],
+    ["claude", "claude"],
   )
   for (const argument of ["--model", "claude-fable-5-1", "--effort", "high"])
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
+  for (const argument of ["--model", "opus", "--effort", "xhigh"])
+    assert.ok(audits[1].args.includes(argument), audits[1].args.join(" "))
   // The vet stays with the other vendor whichever Claude model audited.
   assert.deepEqual(
     prompts
       .filter((call) => call.prompt.startsWith("Run the vet phase "))
       .map((call) => call.assistant),
-    ["codex"],
+    ["codex", "codex"],
   )
   assert.match(
     f.visible.join("\n"),
-    /automatic auditor series stopped after 1 round\. Rule 2:/,
+    /automatic auditor series stopped after 2 rounds\. Rule 2:/,
   )
   const stored = JSON.parse(
     await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { pool?: unknown[]; judge: { answer: unknown } | null }[] }
-  assert.equal(stored.rounds[0].judge?.answer, "stop")
+  assert.deepEqual(stored.rounds[0].judge?.answer, {
+    assistant: "claude",
+    model: "claude-opus-5-5",
+    effort: "xhigh",
+  })
+  assert.equal(stored.rounds[1].judge?.answer, "stop")
   assert.deepEqual(stored.rounds[0].pool, [
     { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
     { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
   ])
 })
 
-test("a --first selection whose assistant the list lacks joins the series pool", async (t) => {
+test("a --first selection outside the auditors list is refused before any round", async (t) => {
   const f = await roundFixture(
     t,
     "claude",
@@ -1165,36 +1172,19 @@ test("a --first selection whose assistant the list lacks joins the series pool",
     false,
     true,
   )
-  const settings = structuredClone(testSettings)
-  settings.auditors = [
-    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
-  ]
   assert.equal(
     await runCommand(
       ["round", "example.md", "1", "--first", "atx", "--no-watch"],
       f.runtime,
-      { ...f.options, settings },
+      f.options,
     ),
-    0,
-    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+    2,
   )
-  const prompts = await f.prompts()
-  const audits = prompts.filter((call) =>
-    call.prompt.startsWith("Run the audit phase "),
+  assert.match(
+    f.errors.join("\n"),
+    /--first atx resolves to claude claude-fable-5-1 xhigh, which the auditors list in settings\.json does not hold\. Name a listed auditor: codex gpt-5\.6-sol high, claude \S+ high\./,
   )
-  assert.deepEqual(
-    audits.map((call) => call.assistant),
-    ["claude", "codex"],
-  )
-  for (const argument of ["--model", "claude-fable-5-1", "--effort", "xhigh"])
-    assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
-  const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
-  ) as { rounds: { auditor: { chosenBy: string } }[] }
-  assert.deepEqual(
-    stored.rounds.map((entry) => entry.auditor.chosenBy),
-    ["--first", "settings"],
-  )
+  await assert.rejects(f.prompts(), { code: "ENOENT" })
 })
 
 test("an automatic series stops when its fix reopens the plan", async (t) => {
@@ -1417,7 +1407,7 @@ test("a widening series ends on its settled recommendation", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended after 1 round\. Widening is done: run pnpm audit-round settle example\. Rule 2: every assistant in the pool has a current read, and the widening recommendation is settle\./,
+    /Plan audit of example: automatic auditor series ended after 1 round\. Widening is done: run pnpm audit-round settle example\. Rule 2: every pool entry has a current read, and the widening recommendation is settle\./,
   )
   assert.doesNotMatch(visible, /settle recommendation/)
   const {
@@ -1440,7 +1430,7 @@ test("a widening series ends on its settled recommendation", async (t) => {
   assert.deepEqual(stored?.judge, {
     answer: "settle",
     reason:
-      "Rule 2: every assistant in the pool has a current read, and the widening recommendation is settle.",
+      "Rule 2: every pool entry has a current read, and the widening recommendation is settle.",
   })
   assert.deepEqual(stored?.pool, [
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
@@ -1486,7 +1476,7 @@ test("a widening keep-open recommendation stops the series without settling", as
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series stopped after 1 round\. Rule 2: every assistant in the pool has a current read; keep open\. The shape question needs evidence only the user can supply\./,
+    /Plan audit of example: automatic auditor series stopped after 1 round\. Rule 2: every pool entry has a current read; keep open\. The shape question needs evidence only the user can supply\./,
   )
 })
 
@@ -1515,7 +1505,7 @@ test("a detailing series ends ready after every represented assistant has a curr
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended after 1 round\. Detailing is done: run pnpm audit-round ready example\. Rule 2: every assistant in the pool has a current read; the detailing plan is ready\./,
+    /Plan audit of example: automatic auditor series ended after 1 round\. Detailing is done: run pnpm audit-round ready example\. Rule 2: every pool entry has a current read; the detailing plan is ready\./,
   )
   const {
     rounds: [stored],
@@ -1532,7 +1522,7 @@ test("a detailing series ends ready after every represented assistant has a curr
   assert.deepEqual(stored?.judge, {
     answer: "ready",
     reason:
-      "Rule 2: every assistant in the pool has a current read; the detailing plan is ready.",
+      "Rule 2: every pool entry has a current read; the detailing plan is ready.",
   })
   assert.deepEqual(stored?.pool, [
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
@@ -1769,11 +1759,11 @@ test("a rerun opens on the assistant without a current read and names its claime
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Opening round: codex gpt-5\.6-sol high\. Rule 3: codex has no current read\./,
+    /Opening round: codex gpt-5\.6-sol high\. Rule 3: codex gpt-5\.6-sol high has no current read\./,
   )
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped after 1 round\. Rule 2: every assistant in the pool has a current read; the series stops\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 1 round\. Rule 2: every pool entry has a current read; the series stops\./,
   )
   const transcripts = (await f.roundFiles()).filter((name) =>
     /-1-round\..+\.md$/.test(name),

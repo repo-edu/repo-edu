@@ -154,8 +154,8 @@ because no stem scan reads one for a commit target.
 A commit target is a series under its bounded `commit-` label. After each
 finished round, the runner reads the label's retained round data and the commit
 times of its landed records. The original references and earlier landed fixes
-define each later round's exact audit scope. It stops once every assistant in
-the pool has a current read or chooses an assistant without one. A clean round
+define each later round's exact audit scope. It stops once every listed
+auditor has a current read or chooses a listed auditor without one. A clean round
 lands no record, but its finished data entry can settle the read. The fix
 follows the runner's
 [Report lifecycle](../../../../tools/audit-round/CLAUDE.md#report-lifecycle).

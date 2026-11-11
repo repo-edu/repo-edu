@@ -152,6 +152,34 @@ function historicalEvidence(
   }
 }
 
+/**
+ * An answer without a stored pool ran when its rules counted reads per
+ * assistant and its auditors rotated across models, so each round reads as its
+ * assistant's legacy pool entry.
+ */
+function legacyReads(evidence: SeriesEvidence): SeriesEvidence {
+  return {
+    ...evidence,
+    roundData: {
+      ...evidence.roundData,
+      rounds: evidence.roundData.rounds.map((round) => {
+        const entry = legacyPool.find(
+          (auditor) => auditor.assistant === round.auditor.assistant,
+        )
+        return entry === undefined
+          ? round
+          : {
+              ...round,
+              auditor: {
+                ...round.auditor,
+                seat: { model: entry.model, effort: entry.effort },
+              },
+            }
+      }),
+    },
+  }
+}
+
 export function replayAnswersMatch(
   computed: SeriesDecision,
   stored: SeriesDecision,
@@ -200,11 +228,11 @@ function appendRows(
 ): void {
   const answered = entries.filter((entry) => entry.judge !== null)
   for (const entry of answered) {
-    const pool = entry.pool ?? legacyPool
+    const historical = historicalEvidence(evidence, entry)
     const computed = decideSeries(
-      historicalEvidence(evidence, entry),
+      entry.pool === undefined ? legacyReads(historical) : historical,
       { target: entry.target, round: entry.round },
-      pool,
+      entry.pool ?? legacyPool,
     ).answer
     const stored = entry.judge?.answer
     if (stored === undefined) continue

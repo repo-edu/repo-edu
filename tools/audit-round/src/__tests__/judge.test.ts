@@ -154,7 +154,8 @@ test("a real bug makes every earlier read stale and switches assistants", () => 
   })
   assert.deepEqual(decideSeries(evidence([codex]), current(codex), pool), {
     answer: opus,
-    reason: "Rule 3: claude has no current read and did not audit this round.",
+    reason:
+      "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
   })
 
   const claude = planningRound(opus, 2, "2026-11-08T11:00:00Z")
@@ -162,12 +163,13 @@ test("a real bug makes every earlier read stale and switches assistants", () => 
     decideSeries(evidence([codex, claude]), current(claude), pool),
     {
       answer: sol,
-      reason: "Rule 3: codex has no current read and did not audit this round.",
+      reason:
+        "Rule 3: codex gpt-5.6-sol xhigh has no current read and did not audit this round.",
     },
   )
 })
 
-test("every represented assistant needs a current read before detailing is ready", () => {
+test("every pool entry needs a current read before detailing is ready", () => {
   const claude = planningRound(opus, 1, "2026-11-08T10:00:00Z")
   const codex = planningRound(sol, 2, "2026-11-08T11:00:00Z")
   assert.deepEqual(
@@ -175,7 +177,7 @@ test("every represented assistant needs a current read before detailing is ready
     {
       answer: "ready",
       reason:
-        "Rule 2: every assistant in the pool has a current read; the detailing plan is ready.",
+        "Rule 2: every pool entry has a current read; the detailing plan is ready.",
     },
   )
 
@@ -189,8 +191,7 @@ test("every represented assistant needs a current read before detailing is ready
     decideSeries(evidence([claude, codex], [ready]), current(codex), pool),
     {
       answer: "stop",
-      reason:
-        "Rule 2: every assistant in the pool has a current read; the series stops.",
+      reason: "Rule 2: every pool entry has a current read; the series stops.",
     },
   )
 })
@@ -218,7 +219,7 @@ test("widening ends from its retained settling line", () => {
     {
       answer: "stop",
       reason:
-        "Rule 2: every assistant in the pool has a current read; keep open. Decision 3 still needs implementation evidence.",
+        "Rule 2: every pool entry has a current read; keep open. Decision 3 still needs implementation evidence.",
     },
   )
 })
@@ -245,7 +246,7 @@ test("a hand-run A audit in the commit list invalidates older reads", () => {
     {
       answer: opus,
       reason:
-        "Rule 3: claude has no current read and did not audit this round.",
+        "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
     },
   )
 })
@@ -273,7 +274,7 @@ test("a bare init makes a hand-run B audit invalidate older reads", () => {
     {
       answer: opus,
       reason:
-        "Rule 3: claude has no current read and did not audit this round.",
+        "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
     },
   )
 })
@@ -296,7 +297,7 @@ test("real bugs on every retained target invalidate older reads", () => {
       {
         answer: opus,
         reason:
-          "Rule 3: claude has no current read and did not audit this round.",
+          "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
       },
     )
 })
@@ -319,7 +320,8 @@ test("a real bug becomes an event when its latest record lands", () => {
     ),
     {
       answer: sol,
-      reason: "Rule 3: codex has no current read and did not audit this round.",
+      reason:
+        "Rule 3: codex gpt-5.6-sol xhigh has no current read and did not audit this round.",
     },
   )
 })
@@ -370,6 +372,25 @@ test("a one-assistant pool ends after that assistant's current read", () => {
   )
 })
 
+test("each listed model of one assistant needs its own current read", () => {
+  const first = planningRound(fable, 1, "2026-11-08T10:00:00Z", {
+    tier: "C",
+  })
+  assert.deepEqual(
+    decideSeries(evidence([first]), current(first), [fable, opus]).answer,
+    opus,
+  )
+
+  const second = planningRound(opus, 2, "2026-11-08T11:00:00Z", {
+    tier: "C",
+  })
+  assert.equal(
+    decideSeries(evidence([first, second]), current(second), [fable, opus])
+      .answer,
+    "ready",
+  )
+})
+
 test("two models of one assistant choose the least recently read entry", () => {
   const recent = planningRound(fable, 1, "2026-11-08T10:00:00Z", {
     tier: "B",
@@ -388,7 +409,7 @@ test("two models of one assistant choose the least recently read entry", () => {
   )
 })
 
-test("a series opens on the assistant without a current read when another has one", () => {
+test("a series opens on the pool entry without a current read when another has one", () => {
   const claude = implementationRound(opus, 1, "2026-11-08T10:00:00Z", "C")
   const failed: RoundData = {
     ...implementationRound(sol, 2, "2026-11-08T11:00:00Z", "C"),
@@ -398,7 +419,7 @@ test("a series opens on the assistant without a current read when another has on
   const target = claude.target
   assert.deepEqual(openingAuditor(evidence([claude, failed]), target, pool), {
     answer: sol,
-    reason: "Rule 3: codex has no current read.",
+    reason: "Rule 3: codex gpt-5.6-sol xhigh has no current read.",
   })
 
   // No settled read, or one for every assistant, leaves the opener to the settings.

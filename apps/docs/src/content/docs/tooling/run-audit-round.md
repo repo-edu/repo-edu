@@ -61,7 +61,7 @@ the full implementation range.
 
 ## When a series stops
 
-An automatic series stops when every assistant in the pool has a current read, the configured round
+An automatic series stops when every listed auditor has a current read, the configured round
 maximum is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes
 the plan's phase. A submitted ruling reply resumes the same fix before the series continues.
 
