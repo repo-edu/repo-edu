@@ -3,9 +3,9 @@ title: pnpm audit-round models
 description: Compare retained auditor and coder results without starting an assistant
 ---
 
-`pnpm audit-round models` reads the evidence the runner has kept on every configured auditor and
-coder, so you can change the `auditors` or `coders` list in `tools/audit-round/settings.json` on
-recorded yield and time rather than on impressions.
+`pnpm audit-round models` reads the kept evidence for each auditor in every class where it has a
+complete round and for each coder with an admitted plan. You can use the recorded yield and time to
+change the `auditors` or `coders` list in `tools/audit-round/settings.json`.
 
 | Fact | Detail |
 | --- | --- |
