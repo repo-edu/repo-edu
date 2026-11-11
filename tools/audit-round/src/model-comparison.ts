@@ -3,7 +3,6 @@ import { mean } from "simple-statistics"
 const yieldSame = 0.05
 const yieldClear = 0.5
 const timeClear = 2
-const auditorYieldFactor = 1.25
 
 export const auditorFloor = 5
 export const coderFloor = 3
@@ -31,16 +30,6 @@ export type AuditorPlanComparison = {
   readonly otherAverage: number | null
   readonly openedPlans: number
   readonly evenOpenedPlans: number
-}
-
-type AuditorGroup<Row> = {
-  readonly more: Row[]
-  readonly fewer: Row[]
-}
-
-type TimeGroup<Row> = {
-  readonly fastest: Row | null
-  readonly slower: Row[]
 }
 
 function samplesByPlan(
@@ -100,42 +89,6 @@ export function compareAuditorPlans(
     otherAverage: otherPlanYields.length === 0 ? null : mean(otherPlanYields),
     openedPlans,
     evenOpenedPlans,
-  }
-}
-
-/** Group admitted auditor rows by their yield against the other auditors. */
-export function auditorYieldGroups<Row>(
-  rows: readonly Row[],
-  comparison: (row: Row) => AuditorPlanComparison,
-): AuditorGroup<Row> {
-  const more: Row[] = []
-  const fewer: Row[] = []
-  for (const row of rows) {
-    const { ownAverage, otherAverage } = comparison(row)
-    if (ownAverage === null || otherAverage === null) continue
-    if (ownAverage === 0 && otherAverage === 0) continue
-    if (ownAverage >= otherAverage * auditorYieldFactor) more.push(row)
-    if (otherAverage >= ownAverage * auditorYieldFactor) fewer.push(row)
-  }
-  return { more, fewer }
-}
-
-/** Find the fastest row and rows taking more than twice its mean time. */
-export function auditorTimeGroup<Row>(
-  rows: readonly Row[],
-  minutes: (row: Row) => number,
-): TimeGroup<Row> {
-  if (rows.length === 0) return { fastest: null, slower: [] }
-  const ordered = [...rows].sort((first, second) => {
-    const difference = minutes(first) - minutes(second)
-    return difference === 0 ? 0 : difference
-  })
-  const fastest = ordered[0]
-  return {
-    fastest,
-    slower: ordered
-      .slice(1)
-      .filter((row) => minutes(row) > minutes(fastest) * 2),
   }
 }
 

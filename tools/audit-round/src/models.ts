@@ -3,8 +3,6 @@ import type { ExecutionContext } from "./context.js"
 import {
   type AuditorPlanComparison,
   auditorFloor,
-  auditorTimeGroup,
-  auditorYieldGroups,
   clearlyPreferredMeasures,
   coderFloor,
   compareAuditorPlans,
@@ -107,7 +105,7 @@ function auditorSamples(
 /**
  * Rows with a complete round in the class. A model whose rounds all fall in
  * the other class has nothing to show here, so it stays out of this class's
- * reading and table rather than printing a zero row and a shortage bullet.
+ * tables rather than printing a zero row.
  */
 function classRows(
   rows: ReadonlyMap<string, AuditorRow>,
@@ -206,85 +204,21 @@ function orderedAuditorReadings(readings: readonly AuditorReading[]) {
   ])
 }
 
-function modelList(readings: readonly AuditorReading[]): string {
-  const names = readings.map((reading) => `\`${modelText(reading.identity)}\``)
-  if (names.length < 2) return names[0] ?? ""
-  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
-}
-
-function subjectVerb(count: number, singular: string, pluralForm: string) {
-  return count === 1 ? singular : pluralForm
-}
-
-function auditorEvaluation(readings: readonly AuditorReading[]): string[] {
-  const eligible = readings.filter(
-    (reading) => reading.comparison.plans >= auditorFloor,
-  )
-  if (eligible.length === 0)
-    return [
-      "- No auditor has five shared plans for the yield comparison.",
-      "- No auditor has five shared plans for the time comparison.",
-    ]
-  const yieldGroups = auditorYieldGroups(
-    eligible,
-    (reading) => reading.comparison,
-  )
-  const more =
-    yieldGroups.more.length === 0
-      ? "no auditor finds more than the others"
-      : `${modelList(yieldGroups.more)} ${subjectVerb(yieldGroups.more.length, "finds", "find")} more than the other auditors`
-  const fewer =
-    yieldGroups.fewer.length === 0
-      ? "no auditor finds fewer than the others"
-      : `${modelList(yieldGroups.fewer)} ${subjectVerb(yieldGroups.fewer.length, "finds", "find")} fewer than the other auditors`
-  const timeCandidates =
-    yieldGroups.more.length >= 2 ? yieldGroups.more : eligible
-  const timeGroup = auditorTimeGroup(
-    timeCandidates,
-    (reading) => reading.minutes,
-  )
-  if (timeGroup.fastest === null)
-    throw new Error("Admitted auditor rows need a time sample")
-  const fastest = `${modelList([timeGroup.fastest])} is the fastest${
-    yieldGroups.more.length >= 2 ? " of those ahead" : ""
-  }`
-  const slower =
-    timeGroup.slower.length === 0
-      ? ""
-      : `; ${modelList(timeGroup.slower)} ${subjectVerb(timeGroup.slower.length, "takes", "take")} more than twice as long`
-  return [
-    `- On the same plans ${more}, and ${fewer}.`,
-    `- ${fastest}${slower}.`,
-  ]
-}
-
-function auditorNotes(
+/** One correctable bullet per listed auditor whose opener share is uneven. */
+function listedOpenerBullets(
   readings: readonly AuditorReading[],
-  workClass: WorkClass,
   settings: RoundSettings,
 ): string[] {
-  const shortage = readings.flatMap((reading) => {
-    const missing = auditorFloor - reading.comparison.plans
-    return missing <= 0
-      ? []
-      : [
-          `- \`${modelText(reading.identity)}\` needs ${plural(missing, "more shared plan")} before it is compared.`,
-        ]
-  })
-  if (workClass !== "planning") return shortage
-  return [
-    ...shortage,
-    ...readings
-      .filter(
-        (reading) =>
-          hasUnevenOpeners(reading.comparison) &&
-          listedAuditor(reading.identity, settings),
-      )
-      .map(
-        (reading) =>
-          `- \`${modelText(reading.identity)}\` opened ${reading.comparison.openedPlans} of ${reading.comparison.plans} plans.`,
-      ),
-  ]
+  return readings
+    .filter(
+      (reading) =>
+        hasUnevenOpeners(reading.comparison) &&
+        listedAuditor(reading.identity, settings),
+    )
+    .map(
+      (reading) =>
+        `- \`${modelText(reading.identity)}\` opened ${reading.comparison.openedPlans} of ${reading.comparison.plans} plans.`,
+    )
 }
 
 function auditorTable(readings: readonly AuditorReading[]): string[] {
@@ -404,16 +338,26 @@ function auditorSection(
       ...auditorTable([]),
     ]
   const readings = orderedAuditorReadings(auditorReadings(rows, workClass))
-  const notes = auditorNotes(readings, workClass, settings)
-  const unlisted =
-    workClass === "planning" ? unlistedOpenerLine(readings, settings) : null
-  return [
-    ...auditorEvaluation(readings),
-    ...notes,
-    "",
-    ...auditorTable(readings),
-    ...(unlisted === null ? [] : ["", unlisted]),
-  ]
+  const compared = readings.filter(
+    (reading) => reading.comparison.plans >= auditorFloor,
+  )
+  const thin = readings.filter(
+    (reading) => reading.comparison.plans < auditorFloor,
+  )
+  const planning = workClass === "planning"
+  const openers = planning ? listedOpenerBullets(readings, settings) : []
+  const unlisted = planning ? unlistedOpenerLine(readings, settings) : null
+  const blocks = [
+    openers,
+    compared.length === 0 ? [] : auditorTable(compared),
+    thin.length === 0
+      ? []
+      : [`Fewer than ${auditorFloor} shared plans:`, "", ...auditorTable(thin)],
+    unlisted === null ? [] : [unlisted],
+  ].filter((block) => block.length > 0)
+  return blocks.flatMap((block, index) =>
+    index === 0 ? block : ["", ...block],
+  )
 }
 
 function coderRecommendation(
@@ -623,7 +567,7 @@ export async function modelsReport(
     "",
     ...auditorSection(implementation, "implementation", settings),
     "",
-    "Auditor rows sort by the gap between the two averages, then by time. Each average first divides kept A and B findings by rounds within one shared plan, then gives every shared plan equal weight. The count cells show the measured findings and rounds behind those plans. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.",
+    `Auditor rows sort by the gap between the two averages, then by time. A model with fewer than ${auditorFloor} shared plans in a class is printed in a second table below the main one. Each average first divides kept A and B findings by rounds within one shared plan, then gives every shared plan equal weight. The count cells show the measured findings and rounds behind those plans. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
     "",
     "## Coders",
     "",
