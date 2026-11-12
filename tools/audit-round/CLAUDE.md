@@ -933,6 +933,11 @@ Run from either checkout with authenticated `claude` and `codex`
 commands available. Terminal Markdown rendering is bundled with the runner and needs no separate
 executable. Set `NO_COLOR=1` to disable colour. Redirected output retains the original Markdown.
 
+On macOS `main.ts` starts `caffeinate -i -w <runner pid>` before any command runs, because an
+unattended run otherwise stops once the display sleeps on battery and no app holds the Mac awake.
+The hold ends with the runner process however it exits. A failed start prints one warning and the
+command continues. Linux takes no hold.
+
 The terminal renderer is `@earendil-works/pi-tui`, replacing Glow. The accepted presentation keeps
 tables aligned, preserves paragraph and nested-list spacing and uses cyan code references without
 heavy background blocks. Preserve these qualities when changing terminal rendering.

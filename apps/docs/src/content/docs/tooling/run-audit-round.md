@@ -76,3 +76,7 @@ The terminal shows the target, phase selection, elapsed time and each phase's Ma
 checkout's `active/` folder keeps the transcript, tool log and retained round data. Use
 [Find round outputs](/repo-edu/tooling/find-round-outputs/) when you need the report, a review twin
 or the complete conversation after the terminal has scrolled.
+
+On macOS the runner keeps the computer from idle-sleeping for as long as it runs, on battery as
+well, so an unattended run continues after the display sleeps. Closing the lid still puts the Mac
+to sleep.
