@@ -886,6 +886,11 @@ export async function runRound(
 
     if (fix.status === "finished") {
       try {
+        const unresolved = openContests(account, contests)
+        if (unresolved.length > 0)
+          throw new Error(
+            `The finished fix left serious contests without winners: ${unresolved.map((number) => `finding ${number}`).join(", ")}`,
+          )
         // The fix ends the round and has answered every ruling it asked, so
         // its settling line is the recommendation the series rules read. The audit
         // report's closing line stands only when no fix ran.

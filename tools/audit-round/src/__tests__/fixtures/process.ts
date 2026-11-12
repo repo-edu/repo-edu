@@ -25,6 +25,7 @@ await appendFile(
     cwd: process.cwd(),
     phases: process.env.COMMIT_PHASES ?? null,
     auditor: process.env.COMMIT_AUDITOR ?? null,
+    openContests: process.env.COMMIT_OPEN_CONTESTS ?? null,
   })}\n`,
 )
 

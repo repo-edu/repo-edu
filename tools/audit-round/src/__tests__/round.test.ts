@@ -601,6 +601,19 @@ test("not yet keeps a contest open until the runner records its winner and reaso
   )
   const fixes = round.calls.filter((call) => call.phase === "fix")
   assert.equal(fixes.length, 3)
+  const commitBlocks = fixes.map(
+    (fix) =>
+      fix.arguments
+        .find(
+          (argument) =>
+            typeof argument === "object" &&
+            argument !== null &&
+            "contests" in argument,
+        )
+        ?.contests.filter((contest) => contest.winner === undefined)
+        .map((contest) => contest.finding) ?? [],
+  )
+  assert.deepEqual(commitBlocks, [[1], [1], []])
   const finalScope = fixes[2]?.arguments.find(
     (argument) =>
       typeof argument === "object" &&
@@ -616,6 +629,22 @@ test("not yet keeps a contest open until the runner records its winner and reaso
       },
     ],
   })
+})
+
+test("a fix cannot finish while a serious contest has no winner", async () => {
+  const round = controlledRound()
+  round.evidence.rebuttalAnswer = "contest"
+
+  const result = await runRound(
+    { ...files, plan: "example.md", scope: "1" },
+    round.dependencies,
+  )
+
+  assert.equal(result.status, "failed")
+  if (result.status !== "failed") return
+  assert.equal(result.phase, "fix")
+  assert.match(result.reason, /finished fix left serious contests.*finding 1/)
+  assert.deepEqual(round.deletedReports, [])
 })
 
 test("the round account retains review, rebuttal and settlement outcomes", async () => {

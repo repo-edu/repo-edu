@@ -170,9 +170,10 @@ and any other with status 1.
 1. **A fix needs your ruling.** The line above the ruling says whether the fix uses the auditor's
    model, the vet's model or neither. For each listed serious contest, enter `vet`, `auditor`,
    `neither` or `not yet`. The first three need a one-line reason. `Not yet` sends your question to
-   the fix and asks again when the ruling returns. After those questions, type any free reply and
-   submit it with a blank line; it may be empty once every contest has a winner. Leaving without a
-   reply keeps the round's files, prints the fix's recovery command and ends the series. See
+   the fix and asks again when the ruling returns. The fix remains unable to commit until every
+   required winner is recorded. After those questions, type any free reply and submit it with a
+   blank line; it may be empty once every contest has a winner. Leaving without a reply keeps the
+   round's files, prints the fix's recovery command and ends the series. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Resume:`
    command. See [Recover a run](/repo-edu/tooling/recover-run/).

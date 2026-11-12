@@ -10,6 +10,7 @@ import {
 } from "./feedback.js"
 import type {
   AssistantTurnInput,
+  ContestScope,
   Phase,
   PhaseControlResult,
   PhaseFailure,
@@ -21,6 +22,22 @@ import { phaseResult, watchOutput, withoutPhaseResult } from "./phase-result.js"
 import { type AssistantPrompt, phasePrompt, phaseRequest } from "./requests.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
+
+/** Derive the fix commit block from the contest arguments the runner already owns. */
+function openContests(input: AssistantTurnInput): readonly number[] {
+  if (input.phase !== "fix") return []
+  const scope = input.arguments.find(
+    (argument): argument is ContestScope =>
+      typeof argument === "object" &&
+      argument !== null &&
+      "contests" in argument,
+  )
+  return (
+    scope?.contests
+      .filter((contest) => contest.winner === undefined)
+      .map((contest) => contest.finding) ?? []
+  )
+}
 
 export function runAssistantPhase<P extends Phase>(
   input: PhaseInput<P>,
@@ -121,7 +138,7 @@ async function runAssistantTurn<T>(
       const request = phaseRequest(input, prompt.text)
       const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
       await withCliProcess(
-        { ...runtime, cwd: input.cwd },
+        { ...runtime, cwd: input.cwd, openContests: openContests(input) },
         input.assistant,
         request.args,
         request.input,

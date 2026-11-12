@@ -22,6 +22,8 @@ export type CliRuntime = {
         readonly auditor: string | null
       }
     | undefined
+  /** Serious contest findings whose missing winners block a fix commit. */
+  readonly openContests?: readonly number[]
   readonly signal?: AbortSignal
 }
 
@@ -32,10 +34,14 @@ export type CliRuntime = {
  */
 function environment(runtime: CliRuntime) {
   const stamps = runtime.commit?.()
-  if (stamps === undefined) return runtime.env
+  const admission = {
+    COMMIT_OPEN_CONTESTS: (runtime.openContests ?? []).join(","),
+  }
+  if (stamps === undefined) return { ...runtime.env, ...admission }
   const { phases, auditor } = stamps
   return {
     ...runtime.env,
+    ...admission,
     COMMIT_PHASES: phases,
     ...(auditor === null ? {} : { COMMIT_AUDITOR: auditor }),
   }

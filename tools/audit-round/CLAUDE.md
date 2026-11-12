@@ -26,7 +26,10 @@ consumers.
   neither, then displays it. A contested verdict goes to the user when the report or revised vet
   tier is A or B. The runner asks for `vet`, `auditor`, `neither` or `not yet` and a reason where a
   winner was named before collecting the free reply. It retains each winner and reason on the
-  finding and passes them to the resumed fix. A missing or empty ruling fails the fix with its
+  finding and passes them to the resumed fix. Every fix child receives the finding numbers still
+  without winners in `COMMIT_OPEN_CONTESTS`; the shared commit hook refuses a commit while that
+  value is non-empty, and the coordinator refuses a finished fix while any remain. A missing or
+  empty ruling fails the fix with its
   recovery session. The same fix session resumes in the background with that reply. Further open
   decisions repeat this route. A completed fix follows the same report deletion,
   commit checks and watch as an uninterrupted fix. Stopping without a reply retains the round files
@@ -272,7 +275,8 @@ consumers.
   rule: it replaces a record's auditor tag with `COMMIT_AUDITOR` when the runner supplies it. It
   derives severity from the graded bullets before parsing the subject. It replaces the body's
   opening phase lines and time line with `COMMIT_PHASES` when a round supplies it, so a second
-  stamp repeats neither, and requires a model line otherwise. It refuses a
+  stamp repeats neither, and requires a model line otherwise. It refuses a commit when
+  `COMMIT_OPEN_CONTESTS` names serious findings that still need the user's winner. It also refuses a
   single-model record whose effort disagrees with the tag, a step record
   without active implementation time and a ready marker without its coder.
   `commit-msg-main.ts` is the
@@ -784,7 +788,9 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
   same open-deferral object for a chained planning or plan-scoped
   implementation round and a contest object when the rebuttal contested a
   verdict whose report or revised vet tier is A or B; the first call carries
-  finding numbers and resumed calls also carry recorded winners and reasons
+  finding numbers and resumed calls also carry recorded winners and reasons.
+  The fix child's `COMMIT_OPEN_CONTESTS` environment value carries the numbers
+  that still lack winners. An empty value lifts the commit block.
 - implement: plan, one-based step number, remaining hosting repo shares,
   resolved model release and launched effort; the ruling path is supplied
   separately and reused when the same worker resumes

@@ -460,6 +460,21 @@ test("an amendment recalculates removed and regraded findings", () => {
   )
 })
 
+test("the hook blocks both repositories while serious contests need winners", () => {
+  for (const repository of ["repo-edu", "plan"] as const)
+    assert.throws(
+      () =>
+        stampCommitMessage(
+          message("example/impl-audit-1 oth clean: s"),
+          repository,
+          none,
+          areaKinds,
+          { openContests: [2, 5] },
+        ),
+      /findings 2, 5 still need the user's contest winner/,
+    )
+})
+
 test("the hook entry writes the derived sequence and leaves a refused file untouched", async () => {
   const directory = await mkdtemp(join(tmpdir(), "commit-msg-"))
   try {
@@ -472,7 +487,12 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
         process.execPath,
         ["--import", import.meta.resolve("tsx"), main, repository, file],
         {
-          env: { COMMIT_AUDITOR: "", COMMIT_PHASES: "", ...env },
+          env: {
+            COMMIT_AUDITOR: "",
+            COMMIT_PHASES: "",
+            COMMIT_OPEN_CONTESTS: "",
+            ...env,
+          },
           reject: false,
         },
       )
@@ -493,6 +513,14 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
         "audit: gpt-6-astra xhigh",
       ),
     )
+    const blockedInput = message("example/impl-audit-1 oth clean: blocked")
+    for (const repository of ["repo-edu", "plan"] as const) {
+      await writeFile(file, blockedInput)
+      const blocked = await run(repository, { COMMIT_OPEN_CONTESTS: "2,5" })
+      assert.equal(blocked.exitCode, 1)
+      assert.match(blocked.stderr, /findings 2, 5 still need/)
+      assert.equal(await readFile(file, "utf8"), blockedInput)
+    }
     for (const subject of [
       "example/impl-audit-1 oth growth-none docs(x)",
       "example/impl-audit-1 oth",

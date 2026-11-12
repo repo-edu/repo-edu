@@ -20,6 +20,11 @@ export type CommitStamps = {
   readonly phases: string | null
 }
 
+export type CommitAdmission = {
+  /** Serious contests that still need the user's winner. */
+  readonly openContests: readonly number[]
+}
+
 const efforts = {
   l: "low",
   m: "medium",
@@ -100,7 +105,12 @@ export function stampCommitMessage(
   repository: Repository,
   stamps: CommitStamps,
   areaKinds: ReadonlyMap<string, string>,
+  admission: CommitAdmission = { openContests: [] },
 ): string {
+  if (admission.openContests.length > 0)
+    throw new SubjectError(
+      `the fix cannot commit while ${admission.openContests.length === 1 ? "finding" : "findings"} ${admission.openContests.join(", ")} still ${admission.openContests.length === 1 ? "needs" : "need"} the user's contest winner`,
+    )
   const trailing = text.endsWith("\n")
   const lines = (trailing ? text.slice(0, -1) : text).split("\n")
   if (text.length === 0) return text

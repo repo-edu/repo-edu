@@ -25,7 +25,8 @@ work so no phase checks itself:
 4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
    settled corrections and lands the records. When the auditor contests a verdict and the report or
    revised vet tier is A or B, the runner asks you whether the vet, auditor or neither is right and
-   records your one-line reason. The audit target picks the fixer:
+   records your one-line reason. The fix cannot commit until every required winner is recorded, and
+   returning finished earlier fails the round. The audit target picks the fixer:
    - A planning round, or a commit audit of plan-repo commits alone, fixes on the configured
      planning fixer.
    - An implementation round fixes on the plan's assigned coder.

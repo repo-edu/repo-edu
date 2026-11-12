@@ -31,6 +31,33 @@ const input = (
   arguments: ["/peer plan/AUDIT.md"],
   sessionId: null,
 })
+
+test("a fix child receives its unresolved contest commit block", async (t) => {
+  const f = await fixture(t)
+  await f.configure({ stream: await phaseStream("codex") })
+  await runAssistantPhase(
+    {
+      ...input("codex", f.root),
+      arguments: [
+        "/peer plan/AUDIT.md",
+        {
+          contests: [
+            { finding: 1 },
+            { finding: 2, winner: "vet", reason: "The verdict stands." },
+            { finding: 3 },
+          ],
+        },
+      ],
+    },
+    f.output,
+    f.runtime,
+  )
+  assert.equal((await f.calls())[0]?.openContests, "1,3")
+
+  await runAssistantPhase(input("codex", f.root), f.output, f.runtime)
+  assert.equal((await f.calls())[1]?.openContests, "")
+})
+
 test("Claude compact boundaries become phase feedback", () => {
   assert.deepEqual(
     decodeClaude({ type: "system", subtype: "compact_boundary" }),

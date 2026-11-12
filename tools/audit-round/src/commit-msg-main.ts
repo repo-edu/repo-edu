@@ -21,6 +21,14 @@ if (
   process.exit(2)
 }
 try {
+  const openContestValue = process.env.COMMIT_OPEN_CONTESTS ?? ""
+  if (
+    openContestValue.length > 0 &&
+    !/^[1-9]\d*(?:,[1-9]\d*)*$/.test(openContestValue)
+  )
+    throw new SubjectError(
+      "COMMIT_OPEN_CONTESTS must be a comma-separated list of positive finding numbers",
+    )
   const stamped = stampCommitMessage(
     await readFile(file, "utf8"),
     repository as Repository,
@@ -29,6 +37,12 @@ try {
       phases: process.env.COMMIT_PHASES || null,
     },
     new Map(areaModel.areas.map((area) => [area.id, area.kind])),
+    {
+      openContests:
+        openContestValue.length === 0
+          ? []
+          : openContestValue.split(",").map(Number),
+    },
   )
   await writeFile(file, stamped)
 } catch (error) {

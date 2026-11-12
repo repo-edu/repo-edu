@@ -38,6 +38,10 @@ contested verdicts the user owns under **Reconciliation**. An entry first names
 only its finding number. A resumed fix also receives any recorded `winner` and
 `reason`. Present both reviewed positions and their evidence in the ruling,
 then apply recorded answers without deciding them again.
+Every fix invocation is commit-blocked while any supplied contest lacks a
+winner. `Not yet` keeps that block in place. Do not land settled corrections
+before the runner has recorded every required winner; a fix that reports
+finished with an open contest fails the round.
 
 When unattended, follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every
