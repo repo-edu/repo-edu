@@ -25,8 +25,11 @@ work so no phase checks itself:
 4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
    settled corrections and lands the records. When the auditor contests a verdict and the report or
    revised vet tier is A or B, the runner asks you whether the vet, auditor or neither is right and
-   records your one-line reason. Plan work fixes on the configured planning fixer and code work on a
-   coder: the plan's assigned coder, or the first listed coder for a commit audit.
+   records your one-line reason. The audit target picks the fixer:
+   - A planning round, or a commit audit of plan-repo commits alone, fixes on the configured
+     planning fixer.
+   - An implementation round fixes on the plan's assigned coder.
+   - A commit audit with Repo Edu commits fixes on the first listed coder.
 
 The audit, vet and rebuttal are read-only. The fix is the phase that receives authority to change
 the judged repositories. Where due, a watch then checks the episode's trajectory. In an automatic

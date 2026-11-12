@@ -18,8 +18,8 @@ consumers.
   Rebuttal uses the audit's resolved model and effort, including `--auditor` or `--first` fields,
   because it is the auditor's answer. Its workflow grounds answers in current sources. The settings
   file holds the auditors and coder lists, the planning fixer and the assistants that write
-  documents, and selects the default auditor. Planning work fixes on the planning fixer and code
-  work on a coder, as [Model settings](#model-settings) routes each target.
+  documents, and selects the default auditor. The audit target picks the fixer, as
+  [Model settings](#model-settings) routes each target.
   The fix receives a ruling output path separately from its report
   arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
   The runner checks that file, prints whether the fix uses the auditor's model, the vet's model or
@@ -918,7 +918,8 @@ error and is left unchanged.
   assistant, so no assistant vets its own report. Rebuttal shares the audit's
   selection. The document phases and close each select their
   assistant, whoever audited.
-- The fix follows what the round changes. A planning round, before or after
+- The audit target picks the fixer, even when an implementation audit also
+  fixes stale plan text. A planning round, before or after
   `ready` and including one chained for a plan-bound deferral, fixes on
   `phases.planningFix`, because it edits the plan rather than code and its fix
   enters no coder evidence. An implementation target fixes on the plan's ready
