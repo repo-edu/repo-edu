@@ -33,11 +33,12 @@ sentence, and the one `Audit ranges:` sentence under **Execution and audits**, w
 cover the steps in order without gaps or overlap.
 
 The coder comes from the ordered `coders` list in `tools/audit-round/settings.json`. The command
-takes the entry after the one the newest earlier ready marker assigned and wraps at the end, so
-plans rotate through the list. A one-entry list always assigns that coder. An entry that says
-`default` is recorded as the model and effort `defaults` named at that moment, so a later change to
-`defaults` leaves the assignment as it was. The command reads settings but starts no assistant and
-resolves no model release; the implementation command resolves the release when it starts.
+assigns the coder that follows the one recorded in the most recent ready marker, and starts again at
+the first coder after the last, so plans take turns through the list. A one-entry list always
+assigns that coder. An entry that says `default` is recorded as the model and effort `defaults`
+named at that moment, so a later change to `defaults` leaves the assignment as it was. The command
+reads settings but starts no assistant and resolves no model release; the implementation command
+resolves the release when it starts.
 
 ## Output
 

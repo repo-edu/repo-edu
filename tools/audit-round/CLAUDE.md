@@ -918,8 +918,10 @@ error and is left unchanged.
   entry.
 - `coders` is a non-empty ordered list of implementation coders. Each coder
   names its assistant, model and effort, and either field may say `default`.
-  Ready advances from the newest earlier assigned plan and wraps at the end. A
-  one-entry list always selects that coder. The plan's coder writes every step
+  `ready` gives each new plan the coder that follows the one recorded in the
+  most recent ready marker. After the last coder it starts again at the first.
+  With no earlier coder to follow, or one no longer in the list, it takes the
+  first coder. A one-entry list always selects that coder. The plan's coder writes every step
   and every implementation-audit fix of the plan.
 - `phases` sets the model and effort of the vet, the planning fixer, the
   document phases and the close. Each field names a value or says `default`;
