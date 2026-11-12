@@ -4,7 +4,8 @@ description: Assign a coder and mark a settled plan ready for implementation
 ---
 
 `pnpm audit-round ready` is your call that a settled plan's implementation brief is complete: it
-lands the ready marker and assigns the coder every later implementation worker and fix runs on.
+lands the ready marker and assigns the coder that every later implementation step and
+implementation-audit fix runs on. A planning round after `ready` still fixes on the planning fixer.
 
 | Fact | Detail |
 | --- | --- |
