@@ -70,8 +70,11 @@ reference keeps `.md` to mark it as a plan.
 2. **Vet.** The other assistant checks the findings, so no assistant vets its own report.
 3. **Rebuttal.** The auditor answers the vet's revisions, drops and ruling items on the audit's
    model and effort. It is skipped when the vet accepts every finding.
-4. **Fix.** The plan's assigned coder, or the first coder for work without one, applies the agreed
-   corrections and lands the record. It may stop for your ruling.
+4. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
+   commit audit of plan-repo commits alone fix on the planning fixer, `phases.planningFix` in
+   `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder.
+   A commit audit with Repo Edu commits fixes on the first listed coder. The fix may stop for your
+   ruling.
 5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade.
 6. **Series decision.** In an automatic series the runner reads retained data and bounded commit

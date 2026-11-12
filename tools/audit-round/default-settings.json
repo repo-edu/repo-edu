@@ -40,6 +40,11 @@
                 "effort": "default"
             }
         },
+        "planningFix": {
+            "assistant": "codex",
+            "model": "default",
+            "effort": "default"
+        },
         "watch": {
             "assistant": "codex",
             "model": "default",

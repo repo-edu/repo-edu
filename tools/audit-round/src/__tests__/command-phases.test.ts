@@ -47,11 +47,12 @@ test("one supplied configuration controls auditor phase arguments and output tag
 
 for (const route of [
   "pre-ready plan",
-  "named commit",
   "post-ready plan",
+  "implementation",
+  "named commit",
 ] as const) {
-  test(`${route} selects the assigned coder or first-coder fallback for fix`, async (t) => {
-    const planning = route !== "named commit"
+  test(`${route} selects its fixer from the planning fixer, the ready assignment or the first coder`, async (t) => {
+    const planning = route.endsWith("plan")
     const f = await roundFixture(
       t,
       "codex",
@@ -62,16 +63,26 @@ for (const route of [
       planning ? "plan" : "repo-edu",
     )
     const settings = structuredClone(testSettings)
+    settings.phases.planningFix = {
+      assistant: "claude",
+      model: "claude-planner",
+      effort: "medium",
+    }
     settings.coders = [
       { assistant: "claude", model: "claude-first", effort: "low" },
       { assistant: "codex", model: "codex-assigned", effort: "xhigh" },
     ]
-    if (route === "post-ready plan")
+    if (route === "post-ready plan" || route === "implementation")
       await commitFixture(
         f.planRoot,
         "example/ready: declare the plan ready for implementation\n\nCoder: codex codex-assigned xhigh",
       )
-    const target = route === "named commit" ? ["HEAD"] : ["example.md", "plan"]
+    const target = {
+      "pre-ready plan": ["example.md", "plan"],
+      "post-ready plan": ["example.md", "plan"],
+      implementation: ["example.md", "1"],
+      "named commit": ["HEAD"],
+    }[route]
     assert.equal(
       await runCommand(
         ["round", ...target, "--auditor", "o", "--no-watch"],
@@ -88,13 +99,17 @@ for (const route of [
       call.prompt.startsWith("Run the fix phase"),
     )
     assert.ok(fix)
-    const assigned = route === "post-ready plan"
-    assert.equal(fix.assistant, assigned ? "codex" : "claude")
-    assert.ok(fix.args.includes(assigned ? "codex-assigned" : "claude-first"))
+    // A planning round fixes on the planning fixer before and after ready.
+    const expected = planning
+      ? { assistant: "claude", model: "claude-planner", effort: "medium" }
+      : route === "implementation"
+        ? { assistant: "codex", model: "codex-assigned", effort: "xhigh" }
+        : { assistant: "claude", model: "claude-first", effort: "low" }
+    assert.equal(fix.assistant, expected.assistant)
+    assert.ok(fix.args.includes(expected.model), fix.args.join(" "))
     assert.ok(
-      fix.args.some((argument: string) =>
-        argument.includes(assigned ? "xhigh" : "low"),
-      ),
+      fix.args.some((argument: string) => argument.includes(expected.effort)),
+      fix.args.join(" "),
     )
   })
 }

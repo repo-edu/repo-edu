@@ -17,9 +17,10 @@ consumers.
   the twin through `vet.ts` to decide whether every finding was accepted from its verdict lines.
   Rebuttal uses the audit's resolved model and effort, including `--auditor` or `--first` fields,
   because it is the auditor's answer. Its workflow grounds answers in current sources. The settings
-  file holds the auditors and coder lists and selects the default auditor and the assistants that
-  write documents. A plan's ready marker selects its fixer from that list; work without an
-  assignment uses the first coder. The fix receives a ruling output path separately from its report
+  file holds the auditors and coder lists, the planning fixer and the assistants that write
+  documents, and selects the default auditor. Planning work fixes on the planning fixer and code
+  work on a coder, as [Model settings](#model-settings) routes each target.
+  The fix receives a ruling output path separately from its report
   arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
   The runner checks that file, then displays it and collects a reply. A missing or empty ruling
   fails the fix with its recovery session. The same fix session resumes in the background with that
@@ -146,15 +147,18 @@ consumers.
   three alphabets share no letter, so a partial tag says which fields it named. `roundPhases` is the
   one owner of the round's phases: it resolves the assistant's selection once for audit and
   rebuttal, the runner invokes from the value it returns and the run's settings header prints the
-  same value, so what a round says it ran on is what it ran with. `closePhase` names the loop-close
+  same value, so what a round says it ran on is what it ran with. `roundFixer` is the one owner of
+  who fixes a round; `command.ts` reads a ready assignment only for an implementation plan target
+  and passes it in. `closePhase` names the loop-close
   on its own settings, because the close belongs to no auditor. Every phase names a model and an
   effort; a field that says
   `default` reads the assistant's default selection, so neither CLI's own configuration enters.
-  `settings.json` owns the auditors and coder lists, phase selections, the
+  `settings.json` owns the auditors and coder lists, the planning fixer, phase selections, the
   default selections and the model tier table.
   `settings.ts` loads and validates it once at command entry, independently of the working
   directory. That configuration is passed through routing, output naming and commit stamps.
-  A listed auditor carries both fields, each resolved at load when it says `default`.
+  A listed auditor, a coder and the planning fixer carry both fields, each resolved at load when it
+  says `default`.
   `--auditor` and `--first` override each field they name,
   using the configured tier table for its model, and a field nothing names reads the assistant's
   defaults. Listed auditors and command-line overrides bind the audit and rebuttal together,
@@ -876,30 +880,41 @@ error and is left unchanged.
   or list field that says `default` reads it, and `--auditor claude` or
   `--auditor codex` runs the audit on it. Neither CLI's own model configuration
   is ever read, so this file alone decides what every phase runs on.
-- A list field's `default` resolves when the file loads. The series pool, the
-  `models` read-out and a ready marker therefore all name
-  the resolved selection. A ready marker keeps the coder it recorded when
-  `defaults` changes later.
+- A list field's or the planning fixer's `default` resolves when the file
+  loads. The series pool, the `models` read-out, a fix and a ready marker
+  therefore all name the resolved selection. A ready marker keeps the coder it
+  recorded when `defaults` changes later.
 - `auditors` is a non-empty ordered list, in the shape of `coders`. Each entry
   names its assistant, a model and an effort, such as Claude Fable at high and
   Claude Opus at xhigh; either field may say `default`. An automatic series
-  opens from the list, and after each round the runner picks the next entry
-  from it. Two models of one vendor are two entries, and each needs its own
-  current read before the series ends. A `--first` selection must resolve to
+  of any target, planning, implementation or commit, opens from the list, and
+  after each round the runner picks the next entry from it. Two models of one
+  vendor are two entries, and each needs its own current read before the
+  series ends. A `--first` selection must resolve to
   a listed entry. A one-entry list runs every settings-chosen round on that
   entry.
-- `coders` is a non-empty ordered list. Each coder names its assistant, model
-  and effort, and either field may say `default`. Ready advances from the
-  newest earlier assigned plan and wraps at the end. A one-entry list always
-  selects that coder.
-- `phases` sets the model and effort of the vet, the document phases and the
-  close. Each field names a value or says `default`; `null` is
-  refused. A named model must suit the selected CLI.
+- `coders` is a non-empty ordered list of implementation coders. Each coder
+  names its assistant, model and effort, and either field may say `default`.
+  Ready advances from the newest earlier assigned plan and wraps at the end. A
+  one-entry list always selects that coder. The plan's coder writes every step
+  and every implementation-audit fix of the plan.
+- `phases` sets the model and effort of the vet, the planning fixer, the
+  document phases and the close. Each field names a value or says `default`;
+  `null` is refused. A named model must suit the selected CLI. A file without
+  `phases.planningFix` is refused like any other invalid file; rewrite it or
+  delete it to regenerate the defaults.
 - The vet has separate Claude and Codex selections and uses the other
   assistant, so no assistant vets its own report. Rebuttal shares the audit's
   selection. The document phases and close each select their
-  assistant, whoever audited. Fix uses the plan's ready assignment, or the
-  first coder when the target has none.
+  assistant, whoever audited.
+- The fix follows what the round changes. A planning round, before or after
+  `ready` and including one chained for a plan-bound deferral, fixes on
+  `phases.planningFix`, because it edits the plan rather than code and its fix
+  enters no coder evidence. An implementation target fixes on the plan's ready
+  assignment. A commit target whose groups are all in the plan repo fixes on
+  `phases.planningFix`; one with a Repo Edu group fixes on the first coder,
+  because its correction may change code and it has no ready assignment. An
+  implementation target without an assignment also takes the first coder.
 - The names `claude` and `codex`, given to `--auditor` or `--first`, run the
   audit and rebuttal on that assistant's `defaults`. Letter tags name a tier
   from `strengthModels` and an effort; a field a tag omits reads that

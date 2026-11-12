@@ -530,7 +530,12 @@ for (const assistant of ["claude", "codex"] as const) {
       ...testSettings,
       coders: [{ ...testSettings.coders[0], assistant }],
     }
-    const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+    const setup = {
+      ...testSetup(f.root),
+      plan: "example.md",
+      scope: "1",
+      fixer: settings.coders[0],
+    }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const log: string[] = []
     const output = new RoundOutput(run, {
@@ -674,7 +679,12 @@ for (const assistant of ["claude", "codex"] as const) {
       ...testSettings,
       coders: [{ ...testSettings.coders[0], assistant }],
     }
-    const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+    const setup = {
+      ...testSetup(f.root),
+      plan: "example.md",
+      scope: "1",
+      fixer: settings.coders[0],
+    }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const output = new RoundOutput(run, {
       clock: new RunClock(Date.now),

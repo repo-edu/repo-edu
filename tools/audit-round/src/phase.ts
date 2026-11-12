@@ -20,7 +20,7 @@ import type {
   RoundSettings,
 } from "./settings.js"
 import type { Repository } from "./subject.js"
-import type { CommitAuditGroup, RoundContext } from "./target.js"
+import type { AuditTarget, CommitAuditGroup, RoundContext } from "./target.js"
 import type { VetReading } from "./vet.js"
 
 export type Assistant = "claude" | "codex"
@@ -305,6 +305,61 @@ function phaseModel(
   }
 }
 
+/** The audit and the rebuttal it shares, on what the seat names. */
+export function auditPhase(seat: AuditorSeat, config: RoundSettings): PhaseRun {
+  return { assistant: seat.assistant, model: auditModel(seat, config) }
+}
+
+/** The vetter is the other assistant, so no assistant vets its own report. */
+export function vetPhase(auditor: Assistant, config: RoundSettings): PhaseRun {
+  const assistant = auditor === "codex" ? "claude" : "codex"
+  return { assistant, model: phaseModel("vet", assistant, config) }
+}
+
+/** The watch reads joined trajectory evidence, so the auditor does not select it. */
+export function watchPhase(config: RoundSettings): PhaseRun {
+  const assistant = config.phases.watch.assistant
+  return { assistant, model: phaseModel("watch", assistant, config) }
+}
+
+/** Who fixes a round, and what named that selection for the settings header. */
+export type RoundFixer = {
+  readonly fixer: Coder
+  readonly fixerSource: string
+}
+
+/**
+ * The single owner of who fixes a round. Planning work fixes on the planning
+ * fixer: every planning round, before and after `ready`, and a commit target
+ * whose groups are all in the plan repo. Code work fixes on a coder: an
+ * implementation target on its plan's ready assignment, and a commit target
+ * with a Repo Edu group on the first coder. The caller reads the assignment
+ * only for an implementation plan target; an implementation target without one
+ * also takes the first coder.
+ */
+export function roundFixer(
+  target: AuditTarget,
+  assigned: Coder | null,
+  config: RoundSettings,
+): RoundFixer {
+  const planning: RoundFixer = {
+    fixer: config.phases.planningFix,
+    fixerSource: "audit-round planning fixer",
+  }
+  const firstCoder: RoundFixer = {
+    fixer: config.coders[0],
+    fixerSource: "audit-round coders",
+  }
+  if (target.roundKind === "planning") return planning
+  if ("groups" in target)
+    return target.groups.some((group) => group.repository === "repo-edu")
+      ? firstCoder
+      : planning
+  return assigned === null
+    ? firstCoder
+    : { fixer: assigned, fixerSource: "ready assignment" }
+}
+
 /**
  * The single owner of who runs each round phase and on what. The runner invokes
  * from this value and the run's settings header prints it, so what a run says
@@ -314,36 +369,21 @@ export function roundPhases(
   auditor: Assistant,
   override: AuditorOverride,
   config: RoundSettings,
-  fixer: Coder = config.coders[0],
-  fixerSource = "audit-round coders",
+  { fixer, fixerSource }: RoundFixer,
 ): Record<RoundPhase, PhaseRun> {
-  const run = (
-    phase: Exclude<Phase, "audit" | "rebut" | "fix" | "implement">,
-    assistant: Assistant,
-  ): PhaseRun => ({
-    assistant,
-    model: phaseModel(phase, assistant, config),
-  })
-  const audit: PhaseRun = {
-    assistant: auditor,
-    model: auditModel({ assistant: auditor, override }, config),
-  }
-  const fix = implementationPhase(fixer, fixerSource)
+  const audit = auditPhase({ assistant: auditor, override }, config)
   return {
     audit,
-    // The vetter is the other assistant, so no assistant vets its own report.
-    vet: run("vet", auditor === "codex" ? "claude" : "codex"),
+    vet: vetPhase(auditor, config),
     // The rebuttal is the auditor's answer, using the same model and effort.
     rebut: audit,
-    // The plan's ready assignment chooses the fixer. Work without one uses the first coder.
-    fix,
-    // The watch reads joined trajectory evidence, so the auditor does not select it.
-    watch: run("watch", config.phases.watch.assistant),
+    fix: implementationPhase(fixer, fixerSource),
+    watch: watchPhase(config),
     close: closePhase(config),
   }
 }
 
-/** A plan's ready-assigned coder owns both implementation and audit fixes. */
+/** A coder selection as a phase runs it, under what named it. */
 export function implementationPhase(
   coder: Coder,
   source = "ready assignment",
@@ -365,30 +405,38 @@ export function closePhase(config: RoundSettings): PhaseRun {
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * the default selection, each listed auditor and coder, each phase's own pin
- * and each tier a tag can ask for.
+ * the default selection, each listed auditor and coder, the planning fixer,
+ * each phase's own pin and each tier a tag can ask for.
  */
 export function namedModels(
   assistant: Assistant,
   config: RoundSettings,
 ): ReadonlySet<string> {
-  const names = new Set<string>([
-    config.defaults[assistant].model,
-    ...[...config.auditors, ...config.coders]
-      .filter((entry) => entry.assistant === assistant)
-      .map((entry) => entry.model),
-  ])
-  for (const auditor of ["claude", "codex"] as const)
-    for (const strength of [null, ...strengths])
-      for (const run of Object.values(
-        roundPhases(
-          auditor,
-          { option: "--auditor", strength, effort: null },
+  const runs: PhaseRun[] = [
+    ...[...config.auditors, ...config.coders, config.phases.planningFix].map(
+      (entry) => implementationPhase(entry),
+    ),
+    ...(["claude", "codex"] as const).flatMap((auditor) => [
+      vetPhase(auditor, config),
+      ...[null, ...strengths].map((strength) =>
+        auditPhase(
+          {
+            assistant: auditor,
+            override: { option: "--auditor", strength, effort: null },
+          },
           config,
         ),
-      ))
-        if (run.assistant === assistant) names.add(run.model.model.value)
-  return names
+      ),
+    ]),
+    watchPhase(config),
+    closePhase(config),
+  ]
+  return new Set([
+    config.defaults[assistant].model,
+    ...runs
+      .filter((run) => run.assistant === assistant)
+      .map((run) => run.model.model.value),
+  ])
 }
 
 /**

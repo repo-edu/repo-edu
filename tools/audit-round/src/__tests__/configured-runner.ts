@@ -46,21 +46,26 @@ export const runClose = (
 export const pinned = (assistant: phase.Assistant) =>
   phase.defaultModel(assistant, testSettings)
 
-/** The first configured coder selection when no ready assignment exists. */
-export const pinnedCoder = () => {
-  const coder = testSettings.coders[0]
-  const source = "audit-round coders"
-  return {
-    model: { value: coder.model, source },
-    effort: { value: coder.effort, source },
-  }
+/** The first coder, which fixes code work that has no ready assignment. */
+export const testFixer: phase.RoundFixer = {
+  fixer: testSettings.coders[0],
+  fixerSource: "audit-round coders",
 }
+
+/** The first configured coder selection, as the test fixer pins it. */
+export const pinnedCoder = () =>
+  phase.implementationPhase(testFixer.fixer, testFixer.fixerSource).model
 
 export const roundPhases = (
   auditor: phase.Assistant,
   override: phase.AuditorOverride,
   settings = testSettings,
-) => phase.roundPhases(auditor, override, settings)
+  fixer = phase.roundFixer(
+    { roundKind: "implementation", plan: "example.md", scope: "1" },
+    null,
+    settings,
+  ),
+) => phase.roundPhases(auditor, override, settings, fixer)
 
 export const modelStrength = (
   assistant: phase.Assistant,

@@ -21,7 +21,9 @@ import {
   type PhaseResult,
   type PhaseRun,
   type RoundDependencies,
+  type RoundFixer,
   roundPhases,
+  watchPhase,
 } from "./phase.js"
 import type { AuditReport } from "./report.js"
 import {
@@ -35,7 +37,7 @@ import {
   settleRoundFindings,
 } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
-import type { Auditor, Coder, RoundSettings } from "./settings.js"
+import type { Auditor, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
   type AuditTarget,
@@ -62,25 +64,22 @@ function carriesPhaseStamp(
   }
 }
 
-/** What names a round before it starts: its target, who audits and on what. */
-export type RoundSetup = RoundContext & {
-  readonly auditor: Assistant
-  /** The ready-assigned coder, or the first configured coder without an assignment. */
-  readonly fixer?: Coder
-  /** What selected the fixer, as the settings header reports it. */
-  readonly fixerSource?: string
-  /** The command route that supplied this round's auditor. */
-  readonly auditorSelectionSource: AuditorSelectionSource
-  /** What the command line asked of the auditor's phases; absent asks nothing. */
-  readonly override?: AuditorOverride
-  /**
-   * The series pool the runner routes between, present only for an automatic
-   * series.
-   */
-  readonly pool?: readonly Auditor[]
-  /** The open deferrals this round must inspect and settle. */
-  readonly deferrals?: readonly OpenDeferral[]
-} & AuditTarget
+/** What names a round before it starts: its target, who audits and fixes and on what. */
+export type RoundSetup = RoundContext &
+  RoundFixer & {
+    readonly auditor: Assistant
+    /** The command route that supplied this round's auditor. */
+    readonly auditorSelectionSource: AuditorSelectionSource
+    /** What the command line asked of the auditor's phases; absent asks nothing. */
+    readonly override?: AuditorOverride
+    /**
+     * The series pool the runner routes between, present only for an automatic
+     * series.
+     */
+    readonly pool?: readonly Auditor[]
+    /** The open deferrals this round must inspect and settle. */
+    readonly deferrals?: readonly OpenDeferral[]
+  } & AuditTarget
 
 /** Where a watch that follows the round writes, and where it keeps its history. */
 export type WatchTarget = {
@@ -278,8 +277,7 @@ async function runWatch(
 ): Promise<RoundFailure | { readonly grade: WatchGrade | null }> {
   const target = input.watch
   if (target === null) return { grade: null }
-  // The watch uses its configured assistant, independently of the auditor.
-  const phases = roundPhases("codex", noOverride, settings)
+  const phases = { watch: watchPhase(settings) }
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   const stem = planStem(input.plan)
@@ -355,8 +353,7 @@ async function runSeriesDecision(
     input.auditor,
     input.override ?? noOverride,
     settings,
-    input.fixer,
-    input.fixerSource,
+    input,
   )
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
@@ -408,8 +405,7 @@ export async function runRound(
     input.auditor,
     input.override ?? noOverride,
     settings,
-    input.fixer,
-    input.fixerSource,
+    input,
   )
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }

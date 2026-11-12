@@ -70,6 +70,7 @@ import {
   listedSeat,
   phaseWorkflow,
   type RoundDependencies,
+  roundFixer,
 } from "./phase.js"
 import {
   type AuditorEntry,
@@ -1800,17 +1801,16 @@ export async function runCommand(
             `--first ${series.firstAuditor.text} resolves to ${firstText}, which the auditors list in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
           )
       }
-      const fixerFor = async (target: AuditTarget) => {
-        const assigned =
-          "plan" in target
+      // Only an implementation plan target reads its ready assignment; the
+      // planning fixer and the first coder need none.
+      const fixerFor = async (target: AuditTarget) =>
+        roundFixer(
+          target,
+          target.roundKind === "implementation" && "plan" in target
             ? await readReadyCoder(context.planRoot, planStem(target.plan))
-            : null
-        return {
-          fixer: assigned ?? settings.coders[0],
-          fixerSource:
-            assigned === null ? "audit-round coders" : "ready assignment",
-        }
-      }
+            : null,
+          settings,
+        )
       const deferralsInto = async (
         plan: string,
         destination: "repo-edu" | "plan",

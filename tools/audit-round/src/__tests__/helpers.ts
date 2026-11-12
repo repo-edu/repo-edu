@@ -23,9 +23,15 @@ import {
   type Effort,
   type PhaseControlResult,
   phaseSkills,
+  type RoundFixer,
 } from "../phase.js"
 import type { RoundContext, RoundKind } from "../target.js"
-import { capabilityTag, phaseSelection, pinned } from "./configured-runner.js"
+import {
+  capabilityTag,
+  phaseSelection,
+  pinned,
+  testFixer,
+} from "./configured-runner.js"
 
 export function testContext(
   repoEduRoot: string,
@@ -49,32 +55,30 @@ export function testContext(
 }
 
 /** A round setup on the fixture's default auditor, for tests that do not choose one. */
-export function testSetup(repoEduRoot: string): RoundContext & {
+export function testSetup(repoEduRoot: string): TestSetup & {
   readonly roundKind: "implementation"
-  readonly auditor: "codex"
-  readonly auditorSelectionSource: "settings"
 }
 export function testSetup<K extends RoundKind>(
   repoEduRoot: string,
   roundKind: K,
-): RoundContext & {
-  readonly roundKind: K
-  readonly auditor: "codex"
-  readonly auditorSelectionSource: "settings"
-}
+): TestSetup & { readonly roundKind: K }
 export function testSetup(
   repoEduRoot: string,
   roundKind: RoundKind = "implementation",
-): RoundContext & {
-  readonly auditor: "codex"
-  readonly auditorSelectionSource: "settings"
-} {
+): TestSetup {
   return {
     ...testContext(repoEduRoot, roundKind),
+    ...testFixer,
     auditor: "codex",
     auditorSelectionSource: "settings",
   }
 }
+
+type TestSetup = RoundContext &
+  RoundFixer & {
+    readonly auditor: "codex"
+    readonly auditorSelectionSource: "settings"
+  }
 
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
 /** The releases startup resolved: Claude's alias only, as the runner asks. */

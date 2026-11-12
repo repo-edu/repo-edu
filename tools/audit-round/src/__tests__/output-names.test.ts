@@ -14,6 +14,7 @@ import {
 import {
   RoundOutput,
   roundRun,
+  testFixer,
   testSettings,
   transcriptNameStart,
 } from "./configured-runner.js"
@@ -95,6 +96,7 @@ test("different auditors cannot open the same candidate and the next run advance
   const f = await fixture(t)
   const setup = {
     ...testContext(f.root),
+    ...testFixer,
     plan: "example.md",
     scope: "2-4",
     auditorSelectionSource: "settings" as const,

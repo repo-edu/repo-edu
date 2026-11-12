@@ -14,11 +14,14 @@ import {
   readSettings,
   settingsSchema,
 } from "../settings.js"
+import type { CommitGroup, CommitTarget } from "../target.js"
 import {
   listedSeat,
   modelStrength,
+  namedModels,
   noOverride,
   parseAuditor,
+  roundFixer,
   roundPhases,
   testSettings as settings,
 } from "./configured-runner.js"
@@ -276,6 +279,99 @@ test("the coder and assigned phases follow their configured assistants independe
       assert.deepEqual(phases.rebut, phases.audit)
     }
   }
+})
+
+test("planning work fixes on the planning fixer and code work on a coder", () => {
+  const config = structuredClone(settings)
+  config.phases.planningFix = {
+    assistant: "claude",
+    model: "planner",
+    effort: "medium",
+  }
+  config.coders = [
+    { assistant: "codex", model: "first-coder", effort: "high" },
+    { assistant: "claude", model: "second-coder", effort: "low" },
+  ]
+  const assigned = config.coders[1]
+  const planning = {
+    fixer: config.phases.planningFix,
+    fixerSource: "audit-round planning fixer",
+  }
+  const firstCoder = {
+    fixer: config.coders[0],
+    fixerSource: "audit-round coders",
+  }
+  // A planning round after ready keeps the planning fixer, not the plan's coder.
+  for (const ready of [null, assigned])
+    assert.deepEqual(
+      roundFixer({ roundKind: "planning", plan: "example.md" }, ready, config),
+      planning,
+    )
+  const implementation = {
+    roundKind: "implementation",
+    plan: "example.md",
+    scope: "1",
+  } as const
+  assert.deepEqual(roundFixer(implementation, assigned, config), {
+    fixer: assigned,
+    fixerSource: "ready assignment",
+  })
+  assert.deepEqual(roundFixer(implementation, null, config), firstCoder)
+  const group = (repository: CommitGroup["repository"]): CommitGroup => ({
+    repository,
+    references: ["HEAD"],
+    startingHead: "a".repeat(40),
+    commits: ["a".repeat(40)],
+    shortReferences: ["aaaaaa"],
+  })
+  const commit = (
+    ...groups: [CommitGroup, ...CommitGroup[]]
+  ): CommitTarget => ({
+    roundKind: "implementation",
+    groups,
+    originalGroups: groups,
+  })
+  assert.deepEqual(roundFixer(commit(group("plan")), null, config), planning)
+  assert.deepEqual(
+    roundFixer(commit(group("repo-edu")), null, config),
+    firstCoder,
+  )
+  assert.deepEqual(
+    roundFixer(commit(group("repo-edu"), group("plan")), null, config),
+    firstCoder,
+  )
+})
+
+test("the planning fixer resolves its defaults at load and is required", async (t) => {
+  const config = settingsSchema.parse({
+    ...settings,
+    defaults: {
+      claude: { model: "claude-default", effort: "xhigh" },
+      codex: { model: "codex-default", effort: "medium" },
+    },
+    phases: {
+      ...settings.phases,
+      planningFix: { assistant: "claude", model: "default", effort: "low" },
+    },
+  })
+  assert.deepEqual(config.phases.planningFix, {
+    assistant: "claude",
+    model: "claude-default",
+    effort: "low",
+  })
+  assert.ok(namedModels("claude", config).has("claude-default"))
+  const named = structuredClone(config)
+  named.phases.planningFix.model = "planning-only"
+  assert.ok(namedModels("claude", named).has("planning-only"))
+  // An older file without the planning fixer stops with the validation error.
+  const root = await mkdtemp(join(tmpdir(), "audit-settings-"))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const path = join(root, "settings.json")
+  const { planningFix: _, ...older } = settings.phases
+  const contents = JSON.stringify({ ...settings, phases: older })
+  await writeFile(path, contents)
+  await assert.rejects(readSettings(path), /Invalid audit-round settings/)
+  assert.equal(await readFile(path, "utf8"), contents)
 })
 
 test("assistant names and bare letter tags both read the defaults across chained auditors", () => {

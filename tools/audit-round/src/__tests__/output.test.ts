@@ -14,6 +14,7 @@ import {
   RoundOutput,
   roundPhases,
   roundRun,
+  testFixer,
 } from "./configured-runner.js"
 import { fixture, releases, testContext, testSetup } from "./helpers.js"
 
@@ -105,6 +106,7 @@ test("commit stamps retain each phase's reported selection across later phases",
   const f = await fixture(t)
   const setup = {
     ...testContext(f.root),
+    ...testFixer,
     plan: "example.md",
     scope: "1",
     auditor: "claude" as const,
@@ -634,6 +636,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
       await roundRun(
         {
           ...testContext(f.root),
+          ...testFixer,
           plan: "example.md",
           scope: "1",
           auditor,
@@ -701,6 +704,7 @@ test("the settings header names what set each phase's model and effort", async (
       await roundRun(
         {
           ...testContext(f.root),
+          ...testFixer,
           plan: "example.md",
           scope: "1",
           auditor,

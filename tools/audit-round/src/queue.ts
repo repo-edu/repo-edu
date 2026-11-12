@@ -6,8 +6,8 @@ import {
   type Assistant,
   type AuditorOption,
   type AuditorSeat,
+  auditPhase,
   parseAuditor,
-  roundPhases,
 } from "./phase.js"
 import type { Auditor, RoundSettings } from "./settings.js"
 
@@ -33,7 +33,7 @@ export function auditorSetting(
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): Auditor {
-  const audit = roundPhases(entry.assistant, entry.override, settings).audit
+  const audit = auditPhase(entry, settings)
   return {
     assistant: entry.assistant,
     ...phaseSelection(audit.model, releases[entry.assistant]),

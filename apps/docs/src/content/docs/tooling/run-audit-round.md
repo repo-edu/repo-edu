@@ -22,9 +22,9 @@ work so no phase checks itself:
 3. **Rebuttal.** The auditor answers only revisions, drops and ruling items, on the same model and
    effort as the audit, because the answer is the auditor's. A vet that accepts every finding skips
    this phase.
-4. **Fix.** The fixer, the coder the plan's ready marker assigns or else the first listed coder,
-   reconciles both readings, asks about any real open
-   decision, applies the settled corrections and lands the records.
+4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
+   settled corrections and lands the records. Plan work fixes on the configured planning fixer and
+   code work on a coder: the plan's assigned coder, or the first listed coder for a commit audit.
 
 The audit, vet and rebuttal are read-only. The fix is the phase that receives authority to change
 the judged repositories. Where due, a watch then checks the episode's trajectory. In an automatic

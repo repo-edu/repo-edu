@@ -34,6 +34,7 @@ import {
   type RoundPhase,
   roundPhases,
   transcribed,
+  vetPhase,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
 import { recoveryCommand } from "./requests.js"
@@ -138,11 +139,7 @@ function roundSettingsData(
 ): RoundData["settings"] {
   const vet = (assistant: Assistant) =>
     resolvedRun(
-      roundPhases(
-        assistant === "claude" ? "codex" : "claude",
-        noOverride,
-        settings,
-      ).vet,
+      vetPhase(assistant === "claude" ? "codex" : "claude", settings),
       releases,
     )
   return {
@@ -177,8 +174,7 @@ export async function roundRun(
     setup.auditor,
     setup.override ?? noOverride,
     settings,
-    setup.fixer,
-    setup.fixerSource,
+    setup,
   )
   const entry = (phase: RoundPhase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: RoundPhase): string =>
