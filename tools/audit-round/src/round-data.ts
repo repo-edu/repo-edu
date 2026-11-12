@@ -76,6 +76,7 @@ export const roundFindingSchema = z
     vetVerdict: z
       .enum(["accept", "revise", "drop", "needs-user-ruling"])
       .nullable(),
+    vetTier: tier.optional(),
     rebuttalAnswer: z.enum(["agree", "contest", "for-user-ruling"]).nullable(),
     outcome: z.enum(["kept", "dropped", "unmatched"]).nullable(),
     finalTier: tier.nullable(),
@@ -102,6 +103,18 @@ export const roundFindingSchema = z
         code: "custom",
         message: "Only a kept finding can record a final tier or reach",
         path: ["outcome"],
+      })
+    if (finding.vetTier !== undefined && finding.vetVerdict !== "revise")
+      context.addIssue({
+        code: "custom",
+        message: "Only a revised vet verdict can record a vet tier",
+        path: ["vetTier"],
+      })
+    if (finding.vetTier === finding.tier)
+      context.addIssue({
+        code: "custom",
+        message: "An unchanged vet tier is omitted",
+        path: ["vetTier"],
       })
   })
 
@@ -256,7 +269,12 @@ export type SeriesAnswer = NonNullable<z.infer<typeof seriesAnswerSchema>>
 export type SeriesDecision = SeriesAnswer["answer"]
 export type ReportFinding = Omit<
   RoundFinding,
-  "vetVerdict" | "rebuttalAnswer" | "outcome" | "finalTier" | "finalReach"
+  | "vetVerdict"
+  | "vetTier"
+  | "rebuttalAnswer"
+  | "outcome"
+  | "finalTier"
+  | "finalReach"
 > & { readonly number: number }
 export type VetVerdict = NonNullable<RoundFinding["vetVerdict"]>
 export type RebuttalAnswer = NonNullable<RoundFinding["rebuttalAnswer"]>
@@ -301,6 +319,7 @@ export type FindingReview = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
   readonly verdict: VetVerdict
+  readonly vetTier?: RoundFinding["tier"]
 }
 
 export type FindingRebuttal = {
@@ -463,14 +482,18 @@ export function reviewedRoundFindings(
   const rebuttalByNumber = new Map(
     rebuttals.map((rebuttal) => [rebuttal.number, rebuttal]),
   )
-  return findings.map((finding) => ({
-    ...finding,
-    vetVerdict: reviewByNumber.get(finding.number)?.verdict ?? null,
-    rebuttalAnswer: rebuttalByNumber.get(finding.number)?.answer ?? null,
-    outcome: null,
-    finalTier: null,
-    finalReach: null,
-  }))
+  return findings.map((finding) => {
+    const review = reviewByNumber.get(finding.number)
+    return {
+      ...finding,
+      vetVerdict: review?.verdict ?? null,
+      ...(review?.vetTier === undefined ? {} : { vetTier: review.vetTier }),
+      rebuttalAnswer: rebuttalByNumber.get(finding.number)?.answer ?? null,
+      outcome: null,
+      finalTier: null,
+      finalReach: null,
+    }
+  })
 }
 
 function recordLocation(

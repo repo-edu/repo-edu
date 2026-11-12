@@ -554,14 +554,17 @@ A cover belongs only after an area.
 ### Production
 
 ```text
-<vet-twin>       ::= (<free-line> | <vet-verdict-line>)*
-<vet-verdict-line> ::= <n>". ["<tier>"] "<vet-verdict>
-<vet-verdict>    ::= Accept | Revise | Drop | Needs user's ruling
-<free-line>      ::= any line that does not have the numbered tier-header shape
+<vet-twin>          ::= (<free-line> | <vet-verdict-line>)*
+<vet-verdict-line>  ::= <n>". ["<tier>"] "<vet-verdict>
+                      | <n>". ["<tier>"] Revise to ["<tier>"]"
+<vet-verdict>       ::= Accept | Revise | Drop | Needs user's ruling
+<free-line>         ::= any line that does not have the numbered tier-header shape
 ```
 
 There is one verdict line for every report finding, in report order. Its number
 and tier match that finding. Leading and trailing whitespace carry no content.
+A revision that changes the finding's tier uses `Revise to [<tier>]`, with the
+new tier after `to`. A revision that keeps the report tier uses plain `Revise`.
 A line with the numbered tier-header shape is a verdict attempt and is refused
 by name when its word is outside the vet list.
 
@@ -579,6 +582,12 @@ by name when its word is outside the vet list.
 1. [B] Revise
 
 Use the shared token definition.
+```
+
+#### `vet/revise-tier` — parsed
+
+```text
+1. [B] Revise to [A]
 ```
 
 #### `vet/drop` — parsed
@@ -603,6 +612,22 @@ Refusal: `Vet verdict 1 uses the word "Agree"; use Accept, Revise, Drop or Needs
 
 ```text
 1. [B] Agree
+```
+
+#### `vet/tier-on-other-verdict` — refused
+
+Refusal: `Only Revise may name a replacement tier`
+
+```text
+1. [B] Drop to [A]
+```
+
+#### `vet/malformed-revised-tier` — refused
+
+Refusal: `Vet verdict 1 has malformed revised tier; use Revise to [A], [B], [C] or [D]`
+
+```text
+1. [B] Revise to [E]
 ```
 
 ## Rebuttal twin

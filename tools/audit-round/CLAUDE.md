@@ -132,7 +132,8 @@ consumers.
   Finding titles are distinct across the whole report because the vet and rebuttal name findings by
   them; round data joins findings to record bullets by the `[finding:<n>]` number each bullet opens
   with. Quoted evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict and
-  answer lines and ignores every other line. It requires verdicts for the report's finding numbers
+  answer lines and ignores every other line. A `Revise to [<tier>]` suffix records a changed tier;
+  an unchanged tier stays plain `Revise`. It requires verdicts for the report's finding numbers
   in order and rebuttal answers for each revise, drop and ruling verdict. It refuses by name an
   answer numbered for an accepted finding, so a misnumbered answer fails on its own line rather
   than as a missing one. Only Accept verdicts skip
@@ -377,33 +378,33 @@ consumers.
   file is an object whose `rounds` list holds the round entries. Plan files also hold the user's
   later rulings in `disproved`. The series runner reads commit files before reruns and the runner
   reads them after automatic rounds. Commit files have no `disproved` list. A finding review carries
-  its report number, tier and verdict; retained finding data stores the verdict word and rebuttal
-  answer. A planning entry's required `settling` field keeps the widening round's settling
-  recommendation as it stands when the round ends: the fix's settling line, or the audit report's
-  closing settling line when the clean audit ran no fix; detailing entries use `""`. The planning,
-  implementation and commit files each hold a time-ordered entry per round. A commit entry also
-  records its original groups, advancing groups and judged repos. An entry records state, settings,
-  chosen auditor and source, the seat its audit launched on, phase measurements including peak
-  context and compactions, landed commits, finding review and outcome data and any series answer.
-  New automatic rounds also store the ordered resolved pool used for that answer. `RoundOutput`
-  writes the settled findings as `in-progress` before later phases, then replaces the entry with its
-  final state. The writer checks the whole object and publishes it by temporary file rename.
-  `run-files.ts` completes each required write before returning to the invocation; no complete
-  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
-  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
-  source finding numbers. It uses cyan for inline code without background blocks and honours
-  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
-  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
-  log records each tool invocation once, with shell wrappers removed and no event envelopes or
-  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
-  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
-  line; the transcript retains it. `beginRuling` releases the live status display and renders the
-  fix's ruling. `endRuling` excludes the user's waiting time and records a submitted reply in the
-  log and transcript before any resumed process starts. Assistant replies use the normal phase
-  output, so launch prompts stay in the log and never reach the terminal. Supplied instruction files
-  appear there by path only; their full contents go to the assistant. Each assistant's reported
-  model line is followed by the model-change notice from `model-change.ts` when that comparison
-  differs.
+  its report number, report tier, verdict and optional changed vet tier; retained finding data
+  stores those values and the rebuttal answer. A planning entry's required `settling` field keeps
+  the widening round's settling recommendation as it stands when the round ends: the fix's settling
+  line, or the audit report's closing settling line when the clean audit ran no fix; detailing
+  entries use `""`. The planning, implementation and commit files each hold a time-ordered entry per
+  round. A commit entry also records its original groups, advancing groups and judged repos. An
+  entry records state, settings, chosen auditor and source, the seat its audit launched on, phase
+  measurements including peak context and compactions, landed commits, finding review and outcome
+  data and any series answer. New automatic rounds also store the ordered resolved pool used for
+  that answer. `RoundOutput` writes the settled findings as `in-progress` before later phases, then
+  replaces the entry with its final state. The writer checks the whole object and publishes it by
+  temporary file rename. `run-files.ts` completes each required write before returning to the
+  invocation; no complete transcript accumulates in memory. `terminal.ts` renders assistant Markdown
+  through the `pi-tui` Markdown component at the current terminal width, preserving paragraph
+  spacing, nested lists and source finding numbers. It uses cyan for inline code without background
+  blocks and honours `NO_COLOR`. It writes the rendered document directly and uses log-update only
+  for the live status line, so permanent text is not wrapped twice. Redirected output retains the
+  original Markdown. The log records each tool invocation once, with shell wrappers removed and no
+  event envelopes or result payloads. Invocation lines stay complete in the log; assistant texts
+  stay complete in Markdown. Only terminal tool lines shorten. The terminal omits the final
+  `PHASE RESULT` control line; the transcript retains it. `beginRuling` releases the live status
+  display and renders the fix's ruling. `endRuling` excludes the user's waiting time and records a
+  submitted reply in the log and transcript before any resumed process starts. Assistant replies use
+  the normal phase output, so launch prompts stay in the log and never reach the terminal. Supplied
+  instruction files appear there by path only; their full contents go to the assistant. Each
+  assistant's reported model line is followed by the model-change notice from `model-change.ts` when
+  that comparison differs.
 - `model-change.ts` owns the non-blocking model and effort notice. Every
   round phase and the close compare the same way: the notice reads every
   active and archived plan's checked round data and compares the report with
@@ -730,20 +731,17 @@ own model and effort before asking the runner for a path. The runner resolves
 every file-writing phase's tag before opening output.
 
 `round-data.ts` owns `<stem>-plan-rounds.json`, `<stem>-impl-rounds.json` and
-`<commit-label>-rounds.json`. They are checked, gitignored objects with a
-`rounds` list keyed by target and round number. Plan files also carry a
-`disproved` list of later user rulings. Each round records the resolved scope,
-settings, phases, landed commits, findings, status and series answer. New automatic rounds also
-record the ordered resolved pool used for that answer. A commit
-entry additionally records its original groups, advancing groups and judged
-repos. Each disproved entry records its
-date and full reason, then either its target, round and finding numbers or the
-manually named auditor model and effort. Each phase carries the
-model and effort the tool reported and the launched selection the settings
-named. The writer publishes a
-complete replacement through a temporary file. Loop-close moves existing files
-beside the archived plan. A commit file stays beside its round files in
-`active/` until those files are removed by hand. The replay reads it. Plan
+`<commit-label>-rounds.json`. They are checked, gitignored objects with a `rounds` list keyed by
+target and round number. Plan files also carry a `disproved` list of later user rulings. Each round
+records the resolved scope, settings, phases, landed commits, findings, status and series answer. A
+finding records a changed vet tier only when its `Revise to [<tier>]` line differs from the report
+tier. New automatic rounds also record the ordered resolved pool used for that answer. A commit
+entry additionally records its original groups, advancing groups and judged repos. Each disproved
+entry records its date and full reason, then either its target, round and finding numbers or the
+manually named auditor model and effort. Each phase carries the model and effort the tool reported
+and the launched selection the settings named. The writer publishes a complete replacement through a
+temporary file. Loop-close moves existing files beside the archived plan. A commit file stays beside
+its round files in `active/` until those files are removed by hand. The replay reads it. Plan
 readers and the model read-out ignore it. These are machine artifacts and are never edited by hand.
 
 The implement command retains one log and one possible ruling in the active

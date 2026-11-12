@@ -30,30 +30,73 @@ type Header<Word extends string> = {
   readonly word: Word
 }
 
+type VetHeader = Header<keyof typeof vetVerdicts & string> & {
+  readonly vetTier?: FindingReview["tier"]
+}
+
 /**
- * A verdict or answer header is `<number>. [<tier>] <word>` and nothing else.
- * A line in that shape whose word is outside the phase's list is refused by
- * name rather than passed as free text, so a vet word on a rebuttal line, or
- * the reverse, fails on the line that is wrong instead of as a missing entry.
- * Every other line is free text for the fix phase. Whitespace at either end,
- * such as a Markdown hard break, carries no content.
+ * A verdict or answer header starts `<number>. [<tier>] <word>`. A revised vet
+ * tier is the one admitted suffix. A line in that shape whose word is outside
+ * the phase's list is refused by name rather than passed as free text, so a vet
+ * word on a rebuttal line, or the reverse, fails on the line that is wrong
+ * instead of as a missing entry. Every other line is free text for the fix
+ * phase. Whitespace at either end, such as a Markdown hard break, carries no
+ * content.
  */
+function readHeaderLine(line: string): Header<string> | null {
+  const header = /^([1-9]\d*)\. \[([A-D])\] (.+)$/.exec(line.trim())
+  if (header === null) return null
+  return {
+    number: Number(header[1]),
+    tier: header[2] as FindingReview["tier"],
+    word: header[3] as string,
+  }
+}
+
 function readHeader<const Words extends Record<string, string>>(
   line: string,
   phase: string,
   words: Words,
 ): Header<keyof Words & string> | null {
-  const header = /^([1-9]\d*)\. \[([A-D])\] (.+)$/.exec(line.trim())
+  const header = readHeaderLine(line)
   if (header === null) return null
-  const word = header[3] as string
+  const { word } = header
   if (!Object.hasOwn(words, word))
     throw new Error(
-      `${phase} ${header[1]} uses the word "${word}"; use ${listWords(words)}`,
+      `${phase} ${header.number} uses the word "${word}"; use ${listWords(words)}`,
     )
   return {
-    number: Number(header[1]),
-    tier: header[2] as FindingReview["tier"],
+    number: header.number,
+    tier: header.tier,
     word: word as keyof Words & string,
+  }
+}
+
+function readVetHeader(line: string): VetHeader | null {
+  const header = readHeaderLine(line)
+  if (header === null) return null
+  const revised = /^Revise to \[([A-D])\]$/.exec(header.word)
+  if (revised !== null) {
+    const vetTier = revised[1] as FindingReview["tier"]
+    if (vetTier === header.tier)
+      throw new Error(
+        `Vet verdict ${header.number} keeps tier ${vetTier}; use Revise without a tier`,
+      )
+    return { ...header, word: "Revise", vetTier }
+  }
+  if (header.word.startsWith("Revise to "))
+    throw new Error(
+      `Vet verdict ${header.number} has malformed revised tier; use Revise to [A], [B], [C] or [D]`,
+    )
+  if (/ to \[.+\]$/.test(header.word))
+    throw new Error("Only Revise may name a replacement tier")
+  if (!Object.hasOwn(vetVerdicts, header.word))
+    throw new Error(
+      `Vet verdict ${header.number} uses the word "${header.word}"; use ${listWords(vetVerdicts)}`,
+    )
+  return {
+    ...header,
+    word: header.word as keyof typeof vetVerdicts & string,
   }
 }
 
@@ -77,13 +120,14 @@ function checkFindingIdentity(
 export function readVet(source: string, findings: ReportFindings): VetReading {
   const reviews: FindingReview[] = []
   for (const line of source.split(/\r?\n/)) {
-    const header = readHeader(line, "Vet verdict", vetVerdicts)
+    const header = readVetHeader(line)
     if (header === null) continue
     checkFindingIdentity(header.number, header.tier, findings)
     reviews.push({
       number: header.number,
       tier: header.tier,
       verdict: vetVerdicts[header.word],
+      ...(header.vetTier === undefined ? {} : { vetTier: header.vetTier }),
     })
   }
   if (

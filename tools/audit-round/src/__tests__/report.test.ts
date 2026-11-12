@@ -763,6 +763,17 @@ test("vet reads verdict lines with surrounding whitespace", () => {
   )
 })
 
+test("vet reads a changed tier only from the revise suffix", () => {
+  assert.deepEqual(
+    readVet("1. [B] Revise to [A]", twoFindings.slice(0, 1)).reviews,
+    [{ number: 1, tier: "B", verdict: "revise", vetTier: "A" }],
+  )
+  assert.throws(
+    () => readVet("1. [B] Revise to [B]", twoFindings.slice(0, 1)),
+    /use Revise without a tier/,
+  )
+})
+
 test("every verdict that needs an answer prevents skipping the rebuttal", () => {
   for (const verdict of ["Revise", "Drop", "Needs user's ruling"])
     assert.equal(

@@ -40,8 +40,10 @@ finding the move already resolved. It checks each finding on three axes, in orde
 3. **Fixed right.** Its correction resolves the cause at the stated tier, and any trade between
    added machinery and user benefit is priced.
 
-Each finding gets one verdict: Accept, Revise, Drop or Needs user's ruling. A revision states the
-corrected tier, evidence or correction. The vet may run read-only commands. It runs no formatter and
+Each finding gets one verdict: Accept, Revise, Drop or Needs user's ruling. When a revision changes
+the tier, its verdict line says `Revise to [A]`, `Revise to [B]`, `Revise to [C]` or
+`Revise to [D]`. A revision at the report's tier stays `Revise`. The explanation states the
+corrected evidence or correction. The vet may run read-only commands. It runs no formatter and
 changes no tracked file.
 
 ## Early stops

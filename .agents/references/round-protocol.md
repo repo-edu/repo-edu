@@ -434,7 +434,9 @@ words, numbering and wrong-phase refusal.
 
 - **Accept** keeps the finding as written.
 - **Revise** keeps the defect and states the corrected tier, evidence or
-  correction in a few short sentences.
+  correction in a few short sentences. When the corrected tier differs from
+  the report, write `Revise to [<tier>]` on the verdict line. A revision that
+  keeps the report tier stays plain `Revise`.
 - **Drop** states why the finding does not stand.
 - **Needs user's ruling** identifies a real choice or supported decision change
   that the vet cannot settle.

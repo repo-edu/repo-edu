@@ -150,6 +150,11 @@ for changes to recorded decisions.
 They own when a supported simplification can be accepted and when the user
 must rule.
 
+When a `Revise` verdict changes the finding's tier, write the verdict line as
+`<n>. [<report-tier>] Revise to [<new-tier>]`. Keep plain `Revise` when the
+tier does not change. The explanation still states the corrected evidence or
+correction.
+
 ## Cross-repo findings
 
 Cross-repo findings are graded findings, so vet all three axes. Also verify that

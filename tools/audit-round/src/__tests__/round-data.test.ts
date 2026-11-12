@@ -194,6 +194,23 @@ test("round data admits the series answer, resolved pool and model settings", as
   )
 })
 
+test("round data stores a vet tier that differs from the report tier", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
+  const findings = reviewedRoundFindings(
+    [reportFinding(1, "Retiered finding")],
+    [{ number: 1, tier: "B", verdict: "revise", vetTier: "C" }],
+  )
+
+  writeRoundData(path, {
+    ...entry("example-impl-audit-01..01", 1),
+    findings: [...findings],
+  })
+
+  const file = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.equal(file.rounds[0]?.findings[0]?.vetTier, "C")
+})
+
 test("a plan's watch evidence reads both round kinds and their trajectory fields", async (t) => {
   const f = await fixture(t)
   const {
@@ -445,6 +462,7 @@ test("review and rebuttal outcomes stay attached to report finding identity", ()
           number: 1,
           tier: "B",
           verdict: "revise",
+          vetTier: "C",
         },
       ],
       [{ number: 1, tier: "B", answer: "contest" }],
@@ -453,6 +471,7 @@ test("review and rebuttal outcomes stay attached to report finding identity", ()
       {
         ...reportFinding(1, "Reviewed finding"),
         vetVerdict: "revise",
+        vetTier: "C",
         rebuttalAnswer: "contest",
         outcome: null,
         finalTier: null,
