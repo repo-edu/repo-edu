@@ -249,6 +249,7 @@ export const disprovedFindingSchema = z.union([
     target: z.string().min(1),
     round: z.number().int().positive(),
     finding: z.number().int().positive(),
+    side: z.enum(["finding", "vet"]).optional(),
   }),
   z.strictObject({
     ...commonDisprovedFinding,
@@ -714,9 +715,9 @@ export function writeRoundData(path: string, value: RoundData): void {
 
 /**
  * Whether two disproved entries rule on the same retained finding. One finding
- * is disproved or it is not, so a second ruling on it replaces the first and a
- * reworded reason needs no second entry. A detached entry names an auditor and
- * no finding, so two of them may both be real and never match.
+ * holds one later ruling, so a second ruling replaces the first even when it
+ * changes which side was wrong. A detached entry names an auditor and no
+ * finding, so two of them may both be real and never match.
  */
 function sameDisprovedFinding(
   first: DisprovedFinding,

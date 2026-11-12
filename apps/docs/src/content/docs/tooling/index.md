@@ -58,7 +58,7 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; the other assistant vets and the original auditor answers |
 | I want to check a round's trajectory | [`/watch [stem\|commit]`](/repo-edu/tooling/watch/) | A grounded green, amber or red judgement; you decide the response |
 | I want to compare the recorded auditors and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | Auditor and coder tables, and a coder recommendation when the records clearly support one |
-| I found that an earlier audit finding was wrong | [`pnpm audit-round disprove ...`](/repo-edu/tooling/disprove/) | Your dated ruling and full reason enter the plan's round data |
+| I found that an earlier audit finding or vet verdict was wrong | [`pnpm audit-round disprove ...`](/repo-edu/tooling/disprove/) | Your dated ruling, chosen side and full reason enter the plan's round data |
 
 ### Implementation
 

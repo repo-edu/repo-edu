@@ -1262,7 +1262,7 @@ test("coder admission matches the ready assignment on assistant and effort, not 
   )
 })
 
-test("coder evidence removes disproved findings and falls back to one commit span per step", async (t) => {
+test("vet rulings restore dropped and downgraded findings for auditor and coder evidence", async (t) => {
   const f = await modelFixture(t)
   const stem = "commit-span"
   await commit(
@@ -1319,7 +1319,24 @@ test("coder evidence removes disproved findings and falls back to one commit spa
         phase("fix", "codex", "coder-alpha", 600_000),
       ],
       [{ repository: "repo-edu", sha: audit }],
-      [finding("disproved implementation claim")],
+      [
+        {
+          ...finding("dropped implementation claim"),
+          number: 1,
+          vetVerdict: "drop",
+          rebuttalAnswer: "agree",
+          outcome: "dropped",
+        },
+        {
+          ...finding("downgraded implementation claim"),
+          number: 2,
+          vetVerdict: "revise",
+          vetTier: "C",
+          rebuttalAnswer: "agree",
+          finalTier: "C",
+        },
+        { ...finding("disproved implementation claim"), number: 3 },
+      ],
     ),
     scope: "1-2",
     judgedRepos: ["repo-edu", "plan"],
@@ -1329,7 +1346,24 @@ test("coder evidence removes disproved findings and falls back to one commit spa
     reason: "The implementation claim was wrong.",
     target: `${stem}-impl-audit-01..02`,
     round: 1,
+    finding: 3,
+    side: "finding",
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-02",
+    reason: "The dropped finding was right.",
+    target: `${stem}-impl-audit-01..02`,
+    round: 1,
     finding: 1,
+    side: "vet",
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-03",
+    reason: "The downgraded finding was right.",
+    target: `${stem}-impl-audit-01..02`,
+    round: 1,
+    finding: 2,
+    side: "vet",
   })
 
   const evidence = await readModelEvidence({
@@ -1342,14 +1376,34 @@ test("coder evidence removes disproved findings and falls back to one commit spa
   )
   assert.ok(row)
   assert.deepEqual(row.samples, [
-    { stem, steps: 2, kept: 0, yield: 0, minutes: 30 },
+    { stem, steps: 2, kept: 2, yield: 1, minutes: 30 },
   ])
+
+  const auditor = evidence.auditors.get(JSON.stringify(["audit-alpha", "low"]))
+  assert.ok(auditor)
+  assert.deepEqual(auditor.samples[0]?.counts, {
+    kept: 2,
+    dropped: 0,
+    downgraded: 0,
+    disproved: 1,
+  })
+  assert.deepEqual(
+    evidence.disproved
+      .filter((entry) => entry.kind === "attached")
+      .map((entry) => ({ finding: entry.finding, side: entry.side }))
+      .sort((first, second) => first.finding - second.finding),
+    [
+      { finding: 1, side: "vet" },
+      { finding: 2, side: "vet" },
+      { finding: 3, side: "finding" },
+    ],
+  )
 
   const report = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
   )
-  assert.match(report, /\| coder-alpha low \| 1 \| 2 \| 0 \| 0\.00 \| 30\.0 \|/)
+  assert.match(report, /\| coder-alpha low \| 1 \| 2 \| 2 \| 1\.00 \| 30\.0 \|/)
   assert.match(report, /The implementation claim was wrong\./)
 })
 

@@ -94,6 +94,7 @@ import {
   type DisprovedFinding,
   type LandedCommit,
   parseRoundDataFile,
+  type RoundFinding,
   readCommitRoundData,
   roundDataFilename,
   writeDisprovedFinding,
@@ -157,6 +158,7 @@ type Invocation =
       readonly stem: string
       readonly target: string
       readonly reason: string
+      readonly side: "finding" | "vet"
       readonly finding:
         | { readonly round: number; readonly number: number }
         | {
@@ -318,6 +320,7 @@ function disproveInvocation(
   target: string,
   details: readonly string[],
   auditor?: DisprovedAuditor,
+  vet = false,
 ): Extract<Invocation, { kind: "disprove" }> {
   if (/[\\/]/.test(value))
     throw new InvalidArgumentError("Name the plan by its stem, without a path.")
@@ -326,6 +329,8 @@ function disproveInvocation(
     throw new InvalidArgumentError(
       `Expected the stored round target to start with ${stem}-.`,
     )
+  if (auditor !== undefined && vet)
+    throw new InvalidArgumentError("--vet cannot be used with --by.")
   const reasonAt = auditor === undefined ? 2 : 0
   const reason = details.slice(reasonAt).join(" ").trim()
   if (reason.length === 0)
@@ -336,6 +341,7 @@ function disproveInvocation(
       stem,
       target,
       reason,
+      side: "finding",
       finding: { auditor },
     }
   if (details.length < 3)
@@ -347,6 +353,7 @@ function disproveInvocation(
     stem,
     target,
     reason,
+    side: vet ? "vet" : "finding",
     finding: {
       round: positiveInteger(details[0], "round"),
       number: positiveInteger(details[1], "finding"),
@@ -394,7 +401,8 @@ async function requireDisprovedFinding(
   path: string,
   target: string,
   finding: { readonly round: number; readonly number: number },
-): Promise<void> {
+  side: "finding" | "vet",
+): Promise<RoundFinding> {
   let source: string
   try {
     source = await readFile(path, "utf8")
@@ -409,10 +417,21 @@ async function requireDisprovedFinding(
   )
   if (round === undefined)
     throw new Error(`No ${target} round ${finding.round} exists in ${path}.`)
-  if (!round.findings.some((entry) => entry.number === finding.number))
+  const retained = round.findings.find(
+    (entry) => entry.number === finding.number,
+  )
+  if (retained === undefined)
     throw new Error(
       `No finding ${finding.number} exists in ${target} round ${finding.round}.`,
     )
+  if (
+    side === "vet" &&
+    (retained.vetVerdict === null || retained.vetVerdict === "accept")
+  )
+    throw new Error(
+      `Finding ${finding.number} in ${target} round ${finding.round} has no non-Accept vet verdict.`,
+    )
+  return retained
 }
 
 function lineRange(value: string): LineRange {
@@ -544,7 +563,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round replay\n       audit-round disprove <stem> <target> <round> <finding> <reason>\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
+      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round replay\n       audit-round disprove [--vet] <stem> <target> <round> <finding> <reason>\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -573,7 +592,7 @@ that worker's session on its step before the run continues.
 Use round to run one audit round or series on a plan scope or on commits.
 Use models to read the auditor and coder results.
 Use replay to compare retained automatic-series answers with the fixed rules.
-Use disprove to record a finding that later evidence disproved.
+Use disprove to record a finding or vet verdict that later evidence disproved.
 Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
 Use round --help or close --help for their arguments and options.`,
@@ -945,7 +964,7 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
   command
     .command("disprove")
     .description(
-      "Record the user's later ruling that one audit finding was disproved.",
+      "Record the user's later ruling that one audit finding or vet verdict was disproved.",
     )
     .argument("<stem>", "the active or archived plan")
     .argument("<target>", "the round-data target exactly as stored")
@@ -958,14 +977,21 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       "record a finding absent from retained round data",
       disprovedAuditor,
     )
+    .option("--vet", "record that the finding's vet verdict was wrong")
     .action(
       (
         stem: string,
         target: string,
         details: string[],
-        flags: { by?: DisprovedAuditor },
+        flags: { by?: DisprovedAuditor; vet?: boolean },
       ) => {
-        invocation = disproveInvocation(stem, target, details, flags.by)
+        invocation = disproveInvocation(
+          stem,
+          target,
+          details,
+          flags.by,
+          flags.vet === true,
+        )
       },
     )
   command
@@ -1216,6 +1242,7 @@ export async function runCommand(
           file.path,
           invocation.target,
           invocation.finding,
+          invocation.side,
         )
         entry = {
           date,
@@ -1223,8 +1250,10 @@ export async function runCommand(
           target: invocation.target,
           round: invocation.finding.round,
           finding: invocation.finding.number,
+          side: invocation.side,
         }
-        subject = `${invocation.stem}/disprove: ${invocation.target} round ${invocation.finding.round} finding ${invocation.finding.number}`
+        const side = invocation.side === "vet" ? "vet finding" : "finding"
+        subject = `${invocation.stem}/disprove: ${invocation.target} round ${invocation.finding.round} ${side} ${invocation.finding.number}`
       } else {
         entry = {
           date,

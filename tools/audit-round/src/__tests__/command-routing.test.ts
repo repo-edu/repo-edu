@@ -21,10 +21,12 @@ const singleAuditorSettings = {
 
 function disproveRound(
   target = "example-impl-audit-01..01",
+  roundNumber = 1,
+  vetVerdict: ImplementationRoundData["findings"][number]["vetVerdict"] = "accept",
 ): ImplementationRoundData {
   return {
     target,
-    round: 1,
+    round: roundNumber,
     tag: "otx",
     started: "2026-11-05T10:00:00.000Z",
     status: "finished",
@@ -56,9 +58,9 @@ function disproveRound(
           area: "tool-audit-round",
           covers: [],
         },
-        vetVerdict: "accept",
-        rebuttalAnswer: null,
-        outcome: "kept",
+        vetVerdict,
+        rebuttalAnswer: vetVerdict === "accept" ? null : "agree",
+        outcome: vetVerdict === "drop" ? "dropped" : "kept",
         finalTier: null,
         finalReach: null,
       },
@@ -935,6 +937,7 @@ test("disprove appends an attached ruling to active data without committing", as
       target: "example-impl-audit-01..01",
       round: 1,
       finding: 1,
+      side: "finding",
     },
   ])
   assert.equal(
@@ -944,11 +947,11 @@ test("disprove appends an attached ruling to active data without committing", as
   assert.match(f.visible.at(-1) ?? "", /Loop-close will commit it/)
 })
 
-test("disprove commits only an archived attached ruling with its reason body", async (t) => {
+test("disprove --vet commits only an archived attached ruling and names its side", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   const archive = await archivedPlan(f)
   const path = join(archive, "example-impl-rounds.json")
-  writeRoundData(path, disproveRound())
+  writeRoundData(path, disproveRound(undefined, 1, "drop"))
   await execa("git", ["add", "--", relative(f.planRoot, path)], {
     cwd: f.planRoot,
   })
@@ -964,7 +967,8 @@ test("disprove commits only an archived attached ruling with its reason body", a
         "example-impl-audit-01..01",
         "1",
         "1",
-        "The retained evidence disproves the claim.",
+        "--vet",
+        "The retained evidence disproves the vet verdict.",
       ],
       f.runtime,
       { ...f.options, now: () => Date.UTC(2026, 10, 5, 12) },
@@ -977,7 +981,7 @@ test("disprove commits only an archived attached ruling with its reason body", a
     (
       await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
     ).stdout.trim(),
-    "example/disprove: example-impl-audit-01..01 round 1 finding 1\n\nThe retained evidence disproves the claim.",
+    "example/disprove: example-impl-audit-01..01 round 1 vet finding 1\n\nThe retained evidence disproves the vet verdict.",
   )
   assert.equal(
     (
@@ -998,6 +1002,64 @@ test("disprove commits only an archived attached ruling with its reason body", a
       })
     ).stdout,
     "staged.txt",
+  )
+})
+
+test("disprove --vet accepts every non-Accept verdict and refuses Accept", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(f, "settled")
+  const path = join(f.activeRoot, "example-impl-rounds.json")
+  const target = "example-impl-audit-01..01"
+  for (const [roundNumber, verdict] of [
+    [1, "accept"],
+    [2, "revise"],
+    [3, "drop"],
+    [4, "needs-user-ruling"],
+  ] as const)
+    writeRoundData(path, disproveRound(target, roundNumber, verdict))
+
+  assert.equal(
+    await runCommand(
+      ["disprove", "example", target, "1", "1", "--vet", "Reason."],
+      f.runtime,
+      f.options,
+    ),
+    1,
+  )
+  assert.match(f.errors.at(-1) ?? "", /has no non-Accept vet verdict/)
+
+  for (const roundNumber of [2, 3, 4])
+    assert.equal(
+      await runCommand(
+        [
+          "disprove",
+          "example",
+          target,
+          String(roundNumber),
+          "1",
+          "--vet",
+          `Vet ruling ${roundNumber}.`,
+        ],
+        f.runtime,
+        f.options,
+      ),
+      0,
+      f.errors.join("\n"),
+    )
+
+  const data = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in data)
+  assert.deepEqual(
+    data.disproved.map((entry) =>
+      "target" in entry
+        ? { round: entry.round, finding: entry.finding, side: entry.side }
+        : entry,
+    ),
+    [
+      { round: 2, finding: 1, side: "vet" },
+      { round: 3, finding: 1, side: "vet" },
+      { round: 4, finding: 1, side: "vet" },
+    ],
   )
 })
 
@@ -1066,6 +1128,24 @@ test("disprove prints an action refusal with the runner prefix and a parser refu
     2,
   )
   assert.match(f.errors.at(-1) ?? "", /^error: option '--by <model-effort>'/)
+
+  assert.equal(
+    await runCommand(
+      [
+        "disprove",
+        "example",
+        "example-plan-audit",
+        "--by",
+        "gpt-5.6-sol xhigh",
+        "--vet",
+        "Reason.",
+      ],
+      f.runtime,
+      f.options,
+    ),
+    2,
+  )
+  assert.match(f.errors.at(-1) ?? "", /--vet cannot be used with --by/)
 })
 
 for (const [command, phase, pattern] of [

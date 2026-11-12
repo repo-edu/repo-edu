@@ -37,9 +37,10 @@ The read-out compares rather than ranks by taste:
    share. A step record without active time falls back to the span from the ready marker or the
    previous step to that step's later share commit. A plan whose step time cannot be read is
    excluded.
-3. **Disproved findings**, recorded with
-   [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/), count against the auditor that wrote
-   them and remove a kept finding from coder evidence.
+3. **Later rulings**, recorded with
+   [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/), read in either direction. A finding
+   ruling counts against the auditor and removes it from coder evidence. A vet ruling restores a
+   dropped or downgraded finding as kept for the auditor and coder.
 
 The auditor tables carry no evaluation and no recommendation. The best model is the top row of the
 main table, and the time stands in its own column. Coder recommendations keep the direct

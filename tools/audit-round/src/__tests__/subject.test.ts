@@ -165,6 +165,7 @@ test("settle and ready omit the capability tag only in the plan repository", () 
 test("disprove names an attached or detached user ruling only in the plan repository", () => {
   for (const sentence of [
     "example-plan-audit round 2 finding 3",
+    "example-plan-audit round 2 vet finding 3",
     "example-plan-audit by gpt-5.6-sol xhigh",
   ]) {
     assert.deepEqual(parseSubject(`example/disprove: ${sentence}`, "plan"), {
@@ -187,7 +188,7 @@ test("disprove names an attached or detached user ruling only in the plan reposi
         "example/disprove: example-plan-audit round 0 finding 1",
         "plan",
       ),
-    /round <n> finding <n>/,
+    /round <n> \[vet\] finding <n>/,
   )
   assert.throws(
     () =>

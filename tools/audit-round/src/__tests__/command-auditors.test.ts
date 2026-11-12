@@ -407,7 +407,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round replay\n {7}audit-round disprove <stem> <target> <round> <finding> <reason>\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round replay\n {7}audit-round disprove \[--vet\] <stem> <target> <round> <finding> <reason>\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
   )
   assert.match(
     visible,
@@ -436,6 +436,10 @@ test("argument errors and help start no assistant processes", async (t) => {
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
   assert.match(visible, /--aborted <reason>/)
   assert.match(visible, /--all\s+print per-plan round data and excluded plans/)
+  assert.match(
+    visible,
+    /--vet\s+record that the finding's vet verdict was wrong/,
+  )
   assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /assistant set in settings\.json\s+fixes/)
   assert.match(visible, /--auditor <selections>\s+auditors in round order/)

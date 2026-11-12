@@ -362,7 +362,7 @@ test("round data stores attached and detached disproved findings beside rounds",
   ])
 })
 
-test("a second ruling on the same finding replaces the first while detached rulings append", async (t) => {
+test("a second ruling on the same finding replaces the first across sides while detached rulings append", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   writeRoundData(path, entry("example-impl-audit-01..01", 1))
@@ -380,10 +380,11 @@ test("a second ruling on the same finding replaces the first while detached ruli
   })
   writeDisprovedFinding(path, {
     date: "2026-11-06",
-    reason: "The reworded reason.",
+    reason: "The vet verdict was wrong instead.",
     target: "example-impl-audit-01..01",
     round: 1,
     finding: 2,
+    side: "vet",
   })
   writeDisprovedFinding(path, {
     date: "2026-11-06",
@@ -401,10 +402,11 @@ test("a second ruling on the same finding replaces the first while detached ruli
     },
     {
       date: "2026-11-06",
-      reason: "The reworded reason.",
+      reason: "The vet verdict was wrong instead.",
       target: "example-impl-audit-01..01",
       round: 1,
       finding: 2,
+      side: "vet",
     },
     {
       date: "2026-11-06",

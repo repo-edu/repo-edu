@@ -172,6 +172,7 @@ Plan-file commits, plan repo only. No `<kind>`:
                | <stem>/ready: <S>
                | <stem>/closed <tag>: <S>
 <P4 ruling>  ::= <stem>/disprove: <target>" round "<n>" finding "<n>
+               | <stem>/disprove: <target>" round "<n>" vet finding "<n>
                | <stem>/disprove: <target>" by "<model>" "<effort-name>
 <target>     ::= non-empty text without spaces
 ```
@@ -223,7 +224,7 @@ Rules across the classes:
 | `plan-audit` | plan | one planning round; its name pairs it with `impl-audit-<scope>`, so a record says which audit it was |
 | `settle` | plan | rename onto the bare topic name without changing text |
 | `ready` | plan | plan declared ready for implementation, no file change |
-| `disprove` | plan | user's later ruling that one audit finding was wrong |
+| `disprove` | plan | user's later ruling that one audit finding or vet verdict was wrong |
 | `impl-<n>` | either | one implementation step, exactly one step per commit |
 | `impl-audit-<scope>` | either | an implementation-audit fix commit or record |
 | `implemented` | either | every step this repo hosts has landed |
@@ -246,6 +247,7 @@ P3        planning-rounds/settle:
 P3        planning-rounds/ready:
 P3        planning-rounds/closed oth:
 P4        planning-rounds/disprove: planning-rounds-plan-audit round 2 finding 1
+P4        planning-rounds/disprove: planning-rounds-plan-audit round 2 vet finding 1
 P4        planning-rounds/disprove: planning-rounds-plan-audit by gpt-5.6-sol xhigh
 I1        planning-rounds/impl-3 oth feat(audit-round):
 I2        round-file-naming/impl-audit-1-4 oth growth-none d1 docs(vet):

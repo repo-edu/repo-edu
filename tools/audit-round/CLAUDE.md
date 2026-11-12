@@ -392,7 +392,9 @@ consumers.
   round-kind files from one selected active or archive folder and the commit-series readers. The
   series decision reads one active commit series. The replay reads every active commit series. Each
   file is an object whose `rounds` list holds the round entries. Plan files also hold the user's
-  later rulings in `disproved`. The series runner reads commit files before reruns and the runner
+  later rulings in `disproved`. An attached ruling names whether the finding or
+  its non-accepting vet verdict was wrong; an older attached ruling without
+  that field means the finding. The series runner reads commit files before reruns and the runner
   reads them after automatic rounds. Commit files have no `disproved` list. A finding review carries
   its report number, report tier, verdict and optional changed vet tier; retained finding data
   stores those values and the rebuttal answer. A serious contest may also store the user's winner
@@ -456,8 +458,9 @@ consumers.
   correctable bullets above the main table; other auditors share one line below the last table.
   Auditor cost remains the mean audit and rebuttal time over every complete round. Kept, dropped,
   downgraded and disproved findings are exclusive counts; wrong claims is the last three as a
-  percentage of all four across those rounds. A later disproval removes a kept finding from coder
-  evidence too. Under `--all`, planning and implementation each gain a measured-data table with one
+  percentage of all four across those rounds. A later finding ruling removes a kept finding from
+  coder evidence. A later vet ruling moves a dropped or downgraded finding to kept for the auditor
+  and coder. Under `--all`, planning and implementation each gain a measured-data table with one
   row per plan and auditor. The rows contain rounds, all four finding outcomes and mean minutes per
   round, sorted by plan and then model. A detached disproved finding creates a zero-round row when
   its auditor has no round on that plan. These tables precede the excluded plans. Coder yield
@@ -594,14 +597,15 @@ consumers.
   nothing. The `delete-reports` command uses the same deletion function as the coordinator and
   starts no assistant or release resolution. `disprove` resolves one active or archived plan's round
   data, checks an attached finding or records the manually named auditor of a detached finding,
-  writes through the shared atomic writer and commits only an archived file. It starts no assistant
-  and reads no settings. `settle` and `ready` resolve the active plan that `plan` prints when no
-  stem is given and run only the lifecycle Git owner. The run resolves its named active plan and the
-  stage `lifecycleStage` reads before startup, then reads settings and releases once and calls the
-  stage functions the single commands use, in lifecycle order: the series, `settlePlan`, the series,
-  `readyPlan`, the implementation, the range series and the close. The user's invocation is the
-  settle, ready and close call given in advance, so a runner `settle` or `ready` ending and a range
-  series that ended without needing the user move on to the next stage. After `settlePlan` or
+  writes through the shared atomic writer and commits only an archived file. `--vet` requires a
+  non-accepting vet verdict on the attached finding and is refused beside `--by`. It starts no
+  assistant and reads no settings. `settle` and `ready` resolve the active plan that `plan` prints
+  when no stem is given and run only the lifecycle Git owner. The run resolves its named active plan
+  and the stage `lifecycleStage` reads before startup, then reads settings and releases once and
+  calls the stage functions the single commands use, in lifecycle order: the series, `settlePlan`,
+  the series, `readyPlan`, the implementation, the range series and the close. The user's invocation
+  is the settle, ready and close call given in advance, so a runner `settle` or `ready` ending and a
+  range series that ended without needing the user move on to the next stage. After `settlePlan` or
   `readyPlan` the run reads the next stage through `lifecycleStage`, because a plan reopened after
   its ready marker keeps the marker and goes on to the implementation or the range series. Every
   other ending, a refused lifecycle call included, ends the run. Each stage keeps its own files,
@@ -754,12 +758,14 @@ records the resolved scope, settings, phases, landed commits, findings, status a
 finding records a changed vet tier only when its `Revise to [<tier>]` line differs from the report
 tier. New automatic rounds also record the ordered resolved pool used for that answer. A commit
 entry additionally records its original groups, advancing groups and judged repos. Each disproved
-entry records its date and full reason, then either its target, round and finding numbers or the
-manually named auditor model and effort. Each phase carries the model and effort the tool reported
-and the launched selection the settings named. The writer publishes a complete replacement through a
-temporary file. Loop-close moves existing files beside the archived plan. A commit file stays beside
-its round files in `active/` until those files are removed by hand. The replay reads it. Plan
-readers and the model read-out ignore it. These are machine artifacts and are never edited by hand.
+entry records its date and full reason, then either its target, round and finding numbers with the
+side the ruling disproves, or the manually named auditor model and effort. An attached entry without
+a side predates the field and disproves the finding. Each phase carries the model and effort the
+tool reported and the launched selection the settings named. The writer publishes a complete
+replacement through a temporary file. Loop-close moves existing files beside the archived plan. A
+commit file stays beside its round files in `active/` until those files are removed by hand. The
+replay reads it. Plan readers and the model read-out ignore it. These are machine artifacts and are
+never edited by hand.
 
 The implement command retains one log and one possible ruling in the active
 folder as `<stem>-impl-<step>-implement.log` and
@@ -980,6 +986,7 @@ pnpm audit-round models
 pnpm audit-round models --all
 pnpm audit-round replay
 pnpm audit-round disprove example example-plan-audit 2 1 "The claim did not hold."
+pnpm audit-round disprove example example-plan-audit 2 1 --vet "The vet verdict did not hold."
 pnpm audit-round disprove example example-plan-audit --by "gpt-5.6-sol xhigh" "The finding predates the data."
 pnpm audit-round plan
 pnpm audit-round settle example
@@ -1121,14 +1128,16 @@ unused. A user who wants another opener, no watch or a read between stages runs 
 commands.
 
 `disprove <stem> <target> <round> <finding> <reason>` resolves a finding in the plan's checked round
-data and writes the user's date and full reason. A rerun on the same target, round and finding
-replaces that entry, because one finding is disproved or it is not, so a reworded reason needs no
-second entry. `disprove <stem> <target> --by "<model> <effort>" <reason>` records a finding that
-retained round data does not hold and creates the round-kind file when it does not exist; each such
-ruling appends, because two unrecorded findings by one auditor may both be real. An active plan's
-ignored file in the active folder remains uncommitted for loop-close. An archived plan's file is
-committed alone as the tag-free `<stem>/disprove:` form with the reason as its body. The command
-starts no assistant and reads no settings.
+data and writes the user's date and full reason. Adding `--vet` before the reason records that a
+non-accepting vet verdict was wrong and the finding stood instead. It is refused for an accepted
+finding and beside `--by`. A rerun on the same target, round and finding replaces that entry,
+including a ruling in the other direction.
+`disprove <stem> <target> --by "<model> <effort>" <reason>` records a finding that retained round
+data does not hold and creates the round-kind file when it does not exist; each such ruling appends,
+because two unrecorded findings by one auditor may both be real. An active plan's ignored file in
+the active folder remains uncommitted for loop-close. An archived plan's file is committed alone as
+the tag-free `<stem>/disprove:` form with the reason as its body. An attached vet ruling names
+`vet finding` in that subject. The command starts no assistant and reads no settings.
 
 `close [stem]` closes a plan's loop under the plan repo's
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md). It is the one

@@ -63,6 +63,7 @@ type DisprovedBase = {
   readonly date: string
   readonly reason: string
   readonly auditor: ModelIdentity
+  readonly side: "finding" | "vet"
 }
 
 export type DisprovedEvidence =
@@ -98,7 +99,10 @@ type RoundRecord = {
   readonly stem: string
   readonly workClass: WorkClass
   readonly data: RoundData
-  readonly disprovedFindingNumbers: ReadonlySet<number>
+  readonly disprovedFindingNumbers: {
+    readonly finding: ReadonlySet<number>
+    readonly vet: ReadonlySet<number>
+  }
 }
 
 type HistoryCommit = LogCommit & {
@@ -173,17 +177,21 @@ function emptyFindingCounts(): FindingCounts {
 
 function findingCounts(
   findings: readonly RoundFinding[],
-  disproved: ReadonlySet<number>,
+  disproved: RoundRecord["disprovedFindingNumbers"],
 ): FindingCounts {
   const counts = { ...emptyFindingCounts() }
   for (const finding of findings) {
     if (finding.tier !== "A" && finding.tier !== "B") continue
+    if (finding.number !== null && disproved.vet.has(finding.number)) {
+      counts.kept += 1
+      continue
+    }
     if (finding.outcome === "dropped") {
       counts.dropped += 1
       continue
     }
     if (finding.outcome !== "kept") continue
-    if (finding.number !== null && disproved.has(finding.number)) {
+    if (finding.number !== null && disproved.finding.has(finding.number)) {
       counts.disproved += 1
       continue
     }
@@ -208,16 +216,17 @@ function roundWorkClass(file: string): WorkClass {
 function attachedNumbers(
   disproved: readonly DisprovedFinding[],
   round: RoundData,
-): ReadonlySet<number> {
-  return new Set(
-    disproved.flatMap((entry) =>
+): RoundRecord["disprovedFindingNumbers"] {
+  const finding = new Set<number>()
+  const vet = new Set<number>()
+  for (const entry of disproved)
+    if (
       "target" in entry &&
       entry.target === round.target &&
       entry.round === round.round
-        ? [entry.finding]
-        : [],
-    ),
-  )
+    )
+      (entry.side === "vet" ? vet : finding).add(entry.finding)
+  return { finding, vet }
 }
 
 async function readRoundFiles(
@@ -292,6 +301,7 @@ function disprovedEvidence(
             date: entry.date,
             reason: entry.reason,
             auditor: { assistant: null, ...entry.auditor },
+            side: "finding",
           }
         const round = (file.data.rounds as readonly RoundData[]).find(
           (candidate) =>
@@ -312,6 +322,7 @@ function disprovedEvidence(
           date: entry.date,
           reason: entry.reason,
           auditor: selectionIdentity(round.auditor.assistant, round.auditor),
+          side: entry.side ?? "finding",
           target: entry.target,
           round: entry.round,
           finding: entry.finding,

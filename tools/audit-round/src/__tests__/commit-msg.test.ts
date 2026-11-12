@@ -225,6 +225,9 @@ test("the hook accepts plan-repo lifecycle subjects without attribution", () => 
   const disprove =
     "example/disprove: example-plan-audit round 2 finding 3\n\nThe evidence disproves this claim.\n"
   assert.equal(stamp(disprove, "plan"), disprove)
+  const disprovedVet =
+    "example/disprove: example-plan-audit round 2 vet finding 3\n\nThe vet verdict disproves the finding.\n"
+  assert.equal(stamp(disprovedVet, "plan"), disprovedVet)
   const detailed =
     "example/disprove: example-plan-audit by gpt-5.6-sol xhigh\n\n- The first claim was wrong.\n- The second claim was wrong.\n"
   assert.equal(stamp(detailed, "plan"), detailed)

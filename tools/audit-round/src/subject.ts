@@ -263,12 +263,12 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (tag !== null) fail(`${where} carries no capability tag`)
       if (!empty) fail(`${where} carries nothing after its form`)
       if (
-        !/^(?:\S+ round [1-9]\d* finding [1-9]\d*|\S+ by \S+ (?:low|medium|high|xhigh))$/.test(
+        !/^(?:\S+ round [1-9]\d* (?:vet )?finding [1-9]\d*|\S+ by \S+ (?:low|medium|high|xhigh))$/.test(
           slots.sentence,
         )
       )
         fail(
-          `${where} names a target and either round <n> finding <n> or by <model> <effort>`,
+          `${where} names a target and round <n> [vet] finding <n> or by <model> <effort>`,
         )
       return "P4"
     case "plan-audit":

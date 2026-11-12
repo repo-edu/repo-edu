@@ -52,7 +52,8 @@ The round-data files record each round's scope, settings, phases with their repo
 commits, findings, status, series answer and the resolved pool for new automatic rounds.
 [`pnpm audit-round models`](/repo-edu/tooling/models/)
 reads them, and [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/) adds your later rulings
-to them. They are machine artifacts and must never be edited by hand.
+on audit findings or vet verdicts to them. They are machine artifacts and must never be edited by
+hand.
 
 ## Implementation worker files
 
