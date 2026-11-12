@@ -18,6 +18,39 @@ import {
 } from "./configured-runner.js"
 import { fixture, releases, testContext, testSetup } from "./helpers.js"
 
+for (const [side, line] of [
+  ["auditor", "The fix runs on the auditor's model."],
+  ["vet", "The fix runs on the vet's model."],
+  ["neither", "The fix runs on neither side's model."],
+] as const) {
+  test(`a ruling names the ${side} fix model above its document`, async (t) => {
+    const f = await fixture(t)
+    const written: string[] = []
+    const output = new RoundOutput(
+      await roundRun(
+        { ...testSetup(f.root), plan: "example.md", scope: "1" },
+        Date.now(),
+        releases,
+      ),
+      {
+        clock: new RunClock(Date.now),
+        terminal: {
+          write(text) {
+            written.push(text)
+          },
+          status() {},
+          clear() {},
+        },
+      },
+    )
+    t.after(() => output.close())
+    output.beginRuling("RULING.md", "Choose one.", side)
+    output.endRuling(null)
+    const text = written.join("\n")
+    assert.ok(text.indexOf(line) < text.indexOf("Choose one."))
+  })
+}
+
 test("long commit lists record every reference without exceeding filename limits", async (t) => {
   const f = await fixture(t)
   const commits = [

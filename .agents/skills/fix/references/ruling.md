@@ -42,6 +42,13 @@ item covers:
 3. One recommendation, its reason and any material tradeoff.
 4. A short suggested reply the user can enter in the runner.
 
+For a contested verdict whose report or revised vet tier is A or B, state the
+vet's position and the auditor's contest separately, with the evidence each
+uses, before the recommendation. The runner asks the winner and reason after
+showing the document, so the suggested reply may use `vet`, `auditor` or
+`neither` and a one-line reason. Use `not yet` when the suggested reply first
+asks the fix a question.
+
 Price the request under the plan doctrine's
 [Mechanism cases](../../../../../plan/CLAUDE.md#mechanism-cases).
 Do not invent a disadvantage for every option. Explain changes to owners, state or rules when they
@@ -60,5 +67,7 @@ the ruling. Revise any unclear or unsupported claim in this session.
 After a user reply, answer any questions before acting. If a decision remains
 open, replace the ruling with the current choices and return `needs-ruling`
 again. Carry resolved choices into the resumed work; do not ask the user to
-decide them again. Use the shared **Runner result** for required write failures.
+decide them again. The resumed phase arguments carry each serious contest's
+recorded winner and reason. Apply those answers without reinterpreting the
+user's words. Use the shared **Runner result** for required write failures.
 Finished work needs no ruling document.

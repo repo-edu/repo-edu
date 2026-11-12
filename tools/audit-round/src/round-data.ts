@@ -10,6 +10,7 @@ import type { RoundKind } from "./target.js"
 
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
+const rulingWinner = z.enum(["vet", "auditor", "neither"])
 const modelSelection = z.strictObject({
   model: z.string().min(1),
   effort: z.string().min(1).nullable(),
@@ -78,6 +79,12 @@ export const roundFindingSchema = z
       .nullable(),
     vetTier: tier.optional(),
     rebuttalAnswer: z.enum(["agree", "contest", "for-user-ruling"]).nullable(),
+    rulingWinner: rulingWinner.optional(),
+    rulingReason: z
+      .string()
+      .min(1)
+      .regex(/^[^\r\n]+$/)
+      .optional(),
     outcome: z.enum(["kept", "dropped", "unmatched"]).nullable(),
     finalTier: tier.nullable(),
     finalReach: reachSchema.nullable(),
@@ -115,6 +122,24 @@ export const roundFindingSchema = z
         code: "custom",
         message: "An unchanged vet tier is omitted",
         path: ["vetTier"],
+      })
+    if (
+      (finding.rulingWinner === undefined) !==
+      (finding.rulingReason === undefined)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "A contest ruling records both its winner and reason",
+        path: ["rulingWinner"],
+      })
+    if (
+      finding.rulingWinner !== undefined &&
+      finding.rebuttalAnswer !== "contest"
+    )
+      context.addIssue({
+        code: "custom",
+        message: "Only a contested verdict can record a ruling winner",
+        path: ["rulingWinner"],
       })
   })
 
@@ -278,6 +303,7 @@ export type ReportFinding = Omit<
 > & { readonly number: number }
 export type VetVerdict = NonNullable<RoundFinding["vetVerdict"]>
 export type RebuttalAnswer = NonNullable<RoundFinding["rebuttalAnswer"]>
+export type RulingWinner = NonNullable<RoundFinding["rulingWinner"]>
 export type RoundData = z.infer<typeof roundDataSchema>
 export type DisprovedFinding = z.infer<typeof disprovedFindingSchema>
 export type PlanRoundDataFile =

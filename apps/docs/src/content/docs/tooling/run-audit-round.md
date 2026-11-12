@@ -23,8 +23,10 @@ work so no phase checks itself:
    effort as the audit, because the answer is the auditor's. A vet that accepts every finding skips
    this phase.
 4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
-   settled corrections and lands the records. Plan work fixes on the configured planning fixer and
-   code work on a coder: the plan's assigned coder, or the first listed coder for a commit audit.
+   settled corrections and lands the records. When the auditor contests a verdict and the report or
+   revised vet tier is A or B, the runner asks you whether the vet, auditor or neither is right and
+   records your one-line reason. Plan work fixes on the configured planning fixer and code work on a
+   coder: the plan's assigned coder, or the first listed coder for a commit audit.
 
 The audit, vet and rebuttal are read-only. The fix is the phase that receives authority to change
 the judged repositories. Where due, a watch then checks the episode's trajectory. In an automatic
@@ -63,7 +65,9 @@ the full implementation range.
 
 An automatic series stops when every listed auditor has a current read, the configured round
 maximum is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes
-the plan's phase. A submitted ruling reply resumes the same fix before the series continues.
+the plan's phase. Above a ruling the runner says whether the fix uses the auditor's model, the vet's
+model or neither. It collects any serious contest winners before the free reply, then resumes the
+same fix before the series continues.
 
 The runner answers stop after the read floor. For a widening plan, the retained settling line may
 instead answer settle. During detailing before the ready marker, the answer is ready. These answers

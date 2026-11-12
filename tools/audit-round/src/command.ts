@@ -112,7 +112,11 @@ import {
   roundSubject,
   targetLabel,
 } from "./round-paths.js"
-import { readRulingReply } from "./ruling-input.js"
+import {
+  type RulingInput,
+  readRulingInput,
+  readRulingReply,
+} from "./ruling-input.js"
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
@@ -1162,7 +1166,9 @@ export async function runCommand(
     readonly cacheRoot?: string
     readonly repoEduRoot?: string
     readonly settings?: RoundSettings
-    readonly readReply?: () => Promise<string | null>
+    readonly readReply?: (
+      contests?: readonly number[],
+    ) => Promise<string | RulingInput | null>
     /** Supplies a random default's opener index below the count in deterministic tests. */
     readonly coin?: (count: number) => number
   },
@@ -1512,18 +1518,27 @@ export async function runCommand(
         ),
         writeSettledRound: (commits, account) =>
           active.writeSettledRound(commits, account),
-        requestRuling: async (document) => {
-          active.beginRuling(document, await readFile(document, "utf8"))
-          let reply: string | null = null
+        requestRuling: async (request) => {
+          active.beginRuling(
+            request.document,
+            await readFile(request.document, "utf8"),
+            request.fixerSide,
+          )
+          let reply: RulingInput | null = null
           try {
-            reply = await (
-              options.readReply ??
-              (() =>
-                readRulingReply(process.stdin, process.stdout, runtime.signal))
-            )()
+            const read = options.readReply
+              ? await options.readReply(request.contests)
+              : await readRulingInput(
+                  request.contests,
+                  process.stdin,
+                  process.stdout,
+                  runtime.signal,
+                )
+            reply =
+              typeof read === "string" ? { rulings: [], reply: read } : read
             return reply
           } finally {
-            active.endRuling(reply)
+            active.endRuling(reply?.reply ?? null)
           }
         },
         // The glance decides in the runner; its sentence opens the watch's section
@@ -1645,7 +1660,7 @@ export async function runCommand(
             active.beginRuling(document, await readFile(document, "utf8"))
             let reply: string | null = null
             try {
-              reply = await (
+              const read = await (
                 options.readReply ??
                 (() =>
                   readRulingReply(
@@ -1654,6 +1669,7 @@ export async function runCommand(
                     runtime.signal,
                   ))
               )()
+              reply = typeof read === "string" ? read : (read?.reply ?? null)
               return reply
             } finally {
               active.endRuling(reply)

@@ -27,6 +27,7 @@ import {
   type Assistant,
   type AssistantTurnInput,
   closePhase,
+  type FixerSide,
   noOverride,
   type Phase,
   type PhaseControlResult,
@@ -630,9 +631,19 @@ export class RoundOutput<R extends Run = Run> {
     return { compactions: run.compactions }
   }
 
-  beginRuling(document: string, text: string): void {
+  beginRuling(document: string, text: string, fixerSide?: FixerSide): void {
     this.release()
-    this.say(`\n${separator}\nYour ruling is needed.\nDocument: ${document}`)
+    const side =
+      fixerSide === undefined
+        ? ""
+        : `\nThe fix runs on ${
+            fixerSide === "neither"
+              ? "neither side's model"
+              : `the ${fixerSide}'s model`
+          }.`
+    this.say(
+      `\n${separator}${side}\nYour ruling is needed.\nDocument: ${document}`,
+    )
     this.options.terminal.write(text, "markdown")
     this.say(
       "Write your reply below. A blank line sends it; Ctrl-C stops without sending.",

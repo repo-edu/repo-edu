@@ -211,6 +211,44 @@ test("round data stores a vet tier that differs from the report tier", async (t)
   assert.equal(file.rounds[0]?.findings[0]?.vetTier, "C")
 })
 
+test("round data stores a contested verdict's user winner and reason together", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
+  const [finding] = reviewedRoundFindings(
+    [reportFinding(1, "Ruled contest")],
+    [{ number: 1, tier: "B", verdict: "drop" }],
+    [{ number: 1, tier: "B", answer: "contest" }],
+  )
+  assert.ok(finding)
+  const ruled = {
+    ...finding,
+    rulingWinner: "vet" as const,
+    rulingReason: "The vet applied the current contract.",
+  }
+
+  writeRoundData(path, {
+    ...entry("example-impl-audit-01..01", 1),
+    findings: [ruled],
+  })
+
+  const stored = parseRoundDataFile(path, await readFile(path, "utf8"))
+    .rounds[0]?.findings[0]
+  assert.equal(stored?.rulingWinner, "vet")
+  assert.equal(stored?.rulingReason, "The vet applied the current contract.")
+  assert.throws(() =>
+    writeRoundData(path, {
+      ...entry("example-impl-audit-01..01", 1),
+      findings: [{ ...finding, rulingWinner: "vet" }],
+    }),
+  )
+  assert.throws(() =>
+    writeRoundData(path, {
+      ...entry("example-impl-audit-01..01", 1),
+      findings: [{ ...ruled, rulingReason: "First line.\nSecond line." }],
+    }),
+  )
+})
+
 test("a plan's watch evidence reads both round kinds and their trajectory fields", async (t) => {
   const f = await fixture(t)
   const {

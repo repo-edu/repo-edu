@@ -33,6 +33,12 @@ report, twin, record-bullet and result forms. The runner owns paths under
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Follow its **Reconciliation** rule after grounding the findings below.
 
+When the phase arguments include a `contests` object, its entries are the
+contested verdicts the user owns under **Reconciliation**. An entry first names
+only its finding number. A resumed fix also receives any recorded `winner` and
+`reason`. Present both reviewed positions and their evidence in the ruling,
+then apply recorded answers without deciding them again.
+
 When unattended, follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every
 ending.

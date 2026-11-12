@@ -12,7 +12,9 @@ import type {
   FindingReview,
   LandedCommit,
   RoundAccount,
+  RulingWinner,
 } from "./round-data.js"
+import type { RulingInput } from "./ruling-input.js"
 import type {
   Auditor,
   Coder,
@@ -460,6 +462,25 @@ export type DeferralScope = {
   readonly deferrals: readonly OpenDeferral[]
 }
 
+/** One serious contest and the user's answer once the runner has one. */
+export type ContestScope = {
+  readonly contests: readonly {
+    readonly finding: number
+    readonly winner?: RulingWinner
+    readonly reason?: string
+  }[]
+}
+
+/** Which reviewed side uses the same selected model and effort as the fix. */
+export type FixerSide = "auditor" | "vet" | "neither"
+
+/** What the ruling display and input reader need from the round coordinator. */
+export type RulingRequest = {
+  readonly document: string
+  readonly fixerSide: FixerSide
+  readonly contests: readonly number[]
+}
+
 type PhaseArguments = {
   audit: {
     readonly arguments: readonly [
@@ -480,7 +501,7 @@ type PhaseArguments = {
   fix: {
     readonly arguments: readonly [
       report: string,
-      ...twinsOrDeferrals: (string | DeferralScope)[],
+      ...twinsDeferralsOrContests: (string | DeferralScope | ContestScope)[],
     ]
     readonly rulingFile: string
   } & (
@@ -708,8 +729,10 @@ export type RoundDependencies = {
     readonly heads: Readonly<Record<"repo-edu" | "plan", string>>
     readonly grade: WatchGrade
   }) => Promise<void>
-  /** Displays the ruling and records a reply; null stops without submitting a draft. */
-  readonly requestRuling: (document: string) => Promise<string | null>
+  /** Displays the ruling and records contest answers plus the free reply. */
+  readonly requestRuling: (
+    request: RulingRequest,
+  ) => Promise<RulingInput | null>
 }
 
 export type DeferralChainOutcome =

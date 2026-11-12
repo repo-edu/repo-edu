@@ -22,9 +22,13 @@ consumers.
   work on a coder, as [Model settings](#model-settings) routes each target.
   The fix receives a ruling output path separately from its report
   arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
-  The runner checks that file, then displays it and collects a reply. A missing or empty ruling
-  fails the fix with its recovery session. The same fix session resumes in the background with that
-  reply. Further open decisions repeat this route. A completed fix follows the same report deletion,
+  The runner checks that file, prints whether the fix uses the auditor's model, the vet's model or
+  neither, then displays it. A contested verdict goes to the user when the report or revised vet
+  tier is A or B. The runner asks for `vet`, `auditor`, `neither` or `not yet` and a reason where a
+  winner was named before collecting the free reply. It retains each winner and reason on the
+  finding and passes them to the resumed fix. A missing or empty ruling fails the fix with its
+  recovery session. The same fix session resumes in the background with that reply. Further open
+  decisions repeat this route. A completed fix follows the same report deletion,
   commit checks and watch as an uninterrupted fix. Stopping without a reply retains the round files
   and reports the fix's recovery command and ends the auditor sequence. A submitted reply lets a
   completed round continue any remaining auditor entries. Further open decisions replace the ruling
@@ -301,10 +305,14 @@ consumers.
   incomplete record fails the invocation. Its token reading uses
   `total_token_usage`: input already includes cached input, cached remains
   separate and output already includes reasoning.
-- `ruling-input.ts` owns the reply reader through Node's `readline`. A blank line
-  sends a non-empty multiline reply. Ctrl-C, end of input and cancellation discard
-  an unfinished reply. Non-terminal input supplies no ruling. The assistant never
-  inherits the terminal. Reply recording completes before the fix can resume.
+- `ruling-input.ts` owns the reply reader through Node's `readline`. For each
+  supplied serious contest it first reads `vet`, `auditor`, `neither` or `not
+  yet`. A winner needs a one-line reason; `not yet` leaves the contest open.
+  The free reply may be empty only after every supplied contest has a winner.
+  A blank line otherwise sends a non-empty multiline reply. Ctrl-C, end of
+  input and cancellation discard an unfinished reply. Non-terminal input
+  supplies no ruling. The assistant never inherits the terminal. Reply
+  recording completes before the fix can resume.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
   resolve the same way. The watch workflow and shared
@@ -383,7 +391,8 @@ consumers.
   later rulings in `disproved`. The series runner reads commit files before reruns and the runner
   reads them after automatic rounds. Commit files have no `disproved` list. A finding review carries
   its report number, report tier, verdict and optional changed vet tier; retained finding data
-  stores those values and the rebuttal answer. A planning entry's required `settling` field keeps
+  stores those values and the rebuttal answer. A serious contest may also store the user's winner
+  and reason. A planning entry's required `settling` field keeps
   the widening round's settling recommendation as it stands when the round ends: the fix's settling
   line, or the audit report's closing settling line when the clean audit ran no fix; detailing
   entries use `""`. The planning, implementation and commit files each hold a time-ordered entry per
@@ -773,7 +782,9 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 - rebuttal: report input, vet input, rebuttal output
 - fix: report input, then existing vet and rebuttal inputs, followed by the
   same open-deferral object for a chained planning or plan-scoped
-  implementation round
+  implementation round and a contest object when the rebuttal contested a
+  verdict whose report or revised vet tier is A or B; the first call carries
+  finding numbers and resumed calls also carry recorded winners and reasons
 - implement: plan, one-based step number, remaining hosting repo shares,
   resolved model release and launched effort; the ruling path is supplied
   separately and reused when the same worker resumes

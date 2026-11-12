@@ -9,9 +9,11 @@ import {
   type Assistant,
   type AuditorOverride,
   type AuditorSelectionSource,
+  type ContestScope,
   closePhase,
   type DeferralChainOutcome,
   type DeferralScope,
+  type FixerSide,
   type InteractiveSession,
   type LandedRecord,
   noOverride,
@@ -31,6 +33,7 @@ import {
   type FindingReview,
   type LandedCommit,
   type RoundAccount,
+  type RulingWinner,
   reviewedRoundFindings,
   roundDataIdentity,
   type SeriesAnswer,
@@ -47,6 +50,116 @@ import {
   type RoundContext,
   reportTarget,
 } from "./target.js"
+
+function samePhaseSelection(first: PhaseRun, second: PhaseRun): boolean {
+  return (
+    first.assistant === second.assistant &&
+    first.model.model.value === second.model.model.value &&
+    first.model.effort.value === second.model.effort.value
+  )
+}
+
+/** Name whether the fix uses either reviewed side's selected model and effort. */
+function selectedFixerSide(
+  phases: Pick<Record<Phase, PhaseRun>, "audit" | "vet" | "fix">,
+): FixerSide {
+  if (samePhaseSelection(phases.fix, phases.audit)) return "auditor"
+  if (samePhaseSelection(phases.fix, phases.vet)) return "vet"
+  return "neither"
+}
+
+/** Contests the user owns because either reviewed tier is A or B. */
+function seriousContests(
+  reviews: readonly FindingReview[],
+  rebuttals: readonly FindingRebuttal[],
+): readonly number[] {
+  const reviewByNumber = new Map(
+    reviews.map((review) => [review.number, review]),
+  )
+  return rebuttals
+    .filter((rebuttal) => {
+      if (rebuttal.answer !== "contest") return false
+      const review = reviewByNumber.get(rebuttal.number)
+      return (
+        rebuttal.tier === "A" ||
+        rebuttal.tier === "B" ||
+        review?.vetTier === "A" ||
+        review?.vetTier === "B"
+      )
+    })
+    .map((rebuttal) => rebuttal.number)
+}
+
+function contestScope(
+  findings: readonly RoundAccount["findings"][number][],
+  contests: readonly number[],
+): ContestScope | null {
+  if (contests.length === 0) return null
+  return {
+    contests: contests.map((number) => {
+      const finding = findings.find((candidate) => candidate.number === number)
+      if (finding === undefined)
+        throw new Error(`Contest names no report finding: ${number}`)
+      return {
+        finding: number,
+        ...(finding.rulingWinner === undefined
+          ? {}
+          : {
+              winner: finding.rulingWinner,
+              reason: finding.rulingReason as string,
+            }),
+      }
+    }),
+  }
+}
+
+function openContests(
+  account: RoundAccount,
+  contests: readonly number[],
+): readonly number[] {
+  return contests.filter(
+    (number) =>
+      account.findings.find((finding) => finding.number === number)
+        ?.rulingWinner === undefined,
+  )
+}
+
+function recordRulings(
+  account: RoundAccount,
+  open: readonly number[],
+  rulings: readonly {
+    finding: number
+    winner: RulingWinner
+    reason: string
+  }[],
+): RoundAccount {
+  const byNumber = new Map<number, (typeof rulings)[number]>()
+  for (const ruling of rulings) {
+    if (!open.includes(ruling.finding))
+      throw new Error(`Finding ${ruling.finding} is not an open contest`)
+    if (byNumber.has(ruling.finding))
+      throw new Error(`Finding ${ruling.finding} has more than one ruling`)
+    if (ruling.reason.trim().length === 0)
+      throw new Error(`Finding ${ruling.finding} needs a ruling reason`)
+    if (/[\r\n]/.test(ruling.reason))
+      throw new Error(`Finding ${ruling.finding} needs a one-line reason`)
+    byNumber.set(ruling.finding, ruling)
+  }
+  return {
+    ...account,
+    findings: account.findings.map((finding) => {
+      const ruling =
+        finding.number === null ? undefined : byNumber.get(finding.number)
+      return ruling === undefined
+        ? finding
+        : {
+            ...finding,
+            rulingWinner: ruling.winner,
+            rulingReason: ruling.reason.trim(),
+          }
+    }),
+  }
+}
 
 /** Compare the commit body's complete leading model record with this round's stamps. */
 function carriesPhaseStamp(
@@ -652,15 +765,21 @@ export async function runRound(
       account,
     }
   }
+  const contests = seriousContests(reviews, rebuttals)
+  const fixArguments = (): PhaseInput<"fix">["arguments"] => {
+    const scope = contestScope(account.findings, contests)
+    return [
+      report,
+      ...twins,
+      ...(deferralScope === null ? [] : [deferralScope]),
+      ...(scope === null ? [] : [scope]),
+    ]
+  }
   let fixInput: PhaseInput<"fix"> = {
     phase: "fix",
     ...phases.fix,
     ...context,
-    arguments: [
-      report,
-      ...twins,
-      ...(deferralScope === null ? [] : [deferralScope]),
-    ],
+    arguments: fixArguments(),
     rulingFile: input.documents.ruling,
     sessionId: null,
   }
@@ -893,8 +1012,13 @@ export async function runRound(
       ...context,
     }
     try {
-      const reply = await dependencies.requestRuling(input.documents.ruling)
-      if (reply === null)
+      const open = openContests(account, contests)
+      const ruling = await dependencies.requestRuling({
+        document: input.documents.ruling,
+        fixerSide: selectedFixerSide(phases),
+        contests: open,
+      })
+      if (ruling === null)
         return {
           status: "awaiting-ruling",
           report,
@@ -902,10 +1026,17 @@ export async function runRound(
           commits,
           account,
         }
+      account = recordRulings(account, open, ruling.rulings)
+      if (
+        openContests(account, contests).length > 0 &&
+        ruling.reply.trim().length === 0
+      )
+        throw new Error("A free reply is required while a contest is open")
       fixInput = {
         ...fixInput,
+        arguments: fixArguments(),
         sessionId: fix.sessionId,
-        rulingReply: reply,
+        rulingReply: ruling.reply,
       }
     } catch (error) {
       return {

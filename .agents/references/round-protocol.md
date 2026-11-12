@@ -487,9 +487,18 @@ to its resolved path. Chat and file must not differ.
 Build the outcome from the numbered vet verdicts and rebuttal answers,
 accounting for every finding. An accept stands without a rebuttal answer.
 Present agreed verdicts, decisions on contested verdicts and items for the
-user's ruling. For each contest, read the evidence, decide the outcome and give
-the reason. Ask the user only when evidence leaves the answer unclear.
-Disagreement alone needs no ruling. Never re-argue an agreed verdict.
+user's ruling. A contested verdict goes to the user when the report tier or a
+revised vet tier is A or B. Its ruling states the vet's position and the
+auditor's contest, with the evidence for each, before any recommendation. The
+fix decides every other contest from the evidence and gives the reason. Never
+re-argue an agreed verdict.
+
+The runner passes the serious contest numbers to the fix. After displaying the
+ruling it asks the user for `vet`, `auditor`, `neither` or `not yet` on each
+contest. The first three answers need a one-line reason and are retained on the
+finding. `Not yet` leaves that contest open so the resumed fix can answer the
+user's question. A resumed fix receives every recorded winner and reason with
+the free reply. The free reply may be empty once every contest has a winner.
 
 When every verdict is Accept and no rebuttal exists, present the findings as
 agreed by both assistants. When the vet has a revision, drop or ruling item and
@@ -517,6 +526,7 @@ The route's approval rule grants the settled corrections. Planning uses the
 implementation uses its fix invocation's grant. Stop for a ruling only on:
 
 - a real choice sent to the user
+- a contested verdict whose report or revised vet tier is A or B
 - a contested verdict whose evidence stays unclear
 - a drift correction that changes a finding
 - a verdict without a rebuttal that the fix cannot settle from evidence
