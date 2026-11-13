@@ -7,9 +7,9 @@ export type RunPaths = {
   /** Null when the run keeps no transcript: a close and an implementation step only log. */
   readonly markdown: string | null
   /**
-   * True only when a recovery reopens a retained implementation step log,
-   * which it appends to. Other logs without a transcript start empty and
-   * round files are created exclusively.
+   * True when a recovery reopens retained run files and appends to each one.
+   * Other logs without a transcript start empty and round files are created
+   * exclusively.
    */
   readonly reopenLog: boolean
 }
@@ -35,7 +35,8 @@ export function openRunFiles(paths: RunPaths): RunFiles {
   )
   let markdown: number | null = null
   try {
-    if (paths.markdown !== null) markdown = openSync(paths.markdown, "wx")
+    if (paths.markdown !== null)
+      markdown = openSync(paths.markdown, paths.reopenLog ? "a" : "wx")
   } catch (error) {
     closeSync(log)
     throw error

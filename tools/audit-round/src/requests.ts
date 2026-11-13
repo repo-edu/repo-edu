@@ -100,6 +100,14 @@ export function recoveryCommand(session: InteractiveSession): string {
   return `${shellJoin(["cd", session.cwd])} && ${shellJoin([session.assistant, ...interactiveArguments(session)])}`
 }
 
+/** Re-enter a stopped serious-contest fix through the runner that owns its state. */
+export function roundRecoveryCommand(
+  session: InteractiveSession,
+  report: string,
+): string {
+  return `${shellJoin(["cd", session.cwd])} && ${shellJoin(["pnpm", "audit-round", "resume-fix", basename(report), session.sessionId])}`
+}
+
 const workflowHeader = z.strictObject({
   reads: z.array(z.string().trim().min(1)),
 })

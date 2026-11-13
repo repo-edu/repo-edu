@@ -58,6 +58,7 @@ import {
   type OutputOptions,
   RoundOutput,
   type Run,
+  resumedRoundRun,
   roundRun,
 } from "./output.js"
 import { elapsedText } from "./output-format.js"
@@ -66,6 +67,7 @@ import {
   type AuditorSeat,
   type AuditorSelectionSource,
   type DeferralChainOutcome,
+  efforts,
   listedSeat,
   phaseWorkflow,
   type RoundDependencies,
@@ -86,7 +88,9 @@ import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
   failureResumeSessionId,
+  openSeriousContests,
   type RoundResult,
+  type RoundSetup,
   runClose,
   runRound,
 } from "./round.js"
@@ -95,6 +99,7 @@ import {
   type LandedCommit,
   parseRoundDataFile,
   type RoundFinding,
+  readActiveRoundData,
   readCommitRoundData,
   roundDataFilename,
   writeDisprovedFinding,
@@ -109,6 +114,7 @@ import {
   phaseFilename,
   planTargetKind,
   queueFile,
+  recoveryRoundPaths,
   roundIdentity,
   roundSubject,
   targetLabel,
@@ -188,6 +194,12 @@ type Invocation =
       readonly writer?: string
       readonly vet?: string
       readonly rebut?: string
+    }
+  | {
+      readonly kind: "resume-fix"
+      readonly report: string
+      readonly sessionId: string
+      readonly verbose?: boolean
     }
   | { readonly kind: "delete-reports"; readonly nameStart: string }
   | {
@@ -459,6 +471,12 @@ function workerResume(value: string): WorkerResume {
       "Expected <step>:<session-id>, as a failed implementation worker prints it.",
     )
   return { step, sessionId: match[2] }
+}
+
+function sessionIdentifier(value: string): string {
+  if (value.trim().length === 0 || /\s/.test(value))
+    throw new InvalidArgumentError("Expected one non-empty session ID.")
+  return value
 }
 
 const resumeOption = () =>
@@ -882,6 +900,19 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       },
     )
   command
+    .command("resume-fix", { hidden: true })
+    .description(
+      "Resume one stopped serious-contest fix through its retained runner state.",
+    )
+    .argument("<report>", "the stopped round's bare audit report name")
+    .argument("<session-id>", "the retained fix session", sessionIdentifier)
+    .option("-v, --verbose", "show tool calls as well as assistant text")
+    .action(
+      (report: string, sessionId: string, flags: { verbose?: boolean }) => {
+        invocation = { kind: "resume-fix", report, sessionId, ...flags }
+      },
+    )
+  command
     .command("episode", { hidden: true })
     .description(
       "Print a line range of joined Git and round data evidence for a hand-run watch without writing files.",
@@ -1148,6 +1179,111 @@ async function preparedRun(
 
 type PreparedRun = Awaited<ReturnType<typeof preparedRun>>
 
+function recoveredCommitGroup(group: {
+  readonly repository: "repo-edu" | "plan"
+  readonly commits: readonly string[]
+  readonly startingHead: string
+}): CommitGroup {
+  if (group.commits.length === 0)
+    throw new Error(`Retained ${group.repository} commit group is empty.`)
+  const references = group.commits.map((commit, index) =>
+    group.repository === "plan" && index === 0
+      ? `${planRepositoryPrefix}${commit}`
+      : commit,
+  ) as [string, ...string[]]
+  const shortReferences = references.map((reference) => {
+    const prefix = reference.startsWith(planRepositoryPrefix)
+      ? planRepositoryPrefix
+      : ""
+    return `${prefix}${reference.slice(prefix.length, prefix.length + 6)}`
+  }) as [string, ...string[]]
+  return {
+    repository: group.repository,
+    references,
+    startingHead: group.startingHead,
+    commits: [...group.commits] as [string, ...string[]],
+    shortReferences,
+  }
+}
+
+async function preparedFixRecovery(
+  context: ExecutionContext,
+  invocation: Extract<Invocation, { kind: "resume-fix" }>,
+) {
+  const paths = await recoveryRoundPaths(context, invocation.report)
+  const retained = await readActiveRoundData(
+    context.activeRoot,
+    paths.nameStart,
+  )
+  if (
+    retained.entry.status !== "awaiting-ruling" &&
+    retained.entry.status !== "failed" &&
+    retained.entry.status !== "interrupted"
+  )
+    throw new Error(
+      `${paths.nameStart} has status ${retained.entry.status}; only a stopped fix can resume.`,
+    )
+  const account = {
+    settling: "settling" in retained.entry ? retained.entry.settling : "",
+    judgedRepos:
+      "judgedRepos" in retained.entry ? retained.entry.judgedRepos : [],
+    findings: retained.entry.findings,
+  }
+  if (openSeriousContests(account).length === 0)
+    throw new Error(
+      `${paths.nameStart} has no serious contest without a recorded winner.`,
+    )
+  let target: AuditTarget
+  if ("phase" in retained.entry || "scope" in retained.entry) {
+    const scopeParts =
+      "scope" in retained.entry
+        ? retained.entry.scope.split("-").map((step) => step.padStart(2, "0"))
+        : []
+    const suffix =
+      "phase" in retained.entry
+        ? "-plan-audit"
+        : `-impl-audit-${scopeParts[0]}..${scopeParts[1] ?? scopeParts[0]}`
+    if (!retained.entry.target.endsWith(suffix))
+      throw new Error(
+        `Retained target ${retained.entry.target} does not end with ${suffix}.`,
+      )
+    const stem = retained.entry.target.slice(0, -suffix.length)
+    const plan = await requiredActivePlan(
+      context.activeRoot,
+      stem,
+      "resume-fix",
+    )
+    target =
+      "phase" in retained.entry
+        ? { roundKind: "planning", plan }
+        : {
+            roundKind: "implementation",
+            plan,
+            scope: retained.entry.scope,
+          }
+  } else {
+    target = {
+      roundKind: "implementation",
+      originalGroups: retained.entry.originalGroups.map(
+        recoveredCommitGroup,
+      ) as [CommitGroup, ...CommitGroup[]],
+      groups: retained.entry.groups.map(recoveredCommitGroup) as [
+        CommitGroup,
+        ...CommitGroup[],
+      ],
+    }
+  }
+  return {
+    ...invocation,
+    paths,
+    retained,
+    account,
+    target,
+  }
+}
+
+type PreparedFixRecovery = Awaited<ReturnType<typeof preparedFixRecovery>>
+
 const runStageNames: Readonly<Record<LifecycleStage, string>> = {
   widening: "widening series",
   detailing: "detailing series",
@@ -1354,26 +1490,28 @@ export async function runCommand(
       return 0
     }
     const prepared =
-      invocation.kind === "implement"
-        ? {
-            ...invocation,
-            ...(await prepareImplementation(
-              context,
-              invocation.stem,
-              invocation.scope,
-            )),
-          }
-        : invocation.kind === "close"
-          ? await preparedClose(context, invocation)
-          : invocation.kind === "run"
-            ? await preparedRun(context, invocation)
-            : {
-                ...invocation,
-                targets: await resolveTargets(
-                  context,
-                  requestedTarget(invocation),
-                ),
-              }
+      invocation.kind === "resume-fix"
+        ? await preparedFixRecovery(context, invocation)
+        : invocation.kind === "implement"
+          ? {
+              ...invocation,
+              ...(await prepareImplementation(
+                context,
+                invocation.stem,
+                invocation.scope,
+              )),
+            }
+          : invocation.kind === "close"
+            ? await preparedClose(context, invocation)
+            : invocation.kind === "run"
+              ? await preparedRun(context, invocation)
+              : {
+                  ...invocation,
+                  targets: await resolveTargets(
+                    context,
+                    requestedTarget(invocation),
+                  ),
+                }
     if (prepared.kind === "round" || prepared.kind === "name")
       requireSingleTarget(prepared, prepared.targets)
     if (prepared.kind === "name") {
@@ -1410,13 +1548,15 @@ export async function runCommand(
     // The close moves the plan and commits in the plan checkout first.
     const session = roundContext(
       context,
-      prepared.kind === "implement"
-        ? "implementation"
-        : prepared.kind === "close"
-          ? "planning"
-          : prepared.kind === "run"
-            ? stageRoundKind(prepared.stage)
-            : prepared.targets[0].roundKind,
+      prepared.kind === "resume-fix"
+        ? prepared.target.roundKind
+        : prepared.kind === "implement"
+          ? "implementation"
+          : prepared.kind === "close"
+            ? "planning"
+            : prepared.kind === "run"
+              ? stageRoundKind(prepared.stage)
+              : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
@@ -1565,6 +1705,126 @@ export async function runCommand(
           return decision
         },
       }
+    }
+
+    /** Finish one stopped serious-contest fix through the retained round owner. */
+    const resumeFixStage = async (
+      recovery: PreparedFixRecovery,
+    ): Promise<RoundResult["status"]> => {
+      const fixPhase = recovery.retained.entry.phases.find(
+        (phase) => phase.phase === "fix",
+      )
+      const fixSelection = fixPhase?.launched ?? {
+        model: recovery.retained.entry.settings.fix.model,
+        effort: recovery.retained.entry.settings.fix.effort,
+      }
+      if (
+        fixSelection.effort === null ||
+        !efforts.includes(fixSelection.effort as (typeof efforts)[number])
+      )
+        throw new Error("The retained fix has no supported effort.")
+      const auditPhase = recovery.retained.entry.phases.find(
+        (phase) => phase.phase === "audit",
+      )
+      const auditSelection = auditPhase?.launched ?? {
+        model: recovery.retained.entry.auditor.model,
+        effort: recovery.retained.entry.auditor.effort,
+      }
+      if (
+        auditSelection.effort === null ||
+        !efforts.includes(auditSelection.effort as (typeof efforts)[number])
+      )
+        throw new Error("The retained audit has no supported effort.")
+      const phaseContext = roundContext(context, recovery.target.roundKind)
+      let deferrals: readonly OpenDeferral[] | undefined
+      if ("plan" in recovery.target) {
+        const destination =
+          recovery.target.roundKind === "implementation" ? "repo-edu" : "plan"
+        deferrals = (
+          await deferralState(context, planStem(recovery.target.plan))
+        ).deferrals.filter(
+          (deferral) => deferral.deferringRepository !== destination,
+        )
+      }
+      const chosenBy = recovery.retained.entry.auditor.chosenBy
+      const setup: RoundSetup = {
+        ...phaseContext,
+        ...recovery.target,
+        fixer: {
+          assistant: recovery.retained.entry.settings.fix.assistant,
+          model: fixSelection.model,
+          effort: fixSelection.effort as (typeof efforts)[number],
+        },
+        fixerSource: "retained round",
+        auditor: recovery.retained.entry.auditor.assistant,
+        auditorSelectionSource:
+          chosenBy === "command-line" ? "--auditor" : chosenBy,
+        override: {
+          listed: {
+            model: auditSelection.model,
+            effort: auditSelection.effort as (typeof efforts)[number],
+          },
+        },
+        ...(recovery.retained.entry.pool === undefined
+          ? {}
+          : { pool: recovery.retained.entry.pool }),
+        ...(deferrals === undefined ? {} : { deferrals }),
+      }
+      const run = await resumedRoundRun(
+        setup,
+        recovery.retained,
+        recovery.paths,
+        now(),
+        releases,
+        settings,
+      )
+      const active = open(run)
+      const records = await Promise.all(
+        recovery.retained.entry.commits.map(async ({ repository, sha }) => {
+          const cwd =
+            repository === "repo-edu" ? context.repoEduRoot : context.planRoot
+          const [subject, message] = await Promise.all([
+            execa("git", ["show", "-s", "--format=%s", sha], { cwd }),
+            execa("git", ["show", "-s", "--format=%B", sha], { cwd }),
+          ])
+          return {
+            repository,
+            sha,
+            subject: subject.stdout,
+            message: message.stdout,
+          }
+        }),
+      )
+      const rulingReady =
+        recovery.paths.ruling !== null &&
+        (await readFile(recovery.paths.ruling, "utf8")).trim().length > 0
+      const round = await runRound(
+        {
+          ...setup,
+          documents: run.documents,
+          transcript: run.paths.markdown,
+          watch:
+            "plan" in setup
+              ? {
+                  file: run.watch,
+                  cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
+                }
+              : null,
+          recovery: {
+            account: recovery.account,
+            phases: run.recoveredPhases,
+            sessionId: recovery.sessionId,
+            rulingReady,
+            records,
+          },
+        },
+        dependenciesFor(active, phaseContext),
+        settings,
+      )
+      result = round
+      code = exitCode(round)
+      active.finish(round, runtime.signal)
+      return round.status
     }
 
     /**
@@ -2386,7 +2646,8 @@ export async function runCommand(
         await say(`Run of ${stem} finished: the plan is closed. ${runTime()}`)
       else await ended(current)
     }
-    if (prepared.kind === "implement")
+    if (prepared.kind === "resume-fix") await resumeFixStage(prepared)
+    else if (prepared.kind === "implement")
       await implementStage(prepared, {
         command: [
           "pnpm",
@@ -2413,7 +2674,7 @@ export async function runCommand(
       )
       if (resumeSessionId !== null)
         options.emergency(
-          `Resume: ${recoveryCommand({ ...result, sessionId: resumeSessionId })}`,
+          `Resume: ${output?.resumeCommand(result, resumeSessionId) ?? recoveryCommand({ ...result, sessionId: resumeSessionId })}`,
         )
     }
   } finally {

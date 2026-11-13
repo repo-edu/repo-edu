@@ -525,7 +525,8 @@ type PhaseArguments = {
     | { readonly sessionId: null; readonly rulingReply?: never }
     | {
         readonly sessionId: string
-        readonly rulingReply: string
+        /** Present after the runner collected ruling input; absent for recovery before a ruling exists. */
+        readonly rulingReply?: string
       }
   )
   implement: {

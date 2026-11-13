@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { runCommand, testSettings } from "./configured-runner.js"
@@ -110,6 +110,135 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.ok(markdown.includes(`## User ruling\n\n${reply}`))
   assert.ok(log.includes(reply))
   assert.match(log, /Run the fix phase .* resumed session/)
+})
+
+test("a stopped serious contest re-enters the retained runner round", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  await f.configure({
+    phases: {
+      ...f.phases,
+      rebut: {
+        ...(f.phases.rebut as Record<string, unknown>),
+        document: {
+          text: "1. [B] Contest\n\nThe report quotes the owning contract.\n",
+        },
+      },
+    },
+  })
+  assert.equal(
+    await runCommand(
+      ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const report = f.report
+  assert.match(
+    f.visible.join("\n"),
+    new RegExp(
+      `pnpm audit-round resume-fix ${basename(report).replaceAll(".", "\\.")} fix-session`,
+    ),
+  )
+  const priorCalls = (await f.calls()).length
+  const priorPrompts = (await f.prompts()).length
+  const stream = await phaseStream(
+    "codex",
+    'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+    "fix-session",
+  )
+  await f.configure({
+    phases: {
+      ...f.phases,
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        stream,
+        assistants: { codex: { stream } },
+        commits: [
+          {
+            cwd: f.repoRoot,
+            subject:
+              "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
+            body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
+          },
+        ],
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(
+      ["resume-fix", basename(report), "fix-session"],
+      f.runtime,
+      {
+        ...f.options,
+        readReply: async (contests) => {
+          assert.deepEqual(contests, [1])
+          return {
+            rulings: [
+              {
+                finding: 1,
+                winner: "auditor",
+                reason: "The report quotes the owning contract.",
+              },
+            ],
+            reply: "",
+          }
+        },
+      },
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const recoveryCalls = (await f.calls()).slice(priorCalls)
+  const phasePrompts = (await f.prompts())
+    .slice(priorPrompts)
+    .filter((call) => call.prompt.startsWith("Run the "))
+  assert.equal(phasePrompts.length, 1)
+  assert.match(phasePrompts[0]?.prompt ?? "", /^Run the fix phase /)
+  const phaseCalls = recoveryCalls.filter(
+    (call) => call.args.includes("fix-session") && call.openContests !== null,
+  )
+  assert.equal(phaseCalls.length, 1)
+  assert.equal(phaseCalls[0]?.openContests, "")
+  assert.ok(phaseCalls[0]?.args.includes("fix-session"))
+  const stored = JSON.parse(
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+  ) as {
+    rounds: {
+      status: string
+      findings: { rulingWinner?: string; rulingReason?: string }[]
+    }[]
+  }
+  assert.equal(stored.rounds.length, 1)
+  assert.equal(stored.rounds[0]?.status, "finished")
+  assert.deepEqual(stored.rounds[0]?.findings[0], {
+    number: 1,
+    title: "Fixture finding",
+    tier: "B",
+    reach: "developer",
+    complexity: "none",
+    growthPattern: "none",
+    location: {
+      kind: "repo-edu",
+      area: "tool-audit-round",
+      covers: [],
+    },
+    vetVerdict: "revise",
+    rebuttalAnswer: "contest",
+    rulingWinner: "auditor",
+    rulingReason: "The report quotes the owning contract.",
+    outcome: "kept",
+    finalTier: null,
+    finalReach: null,
+  })
+  for (const path of [f.report, f.vet, f.rebut])
+    await assert.rejects(readFile(path), { code: "ENOENT" })
+  const { log, markdown } = await f.records()
+  assert.equal(log.match(/^Started /gm)?.length, 2)
+  assert.equal(markdown.match(/^Started /gm)?.length, 2)
 })
 
 /** The ruling pause lets a test act as the user editing the queue mid-round. */

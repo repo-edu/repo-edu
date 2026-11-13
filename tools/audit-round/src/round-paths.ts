@@ -261,6 +261,14 @@ async function roundDocument(
 
 export type ManualPhase = "vet" | "rebut" | "fix"
 
+export type RecoveryRoundPaths = {
+  readonly nameStart: string
+  readonly report: string
+  readonly vet: string
+  readonly rebut: string
+  readonly ruling: string | null
+}
+
 /** The most recently modified document decides between eligible candidates. */
 async function newestDocument(
   paths: readonly string[],
@@ -364,4 +372,29 @@ export async function manualPhasePaths(
     source.path,
     ...[vet, rebut].filter((file): file is string => file !== undefined),
   ]
+}
+
+/** Resolve the retained reports and optional ruling for one stopped fix. */
+export async function recoveryRoundPaths(
+  context: ExecutionContext,
+  input: string,
+): Promise<RecoveryRoundPaths> {
+  const source = await roundDocument(context, input, "audit")
+  const reviews = await manualPhasePaths(context, "fix", input, {})
+  if (reviews.length !== 3)
+    throw new Error(
+      `A serious-contest recovery needs the audit, vet and rebuttal files for ${source.nameStart}.`,
+    )
+  const ruling = await newestDocument(
+    (await phaseDocuments(context.activeRoot, "ruling"))
+      .filter((document) => document.nameStart === source.nameStart)
+      .map((document) => document.path),
+  )
+  return {
+    nameStart: source.nameStart,
+    report: reviews[0] as string,
+    vet: reviews[1] as string,
+    rebut: reviews[2] as string,
+    ruling: ruling ?? null,
+  }
 }

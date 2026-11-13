@@ -4,6 +4,7 @@ import { Writable } from "node:stream"
 import { test } from "node:test"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
+import type { RoundResult } from "../round.js"
 import { parseRoundDataFile } from "../round-data.js"
 import { RunClock } from "../run-clock.js"
 import { createTerminal } from "../terminal.js"
@@ -17,6 +18,62 @@ import {
   testFixer,
 } from "./configured-runner.js"
 import { fixture, releases, testContext, testSetup } from "./helpers.js"
+
+test("an unresolved serious contest prints the runner recovery route", async (t) => {
+  const f = await fixture(t)
+  const output = new RoundOutput(
+    await roundRun(
+      { ...testSetup(f.root), plan: "example.md", scope: "1" },
+      Date.now(),
+      releases,
+    ),
+    {
+      clock: new RunClock(Date.now),
+      terminal: { write() {}, status() {}, clear() {} },
+    },
+  )
+  t.after(() => output.close())
+  const result: Extract<RoundResult, { status: "awaiting-ruling" }> = {
+    status: "awaiting-ruling",
+    report: "REPORT.md",
+    session: {
+      assistant: "codex",
+      model: pinned("codex"),
+      sessionId: "fix-session",
+      ...testContext(f.root),
+    },
+    commits: [],
+    account: {
+      settling: "",
+      judgedRepos: ["repo-edu"],
+      findings: [
+        {
+          number: 1,
+          title: "Serious contest",
+          tier: "B",
+          reach: "developer",
+          complexity: "none",
+          growthPattern: "none",
+          location: {
+            kind: "repo-edu",
+            area: "tool-audit-round",
+            covers: [],
+          },
+          vetVerdict: "drop",
+          rebuttalAnswer: "contest",
+          outcome: "kept",
+          finalTier: "B",
+          finalReach: "developer",
+        },
+      ],
+    },
+  }
+
+  assert.match(
+    output.resumeCommand(result, "fix-session"),
+    /pnpm audit-round resume-fix example-impl-audit-01\.\.01-01-2-audit\./,
+  )
+})
 
 for (const [side, line] of [
   ["auditor", "The fix runs on the auditor's model."],

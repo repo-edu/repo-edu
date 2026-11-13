@@ -12,10 +12,12 @@ you; your reply resumes the same session, so the work continues with everything 
 
 ## When the runner asks
 
-Only a fix or an implementation worker returns a ruling, and only when a real product or cost choice
-remains after the plan, code, boundaries and earlier decisions have been checked. A choice the
-shared rules settle, a routine implementation choice, a permission failure or a broken check is not
-a ruling.
+Only a fix or an implementation worker returns a ruling. It may ask about a
+real product or cost choice that remains after the plan, code, boundaries and
+earlier decisions have been checked. An audit fix also asks who won when the
+auditor contests the vet on an A-tier or B-tier finding. A choice the shared
+rules settle, a routine implementation choice, a permission failure or a
+broken check is not a ruling.
 
 The document names the open decision, the viable alternatives, their material differences and one
 recommendation. It also gives a short suggested reply. The runner checks that the file exists and is
@@ -23,11 +25,16 @@ not empty before it shows it; a missing ruling fails the phase instead.
 
 ## Answering
 
-1. Read the displayed ruling. Its path is printed above it if you need to reopen the document.
-2. Type one or more lines stating your decision. You may use the suggested reply or explain another
-   listed alternative.
-3. Submit a blank line. The runner records the complete non-empty reply and resumes the same
-   assistant session in the background.
+1. Read the displayed ruling. Its path is printed above it if you need to
+   reopen the document.
+2. For each serious contest, enter `vet`, `auditor`, `neither` or `not yet`.
+   A winner also needs a one-line reason. `Not yet` leaves that contest open so
+   you can ask the fix a question.
+3. Enter the free reply after the contest questions. It may be empty once every
+   contest has a winner. For another ruling, state your decision or question in
+   one or more lines.
+4. Submit a blank line. The runner stores each winner and reason, records the
+   free reply and resumes the same assistant session in the background.
 
 You may ask a question instead of deciding. The session answers it and, while the decision stays
 open, replaces the ruling with the current alternatives and asks again.
@@ -43,10 +50,16 @@ again.
 
 ## Leaving without an answer
 
-Pressing Ctrl-C, ending terminal input or closing a non-interactive run discards an unfinished
-reply and stops the series or implementation. The round or step files stay in place and the runner
-prints a recovery command. Use that exact command to return to the retained session; do not start
-the decision again in a fresh round.
+Pressing Ctrl-C, ending terminal input or closing a non-interactive run
+discards an unfinished reply and stops the series or implementation. The round
+or step files stay in place and the runner prints a recovery command. Use that
+exact command to return to the retained work; do not start the decision again
+in a fresh round.
+
+An audit fix with an unresolved serious contest prints
+`pnpm audit-round resume-fix ...`. That command reloads the stored winners,
+keeps commits blocked while one is missing and resumes the same fix session.
+It then performs the ordinary record checks and report deletion.
 
 An implementation worker left at a ruling prints the assistant's recovery command. Answer there,
 then rerun the original `pnpm audit-round implement ...` or bare full-plan command so the runner can

@@ -27,6 +27,8 @@ import {
   type Assistant,
   type AssistantTurnInput,
   closePhase,
+  type Effort,
+  efforts,
   type FixerSide,
   noOverride,
   type Phase,
@@ -38,15 +40,17 @@ import {
   vetPhase,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
-import { recoveryCommand } from "./requests.js"
+import { recoveryCommand, roundRecoveryCommand } from "./requests.js"
 import {
   type CloseResult,
   failureResumeSessionId,
+  openSeriousContests,
   type RoundResult,
   type RoundSetup,
 } from "./round.js"
 import {
   type ModelTokenUsage,
+  type RetainedRoundData,
   type RoundAccount,
   type RoundData,
   roundDataFilename,
@@ -54,7 +58,12 @@ import {
   type SeriesAnswer,
   writeRoundData,
 } from "./round-data.js"
-import { type FileKind, phaseFilename, roundIdentity } from "./round-paths.js"
+import {
+  type FileKind,
+  phaseFilename,
+  roundIdentity,
+  roundSubject,
+} from "./round-paths.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Auditor, RoundSettings } from "./settings.js"
@@ -98,6 +107,10 @@ export type Run = {
   readonly paths: RunPaths
   /** Earlier applied selections used only to surface a model or effort change. */
   readonly previousModels: readonly ModelReference[]
+  /** Earlier phase measurements restored when a stopped fix re-enters the runner. */
+  readonly continued?: RoundData["phases"]
+  /** The audit report a serious-contest recovery command names. */
+  readonly recoveryReport?: string
   /** Present for every active plan-target round, with settled and final writes. */
   readonly data?: {
     readonly path: string
@@ -270,7 +283,147 @@ export async function roundRun(
       reopenLog: false,
     },
     previousModels,
+    recoveryReport: `${path("audit", "audit")}.md`,
     ...(data === undefined ? {} : { data }),
+    releases,
+    settings,
+    started,
+  }
+}
+
+function retainedPhaseRun(
+  entry: RoundData,
+  phase: "audit" | "vet" | "rebut" | "fix",
+  fallback: PhaseRun,
+): PhaseRun {
+  const retained = entry.phases.find((candidate) => candidate.phase === phase)
+  if (retained === undefined) return fallback
+  const launched = retained.launched ?? {
+    model: retained.model,
+    effort: retained.effort,
+  }
+  if (launched.effort === null || !efforts.includes(launched.effort as Effort))
+    throw new Error(`Retained ${phase} phase has no supported effort`)
+  const source = "retained round"
+  return {
+    assistant: retained.assistant,
+    model: {
+      model: { value: launched.model, source },
+      effort: { value: launched.effort as Effort, source },
+    },
+  }
+}
+
+/** Reopen one retained round and restore the phase record its fix must finish. */
+export async function resumedRoundRun(
+  setup: RoundSetup,
+  retained: RetainedRoundData,
+  paths: {
+    readonly nameStart: string
+    readonly report: string
+    readonly vet: string
+    readonly rebut: string
+    readonly ruling: string | null
+  },
+  started: number,
+  releases: Record<Assistant, ModelReleases>,
+  settings: RoundSettings,
+): Promise<
+  Run & {
+    readonly nameStart: string
+    readonly watch: string
+    readonly documents: RoundDocuments
+    readonly recoveredPhases: Pick<
+      Record<RoundPhase, PhaseRun>,
+      "audit" | "vet" | "rebut" | "fix"
+    >
+    readonly paths: { readonly claim: null; readonly markdown: string }
+  }
+> {
+  const fresh = roundPhases(
+    setup.auditor,
+    setup.override ?? noOverride,
+    settings,
+    setup,
+  )
+  const phaseRuns = {
+    ...fresh,
+    audit: retainedPhaseRun(retained.entry, "audit", fresh.audit),
+    vet: retainedPhaseRun(retained.entry, "vet", fresh.vet),
+    rebut: retainedPhaseRun(retained.entry, "rebut", fresh.rebut),
+    fix: retainedPhaseRun(retained.entry, "fix", fresh.fix),
+  }
+  const runEntry = (phase: RoundPhase): RunEntry => ({
+    phase,
+    ...phaseRuns[phase],
+  })
+  const tag = (phase: RoundPhase): string =>
+    fileTag(runEntry(phase), releases, settings)
+  const base = join(
+    setup.activeRoot,
+    `${phaseFilename(paths.nameStart, "round", retained.entry.tag)}`,
+  )
+  const ruling =
+    paths.ruling ??
+    join(
+      setup.activeRoot,
+      `${phaseFilename(paths.nameStart, "ruling", tag("fix"))}.md`,
+    )
+  const documents = {
+    report: paths.report,
+    vet: paths.vet,
+    rebut: paths.rebut,
+    ruling,
+  }
+  const data = {
+    path: retained.file,
+    target: retained.entry.target,
+    round: retained.entry.round,
+    tag: retained.entry.tag,
+    settings: retained.entry.settings,
+    auditor: retained.entry.auditor,
+    ...(retained.entry.pool === undefined ? {} : { pool: retained.entry.pool }),
+    ...(retained.entry && "phase" in retained.entry
+      ? { phase: retained.entry.phase }
+      : "scope" in retained.entry
+        ? { scope: retained.entry.scope }
+        : {
+            originalGroups: retained.entry.originalGroups,
+            groups: retained.entry.groups,
+          }),
+  } as Run["data"]
+  return {
+    nameStart: paths.nameStart,
+    watch: join(
+      setup.activeRoot,
+      `${phaseFilename(paths.nameStart, "watch", tag("watch"))}.md`,
+    ),
+    documents,
+    recoveredPhases: phaseRuns,
+    name: "Audit round recovery",
+    title:
+      "plan" in setup
+        ? `Recovery of ${roundSubject(setup, setup.plan)}`
+        : `Recovery of commit audit ${paths.nameStart}`,
+    phases: (
+      [
+        "audit",
+        "vet",
+        "rebut",
+        "fix",
+        ...("plan" in setup ? ["watch" as const] : []),
+      ] as RoundPhase[]
+    ).map(runEntry),
+    paths: {
+      claim: null,
+      log: `${base}.log`,
+      markdown: `${base}.md`,
+      reopenLog: true,
+    },
+    previousModels: await readPreviousRoundModels(setup),
+    continued: retained.entry.phases,
+    recoveryReport: paths.report,
+    data,
     releases,
     settings,
     started,
@@ -365,6 +518,20 @@ export class RoundOutput<R extends Run = Run> {
   ) {
     this.clock = options.clock
     this.round = options.clock.mark()
+    for (const phase of run.continued ?? []) {
+      if (phase.phase === "judge") continue
+      this.ran.set(phase.phase, {
+        launched: phase.launched ?? {
+          model: phase.model,
+          effort: phase.effort,
+        },
+        selection: { model: phase.model, effort: phase.effort },
+        spent: phase.milliseconds,
+        tokens: phase.tokens,
+        peakContext: phase.peakContext,
+        compactions: phase.compactions,
+      })
+    }
     this.paths = run.paths
     this.files = (options.openFiles ?? openRunFiles)(this.paths)
     this.phase = {
@@ -696,7 +863,7 @@ export class RoundOutput<R extends Run = Run> {
       const resume =
         resumeSessionId === null
           ? ""
-          : `\nResume: ${recoveryCommand({ ...result, sessionId: resumeSessionId })}`
+          : `\nResume: ${this.resumeCommand(result, resumeSessionId)}`
       this.say(
         `${unsettledReport}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )
@@ -704,12 +871,30 @@ export class RoundOutput<R extends Run = Run> {
       this.say(
         result.status === "finished"
           ? `${this.run.name} finished.`
-          : `Stopped without a ruling. The round files are retained.\nResume: ${recoveryCommand(result.session)}`,
+          : `Stopped without a ruling. The round files are retained.\nResume: ${this.resumeCommand(result, result.session.sessionId)}`,
       )
     }
     // The closing rule pairs with the opening one, so the chain's messages
     // between rounds sit outside both boxes.
     this.say(runRule)
+  }
+
+  /** Use the runner while an unresolved serious contest still owns commit admission. */
+  resumeCommand(
+    result:
+      | Extract<RoundResult, { readonly status: "awaiting-ruling" | "failed" }>
+      | Extract<CloseResult, { readonly status: "failed" }>,
+    sessionId: string,
+  ): string {
+    const session =
+      result.status === "awaiting-ruling"
+        ? { ...result.session, sessionId }
+        : { ...result, sessionId }
+    return "account" in result &&
+      openSeriousContests(result.account).length > 0 &&
+      this.run.recoveryReport !== undefined
+      ? roundRecoveryCommand(session, this.run.recoveryReport)
+      : recoveryCommand(session)
   }
 
   release(): void {

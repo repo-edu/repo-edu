@@ -24,6 +24,7 @@ import {
   type PhaseRun,
   type RoundDependencies,
   type RoundFixer,
+  type RoundPhase,
   roundPhases,
   watchPhase,
 } from "./phase.js"
@@ -124,6 +125,30 @@ function openContests(
   )
 }
 
+/** Serious contests whose retained round entry still has no user winner. */
+function seriousAccountContests(account: RoundAccount): readonly number[] {
+  return account.findings.flatMap((finding) => {
+    const serious =
+      finding.tier === "A" ||
+      finding.tier === "B" ||
+      finding.vetTier === "A" ||
+      finding.vetTier === "B"
+    return finding.number !== null &&
+      finding.rebuttalAnswer === "contest" &&
+      serious
+      ? [finding.number]
+      : []
+  })
+}
+
+export function openSeriousContests(account: RoundAccount): readonly number[] {
+  return seriousAccountContests(account).filter(
+    (number) =>
+      account.findings.find((finding) => finding.number === number)
+        ?.rulingWinner === undefined,
+  )
+}
+
 function recordRulings(
   account: RoundAccount,
   open: readonly number[],
@@ -208,6 +233,17 @@ export type RoundInput = RoundSetup & {
   readonly transcript: string
   /** Null when the user asked for no watch, whatever the commit record says. */
   readonly watch: WatchTarget | null
+  /** Retained state used only by the runner-owned serious-contest recovery. */
+  readonly recovery?: {
+    readonly account: RoundAccount
+    readonly phases: Pick<
+      Record<RoundPhase, PhaseRun>,
+      "audit" | "vet" | "rebut" | "fix"
+    >
+    readonly sessionId: string
+    readonly rulingReady: boolean
+    readonly records: readonly LandedRecord[]
+  }
 }
 
 export type RoundFailure = PhaseFailure &
@@ -513,107 +549,131 @@ export async function runRound(
   dependencies: RoundDependencies,
   settings: RoundSettings,
 ): Promise<RoundResult> {
-  let account: RoundAccount = { settling: "", judgedRepos: [], findings: [] }
-  const phases = roundPhases(
-    input.auditor,
-    input.override ?? noOverride,
-    settings,
-    input,
-  )
+  let account: RoundAccount = input.recovery?.account ?? {
+    settling: "",
+    judgedRepos: [],
+    findings: [],
+  }
+  const phases =
+    input.recovery?.phases ??
+    roundPhases(input.auditor, input.override ?? noOverride, settings, input)
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   const deferralScope: DeferralScope | null =
     input.deferrals === undefined ? null : { deferrals: input.deferrals }
-  const auditInput: PhaseInput<"audit"> = {
-    phase: "audit",
-    ...phases.audit,
-    ...context,
-    arguments:
-      "groups" in input
-        ? [input.documents.report, ...commitAuditGroups(input)]
-        : input.roundKind === "planning"
-          ? [
-              input.documents.report,
-              input.plan,
-              ...(deferralScope === null ? [] : [deferralScope]),
-            ]
-          : [
-              input.documents.report,
-              input.plan,
-              input.scope,
-              ...(deferralScope === null ? [] : [deferralScope]),
-            ],
-    sessionId: null,
-  }
-  const audit = await reportPhase(
-    () => dependencies.runPhase.audit(auditInput),
-    input.documents.report,
-    dependencies,
-  )
-  if (audit.status === "failed") {
-    return {
-      ...audit,
-      phase: "audit",
-      ...phases.audit,
-      ...context,
-      commits: [],
-      account,
-    }
-  }
-
   const report = input.documents.report
-  let evidence: AuditReport
-  try {
-    evidence = await dependencies.readReport(
-      report,
-      roundKind === "implementation" ? "implementation" : planPhase(input.plan),
-      reportTarget(input),
-    )
-  } catch (error) {
-    return {
-      status: "failed",
-      sessionId: audit.sessionId,
+  const twins = [input.documents.vet]
+  let reviews: readonly FindingReview[] = []
+  let rebuttals: readonly FindingRebuttal[] = []
+  if (input.recovery === undefined) {
+    const auditInput: PhaseInput<"audit"> = {
       phase: "audit",
       ...phases.audit,
       ...context,
-      reason: errorMessage(error),
-      commits: [],
-      account,
+      arguments:
+        "groups" in input
+          ? [input.documents.report, ...commitAuditGroups(input)]
+          : input.roundKind === "planning"
+            ? [
+                input.documents.report,
+                input.plan,
+                ...(deferralScope === null ? [] : [deferralScope]),
+              ]
+            : [
+                input.documents.report,
+                input.plan,
+                input.scope,
+                ...(deferralScope === null ? [] : [deferralScope]),
+              ],
+      sessionId: null,
     }
-  }
-  account = {
-    settling: evidence.settling,
-    judgedRepos: evidence.judgedRepos,
-    findings: reviewedRoundFindings(evidence.findings),
-  }
-  // Zero findings complete in the runner. No later assistant or historical
-  // watch can add anything needed to close this audit.
-  if (evidence.findings.length === 0) {
+    const audit = await reportPhase(
+      () => dependencies.runPhase.audit(auditInput),
+      input.documents.report,
+      dependencies,
+    )
+    if (audit.status === "failed") {
+      return {
+        ...audit,
+        phase: "audit",
+        ...phases.audit,
+        ...context,
+        commits: [],
+        account,
+      }
+    }
+
+    let evidence: AuditReport
     try {
-      const completion = await dependencies.completeClean({
-        ...input,
+      evidence = await dependencies.readReport(
         report,
-        judgedRepos: evidence.judgedRepos,
-      })
+        roundKind === "implementation"
+          ? "implementation"
+          : planPhase(input.plan),
+        reportTarget(input),
+      )
+    } catch (error) {
+      return {
+        status: "failed",
+        sessionId: audit.sessionId,
+        phase: "audit",
+        ...phases.audit,
+        ...context,
+        reason: errorMessage(error),
+        commits: [],
+        account,
+      }
+    }
+    account = {
+      settling: evidence.settling,
+      judgedRepos: evidence.judgedRepos,
+      findings: reviewedRoundFindings(evidence.findings),
+    }
+    // Zero findings complete in the runner. No later assistant or historical
+    // watch can add anything needed to close this audit.
+    if (evidence.findings.length === 0) {
       try {
-        dependencies.writeSettledRound(completion.commits, account)
-        const deferralChain = await runDeferralChain(input, dependencies)
-        const decided =
-          input.pool !== undefined &&
-          (deferralChain === "none" || deferralChain === "finished")
-            ? await runSeriesDecision(input, input.pool, dependencies, settings)
-            : { answer: null }
-        if ("status" in decided)
-          return { ...decided, commits: completion.commits, account }
-        return {
-          status: "finished",
+        const completion = await dependencies.completeClean({
+          ...input,
           report,
-          cleanAudit: true,
-          decision: decided.answer,
-          watch: null,
-          deferralChain,
-          commits: completion.commits,
-          account,
+          judgedRepos: evidence.judgedRepos,
+        })
+        try {
+          dependencies.writeSettledRound(completion.commits, account)
+          const deferralChain = await runDeferralChain(input, dependencies)
+          const decided =
+            input.pool !== undefined &&
+            (deferralChain === "none" || deferralChain === "finished")
+              ? await runSeriesDecision(
+                  input,
+                  input.pool,
+                  dependencies,
+                  settings,
+                )
+              : { answer: null }
+          if ("status" in decided)
+            return { ...decided, commits: completion.commits, account }
+          return {
+            status: "finished",
+            report,
+            cleanAudit: true,
+            decision: decided.answer,
+            watch: null,
+            deferralChain,
+            commits: completion.commits,
+            account,
+          }
+        } catch (error) {
+          return {
+            status: "failed",
+            sessionId: null,
+            phase: "complete",
+            ...phases.audit,
+            ...context,
+            reason: errorMessage(error),
+            commits: completion.commits,
+            account,
+          }
         }
       } catch (error) {
         return {
@@ -623,27 +683,12 @@ export async function runRound(
           ...phases.audit,
           ...context,
           reason: errorMessage(error),
-          commits: completion.commits,
+          commits: [],
           account,
         }
       }
-    } catch (error) {
-      return {
-        status: "failed",
-        sessionId: null,
-        phase: "complete",
-        ...phases.audit,
-        ...context,
-        reason: errorMessage(error),
-        commits: [],
-        account,
-      }
     }
-  }
-  const twins = [input.documents.vet]
-  let reviews: readonly FindingReview[] = []
-  let rebuttals: readonly FindingRebuttal[] = []
-  {
+
     const vet = await reportPhase(
       () =>
         dependencies.runPhase.vet({
@@ -742,6 +787,8 @@ export async function runRound(
       }
       twins.push(input.documents.rebut)
     }
+  } else {
+    twins.push(input.documents.rebut)
   }
 
   const repositories: readonly { root: string; repository: Repository }[] = [
@@ -765,7 +812,10 @@ export async function runRound(
       account,
     }
   }
-  const contests = seriousContests(reviews, rebuttals)
+  const contests =
+    input.recovery === undefined
+      ? seriousContests(reviews, rebuttals)
+      : seriousAccountContests(account)
   const fixArguments = (): PhaseInput<"fix">["arguments"] => {
     const scope = contestScope(account.findings, contests)
     return [
@@ -781,10 +831,17 @@ export async function runRound(
     ...context,
     arguments: fixArguments(),
     rulingFile: input.documents.ruling,
-    sessionId: null,
+    sessionId: input.recovery?.sessionId ?? null,
   }
-  let commits: readonly LandedCommit[] = []
-  let landed: readonly (readonly LandedRecord[])[] = repositories.map(() => [])
+  let landed: readonly (readonly LandedRecord[])[] = repositories.map(
+    ({ repository }) =>
+      input.recovery?.records.filter(
+        (record) => record.repository === repository,
+      ) ?? [],
+  )
+  let commits: readonly LandedCommit[] = landed
+    .flat()
+    .map(({ repository, sha }) => ({ repository, sha }))
   // A fix may commit before it fails, is interrupted or asks for a ruling.
   // Read its records after every invocation so every exit retains the same
   // exact scope evidence as a finished fix.
@@ -809,10 +866,68 @@ export async function runRound(
     ).map((records) => records.filter(belongsToRound))
   }
   const collectFixRecords = async (): Promise<void> => {
-    landed = await readFixRecords()
+    const found = await readFixRecords()
+    landed = landed.map((records, index) => {
+      const joined = new Map(
+        [...records, ...(found[index] ?? [])].map((record) => [
+          record.sha,
+          record,
+        ]),
+      )
+      return [...joined.values()]
+    })
     commits = landed.flat().map(({ repository, sha }) => ({ repository, sha }))
   }
+  let pendingRuling = input.recovery?.rulingReady ?? false
   while (true) {
+    if (pendingRuling) {
+      const sessionId = fixInput.sessionId
+      if (sessionId === null)
+        throw new Error("A retained ruling has no fix session")
+      const session: InteractiveSession = {
+        ...phases.fix,
+        sessionId,
+        ...context,
+      }
+      try {
+        const open = openContests(account, contests)
+        const ruling = await dependencies.requestRuling({
+          document: input.documents.ruling,
+          fixerSide: selectedFixerSide(phases),
+          contests: open,
+        })
+        if (ruling === null)
+          return {
+            status: "awaiting-ruling",
+            report,
+            session,
+            commits,
+            account,
+          }
+        account = recordRulings(account, open, ruling.rulings)
+        if (
+          openContests(account, contests).length > 0 &&
+          ruling.reply.trim().length === 0
+        )
+          throw new Error("A free reply is required while a contest is open")
+        fixInput = {
+          ...fixInput,
+          arguments: fixArguments(),
+          sessionId,
+          rulingReply: ruling.reply,
+        }
+        pendingRuling = false
+      } catch (error) {
+        return {
+          status: "failed",
+          phase: "ruling-input",
+          ...session,
+          reason: error instanceof Error ? error.message : String(error),
+          commits,
+          account,
+        }
+      }
+    }
     let fix: PhaseResult<"fix">
     try {
       fix = await dependencies.runPhase.fix(fixInput)
@@ -1011,47 +1126,7 @@ export async function runRound(
       }
     }
 
-    const session: InteractiveSession = {
-      ...phases.fix,
-      sessionId: fix.sessionId,
-      ...context,
-    }
-    try {
-      const open = openContests(account, contests)
-      const ruling = await dependencies.requestRuling({
-        document: input.documents.ruling,
-        fixerSide: selectedFixerSide(phases),
-        contests: open,
-      })
-      if (ruling === null)
-        return {
-          status: "awaiting-ruling",
-          report,
-          session,
-          commits,
-          account,
-        }
-      account = recordRulings(account, open, ruling.rulings)
-      if (
-        openContests(account, contests).length > 0 &&
-        ruling.reply.trim().length === 0
-      )
-        throw new Error("A free reply is required while a contest is open")
-      fixInput = {
-        ...fixInput,
-        arguments: fixArguments(),
-        sessionId: fix.sessionId,
-        rulingReply: ruling.reply,
-      }
-    } catch (error) {
-      return {
-        status: "failed",
-        phase: "ruling-input",
-        ...session,
-        reason: error instanceof Error ? error.message : String(error),
-        commits,
-        account,
-      }
-    }
+    fixInput = { ...fixInput, sessionId: fix.sessionId }
+    pendingRuling = true
   }
 }

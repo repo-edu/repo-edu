@@ -9,6 +9,7 @@ import {
   interactiveArguments,
   phaseRequest,
   recoveryCommand,
+  roundRecoveryCommand,
 } from "../requests.js"
 import { type Assistant, type PhaseInput, pinned } from "./configured-runner.js"
 import {
@@ -551,6 +552,34 @@ for (const assistant of ["claude", "codex"] as const) {
     }
   })
 }
+
+test("a serious contest recovery command keeps its report and session as data", async (t) => {
+  const f = await fixture(t)
+  const session = {
+    assistant: "codex" as const,
+    model: pinned("codex"),
+    sessionId: "fix session; $(touch forbidden)",
+    ...testContext(f.root),
+  }
+  assert.deepEqual(
+    split(
+      roundRecoveryCommand(
+        session,
+        `${f.root}/example-impl-audit-01..03-01-2-audit.obh.md`,
+      ),
+    ),
+    [
+      "cd",
+      f.root,
+      "&&",
+      "pnpm",
+      "audit-round",
+      "resume-fix",
+      "example-impl-audit-01..03-01-2-audit.obh.md",
+      session.sessionId,
+    ],
+  )
+})
 
 test("fresh and resumed Codex fix requests carry large prompts only on stdin", () => {
   const prompt = "Evidence: é\n".repeat(30_000)

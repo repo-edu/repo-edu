@@ -41,7 +41,10 @@ then apply recorded answers without deciding them again.
 Every fix invocation is commit-blocked while any supplied contest lacks a
 winner. `Not yet` keeps that block in place. Do not land settled corrections
 before the runner has recorded every required winner; a fix that reports
-finished with an open contest fails the round.
+finished with an open contest fails the round. If the round stops, use the
+printed `pnpm audit-round resume-fix ...` command. It reloads the stored round,
+collects missing winners and resumes this session with the same block. A bare
+assistant resume is only for work without an open serious contest.
 
 When unattended, follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every

@@ -339,6 +339,10 @@ export type RetainedCommitRoundData = {
   readonly label: string
   readonly rounds: readonly CommitRoundData[]
 }
+export type RetainedRoundData = {
+  readonly file: string
+  readonly entry: RoundData
+}
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
 
@@ -485,6 +489,42 @@ export async function readCommitRoundData(
   const path = join(roots.activeRoot, roundDataFilename(label, "commit"))
   return commitRoundFileSchema.parse(JSON.parse(await readFile(path, "utf8")))
     .rounds
+}
+
+/** Read the one retained active entry named by a round's target and number. */
+export async function readActiveRoundData(
+  activeRoot: string,
+  nameStart: string,
+): Promise<RetainedRoundData> {
+  const identity = roundDataIdentity(nameStart)
+  const files = (await readdir(activeRoot, { withFileTypes: true }))
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        (roundDataFilenamePattern.test(entry.name) ||
+          isCommitRoundDataName(entry.name)),
+    )
+    .map((entry) => join(activeRoot, entry.name))
+  const matches = (
+    await Promise.all(
+      files.map(async (file) => ({
+        file,
+        data: parseRoundDataFile(file, await readFile(file, "utf8")),
+      })),
+    )
+  ).flatMap(({ file, data }) =>
+    data.rounds
+      .filter(
+        (entry) =>
+          entry.target === identity.target && entry.round === identity.round,
+      )
+      .map((entry) => ({ file, entry })),
+  )
+  if (matches.length !== 1)
+    throw new Error(
+      `Expected one retained entry for ${nameStart}; found ${matches.length}.`,
+    )
+  return matches[0] as RetainedRoundData
 }
 
 /** Split the allocated name into the target-wide identity stored in JSON. */

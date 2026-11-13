@@ -32,10 +32,12 @@ import {
   type Phase,
   type PhaseInput,
   type PhaseResult,
+  type PhaseRun,
   pinned,
   pinnedCoder,
   type RoundDependencies,
   RoundOutput,
+  type RoundPhase,
   runClose,
   runRound as runRoundWithAccount,
   testSettings,
@@ -372,6 +374,22 @@ function controlledRound(
   }
 }
 
+function recoveryPhases(
+  calls: readonly PhaseInput[],
+): Pick<Record<RoundPhase, PhaseRun>, "audit" | "vet" | "rebut" | "fix"> {
+  const phase = (name: "audit" | "vet" | "rebut" | "fix"): PhaseRun => {
+    const input = calls.find((candidate) => candidate.phase === name)
+    assert.ok(input)
+    return { assistant: input.assistant, model: input.model }
+  }
+  return {
+    audit: phase("audit"),
+    vet: phase("vet"),
+    rebut: phase("rebut"),
+    fix: phase("fix"),
+  }
+}
+
 const dueDecision: GlanceDecision = {
   due: true,
   text: "An area reached the amber limit of 2 (rule 3).",
@@ -645,6 +663,168 @@ test("a fix cannot finish while a serious contest has no winner", async () => {
   assert.equal(result.phase, "fix")
   assert.match(result.reason, /finished fix left serious contests.*finding 1/)
   assert.deepEqual(round.deletedReports, [])
+})
+
+for (const stopped of ["left-ruling", "failed-fix", "finished-fix"] as const) {
+  test(`a ${stopped} serious contest resumes through the retained runner round`, async () => {
+    const round = controlledRound()
+    round.evidence.rebuttalAnswer = "contest"
+    if (stopped === "left-ruling")
+      round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+    if (stopped === "failed-fix")
+      round.results.fix = {
+        status: "failed",
+        sessionId: "fix-session",
+        reason: "The fix stopped.",
+      }
+
+    const initial = await runRoundWithAccount(
+      { ...files, plan: "example.md", scope: "1" },
+      round.dependencies,
+    )
+    assert.equal(
+      initial.status,
+      stopped === "left-ruling" ? "awaiting-ruling" : "failed",
+    )
+    const priorCalls = round.calls.length
+    round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+
+    const recovered = await runRoundWithAccount(
+      {
+        ...files,
+        plan: "example.md",
+        scope: "1",
+        recovery: {
+          account: initial.account,
+          phases: recoveryPhases(round.calls),
+          sessionId: "fix-session",
+          rulingReady: stopped === "left-ruling",
+          records: [],
+        },
+      },
+      {
+        ...round.dependencies,
+        requestRuling: async (request) => {
+          assert.deepEqual(request.contests, [1])
+          round.results.fix = {
+            status: "finished",
+            sessionId: "fix-session",
+            settling: null,
+          }
+          return {
+            rulings: [
+              {
+                finding: 1,
+                winner: "vet",
+                reason: "The vet read the current contract.",
+              },
+            ],
+            reply: "",
+          }
+        },
+      },
+    )
+
+    assert.equal(recovered.status, "finished")
+    assert.equal(recovered.account.findings[0]?.rulingWinner, "vet")
+    const resumed = round.calls.slice(priorCalls)
+    assert.ok(resumed.every((call) => call.phase === "fix"))
+    assert.deepEqual(
+      resumed.map((call) => call.sessionId),
+      stopped === "left-ruling"
+        ? ["fix-session"]
+        : ["fix-session", "fix-session"],
+    )
+    assert.deepEqual(
+      resumed.map((call) =>
+        call.arguments
+          .flatMap((argument) =>
+            typeof argument === "object" &&
+            argument !== null &&
+            "contests" in argument
+              ? argument.contests
+              : [],
+          )
+          .filter((contest) => contest.winner === undefined)
+          .map((contest) => contest.finding),
+      ),
+      stopped === "left-ruling" ? [[]] : [[1], []],
+    )
+  })
+}
+
+test("not yet in a recovered contest keeps the runner block until a later winner", async () => {
+  const round = controlledRound()
+  round.evidence.rebuttalAnswer = "contest"
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const initial = await runRoundWithAccount(
+    { ...files, plan: "example.md", scope: "1" },
+    round.dependencies,
+  )
+  assert.equal(initial.status, "awaiting-ruling")
+  const priorCalls = round.calls.length
+  let requests = 0
+
+  const recovered = await runRoundWithAccount(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "1",
+      recovery: {
+        account: initial.account,
+        phases: recoveryPhases(round.calls),
+        sessionId: "fix-session",
+        rulingReady: true,
+        records: [],
+      },
+    },
+    {
+      ...round.dependencies,
+      requestRuling: async () => {
+        requests += 1
+        if (requests === 1)
+          return { rulings: [], reply: "Explain the disputed evidence." }
+        round.results.fix = {
+          status: "finished",
+          sessionId: "fix-session",
+          settling: null,
+        }
+        return {
+          rulings: [
+            {
+              finding: 1,
+              winner: "auditor",
+              reason: "The report quotes the owning contract.",
+            },
+          ],
+          reply: "",
+        }
+      },
+    },
+  )
+
+  assert.equal(recovered.status, "finished")
+  assert.equal(requests, 2)
+  const resumed = round.calls.slice(priorCalls)
+  assert.deepEqual(
+    resumed.map((call) => call.phase),
+    ["fix", "fix"],
+  )
+  assert.deepEqual(
+    resumed.map((call) =>
+      call.arguments
+        .flatMap((argument) =>
+          typeof argument === "object" &&
+          argument !== null &&
+          "contests" in argument
+            ? argument.contests
+            : [],
+        )
+        .filter((contest) => contest.winner === undefined)
+        .map((contest) => contest.finding),
+    ),
+    [[1], []],
+  )
 })
 
 test("the round account retains review, rebuttal and settlement outcomes", async () => {
