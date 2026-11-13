@@ -32,7 +32,8 @@ parses: the **Implementation plan** step list, where each step opens with a bold
 sentence, and the one `Audit ranges:` sentence under **Execution and audits**, whose scopes must
 cover the steps in order without gaps or overlap.
 
-The coder comes from the ordered `coders` list in `tools/audit-round/settings.json`. The command
+The coder comes from the ordered `implementation.coders` list in
+`tools/audit-round/settings.json`. The command
 assigns the coder that follows the one recorded in the most recent ready marker, and starts again at
 the first coder after the last, so plans take turns through the list. A one-entry list always
 assigns that coder. An entry that says `default` is recorded as the model and effort `defaults`
@@ -58,4 +59,4 @@ The runner prints `audit-round: <reason>` and lands nothing.
 3. **The step list or audit ranges do not parse.** The message names the item or range that broke
    the form, such as a missing full stop after a bold title or a gap before a step.
 4. **The plan file is not committed as it stands**, or no active plan has the stem.
-5. **The `coders` list is empty.**
+5. **The `implementation.coders` list is empty.**

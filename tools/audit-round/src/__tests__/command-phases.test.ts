@@ -63,12 +63,12 @@ for (const route of [
       planning ? "plan" : "repo-edu",
     )
     const settings = structuredClone(testSettings)
-    settings.phases.planningFix = {
+    settings.planning.fixer = {
       assistant: "claude",
       model: "claude-planner",
       effort: "medium",
     }
-    settings.coders = [
+    settings.implementation.coders = [
       { assistant: "claude", model: "claude-first", effort: "low" },
       { assistant: "codex", model: "codex-assigned", effort: "xhigh" },
     ]

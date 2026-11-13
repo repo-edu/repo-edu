@@ -22,7 +22,12 @@ import type {
   RoundSettings,
 } from "./settings.js"
 import type { Repository } from "./subject.js"
-import type { AuditTarget, CommitAuditGroup, RoundContext } from "./target.js"
+import type {
+  AuditTarget,
+  CommitAuditGroup,
+  RoundContext,
+  RoundKind,
+} from "./target.js"
 import type { VetReading } from "./vet.js"
 
 export type Assistant = "claude" | "codex"
@@ -107,8 +112,8 @@ export type AuditorSelectionSource = "settings" | AuditorOption
 
 /**
  * What the auditor's phases run on in place of the assistant's default
- * selection. `none` keeps the defaults, as a chained deferral round does. A
- * listed entry names both fields from the `auditors` list. An assistant name
+ * selection. `none` keeps the defaults. A listed entry names both fields from
+ * the target work class's auditor list. An assistant name
  * on the command line keeps the defaults under its option's name. A tag names
  * its option, so the settings header says which one set a field; a null tag
  * field reads the defaults. The override binds audit and rebuttal because the
@@ -331,6 +336,17 @@ export type RoundFixer = {
 }
 
 /**
+ * The one owner of a target's work class. A commit target is implementation
+ * work when any group is in Repo Edu and planning work otherwise.
+ */
+export function targetWorkClass(target: AuditTarget): RoundKind {
+  if (!("groups" in target)) return target.roundKind
+  return target.groups.some((group) => group.repository === "repo-edu")
+    ? "implementation"
+    : "planning"
+}
+
+/**
  * The single owner of who fixes a round. Planning work fixes on the planning
  * fixer: every planning round, before and after `ready`, and a commit target
  * whose groups are all in the plan repo. Code work fixes on a coder: an
@@ -345,18 +361,15 @@ export function roundFixer(
   config: RoundSettings,
 ): RoundFixer {
   const planning: RoundFixer = {
-    fixer: config.phases.planningFix,
+    fixer: config.planning.fixer,
     fixerSource: "audit-round planning fixer",
   }
   const firstCoder: RoundFixer = {
-    fixer: config.coders[0],
-    fixerSource: "audit-round coders",
+    fixer: config.implementation.coders[0],
+    fixerSource: "audit-round implementation coders",
   }
-  if (target.roundKind === "planning") return planning
-  if ("groups" in target)
-    return target.groups.some((group) => group.repository === "repo-edu")
-      ? firstCoder
-      : planning
+  if (targetWorkClass(target) === "planning") return planning
+  if ("groups" in target) return firstCoder
   return assigned === null
     ? firstCoder
     : { fixer: assigned, fixerSource: "ready assignment" }
@@ -407,17 +420,21 @@ export function closePhase(config: RoundSettings): PhaseRun {
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * the default selection, each listed auditor and coder, the planning fixer,
- * each phase's own pin and each tier a tag can ask for.
+ * the default selection, every class's listed auditors, the implementation
+ * coders, the planning fixer, each phase's own pin and each tier a tag can ask
+ * for.
  */
 export function namedModels(
   assistant: Assistant,
   config: RoundSettings,
 ): ReadonlySet<string> {
   const runs: PhaseRun[] = [
-    ...[...config.auditors, ...config.coders, config.phases.planningFix].map(
-      (entry) => implementationPhase(entry),
-    ),
+    ...[
+      ...config.planning.auditors,
+      config.planning.fixer,
+      ...config.implementation.auditors,
+      ...config.implementation.coders,
+    ].map((entry) => implementationPhase(entry)),
     ...(["claude", "codex"] as const).flatMap((auditor) => [
       vetPhase(auditor, config),
       ...[null, ...strengths].map((strength) =>

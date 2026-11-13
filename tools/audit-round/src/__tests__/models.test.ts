@@ -597,7 +597,10 @@ test("planning opener notes frame both tables, separate current and unlisted aud
     { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     {
       ...testSettings,
-      auditors: [{ assistant: "claude", model: "listed", effort: "low" }],
+      planning: {
+        ...testSettings.planning,
+        auditors: [{ assistant: "claude", model: "listed", effort: "low" }],
+      },
     },
   )
   const planning = report
@@ -1639,10 +1642,13 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     repoEduRoot: f.root,
     settings: {
       ...testSettings,
-      coders: [
-        { assistant: "codex", model: "coder-alpha", effort: "low" },
-        { assistant: "codex", model: "coder-beta", effort: "low" },
-      ],
+      implementation: {
+        ...testSettings.implementation,
+        coders: [
+          { assistant: "codex", model: "coder-alpha", effort: "low" },
+          { assistant: "codex", model: "coder-beta", effort: "low" },
+        ],
+      },
     },
     terminal: {
       write: (text, format) => visible.push({ text, format }),
@@ -1782,10 +1788,13 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
     { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     {
       ...testSettings,
-      coders: [
-        { assistant: "codex", model: "coder-alpha", effort: "low" },
-        { assistant: "codex", model: "coder-beta", effort: "low" },
-      ],
+      implementation: {
+        ...testSettings.implementation,
+        coders: [
+          { assistant: "codex", model: "coder-alpha", effort: "low" },
+          { assistant: "codex", model: "coder-beta", effort: "low" },
+        ],
+      },
     },
   )
   assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)

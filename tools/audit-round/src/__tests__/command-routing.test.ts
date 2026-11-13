@@ -16,7 +16,14 @@ type Fixture = Awaited<ReturnType<typeof roundFixture>>
 
 const singleAuditorSettings = {
   ...testSettings,
-  auditors: [testSettings.auditors[0]],
+  planning: {
+    ...testSettings.planning,
+    auditors: [testSettings.planning.auditors[0]],
+  },
+  implementation: {
+    ...testSettings.implementation,
+    auditors: [testSettings.implementation.auditors[0]],
+  },
 }
 
 function disproveRound(
@@ -377,7 +384,9 @@ for (const working of ["repo-edu", "plan"] as const) {
       await writeFile(join(root, `${target}-09-2-audit.oth.md`), "Peer report")
       const before = await readdir(root)
       const settings = structuredClone(testSettings)
-      settings.auditors = (["claude", "codex"] as const).map((assistant) => ({
+      settings[working === "plan" ? "planning" : "implementation"].auditors = (
+        ["claude", "codex"] as const
+      ).map((assistant) => ({
         assistant,
         model: settings.strengthModels[assistant].top,
         effort: "medium",
@@ -816,7 +825,7 @@ test("ready lands one empty commit through hooks and refuses a second marker", a
 test("ready assignments advance through the coder list and wrap", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   const settings = structuredClone(testSettings)
-  settings.coders = [
+  settings.implementation.coders = [
     { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
     { assistant: "codex", model: "gpt-6.1-sol", effort: "high" },
   ]

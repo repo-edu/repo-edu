@@ -64,7 +64,7 @@ function implementationRead(
   round: number,
   status: ImplementationRoundData["status"] = "finished",
 ): ImplementationRoundData {
-  const auditor = testSettings.auditors.find(
+  const auditor = testSettings.implementation.auditors.find(
     (entry) => entry.assistant === assistant,
   )
   assert.ok(auditor)
@@ -1817,7 +1817,7 @@ test("an automatic round publishes its settled entry before the series decision"
       plan: "example.md",
       scope: "1",
       auditor: "codex",
-      pool: testSettings.auditors,
+      pool: testSettings.implementation.auditors,
     },
     {
       ...round.dependencies,
@@ -1862,7 +1862,7 @@ test("a series evidence failure follows the first retained write", async () => {
       plan: "example.md",
       scope: "1",
       auditor: "codex",
-      pool: testSettings.auditors,
+      pool: testSettings.implementation.auditors,
     },
     {
       ...round.dependencies,
@@ -1958,7 +1958,7 @@ test("a later clean-chain failure keeps the landed commit for final recording", 
       ...files,
       plan: "example.md",
       scope: "1",
-      pool: testSettings.auditors,
+      pool: testSettings.implementation.auditors,
     },
     {
       ...round.dependencies,

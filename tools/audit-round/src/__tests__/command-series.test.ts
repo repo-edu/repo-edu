@@ -9,7 +9,26 @@ import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
 const singleAuditorSettings = {
   ...testSettings,
-  auditors: [testSettings.auditors[0]],
+  planning: {
+    ...testSettings.planning,
+    auditors: [testSettings.planning.auditors[0]],
+  },
+  implementation: {
+    ...testSettings.implementation,
+    auditors: [testSettings.implementation.auditors[0]],
+  },
+}
+
+const splitAuditorSettings = {
+  ...testSettings,
+  planning: {
+    ...testSettings.planning,
+    auditors: [testSettings.planning.auditors[1]],
+  },
+  implementation: {
+    ...testSettings.implementation,
+    auditors: [testSettings.implementation.auditors[0]],
+  },
 }
 
 test("a ruling resumes the fix and the remaining auditor sequence without replaying internal prompts", async (t) => {
@@ -360,6 +379,138 @@ async function auditStreams(
   )
 }
 
+test("one plan uses its planning and implementation auditor lists independently", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  await f.configure({
+    phases: {
+      ...f.phases,
+      audit: {
+        ...(f.phases.audit as Record<string, unknown>),
+        document: undefined,
+        streams: [
+          await phaseStream(
+            "claude",
+            `${planningDeferralReport(f.heads.plan, true).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            "audit-session",
+          ),
+          await phaseStream(
+            "codex",
+            `${cleanImplementationReport(f.heads["repo-edu"]).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            "audit-session",
+          ),
+        ],
+      },
+    },
+  })
+
+  for (const args of [
+    ["round", "example.md", "plan", "--no-watch"],
+    ["round", "example.md", "1", "--no-watch"],
+  ])
+    assert.equal(
+      await runCommand(args, f.runtime, {
+        ...f.options,
+        settings: splitAuditorSettings,
+      }),
+      0,
+      `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+    )
+
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["claude", "codex"],
+  )
+})
+
+for (const target of [
+  {
+    name: "plan-repo commit target",
+    args: ["plan@HEAD"],
+    workClass: "planning",
+    assistant: "claude",
+  },
+  {
+    name: "Repo Edu commit target",
+    args: ["HEAD"],
+    workClass: "implementation",
+    assistant: "codex",
+  },
+  {
+    name: "two-repo commit target",
+    args: ["HEAD", "plan@HEAD"],
+    workClass: "implementation",
+    assistant: "codex",
+  },
+] as const) {
+  test(`${target.name} uses the ${target.workClass} auditor list`, async (t) => {
+    const f = await roundFixture(
+      t,
+      target.assistant,
+      target.args[0] === "plan@HEAD" ? "plan" : "repo-edu",
+      false,
+      null,
+      false,
+      "repo-edu",
+      true,
+    )
+    const judgedRepos =
+      target.args.length === 2
+        ? `plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}`
+        : target.args[0] === "plan@HEAD"
+          ? `plan@${f.heads.plan}`
+          : `repo-edu@${f.heads["repo-edu"]}`
+    const report = `Implementation audit workflow
+Target: ${target.args.join(" ")}
+Judged repos: ${judgedRepos}
+
+## Findings
+
+No findings.
+`
+    await f.configure({
+      phases: {
+        ...f.phases,
+        audit: {
+          ...(f.phases.audit as Record<string, unknown>),
+          document: undefined,
+          streams: [
+            await phaseStream(
+              target.assistant,
+              `${report.trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+              "audit-session",
+            ),
+          ],
+        },
+      },
+    })
+
+    assert.equal(
+      await runCommand(["round", ...target.args, "--no-watch"], f.runtime, {
+        ...f.options,
+        settings: splitAuditorSettings,
+      }),
+      0,
+      `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+    )
+    const audit = (await f.prompts()).find((call) =>
+      call.prompt.startsWith("Run the audit phase "),
+    )
+    assert.equal(audit?.assistant, target.assistant)
+  })
+}
+
 test("an implementation audit receives open deferrals into Repo Edu", async (t) => {
   const f = await roundFixture(t)
   const sha = await seedRepoEduDeferral(f)
@@ -403,10 +554,18 @@ test("an implementation deferral chains a clean planning round before the series
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
         document: undefined,
-        streams: await auditStreams([
-          implementationDeferralReport(f.heads["repo-edu"]),
-          planningDeferralReport(f.heads.plan, true),
-        ]),
+        streams: [
+          await phaseStream(
+            "codex",
+            `${implementationDeferralReport(f.heads["repo-edu"]).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            "audit-session",
+          ),
+          await phaseStream(
+            "claude",
+            `${planningDeferralReport(f.heads.plan, true).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            "audit-session",
+          ),
+        ],
       },
       vet: {
         ...(f.phases.vet as Record<string, unknown>),
@@ -428,7 +587,7 @@ test("an implementation deferral chains a clean planning round before the series
   assert.equal(
     await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
-      settings: singleAuditorSettings,
+      settings: splitAuditorSettings,
     }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
@@ -443,7 +602,7 @@ test("an implementation deferral chains a clean planning round before the series
       ]),
     [
       ["codex", "implementation-audit"],
-      ["codex", "planning"],
+      ["claude", "planning"],
     ],
   )
   assert.equal(
@@ -528,10 +687,18 @@ test("an automatic series opens with a chained deferral round", async (t) => {
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
         document: undefined,
-        streams: await auditStreams([
-          planningDeferralReport(f.heads.plan, true),
-          cleanImplementationReport(repoHead),
-        ]),
+        streams: [
+          await phaseStream(
+            "claude",
+            `${planningDeferralReport(f.heads.plan, true).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            "audit-session",
+          ),
+          await phaseStream(
+            "codex",
+            `${cleanImplementationReport(repoHead).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            "audit-session",
+          ),
+        ],
       },
     },
   })
@@ -539,7 +706,7 @@ test("an automatic series opens with a chained deferral round", async (t) => {
   assert.equal(
     await runCommand(["round", "example.md", "1", "--no-watch"], f.runtime, {
       ...f.options,
-      settings: singleAuditorSettings,
+      settings: splitAuditorSettings,
     }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
@@ -549,6 +716,10 @@ test("an automatic series opens with a chained deferral round", async (t) => {
   )
   assert.match(audits[0].prompt, /unattended planning round/)
   assert.match(audits[1].prompt, /unattended implementation-audit round/)
+  assert.deepEqual(
+    audits.map((call) => call.assistant),
+    ["claude", "codex"],
+  )
   const args = JSON.parse(
     /^Phase arguments \(JSON array\): (.+)$/m.exec(audits[0].prompt)?.[1] ??
       "[]",
@@ -1012,7 +1183,7 @@ test("a random default auditor opens the series on the coin before deterministic
     ["claude", "codex"],
   )
   // The coin picks one entry of the whole list, once for the scope's series.
-  assert.deepEqual(counts, [settings.auditors.length])
+  assert.deepEqual(counts, [settings.implementation.auditors.length])
   const stored = JSON.parse(
     await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
@@ -1103,7 +1274,7 @@ test("an automatic series needs a current read from each listed model of one ass
     true,
   )
   const settings = structuredClone(testSettings)
-  settings.auditors = [
+  settings.implementation.auditors = [
     { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
     { assistant: "claude", model: "opus", effort: "xhigh" },
   ]
@@ -1160,29 +1331,36 @@ test("an automatic series needs a current read from each listed model of one ass
   ])
 })
 
-test("a --first selection outside the auditors list is refused before any round", async (t) => {
+test("a --first selection outside the target class's auditors list is refused before any round", async (t) => {
   const f = await roundFixture(
     t,
     "claude",
-    "repo-edu",
+    "plan",
     false,
-    "c",
+    null,
     false,
-    "repo-edu",
-    false,
+    "plan",
+    true,
     true,
   )
+  const settings = structuredClone(testSettings)
+  settings.planning.auditors = [
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ]
+  settings.implementation.auditors = [
+    { assistant: "claude", model: "claude-fable-5-1", effort: "xhigh" },
+  ]
   assert.equal(
     await runCommand(
-      ["round", "example.md", "1", "--first", "atx", "--no-watch"],
+      ["round", "example.md", "plan", "--first", "atx", "--no-watch"],
       f.runtime,
-      f.options,
+      { ...f.options, settings },
     ),
     2,
   )
   assert.match(
     f.errors.join("\n"),
-    /--first atx resolves to claude claude-fable-5-1 xhigh, which the auditors list in settings\.json does not hold\. Name a listed auditor: codex gpt-5\.6-sol high, claude \S+ high\./,
+    /--first atx resolves to claude claude-fable-5-1 xhigh, which the planning\.auditors list in settings\.json does not hold\. Name a listed auditor: codex gpt-5\.6-sol high\./,
   )
   await assert.rejects(f.prompts(), { code: "ENOENT" })
 })
@@ -1569,7 +1747,7 @@ test("a failed round stops a scope list before later scopes", async (t) => {
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", true)
   const settings = structuredClone(testSettings)
-  settings.coders[0].assistant = "claude"
+  settings.implementation.coders[0].assistant = "claude"
   const code = await runCommand(
     ["round", "example.md", "1", "--auditor", "a", "--no-watch"],
     f.runtime,

@@ -46,10 +46,9 @@ const assistantPhase = z.strictObject({
 const strengths = z.strictObject({ base: model, top: model })
 
 /**
- * A list entry's or the planning fixer's `default` resolves once, when the file
- * loads, so every reader sees the selection the entry runs. A ready marker
- * therefore records that selection, and a later change to `defaults` leaves it
- * as it was.
+ * A class entry's `default` resolves once, when the file loads, so every reader
+ * sees the selection the entry runs. A ready marker therefore records that
+ * selection, and a later change to `defaults` leaves it as it was.
  */
 function resolveEntry(
   entry: AssignedSelection,
@@ -73,35 +72,42 @@ export const settingsSchema = z
     maximumAutomaticRounds: z.number().int().positive(),
     strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
     defaults: assistantDefaults,
-    /**
-     * The ordered pool every automatic series opens from and routes between,
-     * whatever its target.
-     */
-    auditors: z.array(assignedSelection).min(1),
-    /**
-     * The implementation coders `ready` assigns in turn. The first also fixes
-     * code work that has no ready assignment.
-     */
-    coders: z.array(assignedSelection).min(1),
+    planning: z.strictObject({
+      /** The ordered pool for planning work. */
+      auditors: z.array(assignedSelection).min(1),
+      /** The one fixer of planning work. */
+      fixer: assignedSelection,
+    }),
+    implementation: z.strictObject({
+      /** The ordered pool for implementation work. */
+      auditors: z.array(assignedSelection).min(1),
+      /**
+       * The implementation coders `ready` assigns in turn. The first also
+       * fixes code work that has no ready assignment.
+       */
+      coders: z.array(assignedSelection).min(1),
+    }),
     phases: z.strictObject({
       vet: assistantPhase,
-      /** The one fixer of every planning round and plan-repo commit audit. */
-      planningFix: assignedSelection,
       watch: assignedSelection,
       close: assignedSelection,
     }),
   })
   .transform((settings) => ({
     ...settings,
-    auditors: settings.auditors.map((entry) =>
-      resolveEntry(entry, settings.defaults),
-    ),
-    coders: settings.coders.map((entry) =>
-      resolveEntry(entry, settings.defaults),
-    ),
-    phases: {
-      ...settings.phases,
-      planningFix: resolveEntry(settings.phases.planningFix, settings.defaults),
+    planning: {
+      auditors: settings.planning.auditors.map((entry) =>
+        resolveEntry(entry, settings.defaults),
+      ),
+      fixer: resolveEntry(settings.planning.fixer, settings.defaults),
+    },
+    implementation: {
+      auditors: settings.implementation.auditors.map((entry) =>
+        resolveEntry(entry, settings.defaults),
+      ),
+      coders: settings.implementation.coders.map((entry) =>
+        resolveEntry(entry, settings.defaults),
+      ),
     },
   }))
 

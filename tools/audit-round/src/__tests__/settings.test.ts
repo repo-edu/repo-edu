@@ -24,6 +24,7 @@ import {
   roundFixer,
   roundPhases,
   testSettings as settings,
+  targetWorkClass,
 } from "./configured-runner.js"
 
 test("a missing settings file is generated from the built-in defaults", async (t) => {
@@ -53,7 +54,9 @@ test("settings may carry comments and trailing commas", async (t) => {
   t.after(() => rm(root, { recursive: true, force: true }))
   const path = join(root, "settings.json")
   const edited = structuredClone(settings)
-  edited.coders = [{ assistant: "claude", model: "opus", effort: "high" }]
+  edited.implementation.coders = [
+    { assistant: "claude", model: "opus", effort: "high" },
+  ]
   const contents = JSON.stringify(edited, null, 2)
     .replace(
       '"coders": [',
@@ -104,10 +107,10 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
   const config = structuredClone(settings)
   config.strengthModels.codex.top = "custom-top-model"
   config.defaults.codex = { model: "codex-default", effort: "xhigh" }
-  config.coders = [
+  config.implementation.coders = [
     { assistant: "codex", model: "assigned-coder", effort: "xhigh" },
   ]
-  config.auditors = [
+  config.implementation.auditors = [
     { assistant: "codex", model: "listed-auditor", effort: "medium" },
   ]
   config.phases.watch = { assistant: "codex", model: "default", effort: "low" }
@@ -136,8 +139,11 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
     "--json",
   ])
   assert.deepEqual(phases.fix.model, {
-    model: { value: "assigned-coder", source: "audit-round coders" },
-    effort: { value: "xhigh", source: "audit-round coders" },
+    model: {
+      value: "assigned-coder",
+      source: "audit-round implementation coders",
+    },
+    effort: { value: "xhigh", source: "audit-round implementation coders" },
   })
   assert.equal(modelStrength("codex", "custom-top-model", config), "top")
   assert.equal(modelStrength("codex", "gpt-6-astra", config), null)
@@ -153,16 +159,16 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
   })
 })
 
-test("the auditors list names whole selections and replaces the audit pins", () => {
+test("each class's auditors list names whole selections and replaces the audit pins", () => {
   const config = structuredClone(settings)
-  config.auditors = [
+  config.implementation.auditors = [
     { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
     { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
   ]
   assert.equal(settingsSchema.safeParse(config).success, true)
   // Full names resolve to themselves, so each entry runs as written.
   const releases = { claude: new Map(), codex: new Map() }
-  for (const auditor of config.auditors) {
+  for (const auditor of config.implementation.auditors) {
     const seat = listedSeat(auditor)
     const phases = roundPhases(seat.assistant, seat.override, config)
     assert.deepEqual(phases.audit, {
@@ -194,11 +200,15 @@ test("the auditors list names whole selections and replaces the audit pins", () 
     ).audit.model,
   )
 
-  for (const auditors of [[], [{ assistant: "codex", model: "gpt-5.6-sol" }]])
-    assert.equal(
-      settingsSchema.safeParse({ ...config, auditors }).success,
-      false,
-    )
+  for (const workClass of ["planning", "implementation"] as const)
+    for (const auditors of [[], [{ assistant: "codex", model: "gpt-5.6-sol" }]])
+      assert.equal(
+        settingsSchema.safeParse({
+          ...config,
+          [workClass]: { ...config[workClass], auditors },
+        }).success,
+        false,
+      )
   assert.equal(
     settingsSchema.safeParse({
       ...config,
@@ -226,27 +236,36 @@ test("list entries that say default read the assistant's defaults when the file 
       claude: { model: "claude-default", effort: "xhigh" },
       codex: { model: "codex-default", effort: "medium" },
     },
-    auditors: [
-      { assistant: "claude", model: "default", effort: "default" },
-      { assistant: "codex", model: "listed-auditor", effort: "default" },
-    ],
-    coders: [{ assistant: "codex", model: "default", effort: "high" }],
+    planning: {
+      auditors: [{ assistant: "claude", model: "default", effort: "default" }],
+      fixer: { assistant: "claude", model: "default", effort: "low" },
+    },
+    implementation: {
+      auditors: [
+        { assistant: "claude", model: "default", effort: "default" },
+        { assistant: "codex", model: "listed-auditor", effort: "default" },
+      ],
+      coders: [{ assistant: "codex", model: "default", effort: "high" }],
+    },
   })
-  assert.deepEqual(config.auditors, [
+  assert.deepEqual(config.implementation.auditors, [
     { assistant: "claude", model: "claude-default", effort: "xhigh" },
     { assistant: "codex", model: "listed-auditor", effort: "medium" },
   ])
-  assert.deepEqual(config.coders, [
+  assert.deepEqual(config.implementation.coders, [
     { assistant: "codex", model: "codex-default", effort: "high" },
   ])
   // A ready marker records the resolved selection, never the word default.
   assert.equal(
-    coderRecord(nextCoder(config.coders, null)),
+    coderRecord(nextCoder(config.implementation.coders, null)),
     "Coder: codex codex-default high",
   )
   assert.deepEqual(roundPhases("codex", noOverride, config).fix.model, {
-    model: { value: "codex-default", source: "audit-round coders" },
-    effort: { value: "high", source: "audit-round coders" },
+    model: {
+      value: "codex-default",
+      source: "audit-round implementation coders",
+    },
+    effort: { value: "high", source: "audit-round implementation coders" },
   })
 })
 
@@ -254,14 +273,22 @@ test("the coder and assigned phases follow their configured assistants independe
   for (const auditor of ["claude", "codex"] as const) {
     for (const assistant of ["claude", "codex"] as const) {
       const config = structuredClone(settings)
-      config.coders = [{ assistant, model: "custom-fixer", effort: "high" }]
+      config.implementation.coders = [
+        { assistant, model: "custom-fixer", effort: "high" },
+      ]
       config.phases.watch = { assistant, model: "default", effort: "default" }
       const phases = roundPhases(auditor, noOverride, config)
       assert.deepEqual(phases.fix, {
         assistant,
         model: {
-          model: { value: "custom-fixer", source: "audit-round coders" },
-          effort: { value: "high", source: "audit-round coders" },
+          model: {
+            value: "custom-fixer",
+            source: "audit-round implementation coders",
+          },
+          effort: {
+            value: "high",
+            source: "audit-round implementation coders",
+          },
         },
       })
       const { model, effort } = config.defaults[assistant]
@@ -283,23 +310,23 @@ test("the coder and assigned phases follow their configured assistants independe
 
 test("planning work fixes on the planning fixer and code work on a coder", () => {
   const config = structuredClone(settings)
-  config.phases.planningFix = {
+  config.planning.fixer = {
     assistant: "claude",
     model: "planner",
     effort: "medium",
   }
-  config.coders = [
+  config.implementation.coders = [
     { assistant: "codex", model: "first-coder", effort: "high" },
     { assistant: "claude", model: "second-coder", effort: "low" },
   ]
-  const assigned = config.coders[1]
+  const assigned = config.implementation.coders[1]
   const planning = {
-    fixer: config.phases.planningFix,
+    fixer: config.planning.fixer,
     fixerSource: "audit-round planning fixer",
   }
   const firstCoder = {
-    fixer: config.coders[0],
-    fixerSource: "audit-round coders",
+    fixer: config.implementation.coders[0],
+    fixerSource: "audit-round implementation coders",
   }
   // A planning round after ready keeps the planning fixer, not the plan's coder.
   for (const ready of [null, assigned])
@@ -331,6 +358,17 @@ test("planning work fixes on the planning fixer and code work on a coder", () =>
     groups,
     originalGroups: groups,
   })
+  assert.equal(
+    targetWorkClass({ roundKind: "planning", plan: "example.md" }),
+    "planning",
+  )
+  assert.equal(targetWorkClass(implementation), "implementation")
+  assert.equal(targetWorkClass(commit(group("plan"))), "planning")
+  assert.equal(targetWorkClass(commit(group("repo-edu"))), "implementation")
+  assert.equal(
+    targetWorkClass(commit(group("repo-edu"), group("plan"))),
+    "implementation",
+  )
   assert.deepEqual(roundFixer(commit(group("plan")), null, config), planning)
   assert.deepEqual(
     roundFixer(commit(group("repo-edu")), null, config),
@@ -342,33 +380,55 @@ test("planning work fixes on the planning fixer and code work on a coder", () =>
   )
 })
 
-test("the planning fixer resolves its defaults at load and is required", async (t) => {
+test("the planning fixer resolves its defaults and the old shape is refused", async (t) => {
   const config = settingsSchema.parse({
     ...settings,
     defaults: {
       claude: { model: "claude-default", effort: "xhigh" },
       codex: { model: "codex-default", effort: "medium" },
     },
-    phases: {
-      ...settings.phases,
-      planningFix: { assistant: "claude", model: "default", effort: "low" },
+    planning: {
+      ...settings.planning,
+      fixer: { assistant: "claude", model: "default", effort: "low" },
     },
   })
-  assert.deepEqual(config.phases.planningFix, {
+  assert.deepEqual(config.planning.fixer, {
     assistant: "claude",
     model: "claude-default",
     effort: "low",
   })
   assert.ok(namedModels("claude", config).has("claude-default"))
   const named = structuredClone(config)
-  named.phases.planningFix.model = "planning-only"
+  named.planning.fixer.model = "planning-only"
+  const planningAuditor = named.planning.auditors.find(
+    ({ assistant }) => assistant === "claude",
+  )
+  const implementationAuditor = named.implementation.auditors.find(
+    ({ assistant }) => assistant === "claude",
+  )
+  assert.ok(planningAuditor)
+  assert.ok(implementationAuditor)
+  planningAuditor.model = "planning-auditor"
+  implementationAuditor.model = "implementation-auditor"
+  named.implementation.coders[0].model = "implementation-coder"
   assert.ok(namedModels("claude", named).has("planning-only"))
-  // An older file without the planning fixer stops with the validation error.
+  assert.ok(namedModels("claude", named).has("planning-auditor"))
+  assert.ok(namedModels("claude", named).has("implementation-auditor"))
+  assert.ok(namedModels("codex", named).has("implementation-coder"))
+  // A file in the old top-level list shape stops with the validation error.
   const root = await mkdtemp(join(tmpdir(), "audit-settings-"))
   t.after(() => rm(root, { recursive: true, force: true }))
   const path = join(root, "settings.json")
-  const { planningFix: _, ...older } = settings.phases
-  const contents = JSON.stringify({ ...settings, phases: older })
+  const { planning: _, implementation: __, ...common } = settings
+  const contents = JSON.stringify({
+    ...common,
+    auditors: settings.planning.auditors,
+    coders: settings.implementation.coders,
+    phases: {
+      ...settings.phases,
+      planningFix: settings.planning.fixer,
+    },
+  })
   await writeFile(path, contents)
   await assert.rejects(readSettings(path), /Invalid audit-round settings/)
   assert.equal(await readFile(path, "utf8"), contents)
@@ -376,7 +436,7 @@ test("the planning fixer resolves its defaults at load and is required", async (
 
 test("assistant names and bare letter tags both read the defaults across chained auditors", () => {
   const config = structuredClone(settings)
-  config.auditors = [
+  config.implementation.auditors = [
     { assistant: "claude", model: "claude-auditor", effort: "high" },
     { assistant: "codex", model: "codex-auditor", effort: "medium" },
   ]
@@ -405,13 +465,13 @@ test("assistant names and bare letter tags both read the defaults across chained
 
 test("alternating auditors and vetters keep their own configured models", () => {
   const config = structuredClone(settings)
-  config.auditors = [
+  config.implementation.auditors = [
     { assistant: "claude", model: "claude-auditor", effort: "high" },
     { assistant: "codex", model: "codex-auditor", effort: "medium" },
   ]
   config.phases.vet.claude = { model: "claude-vetter", effort: "low" }
   config.phases.vet.codex = { model: "codex-vetter", effort: "xhigh" }
-  for (const auditor of config.auditors) {
+  for (const auditor of config.implementation.auditors) {
     const assistant = auditor.assistant
     const vetter = assistant === "claude" ? "codex" : "claude"
     const seat = listedSeat(auditor)
@@ -452,15 +512,21 @@ test("settings reject null fields, unsupported effort, misspelt fields and indep
     false,
   )
   assert.equal(
-    settingsSchema.safeParse({ ...settings, coders: [] }).success,
+    settingsSchema.safeParse({
+      ...settings,
+      implementation: { ...settings.implementation, coders: [] },
+    }).success,
     false,
   )
   assert.equal(
     settingsSchema.safeParse({
       ...settings,
-      coders: [
-        { assistant: "codex", model: "model with spaces", effort: "high" },
-      ],
+      implementation: {
+        ...settings.implementation,
+        coders: [
+          { assistant: "codex", model: "model with spaces", effort: "high" },
+        ],
+      },
     }).success,
     false,
   )

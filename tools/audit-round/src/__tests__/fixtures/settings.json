@@ -21,25 +21,46 @@
       "effort": "high"
     }
   },
-  "auditors": [
-    {
+  "planning": {
+    "auditors": [
+      {
+        "assistant": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high"
+      },
+      {
+        "assistant": "claude",
+        "model": "opus",
+        "effort": "high"
+      }
+    ],
+    "fixer": {
       "assistant": "codex",
-      "model": "gpt-5.6-sol",
-      "effort": "high"
-    },
-    {
-      "assistant": "claude",
-      "model": "opus",
-      "effort": "high"
+      "model": "default",
+      "effort": "default"
     }
-  ],
-  "coders": [
-    {
-      "assistant": "codex",
-      "model": "gpt-5.6-sol",
-      "effort": "high"
-    }
-  ],
+  },
+  "implementation": {
+    "auditors": [
+      {
+        "assistant": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high"
+      },
+      {
+        "assistant": "claude",
+        "model": "opus",
+        "effort": "high"
+      }
+    ],
+    "coders": [
+      {
+        "assistant": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high"
+      }
+    ]
+  },
   "phases": {
     "vet": {
       "claude": {
@@ -50,11 +71,6 @@
         "model": "default",
         "effort": "default"
       }
-    },
-    "planningFix": {
-      "assistant": "codex",
-      "model": "default",
-      "effort": "default"
     },
     "watch": {
       "assistant": "codex",

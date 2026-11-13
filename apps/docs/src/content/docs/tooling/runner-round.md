@@ -71,11 +71,11 @@ reference keeps `.md` to mark it as a plan.
 3. **Rebuttal.** The auditor answers the vet's revisions, drops and ruling items on the audit's
    model and effort. It is skipped when the vet accepts every finding.
 4. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
-   commit audit of plan-repo commits alone fix on the planning fixer, `phases.planningFix` in
-   `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder.
-   A commit audit with Repo Edu commits fixes on the first listed coder. The fix may stop for your
-   ruling. When the auditor contests a verdict whose report or revised vet tier is A or B, that
-   ruling shows both positions and the runner asks you which side is right.
+   commit audit of plan-repo commits alone fix on `planning.fixer` in
+   `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder. A
+   commit audit with Repo Edu commits fixes on the first `implementation.coders` entry. The fix may
+   stop for your ruling. When the auditor contests a verdict whose report or revised vet tier is A
+   or B, that ruling shows both positions and the runner asks you which side is right.
 5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade.
 6. **Series decision.** In an automatic series the runner reads retained data and bounded commit
@@ -86,8 +86,10 @@ directly; a commit target lands nothing. An automatic series still applies its d
 
 ### Series
 
-1. **Automatic series**, without `--auditor`. The `--first` selection opens; it must name an
-   auditor from the `auditors` list. Without it, the retained round data opens on a listed auditor
+1. **Automatic series**, without `--auditor`. Planning targets and plan-only commit targets use
+   `planning.auditors`. Implementation targets and any commit target with a Repo Edu group use
+   `implementation.auditors`. The `--first` selection opens; it must name an auditor from the
+   target work class's list. Without it, the retained round data opens on a listed auditor
    without a current read when another has one, so a rerun continues where the series stood;
    otherwise the configured default auditor opens, and a `random` default picks it again for each
    scope. After each round that is not red, the runner applies three rules. A read is current only
@@ -114,8 +116,9 @@ plus the fixes landed so far.
 
 Before an automatic implementation series, and again after each finished implementation-audit round,
 the runner checks for an open deferral into the plan repo. When one exists and the series would
-continue to its decision, it chains one planning round for those deferrals on the deferring
-auditor's defaults; that round does not count against the series maximum. Each plan-scoped
+continue to its decision, it chains one planning round for those deferrals on the default entry
+from `planning.auditors`, including that entry's model and effort. That round does not count against
+the series maximum. Each plan-scoped
 implementation audit also receives the open deferrals into Repo Edu. Every automatic series ending
 prints the remaining open deferrals or says there are none.
 
@@ -163,7 +166,8 @@ and any other with status 1.
 6. **Options conflict.** `--first` cannot join `--auditor`; the argument parser refuses that pair.
    A scope list cannot run with `--auditor`, whose queue belongs to one scope.
 7. **`--first` names an unlisted auditor.** The message names what the selection resolved to and
-   the listed auditors. Use `--auditor` for a round with an auditor outside the list.
+   the target work class's listed auditors. Use `--auditor` for a round with an auditor outside the
+   list.
 
 ## Stop and recovery
 

@@ -5,7 +5,8 @@ description: Compare retained auditor and coder results without starting an assi
 
 `pnpm audit-round models` reads the kept evidence for each auditor in every class where it has a
 complete round and for each coder with an admitted plan. You can use the recorded yield and time to
-change the `auditors` or `coders` list in `tools/audit-round/settings.json`.
+change `planning.auditors`, `implementation.auditors` or `implementation.coders` in
+`tools/audit-round/settings.json`.
 
 | Fact | Detail |
 | --- | --- |

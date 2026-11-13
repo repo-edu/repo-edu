@@ -112,12 +112,12 @@ function admittedCoders(
   return new Map([...rows].filter(([, row]) => row.samples.length > 0))
 }
 
-/** Whether an `auditors` entry runs the row's model and effort. */
-function listedAuditor(
+/** Whether a planning auditor entry runs the row's model and effort. */
+function listedPlanningAuditor(
   identity: ModelIdentity,
   settings: RoundSettings,
 ): boolean {
-  return settings.auditors.some(
+  return settings.planning.auditors.some(
     (auditor) =>
       identity.effort === auditor.effort &&
       (identity.model === auditor.model ||
@@ -199,7 +199,7 @@ function listedOpenerBullets(
     .filter(
       (reading) =>
         hasUnevenOpeners(reading.comparison) &&
-        listedAuditor(reading.identity, settings),
+        listedPlanningAuditor(reading.identity, settings),
     )
     .map(
       (reading) =>
@@ -301,7 +301,7 @@ function unlistedOpenerLine(
   const entries = readings.filter(
     (reading) =>
       hasUnevenOpeners(reading.comparison) &&
-      !listedAuditor(reading.identity, settings),
+      !listedPlanningAuditor(reading.identity, settings),
   )
   if (entries.length === 0) return null
   return `Not in the current auditors list, opened an uneven share: ${entries
@@ -376,7 +376,9 @@ function coderReading(
   if (recommendation === null)
     return readingLines("The records do not separate one coder clearly.", notes)
   const identity = rows.get(recommendation)?.identity ?? entries[0][1].identity
-  const current = new Set(settings.coders.map((coder) => modelKey(coder)))
+  const current = new Set(
+    settings.implementation.coders.map((coder) => modelKey(coder)),
+  )
   return readingLines(
     `The records clearly support running ${modelText(identity)}.`,
     current.has(recommendation)

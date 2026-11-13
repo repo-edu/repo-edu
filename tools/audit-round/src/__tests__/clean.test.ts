@@ -12,7 +12,14 @@ import { roundFixture, shortCommit } from "./round-fixture.js"
 
 const singleAuditorSettings = {
   ...testSettings,
-  auditors: [testSettings.auditors[0]],
+  planning: {
+    ...testSettings.planning,
+    auditors: [testSettings.planning.auditors[0]],
+  },
+  implementation: {
+    ...testSettings.implementation,
+    auditors: [testSettings.implementation.auditors[0]],
+  },
 }
 
 for (const working of ["plan", "repo-edu"] as const) {

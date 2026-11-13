@@ -364,7 +364,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      pool: testSettings.auditors,
+      pool: testSettings.implementation.auditors,
     },
     Date.now(),
     releases,
@@ -430,7 +430,7 @@ test("the final retained write stores the series answer and resolved pool", asyn
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      pool: testSettings.auditors,
+      pool: testSettings.implementation.auditors,
     },
     Date.now(),
     releases,
@@ -452,7 +452,7 @@ test("the final retained write stores the series answer and resolved pool", asyn
     report: "REPORT.md",
     cleanAudit: true,
     decision: {
-      answer: testSettings.auditors[1],
+      answer: testSettings.implementation.auditors[1],
       reason: "Cross-check the retained result.",
     },
     watch: null,
@@ -471,7 +471,7 @@ test("the final retained write stores the series answer and resolved pool", asyn
     answer: { assistant: "claude", model: "opus", effort: "high" },
     reason: "Cross-check the retained result.",
   })
-  assert.deepEqual(entry?.pool, testSettings.auditors)
+  assert.deepEqual(entry?.pool, testSettings.implementation.auditors)
 })
 
 for (const [name, abortReason, status] of [
@@ -528,13 +528,16 @@ for (const assistant of ["claude", "codex"] as const) {
     t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
     const settings = {
       ...testSettings,
-      coders: [{ ...testSettings.coders[0], assistant }],
+      implementation: {
+        ...testSettings.implementation,
+        coders: [{ ...testSettings.implementation.coders[0], assistant }],
+      },
     }
     const setup = {
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      fixer: settings.coders[0],
+      fixer: settings.implementation.coders[0],
     }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const log: string[] = []
@@ -677,13 +680,16 @@ for (const assistant of ["claude", "codex"] as const) {
     const visible: string[] = []
     const settings = {
       ...testSettings,
-      coders: [{ ...testSettings.coders[0], assistant }],
+      implementation: {
+        ...testSettings.implementation,
+        coders: [{ ...testSettings.implementation.coders[0], assistant }],
+      },
     }
     const setup = {
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      fixer: settings.coders[0],
+      fixer: settings.implementation.coders[0],
     }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const output = new RoundOutput(run, {

@@ -24,7 +24,7 @@ import {
   resolveTargets,
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
-import { type LogCommit, readLog } from "./episode-log.js"
+import { readLog } from "./episode-log.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import {
@@ -62,7 +62,6 @@ import {
 } from "./output.js"
 import { elapsedText } from "./output-format.js"
 import {
-  type Assistant,
   type AuditorOption,
   type AuditorSeat,
   type AuditorSelectionSource,
@@ -71,6 +70,7 @@ import {
   phaseWorkflow,
   type RoundDependencies,
   roundFixer,
+  targetWorkClass,
 } from "./phase.js"
 import {
   type AuditorEntry,
@@ -488,7 +488,6 @@ type SeriesEnding = "settle" | "ready" | "ended" | "stopped"
 
 type DeferralState = {
   readonly deferrals: readonly OpenDeferral[]
-  readonly logs: Readonly<Record<"repo-edu" | "plan", readonly LogCommit[]>>
 }
 
 async function deferralState(
@@ -500,26 +499,7 @@ async function deferralState(
     readLog(context.planRoot),
   ])
   const logs = { "repo-edu": repoEdu, plan }
-  return { deferrals: openDeferrals(stem, logs), logs }
-}
-
-/** The newest open deferral selects the assistant that recorded its round. */
-function deferringAssistant(
-  deferral: OpenDeferral,
-  logs: DeferralState["logs"],
-): Assistant {
-  const commit = logs[deferral.deferringRepository].find(
-    (candidate) => candidate.sha === deferral.sha,
-  )
-  const vendor =
-    commit === undefined
-      ? null
-      : /(?:^| )([ao])[btu][lmhx](?: |$)/.exec(commit.subject)?.[1]
-  if (vendor === undefined || vendor === null)
-    throw new Error(
-      `Cannot resolve the assistant that recorded ${deferral.deferringRepository}@${deferral.sha}`,
-    )
-  return vendor === "a" ? "claude" : "codex"
+  return { deferrals: openDeferrals(stem, logs) }
 }
 
 function openDeferralText(stem: string, deferrals: readonly OpenDeferral[]) {
@@ -706,7 +686,8 @@ Auditor selection (--auditor <selections>):
 
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
-  The default auditor is an entry of the auditors list in settings.json.
+  The default auditor is an entry of the target work class's auditors list in
+  settings.json.
   Without --auditor, an active plan or commit target starts an automatic series.
   A --first <selection> opens it when supplied and must resolve to a listed
   auditor. Otherwise, a listed auditor without a current read opens when another
@@ -720,7 +701,7 @@ Round sequence:
     - A --first selection opens the series when supplied. Otherwise, a listed
       auditor without a current read opens when another has one. Otherwise,
       the configured default opens. A random default picks that opener from the
-      auditors list in each scope's series.
+      target work class's auditors list in each scope's series.
     - After each non-red round, the runner applies fixed rules. A read is current
       when it started after the latest real-bug audit, lifecycle change, plan
       step or outside plan edit. When every listed auditor has a current read,
@@ -1343,7 +1324,11 @@ export async function runCommand(
         )
       } else {
         const lifecycleSettings = options.settings ?? (await readSettings())
-        const result = await readyPlan(context, plan, lifecycleSettings.coders)
+        const result = await readyPlan(
+          context,
+          plan,
+          lifecycleSettings.implementation.coders,
+        )
         options.terminal.write(`Committed ${result.sha}: ${result.subject}`)
       }
       return 0
@@ -1817,19 +1802,21 @@ export async function runCommand(
       const coin =
         options.coin ?? ((count: number) => Math.floor(Math.random() * count))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
+      const workClass = targetWorkClass(targets[0])
+      const classAuditors = settings[workClass].auditors
       // A random default spreads first looks over every listed auditor without
       // binding any entry to the first position on every target.
-      const settingsOpener = (): AuditorSeat =>
+      const settingsOpener = (auditors: readonly Auditor[]): AuditorSeat =>
         listedSeat(
-          settings.auditors[
-            settings.defaultAuditor === "random"
-              ? coin(settings.auditors.length)
-              : 0
+          auditors[
+            settings.defaultAuditor === "random" ? coin(auditors.length) : 0
           ],
         )
+      const planningOpener = (): AuditorSeat =>
+        settingsOpener(settings.planning.auditors)
       const opened = first ?? series.firstAuditor
       // The series routes among the listed auditors only.
-      const pool: readonly AuditorSeat[] = settings.auditors.map(listedSeat)
+      const pool: readonly AuditorSeat[] = classAuditors.map(listedSeat)
       // The rules read each round's auditor as the release its CLI resolved,
       // so the pool keeps every entry under that same name.
       const poolAuditors = pool.map((seat) =>
@@ -1843,7 +1830,7 @@ export async function runCommand(
         )
         if (!poolAuditors.some((auditor) => auditorText(auditor) === firstText))
           throw new InvalidArgumentError(
-            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the auditors list in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
+            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the ${workClass}.auditors list in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
           )
       }
       // Only an implementation plan target reads its ready assignment; the
@@ -1870,7 +1857,7 @@ export async function runCommand(
       }
       const runDeferralRound = async (
         plan: string,
-        auditor: Assistant,
+        seat: AuditorSeat,
         deferrals: readonly OpenDeferral[],
         nested: boolean,
       ): Promise<DeferralChainOutcome> => {
@@ -1884,8 +1871,9 @@ export async function runCommand(
             roundKind: "planning",
             plan: currentPlan,
           })),
-          auditor,
+          auditor: seat.assistant,
           auditorSelectionSource: "settings" as const,
+          override: seat.override,
           deferrals,
         }
         const chainedRun = await roundRun(setup, now(), releases, settings)
@@ -1982,7 +1970,7 @@ export async function runCommand(
           return seatFor(opening.answer)
         }
         let seat: AuditorSeat | null =
-          opened ?? (await retainedOpener()) ?? settingsOpener()
+          opened ?? (await retainedOpener()) ?? settingsOpener(classAuditors)
         const seriesName = (value: AuditTarget): string =>
           "plan" in value
             ? `${roundSubject(value, planStem(value.plan))}: automatic auditor series`
@@ -2088,10 +2076,7 @@ export async function runCommand(
             if (openPlanDeferrals.deferrals.length > 0) {
               const outcome = await runDeferralRound(
                 target.plan,
-                deferringAssistant(
-                  openPlanDeferrals.deferrals[0],
-                  openPlanDeferrals.logs,
-                ),
+                planningOpener(),
                 openPlanDeferrals.deferrals,
                 false,
               )
@@ -2146,20 +2131,16 @@ export async function runCommand(
                     }
                   : null,
               },
-              dependenciesFor(
-                active,
-                seriesSession,
-                async ({ plan, auditor }) => {
-                  const openPlanDeferrals = await deferralsInto(plan, "plan")
-                  if (openPlanDeferrals.deferrals.length === 0) return "none"
-                  return runDeferralRound(
-                    plan,
-                    auditor,
-                    openPlanDeferrals.deferrals,
-                    true,
-                  )
-                },
-              ),
+              dependenciesFor(active, seriesSession, async ({ plan }) => {
+                const openPlanDeferrals = await deferralsInto(plan, "plan")
+                if (openPlanDeferrals.deferrals.length === 0) return "none"
+                return runDeferralRound(
+                  plan,
+                  planningOpener(),
+                  openPlanDeferrals.deferrals,
+                  true,
+                )
+              }),
               settings,
             )
             result = round
@@ -2349,7 +2330,11 @@ export async function runCommand(
                 `Committed ${settled.sha}: ${settled.subject}\nMarker: ${settled.marker}`,
               )
             } else {
-              const ready = await readyPlan(context, plan, settings.coders)
+              const ready = await readyPlan(
+                context,
+                plan,
+                settings.implementation.coders,
+              )
               await say(`Committed ${ready.sha}: ${ready.subject}`)
             }
             // A plan reopened after its ready marker keeps that marker, so

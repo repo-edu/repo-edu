@@ -10,25 +10,46 @@
             "effort": "high"
         }
     },
-    "auditors": [
-        {
-            "assistant": "claude",
-            "model": "default",
-            "effort": "default"
-        },
-        {
+    "planning": {
+        "auditors": [
+            {
+                "assistant": "claude",
+                "model": "default",
+                "effort": "default"
+            },
+            {
+                "assistant": "codex",
+                "model": "default",
+                "effort": "default"
+            }
+        ],
+        "fixer": {
             "assistant": "codex",
             "model": "default",
             "effort": "default"
         }
-    ],
-    "coders": [
-        {
-            "assistant": "codex",
-            "model": "default",
-            "effort": "default"
-        }
-    ],
+    },
+    "implementation": {
+        "auditors": [
+            {
+                "assistant": "claude",
+                "model": "default",
+                "effort": "default"
+            },
+            {
+                "assistant": "codex",
+                "model": "default",
+                "effort": "default"
+            }
+        ],
+        "coders": [
+            {
+                "assistant": "codex",
+                "model": "default",
+                "effort": "default"
+            }
+        ]
+    },
     "phases": {
         "vet": {
             "claude": {
@@ -39,11 +60,6 @@
                 "model": "default",
                 "effort": "default"
             }
-        },
-        "planningFix": {
-            "assistant": "codex",
-            "model": "default",
-            "effort": "default"
         },
         "watch": {
             "assistant": "codex",

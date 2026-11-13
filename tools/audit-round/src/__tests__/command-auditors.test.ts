@@ -93,7 +93,7 @@ for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
-    settings.auditors = [
+    settings.implementation.auditors = [
       { assistant: auditor, model: "pinned-auditor", effort: "medium" },
     ]
     assert.equal(
@@ -144,7 +144,10 @@ for (const auditor of ["codex", "claude"] as const) {
         ? /audit +codex +gpt-6-astra +extra high +--auditor/
         : /audit +claude +claude-fable-5-1 +extra high +--auditor/,
     )
-    assert.match(log, /fix +codex +gpt-5\.6-sol +high +audit-round coders/)
+    assert.match(
+      log,
+      /fix +codex +gpt-5\.6-sol +high +audit-round implementation coders/,
+    )
     // The requested model and effort stay in the arguments above.
     // The fix receives the release and effort reported by each phase instead.
     assert.deepEqual(
@@ -198,10 +201,10 @@ for (const auditor of ["codex", "claude"] as const) {
   test(`--auditor ${auditor} selects the defaults for audit and rebuttal despite listed auditors`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
-    settings.auditors = [
+    settings.implementation.auditors = [
       { assistant: auditor, model: "pinned-auditor", effort: "low" },
     ]
-    settings.coders = [
+    settings.implementation.coders = [
       {
         assistant: "codex",
         model: "pinned-fix",
@@ -255,7 +258,7 @@ for (const auditor of ["codex", "claude"] as const) {
 test("auditor lists keep each entry's model and effort independent", async (t) => {
   const f = await roundFixture(t, "claude")
   const settings = structuredClone(testSettings)
-  settings.auditors = [
+  settings.implementation.auditors = [
     { assistant: "claude", model: "pinned-claude", effort: "low" },
     { assistant: "codex", model: "pinned-codex", effort: "high" },
   ]
@@ -447,7 +450,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /<effort>\s+l = low, m = medium, h = high, x = xhigh/)
   assert.match(
     visible,
-    /default auditor is an entry of the auditors list in\s+settings\.json/,
+    /default auditor is an entry of the target work class's auditors list in\s+settings\.json/,
   )
   assert.doesNotMatch(
     visible,

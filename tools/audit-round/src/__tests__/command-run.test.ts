@@ -58,14 +58,20 @@ async function configureRun(
 const runSettings = {
   ...testSettings,
   defaultAuditor: "first" as const,
-  auditors: [testSettings.auditors[0]],
-  coders: [
-    {
-      assistant: "codex" as const,
-      model: "gpt-5.6-sol",
-      effort: "xhigh" as const,
-    },
-  ],
+  planning: {
+    ...testSettings.planning,
+    auditors: [testSettings.planning.auditors[0]],
+  },
+  implementation: {
+    auditors: [testSettings.implementation.auditors[0]],
+    coders: [
+      {
+        assistant: "codex" as const,
+        model: "gpt-5.6-sol",
+        effort: "xhigh" as const,
+      },
+    ],
+  },
 }
 
 test("run marks a detailing plan ready, implements it, audits its ranges and closes it", async (t) => {

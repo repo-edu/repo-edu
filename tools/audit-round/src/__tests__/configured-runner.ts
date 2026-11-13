@@ -48,8 +48,8 @@ export const pinned = (assistant: phase.Assistant) =>
 
 /** The first coder, which fixes code work that has no ready assignment. */
 export const testFixer: phase.RoundFixer = {
-  fixer: testSettings.coders[0],
-  fixerSource: "audit-round coders",
+  fixer: testSettings.implementation.coders[0],
+  fixerSource: "audit-round implementation coders",
 }
 
 /** The first configured coder selection, as the test fixer pins it. */
