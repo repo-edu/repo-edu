@@ -118,7 +118,12 @@ export type ImplementationDependencies = {
     input: PhaseInput<"implement">,
   ) => Promise<PhaseResult<"implement">>
   readonly checkFile: (file: string) => Promise<void>
-  readonly requestRuling: (file: string) => Promise<string | null>
+  /** Waits for the user's reply to the worker's ruling; null when the wait ends unanswered. */
+  readonly requestRuling: (request: {
+    readonly document: string
+    /** The step's hosting repos, which choose the folder the desktop app opens on. */
+    readonly repositories: readonly Repository[]
+  }) => Promise<string | null>
   readonly markImplemented: (repository: Repository) => Promise<MarkerCommit>
   readonly message: (text: string) => Promise<void>
 }
@@ -260,7 +265,10 @@ export async function runImplementation(
             session: interactive(result.sessionId),
           }
         }
-        const reply = await dependencies.requestRuling(opened.rulingFile)
+        const reply = await dependencies.requestRuling({
+          document: opened.rulingFile,
+          repositories: step.repositories,
+        })
         if (reply === null)
           return {
             status: "awaiting-ruling",

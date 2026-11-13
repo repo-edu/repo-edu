@@ -14,7 +14,7 @@ import type {
   RoundAccount,
   RulingWinner,
 } from "./round-data.js"
-import type { RulingInput } from "./ruling-input.js"
+import type { RulingInput } from "./ruling-wait.js"
 import type {
   Auditor,
   Coder,
@@ -491,11 +491,13 @@ export type ContestScope = {
 /** Which reviewed side uses the same selected model and effort as the fix. */
 export type FixerSide = "auditor" | "vet" | "neither"
 
-/** What the ruling display and input reader need from the round coordinator. */
+/** What the ruling notice and the waiting run need from the round coordinator. */
 export type RulingRequest = {
   readonly document: string
   readonly fixerSide: FixerSide
   readonly contests: readonly number[]
+  /** The report's judged repos, which choose the folder the desktop app opens on. */
+  readonly judgedRepos: readonly Repository[]
 }
 
 type PhaseArguments = {
@@ -747,7 +749,7 @@ export type RoundDependencies = {
     readonly heads: Readonly<Record<"repo-edu" | "plan", string>>
     readonly grade: WatchGrade
   }) => Promise<void>
-  /** Displays the ruling and records contest answers plus the free reply. */
+  /** Waits for the user's answer to the ruling; null when the wait ends unanswered. */
   readonly requestRuling: (
     request: RulingRequest,
   ) => Promise<RulingInput | null>

@@ -202,6 +202,16 @@ export async function phaseStream(
   return `${lines}\n`
 }
 
+/**
+ * A short cache root, as the real one under the home folder is: the macOS
+ * temporary folder alone would push a ruling socket past its 103-byte limit.
+ */
+export async function shortCacheRoot(t: TestContext): Promise<string> {
+  const root = await realpath(await mkdtemp("/tmp/audit-round-"))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  return root
+}
+
 export async function fixture(
   t: TestContext,
   scenario: Record<string, unknown> = {},
@@ -272,5 +282,17 @@ export async function fixture(
         .trim()
         .split("\n")
         .map((line) => JSON.parse(line)),
+    /** The folder each `claude --desktop` start opened, in order. */
+    desktop: async (): Promise<readonly string[]> => {
+      try {
+        return (await readFile(join(root, "desktop.jsonl"), "utf8"))
+          .trim()
+          .split("\n")
+          .map((line) => (JSON.parse(line) as { cwd: string }).cwd)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+        throw error
+      }
+    },
   }
 }

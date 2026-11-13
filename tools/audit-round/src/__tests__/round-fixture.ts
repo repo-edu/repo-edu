@@ -286,7 +286,7 @@ Audit ranges: 1.
   const status: string[] = []
   let clears = 0
   const options = {
-    readReply: async (): Promise<string | null> => null,
+    awaitAnswer: async (): Promise<null> => null,
     repoEduRoot: repoRoot,
     terminal: {
       write: (text: string) => {

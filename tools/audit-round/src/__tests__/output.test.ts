@@ -80,7 +80,7 @@ for (const [side, line] of [
   ["vet", "The fix runs on the vet's model."],
   ["neither", "The fix runs on neither side's model."],
 ] as const) {
-  test(`a ruling names the ${side} fix model above its document`, async (t) => {
+  test(`a ruling notice names the ${side} fix model, the ruling and the chat command`, async (t) => {
     const f = await fixture(t)
     const written: string[] = []
     const output = new RoundOutput(
@@ -101,10 +101,24 @@ for (const [side, line] of [
       },
     )
     t.after(() => output.close())
-    output.beginRuling("RULING.md", "Choose one.", side)
+    output.beginRuling({
+      target: "example",
+      title: output.title,
+      ruling: "/active/RULING.md",
+      folder: "/repo-edu",
+      fixerSide: side,
+      findings: [1, 3],
+    })
     output.endRuling(null)
     const text = written.join("\n")
-    assert.ok(text.indexOf(line) < text.indexOf("Choose one."))
+    assert.match(text, /Your ruling is needed: Implementation audit of example/)
+    assert.match(text, /^Ruling: \/active\/RULING\.md$/m)
+    assert.match(text, /^Findings that need a winner: 1, 3$/m)
+    assert.ok(text.includes(line))
+    assert.match(
+      text,
+      /^Answer it in the Claude desktop app with: \/ruling example$/m,
+    )
   })
 }
 

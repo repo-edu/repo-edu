@@ -41,8 +41,10 @@ skipped.
 Once every share a repo hosts has landed, the runner writes that repo's current `implemented`
 marker, carrying the coder's model record and capability tag.
 
-A worker that needs a product decision writes a ruling and waits for your reply in the runner. Your
-reply resumes the same worker session. Time spent waiting is not counted as implementation time.
+A worker that needs a product decision writes a ruling, and the runner waits for your reply. It
+prints a notice and opens the Claude desktop app on Repo Edu when the step changes Repo Edu files
+and on the plan checkout otherwise. You answer there with `/ruling <stem>`. Your reply resumes the
+same worker session. Time spent waiting is not counted as implementation time.
 
 `--resume` takes only the value the runner printed after a failure. The resumed session first reads
 Git and the worktrees, because the failed turn may have left uncommitted work or landed a share. The
@@ -75,9 +77,10 @@ status 2 and any other with status 1.
 A failed worker, an unanswered ruling or a missing landed share stops the command before the next
 step. The runner never retries a worker on its own.
 
-1. **A worker needs a ruling.** Read the displayed ruling, type your reply and submit it with a
-   blank line. Leaving without a reply prints the worker's own assistant recovery command; answer in
-   that session, then run the runner again. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+1. **A worker needs a ruling.** Answer it in the Claude desktop app with `/ruling <stem>`, as the
+   notice says. Ctrl-C in the terminal instead prints the worker's own assistant recovery command;
+   answer in that session, then run the runner again. See
+   [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A worker failed or landed no share.** Fix any outside problem the failure names, then run the
    printed command. It repeats the command you typed, `-v` included, with `--resume <step>:<id>`.
    A failure without a known session prints no command; run the same command again and a fresh

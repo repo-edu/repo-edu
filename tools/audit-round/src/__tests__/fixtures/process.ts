@@ -16,6 +16,19 @@ const [root, assistant, ...args] = process.argv.slice(2)
 let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
 let prompt: string | undefined
 let commitTarget = false
+// A ruling opens the desktop app; it records its folder apart from the
+// assistant calls, which tests count.
+if (args[0] === "--desktop") {
+  await appendFile(
+    join(root, "desktop.jsonl"),
+    `${JSON.stringify({ cwd: process.cwd() })}\n`,
+  )
+  if (scenario.desktopExit !== undefined) {
+    process.stderr.write("error: unknown option '--desktop'\n")
+    process.exit(scenario.desktopExit)
+  }
+  process.exit(0)
+}
 await appendFile(
   join(root, "calls.jsonl"),
   `${JSON.stringify({

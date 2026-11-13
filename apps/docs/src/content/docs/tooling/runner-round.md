@@ -75,7 +75,7 @@ reference keeps `.md` to mark it as a plan.
    `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder. A
    commit audit with Repo Edu commits fixes on the first `implementation.coders` entry. The fix may
    stop for your ruling. When the auditor contests a verdict whose report or revised vet tier is A
-   or B, that ruling shows both positions and the runner asks you which side is right.
+   or B, that ruling shows both positions and you name the side that is right.
 5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade.
 6. **Series decision.** In an automatic series the runner reads retained data and bounded commit
@@ -171,14 +171,15 @@ and any other with status 1.
 
 ## Stop and recovery
 
-1. **A fix needs your ruling.** The line above the ruling says whether the fix uses the auditor's
-   model, the vet's model or neither. For each listed serious contest, enter `vet`, `auditor`,
-   `neither` or `not yet`. The first three need a one-line reason. `Not yet` sends your question to
-   the fix and asks again when the ruling returns. The fix remains unable to commit until every
-   required winner is recorded. After those questions, type any free reply and submit it with a
-   blank line; it may be empty once every contest has a winner. Leaving without a reply keeps the
-   round's files, prints the fix's recovery command and ends the series. See
-   [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+1. **A fix needs your ruling.** The terminal prints a notice and the run opens the Claude desktop
+   app on the folder of the work. The notice names the round, the ruling file, the findings that
+   need a winner, whether the fix uses the auditor's model, the vet's model or neither, and the line
+   to type in the app, `/ruling <stem>`. The terminal reads no answer. For each listed serious
+   contest you name `vet`, `auditor` or `neither` with a one-line reason, or `not yet`, which sends
+   your question to the fix and asks again when the ruling returns. The fix remains unable to
+   commit until every required winner is recorded. The free reply may be empty once every contest
+   has a winner. Ctrl-C in the terminal keeps the round's files, prints the fix's recovery command
+   and ends the series. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Resume:`
    command. See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and

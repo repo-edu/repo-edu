@@ -1,5 +1,5 @@
 import { readFile, stat, writeFile } from "node:fs/promises"
-import { dirname, join, relative } from "node:path"
+import { dirname, join, relative, resolve } from "node:path"
 import {
   Command,
   CommanderError,
@@ -120,14 +120,20 @@ import {
   targetLabel,
 } from "./round-paths.js"
 import {
+  answerFormText,
+  listenForRuling,
+  openDesktop,
   type RulingInput,
-  readRulingInput,
-  readRulingReply,
-} from "./ruling-input.js"
+  sendRulingAnswer,
+  type WaitingRuling,
+  waitingRulingText,
+  waitingRun,
+} from "./ruling-wait.js"
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
+import type { Repository } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
@@ -202,6 +208,17 @@ type Invocation =
       readonly verbose?: boolean
     }
   | { readonly kind: "delete-reports"; readonly nameStart: string }
+  | {
+      readonly kind: "ruling"
+      /** Absent when the command takes the one run that waits. */
+      readonly target?: string
+    }
+  | {
+      readonly kind: "answer"
+      /** Absent when the command takes the one run that waits. */
+      readonly target?: string
+      readonly file: string
+    }
   | {
       readonly kind: "settle"
       /** Absent when the lifecycle command takes the plan `plan` prints. */
@@ -939,6 +956,38 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       invocation = { kind: "deferrals", stem }
     })
   command
+    .command("ruling", { hidden: true })
+    .description(
+      "Print what the run that waits for a ruling asks, for the /ruling chat.",
+    )
+    .argument(
+      "[target]",
+      "the plan stem or commit label of the waiting run; defaults to the one run that waits",
+    )
+    .action((target: string | undefined) => {
+      invocation = { kind: "ruling", target }
+    })
+  command
+    .command("answer", { hidden: true })
+    .description(
+      "Send one answer document to the run that waits for a ruling and print its reply.",
+    )
+    .argument(
+      "<target-and-file...>",
+      "an optional plan stem or commit label, then the answer file",
+    )
+    .action((parts: string[]) => {
+      if (parts.length > 2)
+        throw new InvalidArgumentError(
+          "Expected an optional target and one answer file.",
+        )
+      const file = parts.at(-1) as string
+      invocation =
+        parts.length === 2
+          ? { kind: "answer", target: parts[0], file }
+          : { kind: "answer", file }
+    })
+  command
     .command("implement")
     .description(
       "Implement a ready plan's remaining shares, one fresh assigned-coder worker per step.",
@@ -1309,9 +1358,10 @@ export async function runCommand(
     readonly cacheRoot?: string
     readonly repoEduRoot?: string
     readonly settings?: RoundSettings
-    readonly readReply?: (
-      contests?: readonly number[],
-    ) => Promise<string | RulingInput | null>
+    /** Answers a waiting ruling in place of the socket, in tests. */
+    readonly awaitAnswer?: (
+      ruling: WaitingRuling,
+    ) => Promise<RulingInput | null>
     /** Supplies a random default's opener index below the count in deterministic tests. */
     readonly coin?: (count: number) => number
   },
@@ -1413,6 +1463,29 @@ export async function runCommand(
       const { deferrals } = await deferralState(context, stem)
       options.terminal.write(openDeferralText(stem, deferrals))
       return 0
+    }
+    if (invocation.kind === "ruling") {
+      const { ruling } = await waitingRun(
+        resolveCacheRoot(runtime, options.cacheRoot),
+        invocation.target,
+      )
+      options.terminal.write(
+        `${waitingRulingText(ruling)}\n${answerFormText(ruling)}`,
+      )
+      return 0
+    }
+    if (invocation.kind === "answer") {
+      const document = await readFile(
+        resolve(runtime.cwd, invocation.file),
+        "utf8",
+      )
+      const { socket, ruling } = await waitingRun(
+        resolveCacheRoot(runtime, options.cacheRoot),
+        invocation.target,
+      )
+      const sent = await sendRulingAnswer(socket, ruling.target, document)
+      options.terminal.write(sent.text)
+      return sent.accepted ? 0 : 1
     }
     if (invocation.kind === "delete-reports") {
       const deleted = await deleteRoundReports(
@@ -1586,6 +1659,49 @@ export async function runCommand(
       output = active
       return active
     }
+    /**
+     * Wait for the chat's answer to one ruling. The run listens before it
+     * prints the notice and opens the desktop app, so the chat finds it as
+     * soon as the app opens. The app opens on Repo Edu when the work touches
+     * Repo Edu files and on the plan checkout otherwise.
+     */
+    const awaitRuling = async (
+      active: RoundOutput,
+      request: Pick<WaitingRuling, "ruling" | "fixerSide" | "findings"> & {
+        readonly repositories: readonly Repository[]
+      },
+    ): Promise<RulingInput | null> => {
+      const ruling: WaitingRuling = {
+        target: active.target,
+        title: active.title,
+        ruling: request.ruling,
+        folder: request.repositories.includes("repo-edu")
+          ? context.repoEduRoot
+          : context.planRoot,
+        fixerSide: request.fixerSide,
+        findings: request.findings,
+      }
+      const seam = options.awaitAnswer
+      const answered: () => Promise<RulingInput | null> =
+        seam === undefined
+          ? await listenForRuling({
+              cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
+              ruling,
+              signal: runtime.signal,
+            }).then((wait) => () => wait.answer)
+          : () => seam(ruling)
+      let answer: RulingInput | null = null
+      active.beginRuling(ruling)
+      try {
+        await openDesktop(ruling.folder, runtime, (reason) =>
+          active.desktopFailed(reason),
+        )
+        answer = await answered()
+        return answer
+      } finally {
+        active.endRuling(answer?.reply ?? null)
+      }
+    }
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (
@@ -1673,29 +1789,13 @@ export async function runCommand(
         ),
         writeSettledRound: (commits, account) =>
           active.writeSettledRound(commits, account),
-        requestRuling: async (request) => {
-          active.beginRuling(
-            request.document,
-            await readFile(request.document, "utf8"),
-            request.fixerSide,
-          )
-          let reply: RulingInput | null = null
-          try {
-            const read = options.readReply
-              ? await options.readReply(request.contests)
-              : await readRulingInput(
-                  request.contests,
-                  process.stdin,
-                  process.stdout,
-                  runtime.signal,
-                )
-            reply =
-              typeof read === "string" ? { rulings: [], reply: read } : read
-            return reply
-          } finally {
-            active.endRuling(reply?.reply ?? null)
-          }
-        },
+        requestRuling: (request) =>
+          awaitRuling(active, {
+            ruling: request.document,
+            fixerSide: request.fixerSide,
+            findings: request.contests,
+            repositories: request.judgedRepos,
+          }),
         // The glance decides in the runner; its sentence opens the watch's section
         // of the log and terminal, whether or not a watch follows.
         glance: async (input) => {
@@ -1928,27 +2028,17 @@ export async function runCommand(
             if (!(await readFile(file, "utf8")).trim())
               throw new Error(`Phase output is empty: ${file}`)
           },
-          requestRuling: async (document) => {
+          requestRuling: async (request) => {
             const active = output
             if (active === undefined)
               throw new Error("Implementation ruling has no active output")
-            active.beginRuling(document, await readFile(document, "utf8"))
-            let reply: string | null = null
-            try {
-              const read = await (
-                options.readReply ??
-                (() =>
-                  readRulingReply(
-                    process.stdin,
-                    process.stdout,
-                    runtime.signal,
-                  ))
-              )()
-              reply = typeof read === "string" ? read : (read?.reply ?? null)
-              return reply
-            } finally {
-              active.endRuling(reply)
-            }
+            const answer = await awaitRuling(active, {
+              ruling: request.document,
+              fixerSide: null,
+              findings: [],
+              repositories: request.repositories,
+            })
+            return answer?.reply ?? null
           },
           markImplemented: (repository) =>
             markImplemented(

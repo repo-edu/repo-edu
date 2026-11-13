@@ -57,6 +57,7 @@ export function implementationRun(
       `${stem}-impl-${number}-implement-ruling.${identity.tag}.md`,
     ),
     name: "Implementation",
+    target: stem,
     title: `Implementation of ${basename(plan)}, step ${step}${resumedSession === null ? "" : `, resuming session ${resumedSession}`}`,
     phases: [{ phase: "implement", ...identity.phaseRun }],
     settings,

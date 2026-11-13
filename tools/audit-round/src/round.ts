@@ -34,13 +34,13 @@ import {
   type FindingReview,
   type LandedCommit,
   type RoundAccount,
-  type RulingWinner,
   reviewedRoundFindings,
   roundDataIdentity,
   type SeriesAnswer,
   settleRoundFindings,
 } from "./round-data.js"
 import { transcriptNameStart } from "./round-paths.js"
+import type { RulingInput } from "./ruling-wait.js"
 import type { Auditor, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
@@ -149,27 +149,12 @@ export function openSeriousContests(account: RoundAccount): readonly number[] {
   )
 }
 
+/** Record each admitted winner; the waiting run already checked the answer is complete. */
 function recordRulings(
   account: RoundAccount,
-  open: readonly number[],
-  rulings: readonly {
-    finding: number
-    winner: RulingWinner
-    reason: string
-  }[],
+  rulings: RulingInput["rulings"],
 ): RoundAccount {
-  const byNumber = new Map<number, (typeof rulings)[number]>()
-  for (const ruling of rulings) {
-    if (!open.includes(ruling.finding))
-      throw new Error(`Finding ${ruling.finding} is not an open contest`)
-    if (byNumber.has(ruling.finding))
-      throw new Error(`Finding ${ruling.finding} has more than one ruling`)
-    if (ruling.reason.trim().length === 0)
-      throw new Error(`Finding ${ruling.finding} needs a ruling reason`)
-    if (/[\r\n]/.test(ruling.reason))
-      throw new Error(`Finding ${ruling.finding} needs a one-line reason`)
-    byNumber.set(ruling.finding, ruling)
-  }
+  const byNumber = new Map(rulings.map((ruling) => [ruling.finding, ruling]))
   return {
     ...account,
     findings: account.findings.map((finding) => {
@@ -180,7 +165,7 @@ function recordRulings(
         : {
             ...finding,
             rulingWinner: ruling.winner,
-            rulingReason: ruling.reason.trim(),
+            rulingReason: ruling.reason,
           }
     }),
   }
@@ -895,6 +880,7 @@ export async function runRound(
           document: input.documents.ruling,
           fixerSide: selectedFixerSide(phases),
           contests: open,
+          judgedRepos: account.judgedRepos,
         })
         if (ruling === null)
           return {
@@ -904,12 +890,7 @@ export async function runRound(
             commits,
             account,
           }
-        account = recordRulings(account, open, ruling.rulings)
-        if (
-          openContests(account, contests).length > 0 &&
-          ruling.reply.trim().length === 0
-        )
-          throw new Error("A free reply is required while a contest is open")
+        account = recordRulings(account, ruling.rulings)
         fixInput = {
           ...fixInput,
           arguments: fixArguments(),

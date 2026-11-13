@@ -54,8 +54,8 @@ finding locations allow.
 2. **Go.** A go on the presented outcome accepts it as shown, and the fix applies it.
 3. **A reservation on one item.** The fix reads the evidence for that item again and answers before
    applying anything.
-4. **A reply to an open choice.** In a hand-run chat, reply directly. In an automatic run, type the
-   reply in the runner and submit it with a blank line; see
+4. **A reply to an open choice.** In a hand-run chat, reply directly. In an automatic run, answer
+   in the Claude desktop app with `/ruling <stem>`, as the runner's notice says; see
    [Answer a ruling](/repo-edu/tooling/answer-ruling/). You may ask a question first. A choice that
    stays open produces a revised ruling.
 

@@ -181,6 +181,8 @@ export async function recordContracts(
           settings: defaultSettings,
           name: "CLI contract",
           title: `CLI contract for ${assistant}`,
+          // The probe never waits for a ruling; the target only names it.
+          target: `cli-contract-${assistant}`,
           phases: [{ phase: "fix", assistant, model }],
           releases: { claude: new Map(), codex: new Map() },
           paths: {

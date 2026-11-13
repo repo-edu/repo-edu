@@ -47,7 +47,8 @@ function environment(runtime: CliRuntime) {
   }
 }
 
-function command(
+/** The assistant's executable and arguments, as the runtime configures them. */
+export function cliCommand(
   runtime: CliRuntime,
   assistant: Assistant,
   args: readonly string[],
@@ -65,7 +66,7 @@ function launch(
   args: readonly string[],
   input?: string,
 ) {
-  const invocation = command(runtime, assistant, args)
+  const invocation = cliCommand(runtime, assistant, args)
   return execa(invocation.file, invocation.args, {
     cwd: runtime.cwd,
     env: environment(runtime),

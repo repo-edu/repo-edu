@@ -29,7 +29,6 @@ import {
   closePhase,
   type Effort,
   efforts,
-  type FixerSide,
   noOverride,
   type Phase,
   type PhaseControlResult,
@@ -64,6 +63,7 @@ import {
   roundIdentity,
   roundSubject,
 } from "./round-paths.js"
+import { type WaitingRuling, waitingRulingText } from "./ruling-wait.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Auditor, RoundSettings } from "./settings.js"
@@ -102,6 +102,8 @@ export type Run = {
   /** The run's kind, as the terminal names it when it ends. */
   readonly name: string
   readonly title: string
+  /** The plan stem or commit label the run serves; a ruling wait answers to it. */
+  readonly target: string
   readonly phases: readonly RunEntry[]
   readonly releases: Record<Assistant, ModelReleases>
   readonly paths: RunPaths
@@ -267,6 +269,7 @@ export async function roundRun(
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
+    target: "plan" in setup ? planStem(setup.plan) : identity.target,
     // The claimed number, so the title names the round the data records.
     title: `${title} (round ${identity.round})`,
     phases: [
@@ -401,6 +404,10 @@ export async function resumedRoundRun(
     documents,
     recoveredPhases: phaseRuns,
     name: "Audit round recovery",
+    target:
+      "plan" in setup
+        ? planStem(setup.plan)
+        : roundDataIdentity(paths.nameStart).target,
     title:
       "plan" in setup
         ? `Recovery of ${roundSubject(setup, setup.plan)}`
@@ -469,6 +476,7 @@ export async function closeRun(
     record,
     name: "Close",
     title: `Close of plan ${basename(plan)}`,
+    target: planStem(plan),
     phases: [phase],
     settings,
     releases,
@@ -798,24 +806,26 @@ export class RoundOutput<R extends Run = Run> {
     return { compactions: run.compactions }
   }
 
-  beginRuling(document: string, text: string, fixerSide?: FixerSide): void {
+  get title(): string {
+    return this.run.title
+  }
+
+  get target(): string {
+    return this.run.target
+  }
+
+  /** Print the notice in place of the ruling's text; the chat explains the ruling. */
+  beginRuling(ruling: WaitingRuling): void {
     this.release()
-    const side =
-      fixerSide === undefined
-        ? ""
-        : `\nThe fix runs on ${
-            fixerSide === "neither"
-              ? "neither side's model"
-              : `the ${fixerSide}'s model`
-          }.`
     this.say(
-      `\n${separator}${side}\nYour ruling is needed.\nDocument: ${document}`,
-    )
-    this.options.terminal.write(text, "markdown")
-    this.say(
-      "Write your reply below. A blank line sends it; Ctrl-C stops without sending.",
+      `\n${separator}\n${waitingRulingText(ruling)}\nAnswer it in the Claude desktop app with: /ruling ${ruling.target}\nThe run waits for that answer; Ctrl-C stops without one.`,
     )
     this.clock.active()
+  }
+
+  /** Say that the desktop app did not open; the notice already holds what the user needs. */
+  desktopFailed(reason: string): void {
+    this.say(`The Claude desktop app did not open: ${reason}`)
   }
 
   endRuling(reply: string | null): void {

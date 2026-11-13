@@ -10,7 +10,7 @@ import type { RoundKind } from "./target.js"
 
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
-const rulingWinner = z.enum(["vet", "auditor", "neither"])
+export const rulingWinner = z.enum(["vet", "auditor", "neither"])
 const modelSelection = z.strictObject({
   model: z.string().min(1),
   effort: z.string().min(1).nullable(),

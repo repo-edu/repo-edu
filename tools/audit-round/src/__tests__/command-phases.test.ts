@@ -245,7 +245,16 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(visible.includes("audit-round-probe-error"), false)
         assert.equal(log.includes("\u001b"), false)
         if (ruling) {
-          assert.ok(visible.includes("Written ruling by fix"))
+          // The notice names the ruling, and the chat shows its text.
+          assert.equal(visible.includes("Written ruling by fix"), false)
+          assert.match(
+            visible,
+            /Answer it in the Claude desktop app with: \/ruling example/,
+          )
+          // The app opens where the judged work lives.
+          assert.deepEqual(await f.desktop(), [
+            owner === "plan" ? f.planRoot : f.repoRoot,
+          ])
           assert.ok(
             log.includes(
               `Ruling output path (JSON string): ${JSON.stringify(f.ruling)}`,

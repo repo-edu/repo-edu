@@ -40,9 +40,16 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
     f.runtime,
     {
       ...f.options,
-      readReply: async () => {
+      awaitAnswer: async () => {
         requests++
-        assert.ok(f.visible.includes("Written ruling by fix"))
+        // The notice names the ruling; the chat, not the terminal, shows its text.
+        assert.ok(
+          f.visible.some((text) => text.includes("Your ruling is needed")),
+        )
+        assert.equal(
+          f.visible.some((text) => text.includes("Written ruling by fix")),
+          false,
+        )
         const stream = await phaseStream(
           "codex",
           'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
@@ -64,7 +71,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
             },
           },
         })
-        return reply
+        return { rulings: [], reply }
       },
     },
   )
@@ -173,8 +180,8 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
       f.runtime,
       {
         ...f.options,
-        readReply: async (contests) => {
-          assert.deepEqual(contests, [1])
+        awaitAnswer: async (ruling) => {
+          assert.deepEqual(ruling.findings, [1])
           return {
             rulings: [
               {
@@ -306,12 +313,12 @@ for (const { auditors, seeded, edit, rounds } of [
       f.runtime,
       {
         ...f.options,
-        readReply: async () => {
+        awaitAnswer: async () => {
           assert.equal(await readFile(queue, "utf8"), seeded)
           if (edit === null) await rm(queue)
           else await writeFile(queue, edit)
           await finishFixOnReply(f)
-          return "Choose option 1."
+          return { rulings: [], reply: "Choose option 1." }
         },
       },
     )
@@ -341,10 +348,10 @@ test("a malformed queue edit stops the sequence and names the entry", async (t) 
     f.runtime,
     {
       ...f.options,
-      readReply: async () => {
+      awaitAnswer: async () => {
         await writeFile(queue, "claude\nclaud\n")
         await finishFixOnReply(f)
-        return "Choose option 1."
+        return { rulings: [], reply: "Choose option 1." }
       },
     },
   )
@@ -1513,11 +1520,11 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
   assert.equal(
     await runCommand(["round", "example.md", "--no-watch"], f.runtime, {
       ...f.options,
-      readReply: async () => {
+      awaitAnswer: async () => {
         await rm(widening)
         await rename(settled, widening)
         await finishFixOnReply(f)
-        return "Reopen the plan."
+        return { rulings: [], reply: "Reopen the plan." }
       },
     }),
     0,
@@ -1573,7 +1580,7 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
       f.runtime,
       {
         ...f.options,
-        readReply: async () => {
+        awaitAnswer: async () => {
           await rm(widening)
           await rename(settled, widening)
           // The reopened plan's next audit reads a widening report, which
@@ -1587,7 +1594,7 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
             undefined,
             "Settling: keep open. The reopened decision still needs evidence.",
           )
-          return "Reopen the plan."
+          return { rulings: [], reply: "Reopen the plan." }
         },
       },
     ),
@@ -1883,7 +1890,7 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
     {
       ...f.options,
       settings,
-      readReply: async () => {
+      awaitAnswer: async () => {
         const stream = await phaseStream(
           "claude",
           'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
@@ -1905,7 +1912,7 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
             },
           },
         })
-        return "Choose option 1."
+        return { rulings: [], reply: "Choose option 1." }
       },
     },
   )

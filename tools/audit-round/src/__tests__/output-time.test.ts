@@ -22,6 +22,16 @@ import {
   testSetup,
 } from "./helpers.js"
 
+/** A ruling the run waits for; the clock reads only its begin and end. */
+const waiting = {
+  target: "example",
+  title: "Implementation audit of example.md, step 1 (round 1)",
+  ruling: "RULING.md",
+  folder: "/repo",
+  fixerSide: null,
+  findings: [],
+} as const
+
 for (const { zone, instant, timestamp } of [
   {
     zone: "Europe/Amsterdam",
@@ -156,7 +166,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     sessionId: "session",
     ...testContext("/repo"),
   }
-  output.beginRuling("RULING.md", "Choose a design.")
+  output.beginRuling(waiting)
   // The user is away with the ruling; the round is doing nothing meanwhile.
   t.mock.timers.tick(30 * 60_000)
   output.endRuling("Take the redesign.")
@@ -177,7 +187,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   await output.phase.observe({ type: "text", text: "Applied." })
   assert.equal(stamp(), "\n[fix] 02:00  round 03:05  run 03:05")
 
-  output.beginRuling("RULING.md", "Another choice.")
+  output.beginRuling(waiting)
   t.mock.timers.tick(10 * 60_000)
   output.endRuling(null)
   output.finish({
@@ -251,7 +261,7 @@ test("outputs sharing one clock carry the run reading across rounds and subtract
     status: "needs-ruling",
     sessionId: "second",
   })
-  second.output.beginRuling("RULING.md", "Choose a design.")
+  second.output.beginRuling(waiting)
   t.mock.timers.tick(30 * 60_000)
   second.output.endRuling("Take the redesign.")
   await second.output.phase.start(
@@ -592,7 +602,7 @@ for (const assistant of ["claude", "codex"] as const) {
       status: "needs-ruling",
       sessionId: "fix-session",
     })
-    output.beginRuling("RULING.md", "Choose a design.")
+    output.beginRuling(waiting)
     t.mock.timers.tick(60_000)
     output.endRuling("Use the single owner.")
     await output.phase.start(
@@ -888,7 +898,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
     sessionId: "session",
     ...testContext("/repo"),
   }
-  output.beginRuling("RULING.md", "Choose a design.")
+  output.beginRuling(waiting)
   t.mock.timers.tick(30 * 60_000)
   output.endRuling("Take the redesign.")
   await output.phase.start(

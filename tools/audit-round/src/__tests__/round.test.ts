@@ -23,7 +23,7 @@ import type {
   ReportFinding,
   RoundAccount,
 } from "../round-data.js"
-import type { RulingInput } from "../ruling-input.js"
+import type { RulingInput } from "../ruling-wait.js"
 import { RunClock } from "../run-clock.js"
 import { type CommitGroup, targetRequest } from "../target.js"
 import {
@@ -523,6 +523,7 @@ for (const scenario of [
         document: ruling,
         fixerSide: scenario.side,
         contests: [1],
+        judgedRepos: ["repo-edu"],
       },
     ])
   })
@@ -576,6 +577,60 @@ test("a contested referral goes to the user", async () => {
   )
   assert.equal(result.status, "awaiting-ruling")
   assert.deepEqual(round.rulings[0]?.contests, [1])
+})
+
+test("a second ruling in the same round asks only for the contests still open", async () => {
+  const round = controlledRound()
+  round.evidence.findings = [
+    reportFinding,
+    { ...secondReportFinding, tier: "B" },
+  ]
+  round.evidence.rebuttalAnswer = "contest"
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const asked: (readonly number[])[] = []
+  const result = await runRoundWithAccount(
+    { ...files, plan: "example.md", scope: "1" },
+    {
+      ...round.dependencies,
+      readRebuttal: async () =>
+        [1, 2].map((number) => ({
+          number,
+          tier: "B" as const,
+          answer: "contest" as const,
+        })),
+      requestRuling: async (input) => {
+        asked.push(input.contests)
+        if (asked.length === 1)
+          return {
+            rulings: [
+              {
+                finding: 1,
+                winner: "vet",
+                reason: "The vet read the contract.",
+              },
+            ],
+            reply: "Explain the evidence for finding 2.",
+          }
+        round.results.fix = {
+          status: "finished",
+          sessionId: "fix-session",
+          settling: null,
+        }
+        return {
+          rulings: [
+            { finding: 2, winner: "auditor", reason: "The finding stands." },
+          ],
+          reply: "",
+        }
+      },
+    },
+  )
+  assert.equal(result.status, "finished")
+  assert.deepEqual(asked, [[1, 2], [2]])
+  assert.deepEqual(
+    result.account.findings.map((finding) => finding.rulingWinner),
+    ["vet", "auditor"],
+  )
 })
 
 test("not yet keeps a contest open until the runner records its winner and reason", async () => {
