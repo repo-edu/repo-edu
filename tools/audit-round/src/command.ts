@@ -1389,8 +1389,9 @@ export async function runCommand(
         })
         options.terminal.write(`Committed ${commit.sha}: ${commit.subject}`)
       } else {
+        const side = invocation.side === "vet" ? "vet verdict" : "finding"
         options.terminal.write(
-          `Recorded the disproved finding in ${file.path}. Loop-close will commit it with the archive move.`,
+          `Recorded the disproved ${side} in ${file.path}. Loop-close will commit it with the archive move.`,
         )
       }
       return 0

@@ -55,8 +55,12 @@ The command never rewrites the old report, commit or finding metadata.
 ## Output
 
 1. **An active plan.** The entry goes into the gitignored round-data file in `../plan/active/`, and
-   the command prints `Recorded the disproved finding in <path>. Loop-close will commit it with the
-   archive move.`
+   the command names the side it recorded:
+
+   1. Without `--vet`, it prints `Recorded the disproved finding in <path>. Loop-close will commit
+      it with the archive move.`
+   2. With `--vet`, it prints `Recorded the disproved vet verdict in <path>. Loop-close will commit
+      it with the archive move.`
 2. **An archived plan.** The entry goes into the archived round-data file, which is committed alone
    in the plan repo as `<stem>/disprove: <target> round <n> finding <n>`,
    `<stem>/disprove: <target> round <n> vet finding <n>` or

@@ -953,7 +953,10 @@ test("disprove appends an attached ruling to active data without committing", as
     (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
     head,
   )
-  assert.match(f.visible.at(-1) ?? "", /Loop-close will commit it/)
+  assert.equal(
+    f.visible.at(-1),
+    `Recorded the disproved finding in ${path}. Loop-close will commit it with the archive move.`,
+  )
 })
 
 test("disprove --vet commits only an archived attached ruling and names its side", async (t) => {
@@ -1055,6 +1058,11 @@ test("disprove --vet accepts every non-Accept verdict and refuses Accept", async
       0,
       f.errors.join("\n"),
     )
+
+  assert.equal(
+    f.visible.at(-1),
+    `Recorded the disproved vet verdict in ${path}. Loop-close will commit it with the archive move.`,
+  )
 
   const data = parseRoundDataFile(path, await readFile(path, "utf8"))
   assert.ok("disproved" in data)
