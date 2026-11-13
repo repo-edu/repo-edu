@@ -157,7 +157,7 @@ export type AuditorSeat = {
   readonly override: AuditorOverride
 }
 
-/** The seat that runs one `auditors` entry. */
+/** The seat that runs an entry of the target work class's auditor list. */
 export function listedSeat(auditor: Auditor): AuditorSeat {
   return {
     assistant: auditor.assistant,

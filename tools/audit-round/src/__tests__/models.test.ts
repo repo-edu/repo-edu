@@ -471,7 +471,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
       "| thin-top low | 4 | 36 in 4 | 9.00 | 8 in 8 | 1.00 | 1.0 | 0% |",
       "| solo low | 0 | 0 in 0 | — | 0 in 0 | — | 1.0 | 0% |",
       "",
-      "Not in the current auditors list, opened an uneven share: `main-strong low` 5 of 5.",
+      "Not in the current `planning.auditors` list, opened an uneven share: `main-strong low` 5 of 5.",
     ].join("\n"),
   )
   const implementation = report
@@ -607,7 +607,7 @@ test("planning opener notes frame both tables, separate current and unlisted aud
     .split("## Planning auditors\n\n")[1]
     .split("\n\n## Implementation auditors")[0]
   const unlistedLine =
-    "Not in the current auditors list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6."
+    "Not in the current `planning.auditors` list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6."
   const mainTable = planning.indexOf("| Model |")
   const caption = planning.indexOf("Fewer than 5 shared plans:")
   assert.ok(
@@ -618,7 +618,7 @@ test("planning opener notes frame both tables, separate current and unlisted aud
   assert.ok(planning.endsWith(unlistedLine))
   assert.match(
     planning,
-    /Not in the current auditors list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6\./,
+    /Not in the current `planning\.auditors` list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6\./,
   )
   const implementation = report
     .split("## Implementation auditors\n\n")[1]

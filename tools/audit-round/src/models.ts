@@ -304,7 +304,7 @@ function unlistedOpenerLine(
       !listedPlanningAuditor(reading.identity, settings),
   )
   if (entries.length === 0) return null
-  return `Not in the current auditors list, opened an uneven share: ${entries
+  return `Not in the current \`planning.auditors\` list, opened an uneven share: ${entries
     .map(
       (reading) =>
         `\`${modelText(reading.identity)}\` ${reading.comparison.openedPlans} of ${reading.comparison.plans}`,

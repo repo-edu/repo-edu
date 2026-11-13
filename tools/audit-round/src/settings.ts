@@ -65,8 +65,9 @@ function resolveEntry(
 export const settingsSchema = z
   .strictObject({
     /**
-     * Which `auditors` entry opens a series without a command-line choice.
-     * `random` picks one entry for each scope's series.
+     * Selects an entry of the target work class's auditor list to open a series
+     * without a command-line choice. `random` picks one entry for each scope's
+     * series.
      */
     defaultAuditor: z.enum(["first", "random"]),
     maximumAutomaticRounds: z.number().int().positive(),
