@@ -862,7 +862,8 @@ Never claim a new number to continue an existing round.
 
 `resume-fix <report> <session-id>` is the runner-owned continuation for an open
 serious contest. It reloads the retained audit, vet and rebuttal files and the
-matching round entry. An existing ruling is shown before the fix resumes. If
+matching round entry. For an existing ruling, the runner prints its notice and
+waits for the `/ruling` answer before the fix resumes. If
 the stopped fix wrote none, the runner resumes it first. Stored winners are
 passed back to every resumed fix and unresolved numbers remain in
 `COMMIT_OPEN_CONTESTS`.
@@ -1219,8 +1220,8 @@ waits for a ruling, as `ruling-wait.ts` owns them. The chat follows
 [Answering a ruling](../../.agents/skills/fix/references/answer.md). With no target they take the
 one run that waits and refuse when none or several wait. A chat's sandbox refuses Unix sockets, so
 the user's Claude Code settings list `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
-`pnpm audit-round answer *` under `sandbox.excludedCommands`. Without those entries a refused
-connection reads as no waiting run while the run in the terminal still waits.
+`pnpm audit-round answer *` under `sandbox.excludedCommands`. Without those entries both commands
+fail inside the sandbox with an `EPERM` error.
 
 `mark reopen [stem]` claims the next plan-round number of an active plan, or of
 the plan `plan` prints when none is named, writes the empty

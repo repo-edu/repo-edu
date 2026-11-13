@@ -32,7 +32,7 @@ through the user's `sandbox.excludedCommands` entries, as the runner's
 [Invocation](../../../../tools/audit-round/CLAUDE.md#invocation) section names
 them. A command that fails with `EPERM` means the entries are missing. Say so,
 name the three entries and stop. Do not retry inside the sandbox, because there
-a refused connection reads as "no run waits" while the run still waits.
+both commands fail with `EPERM` every time.
 
 ## Order
 
