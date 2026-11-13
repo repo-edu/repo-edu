@@ -62,7 +62,9 @@ settled and supports its recommendation with verified evidence. Check that
 each open item is a real choice under the shared
 [Real choices](../../../references/round-protocol.md#real-choices). An item
 that section settles is not open: apply its winning option and drop it from
-the ruling. Revise any unclear or unsupported claim in this session.
+the ruling. A contest named in the `contests` phase argument stays in the
+ruling even when that section settles the choice. The winning option becomes
+the recommendation. Revise any unclear or unsupported claim in this session.
 
 After a user reply, answer any questions before acting. If a decision remains
 open, replace the ruling with the current choices and return `needs-ruling`

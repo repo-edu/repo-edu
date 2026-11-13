@@ -426,6 +426,11 @@ reconciliation. A referral is a claim like any other verdict and a later phase
 overturns it on evidence. A ruling on a settled choice costs the user a reading
 and a resumed fix but decides nothing.
 
+A contest named in the fix phase's `contests` argument is the exception. It
+stays in the ruling even when this test settles the choice, because the runner
+still requires the user's winner. The settled option becomes the fix's
+recommendation.
+
 ## Vet verdicts
 
 Return one verdict per finding in report order. The
