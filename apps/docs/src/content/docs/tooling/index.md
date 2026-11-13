@@ -71,7 +71,7 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
-| The runner is waiting for a ruling | [Reply in the runner](/repo-edu/tooling/answer-ruling/) and submit a blank line | The same assistant session resumes with your answer |
+| The runner is waiting for a ruling | [`/ruling [stem]`](/repo-edu/tooling/answer-ruling/) in the Claude desktop app | The chat explains the ruling and sends your confirmed answer; the same assistant session resumes |
 | A phase failed or I left without replying | [Run the recovery command](/repo-edu/tooling/recover-run/) printed by the runner | The retained session and files continue that specific work |
 
 ### Source upkeep

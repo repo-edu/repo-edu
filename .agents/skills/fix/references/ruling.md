@@ -6,7 +6,9 @@ decision remains open. Use the supplied output path under the runner's
 report completion under the shared protocol's
 [Runner result](../../../references/round-protocol.md#runner-result). Review it
 for clarity in this same session. No separate drafting or editing session
-follows. The runner displays the ruling directly and collects the user's reply.
+follows. The runner prints a notice in place of the ruling's text. The user
+answers in the Claude desktop chat through `/ruling`, under
+[Answering a ruling](answer.md), and that chat reads this document whole.
 
 ## Evidence and scope
 
@@ -40,14 +42,14 @@ item covers:
 1. The decision and why it needs the user's answer.
 2. The viable alternatives and their material differences.
 3. One recommendation, its reason and any material tradeoff.
-4. A short suggested reply the user can enter in the runner.
+4. A short suggested answer the user can give in the `/ruling` chat.
 
 For a contested verdict whose report or revised vet tier is A or B, state the
 vet's position and the auditor's contest separately, with the evidence each
-uses, before the recommendation. The runner asks the winner and reason after
-showing the document, so the suggested reply may use `vet`, `auditor` or
-`neither` and a one-line reason. Use `not yet` when the suggested reply first
-asks the fix a question.
+uses, before the recommendation. The user gives each such finding a winner,
+`vet`, `auditor` or `neither`, with a one-line reason, so the suggested answer
+names both. Suggest `not yet` when the user should first ask the fix a
+question.
 
 Price the request under the plan doctrine's
 [Mechanism cases](../../../../../plan/CLAUDE.md#mechanism-cases).

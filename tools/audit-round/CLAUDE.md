@@ -1215,11 +1215,12 @@ active folder and lists each deleted file. It fails when no report matches. Clai
 runner documents remain.
 
 `ruling [target]` and `answer [target] <file>` are the `/ruling` chat's two carriers to a run that
-waits for a ruling, as `ruling-wait.ts` owns them. With no target they take the one run that waits
-and refuse when none or several wait. A chat's sandbox refuses Unix sockets, so the user's Claude
-Code settings list `pnpm audit-round ruling`, `pnpm audit-round ruling *` and `pnpm audit-round
-answer *` under `sandbox.excludedCommands`. Without those entries a refused connection reads as no
-waiting run while the run in the terminal still waits.
+waits for a ruling, as `ruling-wait.ts` owns them. The chat follows
+[Answering a ruling](../../.agents/skills/fix/references/answer.md). With no target they take the
+one run that waits and refuse when none or several wait. A chat's sandbox refuses Unix sockets, so
+the user's Claude Code settings list `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
+`pnpm audit-round answer *` under `sandbox.excludedCommands`. Without those entries a refused
+connection reads as no waiting run while the run in the terminal still waits.
 
 `mark reopen [stem]` claims the next plan-round number of an active plan, or of
 the plan `plan` prints when none is named, writes the empty

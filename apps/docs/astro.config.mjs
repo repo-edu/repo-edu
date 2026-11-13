@@ -138,6 +138,7 @@ export default defineConfig({
                     { label: "/brief-plan", slug: "tooling/brief-plan" },
                     { label: "/watch", slug: "tooling/watch" },
                     { label: "/close", slug: "tooling/close" },
+                    { label: "/ruling", slug: "tooling/answer-ruling" },
                     { label: "/yield", link: "/tooling/yield/#yield" },
                     { label: "/yield-vet", link: "/tooling/yield/#yield-vet" },
                     { label: "/yield-rebut", link: "/tooling/yield/#yield-rebut" },
@@ -177,7 +178,6 @@ export default defineConfig({
                   items: [
                     { label: "Plan lifecycle", slug: "tooling/plan-lifecycle" },
                     { label: "Run an audit round", slug: "tooling/run-audit-round" },
-                    { label: "Answer a ruling", slug: "tooling/answer-ruling" },
                     { label: "Recover a run", slug: "tooling/recover-run" },
                     { label: "Find round outputs", slug: "tooling/find-round-outputs" },
                   ],
