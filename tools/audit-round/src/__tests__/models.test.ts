@@ -904,7 +904,7 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
   assert.doesNotMatch(shortReport, /rounds by plan/)
 })
 
-test("disproved rulings table each reason's first sentence and list the full reasons numbered across auditors", async (t) => {
+test("disproved rulings separate finding and vet sides with one numbering sequence", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -934,7 +934,16 @@ test("disproved rulings table each reason's first sentence and list the full rea
           ),
         ],
         commits,
-        findings(2, `${model} claim`),
+        findings(3, `${model} claim`).map((entry, index) =>
+          index === 2 || (model === "audit-beta" && index === 0)
+            ? {
+                ...entry,
+                vetVerdict: "drop",
+                rebuttalAnswer: "agree",
+                outcome: "dropped",
+              }
+            : entry,
+        ),
       ),
       phase: "detailing",
       settling: "",
@@ -966,6 +975,22 @@ test("disproved rulings table each reason's first sentence and list the full rea
     round: 1,
     finding: 2,
   })
+  writeDisprovedFinding(path, {
+    date: "2026-11-05",
+    reason: "The dropped beta finding was right. Its defect still reproduces.",
+    target: "audit-beta-plan-audit",
+    round: 1,
+    finding: 1,
+    side: "vet",
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-06",
+    reason: "The dropped alpha finding was right.",
+    target: "audit-alpha-plan-audit",
+    round: 1,
+    finding: 3,
+    side: "vet",
+  })
 
   const report = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
@@ -993,6 +1018,80 @@ test("disproved rulings table each reason's first sentence and list the full rea
       "| 4 | 2026-11-04 | evidence; audit-beta-plan-audit round 1 | #2 audit-beta claim 2 | B | vet-model low; accept | Version 1.2 \\| the guard? |",
       "",
       "4. Version 1.2 | the guard? It already handles this.",
+      "",
+      "### Vet verdicts",
+      "",
+      "| # | Date | Auditor | Plan and round | Finding | Tier | Vet | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+      "| 5 | 2026-11-06 | audit-alpha low | evidence; audit-alpha-plan-audit round 1 | #3 audit-alpha claim 3 | B | vet-model low; drop | The dropped alpha finding was right. |",
+      "| 6 | 2026-11-05 | audit-beta low | evidence; audit-beta-plan-audit round 1 | #1 audit-beta claim 1 | B | vet-model low; drop | The dropped beta finding was right. |",
+      "",
+      "5. The dropped alpha finding was right.",
+      "6. The dropped beta finding was right. Its defect still reproduces.",
+      "",
+    ].join("\n"),
+  )
+})
+
+test("a read-out with only vet rulings prints only the combined vet table", async (t) => {
+  const f = await modelFixture(t)
+  const audit = await commit(
+    f.root,
+    "evidence/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
+  )
+  const path = join(f.activeRoot, "evidence-plan-rounds.json")
+  writeRoundData(path, {
+    ...round(
+      "audit-alpha-plan-audit",
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      settings,
+      [
+        phase("audit", "claude", "audit-alpha", 60_000),
+        phase("vet", "codex", "vet-model", 60_000),
+      ],
+      [{ repository: "repo-edu", sha: audit }],
+      [
+        {
+          ...finding("dropped claim"),
+          vetVerdict: "drop",
+          rebuttalAnswer: "agree",
+          outcome: "dropped",
+        },
+      ],
+    ),
+    phase: "detailing",
+    settling: "",
+  })
+  writeDisprovedFinding(path, {
+    date: "2026-11-01",
+    reason: "The dropped finding was right.",
+    target: "audit-alpha-plan-audit",
+    round: 1,
+    finding: 1,
+    side: "vet",
+  })
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+    testSettings,
+  )
+  assert.equal(
+    report.split("## Disproved after the round\n\n")[1],
+    [
+      "### Vet verdicts",
+      "",
+      "| # | Date | Auditor | Plan and round | Finding | Tier | Vet | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | 2026-11-01 | audit-alpha low | evidence; audit-alpha-plan-audit round 1 | #1 dropped claim | B | vet-model low; drop | The dropped finding was right. |",
+      "",
+      "1. The dropped finding was right.",
       "",
     ].join("\n"),
   )

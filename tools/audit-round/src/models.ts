@@ -421,24 +421,81 @@ function firstSentence(text: string): string {
   return /^.*?[.!?](?=\s|$)/s.exec(text)?.[0] ?? text
 }
 
-function disprovedRow(number: number, entry: DisprovedEvidence): string {
+function disprovedCells(
+  entry: DisprovedEvidence,
+): readonly [string, string, string, string, string, string] {
   const reason = escapeCell(firstSentence(entry.reason))
   return entry.kind === "detached"
-    ? `| ${number} | ${entry.date} | ${escapeCell(`${entry.stem}; no retained round data holds this finding`)} | — | — | — | ${reason} |`
-    : `| ${number} | ${entry.date} | ${escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`)} | ${escapeCell(`#${entry.finding} ${entry.title}`)} | ${entry.tier} | ${escapeCell(`${entry.vet === null ? "no recorded vet" : modelText(entry.vet)}; ${entry.vetVerdict ?? "no verdict"}`)} | ${reason} |`
+    ? [
+        entry.date,
+        escapeCell(`${entry.stem}; no retained round data holds this finding`),
+        "—",
+        "—",
+        "—",
+        reason,
+      ]
+    : [
+        entry.date,
+        escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
+        escapeCell(`#${entry.finding} ${entry.title}`),
+        entry.tier,
+        escapeCell(
+          `${entry.vet === null ? "no recorded vet" : modelText(entry.vet)}; ${entry.vetVerdict ?? "no verdict"}`,
+        ),
+        reason,
+      ]
+}
+
+function newestDisprovedFirst(
+  first: DisprovedEvidence,
+  second: DisprovedEvidence,
+): number {
+  return (
+    second.date.localeCompare(first.date) ||
+    first.stem.localeCompare(second.stem)
+  )
+}
+
+function disprovedTable(
+  entries: readonly DisprovedEvidence[],
+  start: number,
+  showAuditor: boolean,
+): string[] {
+  const heading = showAuditor
+    ? "| # | Date | Auditor | Plan and round | Finding | Tier | Vet | Reason |"
+    : "| # | Date | Plan and round | Finding | Tier | Vet | Reason |"
+  const alignment = showAuditor
+    ? "| ---: | --- | --- | --- | --- | --- | --- | --- |"
+    : "| ---: | --- | --- | --- | --- | --- | --- |"
+  return [
+    heading,
+    alignment,
+    ...entries.map((entry, index) => {
+      const [date, ...cells] = disprovedCells(entry)
+      const auditor = showAuditor ? [escapeCell(modelText(entry.auditor))] : []
+      return `| ${[start + index, date, ...auditor, ...cells].join(" | ")} |`
+    }),
+    "",
+    ...entries.map((entry, index) => `${start + index}. ${entry.reason}`),
+  ]
 }
 
 /**
- * Each auditor's table shows a reason's first sentence and the numbered list
- * below it the full reason, because a whole reason wraps a terminal table into
- * an unreadable grid. Numbers run across the section, so each ruling has one.
+ * Finding rulings stay grouped by auditor. Vet rulings follow in one table,
+ * where the auditor column identifies whose finding the vet judged. Each table
+ * shows a reason's first sentence and its numbered list shows the full reason.
  */
 function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
   const lines = ["## Disproved after the round", ""]
   if (entries.length === 0)
-    return [...lines, "No findings were disproved after a round."]
+    return [
+      ...lines,
+      "No findings or vet verdicts were disproved after a round.",
+    ]
   const groups = new Map<string, DisprovedEvidence[]>()
-  for (const entry of entries) {
+  for (const entry of entries.filter(
+    (candidate) => candidate.side === "finding",
+  )) {
     const key = modelText(entry.auditor)
     const group = groups.get(key) ?? []
     group.push(entry)
@@ -448,22 +505,22 @@ function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
   for (const [auditor, group] of [...groups].sort(([first], [second]) =>
     first.localeCompare(second),
   )) {
-    const rows = group.sort(
-      (first, second) =>
-        second.date.localeCompare(first.date) ||
-        first.stem.localeCompare(second.stem),
-    )
+    const rows = group.sort(newestDisprovedFirst)
     const start = numbered + 1
     numbered += rows.length
     if (lines.length > 2) lines.push("")
+    lines.push(`### ${auditor}`, "", ...disprovedTable(rows, start, false))
+  }
+  const vetEntries = entries
+    .filter((entry) => entry.side === "vet")
+    .sort(newestDisprovedFirst)
+  if (vetEntries.length > 0) {
+    const start = numbered + 1
+    if (lines.length > 2) lines.push("")
     lines.push(
-      `### ${auditor}`,
+      "### Vet verdicts",
       "",
-      "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
-      "| ---: | --- | --- | --- | --- | --- | --- |",
-      ...rows.map((entry, index) => disprovedRow(start + index, entry)),
-      "",
-      ...rows.map((entry, index) => `${start + index}. ${entry.reason}`),
+      ...disprovedTable(vetEntries, start, true),
     )
   }
   return lines

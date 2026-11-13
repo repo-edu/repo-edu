@@ -483,13 +483,14 @@ consumers.
   implementation-fix time and excludes planning fixes. Mean comes from `simple-statistics`. Direct
   observed-range comparisons own the clear-cut recommendation. Every row that reaches its minimum
   enters it. The coder table sorts by accepted findings per step, fewest first, then by time. A
-  winning coder outside `implementation.coders` is named as such. Disproved findings print per
+  winning coder outside `implementation.coders` is named as such. Later finding rulings print per
   auditor as a numbered table that shows each reason's first sentence, because a full reason wraps
-  the terminal table into an unreadable grid. A numbered list of the full reasons follows each
-  table, numbered across the section so each ruling keeps one number. Excluded plans, grouped by
-  reason with their recorded models, print only under `--all`, because a reader comparing models
-  does not need the measured rows or plans that supplied no evidence every time. The command starts
-  no assistant and writes no round file or round data. Like other commands that read settings, it
+  the terminal table into an unreadable grid. Later vet rulings print newest first in one table
+  after them, with an auditor column. A numbered list of the full reasons follows each table,
+  numbered across the section so each ruling keeps one number. Excluded plans, grouped by reason
+  with their recorded models, print only under `--all`, because a reader comparing models does not
+  need the measured rows or plans that supplied no evidence every time. The command starts no
+  assistant and writes no round file or round data. Like other commands that read settings, it
   creates a missing `settings.json` from the defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
@@ -1044,12 +1045,13 @@ table. Auditor time and wrong claims still cover every complete round in the cla
 comparisons keep their direct observed-range rule, three-plan floors and recommendation. The coder
 table shows plans, steps, kept A/B findings, kept per step and time per step. A missing step time
 uses the span from the ready marker or previous step, with a two-repo step ending at its later share
-commit. A plan whose step time cannot be read is an excluded plan. The disproved section shows each
-reason's first sentence in a numbered table per auditor, then the full reasons as a numbered list
-below it, numbered across the section. The excluded-plans section groups plans by reason and names
-their recorded models; it prints only under `--all`. The command renders Markdown, starts no
-assistant and writes no round file or round data. Like other commands that read settings, it creates
-a missing `settings.json` from the defaults.
+commit. A plan whose step time cannot be read is an excluded plan. The disproved section shows
+finding rulings in a numbered table per auditor. One table of vet rulings follows them, newest first
+and with its own auditor column. Every table shows each reason's first sentence, then the full
+reasons as a numbered list below it, numbered across the section. The excluded-plans section groups
+plans by reason and names their recorded models; it prints only under `--all`. The command renders
+Markdown, starts no assistant and writes no round file or round data. Like other commands that read
+settings, it creates a missing `settings.json` from the defaults.
 
 `replay` reads every active and archived plan's retained round data and every active commit-series
 file. It applies the same automatic-series decision function to each stored answer and prints the
