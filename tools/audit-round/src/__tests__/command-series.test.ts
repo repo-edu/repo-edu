@@ -473,7 +473,8 @@ for (const { auditors, seeded, edit, rounds } of [
         `Auditor sequence finished after ${rounds} round${rounds === 1 ? "" : "s"}\\.`,
       ),
     )
-    await assert.rejects(readFile(queue), { code: "ENOENT" })
+    // The finished sequence keeps its emptied queue as a round file.
+    assert.equal(await readFile(queue, "utf8"), "")
   })
 }
 
@@ -499,7 +500,8 @@ test("a malformed queue edit stops the sequence and names the entry", async (t) 
       .includes(`${queue}: Auditor entry 2 (claud): expected claude, codex`),
   )
   assert.equal((await f.roundFiles()).length, 2)
-  await assert.rejects(readFile(queue), { code: "ENOENT" })
+  // The stopped sequence keeps the edit it refused.
+  assert.equal(await readFile(queue, "utf8"), "claude\nclaud\n")
 })
 
 test("a commit audit keeps no queue file", async (t) => {

@@ -73,7 +73,7 @@ the user's decision.
 
 Nothing deletes a round's files. Claims, markers, transcripts, logs, reports, rulings, watches,
 handoffs and round data stay in `../plan-evidence/active/` after a fix, a ruling or a clean audit.
-The sequence queue disappears when the sequence ends.
+A manual series' queue stays there too.
 
 At loop-close, the plan and its plan-scoped round data move into the plan's archive folder. The
 runner then moves every other round file of the plan into `../plan-evidence/<stem>/`, so

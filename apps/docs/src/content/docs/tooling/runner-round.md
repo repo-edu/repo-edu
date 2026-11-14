@@ -145,7 +145,7 @@ All files live in `../plan-evidence/active/`:
 3. **A ruling** adds `-7-ruling.<tag>.md` and **a due watch** `-9-watch.<tag>.md`.
 4. **Round data** goes to `<stem>-plan-rounds.json` or `<stem>-impl-rounds.json` for a plan target
    and to `<commit-label>-rounds.json` for a commit target.
-5. **A manual series** keeps `<target>-queue.md` until the series ends.
+5. **A manual series** keeps `<target>-queue.md` until the close moves it.
 
 A finished fix lands its local records only in the judged repos whose files took accepted findings.
 A finding whose correction belongs outside the judged set is carried as a deferral record in the

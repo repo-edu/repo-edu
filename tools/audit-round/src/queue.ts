@@ -1,4 +1,4 @@
-import { readFile, rm, writeFile } from "node:fs/promises"
+import { readFile, writeFile } from "node:fs/promises"
 import type { ModelReleases } from "./feedback.js"
 import { errorMessage } from "./feedback.js"
 import { phaseSelection } from "./output-format.js"
@@ -115,8 +115,4 @@ export async function takeNext(
   const [next = null, ...rest] = kept
   await writeQueue(path, rest)
   return { next, rest, skipped: queued.length - kept.length }
-}
-
-export async function removeQueue(path: string): Promise<void> {
-  await rm(path, { force: true })
 }

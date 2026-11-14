@@ -88,7 +88,6 @@ import {
   type AuditorEntry,
   auditorSetting,
   parseAuditors,
-  removeQueue,
   takeNext,
   writeQueue,
 } from "./queue.js"
@@ -794,7 +793,7 @@ Round sequence:
       names and tags, separated by commas, spaces or line breaks. The runner
       reads it between rounds, so an edit applies from the next round on.
     - An empty or deleted file ends the sequence after the current round.
-    - The runner deletes the file when the sequence ends.
+    - The file stays in the active folder until the close moves it.
 
   Phases within a round:
     1. Audit     The selected auditor reports findings.
@@ -2431,198 +2430,194 @@ export async function runCommand(
           await printDeferrals()
           return "stopped"
         }
-        try {
-          if (
-            automatic &&
-            seriesSession.roundKind === "implementation" &&
-            "plan" in target
-          ) {
-            const openPlanDeferrals = await deferralsInto(target.plan, "plan")
-            if (openPlanDeferrals.deferrals.length > 0) {
-              const outcome = await runDeferralRound(
-                target.plan,
+        if (
+          automatic &&
+          seriesSession.roundKind === "implementation" &&
+          "plan" in target
+        ) {
+          const openPlanDeferrals = await deferralsInto(target.plan, "plan")
+          if (openPlanDeferrals.deferrals.length > 0) {
+            const outcome = await runDeferralRound(
+              target.plan,
+              planningOpener(),
+              openPlanDeferrals.deferrals,
+              false,
+            )
+            if (outcome !== "none" && outcome !== "finished")
+              return stopForChain(outcome)
+          }
+        }
+        do {
+          if (completed > 0 && !automatic && "plan" in target) {
+            const plan = await resolvePlan(context, planStem(target.plan))
+            target = { ...target, plan }
+          }
+          if (automatic && decisionReason !== null) {
+            const text =
+              completed === 0
+                ? `Opening round: ${auditorText(auditorSetting(seat, releases, settings))}. ${decisionReason}`
+                : `Next round: ${auditorText(auditorSetting(seat, releases, settings))}; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${decisionReason}`
+            if (output === undefined) options.terminal.write(text)
+            else await output.message(text)
+          }
+          const repoEduDeferrals =
+            seriesSession.roundKind === "implementation" && "plan" in target
+              ? (await deferralsInto(target.plan, "repo-edu")).deferrals
+              : undefined
+          const setup = {
+            ...seriesSession,
+            ...target,
+            ...(await fixerFor(target)),
+            auditor: seat.assistant,
+            auditorSelectionSource,
+            override: seat.override,
+            ...(automatic ? { pool: poolAuditors } : {}),
+            ...(repoEduDeferrals === undefined
+              ? {}
+              : { deferrals: repoEduDeferrals }),
+          }
+          const run = await roundRun(setup, now(), releases, settings)
+          const active = open(run)
+          if (queue !== null)
+            await active.message(
+              `Queued after this round: ${rest.map((entry) => entry.text).join(", ") || "none"}. Edit ${queue} to add or remove rounds.`,
+            )
+          const round = await runRound(
+            {
+              ...setup,
+              documents: run.documents,
+              transcript: run.paths.markdown,
+              watch: series.watch
+                ? {
+                    file: run.watch,
+                    cacheRoot,
+                  }
+                : null,
+            },
+            dependenciesFor(active, seriesSession, async ({ plan }) => {
+              const openPlanDeferrals = await deferralsInto(plan, "plan")
+              if (openPlanDeferrals.deferrals.length === 0) return "none"
+              return runDeferralRound(
+                plan,
                 planningOpener(),
                 openPlanDeferrals.deferrals,
-                false,
+                true,
               )
-              if (outcome !== "none" && outcome !== "finished")
-                return stopForChain(outcome)
+            }),
+            releases,
+            settings,
+          )
+          result = round
+          code = exitCode(round)
+          active.finish(round, runtime.signal)
+          completed += 1
+          if (
+            round.status === "finished" &&
+            round.deferralChain !== "none" &&
+            round.deferralChain !== "finished"
+          )
+            return stopForChain(round.deferralChain)
+          if (round.status !== "finished") {
+            await active.message(
+              round.status === "failed"
+                ? "Auditor sequence stopped: this round failed."
+                : "Auditor sequence stopped: this round required your ruling.",
+            )
+            if (automatic) await printDeferrals()
+            return "stopped"
+          }
+          if (!automatic && queue === null) break
+          if (automatic && "plan" in target) {
+            const previousPhase = planPhase(target.plan)
+            const plan = await resolvePlan(context, planStem(target.plan))
+            target = { ...target, plan }
+            const currentPhase = planPhase(plan)
+            if (currentPhase !== previousPhase) {
+              await active.message(
+                `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan changed from ${previousPhase} to ${currentPhase}.`,
+              )
+              await printDeferrals()
+              return "stopped"
             }
           }
-          do {
-            if (completed > 0 && !automatic && "plan" in target) {
-              const plan = await resolvePlan(context, planStem(target.plan))
-              target = { ...target, plan }
-            }
-            if (automatic && decisionReason !== null) {
-              const text =
-                completed === 0
-                  ? `Opening round: ${auditorText(auditorSetting(seat, releases, settings))}. ${decisionReason}`
-                  : `Next round: ${auditorText(auditorSetting(seat, releases, settings))}; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${decisionReason}`
-              if (output === undefined) options.terminal.write(text)
-              else await output.message(text)
-            }
-            const repoEduDeferrals =
-              seriesSession.roundKind === "implementation" && "plan" in target
-                ? (await deferralsInto(target.plan, "repo-edu")).deferrals
-                : undefined
-            const setup = {
-              ...seriesSession,
-              ...target,
-              ...(await fixerFor(target)),
-              auditor: seat.assistant,
-              auditorSelectionSource,
-              override: seat.override,
-              ...(automatic ? { pool: poolAuditors } : {}),
-              ...(repoEduDeferrals === undefined
-                ? {}
-                : { deferrals: repoEduDeferrals }),
-            }
-            const run = await roundRun(setup, now(), releases, settings)
-            const active = open(run)
-            if (queue !== null)
-              await active.message(
-                `Queued after this round: ${rest.map((entry) => entry.text).join(", ") || "none"}. Edit ${queue} to add or remove rounds.`,
-              )
-            const round = await runRound(
-              {
-                ...setup,
-                documents: run.documents,
-                transcript: run.paths.markdown,
-                watch: series.watch
-                  ? {
-                      file: run.watch,
-                      cacheRoot,
-                    }
-                  : null,
-              },
-              dependenciesFor(active, seriesSession, async ({ plan }) => {
-                const openPlanDeferrals = await deferralsInto(plan, "plan")
-                if (openPlanDeferrals.deferrals.length === 0) return "none"
-                return runDeferralRound(
-                  plan,
-                  planningOpener(),
-                  openPlanDeferrals.deferrals,
-                  true,
-                )
-              }),
-              releases,
-              settings,
-            )
-            result = round
-            code = exitCode(round)
-            active.finish(round, runtime.signal)
-            completed += 1
-            if (
-              round.status === "finished" &&
-              round.deferralChain !== "none" &&
-              round.deferralChain !== "finished"
-            )
-              return stopForChain(round.deferralChain)
-            if (round.status !== "finished") {
-              await active.message(
-                round.status === "failed"
-                  ? "Auditor sequence stopped: this round failed."
-                  : "Auditor sequence stopped: this round required your ruling.",
-              )
-              if (automatic) await printDeferrals()
-              return "stopped"
-            }
-            if (!automatic && queue === null) break
-            if (automatic && "plan" in target) {
-              const previousPhase = planPhase(target.plan)
-              const plan = await resolvePlan(context, planStem(target.plan))
-              target = { ...target, plan }
-              const currentPhase = planPhase(plan)
-              if (currentPhase !== previousPhase) {
-                await active.message(
-                  `${roundSubject(target, planStem(plan))}: automatic auditor series stopped after ${completed} round${completed === 1 ? "" : "s"} because the plan changed from ${previousPhase} to ${currentPhase}.`,
-                )
-                await printDeferrals()
-                return "stopped"
-              }
-            }
-            // A red watch asks the user to act now, so no queued round starts first.
-            if (round.watch === "red") {
-              await active.message(
-                `Auditor sequence stopped: the watch graded red. Read ${run.watch} before running more rounds.`,
-              )
-              if (automatic) await printDeferrals()
-              return "stopped"
-            }
-            if (automatic) {
-              const series = seriesName(target)
-              const decision = round.decision
-              if (decision === null)
-                throw new Error(
-                  "Automatic round finished without a series answer",
-                )
-              if (decision.answer === "stop") {
-                await active.message(
-                  `${series} stopped after ${completed} round${completed === 1 ? "" : "s"}. ${decision.reason}`,
-                )
-                await printDeferrals()
-                break
-              }
-              if (decision.answer === "settle") {
-                if (!("plan" in target))
-                  throw new Error(
-                    "Commit series returned the plan-only settle answer",
-                  )
-                await active.message(
-                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. Widening is done: run pnpm audit-round settle ${planStem(target.plan)}. ${decision.reason}`,
-                )
-                await printDeferrals()
-                return "settle"
-              }
-              if (decision.answer === "ready") {
-                if (!("plan" in target))
-                  throw new Error(
-                    "Commit series returned the plan-only ready answer",
-                  )
-                await active.message(
-                  `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. Detailing is done: run pnpm audit-round ready ${planStem(target.plan)}. ${decision.reason}`,
-                )
-                await printDeferrals()
-                return "ready"
-              }
-              if (completed >= settings.maximumAutomaticRounds) {
-                await active.message(
-                  `${series} reached its maximum of ${settings.maximumAutomaticRounds} round${settings.maximumAutomaticRounds === 1 ? "" : "s"}.`,
-                )
-                await printDeferrals()
-                break
-              }
-              seat = seatFor(decision.answer)
-              decisionReason = decision.reason
-              auditorSelectionSource = "settings"
-              if ("groups" in target)
-                target = await advanceCommitTarget(target, round.commits)
-              continue
-            }
-            const ending = round.cleanAudit ? "Clean audit" : null
-            const ended =
-              ending === null ? null : auditorSetting(seat, releases, settings)
-            if (queue === null) break
-            const taken = await takeNext(queue, ended, releases, settings)
-            if (taken.skipped > 0)
-              await active.message(
-                `${ending} by ${ended?.assistant} on ${ended?.model} ${ended?.effort ?? "effort unavailable"}; skipped ${taken.skipped} queued ${taken.skipped === 1 ? "entry" : "entries"} with the same setting.`,
-              )
-            seat = taken.next
-            auditorSelectionSource = "--auditor"
-            rest = taken.rest
-            if (seat !== null && "groups" in target)
-              target = await advanceCommitTarget(target, round.commits)
+          // A red watch asks the user to act now, so no queued round starts first.
+          if (round.watch === "red") {
             await active.message(
-              seat === null
-                ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`
-                : `Next round: ${seat.assistant}; ${rest.length + 1} auditor entries remain.`,
+              `Auditor sequence stopped: the watch graded red. Read ${run.watch} before running more rounds.`,
             )
-          } while (seat !== null)
-        } finally {
-          if (queue !== null) await removeQueue(queue)
-        }
+            if (automatic) await printDeferrals()
+            return "stopped"
+          }
+          if (automatic) {
+            const series = seriesName(target)
+            const decision = round.decision
+            if (decision === null)
+              throw new Error(
+                "Automatic round finished without a series answer",
+              )
+            if (decision.answer === "stop") {
+              await active.message(
+                `${series} stopped after ${completed} round${completed === 1 ? "" : "s"}. ${decision.reason}`,
+              )
+              await printDeferrals()
+              break
+            }
+            if (decision.answer === "settle") {
+              if (!("plan" in target))
+                throw new Error(
+                  "Commit series returned the plan-only settle answer",
+                )
+              await active.message(
+                `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. Widening is done: run pnpm audit-round settle ${planStem(target.plan)}. ${decision.reason}`,
+              )
+              await printDeferrals()
+              return "settle"
+            }
+            if (decision.answer === "ready") {
+              if (!("plan" in target))
+                throw new Error(
+                  "Commit series returned the plan-only ready answer",
+                )
+              await active.message(
+                `${series} ended after ${completed} round${completed === 1 ? "" : "s"}. Detailing is done: run pnpm audit-round ready ${planStem(target.plan)}. ${decision.reason}`,
+              )
+              await printDeferrals()
+              return "ready"
+            }
+            if (completed >= settings.maximumAutomaticRounds) {
+              await active.message(
+                `${series} reached its maximum of ${settings.maximumAutomaticRounds} round${settings.maximumAutomaticRounds === 1 ? "" : "s"}.`,
+              )
+              await printDeferrals()
+              break
+            }
+            seat = seatFor(decision.answer)
+            decisionReason = decision.reason
+            auditorSelectionSource = "settings"
+            if ("groups" in target)
+              target = await advanceCommitTarget(target, round.commits)
+            continue
+          }
+          const ending = round.cleanAudit ? "Clean audit" : null
+          const ended =
+            ending === null ? null : auditorSetting(seat, releases, settings)
+          if (queue === null) break
+          const taken = await takeNext(queue, ended, releases, settings)
+          if (taken.skipped > 0)
+            await active.message(
+              `${ending} by ${ended?.assistant} on ${ended?.model} ${ended?.effort ?? "effort unavailable"}; skipped ${taken.skipped} queued ${taken.skipped === 1 ? "entry" : "entries"} with the same setting.`,
+            )
+          seat = taken.next
+          auditorSelectionSource = "--auditor"
+          rest = taken.rest
+          if (seat !== null && "groups" in target)
+            target = await advanceCommitTarget(target, round.commits)
+          await active.message(
+            seat === null
+              ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`
+              : `Next round: ${seat.assistant}; ${rest.length + 1} auditor entries remain.`,
+          )
+        } while (seat !== null)
         return "ended"
       }
       let ending: SeriesEnding = "ended"

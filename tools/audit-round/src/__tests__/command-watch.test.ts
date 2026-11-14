@@ -143,7 +143,8 @@ test("a red watch stops the auditor sequence before the next queued round", asyn
   )
   assert.doesNotMatch(visible, /Next round:/)
   assert.equal((await f.roundFiles()).length, 2)
-  await assert.rejects(readFile(queue), { code: "ENOENT" })
+  // The stopped sequence keeps the entries it did not run.
+  assert.equal(await readFile(queue, "utf8"), "claude\n")
 })
 
 test("a due glance admits and publishes the returned watch without round session files", async (t) => {

@@ -811,7 +811,7 @@ consumers.
   entries seed its editable queue. A clean audit removes queued entries that resolve to that round's
   assistant, model and effort. Other settings remain. A fix that lands a clean record removes none.
   Failure, a round requiring a ruling, a red watch or an empty queue stops the manual sequence, and
-  the queue file is deleted however the sequence ends. Each manual round prints the queue's path and
+  the queue file stays until the close moves it. Each manual round prints the queue's path and
   contents when it opens. Each automatic round prints its runner answer and reason and repeats the
   reason in the line that ends the series or opens the next round, so the log and the terminal's
   last lines both carry the recommendation. A resolved scope list, whether typed or derived from a
@@ -1441,7 +1441,7 @@ only where a series needs the user: a failure, an unanswered ruling, a red watch
 change. `--auditor` accepts one selection or a sequence on the named plan scope or commit series,
 separated by commas or spaces. Repeated entries request separate rounds. The entries after the
 current round wait in `<target>-queue.md` in the round folder. Edit it to add, remove or reorder
-rounds; the runner reads it between rounds and deletes it when the sequence ends. An empty or
+rounds; the runner reads it between rounds and keeps it until the close moves it. An empty or
 deleted file ends the sequence after the current round. Every completed automatic round prints its
 runner answer and reason, stores them in retained data and repeats the reason in the series ending
 or the next round's opening line. In a manual series, a clean audit skips queued entries with the
