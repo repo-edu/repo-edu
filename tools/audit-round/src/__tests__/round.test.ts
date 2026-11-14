@@ -1411,7 +1411,7 @@ for (const accepted of [false, true]) {
         "finished",
       )
       assert.deepEqual(round.deletedReports, [
-        { cwd: files.activeRoot, nameStart: "example-impl-audit-01..01-01" },
+        { cwd: files.roundRoot, nameStart: "example-impl-audit-01..01-01" },
       ])
     })
   }

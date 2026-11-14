@@ -378,10 +378,10 @@ where the mismatch surfaces, and which class a problem is in is the user's call.
 The writer's judgement rests on reading the commit record and the code, never
 the doer's reasoning. So:
 
-- The writer reads the supplied evidence, the current artifact at the area it points
-  to, the area model, the named plan and the episode's earlier watch documents
-  in the plan checkout's `active/` folder. Inspect named commits as needed to verify a claim; do not
-  repeat the episode walk or token counts.
+- The writer reads the supplied evidence, the current artifact at the area it points to, the area
+  model, the named plan and the episode's earlier watch documents in the evidence checkout's
+  `plan-evidence/active/` folder. Inspect named commits as needed to verify a claim; do not repeat
+  the episode walk or token counts.
 - Do not read the round's transcript, its report or its vet and rebuttal
   twins, and do not read the fix session. The invocation gives you
   none of them on purpose.

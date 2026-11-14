@@ -54,6 +54,6 @@ commit.
 
 ## Afterwards
 
-The answers appear in chat and in the round's `-4-rebut.<tag>.md` twin under `../plan/active/`. Run
-`/fix <report-file>` or `$fix <report-file>` next. The fix reconciles both views and asks you only
-about a decision that stays genuinely open.
+The answers appear in chat and in the round's `-4-rebut.<tag>.md` twin under
+`../plan-evidence/active/`. Run `/fix <report-file>` or `$fix <report-file>` next. The fix
+reconciles both views and asks you only about a decision that stays genuinely open.

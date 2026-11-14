@@ -55,10 +55,17 @@ for (const auditor of ["codex", "claude"] as const) {
         f.errors.join("\n"),
       )
       const { log, transcript } = await f.records()
+      // Every round file lands in the evidence round folder; the plans stay alone.
+      assert.deepEqual(
+        (await readdir(f.activeRoot)).filter(
+          (name) => !/^example(-widen)?\.md$/.test(name),
+        ),
+        [],
+      )
       assert.equal(
         transcript,
         join(
-          f.activeRoot,
+          f.roundRoot,
           `example-plan-audit-01-1-round.${auditor === "codex" ? "obh" : "abh"}.md`,
         ),
       )
@@ -157,7 +164,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     assert.equal(await name(["example"]), 0, f.errors.join("\n"))
     assert.equal(
       JSON.parse(f.visible[0]).claim,
-      join(f.activeRoot, "example-plan-audit-01-0-claim.md"),
+      join(f.roundRoot, "example-plan-audit-01-0-claim.md"),
     )
     const head = await commitFixture(
       f.repoRoot,
@@ -173,7 +180,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       assert.equal(await name(args), 0, f.errors.join("\n"))
       assert.equal(
         JSON.parse(f.visible[0]).claim,
-        join(f.activeRoot, `${target}-01-0-claim.md`),
+        join(f.roundRoot, `${target}-01-0-claim.md`),
       )
     }
     await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -326,6 +333,7 @@ test("a failed planning audit retains its root and recovery session without star
     "auto",
     "--add-dir",
     f.repoRoot,
+    f.evidenceRoot,
   ])
   for (const output of [log, f.visible.join("\n")])
     assert.doesNotMatch(output, /Files at repository roots:/)

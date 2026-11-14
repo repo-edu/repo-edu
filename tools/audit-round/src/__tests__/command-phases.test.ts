@@ -382,7 +382,7 @@ for (const auditor of ["claude", "codex"] as const) {
     )
     const { log, markdown } = await f.records()
     assert.doesNotMatch(log, /\[rebut\] starting/)
-    const files = await readdir(f.activeRoot)
+    const files = await readdir(f.roundRoot)
     assert.equal(
       files.some((name) => name.includes("-4-rebut.")),
       false,
@@ -459,11 +459,11 @@ for (const target of ["log", "markdown"] as const) {
     const calls = await f.calls()
     assert.equal(calls.filter((call) => call.args[0] === "exec").length, 1)
     assert.throws(() => process.kill(calls.at(-1).pid, 0), { code: "ESRCH" })
-    const dataName = (await readdir(f.activeRoot)).find((name) =>
+    const dataName = (await readdir(f.roundRoot)).find((name) =>
       name.endsWith("-impl-rounds.json"),
     )
     assert.ok(dataName)
-    const path = join(f.activeRoot, dataName)
+    const path = join(f.roundRoot, dataName)
     const data = parseRoundDataFile(path, await readFile(path, "utf8"))
       .rounds[0]
     assert.ok(data)

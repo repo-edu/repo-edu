@@ -52,15 +52,15 @@ changes no tracked file.
 
 ## Early stops
 
-1. **No eligible report is found.** Rerun with the report name from the plan checkout's `active/`
-   folder.
+1. **No eligible report is found.** Rerun with the report name from the evidence checkout's
+   `../plan-evidence/active/` folder.
 2. **The plan named in the filename differs from the report's `Target:` line.** The vet names both
    and refuses.
 
 ## Afterwards
 
-The verdicts appear in chat and in the round's `-3-vet.<tag>.md` twin under `../plan/active/`. No
-commit lands. The verdicts decide the next phase:
+The verdicts appear in chat and in the round's `-3-vet.<tag>.md` twin under
+`../plan-evidence/active/`. No commit lands. The verdicts decide the next phase:
 
 1. **Every vet's verdicts are all Accept.** Run `/fix <report-file>` or `$fix <report-file>`.
 2. **Any vet's verdict is Revise, Drop or Needs user's ruling.** Return to the report's auditor and

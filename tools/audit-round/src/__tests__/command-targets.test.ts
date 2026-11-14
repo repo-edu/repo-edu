@@ -126,10 +126,10 @@ test("close supplies open deferrals to one close session from the plan checkout"
   const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
   for (const file of dataFiles)
     await writeFile(
-      join(f.activeRoot, file),
+      join(f.roundRoot, file),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
-  const before = await readdir(f.activeRoot)
+  const before = await readdir(f.roundRoot)
   assert.equal(
     await runCommand(["close", "example-widen.md"], f.runtime, f.options),
     0,
@@ -147,7 +147,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
   )
   // The close writes only its log, under the plan's stem and its own tag.
   assert.deepEqual(
-    (await readdir(f.activeRoot)).filter((name) => !before.includes(name)),
+    (await readdir(f.roundRoot)).filter((name) => !before.includes(name)),
     ["example-close.obh.log"],
   )
   // The session moved the plan; the runner moved the round data and committed it.
@@ -172,10 +172,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
     f.visible.join("\n"),
     new RegExp(`Committed ${sha}: example/closed obh: archive the round data`),
   )
-  const log = await readFile(
-    join(f.activeRoot, "example-close.obh.log"),
-    "utf8",
-  )
+  const log = await readFile(join(f.roundRoot, "example-close.obh.log"), "utf8")
   assert.match(log, /Close of plan example\.md\n/)
   assert.match(log, /\[close\] starting codex \(fresh\)/)
   assert.ok(
@@ -205,7 +202,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
       await readFile(join(archive, file), "utf8"),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
-    await assert.rejects(access(join(f.activeRoot, file)), { code: "ENOENT" })
+    await assert.rejects(access(join(f.roundRoot, file)), { code: "ENOENT" })
   }
 })
 
@@ -215,10 +212,7 @@ test("a finished close that left its plan in the active folder fails with a resu
   f.phases.close = { ...(f.phases.close as object), moves: [] }
   await f.configure({ phases: f.phases })
   assert.equal(await runCommand(["close"], f.runtime, f.options), 1)
-  const log = await readFile(
-    join(f.activeRoot, "example-close.obh.log"),
-    "utf8",
-  )
+  const log = await readFile(join(f.roundRoot, "example-close.obh.log"), "utf8")
   assert.match(
     log,
     /\[close\] failed: The finished close left .+example\.md in the active folder/,
@@ -237,10 +231,7 @@ test("close without a stem takes the plan that plan prints and passes an abort r
     0,
     f.errors.join("\n"),
   )
-  const log = await readFile(
-    join(f.activeRoot, "example-close.obh.log"),
-    "utf8",
-  )
+  const log = await readFile(join(f.roundRoot, "example-close.obh.log"), "utf8")
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([join(f.activeRoot, "example.md"), "obh", "gpt-5.6-sol high", { deferrals: [] }, "The check cost more than it gave."])}`,
@@ -295,7 +286,7 @@ test("close of an archived plan finishes its round-data move without a session",
   const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
   for (const file of dataFiles)
     await writeFile(
-      join(f.activeRoot, file),
+      join(f.roundRoot, file),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
 
@@ -330,12 +321,12 @@ test("close of an archived plan finishes its round-data move without a session",
     dataFiles.map((file) => `archive/example/${file}`).sort(),
   )
   for (const file of dataFiles)
-    await assert.rejects(access(join(f.activeRoot, file)), { code: "ENOENT" })
+    await assert.rejects(access(join(f.roundRoot, file)), { code: "ENOENT" })
   assert.equal(
     f.visible.at(-1),
     `Committed ${sha}: example/closed obh: archive the round data`,
   )
-  await assert.rejects(access(join(f.activeRoot, "example-close.obh.log")), {
+  await assert.rejects(access(join(f.roundRoot, "example-close.obh.log")), {
     code: "ENOENT",
   })
 })
@@ -420,7 +411,7 @@ test("options without a target run the audit the newest plan's history calls for
   await commit(f.planRoot, "example/plan-audit ath clean: plan round", 3)
   assert.equal(await name(), 0, f.errors.join("\n"))
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
-    join(f.activeRoot, "example-impl-audit-01..01-01-2-audit.oth.md"),
+    join(f.roundRoot, "example-impl-audit-01..01-01-2-audit.oth.md"),
     join(f.activeRoot, "example.md"),
     "1",
   ])

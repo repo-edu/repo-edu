@@ -180,7 +180,7 @@ async function readPlanSeriesEvidence(
   input: SeriesEvidenceInput,
 ): Promise<SeriesEvidence> {
   const [roundData, plan, repoEdu] = await Promise.all([
-    readPlanRoundData(input.activeRoot, input.stem),
+    readPlanRoundData(input.roundRoot, input.stem),
     readLog(input.planRoot),
     readLog(input.repoEduRoot),
   ])

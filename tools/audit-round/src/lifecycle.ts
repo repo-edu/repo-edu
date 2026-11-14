@@ -219,17 +219,16 @@ export async function markImplemented(
   })
 }
 
-/** The plan's round-data file names that still sit in the gitignored active folder. */
+/** The plan's round-data file names that still sit in the round folder. */
 export async function activeRoundData(
-  context: Pick<ExecutionContext, "activeRoot">,
+  context: Pick<ExecutionContext, "roundRoot">,
   stem: string,
 ): Promise<readonly string[]> {
   const names: string[] = []
   for (const kind of ["planning", "implementation"] as const) {
     const name = roundDataFilename(stem, kind)
     try {
-      if ((await stat(join(context.activeRoot, name))).isFile())
-        names.push(name)
+      if ((await stat(join(context.roundRoot, name))).isFile()) names.push(name)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
     }
@@ -238,11 +237,10 @@ export async function activeRoundData(
 }
 
 /**
- * Move a closed plan's round data from the gitignored active folder to the
- * folder its archived plan now sits in, and commit the moved files. The
- * runner does this itself after the close session, because the files are the
- * plan's complete round account and nothing else keeps them: left in
- * `active/` they are ignored by Git and go with the next hand clean-up.
+ * Move a closed plan's round data from the round folder to the folder its
+ * archived plan now sits in, and commit the moved files. The runner does this
+ * itself after the close session, because the files are the plan's complete
+ * round account and it cannot see whether a session remembered them.
  * Returns null when the plan had no round data.
  */
 export async function archiveRoundData(
@@ -265,7 +263,7 @@ export async function archiveRoundData(
   const paths: string[] = []
   for (const name of names) {
     const destination = join(folder, name)
-    await rename(join(context.activeRoot, name), destination)
+    await rename(join(context.roundRoot, name), destination)
     paths.push(relative(context.planRoot, destination))
   }
   return commitOnly({

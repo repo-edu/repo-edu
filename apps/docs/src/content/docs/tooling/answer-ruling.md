@@ -87,6 +87,6 @@ the runner can read Git and continue. See [Recover a run](/repo-edu/tooling/reco
 
 ## Ruling files
 
-An audit fix writes `<target>-<round>-7-ruling.<tag>.md` in the plan checkout's `active/` folder. An
+An audit fix writes `<target>-<round>-7-ruling.<tag>.md` in `../plan-evidence/active/`. An
 implementation worker writes `<stem>-impl-<step>-implement-ruling.<tag>.md`. The file is replaced
 when the same session needs another decision and remains after the work finishes.

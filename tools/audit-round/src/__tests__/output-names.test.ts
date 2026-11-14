@@ -64,7 +64,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   ])
   assert.equal(
     run.data?.path,
-    join(f.runtime.activeRoot, "commit-abcdef..123abc-rounds.json"),
+    join(f.runtime.roundRoot, "commit-abcdef..123abc-rounds.json"),
   )
   assert.equal(run.paths.log, run.paths.markdown.replace(/\.md$/, ".log"))
   assert.equal(
@@ -123,10 +123,11 @@ test("different auditors cannot open the same candidate and the next run advance
   new RoundOutput(next, options).close()
 })
 
-test("only retained numbered files in the active folder reserve numbers across auditors", async (t) => {
+test("only retained numbered files in the round folder reserve numbers across auditors", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-  for (const root of [f.root, setup.activeRoot]) {
+  // The plan checkout's active folder holds plans, so its files reserve nothing.
+  for (const root of [f.root, setup.activeRoot, setup.roundRoot]) {
     for (const suffix of [
       "0-claim.md",
       "0-settle.md",
@@ -145,7 +146,7 @@ test("only retained numbered files in the active folder reserve numbers across a
       const run = await roundRun(setup, 0, releases)
       assert.equal(
         run.nameStart,
-        root === setup.activeRoot && suffix !== "1-round.abh.json"
+        root === setup.roundRoot && suffix !== "1-round.abh.json"
           ? "example-impl-audit-01..01-10"
           : "example-impl-audit-01..01-01",
         path,
@@ -172,12 +173,12 @@ test("only retained numbered files in the active folder reserve numbers across a
   )
 })
 
-test("an active-folder report survives partial cleanup and full cleanup restarts numbering", async (t) => {
+test("a round-folder report survives partial cleanup and full cleanup restarts numbering", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const run = await roundRun(setup, 0, releases)
   new RoundOutput(run, options).close()
-  const report = join(setup.activeRoot, `${run.nameStart}-2-audit.obh.md`)
+  const report = join(setup.roundRoot, `${run.nameStart}-2-audit.obh.md`)
   await writeFile(report, "Report")
   for (const path of [run.paths.claim, run.paths.log, run.paths.markdown])
     await rm(path as string)
@@ -317,11 +318,11 @@ test("an automatic series adds no assistant phase for its decision", async (t) =
   assert.notEqual(run.phases.at(-1)?.phase, "judge")
 })
 
-test("planning rounds number their bare target in the active folder and write there", async (t) => {
+test("planning rounds number their bare target in the round folder and write there", async (t) => {
   const f = await fixture(t)
   const context = testSetup(f.root, "planning")
   await writeFile(
-    join(context.activeRoot, "example-plan-audit-05-0-claim.md"),
+    join(context.roundRoot, "example-plan-audit-05-0-claim.md"),
     "",
   )
   const run = await roundRun(
@@ -333,19 +334,19 @@ test("planning rounds number their bare target in the active folder and write th
   assert.equal(run.nameStart, "example-plan-audit-06")
   assert.equal(
     run.paths.claim,
-    join(context.activeRoot, "example-plan-audit-06-0-claim.md"),
+    join(context.roundRoot, "example-plan-audit-06-0-claim.md"),
   )
   assert.equal(
     run.paths.markdown,
-    join(context.activeRoot, "example-plan-audit-06-1-round.obh.md"),
+    join(context.roundRoot, "example-plan-audit-06-1-round.obh.md"),
   )
   assert.equal(
     run.data.path,
-    join(context.activeRoot, "example-plan-rounds.json"),
+    join(context.roundRoot, "example-plan-rounds.json"),
   )
   assert.equal(
     run.watch,
-    join(context.activeRoot, "example-plan-audit-06-9-watch.obh.md"),
+    join(context.roundRoot, "example-plan-audit-06-9-watch.obh.md"),
   )
   const archived = await roundRun(
     { ...context, plan: "archive/topic/plan.md" },

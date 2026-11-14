@@ -158,12 +158,15 @@ export async function recordContracts(
   fixturesRoot: string,
   terminal: Terminal,
 ): Promise<void> {
-  const { cwd, repoEduRoot, planRoot, activeRoot } = runtime
+  const { cwd, repoEduRoot, planRoot, activeRoot, evidenceRoot, roundRoot } =
+    runtime
   const context = {
     cwd,
     repoEduRoot,
     planRoot,
     activeRoot,
+    evidenceRoot,
+    roundRoot,
     roundKind: "implementation" as const,
   }
   const scratch = await mkdtemp(join(tmpdir(), "audit-round-ts-contract-"))

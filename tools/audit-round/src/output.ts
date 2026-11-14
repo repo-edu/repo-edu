@@ -1,6 +1,6 @@
 import { basename, join } from "node:path"
 import { format } from "date-fns"
-import type { PlanRoots } from "./context.js"
+import type { RoundDataRoots } from "./context.js"
 import type {
   Feedback,
   ModelReleases,
@@ -227,7 +227,7 @@ export async function roundRun(
   const { nameStart, title } = await roundIdentity(setup)
   const previousModels = await readPreviousRoundModels(setup)
   const named = (kind: FileKind, tag: string) =>
-    join(setup.activeRoot, phaseFilename(nameStart, kind, tag))
+    join(setup.roundRoot, phaseFilename(nameStart, kind, tag))
   const path = (kind: FileKind, phase: SinglePhase) => named(kind, tag(phase))
   const base = path("round", "audit")
   const audit = entry("audit")
@@ -238,7 +238,7 @@ export async function roundRun(
     "groups" in setup
       ? {
           path: join(
-            setup.activeRoot,
+            setup.roundRoot,
             roundDataFilename(identity.target, "commit"),
           ),
           ...identity,
@@ -267,7 +267,7 @@ export async function roundRun(
       : activePlan
         ? {
             path: join(
-              setup.activeRoot,
+              setup.roundRoot,
               roundDataFilename(planStem(setup.plan), setup.roundKind),
             ),
             ...identity,
@@ -306,7 +306,7 @@ export async function roundRun(
       ...("plan" in setup ? [entry("watch")] : []),
     ],
     paths: {
-      claim: join(setup.activeRoot, `${nameStart}-0-claim.md`),
+      claim: join(setup.roundRoot, `${nameStart}-0-claim.md`),
       log: `${base}.log`,
       markdown: `${base}.md`,
       reopenLog: false,
@@ -418,13 +418,13 @@ export async function resumedRoundRun(
   const tag = (phase: SinglePhase): string =>
     fileTag(runEntry(phase), releases, settings)
   const base = join(
-    setup.activeRoot,
+    setup.roundRoot,
     `${phaseFilename(paths.nameStart, "round", retained.entry.tag)}`,
   )
   const ruling =
     paths.ruling ??
     join(
-      setup.activeRoot,
+      setup.roundRoot,
       `${phaseFilename(paths.nameStart, "ruling", tag("fix"))}.md`,
     )
   const documents = {
@@ -453,7 +453,7 @@ export async function resumedRoundRun(
   return {
     nameStart: paths.nameStart,
     watch: join(
-      setup.activeRoot,
+      setup.roundRoot,
       `${phaseFilename(paths.nameStart, "watch", tag("watch"))}.md`,
     ),
     documents,
@@ -511,13 +511,13 @@ export function closeStamps(
 }
 
 /**
- * A close logs in the active folder under the plan's stem and keeps no transcript.
+ * A close logs in the round folder under the plan's stem and keeps no transcript.
  * Its session cannot tell its own capability, so the run hands it the tag and
  * model record its commits carry.
  */
 export async function closeRun(
   plan: string,
-  roots: PlanRoots,
+  roots: RoundDataRoots,
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
@@ -535,7 +535,7 @@ export async function closeRun(
     releases,
     paths: {
       claim: null,
-      log: join(roots.activeRoot, `${planStem(plan)}-close.${tag}.log`),
+      log: join(roots.roundRoot, `${planStem(plan)}-close.${tag}.log`),
       markdown: null,
       reopenLog: false,
     },

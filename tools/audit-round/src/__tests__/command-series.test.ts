@@ -88,7 +88,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.match(visible, /Auditor sequence finished after 2 rounds\./)
   assert.doesNotMatch(visible, /Auditor sequence stopped/)
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
     stored.rounds.map((entry) => entry.auditor.chosenBy),
@@ -113,8 +113,8 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   const firstLog = roundFiles.find((name) => /-01-1-round\..+\.log$/.test(name))
   assert.ok(firstMarkdown)
   assert.ok(firstLog)
-  const markdown = await readFile(join(f.activeRoot, firstMarkdown), "utf8")
-  const log = await readFile(join(f.activeRoot, firstLog), "utf8")
+  const markdown = await readFile(join(f.roundRoot, firstMarkdown), "utf8")
+  const log = await readFile(join(f.roundRoot, firstLog), "utf8")
   assert.ok(markdown.includes(`## User ruling\n\n${reply}`))
   assert.ok(log.includes(reply))
   assert.match(log, /Run the fix phase .* resumed session/)
@@ -213,7 +213,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
   assert.equal(phaseCalls[0]?.openContests, "")
   assert.ok(phaseCalls[0]?.args.includes("fix-session"))
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: {
       status: string
@@ -354,7 +354,7 @@ test("a stopped panel split resumes its fix with every vet report and each vet's
   assert.equal(resumed.length, 1)
   for (const vet of vets) assert.ok(resumed[0]?.prompt.includes(vet), vet)
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: {
       status: string
@@ -445,7 +445,7 @@ for (const { auditors, seeded, edit, rounds } of [
 ]) {
   test(`the queue file seeded with ${JSON.stringify(seeded)} takes ${JSON.stringify(edit)} before the next round`, async (t) => {
     const f = await roundFixture(t, "codex", "repo-edu", true)
-    const queue = join(f.activeRoot, "example-impl-audit-01..01-queue.md")
+    const queue = join(f.roundRoot, "example-impl-audit-01..01-queue.md")
     const code = await runCommand(
       ["round", "example.md", "1", "--auditor", auditors, "--no-watch"],
       f.runtime,
@@ -480,7 +480,7 @@ for (const { auditors, seeded, edit, rounds } of [
 
 test("a malformed queue edit stops the sequence and names the entry", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
-  const queue = join(f.activeRoot, "example-impl-audit-01..01-queue.md")
+  const queue = join(f.roundRoot, "example-impl-audit-01..01-queue.md")
   const code = await runCommand(
     ["round", "example.md", "1", "--auditor", "codex,claude", "--no-watch"],
     f.runtime,
@@ -1196,7 +1196,7 @@ test("an automatic series follows the deterministic switch and stores its decisi
   )
   assert.equal(transcripts.length, 2)
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: {
       status: string
@@ -1222,7 +1222,7 @@ test("an automatic series follows the deterministic switch and stores its decisi
     { assistant: "claude", model: "opus", effort: "high" },
   ])
   await assert.rejects(
-    readFile(join(f.activeRoot, "example-impl-audit-01..01-queue.md")),
+    readFile(join(f.roundRoot, "example-impl-audit-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -1319,7 +1319,7 @@ test("a commit series keeps its label while the next auditor reads the original 
   assert.equal(secondGroup.startingHead, manual[0])
 
   const data = JSON.parse(
-    await readFile(join(f.activeRoot, `${label}-rounds.json`), "utf8"),
+    await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
   ) as {
     rounds: {
       target: string
@@ -1369,7 +1369,7 @@ test("a rerun starts with fixes retained by the same commit-series label", async
   }
 
   const data = JSON.parse(
-    await readFile(join(f.activeRoot, `${label}-rounds.json`), "utf8"),
+    await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
   ) as {
     rounds: { commits: { repository: string; sha: string }[] }[]
   }
@@ -1459,7 +1459,7 @@ test("a random default auditor opens the series on the coin before deterministic
   // The coin picks one entry of the whole list, once for the scope's series.
   assert.deepEqual(counts, [settings.implementationAudit.auditors.length])
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: { auditor: { assistant: string; chosenBy: string } }[]
   }
@@ -1498,7 +1498,7 @@ test("--first replaces the default auditor's first round before deterministic se
     ["claude", "codex"],
   )
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { auditor: { chosenBy: string } }[] }
   assert.deepEqual(
     stored.rounds.map((entry) => entry.auditor.chosenBy),
@@ -1520,7 +1520,7 @@ test("--first replaces the default auditor's first round before deterministic se
   )
   assert.ok(firstLog)
   assert.match(
-    await readFile(join(f.activeRoot, firstLog), "utf8"),
+    await readFile(join(f.roundRoot, firstLog), "utf8"),
     /audit +claude +\S+ +high +--first/,
   )
   const visible = f.visible.join("\n")
@@ -1530,7 +1530,7 @@ test("--first replaces the default auditor's first round before deterministic se
     /Implementation audit of example, step 1: automatic auditor series stopped after 2 rounds\./,
   )
   await assert.rejects(
-    readFile(join(f.activeRoot, "example-impl-audit-01..01-queue.md")),
+    readFile(join(f.roundRoot, "example-impl-audit-01..01-queue.md")),
     { code: "ENOENT" },
   )
 })
@@ -1591,7 +1591,7 @@ test("an automatic series needs a current read from each listed model of one ass
     /automatic auditor series stopped after 2 rounds\. Rule 2:/,
   )
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as { rounds: { pool?: unknown[]; judge: { answer: unknown } | null }[] }
   assert.deepEqual(stored.rounds[0].judge?.answer, {
     assistant: "claude",
@@ -1686,7 +1686,7 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-plan-rounds.json"), "utf8"),
   ) as { rounds: { status: string; judge: unknown }[] }
   assert.deepEqual(
     { status: stored.status, judge: stored.judge },
@@ -1865,7 +1865,7 @@ test("a widening series ends on its settled recommendation", async (t) => {
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-plan-rounds.json"), "utf8"),
   ) as {
     rounds: {
       phase: string
@@ -1919,7 +1919,7 @@ test("a widening keep-open recommendation stops the series without settling", as
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-plan-rounds.json"), "utf8"),
   ) as { rounds: { settling: string }[] }
   assert.equal(
     stored?.settling,
@@ -1962,7 +1962,7 @@ test("a detailing series ends ready after every represented assistant has a curr
   const {
     rounds: [stored],
   } = JSON.parse(
-    await readFile(join(f.activeRoot, "example-plan-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-plan-rounds.json"), "utf8"),
   ) as {
     rounds: {
       phase: string
@@ -2112,7 +2112,7 @@ test("a scope list runs one automatic series per scope in list order", async (t)
   )
   assert.doesNotMatch(visible, /Scope list stopped/)
   const stored = JSON.parse(
-    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
     rounds: { target: string; round: number; scope: string }[]
   }
@@ -2225,7 +2225,7 @@ test("a rerun opens on the assistant without a current read and names its claime
     "example-impl-audit-01..01-02-1-round.obh.md",
   ])
   const second = await readFile(
-    join(f.activeRoot, "example-impl-audit-01..01-02-1-round.obh.md"),
+    join(f.roundRoot, "example-impl-audit-01..01-02-1-round.obh.md"),
     "utf8",
   )
   assert.match(

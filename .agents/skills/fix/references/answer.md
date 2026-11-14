@@ -49,8 +49,8 @@ both commands fail with `EPERM` every time.
    When none waits, say so and stop.
 2. **Explain.** Read the ruling file whole. For an audit fix with findings
    that need a winner, also read the round's audit report, every vet twin and
-   the rebuttal twin. They sit beside the ruling in the plan checkout's
-   `active/` folder. Their names share the ruling's start up to the order
+   the rebuttal twin. They sit beside the ruling in the evidence
+   checkout's `plan-evidence/active/` folder. Their names share the ruling's start up to the order
    number: 2 for the report, 3 for each vet twin, named by its vet's tag, and 4
    for the rebuttal. An implementation
    worker's ruling has no finding; read the plan step it names. Then explain:

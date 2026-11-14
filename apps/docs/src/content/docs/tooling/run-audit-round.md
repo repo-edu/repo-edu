@@ -82,8 +82,9 @@ its invocation granted them in advance.
 
 ## Following a round
 
-The terminal shows the target, phase selection, elapsed time and each phase's Markdown. The plan
-checkout's `active/` folder keeps the transcript, tool log and retained round data. Use
+The terminal shows the target, phase selection, elapsed time and each phase's Markdown. The
+evidence checkout's `../plan-evidence/active/` folder keeps the transcript, tool log and retained
+round data. Use
 [Find round outputs](/repo-edu/tooling/find-round-outputs/) when you need the report, a review twin
 or the complete conversation after the terminal has scrolled.
 

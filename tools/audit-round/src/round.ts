@@ -339,8 +339,24 @@ export async function runClose(
   settings: RoundSettings,
 ): Promise<CloseResult> {
   const run = closePhase(settings)
-  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
+  const {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  } = input
+  const context = {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  }
   const close = await dependencies.runPhase.close({
     phase: "close",
     ...run,
@@ -416,8 +432,24 @@ async function runWatch(
   const target = input.watch
   if (target === null) return { grade: null }
   const phases = { watch: watchPhase(settings) }
-  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
+  const {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  } = input
+  const context = {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  }
   const stem = planStem(input.plan)
   try {
     const glance = await dependencies.glance({
@@ -494,8 +526,24 @@ async function runSeriesDecision(
     input,
     targetWorkClass(input),
   )
-  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
+  const {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  } = input
+  const context = {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  }
   try {
     const currentRound = roundDataIdentity(
       transcriptNameStart(input.transcript),
@@ -554,8 +602,24 @@ export async function runRound(
       input,
       targetWorkClass(input),
     )
-  const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
-  const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
+  const {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  } = input
+  const context = {
+    cwd,
+    repoEduRoot,
+    planRoot,
+    activeRoot,
+    evidenceRoot,
+    roundRoot,
+    roundKind,
+  }
   const deferralScope: DeferralScope | null =
     input.deferrals === undefined ? null : { deferrals: input.deferrals }
   const report = input.documents.report
@@ -1040,7 +1104,7 @@ export async function runRound(
           findings: settleRoundFindings(account.findings, landed.flat()),
         }
         await dependencies.deleteRoundReports(
-          input.activeRoot,
+          input.roundRoot,
           transcriptNameStart(input.transcript),
         )
       } catch (error) {

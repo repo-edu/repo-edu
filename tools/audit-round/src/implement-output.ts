@@ -41,7 +41,7 @@ export function implementationIdentity(
  */
 export function implementationRun(
   plan: string,
-  activeRoot: string,
+  roundRoot: string,
   step: number,
   started: number,
   releases: Record<Assistant, ModelReleases>,
@@ -53,7 +53,7 @@ export function implementationRun(
   const number = String(step).padStart(2, "0")
   return {
     ruling: join(
-      activeRoot,
+      roundRoot,
       `${stem}-impl-${number}-implement-ruling.${identity.tag}.md`,
     ),
     name: "Implementation",
@@ -64,7 +64,7 @@ export function implementationRun(
     releases,
     paths: {
       claim: null,
-      log: join(activeRoot, `${stem}-impl-${number}-implement.log`),
+      log: join(roundRoot, `${stem}-impl-${number}-implement.log`),
       markdown: null,
       reopenLog: resumedSession !== null,
     },

@@ -56,7 +56,7 @@ The command never rewrites the old report, commit or finding metadata.
 
 ## Output
 
-1. **An active plan.** The entry goes into the gitignored round-data file in `../plan/active/`, and
+1. **An active plan.** The entry goes into the round-data file in `../plan-evidence/active/`, and
    the command names the side it recorded:
 
    1. Without `--vet`, it prints `Recorded the disproved finding in <path>. Loop-close will commit

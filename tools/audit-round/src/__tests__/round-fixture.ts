@@ -160,7 +160,11 @@ Audit ranges: 1.
       )
   const planRoot = await realpath(planDirectory)
   const activeRoot = join(planRoot, "active")
-  const outputRoot = activeRoot
+  // Every round file lands in the evidence checkout's round folder.
+  await mkdir(join(f.root, "plan-evidence/active"), { recursive: true })
+  const evidenceRoot = await realpath(join(f.root, "plan-evidence"))
+  const roundRoot = join(evidenceRoot, "active")
+  const outputRoot = roundRoot
   const recordHeads = {
     "repo-edu": await commitFixture(
       repoRoot,
@@ -351,6 +355,8 @@ Audit ranges: 1.
     repoRoot,
     planRoot,
     activeRoot,
+    evidenceRoot,
+    roundRoot,
     heads,
     recordHeads,
     get report() {

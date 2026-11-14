@@ -277,7 +277,7 @@ export async function lifecycleStage(
   if (!implementationComplete(implementationProgress(logs, topic, steps)))
     return "implement"
   const { implementation = [] } = await readPlanRoundData(
-    context.activeRoot,
+    context.roundRoot,
     topic,
   )
   return fullRangeSettled(logs, topic, steps.length, implementation)

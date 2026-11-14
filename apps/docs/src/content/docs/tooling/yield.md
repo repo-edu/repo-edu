@@ -71,7 +71,7 @@ you say which cuts to apply.
 
 ## Report files
 
-All reports live in `../plan/active/`, are gitignored and are named
+All reports live in `../plan-evidence/active/` and are named
 `<stem>-yield-<order>-<style>.<tag>.md`. The order is fixed per style: `1-report`, `2-vet`,
 `3-rebut` and `4-final`, so a skipped step leaves a gap. Putting `yield` before the number keeps
 the reports together in a sorted list, apart from numbered audit rounds. The tag is the writer's

@@ -565,11 +565,18 @@ test("the command launches the assigned worker, verifies its share and writes th
     ).stdout.trimEnd(),
     "gpt-5.6-sol xhigh",
   )
+  // The step log is a round file, so it lands in the evidence round folder.
+  assert.deepEqual(
+    (await readdir(f.roundRoot)).filter((name) =>
+      name.endsWith("-implement.log"),
+    ),
+    ["example-impl-01-implement.log"],
+  )
   assert.deepEqual(
     (await readdir(f.activeRoot)).filter((name) =>
       name.endsWith("-implement.log"),
     ),
-    ["example-impl-01-implement.log"],
+    [],
   )
 })
 
@@ -633,7 +640,7 @@ test("a standalone recovery re-enters its scoped entry, appends its log after a 
     /^Resume: pnpm audit-round implement example 1 --resume 1:implementation-session$/m,
   )
   assert.doesNotMatch(printed, /codex .*resume/)
-  const log = join(f.activeRoot, "example-impl-01-implement.log")
+  const log = join(f.roundRoot, "example-impl-01-implement.log")
   const failedLog = await readFile(log, "utf8")
 
   f.phases.implement = {

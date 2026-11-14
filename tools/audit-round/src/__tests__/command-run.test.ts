@@ -370,6 +370,8 @@ test("the plan's state names the stage a run starts at", async (t) => {
     repoEduRoot: f.repoRoot,
     planRoot: f.planRoot,
     activeRoot: f.activeRoot,
+    evidenceRoot: f.evidenceRoot,
+    roundRoot: f.roundRoot,
   }
   const settled = join(f.activeRoot, "example.md")
   assert.equal(
@@ -446,7 +448,7 @@ async function implementedFixture(t: TestContext) {
   return {
     ...f,
     roundData: join(
-      f.activeRoot,
+      f.roundRoot,
       roundDataFilename("example", "implementation"),
     ),
   }
@@ -458,6 +460,8 @@ test("a full range whose newest series stopped with no later plan change starts 
     repoEduRoot: f.repoRoot,
     planRoot: f.planRoot,
     activeRoot: f.activeRoot,
+    evidenceRoot: f.evidenceRoot,
+    roundRoot: f.roundRoot,
   }
   const plan = join(f.activeRoot, "example.md")
   const minute = 60_000

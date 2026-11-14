@@ -37,7 +37,7 @@ of it.
 | Ready | The runner records the assigned coder without starting implementation | The ready marker lands |
 | Implement | [One fresh worker](/repo-edu/tooling/implement/) implements and commits each remaining step share in order | Every hosting repository has every step share and a current `implemented` marker |
 | Audit implementation | [Series](/repo-edu/tooling/runner-round/) inspect the plan's listed audit ranges, then the full step range | The fixed series rules stop after every available assistant has a current read and the user accepts that state |
-| Close | [Loop-close](/repo-edu/tooling/runner-close/) moves the plan and retained round data from `active/` into an archive folder | Each hosting repository and the plan repository carry their closing record |
+| Close | [Loop-close](/repo-edu/tooling/runner-close/) moves the plan from `active/` and its retained round data from `../plan-evidence/active/` into an archive folder | Each hosting repository and the plan repository carry their closing record |
 
 A detailing finding that undermines a settled decision may reopen the shape when you agree. The fix
 that applies it renames the file back onto `<stem>-widen.md` and writes a reopen marker; a later

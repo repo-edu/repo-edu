@@ -7,7 +7,7 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "../command.js"
 import { roundRun } from "./configured-runner.js"
@@ -31,11 +31,11 @@ for (const working of ["repo-edu", "plan"] as const) {
     ]) {
       const report = `${name}-01-2-audit.obh.md`
       await writeFile(
-        join(f.activeRoot, report),
+        join(f.roundRoot, report),
         `# ${opening}\n\nJudged repos: plan@abc123\n`,
       )
       for (const phase of ["vet", "rebut", "fix"]) {
-        await writeFile(join(f.activeRoot, `${name}-01-3-vet.ath.md`), "Vet")
+        await writeFile(join(f.roundRoot, `${name}-01-3-vet.ath.md`), "Vet")
         f.visible.length = 0
         assert.equal(
           await runCommand(
@@ -58,12 +58,12 @@ for (const working of ["repo-edu", "plan"] as const) {
           route.workflow,
           join(cwd, `.agents/skills/${phase}/references/workflow.md`),
         )
-        assert.equal(route.arguments[0], join(f.activeRoot, report))
+        assert.equal(route.arguments[0], join(f.roundRoot, report))
       }
     }
     const report = "unknown-01-2-audit.obh.md"
     await writeFile(
-      join(f.activeRoot, report),
+      join(f.roundRoot, report),
       "Judged repos: plan@abc123\n\n## Findings\n\nNo findings.",
     )
     assert.equal(
@@ -89,7 +89,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       false,
     )
-    const root = f.activeRoot
+    const root = f.roundRoot
     const invoke = async (args: string[]) => {
       f.visible.length = 0
       assert.equal(
@@ -158,7 +158,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       working,
     )
-    const root = f.activeRoot
+    const root = f.roundRoot
     const peer = f.repoRoot
     const report = join(root, "task-modifier-05-2-audit.ath.md")
     const ownReport = join(root, "other-06-2-audit.oux.md")
@@ -228,7 +228,7 @@ for (const phase of ["vet", "rebut", "fix"] as const) {
     const f = await roundFixture(t)
     const tag = phase === "vet" ? "ath" : "otm"
     const files = ["first-01", "second-02"].map((start) =>
-      join(f.activeRoot, `${start}-2-audit.${tag}.md`),
+      join(f.roundRoot, `${start}-2-audit.${tag}.md`),
     )
     const invoke = async (input?: string) => {
       f.visible.length = 0
@@ -279,6 +279,8 @@ test("manual resolution reuses runner filenames without writes or assistant disc
     0,
     releases,
   )
+  // Round files live in the evidence round folder, apart from the plans.
+  assert.equal(dirname(run.documents.report), f.roundRoot)
   await writeFile(run.documents.report, "# Implementation audit workflow")
   const [vet] = run.documents.vets
   await writeFile(vet, "Vet")
@@ -314,7 +316,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
 test("every vet of the round reaches the rebuttal and the fix, beside the newest rebuttal unless one is selected", async (t) => {
   const f = await roundFixture(t)
   const report = join(
-    f.activeRoot,
+    f.roundRoot,
     "example-impl-audit-01..01-01-2-audit.obh.md",
   )
   await writeFile(report, "# Implementation audit workflow")
@@ -328,21 +330,21 @@ test("every vet of the round reaches the rebuttal and the fix, beside the newest
   assert.equal(await invoke(["rebut", basename(report), "--writer", "obh"]), 1)
   assert.match(f.errors[0], /No vet file/)
   const vets = ["abl", "ath"].map((tag) =>
-    join(f.activeRoot, `example-impl-audit-01..01-01-3-vet.${tag}.md`),
+    join(f.roundRoot, `example-impl-audit-01..01-01-3-vet.${tag}.md`),
   )
   const rebuts = ["otm", "oux"].map((tag) =>
-    join(f.activeRoot, `example-impl-audit-01..01-01-4-rebut.${tag}.md`),
+    join(f.roundRoot, `example-impl-audit-01..01-01-4-rebut.${tag}.md`),
   )
   for (const file of [...vets, ...rebuts]) await writeFile(file, "Review")
   // The later names carry the earlier dates, so the date decides rather than the name.
   for (const file of [vets[1], rebuts[1]]) await utimes(file, 1_000, 1_000)
   // Another round's reviews never join this one.
   const otherVet = join(
-    f.activeRoot,
+    f.roundRoot,
     "example-impl-audit-01..01-02-3-vet.ath.md",
   )
   const otherRebut = join(
-    f.activeRoot,
+    f.roundRoot,
     "example-impl-audit-01..01-02-4-rebut.oux.md",
   )
   for (const file of [otherVet, otherRebut])
@@ -355,7 +357,7 @@ test("every vet of the round reaches the rebuttal and the fix, beside the newest
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
     report,
     ...vets,
-    join(f.activeRoot, "example-impl-audit-01..01-01-4-rebut.obh.md"),
+    join(f.roundRoot, "example-impl-audit-01..01-01-4-rebut.obh.md"),
   ])
   assert.equal(await invoke(["fix", basename(report)]), 0)
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [

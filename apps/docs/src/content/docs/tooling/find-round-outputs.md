@@ -3,8 +3,10 @@ title: Find round outputs
 description: Locate reports, reviews, transcripts, rulings, logs and retained round data
 ---
 
-Every planning and implementation round writes its files beside the active plans in the plan
-checkout's `active/` folder, named so a sorted file list shows each plan's rounds in order.
+Every planning and implementation round writes its files in `../plan-evidence/active/`, the
+`active/` folder of the private evidence checkout beside the plan and Repo Edu checkouts. The plans
+themselves stay in the plan checkout's `active/` folder. The files are named so a sorted file list
+shows each plan's rounds in order.
 
 | Fact | Detail |
 | --- | --- |
@@ -76,8 +78,8 @@ no fix phase consumes it. The sequence queue disappears when the sequence ends.
 At loop-close, the plan and its plan-scoped round data move into the plan's archive folder. Close
 deletes the plan's handoffs, claims, audit reports, vet and rebuttal twins, phase-change markers and
 yield reports. Round transcripts and logs, implementation logs, briefs, rulings, watches and the
-close log stay in `active/`. Commit series data stays there beside its round files until those files
-are removed by hand.
+close log stay in `../plan-evidence/active/`. Commit series data stays there beside its round files
+until those files are removed by hand.
 
 ## Handoffs
 

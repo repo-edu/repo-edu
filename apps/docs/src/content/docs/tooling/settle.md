@@ -36,8 +36,8 @@ starts no assistant.
 
 1. **The commit** `<stem>/settle: settle the plan's shape` in the plan repo, which carries no
    capability tag or model record because no assistant ran.
-2. **The marker** `../plan/active/<stem>-plan-audit-<round>-0-settle.md`, empty, numbered so a file
-   list shows where the settle fell among the rounds.
+2. **The marker** `../plan-evidence/active/<stem>-plan-audit-<round>-0-settle.md`, empty, numbered
+   so a file list shows where the settle fell among the rounds.
 
 It prints `Committed <sha>: <subject>` and `Marker: <path>`.
 

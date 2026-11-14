@@ -108,10 +108,10 @@ directly; a commit target lands nothing. An automatic series still applies its d
 2. **Scope list.** Each scope runs its own automatic series in list order, and `--first` opens every
    scope. A runner stop or the maximum ends only that scope.
 3. **Manual series**, with `--auditor`. The entries run left to right on the same target. The ones
-   after the current round wait in `../plan/active/<target>-queue.md`, which each round prints. Edit
-   it at any time to add, remove or reorder entries; the runner reads it between rounds, and an
-   empty or deleted file ends the series after the current round. A clean audit removes queued
-   entries that resolve to the same assistant, model and effort.
+   after the current round wait in `../plan-evidence/active/<target>-queue.md`, which each round
+   prints. Edit it at any time to add, remove or reorder entries; the runner reads it between
+   rounds, and an empty or deleted file ends the series after the current round. A clean audit
+   removes queued entries that resolve to the same assistant, model and effort.
 
 A settle or ready answer ends the series and prints the `settle` or `ready` command to run; the
 plan itself is left unchanged for your call. A commit series' later rounds read the original commits
@@ -136,7 +136,7 @@ considering a change to the rules in `../plan/STOP-CONDITIONS.md`.
 
 ## Output
 
-All files live in `../plan/active/`:
+All files live in `../plan-evidence/active/`:
 
 1. **Every round** claims `<target>-<round>-0-claim.md` and writes its transcript
    `<target>-<round>-1-round.<tag>.md` with a log beside it.

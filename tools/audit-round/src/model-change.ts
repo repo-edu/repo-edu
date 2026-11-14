@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { relative } from "node:path"
-import type { PlanRoots } from "./context.js"
+import type { RoundDataRoots } from "./context.js"
 import type { ModelSelection } from "./feedback.js"
 import type { Assistant, Phase } from "./phase.js"
 import {
@@ -60,7 +60,7 @@ export function previousRoundModels(
 
 /** Read active and archived plans' checked round data as one model history. */
 export async function readPreviousRoundModels(
-  roots: PlanRoots,
+  roots: RoundDataRoots,
 ): Promise<readonly ModelReference[]> {
   const files = await roundDataFiles(roots)
   const rounds = (

@@ -167,8 +167,8 @@ test("replay uses the fixed legacy pool and reports the next round's findings", 
     answer: "ready",
     reason: "Stored ending",
   })
-  writeRoundData(join(f.runtime.activeRoot, "example-plan-rounds.json"), first)
-  writeRoundData(join(f.runtime.activeRoot, "example-plan-rounds.json"), second)
+  writeRoundData(join(f.runtime.roundRoot, "example-plan-rounds.json"), first)
+  writeRoundData(join(f.runtime.roundRoot, "example-plan-rounds.json"), second)
 
   const rows = await replayRows(f.runtime)
   assert.deepEqual(
@@ -218,7 +218,7 @@ test("replay keeps reused stems in separate episode folders", async (t) => {
   const archive = join(f.runtime.planRoot, "archive", "example")
   await mkdir(archive, { recursive: true })
   writeRoundData(
-    join(f.runtime.activeRoot, "example-plan-rounds.json"),
+    join(f.runtime.roundRoot, "example-plan-rounds.json"),
     round(claude, 1, "2026-11-08T10:00:00Z", sha, {
       answer: codex,
       reason: "Stored continuation",
@@ -258,7 +258,7 @@ test("replay includes active commit-series answers outside the fixed corpus", as
     answer: "stop",
     reason: "Stored ending",
   })
-  const file = join(f.runtime.activeRoot, "commit-abcdef-rounds.json")
+  const file = join(f.runtime.roundRoot, "commit-abcdef-rounds.json")
   writeRoundData(file, first)
   writeRoundData(file, second)
 
@@ -304,7 +304,7 @@ test("commit-series replay dates a real bug from its landed record", async (t) =
   const recordSha = (
     await execa("git", ["rev-parse", record], { cwd: f.runtime.repoEduRoot })
   ).stdout
-  const file = join(f.runtime.activeRoot, "commit-abcdef-rounds.json")
+  const file = join(f.runtime.roundRoot, "commit-abcdef-rounds.json")
   writeRoundData(
     file,
     commitRound(
@@ -372,11 +372,11 @@ test("replay keeps real-bug events from other round kinds", async (t) => {
     reason: "Stored continuation",
   })
   writeRoundData(
-    join(f.runtime.activeRoot, "example-plan-rounds.json"),
+    join(f.runtime.roundRoot, "example-plan-rounds.json"),
     planningBug,
   )
-  writeRoundData(join(f.runtime.activeRoot, "example-impl-rounds.json"), first)
-  writeRoundData(join(f.runtime.activeRoot, "example-impl-rounds.json"), second)
+  writeRoundData(join(f.runtime.roundRoot, "example-impl-rounds.json"), first)
+  writeRoundData(join(f.runtime.roundRoot, "example-impl-rounds.json"), second)
 
   const rows = await replayRows(f.runtime)
   assert.deepEqual(

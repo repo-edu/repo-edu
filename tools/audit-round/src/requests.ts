@@ -4,7 +4,7 @@ import { join as shellJoin } from "shellwords"
 import { VFile } from "vfile"
 import { matter } from "vfile-matter"
 import { z } from "zod"
-import { peerRoot } from "./context.js"
+import { additionalDirectories } from "./context.js"
 import type {
   AssistantTurnInput,
   InteractiveSession,
@@ -52,7 +52,7 @@ function codexPin(model: ModelRequest): string[] {
 }
 
 export function claudeArguments(
-  additionalDirectory: string | null,
+  directories: readonly string[],
   sessionId: string | null,
   model: ModelRequest,
 ): string[] {
@@ -67,7 +67,7 @@ export function claudeArguments(
     "--verbose",
     "--permission-mode",
     "auto",
-    ...(additionalDirectory === null ? [] : ["--add-dir", additionalDirectory]),
+    ...(directories.length === 0 ? [] : ["--add-dir", ...directories]),
   ]
 }
 
@@ -92,7 +92,7 @@ export function interactiveArguments(session: InteractiveSession): string[] {
         "--permission-mode",
         "auto",
         "--add-dir",
-        peerRoot(session),
+        ...additionalDirectories(session),
       ]
 }
 
@@ -239,7 +239,7 @@ export function phaseRequest(
         input: prompt,
       }
     : {
-        args: claudeArguments(peerRoot(input), sessionId, model),
+        args: claudeArguments(additionalDirectories(input), sessionId, model),
         input: `${JSON.stringify(claudeSettingsRequest)}\n${JSON.stringify({ type: "user", message: { role: "user", content: prompt } })}\n`,
       }
 }

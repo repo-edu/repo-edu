@@ -57,10 +57,9 @@ moves the plan, rewrites links to it, writes each repo's `<stem>/closed` commit 
 plan's sidecars. An aborted plan skips the audit checks and keeps its backlog rows.
 
 The round-data files are the one part the runner does itself. Once the session has moved the plan,
-the runner moves `<stem>-plan-rounds.json` and `<stem>-impl-rounds.json` from `../plan/active/` into
-the plan's archive folder and commits them as a second `<stem>/closed` record. While they sit in
-`active/` Git ignores them, so a session that forgot the move would lose the plan's whole round
-account to the next hand clean-up.
+the runner moves `<stem>-plan-rounds.json` and `<stem>-impl-rounds.json` from
+`../plan-evidence/active/` into the plan's archive folder and commits them as a second
+`<stem>/closed` record, because it cannot see whether a session remembered them.
 
 ## Output
 
@@ -71,7 +70,8 @@ account to the next hand clean-up.
    `<stem>/closed` commit when Repo Edu hosted a landed step and, before it, a `chore(sweep)` commit
    when a committed backlog row named the plan. The runner prints `Committed <sha>: <subject>` for
    its own commit.
-3. **The close log** at `../plan/active/<stem>-close.<tag>.log`, which stays after the close.
+3. **The close log** at `../plan-evidence/active/<stem>-close.<tag>.log`, which stays after the
+   close.
 
 A close session that finishes with the plan still in `../plan/active/` fails, because the move is
 the close. A finished session whose plan the runner cannot find once under `../plan/archive/` fails
@@ -85,10 +85,10 @@ argument refusal exits with status 2 and any other with status 1.
 
 1. **The plan has no ready marker and no `--aborted` was given.** `<stem>.md has no ready marker.
    Run pnpm audit-round ready first, or close it with --aborted <reason>.`
-2. **The plan is archived and no round data of it is left in `../plan/active/`.** `No active plan
-   named <stem> at <active folder>. An archived plan is already closed.` When round data is left,
-   the command instead moves and commits it without starting a session, which is how a close
-   finishes after you answered in a resumed session.
+2. **The plan is archived and no round data of it is left in `../plan-evidence/active/`.**
+   `No active plan named <stem> at <active folder>. An archived plan is already closed.` When round
+   data is left, the command instead moves and commits it without starting a session, which is how a
+   close finishes after you answered in a resumed session.
 3. **The abort reason is empty**, or the stem is a path.
 
 ## Stop and recovery

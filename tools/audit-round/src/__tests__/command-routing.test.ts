@@ -392,7 +392,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         false,
         working,
       )
-      const root = f.activeRoot
+      const root = f.roundRoot
       const target =
         working === "plan" ? "example-plan-audit" : "example-impl-audit-02..02"
       await writeFile(join(root, `${target}-09-2-audit.oth.md`), "Peer report")
@@ -485,7 +485,7 @@ test("name shares commit range and list targets with the runner", async (t) => {
     assert.equal(
       JSON.parse(f.visible[0]).arguments[0],
       join(
-        f.activeRoot,
+        f.roundRoot,
         `${target}-${String(index + 1).padStart(2, "0")}-2-audit.oux.md`,
       ),
     )
@@ -586,7 +586,7 @@ test("name passes two parsed commit groups to a hand-run audit", async (t) => {
   assert.equal(
     named.claim,
     join(
-      f.activeRoot,
+      f.roundRoot,
       `commit-${f.heads["repo-edu"].slice(0, 6)}+${f.heads.plan.slice(0, 6)}-01-0-claim.md`,
     ),
   )
@@ -699,7 +699,7 @@ test("name preserves the hand-run implementation-step route from the plan checko
   )
   assert.equal(
     JSON.parse(f.visible[0]).arguments[0],
-    join(f.activeRoot, "example-impl-audit-02..03-01-2-audit.oux.md"),
+    join(f.roundRoot, "example-impl-audit-02..03-01-2-audit.oux.md"),
   )
   assert.equal(
     await runCommand(
@@ -716,7 +716,7 @@ test("settle commits only the widening rename through hooks and then leaves its 
   const plan = await lifecyclePlan(f, "widening")
   const hook = await enableLifecycleHook(f)
   await writeFile(
-    join(f.activeRoot, "example-plan-audit-03-2-audit.oth.md"),
+    join(f.roundRoot, "example-plan-audit-03-2-audit.oth.md"),
     "Peer report",
   )
   await writeFile(join(f.planRoot, "staged.txt"), "Staged work\n")
@@ -730,7 +730,7 @@ test("settle commits only the widening rename through hooks and then leaves its 
   )
 
   const settled = join(f.activeRoot, "example.md")
-  const marker = join(f.activeRoot, "example-plan-audit-04-0-settle.md")
+  const marker = join(f.roundRoot, "example-plan-audit-04-0-settle.md")
   await assert.rejects(readFile(plan), { code: "ENOENT" })
   assert.equal(await readFile(settled, "utf8"), "# Example plan\n")
   assert.equal(await readFile(marker, "utf8"), "")
@@ -929,7 +929,7 @@ Audit ranges: 2.
 test("disprove appends an attached ruling to active data without committing", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   await lifecyclePlan(f, "settled")
-  const path = join(f.activeRoot, "example-impl-rounds.json")
+  const path = join(f.roundRoot, "example-impl-rounds.json")
   writeRoundData(path, disproveRound())
   const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
     .stdout
@@ -1034,7 +1034,7 @@ test("disprove --vet commits only an archived attached ruling and names its side
 test("disprove --vet accepts any non-Accept verdict of the panel and refuses a panel that accepted", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   await lifecyclePlan(f, "settled")
-  const path = join(f.activeRoot, "example-impl-rounds.json")
+  const path = join(f.roundRoot, "example-impl-rounds.json")
   const target = "example-impl-audit-01..01"
   for (const [roundNumber, verdicts] of [
     [1, ["accept"]],
@@ -1290,7 +1290,7 @@ for (const command of ["settle", "ready"] as const) {
 
 test("mark claims the plan's next number only for an empty reopen marker that later rounds skip", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
-  const root = f.activeRoot
+  const root = f.roundRoot
   await writeFile(
     join(root, "example-plan-audit-03-2-audit.oth.md"),
     "Peer report",
@@ -1342,7 +1342,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       working,
     )
-    const root = f.activeRoot
+    const root = f.roundRoot
     const target = "abcd-2..ef01-01"
     const removed = [
       "2-audit.oux.md",

@@ -137,23 +137,18 @@ async function modelFixture(t: TestContext) {
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root)
   const planRoot = join(f.root, "../plan")
-  const activeRoot = join(planRoot, "active")
   await commitFixture(planRoot)
-  return { ...f, planRoot, activeRoot }
+  return { ...f, planRoot, roundRoot: f.runtime.roundRoot }
 }
 
 test("the model read-out ignores commit round data", async (t) => {
   const f = await modelFixture(t)
   await writeFile(
-    join(f.activeRoot, "commit-abc123-rounds.json"),
+    join(f.roundRoot, "commit-abc123-rounds.json"),
     "not plan round data\n",
   )
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   assert.equal(evidence.auditors.size, 0)
   assert.deepEqual(evidence.disproved, [])
 })
@@ -248,7 +243,7 @@ test("auditor tables compare the same plans and sort by the per-round gap", asyn
     "coder-alpha low",
   )
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
-  const path = join(f.activeRoot, "ranking-plan-rounds.json")
+  const path = join(f.roundRoot, "ranking-plan-rounds.json")
   const auditors = [
     ["claude", "audit-strong", 2, 120_000, "10"],
     ["codex", "audit-middle", 1, 60_000, "11"],
@@ -271,10 +266,7 @@ test("auditor tables compare the same plans and sort by the per-round gap", asyn
         settling: "",
       })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   const planning = report
     .split("## Planning auditors\n\n")[1]
     .split("\n\n## Implementation auditors")[0]
@@ -311,7 +303,7 @@ test("same-plan gap sorting does not reward a model for auditing harder plans", 
   )
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
   for (let plan = 1; plan <= 5; plan += 1) {
-    const hardPath = join(f.activeRoot, `hard-${plan}-plan-rounds.json`)
+    const hardPath = join(f.roundRoot, `hard-${plan}-plan-rounds.json`)
     for (const [model, kept, hour] of [
       ["hard-model", 2, "10"],
       ["hard-peer", 3, "11"],
@@ -342,7 +334,7 @@ test("same-plan gap sorting does not reward a model for auditing harder plans", 
         settling: "",
       })
 
-    const easyPath = join(f.activeRoot, `easy-${plan}-plan-rounds.json`)
+    const easyPath = join(f.roundRoot, `easy-${plan}-plan-rounds.json`)
     for (let roundNumber = 1; roundNumber <= 5; roundNumber += 1)
       writeRoundData(easyPath, {
         ...round(
@@ -382,10 +374,7 @@ test("same-plan gap sorting does not reward a model for auditing harder plans", 
     })
   }
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   const planning = report
     .split("## Planning auditors\n\n")[1]
     .split("\n\n## Implementation auditors")[0]
@@ -418,7 +407,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
     ["claude", "thin-top", 9, "12", 4],
   ] as const)
     for (let plan = 1; plan <= plans; plan += 1)
-      writeRoundData(join(f.activeRoot, `split-${plan}-plan-rounds.json`), {
+      writeRoundData(join(f.roundRoot, `split-${plan}-plan-rounds.json`), {
         ...round(
           `${model}-planning`,
           1,
@@ -432,7 +421,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
         phase: "detailing",
         settling: "",
       })
-  writeRoundData(join(f.activeRoot, "split-solo-plan-rounds.json"), {
+  writeRoundData(join(f.roundRoot, "split-solo-plan-rounds.json"), {
     ...round(
       "solo-planning",
       1,
@@ -451,7 +440,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
     ["codex", "impl-weak", 0, "14"],
   ] as const)
     for (let plan = 1; plan <= 5; plan += 1)
-      writeRoundData(join(f.activeRoot, `split-${plan}-impl-rounds.json`), {
+      writeRoundData(join(f.roundRoot, `split-${plan}-impl-rounds.json`), {
         ...round(
           `${model}-implementation`,
           1,
@@ -466,10 +455,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
         judgedRepos: ["repo-edu"],
       })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   const header = [
     "| Model | Plans | Own findings in rounds | Own per round | Others on same plans | Others per round | Minutes per round | Wrong claims |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -571,7 +557,7 @@ test("planning opener notes frame both tables, separate current and unlisted aud
       for (const [assistant, model, kept, hour] of auditors)
         writeRoundData(
           join(
-            f.activeRoot,
+            f.roundRoot,
             `opener-${plan}-${workClass === "planning" ? "plan" : "impl"}-rounds.json`,
           ),
           {
@@ -595,7 +581,7 @@ test("planning opener notes frame both tables, separate current and unlisted aud
     ["claude", "thin-one", "10"],
     ["codex", "thin-two", "11"],
   ] as const)
-    writeRoundData(join(f.activeRoot, "opener-thin-plan-rounds.json"), {
+    writeRoundData(join(f.roundRoot, "opener-thin-plan-rounds.json"), {
       ...round(
         `${model}-planning`,
         1,
@@ -610,16 +596,13 @@ test("planning opener notes frame both tables, separate current and unlisted aud
       settling: "",
     })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    {
-      ...testSettings,
-      planningAudit: {
-        ...testSettings.planningAudit,
-        auditors: [{ assistant: "claude", model: "listed", effort: "low" }],
-      },
+  const report = await modelsReport(f.runtime, {
+    ...testSettings,
+    planningAudit: {
+      ...testSettings.planningAudit,
+      auditors: [{ assistant: "claude", model: "listed", effort: "low" }],
     },
-  )
+  })
   const planning = report
     .split("## Planning auditors\n\n")[1]
     .split("\n\n## Implementation auditors")[0]
@@ -648,7 +631,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
     "evidence/impl-audit-1 obl clean: fixture audit",
     "coder-alpha low",
   )
-  const path = join(f.activeRoot, "evidence-1-plan-rounds.json")
+  const path = join(f.roundRoot, "evidence-1-plan-rounds.json")
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
   const special = [
     { ...finding("kept claim"), number: 1 },
@@ -666,7 +649,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
     ["codex", "audit-weak"],
   ] as const)
     for (let index = 1; index <= 5; index += 1)
-      writeRoundData(join(f.activeRoot, `evidence-${index}-plan-rounds.json`), {
+      writeRoundData(join(f.roundRoot, `evidence-${index}-plan-rounds.json`), {
         ...round(
           `${model}-plan-audit`,
           index,
@@ -692,7 +675,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
         phase: "detailing",
         settling: "",
       })
-  const implementationPath = join(f.activeRoot, "evidence-impl-rounds.json")
+  const implementationPath = join(f.roundRoot, "evidence-impl-rounds.json")
   for (const [assistant, model] of [
     ["claude", "audit-strong"],
     ["codex", "audit-weak"],
@@ -714,7 +697,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
         scope: "1",
         judgedRepos: ["repo-edu"],
       })
-  writeRoundData(join(f.activeRoot, "audit-thin-plan-rounds.json"), {
+  writeRoundData(join(f.roundRoot, "audit-thin-plan-rounds.json"), {
     ...round(
       "audit-thin-plan",
       1,
@@ -745,10 +728,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
     auditor: { model: "audit-strong", effort: "low" },
   })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   assert.match(
     report,
     /\| audit-strong low \| 5 \| 5 in 5 \| 1\.00 \| 0 in 5 \| 0\.00 \| 1\.0 \| 44% \|/,
@@ -774,7 +754,7 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
     "coder-alpha low",
   )
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
-  const alphaPath = join(f.activeRoot, "alpha-plan-rounds.json")
+  const alphaPath = join(f.roundRoot, "alpha-plan-rounds.json")
   const alphaFindings = [
     { ...finding("kept claim"), number: 1 },
     {
@@ -842,7 +822,7 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
     [],
   )
 
-  const betaPath = join(f.activeRoot, "beta-plan-rounds.json")
+  const betaPath = join(f.roundRoot, "beta-plan-rounds.json")
   addPlanningRound(
     betaPath,
     "model-a-beta",
@@ -875,17 +855,13 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
     round: 1,
     finding: 4,
   })
-  writeDisprovedFinding(join(f.activeRoot, "gamma-plan-rounds.json"), {
+  writeDisprovedFinding(join(f.roundRoot, "gamma-plan-rounds.json"), {
     date: "2026-11-02",
     reason: "The detached claim did not hold.",
     auditor: { model: "model-a", effort: "low" },
   })
 
-  const context = {
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  }
+  const context = f.runtime
   const report = await modelsReport(context, testSettings, { all: true })
   assert.match(
     report,
@@ -933,7 +909,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
     "evidence/impl-audit-1 obl clean: fixture audit",
     "coder-alpha low",
   )
-  const path = join(f.activeRoot, "evidence-plan-rounds.json")
+  const path = join(f.roundRoot, "evidence-plan-rounds.json")
   const commits = [{ repository: "repo-edu" as const, sha: audit }]
   for (const [assistant, model] of [
     ["claude", "audit-alpha"],
@@ -1015,10 +991,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
     side: "vet",
   })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
     report.split("## Disproved after the round\n\n")[1],
     [
@@ -1063,7 +1036,7 @@ test("a read-out with only vet rulings prints only the combined vet table", asyn
     "evidence/impl-audit-1 obl clean: fixture audit",
     "coder-alpha low",
   )
-  const path = join(f.activeRoot, "evidence-plan-rounds.json")
+  const path = join(f.roundRoot, "evidence-plan-rounds.json")
   writeRoundData(path, {
     ...round(
       "audit-alpha-plan-audit",
@@ -1100,10 +1073,7 @@ test("a read-out with only vet rulings prints only the combined vet table", asyn
     side: "vet",
   })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
     report.split("## Disproved after the round\n\n")[1],
     [
@@ -1126,7 +1096,7 @@ test("a disproved row names every vet of the round with its verdict", async (t) 
     "evidence/impl-audit-1 obl clean: fixture audit",
     "coder-alpha low",
   )
-  const path = join(f.activeRoot, "evidence-plan-rounds.json")
+  const path = join(f.roundRoot, "evidence-plan-rounds.json")
   writeRoundData(path, {
     ...round(
       "audit-alpha-plan-audit",
@@ -1167,10 +1137,7 @@ test("a disproved row names every vet of the round with its verdict", async (t) 
     side: "vet",
   })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   assert.match(
     report,
     /\| #1 dropped claim \| B \| vet-alpha low: drop; vet-model low: accept \| The dropped finding was right\. \|/,
@@ -1257,7 +1224,7 @@ test("vet-pair tables count each class's shared findings per tier range, ruled s
       ],
       winner === undefined ? undefined : { winner, reason },
     )
-  const planPath = join(f.activeRoot, "panel-plan-rounds.json")
+  const planPath = join(f.roundRoot, "panel-plan-rounds.json")
   writeRoundData(planPath, {
     ...round(
       "panel-plan-audit",
@@ -1302,7 +1269,7 @@ test("vet-pair tables count each class's shared findings per tier range, ruled s
     finding: 10,
     side: "vet",
   })
-  const implementationPath = join(f.activeRoot, "panel-impl-rounds.json")
+  const implementationPath = join(f.roundRoot, "panel-impl-rounds.json")
   writeRoundData(implementationPath, {
     ...round(
       "panel-impl-audit-01..01",
@@ -1362,10 +1329,7 @@ test("vet-pair tables count each class's shared findings per tier range, ruled s
     judgedRepos: ["repo-edu"],
   })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
     report.split("## Planning vet pairs\n\n")[1].split("\n\nA vet is")[0],
     [
@@ -1392,7 +1356,7 @@ test("vet-pair tables count each class's shared findings per tier range, ruled s
 
 test("a read-out without a panel of two vets prints no vet pairs", async (t) => {
   const f = await modelFixture(t)
-  writeRoundData(join(f.activeRoot, "lone-plan-rounds.json"), {
+  writeRoundData(join(f.roundRoot, "lone-plan-rounds.json"), {
     ...round(
       "lone-plan-audit",
       1,
@@ -1411,10 +1375,7 @@ test("a read-out without a panel of two vets prints no vet pairs", async (t) => 
     settling: "",
   })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   assert.match(
     report,
     /## Planning vet pairs\n\nNo two planning vets have judged the same A or B finding\.\n\n## Implementation vet pairs, A\/B findings\n\nNo two implementation vets have judged the same A or B finding\.\n\n## Implementation vet pairs, A\/B\/C findings\n\nNo two implementation vets have judged the same A, B or C finding\.\n/,
@@ -1424,7 +1385,7 @@ test("a read-out without a panel of two vets prints no vet pairs", async (t) => 
 test("ruled findings list a ruled split, a ruled contest and a rewritten single-vet ruling, newest first", async (t) => {
   const f = await modelFixture(t)
   const { alpha, beta } = panelVets
-  const planPath = join(f.activeRoot, "ruled-plan-rounds.json")
+  const planPath = join(f.roundRoot, "ruled-plan-rounds.json")
   writeRoundData(planPath, {
     ...round(
       "ruled-plan-audit",
@@ -1491,7 +1452,7 @@ test("ruled findings list a ruled split, a ruled contest and a rewritten single-
     phase: "detailing",
     settling: "",
   })
-  writeRoundData(join(f.activeRoot, "ruled-impl-rounds.json"), {
+  writeRoundData(join(f.roundRoot, "ruled-impl-rounds.json"), {
     ...round(
       "ruled-impl-audit-01..01",
       1,
@@ -1521,10 +1482,7 @@ test("ruled findings list a ruled split, a ruled contest and a rewritten single-
     judgedRepos: ["repo-edu"],
   })
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-  )
+  const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
     report
       .split("## Ruled findings\n\n")[1]
@@ -1578,11 +1536,7 @@ test("a closed plan whose archive holds no plan file names the missing plan", as
     judgedRepos: ["repo-edu"],
   })
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
@@ -1627,11 +1581,7 @@ test("an archived plan written before the step grammar is unreadable, not missin
     judgedRepos: ["repo-edu"],
   })
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
@@ -1654,11 +1604,7 @@ test("a closed plan without implementation round data names the missing evidence
   )
   await archivePlan(f.planRoot, stem, ["repo-edu"])
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
@@ -1703,11 +1649,7 @@ test("a plan whose step time cannot be read is excluded from coder evidence", as
     judgedRepos: ["repo-edu"],
   })
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
@@ -1783,11 +1725,7 @@ test("coder admission matches the ready assignment on assistant and effort, not 
     "2026-10-02",
   )
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const alias = evidence.coders.get(
     modelKey({
       assistant: "claude",
@@ -1938,11 +1876,7 @@ test("vet rulings restore dropped and downgraded findings for auditor and coder 
     side: "vet",
   })
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
@@ -1969,11 +1903,7 @@ test("vet rulings restore dropped and downgraded findings for auditor and coder 
     ],
   )
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    testSettings,
-    { all: true },
-  )
+  const report = await modelsReport(f.runtime, testSettings, { all: true })
   assert.match(
     coderSection(report, "A/B"),
     /\| coder-alpha low \| 1 \| 2 \| 2 \| 1\.00 \| 30\.0 \|/,
@@ -2008,7 +1938,7 @@ test("an active plan remains excluded without a step count", async (t) => {
     "active/impl-audit-1 obl clean: record the current audit",
     "coder-alpha low",
   )
-  writeRoundData(join(f.activeRoot, "active-impl-rounds.json"), {
+  writeRoundData(join(f.roundRoot, "active-impl-rounds.json"), {
     ...round(
       "active-impl-audit-01..01",
       1,
@@ -2026,11 +1956,7 @@ test("an active plan remains excluded without a step count", async (t) => {
     judgedRepos: ["repo-edu"],
   })
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot: f.planRoot,
-    activeRoot: f.activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const row = evidence.coders.get(
     modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
   )
@@ -2043,7 +1969,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root)
   const planRoot = join(f.root, "../plan")
-  const activeRoot = join(planRoot, "active")
+  const roundRoot = f.runtime.roundRoot
   await commitFixture(planRoot)
 
   await commit(
@@ -2095,7 +2021,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     scope: "1",
     judgedRepos: ["repo-edu"],
   })
-  writeRoundData(join(activeRoot, "mixed-plan-rounds.json"), {
+  writeRoundData(join(roundRoot, "mixed-plan-rounds.json"), {
     ...round(
       "mixed-plan-audit",
       1,
@@ -2208,7 +2134,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
     scope: "1",
     judgedRepos: ["repo-edu"],
   })
-  writeRoundData(join(activeRoot, "mixed-plan-rounds.json"), {
+  writeRoundData(join(roundRoot, "mixed-plan-rounds.json"), {
     ...round(
       "mixed-plan-audit",
       2,
@@ -2388,16 +2314,13 @@ test("coder spread and worst plan do not block an otherwise clear lead, and each
   await addPlan("beta-steady-2", "coder-beta", 6, 1, 10)
   await addPlan("beta-steady-3", "coder-beta", 6, 1, 10)
 
-  const report = await modelsReport(
-    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
-    {
-      ...testSettings,
-      coders: [
-        { assistant: "codex", model: "coder-alpha", effort: "low" },
-        { assistant: "codex", model: "coder-beta", effort: "low" },
-      ],
-    },
-  )
+  const report = await modelsReport(f.runtime, {
+    ...testSettings,
+    coders: [
+      { assistant: "codex", model: "coder-alpha", effort: "low" },
+      { assistant: "codex", model: "coder-beta", effort: "low" },
+    ],
+  })
   assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)
   const serious = coderSection(report, "A/B")
   assert.match(serious, /\| coder-alpha low \| 3 \| 4 \| 1 \| 0\.17 \| 2\.5 \|/)
@@ -2412,7 +2335,6 @@ test("coder admission needs every archived plan share and a current whole-plan a
   await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages: []\n")
   await commitFixture(f.root, undefined, "2026-09-29T10:00:00Z")
   const planRoot = join(f.root, "../plan")
-  const activeRoot = join(planRoot, "active")
   await commitFixture(planRoot, undefined, "2026-09-29T10:00:00Z")
 
   const coder = {
@@ -2559,11 +2481,7 @@ test("coder admission needs every archived plan share and a current whole-plan a
     "2026-10-03T11:00:00.000Z",
   )
 
-  const evidence = await readModelEvidence({
-    repoEduRoot: f.root,
-    planRoot,
-    activeRoot,
-  })
+  const evidence = await readModelEvidence(f.runtime)
   const row = evidence.coders.get(modelKey(coder))
   assert.ok(row)
   assert.deepEqual(

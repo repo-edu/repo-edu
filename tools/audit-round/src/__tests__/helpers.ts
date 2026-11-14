@@ -48,10 +48,13 @@ export function testContext(
   roundKind: RoundKind = "implementation",
 ): RoundContext {
   const planRoot = join(repoEduRoot, "../plan")
+  const evidenceRoot = join(repoEduRoot, "../plan-evidence")
   return {
     repoEduRoot,
     planRoot,
     activeRoot: join(planRoot, "active"),
+    evidenceRoot,
+    roundRoot: join(evidenceRoot, "active"),
     roundKind,
     cwd: roundKind === "planning" ? planRoot : repoEduRoot,
   }
@@ -246,6 +249,7 @@ export async function fixture(
   const root = join(directory, "repo-edu")
   await mkdir(root)
   await mkdir(join(directory, "plan/active"), { recursive: true })
+  await mkdir(join(directory, "plan-evidence/active"), { recursive: true })
   await writePhaseInstructions(root, join(directory, "plan"))
   await writeFile(join(root, "scenario.json"), JSON.stringify(scenario))
   const executable = (assistant: Assistant) => ({

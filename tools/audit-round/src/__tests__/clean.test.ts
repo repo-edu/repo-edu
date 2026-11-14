@@ -88,7 +88,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.doesNotMatch(message, /Round yield:|Structure:/)
       assert.match(message, /\nAudit took \d+ min\.\n/)
       assert.equal(await readFile(f.report, "utf8"), report)
-      assert.equal(dirname(f.report), f.activeRoot)
+      assert.equal(dirname(f.report), f.roundRoot)
       const peer = owner === "plan" ? f.repoRoot : f.planRoot
       assert.equal(
         await shortCommit(peer, "HEAD"),
@@ -180,6 +180,8 @@ test("clean deferral citations stay in one bullet list", async (t) => {
       repoEduRoot: f.repoRoot,
       planRoot: f.planRoot,
       activeRoot: f.activeRoot,
+      evidenceRoot: f.evidenceRoot,
+      roundRoot: f.roundRoot,
       roundKind: "planning",
       plan: "example.md",
       report: f.report,
@@ -306,6 +308,8 @@ test("clean records share archived and widening plan identities with output file
         repoEduRoot: "/repo",
         planRoot: "/plan",
         activeRoot: "/plan/active",
+        evidenceRoot: "/plan-evidence",
+        roundRoot: "/plan-evidence/active",
         roundKind: "planning",
         plan: "topic.md",
         report: "/repo/topic-01-2-audit.oth.md",

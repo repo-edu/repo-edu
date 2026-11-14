@@ -402,7 +402,7 @@ async function disproveFile(
   invocation: Extract<Invocation, { kind: "disprove" }>,
 ): Promise<DisproveFile> {
   const active = await activePlan(context.activeRoot, invocation.stem)
-  let directory = context.activeRoot
+  let directory = context.roundRoot
   let archived = false
   if (active === null) {
     const plans = await archivedPlans(context.planRoot, invocation.stem)
@@ -1259,10 +1259,7 @@ async function preparedFixRecovery(
   invocation: Extract<Invocation, { kind: "resume-fix" }>,
 ) {
   const paths = await recoveryRoundPaths(context, invocation.report)
-  const retained = await readActiveRoundData(
-    context.activeRoot,
-    paths.nameStart,
-  )
+  const retained = await readActiveRoundData(context.roundRoot, paths.nameStart)
   if (
     retained.entry.status !== "awaiting-ruling" &&
     retained.entry.status !== "failed" &&
@@ -1491,12 +1488,12 @@ export async function runCommand(
     }
     if (invocation.kind === "delete-reports") {
       const deleted = await deleteRoundReports(
-        context.activeRoot,
+        context.roundRoot,
         invocation.nameStart,
       )
       if (deleted.length === 0)
         throw new Error(
-          `No audit, vet or rebuttal report of ${invocation.nameStart} at ${context.activeRoot}.`,
+          `No audit, vet or rebuttal report of ${invocation.nameStart} at ${context.roundRoot}.`,
         )
       options.terminal.write(
         deleted.map((name) => `Deleted ${name}`).join("\n"),
@@ -1592,10 +1589,10 @@ export async function runCommand(
         ...context,
         ...target,
       })
-      const claim = join(context.activeRoot, `${nameStart}-0-claim.md`)
+      const claim = join(context.roundRoot, `${nameStart}-0-claim.md`)
       claimRound(claim)
       const report = join(
-        context.activeRoot,
+        context.roundRoot,
         `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
       )
       const session = roundContext(context, target.roundKind)
@@ -1973,7 +1970,7 @@ export async function runCommand(
           openStep: async (step, _shares, resumedSession) => {
             const run = implementationRun(
               implementation.plan,
-              context.activeRoot,
+              context.roundRoot,
               step.number,
               now(),
               releases,
@@ -2104,7 +2101,7 @@ export async function runCommand(
         )
         options.terminal.write(
           commit === null
-            ? `No round data of ${close.leftover} is left in ${context.activeRoot}.`
+            ? `No round data of ${close.leftover} is left in ${context.roundRoot}.`
             : `Committed ${commit.sha}: ${commit.subject}`,
         )
         code = 0

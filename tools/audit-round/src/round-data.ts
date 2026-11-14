@@ -2,7 +2,7 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { z } from "zod"
-import type { PlanRoots } from "./context.js"
+import type { RoundDataRoots } from "./context.js"
 import { complexitySchema, reachSchema } from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
 import { parseSubject, type Repository } from "./subject.js"
@@ -397,13 +397,13 @@ type FindingRecord = {
   readonly message: string
 }
 
-/** Find retained round data beside active plans and inside closed-plan archives. */
-export async function roundDataFiles(roots: PlanRoots): Promise<string[]> {
-  const active = (await readdir(roots.activeRoot, { withFileTypes: true }))
+/** Find retained round data in the round folder and inside closed-plan archives. */
+export async function roundDataFiles(roots: RoundDataRoots): Promise<string[]> {
+  const active = (await readdir(roots.roundRoot, { withFileTypes: true }))
     .filter(
       (entry) => entry.isFile() && roundDataFilenamePattern.test(entry.name),
     )
-    .map((entry) => join(roots.activeRoot, entry.name))
+    .map((entry) => join(roots.roundRoot, entry.name))
   const archive = join(roots.planRoot, "archive")
   let closed: string[] = []
   try {
@@ -420,7 +420,7 @@ export async function roundDataFiles(roots: PlanRoots): Promise<string[]> {
 
 /** Read every active and archived plan round-data file under its checked schema. */
 export async function readAllPlanRoundData(
-  roots: PlanRoots,
+  roots: RoundDataRoots,
 ): Promise<readonly RetainedPlanRoundData[]> {
   return Promise.all(
     (await roundDataFiles(roots)).map(async (file) => {
@@ -448,11 +448,11 @@ export async function readAllPlanRoundData(
 
 /** Read every active commit-series round-data file under its checked schema. */
 export async function readAllCommitRoundData(
-  roots: Pick<PlanRoots, "activeRoot">,
+  roots: Pick<RoundDataRoots, "roundRoot">,
 ): Promise<readonly RetainedCommitRoundData[]> {
-  const files = (await readdir(roots.activeRoot, { withFileTypes: true }))
+  const files = (await readdir(roots.roundRoot, { withFileTypes: true }))
     .filter((entry) => entry.isFile() && isCommitRoundDataName(entry.name))
-    .map((entry) => join(roots.activeRoot, entry.name))
+    .map((entry) => join(roots.roundRoot, entry.name))
     .sort()
   return Promise.all(
     files.map(async (file) => {
@@ -509,28 +509,28 @@ export async function readPlanRoundData(
 
 /** Read one active commit series' checked data file by its bounded label. */
 export async function readCommitRoundData(
-  roots: Pick<PlanRoots, "activeRoot">,
+  roots: Pick<RoundDataRoots, "roundRoot">,
   label: string,
 ): Promise<readonly CommitRoundData[]> {
-  const path = join(roots.activeRoot, roundDataFilename(label, "commit"))
+  const path = join(roots.roundRoot, roundDataFilename(label, "commit"))
   return commitRoundFileSchema.parse(JSON.parse(await readFile(path, "utf8")))
     .rounds
 }
 
 /** Read the one retained active entry named by a round's target and number. */
 export async function readActiveRoundData(
-  activeRoot: string,
+  roundRoot: string,
   nameStart: string,
 ): Promise<RetainedRoundData> {
   const identity = roundDataIdentity(nameStart)
-  const files = (await readdir(activeRoot, { withFileTypes: true }))
+  const files = (await readdir(roundRoot, { withFileTypes: true }))
     .filter(
       (entry) =>
         entry.isFile() &&
         (roundDataFilenamePattern.test(entry.name) ||
           isCommitRoundDataName(entry.name)),
     )
-    .map((entry) => join(activeRoot, entry.name))
+    .map((entry) => join(roundRoot, entry.name))
   const matches = (
     await Promise.all(
       files.map(async (file) => ({

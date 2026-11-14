@@ -68,14 +68,15 @@ with fresh workers.
 
 The run leaves what its stages leave:
 
-1. **Each audit round** leaves its claim, transcript, log and round data in `../plan/active/`, as
-   [`pnpm audit-round round`](/repo-edu/tooling/runner-round/#output) describes.
+1. **Each audit round** leaves its claim, transcript, log and round data in
+   `../plan-evidence/active/`, as [`pnpm audit-round round`](/repo-edu/tooling/runner-round/#output)
+   describes.
 2. **Settle** renames the plan and commits `<stem>/settle`; **ready** commits the empty
    `<stem>/ready` marker with the assigned coder.
 3. **The implementation** leaves one checked step commit per hosting repo, each repo's `implemented`
    marker and one log per started step.
 4. **The close** archives the plan, writes the closing commits and leaves
-   `../plan/active/<stem>-close.<tag>.log`.
+   `../plan-evidence/active/<stem>-close.<tag>.log`.
 
 [Find round outputs](/repo-edu/tooling/find-round-outputs/) names every file and when it goes.
 

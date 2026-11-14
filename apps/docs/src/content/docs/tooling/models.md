@@ -24,9 +24,10 @@ pnpm audit-round models -h | --help  show the command's help
 
 ## Behaviour
 
-The command reads every checked planning and implementation round-data file in the active folder
-and the closed-plan archive, and joins it with the step, ready and closed records of both Git
-histories. Commit-series data is not part of the read-out. It starts no assistant.
+The command reads every checked planning and implementation round-data file in
+`../plan-evidence/active/` and the closed-plan archive, and joins it with the step, ready and closed
+records of both Git histories. Commit-series data is not part of the read-out. It starts no
+assistant.
 
 The read-out compares rather than ranks by taste:
 

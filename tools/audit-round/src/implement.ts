@@ -187,6 +187,8 @@ export async function runImplementation(
       repoEduRoot: input.repoEduRoot,
       planRoot: input.planRoot,
       activeRoot: input.activeRoot,
+      evidenceRoot: input.evidenceRoot,
+      roundRoot: input.roundRoot,
     },
     "implementation",
   )

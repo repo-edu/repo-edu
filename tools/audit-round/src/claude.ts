@@ -198,7 +198,7 @@ export async function resolveClaudeModel(
   await withCliProcess(
     runtime,
     "claude",
-    [...claudeArguments(null, null, request), "--no-session-persistence"],
+    [...claudeArguments([], null, request), "--no-session-persistence"],
     `${JSON.stringify(claudeSettingsRequest)}\n`,
     async (child) => {
       await readCliLines(child, "stdout", async (line) => {
