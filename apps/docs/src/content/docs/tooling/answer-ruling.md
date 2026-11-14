@@ -26,10 +26,12 @@ requirement.
 
 Only a fix or an implementation worker returns a ruling. It may ask about a real product or cost
 choice that remains after the plan, code, boundaries and earlier decisions have been checked. An
-audit fix also asks who won when the auditor contests the vet on an A-tier or B-tier finding.
+audit fix also asks who was right when the auditor contests a vet, or two vets give different
+verdicts, on an A-tier or B-tier finding.
 
 The terminal prints a notice in place of the ruling's text. It names the round or step, the ruling
-file, the findings that need a winner, whose model runs the fix and the line `/ruling <stem>`. The
+file, the findings that need a winner, the winner words with the round's vet tags, whose model runs
+the fix and the line `/ruling <stem>`. The
 run then opens the Claude desktop app on the Repo Edu folder when the work touches Repo Edu files,
 and on the plan folder otherwise. The app starts a new chat and asks "Trust this workspace?" each
 time. On Linux the app does not open; the notice says so, and you open a chat yourself.
@@ -75,9 +77,9 @@ again. Waiting time is excluded from the runner's work timing.
    stay, and the runner prints a recovery command. Use that exact command to return to the retained
    work; do not start the decision again in a fresh round.
 
-An audit fix with an unresolved serious contest prints `pnpm audit-round resume-fix ...`. That
-command reloads the stored winners, keeps commits blocked while one is missing and resumes the same
-fix session. An implementation worker left at a ruling prints the assistant's recovery command.
+An audit fix with an unresolved serious contest or split prints `pnpm audit-round resume-fix ...`.
+That command reloads the stored winners, keeps commits blocked while one is missing and resumes the
+same fix session. An implementation worker left at a ruling prints the assistant's recovery command.
 Answer there, then rerun the original `pnpm audit-round implement ...` or bare full-plan command so
 the runner can read Git and continue. See [Recover a run](/repo-edu/tooling/recover-run/).
 

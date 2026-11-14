@@ -30,6 +30,7 @@ const waiting = {
   folder: "/repo",
   fixerSide: null,
   findings: [],
+  panel: [],
 } as const
 
 for (const { zone, instant, timestamp } of [

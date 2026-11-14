@@ -128,7 +128,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
       rebut: {
         ...(f.phases.rebut as Record<string, unknown>),
         document: {
-          text: "1. [B] Contest\n\nThe report quotes the owning contract.\n",
+          text: "1. [B] [<vet>] Contest\n\nThe report quotes the owning contract.\n",
         },
       },
     },

@@ -30,9 +30,9 @@ import {
 } from "./phase.js"
 import type { AuditReport } from "./report.js"
 import {
-  type FindingRebuttal,
-  type FindingReview,
+  findingSplit,
   type LandedCommit,
+  type PanelVet,
   type RoundAccount,
   reviewedRoundFindings,
   roundDataIdentity,
@@ -69,28 +69,6 @@ function selectedFixerSide(
   return "neither"
 }
 
-/** Contests the user owns because either reviewed tier is A or B. */
-function seriousContests(
-  reviews: readonly FindingReview[],
-  rebuttals: readonly FindingRebuttal[],
-): readonly number[] {
-  const reviewByNumber = new Map(
-    reviews.map((review) => [review.number, review]),
-  )
-  return rebuttals
-    .filter((rebuttal) => {
-      if (rebuttal.answer !== "contest") return false
-      const review = reviewByNumber.get(rebuttal.number)
-      return (
-        rebuttal.tier === "A" ||
-        rebuttal.tier === "B" ||
-        review?.revisedTier === "A" ||
-        review?.revisedTier === "B"
-      )
-    })
-    .map((rebuttal) => rebuttal.number)
-}
-
 function contestScope(
   findings: readonly RoundAccount["findings"][number][],
   contests: readonly number[],
@@ -120,27 +98,30 @@ function openContests(
   )
 }
 
-/** Findings where the rebuttal contests a vet and the report or that vet graded A or B. */
-function seriousAccountContests(account: RoundAccount): readonly number[] {
+/**
+ * The findings the user rules on: a contest or a split on a finding that the
+ * report or a vet graded A or B. A contest is the rebuttal contesting a vet's
+ * verdict. A split is two vets of the panel giving different verdicts, under
+ * `reviewsSplit`.
+ */
+export function seriousFindings(account: RoundAccount): readonly number[] {
   return account.findings.flatMap((finding) => {
-    const contested = finding.reviews.some(
-      (review) =>
-        review.answer === "contest" &&
-        (finding.tier === "A" ||
-          finding.tier === "B" ||
-          review.revisedTier === "A" ||
-          review.revisedTier === "B"),
-    )
-    return finding.number !== null && contested ? [finding.number] : []
+    const graded =
+      finding.tier === "A" ||
+      finding.tier === "B" ||
+      finding.reviews.some(
+        (review) => review.revisedTier === "A" || review.revisedTier === "B",
+      )
+    const disputed =
+      finding.reviews.some((review) => review.answer === "contest") ||
+      findingSplit(finding.reviews)
+    return finding.number !== null && graded && disputed ? [finding.number] : []
   })
 }
 
-export function openSeriousContests(account: RoundAccount): readonly number[] {
-  return seriousAccountContests(account).filter(
-    (number) =>
-      account.findings.find((finding) => finding.number === number)?.ruling ===
-      undefined,
-  )
+/** The serious findings that still need the user's winner. */
+export function openSeriousFindings(account: RoundAccount): readonly number[] {
+  return openContests(account, seriousFindings(account))
 }
 
 /** Record each admitted winner; the waiting run already checked the answer is complete. */
@@ -543,8 +524,6 @@ export async function runRound(
   const twins = [input.documents.vet]
   // The panel of one: the round's single vet, named by the tag its report carries.
   const vetTag = documentTag(input.documents.vet)
-  let reviews: readonly FindingReview[] = []
-  let rebuttals: readonly FindingRebuttal[] = []
   if (input.recovery === undefined) {
     const auditInput: PhaseInput<"audit"> = {
       phase: "audit",
@@ -693,18 +672,17 @@ export async function runRound(
     }
 
     let accepted: boolean
+    let panel: readonly PanelVet[]
     try {
       const reading = await dependencies.readVet(
         input.documents.vet,
         evidence.findings,
       )
       accepted = reading.allAccepted
-      reviews = reading.reviews
+      panel = [{ vet: vetTag, reviews: reading.reviews }]
       account = {
         ...account,
-        findings: reviewedRoundFindings(evidence.findings, [
-          { vet: vetTag, reviews, rebuttals: [] },
-        ]),
+        findings: reviewedRoundFindings(evidence.findings, panel),
       }
     } catch (error) {
       return {
@@ -742,16 +720,14 @@ export async function runRound(
         }
       }
       try {
-        rebuttals = await dependencies.readRebuttal(
+        const rebuttals = await dependencies.readRebuttal(
           input.documents.rebut,
           evidence.findings,
-          reviews,
+          panel,
         )
         account = {
           ...account,
-          findings: reviewedRoundFindings(evidence.findings, [
-            { vet: vetTag, reviews, rebuttals },
-          ]),
+          findings: reviewedRoundFindings(evidence.findings, panel, rebuttals),
         }
       } catch (error) {
         return {
@@ -792,10 +768,7 @@ export async function runRound(
       account,
     }
   }
-  const contests =
-    input.recovery === undefined
-      ? seriousContests(reviews, rebuttals)
-      : seriousAccountContests(account)
+  const contests = seriousFindings(account)
   const fixArguments = (): PhaseInput<"fix">["arguments"] => {
     const scope = contestScope(account.findings, contests)
     return [
@@ -875,6 +848,7 @@ export async function runRound(
           document: input.documents.ruling,
           fixerSide: selectedFixerSide(phases),
           contests: open,
+          panel: [vetTag],
           judgedRepos: account.judgedRepos,
         })
         if (ruling === null)
@@ -980,7 +954,7 @@ export async function runRound(
         const unresolved = openContests(account, contests)
         if (unresolved.length > 0)
           throw new Error(
-            `The finished fix left serious contests without winners: ${unresolved.map((number) => `finding ${number}`).join(", ")}`,
+            `The finished fix left serious contests or splits without winners: ${unresolved.map((number) => `finding ${number}`).join(", ")}`,
           )
         // The fix ends the round and has answered every ruling it asked, so
         // its settling line is the recommendation the series rules read. The audit

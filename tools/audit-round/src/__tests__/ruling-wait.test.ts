@@ -2,9 +2,10 @@ import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
 import { once } from "node:events"
 import { mkdir, stat } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { dirname } from "node:path"
 import { test } from "node:test"
 import {
+  answerFormText,
   listenForRuling,
   rulingSocketPath,
   sendRulingAnswer,
@@ -24,6 +25,7 @@ function waiting(
     folder: "/repo-edu",
     fixerSide: findings.length === 0 ? null : "auditor",
     findings,
+    panel: findings.length === 0 ? [] : ["abh", "oth"],
   }
 }
 
@@ -93,6 +95,17 @@ test("every winner may close the answer without a reply", async (t) => {
   assert.deepEqual((await wait.answer)?.reply, "")
 })
 
+test("the answer form writes vet tags as a list and an implementation ruling as its reply", () => {
+  assert.match(
+    answerFormText(waiting("example", [1])),
+    /with report, neither and not yet as strings and vet tags as a list, as \["abh"\]; not yet takes no reason:$/m,
+  )
+  assert.match(
+    answerFormText(waiting("example", [])),
+    /This ruling has no finding, so its answer is the reply alone:$/m,
+  )
+})
+
 test("an implementation ruling takes a free reply alone", async (t) => {
   const cache = await cacheRoot(t)
   const wait = await listenForRuling({
@@ -143,7 +156,17 @@ for (const { name, findings, answer, refusal } of [
       reply: "Go on.",
     },
     refusal:
-      "Finding 2 has no answer; use report, neither, a list of vet tags or not yet.",
+      "Finding 2 has no answer; use report, neither, one or more of the vet tags abh, oth or not yet.",
+  },
+  {
+    name: "a vet tag outside the round's panel",
+    findings: [1],
+    answer: {
+      rulings: [{ finding: 1, winner: ["abh", "atx"], reason: "Fine." }],
+      reply: "",
+    },
+    refusal:
+      "Finding 1 names atx, which is no vet of this round; use report, neither, one or more of the vet tags abh, oth or not yet.",
   },
   {
     name: "a winner without a reason",

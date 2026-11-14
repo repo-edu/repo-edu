@@ -20,7 +20,7 @@ Where a launcher and this file disagree, this file is right.
 
 This workflow is the fix phase of an implementation-audit round. The audit is read-only and writes
 its report to the plan checkout's `active/` folder. An audit with findings stops there. This
-workflow starts from that report: it reads the report, its vet twin and its rebuttal twin, presents
+workflow starts from that report: it reads the report, its vet twins and its rebuttal twin, presents
 the outcome for the user's ruling, applies the accepted corrections, lands the round's records.
 
 An audit with no findings
@@ -34,17 +34,18 @@ report, twin, record-bullet and result forms. The runner owns paths under
 Follow its **Reconciliation** rule after grounding the findings below.
 
 When the phase arguments include a `contests` object, its entries are the
-contested verdicts the user owns under **Reconciliation**. An entry first names
-only its finding number. A resumed fix also receives any recorded `winner` and
-`reason`. Present both reviewed positions and their evidence in the ruling,
-then apply recorded answers without deciding them again.
+serious contests and splits the user owns under **Reconciliation**. An entry
+first names only its finding number. A resumed fix also receives any recorded
+`winner` and `reason`. Present each vet's position and the auditor's answers
+with their evidence in the ruling, then apply recorded answers without deciding
+them again. A winner that names vet tags applies those vets' verdicts.
 Every fix invocation is commit-blocked while any supplied contest lacks a
 winner. `Not yet` keeps that block in place. Do not land settled corrections
 before the runner has recorded every required winner; a fix that reports
 finished with an open contest fails the round. If the round stops, use the
 printed `pnpm audit-round resume-fix ...` command. It reloads the stored round,
 collects missing winners and resumes this session with the same block. A bare
-assistant resume is only for work without an open serious contest.
+assistant resume is only for work without an open serious contest or split.
 
 When unattended, follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every

@@ -30,13 +30,17 @@ The command has no flags. Skip it when every vet verdict was Accept. The whole s
 The rebuttal reads the report and that round's newest vet twin. Accepted findings carry forward
 without a fresh read. For every other verdict it reads the source that decides the disagreement
 itself, rather than trusting either quotation: the plan, the code, a boundary or the episode's
-commit bodies. It answers only revised, dropped and referred findings, in report order:
+commit bodies. It answers each vet's revisions, drops and referrals, in report order, and names on
+each answer line the vet it answers by that vet's tag:
 
 1. **Agree** keeps the vet's verdict. Agreement with a revision carries the revised correction in
    full, so the fix has one text to apply.
 2. **Contest** quotes the evidence the vet misread and says what the verdict should have been. A
    difference of taste is agreement with a note, not a contest.
 3. **For user's ruling** keeps a real choice open and states the auditor's position briefly.
+
+Agreeing with two vets' different revisions of one finding leaves the choice between them to the
+fix. Contesting or referring either one of them sends an A-tier or B-tier finding to you.
 
 The rebuttal is an answer, not a second audit. It edits no source, runs no formatter and lands no
 commit.

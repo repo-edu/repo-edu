@@ -42,7 +42,7 @@ import { recoveryCommand, roundRecoveryCommand } from "./requests.js"
 import {
   type CloseResult,
   failureResumeSessionId,
-  openSeriousContests,
+  openSeriousFindings,
   type RoundResult,
   type RoundSetup,
 } from "./round.js"
@@ -896,7 +896,7 @@ export class RoundOutput<R extends Run = Run> {
     this.say(runRule)
   }
 
-  /** Use the runner while an unresolved serious contest still owns commit admission. */
+  /** Use the runner while an unresolved serious contest or split still owns commit admission. */
   resumeCommand(
     result:
       | Extract<RoundResult, { readonly status: "awaiting-ruling" | "failed" }>
@@ -908,7 +908,7 @@ export class RoundOutput<R extends Run = Run> {
         ? { ...result.session, sessionId }
         : { ...result, sessionId }
     return "account" in result &&
-      openSeriousContests(result.account).length > 0 &&
+      openSeriousFindings(result.account).length > 0 &&
       this.run.recoveryReport !== undefined
       ? roundRecoveryCommand(session, this.run.recoveryReport)
       : recoveryCommand(session)

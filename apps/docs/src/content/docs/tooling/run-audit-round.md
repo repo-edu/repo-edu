@@ -23,9 +23,10 @@ work so no phase checks itself:
    effort as the audit, because the answer is the auditor's. A vet that accepts every finding skips
    this phase.
 4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
-   settled corrections and lands the records. When the auditor contests a verdict and the report or
-   revised vet tier is A or B, the runner asks you whether the vet, auditor or neither is right and
-   records your one-line reason. The fix cannot commit until every required winner is recorded, and
+   settled corrections and lands the records. When the auditor contests a vet's verdict, or two vets
+   give different verdicts, on a finding the report or a vet graded A or B, the runner asks you
+   whether the audit report, one or more vets by their tags or neither is right and records your
+   one-line reason. The fix cannot commit until every required winner is recorded, and
    returning finished earlier fails the round. The audit target picks the fixer:
    - A planning round, or a commit audit of plan-repo commits alone, fixes on the configured
      planning fixer.
@@ -67,11 +68,11 @@ the full implementation range.
 
 ## When a series stops
 
-An automatic series stops when every listed auditor has a current read, the configured round
-maximum is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes
-the plan's phase. Above a ruling the runner says whether the fix uses the auditor's model, the vet's
-model or neither. It collects any serious contest winners before the free reply, then resumes the
-same fix before the series continues.
+An automatic series stops when every listed auditor has a current read, the configured round maximum
+is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes the
+plan's phase. Above a ruling the runner says whether the fix uses the auditor's model, the vet's
+model or neither. It collects any serious contest and split winners before the free reply, then
+resumes the same fix before the series continues.
 
 The runner answers stop after the read floor. For a widening plan, the retained settling line may
 instead answer settle. During detailing before the ready marker, the answer is ready. These answers

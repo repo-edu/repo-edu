@@ -236,7 +236,7 @@ Audit ranges: 1.
           : phase === "vet"
             ? { source: join(f.root, owner, "VET-example.md") }
             : phase === "rebut"
-              ? { text: "1. [B] Agree\n" }
+              ? { text: "1. [B] [<vet>] Agree\n" }
               : phase === "fix" && ruling
                 ? { text: "Written ruling by fix" }
                 : undefined,

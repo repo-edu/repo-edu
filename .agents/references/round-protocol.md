@@ -426,10 +426,10 @@ reconciliation. A referral is a claim like any other verdict and a later phase
 overturns it on evidence. A ruling on a settled choice costs the user a reading
 and a resumed fix but decides nothing.
 
-A contest named in the fix phase's `contests` argument is the exception. It
-stays in the ruling even when this test settles the choice, because the runner
-still requires the user's winner. The settled option becomes the fix's
-recommendation.
+A serious contest or split named in the fix phase's `contests` argument is the
+exception. It stays in the ruling even when this test settles the choice,
+because the runner still requires the user's winner. The settled option becomes
+the fix's recommendation.
 
 ## Vet verdicts
 
@@ -437,14 +437,23 @@ Return one verdict per finding in report order. The
 [vet twin grammar](round-grammar.md#vet-twin) owns the line shape, accepted
 words, numbering and wrong-phase refusal.
 
-- **Accept** keeps the finding as written.
-- **Revise** keeps the defect and states the corrected tier, evidence or
-  correction in a few short sentences. When the corrected tier differs from
-  the report, write `Revise to [<tier>]` on the verdict line. A revision that
-  keeps the report tier stays plain `Revise`.
+- **Accept** keeps the finding as written. It may carry a note that the fix
+  reads and the rebuttal need not answer.
+- **Revise** means the fix should land something else: the vet's correction,
+  or its change to the defect's scope, evidence or tier, changes what the fix
+  lands. State the corrected tier, evidence or correction in a few short
+  sentences. When the corrected tier differs from the report, write
+  `Revise to [<tier>]` on the verdict line. A revision that keeps the report
+  tier stays plain `Revise`.
 - **Drop** states why the finding does not stand.
 - **Needs user's ruling** identifies a real choice or supported decision change
   that the vet cannot settle.
+
+A change that leaves the landed result the same, such as clearer wording or an
+extra source, is an Accept with a note. A Revise is the vet's claim about what
+should land, and the split rule under [Reconciliation](#reconciliation) tests
+that claim against the other vets of the panel. Wording advice written as a
+Revise would read as a disagreement about what lands.
 
 Put head-drift notes before the first verdict. Free text explains a verdict but
 never changes its kind. Return the complete twin in the final response. The
@@ -453,7 +462,7 @@ same text to its resolved path. Chat and file must not differ.
 
 ## Rebuttal grounding
 
-Read the report end to end, then the supplied vet twin. Follow
+Read the report end to end, then every supplied vet twin. Follow
 [Head drift](#head-drift) and say where a moved file changes an answer.
 
 Carry accepts forward without fresh source reads or individual answers. For
@@ -465,8 +474,12 @@ trust the report's or vet's quotation. Read `../plan/BOUNDARIES.md` and
 
 ## Rebuttal answers
 
-Answer only revised, dropped and referred findings in report order. Accepts
-need no entry. The
+Answer every revise, drop and ruling verdict of each vet, in report order and,
+within one finding, in the order the runner supplies the vet reports. Accepts
+need no entry. Each answer line names the vet it answers by the tag in that
+vet's report filename, so the runner reads which vet an answer serves from the
+line alone. One rebuttal answers the whole panel, so its answers to different
+vets on one finding stay consistent. The
 [rebuttal twin grammar](round-grammar.md#rebuttal-twin) owns the line shape,
 accepted words, numbering and wrong-phase refusal. The answer keeps the
 report's tier even when it agrees with a revised tier; the note names the new
@@ -474,7 +487,8 @@ tier and the fix records it.
 
 - **Agree** keeps the verdict. Agreement with a revision carries the revised
   correction in full so the fix has one text to apply. Agreement with a drop
-  needs no explanation unless another note helps the fix.
+  needs no explanation unless another note helps the fix. Agreement with two
+  vets' revisions of one finding leaves the choice between them to the fix.
 - **Contest** says what the vet misread. Quote the evidence, name its file and
   line or plan section and state what the verdict should have been. Contest
   only on evidence the vet can read. A disagreement of taste is agreement with
@@ -489,27 +503,54 @@ to its resolved path. Chat and file must not differ.
 
 ## Reconciliation
 
-Build the outcome from the numbered vet verdicts and rebuttal answers,
-accounting for every finding. An accept stands without a rebuttal answer.
-Present agreed verdicts, decisions on contested verdicts and items for the
-user's ruling. A contested verdict goes to the user when the report tier or a
-revised vet tier is A or B. Its ruling states the vet's position and the
-auditor's contest, with the evidence for each, before any recommendation. The
-fix decides every other contest from the evidence and gives the reason. Never
-re-argue an agreed verdict.
+Build the outcome from every vet's numbered verdicts and the rebuttal's
+answers, accounting for every finding. An accept stands without a rebuttal
+answer. Present agreed verdicts, decisions on contested verdicts and items for
+the user's ruling.
 
-The runner passes the serious contest numbers to the fix. After displaying the ruling it asks the
-user for `report`, the tags of the vets that were right, `neither` or `not yet` on each contest. The
-first three answers need a one-line reason and are retained on the finding. `Not yet` leaves that
-contest open so the resumed fix can answer the user's question. A resumed fix receives every
-recorded winner and reason with the free reply. The free reply may be empty once every contest has a
-winner.
+The user rules on every serious contest and every serious split. A contest or
+split is serious when the report or a vet graded its finding A or B:
+
+1. A contest is the rebuttal contesting one vet's verdict.
+2. Two vets of the panel split on a finding when their verdict words differ, or
+   when both revise and the rebuttal does not agree with both. Two vets that
+   both write `Needs user's ruling` do not split, because both already send
+   the finding to the user.
+
+A split stops the round because the rebuttal agrees easily, so its agreement
+cannot say which vet was right, and every ruled split compares two vets
+directly. Two revisions the rebuttal agrees with do not stop it: both vets and
+the rebuttal then hold that the report's correction was wrong, and only the
+choice of the new correction is left. The fix makes that choice from the
+evidence and gives its reason, as it does for any two different changes the
+rebuttal agrees with.
+
+The ruling states each vet's position and the auditor's answers, with the
+evidence for each, before any recommendation. The fix decides every other
+contest from the evidence and gives the reason. Never re-argue an agreed
+verdict.
+
+The runner passes the numbers of the serious findings to the fix. After
+displaying the ruling it asks the user for one answer on each:
+
+1. `report`: the audit report's finding stands as written.
+2. One or more vet tags: those vets' verdicts were right, and the fix applies
+   them.
+3. `neither`: no side was right, such as when a third correction holds.
+4. `not yet`: the user first wants an answer from the fix.
+
+The first three answers need a one-line reason and are retained on the finding.
+The runner refuses a tag outside the round's panel, because a stored winner
+must name a verdict on the finding. `Not yet` leaves that finding open so the
+resumed fix can answer the user's question. A resumed fix receives every
+recorded winner and reason with the free reply. The free reply may be empty
+once every serious finding has a winner.
 
 When every verdict is Accept and no rebuttal exists, present the findings as
-agreed by both assistants. When the vet has a revision, drop or ruling item and
-no rebuttal exists, the fix answers those items from current evidence. Carry
-accepts without answering them. Without a twin, present the report findings in
-number order with any current-source drift correction.
+agreed by the auditor and every vet. When a vet has a revision, drop or ruling
+item and no rebuttal exists, the fix answers those items from current evidence.
+Carry accepts without answering them. Without a twin, present the report
+findings in number order with any current-source drift correction.
 
 The user rules by exception: a go on the presented outcome accepts it, and a
 reservation reopens the named item. Ground a reopened item before answering it.
@@ -531,7 +572,7 @@ The route's approval rule grants the settled corrections. Planning uses the
 implementation uses its fix invocation's grant. Stop for a ruling only on:
 
 - a real choice sent to the user
-- a contested verdict whose report or revised vet tier is A or B
+- a serious contest or split
 - a contested verdict whose evidence stays unclear
 - a drift correction that changes a finding
 - a verdict without a rebuttal that the fix cannot settle from evidence

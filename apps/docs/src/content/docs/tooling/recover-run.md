@@ -23,7 +23,7 @@ fix the startup problem and rerun the original command.
 
 A failed audit, vet, rebuttal, watch or close prints its assistant recovery
 command when the runner knows the session. A failed fix does the same when no
-serious contest is open. Run it as printed. The command reopens the stopped
+serious contest or split is open. Run it as printed. The command reopens the stopped
 session in the terminal and waits for input. It sends no prompt. Type what the
 session should do, such as continue the phase or answer the question it stopped
 on.
@@ -57,7 +57,7 @@ take the remaining steps. The step's existing log gains the recovered turn.
 
 ## An unanswered ruling
 
-An audit fix with an unresolved serious contest prints a runner command:
+An audit fix with an unresolved serious contest or split prints a runner command:
 
 ```text
 pnpm audit-round resume-fix <report> <session-id>
@@ -72,7 +72,7 @@ for the fix. The reply may be empty once all winners are stored. `Not yet`
 keeps the commit block and lets the fix answer a question before the runner
 waits again.
 
-A failed fix with an unresolved serious contest uses the same route. When no
+A failed fix with an unresolved serious contest or split uses the same route. When no
 ruling file exists yet, the runner first resumes the fix so it can write one.
 The route then finishes through the ordinary record checks and report deletion.
 
@@ -86,7 +86,7 @@ For an implementation `--resume <step>:<session-id>` route, recovery is complete
 worker reports success and the runner verifies its landed commit. A known session by itself proves
 neither.
 
-For `resume-fix`, recovery is complete only when every serious contest has a
+For `resume-fix`, recovery is complete only when every serious contest or split has a
 stored winner, the fix reports success and the runner validates its records.
 
 For an assistant recovery command, read the resumed session's final result. The stopped runner does

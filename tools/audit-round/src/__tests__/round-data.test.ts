@@ -4,13 +4,16 @@ import { join } from "node:path"
 import { test } from "node:test"
 import {
   type CommitRoundData,
+  findingSplit,
   type ImplementationRoundData,
   type PlanningRoundData,
   parseRoundDataFile,
   type ReportFinding,
   type RoundFinding,
+  type RoundFindingReview,
   readPlanRoundData,
   reviewedRoundFindings,
+  reviewsSplit,
   roundDataFilename,
   roundDataFiles,
   settleRoundFindings,
@@ -249,7 +252,6 @@ test("round data stores a revised tier that differs from the report tier", async
         reviews: [
           { number: 1, tier: "B", verdict: "revise", revisedTier: "C" },
         ],
-        rebuttals: [],
       },
     ],
   )
@@ -284,13 +286,8 @@ test("round data stores a contested verdict's user winner and reason together", 
   const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   const [finding] = reviewedRoundFindings(
     [reportFinding(1, "Ruled contest")],
-    [
-      {
-        vet: "abh",
-        reviews: [{ number: 1, tier: "B", verdict: "drop" }],
-        rebuttals: [{ number: 1, tier: "B", answer: "contest" }],
-      },
-    ],
+    [{ vet: "abh", reviews: [{ number: 1, tier: "B", verdict: "drop" }] }],
+    [{ number: 1, tier: "B", vet: "abh", answer: "contest" }],
   )
   assert.ok(finding)
   const write = (ruled: RoundFinding) =>
@@ -321,6 +318,107 @@ test("round data stores a contested verdict's user winner and reason together", 
       })),
     }),
   )
+})
+
+test("round data stores a ruling on a split the rebuttal agreed with", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
+  const [finding] = reviewedRoundFindings(
+    [reportFinding(1, "Ruled split")],
+    [
+      { vet: "abx", reviews: [{ number: 1, tier: "B", verdict: "drop" }] },
+      { vet: "obx", reviews: [{ number: 1, tier: "B", verdict: "accept" }] },
+    ],
+    [{ number: 1, tier: "B", vet: "abx", answer: "agree" }],
+  )
+  assert.ok(finding)
+  const ruled: RoundFinding = {
+    ...finding,
+    ruling: { winner: ["obx"], reason: "The finding stands as written." },
+  }
+  writeRoundData(path, {
+    ...entry("example-impl-audit-01..01", 1),
+    findings: [ruled],
+  })
+  assert.deepEqual(
+    parseRoundDataFile(path, await readFile(path, "utf8")).rounds[0]
+      ?.findings[0]?.ruling,
+    ruled.ruling,
+  )
+  // Two drops the rebuttal agreed with neither split nor contest.
+  assert.throws(() =>
+    writeRoundData(path, {
+      ...entry("example-impl-audit-01..01", 1),
+      findings: [
+        {
+          ...ruled,
+          reviews: ruled.reviews.map((review) => ({
+            ...review,
+            verdict: "drop",
+            answer: "agree",
+          })),
+        },
+      ],
+    }),
+  )
+})
+
+const review = (
+  vet: string,
+  verdict: RoundFindingReview["verdict"],
+  answer: RoundFindingReview["answer"] = verdict === "accept" ? null : "agree",
+): RoundFindingReview => ({ vet, verdict, answer })
+
+test("two vets split on every pair of different verdict words", () => {
+  const verdicts = ["accept", "revise", "drop", "needs-user-ruling"] as const
+  for (const [index, first] of verdicts.entries())
+    for (const second of verdicts.slice(index + 1)) {
+      assert.equal(
+        reviewsSplit(review("abx", first), review("obx", second)),
+        true,
+        `${first} and ${second}`,
+      )
+      assert.equal(
+        findingSplit([review("abx", first), review("obx", second)]),
+        true,
+      )
+    }
+})
+
+test("two vets with the same verdict split only on revisions the rebuttal does not both agree with", () => {
+  for (const verdict of ["accept", "drop", "needs-user-ruling"] as const)
+    assert.equal(
+      reviewsSplit(review("abx", verdict), review("obx", verdict)),
+      false,
+      verdict,
+    )
+  assert.equal(
+    reviewsSplit(review("abx", "drop", "contest"), review("obx", "drop")),
+    false,
+  )
+  assert.equal(
+    reviewsSplit(review("abx", "revise"), review("obx", "revise")),
+    false,
+  )
+  for (const answer of ["contest", "for-user-ruling"] as const)
+    assert.equal(
+      reviewsSplit(review("abx", "revise"), review("obx", "revise", answer)),
+      true,
+      answer,
+    )
+})
+
+test("a panel of three splits when any pair of its vets splits", () => {
+  assert.equal(
+    findingSplit([
+      review("abx", "revise"),
+      review("obx", "revise"),
+      review("ath", "revise", "contest"),
+    ]),
+    true,
+  )
+  assert.equal(findingSplit([review("abx", "drop")]), false)
+  assert.equal(findingSplit([]), false)
 })
 
 test("a single-vet round rewritten to the panel form keeps every verdict, answer and winner", async (t) => {
@@ -655,7 +753,6 @@ test("each vet's review and its rebuttal answer stay attached to report finding 
             { number: 1, tier: "B", verdict: "revise", revisedTier: "C" },
             { number: 2, tier: "B", verdict: "accept" },
           ],
-          rebuttals: [{ number: 1, tier: "B", answer: "contest" }],
         },
         {
           vet: "obx",
@@ -663,9 +760,9 @@ test("each vet's review and its rebuttal answer stay attached to report finding 
             { number: 1, tier: "B", verdict: "accept" },
             { number: 2, tier: "B", verdict: "accept" },
           ],
-          rebuttals: [],
         },
       ],
+      [{ number: 1, tier: "B", vet: "abx", answer: "contest" }],
     ),
     [
       {

@@ -11,7 +11,7 @@ import type { RoundKind } from "./target.js"
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
 /** A capability tag, which names a round's auditor and each of its vets. */
-const capabilityTag = z.string().regex(/^[ao][btu][lmhx]$/)
+export const capabilityTag = z.string().regex(/^[ao][btu][lmhx]$/)
 /**
  * The runner's one list of winner words: the audit report's finding as written,
  * no side, or the vets whose verdicts were right, named by their tags.
@@ -146,11 +146,12 @@ export const roundFindingSchema = z
     })
     if (
       finding.ruling !== undefined &&
-      !finding.reviews.some((review) => review.answer === "contest")
+      !finding.reviews.some((review) => review.answer === "contest") &&
+      !findingSplit(finding.reviews)
     )
       context.addIssue({
         code: "custom",
-        message: "Only a contested verdict can record a ruling",
+        message: "Only a contested verdict or a split can record a ruling",
         path: ["ruling"],
       })
   })
@@ -368,19 +369,20 @@ export type FindingReview = {
   readonly revisedTier?: RoundFinding["tier"]
 }
 
-/** One answer line read from a rebuttal report. */
+/** One answer line read from a rebuttal report, naming the vet it answers. */
 export type FindingRebuttal = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
+  /** The answered vet's tag, which its phase entry and report name carry too. */
+  readonly vet: string
   readonly answer: RebuttalAnswer
 }
 
-/** What one vet of the panel read and what the rebuttal answered it. */
-export type PanelVetReading = {
+/** One vet of the panel and the verdicts its report gave, in panel order. */
+export type PanelVet = {
   /** The vet's tag, which its phase entry and report name carry too. */
   readonly vet: string
   readonly reviews: readonly FindingReview[]
-  readonly rebuttals: readonly FindingRebuttal[]
 }
 
 export type RoundAccount = {
@@ -561,16 +563,44 @@ export function roundDataIdentity(nameStart: string): {
   return { target: match[1], round: Number(match[2]) }
 }
 
+/**
+ * Whether two vets of a panel split on one finding: their verdict words
+ * differ, or both revise and the rebuttal does not agree with both. Two
+ * revisions the rebuttal agrees with leave the fix to pick one correction,
+ * because the runner cannot compare two corrections. Two vets that both send
+ * the finding to the user do not split.
+ */
+export function reviewsSplit(
+  first: RoundFindingReview,
+  second: RoundFindingReview,
+): boolean {
+  if (first.verdict !== second.verdict) return true
+  return (
+    first.verdict === "revise" &&
+    (first.answer !== "agree" || second.answer !== "agree")
+  )
+}
+
+/** Whether any two vets of the finding's panel split on it. */
+export function findingSplit(reviews: readonly RoundFindingReview[]): boolean {
+  return reviews.some((first, index) =>
+    reviews.slice(index + 1).some((second) => reviewsSplit(first, second)),
+  )
+}
+
 /** Attach each panel vet's review while the report still owns finding identity. */
 export function reviewedRoundFindings(
   findings: readonly ReportFinding[],
-  panel: readonly PanelVetReading[] = [],
+  panel: readonly PanelVet[] = [],
+  rebuttals: readonly FindingRebuttal[] = [],
 ): readonly RoundFinding[] {
   const readings = panel.map((reading) => ({
     vet: reading.vet,
     reviews: new Map(reading.reviews.map((review) => [review.number, review])),
     answers: new Map(
-      reading.rebuttals.map((rebuttal) => [rebuttal.number, rebuttal.answer]),
+      rebuttals
+        .filter((rebuttal) => rebuttal.vet === reading.vet)
+        .map((rebuttal) => [rebuttal.number, rebuttal.answer]),
     ),
   }))
   return findings.map((finding) => ({

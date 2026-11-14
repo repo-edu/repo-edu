@@ -9,8 +9,8 @@ import type { OpenDeferral } from "./open-deferrals.js"
 import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
 import type {
   FindingRebuttal,
-  FindingReview,
   LandedCommit,
+  PanelVet,
   RoundAccount,
   RulingWinner,
 } from "./round-data.js"
@@ -479,7 +479,10 @@ export type DeferralScope = {
   readonly deferrals: readonly OpenDeferral[]
 }
 
-/** One serious contest and the user's answer once the runner has one. */
+/**
+ * One serious contest or split and the user's answer once the runner has one.
+ * The argument keeps its historical name; a split's finding enters it too.
+ */
 export type ContestScope = {
   readonly contests: readonly {
     readonly finding: number
@@ -495,7 +498,10 @@ export type FixerSide = "auditor" | "vet" | "neither"
 export type RulingRequest = {
   readonly document: string
   readonly fixerSide: FixerSide
+  /** The findings that still need the user's winner: serious contests and splits. */
   readonly contests: readonly number[]
+  /** The round's panel tags, which the user may name as winners. */
+  readonly panel: readonly string[]
   /** The report's judged repos, which choose the folder the desktop app opens on. */
   readonly judgedRepos: readonly Repository[]
 }
@@ -695,7 +701,7 @@ export type RoundDependencies = {
   readonly readRebuttal: (
     file: string,
     findings: ReportFindings,
-    reviews: readonly FindingReview[],
+    panel: readonly PanelVet[],
   ) => Promise<readonly FindingRebuttal[]>
   readonly readHead: (root: string) => Promise<string>
   /** Resolve the plan's current file after a fix may have changed its phase. */

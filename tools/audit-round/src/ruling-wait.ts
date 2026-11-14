@@ -10,7 +10,11 @@ import { join } from "node:path"
 import { execa } from "execa"
 import { z } from "zod"
 import { type CliRuntime, cliCommand } from "./cli-process.js"
-import { type RulingWinner, rulingWinnerSchema } from "./round-data.js"
+import {
+  capabilityTag,
+  type RulingWinner,
+  rulingWinnerSchema,
+} from "./round-data.js"
 
 /**
  * The waiting run owns a ruling's wait. While it waits it listens on one Unix
@@ -32,6 +36,12 @@ export const waitingRulingSchema = z.strictObject({
   fixerSide: z.enum(["auditor", "vet", "neither"]).nullable(),
   /** The findings that still need the user's winner. */
   findings: z.array(z.number().int().positive()).readonly(),
+  /**
+   * The round's panel tags, which a winner may name. Every finding of a round
+   * has the same panel, so the tags appear once; an implementation worker has
+   * none.
+   */
+  panel: z.array(capabilityTag).readonly(),
 })
 export type WaitingRuling = z.infer<typeof waitingRulingSchema>
 
@@ -61,17 +71,21 @@ export type RulingInput = {
   readonly reply: string
 }
 
-const winnerWords = "report, neither, a list of vet tags or not yet"
+/** The winner words of one waiting ruling, with its panel's own tags. */
+function winnerWords(panel: readonly string[]): string {
+  return `report, neither, one or more of the vet tags ${panel.join(", ")} or not yet`
+}
 
 /**
  * The one check for a complete answer. A winner needs a one-line reason, `not
- * yet` leaves its finding open, and the free reply may be empty only when every
- * open finding has a winner.
+ * yet` leaves its finding open, a vet tag must name a vet of the round's panel,
+ * and the free reply may be empty only when every open finding has a winner.
  */
 function answerRefusals(
-  findings: readonly number[],
+  waiting: Pick<WaitingRuling, "findings" | "panel">,
   answer: RulingAnswer,
 ): readonly string[] {
+  const { findings, panel } = waiting
   const refusals: string[] = []
   const answered = new Set<number>()
   for (const ruling of answer.rulings) {
@@ -85,6 +99,12 @@ function answerRefusals(
       continue
     }
     answered.add(finding)
+    if (Array.isArray(ruling.winner))
+      for (const tag of ruling.winner)
+        if (!panel.includes(tag))
+          refusals.push(
+            `Finding ${finding} names ${tag}, which is no vet of this round; use ${winnerWords(panel)}.`,
+          )
     const reason = ruling.reason?.trim() ?? ""
     if (ruling.winner === "not yet") {
       if (reason.length > 0)
@@ -100,7 +120,9 @@ function answerRefusals(
   }
   for (const finding of findings)
     if (!answered.has(finding))
-      refusals.push(`Finding ${finding} has no answer; use ${winnerWords}.`)
+      refusals.push(
+        `Finding ${finding} has no answer; use ${winnerWords(panel)}.`,
+      )
   const decided = answer.rulings.every((ruling) => ruling.winner !== "not yet")
   if (answer.reply.trim().length === 0 && (findings.length === 0 || !decided))
     refusals.push(
@@ -113,7 +135,7 @@ function answerRefusals(
 
 /** Read one carried answer document, or name everything that keeps it out. */
 function admitAnswer(
-  findings: readonly number[],
+  waiting: Pick<WaitingRuling, "findings" | "panel">,
   text: string,
 ): { readonly answer: RulingInput } | { readonly refusal: string } {
   let json: unknown
@@ -129,7 +151,7 @@ function admitAnswer(
     return {
       refusal: `The answer does not have the answer form:\n${z.prettifyError(parsed.error)}`,
     }
-  const refusals = answerRefusals(findings, parsed.data)
+  const refusals = answerRefusals(waiting, parsed.data)
   if (refusals.length > 0) return { refusal: refusals.join("\n") }
   return {
     answer: {
@@ -160,6 +182,9 @@ export function waitingRulingText(ruling: WaitingRuling): string {
     `Target: ${ruling.target}`,
     `Ruling: ${ruling.ruling}`,
     `Findings that need a winner: ${ruling.findings.length === 0 ? "none" : ruling.findings.join(", ")}`,
+    ...(ruling.findings.length === 0
+      ? []
+      : [`Winner words: ${winnerWords(ruling.panel)}`]),
     ...side,
   ].join("\n")
 }
@@ -174,9 +199,13 @@ export function answerFormText(ruling: WaitingRuling): string {
     })),
     reply: "Free text for the fix, or empty once every finding has a winner.",
   }
+  const words =
+    ruling.findings.length === 0
+      ? "This ruling has no finding, so its answer is the reply alone"
+      : `Give each finding one of the winner words, with report, neither and not yet as strings and vet tags as a list, as ${JSON.stringify(ruling.panel.slice(0, 1))}; not yet takes no reason`
   return [
     `Answer with: pnpm audit-round answer ${ruling.target} <file>`,
-    `The file holds one JSON document in this form, with winners ${winnerWords}; not yet takes no reason:`,
+    `The file holds one JSON document in this form. ${words}:`,
     JSON.stringify(example),
   ].join("\n")
 }
@@ -243,7 +272,7 @@ export async function listenForRuling(input: {
           reply(response, 409, "Refused: this ruling already has its answer.")
           return
         }
-        const admitted = admitAnswer(input.ruling.findings, text)
+        const admitted = admitAnswer(input.ruling, text)
         if ("refusal" in admitted) {
           reply(response, 422, `Refused: ${admitted.refusal}`)
           return

@@ -88,7 +88,7 @@ import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
   failureResumeSessionId,
-  openSeriousContests,
+  openSeriousFindings,
   type RoundResult,
   type RoundSetup,
   runClose,
@@ -1278,9 +1278,9 @@ async function preparedFixRecovery(
       "judgedRepos" in retained.entry ? retained.entry.judgedRepos : [],
     findings: retained.entry.findings,
   }
-  if (openSeriousContests(account).length === 0)
+  if (openSeriousFindings(account).length === 0)
     throw new Error(
-      `${paths.nameStart} has no serious contest without a recorded winner.`,
+      `${paths.nameStart} has no serious contest or split without a recorded winner.`,
     )
   let target: AuditTarget
   if ("phase" in retained.entry || "scope" in retained.entry) {
@@ -1667,7 +1667,10 @@ export async function runCommand(
      */
     const awaitRuling = async (
       active: RoundOutput,
-      request: Pick<WaitingRuling, "ruling" | "fixerSide" | "findings"> & {
+      request: Pick<
+        WaitingRuling,
+        "ruling" | "fixerSide" | "findings" | "panel"
+      > & {
         readonly repositories: readonly Repository[]
       },
     ): Promise<RulingInput | null> => {
@@ -1680,6 +1683,7 @@ export async function runCommand(
           : context.planRoot,
         fixerSide: request.fixerSide,
         findings: request.findings,
+        panel: request.panel,
       }
       const seam = options.awaitAnswer
       const answered: () => Promise<RulingInput | null> =
@@ -1742,8 +1746,8 @@ export async function runCommand(
           readReport(await readFile(file, "utf8"), kind, target),
         readVet: async (file, findings) =>
           readVet(await readFile(file, "utf8"), findings),
-        readRebuttal: async (file, findings, reviews) =>
-          readRebuttal(await readFile(file, "utf8"), findings, reviews),
+        readRebuttal: async (file, findings, panel) =>
+          readRebuttal(await readFile(file, "utf8"), findings, panel),
         seriesEvidence: readSeriesEvidence,
         chainDeferrals,
         readHead: async (cwd) =>
@@ -1794,6 +1798,7 @@ export async function runCommand(
             ruling: request.document,
             fixerSide: request.fixerSide,
             findings: request.contests,
+            panel: request.panel,
             repositories: request.judgedRepos,
           }),
         // The glance decides in the runner; its sentence opens the watch's section
@@ -2036,6 +2041,7 @@ export async function runCommand(
               ruling: request.document,
               fixerSide: null,
               findings: [],
+              panel: [],
               repositories: request.repositories,
             })
             return answer?.reply ?? null

@@ -43,7 +43,9 @@ finding the move already resolved. It checks each finding on three axes, in orde
 Each finding gets one verdict: Accept, Revise, Drop or Needs user's ruling. When a revision changes
 the tier, its verdict line says `Revise to [A]`, `Revise to [B]`, `Revise to [C]` or
 `Revise to [D]`. A revision at the report's tier stays `Revise`. The explanation states the
-corrected evidence or correction. The vet may run read-only commands. It runs no formatter and
+corrected evidence or correction. Revise means the fix should land something else. A change that
+leaves the landed result the same, such as clearer wording or an extra source, is an Accept with a
+note. The vet may run read-only commands. It runs no formatter and
 changes no tracked file.
 
 ## Early stops

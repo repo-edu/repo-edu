@@ -107,12 +107,17 @@ for (const [side, line] of [
       folder: "/repo-edu",
       fixerSide: side,
       findings: [1, 3],
+      panel: ["abh", "oth"],
     })
     output.endRuling(null)
     const text = written.join("\n")
     assert.match(text, /Your ruling is needed: Implementation audit of example/)
     assert.match(text, /^Ruling: \/active\/RULING\.md$/m)
     assert.match(text, /^Findings that need a winner: 1, 3$/m)
+    assert.match(
+      text,
+      /^Winner words: report, neither, one or more of the vet tags abh, oth or not yet$/m,
+    )
     assert.ok(text.includes(line))
     assert.match(
       text,

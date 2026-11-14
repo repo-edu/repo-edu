@@ -201,10 +201,16 @@ if (scenario.phases !== undefined) {
         document.source === undefined
           ? document.text
           : await readFile(document.source, "utf8")
+      // A fixture rebuttal names each vet by the tag its report filename
+      // carries, as a real rebuttal does.
+      const vetTag = (): string =>
+        basename(String(phaseArguments[1])).split(".").at(-2) ?? ""
       const text =
         phase === "audit"
           ? written.replace("Target: <arguments>", `Target: ${target()}`)
-          : written
+          : phase === "rebut"
+            ? written.replaceAll("[<vet>]", `[${vetTag()}]`)
+            : written
       if (["audit", "vet", "rebut"].includes(phase)) {
         // Report assistants return text; only the runner writes their output.
         const final = (value: string) =>

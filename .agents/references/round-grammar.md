@@ -636,36 +636,41 @@ Refusal: `Vet verdict 1 has malformed revised tier; use Revise to [A], [B], [C] 
 
 ```text
 <rebuttal-twin>       ::= (<free-line> | <rebut-answer-line>)*
-<rebut-answer-line>   ::= <n>". ["<tier>"] "<rebut-answer>
+<rebut-answer-line>   ::= <n>". ["<tier>"] ["<vet-tag>"] "<rebut-answer>
+<vet-tag>             ::= the capability tag of one vet of the round's panel
 <rebut-answer>        ::= Agree | Contest | For user's ruling
 ```
 
-The rebuttal omits accepted findings. It has one answer for every revised,
-dropped or referred finding, in report order. Its number and tier match that
-finding. The number is the finding's report number, not the answer's place in
-the twin. When the vet accepts finding 1 and revises finding 2, the twin's only
-answer is numbered 2. Its word is the auditor's answer, never the verdict it
-answers. The number and tier are copied from the vet line and the word is not,
-so agreement with the vet's `2. [C] Revise` is written `2. [C] Agree`. Leading
-and trailing whitespace carry no content. A line with the numbered tier-header
-shape is an answer attempt. It is refused by name when its word is outside the
-rebuttal list or its number names an accepted finding.
+The rebuttal omits accepted verdicts. It has one answer for every revise, drop
+and ruling verdict of each vet, in report order and, within one finding, in
+the order the runner supplies the vet reports. Its number and tier match that
+finding. The tag names the vet whose verdict the line answers, as that vet's
+report filename carries it, so a reader takes the vet from the line alone. The
+number is the finding's report number, not the answer's place in the twin.
+When vet `abx` accepts finding 1 and revises finding 2, its only answer is
+numbered 2. Its word is the auditor's answer, never the verdict it answers.
+The number and tier are copied from the vet line and the word is not, so
+agreement with the `2. [C] Revise` of vet `abx` is written
+`2. [C] [abx] Agree`. Leading and trailing whitespace carry no content. A line
+with the numbered tier-header shape is an answer attempt. It is refused by name
+when it names no vet, when its word is outside the rebuttal list or when its
+tag names a vet outside the panel or a vet that accepted the finding.
 
 ### Examples
 
-The examples answer a vet that accepted finding 1 `[B]` and revised finding 2
-`[C]`.
+The examples answer a panel of two vets in this order. Vet `abx` accepted
+finding 1 `[B]` and revised finding 2 `[C]`. Vet `obh` accepted both.
 
 #### `rebuttal/agree` — parsed
 
 ```text
-2. [C] Agree
+2. [C] [abx] Agree
 ```
 
 #### `rebuttal/contest` — parsed
 
 ```text
-2. [C] Contest
+2. [C] [abx] Contest
 
 The cited source says the opposite.
 ```
@@ -673,7 +678,7 @@ The cited source says the opposite.
 #### `rebuttal/for-user-ruling` — parsed
 
 ```text
-2. [C] For user's ruling
+2. [C] [abx] For user's ruling
 
 The evidence leaves a real choice.
 ```
@@ -683,17 +688,33 @@ The evidence leaves a real choice.
 Refusal: `Rebuttal answer 2 uses the word "Drop"; use Agree, Contest or For user's ruling`
 
 ```text
-2. [C] Drop
+2. [C] [abx] Drop
 ```
 
-#### `rebuttal/accepted-finding` — refused
+#### `rebuttal/missing-vet` — refused
 
-Refusal: `Rebuttal answer 1 names an accepted finding; copy the number from the verdict it answers`
+Refusal: `Rebuttal answer 2 names no vet; put the vet's tag in brackets after the tier`
 
 ```text
-1. [B] Agree
+2. [C] Agree
+```
 
-The vet's revision of finding 2 holds.
+#### `rebuttal/outside-panel` — refused
+
+Refusal: `Rebuttal answer 2 names atx, which is no vet of this round; use abx or obh`
+
+```text
+2. [C] [atx] Agree
+```
+
+#### `rebuttal/accepted-verdict` — refused
+
+Refusal: `Rebuttal answer 2 names obh, which accepted finding 2; an accept needs no answer`
+
+```text
+2. [C] [obh] Agree
+
+The revision of finding 2 holds.
 ```
 
 ## Commit record bullet

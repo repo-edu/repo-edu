@@ -44,11 +44,13 @@ item covers:
 3. One recommendation, its reason and any material tradeoff.
 4. A short suggested answer the user can give in the `/ruling` chat.
 
-For a contested verdict whose report or revised vet tier is A or B, state the vet's position and the
-auditor's contest separately, with the evidence each uses, before the recommendation. The user gives
-each such finding a winner, `report`, the tags of the vets that were right or `neither`, with a
-one-line reason, so the suggested answer names both. Suggest `not yet` when the user should first
-ask the fix a question.
+For each serious contest or split under the shared
+[Reconciliation](../../../references/round-protocol.md#reconciliation), state
+each vet's position, by its tag, and the auditor's answers separately, with the
+evidence each uses, before the recommendation. The user gives each such finding
+a winner, `report`, the tags of the vets that were right or `neither`, with a
+one-line reason, so the suggested answer names both. Suggest `not yet` when the
+user should first ask the fix a question.
 
 Price the request under the plan doctrine's
 [Mechanism cases](../../../../../plan/CLAUDE.md#mechanism-cases).
@@ -63,14 +65,14 @@ settled and supports its recommendation with verified evidence. Check that
 each open item is a real choice under the shared
 [Real choices](../../../references/round-protocol.md#real-choices). An item
 that section settles is not open: apply its winning option and drop it from
-the ruling. A contest named in the `contests` phase argument stays in the
-ruling even when that section settles the choice. The winning option becomes
+the ruling. A serious contest or split named in the `contests` phase argument
+stays in the ruling even when that section settles the choice. The winning option becomes
 the recommendation. Revise any unclear or unsupported claim in this session.
 
 After a user reply, answer any questions before acting. If a decision remains
 open, replace the ruling with the current choices and return `needs-ruling`
 again. Carry resolved choices into the resumed work; do not ask the user to
-decide them again. The resumed phase arguments carry each serious contest's
-recorded winner and reason. Apply those answers without reinterpreting the
+decide them again. The resumed phase arguments carry each serious contest's or
+split's recorded winner and reason. Apply those answers without reinterpreting the
 user's words. Use the shared **Runner result** for required write failures.
 Finished work needs no ruling document.

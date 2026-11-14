@@ -120,6 +120,7 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
   assert.match(asked, /^Target: example$/m)
   assert.match(asked, /^Ruling: .+-ruling\..+\.md$/m)
   assert.match(asked, /^Findings that need a winner: none$/m)
+  assert.doesNotMatch(asked, /^Winner words:/m)
   assert.match(asked, /^The fix runs on the auditor's model\.$/m)
   assert.match(asked, /^Answer with: pnpm audit-round answer example <file>$/m)
 
@@ -275,6 +276,7 @@ for (const [host, repository] of [
         folder: repository === "plan" ? f.planRoot : f.repoRoot,
         fixerSide: null,
         findings: [],
+        panel: [],
       },
     )
     assert.match(

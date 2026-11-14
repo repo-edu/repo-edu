@@ -24,11 +24,15 @@ consumers.
   The fix receives a ruling output path separately from its report
   arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
   The runner checks that file, then waits for the user's answer under `ruling-wait.ts`; its notice
-  says whether the fix uses the auditor's model, the vet's model or neither. A contested verdict
-  goes to the user when the report or revised vet tier is A or B. The answer names `report`, the
-  tags of the vets that were right, `neither` or `not yet` for each such finding, with a reason
-  where a winner was named, and the free reply. It retains each winner and reason on the
-  finding and passes them to the resumed fix. Every fix child receives the finding numbers still
+  says whether the fix uses the auditor's model, the vet's model or neither. `seriousFindings`
+  finds the serious contests and splits under the shared protocol's
+  [Reconciliation](../../.agents/references/round-protocol.md#reconciliation): the rebuttal
+  contests a vet's verdict, or two vets of the panel split, on a finding the report or a vet graded
+  A or B. `round-data.ts` owns the pairwise split rule, which the schema also reads, because only
+  a contest or a split may store a ruling. Each serious finding goes to the user. The answer names
+  `report`, the tags of the vets that were right, `neither` or `not yet` for each such finding,
+  with a reason where a winner was named, and the free reply. It retains each winner and reason on
+  the finding and passes them to the resumed fix. Every fix child receives the finding numbers still
   without winners in `COMMIT_OPEN_CONTESTS`; the shared commit hook refuses a commit while that
   value is non-empty, and the coordinator refuses a finished fix while any remain. A missing or
   empty ruling fails the fix with its
@@ -36,7 +40,7 @@ consumers.
   decisions repeat this route and ask only for the findings still without winners. A completed fix
   follows the same report deletion, commit checks and watch as an uninterrupted fix. Ending the
   wait with Ctrl-C retains the round files and ends the auditor sequence. An open serious
-  contest prints a runner recovery command. That route reloads the in-progress
+  contest or split prints a runner recovery command. That route reloads the in-progress
   round, stored winners and the fix session, then re-enters this same loop. It
   appends the retained log and transcript. A submitted reply lets a completed
   round continue any remaining auditor entries. Further open decisions replace
@@ -135,8 +139,8 @@ consumers.
   listed steps in order.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level opening and finding fields.
   The first grammar-owned field heading ends the opening; other level-2 headings stay inside it, so
-  presentation depth cannot hide the workflow, target or judged repositories from the reader.
-  A widening report must end with the grammar's settling line as its last paragraph, read from its
+  presentation depth cannot hide the workflow, target or judged repositories from the reader. A
+  widening report must end with the grammar's settling line as its last paragraph, read from its
   source so a formatted reason keeps its words; the reader returns that line as the report's
   settling value, refuses one on any other report class and returns an empty value there. A clean
   widening round retains the report's line as its settling recommendation, since no fix ran to
@@ -148,12 +152,13 @@ consumers.
   them; round data joins findings to record bullets by the `[finding:<n>]` number each bullet opens
   with. Quoted evidence and code blocks supply no findings. `vet.ts` reads the fixed verdict and
   answer lines and ignores every other line. A `Revise to [<tier>]` suffix records a changed tier;
-  an unchanged tier stays plain `Revise`. It requires verdicts for the report's finding numbers
-  in order and rebuttal answers for each revise, drop and ruling verdict. It refuses by name an
-  answer numbered for an accepted finding, so a misnumbered answer fails on its own line rather
-  than as a missing one. Only Accept verdicts skip
-  the rebuttal. Both readers are supplied through `RoundDependencies`, alongside the HEAD and
-  subject reads.
+  an unchanged tier stays plain `Revise`. It requires verdicts for the report's finding numbers in
+  order. A rebuttal answer line names the vet it answers by its tag, so the reader takes the vet
+  from the line alone. It requires one answer for each revise, drop and ruling verdict of each panel
+  vet, in report order and then panel order. It refuses by name an answer that names no vet, a vet
+  outside the panel or a vet that accepted the finding, so a misnumbered or mistagged answer fails
+  on its own line rather than as a missing one. Only Accept verdicts skip the rebuttal. Both readers
+  are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.
@@ -333,10 +338,13 @@ consumers.
   file would block every later wait on the target. When two runs of one target wait at once, the
   later one takes the name and ending the earlier one removes the later one's file; that outcome
   is accepted. The one `zod` schema covers the waiting ruling and the answer document, and the
-  winner words are `round-data.ts`'s list plus `not yet`. The module owns the one check for a
-  complete answer: each open finding gets a winner with a one-line reason or `not yet`, which
-  takes no reason, and the free reply may be empty only when every open finding has a winner. An
-  implementation ruling has no finding, so its answer is the reply. The run replies accepted or
+  winner words are `round-data.ts`'s list plus `not yet`. The waiting ruling carries the round's
+  panel tags once, because every finding of a round has the same panel, and the notice and
+  `ruling` print them among the winner words. The module owns the one check for a complete
+  answer: each open finding gets a winner with a one-line reason or `not yet`, which takes no
+  reason, a winner's vet tags name vets of the round's panel and the free reply may be empty only
+  when every open finding has a winner. An implementation ruling has no finding and no panel, so
+  its answer is the reply. The run replies accepted or
   refused with every missing part named, and a refusal keeps it waiting. The hidden `ruling` and
   `answer` commands are only carriers: they find the waiting runs through the folder, count a
   socket that refuses the connection as no run and take the one run that waits when no target is
@@ -364,7 +372,7 @@ consumers.
   effort: Codex takes them before any subcommand, so a resumed phase keeps them, and Claude takes
   `--model` and `--effort`. A fix awaiting a ruling and a failure both carry
   their phase, so continuation and recovery use the model the round ran that
-  phase on. The serious-contest recovery command names the report and fix
+  phase on. The `resume-fix` recovery command names the report and fix
   session as quoted runner arguments. Claude uses
   `--permission-mode auto` in release resolution and every session entry. `requests.ts` also
   supplies each fresh phase's selected workflow and whole files listed by the workflow's `reads`
@@ -430,8 +438,9 @@ consumers.
   files have no `disproved` list. A vet reading carries each finding's report number, report tier,
   verdict and optional revised tier. Retained finding data holds one review per vet of the panel:
   the vet's tag, its verdict, its revised tier and the rebuttal's answer to it. The panel is the
-  round's one vet, on the other assistant's vet selection. A contested finding may also store the
-  user's ruling: its reason and a winner of `report`, `neither` or a list of vet tags. A planning
+  round's one vet, on the other assistant's vet selection. A finding with a contest or a split may
+  also store the user's ruling: its reason and a winner of `report`, `neither` or a list of vet
+  tags. A planning
   entry's required `settling` field keeps the widening round's settling recommendation as it stands
   when the round ends: the fix's settling line, or the audit report's closing settling line when the
   clean audit ran no fix; detailing entries use `""`. The planning, implementation and commit files
@@ -624,34 +633,34 @@ consumers.
   so help hides them. `ruling [target]` prints what the waiting run asks and the answer form.
   `answer [target] <file>` carries one JSON answer document to the waiting run, prints its reply and
   exits 1 on a refusal. Both start no assistant, read no settings and write no file. The printed
-  serious-contest recovery command calls the hidden `resume-fix` route. It resolves the retained
-  report set and in-progress round entry, refuses a round without an open serious contest, restores
-  earlier phase records and resumes the saved fix session through the ordinary coordinator. `plan`
-  prints the plan an omitted target selects, as its absolute path, and writes nothing, so a user can
-  see it before a round or close takes it. `close` resolves its plan and open deferrals before
-  startup, then runs the close phase alone with its own log. The `deferrals` command prints the
-  active plan's open set through the shared owner. It exists only for the hand-run implementation
-  audit, so help hides it beside `episode` and the other launcher interfaces. The `episode` command
-  prints the requested line range from joined watch evidence produced by the shared reader and
-  formatter, with its returned range and current total. Every call rebuilds the view. It performs no
-  release resolution, assistant startup or file writes. The `name` command claims a round and prints
-  its claim, workflow, working checkout and audit arguments. Its required `--auditor` is the
-  hand-run session's full tag, including `u`, checked separately from a round's model request. The
-  `paths` command prints the workflow, working checkout and argument paths for an existing report as
-  a JSON object. It reads the report opening's named workflow to select its kind. Both commands
-  bypass assistant startup and release resolution; `paths` writes nothing. The `delete-reports`
-  command uses the same deletion function as the coordinator and starts no assistant or release
-  resolution. `disprove` resolves one active or archived plan's round data, checks an attached
-  finding or records the manually named auditor of a detached finding, writes through the shared
-  atomic writer and commits only an archived file. `--vet` requires at least one non-Accept vet
-  verdict on the attached finding and is refused beside `--by`. It starts no assistant and reads no
-  settings. `settle` and `ready` resolve the active plan that `plan` prints when no stem is given
-  and run only the lifecycle Git owner. The run resolves its named active plan and the stage
-  `lifecycleStage` reads before startup, then reads settings and releases once and calls the stage
-  functions the single commands use, in lifecycle order: the series, `settlePlan`, the series,
-  `readyPlan`, the implementation, the range series and the close. The user's invocation is the
-  settle, ready and close call given in advance, so a runner `settle` or `ready` ending and a range
-  series that ended without needing the user move on to the next stage. After `settlePlan` or
+  recovery command for an open serious contest or split calls the hidden `resume-fix` route. It
+  resolves the retained report set and in-progress round entry, refuses a round without one,
+  restores earlier phase records and resumes the saved fix session through the ordinary coordinator.
+  `plan` prints the plan an omitted target selects, as its absolute path, and writes nothing, so a
+  user can see it before a round or close takes it. `close` resolves its plan and open deferrals
+  before startup, then runs the close phase alone with its own log. The `deferrals` command prints
+  the active plan's open set through the shared owner. It exists only for the hand-run
+  implementation audit, so help hides it beside `episode` and the other launcher interfaces. The
+  `episode` command prints the requested line range from joined watch evidence produced by the
+  shared reader and formatter, with its returned range and current total. Every call rebuilds the
+  view. It performs no release resolution, assistant startup or file writes. The `name` command
+  claims a round and prints its claim, workflow, working checkout and audit arguments. Its required
+  `--auditor` is the hand-run session's full tag, including `u`, checked separately from a round's
+  model request. The `paths` command prints the workflow, working checkout and argument paths for an
+  existing report as a JSON object. It reads the report opening's named workflow to select its kind.
+  Both commands bypass assistant startup and release resolution; `paths` writes nothing. The
+  `delete-reports` command uses the same deletion function as the coordinator and starts no
+  assistant or release resolution. `disprove` resolves one active or archived plan's round data,
+  checks an attached finding or records the manually named auditor of a detached finding, writes
+  through the shared atomic writer and commits only an archived file. `--vet` requires at least one
+  non-Accept vet verdict on the attached finding and is refused beside `--by`. It starts no
+  assistant and reads no settings. `settle` and `ready` resolve the active plan that `plan` prints
+  when no stem is given and run only the lifecycle Git owner. The run resolves its named active plan
+  and the stage `lifecycleStage` reads before startup, then reads settings and releases once and
+  calls the stage functions the single commands use, in lifecycle order: the series, `settlePlan`,
+  the series, `readyPlan`, the implementation, the range series and the close. The user's invocation
+  is the settle, ready and close call given in advance, so a runner `settle` or `ready` ending and a
+  range series that ended without needing the user move on to the next stage. After `settlePlan` or
   `readyPlan` the run reads the next stage through `lifecycleStage`, because a plan reopened after
   its ready marker keeps the marker and goes on to the implementation or the range series. Every
   other ending, a refused lifecycle call included, ends the run. Each stage keeps its own files,
@@ -838,12 +847,15 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
   its repository, references, starting HEAD, advancing exact commit set,
   original commit set and resolved short references
 - vet: report input, vet output
-- rebuttal: report input, vet input, rebuttal output
+- rebuttal: report input, vet input, rebuttal output; each answer line names
+  the vet it answers by the tag in that vet's input filename
 - fix: report input, then existing vet and rebuttal inputs, followed by the
   same open-deferral object for a chained planning or plan-scoped
-  implementation round and a contest object when the rebuttal contested a
-  verdict whose report or revised vet tier is A or B; the first call carries
-  finding numbers and resumed calls also carry recorded winners and reasons.
+  implementation round and a contest object when the round holds a serious
+  contest or split under the shared protocol's
+  [Reconciliation](../../.agents/references/round-protocol.md#reconciliation);
+  the first call carries finding numbers and resumed calls also carry recorded
+  winners and reasons.
   The fix child's `COMMIT_OPEN_CONTESTS` environment value carries the numbers
   that still lack winners. An empty value lifts the commit block.
 - implement: plan, one-based step number, remaining hosting repo shares,
@@ -879,7 +891,7 @@ run in the plan checkout; implementation and commit phases run in Repo Edu.
 Never claim a new number to continue an existing round.
 
 `resume-fix <report> <session-id>` is the runner-owned continuation for an open
-serious contest. It reloads the retained audit, vet and rebuttal files and the
+serious contest or split. It reloads the retained audit, vet and rebuttal files and the
 matching round entry. For an existing ruling, the runner prints its notice and
 waits for the `/ruling` answer before the fix resumes. If
 the stopped fix wrote none, the runner resumes it first. Stored winners are
@@ -1261,7 +1273,7 @@ writes no file, cache entry or snapshot.
 
 A clean audit records its outcome directly and retains the report, without
 review or fix sessions. An automatic clean round still applies the series
-rules. A fix that stops for a ruling adds a ruling twin. If a serious contest
+rules. A fix that stops for a ruling adds a ruling twin. If a serious contest or split
 remains open, its stop or failure prints the runner's `resume-fix` command. The
 recovered fix uses the same retained round and completion path. A finished plan
 round with audit findings ends with a glance at the commit record, and a due

@@ -17,11 +17,13 @@ import {
 import type { SeriesEvidence } from "../judge.js"
 import type { LifecycleCommit } from "../lifecycle.js"
 import { phaseWorkflow, type RulingRequest } from "../phase.js"
+import { openSeriousFindings, seriousFindings } from "../round.js"
 import type {
   ImplementationRoundData,
   LandedCommit,
   ReportFinding,
   RoundAccount,
+  RoundFindingReview,
 } from "../round-data.js"
 import type { RulingInput } from "../ruling-wait.js"
 import { RunClock } from "../run-clock.js"
@@ -287,6 +289,7 @@ function controlledRound(
             {
               number: evidence.findings[0]?.number ?? 1,
               tier: evidence.findings[0]?.tier ?? "B",
+              vet: vetTag,
               answer: evidence.rebuttalAnswer,
             },
           ],
@@ -526,6 +529,7 @@ for (const scenario of [
         document: ruling,
         fixerSide: scenario.side,
         contests: [1],
+        panel: [vetTag],
         judgedRepos: ["repo-edu"],
       },
     ])
@@ -599,6 +603,7 @@ test("a second ruling in the same round asks only for the contests still open", 
         [1, 2].map((number) => ({
           number,
           tier: "B" as const,
+          vet: vetTag,
           answer: "contest" as const,
         })),
       requestRuling: async (input) => {
@@ -881,6 +886,140 @@ test("not yet in a recovered contest keeps the runner block until a later winner
         .map((contest) => contest.finding),
     ),
     [[1], []],
+  )
+})
+
+/** A round account whose one finding the panel reviewed as given. */
+function reviewedAccount(
+  tier: ReportFinding["tier"],
+  ...reviews: readonly RoundFindingReview[]
+): RoundAccount {
+  return {
+    settling: "",
+    judgedRepos: ["repo-edu"],
+    findings: [
+      {
+        ...reportFinding,
+        tier,
+        reviews: [...reviews],
+        outcome: null,
+        finalTier: null,
+        finalReach: null,
+      },
+    ],
+  }
+}
+
+const panelReview = (
+  vet: string,
+  verdict: RoundFindingReview["verdict"],
+  answer: RoundFindingReview["answer"] = verdict === "accept" ? null : "agree",
+  revisedTier?: RoundFindingReview["revisedTier"],
+): RoundFindingReview => ({
+  vet,
+  verdict,
+  ...(revisedTier === undefined ? {} : { revisedTier }),
+  answer,
+})
+
+test("each pair of different verdict words on a B finding is a split the user rules on", () => {
+  const verdicts = ["accept", "revise", "drop", "needs-user-ruling"] as const
+  for (const [index, first] of verdicts.entries())
+    for (const second of verdicts.slice(index + 1))
+      assert.deepEqual(
+        seriousFindings(
+          reviewedAccount(
+            "B",
+            panelReview("abx", first),
+            panelReview("obh", second),
+          ),
+        ),
+        [1],
+        `${first} and ${second}`,
+      )
+})
+
+test("two vets that both send a finding to the user do not split", () => {
+  assert.deepEqual(
+    seriousFindings(
+      reviewedAccount(
+        "B",
+        panelReview("abx", "needs-user-ruling", "for-user-ruling"),
+        panelReview("obh", "needs-user-ruling", "for-user-ruling"),
+      ),
+    ),
+    [],
+  )
+})
+
+test("two revisions split only when the rebuttal does not agree with both", () => {
+  assert.deepEqual(
+    seriousFindings(
+      reviewedAccount(
+        "A",
+        panelReview("abx", "revise"),
+        panelReview("obh", "revise", "agree", "C"),
+      ),
+    ),
+    [],
+  )
+  for (const answer of ["contest", "for-user-ruling"] as const)
+    assert.deepEqual(
+      seriousFindings(
+        reviewedAccount(
+          "B",
+          panelReview("abx", "revise"),
+          panelReview("obh", "revise", answer),
+        ),
+      ),
+      [1],
+      answer,
+    )
+})
+
+test("a split on a C finding stays with the fix unless a vet graded it A or B", () => {
+  assert.deepEqual(
+    seriousFindings(
+      reviewedAccount(
+        "C",
+        panelReview("abx", "accept"),
+        panelReview("obh", "drop"),
+      ),
+    ),
+    [],
+  )
+  assert.deepEqual(
+    seriousFindings(
+      reviewedAccount(
+        "C",
+        panelReview("abx", "accept"),
+        panelReview("obh", "revise", "agree", "B"),
+      ),
+    ),
+    [1],
+  )
+})
+
+test("a contest on one of two agreeing vets goes to the user", () => {
+  const account = reviewedAccount(
+    "B",
+    panelReview("abx", "drop", "contest"),
+    panelReview("obh", "drop"),
+  )
+  assert.deepEqual(seriousFindings(account), [1])
+  const [finding] = account.findings
+  assert.ok(finding)
+  assert.deepEqual(
+    openSeriousFindings({
+      ...account,
+      findings: [
+        {
+          ...finding,
+          ruling: { winner: ["abx", "obh"], reason: "Both drops held." },
+        },
+      ],
+    }),
+    [],
   )
 })
 

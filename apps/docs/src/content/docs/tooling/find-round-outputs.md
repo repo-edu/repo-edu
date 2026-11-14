@@ -37,7 +37,7 @@ carry no tag.
 | `-1-round.<tag>.log` | Tool calls and phase prompts, with supplied instruction contents omitted |
 | `-2-audit.<tag>.md` | Audit report and its target, judged repositories and audited heads |
 | `-3-vet.<tag>.md` | The other assistant's verdicts on every finding |
-| `-4-rebut.<tag>.md` | The auditor's answers to revised, dropped and referred findings |
+| `-4-rebut.<tag>.md` | The auditor's answers to each vet's revisions, drops and referrals, each naming its vet |
 | `-7-ruling.<tag>.md` | The fix's current open decision |
 | `-9-watch.<tag>.md` | The episode's admitted green, amber or red trajectory judgement |
 | `<stem>-plan-rounds.json` | Machine-owned retained data for planning rounds |

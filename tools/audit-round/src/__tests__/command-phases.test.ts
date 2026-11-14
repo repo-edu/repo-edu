@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readdir, readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { parseRoundDataFile } from "../round-data.js"
@@ -216,7 +216,7 @@ for (const auditor of ["claude", "codex"] as const) {
           const text = {
             audit: "Judged repos:",
             vet: "1. [B] Revise",
-            rebut: "1. [B] Agree",
+            rebut: `1. [B] [${basename(f.vet).split(".").at(-2)}] Agree`,
             fix: "Complete fix text.",
           }[phase]
           assert.ok(markdown.includes(text))

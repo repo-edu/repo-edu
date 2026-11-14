@@ -10,6 +10,7 @@ import {
   type ReportClass,
   reportKind,
 } from "../report.js"
+import type { PanelVet } from "../round-data.js"
 import { readRebuttal, readVet, rebuttalAnswers, vetVerdicts } from "../vet.js"
 import { roundGrammarExample, roundGrammarExamples } from "./round-grammar.js"
 
@@ -696,9 +697,22 @@ test("the round grammar's vet examples cover every verdict and named refusal", (
   }
 })
 
+/** A panel of one vet per verdict source, in the order the reports are supplied. */
+function panel(
+  ...vets: readonly (readonly [string, string])[]
+): readonly PanelVet[] {
+  return vets.map(([vet, source]) => ({
+    vet,
+    reviews: readVet(source, twoFindings).reviews,
+  }))
+}
+
 test("the round grammar's rebuttal examples cover every answer and named refusal", () => {
   const findings = twoFindings
-  const reviews = readVet("1. [B] Accept\n2. [C] Revise", findings).reviews
+  const reviews = panel(
+    ["abx", "1. [B] Accept\n2. [C] Revise"],
+    ["obh", "1. [B] Accept\n2. [C] Accept"],
+  )
   const examples = roundGrammarExamples("rebuttal/")
   for (const answer of Object.keys(rebuttalAnswers))
     assert.ok(
@@ -808,71 +822,144 @@ test("vet and rebuttal refuse a header whose word is outside their list by name"
       /^Error: Vet verdict 1 uses the word ".+"; use Accept, Revise, Drop or Needs user's ruling$/,
       source,
     )
-  const reviews = readVet("1. [B] Accept\n2. [C] Drop", twoFindings).reviews
+  const reviews = panel(["abx", "1. [B] Accept\n2. [C] Drop"])
   assert.throws(
-    () => readRebuttal("2. [C] Drop\n\nAgree.", twoFindings, reviews),
+    () => readRebuttal("2. [C] [abx] Drop\n\nAgree.", twoFindings, reviews),
     /^Error: Rebuttal answer 2 uses the word "Drop"; use Agree, Contest or For user's ruling$/,
   )
 })
 
 test("rebuttal reads an ordered subset and retains each answer", () => {
-  const reviews = readVet(
+  const reviews = panel([
+    "abx",
     "1. [B] Revise\nUse the tree entry.\n\n2. [C] Needs user's ruling",
-    twoFindings,
-  ).reviews
+  ])
   assert.deepEqual(
     readRebuttal(
-      "1. [B] Agree\nExplanation.\n\n2. [C] For user's ruling\n",
+      "1. [B] [abx] Agree\nExplanation.\n\n2. [C] [abx] For user's ruling\n",
       twoFindings,
       reviews,
     ),
     [
-      { number: 1, tier: "B", answer: "agree" },
-      { number: 2, tier: "C", answer: "for-user-ruling" },
+      { number: 1, tier: "B", vet: "abx", answer: "agree" },
+      { number: 2, tier: "C", vet: "abx", answer: "for-user-ruling" },
     ],
   )
   assert.throws(
-    () => readRebuttal("2. [C] Contest\n1. [B] Agree", twoFindings, reviews),
+    () =>
+      readRebuttal(
+        "2. [C] [abx] Contest\n1. [B] [abx] Agree",
+        twoFindings,
+        reviews,
+      ),
     /order/,
   )
 })
 
 test("rebuttal reads answer lines with surrounding whitespace", () => {
   const findings = twoFindings.slice(0, 1)
-  const reviews = readVet("1. [B] Revise", findings).reviews
+  const reviews = panel(["abx", "1. [B] Revise\n2. [C] Accept"])
 
-  assert.deepEqual(readRebuttal(" 1. [B] Agree ", findings, reviews), [
-    { number: 1, tier: "B", answer: "agree" },
+  assert.deepEqual(readRebuttal(" 1. [B] [abx] Agree ", findings, reviews), [
+    { number: 1, tier: "B", vet: "abx", answer: "agree" },
   ])
 })
 
-test("rebuttal omits accepted findings and answers changed verdicts", () => {
-  const reviews = readVet(
+test("rebuttal omits accepted verdicts and answers changed verdicts", () => {
+  const reviews = panel([
+    "abx",
     "1. [B] Accept\nThe finding is well grounded.\n\n2. [C] Revise\nUse the tree entry.",
-    twoFindings,
-  ).reviews
+  ])
   assert.deepEqual(
     readRebuttal(
-      "2. [C] Contest\nKeep the original wording.",
+      "2. [C] [abx] Contest\nKeep the original wording.",
       twoFindings,
       reviews,
     ),
-    [{ number: 2, tier: "C", answer: "contest" }],
+    [{ number: 2, tier: "C", vet: "abx", answer: "contest" }],
   )
 
   for (const verdict of ["Revise", "Drop", "Needs user's ruling"]) {
-    const changed = readVet(
-      `1. [B] ${verdict}`,
-      twoFindings.slice(0, 1),
-    ).reviews
+    const changed = panel(["abx", `1. [B] ${verdict}\n2. [C] Accept`])
     assert.throws(
-      () =>
-        readRebuttal(
-          "Unrecognised answer form",
-          twoFindings.slice(0, 1),
-          changed,
-        ),
-      /answer for finding 1/,
+      () => readRebuttal("Unrecognised answer form", twoFindings, changed),
+      /^Error: Rebuttal needs an answer to abx on finding 1$/,
     )
   }
+})
+
+test("rebuttal answers each of two vets in report order, then panel order", () => {
+  const reviews = panel(
+    ["abx", "1. [B] Drop\n2. [C] Revise"],
+    ["obh", "1. [B] Revise to [C]\n2. [C] Accept"],
+  )
+  assert.deepEqual(
+    readRebuttal(
+      [
+        "1. [B] [abx] Contest",
+        "The cited test covers the case.",
+        "1. [B] [obh] Agree",
+        "2. [C] [abx] Agree",
+      ].join("\n"),
+      twoFindings,
+      reviews,
+    ),
+    [
+      { number: 1, tier: "B", vet: "abx", answer: "contest" },
+      { number: 1, tier: "B", vet: "obh", answer: "agree" },
+      { number: 2, tier: "C", vet: "abx", answer: "agree" },
+    ],
+  )
+  assert.throws(
+    () =>
+      readRebuttal(
+        "1. [B] [obh] Agree\n1. [B] [abx] Contest\n2. [C] [abx] Agree",
+        twoFindings,
+        reviews,
+      ),
+    /^Error: Rebuttal answers must follow report order, then panel order$/,
+  )
+  assert.throws(
+    () =>
+      readRebuttal(
+        "1. [B] [abx] Contest\n1. [B] [abx] Agree\n2. [C] [abx] Agree",
+        twoFindings,
+        reviews,
+      ),
+    /^Error: Rebuttal answers abx on finding 1 more than once$/,
+  )
+  assert.throws(
+    () =>
+      readRebuttal(
+        "1. [B] [abx] Contest\n2. [C] [abx] Agree",
+        twoFindings,
+        reviews,
+      ),
+    /^Error: Rebuttal needs an answer to obh on finding 1$/,
+  )
+})
+
+test("rebuttal refuses an answer that names no vet, a vet outside the panel or an accepting vet", () => {
+  const reviews = panel(
+    ["abx", "1. [B] Drop\n2. [C] Accept"],
+    ["obh", "1. [B] Accept\n2. [C] Accept"],
+  )
+  for (const [source, refusal] of [
+    [
+      "1. [B] Agree",
+      "Rebuttal answer 1 names no vet; put the vet's tag in brackets after the tier",
+    ],
+    [
+      "1. [B] [atx] Agree",
+      "Rebuttal answer 1 names atx, which is no vet of this round; use abx or obh",
+    ],
+    [
+      "1. [B] [obh] Agree",
+      "Rebuttal answer 1 names obh, which accepted finding 1; an accept needs no answer",
+    ],
+  ] as const)
+    assertNamedRefusal(
+      () => readRebuttal(source, twoFindings, reviews),
+      refusal,
+    )
 })
