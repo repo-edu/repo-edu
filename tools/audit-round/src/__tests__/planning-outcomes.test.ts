@@ -9,13 +9,13 @@ import { roundFixture } from "./round-fixture.js"
 
 const singleAuditorSettings = {
   ...testSettings,
-  planning: {
-    ...testSettings.planning,
-    auditors: [testSettings.planning.auditors[0]],
+  planningAudit: {
+    ...testSettings.planningAudit,
+    auditors: [testSettings.planningAudit.auditors[0]],
   },
-  implementation: {
-    ...testSettings.implementation,
-    auditors: [testSettings.implementation.auditors[0]],
+  implementationAudit: {
+    ...testSettings.implementationAudit,
+    auditors: [testSettings.implementationAudit.auditors[0]],
   },
 }
 

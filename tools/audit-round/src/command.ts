@@ -67,6 +67,8 @@ import {
   type AuditorOption,
   type AuditorSeat,
   type AuditorSelectionSource,
+  auditLevels,
+  auditRoles,
   type DeferralChainOutcome,
   efforts,
   listedSeat,
@@ -1534,11 +1536,7 @@ export async function runCommand(
         )
       } else {
         const lifecycleSettings = options.settings ?? (await readSettings())
-        const result = await readyPlan(
-          context,
-          plan,
-          lifecycleSettings.implementation.coders,
-        )
+        const result = await readyPlan(context, plan, lifecycleSettings.coders)
         options.terminal.write(`Committed ${result.sha}: ${result.subject}`)
       }
       return 0
@@ -2155,7 +2153,7 @@ export async function runCommand(
         options.coin ?? ((count: number) => Math.floor(Math.random() * count))
       const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
       const workClass = targetWorkClass(targets[0])
-      const classAuditors = settings[workClass].auditors
+      const classAuditors = auditRoles(workClass, settings).auditors
       // A random default spreads first looks over every listed auditor without
       // binding any entry to the first position on every target.
       const settingsOpener = (auditors: readonly Auditor[]): AuditorSeat =>
@@ -2165,7 +2163,7 @@ export async function runCommand(
           ],
         )
       const planningOpener = (): AuditorSeat =>
-        settingsOpener(settings.planning.auditors)
+        settingsOpener(settings.planningAudit.auditors)
       const opened = first ?? series.firstAuditor
       // The series routes among the listed auditors only.
       const pool: readonly AuditorSeat[] = classAuditors.map(listedSeat)
@@ -2182,7 +2180,7 @@ export async function runCommand(
         )
         if (!poolAuditors.some((auditor) => auditorText(auditor) === firstText))
           throw new InvalidArgumentError(
-            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the ${workClass}.auditors list in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
+            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the ${auditLevels[workClass]}.auditors list in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
           )
       }
       // Only an implementation plan target reads its ready assignment; the
@@ -2684,11 +2682,7 @@ export async function runCommand(
                 `Committed ${settled.sha}: ${settled.subject}\nMarker: ${settled.marker}`,
               )
             } else {
-              const ready = await readyPlan(
-                context,
-                plan,
-                settings.implementation.coders,
-              )
+              const ready = await readyPlan(context, plan, settings.coders)
               await say(`Committed ${ready.sha}: ${ready.subject}`)
             }
             // A plan reopened after its ready marker keeps that marker, so

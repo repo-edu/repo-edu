@@ -121,7 +121,7 @@ function listedPlanningAuditor(
   identity: ModelIdentity,
   settings: RoundSettings,
 ): boolean {
-  return settings.planning.auditors.some(
+  return settings.planningAudit.auditors.some(
     (auditor) =>
       identity.effort === auditor.effort &&
       (identity.model === auditor.model ||
@@ -308,7 +308,7 @@ function unlistedOpenerLine(
       !listedPlanningAuditor(reading.identity, settings),
   )
   if (entries.length === 0) return null
-  return `Not in the current \`planning.auditors\` list, opened an uneven share: ${entries
+  return `Not in the current \`planningAudit.auditors\` list, opened an uneven share: ${entries
     .map(
       (reading) =>
         `\`${modelText(reading.identity)}\` ${reading.comparison.openedPlans} of ${reading.comparison.plans}`,
@@ -380,9 +380,7 @@ function coderReading(
   if (recommendation === null)
     return readingLines("The records do not separate one coder clearly.", notes)
   const identity = rows.get(recommendation)?.identity ?? entries[0][1].identity
-  const current = new Set(
-    settings.implementation.coders.map((coder) => modelKey(coder)),
-  )
+  const current = new Set(settings.coders.map((coder) => modelKey(coder)))
   return readingLines(
     `The records clearly support running ${modelText(identity)}.`,
     current.has(recommendation)

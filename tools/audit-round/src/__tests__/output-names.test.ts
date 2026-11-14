@@ -307,7 +307,7 @@ test("an automatic series adds no assistant phase for its decision", async (t) =
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      pool: testSettings.implementation.auditors,
+      pool: testSettings.implementationAudit.auditors,
     },
     0,
     releases,

@@ -1,16 +1,5 @@
 {
   "defaultAuditor": "first",
-  "maximumAutomaticRounds": 10,
-  "strengthModels": {
-    "claude": {
-      "base": "opus",
-      "top": "claude-fable-5-1"
-    },
-    "codex": {
-      "base": "gpt-5.6-sol",
-      "top": "gpt-6-astra"
-    }
-  },
   "defaults": {
     "claude": {
       "model": "opus",
@@ -21,7 +10,7 @@
       "effort": "high"
     }
   },
-  "planning": {
+  "planningAudit": {
     "auditors": [
       {
         "assistant": "codex",
@@ -34,20 +23,27 @@
         "effort": "high"
       }
     ],
-    "fixer": {
-      "assistant": "codex",
-      "model": "default",
-      "effort": "default"
-    },
     "vetters": [
       {
         "assistant": "claude",
         "model": "default",
         "effort": "default"
       }
-    ]
+    ],
+    "fixer": {
+      "assistant": "codex",
+      "model": "default",
+      "effort": "default"
+    }
   },
-  "implementation": {
+  "coders": [
+    {
+      "assistant": "codex",
+      "model": "gpt-5.6-sol",
+      "effort": "high"
+    }
+  ],
+  "implementationAudit": {
     "auditors": [
       {
         "assistant": "codex",
@@ -57,13 +53,6 @@
       {
         "assistant": "claude",
         "model": "opus",
-        "effort": "high"
-      }
-    ],
-    "coders": [
-      {
-        "assistant": "codex",
-        "model": "gpt-5.6-sol",
         "effort": "high"
       }
     ],
@@ -85,6 +74,17 @@
       "assistant": "codex",
       "model": "default",
       "effort": "default"
+    }
+  },
+  "maximumAutomaticRounds": 10,
+  "strengthModels": {
+    "claude": {
+      "base": "opus",
+      "top": "claude-fable-5-1"
+    },
+    "codex": {
+      "base": "gpt-5.6-sol",
+      "top": "gpt-6-astra"
     }
   }
 }

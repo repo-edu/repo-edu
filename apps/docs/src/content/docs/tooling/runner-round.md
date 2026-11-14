@@ -72,9 +72,9 @@ reference keeps `.md` to mark it as a plan.
 3. **Rebuttal.** The auditor answers every vet's revisions, drops and ruling items on the audit's
    model and effort. It is skipped when every vet accepts every finding.
 4. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
-   commit audit of plan-repo commits alone fix on `planning.fixer` in
+   commit audit of plan-repo commits alone fix on `planningAudit.fixer` in
    `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder. A
-   commit audit with Repo Edu commits fixes on the first `implementation.coders` entry. The fix may
+   commit audit with Repo Edu commits fixes on the first `coders` entry. The fix may
    stop for your ruling. When the auditor contests a vet's verdict, or two vets of the panel give
    different verdicts, on a finding the report or a vet graded A or B, that ruling shows every
    position and you name what was right: the audit report, one or more vets by their tags, or
@@ -90,8 +90,8 @@ directly; a commit target lands nothing. An automatic series still applies its d
 ### Series
 
 1. **Automatic series**, without `--auditor`. Planning targets and plan-only commit targets use
-   `planning.auditors`. Implementation targets and any commit target with a Repo Edu group use
-   `implementation.auditors`. The `--first` selection opens; it must name an auditor from the
+   `planningAudit.auditors`. Implementation targets and any commit target with a Repo Edu group use
+   `implementationAudit.auditors`. The `--first` selection opens; it must name an auditor from the
    target work class's list. Without it, the retained round data opens on a listed auditor
    without a current read when another has one, so a rerun continues where the series stood;
    otherwise the configured default auditor opens, and a `random` default picks it again for each
@@ -120,8 +120,8 @@ plus the fixes landed so far.
 Before an automatic implementation series, and again after each finished implementation-audit round,
 the runner checks for an open deferral into the plan repo. When one exists and the series would
 continue to its decision, it chains one planning round for those deferrals on the default entry
-from `planning.auditors`, including that entry's model and effort. That round does not count against
-the series maximum. Each plan-scoped
+from `planningAudit.auditors`, including that entry's model and effort. That round does not count
+against the series maximum. Each plan-scoped
 implementation audit also receives the open deferrals into Repo Edu. Every automatic series ending
 prints the remaining open deferrals or says there are none.
 

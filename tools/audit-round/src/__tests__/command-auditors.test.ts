@@ -93,7 +93,7 @@ for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
-    settings.implementation.auditors = [
+    settings.implementationAudit.auditors = [
       { assistant: auditor, model: "pinned-auditor", effort: "medium" },
     ]
     assert.equal(
@@ -144,10 +144,7 @@ for (const auditor of ["codex", "claude"] as const) {
         ? /audit +codex +gpt-6-astra +extra high +--auditor/
         : /audit +claude +claude-fable-5-1 +extra high +--auditor/,
     )
-    assert.match(
-      log,
-      /fix +codex +gpt-5\.6-sol +high +audit-round implementation coders/,
-    )
+    assert.match(log, /fix +codex +gpt-5\.6-sol +high +audit-round coders/)
     // The requested model and effort stay in the arguments above.
     // The fix receives the release and effort reported by each phase instead.
     assert.deepEqual(
@@ -201,10 +198,10 @@ for (const auditor of ["codex", "claude"] as const) {
   test(`--auditor ${auditor} selects the defaults for audit and rebuttal despite listed auditors`, async (t) => {
     const f = await roundFixture(t, auditor)
     const settings = structuredClone(testSettings)
-    settings.implementation.auditors = [
+    settings.implementationAudit.auditors = [
       { assistant: auditor, model: "pinned-auditor", effort: "low" },
     ]
-    settings.implementation.coders = [
+    settings.coders = [
       {
         assistant: "codex",
         model: "pinned-fix",
@@ -258,7 +255,7 @@ for (const auditor of ["codex", "claude"] as const) {
 test("auditor lists keep each entry's model and effort independent", async (t) => {
   const f = await roundFixture(t, "claude")
   const settings = structuredClone(testSettings)
-  settings.implementation.auditors = [
+  settings.implementationAudit.auditors = [
     { assistant: "claude", model: "pinned-claude", effort: "low" },
     { assistant: "codex", model: "pinned-codex", effort: "high" },
   ]

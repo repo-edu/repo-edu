@@ -380,7 +380,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      pool: testSettings.implementation.auditors,
+      pool: testSettings.implementationAudit.auditors,
     },
     Date.now(),
     releases,
@@ -446,7 +446,7 @@ test("the final retained write stores the series answer and resolved pool", asyn
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      pool: testSettings.implementation.auditors,
+      pool: testSettings.implementationAudit.auditors,
     },
     Date.now(),
     releases,
@@ -468,7 +468,7 @@ test("the final retained write stores the series answer and resolved pool", asyn
     report: "REPORT.md",
     cleanAudit: true,
     decision: {
-      answer: testSettings.implementation.auditors[1],
+      answer: testSettings.implementationAudit.auditors[1],
       reason: "Cross-check the retained result.",
     },
     watch: null,
@@ -487,7 +487,7 @@ test("the final retained write stores the series answer and resolved pool", asyn
     answer: { assistant: "claude", model: "opus", effort: "high" },
     reason: "Cross-check the retained result.",
   })
-  assert.deepEqual(entry?.pool, testSettings.implementation.auditors)
+  assert.deepEqual(entry?.pool, testSettings.implementationAudit.auditors)
 })
 
 for (const [name, abortReason, status] of [
@@ -544,16 +544,13 @@ for (const assistant of ["claude", "codex"] as const) {
     t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
     const settings = {
       ...testSettings,
-      implementation: {
-        ...testSettings.implementation,
-        coders: [{ ...testSettings.implementation.coders[0], assistant }],
-      },
+      coders: [{ ...testSettings.coders[0], assistant }],
     }
     const setup = {
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      fixer: settings.implementation.coders[0],
+      fixer: settings.coders[0],
     }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const log: string[] = []
@@ -696,16 +693,13 @@ for (const assistant of ["claude", "codex"] as const) {
     const visible: string[] = []
     const settings = {
       ...testSettings,
-      implementation: {
-        ...testSettings.implementation,
-        coders: [{ ...testSettings.implementation.coders[0], assistant }],
-      },
+      coders: [{ ...testSettings.coders[0], assistant }],
     }
     const setup = {
       ...testSetup(f.root),
       plan: "example.md",
       scope: "1",
-      fixer: settings.implementation.coders[0],
+      fixer: settings.coders[0],
     }
     const run = await buildRoundRun(setup, Date.now(), releases, settings)
     const output = new RoundOutput(run, {
@@ -780,8 +774,8 @@ test("commit stamps time the finished audit, every vet and rebuttal and never th
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const settings = settingsSchema.parse({
     ...testSettings,
-    implementation: {
-      ...testSettings.implementation,
+    implementationAudit: {
+      ...testSettings.implementationAudit,
       vetters: [
         { assistant: "claude", model: "opus", effort: "high" },
         { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
@@ -881,8 +875,8 @@ test("two vets' mixed events keep their own slots and records, each vet's text h
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   const settings = settingsSchema.parse({
     ...testSettings,
-    implementation: {
-      ...testSettings.implementation,
+    implementationAudit: {
+      ...testSettings.implementationAudit,
       vetters: [
         { assistant: "claude", model: "opus", effort: "high" },
         { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },

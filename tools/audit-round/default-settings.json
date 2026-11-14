@@ -10,7 +10,7 @@
             "effort": "high"
         }
     },
-    "planning": {
+    "planningAudit": {
         "auditors": [
             {
                 "assistant": "claude",
@@ -23,11 +23,6 @@
                 "effort": "default"
             }
         ],
-        "fixer": {
-            "assistant": "codex",
-            "model": "default",
-            "effort": "default"
-        },
         "vetters": [
             {
                 "assistant": "claude",
@@ -39,22 +34,27 @@
                 "model": "fable",
                 "effort": "high"
             }
-        ]
+        ],
+        "fixer": {
+            "assistant": "codex",
+            "model": "default",
+            "effort": "default"
+        }
     },
-    "implementation": {
+    "coders": [
+        {
+            "assistant": "codex",
+            "model": "default",
+            "effort": "default"
+        }
+    ],
+    "implementationAudit": {
         "auditors": [
             {
                 "assistant": "claude",
                 "model": "default",
                 "effort": "default"
             },
-            {
-                "assistant": "codex",
-                "model": "default",
-                "effort": "default"
-            }
-        ],
-        "coders": [
             {
                 "assistant": "codex",
                 "model": "default",

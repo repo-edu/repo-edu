@@ -73,7 +73,7 @@ function implementationRead(
   round: number,
   status: ImplementationRoundData["status"] = "finished",
 ): ImplementationRoundData {
-  const auditor = testSettings.implementation.auditors.find(
+  const auditor = testSettings.implementationAudit.auditors.find(
     (entry) => entry.assistant === assistant,
   )
   assert.ok(auditor)
@@ -563,7 +563,7 @@ const panelReports = ["abh", "obh"].map(
 )
 const panelSettings = (() => {
   const settings = structuredClone(testSettings)
-  settings.implementation.vetters = [
+  settings.implementationAudit.vetters = [
     { assistant: "claude", model: "opus", effort: "high" },
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
   ]
@@ -2341,7 +2341,7 @@ test("an automatic round publishes its settled entry before the series decision"
       plan: "example.md",
       scope: "1",
       auditor: "codex",
-      pool: testSettings.implementation.auditors,
+      pool: testSettings.implementationAudit.auditors,
     },
     {
       ...round.dependencies,
@@ -2386,7 +2386,7 @@ test("a series evidence failure follows the first retained write", async () => {
       plan: "example.md",
       scope: "1",
       auditor: "codex",
-      pool: testSettings.implementation.auditors,
+      pool: testSettings.implementationAudit.auditors,
     },
     {
       ...round.dependencies,
@@ -2482,7 +2482,7 @@ test("a later clean-chain failure keeps the landed commit for final recording", 
       ...files,
       plan: "example.md",
       scope: "1",
-      pool: testSettings.implementation.auditors,
+      pool: testSettings.implementationAudit.auditors,
     },
     {
       ...round.dependencies,

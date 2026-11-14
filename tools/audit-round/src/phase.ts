@@ -333,7 +333,7 @@ export function panelPhases(
   workClass: RoundKind,
   config: RoundSettings,
 ): readonly PhaseRun[] {
-  return config[workClass].vetters.map((vetter) =>
+  return auditRoles(workClass, config).vetters.map((vetter) =>
     implementationPhase(vetter, `audit-round ${workClass} vetters`),
   )
 }
@@ -361,6 +361,20 @@ export function targetWorkClass(target: AuditTarget): RoundKind {
     : "planning"
 }
 
+/** The settings level that holds each work class's auditor pool and vetter panel. */
+export const auditLevels = {
+  planning: "planningAudit",
+  implementation: "implementationAudit",
+} as const satisfies Record<RoundKind, string>
+
+/** The auditor pool and vetter panel of one work class. */
+export function auditRoles(
+  workClass: RoundKind,
+  config: RoundSettings,
+): Pick<RoundSettings["implementationAudit"], "auditors" | "vetters"> {
+  return config[auditLevels[workClass]]
+}
+
 /**
  * The single owner of who fixes a round. Planning work fixes on the planning
  * fixer: every planning round, before and after `ready`, and a commit target
@@ -376,12 +390,12 @@ export function roundFixer(
   config: RoundSettings,
 ): RoundFixer {
   const planning: RoundFixer = {
-    fixer: config.planning.fixer,
+    fixer: config.planningAudit.fixer,
     fixerSource: "audit-round planning fixer",
   }
   const firstCoder: RoundFixer = {
-    fixer: config.implementation.coders[0],
-    fixerSource: "audit-round implementation coders",
+    fixer: config.coders[0],
+    fixerSource: "audit-round coders",
   }
   if (targetWorkClass(target) === "planning") return planning
   if ("groups" in target) return firstCoder
@@ -445,8 +459,8 @@ export function closePhase(config: RoundSettings): PhaseRun {
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
  * the default selection, every class's listed auditors and vetters, the
- * implementation coders, the planning fixer, each phase's own pin and each
- * tier a tag can ask for.
+ * planning fixer, the coders, each phase's own pin and each tier a tag can
+ * ask for.
  */
 export function namedModels(
   assistant: Assistant,
@@ -454,12 +468,12 @@ export function namedModels(
 ): ReadonlySet<string> {
   const runs: PhaseRun[] = [
     ...[
-      ...config.planning.auditors,
-      config.planning.fixer,
-      ...config.planning.vetters,
-      ...config.implementation.auditors,
-      ...config.implementation.coders,
-      ...config.implementation.vetters,
+      ...config.planningAudit.auditors,
+      ...config.planningAudit.vetters,
+      config.planningAudit.fixer,
+      ...config.coders,
+      ...config.implementationAudit.auditors,
+      ...config.implementationAudit.vetters,
     ].map((entry) => implementationPhase(entry)),
     ...(["claude", "codex"] as const).flatMap((auditor) =>
       [null, ...strengths].map((strength) =>

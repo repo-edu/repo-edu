@@ -58,20 +58,20 @@ async function configureRun(
 const runSettings = {
   ...testSettings,
   defaultAuditor: "first" as const,
-  planning: {
-    ...testSettings.planning,
-    auditors: [testSettings.planning.auditors[0]],
+  planningAudit: {
+    ...testSettings.planningAudit,
+    auditors: [testSettings.planningAudit.auditors[0]],
   },
-  implementation: {
-    ...testSettings.implementation,
-    auditors: [testSettings.implementation.auditors[0]],
-    coders: [
-      {
-        assistant: "codex" as const,
-        model: "gpt-5.6-sol",
-        effort: "xhigh" as const,
-      },
-    ],
+  coders: [
+    {
+      assistant: "codex" as const,
+      model: "gpt-5.6-sol",
+      effort: "xhigh" as const,
+    },
+  ],
+  implementationAudit: {
+    ...testSettings.implementationAudit,
+    auditors: [testSettings.implementationAudit.auditors[0]],
   },
 }
 

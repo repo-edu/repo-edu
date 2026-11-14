@@ -20,10 +20,11 @@ consumers.
   verdict lines. One rebuttal answers every vet of the panel.
   Rebuttal uses the audit's resolved model and effort, including `--auditor` or `--first` fields,
   because it is the auditor's answer. Its workflow grounds answers in current sources. The settings
-  file holds the planning and implementation work classes, the assistants that write documents and
-  the default-auditor rule. Each work class owns its auditor list. Planning also owns its fixer and
-  implementation owns its coder list. The audit target picks the work class and fixer, as
-  [Model settings](#model-settings) routes each target.
+  file holds one audit level for each work class, the coder list, the assistants that write
+  documents and the default-auditor rule. Each audit level owns its auditor list and its vetter
+  panel. The planning audit level also owns its fixer. The coder list sits under neither level,
+  because a plan's coder writes its steps and fixes its implementation audits. The audit target
+  picks the work class and fixer, as [Model settings](#model-settings) routes each target.
   The fix receives a ruling output path separately from its report
   arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
   The runner checks that file, then waits for the user's answer under `ruling-wait.ts`; its notice
@@ -121,7 +122,7 @@ consumers.
   commits only the widening rename before claiming its marker. Ready shares
   the `git commit --only --allow-empty` route with direct clean completion and
   validates the committed plan's steps and audit ranges, advances through
-  `implementation.coders` and writes the assignment in its marker. Both routes
+  `coders` and writes the assignment in its marker. Both routes
   keep the plan checkout's normal hooks enabled. An implemented marker carries
   the assigned coder's resolved model record and capability tag.
 - `implement.ts` owns the assigned-ready gate, optional step scope, per-repo
@@ -176,10 +177,12 @@ consumers.
   implementation plan target and passes it in. `closePhase` names the loop-close on its own
   settings, because the close belongs to no auditor. Every phase names a model and an effort; a
   field that says `default` reads the assistant's default selection, so neither CLI's own
-  configuration enters. `settings.json` owns the two work classes, phase selections, the default
-  selections and the model tier table. `targetWorkClass` is the one owner of the target
+  configuration enters. `settings.json` owns the two audit levels, the coder list, phase selections,
+  the default selections and the model tier table. `targetWorkClass` is the one owner of the target
   classification. Planning targets and plan-only commit targets select planning. Implementation
-  targets and any commit target with a Repo Edu group select implementation. `settings.ts` loads and
+  targets and any commit target with a Repo Edu group select implementation. `auditRoles` is the
+  one reader of a work class's audit level: `planningAudit` for planning and `implementationAudit`
+  for implementation. `settings.ts` loads and
   validates it once at command entry, independently of the working directory. That configuration is
   passed through routing, output naming and commit stamps. A listed auditor, a vetter, a coder and
   the planning fixer carry both fields, each resolved at load when it says `default`. `--auditor`
@@ -544,7 +547,7 @@ consumers.
   adds step and implementation-fix time and excludes planning fixes. Mean comes from
   `simple-statistics`. Direct observed-range comparisons own the clear-cut recommendation. Every row
   that reaches its minimum enters it. The coder table sorts by accepted findings per step, fewest
-  first, then by time. A winning coder outside `implementation.coders` is named as such. The
+  first, then by time. A winning coder outside `coders` is named as such. The
   ruled-findings section lists every finding whose round stored the user's winner, newest round
   first and in finding order within a round: plan and round, finding, tier, auditor, every vet of
   the round with its verdict, the answer and the reason. The answer names each winning vet by its
@@ -704,7 +707,7 @@ consumers.
   `replay`, `disprove`, `settle`, `ready`, `implement`, `close`, `round`, `plan`, `name`, `paths`,
   `resume-fix`, `delete-reports`, `mark`, `episode`, `deferrals`, `ruling` and `answer`. Help lists
   the run, `round`, `models`, `replay`, `disprove`, `settle`, `ready`, `implement`, `close` and
-  `plan`, the commands a user runs. `models` reads its retained data and `implementation.coders`
+  `plan`, the commands a user runs. `models` reads its retained data and `coders`
   before assistant startup or release resolution. `replay` reads the retained plan-series answers
   and every active commit-series answer. It applies the same fixed decision function without
   starting an assistant. The hand-run launchers call `name`, `paths`, `delete-reports`, `episode`
@@ -767,9 +770,10 @@ consumers.
   deferrals. After each finished implementation-audit round, it computes the set again. It chains
   the planning round only when the series remains eligible to continue to its decision. A red
   implementation watch or a plan phase change caused by the implementation fix leaves the deferral
-  open, prints it and stops the series. The chain uses the default entry from `planning.auditors`,
-  including that entry's model and effort. It claims its own planning-round number, takes no
-  implementation-series turn and ends the implementation series when it fails, awaits a ruling,
+  open, prints it and stops the series. The chain uses the default entry from
+  `planningAudit.auditors`, including that entry's model and effort. It claims its own
+  planning-round number, takes no implementation-series turn and ends the implementation series
+  when it fails, awaits a ruling,
   changes phase or receives a red watch. Every automatic series ending on a plan prints the
   remaining open deferrals or says there are none. A round that changes the plan's phase finishes
   without a series answer. Commit targets use the same fixed rules and maximum. Before each later
@@ -1040,68 +1044,78 @@ When it is missing, the runner creates it from
 defaults, as plain JSON. An invalid file stops the command with a validation
 error and is left unchanged.
 
+The file opens with `defaultAuditor` and `defaults`. Then it lists four fields
+in the order a plan meets them: `planningAudit`, `coders`,
+`implementationAudit` and `phases`, for the planning audits, the
+implementation, the implementation audits and then the watch and the close.
+Each audit level lists its roles in the order a round runs them: `auditors`,
+`vetters` and, for planning, `fixer`. `maximumAutomaticRounds` and
+`strengthModels` close the file. The runner reads the fields in any order.
+
 - `defaultAuditor` selects which entry in the target work class's auditor list opens a series when
   neither `--auditor` nor `--first` is given and the retained data gives rule 3 no opener. `first`
   opens on the first entry. `random` picks one entry for each scope's series, so no listed auditor
   always takes the first look at a target; the round data still records that choice as
   settings-chosen.
+- `defaults` names each assistant's default model and effort outright. A phase
+  or list field that says `default` reads it, and `--auditor claude` or
+  `--auditor codex` runs the audit on it. Neither CLI's own model configuration
+  is ever read, so this file alone decides what every phase runs on.
+- A list field's or `planningAudit.fixer`'s `default` resolves when the file
+  loads. The series pool, the `models` read-out, a fix and a ready marker
+  therefore all name the resolved selection. A ready marker keeps the coder it
+  recorded when `defaults` changes later.
+- `planningAudit.auditors` and `implementationAudit.auditors` are non-empty ordered lists. Each
+  entry names its assistant, a model and an effort, such as Claude Fable at high and Claude Opus at
+  xhigh; either field may say `default`. An automatic series opens from the target work class's
+  list and picks every later entry from that list. Planning targets and plan-only commit targets
+  use `planningAudit.auditors`. Implementation targets and commit targets with any Repo Edu group
+  use `implementationAudit.auditors`. Two models of one vendor are two entries, and each needs its
+  own current read before the series ends. A `--first` selection must resolve to an entry in that
+  target's list. A one-entry list runs every settings-chosen round in its class on that entry.
+- `planningAudit.vetters` and `implementationAudit.vetters` are non-empty lists. Each entry names
+  its assistant, model and effort, and either field may say `default`. Every entry of the target
+  work class's list vets every audit report of that class, side by side and whoever audited, so a
+  vet may sit on a report from its own model and effort. A list refuses two entries with one
+  capability tag, because the second vet's report would overwrite the first's.
+- `planningAudit.fixer` names the assistant, model and effort that fix a planning round or a
+  plan-only commit audit. Either field may say `default`. `implementationAudit` has no fixer field,
+  because a coder fixes its rounds.
+- `coders` is a non-empty ordered list of coders. It sits at the top level, under neither
+  `planningAudit` nor `implementationAudit`, because two workflows use it: the plan's coder writes
+  every step and every implementation-audit fix of the plan. Each coder
+  names its assistant, model and effort, and either field may say `default`.
+  `ready` gives each new plan the coder that follows the one recorded in the
+  most recent ready marker. After the last coder it starts again at the first.
+  With no earlier coder to follow, or one no longer in the list, it takes the
+  first coder. A one-entry list always selects that coder.
+- `phases` sets the model and effort of the watch and the close. Each field names a value or says
+  `default`; `null` is refused. A named model must suit the selected CLI. The old `planning` and
+  `implementation` levels and the old `phases.planningFix` and `phases.vet` fields are refused like
+  any other invalid file; rewrite it or delete it to regenerate the defaults.
 - `maximumAutomaticRounds` limits an active plan or commit target's automatic series, counting
   its first round.
 - `strengthModels` maps each assistant's base and top tiers to a model name.
   The same names classify reported models for capability tags. A family alias
   such as `opus` follows the CLI's current release; a full model name pins it.
   The settings header shows the release either one resolves to.
-- `defaults` names each assistant's default model and effort outright. A phase
-  or list field that says `default` reads it, and `--auditor claude` or
-  `--auditor codex` runs the audit on it. Neither CLI's own model configuration
-  is ever read, so this file alone decides what every phase runs on.
-- A list field's or `planning.fixer`'s `default` resolves when the file
-  loads. The series pool, the `models` read-out, a fix and a ready marker
-  therefore all name the resolved selection. A ready marker keeps the coder it
-  recorded when `defaults` changes later.
-- `planning.auditors` and `implementation.auditors` are non-empty ordered lists. Each entry names
-  its assistant, a model and an effort, such as Claude Fable at high and Claude Opus at xhigh;
-  either field may say `default`. An automatic series opens from the target work class's list and
-  picks every later entry from that list. Planning targets and plan-only commit targets use
-  `planning.auditors`. Implementation targets and commit targets with any Repo Edu group use
-  `implementation.auditors`. Two models of one vendor are two entries, and each needs its own
-  current read before the series ends. A `--first` selection must resolve to an entry in that
-  target's list. A one-entry list runs every settings-chosen round in its class on that entry.
-- `planning.fixer` names the assistant, model and effort that fix a planning round or a plan-only
-  commit audit. Either field may say `default`.
-- `implementation.coders` is a non-empty ordered list of implementation coders. Each coder
-  names its assistant, model and effort, and either field may say `default`.
-  `ready` gives each new plan the coder that follows the one recorded in the
-  most recent ready marker. After the last coder it starts again at the first.
-  With no earlier coder to follow, or one no longer in the list, it takes the
-  first coder. A one-entry list always selects that coder. The plan's coder writes every step
-  and every implementation-audit fix of the plan.
-- `planning.vetters` and `implementation.vetters` are non-empty lists. Each entry names its
-  assistant, model and effort, and either field may say `default`. Every entry of the target work
-  class's list vets every audit report of that class, side by side and whoever audited, so a vet
-  may sit on a report from its own model and effort. A list refuses two entries with one capability
-  tag, because the second vet's report would overwrite the first's.
-- `phases` sets the model and effort of the watch and the close. Each field names a value or says
-  `default`; `null` is refused. A named model must suit the selected CLI. The old top-level
-  `auditors` and `coders` fields, `phases.planningFix` and `phases.vet` are refused like any other
-  invalid file; rewrite it or delete it to regenerate the defaults.
 - Rebuttal shares the audit's selection. The watch and the close each select their assistant,
   whoever audited.
 - The audit target picks the fixer, even when an implementation audit also
   fixes stale plan text. A planning round, before or after
   `ready` and including one chained for a plan-bound deferral, fixes on
-  `planning.fixer`, because it edits the plan rather than code and its fix
+  `planningAudit.fixer`, because it edits the plan rather than code and its fix
   enters no coder evidence. An implementation target fixes on the plan's ready
   assignment. A commit target whose groups are all in the plan repo fixes on
-  `planning.fixer`; one with a Repo Edu group fixes on the first implementation coder,
+  `planningAudit.fixer`; one with a Repo Edu group fixes on the first coder,
   because its correction may change code and it has no ready assignment. An
   implementation target without an assignment also takes the first coder.
-- The names `claude` and `codex`, given to `--auditor` or `--first`, run the
-  audit and rebuttal on that assistant's `defaults`. Letter tags name a tier
-  from `strengthModels` and an effort; a field a tag omits reads that
-  assistant's `defaults`. Each `--auditor` entry selects its own settings
+- The names `claude` and `codex`, given to `--auditor` or `--first`, run the audit and rebuttal on
+  that assistant's `defaults`. Letter tags name a tier from `strengthModels` and an effort; a field
+  a tag omits reads that assistant's `defaults`. Each `--auditor` entry selects its own settings
   independently, and other phases keep their configured selections. A chained deferral round uses
-  the entry that `defaultAuditor` selects from `planning.auditors`, including its model and effort.
+  the entry that `defaultAuditor` selects from `planningAudit.auditors`, including its model and
+  effort.
 
 Tests supply an independent configuration through `configured-runner.ts` and
 `fixtures/settings.json`. Neither changes to the local file nor changes to
@@ -1194,7 +1208,7 @@ prints no evaluation and no recommendation. Each auditor table divides each side
 its rounds over the shared plans, shows both counts, and sorts by the gap between the two per-round
 figures, then by time. A plan with one auditor enters neither side. Planning rows whose opening
 rounds differ from an even share by both report bounds print either as a correctable bullet above
-the main table or, when `planning.auditors` cannot run them, in one line below the last table.
+the main table or, when `planningAudit.auditors` cannot run them, in one line below the last table.
 Auditor time and wrong claims still cover every complete round in the class. Each vet-pair table
 has one row per pair of vets that judged a shared A or B finding on one panel, with the shared
 findings, the ruled splits and how each ruled split ended: vet 1 right, vet 2 right, both or
@@ -1256,7 +1270,7 @@ assistant.
 
 `ready [stem]` takes an active settled plan through the same resolution and
 plan-file preflight. It refuses a widening plan and a stem whose history
-already carries a ready marker. It advances through `implementation.coders`, after the newest
+already carries a ready marker. It advances through `coders`, after the newest
 earlier assigned ready marker, and records the assigned coder in the body of
 `<stem>/ready: declare the plan ready for implementation` with an empty commit
 that preserves unrelated staged work. It reads settings but starts no assistant

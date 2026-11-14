@@ -10,25 +10,25 @@ import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
 const singleAuditorSettings = {
   ...testSettings,
-  planning: {
-    ...testSettings.planning,
-    auditors: [testSettings.planning.auditors[0]],
+  planningAudit: {
+    ...testSettings.planningAudit,
+    auditors: [testSettings.planningAudit.auditors[0]],
   },
-  implementation: {
-    ...testSettings.implementation,
-    auditors: [testSettings.implementation.auditors[0]],
+  implementationAudit: {
+    ...testSettings.implementationAudit,
+    auditors: [testSettings.implementationAudit.auditors[0]],
   },
 }
 
 const splitAuditorSettings = {
   ...testSettings,
-  planning: {
-    ...testSettings.planning,
-    auditors: [testSettings.planning.auditors[1]],
+  planningAudit: {
+    ...testSettings.planningAudit,
+    auditors: [testSettings.planningAudit.auditors[1]],
   },
-  implementation: {
-    ...testSettings.implementation,
-    auditors: [testSettings.implementation.auditors[0]],
+  implementationAudit: {
+    ...testSettings.implementationAudit,
+    auditors: [testSettings.implementationAudit.auditors[0]],
   },
 }
 
@@ -255,7 +255,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
 test("a stopped panel split resumes its fix with every vet report and each vet's retained phase", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const settings = structuredClone(testSettings)
-  settings.implementation.vetters = [
+  settings.implementationAudit.vetters = [
     { assistant: "claude", model: "opus", effort: "high" },
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
   ]
@@ -1457,7 +1457,7 @@ test("a random default auditor opens the series on the coin before deterministic
     ["claude", "codex"],
   )
   // The coin picks one entry of the whole list, once for the scope's series.
-  assert.deepEqual(counts, [settings.implementation.auditors.length])
+  assert.deepEqual(counts, [settings.implementationAudit.auditors.length])
   const stored = JSON.parse(
     await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
@@ -1548,7 +1548,7 @@ test("an automatic series needs a current read from each listed model of one ass
     true,
   )
   const settings = structuredClone(testSettings)
-  settings.implementation.auditors = [
+  settings.implementationAudit.auditors = [
     { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
     { assistant: "claude", model: "opus", effort: "xhigh" },
   ]
@@ -1618,10 +1618,10 @@ test("a --first selection outside the target class's auditors list is refused be
     true,
   )
   const settings = structuredClone(testSettings)
-  settings.planning.auditors = [
+  settings.planningAudit.auditors = [
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
   ]
-  settings.implementation.auditors = [
+  settings.implementationAudit.auditors = [
     { assistant: "claude", model: "claude-fable-5-1", effort: "xhigh" },
   ]
   assert.equal(
@@ -1634,7 +1634,7 @@ test("a --first selection outside the target class's auditors list is refused be
   )
   assert.match(
     f.errors.join("\n"),
-    /--first atx resolves to claude claude-fable-5-1 xhigh, which the planning\.auditors list in settings\.json does not hold\. Name a listed auditor: codex gpt-5\.6-sol high\./,
+    /--first atx resolves to claude claude-fable-5-1 xhigh, which the planningAudit\.auditors list in settings\.json does not hold\. Name a listed auditor: codex gpt-5\.6-sol high\./,
   )
   await assert.rejects(f.prompts(), { code: "ENOENT" })
 })
@@ -2021,7 +2021,7 @@ test("a failed round stops a scope list before later scopes", async (t) => {
 test("a configured Claude fixer starts and resumes the fix whoever audited", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", true)
   const settings = structuredClone(testSettings)
-  settings.implementation.coders[0].assistant = "claude"
+  settings.coders[0].assistant = "claude"
   const code = await runCommand(
     ["round", "example.md", "1", "--auditor", "a", "--no-watch"],
     f.runtime,

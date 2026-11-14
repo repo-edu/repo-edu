@@ -5,8 +5,8 @@ description: Compare retained auditor, vet and coder results without starting an
 
 `pnpm audit-round models` reads the kept evidence for each auditor in every class where it has a
 complete round, for each pair of vets that judged the same findings and for each coder with an
-admitted plan. You can use the recorded yield, time and rulings to change `planning.auditors`,
-`implementation.auditors`, `planning.vetters`, `implementation.vetters` or `implementation.coders`
+admitted plan. You can use the recorded yield, time and rulings to change `planningAudit.auditors`,
+`implementationAudit.auditors`, `planningAudit.vetters`, `implementationAudit.vetters` or `coders`
 in `tools/audit-round/settings.json`.
 
 | Fact | Detail |

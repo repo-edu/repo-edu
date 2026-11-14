@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { type ParseError, parse, printParseErrorCode } from "jsonc-parser"
 import { z } from "zod"
 import defaults from "../default-settings.json" with { type: "json" }
-import { efforts, selectionTag } from "./phase.js"
+import { auditLevels, efforts, selectionTag } from "./phase.js"
 
 const assistant = z.enum(["claude", "codex"])
 const model = z
@@ -42,7 +42,7 @@ export type Auditor = Coder
 const strengths = z.strictObject({ base: model, top: model })
 
 /**
- * A class entry's `default` resolves once, when the file loads, so every reader
+ * A listed entry's `default` resolves once, when the file loads, so every reader
  * sees the selection the entry runs. A ready marker therefore records that
  * selection, and a later change to `defaults` leaves it as it was.
  */
@@ -66,25 +66,29 @@ export const settingsSchema = z
      * series.
      */
     defaultAuditor: z.enum(["first", "random"]),
-    maximumAutomaticRounds: z.number().int().positive(),
-    strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
     defaults: assistantDefaults,
-    planning: z.strictObject({
+    /**
+     * The next four fields follow a plan's life: its planning audits, its
+     * implementation, its implementation audits and then the watch and the
+     * close. Each audit level lists its roles in the order a round runs them.
+     */
+    planningAudit: z.strictObject({
       /** The ordered pool for planning work. */
       auditors: z.array(assignedSelection).min(1),
-      /** The one fixer of planning work. */
-      fixer: assignedSelection,
       /** The panel that vets every planning audit report, run in parallel. */
       vetters: z.array(assignedSelection).min(1),
+      /** The one fixer of planning work. */
+      fixer: assignedSelection,
     }),
-    implementation: z.strictObject({
+    /**
+     * The coders `ready` assigns in turn. A plan's coder writes its steps and
+     * fixes its implementation audits, so the list sits under neither workflow.
+     * The first coder also fixes code work that has no ready assignment.
+     */
+    coders: z.array(assignedSelection).min(1),
+    implementationAudit: z.strictObject({
       /** The ordered pool for implementation work. */
       auditors: z.array(assignedSelection).min(1),
-      /**
-       * The implementation coders `ready` assigns in turn. The first also
-       * fixes code work that has no ready assignment.
-       */
-      coders: z.array(assignedSelection).min(1),
       /** The panel that vets every implementation audit report, run in parallel. */
       vetters: z.array(assignedSelection).min(1),
     }),
@@ -92,30 +96,26 @@ export const settingsSchema = z
       watch: assignedSelection,
       close: assignedSelection,
     }),
+    maximumAutomaticRounds: z.number().int().positive(),
+    strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   })
-  .transform((settings) => ({
-    ...settings,
-    planning: {
-      auditors: settings.planning.auditors.map((entry) =>
-        resolveEntry(entry, settings.defaults),
-      ),
-      fixer: resolveEntry(settings.planning.fixer, settings.defaults),
-      vetters: settings.planning.vetters.map((entry) =>
-        resolveEntry(entry, settings.defaults),
-      ),
-    },
-    implementation: {
-      auditors: settings.implementation.auditors.map((entry) =>
-        resolveEntry(entry, settings.defaults),
-      ),
-      coders: settings.implementation.coders.map((entry) =>
-        resolveEntry(entry, settings.defaults),
-      ),
-      vetters: settings.implementation.vetters.map((entry) =>
-        resolveEntry(entry, settings.defaults),
-      ),
-    },
-  }))
+  .transform((settings) => {
+    const resolve = (entry: AssignedSelection): Coder =>
+      resolveEntry(entry, settings.defaults)
+    return {
+      ...settings,
+      planningAudit: {
+        auditors: settings.planningAudit.auditors.map(resolve),
+        vetters: settings.planningAudit.vetters.map(resolve),
+        fixer: resolve(settings.planningAudit.fixer),
+      },
+      coders: settings.coders.map(resolve),
+      implementationAudit: {
+        auditors: settings.implementationAudit.auditors.map(resolve),
+        vetters: settings.implementationAudit.vetters.map(resolve),
+      },
+    }
+  })
   /**
    * Each vet report is named by its writer's tag, so two vetters of one list
    * with one tag would write one file and the round would lose a vet's
@@ -123,16 +123,15 @@ export const settingsSchema = z
    * tier and effort; changing one effort lets both run.
    */
   .superRefine((settings, context) => {
-    for (const workClass of ["planning", "implementation"] as const) {
-      const tags = settings[workClass].vetters.map(
-        ({ assistant, model, effort }) =>
-          selectionTag(assistant, model, effort, settings),
+    for (const [workClass, level] of Object.entries(auditLevels)) {
+      const tags = settings[level].vetters.map(({ assistant, model, effort }) =>
+        selectionTag(assistant, model, effort, settings),
       )
       const repeated = tags.find((tag, index) => tags.indexOf(tag) !== index)
       if (repeated !== undefined)
         context.addIssue({
           code: "custom",
-          path: [workClass, "vetters"],
+          path: [level, "vetters"],
           message: `Two ${workClass} vetters share the tag ${repeated}, so one vet report would overwrite the other; give one of them another model tier or effort`,
         })
     }
