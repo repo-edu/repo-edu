@@ -33,10 +33,16 @@ export const closeRun = (
   selections: Parameters<typeof output.closeRun>[3],
 ) => output.closeRun(plan, roots, started, selections, testSettings)
 
+/** The releases startup resolved: Claude's alias only, as the runner asks. */
+export const releases = {
+  claude: new Map([["opus", "claude-opus-5"]]),
+  codex: new Map<string, string>(),
+}
+
 export const runRound = (
   input: round.RoundInput,
   dependencies: Parameters<typeof round.runRound>[1],
-) => round.runRound(input, dependencies, testSettings)
+) => round.runRound(input, dependencies, releases, testSettings)
 
 export const runClose = (
   input: round.CloseInput,

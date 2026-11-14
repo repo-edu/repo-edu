@@ -27,7 +27,8 @@ consumers.
   The fix receives a ruling output path separately from its report
   arguments. It writes the final ruling and checks it for clarity before returning `needs-ruling`.
   The runner checks that file, then waits for the user's answer under `ruling-wait.ts`; its notice
-  says whether the fix uses the auditor's model, one vet's model named by its tag or neither.
+  says whether the fix uses the auditor's model, one vet's model named by its tag or neither. It
+  compares the releases startup resolved, so a model alias and its release name the same model.
   `seriousFindings`
   finds the serious contests and splits under the shared protocol's
   [Reconciliation](../../.agents/references/round-protocol.md#reconciliation): the rebuttal

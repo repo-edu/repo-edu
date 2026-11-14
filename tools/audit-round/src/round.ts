@@ -1,10 +1,11 @@
 import { readModelRecord } from "./commit-msg.js"
-import { errorMessage } from "./feedback.js"
+import { errorMessage, type ModelReleases } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
 import { decideSeries } from "./judge.js"
 import type { LifecycleCommit } from "./lifecycle.js"
 import type { OpenDeferral } from "./open-deferrals.js"
 import type { RoundDocuments } from "./output.js"
+import { phaseSelection } from "./output-format.js"
 import {
   type Assistant,
   type AuditorOverride,
@@ -54,12 +55,19 @@ import {
   reportTarget,
 } from "./target.js"
 
-function samePhaseSelection(first: PhaseRun, second: PhaseRun): boolean {
-  return (
-    first.assistant === second.assistant &&
-    first.model.model.value === second.model.model.value &&
-    first.model.effort.value === second.model.effort.value
-  )
+/**
+ * Whether two phases run on the same release and effort. Each model name reads
+ * as the release startup resolved it to, so an alias and its release match.
+ */
+function samePhaseSelection(
+  first: PhaseRun,
+  second: PhaseRun,
+  releases: Record<Assistant, ModelReleases>,
+): boolean {
+  if (first.assistant !== second.assistant) return false
+  const one = phaseSelection(first.model, releases[first.assistant])
+  const other = phaseSelection(second.model, releases[second.assistant])
+  return one.model === other.model && one.effort === other.effort
 }
 
 /**
@@ -69,9 +77,11 @@ function samePhaseSelection(first: PhaseRun, second: PhaseRun): boolean {
 function selectedFixerSide(
   phases: Pick<RoundPhases, "audit" | "fix">,
   panel: readonly PanelRun[],
+  releases: Record<Assistant, ModelReleases>,
 ): FixerSide {
-  if (samePhaseSelection(phases.fix, phases.audit)) return "auditor"
-  const vet = panel.find(({ run }) => samePhaseSelection(phases.fix, run))
+  const same = (run: PhaseRun) => samePhaseSelection(phases.fix, run, releases)
+  if (same(phases.audit)) return "auditor"
+  const vet = panel.find(({ run }) => same(run))
   return vet === undefined ? "neither" : { vet: vet.tag }
 }
 
@@ -513,6 +523,7 @@ async function runDeferralChain(
 export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
+  releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
 ): Promise<RoundResult> {
   let account: RoundAccount = input.recovery?.account ?? {
@@ -880,7 +891,7 @@ export async function runRound(
         const open = openContests(account, contests)
         const ruling = await dependencies.requestRuling({
           document: input.documents.ruling,
-          fixerSide: selectedFixerSide(phases, panel),
+          fixerSide: selectedFixerSide(phases, panel, releases),
           contests: open,
           panel: panel.map((vet) => vet.tag),
           judgedRepos: account.judgedRepos,

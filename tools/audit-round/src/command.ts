@@ -1921,6 +1921,7 @@ export async function runCommand(
           },
         },
         dependenciesFor(active, phaseContext),
+        releases,
         settings,
       )
       result = round
@@ -2242,6 +2243,7 @@ export async function runCommand(
                 : null,
             },
             dependenciesFor(active, planningSession),
+            releases,
             settings,
           )
           if (!nested) result = chained
@@ -2488,6 +2490,7 @@ export async function runCommand(
                   true,
                 )
               }),
+              releases,
               settings,
             )
             result = round

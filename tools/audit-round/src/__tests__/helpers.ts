@@ -31,6 +31,7 @@ import {
   capabilityTag,
   phaseSelection,
   pinned,
+  releases,
   testFixer,
 } from "./configured-runner.js"
 
@@ -103,11 +104,7 @@ export function inTurn(output: { readonly phase: PhaseOutput }) {
     release: () => recorder().release(),
   }
 }
-/** The releases startup resolved: Claude's alias only, as the runner asks. */
-export const releases = {
-  claude: new Map([["opus", "claude-opus-5"]]),
-  codex: new Map<string, string>(),
-}
+export { releases }
 export const recorded = async (name: string) =>
   readFile(join(fixtureRoot, name), "utf8")
 

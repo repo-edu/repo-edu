@@ -500,12 +500,27 @@ test("clarification can leave a decision open without creating a new fix session
   assert.equal(round.deletedReports.length, 1)
 })
 
+/** The release the test startup resolves Claude's `opus` alias to. */
+const opusRelease = {
+  assistant: "claude",
+  model: "claude-opus-5",
+  effort: "high",
+} as const
+
 for (const scenario of [
   { name: "auditor", side: "auditor" },
   {
     name: "vet",
     side: { vet: vetTag },
     fixer: { assistant: "claude", model: "opus", effort: "high" },
+  },
+  // The fixer names the release that the vet's and the auditor's alias resolves to.
+  { name: "aliased vet", side: { vet: vetTag }, fixer: opusRelease },
+  {
+    name: "aliased auditor",
+    side: "auditor",
+    auditor: "claude",
+    fixer: opusRelease,
   },
   {
     name: "neither",
@@ -522,7 +537,7 @@ for (const scenario of [
         ...files,
         plan: "example.md",
         scope: "1",
-        auditor: "codex",
+        auditor: scenario.auditor ?? "codex",
         ...("fixer" in scenario
           ? { fixer: scenario.fixer, fixerSource: "test" }
           : {}),
@@ -592,6 +607,7 @@ test("a panel of both assistants vets side by side, and every vet report reaches
         { number: 1, tier: "B", vet: "obh", answer: "agree" },
       ],
     },
+    releases,
     panelSettings,
   )
   assert.equal(result.status, "awaiting-ruling")
@@ -657,6 +673,7 @@ test("a failed vet of a panel fails the round once every vet has ended", async (
         },
       },
     },
+    releases,
     panelSettings,
   )
   assert.deepEqual(
