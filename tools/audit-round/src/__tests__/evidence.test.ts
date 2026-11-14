@@ -185,6 +185,22 @@ test("a command that writes no round file commits nothing and leaves a pending f
   ])
 })
 
+test("a writer refused for its arguments commits nothing and leaves a pending file for the next writer", async (t) => {
+  const f = await roundFixture(t)
+  await writeFile(join(f.roundRoot, "example-yield-1-report.abx.md"), "Yield\n")
+  for (const argv of [
+    ["round", "example.md", "0"],
+    ["round", "../plan/example.md", "1"],
+  ])
+    assert.equal(await runCommand(argv, f.runtime, f.options), 2)
+  assert.deepEqual(await evidenceSubjects(f.evidenceRoot), [])
+  assert.ok(
+    (await evidencePending(f.evidenceRoot)).some((line) =>
+      line.endsWith("example-yield-1-report.abx.md"),
+    ),
+  )
+})
+
 test("a failed evidence commit warns and leaves the command's result and files as they were", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")
   // Another Git process holding the index refuses every staging step.

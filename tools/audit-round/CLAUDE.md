@@ -659,7 +659,9 @@ consumers.
   files stay in place and the next commit takes them. `command.ts` calls it at two moments. Every
   command that may write a round file commits once it ends, after its run files close and whatever
   its outcome: the run, `round`, `implement`, `close`, `resume-fix`, `name`, `mark`, `settle`,
-  and `disprove`. The other commands write nothing there, so a hand-run session's
+  and `disprove`. One refused for its arguments, exit code 2, wrote no round file and commits
+  nothing, so a test that drives the published entry with bad arguments never commits the real
+  checkout. The other commands write nothing there, so a hand-run session's
   file waits for the next of these. Before each ruling wait, the shared wait commits too, because
   a further open decision replaces the ruling in the same file and the commit keeps every version.
   A failed commit prints one warning, on the round's output before a wait and on the error channel

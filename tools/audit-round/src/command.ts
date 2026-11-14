@@ -2783,8 +2783,14 @@ export async function runCommand(
       )
       code = 1
     }
-    // After the run files close, so the commit takes their last lines.
-    if (evidenceRoot !== undefined && roundFileWriters.has(invocation.kind)) {
+    // After the run files close, so the commit takes their last lines. A
+    // command refused for its arguments wrote no round file, so it leaves any
+    // pending file for the next writer rather than commit under its own text.
+    if (
+      evidenceRoot !== undefined &&
+      code !== 2 &&
+      roundFileWriters.has(invocation.kind)
+    ) {
       const evidence = await commitEvidence(evidenceRoot, commandText)
       if (evidence.status === "failed")
         options.emergency(evidenceFailureText(evidence))

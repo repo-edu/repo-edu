@@ -83,9 +83,9 @@ close, so its files and data stay in `../plan-evidence/active/` for good.
 ## Commits
 
 The evidence checkout is a private Git repository. Every runner command that may write a round file
-commits all of its uncommitted files when it ends, whatever the outcome, and a round also commits
-just before it waits for your ruling. A file you or a hand-run session writes there is committed by
-the next such command. Use `git log` in `../plan-evidence/` to read an earlier version, such as a
+commits all of its uncommitted files when it ends, whatever the outcome, unless it refused its
+arguments, and a round also commits just before it waits for your ruling. A file you or a hand-run
+session writes there is committed by the next such command. Use `git log` in `../plan-evidence/` to read an earlier version, such as a
 ruling the same fix later replaced. You push the repository yourself.
 
 ## Handoffs
