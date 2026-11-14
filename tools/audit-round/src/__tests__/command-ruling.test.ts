@@ -37,12 +37,30 @@ async function chat(
   return { code, text: written.join("\n") }
 }
 
-/** Ask as the chat does until the run listens, then return what it asks. */
-async function untilWaiting(f: Fixture, cache: string): Promise<string> {
+/**
+ * Ask as the chat does until the run listens, then return what it asks. A run
+ * that has ended will never listen, so its ending fails the wait with what the
+ * run printed last.
+ */
+async function untilWaiting(
+  f: Fixture,
+  cache: string,
+  run: Promise<number>,
+): Promise<string> {
   for (;;) {
     const asked = await chat(f, cache, ["ruling"])
     if (asked.code === 0) return asked.text
-    await delay(20)
+    const ended = await Promise.race([
+      run.then(
+        () => true,
+        () => true,
+      ),
+      delay(20, false),
+    ])
+    if (ended)
+      throw new Error(
+        `The run ended before it waited for a ruling:\n${f.visible.slice(-8).join("\n")}`,
+      )
   }
 }
 
@@ -94,7 +112,7 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
     { ...f.runtime, signal: interruption.signal },
     { ...f.options, cacheRoot: cache, awaitAnswer: undefined },
   )
-  const asked = await untilWaiting(f, cache)
+  const asked = await untilWaiting(f, cache, run)
   assert.match(
     asked,
     /^Your ruling is needed: Implementation audit of .+\/example\.md, step 1 \(round 1\)$/m,
@@ -159,7 +177,7 @@ test("Ctrl-C during the wait ends the round as an unanswered ruling", async (t) 
     { ...f.runtime, signal: interruption.signal },
     { ...f.options, cacheRoot: cache, awaitAnswer: undefined },
   )
-  await untilWaiting(f, cache)
+  await untilWaiting(f, cache, run)
   interruption.abort(new Error("Interrupted"))
   await run
   const visible = f.visible.join("\n")
