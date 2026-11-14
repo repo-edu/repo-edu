@@ -6,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises"
 import { runCommand } from "./configured-runner.js"
 import {
   shortCacheRoot as cacheRoot,
+  ownStreams,
   phaseStream,
   recorded,
 } from "./helpers.js"
@@ -188,6 +189,18 @@ test("Ctrl-C during the wait ends the round as an unanswered ruling", async (t) 
   )
   assert.match(visible, /Resume: /)
   assert.equal((await chat(f, cache, ["ruling"])).code, 1)
+})
+
+test("the app start gets the run's own input and output", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  const code = await runCommand(
+    ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
+    f.runtime,
+    { ...f.options, awaitAnswer: async () => null },
+  )
+  assert.equal(code, 0, f.errors.join("\n"))
+  // The real CLI refuses `--desktop` when either one is redirected.
+  assert.deepEqual(await f.desktopStreams(), [ownStreams()])
 })
 
 test("a failed app start is reported and the run keeps waiting", async (t) => {

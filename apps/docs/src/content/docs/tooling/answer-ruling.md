@@ -34,7 +34,9 @@ file, the findings that need a winner, the winner words with the round's vet tag
 the fix and the line `/ruling <stem>`. The
 run then opens the Claude desktop app on the Repo Edu folder when the work touches Repo Edu files,
 and on the plan folder otherwise. The app starts a new chat and asks "Trust this workspace?" each
-time. On Linux the app does not open; the notice says so, and you open a chat yourself.
+time. On Linux the app does not open; the notice says so, and you open a chat yourself. The same
+holds when the run's input or output is redirected, for example into a file, because the app opens
+only from a terminal.
 
 ## What it shows you
 

@@ -436,9 +436,12 @@ export async function sendRulingAnswer(
 
 /**
  * Open the Claude desktop app on the folder of the work. The app takes no
- * prompt, so the user types `/ruling` there. A failed start, as on Linux where
- * the option does not exist, is reported and the wait goes on, because the
- * notice already holds everything the user needs.
+ * prompt, so the user types `/ruling` there. The start gets the run's own
+ * input and output, because the CLI refuses the option when either one is
+ * redirected. It starts no assistant turn: it prints one line and exits. A
+ * failed start, as on Linux where the option does not exist, is reported and
+ * the wait goes on, because the notice already holds everything the user
+ * needs.
  */
 export async function openDesktop(
   folder: string,
@@ -449,8 +452,8 @@ export async function openDesktop(
   const result = await execa(invocation.file, invocation.args, {
     cwd: folder,
     env: runtime.env,
-    stdin: "ignore",
-    stdout: "ignore",
+    stdin: "inherit",
+    stdout: "inherit",
     reject: false,
     cancelSignal: runtime.signal,
   })

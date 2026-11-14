@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { fstatSync } from "node:fs"
 import {
   appendFile,
   mkdir,
@@ -17,11 +18,17 @@ let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
 let prompt: string | undefined
 let commitTarget = false
 // A ruling opens the desktop app; it records its folder apart from the
-// assistant calls, which tests count.
+// assistant calls, which tests count. It also names the open files behind its
+// input and output as `ownStreams` in the helpers does, because the real CLI
+// refuses the option unless both are the run's own.
 if (args[0] === "--desktop") {
+  const streams = [0, 1].map((descriptor) => {
+    const { dev, ino, rdev } = fstatSync(descriptor, { bigint: true })
+    return `${dev}:${ino}:${rdev}`
+  })
   await appendFile(
     join(root, "desktop.jsonl"),
-    `${JSON.stringify({ cwd: process.cwd() })}\n`,
+    `${JSON.stringify({ cwd: process.cwd(), streams })}\n`,
   )
   if (scenario.desktopExit !== undefined) {
     process.stderr.write("error: unknown option '--desktop'\n")

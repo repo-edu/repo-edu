@@ -358,7 +358,9 @@ consumers.
   `answer` commands are only carriers: they find the waiting runs through the folder, count a
   socket that refuses the connection as no run and take the one run that waits when no target is
   named. The module also starts `claude --desktop` in the folder of the work, as the runtime
-  configures the Claude executable. A failed start prints one line and the wait goes on. The
+  configures the Claude executable. That start gets the run's own input and output, because the
+  CLI refuses the option when either one is redirected; it starts no assistant turn. A failed
+  start prints one line and the wait goes on. The
   runner's signal ends the wait unanswered. The assistant never inherits the terminal, and reply
   recording completes before the fix can resume.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
