@@ -142,6 +142,35 @@ function phaseInstructions(
 export type AssistantPrompt = {
   readonly text: string
   readonly log: string
+  /**
+   * Sent once to a session whose response ended without the result line. An
+   * invocation given none fails on that response.
+   */
+  readonly resultRequest?: string
+}
+
+/** Opens every phase prompt and names the unattended phase the session runs. */
+function phaseOpening(input: PhaseInput, session: "fresh" | "resumed"): string {
+  const { phase } = input
+  return phase === "close"
+    ? `Run the close phase, the unattended loop-close of one plan, in this ${session} session.`
+    : phase === "implement"
+      ? `Run the implement phase, one unattended plan-step worker, in this ${session} session.`
+      : `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${session} session.`
+}
+
+function runnerResultRule(repoEduRoot: string): string {
+  return `For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.`
+}
+
+/**
+ * Asks for the whole response again, because the phase's final text is the
+ * last turn's text. The session already holds its workflow and arguments.
+ */
+function resultRequest(input: PhaseInput): string {
+  return `${phaseOpening(input, "resumed")}
+Your last response ended without the final PHASE RESULT line, so the runner could not read this phase's outcome. If the phase's work is unfinished, finish it. Then return your complete final response again and end it with that line. The runner reads only the new response.
+${runnerResultRule(input.repoEduRoot)}`
 }
 
 export function phasePrompt(input: PhaseInput): AssistantPrompt {
@@ -168,6 +197,7 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
             .join("\n"),
       true,
     ),
+    resultRequest: resultRequest(input),
   }
 }
 
@@ -176,16 +206,9 @@ function formatPhasePrompt(
   instructions: string | null,
   omitEvidence = false,
 ): string {
-  const { phase, repoEduRoot, cwd } = input
+  const { repoEduRoot, cwd } = input
   const launcher = phaseLauncher(input)
-  const session = input.sessionId === null ? "fresh" : "resumed"
-  const opening =
-    phase === "close"
-      ? `Run the close phase, the unattended loop-close of one plan, in this ${session} session.`
-      : phase === "implement"
-        ? `Run the implement phase, one unattended plan-step worker, in this ${session} session.`
-        : `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${session} session.`
-  const prompt = `${opening}
+  const prompt = `${phaseOpening(input, input.sessionId === null ? "fresh" : "resumed")}
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
@@ -193,15 +216,23 @@ ${instructions === null ? "Continue the supplied workflow in this resumed sessio
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Workflow: ${phaseWorkflow(input)}
 The supplied workflow and phase arguments are already resolved. Do not run name or paths again. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
-For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : ""}`
+${runnerResultRule(repoEduRoot)}${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : ""}`
   if (input.phase !== "fix" && input.phase !== "implement") return prompt
   const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md at that path.`
   if (input.rulingReply === undefined) return fixPrompt
   return `${fixPrompt}\n\nThe runner displayed your ruling and collected the user's reply below. Continue this ${input.phase} session. Do not repeat the internal launch instructions.\n\nUser reply:\n${input.rulingReply}`
 }
 
-export function phaseRequest(input: AssistantTurnInput, prompt: string) {
-  const { assistant, sessionId, model } = input
+/**
+ * The session is named apart from the input, because the invocation owner
+ * resumes a session it started to ask for a missing result line.
+ */
+export function phaseRequest(
+  input: AssistantTurnInput,
+  sessionId: string | null,
+  prompt: string,
+) {
+  const { assistant, model } = input
   return assistant === "codex"
     ? {
         args: codexArguments(sessionId, model),

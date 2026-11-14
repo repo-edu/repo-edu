@@ -18,7 +18,12 @@ import type {
   PhaseResult,
   RoundDependencies,
 } from "./phase.js"
-import { phaseResult, watchOutput, withoutPhaseResult } from "./phase-result.js"
+import {
+  hasPhaseResult,
+  phaseResult,
+  watchOutput,
+  withoutPhaseResult,
+} from "./phase-result.js"
 import { type AssistantPrompt, phasePrompt, phaseRequest } from "./requests.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
@@ -121,57 +126,76 @@ async function runAssistantTurn<T>(
   record?: (value: unknown) => Promise<void>,
 ): Promise<T | PhaseFailure> {
   let sessionId = input.sessionId
-  // A session is one or more turns and ends with its process. The phase's
-  // final text is the last finished turn's text.
-  let finalText: string | undefined
-  let turns = 0
   const observe = output.observe
   const usage =
     input.assistant === "codex"
       ? new CodexSessionReader(codexSessionsRoot(runtime))
       : undefined
+  const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
+  /**
+   * One CLI process on the session. A session is one or more turns and ends
+   * with its process; the response is the last finished turn's text.
+   */
+  const respond = async (text: string) => {
+    let finalText: string | undefined
+    let turns = 0
+    const request = phaseRequest(input, sessionId, text)
+    await withCliProcess(
+      { ...runtime, cwd: input.cwd, openContests: openContests(input) },
+      input.assistant,
+      request.args,
+      request.input,
+      async (child) => {
+        await readCliLines(child, "stdout", async (line) => {
+          if (sessionId !== null) await usage?.read(sessionId, observe)
+          const value: unknown = JSON.parse(line)
+          const events = decode(value)
+          for (const event of events) {
+            if (event.type === "session") {
+              if (sessionId !== null && event.sessionId !== sessionId)
+                throw new Error("CLI reported a different session")
+              sessionId = event.sessionId
+            }
+            if (event.type === "complete") {
+              turns += 1
+            } else if (event.type === "final") {
+              finalText = event.text
+            } else {
+              await observe(event)
+            }
+          }
+          await record?.(value)
+        })
+      },
+      (diagnostic) => observe({ type: "diagnostic", text: diagnostic }),
+    )
+    if (turns === 0 || sessionId === null || finalText === undefined)
+      throw new Error(
+        "CLI ended without a completed turn, session identity or final text",
+      )
+    await usage?.read(sessionId, observe, true)
+    return { sessionId, finalText }
+  }
   try {
     try {
       runtime.signal?.throwIfAborted()
       await output.start(input, prompt.log)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
-      const request = phaseRequest(input, prompt.text)
-      const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
-      await withCliProcess(
-        { ...runtime, cwd: input.cwd, openContests: openContests(input) },
-        input.assistant,
-        request.args,
-        request.input,
-        async (child) => {
-          await readCliLines(child, "stdout", async (line) => {
-            if (sessionId !== null) await usage?.read(sessionId, observe)
-            const value: unknown = JSON.parse(line)
-            const events = decode(value)
-            for (const event of events) {
-              if (event.type === "session") {
-                if (sessionId !== null && event.sessionId !== sessionId)
-                  throw new Error("CLI reported a different session")
-                sessionId = event.sessionId
-              }
-              if (event.type === "complete") {
-                turns += 1
-              } else if (event.type === "final") {
-                finalText = event.text
-              } else {
-                await observe(event)
-              }
-            }
-            await record?.(value)
-          })
-        },
-        (text) => observe({ type: "diagnostic", text }),
-      )
-      if (turns === 0 || sessionId === null || finalText === undefined)
-        throw new Error(
-          "CLI ended without a completed turn, session identity or final text",
-        )
-      await usage?.read(sessionId, observe, true)
-      const admitted = await admit(sessionId, finalText)
+      let response = await respond(prompt.text)
+      // The model can leave the line off a finished response. The session is
+      // asked once to end again, which repeats no phase work; a second
+      // response without the line fails the phase as any other does.
+      if (
+        prompt.resultRequest !== undefined &&
+        !hasPhaseResult(response.finalText)
+      ) {
+        await observe({
+          type: "diagnostic",
+          text: "The response ended without its PHASE RESULT line. Asking the session once to end with it.",
+        })
+        response = await respond(prompt.resultRequest)
+      }
+      const admitted = await admit(response.sessionId, response.finalText)
       const completion = await output.finish(admitted.phaseResult)
       return admitted.complete(completion)
     } finally {

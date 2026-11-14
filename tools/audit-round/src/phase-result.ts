@@ -5,10 +5,18 @@ import type { Phase, PhaseControlResult } from "./phase.js"
 const prefix = "PHASE RESULT: "
 const watchGradePrefix = "Watch grade: "
 
+/**
+ * Whether a response ends with the runner's control line, whatever the line
+ * holds. A response without one has not said how its phase ended.
+ */
+export function hasPhaseResult(text: string): boolean {
+  return text.trimEnd().split("\n").at(-1)?.startsWith(prefix) ?? false
+}
+
 /** Remove the runner's final control line from a report or displayed message. */
 export function withoutPhaseResult(text: string): string {
   const lines = text.trimEnd().split("\n")
-  if (lines.at(-1)?.startsWith(prefix)) lines.pop()
+  if (hasPhaseResult(text)) lines.pop()
   return lines.join("\n").trimEnd()
 }
 
@@ -61,9 +69,8 @@ export function phaseResult<P extends Phase>(
   sessionId: string,
   text: string,
 ): PhaseControlResult<P> {
+  if (!hasPhaseResult(text)) throw new Error("Missing final PHASE RESULT line")
   const line = text.trimEnd().split("\n").at(-1) ?? ""
-  if (!line.startsWith(prefix))
-    throw new Error("Missing final PHASE RESULT line")
   const result = resultSchema.parse(JSON.parse(line.slice(prefix.length)))
   if (result.status === "failed") {
     if (!result.reason?.trim()) throw new Error("Invalid failed PHASE RESULT")

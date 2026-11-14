@@ -261,6 +261,82 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.equal(f.releases(), 3)
   })
 
+  test(`${assistant} is asked once for a missing result line and its new response stands`, async (t) => {
+    const f = await fixture(t)
+    const report = join(f.root, "audit.md")
+    await writeFile(
+      join(f.root, "rollout-test-session.jsonl"),
+      await recorded("codex-rollout.jsonl"),
+    )
+    const phase: PhaseInput<"audit"> = {
+      phase: "audit",
+      assistant,
+      model: pinned(assistant),
+      ...testContext(f.root),
+      arguments: [report, "example.md"],
+      sessionId: null,
+    }
+    const unended = await phaseStream(assistant, "First report")
+    await writeFile(report, "Old report")
+    await f.configure({
+      phases: {
+        audit: {
+          streams: [
+            unended,
+            await phaseStream(
+              assistant,
+              'Second report\nPHASE RESULT: {"status":"finished","reason":null}',
+            ),
+          ],
+        },
+      },
+    })
+    const asked = await runAssistantPhase(phase, f.output, f.runtime)
+    assert.deepEqual(asked, { status: "finished", sessionId: "test-session" })
+    assert.equal(await readFile(report, "utf8"), "Second report\n")
+    const calls = await f.calls()
+    assert.equal(calls.length, 2)
+    if (assistant === "codex")
+      assert.deepEqual(calls[1].args.slice(-4), [
+        "resume",
+        "--json",
+        "test-session",
+        "-",
+      ])
+    else
+      assert.deepEqual(calls[1].args.slice(0, 3), [
+        "-p",
+        "--resume",
+        "test-session",
+      ])
+    assert.match(
+      (await f.prompts())[1].prompt,
+      /^Run the audit phase of an unattended implementation-audit round in this resumed session\.\nYour last response ended without the final PHASE RESULT line/,
+    )
+    assert.ok(
+      f.feedback.some(
+        (event) =>
+          event.type === "diagnostic" &&
+          event.text.includes("without its PHASE RESULT line"),
+      ),
+    )
+    assert.equal(f.starts.length, 1)
+    assert.equal(f.finishes.length, 1)
+    assert.equal(f.releases(), 1)
+
+    await writeFile(report, "Old report")
+    await f.configure({ phases: { audit: { streams: [unended] } } })
+    const unanswered = await runAssistantPhase(phase, f.output, f.runtime)
+    assert.deepEqual(unanswered, {
+      status: "failed",
+      sessionId: "test-session",
+      reason: "Missing final PHASE RESULT line",
+    })
+    assert.equal((await f.calls()).length, 4)
+    assert.equal(await readFile(report, "utf8"), "Old report")
+    assert.equal(f.finishes.length, 1)
+  })
+
   test(`${assistant} accounts for recorded tool failures, split UTF-8 and final completion`, async (t) => {
     const f = await fixture(t)
     const usagePath = join(f.root, "rollout-test-session.jsonl")
@@ -592,6 +668,7 @@ test("fresh and resumed Codex fix requests carry large prompts only on stdin", (
           ? { sessionId }
           : { sessionId, rulingReply: "Apply the corrections." }),
       },
+      sessionId,
       prompt,
     )
     assert.equal(request.input, prompt)

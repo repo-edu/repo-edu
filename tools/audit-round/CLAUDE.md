@@ -295,7 +295,13 @@ consumers.
   is one or more turns and ends with its process: Claude's print mode emits one result per turn,
   a background task or subagent wakes the session for a further turn, and while a subagent is
   pending the CLI defers the results and flushes them at exit behind an empty result of no turns.
-  The phase's final text is the last turn's text. After the process ends with at least one turn,
+  The phase's final text is the last turn's text. A model sometimes leaves the result line off a
+  finished response, and that miss would fail a round whose work was complete. So when the process
+  ends on a response without the line, the invocation resumes the same session once and asks it to
+  end again. The request repeats no phase work, and the new response becomes the phase's final
+  text. A second response without the line fails the phase with its session. A line that is
+  present but malformed fails at once. The contract recorder supplies no such request, so each
+  recording stays one invocation. After the process ends with at least one turn,
   it saves audit, vet and rebuttal reports from that text without the result line. A failed write
   fails the phase before progression. For the watch it parses the grade line and returns the
   remaining Markdown with the output recorder's final compaction count, without writing a file.
@@ -367,7 +373,10 @@ consumers.
   once. Audit, vet, rebuttal and fix also receive their home launcher. The watch has no
   launcher; its workflow header lists the `simple` definition directly. The close has no launcher
   either, and its prompt names a loop-close rather than a round phase. Resumed sessions receive no
-  files again. Root instructions are not listed. Both assistants receive their phase prompts on
+  files again. The request for a missing result line opens as every phase prompt does, so the
+  session reads it as an unattended phase. It asks for the complete response again, because the
+  runner reads only the last turn's text.
+  Root instructions are not listed. Both assistants receive their phase prompts on
   standard input. Codex command-line arguments contain no prompt text, including on resume, so
   joined evidence is not limited by the operating system's per-argument size. The same collected
   file list produces a separate log prompt containing source paths with an omission notice in place
@@ -712,7 +721,9 @@ consumers.
 The coordinator has no process, filesystem or terminal side effects of its own.
 Its dependencies supply those operations explicitly. A returned phase failure
 stops the sequence. A rejected phase invocation also stops it without retrying;
-the invocation owner must release its resources before rejecting.
+the invocation owner must release its resources before rejecting. The
+invocation owner's one request for a missing result line is not a retry: it
+repeats no phase work, and the coordinator sees only the invocation's result.
 
 `phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal and fix use the single
 launcher set under the plan checkout's `home/`; their workflow follows the round's kind. The watch
