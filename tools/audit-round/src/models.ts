@@ -505,7 +505,7 @@ function vetPairSection(
       `No two ${workClass} vets have judged the same ${range === "A/B" ? "A or B" : "A, B or C"} finding.`,
     ]
   return [
-    `| Vet 1 | Vet 2 | Shared ${range} findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |`,
+    `| Vet 1 | Vet 2 | Shared ${range} findings | Ruled splits | Split: vet 1 right | Split: vet 2 right | Split: both right | Split: neither right |`,
     "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows.map(
       (row) =>
@@ -777,7 +777,7 @@ export async function modelsReport(
     ...rangeSections("Implementation vet pairs", "implementation", (range) =>
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
-    "A vet is a model and an effort. Each row counts the findings that both vets judged on one panel and that the report or a vet graded A or B, or A, B or C in the A/B/C section. Splits counts the shared findings where the two vets split and the user has ruled, and each ends in one of the last four columns. The user rules on a split of an implementation panel on a C finding too. A split without a ruling enters Splits when its ruling lands. A later disproved finding proves right the vets that dropped it, and a later vet ruling proves right the vets that accepted it.",
+    "A vet is a model and an effort. Each row counts the findings that both vets judged on one panel and that the report or a vet graded A or B, or A, B or C in the A/B/C section. Ruled splits counts the shared findings where the two vets split and the user has ruled. Each ruled split ends in one of the four Split columns, so those four add up to Ruled splits and not to the shared findings. The user rules on a split of an implementation panel on a C finding too. A split without a ruling enters Ruled splits when its ruling lands. A later disproved finding proves right the vets that dropped it, and a later vet ruling proves right the vets that accepted it.",
     "",
     ...rangeSections("Coders", "implementation", (range) => [
       ...coderReading(coders, settings, range),
