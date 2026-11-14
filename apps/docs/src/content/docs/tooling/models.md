@@ -93,6 +93,24 @@ that floor.
    behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.
 7. **Excluded plans** group by reason with their recorded models.
 
+When the read-out is taller than the terminal window, the command first shows it in a full-screen
+view that you scroll yourself. The view keeps three things in sight for the part under the top
+edge:
+
+1. **The section heading**, such as `Implementation rounds by plan`, stays on the first line.
+2. **The table's column headings** stay below the section heading.
+3. **The plan name** shows in the top row. A row for a further model of the same plan leaves its
+   Plan cell empty, so the view writes the name into that cell while the row is the top row.
+
+Scroll with the mouse wheel, the arrow keys, Page Up, Page Down, Home and End. Inside a table, one
+step of the wheel or an arrow key moves one whole row, however many lines the row takes. Elsewhere
+it moves one line. Page Up and Page Down stop at the start of a row and skip no line. When the last
+row of a table scrolls away, the table's fixed lines leave with it.
+
+Press `q` or Esc to leave. The command then prints the whole read-out into the terminal, as it does
+when the view does not open. The view does not open when the read-out fits the window or when the
+output goes to a file or a pipe.
+
 The command writes no round file or round data. When `tools/audit-round/settings.json` is missing,
 it creates it from the committed defaults, as every command that reads settings does.
 

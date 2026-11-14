@@ -2147,6 +2147,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   })
 
   const visible: { readonly text: string; readonly format?: "markdown" }[] = []
+  const paged: string[] = []
   const errors: string[] = []
   const commandOptions = {
     repoEduRoot: f.root,
@@ -2165,6 +2166,11 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
       status: () => {},
       clear: () => {},
     },
+    pager: async (text) => {
+      // The reader leaves the view before the read-out is printed.
+      assert.equal(visible.length, 0)
+      paged.push(text)
+    },
     emergency: (text) => errors.push(text),
   } satisfies Parameters<typeof runCommand>[2]
   const code = await runCommand(["models", "--all"], f.runtime, commandOptions)
@@ -2172,6 +2178,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.equal(visible.length, 1)
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
+  assert.deepEqual(paged, [output])
   assert.match(output, /## Planning auditors/)
   assert.match(output, /## Implementation auditors/)
   assert.match(output, /audit-alpha low/)

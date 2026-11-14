@@ -62,6 +62,7 @@ import {
   roundRun,
 } from "./output.js"
 import { elapsedText } from "./output-format.js"
+import type { Pager } from "./pager.js"
 import {
   type AuditorOption,
   type AuditorSeat,
@@ -1360,6 +1361,8 @@ export async function runCommand(
     ) => Promise<RulingInput | null>
     /** Supplies a random default's opener index below the count in deterministic tests. */
     readonly coin?: (count: number) => number
+    /** Shows the model read-out in the full-screen view before it is printed. */
+    readonly pager?: Pager
   },
 ): Promise<number> {
   const now = options.now ?? Date.now
@@ -1385,10 +1388,11 @@ export async function runCommand(
     }
     if (invocation.kind === "models") {
       const modelSettings = options.settings ?? (await readSettings())
-      options.terminal.write(
-        await modelsReport(context, modelSettings, { all: invocation.all }),
-        "markdown",
-      )
+      const readOut = await modelsReport(context, modelSettings, {
+        all: invocation.all,
+      })
+      await options.pager?.(readOut)
+      options.terminal.write(readOut, "markdown")
       return 0
     }
     if (invocation.kind === "replay") {

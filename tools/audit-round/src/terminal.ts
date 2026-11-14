@@ -49,6 +49,15 @@ function renderMarkdown(
     .join("\n")
 }
 
+/** The rendered document as terminal lines, without its outer blank lines. */
+export function renderMarkdownLines(
+  text: string,
+  width: number,
+  stream: NodeJS.WriteStream,
+): string[] {
+  return trimRenderedPadding(renderMarkdown(text, width, stream)).split("\n")
+}
+
 export function createTerminal(
   stream: NodeJS.WriteStream = process.stdout,
   render: (text: string, width: number) => string = (text, width) =>

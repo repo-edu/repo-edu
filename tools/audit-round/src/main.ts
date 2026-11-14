@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { runCommand } from "./command.js"
+import { createPager } from "./pager.js"
 import { createTerminal } from "./terminal.js"
 
 // An unattended run must outlive the display's sleep on battery too, and
@@ -25,6 +26,7 @@ try {
     { cwd: process.cwd(), signal: interruption.signal },
     {
       terminal: createTerminal(),
+      pager: createPager(),
       emergency: (text) => process.stderr.write(`${text}\n`),
     },
   )

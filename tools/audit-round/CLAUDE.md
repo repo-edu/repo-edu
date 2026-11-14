@@ -560,6 +560,51 @@ consumers.
   measured rows or plans that supplied no evidence every time. The command starts no assistant and
   writes no round file or round data. Like other commands that read settings, it creates a missing
   `settings.json` from the defaults.
+- `pager.ts` owns the full-screen view of the model read-out. `command.ts` awaits it before the
+  ordinary terminal write. The printed read-out therefore stays the only permanent output, and it is
+  the same with or without the view. The view opens only when standard output and standard input are
+  terminals and the rendered read-out is at least as tall as the window. It runs on `pi-tui`'s
+  alternate-screen renderer: one scroll view over the lines `terminal.ts` renders and a one-line
+  footer with the keys and the line position. It stops that renderer with the screen preserved,
+  because the renderer would otherwise print the document a second time. `q` and Esc leave through
+  the footer's keyboard focus. While the reader types into the library's search panel, `q` therefore
+  stays a letter and Esc closes the panel. Ctrl-C leaves through an input listener, because raw
+  input carries it as a key. The up and down arrows are bound to one line of scrolling. No letter
+  scrolls, because the search panel reads letters as text. The scroll view is a subclass that
+  overrides the library's one step method, because the library sends every line key, page key and
+  wheel move through it. Each step ends at the position `pinned-headings.ts` names, so one line of
+  scrolling moves one whole table row.
+- `pinned-headings.ts` owns which lines stay at the top of that view. It splits the Markdown with
+  the parser `pi-tui` renders with, renders each top-level block alone to count its lines and
+  walks the rendered document in order, because the renderer draws a block the same way alone as
+  inside the document. Two kinds of region carry heading lines. A section below the document
+  title carries its heading. A drawn table carries its lines through the first rule. At each
+  nesting level, the region that holds the first line its heading would cover is pinned. A heading
+  is therefore pinned from the moment its own lines reach that place until the region's last line
+  has passed it. When fewer lines of the region remain than the heading has, only the heading's
+  last lines stay, so a heading leaves with its region and never covers the lines after it. A
+  table's region ends before its bottom border, so its heading slides away into the line that
+  closes it. A group's name is no heading line. A row with an empty first cell continues the group
+  of the last row that named one, which is how the rounds-by-plan tables list a plan's further
+  auditors. When such a row is the first row under the headings, the view draws that row again
+  with the name in its first cell. The row keeps its other cells, so it scrolls as one whole. A
+  name row of its own would have to cover the group's first row and blank that row's other cells.
+  A name with more lines than the row shows ends in `…`. The pinned lines are drawn over the scroll
+  view's first rows rather than above it, so the document does not jump when their number changes.
+  Row boundaries come from the rule lines the renderer draws, so a table too narrow to draw as a
+  grid pins nothing. The document title is no region, because it would stay in view for the whole
+  document.
+- `pinned-headings.ts` also owns where a scroll step ends. A table row is its text lines and the
+  rule under it. The column headings count as one row, and the bottom border belongs to the last
+  row. Outside a drawn table every line is its own row. A position is a resting place when every
+  pinned heading shows whole and the first line under them starts a row. The start and the end of
+  the document are resting places too. A step ends at the furthest resting place within its length
+  that skips no line: the lines in view under the headings before and after the step must join.
+  When no resting place qualifies, the step goes to the nearest one. One line of scrolling
+  therefore moves one whole row, a heading that leaves goes in one piece, and the last row of a
+  table leaves together with the table's headings. The reader never rests on half a row, which
+  would show a rule line with no text. The rule against skipped lines shortens a page step,
+  because the library's page length does not count the lines the headings cover.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -1159,6 +1204,14 @@ section. The excluded-plans section groups plans by reason and names their recor
 prints only under `--all`. The command renders Markdown, starts no assistant and writes no round
 file or round data. Like other commands that read settings, it creates a missing `settings.json`
 from the defaults.
+
+At a terminal, a read-out taller than the window first opens in the full-screen view that `pager.ts`
+owns. The top lines of the view keep the section heading and the table's column headings of the part
+under the top edge. A top row that leaves its plan cell empty shows the plan's name in that cell.
+The mouse wheel, the arrow keys, Page Up, Page Down, Home and End scroll it, and `q`, Esc or Ctrl-C
+leaves it. Inside a table a step moves whole rows; elsewhere it moves lines. The command then prints
+the whole read-out as it does without the view. Redirected output and a read-out that fits the
+window skip the view.
 
 `replay` reads every active and archived plan's retained round data and every active commit-series
 file. It applies the same automatic-series decision function to each stored answer and prints the
