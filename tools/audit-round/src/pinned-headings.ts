@@ -207,24 +207,30 @@ function cutName(line: string): string {
 /**
  * The lines that show a group's name in the first row under the headings,
  * when that row leaves its own first cell empty. `first` is the first line
- * under the headings. The row's lines are drawn again with the name in the
- * first cell, so the row keeps every other cell and scrolls as one whole. A
- * rule that still shows above the row is kept as it is. When the name has
- * more lines than the row shows, its last line there ends in "…".
+ * under the headings and `room` is how many lines may still be drawn. The
+ * row's name lines are drawn again with the name in the first cell, so the
+ * row keeps every other cell and scrolls as one whole. The row's later lines
+ * are not drawn again, because they show as they are. A rule that still shows
+ * above the row is kept as it is. When the name has more lines than the row
+ * shows or the room allows, its last drawn line ends in "…".
  */
-function namedRow(layout: DocumentLayout, first: number): string[] {
+function namedRow(
+  layout: DocumentLayout,
+  first: number,
+  room: number,
+): string[] {
   const row = layout.groupedRows.find(
     (candidate) => candidate.start - 1 <= first && first < candidate.end,
   )
   if (row === undefined) return []
   const from = Math.max(first, row.start)
-  const shown = row.end - from
+  const count = Math.min(row.name.length, row.end - from, room - (from - first))
+  if (count <= 0) return []
   return [
     ...layout.lines.slice(first, from),
-    ...layout.lines.slice(from, row.end).map((line, index) => {
-      if (index >= row.name.length) return line
+    ...layout.lines.slice(from, from + count).map((line, index) => {
       const name =
-        index === shown - 1 && row.name.length > shown
+        index === count - 1 && row.name.length > count
           ? cutName(row.name[index])
           : row.name[index]
       const width = visibleWidth(name)
@@ -234,19 +240,30 @@ function namedRow(layout: DocumentLayout, first: number): string[] {
 }
 
 /**
+ * How many lines may stay at the top of a view `viewport` lines high: half
+ * of it. The rest of the view always shows the document, so a step of one
+ * line never skips a line, however many headings are pinned.
+ */
+function pinnedCapacity(viewport: number): number {
+  return Math.floor(viewport / 2)
+}
+
+/**
  * The heading lines that stay at the top when the document is scrolled to
- * `top`, and whether every one of those headings shows whole. They cover the
- * first lines of the view, so each level asks which region holds the first
- * line its heading would cover. A heading is pinned from the moment its own
- * lines reach that place, which draws the same lines where they already are,
- * until its region's last line has passed it. When fewer lines of the region
- * remain than the heading has, only the heading's last lines stay. A heading
- * therefore leaves together with its region and never covers the lines after
- * it.
+ * `top` in a view `viewport` lines high, and whether every one of those
+ * headings shows whole. They cover the first lines of the view, so each level
+ * asks which region holds the first line its heading would cover. A heading
+ * is pinned from the moment its own lines reach that place, which draws the
+ * same lines where they already are, until its region's last line has passed
+ * it. When fewer lines of the region remain than the heading has, only the
+ * heading's last lines stay. A heading therefore leaves together with its
+ * region and never covers the lines after it. Lines beyond the view's
+ * capacity are not pinned.
  */
 function pinnedAt(
   regions: readonly Region[],
   top: number,
+  viewport: number,
 ): { readonly lines: string[]; readonly whole: boolean } {
   const lines: string[] = []
   let whole = true
@@ -256,36 +273,55 @@ function pinnedAt(
     const region = level.find(
       (candidate) => candidate.start <= line && line < candidate.end,
     )
-    if (region === undefined) return { lines, whole }
+    if (region === undefined) break
     const shown = region.header.slice(-(region.end - line))
     whole &&= shown.length === region.header.length
     lines.push(...shown)
     level = region.children
   }
+  return { lines: lines.slice(0, pinnedCapacity(viewport)), whole }
 }
 
 /**
- * The lines drawn over the first lines of the view when the document is
- * scrolled to `top`: the pinned headings, then the first row under them when
- * it needs its group's name.
+ * The lines drawn over the first lines of a view `viewport` lines high when
+ * the document is scrolled to `top`: the pinned headings, then the first row
+ * under them when it needs its group's name. They never exceed the view's
+ * capacity.
  */
-export function pinnedLines(layout: DocumentLayout, top: number): string[] {
-  const headings = pinnedAt(layout.regions, top).lines
-  return [...headings, ...namedRow(layout, top + headings.length)]
+export function pinnedLines(
+  layout: DocumentLayout,
+  top: number,
+  viewport: number,
+): string[] {
+  const headings = pinnedAt(layout.regions, top, viewport).lines
+  return [
+    ...headings,
+    ...namedRow(
+      layout,
+      top + headings.length,
+      pinnedCapacity(viewport) - headings.length,
+    ),
+  ]
 }
 
 /**
  * The scroll position a step of `lines` from `top` ends at, in a view that is
  * `viewport` lines high. A position is a resting place when every pinned
  * heading shows whole and the first line under them starts a row, so the
- * reader never rests on half a row or half a heading. The start and the end
- * of the document are resting places too.
+ * reader does not rest on half a row or half a heading. The start and the
+ * end of the document are resting places too.
  *
  * A step ends at the furthest resting place within `lines` that skips no
  * line: the lines in view under the headings before and after the step must
  * join. A page step is longer than that, because the headings cover the first
  * lines of the view. When no resting place qualifies, the step goes to the
  * nearest one, which is how one line of scrolling becomes one whole row.
+ *
+ * A row taller than the view under the headings is the one exception. When
+ * the nearest resting place would skip lines, the step ends at the furthest
+ * position within `lines` that skips none, so such a row scrolls line by line
+ * until its end can be reached. The pinned capacity keeps a one-line step
+ * joined, so this step always moves.
  */
 export function steppedTop(
   layout: DocumentLayout,
@@ -298,10 +334,10 @@ export function steppedTop(
   const last = Math.max(0, layout.lines.length - viewport)
   const clamp = (position: number) => Math.max(0, Math.min(last, position))
   const firstShown = (position: number) =>
-    position + pinnedAt(layout.regions, position).lines.length
+    position + pinnedAt(layout.regions, position, viewport).lines.length
   const rests = (position: number) => {
     if (position <= 0 || position >= last) return true
-    const pinned = pinnedAt(layout.regions, position)
+    const pinned = pinnedAt(layout.regions, position, viewport)
     return pinned.whole && !layout.rowTails.has(position + pinned.lines.length)
   }
   const joins = (position: number) =>
@@ -316,5 +352,9 @@ export function steppedTop(
     position -= direction
   )
     if (rests(position) && joins(position)) return position
-  return clamp(nearest)
+  if (joins(clamp(nearest))) return clamp(nearest)
+  let position = clamp(top + lines)
+  while (direction * (position - top) > 1 && !joins(position))
+    position -= direction
+  return position
 }

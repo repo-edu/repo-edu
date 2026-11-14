@@ -573,7 +573,8 @@ consumers.
   scrolls, because the search panel reads letters as text. The scroll view is a subclass that
   overrides the library's one step method, because the library sends every line key, page key and
   wheel move through it. Each step ends at the position `pinned-headings.ts` names, so one line of
-  scrolling moves one whole table row.
+  scrolling moves one whole table row, except inside a row taller than the view. The overlay has no
+  height limit of its own, because `pinned-headings.ts` keeps the pinned lines within half the view.
 - `pinned-headings.ts` owns which lines stay at the top of that view. It splits the Markdown with
   the parser `pi-tui` renders with, renders each top-level block alone to count its lines and
   walks the rendered document in order, because the renderer draws a block the same way alone as
@@ -589,8 +590,12 @@ consumers.
   auditors. When such a row is the first row under the headings, the view draws that row again
   with the name in its first cell. The row keeps its other cells, so it scrolls as one whole. A
   name row of its own would have to cover the group's first row and blank that row's other cells.
-  A name with more lines than the row shows ends in `…`. The pinned lines are drawn over the scroll
-  view's first rows rather than above it, so the document does not jump when their number changes.
+  A name with more lines than the row shows or the pinned lines have room for ends in `…`. Only the
+  row's name lines are drawn again, because its later lines show as they are. The pinned lines are
+  drawn over the scroll view's first rows rather than above it, so the document does not jump when
+  their number changes. They fill at most half the view and drop the lines beyond that, so the rest
+  of the view always shows the document. The step rule counts the same lines, so a step of one line
+  always moves without skipping one.
   Row boundaries come from the rule lines the renderer draws, so a table too narrow to draw as a
   grid pins nothing. The document title is no region, because it would stay in view for the whole
   document.
@@ -602,9 +607,12 @@ consumers.
   that skips no line: the lines in view under the headings before and after the step must join.
   When no resting place qualifies, the step goes to the nearest one. One line of scrolling
   therefore moves one whole row, a heading that leaves goes in one piece, and the last row of a
-  table leaves together with the table's headings. The reader never rests on half a row, which
-  would show a rule line with no text. The rule against skipped lines shortens a page step,
-  because the library's page length does not count the lines the headings cover.
+  table leaves together with the table's headings. The reader does not rest on half a row, which
+  would show a rule line with no text. A row taller than the view under the headings is the one
+  exception: when the nearest resting place would skip lines, the step ends at the furthest
+  position within its length that skips none. Such a row therefore scrolls line by line until its
+  end can be reached. The rule against skipped lines shortens a page step, because the library's
+  page length does not count the lines the headings cover.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -1209,7 +1217,8 @@ At a terminal, a read-out taller than the window first opens in the full-screen 
 owns. The top lines of the view keep the section heading and the table's column headings of the part
 under the top edge. A top row that leaves its plan cell empty shows the plan's name in that cell.
 The mouse wheel, the arrow keys, Page Up, Page Down, Home and End scroll it, and `q`, Esc or Ctrl-C
-leaves it. Inside a table a step moves whole rows; elsewhere it moves lines. The command then prints
+leaves it. Inside a table a step moves whole rows, except that a row taller than the view moves
+line by line; elsewhere a step moves lines. The command then prints
 the whole read-out as it does without the view. Redirected output and a read-out that fits the
 window skip the view.
 

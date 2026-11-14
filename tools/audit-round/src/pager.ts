@@ -89,9 +89,12 @@ export function createPager(
         steppedTop(layoutAt(screen.columns), top, lines, viewport),
     )
     // The pinned lines are drawn over the view's first lines rather than above
-    // it, so the document never jumps when their number changes.
+    // it, so the document never jumps when their number changes. Their number
+    // stays within the capacity the step rule counts on, so the overlay needs
+    // no height limit of its own.
     const pinned: Component = {
-      render: (width) => pinnedLines(layoutAt(width), scroll.scrollTop),
+      render: (width) =>
+        pinnedLines(layoutAt(width), scroll.scrollTop, scroll.viewportHeight),
       invalidate: () => {},
     }
     // The footer holds the keyboard focus, so `q` and Esc leave only while the
@@ -140,7 +143,6 @@ export function createPager(
       row: 0,
       col: 0,
       width: "100%",
-      maxHeight: "50%",
       nonCapturing: true,
     })
     tui.setFocus(footer)

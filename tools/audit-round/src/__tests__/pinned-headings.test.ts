@@ -50,10 +50,17 @@ const tableHeading = [
 ]
 const rule = "├───────┼───────┼────────┤"
 
-function pinnedAt(top: number, markdown = readOut, width = 60): string[] {
-  return pinnedLines(layoutDocument(markdown, width, render), top).map((line) =>
-    stripVTControlCharacters(line).trimEnd(),
-  )
+function pinnedAt(
+  top: number,
+  markdown = readOut,
+  width = 60,
+  viewport = 40,
+): string[] {
+  return pinnedLines(
+    layoutDocument(markdown, width, render),
+    top,
+    viewport,
+  ).map((line) => stripVTControlCharacters(line).trimEnd())
 }
 
 test("the layout keeps the rendered lines and each heading is the document's own lines", () => {
@@ -173,6 +180,60 @@ test("a name of several lines fills the row's lines and is cut in a shorter row"
   ])
   assert.deepEqual(named(7), ["│ a long plan…   │ m3        │"])
   assert.deepEqual(named(9), [])
+})
+
+test("the pinned lines fill at most half the view and a name cut there ends in …", () => {
+  const wrapped = [
+    "## Rounds",
+    "",
+    "| Plan | Model |",
+    "| --- | --- |",
+    "| a long plan name here | first model |",
+    "|  | second model |",
+  ].join("\n")
+  const pinned = (viewport: number) => pinnedAt(4, wrapped, 30, viewport)
+  assert.deepEqual(pinned(10).slice(4), ["│ a long plan…   │ second    │"])
+  // No line of the name fits beside the headings.
+  assert.equal(pinned(8).length, 4)
+  // The headings alone are cut too.
+  assert.deepEqual(pinned(4), ["Rounds", "┌────────────────┬───────────┐"])
+})
+
+test("a row taller than the view scrolls line by line and skips no line", () => {
+  const tall = [
+    "## Rounds",
+    "",
+    "| Plan | Note |",
+    "| --- | --- |",
+    "| a | short |",
+    `| b | ${Array.from({ length: 26 }, (_, index) => `w${index}`).join(" ")} |`,
+    "| c | short |",
+    "| d | short |",
+    "| e | short |",
+    "| f | short |",
+  ].join("\n")
+  const layout = layoutDocument(tall, 24, render)
+  // Row b runs from line 7 to 14. Under the four pinned lines a view of 8
+  // shows 4 lines, so the row cannot pass in one step.
+  assert.deepEqual(
+    [...layout.rowTails],
+    [3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 21, 23],
+  )
+  const walk = (from: number, lines: number) => {
+    const passed: number[] = []
+    for (let top = from; ; ) {
+      const next = steppedTop(layout, top, lines, 8)
+      if (next === top) return passed
+      passed.push(next)
+      top = next
+    }
+  }
+  // At 3 the view shows lines 7 to 10 under the headings and at 8 lines 12
+  // to 15. From 8 the next row start at 12 shows lines 16 to 19, so whole
+  // rows resume.
+  assert.deepEqual(walk(0, 1), [1, 3, 4, 5, 6, 7, 8, 12, 14, 16])
+  assert.deepEqual(walk(16, -1), [14, 12, 11, 10, 9, 8, 7, 3, 1, 0])
+  assert.deepEqual(walk(0, 7), [3, 7, 11, 14, 16])
 })
 
 test("a table too narrow to draw as a grid has no pinned headings and no rows", () => {
