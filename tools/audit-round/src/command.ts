@@ -1277,10 +1277,6 @@ async function preparedFixRecovery(
       "judgedRepos" in retained.entry ? retained.entry.judgedRepos : [],
     findings: retained.entry.findings,
   }
-  if (openSeriousFindings(account).length === 0)
-    throw new Error(
-      `${paths.nameStart} has no serious contest or split without a recorded winner.`,
-    )
   let target: AuditTarget
   if ("phase" in retained.entry || "scope" in retained.entry) {
     const scopeParts =
@@ -1321,6 +1317,10 @@ async function preparedFixRecovery(
       ],
     }
   }
+  if (openSeriousFindings(account, targetWorkClass(target)).length === 0)
+    throw new Error(
+      `${paths.nameStart} has no serious contest or split without a recorded winner.`,
+    )
   return {
     ...invocation,
     paths,

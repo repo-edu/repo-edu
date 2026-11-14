@@ -2,11 +2,13 @@ import { mean } from "simple-statistics"
 import type { ExecutionContext } from "./context.js"
 import {
   type AuditorPlanComparison,
+  type AuditorPlanSample,
   auditorFloor,
   clearlyPreferred,
   coderFloor,
   compareAuditorPlans,
   hasUnevenOpeners,
+  type ReadingSample,
 } from "./model-comparison.js"
 import {
   type AuditorRow,
@@ -25,6 +27,7 @@ import {
   type VetPairSample,
   type WorkClass,
 } from "./model-evidence.js"
+import { comparedRanges, type TierRange, tierWithin } from "./round-data.js"
 import type { RoundSettings } from "./settings.js"
 
 function escapeCell(text: string): string {
@@ -92,6 +95,20 @@ function auditorSamples(
   return row.samples.filter((sample) => sample.workClass === workClass)
 }
 
+/** The row's rounds in the class as comparison samples whose yield counts the range. */
+function planSamples(
+  row: AuditorRow,
+  workClass: WorkClass,
+  range: TierRange,
+): AuditorPlanSample[] {
+  return auditorSamples(row, workClass).map((sample) => ({
+    plan: sample.plan,
+    first: sample.first,
+    minutes: sample.minutes,
+    yield: sample.counts[range].kept,
+  }))
+}
+
 /**
  * Rows with a complete round in the class. A model whose rounds all fall in
  * the other class has nothing to show here, so it stays out of this class's
@@ -138,9 +155,13 @@ function addCounts(first: FindingCounts, second: FindingCounts): FindingCounts {
   }
 }
 
-function auditorCounts(row: AuditorRow, workClass: WorkClass): FindingCounts {
+function auditorCounts(
+  row: AuditorRow,
+  workClass: WorkClass,
+  range: TierRange,
+): FindingCounts {
   const counts = auditorSamples(row, workClass).reduce(
-    (total, sample) => addCounts(total, sample.counts),
+    (total, sample) => addCounts(total, sample.counts[range]),
     { kept: 0, dropped: 0, downgraded: 0, disproved: 0 },
   )
   return {
@@ -166,10 +187,11 @@ type AuditorReading = {
 function auditorReadings(
   rows: ReadonlyMap<string, AuditorRow>,
   workClass: WorkClass,
+  range: TierRange,
 ): AuditorReading[] {
   const classEntries = [...rows.values()].map((row) => ({
     row,
-    samples: auditorSamples(row, workClass),
+    samples: planSamples(row, workClass, range),
   }))
   return classEntries.map(({ row, samples }) => ({
     identity: row.identity,
@@ -179,7 +201,7 @@ function auditorReadings(
         .filter((entry) => entry.row !== row)
         .map((entry) => entry.samples),
     ),
-    counts: auditorCounts(row, workClass),
+    counts: auditorCounts(row, workClass, range),
     minutes: mean(samples.map((sample) => sample.minutes)),
   }))
 }
@@ -234,6 +256,7 @@ function auditorPlanReadings(
   rows: ReadonlyMap<string, AuditorRow>,
   disproved: readonly DisprovedEvidence[],
   workClass: WorkClass,
+  range: TierRange,
 ): AuditorPlanReading[] {
   const readings = new Map<string, AuditorPlanReading>()
   const ensureReading = (plan: string, identity: ModelIdentity) => {
@@ -253,7 +276,7 @@ function auditorPlanReadings(
     for (const sample of auditorSamples(row, workClass)) {
       const reading = ensureReading(sample.plan, row.identity)
       reading.rounds += 1
-      reading.counts = addCounts(reading.counts, sample.counts)
+      reading.counts = addCounts(reading.counts, sample.counts[range])
       reading.minutes += sample.minutes
     }
 
@@ -273,28 +296,19 @@ function auditorPlanReadings(
   )
 }
 
-function auditorPlanTable(readings: readonly AuditorPlanReading[]): string[] {
+function auditorPlanTable(
+  readings: readonly AuditorPlanReading[],
+  range: TierRange,
+): string[] {
   let previousPlan: string | null = null
   return [
-    "| Plan | Model | Rounds | A/B kept | Dropped | Downgraded | Disproved | Minutes per round |",
+    `| Plan | Model | Rounds | ${range} kept | Dropped | Downgraded | Disproved | Minutes per round |`,
     "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...readings.map((reading) => {
       const plan = reading.plan === previousPlan ? "" : reading.plan
       previousPlan = reading.plan
       return `| ${escapeCell(plan)} | ${escapeCell(modelText(reading.identity))} | ${reading.rounds} | ${reading.counts.kept} | ${reading.counts.dropped} | ${reading.counts.downgraded} | ${reading.counts.disproved} | ${reading.rounds === 0 ? "—" : numberText(reading.minutes / reading.rounds)} |`
     }),
-  ]
-}
-
-function auditorPlanSection(
-  rows: ReadonlyMap<string, AuditorRow>,
-  disproved: readonly DisprovedEvidence[],
-  workClass: WorkClass,
-): string[] {
-  return [
-    `## ${workClass === "planning" ? "Planning" : "Implementation"} rounds by plan`,
-    "",
-    ...auditorPlanTable(auditorPlanReadings(rows, disproved, workClass)),
   ]
 }
 
@@ -320,6 +334,7 @@ function auditorSection(
   rows: ReadonlyMap<string, AuditorRow>,
   workClass: WorkClass,
   settings: RoundSettings,
+  range: TierRange,
 ): string[] {
   if (rows.size === 0)
     return [
@@ -327,7 +342,9 @@ function auditorSection(
       "",
       ...auditorTable([]),
     ]
-  const readings = orderedAuditorReadings(auditorReadings(rows, workClass))
+  const readings = orderedAuditorReadings(
+    auditorReadings(rows, workClass, range),
+  )
   const compared = readings.filter(
     (reading) => reading.comparison.plans >= auditorFloor,
   )
@@ -350,8 +367,17 @@ function auditorSection(
   )
 }
 
+/** The row's plans as comparison samples whose yield is the range's kept findings per step. */
+function coderSamples(row: CoderRow, range: TierRange): ReadingSample[] {
+  return row.samples.map((sample) => ({
+    yield: sample.kept[range] / sample.steps,
+    minutes: sample.minutes,
+  }))
+}
+
 function coderRecommendation(
   rows: ReadonlyMap<string, CoderRow>,
+  range: TierRange,
 ): string | null {
   const ranked = sortedRows(rows).filter(
     ([, row]) => row.samples.length >= coderFloor,
@@ -361,7 +387,11 @@ function coderRecommendation(
     ranked.every(
       ([otherKey, other]) =>
         candidateKey === otherKey ||
-        clearlyPreferred(candidate.samples, other.samples, false),
+        clearlyPreferred(
+          coderSamples(candidate, range),
+          coderSamples(other, range),
+          false,
+        ),
     ),
   )
   return winners.length === 1 ? winners[0][0] : null
@@ -370,13 +400,14 @@ function coderRecommendation(
 function coderReading(
   rows: ReadonlyMap<string, CoderRow>,
   settings: RoundSettings,
+  range: TierRange,
 ): string[] {
   const entries = sortedRows(rows)
   if (entries.length === 0) return ["No coder records are available."]
   const notes = entries
     .map(([, row]) => shortageNote(row))
     .filter((note): note is string => note !== null)
-  const recommendation = coderRecommendation(rows)
+  const recommendation = coderRecommendation(rows, range)
   if (recommendation === null)
     return readingLines("The records do not separate one coder clearly.", notes)
   const identity = rows.get(recommendation)?.identity ?? entries[0][1].identity
@@ -389,7 +420,10 @@ function coderReading(
   )
 }
 
-function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
+function coderTable(
+  rows: ReadonlyMap<string, CoderRow>,
+  range: TierRange,
+): string[] {
   const readings = [...rows.values()].map((row) => {
     const steps = row.samples.reduce((total, sample) => total + sample.steps, 0)
     const totalMinutes = row.samples.reduce(
@@ -400,13 +434,16 @@ function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
       identity: row.identity,
       plans: row.samples.length,
       steps,
-      kept: row.samples.reduce((total, sample) => total + sample.kept, 0),
-      yield: mean(row.samples.map((sample) => sample.yield)),
+      kept: row.samples.reduce(
+        (total, sample) => total + sample.kept[range],
+        0,
+      ),
+      yield: mean(coderSamples(row, range).map((sample) => sample.yield)),
       minutes: totalMinutes / steps,
     }
   })
   return [
-    "| Model | Plans | Steps | A/B kept | A/B per step | Minutes per step |",
+    `| Model | Plans | Steps | ${range} kept | ${range} per step | Minutes per step |`,
     "| --- | ---: | ---: | ---: | ---: | ---: |",
     ...leaderFirst(readings, (reading) => [
       -reading.yield,
@@ -426,14 +463,16 @@ type VetPairRow = {
   readonly endings: Record<PairEnding, number>
 }
 
-/** One row per pair of vets with a shared A or B finding in the class. */
+/** One row per pair of vets with a shared finding of the class graded within the range. */
 function vetPairRows(
   samples: readonly VetPairSample[],
   workClass: WorkClass,
+  range: TierRange,
 ): VetPairRow[] {
   const rows = new Map<string, VetPairRow>()
   for (const sample of samples) {
-    if (sample.workClass !== workClass) continue
+    if (sample.workClass !== workClass || !tierWithin(sample.grade, range))
+      continue
     const key = `${auditorKey(sample.first)}\u0000${auditorKey(sample.second)}`
     const row = rows.get(key) ?? {
       first: sample.first,
@@ -458,12 +497,15 @@ function vetPairRows(
 function vetPairSection(
   samples: readonly VetPairSample[],
   workClass: WorkClass,
+  range: TierRange,
 ): string[] {
-  const rows = vetPairRows(samples, workClass)
+  const rows = vetPairRows(samples, workClass, range)
   if (rows.length === 0)
-    return [`No two ${workClass} vets have judged the same A or B finding.`]
+    return [
+      `No two ${workClass} vets have judged the same ${range === "A/B" ? "A or B" : "A, B or C"} finding.`,
+    ]
   return [
-    "| Vet 1 | Vet 2 | Shared A/B findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |",
+    `| Vet 1 | Vet 2 | Shared ${range} findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |`,
     "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows.map(
       (row) =>
@@ -685,6 +727,25 @@ function excludedSection(rows: ReadonlyMap<string, CoderRow>): string[] {
 }
 
 /**
+ * One section per tier range the class is compared on, each closed by a blank
+ * line. A title names its range only when the class has more than one, so a
+ * class with one keeps a plain title.
+ */
+function rangeSections(
+  title: string,
+  workClass: WorkClass,
+  body: (range: TierRange) => readonly string[],
+): string[] {
+  const ranges = comparedRanges(workClass)
+  return ranges.flatMap((range) => [
+    `## ${ranges.length === 1 ? title : `${title}, ${range} findings`}`,
+    "",
+    ...body(range),
+    "",
+  ])
+}
+
+/**
  * Read every retained model record and render the auditor, vet-pair and coder
  * results with the user's rulings.
  * The excluded plans print only under `all`: they explain which plans supplied
@@ -702,33 +763,28 @@ export async function modelsReport(
   const lines = [
     "# Model read-out",
     "",
-    "## Planning auditors",
+    ...rangeSections("Planning auditors", "planning", (range) =>
+      auditorSection(planning, "planning", settings, range),
+    ),
+    ...rangeSections("Implementation auditors", "implementation", (range) =>
+      auditorSection(implementation, "implementation", settings, range),
+    ),
+    `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a section is printed in a second table below the main one. Each per-round figure divides the kept findings by the rounds in the count cell beside it, over all shared plans. A section counts A and B findings unless its heading names A/B/C. That section counts C findings too, and its downgrade is a kept finding that ended at D. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
     "",
-    ...auditorSection(planning, "planning", settings),
+    ...rangeSections("Planning vet pairs", "planning", (range) =>
+      vetPairSection(evidence.vetPairs, "planning", range),
+    ),
+    ...rangeSections("Implementation vet pairs", "implementation", (range) =>
+      vetPairSection(evidence.vetPairs, "implementation", range),
+    ),
+    "A vet is a model and an effort. Each row counts the findings that both vets judged on one panel and that the report or a vet graded A or B, or A, B or C in the A/B/C section. Splits counts the shared findings where the two vets split and the user has ruled, and each ends in one of the last four columns. The user rules on a split of an implementation panel on a C finding too. A split without a ruling enters Splits when its ruling lands. A later disproved finding proves right the vets that dropped it, and a later vet ruling proves right the vets that accepted it.",
     "",
-    "## Implementation auditors",
-    "",
-    ...auditorSection(implementation, "implementation", settings),
-    "",
-    `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a class is printed in a second table below the main one. Each per-round figure divides the kept A and B findings by the rounds in the count cell beside it, over all shared plans. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
-    "",
-    "## Planning vet pairs",
-    "",
-    ...vetPairSection(evidence.vetPairs, "planning"),
-    "",
-    "## Implementation vet pairs",
-    "",
-    ...vetPairSection(evidence.vetPairs, "implementation"),
-    "",
-    "A vet is a model and an effort. Each row counts the A and B findings that both vets judged on one panel, where the report or a vet graded the finding A or B. Splits counts the shared findings where the two vets split and the user has ruled, and each ends in one of the last four columns. A split without a ruling enters Splits when its ruling lands. A later disproved finding proves right the vets that dropped it, and a later vet ruling proves right the vets that accepted it.",
-    "",
-    "## Coders",
-    "",
-    ...coderReading(coders, settings),
-    "",
-    ...coderTable(coders),
-    "",
-    "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit, and a plan whose step time cannot be read is excluded. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    ...rangeSections("Coders", "implementation", (range) => [
+      ...coderReading(coders, settings, range),
+      "",
+      ...coderTable(coders, range),
+    ]),
+    "Rows sort by the per-step figure, the mean over plans of accepted findings per step, fewest first, then by time. The A/B/C section counts C findings too, and each section's verdict rests on its own figures. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit, and a plan whose step time cannot be read is excluded. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",
     ...ruledSection(evidence.rulings),
     "",
@@ -736,18 +792,31 @@ export async function modelsReport(
     ...(options.all
       ? [
           "",
-          ...auditorPlanSection(
-            evidence.auditors,
-            evidence.disproved,
-            "planning",
+          ...rangeSections("Planning rounds by plan", "planning", (range) =>
+            auditorPlanTable(
+              auditorPlanReadings(
+                evidence.auditors,
+                evidence.disproved,
+                "planning",
+                range,
+              ),
+              range,
+            ),
           ),
-          "",
-          ...auditorPlanSection(
-            evidence.auditors,
-            evidence.disproved,
+          ...rangeSections(
+            "Implementation rounds by plan",
             "implementation",
+            (range) =>
+              auditorPlanTable(
+                auditorPlanReadings(
+                  evidence.auditors,
+                  evidence.disproved,
+                  "implementation",
+                  range,
+                ),
+                range,
+              ),
           ),
-          "",
           ...excludedSection(evidence.coders),
         ]
       : []),

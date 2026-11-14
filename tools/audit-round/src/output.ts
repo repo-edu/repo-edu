@@ -74,7 +74,12 @@ import { type WaitingRuling, waitingRulingText } from "./ruling-wait.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Auditor, RoundSettings } from "./settings.js"
-import { isActivePlanPath, planPhase, planStem } from "./target.js"
+import {
+  isActivePlanPath,
+  planPhase,
+  planStem,
+  type RoundKind,
+} from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
@@ -119,8 +124,14 @@ export type Run = {
   readonly previousModels: readonly ModelReference[]
   /** Earlier phase measurements restored when a stopped fix re-enters the runner. */
   readonly continued?: RoundData["phases"]
-  /** The audit report a serious-contest recovery command names. */
-  readonly recoveryReport?: string
+  /**
+   * What a serious-contest recovery command needs: the audit report it names
+   * and the work class that decides which findings are serious.
+   */
+  readonly recovery?: {
+    readonly report: string
+    readonly workClass: RoundKind
+  }
   /** Present for every active plan-target round, with settled and final writes. */
   readonly data?: {
     readonly path: string
@@ -301,7 +312,10 @@ export async function roundRun(
       reopenLog: false,
     },
     previousModels,
-    recoveryReport: `${path("audit", "audit")}.md`,
+    recovery: {
+      report: `${path("audit", "audit")}.md`,
+      workClass: targetWorkClass(setup),
+    },
     ...(data === undefined ? {} : { data }),
     releases,
     settings,
@@ -468,7 +482,7 @@ export async function resumedRoundRun(
     },
     previousModels: await readPreviousRoundModels(setup),
     continued: retained.entry.phases,
-    recoveryReport: paths.report,
+    recovery: { report: paths.report, workClass: targetWorkClass(setup) },
     data,
     releases,
     settings,
@@ -1047,10 +1061,11 @@ export class RoundOutput<R extends Run = Run> {
       result.status === "awaiting-ruling"
         ? { ...result.session, sessionId }
         : { ...result, sessionId }
+    const recovery = this.run.recovery
     return "account" in result &&
-      openSeriousFindings(result.account).length > 0 &&
-      this.run.recoveryReport !== undefined
-      ? roundRecoveryCommand(session, this.run.recoveryReport)
+      recovery !== undefined &&
+      openSeriousFindings(result.account, recovery.workClass).length > 0
+      ? roundRecoveryCommand(session, recovery.report)
       : recoveryCommand(session)
   }
 

@@ -26,7 +26,8 @@ work so no phase checks itself:
    settled corrections and lands the records. When the auditor contests a vet's verdict, or two vets
    give different verdicts, on a finding the report or a vet graded A or B, the runner asks you
    whether the audit report, one or more vets by their tags or neither is right and records your
-   one-line reason. The fix cannot commit until every required winner is recorded, and
+   one-line reason. In an implementation round it also asks when two vets give different verdicts
+   on a C finding. The fix cannot commit until every required winner is recorded, and
    returning finished earlier fails the round. The audit target picks the fixer:
    - A planning round, or a commit audit of plan-repo commits alone, fixes on the configured
      planning fixer.

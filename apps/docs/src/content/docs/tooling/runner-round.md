@@ -74,11 +74,13 @@ reference keeps `.md` to mark it as a plan.
 4. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
    commit audit of plan-repo commits alone fix on `planningAudit.fixer` in
    `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder. A
-   commit audit with Repo Edu commits fixes on the first `coders` entry. The fix may
-   stop for your ruling. When the auditor contests a vet's verdict, or two vets of the panel give
-   different verdicts, on a finding the report or a vet graded A or B, that ruling shows every
-   position and you name what was right: the audit report, one or more vets by their tags, or
-   neither. Two revisions the auditor agrees with both do not stop the round; the fix picks one.
+   commit audit with Repo Edu commits fixes on the first `coders` entry. The fix may stop for your
+   ruling. When the auditor contests a vet's verdict, or two vets of the panel give different
+   verdicts, on a finding the report or a vet graded A or B, that ruling shows every position and
+   you name what was right: the audit report, one or more vets by their tags, or neither. In an
+   implementation round two vets' different verdicts on a C finding stop for your ruling too,
+   because those rounds raise too few A or B findings to compare the vets on. Two revisions the
+   auditor agrees with both do not stop the round; the fix picks one.
 5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade.
 6. **Series decision.** In an automatic series the runner reads retained data and bounded commit

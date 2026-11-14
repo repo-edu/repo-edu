@@ -195,6 +195,24 @@ async function archivePlan(
   return directory
 }
 
+/** The body of one implementation auditor section, named by its tier range. */
+const implementationAuditors = (report: string, range: "A/B" | "A/B/C") =>
+  report
+    .split(`## Implementation auditors, ${range} findings\n\n`)[1]
+    .split(
+      range === "A/B"
+        ? "\n\n## Implementation auditors, A/B/C findings"
+        : "\n\nAuditor rows sort by",
+    )[0]
+
+/** The body of one coder section, named by its tier range. */
+const coderSection = (report: string, range: "A/B" | "A/B/C") =>
+  report
+    .split(`## Coders, ${range} findings\n\n`)[1]
+    .split(
+      range === "A/B" ? "\n\n## Coders, A/B/C findings" : "\n\nRows sort by",
+    )[0]
+
 function findings(count: number, label: string): RoundFinding[] {
   return Array.from({ length: count }, (_, index) => ({
     ...finding(`${label} ${index + 1}`),
@@ -272,9 +290,7 @@ test("auditor tables compare the same plans and sort by the per-round gap", asyn
       "| audit-weak low | 1 | 0 in 5 | 0.00 | 15 in 10 | 1.50 | 3.0 | 0% |",
     ].join("\n"),
   )
-  const implementation = report
-    .split("## Implementation auditors\n\n")[1]
-    .split("\n\nAuditor rows sort by")[0]
+  const implementation = implementationAuditors(report, "A/B")
   assert.equal(
     implementation,
     [
@@ -477,9 +493,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
       "Not in the current `planningAudit.auditors` list, opened an uneven share: `main-strong low` 5 of 5.",
     ].join("\n"),
   )
-  const implementation = report
-    .split("## Implementation auditors\n\n")[1]
-    .split("\n\nAuditor rows sort by")[0]
+  const implementation = implementationAuditors(report, "A/B")
   assert.equal(
     implementation,
     [
@@ -623,9 +637,7 @@ test("planning opener notes frame both tables, separate current and unlisted aud
     planning,
     /Not in the current `planningAudit\.auditors` list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6\./,
   )
-  const implementation = report
-    .split("## Implementation auditors\n\n")[1]
-    .split("\n\nAuditor rows sort by")[0]
+  const implementation = implementationAuditors(report, "A/B")
   assert.doesNotMatch(implementation, /opened|uneven share/)
 })
 
@@ -893,7 +905,14 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
       "| gamma | model-a low | 0 | 0 | 0 | 0 | 1 | — |",
     ].join("\n"),
   )
-  assert.match(report, /## Implementation rounds by plan\n\n\| Plan \|/)
+  assert.match(
+    report,
+    /## Implementation rounds by plan, A\/B findings\n\n\| Plan \| Model \| Rounds \| A\/B kept \|/,
+  )
+  assert.match(
+    report,
+    /## Implementation rounds by plan, A\/B\/C findings\n\n\| Plan \| Model \| Rounds \| A\/B\/C kept \|/,
+  )
   assert.ok(
     report.indexOf("## Planning rounds by plan") <
       report.indexOf("## Implementation rounds by plan"),
@@ -1208,7 +1227,7 @@ const ruledFinding = (
   ...(ruling === undefined ? {} : { ruling }),
 })
 
-test("vet-pair tables count each class's shared A and B findings, ruled splits and their endings", async (t) => {
+test("vet-pair tables count each class's shared findings per tier range, ruled splits and their endings", async (t) => {
   const f = await modelFixture(t)
   const { alpha, beta, gamma } = panelVets
   const auditor = {
@@ -1304,6 +1323,25 @@ test("vet-pair tables count each class's shared A and B findings, ruled splits a
           ],
           { winner: ["obl"], reason },
         ),
+        ruledFinding(
+          2,
+          "ruled C split",
+          "C",
+          [review("atl", "accept"), review("obl", "drop")],
+          { winner: ["atl"], reason },
+        ),
+        ruledFinding(3, "agreed C claim", "C", [
+          review("atl", "accept"),
+          review("obl", "accept"),
+        ]),
+        ruledFinding(4, "D split", "D", [
+          review("atl", "accept"),
+          review("obl", "drop"),
+        ]),
+        ruledFinding(5, "C split without a ruling", "C", [
+          review("atl", "revise"),
+          review("obl", "accept"),
+        ]),
       ],
     ),
     scope: "1",
@@ -1337,11 +1375,17 @@ test("vet-pair tables count each class's shared A and B findings, ruled splits a
       "| vet-alpha low | vet-gamma medium | 9 | 5 | 4 | 0 | 1 | 0 |",
       "| vet-beta low | vet-gamma medium | 9 | 5 | 2 | 1 | 0 | 2 |",
       "",
-      "## Implementation vet pairs",
+      "## Implementation vet pairs, A/B findings",
       "",
       "| Vet 1 | Vet 2 | Shared A/B findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |",
       "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
       "| vet-alpha low | vet-beta low | 1 | 1 | 0 | 1 | 0 | 0 |",
+      "",
+      "## Implementation vet pairs, A/B/C findings",
+      "",
+      "| Vet 1 | Vet 2 | Shared A/B/C findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| vet-alpha low | vet-beta low | 4 | 2 | 1 | 1 | 0 | 0 |",
     ].join("\n"),
   )
 })
@@ -1373,7 +1417,7 @@ test("a read-out without a panel of two vets prints no vet pairs", async (t) => 
   )
   assert.match(
     report,
-    /## Planning vet pairs\n\nNo two planning vets have judged the same A or B finding\.\n\n## Implementation vet pairs\n\nNo two implementation vets have judged the same A or B finding\.\n/,
+    /## Planning vet pairs\n\nNo two planning vets have judged the same A or B finding\.\n\n## Implementation vet pairs, A\/B findings\n\nNo two implementation vets have judged the same A or B finding\.\n\n## Implementation vet pairs, A\/B\/C findings\n\nNo two implementation vets have judged the same A, B or C finding\.\n/,
   )
 })
 
@@ -1849,6 +1893,21 @@ test("vet rulings restore dropped and downgraded findings for auditor and coder 
           finalTier: "C",
         },
         { ...finding("disproved implementation claim"), number: 3 },
+        { ...finding("kept C claim"), number: 4, tier: "C" },
+        {
+          ...finding("C claim that ended at D"),
+          number: 5,
+          tier: "C",
+          finalTier: "D",
+        },
+        {
+          ...finding("dropped C claim"),
+          number: 6,
+          tier: "C",
+          reviews: [{ vet: fixtureVetTag, verdict: "drop", answer: "agree" }],
+          outcome: "dropped",
+        },
+        { ...finding("kept D claim"), number: 7, tier: "D" },
       ],
     ),
     scope: "1-2",
@@ -1889,16 +1948,14 @@ test("vet rulings restore dropped and downgraded findings for auditor and coder 
   )
   assert.ok(row)
   assert.deepEqual(row.samples, [
-    { stem, steps: 2, kept: 2, yield: 1, minutes: 30 },
+    { stem, steps: 2, kept: { "A/B": 2, "A/B/C": 3 }, minutes: 30 },
   ])
 
   const auditor = evidence.auditors.get(JSON.stringify(["audit-alpha", "low"]))
   assert.ok(auditor)
   assert.deepEqual(auditor.samples[0]?.counts, {
-    kept: 2,
-    dropped: 0,
-    downgraded: 0,
-    disproved: 1,
+    "A/B": { kept: 2, dropped: 0, downgraded: 0, disproved: 1 },
+    "A/B/C": { kept: 3, dropped: 1, downgraded: 1, disproved: 1 },
   })
   assert.deepEqual(
     evidence.disproved
@@ -1915,8 +1972,32 @@ test("vet rulings restore dropped and downgraded findings for auditor and coder 
   const report = await modelsReport(
     { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
     testSettings,
+    { all: true },
   )
-  assert.match(report, /\| coder-alpha low \| 1 \| 2 \| 2 \| 1\.00 \| 30\.0 \|/)
+  assert.match(
+    coderSection(report, "A/B"),
+    /\| coder-alpha low \| 1 \| 2 \| 2 \| 1\.00 \| 30\.0 \|/,
+  )
+  assert.match(
+    coderSection(report, "A/B/C"),
+    /\| coder-alpha low \| 1 \| 2 \| 3 \| 1\.50 \| 30\.0 \|/,
+  )
+  assert.match(
+    implementationAuditors(report, "A/B"),
+    /\| audit-alpha low \| 0 \| 0 in 0 \| — \| 0 in 0 \| — \| 1\.0 \| 33% \|/,
+  )
+  assert.match(
+    implementationAuditors(report, "A/B/C"),
+    /\| audit-alpha low \| 0 \| 0 in 0 \| — \| 0 in 0 \| — \| 1\.0 \| 50% \|/,
+  )
+  assert.match(
+    report,
+    /## Implementation rounds by plan, A\/B findings\n\n.*\n.*\n\| commit-span \| audit-alpha low \| 1 \| 2 \| 0 \| 0 \| 1 \| 1\.0 \|/,
+  )
+  assert.match(
+    report,
+    /## Implementation rounds by plan, A\/B\/C findings\n\n.*\n.*\n\| commit-span \| audit-alpha low \| 1 \| 3 \| 1 \| 1 \| 1 \| 1\.0 \|/,
+  )
   assert.match(report, /The implementation claim was wrong\./)
 })
 
@@ -2181,10 +2262,9 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(output, /audit-alpha low/)
   assert.match(output, /audit-claude low/)
   assert.match(output, /audit-third low/)
-  const thinImplementation = output
-    .split("## Implementation auditors\n\n")[1]
-    .split("\n\nAuditor rows sort by")[0]
-    .split("Fewer than 5 shared plans:\n\n")[1]
+  const thinImplementation = implementationAuditors(output, "A/B").split(
+    "Fewer than 5 shared plans:\n\n",
+  )[1]
   assert.match(
     thinImplementation,
     /\| audit-alpha low \| 0 \| 0 in 0 \| — \| 0 in 0 \| — \| 3\.0 \| 0% \|/,
@@ -2206,7 +2286,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(output, /mixed: coder-alpha low, coder-beta low/)
   assert.match(output, /effort-mixed: coder-alpha high, coder-alpha low/)
   assert.doesNotMatch(output, /no-assignment:/)
-  const coders = output.split("## Coders\n\n")[1].split("\n\nRows sort by")[0]
+  const coders = coderSection(output, "A/B")
   assert.match(
     coders,
     /coder-alpha low needs 2 more plans before it is compared\./,
@@ -2233,7 +2313,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.ok(!visible[0].text.endsWith("\n\n"))
 })
 
-test("coder spread and worst plan do not block an otherwise clear lead", async (t) => {
+test("coder spread and worst plan do not block an otherwise clear lead, and each tier range gives its own verdict", async (t) => {
   const f = await modelFixture(t)
   let planIndex = 0
   const addPlan = async (
@@ -2242,6 +2322,7 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
     stepCount: number,
     acceptedFindings: number,
     minutesPerStep: number,
+    acceptedCFindings = 0,
   ) => {
     planIndex += 1
     await commit(
@@ -2284,14 +2365,23 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
         settings,
         [phase("audit", "codex", "audit-alpha", 60_000)],
         [{ repository: "repo-edu", sha: audit }],
-        findings(acceptedFindings, `${stem} defect`),
+        [
+          ...findings(acceptedFindings, `${stem} defect`),
+          ...findings(acceptedCFindings, `${stem} narrow defect`).map(
+            (narrow, index) => ({
+              ...narrow,
+              number: acceptedFindings + index + 1,
+              tier: "C" as const,
+            }),
+          ),
+        ],
       ),
       scope,
       judgedRepos: ["repo-edu"],
     })
   }
 
-  await addPlan("alpha-low-1", "coder-alpha", 1, 0, 1)
+  await addPlan("alpha-low-1", "coder-alpha", 1, 0, 1, 2)
   await addPlan("alpha-low-2", "coder-alpha", 1, 0, 1)
   await addPlan("alpha-variable", "coder-alpha", 2, 1, 4)
   await addPlan("beta-steady-1", "coder-beta", 6, 1, 10)
@@ -2309,8 +2399,12 @@ test("coder spread and worst plan do not block an otherwise clear lead", async (
     },
   )
   assert.doesNotMatch(report, /spread|worst plan|reliability blocks/)
-  assert.match(report, /\| coder-alpha low \| 3 \| 4 \| 1 \| 0\.17 \| 2\.5 \|/)
-  assert.match(report, /records clearly support running coder-alpha low/)
+  const serious = coderSection(report, "A/B")
+  assert.match(serious, /\| coder-alpha low \| 3 \| 4 \| 1 \| 0\.17 \| 2\.5 \|/)
+  assert.match(serious, /records clearly support running coder-alpha low/)
+  const wider = coderSection(report, "A/B/C")
+  assert.match(wider, /\| coder-alpha low \| 3 \| 4 \| 3 \| 0\.83 \| 2\.5 \|/)
+  assert.match(wider, /The records do not separate one coder clearly\./)
 })
 
 test("coder admission needs every archived plan share and a current whole-plan audit", async (t) => {
@@ -2475,9 +2569,10 @@ test("coder admission needs every archived plan share and a current whole-plan a
   assert.deepEqual(
     row.samples.map((sample) => ({
       stem: sample.stem,
-      yield: sample.yield,
+      kept: sample.kept,
+      steps: sample.steps,
     })),
-    [{ stem: "plan-only", yield: 1 }],
+    [{ stem: "plan-only", kept: { "A/B": 1, "A/B/C": 1 }, steps: 1 }],
   )
   assert.equal(row.excluded.get("partial"), "implementation shares missing")
   assert.equal(

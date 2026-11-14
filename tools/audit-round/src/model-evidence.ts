@@ -4,12 +4,11 @@ import { readModelRecord, readStepModelRecord } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
 import { readImplementationLogs } from "./default-target.js"
 import type { LogCommit } from "./episode-log.js"
-import type { AuditorPlanSample, ReadingSample } from "./model-comparison.js"
 import type { Assistant } from "./phase.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
   type DisprovedFinding,
-  gradedAOrB,
+  highestGrade,
   type PlanRoundDataFile,
   parseRoundDataFile,
   type RoundData,
@@ -18,6 +17,8 @@ import {
   type RulingWinner,
   reviewsSplit,
   roundDataFiles,
+  type TierRange,
+  tierWithin,
   type VetVerdict,
 } from "./round-data.js"
 import { type Coder, parseCoderRecord } from "./settings.js"
@@ -38,9 +39,14 @@ export type FindingCounts = {
   readonly disproved: number
 }
 
-export type AuditorSample = AuditorPlanSample & {
+/** One complete round of an auditor, with its finding outcomes per tier range. */
+export type AuditorSample = {
+  readonly plan: string
+  /** Whether it is the class's first complete round on the plan. */
+  readonly first: boolean
   readonly workClass: WorkClass
-  readonly counts: FindingCounts
+  readonly minutes: number
+  readonly counts: Record<TierRange, FindingCounts>
 }
 
 export type AuditorRow = {
@@ -49,11 +55,12 @@ export type AuditorRow = {
   readonly detachedDisproved: Record<WorkClass, number>
 }
 
-/** One admitted plan: its kept findings per step and its minutes per step. */
-export type CoderSample = ReadingSample & {
+/** One admitted plan: its steps, its minutes per step and its kept findings per tier range. */
+export type CoderSample = {
   readonly stem: string
   readonly steps: number
-  readonly kept: number
+  readonly minutes: number
+  readonly kept: Record<TierRange, number>
 }
 
 export type CoderRow = {
@@ -73,11 +80,13 @@ export type RoundVet = {
 export type PairEnding = "first" | "second" | "both" | "neither"
 
 /**
- * One A or B finding that two vets of one panel both judged. The pair is
- * ordered by model text, so every sample of two models has one orientation.
+ * One finding that two vets of one panel both judged. The pair is ordered by
+ * model text, so every sample of two models has one orientation.
  */
 export type VetPairSample = {
   readonly workClass: WorkClass
+  /** The highest tier the report or a vet gave the finding. */
+  readonly grade: RoundFinding["tier"]
   readonly first: ModelIdentity
   readonly second: ModelIdentity
   readonly split: boolean
@@ -221,13 +230,18 @@ function emptyFindingCounts(): FindingCounts {
   return { kept: 0, dropped: 0, downgraded: 0, disproved: 0 }
 }
 
+/**
+ * The outcomes of the findings the report graded within the range. A kept
+ * finding whose final tier left the range counts as downgraded.
+ */
 function findingCounts(
   findings: readonly RoundFinding[],
   disproved: RoundRecord["disprovedFindingNumbers"],
+  range: TierRange,
 ): FindingCounts {
   const counts = { ...emptyFindingCounts() }
   for (const finding of findings) {
-    if (finding.tier !== "A" && finding.tier !== "B") continue
+    if (!tierWithin(finding.tier, range)) continue
     if (finding.number !== null && disproved.vet.has(finding.number)) {
       counts.kept += 1
       continue
@@ -241,11 +255,20 @@ function findingCounts(
       counts.disproved += 1
       continue
     }
-    if (finalTier(finding) === "A" || finalTier(finding) === "B")
-      counts.kept += 1
+    if (tierWithin(finalTier(finding), range)) counts.kept += 1
     else counts.downgraded += 1
   }
   return counts
+}
+
+function rangeCounts(
+  findings: readonly RoundFinding[],
+  disproved: RoundRecord["disprovedFindingNumbers"],
+): Record<TierRange, FindingCounts> {
+  return {
+    "A/B": findingCounts(findings, disproved, "A/B"),
+    "A/B/C": findingCounts(findings, disproved, "A/B/C"),
+  }
 }
 
 function roundDataStem(file: string): string {
@@ -426,12 +449,13 @@ function pairEnding(firstRight: boolean, secondRight: boolean): PairEnding {
 }
 
 /**
- * One sample per pair of panel vets and A or B finding they both judged. A
- * round of one vet has no pair, so it supplies none.
+ * One sample per pair of panel vets and finding they both judged. A round of
+ * one vet has no pair, so it supplies none.
  */
 function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
   return records.flatMap((record) =>
-    record.data.findings.filter(gradedAOrB).flatMap((finding) => {
+    record.data.findings.flatMap((finding) => {
+      const grade = highestGrade(finding)
       const proof = rulingProof(finding, record.disprovedFindingNumbers)
       const judged = roundVets(record.data, finding).flatMap((vet) => {
         const review = finding.reviews.find(
@@ -449,6 +473,7 @@ function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
           const split = reviewsSplit(first.review, second.review)
           return {
             workClass: record.workClass,
+            grade,
             first: first.identity,
             second: second.identity,
             split,
@@ -515,7 +540,7 @@ function auditorRows(
     const owned = record.data.phases.filter(
       (phase) => phase.phase === "audit" || phase.phase === "rebut",
     )
-    const counts = findingCounts(
+    const counts = rangeCounts(
       record.data.findings,
       record.disprovedFindingNumbers,
     )
@@ -526,7 +551,6 @@ function auditorRows(
       plan: record.stem,
       first,
       workClass: record.workClass,
-      yield: counts.kept,
       minutes:
         owned.reduce((total, phase) => total + phase.milliseconds, 0) / 60_000,
       counts,
@@ -874,13 +898,18 @@ async function coderRows(
         row.excluded.set(plan.stem, admission)
         continue
       }
-      const kept = plan.rounds
-        .filter((round) => modelRoundComplete(round.data))
-        .reduce(
+      const complete = plan.rounds.filter((round) =>
+        modelRoundComplete(round.data),
+      )
+      const kept = (range: TierRange) =>
+        complete.reduce(
           (total, round) =>
             total +
-            findingCounts(round.data.findings, round.disprovedFindingNumbers)
-              .kept,
+            findingCounts(
+              round.data.findings,
+              round.disprovedFindingNumbers,
+              range,
+            ).kept,
           0,
         )
       const fixMinutes = plan.rounds
@@ -890,8 +919,7 @@ async function coderRows(
       row.samples.push({
         stem: plan.stem,
         steps: stepCount,
-        kept,
-        yield: kept / stepCount,
+        kept: { "A/B": kept("A/B"), "A/B/C": kept("A/B/C") },
         minutes: (admission + fixMinutes) / stepCount,
       })
     }

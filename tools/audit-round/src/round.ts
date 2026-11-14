@@ -33,7 +33,7 @@ import {
 import type { AuditReport } from "./report.js"
 import {
   findingSplit,
-  gradedAOrB,
+  highestGrade,
   type LandedCommit,
   type PanelVet,
   type RoundAccount,
@@ -41,6 +41,8 @@ import {
   roundDataIdentity,
   type SeriesAnswer,
   settleRoundFindings,
+  splitRulingRange,
+  tierWithin,
 } from "./round-data.js"
 import { documentTag, transcriptNameStart } from "./round-paths.js"
 import type { RulingInput } from "./ruling-wait.js"
@@ -52,6 +54,7 @@ import {
   planPhase,
   planStem,
   type RoundContext,
+  type RoundKind,
   reportTarget,
 } from "./target.js"
 
@@ -122,25 +125,36 @@ function openContests(
 }
 
 /**
- * The findings the user rules on: a contest or a split on a finding that the
- * report or a vet graded A or B. A contest is the rebuttal contesting a vet's
- * verdict. A split is two vets of the panel giving different verdicts, under
- * `reviewsSplit`.
+ * The findings the user rules on. A contest is the rebuttal contesting a vet's
+ * verdict, and it is serious on a finding that the report or a vet graded A or
+ * B. A split is two vets of the panel giving different verdicts, under
+ * `reviewsSplit`, and it is serious on a finding graded within the work
+ * class's `splitRulingRange`.
  */
-export function seriousFindings(account: RoundAccount): readonly number[] {
+export function seriousFindings(
+  account: RoundAccount,
+  workClass: RoundKind,
+): readonly number[] {
   return account.findings.flatMap((finding) => {
-    const disputed =
-      finding.reviews.some((review) => review.answer === "contest") ||
-      findingSplit(finding.reviews)
-    return finding.number !== null && gradedAOrB(finding) && disputed
-      ? [finding.number]
-      : []
+    if (finding.number === null) return []
+    const grade = highestGrade(finding)
+    const contested = finding.reviews.some(
+      (review) => review.answer === "contest",
+    )
+    const serious =
+      (contested && tierWithin(grade, "A/B")) ||
+      (findingSplit(finding.reviews) &&
+        tierWithin(grade, splitRulingRange(workClass)))
+    return serious ? [finding.number] : []
   })
 }
 
 /** The serious findings that still need the user's winner. */
-export function openSeriousFindings(account: RoundAccount): readonly number[] {
-  return openContests(account, seriousFindings(account))
+export function openSeriousFindings(
+  account: RoundAccount,
+  workClass: RoundKind,
+): readonly number[] {
+  return openContests(account, seriousFindings(account, workClass))
 }
 
 /** Record each admitted winner; the waiting run already checked the answer is complete. */
@@ -813,7 +827,7 @@ export async function runRound(
       account,
     }
   }
-  const contests = seriousFindings(account)
+  const contests = seriousFindings(account, targetWorkClass(input))
   const fixArguments = (): PhaseInput<"fix">["arguments"] => {
     const scope = contestScope(account.findings, contests)
     return [

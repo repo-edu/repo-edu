@@ -508,22 +508,27 @@ answers, accounting for every finding. An accept stands without a rebuttal
 answer. Present agreed verdicts, decisions on contested verdicts and items for
 the user's ruling.
 
-The user rules on every serious contest and every serious split. A contest or
-split is serious when the report or a vet graded its finding A or B:
+The user rules on every serious contest and every serious split:
 
-1. A contest is the rebuttal contesting one vet's verdict.
+1. A contest is the rebuttal contesting one vet's verdict. It is serious when
+   the report or a vet graded its finding A or B.
 2. Two vets of the panel split on a finding when their verdict words differ, or
    when both revise and the rebuttal does not agree with both. Two vets that
    both write `Needs user's ruling` do not split, because both already send
-   the finding to the user.
+   the finding to the user. A split is serious when the report or a vet graded
+   its finding A or B. In an implementation round it is also serious when the
+   report or a vet graded its finding C.
 
 A split stops the round because the rebuttal agrees easily, so its agreement
 cannot say which vet was right, and every ruled split compares two vets
-directly. Two revisions the rebuttal agrees with do not stop it: both vets and
-the rebuttal then hold that the report's correction was wrong, and only the
-choice of the new correction is left. The fix makes that choice from the
-evidence and gives its reason, as it does for any two different changes the
-rebuttal agrees with.
+directly. Implementation audits raise few A or B findings, so their vets could
+seldom be compared on those alone, and a split on a C finding is serious there
+too. A contest on a C finding stays with the fix, because one vet's verdict
+against the rebuttal compares no two vets. Two revisions the rebuttal agrees
+with do not stop the round: both vets and the rebuttal then hold that the
+report's correction was wrong, and only the choice of the new correction is
+left. The fix makes that choice from the evidence and gives its reason, as it
+does for any two different changes the rebuttal agrees with.
 
 The ruling states each vet's position and the auditor's answers, with the
 evidence for each, before any recommendation. The fix decides every other

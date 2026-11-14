@@ -588,19 +588,58 @@ export function findingSplit(reviews: readonly RoundFindingReview[]): boolean {
   )
 }
 
+/** The tiers a comparison counts: A and B, or those and C. */
+export type TierRange = "A/B" | "A/B/C"
+
+const rangeTiers: Record<TierRange, readonly RoundFinding["tier"][]> = {
+  "A/B": ["A", "B"],
+  "A/B/C": ["A", "B", "C"],
+}
+
 /**
- * Whether the report or a vet of the panel graded the finding A or B. A
- * dispute on such a finding goes to the user, and only such findings compare
- * the vets of a panel.
+ * The widest range each work class compares on. Implementation audits raise
+ * few A or B findings, so their auditors, vets and coders could seldom be
+ * compared on those alone, and that class counts C findings too.
  */
-export function gradedAOrB(
-  finding: Pick<RoundFinding, "tier" | "reviews">,
+const widestRange: Record<RoundKind, TierRange> = {
+  planning: "A/B",
+  implementation: "A/B/C",
+}
+
+/** The ranges a work class is compared on, narrowest first. */
+export function comparedRanges(workClass: RoundKind): readonly TierRange[] {
+  return widestRange[workClass] === "A/B" ? ["A/B"] : ["A/B", "A/B/C"]
+}
+
+/**
+ * The tiers on which a split of the class's panel goes to the user. It is the
+ * class's widest compared range, because only a ruled split says which vet
+ * was right.
+ */
+export function splitRulingRange(workClass: RoundKind): TierRange {
+  return widestRange[workClass]
+}
+
+export function tierWithin(
+  tier: RoundFinding["tier"],
+  range: TierRange,
 ): boolean {
-  const serious = (tier: RoundFinding["tier"] | undefined) =>
-    tier === "A" || tier === "B"
-  return (
-    serious(finding.tier) ||
-    finding.reviews.some((review) => serious(review.revisedTier))
+  return rangeTiers[range].includes(tier)
+}
+
+/**
+ * The highest tier the report or a vet of the panel gave the finding. The
+ * ruling stop and the vet comparison both grade a finding by it.
+ */
+export function highestGrade(
+  finding: Pick<RoundFinding, "tier" | "reviews">,
+): RoundFinding["tier"] {
+  return finding.reviews.reduce(
+    (highest, review) =>
+      review.revisedTier !== undefined && review.revisedTier < highest
+        ? review.revisedTier
+        : highest,
+    finding.tier,
   )
 }
 

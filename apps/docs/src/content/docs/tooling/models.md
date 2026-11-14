@@ -48,6 +48,11 @@ The read-out compares rather than ranks by taste:
    dropped or downgraded finding as kept for the auditor and coder. Either ruling outranks your
    answer in the round when a vet-pair table ends a split.
 
+Implementation audits raise few A or B findings. Implementation auditors, implementation vet pairs
+and coders are therefore each shown twice: once on A and B findings and once on A, B and C findings.
+In an implementation round you also rule on two vets' different verdicts on a C finding, so the
+A/B/C vet-pair table can say which vet was right.
+
 The auditor tables carry no evaluation and no recommendation. The best model is the top row of the
 main table, and the time stands in its own column. Coder recommendations keep the direct
 observed-range rule.
@@ -59,28 +64,32 @@ not audit that plan.
 
 ## Output
 
-Terminal Markdown in seven core sections: planning auditors, implementation auditors, planning vet
-pairs, implementation vet pairs, coders, ruled findings and disproved findings. Under `--all`,
-planning rounds by plan, implementation rounds by plan and excluded plans follow. Each auditor class
-prints its main table, then a second table under `Fewer than 5 shared plans:` when a model is below
-that floor.
+Terminal Markdown in seven core parts: planning auditors, implementation auditors, planning vet
+pairs, implementation vet pairs, coders, ruled findings and disproved findings. Implementation
+auditors, implementation vet pairs and coders each have two sections, whose headings end in
+`A/B findings` and `A/B/C findings`. The second also counts C findings. Under `--all`, planning
+rounds by plan, implementation rounds by plan once per range and excluded plans follow. Each auditor
+section prints its main table, then a second table under `Fewer than 5 shared plans:` when a model
+is below that floor.
 
 1. **Auditor tables** sort by the gap between the model's findings per round and the other auditors'
-   findings per round, then by time. Each side shows its kept A and B findings in rounds, such as
+   findings per round, then by time. Each side shows its kept findings in rounds, such as
    `16 in 79`, beside the per-round figure that division gives. Wrong claims is dropped, downgraded
-   and disproved as a percentage of all four finding outcomes. Cost is audit plus rebuttal time per
+   and disproved as a percentage of all four finding outcomes. In an A/B/C section a downgrade is a
+   kept finding that ended at D. Cost is audit plus rebuttal time per
    complete round. Planning also reports a model whose first-round count differs from its even share
    by more than a tenth of its shared plans and by at least two. A current auditor gets a bullet
    above the main table, where `--first` can correct the count. Other models share one line below
    the last table.
 2. **Vet-pair tables** have one row per pair of vets, where a vet is a model and an effort. A row
-   counts the A and B findings both vets judged on one panel, the splits you have ruled on and how
-   each ruled split ended: vet 1 right, vet 2 right, both right or neither. A split you have not
-   ruled on yet counts only as shared. A later disproved finding makes the vets that dropped it
+   counts the findings of its range both vets judged on one panel, the splits you have ruled on and
+   how each ruled split ended: vet 1 right, vet 2 right, both right or neither. A split you have not
+   ruled on counts only as shared. A later disproved finding makes the vets that dropped it
    right, and a later vet ruling makes the vets that accepted it right. A round with one vet adds no
    row.
-3. **The coder table** sorts by kept A and B findings per step, fewest first, then by time. It shows
-   plans, steps, kept findings, kept per step and time per step.
+3. **Each coder table** sorts by its range's kept findings per step, fewest first, then by time. It
+   shows plans, steps, kept findings, kept per step and time per step. Each coder section gives its
+   own verdict from its own figures.
 4. **Ruled findings** list every finding you ruled on in its round, newest first. Each row shows
    the plan and round, the finding and its tier, the auditor, every vet's verdict, your answer and
    your reason. A winning vet is named by its model. The table shows each reason's first sentence,
@@ -97,7 +106,7 @@ When the read-out is taller than the terminal window, the command first shows it
 view that you scroll yourself. The view keeps three things in sight for the part under the top
 edge:
 
-1. **The section heading**, such as `Implementation rounds by plan`, stays on the first line.
+1. **The section heading**, such as `Planning rounds by plan`, stays on the first line.
 2. **The table's column headings** stay below the section heading.
 3. **The plan name** shows in the top row. A row for a further model of the same plan leaves its
    Plan cell empty, so the view writes the name into that cell while the row is the top row.

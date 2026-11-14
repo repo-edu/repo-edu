@@ -1078,19 +1078,21 @@ const panelReview = (
 
 test("each pair of different verdict words on a B finding is a split the user rules on", () => {
   const verdicts = ["accept", "revise", "drop", "needs-user-ruling"] as const
-  for (const [index, first] of verdicts.entries())
-    for (const second of verdicts.slice(index + 1))
-      assert.deepEqual(
-        seriousFindings(
-          reviewedAccount(
-            "B",
-            panelReview("abx", first),
-            panelReview("obh", second),
+  for (const workClass of ["planning", "implementation"] as const)
+    for (const [index, first] of verdicts.entries())
+      for (const second of verdicts.slice(index + 1))
+        assert.deepEqual(
+          seriousFindings(
+            reviewedAccount(
+              "B",
+              panelReview("abx", first),
+              panelReview("obh", second),
+            ),
+            workClass,
           ),
-        ),
-        [1],
-        `${first} and ${second}`,
-      )
+          [1],
+          `${workClass}: ${first} and ${second}`,
+        )
 })
 
 test("two vets that both send a finding to the user do not split", () => {
@@ -1101,6 +1103,7 @@ test("two vets that both send a finding to the user do not split", () => {
         panelReview("abx", "needs-user-ruling", "for-user-ruling"),
         panelReview("obh", "needs-user-ruling", "for-user-ruling"),
       ),
+      "planning",
     ),
     [],
   )
@@ -1114,6 +1117,7 @@ test("two revisions split only when the rebuttal does not agree with both", () =
         panelReview("abx", "revise"),
         panelReview("obh", "revise", "agree", "C"),
       ),
+      "planning",
     ),
     [],
   )
@@ -1125,13 +1129,14 @@ test("two revisions split only when the rebuttal does not agree with both", () =
           panelReview("abx", "revise"),
           panelReview("obh", "revise", answer),
         ),
+        "planning",
       ),
       [1],
       answer,
     )
 })
 
-test("a split on a C finding stays with the fix unless a vet graded it A or B", () => {
+test("a planning split on a C finding stays with the fix unless a vet graded it A or B", () => {
   assert.deepEqual(
     seriousFindings(
       reviewedAccount(
@@ -1139,6 +1144,7 @@ test("a split on a C finding stays with the fix unless a vet graded it A or B", 
         panelReview("abx", "accept"),
         panelReview("obh", "drop"),
       ),
+      "planning",
     ),
     [],
   )
@@ -1149,8 +1155,40 @@ test("a split on a C finding stays with the fix unless a vet graded it A or B", 
         panelReview("abx", "accept"),
         panelReview("obh", "revise", "agree", "B"),
       ),
+      "planning",
     ),
     [1],
+  )
+})
+
+test("an implementation split goes to the user on a finding graded C, and a contest only on one graded A or B", () => {
+  const serious = (
+    tier: ReportFinding["tier"],
+    ...reviews: readonly RoundFindingReview[]
+  ) => seriousFindings(reviewedAccount(tier, ...reviews), "implementation")
+  assert.deepEqual(
+    serious("C", panelReview("abx", "accept"), panelReview("obh", "drop")),
+    [1],
+  )
+  assert.deepEqual(
+    serious(
+      "D",
+      panelReview("abx", "accept"),
+      panelReview("obh", "revise", "agree", "C"),
+    ),
+    [1],
+  )
+  assert.deepEqual(
+    serious("D", panelReview("abx", "accept"), panelReview("obh", "drop")),
+    [],
+  )
+  assert.deepEqual(
+    serious(
+      "C",
+      panelReview("abx", "drop", "contest"),
+      panelReview("obh", "drop"),
+    ),
+    [],
   )
 })
 
@@ -1160,19 +1198,22 @@ test("a contest on one of two agreeing vets goes to the user", () => {
     panelReview("abx", "drop", "contest"),
     panelReview("obh", "drop"),
   )
-  assert.deepEqual(seriousFindings(account), [1])
+  assert.deepEqual(seriousFindings(account, "planning"), [1])
   const [finding] = account.findings
   assert.ok(finding)
   assert.deepEqual(
-    openSeriousFindings({
-      ...account,
-      findings: [
-        {
-          ...finding,
-          ruling: { winner: ["abx", "obh"], reason: "Both drops held." },
-        },
-      ],
-    }),
+    openSeriousFindings(
+      {
+        ...account,
+        findings: [
+          {
+            ...finding,
+            ruling: { winner: ["abx", "obh"], reason: "Both drops held." },
+          },
+        ],
+      },
+      "planning",
+    ),
     [],
   )
 })

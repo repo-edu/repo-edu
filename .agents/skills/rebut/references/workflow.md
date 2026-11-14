@@ -52,8 +52,8 @@ verdict needs an answer, state that once.
 
 Your answers decide whether two vets' revisions of one finding split under the
 shared **Reconciliation**. Agreeing with both leaves the choice between them to
-the fix. Contesting or referring either one sends an A or B finding to the
-user.
+the fix. Contesting or referring either one is a split, and a serious split
+goes to the user.
 
 Then stop. The fix phase consumes the report and available twins under the
 runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
