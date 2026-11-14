@@ -751,7 +751,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   assert.doesNotMatch(visible.join("\n"), /%/)
 })
 
-test("the settings header groups phases by assistant in aligned columns", async (t) => {
+test("the settings header lists phases in round order in aligned columns", async (t) => {
   const markdown: string[] = []
   const header = async (auditor: Assistant) => {
     const f = await fixture(t)
@@ -795,10 +795,10 @@ test("the settings header groups phases by assistant in aligned columns", async 
   // Model, effort and source each start in their own column.
   const codexHeader = [
     "audit    codex   gpt-5.6-sol       high  audit-round defaults",
+    "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
     "rebut    codex   gpt-5.6-sol       high  audit-round defaults",
     "fix      codex   gpt-5.6-sol       high  audit-round coders",
     "watch    codex   gpt-5.6-sol       high  audit-round defaults",
-    "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
   ]
   assert.equal(
     await header("claude"),
@@ -864,22 +864,23 @@ test("the settings header names what set each phase's model and effort", async (
     })
     return (visible.at(-1) as string).split("\n")
   }
+  const auditorRow = (row: string) => /^(audit|rebut) /.test(row)
   // Both flags name the whole selection, and the fix keeps the defaults.
   assert.deepEqual(
     await header({ option: "--auditor", strength: "top", effort: "xhigh" }),
     [
       "audit    codex   gpt-6-astra     extra high  --auditor",
+      "vet abh  claude  claude-opus-5-5 high        audit-round implementation vetters",
       "rebut    codex   gpt-6-astra     extra high  --auditor",
       "fix      codex   gpt-5.6-sol     high        audit-round coders",
       "watch    codex   gpt-5.6-sol     high        audit-round defaults",
-      "vet abh  claude  claude-opus-5-5 high        audit-round implementation vetters",
     ],
   )
   // One flag names one field, so the row reports both sources, model first.
   assert.deepEqual(
     (
       await header({ option: "--auditor", strength: "top", effort: null })
-    ).slice(0, 2),
+    ).filter(auditorRow),
     [
       "audit    codex   gpt-6-astra     high  --auditor/audit-round defaults",
       "rebut    codex   gpt-6-astra     high  --auditor/audit-round defaults",
@@ -888,7 +889,7 @@ test("the settings header names what set each phase's model and effort", async (
   assert.deepEqual(
     (
       await header({ option: "--auditor", strength: null, effort: "medium" })
-    ).slice(0, 2),
+    ).filter(auditorRow),
     [
       "audit    codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
       "rebut    codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
@@ -896,10 +897,9 @@ test("the settings header names what set each phase's model and effort", async (
   )
   // A listed auditor names both fields from the auditors list.
   assert.deepEqual(
-    (await header({ listed: { model: "gpt-6-astra", effort: "xhigh" } })).slice(
-      0,
-      2,
-    ),
+    (
+      await header({ listed: { model: "gpt-6-astra", effort: "xhigh" } })
+    ).filter(auditorRow),
     [
       "audit    codex   gpt-6-astra     extra high  audit-round auditors",
       "rebut    codex   gpt-6-astra     extra high  audit-round auditors",
@@ -909,7 +909,7 @@ test("the settings header names what set each phase's model and effort", async (
   assert.deepEqual(
     (
       await header({ option: "--first", strength: "top", effort: "xhigh" })
-    ).slice(0, 2),
+    ).filter(auditorRow),
     [
       "audit    codex   gpt-6-astra     extra high  --first",
       "rebut    codex   gpt-6-astra     extra high  --first",

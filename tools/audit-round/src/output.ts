@@ -657,20 +657,13 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   models(releases: Record<Assistant, ModelReleases>): void {
-    const { phases } = this.run
-    const lead = phases[0]?.assistant
-    // Phases are grouped by assistant so one assistant's model reads as one block.
-    const rows = phases
-      .toSorted(
-        (first, second) =>
-          Number(first.assistant !== lead) - Number(second.assistant !== lead),
-      )
-      // Each field reports what named it: an option, the phase's pin or the defaults.
-      .map(({ phase, tag, assistant, model }) => ({
-        phase: slotKey(phase, tag),
-        assistant,
-        ...phaseText(model, releases[assistant]),
-      }))
+    // Rows keep the run's phase order, with the vets in panel order.
+    // Each field reports what named it: an option, the phase's pin or the defaults.
+    const rows = this.run.phases.map(({ phase, tag, assistant, model }) => ({
+      phase: slotKey(phase, tag),
+      assistant,
+      ...phaseText(model, releases[assistant]),
+    }))
     const width = (column: (row: (typeof rows)[number]) => string) =>
       Math.max(...rows.map((row) => column(row).length))
     const phaseWidth = width(({ phase }) => phase)

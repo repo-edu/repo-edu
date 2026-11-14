@@ -405,7 +405,9 @@ consumers.
   It validates all file-writing phase tags before `run-files.ts` exclusively creates the tagless
   claim, then opens the transcript and log. The claim remains after success or failure, and a
   conflict stops without retrying. Each entry carries its phase, so the settings header reports the
-  model and effort that phase will run on, each in its own aligned column. It names what set each of
+  model and effort that phase will run on, each in its own aligned column. Its rows keep the order
+  the round runs its phases in, with the vets in panel order, so the header reads as the round
+  runs. It names what set each of
   them: `--auditor` or `--first`, `audit-round auditors` for a listed auditor,
   `audit-round <class> vetters` for a vet, `audit-round settings` for the phase's own pin, or
   `audit-round defaults` when the phase says `default`. A vet's row is labelled `vet <tag>`. A phase
