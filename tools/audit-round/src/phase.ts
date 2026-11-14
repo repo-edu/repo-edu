@@ -300,27 +300,6 @@ function auditModel(seat: AuditorSeat, config: RoundSettings): PinnedModel {
   }
 }
 
-/**
- * The phases outside the auditor's use their configured selection, whose
- * `default` reads the assistant's default selection.
- */
-function phaseModel(
-  phase: "watch" | "close",
-  assistant: Assistant,
-  config: RoundSettings,
-): PinnedModel {
-  const pin: PhaseSelection = config.phases[phase]
-  const defaults = defaultModel(assistant, config)
-  const own = <Value extends string>(value: Value): PinnedField<Value> => ({
-    value,
-    source: "audit-round settings",
-  })
-  return {
-    model: pin.model === "default" ? defaults.model : own(pin.model),
-    effort: pin.effort === "default" ? defaults.effort : own(pin.effort),
-  }
-}
-
 /** The audit and the rebuttal it shares, on what the seat names. */
 export function auditPhase(seat: AuditorSeat, config: RoundSettings): PhaseRun {
   return { assistant: seat.assistant, model: auditModel(seat, config) }
@@ -339,10 +318,18 @@ export function panelPhases(
   )
 }
 
-/** The watch reads joined trajectory evidence, so the auditor does not select it. */
-export function watchPhase(config: RoundSettings): PhaseRun {
-  const assistant = config.phases.watch.assistant
-  return { assistant, model: phaseModel("watch", assistant, config) }
+/**
+ * The watch reads joined trajectory evidence, so the auditor does not select
+ * it: the target work class's audit level names its one writer.
+ */
+export function watchPhase(
+  workClass: RoundKind,
+  config: RoundSettings,
+): PhaseRun {
+  return implementationPhase(
+    auditRoles(workClass, config).watch,
+    `audit-round ${workClass} watch`,
+  )
 }
 
 /** Who fixes a round, and what named that selection for the settings header. */
@@ -362,17 +349,20 @@ export function targetWorkClass(target: AuditTarget): RoundKind {
     : "planning"
 }
 
-/** The settings level that holds each work class's auditor pool and vetter panel. */
+/**
+ * The settings level that holds each work class's auditor pool, vetter panel
+ * and watch writer.
+ */
 export const auditLevels = {
   planning: "planningAudit",
   implementation: "implementationAudit",
 } as const satisfies Record<RoundKind, string>
 
-/** The auditor pool and vetter panel of one work class. */
+/** The auditor pool, vetter panel and watch writer of one work class. */
 export function auditRoles(
   workClass: RoundKind,
   config: RoundSettings,
-): Pick<RoundSettings["implementationAudit"], "auditors" | "vetters"> {
+): RoundSettings["implementationAudit"] {
   return config[auditLevels[workClass]]
 }
 
@@ -432,7 +422,7 @@ export function roundPhases(
     // The rebuttal is the auditor's answer, using the same model and effort.
     rebut: audit,
     fix: implementationPhase(fixer, fixerSource),
-    watch: watchPhase(config),
+    watch: watchPhase(workClass, config),
     close: closePhase(config),
   }
 }
@@ -451,17 +441,32 @@ export function implementationPhase(
   }
 }
 
-/** Loop-close is no part of a round; it runs alone on its own settings, whoever audits. */
+/**
+ * Loop-close is no part of a round; it runs alone on its own settings, whoever
+ * audits. A field that says `default` reads the assistant's default selection.
+ */
 export function closePhase(config: RoundSettings): PhaseRun {
-  const assistant = config.phases.close.assistant
-  return { assistant, model: phaseModel("close", assistant, config) }
+  const pin: PhaseSelection = config.close
+  const { assistant } = config.close
+  const defaults = defaultModel(assistant, config)
+  const own = <Value extends string>(value: Value): PinnedField<Value> => ({
+    value,
+    source: "audit-round settings",
+  })
+  return {
+    assistant,
+    model: {
+      model: pin.model === "default" ? defaults.model : own(pin.model),
+      effort: pin.effort === "default" ? defaults.effort : own(pin.effort),
+    },
+  }
 }
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * the default selection, every class's listed auditors and vetters, the
- * planning fixer, the coders, each phase's own pin and each tier a tag can
- * ask for.
+ * the default selection, every class's listed auditors, vetters and watch
+ * writer, the planning fixer, the coders, the close's own pin and each tier a
+ * tag can ask for.
  */
 export function namedModels(
   assistant: Assistant,
@@ -472,9 +477,11 @@ export function namedModels(
       ...config.planningAudit.auditors,
       ...config.planningAudit.vetters,
       config.planningAudit.fixer,
+      config.planningAudit.watch,
       ...config.coders,
       ...config.implementationAudit.auditors,
       ...config.implementationAudit.vetters,
+      config.implementationAudit.watch,
     ].map((entry) => implementationPhase(entry)),
     ...(["claude", "codex"] as const).flatMap((auditor) =>
       [null, ...strengths].map((strength) =>
@@ -487,7 +494,6 @@ export function namedModels(
         ),
       ),
     ),
-    watchPhase(config),
     closePhase(config),
   ]
   return new Set([

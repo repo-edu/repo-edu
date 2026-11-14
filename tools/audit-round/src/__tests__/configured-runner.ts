@@ -70,6 +70,10 @@ export function testVetter(): phase.PhaseRun {
   return vetter
 }
 
+/** The fixture's implementation watch writer, as a round's watch runs it. */
+export const testWatch = (): phase.PhaseRun =>
+  phase.watchPhase("implementation", testSettings)
+
 export const roundPhases = (
   auditor: phase.Assistant,
   override: phase.AuditorOverride,

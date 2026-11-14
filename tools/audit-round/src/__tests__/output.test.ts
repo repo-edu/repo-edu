@@ -798,7 +798,7 @@ test("the settings header lists phases in round order in aligned columns", async
     "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
     "rebut    codex   gpt-5.6-sol       high  audit-round defaults",
     "fix      codex   gpt-5.6-sol       high  audit-round coders",
-    "watch    codex   gpt-5.6-sol       high  audit-round defaults",
+    "watch    codex   gpt-5.6-sol       high  audit-round implementation watch",
   ]
   assert.equal(
     await header("claude"),
@@ -807,7 +807,7 @@ test("the settings header lists phases in round order in aligned columns", async
       "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
       "rebut    claude  claude-opus-5[1m] high  audit-round defaults",
       "fix      codex   gpt-5.6-sol       high  audit-round coders",
-      "watch    codex   gpt-5.6-sol       high  audit-round defaults",
+      "watch    codex   gpt-5.6-sol       high  audit-round implementation watch",
     ].join("\n"),
   )
   assert.equal(await header("codex"), codexHeader.join("\n"))
@@ -873,7 +873,7 @@ test("the settings header names what set each phase's model and effort", async (
       "vet abh  claude  claude-opus-5-5 high        audit-round implementation vetters",
       "rebut    codex   gpt-6-astra     extra high  --auditor",
       "fix      codex   gpt-5.6-sol     high        audit-round coders",
-      "watch    codex   gpt-5.6-sol     high        audit-round defaults",
+      "watch    codex   gpt-5.6-sol     high        audit-round implementation watch",
     ],
   )
   // One flag names one field, so the row reports both sources, model first.

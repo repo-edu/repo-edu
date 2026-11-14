@@ -82,7 +82,9 @@ reference keeps `.md` to mark it as a plan.
    because those rounds raise too few A or B findings to compare the vets on. Two revisions the
    auditor agrees with both do not stop the round; the fix picks one.
 5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
-   commit record whether a trajectory watch is due, and a due watch writes its grade.
+   commit record whether a trajectory watch is due, and a due watch writes its grade. The watch
+   runs on the `watch` selection of the target work class's audit level in
+   `tools/audit-round/settings.json`, so planning and implementation rounds may use different ones.
 6. **Series decision.** In an automatic series the runner reads retained data and bounded commit
    evidence, then ends the series or names the next auditor without starting an assistant.
 

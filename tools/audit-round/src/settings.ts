@@ -69,8 +69,8 @@ export const settingsSchema = z
     defaults: assistantDefaults,
     /**
      * The next four fields follow a plan's life: its planning audits, its
-     * implementation, its implementation audits and then the watch and the
-     * close. Each audit level lists its roles in the order a round runs them.
+     * implementation, its implementation audits and then the close. Each
+     * audit level lists its roles in the order a round runs them.
      */
     planningAudit: z.strictObject({
       /** The ordered pool for planning work. */
@@ -79,6 +79,8 @@ export const settingsSchema = z
       vetters: z.array(assignedSelection).min(1),
       /** The one fixer of planning work. */
       fixer: assignedSelection,
+      /** The one writer of the watch that follows a planning round. */
+      watch: assignedSelection,
     }),
     /**
      * The coders `ready` assigns in turn. A plan's coder writes its steps and
@@ -91,11 +93,11 @@ export const settingsSchema = z
       auditors: z.array(assignedSelection).min(1),
       /** The panel that vets every implementation audit report, run in parallel. */
       vetters: z.array(assignedSelection).min(1),
-    }),
-    phases: z.strictObject({
+      /** The one writer of the watch that follows an implementation round. */
       watch: assignedSelection,
-      close: assignedSelection,
     }),
+    /** Loop-close belongs to no round, so it sits under neither audit level. */
+    close: assignedSelection,
     maximumAutomaticRounds: z.number().int().positive(),
     strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   })
@@ -108,11 +110,13 @@ export const settingsSchema = z
         auditors: settings.planningAudit.auditors.map(resolve),
         vetters: settings.planningAudit.vetters.map(resolve),
         fixer: resolve(settings.planningAudit.fixer),
+        watch: resolve(settings.planningAudit.watch),
       },
       coders: settings.coders.map(resolve),
       implementationAudit: {
         auditors: settings.implementationAudit.auditors.map(resolve),
         vetters: settings.implementationAudit.vetters.map(resolve),
+        watch: resolve(settings.implementationAudit.watch),
       },
     }
   })

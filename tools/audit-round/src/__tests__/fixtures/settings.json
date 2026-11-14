@@ -34,6 +34,11 @@
       "assistant": "codex",
       "model": "default",
       "effort": "default"
+    },
+    "watch": {
+      "assistant": "codex",
+      "model": "default",
+      "effort": "default"
     }
   },
   "coders": [
@@ -62,19 +67,17 @@
         "model": "default",
         "effort": "default"
       }
-    ]
-  },
-  "phases": {
+    ],
     "watch": {
       "assistant": "codex",
       "model": "default",
       "effort": "default"
-    },
-    "close": {
-      "assistant": "codex",
-      "model": "default",
-      "effort": "default"
     }
+  },
+  "close": {
+    "assistant": "codex",
+    "model": "default",
+    "effort": "default"
   },
   "maximumAutomaticRounds": 10,
   "strengthModels": {

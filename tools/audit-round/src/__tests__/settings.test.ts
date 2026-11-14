@@ -38,7 +38,7 @@ test("a missing settings file is generated from the built-in defaults", async (t
 
   const edited = structuredClone(settings)
   edited.defaultAuditor = "random"
-  edited.phases.watch = {
+  edited.planningAudit.watch = {
     assistant: "claude",
     model: "custom-watch",
     effort: "low",
@@ -111,7 +111,11 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
   config.implementationAudit.auditors = [
     { assistant: "codex", model: "listed-auditor", effort: "medium" },
   ]
-  config.phases.watch = { assistant: "codex", model: "default", effort: "low" }
+  config.implementationAudit.watch = {
+    assistant: "codex",
+    model: "listed-watch",
+    effort: "low",
+  }
   const phases = roundPhases(
     "codex",
     { option: "--auditor", strength: "top", effort: null },
@@ -124,14 +128,17 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
   })
   assert.deepEqual(phases.rebut, phases.audit)
   assert.deepEqual(phases.watch.model, {
-    model: { value: "codex-default", source: "audit-round defaults" },
-    effort: { value: "low", source: "audit-round settings" },
+    model: {
+      value: "listed-watch",
+      source: "audit-round implementation watch",
+    },
+    effort: { value: "low", source: "audit-round implementation watch" },
   })
   assert.deepEqual(codexArguments(null, phases.watch.model), [
     "exec",
     "--approve-for-me",
     "-m",
-    "codex-default",
+    "listed-watch",
     "-c",
     "model_reasoning_effort=low",
     "--json",
@@ -215,7 +222,6 @@ test("each class's auditors list names whole selections and replaces the audit p
     settingsSchema.safeParse({
       ...config,
       phases: {
-        ...config.phases,
         audit: {
           claude: { model: "default", effort: "default" },
           codex: { model: "default", effort: "default" },
@@ -242,6 +248,7 @@ test("list entries that say default read the assistant's defaults when the file 
       auditors: [{ assistant: "claude", model: "default", effort: "default" }],
       vetters: [{ assistant: "claude", model: "default", effort: "default" }],
       fixer: { assistant: "claude", model: "default", effort: "low" },
+      watch: { assistant: "claude", model: "default", effort: "medium" },
     },
     coders: [{ assistant: "codex", model: "default", effort: "high" }],
     implementationAudit: {
@@ -250,8 +257,37 @@ test("list entries that say default read the assistant's defaults when the file 
         { assistant: "codex", model: "listed-auditor", effort: "default" },
       ],
       vetters: [{ assistant: "codex", model: "default", effort: "low" }],
+      watch: { assistant: "codex", model: "listed-watch", effort: "default" },
     },
   })
+  assert.deepEqual(config.planningAudit.watch, {
+    assistant: "claude",
+    model: "claude-default",
+    effort: "medium",
+  })
+  assert.deepEqual(config.implementationAudit.watch, {
+    assistant: "codex",
+    model: "listed-watch",
+    effort: "medium",
+  })
+  // Each work class's round runs its own level's watch writer.
+  for (const [workClass, level] of [
+    ["planning", "planningAudit"],
+    ["implementation", "implementationAudit"],
+  ] as const) {
+    const { assistant, model, effort } = config[level].watch
+    const source = `audit-round ${workClass} watch`
+    assert.deepEqual(
+      roundPhases("codex", noOverride, config, undefined, workClass).watch,
+      {
+        assistant,
+        model: {
+          model: { value: model, source },
+          effort: { value: effort, source },
+        },
+      },
+    )
+  }
   assert.deepEqual(config.planningAudit.vetters, [
     { assistant: "claude", model: "claude-default", effort: "xhigh" },
   ])
@@ -284,7 +320,11 @@ test("the coder and assigned phases follow their configured assistants independe
     for (const assistant of ["claude", "codex"] as const) {
       const config = structuredClone(settings)
       config.coders = [{ assistant, model: "custom-fixer", effort: "high" }]
-      config.phases.watch = { assistant, model: "default", effort: "default" }
+      config.implementationAudit.watch = {
+        assistant,
+        model: "custom-watch",
+        effort: "low",
+      }
       const phases = roundPhases(auditor, noOverride, config)
       assert.deepEqual(phases.fix, {
         assistant,
@@ -299,12 +339,12 @@ test("the coder and assigned phases follow their configured assistants independe
           },
         },
       })
-      const { model, effort } = config.defaults[assistant]
+      const source = "audit-round implementation watch"
       assert.deepEqual(phases.watch, {
         assistant,
         model: {
-          model: { value: model, source: "audit-round defaults" },
-          effort: { value: effort, source: "audit-round defaults" },
+          model: { value: "custom-watch", source },
+          effort: { value: "low", source },
         },
       })
       assert.deepEqual(phases.vet, roundPhases(auditor, noOverride).vet)
@@ -565,7 +605,6 @@ test("a vetter list needs one entry and refuses two entries with one tag", () =>
     settingsSchema.safeParse({
       ...settings,
       phases: {
-        ...settings.phases,
         vet: {
           claude: { model: "default", effort: "default" },
           codex: { model: "default", effort: "default" },
@@ -585,7 +624,7 @@ test("settings reject null fields, unsupported effort, misspelt fields and indep
     { assitant: "codex" },
   ]) {
     const config = structuredClone(settings)
-    Object.assign(config.phases.watch, patch)
+    Object.assign(config.implementationAudit.watch, patch)
     assert.equal(settingsSchema.safeParse(config).success, false)
   }
   // The defaults name a selection outright, so neither field may defer again.
@@ -597,10 +636,28 @@ test("settings reject null fields, unsupported effort, misspelt fields and indep
   assert.equal(
     settingsSchema.safeParse({
       ...settings,
-      phases: { ...settings.phases, rebut: settings.phases.close },
+      planningAudit: { ...settings.planningAudit, rebut: settings.close },
     }).success,
     false,
   )
+  // The old `phases` level is refused, and each audit level needs its watch.
+  assert.equal(
+    settingsSchema.safeParse({
+      ...settings,
+      phases: {
+        watch: settings.implementationAudit.watch,
+        close: settings.close,
+      },
+    }).success,
+    false,
+  )
+  for (const level of ["planningAudit", "implementationAudit"] as const) {
+    const { watch: _, ...withoutWatch } = settings[level]
+    assert.equal(
+      settingsSchema.safeParse({ ...settings, [level]: withoutWatch }).success,
+      false,
+    )
+  }
   assert.equal(
     settingsSchema.safeParse({ ...settings, coders: [] }).success,
     false,

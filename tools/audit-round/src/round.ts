@@ -437,7 +437,7 @@ async function runWatch(
 ): Promise<RoundFailure | { readonly grade: WatchGrade | null }> {
   const target = input.watch
   if (target === null) return { grade: null }
-  const phases = { watch: watchPhase(settings) }
+  const phases = { watch: watchPhase(input.roundKind, settings) }
   const {
     cwd,
     repoEduRoot,

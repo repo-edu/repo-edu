@@ -48,6 +48,7 @@ import {
   runRound as runRoundWithAccount,
   testSettings,
   testVetter,
+  testWatch,
 } from "./configured-runner.js"
 import {
   areas,
@@ -1627,7 +1628,9 @@ for (const auditor of ["claude", "codex"] as const) {
               ? pinnedCoder()
               : phase === "vet"
                 ? testVetter().model
-                : pinned(runner(phase, auditor)),
+                : phase === "watch"
+                  ? testWatch().model
+                  : pinned(runner(phase, auditor)),
           ...testContext(repoRoot),
           commits:
             phase === "fix" || phase === "watch"
@@ -1678,8 +1681,7 @@ test("a due glance completes the watch in one fresh session", async () => {
     {
       phase: "watch",
       evidence: watchEvidenceText,
-      assistant: "codex",
-      model: pinned("codex"),
+      ...testWatch(),
       ...testContext(repoRoot),
       arguments: [],
       sessionId: null,
@@ -1719,8 +1721,7 @@ test("a compacted watch writes neither output and names the evidence size", asyn
     sessionId: "watch-session",
     resumeSessionId: null,
     phase: "watch",
-    assistant: "codex",
-    model: pinned("codex"),
+    ...testWatch(),
     ...testContext(repoRoot),
     reason:
       "The watch compacted while reading 21 characters of evidence; it needs one uncompacted session. The next watch must start fresh.",
@@ -2074,8 +2075,7 @@ test("a glance that cannot read the record stops the round before any watch pass
     status: "failed",
     sessionId: null,
     phase: "watch",
-    assistant: "codex",
-    model: pinned("codex"),
+    ...testWatch(),
     ...testContext(repoRoot),
     reason: failure.message,
     commits: landedRecords("repo-edu", round.evidence.subjects).map(

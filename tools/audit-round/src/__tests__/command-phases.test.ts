@@ -13,7 +13,7 @@ test("one supplied configuration controls auditor phase arguments and output tag
   const f = await roundFixture(t, "claude", "repo-edu", false, null, true)
   const settings = structuredClone(testSettings)
   settings.defaults.claude = { model: "chosen-auditor", effort: "low" }
-  settings.phases.watch = {
+  settings.implementationAudit.watch = {
     assistant: "codex",
     model: "chosen-watch",
     effort: "medium",
@@ -33,7 +33,10 @@ test("one supplied configuration controls auditor phase arguments and output tag
   const { log, transcript } = await f.records()
   assert.ok(transcript.endsWith("-1-round.aul.md"))
   assert.match(log, /audit +claude +chosen-auditor +low +audit-round defaults/)
-  assert.match(log, /watch +codex +chosen-watch +medium +audit-round settings/)
+  assert.match(
+    log,
+    /watch +codex +chosen-watch +medium +audit-round implementation watch/,
+  )
   assert.doesNotMatch(log, /watch-edit/)
   const watchCall = (await f.prompts()).find(
     (call) =>
