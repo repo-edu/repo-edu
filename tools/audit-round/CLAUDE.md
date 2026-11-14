@@ -492,56 +492,73 @@ consumers.
   stops the run before an assistant starts.
 - `models.ts` owns the model read-out and its core and optional detail sections. `model-evidence.ts`
   reads checked round data once in the active folder and closed-plan archives, records each auditor
-  sample's plan and whether it is that class's first complete round on the plan, then joins the
-  step, ready and closed records from both Git histories. `model-comparison.ts` owns the same-plan
-  comparison, the floor, opener bounds and the direct range comparisons that remain for coders. An
-  auditor gets a row in each class where it has a complete round, and a coder gets a row once one of
-  its plans is admitted; a model known only through excluded plans or the other class prints no zero
-  row, because the excluded-plans section or the other table already names it. Planning and
-  implementation auditors have separate tables. An auditor row compares only plans where another
-  auditor has a complete round. Each side's per-round figure divides its kept A and B findings by
-  its rounds over all those plans, and the count cell beside it shows that division. Averaging per
-  plan first was rejected: a plan with one round would then weigh as much as a plan with nine, and
-  the figure could no longer be checked in its row. No evaluation or recommendation is printed,
-  because the sorted table and its time column already state the order. A row with fewer than five
-  shared plans is printed in a second table below the main one, so the main table's top row is the
-  best of the models with enough plans. Each table sorts by the gap between the two per-round
-  figures, then by time. Planning also reports an opener count when it differs from its even share
-  by more than a tenth of the row's shared plans and by at least two. Current auditors get
-  correctable bullets above the main table; other auditors share one line below the last table.
-  Auditor cost remains the mean audit and rebuttal time over every complete round. Kept, dropped,
-  downgraded and disproved findings are exclusive counts; wrong claims is the last three as a
-  percentage of all four across those rounds. A later finding ruling removes a kept finding from
-  coder evidence. A later vet ruling moves a dropped or downgraded finding to kept for the auditor
-  and coder. Under `--all`, planning and implementation each gain a measured-data table with one row
-  per plan and auditor. The rows contain rounds, all four finding outcomes and mean minutes per
-  round, sorted by plan and then model. A detached disproved finding creates a zero-round row when
-  its auditor has no round on that plan. These tables precede the excluded plans. Coder yield
-  comparisons use one closed plan per example. The archived plan supplies the listed steps, every
-  hosted share must have a readable model record and the whole-plan audit must follow the final
-  share. A missing archived plan and a step list the current grammar cannot read are separate
-  exclusion reasons, because the read-out names what it found and never rewrites the archive.
-  Records admit a plan without a ready assignment when they name one model and effort. An
-  assignment, when present, must match on assistant and effort; its model may be a family alias the
-  implement worker resolved at run time, so the records' release is not compared with it and a
-  mismatch is its own exclusion reason. A readable step record without active time falls back to the
-  span from the ready marker or previous step to that step's later share commit. A two-repo span
-  counts once. A plan with a step time that neither source gives is excluded with its own reason, so
-  every admitted plan supplies both its yield and its time and a row holds one sample list.
-  Incomplete or mixed records move to the excluded-plans section. Time adds step and
-  implementation-fix time and excludes planning fixes. Mean comes from `simple-statistics`. Direct
-  observed-range comparisons own the clear-cut recommendation. Every row that reaches its minimum
-  enters it. The coder table sorts by accepted findings per step, fewest first, then by time. A
-  winning coder outside `implementation.coders` is named as such. Later finding rulings print per
-  auditor as a numbered table that shows each reason's first sentence, because a full reason wraps
-  the terminal table into an unreadable grid. Later vet rulings print newest first in one table
-  after them, with an auditor column. Every table's vet column names each vet of the round with its
-  verdict on the finding. A numbered list of the full reasons follows each table,
-  numbered across the section so each ruling keeps one number. Excluded plans, grouped by reason
-  with their recorded models, print only under `--all`, because a reader comparing models does not
-  need the measured rows or plans that supplied no evidence every time. The command starts no
-  assistant and writes no round file or round data. Like other commands that read settings, it
-  creates a missing `settings.json` from the defaults.
+  sample's plan and whether it is that class's first complete round on the plan, builds one sample
+  per pair of panel vets and shared A or B finding with its split and ending, collects the findings
+  whose round stored a winner, then joins the step, ready and closed records from both Git
+  histories. `model-comparison.ts` owns the same-plan comparison, the floor, opener bounds and the
+  direct range comparisons that remain for coders. An auditor gets a row in each class where it has
+  a complete round, and a coder gets a row once one of its plans is admitted; a model known only
+  through excluded plans or the other class prints no zero row, because the excluded-plans section
+  or the other table already names it. Planning and implementation auditors have separate tables. An
+  auditor row compares only plans where another auditor has a complete round. Each side's per-round
+  figure divides its kept A and B findings by its rounds over all those plans, and the count cell
+  beside it shows that division. Averaging per plan first was rejected: a plan with one round would
+  then weigh as much as a plan with nine, and the figure could no longer be checked in its row. No
+  evaluation or recommendation is printed, because the sorted table and its time column already
+  state the order. A row with fewer than five shared plans is printed in a second table below the
+  main one, so the main table's top row is the best of the models with enough plans. Each table
+  sorts by the gap between the two per-round figures, then by time. Planning also reports an opener
+  count when it differs from its even share by more than a tenth of the row's shared plans and by at
+  least two. Current auditors get correctable bullets above the main table; other auditors share one
+  line below the last table. Auditor cost remains the mean audit and rebuttal time over every
+  complete round. Kept, dropped, downgraded and disproved findings are exclusive counts; wrong
+  claims is the last three as a percentage of all four across those rounds. A later finding ruling
+  removes a kept finding from coder evidence. A later vet ruling moves a dropped or downgraded
+  finding to kept for the auditor and coder. Planning and implementation each have a vet-pair table.
+  A vet is a model and an effort, and a row is one pair of vets that both judged an A or B finding
+  on one panel, under the grade test `round-data.ts` shares with the runner's ruling stop. A round
+  of one vet supplies no pair. The pair is ordered by model text, so two models keep one orientation
+  across rounds. A row counts the shared findings, the splits under `reviewsSplit` that the user has
+  ruled on and each ruled split's ending: vet 1 right, vet 2 right, both or neither. A split without
+  a ruling counts only as shared until its ruling lands, so the table has no open column. The latest
+  ruling decides the ending. A later disproved finding proves right the vets that dropped it. A
+  later vet ruling, like the round's `report` winner, proves right the vets that accepted it.
+  `neither` proves no vet right and a list of vet tags proves those vets right. A row needs no
+  auditor column, because both vets judged the same audit reports. Under `--all`, planning and
+  implementation each gain a measured-data table with one row per plan and auditor. The rows contain
+  rounds, all four finding outcomes and mean minutes per round, sorted by plan and then model. A
+  detached disproved finding creates a zero-round row when its auditor has no round on that plan.
+  These tables precede the excluded plans. Coder yield comparisons use one closed plan per example.
+  The archived plan supplies the listed steps, every hosted share must have a readable model record
+  and the whole-plan audit must follow the final share. A missing archived plan and a step list the
+  current grammar cannot read are separate exclusion reasons, because the read-out names what it
+  found and never rewrites the archive. Records admit a plan without a ready assignment when they
+  name one model and effort. An assignment, when present, must match on assistant and effort; its
+  model may be a family alias the implement worker resolved at run time, so the records' release is
+  not compared with it and a mismatch is its own exclusion reason. A readable step record without
+  active time falls back to the span from the ready marker or previous step to that step's later
+  share commit. A two-repo span counts once. A plan with a step time that neither source gives is
+  excluded with its own reason, so every admitted plan supplies both its yield and its time and a
+  row holds one sample list. Incomplete or mixed records move to the excluded-plans section. Time
+  adds step and implementation-fix time and excludes planning fixes. Mean comes from
+  `simple-statistics`. Direct observed-range comparisons own the clear-cut recommendation. Every row
+  that reaches its minimum enters it. The coder table sorts by accepted findings per step, fewest
+  first, then by time. A winning coder outside `implementation.coders` is named as such. The
+  ruled-findings section lists every finding whose round stored the user's winner, newest round
+  first and in finding order within a round: plan and round, finding, tier, auditor, every vet of
+  the round with its verdict, the answer and the reason. The answer names each winning vet by its
+  model rather than its tag, because a tag names a vet only within its round. Splits and contests
+  share the list, because both end in the same ruling. Like the disproved tables, it shows each
+  reason's first sentence and then the full reasons as a numbered list. Later finding rulings print
+  per auditor as a numbered table that shows each reason's first sentence, because a full reason
+  wraps the terminal table into an unreadable grid. Later vet rulings print newest first in one
+  table after them, with an auditor column. Every table's vet column names each vet of the round
+  with its verdict on the finding. A numbered list of the full reasons follows each table, numbered
+  across the section so each ruling keeps one number. Excluded plans, grouped by reason with their
+  recorded models, print only under `--all`, because a reader comparing models does not need the
+  measured rows or plans that supplied no evidence every time. The command starts no assistant and
+  writes no round file or round data. Like other commands that read settings, it creates a missing
+  `settings.json` from the defaults.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and report deletion for both entry routes. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
@@ -1115,7 +1132,8 @@ Phase files use
 runner owns both writes.
 
 `models` reads every retained round-data file and both Git histories. It prints planning auditors,
-implementation auditors, coders and disproved findings. Under `--all` it also prints planning and
+implementation auditors, planning and implementation vet pairs, coders, ruled findings and
+disproved findings. Under `--all` it also prints planning and
 implementation rounds by plan before the excluded plans. Each auditor section prints its main table
 and, when a model has fewer than five shared plans, a second table for those models below it. It
 prints no evaluation and no recommendation. Each auditor table divides each side's kept findings by
@@ -1123,11 +1141,16 @@ its rounds over the shared plans, shows both counts, and sorts by the gap betwee
 figures, then by time. A plan with one auditor enters neither side. Planning rows whose opening
 rounds differ from an even share by both report bounds print either as a correctable bullet above
 the main table or, when `planning.auditors` cannot run them, in one line below the last table.
-Auditor time and wrong claims still cover every complete round in the class. Coder comparisons keep
+Auditor time and wrong claims still cover every complete round in the class. Each vet-pair table
+has one row per pair of vets that judged a shared A or B finding on one panel, with the shared
+findings, the ruled splits and how each ruled split ended: vet 1 right, vet 2 right, both or
+neither. A later `disprove` changes an ending. Coder comparisons keep
 their direct observed-range rule, three-plan floors and recommendation. The coder table shows plans,
 steps, kept A/B findings, kept per step and time per step. A missing step time uses the span from
 the ready marker or previous step, with a two-repo step ending at its later share commit. A plan
-whose step time cannot be read is an excluded plan. The disproved section shows finding rulings in a
+whose step time cannot be read is an excluded plan. The ruled-findings section lists every finding
+the user ruled on in its round, newest first, with its auditor, every vet's verdict, the answer
+and the reason. The disproved section shows finding rulings in a
 numbered table per auditor. One table of vet rulings follows them, newest first and with its own
 auditor column. Each row names every vet of the round with its verdict. Every table shows each
 reason's first sentence, then the full reasons as a numbered list below it, numbered across the

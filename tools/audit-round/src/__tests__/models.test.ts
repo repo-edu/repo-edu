@@ -1158,6 +1158,349 @@ test("a disproved row names every vet of the round with its verdict", async (t) 
   )
 })
 
+type Review = RoundFinding["reviews"][number]
+
+/** A vet's review, with the rebuttal's agreement on any verdict it answers. */
+const review = (
+  vet: string,
+  verdict: Review["verdict"],
+  extra: Partial<Review> = {},
+): Review => ({
+  vet,
+  verdict,
+  answer:
+    verdict === "accept"
+      ? null
+      : verdict === "needs-user-ruling"
+        ? "for-user-ruling"
+        : "agree",
+  ...extra,
+})
+
+const panelVets = {
+  alpha: phase("vet", "claude", "vet-alpha", 60_000, "low", "atl"),
+  beta: phase("vet", "codex", "vet-beta", 60_000, "low", "obl"),
+  gamma: phase("vet", "claude", "vet-gamma", 60_000, "medium", "abm"),
+}
+
+const panelSettings = (
+  vets: readonly RoundData["phases"][number][],
+): RoundData["settings"] => ({
+  ...settings,
+  vetters: vets.map((vet) => ({
+    assistant: vet.assistant,
+    model: vet.model,
+    effort: vet.effort,
+  })),
+})
+
+const ruledFinding = (
+  number: number,
+  title: string,
+  tier: RoundFinding["tier"],
+  reviews: readonly Review[],
+  ruling?: RoundFinding["ruling"],
+): RoundFinding => ({
+  ...finding(title),
+  number,
+  tier,
+  reviews: [...reviews],
+  ...(ruling === undefined ? {} : { ruling }),
+})
+
+test("vet-pair tables count each class's shared A and B findings, ruled splits and their endings", async (t) => {
+  const f = await modelFixture(t)
+  const { alpha, beta, gamma } = panelVets
+  const auditor = {
+    assistant: "claude" as const,
+    ...selection("audit-alpha"),
+    chosenBy: "settings" as const,
+  }
+  const reason = "fixture ruling"
+  const trio = (
+    number: number,
+    tier: RoundFinding["tier"],
+    verdicts: readonly [
+      Review["verdict"],
+      Review["verdict"],
+      Review["verdict"],
+    ],
+    winner?: NonNullable<RoundFinding["ruling"]>["winner"],
+  ) =>
+    ruledFinding(
+      number,
+      `claim ${number}`,
+      tier,
+      [
+        review("atl", verdicts[0]),
+        review("obl", verdicts[1]),
+        review("abm", verdicts[2]),
+      ],
+      winner === undefined ? undefined : { winner, reason },
+    )
+  const planPath = join(f.activeRoot, "panel-plan-rounds.json")
+  writeRoundData(planPath, {
+    ...round(
+      "panel-plan-audit",
+      1,
+      "2026-10-01T10:00:00.000Z",
+      auditor,
+      panelSettings([alpha, beta, gamma]),
+      [phase("audit", "claude", "audit-alpha", 60_000), alpha, beta, gamma],
+      [],
+      [
+        trio(1, "B", ["accept", "accept", "accept"]),
+        trio(2, "B", ["drop", "accept", "accept"], ["atl"]),
+        trio(3, "B", ["revise", "revise", "accept"], ["atl", "obl"]),
+        trio(4, "C", ["drop", "accept", "accept"]),
+        ruledFinding(5, "claim 5", "C", [
+          review("atl", "accept"),
+          review("obl", "revise", { revisedTier: "B" }),
+          review("abm", "accept"),
+        ]),
+        trio(6, "B", ["drop", "needs-user-ruling", "drop"], "neither"),
+        trio(7, "A", ["accept", "drop", "revise"], "report"),
+        trio(8, "B", ["revise", "accept", "drop"], ["atl", "abm"]),
+        trio(9, "B", ["accept", "drop", "accept"], "report"),
+        trio(10, "B", ["accept", "drop", "drop"]),
+      ],
+    ),
+    phase: "detailing",
+    settling: "",
+  })
+  writeDisprovedFinding(planPath, {
+    date: "2026-11-01",
+    reason: "The claim did not hold.",
+    target: "panel-plan-audit",
+    round: 1,
+    finding: 9,
+  })
+  writeDisprovedFinding(planPath, {
+    date: "2026-11-02",
+    reason: "The dropped claim was right.",
+    target: "panel-plan-audit",
+    round: 1,
+    finding: 10,
+    side: "vet",
+  })
+  const implementationPath = join(f.activeRoot, "panel-impl-rounds.json")
+  writeRoundData(implementationPath, {
+    ...round(
+      "panel-impl-audit-01..01",
+      1,
+      "2026-10-02T10:00:00.000Z",
+      auditor,
+      panelSettings([alpha, beta]),
+      [phase("audit", "claude", "audit-alpha", 60_000), alpha, beta],
+      [],
+      [
+        ruledFinding(
+          1,
+          "contested revision",
+          "B",
+          [
+            review("atl", "accept"),
+            review("obl", "revise", { answer: "contest" }),
+          ],
+          { winner: ["obl"], reason },
+        ),
+      ],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+  writeRoundData(implementationPath, {
+    ...round(
+      "panel-impl-audit-01..01",
+      2,
+      "2026-10-03T10:00:00.000Z",
+      auditor,
+      panelSettings([gamma]),
+      [phase("audit", "claude", "audit-alpha", 60_000), gamma],
+      [],
+      [ruledFinding(1, "lone claim", "B", [review("abm", "drop")])],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+    testSettings,
+  )
+  assert.equal(
+    report.split("## Planning vet pairs\n\n")[1].split("\n\nA vet is")[0],
+    [
+      "| Vet 1 | Vet 2 | Shared A/B findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| vet-alpha low | vet-beta low | 9 | 6 | 4 | 1 | 0 | 1 |",
+      "| vet-alpha low | vet-gamma medium | 9 | 5 | 4 | 0 | 1 | 0 |",
+      "| vet-beta low | vet-gamma medium | 9 | 5 | 2 | 1 | 0 | 2 |",
+      "",
+      "## Implementation vet pairs",
+      "",
+      "| Vet 1 | Vet 2 | Shared A/B findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| vet-alpha low | vet-beta low | 1 | 1 | 0 | 1 | 0 | 0 |",
+    ].join("\n"),
+  )
+})
+
+test("a read-out without a panel of two vets prints no vet pairs", async (t) => {
+  const f = await modelFixture(t)
+  writeRoundData(join(f.activeRoot, "lone-plan-rounds.json"), {
+    ...round(
+      "lone-plan-audit",
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      panelSettings([panelVets.alpha]),
+      [phase("audit", "claude", "audit-alpha", 60_000), panelVets.alpha],
+      [],
+      [ruledFinding(1, "lone claim", "A", [review("atl", "drop")])],
+    ),
+    phase: "detailing",
+    settling: "",
+  })
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+    testSettings,
+  )
+  assert.match(
+    report,
+    /## Planning vet pairs\n\nNo two planning vets have judged the same A or B finding\.\n\n## Implementation vet pairs\n\nNo two implementation vets have judged the same A or B finding\.\n/,
+  )
+})
+
+test("ruled findings list a ruled split, a ruled contest and a rewritten single-vet ruling, newest first", async (t) => {
+  const f = await modelFixture(t)
+  const { alpha, beta } = panelVets
+  const planPath = join(f.activeRoot, "ruled-plan-rounds.json")
+  writeRoundData(planPath, {
+    ...round(
+      "ruled-plan-audit",
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      panelSettings([beta]),
+      [phase("audit", "claude", "audit-alpha", 60_000), beta],
+      [],
+      [
+        ruledFinding(
+          1,
+          "old contest",
+          "B",
+          [review("obl", "drop", { answer: "contest" })],
+          {
+            winner: ["obl"],
+            reason: "The vet was right. The guard already holds.",
+          },
+        ),
+      ],
+    ),
+    phase: "detailing",
+    settling: "",
+  })
+  writeRoundData(planPath, {
+    ...round(
+      "ruled-plan-audit",
+      2,
+      "2026-10-03T10:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      panelSettings([alpha, beta]),
+      [phase("audit", "claude", "audit-alpha", 60_000), alpha, beta],
+      [],
+      [
+        ruledFinding(
+          1,
+          "ruled split",
+          "A",
+          [review("atl", "accept"), review("obl", "drop")],
+          { winner: "report", reason: "The finding stood as written." },
+        ),
+        ruledFinding(2, "agreed claim", "B", [
+          review("atl", "accept"),
+          review("obl", "accept"),
+        ]),
+        ruledFinding(
+          3,
+          "two corrections",
+          "B",
+          [review("atl", "revise"), review("obl", "drop")],
+          { winner: ["atl", "obl"], reason: "Both corrections hold." },
+        ),
+      ],
+    ),
+    phase: "detailing",
+    settling: "",
+  })
+  writeRoundData(join(f.activeRoot, "ruled-impl-rounds.json"), {
+    ...round(
+      "ruled-impl-audit-01..01",
+      1,
+      "2026-10-02T10:00:00.000Z",
+      {
+        assistant: "codex",
+        ...selection("audit-beta"),
+        chosenBy: "settings",
+      },
+      panelSettings([alpha, beta]),
+      [phase("audit", "codex", "audit-beta", 60_000), alpha, beta],
+      [],
+      [
+        ruledFinding(
+          2,
+          "ruled contest",
+          "B",
+          [review("atl", "drop"), review("obl", "drop", { answer: "contest" })],
+          {
+            winner: "neither",
+            reason: "Neither side held; a third correction landed.",
+          },
+        ),
+      ],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const report = await modelsReport(
+    { repoEduRoot: f.root, planRoot: f.planRoot, activeRoot: f.activeRoot },
+    testSettings,
+  )
+  assert.equal(
+    report
+      .split("## Ruled findings\n\n")[1]
+      .split("\n\n## Disproved after the round")[0],
+    [
+      "| # | Plan and round | Finding | Tier | Auditor | Vets | Answer | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | ruled; ruled-plan-audit round 2 | #1 ruled split | A | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | report | The finding stood as written. |",
+      "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-alpha low: revise; vet-beta low: drop | vet-alpha low; vet-beta low | Both corrections hold. |",
+      "| 3 | ruled; ruled-impl-audit-01..01 round 1 | #2 ruled contest | B | audit-beta low | vet-alpha low: drop; vet-beta low: drop | neither | Neither side held; a third correction landed. |",
+      "| 4 | ruled; ruled-plan-audit round 1 | #1 old contest | B | audit-alpha low | vet-beta low: drop | vet-beta low | The vet was right. |",
+      "",
+      "1. The finding stood as written.",
+      "2. Both corrections hold.",
+      "3. Neither side held; a third correction landed.",
+      "4. The vet was right. The guard already holds.",
+    ].join("\n"),
+  )
+})
+
 test("a closed plan whose archive holds no plan file names the missing plan", async (t) => {
   const f = await modelFixture(t)
   const stem = "lost-plan"

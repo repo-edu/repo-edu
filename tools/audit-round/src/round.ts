@@ -32,6 +32,7 @@ import {
 import type { AuditReport } from "./report.js"
 import {
   findingSplit,
+  gradedAOrB,
   type LandedCommit,
   type PanelVet,
   type RoundAccount,
@@ -118,16 +119,12 @@ function openContests(
  */
 export function seriousFindings(account: RoundAccount): readonly number[] {
   return account.findings.flatMap((finding) => {
-    const graded =
-      finding.tier === "A" ||
-      finding.tier === "B" ||
-      finding.reviews.some(
-        (review) => review.revisedTier === "A" || review.revisedTier === "B",
-      )
     const disputed =
       finding.reviews.some((review) => review.answer === "contest") ||
       findingSplit(finding.reviews)
-    return finding.number !== null && graded && disputed ? [finding.number] : []
+    return finding.number !== null && gradedAOrB(finding) && disputed
+      ? [finding.number]
+      : []
   })
 }
 

@@ -40,10 +40,12 @@ planning or implementation round-data file from the target. It starts no assista
 settings.
 
 1. **The attached finding form** checks that the round and finding exist, then records that the
-   finding was wrong. The model read-out stops counting it as kept for its auditor and coder.
+   finding was wrong. The model read-out stops counting it as kept for its auditor and coder. In
+   the vet-pair tables it makes the vets that dropped the finding right.
 2. **The attached `--vet` form** requires at least one vet's `Revise`, `Drop` or
    `Needs user's ruling` verdict and records that those verdicts were wrong. Every table then reads
-   the finding as kept, including the coder table for an implementation audit.
+   the finding as kept, including the coder table for an implementation audit. In the vet-pair
+   tables it makes the vets that accepted the finding right.
 3. **One retained ruling per finding** means that either attached form replaces the earlier entry
    for the same round and finding, including an entry in the other direction.
 4. **The `--by` form** records the date, full reason and the named model and effort, for a finding

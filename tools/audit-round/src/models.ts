@@ -18,7 +18,11 @@ import {
   type ModelIdentity,
   modelKey,
   modelText,
+  type PairEnding,
+  type RoundVet,
+  type RuledFinding,
   readModelEvidence,
+  type VetPairSample,
   type WorkClass,
 } from "./model-evidence.js"
 import type { RoundSettings } from "./settings.js"
@@ -416,15 +420,145 @@ function coderTable(rows: ReadonlyMap<string, CoderRow>): string[] {
   ]
 }
 
+type VetPairRow = {
+  readonly first: ModelIdentity
+  readonly second: ModelIdentity
+  shared: number
+  splits: number
+  readonly endings: Record<PairEnding, number>
+}
+
+/** One row per pair of vets with a shared A or B finding in the class. */
+function vetPairRows(
+  samples: readonly VetPairSample[],
+  workClass: WorkClass,
+): VetPairRow[] {
+  const rows = new Map<string, VetPairRow>()
+  for (const sample of samples) {
+    if (sample.workClass !== workClass) continue
+    const key = `${auditorKey(sample.first)}\u0000${auditorKey(sample.second)}`
+    const row = rows.get(key) ?? {
+      first: sample.first,
+      second: sample.second,
+      shared: 0,
+      splits: 0,
+      endings: { first: 0, second: 0, both: 0, neither: 0 },
+    }
+    rows.set(key, row)
+    row.shared += 1
+    if (sample.ending === null) continue
+    row.splits += 1
+    row.endings[sample.ending] += 1
+  }
+  return [...rows.values()].sort(
+    (first, second) =>
+      modelText(first.first).localeCompare(modelText(second.first)) ||
+      modelText(first.second).localeCompare(modelText(second.second)),
+  )
+}
+
+function vetPairSection(
+  samples: readonly VetPairSample[],
+  workClass: WorkClass,
+): string[] {
+  const rows = vetPairRows(samples, workClass)
+  if (rows.length === 0)
+    return [`No two ${workClass} vets have judged the same A or B finding.`]
+  return [
+    "| Vet 1 | Vet 2 | Shared A/B findings | Splits | Vet 1 right | Vet 2 right | Both right | Neither |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...rows.map(
+      (row) =>
+        `| ${escapeCell(modelText(row.first))} | ${escapeCell(modelText(row.second))} | ${row.shared} | ${row.splits} | ${row.endings.first} | ${row.endings.second} | ${row.endings.both} | ${row.endings.neither} |`,
+    ),
+  ]
+}
+
 /** The text through the first `.`, `!` or `?` that ends a sentence, or all of it when none does. */
 function firstSentence(text: string): string {
   return /^.*?[.!?](?=\s|$)/s.exec(text)?.[0] ?? text
 }
 
+type ReasonRow = {
+  readonly cells: readonly string[]
+  readonly reason: string
+}
+
+/**
+ * A numbered table whose last column shows each reason's first sentence,
+ * followed by the full reasons under the same numbers, because a full reason
+ * wraps the terminal table into an unreadable grid.
+ */
+function reasonTable(
+  columns: readonly string[],
+  rows: readonly ReasonRow[],
+  start: number,
+): string[] {
+  return [
+    `| # | ${columns.join(" | ")} | Reason |`,
+    `| ---: | ${columns.map(() => "---").join(" | ")} | --- |`,
+    ...rows.map(
+      (row, index) =>
+        `| ${[start + index, ...row.cells, escapeCell(firstSentence(row.reason))].join(" | ")} |`,
+    ),
+    "",
+    ...rows.map((row, index) => `${start + index}. ${row.reason}`),
+  ]
+}
+
+function vetsCell(vets: readonly RoundVet[]): string {
+  return escapeCell(
+    vets.length === 0
+      ? "no recorded vet"
+      : vets
+          .map(
+            (vet) =>
+              `${modelText(vet.identity)}: ${vet.verdict ?? "no verdict"}`,
+          )
+          .join("; "),
+  )
+}
+
+/** The user's answer, with each winning vet named by its model. */
+function answerCell(entry: RuledFinding): string {
+  if (typeof entry.winner === "string") return entry.winner
+  return escapeCell(
+    entry.winner
+      .map((tag) => {
+        const vet = entry.vets.find((candidate) => candidate.tag === tag)
+        return vet === undefined ? tag : modelText(vet.identity)
+      })
+      .join("; "),
+  )
+}
+
+function ruledSection(entries: readonly RuledFinding[]): string[] {
+  const lines = ["## Ruled findings", ""]
+  if (entries.length === 0)
+    return [...lines, "No round holds a finding the user ruled on."]
+  return [
+    ...lines,
+    ...reasonTable(
+      ["Plan and round", "Finding", "Tier", "Auditor", "Vets", "Answer"],
+      entries.map((entry) => ({
+        cells: [
+          escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
+          escapeCell(`#${entry.finding} ${entry.title}`),
+          entry.tier,
+          escapeCell(modelText(entry.auditor)),
+          vetsCell(entry.vets),
+          answerCell(entry),
+        ],
+        reason: entry.reason,
+      })),
+      1,
+    ),
+  ]
+}
+
 function disprovedCells(
   entry: DisprovedEvidence,
-): readonly [string, string, string, string, string, string] {
-  const reason = escapeCell(firstSentence(entry.reason))
+): readonly [string, string, string, string, string] {
   return entry.kind === "detached"
     ? [
         entry.date,
@@ -432,24 +566,13 @@ function disprovedCells(
         "—",
         "—",
         "—",
-        reason,
       ]
     : [
         entry.date,
         escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
         escapeCell(`#${entry.finding} ${entry.title}`),
         entry.tier,
-        escapeCell(
-          entry.vets.length === 0
-            ? "no recorded vet"
-            : entry.vets
-                .map(
-                  (vet) =>
-                    `${modelText(vet.identity)}: ${vet.verdict ?? "no verdict"}`,
-                )
-                .join("; "),
-        ),
-        reason,
+        vetsCell(entry.vets),
       ]
 }
 
@@ -468,23 +591,22 @@ function disprovedTable(
   start: number,
   showAuditor: boolean,
 ): string[] {
-  const heading = showAuditor
-    ? "| # | Date | Auditor | Plan and round | Finding | Tier | Vet | Reason |"
-    : "| # | Date | Plan and round | Finding | Tier | Vet | Reason |"
-  const alignment = showAuditor
-    ? "| ---: | --- | --- | --- | --- | --- | --- | --- |"
-    : "| ---: | --- | --- | --- | --- | --- | --- |"
-  return [
-    heading,
-    alignment,
-    ...entries.map((entry, index) => {
+  return reasonTable(
+    [
+      "Date",
+      ...(showAuditor ? ["Auditor"] : []),
+      "Plan and round",
+      "Finding",
+      "Tier",
+      "Vet",
+    ],
+    entries.map((entry) => {
       const [date, ...cells] = disprovedCells(entry)
       const auditor = showAuditor ? [escapeCell(modelText(entry.auditor))] : []
-      return `| ${[start + index, date, ...auditor, ...cells].join(" | ")} |`
+      return { cells: [date, ...auditor, ...cells], reason: entry.reason }
     }),
-    "",
-    ...entries.map((entry, index) => `${start + index}. ${entry.reason}`),
-  ]
+    start,
+  )
 }
 
 /**
@@ -565,7 +687,8 @@ function excludedSection(rows: ReadonlyMap<string, CoderRow>): string[] {
 }
 
 /**
- * Read every retained model record and render the auditor and coder results.
+ * Read every retained model record and render the auditor, vet-pair and coder
+ * results with the user's rulings.
  * The excluded plans print only under `all`: they explain which plans supplied
  * no evidence, which a reader comparing models does not need every time.
  */
@@ -591,6 +714,16 @@ export async function modelsReport(
     "",
     `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a class is printed in a second table below the main one. Each per-round figure divides the kept A and B findings by the rounds in the count cell beside it, over all shared plans. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
     "",
+    "## Planning vet pairs",
+    "",
+    ...vetPairSection(evidence.vetPairs, "planning"),
+    "",
+    "## Implementation vet pairs",
+    "",
+    ...vetPairSection(evidence.vetPairs, "implementation"),
+    "",
+    "A vet is a model and an effort. Each row counts the A and B findings that both vets judged on one panel, where the report or a vet graded the finding A or B. Splits counts the shared findings where the two vets split and the user has ruled, and each ends in one of the last four columns. A split without a ruling enters Splits when its ruling lands. A later disproved finding proves right the vets that dropped it, and a later vet ruling proves right the vets that accepted it.",
+    "",
     "## Coders",
     "",
     ...coderReading(coders, settings),
@@ -598,6 +731,8 @@ export async function modelsReport(
     ...coderTable(coders),
     "",
     "Rows sort by A/B per step, the mean over plans of accepted findings per step, fewest first, then by time. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit, and a plan whose step time cannot be read is excluded. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    "",
+    ...ruledSection(evidence.rulings),
     "",
     ...disprovedSection(evidence.disproved),
     ...(options.all

@@ -604,7 +604,7 @@ A failed implementation worker prints this command with --resume, which resumes
 that worker's session on its step before the run continues.
 
 Use round to run one audit round or series on a plan scope or on commits.
-Use models to read the auditor and coder results.
+Use models to read the auditor, vet-pair and coder results.
 Use replay to compare retained automatic-series answers with the fixed rules.
 Use disprove to record a finding or vet verdict that later evidence disproved.
 Use implement to land ready plan steps on their assigned coder.
@@ -1004,7 +1004,7 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
   command
     .command("models")
     .description(
-      "Read auditor and coder results from retained records without starting assistants.",
+      "Read auditor, vet-pair and coder results and the user's rulings from retained records without starting assistants.",
     )
     .option("--all", "print per-plan round data and excluded plans")
     .action((flags: { all?: boolean }) => {

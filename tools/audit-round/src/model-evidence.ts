@@ -9,10 +9,14 @@ import type { Assistant } from "./phase.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
   type DisprovedFinding,
+  gradedAOrB,
   type PlanRoundDataFile,
   parseRoundDataFile,
   type RoundData,
   type RoundFinding,
+  type RoundFindingReview,
+  type RulingWinner,
+  reviewsSplit,
   roundDataFiles,
   type VetVerdict,
 } from "./round-data.js"
@@ -58,10 +62,42 @@ export type CoderRow = {
   readonly excluded: Map<string, string>
 }
 
-/** One vet of a disproved finding's round and its verdict on that finding. */
-export type DisprovedVet = {
+/** One vet of a round, named by its tag, and its verdict on one finding. */
+export type RoundVet = {
+  readonly tag: string
   readonly identity: ModelIdentity
   readonly verdict: VetVerdict | null
+}
+
+/** Which vets of a split pair the latest ruling proved right. */
+export type PairEnding = "first" | "second" | "both" | "neither"
+
+/**
+ * One A or B finding that two vets of one panel both judged. The pair is
+ * ordered by model text, so every sample of two models has one orientation.
+ */
+export type VetPairSample = {
+  readonly workClass: WorkClass
+  readonly first: ModelIdentity
+  readonly second: ModelIdentity
+  readonly split: boolean
+  /** Null without a split or while the split has no ruling. */
+  readonly ending: PairEnding | null
+}
+
+/** A finding whose round stored the user's winner. */
+export type RuledFinding = {
+  readonly stem: string
+  readonly target: string
+  readonly round: number
+  readonly finding: number
+  readonly title: string
+  readonly tier: RoundFinding["tier"]
+  readonly auditor: ModelIdentity
+  /** Every vet of the round, with its verdict on the finding when it gave one. */
+  readonly vets: readonly RoundVet[]
+  readonly winner: RulingWinner
+  readonly reason: string
 }
 
 type DisprovedBase = {
@@ -82,7 +118,7 @@ export type DisprovedEvidence =
       readonly title: string
       readonly tier: RoundFinding["tier"]
       /** Every vet of the round, with its verdict on the finding when it gave one. */
-      readonly vets: readonly DisprovedVet[]
+      readonly vets: readonly RoundVet[]
     })
   | (DisprovedBase & {
       readonly kind: "detached"
@@ -91,6 +127,9 @@ export type DisprovedEvidence =
 export type ModelEvidence = {
   readonly auditors: ReadonlyMap<string, AuditorRow>
   readonly coders: ReadonlyMap<string, CoderRow>
+  readonly vetPairs: readonly VetPairSample[]
+  /** Newest round first, then in finding order. */
+  readonly rulings: readonly RuledFinding[]
   readonly disproved: readonly DisprovedEvidence[]
 }
 
@@ -285,14 +324,12 @@ function roundRecords(files: readonly RoundFileRecord[]): RoundRecord[] {
 }
 
 /** Each vet the round ran, named by its phase entry, with its review of the finding. */
-function disprovedVets(
-  round: RoundData,
-  finding: RoundFinding,
-): readonly DisprovedVet[] {
+function roundVets(round: RoundData, finding: RoundFinding): RoundVet[] {
   return round.phases.flatMap((phase) =>
     phase.phase === "vet"
       ? [
           {
+            tag: phase.tag,
             identity: {
               assistant: phase.assistant,
               model: phase.model,
@@ -348,7 +385,7 @@ function disprovedEvidence(
           finding: entry.finding,
           title: finding.title,
           tier: finding.tier,
-          vets: disprovedVets(round, finding),
+          vets: roundVets(round, finding),
         }
       }),
     )
@@ -358,6 +395,98 @@ function disprovedEvidence(
         second.date.localeCompare(first.date) ||
         first.stem.localeCompare(second.stem),
     )
+}
+
+/**
+ * Which verdicts the latest ruling on a finding proved right, or null without
+ * one. A later disproval outranks the round's own ruling. A disproved finding
+ * proves its drops right, and a disproved vet verdict proves its accepts
+ * right. The round's `report` winner proves the accepts right too, because the
+ * finding stood as written.
+ */
+function rulingProof(
+  finding: RoundFinding,
+  disproved: RoundRecord["disprovedFindingNumbers"],
+): ((review: RoundFindingReview) => boolean) | null {
+  if (finding.number !== null && disproved.finding.has(finding.number))
+    return (review) => review.verdict === "drop"
+  if (finding.number !== null && disproved.vet.has(finding.number))
+    return (review) => review.verdict === "accept"
+  const winner = finding.ruling?.winner
+  if (winner === undefined) return null
+  if (winner === "report") return (review) => review.verdict === "accept"
+  if (winner === "neither") return () => false
+  return (review) => winner.includes(review.vet)
+}
+
+function pairEnding(firstRight: boolean, secondRight: boolean): PairEnding {
+  if (firstRight && secondRight) return "both"
+  if (firstRight) return "first"
+  return secondRight ? "second" : "neither"
+}
+
+/**
+ * One sample per pair of panel vets and A or B finding they both judged. A
+ * round of one vet has no pair, so it supplies none.
+ */
+function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
+  return records.flatMap((record) =>
+    record.data.findings.filter(gradedAOrB).flatMap((finding) => {
+      const proof = rulingProof(finding, record.disprovedFindingNumbers)
+      const judged = roundVets(record.data, finding).flatMap((vet) => {
+        const review = finding.reviews.find(
+          (candidate) => candidate.vet === vet.tag,
+        )
+        return review === undefined ? [] : [{ ...vet, review }]
+      })
+      return judged.flatMap((left, index) =>
+        judged.slice(index + 1).map((right): VetPairSample => {
+          const [first, second] =
+            modelText(right.identity).localeCompare(modelText(left.identity)) <
+            0
+              ? [right, left]
+              : [left, right]
+          const split = reviewsSplit(first.review, second.review)
+          return {
+            workClass: record.workClass,
+            first: first.identity,
+            second: second.identity,
+            split,
+            ending:
+              split && proof !== null
+                ? pairEnding(proof(first.review), proof(second.review))
+                : null,
+          }
+        }),
+      )
+    }),
+  )
+}
+
+function ruledFindings(records: readonly RoundRecord[]): RuledFinding[] {
+  return [...records].reverse().flatMap((record) =>
+    record.data.findings.flatMap((finding): RuledFinding[] =>
+      finding.ruling === undefined || finding.number === null
+        ? []
+        : [
+            {
+              stem: record.stem,
+              target: record.data.target,
+              round: record.data.round,
+              finding: finding.number,
+              title: finding.title,
+              tier: finding.tier,
+              auditor: selectionIdentity(
+                record.data.auditor.assistant,
+                record.data.auditor,
+              ),
+              vets: roundVets(record.data, finding),
+              winner: finding.ruling.winner,
+              reason: finding.ruling.reason,
+            },
+          ],
+    ),
+  )
 }
 
 function auditorRows(
@@ -780,6 +909,8 @@ export async function readModelEvidence(
   return {
     auditors: auditorRows(records, disproved),
     coders: await coderRows(context, records),
+    vetPairs: vetPairSamples(records),
+    rulings: ruledFindings(records),
     disproved,
   }
 }

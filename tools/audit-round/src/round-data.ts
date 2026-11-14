@@ -588,6 +588,22 @@ export function findingSplit(reviews: readonly RoundFindingReview[]): boolean {
   )
 }
 
+/**
+ * Whether the report or a vet of the panel graded the finding A or B. A
+ * dispute on such a finding goes to the user, and only such findings compare
+ * the vets of a panel.
+ */
+export function gradedAOrB(
+  finding: Pick<RoundFinding, "tier" | "reviews">,
+): boolean {
+  const serious = (tier: RoundFinding["tier"] | undefined) =>
+    tier === "A" || tier === "B"
+  return (
+    serious(finding.tier) ||
+    finding.reviews.some((review) => serious(review.revisedTier))
+  )
+}
+
 /** Attach each panel vet's review while the report still owns finding identity. */
 export function reviewedRoundFindings(
   findings: readonly ReportFinding[],
