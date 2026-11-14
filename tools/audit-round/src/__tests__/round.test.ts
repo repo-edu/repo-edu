@@ -176,11 +176,15 @@ const endings: readonly (readonly [
   ["watch", watchPhases],
 ]
 
+/** What the fake close move reports for one plan. */
+function closedFiles(stem: string) {
+  return { folder: `/evidence/${stem}`, names: [`${stem}-close.obh.log`] }
+}
+
 function controlledRound(
   settle: (input: PhaseInput) => Promise<void> = async () => {},
 ) {
   const calls: PhaseInput[] = []
-  const deletedReports: { cwd: string; nameStart: string }[] = []
   const completions: CleanInput[] = []
   const glances: GlanceInput[] = []
   const watchEvidence: WatchEvidenceInput[] = []
@@ -189,6 +193,7 @@ function controlledRound(
     []
   const rulings: RulingRequest[] = []
   const archived: { stem: string; tag: string; record: string }[] = []
+  const moved: string[] = []
   // A close finds round data to archive only when a test says it has some.
   let roundDataCommit: LifecycleCommit | null = null
   const settledWrites: {
@@ -261,11 +266,6 @@ function controlledRound(
       assert.equal(watchDocuments.length, watchRecords.length + 1)
       watchRecords.push(input)
     },
-    deleteRoundReports: async (cwd, nameStart) => {
-      assert.equal(calls.at(-1)?.phase, "fix")
-      deletedReports.push({ cwd, nameStart })
-      return []
-    },
     checkFile: async () => {},
     completeClean: async (input) => {
       completions.push(input)
@@ -305,6 +305,12 @@ function controlledRound(
       assert.equal(planRemains, false)
       archived.push({ stem, tag, record })
       return roundDataCommit
+    },
+    moveRoundFiles: async (stem) => {
+      // The round data leaves for the plan archive before the other files move.
+      assert.equal(archived.at(-1)?.stem, stem)
+      moved.push(stem)
+      return closedFiles(stem)
     },
     readRecords: async (root, _before, repository) =>
       root === repoRoot ? landedRecords(repository, evidence.subjects) : [],
@@ -356,7 +362,6 @@ function controlledRound(
   }
   return {
     calls,
-    deletedReports,
     completions,
     glances,
     watchEvidence,
@@ -365,6 +370,7 @@ function controlledRound(
     settledWrites,
     rulings,
     archived,
+    moved,
     results,
     dependencies,
     evidence,
@@ -426,7 +432,6 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     round.calls.map((call) => call.phase),
     phases,
   )
-  assert.equal(round.deletedReports.length, 0)
   round.results.fix = {
     status: "finished",
     sessionId: "fix-session",
@@ -451,7 +456,6 @@ test("a ruling waits for a reply then resumes the fix through normal completion 
     sessionId: "fix-session",
     rulingReply: "Choose option 1.",
   })
-  assert.equal(round.deletedReports.length, 1)
   assert.equal(round.glances.length, 1)
   assert.deepEqual(
     round.calls.slice(-2).map((call) => call.phase),
@@ -497,7 +501,6 @@ test("clarification can leave a decision open without creating a new fix session
       .map((call) => call.sessionId),
     [null, "fix-session", "fix-session"],
   )
-  assert.equal(round.deletedReports.length, 1)
 })
 
 /** The release the test startup resolves Claude's `opus` alias to. */
@@ -878,7 +881,6 @@ test("a fix cannot finish while a serious contest has no winner", async () => {
   if (result.status !== "failed") return
   assert.equal(result.phase, "fix")
   assert.match(result.reason, /finished fix left serious contests.*finding 1/)
-  assert.deepEqual(round.deletedReports, [])
 })
 
 for (const stopped of ["left-ruling", "failed-fix", "finished-fix"] as const) {
@@ -1262,7 +1264,6 @@ test("a resumed fix failure retains the session and never deletes the reports", 
     assert.equal(result.phase, "fix")
     assert.equal(result.sessionId, "fix-session")
   }
-  assert.equal(round.deletedReports.length, 0)
   assert.equal(round.glances.length, 0)
 })
 
@@ -1390,52 +1391,6 @@ test("a due watch receives the current round's dropped findings from joined evid
     JSON.parse(writer.evidence).roundData.implementation[0].findings[0].outcome,
     "dropped",
   )
-})
-
-for (const accepted of [false, true]) {
-  for (const target of [
-    { plan: "example.md", scope: "1" },
-    commitTarget({
-      references: ["HEAD"] as const,
-      repository: "repo-edu" as const,
-      startingHead: "abc1234",
-      commits: ["a".repeat(40)] as const,
-      shortReferences: ["abc123"] as const,
-    }),
-  ]) {
-    test(`a finished ${"plan" in target ? "plan" : "commit"} fix deletes its reports once with accepted=${accepted}`, async () => {
-      const round = controlledRound()
-      round.evidence.accepted = accepted
-      assert.equal(
-        (await runRound({ ...files, ...target }, round.dependencies)).status,
-        "finished",
-      )
-      assert.deepEqual(round.deletedReports, [
-        { cwd: files.roundRoot, nameStart: "example-impl-audit-01..01-01" },
-      ])
-    })
-  }
-}
-
-test("clean audits, failed fixes and rulings retain the report set", async () => {
-  for (const ending of ["clean", "failed", "needs-ruling"] as const) {
-    const round = controlledRound()
-    if (ending === "clean") round.evidence.findings = []
-    else
-      round.results.fix =
-        ending === "failed"
-          ? {
-              status: ending,
-              sessionId: "fix-session",
-              reason: "Unable to finish",
-            }
-          : { status: ending, sessionId: "fix-session" }
-    await runRound(
-      { ...files, plan: "example.md", scope: "1" },
-      round.dependencies,
-    )
-    assert.deepEqual(round.deletedReports, [])
-  }
 })
 
 for (const [ending, sequence] of endings) {
@@ -1989,7 +1944,6 @@ for (const ending of ["failed", "awaiting-ruling"] as const) {
 
     assert.equal(result.status, ending)
     assert.deepEqual(result.commits, [{ repository: "repo-edu", sha: own.sha }])
-    assert.deepEqual(round.deletedReports, [])
     assert.deepEqual(round.settledWrites, [])
   })
 }
@@ -2032,7 +1986,6 @@ test("a widening fix without a settling line fails at the fix and keeps the repo
   assert.equal(result.phase, "fix")
   assert.equal(result.sessionId, "fix-session")
   assert.match(result.reason, /widening fix must end with a settling line/)
-  assert.deepEqual(round.deletedReports, [])
   assert.deepEqual(round.settledWrites, [])
 })
 
@@ -2054,7 +2007,6 @@ for (const [kind, input] of [
     if (result.status !== "failed") return
     assert.equal(result.phase, "fix")
     assert.match(result.reason, /Only a widening fix returns a settling line/)
-    assert.deepEqual(round.deletedReports, [])
   })
 }
 
@@ -2387,7 +2339,6 @@ test("an automatic round publishes its settled entry before the series decision"
     {
       ...round.dependencies,
       seriesEvidence: async () => {
-        assert.equal(round.deletedReports.length, 1)
         assert.equal(round.settledWrites.length, 1)
         return {
           roundData: {
@@ -2405,7 +2356,6 @@ test("an automatic round publishes its settled entry before the series decision"
     },
   )
 
-  assert.equal(round.deletedReports.length, 1)
   assert.deepEqual(result, {
     status: "finished",
     report: files.documents.report,
@@ -2438,7 +2388,6 @@ test("a series evidence failure follows the first retained write", async () => {
     },
   )
 
-  assert.equal(round.deletedReports.length, 1)
   assert.equal(result.status, "failed")
   if (result.status !== "failed") return
   assert.equal(result.sessionId, null)
@@ -2626,7 +2575,6 @@ test("a missing ruling fails the fix before user input", async () => {
     ["audit", "vet", "rebut", "fix"],
   )
   assert.deepEqual(round.rulings, [])
-  assert.deepEqual(round.deletedReports, [])
 })
 
 const openDeferral = {
@@ -2657,10 +2605,15 @@ for (const reason of [null, "The check cost more than it gave."]) {
       round.dependencies,
     )
 
-    assert.deepEqual(result, { status: "finished", archived: null })
+    assert.deepEqual(result, {
+      status: "finished",
+      archived: null,
+      moved: closedFiles("example"),
+    })
     assert.deepEqual(round.archived, [
       { stem: "example", tag: "obh", record: "gpt-6-astra high" },
     ])
+    assert.deepEqual(round.moved, ["example"])
     assert.deepEqual(round.calls, [
       {
         phase: "close",
@@ -2741,6 +2694,7 @@ test("a finished close that left its plan in the active folder fails with its se
     reason: `The finished close left ${plan} in the active folder`,
   })
   assert.deepEqual(round.archived, [])
+  assert.deepEqual(round.moved, [])
 })
 
 test("a finished close returns the runner's commit of the archived round data", async () => {
@@ -2764,7 +2718,11 @@ test("a finished close returns the runner's commit of the archived round data", 
     round.dependencies,
   )
 
-  assert.deepEqual(result, { status: "finished", archived: commit })
+  assert.deepEqual(result, {
+    status: "finished",
+    archived: commit,
+    moved: closedFiles("example"),
+  })
 })
 
 test("a finished close whose round data cannot be archived fails with its session", async () => {
@@ -2798,6 +2756,7 @@ test("a finished close whose round data cannot be archived fails with its sessio
     ...context,
     reason: "No archived plan named example to hold its round data.",
   })
+  assert.deepEqual(round.moved, [])
 })
 
 test("the round reads each supplied file and records both heads immediately before the fix", async () => {
@@ -2903,12 +2862,6 @@ test("landed plan corrections do not make an audit clean", async () => {
 })
 
 for (const [reader, phase, sessionId, called] of [
-  [
-    "deleteRoundReports",
-    "fix",
-    "fix-session",
-    ["audit", "vet", "rebut", "fix"],
-  ],
   ["readReport", "audit", "audit-session", ["audit"]],
   ["readVet", "vet", "vet-session", ["audit", "vet"]],
   ["readHead", "fix", null, ["audit", "vet", "rebut"]],

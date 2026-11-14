@@ -1,5 +1,8 @@
+import { mkdir, readdir, rename } from "node:fs/promises"
+import { join } from "node:path"
 import { execa } from "execa"
 import { errorMessage } from "./feedback.js"
+import { planRoundFile } from "./round-paths.js"
 
 /** What one evidence commit did. */
 export type EvidenceCommit =
@@ -48,4 +51,54 @@ export function evidenceFailureText(
   commit: Extract<EvidenceCommit, { status: "failed" }>,
 ): string {
   return `Warning: the evidence commit failed; the next command that writes a round file commits these files. ${commit.reason}`
+}
+
+/** The names of one plan's round files still in the round folder, sorted. */
+export async function planRoundFiles(
+  roundRoot: string,
+  stem: string,
+): Promise<readonly string[]> {
+  return (await readdir(roundRoot, { withFileTypes: true }))
+    .filter((file) => file.isFile() && planRoundFile(stem, file.name))
+    .map((file) => file.name)
+    .sort()
+}
+
+/** The round files one close moved and the folder that holds them now. */
+export type ClosedRoundFiles = {
+  readonly folder: string
+  readonly names: readonly string[]
+}
+
+/**
+ * Move every round file of a closed plan from the round folder into the
+ * plan's own folder of the evidence checkout, so the round folder lists live
+ * work only. The plan's files are found through the names `round-paths.ts`
+ * owns, so another plan whose stem extends this one stays. A file of the same
+ * name in the destination is replaced; every earlier file is already in Git.
+ * The close's own log may still be open: a rename keeps its open handle on
+ * the moved file, so its last lines land there. The command's evidence commit
+ * takes the move.
+ */
+export async function moveClosedRoundFiles(
+  evidenceRoot: string,
+  roundRoot: string,
+  stem: string,
+): Promise<ClosedRoundFiles> {
+  const folder = join(evidenceRoot, stem)
+  const names = await planRoundFiles(roundRoot, stem)
+  if (names.length > 0) await mkdir(folder, { recursive: true })
+  for (const name of names)
+    await rename(join(roundRoot, name), join(folder, name))
+  return { folder, names }
+}
+
+/** The line a close prints for the round files it moved. */
+export function closedRoundFilesText(
+  stem: string,
+  moved: ClosedRoundFiles,
+): string {
+  return moved.names.length === 0
+    ? `No round file of ${stem} is left in the round folder.`
+    : `Moved ${moved.names.length} round ${moved.names.length === 1 ? "file" : "files"} of ${stem} to ${moved.folder}.`
 }

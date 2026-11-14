@@ -4,8 +4,8 @@ description: Archive a finished or aborted plan episode and write its closing re
 ---
 
 `pnpm audit-round close` is the one entry to loop-close: it runs one close session that
-archives an active plan, writes each hosting repo's closing commit and removes the plan's live
-sidecars, then moves and commits the plan's round data itself. The chat commands
+archives an active plan and writes each hosting repo's closing commit. The runner then moves and
+commits the plan's round data and moves the plan's other round files itself. The chat commands
 [`/close`](/repo-edu/tooling/close/) and `$close` run it for you.
 
 | Fact | Detail |
@@ -53,13 +53,17 @@ first of its split peers to close. Nobody can answer during an unattended run, s
 with the question and the runner prints a `Resume:` command.
 
 Then the session clears the plan's refactor backlog rows through `pnpm sweep done --plan <stem>`,
-moves the plan, rewrites links to it, writes each repo's `<stem>/closed` commit and deletes the
-plan's sidecars. An aborted plan skips the audit checks and keeps its backlog rows.
+moves the plan, rewrites links to it and writes each repo's `<stem>/closed` commit. It deletes
+nothing. An aborted plan skips the audit checks and keeps its backlog rows.
 
 The round-data files are the one part the runner does itself. Once the session has moved the plan,
 the runner moves `<stem>-plan-rounds.json` and `<stem>-impl-rounds.json` from
 `../plan-evidence/active/` into the plan's archive folder and commits them as a second
-`<stem>/closed` record, because it cannot see whether a session remembered them.
+`<stem>/closed` record, because it cannot see whether a session remembered them. It then moves
+every other round file of the plan, reports, handoffs, rulings, watches, logs and yield reports
+included, from `../plan-evidence/active/` into `../plan-evidence/<stem>/` and prints how many it
+moved. The command's evidence commit takes the move. A plan whose stem extends this one keeps its
+files.
 
 ## Output
 

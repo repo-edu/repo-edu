@@ -71,15 +71,14 @@ the user's decision.
 
 ## What remains
 
-A finished fix removes only its audit, vet and rebuttal twins. Claims, markers, transcripts, logs,
-rulings, watches and round data remain. A direct clean automatic audit retains its report because
-no fix phase consumes it. The sequence queue disappears when the sequence ends.
+Nothing deletes a round's files. Claims, markers, transcripts, logs, reports, rulings, watches,
+handoffs and round data stay in `../plan-evidence/active/` after a fix, a ruling or a clean audit.
+The sequence queue disappears when the sequence ends.
 
-At loop-close, the plan and its plan-scoped round data move into the plan's archive folder. Close
-deletes the plan's handoffs, claims, audit reports, vet and rebuttal twins, phase-change markers and
-yield reports. Round transcripts and logs, implementation logs, briefs, rulings, watches and the
-close log stay in `../plan-evidence/active/`. Commit series data stays there beside its round files
-until those files are removed by hand.
+At loop-close, the plan and its plan-scoped round data move into the plan's archive folder. The
+runner then moves every other round file of the plan into `../plan-evidence/<stem>/`, so
+`../plan-evidence/active/` lists live work only. Briefs stay beside the plan. A commit series has no
+close, so its files and data stay in `../plan-evidence/active/` for good.
 
 ## Commits
 

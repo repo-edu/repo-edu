@@ -2,6 +2,7 @@ import { join } from "node:path"
 import type { CleanCompletion, CleanInput } from "./clean.js"
 import type { PlanRoots } from "./context.js"
 import type { WatchEvidence, WatchEvidenceInput } from "./episode.js"
+import type { ClosedRoundFiles } from "./evidence.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { SeriesEvidence, SeriesEvidenceInput } from "./judge.js"
 import type { LifecycleCommit } from "./lifecycle.js"
@@ -730,10 +731,6 @@ export type InteractiveSession = PhaseRun &
   }
 
 export type RoundDependencies = {
-  readonly deleteRoundReports: (
-    cwd: string,
-    nameStart: string,
-  ) => Promise<readonly string[]>
   readonly checkFile: (file: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<CleanCompletion>
   readonly readReport: (
@@ -761,6 +758,8 @@ export type RoundDependencies = {
     tag: string,
     record: string,
   ) => Promise<LifecycleCommit | null>
+  /** Move a closed plan's round files into its own folder of the evidence checkout. */
+  readonly moveRoundFiles: (stem: string) => Promise<ClosedRoundFiles>
   readonly readRecords: (
     root: string,
     before: string,

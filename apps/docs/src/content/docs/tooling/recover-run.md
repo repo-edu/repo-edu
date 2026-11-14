@@ -74,7 +74,7 @@ waits again.
 
 A failed fix with an unresolved serious contest or split uses the same route. When no
 ruling file exists yet, the runner first resumes the fix so it can write one.
-The route then finishes through the ordinary record checks and report deletion.
+The route then finishes through the ordinary record checks.
 
 An implementation worker left at a ruling prints the worker's assistant recovery command instead
 of `--resume`. Answer in that session, then rerun the original runner command without attaching a

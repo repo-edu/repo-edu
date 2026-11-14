@@ -3,6 +3,7 @@ import type { ModelReleases } from "./feedback.js"
 import type { Run } from "./output.js"
 import { capabilityTag, phaseSelection } from "./output-format.js"
 import { type Assistant, implementationPhase, type PhaseRun } from "./phase.js"
+import { stepLogFilename, stepRulingFilename } from "./round-paths.js"
 import type { Coder, RoundSettings } from "./settings.js"
 import { planStem } from "./target.js"
 
@@ -50,12 +51,8 @@ export function implementationRun(
   resumedSession: string | null,
 ): Run & { readonly ruling: string } {
   const stem = planStem(plan)
-  const number = String(step).padStart(2, "0")
   return {
-    ruling: join(
-      roundRoot,
-      `${stem}-impl-${number}-implement-ruling.${identity.tag}.md`,
-    ),
+    ruling: join(roundRoot, stepRulingFilename(stem, step, identity.tag)),
     name: "Implementation",
     target: stem,
     title: `Implementation of ${basename(plan)}, step ${step}${resumedSession === null ? "" : `, resuming session ${resumedSession}`}`,
@@ -64,7 +61,7 @@ export function implementationRun(
     releases,
     paths: {
       claim: null,
-      log: join(roundRoot, `${stem}-impl-${number}-implement.log`),
+      log: join(roundRoot, stepLogFilename(stem, step)),
       markdown: null,
       reopenLog: resumedSession !== null,
     },

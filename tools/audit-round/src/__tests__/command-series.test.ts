@@ -245,8 +245,8 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
     finalTier: null,
     finalReach: null,
   })
-  for (const path of [f.report, f.vet, f.rebut])
-    await assert.rejects(readFile(path), { code: "ENOENT" })
+  // The finished fix keeps the round's reports until the close.
+  for (const path of [f.report, f.vet, f.rebut]) await readFile(path)
   const { log, markdown } = await f.records()
   assert.equal(log.match(/^Started /gm)?.length, 2)
   assert.equal(markdown.match(/^Started /gm)?.length, 2)
@@ -382,8 +382,7 @@ test("a stopped panel split resumes its fix with every vet report and each vet's
     winner: ["abh"],
     reason: "The finding holds as written.",
   })
-  for (const path of [report, ...vets, f.rebut])
-    await assert.rejects(readFile(path), { code: "ENOENT" })
+  for (const path of [report, ...vets, f.rebut]) await readFile(path)
 })
 
 /** The ruling pause lets a test act as the user editing the queue mid-round. */

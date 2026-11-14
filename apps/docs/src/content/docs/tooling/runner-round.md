@@ -140,9 +140,8 @@ All files live in `../plan-evidence/active/`:
 
 1. **Every round** claims `<target>-<round>-0-claim.md` and writes its transcript
    `<target>-<round>-1-round.<tag>.md` with a log beside it.
-2. **The audit, vet and rebuttal** stay as `-2-audit`, `-3-vet` and `-4-rebut` files until a
-   finished fix records their outcome and the runner deletes them. A clean plan-target audit keeps
-   its report.
+2. **The audit, vet and rebuttal** stay as `-2-audit`, `-3-vet` and `-4-rebut` files after the
+   fix, a ruling or a clean audit, until the close moves them.
 3. **A ruling** adds `-7-ruling.<tag>.md` and **a due watch** `-9-watch.<tag>.md`.
 4. **Round data** goes to `<stem>-plan-rounds.json` or `<stem>-impl-rounds.json` for a plan target
    and to `<commit-label>-rounds.json` for a commit target.

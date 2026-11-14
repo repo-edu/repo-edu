@@ -156,10 +156,9 @@ finished round, the runner reads the label's retained round data and the commit
 times of its landed records. The original references and earlier landed fixes
 define each later round's exact audit scope. It stops once every listed
 auditor has a current read or chooses a listed auditor without one. A clean round
-lands no record, but its finished data entry can settle the read. The fix
-follows the runner's
-[Report lifecycle](../../../../tools/audit-round/CLAUDE.md#report-lifecycle).
-There is no plan episode, `implemented:` or `closed:` marker and no trajectory
+lands no record, but its finished data entry can settle the read. The round's
+files stay in the evidence repo's `active/` folder for good, because a commit
+target has no close. There is no plan episode, `implemented:` or `closed:` marker and no trajectory
 watch.
 
 `pnpm audit-round round` accepts the original references as its target

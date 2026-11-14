@@ -626,9 +626,10 @@ fix session whose only work would be an empty record.
 
 For an unattended plan target, return the complete report under
 [Runner result](#runner-result). The runner retains it and lands the clean
-record. For a hand-run plan target, write and present the report, land the
-clean record immediately and delete that round's reports through the runner
-command. A commit target lands no clean record and retains its report.
+record. For a hand-run plan target, write and present the report and land the
+clean record immediately. Every route keeps the report, because a round's files
+stay in the evidence repo until the close moves them. A commit target lands no
+clean record.
 
 Use the plan doctrine's
 [record meanings and placement](../../../plan/CLAUDE.md#shared-implementation-forms)

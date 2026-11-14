@@ -1,4 +1,5 @@
 import { readModelRecord } from "./commit-msg.js"
+import type { ClosedRoundFiles } from "./evidence.js"
 import { errorMessage, type ModelReleases } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
 import { decideSeries } from "./judge.js"
@@ -291,6 +292,8 @@ export type CloseResult =
       readonly status: "finished"
       /** The runner's own commit of the archived round data, or null when the plan had none. */
       readonly archived: LifecycleCommit | null
+      /** The plan's round files the runner moved out of the round folder. */
+      readonly moved: ClosedRoundFiles
     }
   | RoundFailure
 
@@ -326,15 +329,16 @@ async function reportPhase<R extends PhaseResult>(
 /**
  * Loop-close runs alone, on its own settings, and belongs to no round. The
  * session cannot tell its own capability, so it receives the tag and model
- * record its commits carry; its workflow owns the plan move, the commits and
- * the sidecars it deletes. The runner itself then moves and commits the plan's
- * round data, so that account never depends on the session remembering it.
+ * record its commits carry; its workflow owns the plan move and the commits.
+ * The runner itself then moves and commits the plan's round data, and moves
+ * the plan's other round files into its own folder of the evidence checkout,
+ * so neither depends on the session remembering it.
  */
 export async function runClose(
   input: CloseInput,
   dependencies: Pick<
     RoundDependencies,
-    "runPhase" | "fileExists" | "archiveRoundData"
+    "runPhase" | "fileExists" | "archiveRoundData" | "moveRoundFiles"
   >,
   settings: RoundSettings,
 ): Promise<CloseResult> {
@@ -389,12 +393,14 @@ export async function runClose(
       return failed(
         `The finished close left ${input.plan} in the active folder`,
       )
+    const stem = planStem(input.plan)
     const archived = await dependencies.archiveRoundData(
-      planStem(input.plan),
+      stem,
       input.tag,
       input.record,
     )
-    return { status: "finished", archived }
+    const moved = await dependencies.moveRoundFiles(stem)
+    return { status: "finished", archived, moved }
   } catch (error) {
     return failed(errorMessage(error))
   }
@@ -1103,10 +1109,6 @@ export async function runRound(
           ...account,
           findings: settleRoundFindings(account.findings, landed.flat()),
         }
-        await dependencies.deleteRoundReports(
-          input.roundRoot,
-          transcriptNameStart(input.transcript),
-        )
       } catch (error) {
         return {
           status: "failed",

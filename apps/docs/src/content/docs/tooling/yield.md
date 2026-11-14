@@ -81,8 +81,8 @@ run the next step.
 Each report opens with the plan, the plan repo's six-character HEAD, whether the plan had
 uncommitted changes and the writer's model and effort. Reviews link to the report they answer. The
 initial report, vet and rebuttal never change once written; when the output already exists, the
-command links to it instead. Only a writer's own final report may be rewritten. Loop-close deletes
-all of them with the plan's other sidecars.
+command links to it instead. Only a writer's own final report may be rewritten. Loop-close moves
+all of them with the plan's other round files into `../plan-evidence/<stem>/`.
 
 ## `/yield`
 

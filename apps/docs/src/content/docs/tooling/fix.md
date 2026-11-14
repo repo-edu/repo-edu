@@ -70,7 +70,7 @@ finding locations allow.
 ## Afterwards
 
 The accepted changes and their record commits have landed, together with the handoff for the next
-round. A finished round deletes its `-2-audit`, `-3-vet` and `-4-rebut` files. Its claim,
-transcript, log, round data, rulings and watch stay until their own owner removes or archives them.
+round. A finished round deletes nothing: its claim, transcript, log, reports, round data, rulings
+and watch stay in `../plan-evidence/active/` until the close moves them.
 A correction that needs a CI run on pushed commits is applied and the owed run is named in the
 handoff.

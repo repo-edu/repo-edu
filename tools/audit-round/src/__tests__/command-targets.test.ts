@@ -118,6 +118,33 @@ test("deferrals prints only the active plan's open deferrals", async (t) => {
   })
 })
 
+/** One file of every kind a plan keeps in the round folder until its close. */
+const closedPlanFiles = [
+  "example-plan-audit-01-0-claim.md",
+  "example-plan-audit-01-1-round.obh.md",
+  "example-plan-audit-01-1-round.obh.log",
+  "example-plan-audit-01-2-audit.obh.md",
+  "example-plan-audit-01-3-vet.abx.md",
+  "example-plan-audit-01-4-rebut.obh.md",
+  "example-plan-audit-01-7-ruling.abx.md",
+  "example-plan-audit-01-9-watch.abh.md",
+  "example-plan-audit-02-0-settle.md",
+  "example-impl-audit-01..02-01-2-audit.obh.md",
+  "example-handoff.abc123.md",
+  "example-impl-01-implement.log",
+  "example-impl-01-implement-ruling.abh.md",
+  "example-yield-1-report.abh.md",
+]
+
+/** Round files of a plan whose stem extends `example` and of a commit series. */
+const otherRoundFiles = [
+  "example-two-plan-audit-01-2-audit.obh.md",
+  "example-two-handoff.abc123.md",
+  "example-two-impl-01-implement.log",
+  "example-two-close.obh.log",
+  "commit-abc123-01-2-audit.obh.md",
+]
+
 test("close supplies open deferrals to one close session from the plan checkout", async (t) => {
   const f = await roundFixture(t)
   const deferral = await deferPlanChoice(f.repoRoot)
@@ -129,7 +156,8 @@ test("close supplies open deferrals to one close session from the plan checkout"
       join(f.roundRoot, file),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
-  const before = await readdir(f.roundRoot)
+  for (const file of [...closedPlanFiles, ...otherRoundFiles])
+    await writeFile(join(f.roundRoot, file), `${file}\n`)
   assert.equal(
     await runCommand(["close", "example-widen.md"], f.runtime, f.options),
     0,
@@ -145,10 +173,30 @@ test("close supplies open deferrals to one close session from the plan checkout"
     invocations.map((call) => [call.assistant, call.cwd]),
     [["codex", f.planRoot]],
   )
-  // The close writes only its log, under the plan's stem and its own tag.
+  // The runner moved every round file of the plan, the close log included,
+  // into the plan's own folder, and left every other file in the round folder.
+  const folder = join(f.evidenceRoot, "example")
   assert.deepEqual(
-    (await readdir(f.roundRoot)).filter((name) => !before.includes(name)),
-    ["example-close.obh.log"],
+    (await readdir(folder)).sort(),
+    [...closedPlanFiles, "example-close.obh.log"].sort(),
+  )
+  assert.deepEqual(
+    (await readdir(f.roundRoot)).sort(),
+    ["audit-source.md", ...otherRoundFiles].sort(),
+  )
+  for (const file of closedPlanFiles)
+    assert.equal(await readFile(join(folder, file), "utf8"), `${file}\n`)
+  // The command's evidence commit took the move and the close log's last lines.
+  assert.equal(
+    (await execa("git", ["status", "--porcelain"], { cwd: f.evidenceRoot }))
+      .stdout,
+    "",
+  )
+  assert.match(
+    f.visible.join("\n"),
+    new RegExp(
+      `Moved ${closedPlanFiles.length + 1} round files of example to ${folder}\\.`,
+    ),
   )
   // The session moved the plan; the runner moved the round data and committed it.
   const [sha, subject, body] = (
@@ -172,7 +220,10 @@ test("close supplies open deferrals to one close session from the plan checkout"
     f.visible.join("\n"),
     new RegExp(`Committed ${sha}: example/closed obh: archive the round data`),
   )
-  const log = await readFile(join(f.roundRoot, "example-close.obh.log"), "utf8")
+  const log = await readFile(
+    join(f.evidenceRoot, "example/example-close.obh.log"),
+    "utf8",
+  )
   assert.match(log, /Close of plan example\.md\n/)
   assert.match(log, /\[close\] starting codex \(fresh\)/)
   assert.ok(
@@ -231,7 +282,10 @@ test("close without a stem takes the plan that plan prints and passes an abort r
     0,
     f.errors.join("\n"),
   )
-  const log = await readFile(join(f.roundRoot, "example-close.obh.log"), "utf8")
+  const log = await readFile(
+    join(f.evidenceRoot, "example/example-close.obh.log"),
+    "utf8",
+  )
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([join(f.activeRoot, "example.md"), "obh", "gpt-5.6-sol high", { deferrals: [] }, "The check cost more than it gave."])}`,
@@ -277,7 +331,7 @@ test("close refuses paths and plans without an active artifact before any assist
   })
 })
 
-test("close of an archived plan finishes its round-data move without a session", async (t) => {
+test("close of an archived plan finishes its round-data and round-file moves without a session", async (t) => {
   const f = await roundFixture(t)
   const archive = join(f.planRoot, "archive/example")
   await mkdir(archive, { recursive: true })
@@ -289,6 +343,9 @@ test("close of an archived plan finishes its round-data move without a session",
       join(f.roundRoot, file),
       `${JSON.stringify({ rounds: [], disproved: [] }, null, 2)}\n`,
     )
+  // A resumed close session wrote its log without the runner there to move it.
+  await writeFile(join(f.roundRoot, "example-close.obh.log"), "close\n")
+  await writeFile(join(f.roundRoot, "example-two-close.obh.log"), "other\n")
 
   assert.equal(
     await runCommand(["close", "example"], f.runtime, f.options),
@@ -324,11 +381,22 @@ test("close of an archived plan finishes its round-data move without a session",
     await assert.rejects(access(join(f.roundRoot, file)), { code: "ENOENT" })
   assert.equal(
     f.visible.at(-1),
-    `Committed ${sha}: example/closed obh: archive the round data`,
+    `Committed ${sha}: example/closed obh: archive the round data\nMoved 1 round file of example to ${join(f.evidenceRoot, "example")}.`,
   )
   await assert.rejects(access(join(f.roundRoot, "example-close.obh.log")), {
     code: "ENOENT",
   })
+  assert.equal(
+    await readFile(
+      join(f.evidenceRoot, "example/example-close.obh.log"),
+      "utf8",
+    ),
+    "close\n",
+  )
+  assert.deepEqual((await readdir(f.roundRoot)).sort(), [
+    "audit-source.md",
+    "example-two-close.obh.log",
+  ])
 })
 
 test("a plan named without its extension runs as its .md file", async (t) => {

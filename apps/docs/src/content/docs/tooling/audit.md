@@ -72,9 +72,8 @@ The audit changes no tracked file.
 1. **The report has findings.** The report stays in `../plan-evidence/active/` and no source
    changes. Run the vet in either assistant: `/vet <report-file>` in Claude or `$vet <report-file>`
    in Codex.
-2. **The report is clean.** A plan or step audit lands its `clean` record commit and deletes its
-   report. A commit audit lands no record and keeps its report for you to read. A clean round needs
-   no vet or fix.
+2. **The report is clean.** A plan or step audit lands its `clean` record commit. A commit audit
+   lands no record. Both keep the report for you to read. A clean round needs no vet or fix.
 
 Either way the round's `<target>-<round>-0-claim.md` stays as an empty reservation, so no later
 round reuses the number. The report itself is `<target>-<round>-2-audit.<tag>.md`. See

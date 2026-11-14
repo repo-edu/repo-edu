@@ -1,4 +1,4 @@
-import { readdir, realpath, stat, unlink } from "node:fs/promises"
+import { readdir, realpath, stat } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import {
@@ -20,6 +20,9 @@ const planTargetRole = {
   planning: "plan-audit",
   implementation: "impl-audit",
 } as const satisfies Record<RoundKind, string>
+
+/** The capability tag a tagged round-file name carries. */
+const tagPattern = "[ao][btu][lmhx]"
 
 /** The round kind a plan's stored target names, or null for any other target. */
 export function planTargetKind(stem: string, target: string): RoundKind | null {
@@ -59,10 +62,9 @@ function readPhaseFilename(name: string): {
   tag: string
   extension: "md" | "log"
 } | null {
-  const match =
-    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|ruling|watch)\.([ao][btu][lmhx])\.(md|log)$/.exec(
-      name,
-    )
+  const match = new RegExp(
+    `^(.+-\\d{2,})-(\\d)-(round|audit|vet|rebut|ruling|watch)\\.(${tagPattern})\\.(md|log)$`,
+  ).exec(name)
   if (match === null) return null
   const kind = match[3] as FileKind
   if (
@@ -87,27 +89,57 @@ async function phaseDocuments(root: string, kind: FileKind) {
   })
 }
 
+/** The log one implementation worker keeps for its step. */
+export function stepLogFilename(stem: string, step: number): string {
+  return `${stem}-impl-${stepNumber(step)}-implement.log`
+}
+
+/** The ruling one implementation worker writes for its step. */
+export function stepRulingFilename(
+  stem: string,
+  step: number,
+  tag: string,
+): string {
+  return `${stem}-impl-${stepNumber(step)}-implement-ruling.${tag}.md`
+}
+
+function stepNumber(step: number): string {
+  return String(step).padStart(2, "0")
+}
+
+/** The log one loop-close keeps. */
+export function closeLogFilename(stem: string, tag: string): string {
+  return `${stem}-close.${tag}.log`
+}
+
+function escapedPattern(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 /**
- * Delete exactly one round's reports, using their recorded names, not today's settings.
- * Returns the deleted filenames.
+ * Whether a file in the round folder belongs to one plan: a claim, marker,
+ * phase file or queue of its plan or implementation audits, a step log or
+ * step ruling, a close log, a handoff or a yield report. Every form is read
+ * whole past the stem, never as a bare `<stem>-` prefix, so a plan whose stem
+ * extends this one never matches. The plan's round data is no such file,
+ * because the close archives it beside the plan.
  */
-export async function deleteRoundReports(
-  cwd: string,
-  nameStart: string,
-): Promise<readonly string[]> {
-  const deleted: string[] = []
-  for (const file of await readdir(cwd, { withFileTypes: true })) {
-    const parsed = readPhaseFilename(file.name)
-    if (
-      file.isFile() &&
-      parsed?.nameStart === nameStart &&
-      ["audit", "vet", "rebut"].includes(parsed.kind)
-    ) {
-      await unlink(join(cwd, file.name))
-      deleted.push(file.name)
-    }
-  }
-  return deleted
+export function planRoundFile(stem: string, name: string): boolean {
+  const prefix = escapedPattern(stem)
+  const target = `${prefix}-(?:${planTargetRole.planning}|${planTargetRole.implementation}-\\d{2,}\\.\\.\\d{2,})`
+  const phase = readPhaseFilename(name)
+  if (phase !== null)
+    return new RegExp(`^${target}-\\d{2,}$`).test(phase.nameStart)
+  return new RegExp(
+    `^(?:${[
+      `${target}-\\d{2,}-0-(?:claim|settle|reopen)\\.md`,
+      `${target}-queue\\.md`,
+      `${prefix}-impl-\\d{2,}-implement(?:\\.log|-ruling\\.${tagPattern}\\.md)`,
+      `${prefix}-close\\.${tagPattern}\\.log`,
+      `${prefix}-handoff\\.[0-9a-f]{6,}\\.md`,
+      `${prefix}-yield-\\d-[a-z]+\\.${tagPattern}\\.md`,
+    ].join("|")})$`,
+  ).test(name)
 }
 
 /** The bounded label that owns one commit series and its retained evidence. */

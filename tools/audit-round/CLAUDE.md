@@ -44,8 +44,8 @@ consumers.
   commit hook refuses a commit while that value is non-empty, and the coordinator refuses a finished
   fix while any remain. A missing or empty ruling fails the fix with its recovery session. The same
   fix session resumes in the background with that reply. Further open decisions repeat this route
-  and ask only for the findings still without winners. A completed fix follows the same report
-  deletion, commit checks and watch as an uninterrupted fix. Ending the wait with Ctrl-C retains the
+  and ask only for the findings still without winners. A completed fix follows the same commit
+  checks and watch as an uninterrupted fix. Ending the wait with Ctrl-C retains the
   round files and ends the auditor sequence. An open serious contest or split prints a runner
   recovery command. That route reloads the in-progress round, stored winners and the fix session,
   then re-enters this same loop. It appends the retained log and transcript. A submitted reply lets
@@ -89,15 +89,18 @@ consumers.
   subject carries its stem, because another plan's round may land in the same checkout while the fix
   runs. A plan target fails when a finished fix landed no commit. A commit target may land nothing,
   and a finished clean commit entry settles the runner's read without a landed record. Reader
-  failures retain the owning phase and its session for recovery. The coordinator deletes the report
-  set after these checks. Other outcomes retain the set. `runClose` runs the loop-close phase alone
+  failures retain the owning phase and its session for recovery. The coordinator deletes no round
+  file: every outcome keeps the report set until the close moves it. `runClose` runs the loop-close phase alone
   on its own settings. It passes the active plan, the capability tag and model record its commits
   carry, the open deferrals resolved before assistant startup and any abort reason. A finished close
   that left its plan in the active folder fails, because the move is the close. After that check the
   runner itself moves the plan's round-data files beside the archived plan and commits them through
   `lifecycle.ts`, as a second `<stem>/closed` record with the same tag and model record. The session
   does not move them, because the runner cannot see whether a session remembered them. A plan with
-  no round data commits nothing. The printed `Committed` line names that commit.
+  no round data commits nothing. The printed `Committed` line names that commit. The runner then
+  moves the plan's other round files, the close log included, into the plan's own folder of the
+  evidence checkout through `evidence.ts`, and prints how many it moved. An aborted close moves the
+  same files.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
@@ -622,7 +625,8 @@ consumers.
   end can be reached. The rule against skipped lines shortens a page step, because the library's
   page length does not count the lines the headings cover.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
-  document resolution and report deletion for both entry routes. A plan target's name carries
+  document resolution and the match of one plan's round files for both entry routes. It also names
+  the step log, the step ruling and the close log. A plan target's name carries
   `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>`
   commit roles. A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
   `Implementation audit of <plan>, steps 1-6`. It derives each commit group label from its original
@@ -636,24 +640,33 @@ consumers.
   eligible document in the round folder: any assistant's audit for vet, the current assistant's
   audit for rebuttal or either assistant's audit for fix. The rebuttal and the fix receive every vet
   twin of the round in file-name order, and the fix the newest rebuttal unless one is selected.
-  `recoveryRoundPaths` resolves the same set for `resume-fix`. `deleteRoundReports` deletes only
-  audit, vet and rebuttal files for that exact round, using recorded filenames without consulting
-  model settings, and returns their names. Round data does not participate in numbered allocation.
+  `recoveryRoundPaths` resolves the same set for `resume-fix`. `planRoundFile` says whether a file
+  in the round folder belongs to one plan: a claim, marker, phase file or queue of its plan or
+  implementation audits, a step log or step ruling, a close log, a handoff or a yield report. Each
+  form is read whole past the stem, never as a bare `<stem>-` prefix, so a plan whose stem extends
+  this one never matches. The plan's round data is not among them, because the close archives it
+  beside the plan. Round data does not participate in numbered allocation.
   `queueFile` names a manual series' `<target>-queue.md` beside its rounds. It carries no round
   number because it belongs to the whole sequence: one path stays valid across rounds, so an editor
   holding it open keeps editing the file the runner reads.
-- `evidence.ts` owns the evidence commit. It stages every uncommitted file in the evidence checkout
+- `evidence.ts` owns the two writes that change the evidence checkout: the evidence commit and the
+  close move. The commit stages every uncommitted file in the evidence checkout
   and commits it under a plain subject that names the runner command, with hooks disabled and no
   capability tag or model record, because nothing reads that log as a trajectory. A checkout with
   nothing staged gets no commit. A failure returns its reason instead of throwing, because the
   files stay in place and the next commit takes them. `command.ts` calls it at two moments. Every
   command that may write a round file commits once it ends, after its run files close and whatever
   its outcome: the run, `round`, `implement`, `close`, `resume-fix`, `name`, `mark`, `settle`,
-  `disprove` and `delete-reports`. The other commands write nothing there, so a hand-run session's
+  and `disprove`. The other commands write nothing there, so a hand-run session's
   file waits for the next of these. Before each ruling wait, the shared wait commits too, because
   a further open decision replaces the ruling in the same file and the commit keeps every version.
   A failed commit prints one warning, on the round's output before a wait and on the error channel
-  at the end, and leaves the command's exit code as it was.
+  at the end, and leaves the command's exit code as it was. The close move takes every file of the
+  closed plan that `planRoundFile` matches from the round folder into the plan's own folder of the
+  evidence checkout, `plan-evidence/<stem>/`, so the round folder lists live work only. A file of the
+  same name there is replaced, because every earlier file is already in Git. The close log may still
+  be open; a rename keeps its open handle on the moved file, so its last lines land there. The
+  command's evidence commit takes the move.
 - `context.ts` resolves the installed Repo Edu checkout and its two siblings: the plan checkout with
   its `active/` folder, which holds every active plan and its briefs, and the evidence checkout
   `plan-evidence` with its `active/` folder, the round folder. A missing evidence checkout or round
@@ -724,13 +737,12 @@ consumers.
   round or series on a target. A run option given before a subcommand is refused, because the run
   owns it and no subcommand reads it; options go after the subcommand. Its subcommands are `models`,
   `replay`, `disprove`, `settle`, `ready`, `implement`, `close`, `round`, `plan`, `name`, `paths`,
-  `resume-fix`, `delete-reports`, `mark`, `episode`, `deferrals`, `ruling` and `answer`. Help lists
+  `resume-fix`, `mark`, `episode`, `deferrals`, `ruling` and `answer`. Help lists
   the run, `round`, `models`, `replay`, `disprove`, `settle`, `ready`, `implement`, `close` and
   `plan`, the commands a user runs. `models` reads its retained data and `coders`
   before assistant startup or release resolution. `replay` reads the retained plan-series answers
   and every active commit-series answer. It applies the same fixed decision function without
-  starting an assistant. The hand-run launchers call `name`, `paths`, `delete-reports`, `episode`
-  and `deferrals`, the `/ruling` chat calls `ruling` and `answer`, and the reopen step calls `mark`,
+  starting an assistant. The hand-run launchers call `name`, `paths`, `episode` and `deferrals`, the `/ruling` chat calls `ruling` and `answer`, and the reopen step calls `mark`,
   so help hides them. `ruling [target]` prints what the waiting run asks and the answer form.
   `answer [target] <file>` carries one JSON answer document to the waiting run, prints its reply and
   exits 1 on a refusal. Both start no assistant, read no settings and write no file. The printed
@@ -749,9 +761,7 @@ consumers.
   `--auditor` is the hand-run session's full tag, including `u`, checked separately from a round's
   model request. The `paths` command prints the workflow, working checkout and argument paths for an
   existing report as a JSON object. It reads the report opening's named workflow to select its kind.
-  Both commands bypass assistant startup and release resolution; `paths` writes nothing. The
-  `delete-reports` command uses the same deletion function as the coordinator and starts no
-  assistant or release resolution. `disprove` resolves one active or archived plan's round data,
+  Both commands bypass assistant startup and release resolution; `paths` writes nothing. `disprove` resolves one active or archived plan's round data,
   checks an attached finding or records the manually named auditor of a detached finding, writes
   through the shared atomic writer and commits only an archived file. `--vet` requires at least one
   non-Accept vet verdict on the attached finding and is refused beside `--by`. It starts no
@@ -930,7 +940,7 @@ named auditor model and effort. An attached entry without a side predates the fi
 the finding. Each phase carries the model and effort the tool reported and the launched selection
 the settings named. The writer publishes a complete replacement through a temporary file. Loop-close
 moves existing files beside the archived plan. A commit file stays beside its round files in the
-round folder until those files are removed by hand. The replay reads it. Plan readers and the model
+round folder for good, because a commit target has no close. The replay reads it. Plan readers and the model
 read-out ignore it. These are machine artifacts and are never edited by hand.
 
 The implement command retains one log and one possible ruling in the round
@@ -1044,16 +1054,16 @@ without writing anything.
 
 ## Report lifecycle
 
-A finished fix causes the coordinator to delete that round's audit, vet and
-rebuttal files after it validates the landed records. Other outcomes retain
-them. `delete-reports <target>-<round>` gives a hand-run completion the same
-deletion owner. It uses the filename parser, lists each deletion and fails when
-no report matches. Claims, markers, transcripts, logs, retained round data,
-rulings, watches and other rounds remain.
+Nothing deletes a round's files. A round's audit, vet and rebuttal reports stay
+in the round folder after a finished fix, a failure, a ruling or a clean audit,
+and a hand-run round keeps its reports the same way. The evidence commit puts
+each of them in Git within one command of its writing.
 
 A clean plan-target audit lands its record through `clean.ts` and retains the
-report. A clean commit target lands no record. Loop-close separately archives
-the plan and removes its sidecars under the plan repo workflow.
+report. A clean commit target lands no record. Loop-close moves every round
+file of the plan into the plan's own folder of the evidence checkout under
+`evidence.ts`, after the round data has gone beside the archived plan. A commit
+series has no close, so its files stay in the round folder for good.
 
 ## Commands
 
@@ -1203,7 +1213,6 @@ pnpm audit-round paths vet example-impl-audit-03..03-01-2-audit.oth.md --writer 
 pnpm audit-round paths rebut example-impl-audit-03..03-01-2-audit.oth.md --writer otm
 pnpm audit-round paths fix example-impl-audit-03..03-01-2-audit.oth.md
 pnpm audit-round resume-fix example-impl-audit-03..03-01-2-audit.oth.md <session-id>
-pnpm audit-round delete-reports example-impl-audit-03..03-01
 pnpm audit-round mark reopen
 pnpm audit-round episode example --lines 1-200
 pnpm audit-round episode HEAD-2 --lines 201-400
@@ -1365,15 +1374,17 @@ plan's stem, or the plan `plan` prints when none is named, and refuses an archiv
 closed. Without `--aborted` it also refuses a plan whose stem scan holds no `ready` marker, before
 any assistant starts, because the unmarked archive form records shipped work. `--aborted <reason>`
 archives an episode that never shipped and passes the reason for its README. One session, on the
-`close` settings, moves the plan, rewrites the links to it, writes each repo's `closed` commit and
-deletes the topic's sidecars. It works in the plan checkout and writes only `<stem>-close.<tag>.log`
-beside the round folder's other runner files. Once the session has moved the plan, the runner moves
-the plan's round-data files into the same archive folder and commits them as its own `<stem>/closed`
-record, so the files never depend on the session remembering them. A close named for a plan already
-under `archive/` whose round data still sits in the round folder does only that move and starts no
+`close` settings, moves the plan, rewrites the links to it and writes each repo's `closed` commit.
+It deletes nothing. It works in the plan checkout and writes only `<stem>-close.<tag>.log` beside the
+round folder's other runner files. Once the session has moved the plan, the runner moves the plan's
+round-data files into the same archive folder and commits them as its own `<stem>/closed` record,
+so the files never depend on the session remembering them. It then moves every other round file of
+the plan, reports, handoffs and the close log included, into `plan-evidence/<stem>/`, and the
+command's evidence commit takes the move. A close named for a plan already under `archive/` whose
+round data or round files still sit in the round folder does only those moves and starts no
 session: a resumed close session moved the plan without the runner there, so the rerun finishes the
-close. It stamps the commit from the close selection alone. Without such leftover data an archived
-plan is refused as already closed. The runner resolves the plan's
+close. It stamps the round-data commit from the close selection alone. Without such leftover files
+an archived plan is refused as already closed. The runner resolves the plan's
 open deferrals before the session starts and supplies them in its phase arguments. Where close would
 need the user's answer, including permission to archive with an open deferral, it fails with the
 question, and its printed resume command continues that session.
@@ -1382,10 +1393,6 @@ question, and its printed resume command continues that session.
 same default plan as close when the stem is omitted. It starts no assistant, performs no release
 resolution and writes nothing. The command is hidden because only the hand-run implementation
 audit workflow needs the list before its session starts.
-
-`delete-reports` deletes the audit and twins for its exact target and round in the
-round folder and lists each deleted file. It fails when no report matches. Claims, markers and
-runner documents remain.
 
 `ruling [target]` and `answer [target] <file>` are the `/ruling` chat's two carriers to a run that
 waits for a ruling, as `ruling-wait.ts` owns them. The chat follows

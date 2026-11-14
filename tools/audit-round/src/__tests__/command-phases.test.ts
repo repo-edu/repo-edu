@@ -188,13 +188,12 @@ for (const auditor of ["claude", "codex"] as const) {
             .every((call) => call.args.includes("--approve-for-me")),
         )
         const { log, markdown } = await f.records()
+        // A finished fix and a ruling both keep the round's reports.
         for (const path of [f.report, f.vet, f.rebut]) {
-          if (ruling) {
-            const text = await readFile(path, "utf8")
-            assert.ok(text.length > 0)
-            assert.doesNotMatch(text, /PHASE RESULT:/)
-            assert.ok(markdown.includes(text.trimEnd()))
-          } else await assert.rejects(readFile(path), { code: "ENOENT" })
+          const text = await readFile(path, "utf8")
+          assert.ok(text.length > 0)
+          assert.doesNotMatch(text, /PHASE RESULT:/)
+          assert.ok(markdown.includes(text.trimEnd()))
         }
         const visible = f.visible.join("\n")
         assert.doesNotMatch(visible, /PHASE RESULT:/)

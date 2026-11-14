@@ -25,7 +25,13 @@ import {
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { readLog } from "./episode-log.js"
-import { commitEvidence, evidenceFailureText } from "./evidence.js"
+import {
+  closedRoundFilesText,
+  commitEvidence,
+  evidenceFailureText,
+  moveClosedRoundFiles,
+  planRoundFiles,
+} from "./evidence.js"
 import { errorMessage, observedOutput } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import {
@@ -110,7 +116,6 @@ import {
 } from "./round-data.js"
 import {
   commitTargetLabel,
-  deleteRoundReports,
   type ManualPhase,
   type MarkerKind,
   manualPhasePaths,
@@ -210,7 +215,6 @@ type Invocation =
       readonly sessionId: string
       readonly verbose?: boolean
     }
-  | { readonly kind: "delete-reports"; readonly nameStart: string }
   | {
       readonly kind: "ruling"
       /** Absent when the command takes the one run that waits. */
@@ -289,7 +293,6 @@ const roundFileWriters: ReadonlySet<Invocation["kind"]> = new Set([
   "mark",
   "settle",
   "disprove",
-  "delete-reports",
 ])
 
 /** The round options one series reads; the run supplies the defaults alone. */
@@ -1082,25 +1085,6 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       invocation = { kind: "plan" }
     })
   command
-    .command("delete-reports", { hidden: true })
-    .description(
-      "Delete one round's audit, vet and rebuttal reports in the active folder and list them.",
-    )
-    .argument(
-      "<target-round>",
-      "exact target and round, such as example-impl-audit-02..02-01",
-      (value: string) => {
-        if (!/^[^/]+-\d{2,}$/.test(value))
-          throw new InvalidArgumentError(
-            "Expected a target and round, such as example-impl-audit-02..02-01.",
-          )
-        return value
-      },
-    )
-    .action((nameStart: string) => {
-      invocation = { kind: "delete-reports", nameStart }
-    })
-  command
     .command("mark", { hidden: true })
     .description(
       "Claim the plan's next round number for an empty reopen marker and print its path.",
@@ -1199,9 +1183,10 @@ async function closePlan(
 
 /**
  * A close of an active plan runs the close session. A close of a plan already
- * under `archive/` whose round data still sits in `active/` has one thing left
- * to do: a resumed close session moved the plan without the runner there to
- * move the data, so the rerun finishes that move and starts no session.
+ * under `archive/` whose round data or round files still sit in the round
+ * folder has one thing left to do: a resumed close session moved the plan
+ * without the runner there to move them, so the rerun finishes those moves
+ * and starts no session.
  */
 async function preparedClose(
   context: ExecutionContext,
@@ -1212,7 +1197,8 @@ async function preparedClose(
     const stem = planStem(invocation.stem)
     if (
       (await activePlan(context.activeRoot, stem)) === null &&
-      (await activeRoundData(context, stem)).length > 0 &&
+      ((await activeRoundData(context, stem)).length > 0 ||
+        (await planRoundFiles(context.roundRoot, stem)).length > 0) &&
       (await archivedPlans(context.planRoot, stem)).length > 0
     )
       return { ...invocation, leftover: stem }
@@ -1509,20 +1495,6 @@ export async function runCommand(
       options.terminal.write(sent.text)
       return sent.accepted ? 0 : 1
     }
-    if (invocation.kind === "delete-reports") {
-      const deleted = await deleteRoundReports(
-        context.roundRoot,
-        invocation.nameStart,
-      )
-      if (deleted.length === 0)
-        throw new Error(
-          `No audit, vet or rebuttal report of ${invocation.nameStart} at ${context.roundRoot}.`,
-        )
-      options.terminal.write(
-        deleted.map((name) => `Deleted ${name}`).join("\n"),
-      )
-      return 0
-    }
     if (invocation.kind === "mark") {
       let plan: string
       if (invocation.stem === undefined) plan = await defaultPlan(context)
@@ -1755,7 +1727,6 @@ export async function runCommand(
         writeWatchDocument: async (file, document) =>
           writeFile(file, `${document}\n`, "utf8"),
         writeWatchRecord,
-        deleteRoundReports,
         checkFile: async (file) => {
           if (!(await readFile(file, "utf8")).trim())
             throw new Error(`Phase output is empty: ${file}`)
@@ -1790,6 +1761,8 @@ export async function runCommand(
         },
         archiveRoundData: (stem, tag, record) =>
           archiveRoundData(context, stem, tag, record),
+        moveRoundFiles: (stem) =>
+          moveClosedRoundFiles(context.evidenceRoot, context.roundRoot, stem),
         readRecords: async (cwd, before, repository) => {
           const { stdout } = await execa(
             "git",
@@ -2130,10 +2103,18 @@ export async function runCommand(
           tag,
           record,
         )
+        const moved = await moveClosedRoundFiles(
+          context.evidenceRoot,
+          context.roundRoot,
+          close.leftover,
+        )
         options.terminal.write(
-          commit === null
-            ? `No round data of ${close.leftover} is left in ${context.roundRoot}.`
-            : `Committed ${commit.sha}: ${commit.subject}`,
+          [
+            commit === null
+              ? `No round data of ${close.leftover} is left in ${context.roundRoot}.`
+              : `Committed ${commit.sha}: ${commit.subject}`,
+            closedRoundFilesText(close.leftover, moved),
+          ].join("\n"),
         )
         code = 0
         return "finished"
@@ -2154,10 +2135,15 @@ export async function runCommand(
         settings,
       )
       result = closed
-      if (closed.status === "finished" && closed.archived !== null)
+      if (closed.status === "finished") {
+        if (closed.archived !== null)
+          await active.message(
+            `Committed ${closed.archived.sha}: ${closed.archived.subject}`,
+          )
         await active.message(
-          `Committed ${closed.archived.sha}: ${closed.archived.subject}`,
+          closedRoundFilesText(planStem(close.plan), closed.moved),
         )
+      }
       active.finish(closed, runtime.signal)
       code = exitCode(closed)
       return closed.status

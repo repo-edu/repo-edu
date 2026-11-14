@@ -419,10 +419,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     /Omitted +round alone, or with options only, takes the active plan/,
   )
   // Hand-run launchers call the housekeeping commands; help shows what a user runs.
-  assert.doesNotMatch(
-    visible,
-    /^\s+(name|paths|episode|deferrals|delete-reports)\s/m,
-  )
+  assert.doesNotMatch(visible, /^\s+(name|paths|episode|deferrals)\s/m)
   for (const name of [
     "models",
     "replay",

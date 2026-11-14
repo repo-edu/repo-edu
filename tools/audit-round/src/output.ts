@@ -64,6 +64,7 @@ import {
   writeRoundData,
 } from "./round-data.js"
 import {
+  closeLogFilename,
   documentTag,
   type FileKind,
   phaseFilename,
@@ -535,7 +536,7 @@ export async function closeRun(
     releases,
     paths: {
       claim: null,
-      log: join(roots.roundRoot, `${planStem(plan)}-close.${tag}.log`),
+      log: join(roots.roundRoot, closeLogFilename(planStem(plan), tag)),
       markdown: null,
       reopenLog: false,
     },

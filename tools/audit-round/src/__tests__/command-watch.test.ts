@@ -231,7 +231,7 @@ test("a compacted watch publishes neither its document nor cadence record", asyn
 })
 
 for (const target of ["implementation", "planning", "commits"] as const) {
-  test(`${target} rounds complete and delete their reports while the watch still runs`, async (t) => {
+  test(`${target} rounds complete and keep their reports while the watch still runs`, async (t) => {
     const working = target === "planning" ? "plan" : "repo-edu"
     const f = await roundFixture(
       t,
@@ -264,11 +264,13 @@ for (const target of ["implementation", "planning", "commits"] as const) {
       assert.match(visible, /Auditor sequence stopped: the watch graded red\./)
       assert.equal(visible.match(/\[watch\] finished/g)?.length, 1)
     }
+    // A finished fix deletes nothing: the reports stay until the close.
     const files = await readdir(f.roundRoot)
-    assert.equal(
-      files.some((name) => /-[123]-(audit|vet|rebut)\./.test(name)),
-      false,
-    )
+    for (const kind of ["2-audit", "3-vet", "4-rebut"])
+      assert.ok(
+        files.some((name) => name.includes(`-01-${kind}.`)),
+        `${kind} in ${files.join(", ")}`,
+      )
     for (const name of await f.roundFiles()) {
       const text = await readFile(join(f.roundRoot, name), "utf8")
       assert.match(text, /## fix|\[fix\] finished/)

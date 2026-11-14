@@ -149,8 +149,7 @@ round's file set still asks.
 
 After all required corrections, checks and records are complete, follow the
 plan doctrine's [Handoff](../../../../../plan/CLAUDE.md#handoff), then the
-runner's [Report lifecycle](../../../../tools/audit-round/CLAUDE.md#report-lifecycle)
-and the shared protocol's **Runner result**.
+shared protocol's **Runner result**. The round's reports stay where they are.
 
 ## Closing the episode
 
