@@ -6,6 +6,7 @@ import type { TestContext } from "node:test"
 import { execa } from "execa"
 import type { Assistant } from "../phase.js"
 import {
+  evidenceRepository,
   fixture,
   phaseStream,
   recorded,
@@ -163,6 +164,7 @@ Audit ranges: 1.
   // Every round file lands in the evidence checkout's round folder.
   await mkdir(join(f.root, "plan-evidence/active"), { recursive: true })
   const evidenceRoot = await realpath(join(f.root, "plan-evidence"))
+  await evidenceRepository(evidenceRoot)
   const roundRoot = join(evidenceRoot, "active")
   const outputRoot = roundRoot
   const recordHeads = {

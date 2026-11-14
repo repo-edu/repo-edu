@@ -81,6 +81,14 @@ yield reports. Round transcripts and logs, implementation logs, briefs, rulings,
 close log stay in `../plan-evidence/active/`. Commit series data stays there beside its round files
 until those files are removed by hand.
 
+## Commits
+
+The evidence checkout is a private Git repository. Every runner command that may write a round file
+commits all of its uncommitted files when it ends, whatever the outcome, and a round also commits
+just before it waits for your ruling. A file you or a hand-run session writes there is committed by
+the next such command. Use `git log` in `../plan-evidence/` to read an earlier version, such as a
+ruling the same fix later replaced. You push the repository yourself.
+
 ## Handoffs
 
 `<stem>-handoff.<sha>.md` is a short-lived brief for the next round, keyed to the six-character

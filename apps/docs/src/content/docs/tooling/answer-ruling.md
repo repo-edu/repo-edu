@@ -89,4 +89,5 @@ the runner can read Git and continue. See [Recover a run](/repo-edu/tooling/reco
 
 An audit fix writes `<target>-<round>-7-ruling.<tag>.md` in `../plan-evidence/active/`. An
 implementation worker writes `<stem>-impl-<step>-implement-ruling.<tag>.md`. The file is replaced
-when the same session needs another decision and remains after the work finishes.
+when the same session needs another decision and remains after the work finishes. The runner
+commits the evidence repository before each wait, so its Git log keeps every version.

@@ -11,6 +11,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { TestContext } from "node:test"
 import { fileURLToPath } from "node:url"
+import { execa } from "execa"
 import type { AssistantRuntime } from "../assistant.js"
 import {
   type Feedback,
@@ -235,6 +236,39 @@ export async function shortCacheRoot(t: TestContext): Promise<string> {
   return root
 }
 
+/**
+ * Make the evidence checkout a Git repository, as the real one is, so every
+ * command that writes a round file commits it there.
+ */
+export async function evidenceRepository(root: string): Promise<void> {
+  await execa("git", ["init", "--quiet"], { cwd: root })
+  for (const [key, value] of Object.entries({
+    "user.name": "Test",
+    "user.email": "test@example.test",
+    "commit.gpgsign": "false",
+  }))
+    await execa("git", ["config", key, value], { cwd: root })
+}
+
+/** The evidence checkout's commit subjects, newest first. */
+export async function evidenceSubjects(root: string): Promise<string[]> {
+  const { stdout, exitCode } = await execa("git", ["log", "--format=%s"], {
+    cwd: root,
+    reject: false,
+  })
+  return exitCode === 0 && stdout.length > 0 ? stdout.split("\n") : []
+}
+
+/** The evidence checkout's uncommitted paths, as `git status` lists them. */
+export async function evidencePending(root: string): Promise<string[]> {
+  const { stdout } = await execa(
+    "git",
+    ["status", "--porcelain", "--untracked-files=all"],
+    { cwd: root },
+  )
+  return stdout.length === 0 ? [] : stdout.split("\n")
+}
+
 export async function fixture(
   t: TestContext,
   scenario: Record<string, unknown> = {},
@@ -250,6 +284,7 @@ export async function fixture(
   await mkdir(root)
   await mkdir(join(directory, "plan/active"), { recursive: true })
   await mkdir(join(directory, "plan-evidence/active"), { recursive: true })
+  await evidenceRepository(join(directory, "plan-evidence"))
   await writePhaseInstructions(root, join(directory, "plan"))
   await writeFile(join(root, "scenario.json"), JSON.stringify(scenario))
   const executable = (assistant: Assistant) => ({

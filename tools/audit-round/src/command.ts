@@ -25,6 +25,7 @@ import {
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { readLog } from "./episode-log.js"
+import { commitEvidence, evidenceFailureText } from "./evidence.js"
 import { errorMessage, observedOutput } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import {
@@ -272,6 +273,24 @@ type Invocation =
       /** A failed worker's step and session, which this entry resumes. */
       readonly resume?: WorkerResume
     }
+
+/**
+ * The commands that may write a round file. Each ends with an evidence commit;
+ * the others write nothing there and leave a hand-run session's files for the
+ * next of these.
+ */
+const roundFileWriters: ReadonlySet<Invocation["kind"]> = new Set([
+  "run",
+  "round",
+  "implement",
+  "close",
+  "resume-fix",
+  "name",
+  "mark",
+  "settle",
+  "disprove",
+  "delete-reports",
+])
 
 /** The round options one series reads; the run supplies the defaults alone. */
 type SeriesOptions = Pick<
@@ -1372,11 +1391,15 @@ export async function runCommand(
   let output: RoundOutput | undefined
   let result: RoundResult | CloseResult | undefined
   let code = 1
+  /** Set once the context resolves, so the command's evidence commit knows its checkout. */
+  let evidenceRoot: string | undefined
+  const commandText = shellJoin(["audit-round", ...argv])
   /** A finished or interrupted outcome exits clean; only a failure exits 1. */
   const exitCode = (outcome: { readonly status: string }): number =>
     outcome.status === "failed" ? 1 : 0
   try {
     const context = await executionContext(options.repoEduRoot)
+    evidenceRoot = context.evidenceRoot
     if (invocation.kind === "episode") {
       const { evidence } = await readWatchEvidence({
         ...context,
@@ -1689,6 +1712,14 @@ export async function runCommand(
               signal: runtime.signal,
             }).then((wait) => () => wait.answer)
           : () => seam(ruling)
+      // A later ruling of the same session replaces this file, so Git keeps
+      // each version before the user is asked.
+      const evidence = await commitEvidence(
+        context.evidenceRoot,
+        `${commandText}: before the ruling wait of ${active.title}`,
+      )
+      if (evidence.status === "failed")
+        await active.message(evidenceFailureText(evidence))
       let answer: RulingInput | null = null
       active.beginRuling(ruling)
       try {
@@ -2770,6 +2801,12 @@ export async function runCommand(
         `audit-round: closing run files failed: ${errorMessage(error)}`,
       )
       code = 1
+    }
+    // After the run files close, so the commit takes their last lines.
+    if (evidenceRoot !== undefined && roundFileWriters.has(invocation.kind)) {
+      const evidence = await commitEvidence(evidenceRoot, commandText)
+      if (evidence.status === "failed")
+        options.emergency(evidenceFailureText(evidence))
     }
   }
   return code

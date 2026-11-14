@@ -642,6 +642,18 @@ consumers.
   `queueFile` names a manual series' `<target>-queue.md` beside its rounds. It carries no round
   number because it belongs to the whole sequence: one path stays valid across rounds, so an editor
   holding it open keeps editing the file the runner reads.
+- `evidence.ts` owns the evidence commit. It stages every uncommitted file in the evidence checkout
+  and commits it under a plain subject that names the runner command, with hooks disabled and no
+  capability tag or model record, because nothing reads that log as a trajectory. A checkout with
+  nothing staged gets no commit. A failure returns its reason instead of throwing, because the
+  files stay in place and the next commit takes them. `command.ts` calls it at two moments. Every
+  command that may write a round file commits once it ends, after its run files close and whatever
+  its outcome: the run, `round`, `implement`, `close`, `resume-fix`, `name`, `mark`, `settle`,
+  `disprove` and `delete-reports`. The other commands write nothing there, so a hand-run session's
+  file waits for the next of these. Before each ruling wait, the shared wait commits too, because
+  a further open decision replaces the ruling in the same file and the commit keeps every version.
+  A failed commit prints one warning, on the round's output before a wait and on the error channel
+  at the end, and leaves the command's exit code as it was.
 - `context.ts` resolves the installed Repo Edu checkout and its two siblings: the plan checkout with
   its `active/` folder, which holds every active plan and its briefs, and the evidence checkout
   `plan-evidence` with its `active/` folder, the round folder. A missing evidence checkout or round
@@ -860,7 +872,10 @@ adapters independent of the product LLM adapters.
 round folder, the `active/` folder of the private evidence checkout
 `plan-evidence` beside the plan and Repo Edu checkouts. Plans and their briefs
 stay in the plan checkout's `active/` folder; no code needs a plan and a round
-file in one folder. Round files use
+file in one folder. The evidence checkout is a Git repository. The runner
+commits it at the end of every command that may write a round file and before
+each ruling wait, under `evidence.ts`, so every round file is in Git within one
+command of being written. Round files use
 `<target>-<round>-<order>-<kind>.<tag>.<ext>`. Markdown documents use `.md`;
 the transcript's log uses `.log`. Five forms omit the tag:
 the number claim, the settle and reopen markers, the handoff and the
@@ -1134,10 +1149,10 @@ generation and validation separately.
 
 ### Invocation
 
-Run from either checkout with authenticated `claude` and `codex`
-commands available and the evidence checkout `plan-evidence` beside both, holding its `active/`
-round folder. Terminal Markdown rendering is bundled with the runner and needs no separate
-executable. Set `NO_COLOR=1` to disable colour. Redirected output retains the original Markdown.
+Run from either checkout with authenticated `claude` and `codex` commands available and the evidence
+checkout `plan-evidence` beside both, a Git repository holding its `active/` round folder. Terminal
+Markdown rendering is bundled with the runner and needs no separate executable. Set `NO_COLOR=1` to
+disable colour. Redirected output retains the original Markdown.
 
 On macOS `main.ts` starts `caffeinate -i -w <runner pid>` before any command runs, because an
 unattended run otherwise stops once the display sleeps on battery and no app holds the Mac awake.
