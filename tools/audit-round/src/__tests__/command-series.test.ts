@@ -252,6 +252,140 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
   assert.equal(markdown.match(/^Started /gm)?.length, 2)
 })
 
+test("a stopped panel split resumes its fix with every vet report and each vet's retained phase", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  const settings = structuredClone(testSettings)
+  settings.implementation.vetters = [
+    { assistant: "claude", model: "opus", effort: "high" },
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ]
+  const options = { ...f.options, settings }
+  // Claude accepts the B finding and Codex, on the auditor's own model,
+  // drops it, so the panel splits and the finding goes to the user.
+  await f.configure({
+    phases: {
+      ...f.phases,
+      vet: {
+        ...(f.phases.vet as Record<string, unknown>),
+        documents: {
+          claude: { text: "1. [B] Accept\n" },
+          codex: { text: "1. [B] Drop\n\nThe contract already holds.\n" },
+        },
+      },
+      rebut: {
+        ...(f.phases.rebut as Record<string, unknown>),
+        document: { text: "1. [B] [obh] Contest\n\nThe contract is unmet.\n" },
+      },
+    },
+  })
+  assert.equal(
+    await runCommand(
+      ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
+      f.runtime,
+      options,
+    ),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const report = f.report
+  const vets = ["abh", "obh"].map((tag) =>
+    report.replace(/-2-audit\.[a-z]{3}\.md$/, `-3-vet.${tag}.md`),
+  )
+  for (const vet of vets) assert.ok((await readFile(vet, "utf8")).length > 0)
+  assert.match(
+    f.visible.join("\n"),
+    new RegExp(
+      `pnpm audit-round resume-fix ${basename(report).replaceAll(".", "\\.")} fix-session`,
+    ),
+  )
+  const priorPrompts = (await f.prompts()).length
+  const stream = await phaseStream(
+    "codex",
+    'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+    "fix-session",
+  )
+  await f.configure({
+    phases: {
+      ...f.phases,
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        stream,
+        assistants: { codex: { stream } },
+        commits: [
+          {
+            cwd: f.repoRoot,
+            subject:
+              "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
+            body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+          },
+        ],
+      },
+    },
+  })
+
+  assert.equal(
+    await runCommand(
+      ["resume-fix", basename(report), "fix-session"],
+      f.runtime,
+      {
+        ...options,
+        awaitAnswer: async (ruling) => {
+          assert.deepEqual(ruling.findings, [1])
+          assert.deepEqual(ruling.panel, ["abh", "obh"])
+          return {
+            rulings: [
+              {
+                finding: 1,
+                winner: ["abh"],
+                reason: "The finding holds as written.",
+              },
+            ],
+            reply: "",
+          }
+        },
+      },
+    ),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const resumed = (await f.prompts())
+    .slice(priorPrompts)
+    .filter((call) => call.prompt.startsWith("Run the fix phase "))
+  assert.equal(resumed.length, 1)
+  for (const vet of vets) assert.ok(resumed[0]?.prompt.includes(vet), vet)
+  const stored = JSON.parse(
+    await readFile(join(f.activeRoot, "example-impl-rounds.json"), "utf8"),
+  ) as {
+    rounds: {
+      status: string
+      phases: { phase: string; tag?: string; assistant: string }[]
+      findings: { reviews: unknown[]; ruling?: unknown }[]
+    }[]
+  }
+  assert.equal(stored.rounds.length, 1)
+  assert.equal(stored.rounds[0]?.status, "finished")
+  // The resumed round restored each vet's phase entry by its tag.
+  assert.deepEqual(
+    stored.rounds[0]?.phases
+      .filter((phase) => phase.phase === "vet")
+      .map(({ tag, assistant }) => ({ tag, assistant })),
+    [
+      { tag: "abh", assistant: "claude" },
+      { tag: "obh", assistant: "codex" },
+    ],
+  )
+  assert.deepEqual(stored.rounds[0]?.findings[0]?.reviews, [
+    { vet: "abh", verdict: "accept", answer: null },
+    { vet: "obh", verdict: "drop", answer: "contest" },
+  ])
+  assert.deepEqual(stored.rounds[0]?.findings[0]?.ruling, {
+    winner: ["abh"],
+    reason: "The finding holds as written.",
+  })
+  for (const path of [report, ...vets, f.rebut])
+    await assert.rejects(readFile(path), { code: "ENOENT" })
+})
+
 /** The ruling pause lets a test act as the user editing the queue mid-round. */
 async function finishFixOnReply(
   f: Awaited<ReturnType<typeof roundFixture>>,
@@ -1445,12 +1579,12 @@ test("an automatic series needs a current read from each listed model of one ass
     assert.ok(audits[0].args.includes(argument), audits[0].args.join(" "))
   for (const argument of ["--model", "opus", "--effort", "xhigh"])
     assert.ok(audits[1].args.includes(argument), audits[1].args.join(" "))
-  // The vet stays with the other vendor whichever Claude model audited.
+  // The class's panel vets each round whichever Claude model audited.
   assert.deepEqual(
     prompts
       .filter((call) => call.prompt.startsWith("Run the vet phase "))
       .map((call) => call.assistant),
-    ["codex", "codex"],
+    ["claude", "claude"],
   )
   assert.match(
     f.visible.join("\n"),

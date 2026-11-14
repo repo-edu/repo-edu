@@ -25,7 +25,7 @@ import {
 } from "./default-target.js"
 import { readWatchEvidence } from "./episode.js"
 import { readLog } from "./episode-log.js"
-import { errorMessage } from "./feedback.js"
+import { errorMessage, observedOutput } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
 import {
   type ImplementationResult,
@@ -198,7 +198,6 @@ type Invocation =
       readonly phase: ManualPhase
       readonly input?: string
       readonly writer?: string
-      readonly vet?: string
       readonly rebut?: string
     }
   | {
@@ -774,9 +773,10 @@ Round sequence:
 
   Phases within a round:
     1. Audit     The selected auditor reports findings.
-    2. Vet       The other assistant reviews those findings.
-    3. Rebuttal  The auditor answers the vet's revisions, drops or ruling items.
-                 Skipped if the vet accepts every finding.
+    2. Vet       Every vetter listed for the work class reviews those findings,
+                 side by side, whoever audited.
+    3. Rebuttal  The auditor answers each vet's revisions, drops or ruling items.
+                 Skipped if every vet accepts every finding.
     4. Fix       The assistant set in settings.json fixes the accepted findings.
     5. Watch     The trajectory watch runs when its glance says it is due.
 
@@ -898,20 +898,16 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       "current session's full tag; required except for fix",
       sessionTag,
     )
-    .option("--vet <file>", "select a vet instead of the round's newest")
     .option("--rebut <file>", "select a rebuttal instead of the round's newest")
     .action(
       (
         phase: ManualPhase,
         input: string | undefined,
-        flags: { writer?: string; vet?: string; rebut?: string },
+        flags: { writer?: string; rebut?: string },
       ) => {
-        if (
-          (flags.vet !== undefined && phase !== "rebut" && phase !== "fix") ||
-          (flags.rebut !== undefined && phase !== "fix")
-        )
+        if (flags.rebut !== undefined && phase !== "fix")
           throw new InvalidArgumentError(
-            "Review file selections apply only to phases that read them.",
+            "A rebuttal selection applies only to the fix, which reads it.",
           )
         invocation = { kind: "paths", phase, input, ...flags }
       },
@@ -1994,23 +1990,17 @@ export async function runCommand(
               effort: input.arguments[4],
             }
             let reported = false
-            const phaseOutput = {
-              ...active.phase,
-              observe: async (
-                feedback: Parameters<typeof active.phase.observe>[0],
-              ) => {
-                await active.phase.observe(feedback)
-                if (feedback.type !== "model") return
-                reported = true
-                if (
-                  feedback.selection.model !== expected.model ||
-                  feedback.selection.effort !== expected.effort
+            const phaseOutput = observedOutput(active.phase, (feedback) => {
+              if (feedback.type !== "model") return
+              reported = true
+              if (
+                feedback.selection.model !== expected.model ||
+                feedback.selection.effort !== expected.effort
+              )
+                throw new Error(
+                  `Implement worker reported ${feedback.selection.model} ${feedback.selection.effort ?? "effort unavailable"}; the runner launched ${input.assistant} on ${expected.model} ${expected.effort}.`,
                 )
-                  throw new Error(
-                    `Implement worker reported ${feedback.selection.model} ${feedback.selection.effort ?? "effort unavailable"}; the runner launched ${input.assistant} on ${expected.model} ${expected.effort}.`,
-                  )
-              },
-            }
+            })
             const worker = await runAssistantPhase(input, phaseOutput, {
               ...runtime,
               cwd: implementationSession.cwd,

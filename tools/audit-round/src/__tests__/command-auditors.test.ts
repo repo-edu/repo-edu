@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { openRunFiles } from "../run-files.js"
@@ -156,7 +156,7 @@ for (const auditor of ["codex", "claude"] as const) {
         phases:
           auditor === "codex"
             ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
-            : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
+            : `audit, vet, rebut: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
         auditor: recordedTag(auditor),
       },
     )
@@ -328,11 +328,12 @@ test("auditor lists keep each entry's model and effort independent", async (t) =
         )
     }
   }
+  // The class's panel vets every round, whoever audited it.
   assert.deepEqual(
     prompts
       .filter((call) => call.prompt.startsWith("Run the vet phase "))
       .map((call) => call.assistant),
-    ["codex", "claude", "codex", "claude"],
+    ["claude", "claude", "claude", "claude"],
   )
   assert.equal((await f.roundFiles()).length, 8)
   assert.doesNotMatch(f.visible.join("\n"), /\[glance\]|\[watch\]/)
@@ -532,7 +533,8 @@ for (const auditor of ["codex", "claude"] as const) {
         `commit-${group.commits[0].slice(0, 6)}..${group.commits.at(-1)?.slice(0, 6)}`,
       ),
     )
-    for (const phase of ["audit", "vet", "rebut", "fix"])
+    const vetTag = basename(f.vet).split(".").at(-2)
+    for (const phase of ["audit", `vet ${vetTag}`, "rebut", "fix"])
       assert.ok(log.includes(`[${phase}] finished`))
     assert.doesNotMatch(log, /\[(?:glance|watch)\]|watch +codex|Chained round/)
     const invocations = (await f.calls()).filter(

@@ -16,8 +16,12 @@ import {
 } from "../glance.js"
 import type { SeriesEvidence } from "../judge.js"
 import type { LifecycleCommit } from "../lifecycle.js"
-import { phaseWorkflow, type RulingRequest } from "../phase.js"
-import { openSeriousFindings, seriousFindings } from "../round.js"
+import { panelPhases, phaseWorkflow, type RulingRequest } from "../phase.js"
+import {
+  openSeriousFindings,
+  runRound as runRoundOn,
+  seriousFindings,
+} from "../round.js"
 import type {
   ImplementationRoundData,
   LandedCommit,
@@ -39,10 +43,11 @@ import {
   pinnedCoder,
   type RoundDependencies,
   RoundOutput,
-  type RoundPhase,
+  type RoundPhases,
   runClose,
   runRound as runRoundWithAccount,
   testSettings,
+  testVetter,
 } from "./configured-runner.js"
 import {
   areas,
@@ -137,7 +142,7 @@ const files = {
   watch: { file: watch, cacheRoot },
   documents: {
     report: `${repoRoot}/AUDIT-example.md`,
-    vet: vetReport,
+    vets: [vetReport],
     rebut: "/distinct-twins/REBUT-example.md",
     ruling,
   },
@@ -382,7 +387,7 @@ function controlledRound(
 
 function recoveryPhases(
   calls: readonly PhaseInput[],
-): Pick<Record<RoundPhase, PhaseRun>, "audit" | "vet" | "rebut" | "fix"> {
+): Pick<RoundPhases, "audit" | "vet" | "rebut" | "fix"> {
   const phase = (name: "audit" | "vet" | "rebut" | "fix"): PhaseRun => {
     const input = calls.find((candidate) => candidate.phase === name)
     assert.ok(input)
@@ -390,7 +395,7 @@ function recoveryPhases(
   }
   return {
     audit: phase("audit"),
-    vet: phase("vet"),
+    vet: [phase("vet")],
     rebut: phase("rebut"),
     fix: phase("fix"),
   }
@@ -496,11 +501,19 @@ test("clarification can leave a decision open without creating a new fix session
 })
 
 for (const scenario of [
-  { auditor: "codex", side: "auditor" },
-  { auditor: "claude", side: "vet" },
-  { auditor: "codex", side: "neither", model: "gpt-6-astra" },
+  { name: "auditor", side: "auditor" },
+  {
+    name: "vet",
+    side: { vet: vetTag },
+    fixer: { assistant: "claude", model: "opus", effort: "high" },
+  },
+  {
+    name: "neither",
+    side: "neither",
+    fixer: { assistant: "codex", model: "gpt-6-astra", effort: "high" },
+  },
 ] as const) {
-  test(`a contested B finding names the ${scenario.side} fix model`, async () => {
+  test(`a contested B finding names the ${scenario.name} fix model`, async () => {
     const round = controlledRound()
     round.evidence.rebuttalAnswer = "contest"
     round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
@@ -509,17 +522,10 @@ for (const scenario of [
         ...files,
         plan: "example.md",
         scope: "1",
-        auditor: scenario.auditor,
-        ...(scenario.model === undefined
-          ? {}
-          : {
-              fixer: {
-                assistant: "codex" as const,
-                model: scenario.model,
-                effort: "high" as const,
-              },
-              fixerSource: "test",
-            }),
+        auditor: "codex",
+        ...("fixer" in scenario
+          ? { fixer: scenario.fixer, fixerSource: "test" }
+          : {}),
       },
       round.dependencies,
     )
@@ -535,6 +541,137 @@ for (const scenario of [
     ])
   })
 }
+
+/** A panel of both assistants, each vet named by the tag its report carries. */
+const panelReports = ["abh", "obh"].map(
+  (tag) => `/distinct-twins/example-impl-audit-01..01-01-3-vet.${tag}.md`,
+)
+const panelSettings = (() => {
+  const settings = structuredClone(testSettings)
+  settings.implementation.vetters = [
+    { assistant: "claude", model: "opus", effort: "high" },
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ]
+  return settings
+})()
+
+test("a panel of both assistants vets side by side, and every vet report reaches the rebuttal, the fix and the ruling", async () => {
+  let running = 0
+  let peak = 0
+  const round = controlledRound(async (input) => {
+    if (input.phase !== "vet") return
+    running += 1
+    peak = Math.max(peak, running)
+    await new Promise((resolve) => setImmediate(resolve))
+    running -= 1
+  })
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const result = await runRoundOn(
+    {
+      ...files,
+      documents: { ...files.documents, vets: panelReports },
+      plan: "example.md",
+      scope: "1",
+      // The Claude vet runs on the auditor's own model.
+      auditor: "claude",
+    },
+    {
+      ...round.dependencies,
+      // Claude accepts the B finding and Codex drops it, so the panel splits.
+      readVet: async (vetReport) => ({
+        reviews: [
+          {
+            number: 1,
+            tier: "B",
+            verdict: vetReport === panelReports[0] ? "accept" : "drop",
+          },
+        ],
+        allAccepted: vetReport === panelReports[0],
+      }),
+      readRebuttal: async () => [
+        { number: 1, tier: "B", vet: "obh", answer: "agree" },
+      ],
+    },
+    panelSettings,
+  )
+  assert.equal(result.status, "awaiting-ruling")
+  assert.equal(peak, 2)
+  const vets = round.calls.filter((call) => call.phase === "vet")
+  assert.deepEqual(
+    vets.map(({ assistant, model, arguments: args }) => ({
+      assistant,
+      model,
+      arguments: args,
+    })),
+    panelPhases("implementation", panelSettings).map((run, index) => ({
+      ...run,
+      arguments: [files.documents.report, panelReports[index]],
+    })),
+  )
+  const rebut = round.calls.find((call) => call.phase === "rebut")
+  assert.deepEqual(rebut?.arguments, [
+    files.documents.report,
+    ...panelReports,
+    files.documents.rebut,
+  ])
+  const fix = round.calls.find((call) => call.phase === "fix")
+  assert.deepEqual(fix?.arguments.slice(0, 4), [
+    files.documents.report,
+    ...panelReports,
+    files.documents.rebut,
+  ])
+  assert.deepEqual(round.rulings, [
+    {
+      document: ruling,
+      fixerSide: { vet: "obh" },
+      contests: [1],
+      panel: ["abh", "obh"],
+      judgedRepos: ["repo-edu"],
+    },
+  ])
+})
+
+test("a failed vet of a panel fails the round once every vet has ended", async () => {
+  const round = controlledRound()
+  const failure = {
+    status: "failed",
+    sessionId: "codex-vet-session",
+    reason: "Required work remains blocked by a permission refusal",
+  } as const
+  const result = await runRoundOn(
+    {
+      ...files,
+      documents: { ...files.documents, vets: panelReports },
+      plan: "example.md",
+      scope: "1",
+    },
+    {
+      ...round.dependencies,
+      runPhase: {
+        ...round.dependencies.runPhase,
+        async vet(input) {
+          round.calls.push(input)
+          return input.arguments[1] === panelReports[1]
+            ? failure
+            : round.results.vet
+        },
+      },
+    },
+    panelSettings,
+  )
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    ["audit", "vet", "vet"],
+  )
+  const [, codexVet] = panelPhases("implementation", panelSettings)
+  assert.deepEqual(withoutAccount(result), {
+    ...failure,
+    phase: "vet",
+    ...codexVet,
+    ...testContext(repoRoot),
+    commits: [],
+  })
+})
 
 test("a contested C finding raised to B goes to the user", async () => {
   const round = controlledRound()
@@ -1288,14 +1425,10 @@ function arrange(round: ControlledRound, ending: "ruling" | "watch"): void {
   else round.decide(dueDecision)
 }
 
-/** Which assistant a phase seats, as `roundSeating` decides it. */
-function runner(
-  phase: Phase,
-  auditor: Assistant,
-  vetAssistant: Assistant,
-): Assistant {
+/** Which assistant a phase seats under the test settings. */
+function runner(phase: Phase, auditor: Assistant): Assistant {
   if (phase === "audit" || phase === "rebut") return auditor
-  if (phase === "vet") return vetAssistant
+  if (phase === "vet") return testVetter().assistant
   return "codex"
 }
 
@@ -1311,8 +1444,6 @@ const repoEduDeferrals = [
 ] as const
 
 for (const auditor of ["claude", "codex"] as const) {
-  const vetAssistant: Assistant = auditor === "claude" ? "codex" : "claude"
-
   for (const ownerRoot of [repoRoot, "/workspace/plan"]) {
     test(`${auditor} audit uses the selected workflows at ${ownerRoot}`, async () => {
       const report = files.documents.report
@@ -1358,11 +1489,10 @@ for (const auditor of ["claude", "codex"] as const) {
         },
         {
           phase: "vet",
-          assistant: vetAssistant,
-          model: pinned(vetAssistant),
+          ...testVetter(),
           ...testContext(repoRoot),
           cwd: ownerRoot,
-          arguments: [report, files.documents.vet],
+          arguments: [report, vetReport],
           sessionId: null,
         },
         {
@@ -1371,7 +1501,7 @@ for (const auditor of ["claude", "codex"] as const) {
           model: pinned(auditor),
           ...testContext(repoRoot),
           cwd: ownerRoot,
-          arguments: [report, files.documents.vet, files.documents.rebut],
+          arguments: [report, vetReport, files.documents.rebut],
           sessionId: null,
         },
         {
@@ -1383,7 +1513,7 @@ for (const auditor of ["claude", "codex"] as const) {
           cwd: ownerRoot,
           arguments: [
             report,
-            files.documents.vet,
+            vetReport,
             files.documents.rebut,
             { deferrals: repoEduDeferrals },
           ],
@@ -1478,11 +1608,13 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.deepEqual(result, {
           ...failure,
           phase,
-          assistant: runner(phase, auditor, vetAssistant),
+          assistant: runner(phase, auditor),
           model:
             phase === "fix"
               ? pinnedCoder()
-              : pinned(runner(phase, auditor, vetAssistant)),
+              : phase === "vet"
+                ? testVetter().model
+                : pinned(runner(phase, auditor)),
           ...testContext(repoRoot),
           commits:
             phase === "fix" || phase === "watch"
@@ -2400,7 +2532,7 @@ for (const auditor of ["claude", "codex"] as const) {
       assistant: "codex",
       model: pinnedCoder(),
       ...testContext(repoRoot),
-      arguments: [report, files.documents.vet],
+      arguments: [report, vetReport],
       sessionId: null,
     })
     assert.deepEqual(round.rulings, [])

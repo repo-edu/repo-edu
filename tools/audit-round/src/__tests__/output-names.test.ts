@@ -47,7 +47,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
   const names = [
     run.paths.claim,
     run.paths.markdown,
-    ...Object.values(run.documents),
+    ...Object.values(run.documents).flat(),
     run.watch,
   ].map((file) => {
     assert.ok(file)

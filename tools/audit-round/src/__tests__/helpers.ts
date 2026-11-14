@@ -15,6 +15,7 @@ import {
   type Feedback,
   type ModelSelection,
   type PhaseOutput,
+  type PhaseRecorder,
   selectionSchema,
 } from "../feedback.js"
 import {
@@ -81,6 +82,27 @@ type TestSetup = RoundContext &
   }
 
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
+
+const running = new WeakMap<object, PhaseRecorder>()
+/**
+ * Drive one output's phases one after another, as a round runs every phase
+ * but the vet: each call goes to the invocation started last.
+ */
+export function inTurn(output: { readonly phase: PhaseOutput }) {
+  const recorder = (): PhaseRecorder => {
+    const current = running.get(output)
+    if (current === undefined) throw new Error("No phase has started")
+    return current
+  }
+  return {
+    start: async (input: AssistantTurnInput, prompt: string) => {
+      running.set(output, await output.phase.start(input, prompt))
+    },
+    observe: (feedback: Feedback) => recorder().observe(feedback),
+    finish: (result: PhaseControlResult) => recorder().finish(result),
+    release: () => recorder().release(),
+  }
+}
 /** The releases startup resolved: Claude's alias only, as the runner asks. */
 export const releases = {
   claude: new Map([["opus", "claude-opus-5"]]),
@@ -246,19 +268,21 @@ export async function fixture(
   const output: PhaseOutput = {
     async start(input, prompt) {
       starts.push({ input, prompt })
-    },
-    async observe(event) {
-      feedback.push(event)
-    },
-    async finish(result) {
-      finishes.push(result)
       return {
-        compactions: feedback.filter((event) => event.type === "compaction")
-          .length,
+        async observe(event) {
+          feedback.push(event)
+        },
+        async finish(result) {
+          finishes.push(result)
+          return {
+            compactions: feedback.filter((event) => event.type === "compaction")
+              .length,
+          }
+        },
+        release() {
+          releases += 1
+        },
       }
-    },
-    release() {
-      releases += 1
     },
   }
   return {

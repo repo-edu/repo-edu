@@ -4,6 +4,7 @@ import * as format from "../output-format.js"
 import * as phase from "../phase.js"
 import * as round from "../round.js"
 import { settingsSchema } from "../settings.js"
+import type { RoundKind } from "../target.js"
 import fixture from "./fixtures/settings.json" with { type: "json" }
 
 export * from "../command.js"
@@ -56,6 +57,13 @@ export const testFixer: phase.RoundFixer = {
 export const pinnedCoder = () =>
   phase.implementationPhase(testFixer.fixer, testFixer.fixerSource).model
 
+/** The fixture's one implementation vetter, as the round's panel runs it. */
+export function testVetter(): phase.PhaseRun {
+  const [vetter] = phase.panelPhases("implementation", testSettings)
+  if (vetter === undefined) throw new Error("The test settings list no vetter")
+  return vetter
+}
+
 export const roundPhases = (
   auditor: phase.Assistant,
   override: phase.AuditorOverride,
@@ -65,7 +73,8 @@ export const roundPhases = (
     null,
     settings,
   ),
-) => phase.roundPhases(auditor, override, settings, fixer)
+  workClass: RoundKind = "implementation",
+) => phase.roundPhases(auditor, override, settings, fixer, workClass)
 
 export const modelStrength = (
   assistant: phase.Assistant,

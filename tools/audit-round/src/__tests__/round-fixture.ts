@@ -216,12 +216,11 @@ Audit ranges: 1.
     "watch",
     "close",
   ] as const) {
+    // The test settings' panel is one Claude vetter, whoever audits.
     const assistant = ["fix", "watch", "close"].includes(phase)
       ? "codex"
       : phase === "vet"
-        ? auditor === "codex"
-          ? "claude"
-          : "codex"
+        ? "claude"
         : auditor
     const sessionId = `${phase}-session`
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"

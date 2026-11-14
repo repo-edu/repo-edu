@@ -24,8 +24,9 @@ import {
   type PhaseRun,
   type RoundDependencies,
   type RoundFixer,
-  type RoundPhase,
+  type RoundPhases,
   roundPhases,
+  targetWorkClass,
   watchPhase,
 } from "./phase.js"
 import type { AuditReport } from "./report.js"
@@ -60,13 +61,24 @@ function samePhaseSelection(first: PhaseRun, second: PhaseRun): boolean {
   )
 }
 
-/** Name whether the fix uses either reviewed side's selected model and effort. */
+/**
+ * Name whether the fix uses the selected model and effort of the auditor or of
+ * one vet of the panel, which it names by its tag.
+ */
 function selectedFixerSide(
-  phases: Pick<Record<Phase, PhaseRun>, "audit" | "vet" | "fix">,
+  phases: Pick<RoundPhases, "audit" | "fix">,
+  panel: readonly PanelRun[],
 ): FixerSide {
   if (samePhaseSelection(phases.fix, phases.audit)) return "auditor"
-  if (samePhaseSelection(phases.fix, phases.vet)) return "vet"
-  return "neither"
+  const vet = panel.find(({ run }) => samePhaseSelection(phases.fix, run))
+  return vet === undefined ? "neither" : { vet: vet.tag }
+}
+
+/** One vet of the round's panel: what it runs on, its report and its tag. */
+type PanelRun = {
+  readonly run: PhaseRun
+  readonly report: string
+  readonly tag: string
 }
 
 function contestScope(
@@ -195,10 +207,7 @@ export type RoundInput = RoundSetup & {
   /** Retained state used only by the runner-owned serious-contest recovery. */
   readonly recovery?: {
     readonly account: RoundAccount
-    readonly phases: Pick<
-      Record<RoundPhase, PhaseRun>,
-      "audit" | "vet" | "rebut" | "fix"
-    >
+    readonly phases: Pick<RoundPhases, "audit" | "vet" | "rebut" | "fix">
     readonly sessionId: string
     readonly rulingReady: boolean
     readonly records: readonly LandedRecord[]
@@ -462,6 +471,7 @@ async function runSeriesDecision(
     input.override ?? noOverride,
     settings,
     input,
+    targetWorkClass(input),
   )
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
@@ -515,15 +525,29 @@ export async function runRound(
   }
   const phases =
     input.recovery?.phases ??
-    roundPhases(input.auditor, input.override ?? noOverride, settings, input)
+    roundPhases(
+      input.auditor,
+      input.override ?? noOverride,
+      settings,
+      input,
+      targetWorkClass(input),
+    )
   const { cwd, repoEduRoot, planRoot, activeRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, activeRoot, roundKind }
   const deferralScope: DeferralScope | null =
     input.deferrals === undefined ? null : { deferrals: input.deferrals }
   const report = input.documents.report
-  const twins = [input.documents.vet]
-  // The panel of one: the round's single vet, named by the tag its report carries.
-  const vetTag = documentTag(input.documents.vet)
+  // The run names one report per vet of the panel, in panel order, each with
+  // the tag of the vet that writes it.
+  const panel: readonly PanelRun[] = input.documents.vets.map(
+    (vetReport, index) => ({
+      run: phases.vet[index],
+      report: vetReport,
+      tag: documentTag(vetReport),
+    }),
+  )
+  const vetReports = panel.map((vet) => vet.report)
+  const twins = [...vetReports]
   if (input.recovery === undefined) {
     const auditInput: PhaseInput<"audit"> = {
       phase: "audit",
@@ -648,54 +672,67 @@ export async function runRound(
       }
     }
 
-    const vet = await reportPhase(
-      () =>
-        dependencies.runPhase.vet({
-          phase: "vet",
-          ...phases.vet,
-          ...context,
-          arguments: [report, input.documents.vet],
-          sessionId: null,
-        }),
-      input.documents.vet,
-      dependencies,
+    // Every vet reads the audit report on its own and at the same time. The
+    // round waits for the slowest; a failed vet fails the round, and the
+    // finished vets' reports stay in place.
+    const vetted = await Promise.all(
+      panel.map((vet) =>
+        reportPhase(
+          () =>
+            dependencies.runPhase.vet({
+              phase: "vet",
+              ...vet.run,
+              ...context,
+              arguments: [report, vet.report],
+              sessionId: null,
+            }),
+          vet.report,
+          dependencies,
+        ),
+      ),
     )
-    if (vet.status === "failed") {
+    const failedVet = vetted.findIndex((vet) => vet.status === "failed")
+    const failure = vetted[failedVet]
+    if (failure?.status === "failed") {
       return {
-        ...vet,
+        ...failure,
         phase: "vet",
-        ...phases.vet,
+        ...panel[failedVet].run,
         ...context,
         commits: [],
         account,
       }
     }
 
-    let accepted: boolean
-    let panel: readonly PanelVet[]
-    try {
-      const reading = await dependencies.readVet(
-        input.documents.vet,
-        evidence.findings,
-      )
-      accepted = reading.allAccepted
-      panel = [{ vet: vetTag, reviews: reading.reviews }]
-      account = {
-        ...account,
-        findings: reviewedRoundFindings(evidence.findings, panel),
-      }
-    } catch (error) {
-      return {
-        status: "failed",
-        sessionId: vet.sessionId,
-        phase: "vet",
-        ...phases.vet,
-        ...context,
-        reason: errorMessage(error),
-        commits: [],
-        account,
+    const vets: PanelVet[] = []
+    let accepted = true
+    for (const [index, vet] of panel.entries()) {
+      try {
+        const reading = await dependencies.readVet(
+          vet.report,
+          evidence.findings,
+        )
+        vets.push({ vet: vet.tag, reviews: reading.reviews })
+        accepted &&= reading.allAccepted
+      } catch (error) {
+        return {
+          status: "failed",
+          sessionId: vetted[index].sessionId,
+          phase: "vet",
+          ...vet.run,
+          ...context,
+          reason: errorMessage(error),
+          commits: [],
+          account,
+        }
       }
     }
+    account = {
+      ...account,
+      findings: reviewedRoundFindings(evidence.findings, vets),
+    }
+    // The rebuttal runs once for the whole panel, unless every vet accepted
+    // every finding.
     if (!accepted) {
       const rebut = await reportPhase(
         () =>
@@ -703,7 +740,7 @@ export async function runRound(
             phase: "rebut",
             ...phases.rebut,
             ...context,
-            arguments: [report, input.documents.vet, input.documents.rebut],
+            arguments: [report, ...vetReports, input.documents.rebut],
             sessionId: null,
           }),
         input.documents.rebut,
@@ -723,11 +760,11 @@ export async function runRound(
         const rebuttals = await dependencies.readRebuttal(
           input.documents.rebut,
           evidence.findings,
-          panel,
+          vets,
         )
         account = {
           ...account,
-          findings: reviewedRoundFindings(evidence.findings, panel, rebuttals),
+          findings: reviewedRoundFindings(evidence.findings, vets, rebuttals),
         }
       } catch (error) {
         return {
@@ -846,9 +883,9 @@ export async function runRound(
         const open = openContests(account, contests)
         const ruling = await dependencies.requestRuling({
           document: input.documents.ruling,
-          fixerSide: selectedFixerSide(phases),
+          fixerSide: selectedFixerSide(phases, panel),
           contests: open,
-          panel: [vetTag],
+          panel: panel.map((vet) => vet.tag),
           judgedRepos: account.judgedRepos,
         })
         if (ruling === null)

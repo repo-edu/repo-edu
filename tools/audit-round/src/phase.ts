@@ -201,12 +201,6 @@ export function parseAuditor(
   }
 }
 
-/** The tag letter a reported effort takes, or null when it is not one of the four. */
-export function effortLetter(effort: string): string | null {
-  // A CLI may report an effort outside the four the tag can spell.
-  return effortLetters[effort as Effort] ?? null
-}
-
 /**
  * Which strength a reported model belongs to, or null when it belongs to
  * neither. The table names a family and a CLI reports one release of it, so a
@@ -215,13 +209,28 @@ export function effortLetter(effort: string): string | null {
 export function modelStrength(
   assistant: Assistant,
   model: string,
-  config: RoundSettings,
+  config: Pick<RoundSettings, "strengthModels">,
 ): Strength | null {
   return (
     strengths.find((strength) =>
       model.includes(config.strengthModels[assistant][strength]),
     ) ?? null
   )
+}
+
+/**
+ * The capability tag a selection spells: the assistant's letter, the
+ * strength's letter and the effort's letter, each from its own alphabet so a
+ * character decodes without its position. A model on neither tier spells `u`.
+ */
+export function selectionTag(
+  assistant: Assistant,
+  model: string,
+  effort: Effort,
+  config: Pick<RoundSettings, "strengthModels">,
+): string {
+  const strength = modelStrength(assistant, model, config)
+  return `${assistantLetters[assistant]}${strength === null ? "u" : strengthLetters[strength]}${effortLetters[effort]}`
 }
 
 /** One field of a phase's selection, with what named it. */
@@ -295,12 +304,11 @@ function auditModel(seat: AuditorSeat, config: RoundSettings): PinnedModel {
  * `default` reads the assistant's default selection.
  */
 function phaseModel(
-  phase: Exclude<Phase, "audit" | "rebut" | "fix" | "implement">,
+  phase: "watch" | "close",
   assistant: Assistant,
   config: RoundSettings,
 ): PinnedModel {
-  const pin: PhaseSelection =
-    phase === "vet" ? config.phases.vet[assistant] : config.phases[phase]
+  const pin: PhaseSelection = config.phases[phase]
   const defaults = defaultModel(assistant, config)
   const own = <Value extends string>(value: Value): PinnedField<Value> => ({
     value,
@@ -317,10 +325,17 @@ export function auditPhase(seat: AuditorSeat, config: RoundSettings): PhaseRun {
   return { assistant: seat.assistant, model: auditModel(seat, config) }
 }
 
-/** The vetter is the other assistant, so no assistant vets its own report. */
-export function vetPhase(auditor: Assistant, config: RoundSettings): PhaseRun {
-  const assistant = auditor === "codex" ? "claude" : "codex"
-  return { assistant, model: phaseModel("vet", assistant, config) }
+/**
+ * The panel that vets a round's audit report: every vetter of the target work
+ * class's list, in list order, whatever the auditor's assistant.
+ */
+export function panelPhases(
+  workClass: RoundKind,
+  config: RoundSettings,
+): readonly PhaseRun[] {
+  return config[workClass].vetters.map((vetter) =>
+    implementationPhase(vetter, `audit-round ${workClass} vetters`),
+  )
 }
 
 /** The watch reads joined trajectory evidence, so the auditor does not select it. */
@@ -376,6 +391,14 @@ export function roundFixer(
 }
 
 /**
+ * Who runs each phase of a round. Every phase has one run except the vet,
+ * whose panel runs one vet per listed vetter, in list order.
+ */
+export type RoundPhases = Readonly<
+  Record<Exclude<RoundPhase, "vet">, PhaseRun>
+> & { readonly vet: readonly PhaseRun[] }
+
+/**
  * The single owner of who runs each round phase and on what. The runner invokes
  * from this value and the run's settings header prints it, so what a run says
  * it ran on is what it ran with.
@@ -385,11 +408,12 @@ export function roundPhases(
   override: AuditorOverride,
   config: RoundSettings,
   { fixer, fixerSource }: RoundFixer,
-): Record<RoundPhase, PhaseRun> {
+  workClass: RoundKind,
+): RoundPhases {
   const audit = auditPhase({ assistant: auditor, override }, config)
   return {
     audit,
-    vet: vetPhase(auditor, config),
+    vet: panelPhases(workClass, config),
     // The rebuttal is the auditor's answer, using the same model and effort.
     rebut: audit,
     fix: implementationPhase(fixer, fixerSource),
@@ -420,9 +444,9 @@ export function closePhase(config: RoundSettings): PhaseRun {
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * the default selection, every class's listed auditors, the implementation
- * coders, the planning fixer, each phase's own pin and each tier a tag can ask
- * for.
+ * the default selection, every class's listed auditors and vetters, the
+ * implementation coders, the planning fixer, each phase's own pin and each
+ * tier a tag can ask for.
  */
 export function namedModels(
   assistant: Assistant,
@@ -432,12 +456,13 @@ export function namedModels(
     ...[
       ...config.planning.auditors,
       config.planning.fixer,
+      ...config.planning.vetters,
       ...config.implementation.auditors,
       ...config.implementation.coders,
+      ...config.implementation.vetters,
     ].map((entry) => implementationPhase(entry)),
-    ...(["claude", "codex"] as const).flatMap((auditor) => [
-      vetPhase(auditor, config),
-      ...[null, ...strengths].map((strength) =>
+    ...(["claude", "codex"] as const).flatMap((auditor) =>
+      [null, ...strengths].map((strength) =>
         auditPhase(
           {
             assistant: auditor,
@@ -446,7 +471,7 @@ export function namedModels(
           config,
         ),
       ),
-    ]),
+    ),
     watchPhase(config),
     closePhase(config),
   ]
@@ -491,8 +516,11 @@ export type ContestScope = {
   }[]
 }
 
-/** Which reviewed side uses the same selected model and effort as the fix. */
-export type FixerSide = "auditor" | "vet" | "neither"
+/**
+ * Which reviewed side uses the same selected model and effort as the fix: the
+ * auditor, one vet of the panel named by its tag, or neither.
+ */
+export type FixerSide = "auditor" | "neither" | { readonly vet: string }
 
 /** What the ruling notice and the waiting run need from the round coordinator. */
 export type RulingRequest = {
@@ -520,7 +548,12 @@ type PhaseArguments = {
     readonly sessionId: null
   }
   rebut: {
-    readonly arguments: readonly [report: string, vet: string, rebut: string]
+    /** Every vet report of the panel, in panel order, before the output. */
+    readonly arguments: readonly [
+      report: string,
+      ...vets: string[],
+      rebut: string,
+    ]
     readonly sessionId: null
   }
   fix: {

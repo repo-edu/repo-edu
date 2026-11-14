@@ -138,9 +138,10 @@ for (const auditor of ["claude", "codex"] as const) {
             (call.args[0] === "-p" &&
               !call.args.includes("--no-session-persistence")),
         )
+        // The class's panel vets the report whoever audited it.
         assert.deepEqual(
           invocations.map((call) => call.assistant),
-          [auditor, auditor === "codex" ? "claude" : "codex", auditor, "codex"],
+          [auditor, "claude", auditor, "codex"],
         )
         assert.equal(
           invocations[0].args.includes("resume") ||
@@ -162,7 +163,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phases:
             auditor === "codex"
               ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
-              : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
+              : `audit, vet, rebut: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
           auditor: recordedTag(auditor),
         }
         assert.deepEqual(
@@ -211,12 +212,18 @@ for (const auditor of ["claude", "codex"] as const) {
             /\[glance\] not due: episode example recorded green at [0-9a-f]+\. No A–C audit correction commits since\. No area reached the green limit of 3/,
           )
         assert.match(log, /fix +codex +gpt-5.6-sol +high/)
+        const vetTag = basename(f.vet).split(".").at(-2)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
-          assert.ok(markdown.includes(`## ${phase} (`))
+          // A vet's texts open under its tag, which names it among the panel.
+          assert.ok(
+            markdown.includes(
+              `## ${phase === "vet" ? `vet ${vetTag}` : phase} (`,
+            ),
+          )
           const text = {
             audit: "Judged repos:",
             vet: "1. [B] Revise",
-            rebut: `1. [B] [${basename(f.vet).split(".").at(-2)}] Agree`,
+            rebut: `1. [B] [${vetTag}] Agree`,
             fix: "Complete fix text.",
           }[phase]
           assert.ok(markdown.includes(text))
@@ -318,7 +325,7 @@ for (const auditor of ["claude", "codex"] as const) {
     const { log, markdown } = await f.records()
     assert.doesNotMatch(
       log,
-      /\[(?:vet|rebut|fix|rule|watch)\] starting|\[glance\]/,
+      /\[(?:vet(?: \w+)?|rebut|fix|rule|watch)\] starting|\[glance\]/,
     )
     assert.match(markdown, /## Clean completion/)
     assert.match(f.visible.join("\n"), /Audit round finished\./)
@@ -357,10 +364,9 @@ for (const auditor of ["claude", "codex"] as const) {
         (call.args[0] === "-p" &&
           !call.args.includes("--no-session-persistence")),
     )
-    const vetter = auditor === "codex" ? "claude" : "codex"
     assert.deepEqual(
       invocations.map((call) => call.assistant),
-      [auditor, vetter, "codex"],
+      [auditor, "claude", "codex"],
     )
     // The auditor had nothing to answer, so the rebuttal that never ran is
     // not stamped into the record.
@@ -370,7 +376,7 @@ for (const auditor of ["claude", "codex"] as const) {
         phases:
           auditor === "codex"
             ? `audit: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit and vet took 0 min.`
-            : `audit: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit and vet took 0 min.`,
+            : `audit, vet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit and vet took 0 min.`,
         auditor: recordedTag(auditor),
       },
     )
@@ -381,7 +387,8 @@ for (const auditor of ["claude", "codex"] as const) {
       files.some((name) => name.includes("-4-rebut.")),
       false,
     )
-    for (const phase of ["audit", "vet", "fix"] as const)
+    const vetTag = basename(f.vet).split(".").at(-2)
+    for (const phase of ["audit", `vet ${vetTag}`, "fix"])
       assert.ok(markdown.includes(`## ${phase} (`))
     assert.equal(markdown.includes("## rebut ("), false)
     assert.match(f.visible.join("\n"), /Audit round finished\./)

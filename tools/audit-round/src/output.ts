@@ -1,7 +1,12 @@
 import { basename, join } from "node:path"
 import { format } from "date-fns"
 import type { PlanRoots } from "./context.js"
-import type { Feedback, ModelReleases, PhaseOutput } from "./feedback.js"
+import type {
+  Feedback,
+  ModelReleases,
+  PhaseOutput,
+  PhaseRecorder,
+} from "./feedback.js"
 import {
   type ModelReference,
   modelChangeNotice,
@@ -21,6 +26,7 @@ import {
   pinnedSelection,
   type RanPhase,
   type RunEntry,
+  slotKey,
   toolText,
 } from "./output-format.js"
 import {
@@ -30,11 +36,12 @@ import {
   type Effort,
   efforts,
   noOverride,
-  type Phase,
   type PhaseControlResult,
   type PhaseRun,
   type RoundPhase,
+  type RoundPhases,
   roundPhases,
+  targetWorkClass,
   transcribed,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
@@ -72,7 +79,8 @@ import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
   readonly report: string
-  readonly vet: string
+  /** One vet report per vet of the panel, in panel order. */
+  readonly vets: readonly string[]
   readonly rebut: string
   readonly ruling: string
 }
@@ -119,8 +127,6 @@ export type Run = {
     readonly target: string
     readonly round: number
     readonly tag: string
-    /** The tag of the round's one vet, which its phase entry carries. */
-    readonly vetTag: string
     readonly settings: RoundData["settings"]
     readonly auditor: RoundData["auditor"]
     readonly pool?: readonly Auditor[]
@@ -149,18 +155,16 @@ function resolvedRun(
   return phaseSelection(run.model, releases[run.assistant])
 }
 
-/**
- * Settings recorded for the model read-out, resolved by the execution owner.
- * The panel is the round's one vet.
- */
+/** Settings recorded for the model read-out, resolved by the execution owner. */
 function roundSettingsData(
   releases: Record<Assistant, ModelReleases>,
-  phases: Pick<Record<RoundPhase, PhaseRun>, "vet" | "fix">,
+  phases: Pick<RoundPhases, "vet" | "fix">,
 ): RoundData["settings"] {
   return {
-    vetters: [
-      { assistant: phases.vet.assistant, ...resolvedRun(phases.vet, releases) },
-    ],
+    vetters: phases.vet.map((vet) => ({
+      assistant: vet.assistant,
+      ...resolvedRun(vet, releases),
+    })),
     fix: {
       assistant: phases.fix.assistant,
       ...resolvedRun(phases.fix, releases),
@@ -195,18 +199,25 @@ export async function roundRun(
     setup.override ?? noOverride,
     settings,
     setup,
+    targetWorkClass(setup),
   )
-  const entry = (phase: RoundPhase): RunEntry => ({ phase, ...phases[phase] })
-  const tag = (phase: RoundPhase): string =>
+  const entry = (phase: SinglePhase): RunEntry => ({ phase, ...phases[phase] })
+  const tag = (phase: SinglePhase): string =>
     fileTag(entry(phase), releases, settings)
   // The close runs alone, so a round needs no close tag.
-  for (const phase of Object.keys(phases) as RoundPhase[]) {
+  for (const phase of singlePhases) {
     if (phase !== "close") tag(phase)
   }
+  // Each vet's report and record are named by its own tag.
+  const vets = phases.vet.map((run) => {
+    const vet = { phase: "vet", ...run } as const
+    return { ...vet, tag: fileTag(vet, releases, settings) }
+  })
   const { nameStart, title } = await roundIdentity(setup)
   const previousModels = await readPreviousRoundModels(setup)
-  const path = (kind: FileKind, phase: RoundPhase) =>
-    join(setup.activeRoot, phaseFilename(nameStart, kind, tag(phase)))
+  const named = (kind: FileKind, tag: string) =>
+    join(setup.activeRoot, phaseFilename(nameStart, kind, tag))
+  const path = (kind: FileKind, phase: SinglePhase) => named(kind, tag(phase))
   const base = path("round", "audit")
   const audit = entry("audit")
   const identity = roundDataIdentity(nameStart)
@@ -221,7 +232,6 @@ export async function roundRun(
           ),
           ...identity,
           tag: tag("audit"),
-          vetTag: tag("vet"),
           settings: roundSettingsData(releases, phases),
           auditor: {
             assistant: audit.assistant,
@@ -251,7 +261,6 @@ export async function roundRun(
             ),
             ...identity,
             tag: tag("audit"),
-            vetTag: tag("vet"),
             settings: roundSettingsData(releases, phases),
             auditor: {
               assistant: audit.assistant,
@@ -270,7 +279,7 @@ export async function roundRun(
     watch: `${path("watch", "watch")}.md`,
     documents: {
       report: `${path("audit", "audit")}.md`,
-      vet: `${path("vet", "vet")}.md`,
+      vets: vets.map((vet) => `${named("vet", vet.tag)}.md`),
       rebut: `${path("rebut", "rebut")}.md`,
       ruling: `${path("ruling", "fix")}.md`,
     },
@@ -280,7 +289,7 @@ export async function roundRun(
     title: `${title} (round ${identity.round})`,
     phases: [
       entry("audit"),
-      entry("vet"),
+      ...vets,
       entry("rebut"),
       entry("fix"),
       ...("plan" in setup ? [entry("watch")] : []),
@@ -300,19 +309,24 @@ export async function roundRun(
   }
 }
 
-function retainedPhaseRun(
-  entry: RoundData,
-  phase: "audit" | "vet" | "rebut" | "fix",
-  fallback: PhaseRun,
-): PhaseRun {
-  const retained = entry.phases.find((candidate) => candidate.phase === phase)
-  if (retained === undefined) return fallback
+/** Every phase of a round except the vet, whose panel holds one run per vet. */
+type SinglePhase = Exclude<RoundPhase, "vet">
+const singlePhases: readonly SinglePhase[] = [
+  "audit",
+  "rebut",
+  "fix",
+  "watch",
+  "close",
+]
+
+/** What one retained phase entry ran on, as the run's settings header names it. */
+function retainedPhaseRun(retained: RoundData["phases"][number]): PhaseRun {
   const launched = retained.launched ?? {
     model: retained.model,
     effort: retained.effort,
   }
   if (launched.effort === null || !efforts.includes(launched.effort as Effort))
-    throw new Error(`Retained ${phase} phase has no supported effort`)
+    throw new Error(`Retained ${retained.phase} phase has no supported effort`)
   const source = "retained round"
   return {
     assistant: retained.assistant,
@@ -323,14 +337,17 @@ function retainedPhaseRun(
   }
 }
 
-/** Reopen one retained round and restore the phase record its fix must finish. */
+/**
+ * Reopen one retained round and restore the phase records its fix must
+ * finish: every vet's record by the tag its report carries.
+ */
 export async function resumedRoundRun(
   setup: RoundSetup,
   retained: RetainedRoundData,
   paths: {
     readonly nameStart: string
     readonly report: string
-    readonly vet: string
+    readonly vets: readonly string[]
     readonly rebut: string
     readonly ruling: string | null
   },
@@ -343,7 +360,7 @@ export async function resumedRoundRun(
     readonly watch: string
     readonly documents: RoundDocuments
     readonly recoveredPhases: Pick<
-      Record<RoundPhase, PhaseRun>,
+      RoundPhases,
       "audit" | "vet" | "rebut" | "fix"
     >
     readonly paths: { readonly claim: null; readonly markdown: string }
@@ -354,19 +371,37 @@ export async function resumedRoundRun(
     setup.override ?? noOverride,
     settings,
     setup,
+    targetWorkClass(setup),
   )
+  const single = (phase: "audit" | "rebut" | "fix"): PhaseRun => {
+    const entry = retained.entry.phases.find(
+      (candidate) => candidate.phase === phase,
+    )
+    return entry === undefined ? fresh[phase] : retainedPhaseRun(entry)
+  }
+  const vets: readonly RunEntry[] = paths.vets.map((file) => {
+    const tag = documentTag(file)
+    const entry = retained.entry.phases.find(
+      (candidate) => candidate.phase === "vet" && candidate.tag === tag,
+    )
+    if (entry === undefined)
+      throw new Error(
+        `The retained round ${paths.nameStart} has no vet phase entry for ${tag}`,
+      )
+    return { phase: "vet", ...retainedPhaseRun(entry), tag }
+  })
   const phaseRuns = {
     ...fresh,
-    audit: retainedPhaseRun(retained.entry, "audit", fresh.audit),
-    vet: retainedPhaseRun(retained.entry, "vet", fresh.vet),
-    rebut: retainedPhaseRun(retained.entry, "rebut", fresh.rebut),
-    fix: retainedPhaseRun(retained.entry, "fix", fresh.fix),
+    audit: single("audit"),
+    vet: vets.map(({ assistant, model }) => ({ assistant, model })),
+    rebut: single("rebut"),
+    fix: single("fix"),
   }
-  const runEntry = (phase: RoundPhase): RunEntry => ({
+  const runEntry = (phase: SinglePhase): RunEntry => ({
     phase,
     ...phaseRuns[phase],
   })
-  const tag = (phase: RoundPhase): string =>
+  const tag = (phase: SinglePhase): string =>
     fileTag(runEntry(phase), releases, settings)
   const base = join(
     setup.activeRoot,
@@ -380,7 +415,7 @@ export async function resumedRoundRun(
     )
   const documents = {
     report: paths.report,
-    vet: paths.vet,
+    vets: paths.vets,
     rebut: paths.rebut,
     ruling,
   }
@@ -389,7 +424,6 @@ export async function resumedRoundRun(
     target: retained.entry.target,
     round: retained.entry.round,
     tag: retained.entry.tag,
-    vetTag: documentTag(paths.vet),
     settings: retained.entry.settings,
     auditor: retained.entry.auditor,
     ...(retained.entry.pool === undefined ? {} : { pool: retained.entry.pool }),
@@ -419,15 +453,13 @@ export async function resumedRoundRun(
       "plan" in setup
         ? `Recovery of ${roundSubject(setup, setup.plan)}`
         : `Recovery of commit audit ${paths.nameStart}`,
-    phases: (
-      [
-        "audit",
-        "vet",
-        "rebut",
-        "fix",
-        ...("plan" in setup ? ["watch" as const] : []),
-      ] as RoundPhase[]
-    ).map(runEntry),
+    phases: [
+      runEntry("audit"),
+      ...vets,
+      runEntry("rebut"),
+      runEntry("fix"),
+      ...("plan" in setup ? [runEntry("watch")] : []),
+    ],
     paths: {
       claim: null,
       log: `${base}.log`,
@@ -498,6 +530,35 @@ export async function closeRun(
   }
 }
 
+/**
+ * One running invocation. The vets of a panel run at the same time, so each
+ * has its own slot under its tag and their stamps never share a baseline.
+ */
+type ActiveSlot = {
+  readonly input: AssistantTurnInput
+  /** The slot's key, which opens every line the output writes for it. */
+  readonly key: string
+  readonly started: RunMark
+  context: Context | null
+  /** Where the next tool line's step time counts from: the previous tool line, else the phase start. */
+  previousToolMark: RunMark
+  previousToolTokens: number | null
+  statusTokens: number | null
+  /**
+   * A vet's texts, held until the vet ends and then written whole, because
+   * vets that run at the same time would otherwise mix paragraph by
+   * paragraph. Null for a phase that runs alone, whose text streams.
+   */
+  readonly held: string[] | null
+  /**
+   * The closing stamp of an invocation released without finishing, fixed
+   * when it ended. Releasing writes nothing, so a failed record write cannot
+   * hide the phase's outcome; the round's finish writes it with the slot's
+   * held texts. Null while the invocation runs.
+   */
+  ended: string | null
+}
+
 export class RoundOutput<R extends Run = Run> {
   readonly paths: R["paths"]
   readonly phase: PhaseOutput
@@ -505,27 +566,18 @@ export class RoundOutput<R extends Run = Run> {
   private readonly clock: RunClock
   /** Where this round's reading counts from: the output's construction. */
   private readonly round: RunMark
-  private active:
-    | {
-        input: AssistantTurnInput
-        started: RunMark
-        context: Context | null
-        /** Where the next tool line's step time counts from: the previous tool line, else the phase start. */
-        previousToolMark: RunMark
-        previousToolTokens: number | null
-        statusTokens: number | null
-      }
-    | undefined
+  /** Running invocations by slot key. */
+  private readonly active = new Map<string, ActiveSlot>()
   private timer: ReturnType<typeof setInterval> | undefined
   /**
-   * Started phases in order, with each CLI's applied selection and the
-   * assistant time the phase took. Before a phase reports, its launch
+   * Started phases in order by slot key, with each CLI's applied selection and
+   * the assistant time the phase took. Before a phase reports, its launch
    * selection lets that child identify itself. Feedback replaces that
    * selection without changing another phase's record. A resumed phase adds
    * each finished invocation's time and replaces tokens with the latest
    * session total.
    */
-  private readonly ran = new Map<Phase, RanPhase>()
+  private readonly ran = new Map<string, RanPhase>()
 
   constructor(
     private readonly run: R,
@@ -535,7 +587,10 @@ export class RoundOutput<R extends Run = Run> {
     this.round = options.clock.mark()
     for (const phase of run.continued ?? []) {
       if (phase.phase === "judge") continue
-      this.ran.set(phase.phase, {
+      const tag = phase.phase === "vet" ? phase.tag : undefined
+      this.ran.set(slotKey(phase.phase, tag), {
+        phase: phase.phase,
+        ...(tag === undefined ? {} : { tag }),
         launched: phase.launched ?? {
           model: phase.model,
           effort: phase.effort,
@@ -551,9 +606,6 @@ export class RoundOutput<R extends Run = Run> {
     this.files = (options.openFiles ?? openRunFiles)(this.paths)
     this.phase = {
       start: async (input, prompt) => this.start(input, prompt),
-      observe: async (feedback) => this.observe(feedback),
-      finish: async (result) => this.finishPhase(result),
-      release: () => this.release(),
     }
     try {
       const started = `Started ${format(new Date(run.started), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
@@ -599,8 +651,8 @@ export class RoundOutput<R extends Run = Run> {
           Number(first.assistant !== lead) - Number(second.assistant !== lead),
       )
       // Each field reports what named it: an option, the phase's pin or the defaults.
-      .map(({ phase, assistant, model }) => ({
-        phase,
+      .map(({ phase, tag, assistant, model }) => ({
+        phase: slotKey(phase, tag),
         assistant,
         ...phaseText(model, releases[assistant]),
       }))
@@ -639,36 +691,58 @@ export class RoundOutput<R extends Run = Run> {
     this.files.markdown?.(text)
   }
 
-  private stamp(): string {
-    if (this.active === undefined) return ""
-    const { input, started, context, statusTokens } = this.active
+  private stamp(slot: ActiveSlot): string {
+    const { key, started, context, statusTokens } = slot
     const measurement = contextText(context, changeSince(context, statusTokens))
-    return `\n[${input.phase}] ${elapsedText(this.clock.elapsed(started))}  round ${elapsedText(this.clock.elapsed(this.round))}  run ${elapsedText(this.clock.elapsed(this.clock.invocation))}${measurement ? `  ${measurement}` : ""}`
+    return `\n[${key}] ${elapsedText(this.clock.elapsed(started))}  round ${elapsedText(this.clock.elapsed(this.round))}  run ${elapsedText(this.clock.elapsed(this.clock.invocation))}${measurement ? `  ${measurement}` : ""}`
+  }
+
+  /** The invocations still running, which the live status line follows. */
+  private running(): ActiveSlot[] {
+    return [...this.active.values()].filter((slot) => slot.ended === null)
+  }
+
+  /** The live status line: one stamp per running invocation. */
+  private status(): void {
+    this.options.terminal.status(
+      this.running()
+        .map((slot) => this.stamp(slot))
+        .join(""),
+    )
   }
 
   /** Written stamps chain: each reports the context added since the previous one. */
-  private report(): string {
-    const stamp = this.stamp()
-    if (this.active?.context != null)
-      this.active.statusTokens = this.active.context.tokens
+  private report(slot: ActiveSlot): string {
+    const stamp = this.stamp(slot)
+    if (slot.context !== null) slot.statusTokens = slot.context.tokens
     return stamp
   }
 
-  private start(input: AssistantTurnInput, prompt: string): void {
-    this.release()
+  private start(input: AssistantTurnInput, prompt: string): PhaseRecorder {
     this.clock.active()
     const started = this.clock.mark()
-    this.active = {
+    // A vet is named by the tag its report carries, so each vet of a panel
+    // keeps its own slot and record.
+    const tag =
+      input.phase === "vet" ? documentTag(input.arguments[1]) : undefined
+    const key = slotKey(input.phase, tag)
+    const slot: ActiveSlot = {
       input,
+      key,
       started,
       context: null,
       previousToolMark: started,
       previousToolTokens: null,
       // A fresh session starts empty, so its first stamp reports the startup context.
       statusTokens: input.sessionId === null ? 0 : null,
+      held: input.phase === "vet" ? [] : null,
+      ended: null,
     }
-    const earlier = this.ran.get(input.phase)
-    this.ran.set(input.phase, {
+    this.active.set(key, slot)
+    const earlier = this.ran.get(key)
+    this.ran.set(key, {
+      phase: input.phase,
+      ...(tag === undefined ? {} : { tag }),
       launched: pinnedSelection(input.model),
       selection: phaseSelection(
         input.model,
@@ -679,28 +753,60 @@ export class RoundOutput<R extends Run = Run> {
       peakContext: earlier?.peakContext ?? null,
       compactions: earlier?.compactions ?? 0,
     })
-    const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
-      `\n${separator}\n[${input.phase}] starting ${input.assistant} (${mode})`,
+      `\n${separator}\n[${key}] starting ${input.assistant} (${this.mode(slot)})`,
     )
-    this.files.log(`[${input.phase}] prompt:\n${prompt}\n`)
-    if (transcribed(input.phase))
-      this.transcribe(`## ${input.phase} (${input.assistant}, ${mode})\n`)
-    this.options.terminal.status(this.stamp())
-    this.timer = setInterval(
-      () => this.options.terminal.status(this.stamp()),
-      1000,
-    )
-    this.timer.unref()
+    this.files.log(`[${key}] prompt:\n${prompt}\n`)
+    if (slot.held === null) this.heading(slot)
+    this.status()
+    if (this.timer === undefined) {
+      this.timer = setInterval(() => this.status(), 1000)
+      this.timer.unref()
+    }
+    return {
+      observe: async (feedback) => this.observe(slot, feedback),
+      finish: async (result) => this.finishPhase(slot, result),
+      release: () => this.releasePhase(slot),
+    }
   }
 
-  private observe(feedback: Feedback): void {
+  private mode(slot: ActiveSlot): string {
+    return slot.input.sessionId === null ? "fresh" : "resumed"
+  }
+
+  /** The transcript heading that opens a phase's texts. */
+  private heading(slot: ActiveSlot): void {
+    if (transcribed(slot.input.phase))
+      this.transcribe(
+        `## ${slot.key} (${slot.input.assistant}, ${this.mode(slot)})\n`,
+      )
+  }
+
+  /** Write one phase text to the transcript and, without its control line, the terminal. */
+  private text(slot: ActiveSlot, text: string): void {
+    if (transcribed(slot.input.phase)) this.transcribe(`${text}\n`)
+    const visible = withoutPhaseResult(text)
+    if (visible.length > 0) this.options.terminal.write(visible, "markdown")
+  }
+
+  /** Write a vet's held texts whole, under its heading, once the vet ends. */
+  private flush(slot: ActiveSlot): void {
+    if (slot.held === null) return
+    this.heading(slot)
+    if (slot.held.length === 0) return
+    this.say(this.report(slot))
+    for (const text of slot.held.splice(0)) this.text(slot, text)
+  }
+
+  private observe(slot: ActiveSlot, feedback: Feedback): void {
     const terminal = this.options.terminal
-    const active = this.active
-    if (active === undefined)
-      throw new Error("Phase feedback arrived without an active output")
+    const active = slot
+    if (this.active.get(slot.key) !== slot || slot.ended !== null)
+      throw new Error(
+        `Phase feedback arrived after the ${slot.key} phase ended`,
+      )
     this.clock.active()
-    const prefix = `[${active.input.phase}]`
+    const prefix = `[${slot.key}]`
     switch (feedback.type) {
       case "session":
         this.say(
@@ -708,8 +814,8 @@ export class RoundOutput<R extends Run = Run> {
         )
         break
       case "model": {
-        const run = this.phaseRun(active.input.phase)
-        this.ran.set(active.input.phase, {
+        const run = this.phaseRun(slot.key)
+        this.ran.set(slot.key, {
           ...run,
           selection: feedback.selection,
         })
@@ -727,17 +833,17 @@ export class RoundOutput<R extends Run = Run> {
         break
       }
       case "context": {
-        const run = this.phaseRun(active.input.phase)
+        const run = this.phaseRun(slot.key)
         active.context = feedback
-        this.ran.set(active.input.phase, {
+        this.ran.set(slot.key, {
           ...run,
           peakContext: fullerContext(run.peakContext, feedback),
         })
         break
       }
       case "compaction": {
-        const run = this.phaseRun(active.input.phase)
-        this.ran.set(active.input.phase, {
+        const run = this.phaseRun(slot.key)
+        this.ran.set(slot.key, {
           ...run,
           compactions: run.compactions + 1,
         })
@@ -746,42 +852,41 @@ export class RoundOutput<R extends Run = Run> {
           ["audit", "vet", "rebut", "fix"].includes(active.input.phase)
         )
           this.say(
-            `Warning: The ${active.input.phase} phase compacted. Use a narrower scope instead of a larger context window.`,
+            `Warning: The ${slot.key} phase compacted. Use a narrower scope instead of a larger context window.`,
           )
         break
       }
       case "tokens": {
-        const run = this.phaseRun(active.input.phase)
+        const run = this.phaseRun(slot.key)
         const totals: readonly ModelTokenUsage[] =
           feedback.update.kind === "selected-model"
             ? [{ model: run.selection.model, ...feedback.update.tokens }]
             : feedback.update.models
-        this.ran.set(active.input.phase, { ...run, tokens: totals })
+        this.ran.set(slot.key, { ...run, tokens: totals })
         break
       }
       case "text":
-        if (feedback.text.length > 0) {
-          this.say(this.report())
-          if (transcribed(active.input.phase)) {
-            this.transcribe(`${feedback.text}\n`)
-          }
-          const text = withoutPhaseResult(feedback.text)
-          if (text.length > 0) terminal?.write(text, "markdown")
+        if (feedback.text.length === 0) break
+        if (slot.held !== null) {
+          slot.held.push(feedback.text)
+          break
         }
+        this.say(this.report(slot))
+        this.text(slot, feedback.text)
         break
       case "diagnostic":
         this.say(`${prefix} ${feedback.text}`)
         break
       case "tool": {
         if (feedback.invocation !== null) {
-          const line = toolText(
+          const line = `${slot.held === null ? "" : `${prefix} `}${toolText(
             feedback.invocation,
             elapsedText(this.clock.elapsed(active.previousToolMark)),
             elapsedText(this.clock.elapsed(this.round)),
             elapsedText(this.clock.elapsed(this.clock.invocation)),
             active.context,
             changeSince(active.context, active.previousToolTokens),
-          )
+          )}`
           this.files.log(line)
           if (this.options.verbose) terminal?.write(line.slice(0, 160))
           active.previousToolMark = this.clock.mark()
@@ -790,27 +895,56 @@ export class RoundOutput<R extends Run = Run> {
         break
       }
     }
-    terminal?.status(this.stamp())
+    this.status()
   }
 
-  private finishPhase(result: PhaseControlResult): {
+  private finishPhase(
+    slot: ActiveSlot,
+    result: PhaseControlResult,
+  ): {
     readonly compactions: number
   } {
-    const active = this.active
-    const run = active && this.ran.get(active.input.phase)
-    if (active === undefined || run === undefined)
+    const run = this.ran.get(slot.key)
+    if (
+      this.active.get(slot.key) !== slot ||
+      slot.ended !== null ||
+      run === undefined
+    )
       throw new Error("A phase finished without starting")
-    this.say(`${this.report()}${tokenSuffix(run.tokens)}`)
-    const { phase } = active.input
-    this.ran.set(phase, {
-      ...run,
-      spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
-    })
+    this.flush(slot)
+    this.say(this.end(slot))
+    this.active.delete(slot.key)
     // The run's finish line owns the failure reason, session and resume command.
-    this.say(`[${phase}] ${result.status}`)
-    this.active = undefined
-    this.release()
+    this.say(`[${slot.key}] ${result.status}`)
+    this.follow()
     return { compactions: run.compactions }
+  }
+
+  /**
+   * Stop timing one invocation: add its time to its phase record and return
+   * its closing stamp with its tokens. Only memory changes, so an invocation
+   * released without finishing keeps the time and tokens it spent.
+   */
+  private end(slot: ActiveSlot): string {
+    const run = this.phaseRun(slot.key)
+    this.ran.set(slot.key, {
+      ...run,
+      spent: (run.spent ?? 0) + this.clock.elapsed(slot.started),
+    })
+    return `${this.report(slot)}${tokenSuffix(run.tokens)}`
+  }
+
+  /** Stop following one invocation; one that never finished waits for the round's finish. */
+  private releasePhase(slot: ActiveSlot): void {
+    if (this.active.get(slot.key) === slot && slot.ended === null)
+      slot.ended = this.end(slot)
+    this.follow()
+  }
+
+  /** The live status keeps any invocation still running. */
+  private follow(): void {
+    if (this.running().length === 0) this.release()
+    else this.status()
   }
 
   get title(): string {
@@ -851,11 +985,13 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   finish(result: RoundResult | CloseResult, signal?: AbortSignal): void {
-    const unsettledReport =
-      this.active === undefined
-        ? ""
-        : `${this.report()}${tokenSuffix(this.ran.get(this.active.input.phase)?.tokens ?? [])}`
-    this.finishUnsettledInvocation()
+    // An invocation that never finished keeps the time it spent; its texts
+    // and closing stamp precede the run's final line.
+    const unfinished = [...this.active.values()].map((slot) => ({
+      slot,
+      stamp: slot.ended ?? this.end(slot),
+    }))
+    this.active.clear()
     if (this.run.data !== undefined) {
       if (!("commits" in result))
         throw new Error("A round ended without its landed commit account")
@@ -875,6 +1011,10 @@ export class RoundOutput<R extends Run = Run> {
       )
     }
     this.release()
+    for (const { slot, stamp } of unfinished) {
+      this.flush(slot)
+      this.say(stamp)
+    }
     if (result.status === "failed") {
       const resumeSessionId = failureResumeSessionId(result)
       const resume =
@@ -882,7 +1022,7 @@ export class RoundOutput<R extends Run = Run> {
           ? ""
           : `\nResume: ${this.resumeCommand(result, resumeSessionId)}`
       this.say(
-        `${unsettledReport}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
+        `\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )
     } else {
       this.say(
@@ -928,21 +1068,8 @@ export class RoundOutput<R extends Run = Run> {
     }
   }
 
-  /** A rejected invocation still contributes the time and tokens spent before it failed. */
-  private finishUnsettledInvocation(): void {
-    const active = this.active
-    if (active === undefined) return
-    const run = this.ran.get(active.input.phase)
-    if (run === undefined) return
-    this.ran.set(active.input.phase, {
-      ...run,
-      spent: (run.spent ?? 0) + this.clock.elapsed(active.started),
-    })
-    this.active = undefined
-  }
-
-  private phaseRun(phase: Phase): RanPhase {
-    const run = this.ran.get(phase)
+  private phaseRun(key: string): RanPhase {
+    const run = this.ran.get(key)
     if (run === undefined)
       throw new Error("Phase feedback arrived before its phase started")
     return run
@@ -969,17 +1096,18 @@ export class RoundOutput<R extends Run = Run> {
         model: auditor.model,
         effort: auditor.effort,
       },
-      phases: [...this.ran].flatMap(([phase, ran]) => {
+      phases: [...this.ran].flatMap(([key, ran]) => {
+        const { phase, tag } = ran
         if (phase === "close" || phase === "implement" || ran.spent === null)
           return []
         const entry = this.run.phases.find(
-          (candidate) => candidate.phase === phase,
+          (candidate) => slotKey(candidate.phase, candidate.tag) === key,
         )
         if (entry === undefined)
-          throw new Error(`Run data has no ${phase} phase owner`)
+          throw new Error(`Run data has no ${key} phase owner`)
         return [
           {
-            ...(phase === "vet" ? { phase, tag: data.vetTag } : { phase }),
+            ...(phase === "vet" ? { phase, tag: tag as string } : { phase }),
             assistant: entry.assistant,
             model: ran.selection.model,
             effort: ran.selection.effort,

@@ -24,7 +24,8 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 - **Stem:** the plan filename without `.md` and without the optional `-widen` ending.
 - **Series:** consecutive audit rounds on one target, with the runner applying fixed rules after
   each round to decide whether another assistant needs a current read.
-- **Vet:** an independent check of an audit report by the other assistant.
+- **Vet:** an independent check of an audit report from a fresh context. Every vet listed for the
+  work class checks each report, whoever audited.
 - **Rebuttal:** the original auditor's evidence-based answer to vet disagreements.
 - **Ruling:** a saved question that needs your decision before the same assistant session can
   continue.
@@ -55,7 +56,7 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 | I want to check every range of a finished plan | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | One series for each range in the plan, followed by a series over the full range |
 | I want to check several ranges in one sitting | [`pnpm audit-round round <stem> 2,3-5,6-7`](/repo-edu/tooling/runner-round/) | One series per scope in list order |
 | I want to check work outside a plan | [`pnpm audit-round round <commits>`](/repo-edu/tooling/runner-round/) | A series over the named commits and any fixes it lands |
-| I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; the other assistant vets and the original auditor answers |
+| I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; any assistant vets and the original auditor answers |
 | I want to check a round's trajectory | [`/watch [stem\|commit]`](/repo-edu/tooling/watch/) | A grounded green, amber or red judgement; you decide the response |
 | I want to compare the recorded auditors and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | Auditor and coder tables, and a coder recommendation when the records clearly support one |
 | I found that an earlier audit finding or vet verdict was wrong | [`pnpm audit-round disprove ...`](/repo-edu/tooling/disprove/) | Your dated ruling, chosen side and full reason enter the plan's round data |

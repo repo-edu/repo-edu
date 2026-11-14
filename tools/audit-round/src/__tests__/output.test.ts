@@ -17,7 +17,7 @@ import {
   roundRun,
   testFixer,
 } from "./configured-runner.js"
-import { fixture, releases, testContext, testSetup } from "./helpers.js"
+import { fixture, inTurn, releases, testContext, testSetup } from "./helpers.js"
 
 test("an unresolved serious contest prints the runner recovery route", async (t) => {
   const f = await fixture(t)
@@ -76,10 +76,10 @@ test("an unresolved serious contest prints the runner recovery route", async (t)
 
 for (const [side, line] of [
   ["auditor", "The fix runs on the auditor's model."],
-  ["vet", "The fix runs on the vet's model."],
+  [{ vet: "oth" }, "The fix runs on vet oth's model."],
   ["neither", "The fix runs on neither side's model."],
 ] as const) {
-  test(`a ruling notice names the ${side} fix model, the ruling and the chat command`, async (t) => {
+  test(`a ruling notice names the ${typeof side === "string" ? side : `vet ${side.vet}`} fix model, the ruling and the chat command`, async (t) => {
     const f = await fixture(t)
     const written: string[] = []
     const output = new RoundOutput(
@@ -226,7 +226,8 @@ test("commit stamps retain each phase's reported selection across later phases",
     } as const,
   }
   const phases = roundPhases(setup.auditor, setup.override)
-  const output = new RoundOutput(await roundRun(setup, 0, releases), {
+  const run = await roundRun(setup, 0, releases)
+  const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
     terminal: { write() {}, status() {}, clear() {} },
   })
@@ -239,10 +240,10 @@ test("commit stamps retain each phase's reported selection across later phases",
     ["fix", { model: "gpt-6-astra", effort: "medium" }],
     ["watch", { model: "gpt-5.6-sol", effort: "low" }],
   ] as const) {
-    await output.phase.start(
+    await inTurn(output).start(
       {
         ...setup,
-        ...phases[phase],
+        ...(phase === "vet" ? phases.vet[0] : phases[phase]),
         ...(phase === "audit"
           ? {
               phase,
@@ -264,13 +265,16 @@ test("commit stamps retain each phase's reported selection across later phases",
                 }
               : phase === "watch"
                 ? { phase, evidence: "Episode facts", arguments: [] as const }
-                : { phase, arguments: ["/report.md", "/output.md"] as const }),
+                : {
+                    phase,
+                    arguments: ["/report.md", run.documents.vets[0]] as const,
+                  }),
 
         sessionId: null,
       },
       "prompt",
     )
-    await output.phase.observe({ type: "model", selection })
+    await inTurn(output).observe({ type: "model", selection })
   }
   assert.deepEqual(output.commitStamps(), {
     phases:
@@ -309,7 +313,7 @@ test("reported model feedback prints a change notice after the phase line", asyn
     },
   )
   t.after(() => output.close())
-  await output.phase.start(
+  await inTurn(output).start(
     {
       phase: "audit",
       assistant: "codex",
@@ -320,7 +324,7 @@ test("reported model feedback prints a change notice after the phase line", asyn
     },
     "prompt",
   )
-  await output.phase.observe({
+  await inTurn(output).observe({
     type: "model",
     selection: { model: "reported-model", effort: "xhigh" },
   })
@@ -362,7 +366,7 @@ test("output records complete invocations incrementally and refreshes only while
   )
   t.after(() => output.close())
   const start = () =>
-    output.phase.start(
+    inTurn(output).start(
       {
         phase: "audit",
         assistant: "codex",
@@ -386,7 +390,7 @@ test("output records complete invocations incrementally and refreshes only while
         status: "in_progress",
       },
     }))
-      if (event.type === "tool") await output.phase.observe(event)
+      if (event.type === "tool") await inTurn(output).observe(event)
   }
   await tool("first command")
   // The step time counts from the phase start, the totals from the round and invocation starts.
@@ -394,13 +398,21 @@ test("output records complete invocations incrementally and refreshes only while
     visible.at(-1) as string,
     /^ {2}00:00 {2}00:05 {2}00:05\s+--\s+--\s+--\s+first command/,
   )
-  await output.phase.observe({ type: "context", tokens: 26000, window: 100000 })
+  await inTurn(output).observe({
+    type: "context",
+    tokens: 26000,
+    window: 100000,
+  })
   await tool("/bin/zsh -lc 'printf audit-round-probe'")
   assert.match(
     visible.at(-1) as string,
     /--\s+26k\s+26%\s+printf audit-round-probe/,
   )
-  await output.phase.observe({ type: "context", tokens: 26200, window: 100000 })
+  await inTurn(output).observe({
+    type: "context",
+    tokens: 26200,
+    window: 100000,
+  })
   await tool("second command")
   assert.match(visible.at(-1) as string, /0\.2k\s+26k\s+26%/)
   t.mock.timers.tick(3000)
@@ -408,7 +420,7 @@ test("output records complete invocations incrementally and refreshes only while
     status.at(-1) as string,
     /\[audit\] 00:03\s+round 00:08\s+run 00:08\s+context\s+26\.2k\s+26k\s+26%/,
   )
-  await output.phase.observe({
+  await inTurn(output).observe({
     type: "text",
     text: "Full assistant text\n\n| A | B |\n| --- | --- |\n| 1 | 2 |",
   })
@@ -424,7 +436,7 @@ test("output records complete invocations incrementally and refreshes only while
     'Final report\n\nPHASE RESULT: {"status":"finished","reason":null}\n',
     'PHASE RESULT: {"status":"failed","reason":"Stopped"}',
   ])
-    await output.phase.observe({ type: "text", text })
+    await inTurn(output).observe({ type: "text", text })
   assert.equal(rendered.at(-1), "Final report")
   assert.doesNotMatch(visible.join("\n"), /PHASE RESULT:/)
   assert.match(await readFile(output.paths.markdown, "utf8"), /PHASE RESULT:/)
@@ -436,7 +448,11 @@ test("output records complete invocations incrementally and refreshes only while
   assert.doesNotMatch(visible.at(-1) as string, /0\.0k|0\.2k/)
   // Three seconds passed since the previous tool line, whatever the text stamp reported.
   assert.match(visible.at(-1) as string, /^ {2}00:03 {2}00:08\s+/)
-  await output.phase.observe({ type: "context", tokens: 8000, window: 100000 })
+  await inTurn(output).observe({
+    type: "context",
+    tokens: 8000,
+    window: 100000,
+  })
   const long = `/bin/zsh -lc 'printf ${"x".repeat(400)}'`
   await tool(long)
   assert.match(visible.at(-1) as string, /^ {2}00:00\s+/)
@@ -447,11 +463,11 @@ test("output records complete invocations incrementally and refreshes only while
   assert.ok(log.includes("x".repeat(400)))
   assert.match(log, /-18\.2k\s+8k\s+8%/)
   assert.match(log, /Full prompt\nMore prompt/)
-  await output.phase.finish({
+  await inTurn(output).finish({
     status: "finished",
     sessionId: "audit",
   })
-  output.phase.release()
+  inTurn(output).release()
   const count = status.length
   t.mock.timers.tick(5000)
   assert.equal(status.length, count)
@@ -486,10 +502,10 @@ test("written status stamps chain into the running total", async (t) => {
   )
   t.after(() => output.close())
   const context = (tokens: number) =>
-    output.phase.observe({ type: "context", tokens, window: 260000 })
-  const text = () => output.phase.observe({ type: "text", text: "Progress" })
+    inTurn(output).observe({ type: "context", tokens, window: 260000 })
+  const text = () => inTurn(output).observe({ type: "text", text: "Progress" })
   const stamp = () => visible.at(-2) as string
-  await output.phase.start(
+  await inTurn(output).start(
     {
       phase: "audit",
       assistant: "codex",
@@ -506,7 +522,7 @@ test("written status stamps chain into the running total", async (t) => {
   await context(89000)
   await text()
   assert.match(stamp(), /context\s+37\.0k\s+89k\s+34%/)
-  await output.phase.start(
+  await inTurn(output).start(
     {
       phase: "fix",
       arguments: ["/report.md", "/vet.md", "/rebut.md"],
@@ -553,7 +569,7 @@ for (const assistant of ["claude", "codex"] as const) {
         },
       )
       t.after(() => output.close())
-      await output.phase.start(
+      await inTurn(output).start(
         {
           phase: "audit",
           assistant,
@@ -672,7 +688,7 @@ for (const assistant of ["claude", "codex"] as const) {
       const decode = assistant === "codex" ? decodeCodex : decodeClaude
       for (const record of records)
         for (const event of decode(record))
-          if (event.type === "tool") await output.phase.observe(event)
+          if (event.type === "tool") await inTurn(output).observe(event)
       const invocations = (text: string) =>
         text
           .trim()
@@ -717,7 +733,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
     },
   )
   t.after(() => output.close())
-  await output.phase.start(
+  await inTurn(output).start(
     {
       phase: "fix",
       rulingFile: "/ruling.md",
@@ -729,8 +745,8 @@ test("Claude measurements omit percentages when the window is unknown", async (t
     },
     "prompt",
   )
-  await output.phase.observe({ type: "context", tokens: 12000, window: null })
-  await output.phase.observe({ type: "text", text: "Assistant reply" })
+  await inTurn(output).observe({ type: "context", tokens: 12000, window: null })
+  await inTurn(output).observe({ type: "text", text: "Assistant reply" })
   assert.match(visible.join("\n"), /context\s+12\.0k\s+12k/)
   assert.doesNotMatch(visible.join("\n"), /%/)
 })
@@ -778,20 +794,20 @@ test("the settings header groups phases by assistant in aligned columns", async 
   }
   // Model, effort and source each start in their own column.
   const codexHeader = [
-    "audit  codex   gpt-5.6-sol       high  audit-round defaults",
-    "rebut  codex   gpt-5.6-sol       high  audit-round defaults",
-    "fix    codex   gpt-5.6-sol       high  audit-round implementation coders",
-    "watch  codex   gpt-5.6-sol       high  audit-round defaults",
-    "vet    claude  claude-opus-5[1m] high  audit-round defaults",
+    "audit    codex   gpt-5.6-sol       high  audit-round defaults",
+    "rebut    codex   gpt-5.6-sol       high  audit-round defaults",
+    "fix      codex   gpt-5.6-sol       high  audit-round implementation coders",
+    "watch    codex   gpt-5.6-sol       high  audit-round defaults",
+    "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
   ]
   assert.equal(
     await header("claude"),
     [
-      "audit  claude  claude-opus-5[1m] high  audit-round defaults",
-      "rebut  claude  claude-opus-5[1m] high  audit-round defaults",
-      "vet    codex   gpt-5.6-sol       high  audit-round defaults",
-      "fix    codex   gpt-5.6-sol       high  audit-round implementation coders",
-      "watch  codex   gpt-5.6-sol       high  audit-round defaults",
+      "audit    claude  claude-opus-5[1m] high  audit-round defaults",
+      "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
+      "rebut    claude  claude-opus-5[1m] high  audit-round defaults",
+      "fix      codex   gpt-5.6-sol       high  audit-round implementation coders",
+      "watch    codex   gpt-5.6-sol       high  audit-round defaults",
     ].join("\n"),
   )
   assert.equal(await header("codex"), codexHeader.join("\n"))
@@ -852,11 +868,11 @@ test("the settings header names what set each phase's model and effort", async (
   assert.deepEqual(
     await header({ option: "--auditor", strength: "top", effort: "xhigh" }),
     [
-      "audit  codex   gpt-6-astra     extra high  --auditor",
-      "rebut  codex   gpt-6-astra     extra high  --auditor",
-      "fix    codex   gpt-5.6-sol     high        audit-round implementation coders",
-      "watch  codex   gpt-5.6-sol     high        audit-round defaults",
-      "vet    claude  claude-opus-5-5 high        audit-round defaults",
+      "audit    codex   gpt-6-astra     extra high  --auditor",
+      "rebut    codex   gpt-6-astra     extra high  --auditor",
+      "fix      codex   gpt-5.6-sol     high        audit-round implementation coders",
+      "watch    codex   gpt-5.6-sol     high        audit-round defaults",
+      "vet abh  claude  claude-opus-5-5 high        audit-round implementation vetters",
     ],
   )
   // One flag names one field, so the row reports both sources, model first.
@@ -865,8 +881,8 @@ test("the settings header names what set each phase's model and effort", async (
       await header({ option: "--auditor", strength: "top", effort: null })
     ).slice(0, 2),
     [
-      "audit  codex   gpt-6-astra     high  --auditor/audit-round defaults",
-      "rebut  codex   gpt-6-astra     high  --auditor/audit-round defaults",
+      "audit    codex   gpt-6-astra     high  --auditor/audit-round defaults",
+      "rebut    codex   gpt-6-astra     high  --auditor/audit-round defaults",
     ],
   )
   assert.deepEqual(
@@ -874,8 +890,8 @@ test("the settings header names what set each phase's model and effort", async (
       await header({ option: "--auditor", strength: null, effort: "medium" })
     ).slice(0, 2),
     [
-      "audit  codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
-      "rebut  codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
+      "audit    codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
+      "rebut    codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
     ],
   )
   // A listed auditor names both fields from the auditors list.
@@ -885,8 +901,8 @@ test("the settings header names what set each phase's model and effort", async (
       2,
     ),
     [
-      "audit  codex   gpt-6-astra     extra high  audit-round auditors",
-      "rebut  codex   gpt-6-astra     extra high  audit-round auditors",
+      "audit    codex   gpt-6-astra     extra high  audit-round auditors",
+      "rebut    codex   gpt-6-astra     extra high  audit-round auditors",
     ],
   )
   // A --first tag names its own option.
@@ -895,8 +911,8 @@ test("the settings header names what set each phase's model and effort", async (
       await header({ option: "--first", strength: "top", effort: "xhigh" })
     ).slice(0, 2),
     [
-      "audit  codex   gpt-6-astra     extra high  --first",
-      "rebut  codex   gpt-6-astra     extra high  --first",
+      "audit    codex   gpt-6-astra     extra high  --first",
+      "rebut    codex   gpt-6-astra     extra high  --first",
     ],
   )
   // A family alias reads as the release the CLI resolved it to.
@@ -906,10 +922,11 @@ test("the settings header names what set each phase's model and effort", async (
         { option: "--auditor", strength: "base", effort: "xhigh" },
         "claude",
       )
-    ).slice(0, 2),
+    ).slice(0, 3),
     [
-      "audit  claude  claude-opus-5-5 extra high  --auditor",
-      "rebut  claude  claude-opus-5-5 extra high  --auditor",
+      "audit    claude  claude-opus-5-5 extra high  --auditor",
+      "vet abh  claude  claude-opus-5-5 high        audit-round implementation vetters",
+      "rebut    claude  claude-opus-5-5 extra high  --auditor",
     ],
   )
 })

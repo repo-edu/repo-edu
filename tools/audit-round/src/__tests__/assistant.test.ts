@@ -5,6 +5,7 @@ import { test } from "node:test"
 import { split } from "shellwords"
 import { runAssistantPhase } from "../assistant.js"
 import { decodeClaude } from "../claude.js"
+import type { PhaseOutput } from "../feedback.js"
 import {
   interactiveArguments,
   phaseRequest,
@@ -99,10 +100,15 @@ PHASE RESULT: {"status":"finished","reason":null}`
       sessionId: null,
     },
     {
-      ...f.output,
-      finish: async (phaseResult) => {
-        await f.output.finish(phaseResult)
-        return { compactions: 2 }
+      start: async (input, prompt) => {
+        const recorder = await f.output.start(input, prompt)
+        return {
+          ...recorder,
+          finish: async (phaseResult) => {
+            await recorder.finish(phaseResult)
+            return { compactions: 2 }
+          },
+        }
       },
     },
     f.runtime,
@@ -534,13 +540,15 @@ for (const assistant of ["claude", "codex"] as const) {
         exitCode: problem === "process" ? 7 : 0,
         wait: problem === "malformed" || problem === "write",
       })
-      const output =
+      const output: PhaseOutput =
         problem === "write"
           ? {
-              ...f.output,
-              observe: async () => {
-                throw new Error("Required log write failed")
-              },
+              start: async (input, prompt) => ({
+                ...(await f.output.start(input, prompt)),
+                observe: async () => {
+                  throw new Error("Required log write failed")
+                },
+              }),
             }
           : f.output
       const result = await runAssistantPhase(
@@ -774,10 +782,12 @@ test("a rejected required final write fails after the child has ended", async (t
   const result = await runAssistantPhase(
     input("claude", f.root),
     {
-      ...f.output,
-      finish: async () => {
-        throw new Error("Markdown write failed")
-      },
+      start: async (input, prompt) => ({
+        ...(await f.output.start(input, prompt)),
+        finish: async () => {
+          throw new Error("Markdown write failed")
+        },
+      }),
     },
     f.runtime,
   )
@@ -795,11 +805,13 @@ test("cancellation stops and awaits an active CLI", async (t) => {
     wait: true,
   })
   const abort = new AbortController()
-  const output = {
-    ...f.output,
-    observe: async () => {
-      abort.abort()
-    },
+  const output: PhaseOutput = {
+    start: async (input, prompt) => ({
+      ...(await f.output.start(input, prompt)),
+      observe: async () => {
+        abort.abort()
+      },
+    }),
   }
   const result = await runAssistantPhase(input("codex", f.root), output, {
     ...f.runtime,

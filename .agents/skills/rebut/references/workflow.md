@@ -39,10 +39,10 @@ for path resolution and argument order. Follow the
 [audit report grammar](../../../references/round-grammar.md#audit-report) for
 the judged repos and heads.
 
-Never answer the vet on a report whose tag's vendor letter is the other
-assistant's. The rebuttal is the auditor's reply, and the other assistant's
-verdicts are not yours to defend. Continue only when the user explicitly
-says to.
+Never answer the vets on a report whose tag's vendor letter names another
+assistant. The rebuttal is the auditor's reply, and another assistant's
+findings are not yours to defend. Continue only when the user explicitly says
+to.
 
 ## Rebuttal file
 

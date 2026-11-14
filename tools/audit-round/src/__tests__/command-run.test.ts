@@ -63,6 +63,7 @@ const runSettings = {
     auditors: [testSettings.planning.auditors[0]],
   },
   implementation: {
+    ...testSettings.implementation,
     auditors: [testSettings.implementation.auditors[0]],
     coders: [
       {

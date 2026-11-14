@@ -379,9 +379,9 @@ tracked file, including formatters. Its verdicts inform reconciliation;
 corrections belong to the phase that completes the round. This separation keeps
 the independent check from applying its own proposals.
 
-Never vet a report whose writer tag names the same assistant. The vet checks
-findings from a fresh context in the other assistant. Continue only when the
-user explicitly says to.
+Every vet of the round's panel checks the findings from a fresh context,
+whichever assistant wrote the report. It reads the report and its sources,
+never another vet's report, so each verdict stays independent.
 
 Check the trade under [Finding explanations](#finding-explanations). The prose
 may carry the whole explanation. Verify the simpler mechanism, cost, benefit

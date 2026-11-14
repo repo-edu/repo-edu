@@ -17,11 +17,11 @@ work so no phase checks itself:
 
 1. **Audit.** One assistant reads the bounded target and writes a report with findings or a clean
    result.
-2. **Vet.** The other assistant checks each finding for authority, evidence and fit from a fresh
-   context. A clean report skips this phase.
+2. **Vet.** Every vet listed for the work class checks each finding for authority, evidence and
+   fit, side by side and each from a fresh context. A clean report skips this phase.
 3. **Rebuttal.** The auditor answers only revisions, drops and ruling items, on the same model and
-   effort as the audit, because the answer is the auditor's. A vet that accepts every finding skips
-   this phase.
+   effort as the audit, because the answer is the auditor's. One rebuttal answers every vet. When
+   every vet accepts every finding, this phase is skipped.
 4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
    settled corrections and lands the records. When the auditor contests a vet's verdict, or two vets
    give different verdicts, on a finding the report or a vet graded A or B, the runner asks you

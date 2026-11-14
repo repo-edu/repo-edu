@@ -70,8 +70,7 @@ The audit changes no tracked file.
 ## Afterwards
 
 1. **The report has findings.** The report stays in `../plan/active/` and no source changes. Run
-   the vet in the other assistant: `$vet <report-file>` in Codex after a Claude audit, or
-   `/vet <report-file>` in Claude after a Codex audit.
+   the vet in either assistant: `/vet <report-file>` in Claude or `$vet <report-file>` in Codex.
 2. **The report is clean.** A plan or step audit lands its `clean` record commit and deletes its
    report. A commit audit lands no record and keeps its report for you to read. A clean round needs
    no vet or fix.

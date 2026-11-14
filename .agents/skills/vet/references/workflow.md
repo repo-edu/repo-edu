@@ -19,13 +19,14 @@ The shared launchers live in the plan checkout under
 The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
-The vet's input is another AI assistant's implementation-audit report, an `*-2-audit.<tag>.md` file
+The vet's input is an implementation-audit report by any assistant, an `*-2-audit.<tag>.md` file
 in the plan checkout's `active/` folder.
 [Report discovery](#report-discovery) says how the file is found. Vet its graded findings. Do not
 run an audit round of your own. Whether a finding is a good idea is not an axis: a finding can be
 appealing and still unauthorised.
 
-Apply the shared protocol's **Vet checks** for read-only authority.
+Apply the shared protocol's **Vet checks** for read-only authority and
+independence from the panel's other vets.
 
 For unattended completion, follow the shared protocol's **Runner result**.
 For a clean report, state that there were no findings to vet.
@@ -36,11 +37,7 @@ The [shared round protocol](../../../references/round-protocol.md) owns evidence
 rules, tiers, rating meanings, verdict meanings and runner result meanings. Use
 the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
 for argument order and the [audit report grammar](../../../references/round-grammar.md#audit-report)
-for the judged repos and heads. The report filename identifies the auditor for
-**Vet checks**.
-
-Follow the shared [Vet checks](../../../references/round-protocol.md#vet-checks)
-for input and output resolution and the other-assistant requirement.
+for the judged repos and heads.
 
 Check head drift and the plan-target filename before vetting:
 

@@ -5,8 +5,10 @@ import { decodeCodex } from "./codex.js"
 import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
 import {
   errorMessage,
+  type Feedback,
   type PhaseCompletion,
   type PhaseOutput,
+  type PhaseRecorder,
 } from "./feedback.js"
 import type {
   AssistantTurnInput,
@@ -86,7 +88,8 @@ export function runAssistantInvocation(
             : input.phase === "vet"
               ? input.arguments[1]
               : input.phase === "rebut"
-                ? input.arguments[2]
+                ? // The rebuttal's output follows every vet report of the panel.
+                  input.arguments[input.arguments.length - 1]
                 : null
         if (report !== null)
           await writeFile(report, `${withoutPhaseResult(finalText)}\n`, "utf8")
@@ -126,7 +129,12 @@ async function runAssistantTurn<T>(
   record?: (value: unknown) => Promise<void>,
 ): Promise<T | PhaseFailure> {
   let sessionId = input.sessionId
-  const observe = output.observe
+  let recorder: PhaseRecorder | undefined
+  const observe = async (feedback: Feedback): Promise<void> => {
+    if (recorder === undefined)
+      throw new Error("Phase feedback arrived before its phase started")
+    await recorder.observe(feedback)
+  }
   const usage =
     input.assistant === "codex"
       ? new CodexSessionReader(codexSessionsRoot(runtime))
@@ -179,7 +187,7 @@ async function runAssistantTurn<T>(
   try {
     try {
       runtime.signal?.throwIfAborted()
-      await output.start(input, prompt.log)
+      recorder = await output.start(input, prompt.log)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
       let response = await respond(prompt.text)
       // The model can leave the line off a finished response. The session is
@@ -196,7 +204,7 @@ async function runAssistantTurn<T>(
         response = await respond(prompt.resultRequest)
       }
       const admitted = await admit(response.sessionId, response.finalText)
-      const completion = await output.finish(admitted.phaseResult)
+      const completion = await recorder.finish(admitted.phaseResult)
       return admitted.complete(completion)
     } finally {
       await usage?.close()
@@ -204,7 +212,7 @@ async function runAssistantTurn<T>(
   } catch (error) {
     return { status: "failed", sessionId, reason: errorMessage(error) }
   } finally {
-    output.release()
+    recorder?.release()
   }
 }
 

@@ -32,8 +32,16 @@ export const waitingRulingSchema = z.strictObject({
   ruling: z.string().min(1),
   /** The checkout the desktop app opens on. */
   folder: z.string().min(1),
-  /** Whose model runs the fix; null for an implementation worker. */
-  fixerSide: z.enum(["auditor", "vet", "neither"]).nullable(),
+  /**
+   * Whose model runs the fix: the auditor's, one panel vet's named by its tag,
+   * or neither side's; null for an implementation worker.
+   */
+  fixerSide: z
+    .union([
+      z.enum(["auditor", "neither"]),
+      z.strictObject({ vet: capabilityTag }),
+    ])
+    .nullable(),
   /** The findings that still need the user's winner. */
   findings: z.array(z.number().int().positive()).readonly(),
   /**
@@ -174,7 +182,9 @@ export function waitingRulingText(ruling: WaitingRuling): string {
           `The fix runs on ${
             ruling.fixerSide === "neither"
               ? "neither side's model"
-              : `the ${ruling.fixerSide}'s model`
+              : ruling.fixerSide === "auditor"
+                ? "the auditor's model"
+                : `vet ${ruling.fixerSide.vet}'s model`
           }.`,
         ]
   return [

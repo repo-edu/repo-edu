@@ -179,7 +179,11 @@ test("each class's auditors list names whole selections and replaces the audit p
       },
     })
     assert.deepEqual(phases.rebut, phases.audit)
-    assert.equal(phases.vet.assistant, "codex")
+    // The panel is the class's vetter list, so a Claude audit has a Claude vet.
+    assert.deepEqual(
+      phases.vet.map(({ assistant }) => assistant),
+      ["claude"],
+    )
     assert.deepEqual(auditorSetting(seat, releases, config), auditor)
   }
   // A resolved command-line seat joins the pool as the entry it runs.
@@ -239,6 +243,7 @@ test("list entries that say default read the assistant's defaults when the file 
     planning: {
       auditors: [{ assistant: "claude", model: "default", effort: "default" }],
       fixer: { assistant: "claude", model: "default", effort: "low" },
+      vetters: [{ assistant: "claude", model: "default", effort: "default" }],
     },
     implementation: {
       auditors: [
@@ -246,8 +251,15 @@ test("list entries that say default read the assistant's defaults when the file 
         { assistant: "codex", model: "listed-auditor", effort: "default" },
       ],
       coders: [{ assistant: "codex", model: "default", effort: "high" }],
+      vetters: [{ assistant: "codex", model: "default", effort: "low" }],
     },
   })
+  assert.deepEqual(config.planning.vetters, [
+    { assistant: "claude", model: "claude-default", effort: "xhigh" },
+  ])
+  assert.deepEqual(config.implementation.vetters, [
+    { assistant: "codex", model: "codex-default", effort: "low" },
+  ])
   assert.deepEqual(config.implementation.auditors, [
     { assistant: "claude", model: "claude-default", effort: "xhigh" },
     { assistant: "codex", model: "listed-auditor", effort: "medium" },
@@ -299,10 +311,7 @@ test("the coder and assigned phases follow their configured assistants independe
           effort: { value: effort, source: "audit-round defaults" },
         },
       })
-      assert.equal(
-        phases.vet.assistant,
-        auditor === "claude" ? "codex" : "claude",
-      )
+      assert.deepEqual(phases.vet, roundPhases(auditor, noOverride).vet)
       assert.deepEqual(phases.rebut, phases.audit)
     }
   }
@@ -463,27 +472,113 @@ test("assistant names and bare letter tags both read the defaults across chained
   }
 })
 
-test("alternating auditors and vetters keep their own configured models", () => {
-  const config = structuredClone(settings)
-  config.implementation.auditors = [
-    { assistant: "claude", model: "claude-auditor", effort: "high" },
-    { assistant: "codex", model: "codex-auditor", effort: "medium" },
-  ]
-  config.phases.vet.claude = { model: "claude-vetter", effort: "low" }
-  config.phases.vet.codex = { model: "codex-vetter", effort: "xhigh" }
+test("every audit report of a class gets that class's whole panel, whoever audits", () => {
+  const config = settingsSchema.parse({
+    ...settings,
+    planning: {
+      ...settings.planning,
+      vetters: [
+        { assistant: "claude", model: "planning-vetter", effort: "high" },
+      ],
+    },
+    implementation: {
+      ...settings.implementation,
+      auditors: [
+        { assistant: "claude", model: "claude-auditor", effort: "high" },
+        { assistant: "codex", model: "codex-auditor", effort: "medium" },
+      ],
+      // A vet of each assistant, one on the Claude auditor's own selection.
+      vetters: [
+        { assistant: "claude", model: "claude-auditor", effort: "high" },
+        { assistant: "codex", model: "codex-vetter", effort: "xhigh" },
+      ],
+    },
+  })
+  const source = "audit-round implementation vetters"
+  const panel = config.implementation.vetters.map(
+    ({ assistant, model, effort }) => ({
+      assistant,
+      model: {
+        model: { value: model, source },
+        effort: { value: effort, source },
+      },
+    }),
+  )
   for (const auditor of config.implementation.auditors) {
-    const assistant = auditor.assistant
-    const vetter = assistant === "claude" ? "codex" : "claude"
     const seat = listedSeat(auditor)
-    const phases = roundPhases(assistant, seat.override, config)
-    assert.equal(phases.audit.model.model?.value, `${assistant}-auditor`)
-    assert.equal(phases.vet.model.model?.value, `${vetter}-vetter`)
-    assert.equal(
-      phases.vet.model.effort?.value,
-      config.phases.vet[vetter].effort,
-    )
+    const phases = roundPhases(auditor.assistant, seat.override, config)
+    assert.equal(phases.audit.model.model.value, auditor.model)
+    assert.deepEqual(phases.vet, panel)
     assert.deepEqual(phases.rebut, phases.audit)
+    // A planning round on the same auditor reads the planning list instead.
+    const planning = roundPhases(
+      auditor.assistant,
+      seat.override,
+      config,
+      roundFixer({ roundKind: "planning", plan: "example.md" }, null, config),
+      "planning",
+    )
+    assert.deepEqual(planning.vet, [
+      {
+        assistant: "claude",
+        model: {
+          model: {
+            value: "planning-vetter",
+            source: "audit-round planning vetters",
+          },
+          effort: { value: "high", source: "audit-round planning vetters" },
+        },
+      },
+    ])
   }
+  assert.ok(namedModels("codex", config).has("codex-vetter"))
+  assert.ok(namedModels("claude", config).has("planning-vetter"))
+})
+
+test("a vetter list needs one entry and refuses two entries with one tag", () => {
+  for (const workClass of ["planning", "implementation"] as const) {
+    const config = (vetters: readonly unknown[]) => ({
+      ...settings,
+      [workClass]: { ...settings[workClass], vetters },
+    })
+    assert.equal(settingsSchema.safeParse(config([])).success, false)
+    // Two unlisted models at high both spell `auh`, so their reports would share a name.
+    const repeated = settingsSchema.safeParse(
+      config([
+        { assistant: "claude", model: "sonnet", effort: "high" },
+        { assistant: "claude", model: "haiku", effort: "high" },
+      ]),
+    )
+    assert.equal(repeated.success, false)
+    assert.match(
+      repeated.error?.message ?? "",
+      new RegExp(`Two ${workClass} vetters share the tag auh`),
+    )
+    // Another effort gives the second vet its own tag.
+    assert.equal(
+      settingsSchema.safeParse(
+        config([
+          { assistant: "claude", model: "sonnet", effort: "high" },
+          { assistant: "claude", model: "haiku", effort: "xhigh" },
+        ]),
+      ).success,
+      true,
+    )
+  }
+  // The old per-assistant vet selection is refused like any other invalid field.
+  assert.equal(
+    settingsSchema.safeParse({
+      ...settings,
+      phases: {
+        ...settings.phases,
+        vet: {
+          claude: { model: "default", effort: "default" },
+          codex: { model: "default", effort: "default" },
+        },
+      },
+    }).success,
+    false,
+  )
 })
 
 test("settings reject null fields, unsupported effort, misspelt fields and independent rebuttal settings", () => {
@@ -507,7 +602,7 @@ test("settings reject null fields, unsupported effort, misspelt fields and indep
   assert.equal(
     settingsSchema.safeParse({
       ...settings,
-      phases: { ...settings.phases, rebut: settings.phases.vet },
+      phases: { ...settings.phases, rebut: settings.phases.close },
     }).success,
     false,
   )

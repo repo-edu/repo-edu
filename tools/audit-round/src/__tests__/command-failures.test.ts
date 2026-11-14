@@ -79,9 +79,11 @@ for (const auditor of ["codex", "claude"] as const) {
       for (const call of phases.filter((call) => call.assistant === "claude"))
         assert.equal(call.args[call.args.indexOf("--add-dir") + 1], f.repoRoot)
       for (const phase of ["audit", "vet", "rebut", "fix"]) {
+        // The planning fixer runs on Codex and the planning panel on Claude.
+        const assistant =
+          phase === "fix" ? "codex" : phase === "vet" ? "claude" : auditor
         const launcher =
-          phase === "fix" ||
-          (phase === "vet" ? auditor === "claude" : auditor === "codex")
+          assistant === "codex"
             ? join(f.planRoot, `home/agents/skills/${phase}/SKILL.md`)
             : join(f.planRoot, `home/claude/commands/${phase}.md`)
         assert.ok(log.includes(launcher), launcher)
@@ -103,7 +105,7 @@ for (const auditor of ["codex", "claude"] as const) {
           phases:
             auditor === "codex"
               ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
-              : `audit, rebut: ${recordedText("claude")}\nvet: ${recordedText("codex")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
+              : `audit, vet, rebut: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
           auditor: recordedTag(auditor),
         },
       )

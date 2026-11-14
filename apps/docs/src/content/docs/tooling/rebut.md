@@ -1,10 +1,10 @@
 ---
 title: /rebut
-description: Let an audit's original writer answer the other assistant's vet verdicts
+description: Let an audit's original writer answer every vet's verdicts
 ---
 
-`/rebut` lets the assistant that wrote an audit answer the vet's revisions, drops and ruling items
-with evidence, after a vet that did not accept every finding.
+`/rebut` lets the assistant that wrote an audit answer the vets' revisions, drops and ruling items
+with evidence, after any vet that did not accept every finding.
 
 | Fact | Detail |
 | --- | --- |
@@ -14,8 +14,8 @@ with evidence, after a vet that did not accept every finding.
 ## Usage
 
 ```text
-/rebut                       answer the newest vet of this assistant's newest report
-/rebut <report-file>         answer the newest vet of one named report
+/rebut                       answer every vet of this assistant's newest report
+/rebut <report-file>         answer every vet of one named report
 ```
 
 ```text
@@ -27,7 +27,7 @@ The command has no flags. Skip it when every vet verdict was Accept. The whole s
 
 ## What it shows you
 
-The rebuttal reads the report and that round's newest vet twin. Accepted findings carry forward
+The rebuttal reads the report and every vet twin of that round. Accepted findings carry forward
 without a fresh read. For every other verdict it reads the source that decides the disagreement
 itself, rather than trusting either quotation: the plan, the code, a boundary or the episode's
 commit bodies. It answers each vet's revisions, drops and referrals, in report order, and names on
@@ -48,8 +48,8 @@ commit.
 ## Early stops
 
 1. **No matching report or vet is found.** Rerun with the report name. When the report has no vet
-   yet, run the vet first in the other assistant.
-2. **The report belongs to the other assistant.** Run `/rebut` or `$rebut` in the assistant that
+   yet, run the vet first.
+2. **The report belongs to another assistant.** Run `/rebut` or `$rebut` in the assistant that
    wrote it.
 
 ## Afterwards

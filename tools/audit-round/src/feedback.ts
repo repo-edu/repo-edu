@@ -56,11 +56,48 @@ export type AssistantEvent =
   | { readonly type: "final"; readonly text: string }
   | { readonly type: "complete" }
 
+/**
+ * Where an invocation's output goes. Starting one opens its own recorder, so
+ * vets of one panel that run at the same time never share a record: each
+ * event reaches the recorder of the invocation that produced it.
+ */
 export type PhaseOutput = {
-  readonly start: (input: AssistantTurnInput, prompt: string) => Promise<void>
+  readonly start: (
+    input: AssistantTurnInput,
+    prompt: string,
+  ) => Promise<PhaseRecorder>
+}
+
+/**
+ * The same output with one more step after each event a started invocation
+ * records, for a caller that checks what the assistant reports.
+ */
+export function observedOutput(
+  output: PhaseOutput,
+  after: (feedback: Feedback) => Promise<void> | void,
+): PhaseOutput {
+  return {
+    start: async (input, prompt) => {
+      const recorder = await output.start(input, prompt)
+      return {
+        ...recorder,
+        observe: async (feedback) => {
+          await recorder.observe(feedback)
+          await after(feedback)
+        },
+      }
+    },
+  }
+}
+
+/** One started invocation's events and ending. */
+export type PhaseRecorder = {
   readonly observe: (feedback: Feedback) => Promise<void>
   readonly finish: (result: PhaseControlResult) => Promise<PhaseCompletion>
-  /** Releases transient terminal output even after a required write fails. */
+  /**
+   * Ends the invocation's live output even after a required write fails. An
+   * invocation that never finished keeps the time and tokens it spent.
+   */
   readonly release: () => void
 }
 

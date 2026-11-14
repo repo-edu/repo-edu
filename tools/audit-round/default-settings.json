@@ -27,7 +27,19 @@
             "assistant": "codex",
             "model": "default",
             "effort": "default"
-        }
+        },
+        "vetters": [
+            {
+                "assistant": "claude",
+                "model": "opus",
+                "effort": "xhigh"
+            },
+            {
+                "assistant": "claude",
+                "model": "fable",
+                "effort": "high"
+            }
+        ]
     },
     "implementation": {
         "auditors": [
@@ -48,19 +60,21 @@
                 "model": "default",
                 "effort": "default"
             }
-        ]
-    },
-    "phases": {
-        "vet": {
-            "claude": {
-                "model": "default",
-                "effort": "default"
+        ],
+        "vetters": [
+            {
+                "assistant": "claude",
+                "model": "opus",
+                "effort": "xhigh"
             },
-            "codex": {
+            {
+                "assistant": "codex",
                 "model": "default",
                 "effort": "default"
             }
-        },
+        ]
+    },
+    "phases": {
         "watch": {
             "assistant": "codex",
             "model": "default",

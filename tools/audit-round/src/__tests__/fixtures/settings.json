@@ -38,7 +38,14 @@
       "assistant": "codex",
       "model": "default",
       "effort": "default"
-    }
+    },
+    "vetters": [
+      {
+        "assistant": "claude",
+        "model": "default",
+        "effort": "default"
+      }
+    ]
   },
   "implementation": {
     "auditors": [
@@ -59,19 +66,16 @@
         "model": "gpt-5.6-sol",
         "effort": "high"
       }
-    ]
-  },
-  "phases": {
-    "vet": {
-      "claude": {
-        "model": "default",
-        "effort": "default"
-      },
-      "codex": {
+    ],
+    "vetters": [
+      {
+        "assistant": "claude",
         "model": "default",
         "effort": "default"
       }
-    },
+    ]
+  },
+  "phases": {
     "watch": {
       "assistant": "codex",
       "model": "default",

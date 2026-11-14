@@ -191,23 +191,32 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       return JSON.parse(f.visible[0]).arguments
     }
-    const vet = join(root, "task-modifier-05-3-vet.obh.md")
-    assert.deepEqual(await paths(["vet", "--writer", "obh"]), [report, vet])
-    assert.deepEqual(await paths(["vet", "--writer", "atl"]), [
+    // The vet takes the newest audit report whoever wrote it, so a session
+    // may vet its own assistant's report.
+    await utimes(report, 1_000, 1_000)
+    assert.deepEqual(await paths(["vet", "--writer", "obh"]), [
       ownReport,
-      join(root, "other-06-3-vet.atl.md"),
+      join(root, "other-06-3-vet.obh.md"),
     ])
+    const vets = ["atl", "obh"].map((tag) =>
+      join(root, `task-modifier-05-3-vet.${tag}.md`),
+    )
+    assert.deepEqual(
+      await paths(["vet", basename(report), "--writer", "atl"]),
+      [report, vets[0]],
+    )
     assert.deepEqual(await readdir(root, { recursive: true }), before)
-    await writeFile(vet, "1. [B] Revise")
+    for (const vet of vets) await writeFile(vet, "1. [B] Revise")
+    // The rebuttal and the fix read every vet of the round, in file-name order.
     const rebut = join(root, "task-modifier-05-4-rebut.abh.md")
     assert.deepEqual(await paths(["rebut", "--writer", "abh"]), [
       report,
-      vet,
+      ...vets,
       rebut,
     ])
-    await writeFile(rebut, "1. [B] Agree")
+    await writeFile(rebut, "1. [B] [atl] Agree")
     await unlink(ownReport)
-    assert.deepEqual(await paths(["fix"]), [report, vet, rebut])
+    assert.deepEqual(await paths(["fix"]), [report, ...vets, rebut])
     await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
       code: "ENOENT",
     })
@@ -271,20 +280,21 @@ test("manual resolution reuses runner filenames without writes or assistant disc
     releases,
   )
   await writeFile(run.documents.report, "# Implementation audit workflow")
-  await writeFile(run.documents.vet, "Vet")
+  const [vet] = run.documents.vets
+  await writeFile(vet, "Vet")
   const before = await readdir(f.planRoot, { recursive: true })
   for (const [args, expected] of [
     [
       ["vet", basename(run.documents.report), "--writer", "abh"],
-      [run.documents.report, run.documents.vet],
+      [run.documents.report, vet],
     ],
     [
       ["rebut", basename(run.documents.report), "--writer", "obh"],
-      [run.documents.report, run.documents.vet, run.documents.rebut],
+      [run.documents.report, vet, run.documents.rebut],
     ],
     [
       ["fix", basename(run.documents.report)],
-      [run.documents.report, run.documents.vet],
+      [run.documents.report, vet],
     ],
   ]) {
     f.visible.length = 0
@@ -301,7 +311,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   })
 })
 
-test("several twins resolve to the round's newest unless one is selected", async (t) => {
+test("every vet of the round reaches the rebuttal and the fix, beside the newest rebuttal unless one is selected", async (t) => {
   const f = await roundFixture(t)
   const report = join(
     f.activeRoot,
@@ -326,49 +336,64 @@ test("several twins resolve to the round's newest unless one is selected", async
   for (const file of [...vets, ...rebuts]) await writeFile(file, "Review")
   // The later names carry the earlier dates, so the date decides rather than the name.
   for (const file of [vets[1], rebuts[1]]) await utimes(file, 1_000, 1_000)
-  // A newer review of another round never joins this one.
-  const other = join(f.activeRoot, "example-impl-audit-01..01-02-3-vet.ath.md")
-  await writeFile(other, "Other round")
+  // Another round's reviews never join this one.
+  const otherVet = join(
+    f.activeRoot,
+    "example-impl-audit-01..01-02-3-vet.ath.md",
+  )
+  const otherRebut = join(
+    f.activeRoot,
+    "example-impl-audit-01..01-02-4-rebut.oux.md",
+  )
+  for (const file of [otherVet, otherRebut])
+    await writeFile(file, "Other round")
   assert.equal(
     await invoke(["rebut", basename(report), "--writer", "obh"]),
     0,
     f.errors.join("\n"),
   )
-  assert.equal(JSON.parse(f.visible[0]).arguments[1], vets[0])
+  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
+    report,
+    ...vets,
+    join(f.activeRoot, "example-impl-audit-01..01-01-4-rebut.obh.md"),
+  ])
   assert.equal(await invoke(["fix", basename(report)]), 0)
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
     report,
-    vets[0],
+    ...vets,
     rebuts[0],
   ])
   assert.equal(
-    await invoke([
-      "fix",
-      basename(report),
-      "--vet",
-      basename(vets[1]),
-      "--rebut",
-      basename(rebuts[1]),
-    ]),
+    await invoke(["fix", basename(report), "--rebut", basename(rebuts[1])]),
     0,
   )
   assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
     report,
-    vets[1],
+    ...vets,
     rebuts[1],
   ])
+  assert.equal(
+    await invoke(["fix", basename(report), "--rebut", basename(otherRebut)]),
+    1,
+  )
+  assert.match(f.errors[0], /another round/)
+  // Only the fix reads a rebuttal, and every vet is supplied, so no other
+  // selection exists.
   assert.equal(
     await invoke([
       "rebut",
       basename(report),
       "--writer",
       "obh",
-      "--vet",
-      basename(other),
+      "--rebut",
+      basename(rebuts[0]),
     ]),
-    1,
+    2,
   )
-  assert.match(f.errors[0], /another round/)
+  assert.equal(
+    await invoke(["fix", basename(report), "--vet", basename(vets[0])]),
+    2,
+  )
   assert.equal(await invoke(["vet", basename(report)]), 1)
   assert.match(f.errors[0], /needs --writer/)
   assert.equal(await invoke(["vet", basename(report), "--writer", "o"]), 2)

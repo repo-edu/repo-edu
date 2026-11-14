@@ -162,10 +162,11 @@ if (scenario.phases !== undefined) {
     }
   }
   if (document !== undefined) {
+    // The rebuttal's output follows every vet report of the panel.
     const outputIndex = {
       audit: 0,
       vet: 1,
-      rebut: 2,
+      rebut: phaseArguments.length - 1,
       watch: 0,
     }[phase]
     const output =

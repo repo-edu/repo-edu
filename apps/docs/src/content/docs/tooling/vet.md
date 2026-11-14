@@ -1,10 +1,11 @@
 ---
 title: /vet
-description: Check another assistant's planning or implementation audit findings
+description: Check an audit report's planning or implementation findings
 ---
 
-`/vet` checks another assistant's audit findings from a fresh context, after an audit report has
-findings and before any correction lands.
+`/vet` checks an audit report's findings from a fresh context, after the report has findings and
+before any correction lands. A round runs every vetter its settings list for the work class, side
+by side, whoever audited.
 
 | Fact | Detail |
 | --- | --- |
@@ -14,7 +15,7 @@ findings and before any correction lands.
 ## Usage
 
 ```text
-/vet                         vet the other assistant's newest eligible report
+/vet                         vet the newest audit report
 /vet <report-file>           vet one named audit report
 ```
 
@@ -22,8 +23,9 @@ findings and before any correction lands.
 /vet tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
-The command has no flags. The report must come from the other assistant, because the vet exists to
-give each finding an independent read. The report's opening tells the runner whether to use the
+The command has no flags. The report may come from any assistant, this one included. Each vet gives
+every finding an independent read: it starts fresh and never reads another vet's report. The
+report's opening tells the runner whether to use the
 planning or implementation workflow and which checkout to work in. The whole session uses the
 `/simple` wording requirement.
 
@@ -52,9 +54,7 @@ changes no tracked file.
 
 1. **No eligible report is found.** Rerun with the report name from the plan checkout's `active/`
    folder.
-2. **The report is from this assistant.** Open the other assistant and run its `/vet` or `$vet`
-   there.
-3. **The plan named in the filename differs from the report's `Target:` line.** The vet names both
+2. **The plan named in the filename differs from the report's `Target:` line.** The vet names both
    and refuses.
 
 ## Afterwards
@@ -62,6 +62,7 @@ changes no tracked file.
 The verdicts appear in chat and in the round's `-3-vet.<tag>.md` twin under `../plan/active/`. No
 commit lands. The verdicts decide the next phase:
 
-1. **Every verdict is Accept.** Run `/fix <report-file>` or `$fix <report-file>`.
-2. **A verdict is Revise, Drop or Needs user's ruling.** Return to the report's auditor and run
-   `/rebut <report-file>` or `$rebut <report-file>`. The vet itself asks you no product question.
+1. **Every vet's verdicts are all Accept.** Run `/fix <report-file>` or `$fix <report-file>`.
+2. **Any vet's verdict is Revise, Drop or Needs user's ruling.** Return to the report's auditor and
+   run `/rebut <report-file>` or `$rebut <report-file>`. The vet itself asks you no product
+   question.

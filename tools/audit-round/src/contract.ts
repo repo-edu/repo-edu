@@ -21,7 +21,7 @@ import {
   findSessionFile,
 } from "./codex-session.js"
 import type { ExecutionContext } from "./context.js"
-import { eventSchema, type Feedback } from "./feedback.js"
+import { eventSchema, type Feedback, observedOutput } from "./feedback.js"
 import { RoundOutput } from "./output.js"
 import { phaseSelection } from "./output-format.js"
 import { type Assistant, defaultModel } from "./phase.js"
@@ -237,7 +237,6 @@ export async function recordContracts(
                 seen.success = true
             }
           }
-          await output.phase.observe(event)
         }
         const result = await runAssistantInvocation(
           {
@@ -250,7 +249,7 @@ export async function recordContracts(
             sessionId: null,
           },
           { text: contractPrompt(assistant), log: contractPrompt(assistant) },
-          { ...output.phase, observe },
+          observedOutput(output.phase, observe),
           runtime,
           async (record) => {
             const event = selectRecord(assistant, record)
@@ -305,13 +304,9 @@ export async function recordContracts(
             rulingReply: "Resume the CLI contract probe.",
           },
           { text: contractResumePrompt, log: contractResumePrompt },
-          {
-            ...output.phase,
-            observe: async (event) => {
-              if (event.type === "tokens") resumedTokens = true
-              await output.phase.observe(event)
-            },
-          },
+          observedOutput(output.phase, (event) => {
+            if (event.type === "tokens") resumedTokens = true
+          }),
           runtime,
           async (record) => {
             const event = selectRecord(assistant, record)

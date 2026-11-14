@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { type ParseError, parse, printParseErrorCode } from "jsonc-parser"
 import { z } from "zod"
 import defaults from "../default-settings.json" with { type: "json" }
-import { efforts } from "./phase.js"
+import { efforts, selectionTag } from "./phase.js"
 
 const assistant = z.enum(["claude", "codex"])
 const model = z
@@ -39,10 +39,6 @@ export const coderSchema = z.strictObject({ assistant, model, effort })
 export type Coder = z.infer<typeof coderSchema>
 /** One auditor the series may run, in the coder's resolved shape. */
 export type Auditor = Coder
-const assistantPhase = z.strictObject({
-  claude: selection,
-  codex: selection,
-})
 const strengths = z.strictObject({ base: model, top: model })
 
 /**
@@ -78,6 +74,8 @@ export const settingsSchema = z
       auditors: z.array(assignedSelection).min(1),
       /** The one fixer of planning work. */
       fixer: assignedSelection,
+      /** The panel that vets every planning audit report, run in parallel. */
+      vetters: z.array(assignedSelection).min(1),
     }),
     implementation: z.strictObject({
       /** The ordered pool for implementation work. */
@@ -87,9 +85,10 @@ export const settingsSchema = z
        * fixes code work that has no ready assignment.
        */
       coders: z.array(assignedSelection).min(1),
+      /** The panel that vets every implementation audit report, run in parallel. */
+      vetters: z.array(assignedSelection).min(1),
     }),
     phases: z.strictObject({
-      vet: assistantPhase,
       watch: assignedSelection,
       close: assignedSelection,
     }),
@@ -101,6 +100,9 @@ export const settingsSchema = z
         resolveEntry(entry, settings.defaults),
       ),
       fixer: resolveEntry(settings.planning.fixer, settings.defaults),
+      vetters: settings.planning.vetters.map((entry) =>
+        resolveEntry(entry, settings.defaults),
+      ),
     },
     implementation: {
       auditors: settings.implementation.auditors.map((entry) =>
@@ -109,8 +111,32 @@ export const settingsSchema = z
       coders: settings.implementation.coders.map((entry) =>
         resolveEntry(entry, settings.defaults),
       ),
+      vetters: settings.implementation.vetters.map((entry) =>
+        resolveEntry(entry, settings.defaults),
+      ),
     },
   }))
+  /**
+   * Each vet report is named by its writer's tag, so two vetters of one list
+   * with one tag would write one file and the round would lose a vet's
+   * verdicts. The good case this blocks is two models of one assistant on one
+   * tier and effort; changing one effort lets both run.
+   */
+  .superRefine((settings, context) => {
+    for (const workClass of ["planning", "implementation"] as const) {
+      const tags = settings[workClass].vetters.map(
+        ({ assistant, model, effort }) =>
+          selectionTag(assistant, model, effort, settings),
+      )
+      const repeated = tags.find((tag, index) => tags.indexOf(tag) !== index)
+      if (repeated !== undefined)
+        context.addIssue({
+          code: "custom",
+          path: [workClass, "vetters"],
+          message: `Two ${workClass} vetters share the tag ${repeated}, so one vet report would overwrite the other; give one of them another model tier or effort`,
+        })
+    }
+  })
 
 export type RoundSettings = z.infer<typeof settingsSchema>
 

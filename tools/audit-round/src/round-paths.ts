@@ -274,7 +274,8 @@ export type ManualPhase = "vet" | "rebut" | "fix"
 export type RecoveryRoundPaths = {
   readonly nameStart: string
   readonly report: string
-  readonly vet: string
+  /** Every vet report of the round, ordered by file name. */
+  readonly vets: readonly string[]
   readonly rebut: string
   readonly ruling: string | null
 }
@@ -305,14 +306,18 @@ export async function newestWatch(
   )
 }
 
-/** Resolve one existing round without claiming it or consulting future writers' settings. */
+/**
+ * Resolve one existing round without claiming it or consulting future writers'
+ * settings. A vet may read an audit report of either assistant, its own
+ * included, because the panel is every listed vet whoever audits. The rebuttal
+ * and the fix receive every vet report of the round.
+ */
 export async function manualPhasePaths(
   context: ExecutionContext,
   phase: ManualPhase,
   input: string | undefined,
   options: {
     readonly writer?: string
-    readonly vet?: string
     readonly rebut?: string
   },
 ): Promise<readonly string[]> {
@@ -323,12 +328,10 @@ export async function manualPhasePaths(
   if (input === undefined) {
     const newest = await newestDocument(
       (await phaseDocuments(context.activeRoot, "audit"))
-        .filter((document) => {
-          const sameAssistant = document.tag[0] === options.writer?.[0]
-          if (phase === "vet") return !sameAssistant
-          if (phase === "rebut") return sameAssistant
-          return true
-        })
+        .filter(
+          (document) =>
+            phase !== "rebut" || document.tag[0] === options.writer?.[0],
+        )
         .map((document) => document.path),
     )
     if (newest === undefined)
@@ -349,39 +352,34 @@ export async function manualPhasePaths(
       `${phaseFilename(source.nameStart, kind, options.writer)}.md`,
     )
   }
-  const twin = async (
-    kind: "vet" | "rebut",
-    supplied?: string,
-  ): Promise<string | undefined> => {
-    if (supplied !== undefined) {
-      const chosen = await roundDocument(context, supplied, kind)
+  const reviews = async (kind: "vet" | "rebut") =>
+    (await phaseDocuments(root, kind)).filter(
+      (document) => document.nameStart === source.nameStart,
+    )
+  const rebuttal = async (): Promise<string | undefined> => {
+    if (options.rebut !== undefined) {
+      const chosen = await roundDocument(context, options.rebut, "rebut")
       if (
         dirname(chosen.path) !== root ||
         chosen.nameStart !== source.nameStart
       )
         throw new Error(
-          `The ${kind} file belongs to another round: ${supplied}`,
+          `The rebut file belongs to another round: ${options.rebut}`,
         )
       return chosen.path
     }
-    return newestDocument(
-      (await phaseDocuments(root, kind))
-        .filter((document) => document.nameStart === source.nameStart)
-        .map((document) => document.path),
-    )
+    return newestDocument((await reviews("rebut")).map(({ path }) => path))
   }
   if (phase === "vet") return [source.path, output(phase)]
-  const vet = await twin("vet", options.vet)
+  // File-name order, so every route lists one round's panel the same way.
+  const vets = (await reviews("vet")).map(({ path }) => path).sort()
   if (phase === "rebut") {
-    if (vet === undefined)
+    if (vets.length === 0)
       throw new Error(`No vet file for ${source.nameStart} at ${root}.`)
-    return [source.path, vet, output("rebut")]
+    return [source.path, ...vets, output("rebut")]
   }
-  const rebut = await twin("rebut", options.rebut)
-  return [
-    source.path,
-    ...[vet, rebut].filter((file): file is string => file !== undefined),
-  ]
+  const rebut = await rebuttal()
+  return [source.path, ...vets, ...(rebut === undefined ? [] : [rebut])]
 }
 
 /** Resolve the retained reports and optional ruling for one stopped fix. */
@@ -391,7 +389,12 @@ export async function recoveryRoundPaths(
 ): Promise<RecoveryRoundPaths> {
   const source = await roundDocument(context, input, "audit")
   const reviews = await manualPhasePaths(context, "fix", input, {})
-  if (reviews.length !== 3)
+  const rebut = reviews.at(-1)
+  if (
+    reviews.length < 3 ||
+    rebut === undefined ||
+    readPhaseFilename(basename(rebut))?.kind !== "rebut"
+  )
     throw new Error(
       `A serious-contest recovery needs the audit, vet and rebuttal files for ${source.nameStart}.`,
     )
@@ -403,8 +406,8 @@ export async function recoveryRoundPaths(
   return {
     nameStart: source.nameStart,
     report: reviews[0] as string,
-    vet: reviews[1] as string,
-    rebut: reviews[2] as string,
+    vets: reviews.slice(1, -1),
+    rebut,
     ruling: ruling ?? null,
   }
 }

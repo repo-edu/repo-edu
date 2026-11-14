@@ -6,6 +6,7 @@ import { roundRun as buildRoundRun } from "../output.js"
 import { pinnedSelection } from "../output-format.js"
 import { parseRoundDataFile } from "../round-data.js"
 import { RunClock } from "../run-clock.js"
+import { settingsSchema } from "../settings.js"
 import {
   noOverride,
   pinned,
@@ -16,6 +17,7 @@ import {
 } from "./configured-runner.js"
 import {
   fixture,
+  inTurn,
   releases,
   resolved,
   testContext,
@@ -141,7 +143,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   const stamp = () => log.filter((text) => text.startsWith("\n[fix]")).at(-1)
 
   t.mock.timers.tick(5_000)
-  await output.phase.start(
+  await inTurn(output).start(
     {
       phase: "fix",
       rulingFile: "RULING.md",
@@ -154,9 +156,9 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     "Full prompt",
   )
   t.mock.timers.tick(60_000)
-  await output.phase.observe({ type: "text", text: "A ruling is needed." })
+  await inTurn(output).observe({ type: "text", text: "A ruling is needed." })
   assert.equal(stamp(), "\n[fix] 01:00  round 01:05  run 01:05")
-  await output.phase.finish({
+  await inTurn(output).finish({
     status: "needs-ruling",
     sessionId: "session",
   })
@@ -171,7 +173,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   // The user is away with the ruling; the round is doing nothing meanwhile.
   t.mock.timers.tick(30 * 60_000)
   output.endRuling("Take the redesign.")
-  await output.phase.start(
+  await inTurn(output).start(
     {
       ...session,
       phase: "fix",
@@ -181,11 +183,11 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     },
     "Continue the fix",
   )
-  await output.phase.observe({ type: "text", text: "Applying your ruling." })
+  await inTurn(output).observe({ type: "text", text: "Applying your ruling." })
   assert.equal(stamp(), "\n[fix] 00:00  round 01:05  run 01:05")
 
   t.mock.timers.tick(120_000)
-  await output.phase.observe({ type: "text", text: "Applied." })
+  await inTurn(output).observe({ type: "text", text: "Applied." })
   assert.equal(stamp(), "\n[fix] 02:00  round 03:05  run 03:05")
 
   output.beginRuling(waiting)
@@ -244,33 +246,33 @@ test("outputs sharing one clock carry the run reading across rounds and subtract
   // Startup work before the first round counts for the run alone.
   t.mock.timers.tick(2 * 60_000)
   const first = await open()
-  await first.output.phase.start({ ...fix, sessionId: null }, "Full prompt")
+  await inTurn(first.output).start({ ...fix, sessionId: null }, "Full prompt")
   t.mock.timers.tick(3 * 60_000)
-  await first.output.phase.observe({ type: "text", text: "Fixed." })
+  await inTurn(first.output).observe({ type: "text", text: "Fixed." })
   assert.equal(first.stamp(), "\n[fix] 03:00  round 03:00  run 05:00")
-  await first.output.phase.finish({ status: "finished", sessionId: "first" })
+  await inTurn(first.output).finish({ status: "finished", sessionId: "first" })
   first.output.close()
 
   // Runner work between the rounds belongs to the run too.
   t.mock.timers.tick(60_000)
   const second = await open()
-  await second.output.phase.start({ ...fix, sessionId: null }, "Full prompt")
+  await inTurn(second.output).start({ ...fix, sessionId: null }, "Full prompt")
   t.mock.timers.tick(60_000)
-  await second.output.phase.observe({ type: "text", text: "A ruling." })
+  await inTurn(second.output).observe({ type: "text", text: "A ruling." })
   assert.equal(second.stamp(), "\n[fix] 01:00  round 01:00  run 07:00")
-  await second.output.phase.finish({
+  await inTurn(second.output).finish({
     status: "needs-ruling",
     sessionId: "second",
   })
   second.output.beginRuling(waiting)
   t.mock.timers.tick(30 * 60_000)
   second.output.endRuling("Take the redesign.")
-  await second.output.phase.start(
+  await inTurn(second.output).start(
     { ...fix, sessionId: "second", rulingReply: "Take the redesign." },
     "Continue the fix",
   )
   t.mock.timers.tick(2 * 60_000)
-  await second.output.phase.observe({ type: "text", text: "Applied." })
+  await inTurn(second.output).observe({ type: "text", text: "Applied." })
   // The half hour with the ruling leaves the round and the run alike.
   assert.equal(second.stamp(), "\n[fix] 02:00  round 03:00  run 09:00")
 })
@@ -296,7 +298,7 @@ test("a finished phase stops its status timer", async (t) => {
   )
   t.after(() => output.close())
 
-  await output.phase.start(
+  await inTurn(output).start(
     {
       phase: "fix",
       rulingFile: "RULING.md",
@@ -309,7 +311,7 @@ test("a finished phase stops its status timer", async (t) => {
     "Full prompt",
   )
   t.mock.timers.tick(1_000)
-  await output.phase.finish({ status: "finished", sessionId: "session" })
+  await inTurn(output).finish({ status: "finished", sessionId: "session" })
   const finishedStatuses = statuses.length
 
   t.mock.timers.tick(1_000)
@@ -327,7 +329,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
   })
   t.after(() => output.close())
   const audit = roundPhases("codex", noOverride).audit
-  await output.phase.start(
+  await inTurn(output).start(
     {
       ...setup,
       ...audit,
@@ -337,11 +339,14 @@ test("round data attributes the auditor to the audit phase's reported model", as
     },
     "Run the audit",
   )
-  await output.phase.observe({
+  await inTurn(output).observe({
     type: "model",
     selection: { model: "reported-auditor", effort: "xhigh" },
   })
-  await output.phase.finish({ status: "finished", sessionId: "audit-session" })
+  await inTurn(output).finish({
+    status: "finished",
+    sessionId: "audit-session",
+  })
   output.finish({
     status: "finished",
     report: "REPORT.md",
@@ -596,17 +601,17 @@ for (const assistant of ["claude", "codex"] as const) {
             },
           } as const)
 
-    await output.phase.start({ ...turn, sessionId: null }, "Start the fix")
-    await output.phase.observe(tokens(100, 50, 10))
+    await inTurn(output).start({ ...turn, sessionId: null }, "Start the fix")
+    await inTurn(output).observe(tokens(100, 50, 10))
     t.mock.timers.tick(1000)
-    await output.phase.finish({
+    await inTurn(output).finish({
       status: "needs-ruling",
       sessionId: "fix-session",
     })
     output.beginRuling(waiting)
     t.mock.timers.tick(60_000)
     output.endRuling("Use the single owner.")
-    await output.phase.start(
+    await inTurn(output).start(
       {
         ...turn,
         sessionId: "fix-session",
@@ -614,9 +619,9 @@ for (const assistant of ["claude", "codex"] as const) {
       },
       "Resume the fix",
     )
-    await output.phase.observe(tokens(120, 60, 12))
+    await inTurn(output).observe(tokens(120, 60, 12))
     t.mock.timers.tick(2000)
-    await output.phase.finish({
+    await inTurn(output).finish({
       status: "finished",
       sessionId: "fix-session",
     })
@@ -712,7 +717,7 @@ for (const assistant of ["claude", "codex"] as const) {
       },
     })
     t.after(() => output.close())
-    await output.phase.start(
+    await inTurn(output).start(
       {
         ...setup,
         phase: "fix",
@@ -724,19 +729,19 @@ for (const assistant of ["claude", "codex"] as const) {
       },
       "Run the fix",
     )
-    await output.phase.observe({
+    await inTurn(output).observe({
       type: "context",
       tokens: 240_000,
       window: assistant === "codex" ? 258_400 : null,
     })
-    await output.phase.observe({ type: "compaction" })
-    await output.phase.observe({
+    await inTurn(output).observe({ type: "compaction" })
+    await inTurn(output).observe({
       type: "context",
       tokens: 12_000,
       window: null,
     })
-    await output.phase.observe({ type: "compaction" })
-    await output.phase.finish({ status: "finished", sessionId: "session" })
+    await inTurn(output).observe({ type: "compaction" })
+    await inTurn(output).finish({ status: "finished", sessionId: "session" })
     output.finish({
       status: "finished",
       report: "REPORT.md",
@@ -769,20 +774,42 @@ for (const assistant of ["claude", "codex"] as const) {
   })
 }
 
-test("commit stamps time the finished audit, vet and rebuttal and never the fix", async (t) => {
+test("commit stamps time the finished audit, every vet and rebuttal and never the fix", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-  const phases = roundPhases("codex", noOverride)
-  const output = new RoundOutput(await roundRun(setup, Date.now(), releases), {
+  const settings = settingsSchema.parse({
+    ...testSettings,
+    implementation: {
+      ...testSettings.implementation,
+      vetters: [
+        { assistant: "claude", model: "opus", effort: "high" },
+        { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+      ],
+    },
+  })
+  const phases = roundPhases("codex", noOverride, settings)
+  const run = await buildRoundRun(setup, Date.now(), releases, settings)
+  const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
     openFiles: () => ({ log: () => {}, markdown: () => {}, close: () => {} }),
   })
   t.after(() => output.close())
   const time = () => output.commitStamps()?.phases.split("\n").at(-1)
-  const start = (phase: "audit" | "vet" | "rebut" | "fix") =>
+  const vet = (index: number) =>
     output.phase.start(
+      {
+        ...setup,
+        ...phases.vet[index],
+        phase: "vet",
+        arguments: ["/report.md", run.documents.vets[index]],
+        sessionId: null,
+      },
+      "prompt",
+    )
+  const start = (phase: "audit" | "rebut" | "fix") =>
+    inTurn(output).start(
       {
         ...setup,
         ...phases[phase],
@@ -805,13 +832,17 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
                   arguments: ["/report.md"] as const,
                   rulingFile: "/ruling.md",
                 }
-              : { phase, arguments: ["/report.md", "/vet.md"] as const }),
+              : {
+                  phase,
+                  arguments: ["/report.md", "/rebut.md"] as const,
+                  rulingFile: "/ruling.md",
+                }),
         sessionId: null,
       },
       "prompt",
     )
-  const finish = () =>
-    output.phase.finish({ status: "finished", sessionId: "session" })
+  const finished = { status: "finished", sessionId: "session" } as const
+  const finish = () => inTurn(output).finish(finished)
 
   await start("audit")
   t.mock.timers.tick(4 * 60_000)
@@ -819,10 +850,21 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
   assert.equal(time(), "audit: gpt-5.6-sol high")
   await finish()
   assert.equal(time(), "Audit took 4 min.")
-  await start("vet")
-  t.mock.timers.tick(2 * 60_000 + 50_000)
-  await finish()
-  assert.equal(time(), "Audit and vet took 7 min.")
+  // Both vets run at once; the line adds up each vet's own time.
+  const first = await vet(0)
+  const second = await vet(1)
+  t.mock.timers.tick(2 * 60_000)
+  await first.finish(finished)
+  first.release()
+  t.mock.timers.tick(60_000)
+  await second.finish(finished)
+  second.release()
+  assert.equal(time(), "Audit and vet took 9 min.")
+  // The Codex vet runs on the audit's own selection, so it shares its line.
+  assert.deepEqual(output.commitStamps()?.phases.split("\n").slice(0, -1), [
+    "audit, vet: gpt-5.6-sol high",
+    "vet: claude-opus-5 high",
+  ])
   await start("rebut")
   t.mock.timers.tick(60_000)
   await finish()
@@ -830,7 +872,146 @@ test("commit stamps time the finished audit, vet and rebuttal and never the fix"
   t.mock.timers.tick(10 * 60_000)
   await finish()
   // The fix commits while it runs, so the line never counts it.
-  assert.equal(time(), "Audit, vet and rebuttal took 8 min.")
+  assert.equal(time(), "Audit, vet and rebuttal took 10 min.")
+})
+
+test("two vets' mixed events keep their own slots and records, each vet's text held whole and named by its tag", async (t) => {
+  const f = await fixture(t)
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+  const settings = settingsSchema.parse({
+    ...testSettings,
+    implementation: {
+      ...testSettings.implementation,
+      vetters: [
+        { assistant: "claude", model: "opus", effort: "high" },
+        { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+      ],
+    },
+  })
+  const phases = roundPhases("codex", noOverride, settings)
+  const run = await buildRoundRun(setup, Date.now(), releases, settings)
+  const log: string[] = []
+  const markdown: string[] = []
+  const output = new RoundOutput(run, {
+    clock: new RunClock(Date.now),
+    terminal: { write: () => {}, status: () => {}, clear: () => {} },
+    openFiles: () => ({
+      log: (text) => {
+        log.push(text)
+      },
+      markdown: (text) => {
+        markdown.push(text)
+      },
+      close: () => {},
+    }),
+  })
+  t.after(() => output.close())
+  const [claude, codex] = await Promise.all(
+    phases.vet.map((vet, index) =>
+      output.phase.start(
+        {
+          ...setup,
+          ...vet,
+          phase: "vet",
+          arguments: ["/report.md", run.documents.vets[index]],
+          sessionId: null,
+        },
+        "prompt",
+      ),
+    ),
+  )
+  const tokens = (input: number) =>
+    ({
+      type: "tokens",
+      update: {
+        kind: "selected-model",
+        tokens: { input, cached: 0, output: 1 },
+      },
+    }) as const
+  // The two vets' events arrive interleaved, as two sessions stream at once.
+  await claude.observe({ type: "session", sessionId: "claude-vet" })
+  await codex.observe({ type: "session", sessionId: "codex-vet" })
+  await claude.observe({ type: "text", text: "Claude opens." })
+  await codex.observe({ type: "text", text: "Codex opens." })
+  await codex.observe({
+    type: "tool",
+    invocation: "rg finding",
+    detail: null,
+    stage: "started",
+  })
+  await claude.observe({ type: "text", text: "Claude closes." })
+  await claude.observe(tokens(100))
+  await codex.observe(tokens(200))
+  t.mock.timers.tick(2 * 60_000)
+  // Only a vet that ends writes its texts, whole and under its own heading.
+  assert.equal(
+    markdown.some((text) => text.includes("opens.")),
+    false,
+  )
+  await codex.observe({ type: "text", text: "Codex closes." })
+  await codex.finish({ status: "finished", sessionId: "codex-vet" })
+  codex.release()
+  t.mock.timers.tick(60_000)
+  await claude.finish({ status: "finished", sessionId: "claude-vet" })
+  claude.release()
+
+  const transcript = markdown.join("")
+  const codexStart = transcript.indexOf("## vet obh (codex, fresh)")
+  const claudeStart = transcript.indexOf("## vet abh (claude, fresh)")
+  assert.ok(codexStart >= 0 && claudeStart > codexStart, transcript)
+  assert.deepEqual(
+    ["Codex opens.", "Codex closes.", "Claude opens.", "Claude closes."].map(
+      (text) =>
+        transcript.indexOf(text) >
+        (text.startsWith("Codex") ? codexStart : claudeStart),
+    ),
+    [true, true, true, true],
+  )
+  assert.ok(transcript.indexOf("Codex closes.") < claudeStart)
+  const text = log.join("\n")
+  assert.match(text, /\[vet abh\] claude session claude-vet/)
+  assert.match(text, /\[vet obh\] codex session codex-vet/)
+  assert.match(text, /\[vet obh\] .* rg finding/)
+  assert.match(text, /\[vet obh\] finished/)
+  assert.match(text, /\[vet abh\] finished/)
+  output.finish({
+    status: "finished",
+    report: "REPORT.md",
+    cleanAudit: false,
+    decision: null,
+    watch: null,
+    deferralChain: "none",
+    commits: [],
+    account: { settling: "", judgedRepos: ["repo-edu"], findings: [] },
+  })
+  assert.ok(run.data)
+  const [entry] = parseRoundDataFile(
+    run.data.path,
+    await readFile(run.data.path, "utf8"),
+  ).rounds
+  // Each vet keeps its own phase entry: its tag, model, time and tokens.
+  assert.deepEqual(
+    entry?.phases.map((phase) =>
+      phase.phase === "vet"
+        ? {
+            tag: phase.tag,
+            assistant: phase.assistant,
+            milliseconds: phase.milliseconds,
+            input: phase.tokens.map((usage) => usage.input),
+          }
+        : phase.phase,
+    ),
+    [
+      { tag: "abh", assistant: "claude", milliseconds: 180_000, input: [100] },
+      { tag: "obh", assistant: "codex", milliseconds: 120_000, input: [200] },
+    ],
+  )
+  // The settings name the panel by the releases its aliases resolved to.
+  assert.deepEqual(entry?.settings.vetters, [
+    { assistant: "claude", model: "claude-opus-5", effort: "high" },
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ])
 })
 
 test("tool lines report step and total assistant time, excluding user waits", async (t) => {
@@ -857,7 +1038,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   )
   t.after(() => output.close())
   const tool = (invocation: string) =>
-    output.phase.observe({
+    inTurn(output).observe({
       type: "tool",
       invocation,
       detail: null,
@@ -865,7 +1046,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
     })
   const line = () => log.at(-1)
 
-  await output.phase.start(
+  await inTurn(output).start(
     {
       phase: "fix",
       rulingFile: "RULING.md",
@@ -885,7 +1066,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   )
   // A written stamp in between does not reset the step: it counts tool line to tool line.
   t.mock.timers.tick(60_000)
-  await output.phase.observe({ type: "text", text: "Half way." })
+  await inTurn(output).observe({ type: "text", text: "Half way." })
   t.mock.timers.tick(11 * 60_000)
   await tool("second")
   assert.match(
@@ -902,7 +1083,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   output.beginRuling(waiting)
   t.mock.timers.tick(30 * 60_000)
   output.endRuling("Take the redesign.")
-  await output.phase.start(
+  await inTurn(output).start(
     {
       ...session,
       phase: "fix",
@@ -912,9 +1093,9 @@ test("tool lines report step and total assistant time, excluding user waits", as
     },
     "Continue the fix",
   )
-  await output.phase.observe({ type: "text", text: "Applying your ruling." })
+  await inTurn(output).observe({ type: "text", text: "Applying your ruling." })
   t.mock.timers.tick(4_000)
-  await output.phase.observe({
+  await inTurn(output).observe({
     type: "tool",
     invocation: "third",
     detail: null,

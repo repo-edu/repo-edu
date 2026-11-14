@@ -2,16 +2,13 @@ import { split } from "shellwords"
 import type { ModelReleases, ModelSelection } from "./feedback.js"
 import {
   type Assistant,
-  assistantLetters,
   type Effort,
-  effortLetter,
-  effortLetters,
-  modelStrength,
+  efforts,
   type Phase,
   type PinnedModel,
   recorded,
   type SessionContext,
-  strengthLetters,
+  selectionTag,
 } from "./phase.js"
 import type { ModelTokenUsage } from "./round-data.js"
 import type { RoundSettings } from "./settings.js"
@@ -73,15 +70,30 @@ export function phaseSelection(
   }
 }
 
-/** One phase of a run, as the commit body and the settings header list it. */
+/**
+ * One phase of a run, as the commit body and the settings header list it. A
+ * vet names its tag, because a panel runs one vet per tag.
+ */
 export type RunEntry = {
   readonly phase: Phase
   readonly assistant: Assistant
   readonly model: PinnedModel
+  readonly tag?: string
+}
+
+/**
+ * The key of one phase's record in a run: the phase, or for a vet the phase
+ * and its tag, which also opens each line the output writes for it.
+ */
+export function slotKey(phase: Phase, tag?: string): string {
+  return tag === undefined ? phase : `${phase} ${tag}`
 }
 
 /** One started phase: what it ran on and the assistant time it took. */
 export type RanPhase = {
+  readonly phase: Phase
+  /** A vet's tag; other phases have none. */
+  readonly tag?: string
   /** What the settings named for the phase; the round data keeps it. */
   readonly launched: ModelSelection
   readonly selection: ModelSelection
@@ -100,9 +112,9 @@ export type RanPhase = {
  * grouped by what they ran on. Phases keep round order within a line and lines
  * keep the order of their first phase, so one reading runs top to bottom.
  */
-export function commitPhaseLines(ran: ReadonlyMap<Phase, RanPhase>): string {
+export function commitPhaseLines(ran: Iterable<RanPhase>): string {
   const lines = new Map<string, Phase[]>()
-  for (const [phase, { selection }] of ran) {
+  for (const { phase, selection } of ran) {
     if (!recorded(phase)) continue
     const { model, effort } = selection
     const runsOn = effort === null ? model : `${model} ${effort}`
@@ -124,14 +136,18 @@ const reviewPhases = [
  * The line after the phase lines: how long the finished audit, vet and
  * rebuttal took, as `Audit, vet and rebuttal took 7 min.`. They take that time
  * whatever the round finds, so later model comparisons keep the round's cost.
- * The fix commits while it runs, so its time is never known.
+ * The vet's time adds up every vet of the panel, because each vet is a session
+ * the round paid for. The fix commits while it runs, so its time is never known.
  */
-export function reviewTimeLine(
-  ran: ReadonlyMap<Phase, RanPhase>,
-): string | null {
+export function reviewTimeLine(ran: Iterable<RanPhase>): string | null {
+  const records = [...ran]
   const finished = reviewPhases.flatMap(([phase, name]) => {
-    const spent = ran.get(phase)?.spent ?? null
-    return spent === null ? [] : [{ name, spent }]
+    const spent = records
+      .filter((record) => record.phase === phase && record.spent !== null)
+      .map((record) => record.spent as number)
+    return spent.length === 0
+      ? []
+      : [{ name, spent: spent.reduce((total, time) => total + time, 0) }]
   })
   if (finished.length === 0) return null
   const names = finished.map(({ name }) => name)
@@ -157,7 +173,7 @@ export function capabilityTag(
   settings: RoundSettings,
 ): string {
   const { model, effort } = phaseSelection(entry.model, releases)
-  return tagText(entry.assistant, model, effortLetters[effort], settings)
+  return selectionTag(entry.assistant, model, effort, settings)
 }
 
 /**
@@ -165,23 +181,14 @@ export function capabilityTag(
  * the four the tag can spell, which is the one case with nothing to write;
  * the commit body carries the exact model either way.
  */
-function selectionTag(
+function reportedTag(
   assistant: Assistant,
   { model, effort }: ModelSelection,
   settings: RoundSettings,
 ): string | null {
-  const letter = effort === null ? null : effortLetter(effort)
-  return letter === null ? null : tagText(assistant, model, letter, settings)
-}
-
-function tagText(
-  assistant: Assistant,
-  model: string,
-  effortLetter: string,
-  settings: RoundSettings,
-): string {
-  const strength = modelStrength(assistant, model, settings)
-  return `${assistantLetters[assistant]}${strength === null ? "u" : strengthLetters[strength]}${effortLetter}`
+  return effort !== null && efforts.includes(effort as Effort)
+    ? selectionTag(assistant, model, effort as Effort, settings)
+    : null
 }
 
 /**
@@ -191,18 +198,19 @@ function tagText(
  */
 export function commitStamps(
   entries: readonly RunEntry[],
-  ran: ReadonlyMap<Phase, RanPhase>,
+  ran: ReadonlyMap<string, RanPhase>,
   settings: RoundSettings,
 ): { readonly phases: string; readonly auditor: string | null } | undefined {
   const audit = entries.find(({ phase }) => phase === "audit")
-  const run = ran.get("audit")
+  const run = ran.get(slotKey("audit"))
   if (audit === undefined || run === undefined) return undefined
-  const time = reviewTimeLine(ran)
+  const time = reviewTimeLine(ran.values())
   return {
-    phases: [commitPhaseLines(ran), ...(time === null ? [] : [time])].join(
-      "\n",
-    ),
-    auditor: selectionTag(audit.assistant, run.selection, settings),
+    phases: [
+      commitPhaseLines(ran.values()),
+      ...(time === null ? [] : [time]),
+    ].join("\n"),
+    auditor: reportedTag(audit.assistant, run.selection, settings),
   }
 }
 
