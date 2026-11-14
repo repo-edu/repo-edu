@@ -6,6 +6,7 @@ import { execa } from "execa"
 import {
   type ImplementationRoundData,
   parseRoundDataFile,
+  type RoundFindingReview,
   writeRoundData,
 } from "../round-data.js"
 import { planRepositoryPrefix } from "../target.js"
@@ -29,8 +30,9 @@ const singleAuditorSettings = {
 function disproveRound(
   target = "example-impl-audit-01..01",
   roundNumber = 1,
-  vetVerdict: ImplementationRoundData["findings"][number]["vetVerdict"] = "accept",
+  verdicts: readonly RoundFindingReview["verdict"][] = ["accept"],
 ): ImplementationRoundData {
+  const vets = ["abx", "atx"].slice(0, verdicts.length)
   return {
     target,
     round: roundNumber,
@@ -38,10 +40,9 @@ function disproveRound(
     started: "2026-11-05T10:00:00.000Z",
     status: "finished",
     settings: {
-      vet: {
-        claude: { model: "claude-opus-5-5", effort: "xhigh" },
-        codex: { model: "gpt-5.6-sol", effort: "xhigh" },
-      },
+      vetters: [
+        { assistant: "claude", model: "claude-opus-5-5", effort: "xhigh" },
+      ],
       fix: { assistant: "codex", model: "gpt-5.6-sol", effort: "xhigh" },
     },
     auditor: {
@@ -50,7 +51,17 @@ function disproveRound(
       effort: "xhigh",
       chosenBy: "settings",
     },
-    phases: [],
+    phases: vets.map((tag) => ({
+      phase: "vet" as const,
+      tag,
+      assistant: "claude" as const,
+      model: tag === "abx" ? "claude-opus-5-5" : "claude-fable-5-1",
+      effort: "xhigh",
+      milliseconds: 1000,
+      tokens: [],
+      peakContext: null,
+      compactions: 0,
+    })),
     commits: [],
     findings: [
       {
@@ -65,9 +76,12 @@ function disproveRound(
           area: "tool-audit-round",
           covers: [],
         },
-        vetVerdict,
-        rebuttalAnswer: vetVerdict === "accept" ? null : "agree",
-        outcome: vetVerdict === "drop" ? "dropped" : "kept",
+        reviews: verdicts.map((verdict, index) => ({
+          vet: vets[index] as string,
+          verdict,
+          answer: verdict === "accept" ? null : "agree",
+        })),
+        outcome: verdicts.includes("drop") ? "dropped" : "kept",
         finalTier: null,
         finalReach: null,
       },
@@ -963,7 +977,7 @@ test("disprove --vet commits only an archived attached ruling and names its side
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   const archive = await archivedPlan(f)
   const path = join(archive, "example-impl-rounds.json")
-  writeRoundData(path, disproveRound(undefined, 1, "drop"))
+  writeRoundData(path, disproveRound(undefined, 1, ["drop"]))
   await execa("git", ["add", "--", relative(f.planRoot, path)], {
     cwd: f.planRoot,
   })
@@ -1017,30 +1031,42 @@ test("disprove --vet commits only an archived attached ruling and names its side
   )
 })
 
-test("disprove --vet accepts every non-Accept verdict and refuses Accept", async (t) => {
+test("disprove --vet accepts any non-Accept verdict of the panel and refuses a panel that accepted", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   await lifecyclePlan(f, "settled")
   const path = join(f.activeRoot, "example-impl-rounds.json")
   const target = "example-impl-audit-01..01"
-  for (const [roundNumber, verdict] of [
-    [1, "accept"],
-    [2, "revise"],
-    [3, "drop"],
-    [4, "needs-user-ruling"],
+  for (const [roundNumber, verdicts] of [
+    [1, ["accept"]],
+    [2, ["revise"]],
+    [3, ["drop"]],
+    [4, ["needs-user-ruling"]],
+    [5, ["accept", "accept"]],
+    [6, ["accept", "drop"]],
   ] as const)
-    writeRoundData(path, disproveRound(target, roundNumber, verdict))
+    writeRoundData(path, disproveRound(target, roundNumber, verdicts))
 
-  assert.equal(
-    await runCommand(
-      ["disprove", "example", target, "1", "1", "--vet", "Reason."],
-      f.runtime,
-      f.options,
-    ),
-    1,
-  )
-  assert.match(f.errors.at(-1) ?? "", /has no non-Accept vet verdict/)
+  for (const roundNumber of [1, 5]) {
+    assert.equal(
+      await runCommand(
+        [
+          "disprove",
+          "example",
+          target,
+          String(roundNumber),
+          "1",
+          "--vet",
+          "Reason.",
+        ],
+        f.runtime,
+        f.options,
+      ),
+      1,
+    )
+    assert.match(f.errors.at(-1) ?? "", /has no non-Accept vet verdict/)
+  }
 
-  for (const roundNumber of [2, 3, 4])
+  for (const roundNumber of [2, 3, 4, 6])
     assert.equal(
       await runCommand(
         [
@@ -1076,6 +1102,7 @@ test("disprove --vet accepts every non-Accept verdict and refuses Accept", async
       { round: 2, finding: 1, side: "vet" },
       { round: 3, finding: 1, side: "vet" },
       { round: 4, finding: 1, side: "vet" },
+      { round: 6, finding: 1, side: "vet" },
     ],
   )
 })

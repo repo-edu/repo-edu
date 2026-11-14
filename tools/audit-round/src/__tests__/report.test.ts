@@ -766,7 +766,7 @@ test("vet reads verdict lines with surrounding whitespace", () => {
 test("vet reads a changed tier only from the revise suffix", () => {
   assert.deepEqual(
     readVet("1. [B] Revise to [A]", twoFindings.slice(0, 1)).reviews,
-    [{ number: 1, tier: "B", verdict: "revise", vetTier: "A" }],
+    [{ number: 1, tier: "B", verdict: "revise", revisedTier: "A" }],
   )
   assert.throws(
     () => readVet("1. [B] Revise to [B]", twoFindings.slice(0, 1)),

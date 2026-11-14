@@ -70,7 +70,8 @@ excluded plans follow. Each auditor class prints its main table, then a second t
 2. **The coder table** sorts by kept A and B findings per step, fewest first, then by time. It shows
    plans, steps, kept findings, kept per step and time per step.
 3. **Later rulings** keep finding rulings in a numbered table per auditor. Vet rulings follow in one
-   table, newest first and with an auditor column. Every table shows each reason's first sentence,
+   table, newest first and with an auditor column. Each row names every vet of the round with its
+   verdict. Every table shows each reason's first sentence,
    then the full reasons as a numbered list, numbered across the section.
 4. **Rounds by plan** sort by plan and then model. Their finding columns sum to the class totals
    behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.

@@ -440,7 +440,14 @@ function disprovedCells(
         escapeCell(`#${entry.finding} ${entry.title}`),
         entry.tier,
         escapeCell(
-          `${entry.vet === null ? "no recorded vet" : modelText(entry.vet)}; ${entry.vetVerdict ?? "no verdict"}`,
+          entry.vets.length === 0
+            ? "no recorded vet"
+            : entry.vets
+                .map(
+                  (vet) =>
+                    `${modelText(vet.identity)}: ${vet.verdict ?? "no verdict"}`,
+                )
+                .join("; "),
         ),
         reason,
       ]

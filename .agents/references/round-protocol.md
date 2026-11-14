@@ -498,12 +498,12 @@ auditor's contest, with the evidence for each, before any recommendation. The
 fix decides every other contest from the evidence and gives the reason. Never
 re-argue an agreed verdict.
 
-The runner passes the serious contest numbers to the fix. After displaying the
-ruling it asks the user for `vet`, `auditor`, `neither` or `not yet` on each
-contest. The first three answers need a one-line reason and are retained on the
-finding. `Not yet` leaves that contest open so the resumed fix can answer the
-user's question. A resumed fix receives every recorded winner and reason with
-the free reply. The free reply may be empty once every contest has a winner.
+The runner passes the serious contest numbers to the fix. After displaying the ruling it asks the
+user for `report`, the tags of the vets that were right, `neither` or `not yet` on each contest. The
+first three answers need a one-line reason and are retained on the finding. `Not yet` leaves that
+contest open so the resumed fix can answer the user's question. A resumed fix receives every
+recorded winner and reason with the free reply. The free reply may be empty once every contest has a
+winner.
 
 When every verdict is Accept and no rebuttal exists, present the findings as
 agreed by both assistants. When the vet has a revision, drop or ruling item and

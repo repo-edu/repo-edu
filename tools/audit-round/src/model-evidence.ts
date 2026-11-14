@@ -14,6 +14,7 @@ import {
   type RoundData,
   type RoundFinding,
   roundDataFiles,
+  type VetVerdict,
 } from "./round-data.js"
 import { type Coder, parseCoderRecord } from "./settings.js"
 import { looseForm } from "./subject.js"
@@ -57,6 +58,12 @@ export type CoderRow = {
   readonly excluded: Map<string, string>
 }
 
+/** One vet of a disproved finding's round and its verdict on that finding. */
+export type DisprovedVet = {
+  readonly identity: ModelIdentity
+  readonly verdict: VetVerdict | null
+}
+
 type DisprovedBase = {
   readonly stem: string
   readonly workClass: WorkClass
@@ -74,8 +81,8 @@ export type DisprovedEvidence =
       readonly finding: number
       readonly title: string
       readonly tier: RoundFinding["tier"]
-      readonly vet: ModelIdentity | null
-      readonly vetVerdict: RoundFinding["vetVerdict"]
+      /** Every vet of the round, with its verdict on the finding when it gave one. */
+      readonly vets: readonly DisprovedVet[]
     })
   | (DisprovedBase & {
       readonly kind: "detached"
@@ -277,14 +284,27 @@ function roundRecords(files: readonly RoundFileRecord[]): RoundRecord[] {
     )
 }
 
-function reportedVet(round: RoundData): ModelIdentity | null {
-  const phase = round.phases.find((candidate) => candidate.phase === "vet")
-  if (phase === undefined) return null
-  return {
-    assistant: phase.assistant,
-    model: phase.model,
-    effort: phase.effort,
-  }
+/** Each vet the round ran, named by its phase entry, with its review of the finding. */
+function disprovedVets(
+  round: RoundData,
+  finding: RoundFinding,
+): readonly DisprovedVet[] {
+  return round.phases.flatMap((phase) =>
+    phase.phase === "vet"
+      ? [
+          {
+            identity: {
+              assistant: phase.assistant,
+              model: phase.model,
+              effort: phase.effort,
+            },
+            verdict:
+              finding.reviews.find((review) => review.vet === phase.tag)
+                ?.verdict ?? null,
+          },
+        ]
+      : [],
+  )
 }
 
 function disprovedEvidence(
@@ -328,8 +348,7 @@ function disprovedEvidence(
           finding: entry.finding,
           title: finding.title,
           tier: finding.tier,
-          vet: reportedVet(round),
-          vetVerdict: finding.vetVerdict,
+          vets: disprovedVets(round, finding),
         }
       }),
     )

@@ -403,10 +403,9 @@ function fullRangeRound(
     started: new Date(started).toISOString(),
     status: "finished",
     settings: {
-      vet: {
-        claude: { model: "claude-opus-5", effort: "high" },
-        codex: { model: "gpt-5.6-sol", effort: "high" },
-      },
+      vetters: [
+        { assistant: "claude", model: "claude-opus-5", effort: "high" },
+      ],
       fix: { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
     },
     auditor: {

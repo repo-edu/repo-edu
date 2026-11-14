@@ -62,10 +62,7 @@ export const episode = (
 ) => computeEpisode(log, repository, stem, areas)
 
 const roundSettings: RoundData["settings"] = {
-  vet: {
-    claude: { model: "claude-opus-5", effort: "high" },
-    codex: { model: "gpt-6.1-sol", effort: "high" },
-  },
+  vetters: [{ assistant: "claude", model: "claude-opus-5", effort: "high" }],
   fix: { assistant: "codex", model: "gpt-6.1-sol", effort: "high" },
 }
 
@@ -83,8 +80,10 @@ function roundFinding(
     complexity: "none",
     growthPattern: "none",
     location,
-    vetVerdict: outcome === null ? null : "accept",
-    rebuttalAnswer: null,
+    reviews:
+      outcome === null
+        ? []
+        : [{ vet: "abh" as const, verdict: "accept" as const, answer: null }],
     outcome,
     finalTier: null,
     finalReach: null,

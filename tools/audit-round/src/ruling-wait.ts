@@ -10,7 +10,7 @@ import { join } from "node:path"
 import { execa } from "execa"
 import { z } from "zod"
 import { type CliRuntime, cliCommand } from "./cli-process.js"
-import { type RulingWinner, rulingWinner } from "./round-data.js"
+import { type RulingWinner, rulingWinnerSchema } from "./round-data.js"
 
 /**
  * The waiting run owns a ruling's wait. While it waits it listens on one Unix
@@ -36,7 +36,7 @@ export const waitingRulingSchema = z.strictObject({
 export type WaitingRuling = z.infer<typeof waitingRulingSchema>
 
 /** The runner's one list of winner words, plus the word that leaves a finding open. */
-const answerWinner = z.enum([...rulingWinner.options, "not yet"])
+const answerWinner = z.union([rulingWinnerSchema, z.literal("not yet")])
 
 /** The one answer document the chat writes and `answer` carries. */
 const rulingAnswerSchema = z.strictObject({
@@ -61,7 +61,7 @@ export type RulingInput = {
   readonly reply: string
 }
 
-const winnerWords = `${rulingWinner.options.join(", ")} or not yet`
+const winnerWords = "report, neither, a list of vet tags or not yet"
 
 /**
  * The one check for a complete answer. A winner needs a one-line reason, `not
@@ -169,7 +169,7 @@ export function answerFormText(ruling: WaitingRuling): string {
   const example = {
     rulings: ruling.findings.map((finding) => ({
       finding,
-      winner: "auditor",
+      winner: "report",
       reason: "One line in the user's words.",
     })),
     reply: "Free text for the fix, or empty once every finding has a winner.",

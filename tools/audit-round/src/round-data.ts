@@ -10,7 +10,16 @@ import type { RoundKind } from "./target.js"
 
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
-export const rulingWinner = z.enum(["vet", "auditor", "neither"])
+/** A capability tag, which names a round's auditor and each of its vets. */
+const capabilityTag = z.string().regex(/^[ao][btu][lmhx]$/)
+/**
+ * The runner's one list of winner words: the audit report's finding as written,
+ * no side, or the vets whose verdicts were right, named by their tags.
+ */
+export const rulingWinnerSchema = z.union([
+  z.enum(["report", "neither"]),
+  z.array(capabilityTag).min(1),
+])
 const modelSelection = z.strictObject({
   model: z.string().min(1),
   effort: z.string().min(1).nullable(),
@@ -65,6 +74,16 @@ export const roundFindingLocationSchema = z.union([
   deferredLocation,
 ])
 
+/** One vet's verdict on a finding, with the rebuttal's answer to it. */
+export const roundFindingReviewSchema = z.strictObject({
+  /** The vet's tag, which its phase entry carries too. */
+  vet: capabilityTag,
+  verdict: z.enum(["accept", "revise", "drop", "needs-user-ruling"]),
+  /** Present only when a revision moves the finding to another tier. */
+  revisedTier: tier.optional(),
+  answer: z.enum(["agree", "contest", "for-user-ruling"]).nullable(),
+})
+
 export const roundFindingSchema = z
   .strictObject({
     number: z.number().int().positive().nullable(),
@@ -74,16 +93,16 @@ export const roundFindingSchema = z
     complexity: complexitySchema,
     growthPattern: z.string().min(1),
     location: roundFindingLocationSchema,
-    vetVerdict: z
-      .enum(["accept", "revise", "drop", "needs-user-ruling"])
-      .nullable(),
-    vetTier: tier.optional(),
-    rebuttalAnswer: z.enum(["agree", "contest", "for-user-ruling"]).nullable(),
-    rulingWinner: rulingWinner.optional(),
-    rulingReason: z
-      .string()
-      .min(1)
-      .regex(/^[^\r\n]+$/)
+    /** One review per vet of the panel that judged the finding. */
+    reviews: z.array(roundFindingReviewSchema),
+    ruling: z
+      .strictObject({
+        winner: rulingWinnerSchema,
+        reason: z
+          .string()
+          .min(1)
+          .regex(/^[^\r\n]+$/),
+      })
       .optional(),
     outcome: z.enum(["kept", "dropped", "unmatched"]).nullable(),
     finalTier: tier.nullable(),
@@ -111,35 +130,28 @@ export const roundFindingSchema = z
         message: "Only a kept finding can record a final tier or reach",
         path: ["outcome"],
       })
-    if (finding.vetTier !== undefined && finding.vetVerdict !== "revise")
-      context.addIssue({
-        code: "custom",
-        message: "Only a revised vet verdict can record a vet tier",
-        path: ["vetTier"],
-      })
-    if (finding.vetTier === finding.tier)
-      context.addIssue({
-        code: "custom",
-        message: "An unchanged vet tier is omitted",
-        path: ["vetTier"],
-      })
+    finding.reviews.forEach((review, index) => {
+      if (review.revisedTier !== undefined && review.verdict !== "revise")
+        context.addIssue({
+          code: "custom",
+          message: "Only a revised vet verdict can record a revised tier",
+          path: ["reviews", index, "revisedTier"],
+        })
+      if (review.revisedTier === finding.tier)
+        context.addIssue({
+          code: "custom",
+          message: "An unchanged revised tier is omitted",
+          path: ["reviews", index, "revisedTier"],
+        })
+    })
     if (
-      (finding.rulingWinner === undefined) !==
-      (finding.rulingReason === undefined)
+      finding.ruling !== undefined &&
+      !finding.reviews.some((review) => review.answer === "contest")
     )
       context.addIssue({
         code: "custom",
-        message: "A contest ruling records both its winner and reason",
-        path: ["rulingWinner"],
-      })
-    if (
-      finding.rulingWinner !== undefined &&
-      finding.rebuttalAnswer !== "contest"
-    )
-      context.addIssue({
-        code: "custom",
-        message: "Only a contested verdict can record a ruling winner",
-        path: ["rulingWinner"],
+        message: "Only a contested verdict can record a ruling",
+        path: ["ruling"],
       })
   })
 
@@ -162,17 +174,44 @@ export const seriesAnswerSchema = z
     reason: z.string().min(1),
   })
   .nullable()
+const phaseMeasurement = {
+  assistant,
+  model: z.string().min(1),
+  effort: z.string().min(1).nullable(),
+  /**
+   * The selection the settings named, before the CLI resolved any alias.
+   * Entries written before it was recorded carry none.
+   */
+  launched: modelSelection.optional(),
+  milliseconds: z.number().int().nonnegative(),
+  tokens: z.array(tokenUsage),
+  peakContext: z
+    .strictObject({
+      tokens: z.number().int().nonnegative(),
+      window: z.number().int().positive().nullable(),
+    })
+    .nullable(),
+  compactions: z.number().int().nonnegative(),
+}
+/** A vet's entry carries its tag, which links its reviews to its model and effort. */
+const vetPhaseEntry = z.strictObject({
+  phase: z.literal("vet"),
+  tag: capabilityTag,
+  ...phaseMeasurement,
+})
+const phaseEntry = z.strictObject({
+  phase: z.enum(["audit", "rebut", "fix", "watch", "judge"]),
+  ...phaseMeasurement,
+})
 const commonRoundData = z.strictObject({
   target: z.string().min(1),
   round: z.number().int().positive(),
-  tag: z.string().regex(/^[ao][btu][lmhx]$/),
+  tag: capabilityTag,
   started: z.string().min(1),
   status: roundStatus,
   settings: z.strictObject({
-    vet: z.strictObject({
-      claude: modelSelection,
-      codex: modelSelection,
-    }),
+    /** The round's panel: every vet that judges its audit report. */
+    vetters: z.array(modelSelection.extend({ assistant })).min(1),
     fix: modelSelection.extend({ assistant }),
   }),
   auditor: modelSelection.extend({
@@ -186,28 +225,7 @@ const commonRoundData = z.strictObject({
      */
     seat: z.strictObject({ model: z.string().min(1), effort }).optional(),
   }),
-  phases: z.array(
-    z.strictObject({
-      phase: z.enum(["audit", "vet", "rebut", "fix", "watch", "judge"]),
-      assistant,
-      model: z.string().min(1),
-      effort: z.string().min(1).nullable(),
-      /**
-       * The selection the settings named, before the CLI resolved any alias.
-       * Entries written before it was recorded carry none.
-       */
-      launched: modelSelection.optional(),
-      milliseconds: z.number().int().nonnegative(),
-      tokens: z.array(tokenUsage),
-      peakContext: z
-        .strictObject({
-          tokens: z.number().int().nonnegative(),
-          window: z.number().int().positive().nullable(),
-        })
-        .nullable(),
-      compactions: z.number().int().nonnegative(),
-    }),
-  ),
+  phases: z.array(z.union([vetPhaseEntry, phaseEntry])),
   commits: z.array(
     z.strictObject({
       repository,
@@ -293,18 +311,14 @@ export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
 export type RoundFinding = z.infer<typeof roundFindingSchema>
 export type SeriesAnswer = NonNullable<z.infer<typeof seriesAnswerSchema>>
 export type SeriesDecision = SeriesAnswer["answer"]
+export type RoundFindingReview = z.infer<typeof roundFindingReviewSchema>
 export type ReportFinding = Omit<
   RoundFinding,
-  | "vetVerdict"
-  | "vetTier"
-  | "rebuttalAnswer"
-  | "outcome"
-  | "finalTier"
-  | "finalReach"
+  "reviews" | "ruling" | "outcome" | "finalTier" | "finalReach"
 > & { readonly number: number }
-export type VetVerdict = NonNullable<RoundFinding["vetVerdict"]>
-export type RebuttalAnswer = NonNullable<RoundFinding["rebuttalAnswer"]>
-export type RulingWinner = NonNullable<RoundFinding["rulingWinner"]>
+export type VetVerdict = RoundFindingReview["verdict"]
+export type RebuttalAnswer = NonNullable<RoundFindingReview["answer"]>
+export type RulingWinner = z.infer<typeof rulingWinnerSchema>
 export type RoundData = z.infer<typeof roundDataSchema>
 export type DisprovedFinding = z.infer<typeof disprovedFindingSchema>
 export type PlanRoundDataFile =
@@ -346,17 +360,27 @@ export type RetainedRoundData = {
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
 
+/** One verdict line read from a vet report. */
 export type FindingReview = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
   readonly verdict: VetVerdict
-  readonly vetTier?: RoundFinding["tier"]
+  readonly revisedTier?: RoundFinding["tier"]
 }
 
+/** One answer line read from a rebuttal report. */
 export type FindingRebuttal = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
   readonly answer: RebuttalAnswer
+}
+
+/** What one vet of the panel read and what the rebuttal answered it. */
+export type PanelVetReading = {
+  /** The vet's tag, which its phase entry and report name carry too. */
+  readonly vet: string
+  readonly reviews: readonly FindingReview[]
+  readonly rebuttals: readonly FindingRebuttal[]
 }
 
 export type RoundAccount = {
@@ -537,30 +561,38 @@ export function roundDataIdentity(nameStart: string): {
   return { target: match[1], round: Number(match[2]) }
 }
 
-/** Attach review outcomes while the report still owns finding identity. */
+/** Attach each panel vet's review while the report still owns finding identity. */
 export function reviewedRoundFindings(
   findings: readonly ReportFinding[],
-  reviews: readonly FindingReview[] = [],
-  rebuttals: readonly FindingRebuttal[] = [],
+  panel: readonly PanelVetReading[] = [],
 ): readonly RoundFinding[] {
-  const reviewByNumber = new Map(
-    reviews.map((review) => [review.number, review]),
-  )
-  const rebuttalByNumber = new Map(
-    rebuttals.map((rebuttal) => [rebuttal.number, rebuttal]),
-  )
-  return findings.map((finding) => {
-    const review = reviewByNumber.get(finding.number)
-    return {
-      ...finding,
-      vetVerdict: review?.verdict ?? null,
-      ...(review?.vetTier === undefined ? {} : { vetTier: review.vetTier }),
-      rebuttalAnswer: rebuttalByNumber.get(finding.number)?.answer ?? null,
-      outcome: null,
-      finalTier: null,
-      finalReach: null,
-    }
-  })
+  const readings = panel.map((reading) => ({
+    vet: reading.vet,
+    reviews: new Map(reading.reviews.map((review) => [review.number, review])),
+    answers: new Map(
+      reading.rebuttals.map((rebuttal) => [rebuttal.number, rebuttal.answer]),
+    ),
+  }))
+  return findings.map((finding) => ({
+    ...finding,
+    reviews: readings.flatMap(({ vet, reviews, answers }) => {
+      const review = reviews.get(finding.number)
+      if (review === undefined) return []
+      return [
+        {
+          vet,
+          verdict: review.verdict,
+          ...(review.revisedTier === undefined
+            ? {}
+            : { revisedTier: review.revisedTier }),
+          answer: answers.get(finding.number) ?? null,
+        },
+      ]
+    }),
+    outcome: null,
+    finalTier: null,
+    finalReach: null,
+  }))
 }
 
 function recordLocation(
@@ -643,8 +675,7 @@ function recordFindings(
           complexity: finding.complexity,
           growthPattern: finding.growthPattern,
           location: recordLocation(finding, record.repository),
-          vetVerdict: null,
-          rebuttalAnswer: null,
+          reviews: [],
           outcome: "unmatched",
           finalTier: null,
           finalReach: null,

@@ -55,7 +55,7 @@ test("a complete answer is accepted, drops not yet and ends the wait", async (t)
   assert.deepEqual(ruling, waiting("example"))
   const sent = await send(cache, "example", {
     rulings: [
-      { finding: 1, winner: "vet", reason: "  The vet read the contract.  " },
+      { finding: 1, winner: ["abh"], reason: "  The vet read the contract.  " },
       { finding: 2, winner: "not yet" },
     ],
     reply: "Explain the evidence for finding 2.\nQuote the plan.",
@@ -64,7 +64,7 @@ test("a complete answer is accepted, drops not yet and ends the wait", async (t)
   assert.match(sent.text, /^Accepted: /)
   assert.deepEqual(await wait.answer, {
     rulings: [
-      { finding: 1, winner: "vet", reason: "The vet read the contract." },
+      { finding: 1, winner: ["abh"], reason: "The vet read the contract." },
     ],
     reply: "Explain the evidence for finding 2.\nQuote the plan.",
   })
@@ -79,12 +79,13 @@ test("every winner may close the answer without a reply", async (t) => {
   const cache = await cacheRoot(t)
   const wait = await listenForRuling({
     cacheRoot: cache,
-    ruling: waiting("example"),
+    ruling: waiting("example", [1, 2, 3]),
   })
   const sent = await send(cache, "example", {
     rulings: [
-      { finding: 1, winner: "auditor", reason: "The finding stands." },
+      { finding: 1, winner: "report", reason: "The finding stands." },
       { finding: 2, winner: "neither", reason: "A later commit resolved it." },
+      { finding: 3, winner: ["abh", "oth"], reason: "Both vets were right." },
     ],
     reply: "",
   })
@@ -115,8 +116,8 @@ for (const { name, findings, answer, refusal } of [
     findings: [1],
     answer: {
       rulings: [
-        { finding: 1, winner: "vet", reason: "Fine." },
-        { finding: 3, winner: "vet", reason: "Fine." },
+        { finding: 1, winner: ["abh"], reason: "Fine." },
+        { finding: 3, winner: ["abh"], reason: "Fine." },
       ],
       reply: "",
     },
@@ -127,8 +128,8 @@ for (const { name, findings, answer, refusal } of [
     findings: [1],
     answer: {
       rulings: [
-        { finding: 1, winner: "vet", reason: "Fine." },
-        { finding: 1, winner: "auditor", reason: "Fine." },
+        { finding: 1, winner: ["abh"], reason: "Fine." },
+        { finding: 1, winner: "report", reason: "Fine." },
       ],
       reply: "",
     },
@@ -138,15 +139,16 @@ for (const { name, findings, answer, refusal } of [
     name: "a finding without an answer",
     findings: [1, 2],
     answer: {
-      rulings: [{ finding: 1, winner: "vet", reason: "Fine." }],
+      rulings: [{ finding: 1, winner: ["abh"], reason: "Fine." }],
       reply: "Go on.",
     },
-    refusal: "Finding 2 has no answer; use vet, auditor, neither or not yet.",
+    refusal:
+      "Finding 2 has no answer; use report, neither, a list of vet tags or not yet.",
   },
   {
     name: "a winner without a reason",
     findings: [1],
-    answer: { rulings: [{ finding: 1, winner: "vet" }], reply: "" },
+    answer: { rulings: [{ finding: 1, winner: ["abh"] }], reply: "" },
     refusal: "Finding 1 needs a one-line reason for its winner.",
   },
   {
@@ -156,7 +158,7 @@ for (const { name, findings, answer, refusal } of [
       rulings: [
         {
           finding: 1,
-          winner: "auditor",
+          winner: "report",
           reason:
             "Decision 4 and its old reason must be named in the\nBaseline.",
         },
@@ -196,6 +198,15 @@ for (const { name, findings, answer, refusal } of [
     refusal: "The answer does not have the answer form:",
   },
   {
+    name: "the single vet's old winner word",
+    findings: [1],
+    answer: {
+      rulings: [{ finding: 1, winner: "auditor", reason: "Fine." }],
+      reply: "",
+    },
+    refusal: "The answer does not have the answer form:",
+  },
+  {
     name: "a document that is not JSON",
     findings: [1],
     answer: "auditor — the finding stands",
@@ -218,7 +229,7 @@ for (const { name, findings, answer, refusal } of [
     const accepted = await send(cache, "example", {
       rulings: findings.map((finding) => ({
         finding,
-        winner: "vet",
+        winner: ["abh"],
         reason: "The vet read the contract.",
       })),
       reply: "Go on.",

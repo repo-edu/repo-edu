@@ -175,11 +175,12 @@ and any other with status 1.
    app on the folder of the work. The notice names the round, the ruling file, the findings that
    need a winner, whether the fix uses the auditor's model, the vet's model or neither, and the line
    to type in the app, `/ruling <stem>`. The terminal reads no answer. For each listed serious
-   contest you name `vet`, `auditor` or `neither` with a one-line reason, or `not yet`, which sends
-   your question to the fix and asks again when the ruling returns. The fix remains unable to
-   commit until every required winner is recorded. The free reply may be empty once every contest
-   has a winner. Ctrl-C in the terminal keeps the round's files, prints the fix's recovery command
-   and ends the series. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+   contest you name `report`, the tags of the vets that were right or `neither` with a one-line
+   reason, or `not yet`, which sends your question to the fix and asks again when the ruling
+   returns. The fix remains unable to commit until every required winner is recorded. The free reply
+   may be empty once every contest has a winner. Ctrl-C in the terminal keeps the round's files,
+   prints the fix's recovery command and ends the series. See
+   [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Resume:`
    command. See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and

@@ -65,8 +65,9 @@ pnpm audit-round resume-fix <report> <session-id>
 
 Run it as printed. The runner reloads the in-progress round and its saved fix
 session. It prints the ruling notice and waits; the terminal asks nothing.
-Answer in the desktop app with `/ruling`. For each missing winner, give `vet`,
-`auditor` or `neither` with a one-line reason, or `not yet`. Add any free reply
+Answer in the desktop app with `/ruling`. For each missing winner, give
+`report`, the tags of the vets that were right or `neither` with a one-line
+reason, or `not yet`. Add any free reply
 for the fix. The reply may be empty once all winners are stored. `Not yet`
 keeps the commit block and lets the fix answer a question before the runner
 waits again.

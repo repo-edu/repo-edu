@@ -46,10 +46,10 @@ time. On Linux the app does not open; the notice says so, and you open a chat yo
 
 ## Your answers
 
-1. **A decision.** Give each finding that needs a winner `vet`, `auditor` or `neither` with a
-   reason in your own words, and add any text for the fix. An implementation ruling has no finding;
-   your decision is the text for the fix. The chat never picks a winner or writes a reason you did
-   not give, and asks for what is missing.
+1. **A decision.** Give each finding that needs a winner `report`, the tags of the vets that were
+   right or `neither` with a reason in your own words, and add any text for the fix. An
+   implementation ruling has no finding; your decision is the text for the fix. The chat never picks
+   a winner or writes a reason you did not give, and asks for what is missing.
 2. **A question for the chat.** It answers from the round's files and asks for your decision again.
 3. **A question only the fix can answer.** Answer the finding with `not yet` and put the question in
    the text for the fix. The fix answers and writes a new ruling while the decision stays open; you

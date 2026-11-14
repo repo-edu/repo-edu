@@ -36,7 +36,6 @@ import {
   type RoundPhase,
   roundPhases,
   transcribed,
-  vetPhase,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
 import { recoveryCommand, roundRecoveryCommand } from "./requests.js"
@@ -58,6 +57,7 @@ import {
   writeRoundData,
 } from "./round-data.js"
 import {
+  documentTag,
   type FileKind,
   phaseFilename,
   roundIdentity,
@@ -119,6 +119,8 @@ export type Run = {
     readonly target: string
     readonly round: number
     readonly tag: string
+    /** The tag of the round's one vet, which its phase entry carries. */
+    readonly vetTag: string
     readonly settings: RoundData["settings"]
     readonly auditor: RoundData["auditor"]
     readonly pool?: readonly Auditor[]
@@ -147,20 +149,22 @@ function resolvedRun(
   return phaseSelection(run.model, releases[run.assistant])
 }
 
-/** Settings recorded for the model read-out, resolved by the execution owner. */
+/**
+ * Settings recorded for the model read-out, resolved by the execution owner.
+ * The panel is the round's one vet.
+ */
 function roundSettingsData(
   releases: Record<Assistant, ModelReleases>,
-  settings: RoundSettings,
-  fix: PhaseRun,
+  phases: Pick<Record<RoundPhase, PhaseRun>, "vet" | "fix">,
 ): RoundData["settings"] {
-  const vet = (assistant: Assistant) =>
-    resolvedRun(
-      vetPhase(assistant === "claude" ? "codex" : "claude", settings),
-      releases,
-    )
   return {
-    vet: { claude: vet("claude"), codex: vet("codex") },
-    fix: { assistant: fix.assistant, ...resolvedRun(fix, releases) },
+    vetters: [
+      { assistant: phases.vet.assistant, ...resolvedRun(phases.vet, releases) },
+    ],
+    fix: {
+      assistant: phases.fix.assistant,
+      ...resolvedRun(phases.fix, releases),
+    },
   }
 }
 
@@ -217,7 +221,8 @@ export async function roundRun(
           ),
           ...identity,
           tag: tag("audit"),
-          settings: roundSettingsData(releases, settings, phases.fix),
+          vetTag: tag("vet"),
+          settings: roundSettingsData(releases, phases),
           auditor: {
             assistant: audit.assistant,
             ...resolvedRun(audit, releases),
@@ -246,7 +251,8 @@ export async function roundRun(
             ),
             ...identity,
             tag: tag("audit"),
-            settings: roundSettingsData(releases, settings, phases.fix),
+            vetTag: tag("vet"),
+            settings: roundSettingsData(releases, phases),
             auditor: {
               assistant: audit.assistant,
               ...resolvedRun(audit, releases),
@@ -383,6 +389,7 @@ export async function resumedRoundRun(
     target: retained.entry.target,
     round: retained.entry.round,
     tag: retained.entry.tag,
+    vetTag: documentTag(paths.vet),
     settings: retained.entry.settings,
     auditor: retained.entry.auditor,
     ...(retained.entry.pool === undefined ? {} : { pool: retained.entry.pool }),
@@ -947,17 +954,18 @@ export class RoundOutput<R extends Run = Run> {
     account: RoundAccount,
     decision: SeriesAnswer | null,
   ): void {
-    if (this.run.data === undefined) return
-    const auditor = this.ran.get("audit")?.selection ?? this.run.data.auditor
-    writeRoundData(this.run.data.path, {
-      target: this.run.data.target,
-      round: this.run.data.round,
-      tag: this.run.data.tag,
+    const data = this.run.data
+    if (data === undefined) return
+    const auditor = this.ran.get("audit")?.selection ?? data.auditor
+    writeRoundData(data.path, {
+      target: data.target,
+      round: data.round,
+      tag: data.tag,
       started: new Date(this.run.started).toISOString(),
       status,
-      settings: this.run.data.settings,
+      settings: data.settings,
       auditor: {
-        ...this.run.data.auditor,
+        ...data.auditor,
         model: auditor.model,
         effort: auditor.effort,
       },
@@ -971,7 +979,7 @@ export class RoundOutput<R extends Run = Run> {
           throw new Error(`Run data has no ${phase} phase owner`)
         return [
           {
-            phase,
+            ...(phase === "vet" ? { phase, tag: data.vetTag } : { phase }),
             assistant: entry.assistant,
             model: ran.selection.model,
             effort: ran.selection.effort,
@@ -985,23 +993,21 @@ export class RoundOutput<R extends Run = Run> {
       }),
       commits: [...commits],
       findings: [...account.findings],
-      ...(this.run.data.pool === undefined
-        ? {}
-        : { pool: [...this.run.data.pool] }),
+      ...(data.pool === undefined ? {} : { pool: [...data.pool] }),
       judge: decision,
-      ...("phase" in this.run.data
-        ? { phase: this.run.data.phase, settling: account.settling }
-        : "scope" in this.run.data
+      ...("phase" in data
+        ? { phase: data.phase, settling: account.settling }
+        : "scope" in data
           ? {
-              scope: this.run.data.scope,
+              scope: data.scope,
               judgedRepos: [...account.judgedRepos],
             }
           : {
-              originalGroups: this.run.data.originalGroups.map((group) => ({
+              originalGroups: data.originalGroups.map((group) => ({
                 ...group,
                 commits: [...group.commits],
               })),
-              groups: this.run.data.groups.map((group) => ({
+              groups: data.groups.map((group) => ({
                 ...group,
                 commits: [...group.commits],
               })),

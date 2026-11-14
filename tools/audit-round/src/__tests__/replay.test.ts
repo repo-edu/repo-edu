@@ -46,10 +46,7 @@ function round(
     started,
     status: "finished",
     settings: {
-      vet: {
-        claude: { model: "fixture", effort: "high" },
-        codex: { model: "fixture", effort: "high" },
-      },
+      vetters: [{ assistant: "claude", model: "fixture", effort: "high" }],
       fix: { assistant: "codex", model: "fixture", effort: "high" },
     },
     auditor: { ...auditor, chosenBy: "settings" },
@@ -140,8 +137,7 @@ function bugFinding(tier: "A" | "B" | "C" | "D" = "B") {
       field: "missing" as const,
       section: "decisions",
     },
-    vetVerdict: "accept" as const,
-    rebuttalAnswer: null,
+    reviews: [{ vet: "abh", verdict: "accept" as const, answer: null }],
     outcome: "kept" as const,
     finalTier: null,
     finalReach: null,

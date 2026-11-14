@@ -44,8 +44,7 @@ function finding(tier: "A" | "B" | "C" | "D") {
       field: "missing" as const,
       section: "decisions",
     },
-    vetVerdict: "accept" as const,
-    rebuttalAnswer: null,
+    reviews: [{ vet: "abh", verdict: "accept" as const, answer: null }],
     outcome: "kept" as const,
     finalTier: null,
     finalReach: null,
@@ -70,7 +69,7 @@ function planningRound(
     started,
     status: options.status ?? "finished",
     settings: {
-      vet: { claude: selection, codex: selection },
+      vetters: [{ assistant: "claude", ...selection }],
       fix: { assistant: "codex", ...selection },
     },
     auditor: { ...auditor, chosenBy: "settings" },
@@ -414,7 +413,7 @@ test("a series opens on the pool entry without a current read when another has o
   const failed: RoundData = {
     ...implementationRound(sol, 2, "2026-11-08T11:00:00Z", "C"),
     status: "failed",
-    findings: [{ ...finding("C"), vetVerdict: null, outcome: null }],
+    findings: [{ ...finding("C"), reviews: [], outcome: null }],
   }
   const target = claude.target
   assert.deepEqual(openingAuditor(evidence([claude, failed]), target, pool), {

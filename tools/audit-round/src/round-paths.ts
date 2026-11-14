@@ -234,6 +234,16 @@ export function transcriptNameStart(transcript: string): string {
   return parsed.nameStart
 }
 
+/** The writer's tag a round document's name carries. */
+export function documentTag(document: string): string {
+  const parsed = readPhaseFilename(basename(document))
+  if (parsed === null)
+    throw new Error(
+      `A round document's name carries no writer tag: ${document}`,
+    )
+  return parsed.tag
+}
+
 /** Read an existing report or twin named without a path in the active folder. */
 async function roundDocument(
   context: ExecutionContext,

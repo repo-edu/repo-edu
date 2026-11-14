@@ -77,7 +77,7 @@ function implementationRead(
     started: `2026-11-08T1${round}:00:00Z`,
     status,
     settings: {
-      vet: { claude: seriesSelection, codex: seriesSelection },
+      vetters: [{ assistant: "claude", ...seriesSelection }],
       fix: { assistant: "codex", ...seriesSelection },
     },
     auditor: { ...auditor, chosenBy: "settings" },
@@ -125,6 +125,9 @@ const landedRecords = (
     subject,
     message: `${subject}\n\n${fixPhaseStamp}\n`,
   }))
+/** The round's one vet report; its name carries the vet's tag. */
+const vetTag = "abh"
+const vetReport = `/distinct-twins/example-impl-audit-01..01-01-3-vet.${vetTag}.md`
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   ...testSetup(repoRoot),
@@ -132,7 +135,7 @@ const files = {
   watch: { file: watch, cacheRoot },
   documents: {
     report: `${repoRoot}/AUDIT-example.md`,
-    vet: "/distinct-twins/VET-example.md",
+    vet: vetReport,
     rebut: "/distinct-twins/REBUT-example.md",
     ruling,
   },
@@ -224,7 +227,7 @@ function controlledRound(
     findings: ReportFinding[]
     accepted: boolean
     vetVerdict: "revise" | "needs-user-ruling"
-    vetTier?: "A" | "B" | "C" | "D"
+    revisedTier?: "A" | "B" | "C" | "D"
     rebuttalAnswer: "agree" | "contest" | "for-user-ruling"
     subjects: string[]
   } = {
@@ -271,9 +274,9 @@ function controlledRound(
         number: finding.number,
         tier: finding.tier,
         verdict: evidence.accepted ? "accept" : evidence.vetVerdict,
-        ...(evidence.vetTier === undefined
+        ...(evidence.revisedTier === undefined
           ? {}
-          : { vetTier: evidence.vetTier }),
+          : { revisedTier: evidence.revisedTier }),
       })),
       allAccepted: evidence.accepted,
     }),
@@ -532,7 +535,7 @@ for (const scenario of [
 test("a contested C finding raised to B goes to the user", async () => {
   const round = controlledRound()
   round.evidence.findings = [secondReportFinding]
-  round.evidence.vetTier = "B"
+  round.evidence.revisedTier = "B"
   round.evidence.rebuttalAnswer = "contest"
   round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
   const result = await runRound(
@@ -605,7 +608,7 @@ test("a second ruling in the same round asks only for the contests still open", 
             rulings: [
               {
                 finding: 1,
-                winner: "vet",
+                winner: [vetTag],
                 reason: "The vet read the contract.",
               },
             ],
@@ -618,7 +621,7 @@ test("a second ruling in the same round asks only for the contests still open", 
         }
         return {
           rulings: [
-            { finding: 2, winner: "auditor", reason: "The finding stands." },
+            { finding: 2, winner: "report", reason: "The finding stands." },
           ],
           reply: "",
         }
@@ -628,8 +631,8 @@ test("a second ruling in the same round asks only for the contests still open", 
   assert.equal(result.status, "finished")
   assert.deepEqual(asked, [[1, 2], [2]])
   assert.deepEqual(
-    result.account.findings.map((finding) => finding.rulingWinner),
-    ["vet", "auditor"],
+    result.account.findings.map((finding) => finding.ruling?.winner),
+    [[vetTag], "report"],
   )
 })
 
@@ -656,7 +659,7 @@ test("not yet keeps a contest open until the runner records its winner and reaso
           rulings: [
             {
               finding: 1,
-              winner: "auditor",
+              winner: "report",
               reason: "The report quotes the owning contract.",
             },
           ],
@@ -667,11 +670,10 @@ test("not yet keeps a contest open until the runner records its winner and reaso
   )
   assert.equal(result.status, "finished")
   assert.equal(request, 2)
-  assert.deepEqual(result.account.findings[0]?.rulingWinner, "auditor")
-  assert.deepEqual(
-    result.account.findings[0]?.rulingReason,
-    "The report quotes the owning contract.",
-  )
+  assert.deepEqual(result.account.findings[0]?.ruling, {
+    winner: "report",
+    reason: "The report quotes the owning contract.",
+  })
   const fixes = round.calls.filter((call) => call.phase === "fix")
   assert.equal(fixes.length, 3)
   const commitBlocks = fixes.map(
@@ -697,7 +699,7 @@ test("not yet keeps a contest open until the runner records its winner and reaso
     contests: [
       {
         finding: 1,
-        winner: "auditor",
+        winner: "report",
         reason: "The report quotes the owning contract.",
       },
     ],
@@ -770,7 +772,7 @@ for (const stopped of ["left-ruling", "failed-fix", "finished-fix"] as const) {
             rulings: [
               {
                 finding: 1,
-                winner: "vet",
+                winner: [vetTag],
                 reason: "The vet read the current contract.",
               },
             ],
@@ -781,7 +783,7 @@ for (const stopped of ["left-ruling", "failed-fix", "finished-fix"] as const) {
     )
 
     assert.equal(recovered.status, "finished")
-    assert.equal(recovered.account.findings[0]?.rulingWinner, "vet")
+    assert.deepEqual(recovered.account.findings[0]?.ruling?.winner, [vetTag])
     const resumed = round.calls.slice(priorCalls)
     assert.ok(resumed.every((call) => call.phase === "fix"))
     assert.deepEqual(
@@ -848,7 +850,7 @@ test("not yet in a recovered contest keeps the runner block until a later winner
           rulings: [
             {
               finding: 1,
-              winner: "auditor",
+              winner: "report",
               reason: "The report quotes the owning contract.",
             },
           ],
@@ -895,8 +897,7 @@ test("the round account retains review, rebuttal and settlement outcomes", async
     findings: [
       {
         ...reportFinding,
-        vetVerdict: "revise",
-        rebuttalAnswer: "agree",
+        reviews: [{ vet: vetTag, verdict: "revise", answer: "agree" }],
         outcome: "dropped",
         finalTier: null,
         finalReach: null,
@@ -2530,7 +2531,7 @@ test("the round reads each supplied file and records both heads immediately befo
   )
   assert.deepEqual(reads, [
     [`${repoRoot}/AUDIT-example.md`, "implementation"],
-    ["/distinct-twins/VET-example.md", [reportFinding, secondReportFinding]],
+    [vetReport, [reportFinding, secondReportFinding]],
   ])
   assert.deepEqual(result, {
     status: "finished",

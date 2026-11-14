@@ -20,11 +20,15 @@ import {
 import { fixture } from "./helpers.js"
 
 const settings: ImplementationRoundData["settings"] = {
-  vet: {
-    claude: { model: "claude-opus-5", effort: "high" },
-    codex: { model: "gpt-6.1-sol", effort: "high" },
-  },
+  vetters: [{ assistant: "claude", model: "claude-opus-5", effort: "high" }],
   fix: { assistant: "codex", model: "gpt-6.1-sol", effort: "high" },
+}
+
+const measured = {
+  milliseconds: 1200,
+  tokens: [],
+  peakContext: null,
+  compactions: 0,
 }
 
 const reportFinding = (
@@ -187,19 +191,67 @@ test("round data admits the series answer, resolved pool and model settings", as
     parse({
       ...judged,
       settings: {
-        ...settings,
-        audit: { claude: settings.vet.claude, codex: settings.vet.codex },
+        fix: settings.fix,
+        vet: {
+          claude: { model: "claude-opus-5", effort: "high" },
+          codex: { model: "gpt-6.1-sol", effort: "high" },
+        },
       },
     }),
   )
+  assert.throws(() =>
+    parse({ ...judged, settings: { ...settings, vetters: [] } }),
+  )
 })
 
-test("round data stores a vet tier that differs from the report tier", async (t) => {
+test("round data names each vet phase entry by its tag and no other entry", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
+  const parse = (phases: unknown) =>
+    parseRoundDataFile(
+      path,
+      JSON.stringify({
+        rounds: [{ ...entry("example-impl-audit-01..01", 1), phases }],
+        disproved: [],
+      }),
+    )
+  const vet = {
+    phase: "vet",
+    tag: "abh",
+    assistant: "claude",
+    model: "claude-opus-5",
+    effort: "high",
+    ...measured,
+  }
+  const audit = {
+    phase: "audit",
+    assistant: "codex",
+    model: "gpt-6.1-sol",
+    effort: "high",
+    ...measured,
+  }
+
+  assert.deepEqual(parse([audit, vet]).rounds[0]?.phases, [audit, vet])
+  const { tag: _tag, ...untagged } = vet
+  assert.throws(() => parse([untagged]))
+  assert.throws(() => parse([{ ...audit, tag: "oth" }]))
+  assert.throws(() => parse([{ ...vet, tag: "abc" }]))
+})
+
+test("round data stores a revised tier that differs from the report tier", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   const findings = reviewedRoundFindings(
     [reportFinding(1, "Retiered finding")],
-    [{ number: 1, tier: "B", verdict: "revise", vetTier: "C" }],
+    [
+      {
+        vet: "abh",
+        reviews: [
+          { number: 1, tier: "B", verdict: "revise", revisedTier: "C" },
+        ],
+        rebuttals: [],
+      },
+    ],
   )
 
   writeRoundData(path, {
@@ -208,7 +260,23 @@ test("round data stores a vet tier that differs from the report tier", async (t)
   })
 
   const file = parseRoundDataFile(path, await readFile(path, "utf8"))
-  assert.equal(file.rounds[0]?.findings[0]?.vetTier, "C")
+  assert.deepEqual(file.rounds[0]?.findings[0]?.reviews, [
+    { vet: "abh", verdict: "revise", revisedTier: "C", answer: null },
+  ])
+  const [finding] = findings
+  assert.ok(finding)
+  const review = finding.reviews[0]
+  assert.ok(review)
+  for (const changed of [
+    { ...review, revisedTier: "B" as const },
+    { ...review, verdict: "drop" as const },
+  ])
+    assert.throws(() =>
+      writeRoundData(path, {
+        ...entry("example-impl-audit-01..01", 1),
+        findings: [{ ...finding, reviews: [changed] }],
+      }),
+    )
 })
 
 test("round data stores a contested verdict's user winner and reason together", async (t) => {
@@ -216,36 +284,120 @@ test("round data stores a contested verdict's user winner and reason together", 
   const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
   const [finding] = reviewedRoundFindings(
     [reportFinding(1, "Ruled contest")],
-    [{ number: 1, tier: "B", verdict: "drop" }],
-    [{ number: 1, tier: "B", answer: "contest" }],
+    [
+      {
+        vet: "abh",
+        reviews: [{ number: 1, tier: "B", verdict: "drop" }],
+        rebuttals: [{ number: 1, tier: "B", answer: "contest" }],
+      },
+    ],
   )
   assert.ok(finding)
-  const ruled = {
-    ...finding,
-    rulingWinner: "vet" as const,
-    rulingReason: "The vet applied the current contract.",
-  }
-
-  writeRoundData(path, {
-    ...entry("example-impl-audit-01..01", 1),
-    findings: [ruled],
-  })
-
-  const stored = parseRoundDataFile(path, await readFile(path, "utf8"))
-    .rounds[0]?.findings[0]
-  assert.equal(stored?.rulingWinner, "vet")
-  assert.equal(stored?.rulingReason, "The vet applied the current contract.")
-  assert.throws(() =>
+  const write = (ruled: RoundFinding) =>
     writeRoundData(path, {
       ...entry("example-impl-audit-01..01", 1),
-      findings: [{ ...finding, rulingWinner: "vet" }],
+      findings: [ruled],
+    })
+  const ruling = (winner: unknown, reason = "The vet applied the contract.") =>
+    ({ ...finding, ruling: { winner, reason } }) as RoundFinding
+
+  for (const winner of ["report", "neither", ["abh"], ["abh", "oth"]]) {
+    write(ruling(winner))
+    assert.deepEqual(
+      parseRoundDataFile(path, await readFile(path, "utf8")).rounds[0]
+        ?.findings[0]?.ruling,
+      { winner, reason: "The vet applied the contract." },
+    )
+  }
+  for (const winner of ["vet", "auditor", [], ["vet"]])
+    assert.throws(() => write(ruling(winner)))
+  assert.throws(() => write(ruling("report", "First line.\nSecond line.")))
+  assert.throws(() =>
+    write({
+      ...ruling("report"),
+      reviews: finding.reviews.map((review) => ({
+        ...review,
+        answer: "agree",
+      })),
     }),
   )
-  assert.throws(() =>
-    writeRoundData(path, {
-      ...entry("example-impl-audit-01..01", 1),
-      findings: [{ ...ruled, rulingReason: "First line.\nSecond line." }],
-    }),
+})
+
+test("a single-vet round rewritten to the panel form keeps every verdict, answer and winner", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.activeRoot, "example-impl-rounds.json")
+  const reviewed = (
+    number: number,
+    review: Omit<RoundFinding["reviews"][number], "vet">,
+    ruling?: RoundFinding["ruling"],
+  ): RoundFinding => ({
+    ...reportFinding(number, `Rewritten finding ${number}`),
+    reviews: [{ vet: "obx", ...review }],
+    ...(ruling === undefined ? {} : { ruling }),
+    outcome: "kept",
+    finalTier: null,
+    finalReach: null,
+  })
+  const findings = [
+    reviewed(1, { verdict: "accept", answer: null }),
+    reviewed(2, { verdict: "revise", revisedTier: "C", answer: "agree" }),
+    reviewed(
+      3,
+      { verdict: "drop", answer: "contest" },
+      {
+        winner: ["obx"],
+        reason: "The vet's drop held.",
+      },
+    ),
+    reviewed(
+      4,
+      { verdict: "drop", answer: "contest" },
+      {
+        winner: "report",
+        reason: "The finding stood as written.",
+      },
+    ),
+    reviewed(
+      5,
+      { verdict: "revise", answer: "contest" },
+      {
+        winner: "neither",
+        reason: "A third correction was right.",
+      },
+    ),
+    reviewed(6, { verdict: "needs-user-ruling", answer: "for-user-ruling" }),
+    {
+      ...reportFinding(7, "Unreviewed finding"),
+      reviews: [],
+      outcome: "dropped",
+      finalTier: null,
+      finalReach: null,
+    },
+  ] satisfies RoundFinding[]
+  const round: ImplementationRoundData = {
+    ...entry("example-impl-audit-01..01", 1),
+    settings: {
+      ...settings,
+      vetters: [{ assistant: "codex", model: "gpt-5.6-sol", effort: "xhigh" }],
+    },
+    phases: [
+      {
+        phase: "vet",
+        tag: "obx",
+        assistant: "codex",
+        model: "gpt-5.6-sol",
+        effort: "xhigh",
+        ...measured,
+      },
+    ],
+    findings,
+  }
+
+  writeRoundData(path, round)
+
+  assert.deepEqual(
+    parseRoundDataFile(path, await readFile(path, "utf8")).rounds[0],
+    round,
   )
 })
 
@@ -268,8 +420,7 @@ test("a plan's watch evidence reads both round kinds and their trajectory fields
           field: "missing",
           section: "Decisions",
         },
-        vetVerdict: "drop",
-        rebuttalAnswer: "agree",
+        reviews: [{ vet: "abh", verdict: "drop", answer: "agree" }],
         outcome: "dropped",
         finalTier: null,
         finalReach: null,
@@ -493,26 +644,51 @@ test("plan round data discovery ignores commit round data", async (t) => {
   )
 })
 
-test("review and rebuttal outcomes stay attached to report finding identity", () => {
+test("each vet's review and its rebuttal answer stay attached to report finding identity", () => {
   assert.deepEqual(
     reviewedRoundFindings(
-      [reportFinding(1, "Reviewed finding")],
+      [reportFinding(1, "Reviewed finding"), reportFinding(2, "Accepted")],
       [
         {
-          number: 1,
-          tier: "B",
-          verdict: "revise",
-          vetTier: "C",
+          vet: "abx",
+          reviews: [
+            { number: 1, tier: "B", verdict: "revise", revisedTier: "C" },
+            { number: 2, tier: "B", verdict: "accept" },
+          ],
+          rebuttals: [{ number: 1, tier: "B", answer: "contest" }],
+        },
+        {
+          vet: "obx",
+          reviews: [
+            { number: 1, tier: "B", verdict: "accept" },
+            { number: 2, tier: "B", verdict: "accept" },
+          ],
+          rebuttals: [],
         },
       ],
-      [{ number: 1, tier: "B", answer: "contest" }],
     ),
     [
       {
         ...reportFinding(1, "Reviewed finding"),
-        vetVerdict: "revise",
-        vetTier: "C",
-        rebuttalAnswer: "contest",
+        reviews: [
+          {
+            vet: "abx",
+            verdict: "revise",
+            revisedTier: "C",
+            answer: "contest",
+          },
+          { vet: "obx", verdict: "accept", answer: null },
+        ],
+        outcome: null,
+        finalTier: null,
+        finalReach: null,
+      },
+      {
+        ...reportFinding(2, "Accepted"),
+        reviews: [
+          { vet: "abx", verdict: "accept", answer: null },
+          { vet: "obx", verdict: "accept", answer: null },
+        ],
         outcome: null,
         finalTier: null,
         finalReach: null,
@@ -671,8 +847,7 @@ test("a planning record can defer an unmatched finding to Repo Edu", () => {
         area: "tool-audit-round",
         covers: ["cover-x"],
       },
-      vetVerdict: null,
-      rebuttalAnswer: null,
+      reviews: [],
       outcome: "unmatched",
       finalTier: null,
       finalReach: null,

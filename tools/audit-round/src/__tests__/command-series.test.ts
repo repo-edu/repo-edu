@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
+import { documentTag } from "../round-paths.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
@@ -186,7 +187,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
             rulings: [
               {
                 finding: 1,
-                winner: "auditor",
+                winner: "report",
                 reason: "The report quotes the owning contract.",
               },
             ],
@@ -216,7 +217,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
   ) as {
     rounds: {
       status: string
-      findings: { rulingWinner?: string; rulingReason?: string }[]
+      findings: unknown[]
     }[]
   }
   assert.equal(stored.rounds.length, 1)
@@ -233,10 +234,13 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
       area: "tool-audit-round",
       covers: [],
     },
-    vetVerdict: "revise",
-    rebuttalAnswer: "contest",
-    rulingWinner: "auditor",
-    rulingReason: "The report quotes the owning contract.",
+    reviews: [
+      { vet: documentTag(f.vet), verdict: "revise", answer: "contest" },
+    ],
+    ruling: {
+      winner: "report",
+      reason: "The report quotes the owning contract.",
+    },
     outcome: "kept",
     finalTier: null,
     finalReach: null,

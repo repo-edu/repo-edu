@@ -44,7 +44,7 @@ test("a fix child receives its unresolved contest commit block", async (t) => {
         {
           contests: [
             { finding: 1 },
-            { finding: 2, winner: "vet", reason: "The verdict stands." },
+            { finding: 2, winner: ["obx"], reason: "The verdict stands." },
             { finding: 3 },
           ],
         },

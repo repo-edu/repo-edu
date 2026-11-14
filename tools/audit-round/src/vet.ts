@@ -31,7 +31,7 @@ type Header<Word extends string> = {
 }
 
 type VetHeader = Header<keyof typeof vetVerdicts & string> & {
-  readonly vetTier?: FindingReview["tier"]
+  readonly revisedTier?: FindingReview["tier"]
 }
 
 /**
@@ -77,12 +77,12 @@ function readVetHeader(line: string): VetHeader | null {
   if (header === null) return null
   const revised = /^Revise to \[([A-D])\]$/.exec(header.word)
   if (revised !== null) {
-    const vetTier = revised[1] as FindingReview["tier"]
-    if (vetTier === header.tier)
+    const revisedTier = revised[1] as FindingReview["tier"]
+    if (revisedTier === header.tier)
       throw new Error(
-        `Vet verdict ${header.number} keeps tier ${vetTier}; use Revise without a tier`,
+        `Vet verdict ${header.number} keeps tier ${revisedTier}; use Revise without a tier`,
       )
-    return { ...header, word: "Revise", vetTier }
+    return { ...header, word: "Revise", revisedTier }
   }
   if (header.word.startsWith("Revise to "))
     throw new Error(
@@ -127,7 +127,9 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
       number: header.number,
       tier: header.tier,
       verdict: vetVerdicts[header.word],
-      ...(header.vetTier === undefined ? {} : { vetTier: header.vetTier }),
+      ...(header.revisedTier === undefined
+        ? {}
+        : { revisedTier: header.revisedTier }),
     })
   }
   if (

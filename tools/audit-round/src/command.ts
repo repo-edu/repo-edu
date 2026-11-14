@@ -455,7 +455,7 @@ async function requireDisprovedFinding(
     )
   if (
     side === "vet" &&
-    (retained.vetVerdict === null || retained.vetVerdict === "accept")
+    retained.reviews.every((review) => review.verdict === "accept")
   )
     throw new Error(
       `Finding ${finding.number} in ${target} round ${finding.round} has no non-Accept vet verdict.`,

@@ -29,7 +29,9 @@ function phase(
   reported: ModelSelection,
 ): RoundData["phases"][number] {
   return {
-    phase: name,
+    ...(name === "vet"
+      ? { phase: name, tag: assistant === "claude" ? "abh" : "obh" }
+      : { phase: name }),
     assistant,
     ...reported,
     ...(launched === undefined ? {} : { launched }),
@@ -53,10 +55,7 @@ function round(
     started,
     status: "finished",
     settings: {
-      vet: {
-        claude: { model: "claude-model", effort: "high" },
-        codex: { model: "codex-model", effort: "xhigh" },
-      },
+      vetters: [{ assistant: "claude", model: "claude-model", effort: "high" }],
       fix: { assistant: "codex", model: "codex-model", effort: "xhigh" },
     },
     auditor: {

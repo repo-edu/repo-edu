@@ -44,12 +44,11 @@ item covers:
 3. One recommendation, its reason and any material tradeoff.
 4. A short suggested answer the user can give in the `/ruling` chat.
 
-For a contested verdict whose report or revised vet tier is A or B, state the
-vet's position and the auditor's contest separately, with the evidence each
-uses, before the recommendation. The user gives each such finding a winner,
-`vet`, `auditor` or `neither`, with a one-line reason, so the suggested answer
-names both. Suggest `not yet` when the user should first ask the fix a
-question.
+For a contested verdict whose report or revised vet tier is A or B, state the vet's position and the
+auditor's contest separately, with the evidence each uses, before the recommendation. The user gives
+each such finding a winner, `report`, the tags of the vets that were right or `neither`, with a
+one-line reason, so the suggested answer names both. Suggest `not yet` when the user should first
+ask the fix a question.
 
 Price the request under the plan doctrine's
 [Mechanism cases](../../../../../plan/CLAUDE.md#mechanism-cases).

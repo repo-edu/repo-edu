@@ -39,7 +39,7 @@ import {
   type SeriesAnswer,
   settleRoundFindings,
 } from "./round-data.js"
-import { transcriptNameStart } from "./round-paths.js"
+import { documentTag, transcriptNameStart } from "./round-paths.js"
 import type { RulingInput } from "./ruling-wait.js"
 import type { Auditor, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
@@ -84,8 +84,8 @@ function seriousContests(
       return (
         rebuttal.tier === "A" ||
         rebuttal.tier === "B" ||
-        review?.vetTier === "A" ||
-        review?.vetTier === "B"
+        review?.revisedTier === "A" ||
+        review?.revisedTier === "B"
       )
     })
     .map((rebuttal) => rebuttal.number)
@@ -103,12 +103,7 @@ function contestScope(
         throw new Error(`Contest names no report finding: ${number}`)
       return {
         finding: number,
-        ...(finding.rulingWinner === undefined
-          ? {}
-          : {
-              winner: finding.rulingWinner,
-              reason: finding.rulingReason as string,
-            }),
+        ...(finding.ruling === undefined ? {} : finding.ruling),
       }
     }),
   }
@@ -120,32 +115,31 @@ function openContests(
 ): readonly number[] {
   return contests.filter(
     (number) =>
-      account.findings.find((finding) => finding.number === number)
-        ?.rulingWinner === undefined,
+      account.findings.find((finding) => finding.number === number)?.ruling ===
+      undefined,
   )
 }
 
-/** Serious contests whose retained round entry still has no user winner. */
+/** Findings where the rebuttal contests a vet and the report or that vet graded A or B. */
 function seriousAccountContests(account: RoundAccount): readonly number[] {
   return account.findings.flatMap((finding) => {
-    const serious =
-      finding.tier === "A" ||
-      finding.tier === "B" ||
-      finding.vetTier === "A" ||
-      finding.vetTier === "B"
-    return finding.number !== null &&
-      finding.rebuttalAnswer === "contest" &&
-      serious
-      ? [finding.number]
-      : []
+    const contested = finding.reviews.some(
+      (review) =>
+        review.answer === "contest" &&
+        (finding.tier === "A" ||
+          finding.tier === "B" ||
+          review.revisedTier === "A" ||
+          review.revisedTier === "B"),
+    )
+    return finding.number !== null && contested ? [finding.number] : []
   })
 }
 
 export function openSeriousContests(account: RoundAccount): readonly number[] {
   return seriousAccountContests(account).filter(
     (number) =>
-      account.findings.find((finding) => finding.number === number)
-        ?.rulingWinner === undefined,
+      account.findings.find((finding) => finding.number === number)?.ruling ===
+      undefined,
   )
 }
 
@@ -164,8 +158,7 @@ function recordRulings(
         ? finding
         : {
             ...finding,
-            rulingWinner: ruling.winner,
-            rulingReason: ruling.reason,
+            ruling: { winner: ruling.winner, reason: ruling.reason },
           }
     }),
   }
@@ -548,6 +541,8 @@ export async function runRound(
     input.deferrals === undefined ? null : { deferrals: input.deferrals }
   const report = input.documents.report
   const twins = [input.documents.vet]
+  // The panel of one: the round's single vet, named by the tag its report carries.
+  const vetTag = documentTag(input.documents.vet)
   let reviews: readonly FindingReview[] = []
   let rebuttals: readonly FindingRebuttal[] = []
   if (input.recovery === undefined) {
@@ -707,7 +702,9 @@ export async function runRound(
       reviews = reading.reviews
       account = {
         ...account,
-        findings: reviewedRoundFindings(evidence.findings, reviews),
+        findings: reviewedRoundFindings(evidence.findings, [
+          { vet: vetTag, reviews, rebuttals: [] },
+        ]),
       }
     } catch (error) {
       return {
@@ -752,11 +749,9 @@ export async function runRound(
         )
         account = {
           ...account,
-          findings: reviewedRoundFindings(
-            evidence.findings,
-            reviews,
-            rebuttals,
-          ),
+          findings: reviewedRoundFindings(evidence.findings, [
+            { vet: vetTag, reviews, rebuttals },
+          ]),
         }
       } catch (error) {
         return {
