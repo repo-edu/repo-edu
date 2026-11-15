@@ -9,6 +9,7 @@ import {
   ownStreams,
   phaseStream,
   recorded,
+  socketRequirement,
 } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
@@ -102,7 +103,9 @@ async function finishFixOnAnswer(f: Fixture): Promise<void> {
   })
 }
 
-test("the chat reads the waiting ruling, is refused an incomplete answer and resumes the fix with a complete one", async (t) => {
+test("the chat reads the waiting ruling, is refused an incomplete answer and resumes the fix with a complete one", {
+  skip: socketRequirement,
+}, async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const cache = await cacheRoot(t)
   // A failed assertion must not leave the run listening, or the test never ends.
@@ -153,7 +156,9 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
   assert.equal((await chat(f, cache, ["ruling"])).code, 1)
 })
 
-test("ruling and answer report that no run waits", async (t) => {
+test("ruling and answer report that no run waits", {
+  skip: socketRequirement,
+}, async (t) => {
   const f = await roundFixture(t)
   const cache = await cacheRoot(t)
   assert.deepEqual(await chat(f, cache, ["ruling"]), {
@@ -170,7 +175,9 @@ test("ruling and answer report that no run waits", async (t) => {
   })
 })
 
-test("Ctrl-C during the wait ends the round as an unanswered ruling", async (t) => {
+test("Ctrl-C during the wait ends the round as an unanswered ruling", {
+  skip: socketRequirement,
+}, async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const cache = await cacheRoot(t)
   const interruption = new AbortController()

@@ -12,7 +12,7 @@ import {
   type WaitingRuling,
   waitingRun,
 } from "../ruling-wait.js"
-import { shortCacheRoot as cacheRoot } from "./helpers.js"
+import { shortCacheRoot as cacheRoot, socketRequirement } from "./helpers.js"
 
 function waiting(
   target: string,
@@ -47,7 +47,9 @@ async function send(cache: string, target: string, answer: unknown) {
   )
 }
 
-test("a complete answer is accepted, drops not yet and ends the wait", async (t) => {
+test("a complete answer is accepted, drops not yet and ends the wait", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   const wait = await listenForRuling({
     cacheRoot: cache,
@@ -77,7 +79,9 @@ test("a complete answer is accepted, drops not yet and ends the wait", async (t)
   })
 })
 
-test("every winner may close the answer without a reply", async (t) => {
+test("every winner may close the answer without a reply", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   const wait = await listenForRuling({
     cacheRoot: cache,
@@ -106,7 +110,9 @@ test("the answer form writes vet tags as a list and an implementation ruling as 
   )
 })
 
-test("an implementation ruling takes a free reply alone", async (t) => {
+test("an implementation ruling takes a free reply alone", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   const wait = await listenForRuling({
     cacheRoot: cache,
@@ -236,7 +242,9 @@ for (const { name, findings, answer, refusal } of [
     refusal: "The answer is not JSON:",
   },
 ] as const) {
-  test(`the waiting run refuses ${name} and keeps waiting`, async (t) => {
+  test(`the waiting run refuses ${name} and keeps waiting`, {
+    skip: socketRequirement,
+  }, async (t) => {
     const cache = await cacheRoot(t)
     const wait = await listenForRuling({
       cacheRoot: cache,
@@ -262,7 +270,9 @@ for (const { name, findings, answer, refusal } of [
   })
 }
 
-test("ending the wait returns no answer and removes the socket", async (t) => {
+test("ending the wait returns no answer and removes the socket", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   const interruption = new AbortController()
   const wait = await listenForRuling({
@@ -275,7 +285,9 @@ test("ending the wait returns no answer and removes the socket", async (t) => {
   assert.equal(await exists(rulingSocketPath(cache, "example")), false)
 })
 
-test("no waiting run is reported for an absent target and an empty folder", async (t) => {
+test("no waiting run is reported for an absent target and an empty folder", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   await assert.rejects(waitingRun(cache, undefined), {
     message: "No run waits for a ruling.",
@@ -285,7 +297,9 @@ test("no waiting run is reported for an absent target and an empty folder", asyn
   })
 })
 
-test("a dead run's socket file blocks neither the commands nor a later wait", async (t) => {
+test("a dead run's socket file blocks neither the commands nor a later wait", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   const path = rulingSocketPath(cache, "example")
   await mkdir(dirname(path), { recursive: true })
@@ -319,7 +333,9 @@ test("a dead run's socket file blocks neither the commands nor a later wait", as
   assert.notEqual(await wait.answer, null)
 })
 
-test("several waiting runs need the target named", async (t) => {
+test("several waiting runs need the target named", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   const waits = await Promise.all(
     ["alpha", "beta"].map((target) =>
@@ -346,7 +362,9 @@ test("several waiting runs need the target named", async (t) => {
   )
 })
 
-test("a long target keeps a short socket path", async (t) => {
+test("a long target keeps a short socket path", {
+  skip: socketRequirement,
+}, async (t) => {
   const cache = await cacheRoot(t)
   const target = `commit-${"0123456789abcdef".repeat(12)}+plan-${"f".repeat(80)}`
   const path = rulingSocketPath(cache, target)

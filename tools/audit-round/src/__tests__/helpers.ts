@@ -227,6 +227,14 @@ export async function phaseStream(
 }
 
 /**
+ * The skip reason for tests that wait on a ruling socket. The ruling wait
+ * listens on a socket file, which Windows does not serve, and the tool targets
+ * macOS and Linux.
+ */
+export const socketRequirement =
+  process.platform === "win32" ? "Ruling sockets need macOS or Linux" : false
+
+/**
  * A short cache root, as the real one under the home folder is: the macOS
  * temporary folder alone would push a ruling socket past its 103-byte limit.
  */
