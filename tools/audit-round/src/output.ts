@@ -220,7 +220,7 @@ export async function roundRun(
   for (const phase of singlePhases) {
     if (phase !== "close") tag(phase)
   }
-  // Each vet's report and record are named by its own tag.
+  // Each vetter's vet report and record are named by its own tag.
   const vets = phases.vet.map((run) => {
     const vet = { phase: "vet", ...run } as const
     return { ...vet, tag: fileTag(vet, releases, settings) }
@@ -324,7 +324,7 @@ export async function roundRun(
   }
 }
 
-/** Every phase of a round except the vet, whose panel holds one run per vet. */
+/** Every phase of a round except the vet, whose panel holds one run per vetter. */
 type SinglePhase = Exclude<RoundPhase, "vet">
 const singlePhases: readonly SinglePhase[] = [
   "audit",
@@ -354,7 +354,7 @@ function retainedPhaseRun(retained: RoundData["phases"][number]): PhaseRun {
 
 /**
  * Reopen one retained round and restore the phase records its fix must
- * finish: every vet's record by the tag its report carries.
+ * finish: every vetter's record by the tag its vet report carries.
  */
 export async function resumedRoundRun(
   setup: RoundSetup,
@@ -546,7 +546,7 @@ export async function closeRun(
 }
 
 /**
- * One running invocation. The vets of a panel run at the same time, so each
+ * One running invocation. The vetters of a panel run at the same time, so each
  * has its own slot under its tag and their stamps never share a baseline.
  */
 type ActiveSlot = {
@@ -560,8 +560,8 @@ type ActiveSlot = {
   previousToolTokens: number | null
   statusTokens: number | null
   /**
-   * A vet's texts, held until the vet ends and then written whole, because
-   * vets that run at the same time would otherwise mix paragraph by
+   * A vetter's texts, held until its vet ends and then written whole, because
+   * vetters that run at the same time would otherwise mix paragraph by
    * paragraph. Null for a phase that runs alone, whose text streams.
    */
   readonly held: string[] | null
@@ -657,7 +657,7 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   models(releases: Record<Assistant, ModelReleases>): void {
-    // Rows keep the run's phase order, with the vets in panel order.
+    // Rows keep the run's phase order, with the vetters in panel order.
     // Each field reports what named it: an option, the phase's pin or the defaults.
     const rows = this.run.phases.map(({ phase, tag, assistant, model }) => ({
       phase: slotKey(phase, tag),
@@ -729,7 +729,7 @@ export class RoundOutput<R extends Run = Run> {
   private start(input: AssistantTurnInput, prompt: string): PhaseRecorder {
     this.clock.active()
     const started = this.clock.mark()
-    // A vet is named by the tag its report carries, so each vet of a panel
+    // A vetter is named by the tag its vet report carries, so each vetter of a panel
     // keeps its own slot and record.
     const tag =
       input.phase === "vet" ? documentTag(input.arguments[1]) : undefined
@@ -797,7 +797,7 @@ export class RoundOutput<R extends Run = Run> {
     if (visible.length > 0) this.options.terminal.write(visible, "markdown")
   }
 
-  /** Write a vet's held texts whole, under its heading, once the vet ends. */
+  /** Write a vetter's held texts whole, under its heading, once its vet ends. */
   private flush(slot: ActiveSlot): void {
     if (slot.held === null) return
     this.heading(slot)

@@ -372,7 +372,7 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
       sessionId,
     ],
   )
-  // A seat that named its model resumes on it, so the user continues the round's own run.
+  // A selection that named its model resumes on it, so the user continues the round's own run.
   assert.deepEqual(
     split(
       recoveryCommand({

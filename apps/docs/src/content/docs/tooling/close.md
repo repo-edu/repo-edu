@@ -34,7 +34,7 @@ was given. Invoking the command grants every closing commit; it is not a preview
 ## Why chat does not close by hand
 
 A chat session that closed by hand once forgot to move the plan's round-data files, and the plan's
-whole round account went with the next hand clean-up. The runner moves those files from
+whole round data went with the next hand clean-up. The runner moves those files from
 `../plan-evidence/active/` and commits them itself after its close session, because it cannot see
 whether a session remembered them. So every close has to go through it.
 

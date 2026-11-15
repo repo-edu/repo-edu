@@ -81,7 +81,7 @@ test("range examples parse and obsolete all examples are refused", async () => {
     if (subject.includes("/impl-audit-all ")) {
       assert.throws(
         () => parseSubject(`${subject} the sentence`, repository),
-        /audit scope/,
+        /step scope/,
       )
     } else {
       assert.equal(
@@ -275,17 +275,17 @@ const refusals: [Repository, string, RegExp][] = [
   [
     "repo-edu",
     "example/impl-audit-all atx growth-none c1 fix(x): s",
-    /audit scope/,
+    /step scope/,
   ],
   [
     "repo-edu",
     "example/impl-audit-0 atx growth-none c1 fix(x): s",
-    /audit scope/,
+    /step scope/,
   ],
   [
     "repo-edu",
     "example/impl-audit-3-2x atx growth-none c1 fix(x): s",
-    /audit scope/,
+    /step scope/,
   ],
   ["repo-edu", "example/impl-0 atx fix(x): s", /step/],
   ["repo-edu", "example/impl-all atx fix(x): s", /step/],

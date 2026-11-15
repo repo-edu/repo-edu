@@ -113,12 +113,12 @@ export type AuditorSelectionSource = "settings" | AuditorOption
 
 /**
  * What the auditor's phases run on in place of the assistant's default
- * selection. `none` keeps the defaults. A listed entry names both fields from
+ * selection. `none` keeps the defaults. A listed auditor names both fields from
  * the target work class's auditor list. An assistant name
  * on the command line keeps the defaults under its option's name. A tag names
  * its option, so the settings header says which one set a field; a null tag
  * field reads the defaults. The override binds audit and rebuttal because the
- * rebuttal is the auditor's answer.
+ * rebuttal answers for the audit report on the audit's model.
  */
 export type AuditorOverride =
   | "none"
@@ -158,7 +158,7 @@ export type AuditorSeat = {
   readonly override: AuditorOverride
 }
 
-/** The seat that runs an entry of the target work class's auditor list. */
+/** The selection that runs a listed auditor of the target work class. */
 export function listedSeat(auditor: Auditor): AuditorSeat {
   return {
     assistant: auditor.assistant,
@@ -300,7 +300,7 @@ function auditModel(seat: AuditorSeat, config: RoundSettings): PinnedModel {
   }
 }
 
-/** The audit and the rebuttal it shares, on what the seat names. */
+/** The audit and the rebuttal it shares, on what the selection names. */
 export function auditPhase(seat: AuditorSeat, config: RoundSettings): PhaseRun {
   return { assistant: seat.assistant, model: auditModel(seat, config) }
 }
@@ -350,7 +350,7 @@ export function targetWorkClass(target: AuditTarget): RoundKind {
 }
 
 /**
- * The settings level that holds each work class's auditor pool, vetter panel
+ * The settings level that holds each work class's auditor list, vetter panel
  * and watch writer.
  */
 export const auditLevels = {
@@ -358,7 +358,7 @@ export const auditLevels = {
   implementation: "implementationAudit",
 } as const satisfies Record<RoundKind, string>
 
-/** The auditor pool, vetter panel and watch writer of one work class. */
+/** The auditor list, vetter panel and watch writer of one work class. */
 export function auditRoles(
   workClass: RoundKind,
   config: RoundSettings,
@@ -397,7 +397,7 @@ export function roundFixer(
 
 /**
  * Who runs each phase of a round. Every phase has one run except the vet,
- * whose panel runs one vet per listed vetter, in list order.
+ * whose panel runs one vet session per listed vetter, in list order.
  */
 export type RoundPhases = Readonly<
   Record<Exclude<RoundPhase, "vet">, PhaseRun>
@@ -419,7 +419,7 @@ export function roundPhases(
   return {
     audit,
     vet: panelPhases(workClass, config),
-    // The rebuttal is the auditor's answer, using the same model and effort.
+    // The rebuttal answers for the audit report on the same model and effort.
     rebut: audit,
     fix: implementationPhase(fixer, fixerSource),
     watch: watchPhase(workClass, config),
@@ -539,7 +539,7 @@ export type ContestScope = {
 
 /**
  * Which reviewed side uses the same selected model and effort as the fix: the
- * auditor, one vet of the panel named by its tag, or neither.
+ * auditor, one vetter of the panel named by its tag, or neither.
  */
 export type FixerSide = "auditor" | "neither" | { readonly vet: string }
 

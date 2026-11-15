@@ -116,7 +116,7 @@ for (const [side, line] of [
     assert.match(text, /^Findings that need a winner: 1, 3$/m)
     assert.match(
       text,
-      /^Winner words: report, neither, one or more of the vet tags abh, oth or not yet$/m,
+      /^Winner words: report, neither, one or more of the vetter tags abh, oth or not yet$/m,
     )
     assert.ok(text.includes(line))
     assert.match(
@@ -895,7 +895,7 @@ test("the settings header names what set each phase's model and effort", async (
       "rebut    codex   gpt-5.6-sol     medium  audit-round defaults/--auditor",
     ],
   )
-  // A listed auditor names both fields from the auditors list.
+  // A listed auditor names both fields from the auditor list.
   assert.deepEqual(
     (
       await header({ listed: { model: "gpt-6-astra", effort: "xhigh" } })

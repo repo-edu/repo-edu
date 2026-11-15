@@ -363,7 +363,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
     run.data.path,
     await readFile(run.data.path, "utf8"),
   ).rounds
-  // The reported selection names the auditor; the seat keeps what it launched on.
+  // The reported selection names the auditor; the stored selection keeps what it launched on.
   assert.deepEqual(entry?.auditor, {
     assistant: "codex",
     model: "reported-auditor",
@@ -439,7 +439,7 @@ test("widening planning data retains the settling recommendation", async (t) => 
   assert.equal(entry.settling, settling)
 })
 
-test("the final retained write stores the series answer and resolved pool", async (t) => {
+test("the final retained write stores the series answer and resolved auditor list", async (t) => {
   const f = await fixture(t)
   const run = await buildRoundRun(
     {
@@ -844,7 +844,7 @@ test("commit stamps time the finished audit, every vet and rebuttal and never th
   assert.equal(time(), "audit: gpt-5.6-sol high")
   await finish()
   assert.equal(time(), "Audit took 4 min.")
-  // Both vets run at once; the line adds up each vet's own time.
+  // Both vetters run at once; the line adds up each vetter's own time.
   const first = await vet(0)
   const second = await vet(1)
   t.mock.timers.tick(2 * 60_000)
@@ -869,7 +869,7 @@ test("commit stamps time the finished audit, every vet and rebuttal and never th
   assert.equal(time(), "Audit, vet and rebuttal took 10 min.")
 })
 
-test("two vets' mixed events keep their own slots and records, each vet's text held whole and named by its tag", async (t) => {
+test("two vetters' mixed events keep their own slots and records, each vetter's text held whole and named by its tag", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
@@ -923,7 +923,7 @@ test("two vets' mixed events keep their own slots and records, each vet's text h
         tokens: { input, cached: 0, output: 1 },
       },
     }) as const
-  // The two vets' events arrive interleaved, as two sessions stream at once.
+  // The two vetters' events arrive interleaved, as two sessions stream at once.
   await claude.observe({ type: "session", sessionId: "claude-vet" })
   await codex.observe({ type: "session", sessionId: "codex-vet" })
   await claude.observe({ type: "text", text: "Claude opens." })

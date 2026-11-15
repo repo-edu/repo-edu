@@ -3,8 +3,8 @@ title: /audit
 description: Run one read-only planning or implementation audit against a plan, step range or commit set
 ---
 
-`/audit` runs one read-only audit by hand when you want to read the report before deciding whether
-to vet and fix it, instead of letting an automatic runner series choose later phases.
+`/audit` runs one read-only audit by hand when you want to read the audit report before deciding
+whether to vet and fix it, instead of letting an automatic runner series choose later phases.
 
 | Fact | Detail |
 | --- | --- |
@@ -44,9 +44,9 @@ The target decides what the audit reads:
    coverage table that gives every step in the range one disposition.
 3. **A commit audit** reads the exact commits the runner resolved before the audit started.
 
-The report lists findings by number. Each carries a tier from A, the most serious, to D, wording,
-plus its location, the growth patterns it could match, its reach and its maintenance-burden change.
-The audit changes no tracked file.
+The audit report lists findings by number. Each carries a tier from A, the most serious, to D,
+wording, plus its location, the growth patterns it could match, its reach and its maintenance-burden
+change. The audit changes no tracked file.
 
 ## Early stops
 
@@ -57,9 +57,9 @@ The audit changes no tracked file.
 3. **A whole-plan step audit finds an `implemented` marker missing or stale.** The audit names each
    hosting repo whose marker is missing or older than that repo's newest step, then waits. Type
    `Continue without the implemented marker.` to audit anyway. Later rounds do not ask again.
-4. **A planning audit meets an unresolved premise error.** The report holds no graded findings. It
-   names the inputs that conflict, where each is recorded and the decision you must make. Give your
-   decision in the chat. The audit then starts again from its premise check.
+4. **A planning audit meets an unresolved premise error.** The audit report holds no graded
+   findings. It names the inputs that conflict, where each is recorded and the decision you must
+   make. Give your decision in the chat. The audit then starts again from its premise check.
 5. **A commit audit's hard gate fails.** The gate refuses uncommitted changes in touched files,
    an unreachable commit and a typed list that is not contiguous in history. Correct the named
    problem and rerun. No answer continues past this stop.
@@ -69,12 +69,13 @@ The audit changes no tracked file.
 
 ## Afterwards
 
-1. **The report has findings.** The report stays in `../plan-evidence/active/` and no source
-   changes. Run the vet in either assistant: `/vet <report-file>` in Claude or `$vet <report-file>`
-   in Codex.
-2. **The report is clean.** A plan or step audit lands its `clean` record commit. A commit audit
-   lands no record. Both keep the report for you to read. A clean round needs no vet or fix.
+1. **The audit report has findings.** The audit report stays in `../plan-evidence/active/` and no
+   source changes. Run the vet in either assistant: `/vet <report-file>` in Claude or
+   `$vet <report-file>` in Codex.
+2. **The audit report is clean.** A plan or step audit lands its `clean` record commit. A commit
+   audit lands no record. Both keep the audit report for you to read. A clean round needs no vet or
+   fix.
 
 Either way the round's `<target>-<round>-0-claim.md` stays as an empty reservation, so no later
-round reuses the number. The report itself is `<target>-<round>-2-audit.<tag>.md`. See
+round reuses the number. The audit report itself is `<target>-<round>-2-audit.<tag>.md`. See
 [Find round outputs](/repo-edu/tooling/find-round-outputs/) for every round file.

@@ -72,7 +72,7 @@ export function phaseSelection(
 
 /**
  * One phase of a run, as the commit body and the settings header list it. A
- * vet names its tag, because a panel runs one vet per tag.
+ * vet entry names its vetter's tag, because a panel runs one vetter per tag.
  */
 export type RunEntry = {
   readonly phase: Phase
@@ -82,7 +82,7 @@ export type RunEntry = {
 }
 
 /**
- * The key of one phase's record in a run: the phase, or for a vet the phase
+ * The key of one phase's record in a run: the phase, or for a vetter the phase
  * and its tag, which also opens each line the output writes for it.
  */
 export function slotKey(phase: Phase, tag?: string): string {
@@ -92,7 +92,7 @@ export function slotKey(phase: Phase, tag?: string): string {
 /** One started phase: what it ran on and the assistant time it took. */
 export type RanPhase = {
   readonly phase: Phase
-  /** A vet's tag; other phases have none. */
+  /** A vetter's tag; other phases have none. */
   readonly tag?: string
   /** What the settings named for the phase; the round data keeps it. */
   readonly launched: ModelSelection
@@ -136,8 +136,8 @@ const reviewPhases = [
  * The line after the phase lines: how long the finished audit, vet and
  * rebuttal took, as `Audit, vet and rebuttal took 7 min.`. They take that time
  * whatever the round finds, so later model comparisons keep the round's cost.
- * The vet's time adds up every vet of the panel, because each vet is a session
- * the round paid for. The fix commits while it runs, so its time is never known.
+ * The vet's time adds up every vetter of the panel, because each vetter's vet
+ * is a session the round paid for. The fix commits while it runs, so its time is never known.
  */
 export function reviewTimeLine(ran: Iterable<RanPhase>): string | null {
   const records = [...ran]

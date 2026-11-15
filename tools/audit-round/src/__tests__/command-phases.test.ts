@@ -216,7 +216,7 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.match(log, /fix +codex +gpt-5.6-sol +high/)
         const vetTag = basename(f.vet).split(".").at(-2)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
-          // A vet's texts open under its tag, which names it among the panel.
+          // A vetter's texts open under its tag, which names it among the panel.
           assert.ok(
             markdown.includes(
               `## ${phase === "vet" ? `vet ${vetTag}` : phase} (`,

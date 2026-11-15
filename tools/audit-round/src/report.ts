@@ -51,11 +51,11 @@ export function reportKind(source: string): RoundKind {
   return planning ? "planning" : "implementation"
 }
 
-/** Finding identities and metadata survive the fix consuming the report and its twins. */
+/** Finding identities and metadata survive the fix consuming the audit report and its vet and rebuttal reports. */
 export type ReportFindings = readonly ReportFinding[]
 
 export type AuditReport = {
-  /** A widening report's closing settling line; empty for every other class. */
+  /** A widening audit report's closing settling line; empty for every other class. */
   readonly settling: string
   readonly findings: ReportFindings
   readonly judgedRepos: readonly Repository[]
@@ -71,7 +71,7 @@ type OpeningLine = {
 }
 
 /**
- * A widening report ends on its settling line, so its reader meets the advice
+ * A widening audit report ends on its settling line, so its reader meets the advice
  * where the report stops. No other report class carries one. The line is read
  * from its source, so a formatted span in the reason loses no words, and a
  * wrapped paragraph fails the one-line grammar.
@@ -90,11 +90,11 @@ function reportSettling(
       : null
   if (reportClass === "widening") {
     if (line === null)
-      throw new Error("Widening report must end with a settling line")
+      throw new Error("Widening audit report must end with a settling line")
     return line
   }
   if (line !== null)
-    throw new Error("Only a widening report ends with a settling line")
+    throw new Error("Only a widening audit report ends with a settling line")
   return ""
 }
 

@@ -1,6 +1,6 @@
 ---
 title: Find round outputs
-description: Locate reports, reviews, transcripts, rulings, logs and retained round data
+description: Locate audit, vet and rebuttal reports, transcripts, rulings, logs and retained round data
 ---
 
 Every planning and implementation round writes its files in `../plan-evidence/active/`, the
@@ -34,12 +34,12 @@ carry no tag.
 | File | What it contains |
 | --- | --- |
 | `-0-claim.md` | Empty reservation for the round number |
-| `-0-settle.md`, `-0-reopen.md` | Empty markers showing where the plan's shape closed or reopened among its rounds |
+| `-0-settle.md`, `-0-reopen.md` | Empty marker files showing where the plan's shape closed or reopened among its rounds |
 | `-1-round.<tag>.md` | Complete audit, vet, rebuttal and fix conversation, including ruling replies |
 | `-1-round.<tag>.log` | Tool calls and phase prompts, with supplied instruction contents omitted |
 | `-2-audit.<tag>.md` | Audit report and its target, judged repositories and audited heads |
-| `-3-vet.<tag>.md` | One vet's verdicts on every finding; a round keeps one per vet of its panel |
-| `-4-rebut.<tag>.md` | The auditor's answers to each vet's revisions, drops and referrals, each naming its vet |
+| `-3-vet.<tag>.md` | Vet report: one vetter's verdicts on every finding; a round keeps one per vetter of its panel |
+| `-4-rebut.<tag>.md` | Rebuttal report: the rebuttal's answers to each vetter's revisions, drops and referrals, each naming its vetter |
 | `-7-ruling.<tag>.md` | The fix's current open decision |
 | `-9-watch.<tag>.md` | The episode's admitted green, amber or red trajectory judgement |
 | `<stem>-plan-rounds.json` | Machine-owned retained data for planning rounds |
@@ -51,7 +51,7 @@ The audit report opening is the quickest authority for what was judged. It names
 target, repository set and the heads captured when the audit began.
 
 The round-data files record each round's scope, settings, phases with their reported models, landed
-commits, findings, status, series answer and the resolved pool for new automatic rounds.
+commits, findings, status, series answer and the resolved auditor list for new automatic rounds.
 [`pnpm audit-round models`](/repo-edu/tooling/models/)
 reads them, and [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/) adds your later rulings
 on audit findings or vet verdicts to them. They are machine artifacts and must never be edited by

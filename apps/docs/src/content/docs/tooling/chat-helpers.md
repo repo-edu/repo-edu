@@ -68,10 +68,10 @@ the original task, read files to check the reply's claims or carry out instructi
 ### What it shows you
 
 The rewrite keeps every substantive point and its reasons and cuts only repetition and filler. It
-keeps findings, ratings, verdicts, recommendations, open questions and each finding's identifier,
-so a rewritten vet still matches its report. Uncertainty stays: a possible defect stays possible
-and a decision awaiting you stays open. A long reply opens with one short summary, and useful
-headings keep their order and numbering.
+keeps findings, ratings, verdicts, recommendations, open questions and each finding's identifier, so
+a rewritten vet report still matches its audit report. Uncertainty stays: a possible defect stays
+possible and a decision awaiting you stays open. A long reply opens with one short summary, and
+useful headings keep their order and numbering.
 
 ### Early stops
 

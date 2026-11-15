@@ -291,11 +291,11 @@ test("widening reports end with their settling line and retain it", () => {
   )
   assert.throws(
     () => readAuditReport(empty, "detailing", "example-widen.md"),
-    /^Error: Only a widening report ends with a settling line$/,
+    /^Error: Only a widening audit report ends with a settling line$/,
   )
   assert.throws(
     () => readAuditReport(empty.replace(`\n\n${settlingLine}`, ""), "widening"),
-    /^Error: Widening report must end with a settling line$/,
+    /^Error: Widening audit report must end with a settling line$/,
   )
   for (const line of [
     "Settling: maybe. The shape might be done.",
@@ -888,7 +888,7 @@ test("rebuttal omits accepted verdicts and answers changed verdicts", () => {
   }
 })
 
-test("rebuttal answers each of two vets in report order, then panel order", () => {
+test("rebuttal answers each of two vetters in audit report order, then panel order", () => {
   const reviews = panel(
     ["abx", "1. [B] Drop\n2. [C] Revise"],
     ["obh", "1. [B] Revise to [C]\n2. [C] Accept"],
@@ -939,7 +939,7 @@ test("rebuttal answers each of two vets in report order, then panel order", () =
   )
 })
 
-test("rebuttal refuses an answer that names no vet, a vet outside the panel or an accepting vet", () => {
+test("rebuttal refuses an answer that names no vetter, a vetter outside the panel or an accepting vetter", () => {
   const reviews = panel(
     ["abx", "1. [B] Drop\n2. [C] Accept"],
     ["obh", "1. [B] Accept\n2. [C] Accept"],
@@ -947,11 +947,11 @@ test("rebuttal refuses an answer that names no vet, a vet outside the panel or a
   for (const [source, refusal] of [
     [
       "1. [B] Agree",
-      "Rebuttal answer 1 names no vet; put the vet's tag in brackets after the tier",
+      "Rebuttal answer 1 names no vetter; put the vetter's tag in brackets after the tier",
     ],
     [
       "1. [B] [atx] Agree",
-      "Rebuttal answer 1 names atx, which is no vet of this round; use abx or obh",
+      "Rebuttal answer 1 names atx, which is no vetter of this round; use abx or obh",
     ],
     [
       "1. [B] [obh] Agree",

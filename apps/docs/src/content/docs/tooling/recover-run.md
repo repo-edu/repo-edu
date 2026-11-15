@@ -14,7 +14,7 @@ round, because a new round would claim another number and leave the open one unf
 
 Read the failure reason, correct any named external problem and run the exact recovery command the
 runner printed. It preserves the phase, working checkout, model, effort and known session identity.
-The retained report files and logs remain the source of the work being continued.
+The retained audit, vet and rebuttal reports and logs remain the source of the work being continued.
 
 A startup failure can happen before a session exists. In that case no recovery command is printed;
 fix the startup problem and rerun the original command.
@@ -66,7 +66,7 @@ pnpm audit-round resume-fix <report> <session-id>
 Run it as printed. The runner reloads the in-progress round and its saved fix
 session. It prints the ruling notice and waits; the terminal asks nothing.
 Answer in the desktop app with `/ruling`. For each missing winner, give
-`report`, the tags of the vets that were right or `neither` with a one-line
+`report`, the tags of the vetters that were right or `neither` with a one-line
 reason, or `not yet`. Add any free reply
 for the fix. The reply may be empty once all winners are stored. `Not yet`
 keeps the commit block and lets the fix answer a question before the runner

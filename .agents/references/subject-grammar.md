@@ -139,11 +139,11 @@ Audit, vet and rebuttal took 7 min.
 <scope-char>   ::= a lowercase letter, a digit or -
 ```
 
-A slash ends the stem and hyphens stay inside the role token, so scope numbers
-cannot be mistaken for an address. An implementation-audit scope always names
-one concrete step or an inclusive range. The role already identifies steps, so
-the scope needs no `step` word. One planned step is one commit; `implemented`
-records completion, so there is no implementation-wide step role.
+A slash ends the stem and hyphens stay inside the role token, so scope numbers cannot be mistaken
+for an address. In an implementation-audit subject the step scope always names one concrete step or
+an inclusive range. The role already identifies steps, so the step scope needs no `step` word. One
+planned step is one commit; `implemented` records completion, so there is no implementation-wide
+step role.
 
 The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
 `<conventional>` is the Angular set that Conventional Commits recommends, plus `redesign`; a new

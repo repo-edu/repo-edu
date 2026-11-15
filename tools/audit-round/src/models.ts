@@ -133,7 +133,7 @@ function admittedCoders(
   return new Map([...rows].filter(([, row]) => row.samples.length > 0))
 }
 
-/** Whether a planning auditor entry runs the row's model and effort. */
+/** Whether a listed planning auditor runs the row's model and effort. */
 function listedPlanningAuditor(
   identity: ModelIdentity,
   settings: RoundSettings,
@@ -463,7 +463,7 @@ type VetPairRow = {
   readonly endings: Record<PairEnding, number>
 }
 
-/** One row per pair of vets with a shared finding of the class graded within the range. */
+/** One row per pair of vetters with a shared finding of the class graded within the range. */
 function vetPairRows(
   samples: readonly VetPairSample[],
   workClass: WorkClass,
@@ -502,10 +502,10 @@ function vetPairSection(
   const rows = vetPairRows(samples, workClass, range)
   if (rows.length === 0)
     return [
-      `No two ${workClass} vets have judged the same ${range === "A/B" ? "A or B" : "A, B or C"} finding.`,
+      `No two ${workClass} vetters have judged the same ${range === "A/B" ? "A or B" : "A, B or C"} finding.`,
     ]
   return [
-    `| Vet 1 | Vet 2 | Shared ${range} findings | Ruled splits | Split: vet 1 right | Split: vet 2 right | Split: both right | Split: neither right |`,
+    `| Vetter 1 | Vetter 2 | Shared ${range} findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |`,
     "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows.map(
       (row) =>
@@ -549,7 +549,7 @@ function reasonTable(
 function vetsCell(vets: readonly RoundVet[]): string {
   return escapeCell(
     vets.length === 0
-      ? "no recorded vet"
+      ? "no recorded vetter"
       : vets
           .map(
             (vet) =>
@@ -579,7 +579,7 @@ function ruledSection(entries: readonly RuledFinding[]): string[] {
   return [
     ...lines,
     ...reasonTable(
-      ["Plan and round", "Finding", "Tier", "Auditor", "Vets", "Answer"],
+      ["Plan and round", "Finding", "Tier", "Auditor", "Vetters", "Answer"],
       entries.map((entry) => ({
         cells: [
           escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
@@ -638,7 +638,7 @@ function disprovedTable(
       "Plan and round",
       "Finding",
       "Tier",
-      "Vet",
+      "Vetters",
     ],
     entries.map((entry) => {
       const [date, ...cells] = disprovedCells(entry)
@@ -651,7 +651,7 @@ function disprovedTable(
 
 /**
  * Finding rulings stay grouped by auditor. Vet rulings follow in one table,
- * where the auditor column identifies whose finding the vet judged. Each table
+ * where the auditor column identifies whose finding the vetters judged. Each table
  * shows a reason's first sentence and its numbered list shows the full reason.
  */
 function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
@@ -771,13 +771,13 @@ export async function modelsReport(
     ),
     `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a section is printed in a second table below the main one. Each per-round figure divides the kept findings by the rounds in the count cell beside it, over all shared plans. A section counts A and B findings unless its heading names A/B/C. That section counts C findings too, and its downgrade is a kept finding that ended at D. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
     "",
-    ...rangeSections("Planning vet pairs", "planning", (range) =>
+    ...rangeSections("Planning vetter pairs", "planning", (range) =>
       vetPairSection(evidence.vetPairs, "planning", range),
     ),
-    ...rangeSections("Implementation vet pairs", "implementation", (range) =>
+    ...rangeSections("Implementation vetter pairs", "implementation", (range) =>
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
-    "A vet is a model and an effort. Each row counts the findings that both vets judged on one panel and that the report or a vet graded A or B, or A, B or C in the A/B/C section. Ruled splits counts the shared findings where the two vets split and the user has ruled. Each ruled split ends in one of the four Split columns, so those four add up to Ruled splits and not to the shared findings. The user rules on a split of an implementation panel on a C finding too. A split without a ruling enters Ruled splits when its ruling lands. A later disproved finding proves right the vets that dropped it, and a later vet ruling proves right the vets that accepted it.",
+    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel and that the audit report or a vetter graded A or B, or A, B or C in the A/B/C section. Ruled splits counts the shared findings where the two vetters split and the user has ruled. Each ruled split ends in one of the four Split columns, so those four add up to Ruled splits and not to the shared findings. The user rules on a split of an implementation panel on a C finding too. A split without a ruling enters Ruled splits when its ruling lands. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
     "",
     ...rangeSections("Coders", "implementation", (range) => [
       ...coderReading(coders, settings, range),

@@ -164,7 +164,7 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
   })
 })
 
-test("each class's auditors list names whole selections and replaces the audit pins", () => {
+test("each class's auditor list names whole selections and replaces the audit pins", () => {
   const config = structuredClone(settings)
   config.implementationAudit.auditors = [
     { assistant: "claude", model: "claude-fable-5-1", effort: "high" },
@@ -191,7 +191,7 @@ test("each class's auditors list names whole selections and replaces the audit p
     )
     assert.deepEqual(auditorSetting(seat, releases, config), auditor)
   }
-  // A resolved command-line seat joins the pool as the entry it runs.
+  // A resolved command-line selection joins the auditor list as the listed auditor it runs.
   const first = parseAuditor("otx", "--first")
   assert.ok(first)
   assert.deepEqual(auditorSetting(first, releases, config), {
@@ -199,7 +199,7 @@ test("each class's auditors list names whole selections and replaces the audit p
     model: config.strengthModels.codex.top,
     effort: "xhigh",
   })
-  // No pin remains, so an unnamed seat runs the assistant's defaults.
+  // No pin remains, so an unnamed selection runs the assistant's defaults.
   assert.deepEqual(
     roundPhases("codex", noOverride, config).audit.model,
     roundPhases(

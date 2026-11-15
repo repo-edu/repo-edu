@@ -10,11 +10,11 @@ import type { RoundKind } from "./target.js"
 
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
-/** A capability tag, which names a round's auditor and each of its vets. */
+/** A capability tag, which names a round's auditor and each of its vetters. */
 export const capabilityTag = z.string().regex(/^[ao][btu][lmhx]$/)
 /**
  * The runner's one list of winner words: the audit report's finding as written,
- * no side, or the vets whose verdicts were right, named by their tags.
+ * no side, or the vetters whose verdicts were right, named by their tags.
  */
 export const rulingWinnerSchema = z.union([
   z.enum(["report", "neither"]),
@@ -74,9 +74,9 @@ export const roundFindingLocationSchema = z.union([
   deferredLocation,
 ])
 
-/** One vet's verdict on a finding, with the rebuttal's answer to it. */
+/** One vetter's verdict on a finding, with the rebuttal's answer to it. */
 export const roundFindingReviewSchema = z.strictObject({
-  /** The vet's tag, which its phase entry carries too. */
+  /** The vetter's tag, which its vet phase entry carries too. */
   vet: capabilityTag,
   verdict: z.enum(["accept", "revise", "drop", "needs-user-ruling"]),
   /** Present only when a revision moves the finding to another tier. */
@@ -168,7 +168,7 @@ const seriesPoolEntry = z.strictObject({
   model: z.string().min(1),
   effort,
 })
-/** A continuation names the series-pool entry the next round runs on. */
+/** A continuation names the listed auditor the next round runs on. */
 export const seriesAnswerSchema = z
   .strictObject({
     answer: z.union([z.enum(["settle", "ready", "stop"]), seriesPoolEntry]),
@@ -194,7 +194,7 @@ const phaseMeasurement = {
     .nullable(),
   compactions: z.number().int().nonnegative(),
 }
-/** A vet's entry carries its tag, which links its reviews to its model and effort. */
+/** A vet phase entry carries its vetter's tag, which links its reviews to its model and effort. */
 const vetPhaseEntry = z.strictObject({
   phase: z.literal("vet"),
   tag: capabilityTag,
@@ -211,7 +211,7 @@ const commonRoundData = z.strictObject({
   started: z.string().min(1),
   status: roundStatus,
   settings: z.strictObject({
-    /** The round's panel: every vet that judges its audit report. */
+    /** The round's panel: every vetter that judges its audit report. */
     vetters: z.array(modelSelection.extend({ assistant })).min(1),
     fix: modelSelection.extend({ assistant }),
   }),
@@ -220,7 +220,7 @@ const commonRoundData = z.strictObject({
     chosenBy: z.enum(["settings", "--first", "--auditor", "command-line"]),
     /**
      * The selection the audit launched on, with its alias resolved at startup.
-     * The series rules match it against the pool, because the CLI may report
+     * The series rules match it against each listed auditor, because the CLI may report
      * another model or effort than it was asked for. Entries written before it
      * was recorded carry none and match by the reported selection.
      */
@@ -234,7 +234,7 @@ const commonRoundData = z.strictObject({
     }),
   ),
   findings: z.array(roundFindingSchema),
-  /** New automatic rounds retain the resolved ordered pool used for this answer. */
+  /** New automatic rounds retain the resolved ordered auditor list used for this answer. */
   pool: z.array(seriesPoolEntry).min(1).optional(),
   /** Historical field name retained because replay reads the stored corpus. */
   judge: seriesAnswerSchema,
@@ -369,18 +369,18 @@ export type FindingReview = {
   readonly revisedTier?: RoundFinding["tier"]
 }
 
-/** One answer line read from a rebuttal report, naming the vet it answers. */
+/** One answer line read from a rebuttal report, naming the vetter it answers. */
 export type FindingRebuttal = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
-  /** The answered vet's tag, which its phase entry and report name carry too. */
+  /** The answered vetter's tag, which its vet phase entry and vet report name carry too. */
   readonly vet: string
   readonly answer: RebuttalAnswer
 }
 
-/** One vet of the panel and the verdicts its report gave, in panel order. */
+/** One vetter of the panel and the verdicts its vet report gave, in panel order. */
 export type PanelVet = {
-  /** The vet's tag, which its phase entry and report name carry too. */
+  /** The vetter's tag, which its vet phase entry and vet report name carry too. */
   readonly vet: string
   readonly reviews: readonly FindingReview[]
 }
@@ -564,10 +564,10 @@ export function roundDataIdentity(nameStart: string): {
 }
 
 /**
- * Whether two vets of a panel split on one finding: their verdict words
+ * Whether two vetters of a panel split on one finding: their verdict words
  * differ, or both revise and the rebuttal does not agree with both. Two
  * revisions the rebuttal agrees with leave the fix to pick one correction,
- * because the runner cannot compare two corrections. Two vets that both send
+ * because the runner cannot compare two corrections. Two vetters that both send
  * the finding to the user do not split.
  */
 export function reviewsSplit(
@@ -581,7 +581,7 @@ export function reviewsSplit(
   )
 }
 
-/** Whether any two vets of the finding's panel split on it. */
+/** Whether any two vetters of the finding's panel split on it. */
 export function findingSplit(reviews: readonly RoundFindingReview[]): boolean {
   return reviews.some((first, index) =>
     reviews.slice(index + 1).some((second) => reviewsSplit(first, second)),
@@ -598,7 +598,7 @@ const rangeTiers: Record<TierRange, readonly RoundFinding["tier"][]> = {
 
 /**
  * The widest range each work class compares on. Implementation audits raise
- * few A or B findings, so their auditors, vets and coders could seldom be
+ * few A or B findings, so their auditors, vetters and coders could seldom be
  * compared on those alone, and that class counts C findings too.
  */
 const widestRange: Record<RoundKind, TierRange> = {
@@ -628,8 +628,8 @@ export function tierWithin(
 }
 
 /**
- * The highest tier the report or a vet of the panel gave the finding. The
- * ruling stop and the vet comparison both grade a finding by it.
+ * The highest tier the audit report or a vetter of the panel gave the finding.
+ * The ruling stop and the vetter comparison both grade a finding by it.
  */
 export function highestGrade(
   finding: Pick<RoundFinding, "tier" | "reviews">,
@@ -643,7 +643,7 @@ export function highestGrade(
   )
 }
 
-/** Attach each panel vet's review while the report still owns finding identity. */
+/** Attach each panel vetter's review while the audit report still owns finding identity. */
 export function reviewedRoundFindings(
   findings: readonly ReportFinding[],
   panel: readonly PanelVet[] = [],

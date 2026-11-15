@@ -374,7 +374,7 @@ function wideningEnding(entry: RoundData): "settle" | "stop" {
   return match[1] === "settle" ? "settle" : "stop"
 }
 
-/** Whether a round launched its audit on this pool entry. */
+/** Whether a round launched its audit on this listed auditor's selection. */
 function readBy(entry: RoundData, auditor: Auditor): boolean {
   const seat = entry.auditor.seat ?? entry.auditor
   return (
@@ -385,7 +385,7 @@ function readBy(entry: RoundData, auditor: Auditor): boolean {
 }
 
 /**
- * Rule 3's choice among the pool entries without a current read: the one that
+ * Rule 3's choice among the listed auditors without a current read: the one that
  * read the scope least recently, with list order breaking a never-read tie.
  */
 function leastRecentEntry(
@@ -403,12 +403,12 @@ function leastRecentEntry(
     (first, second) => latest(first) - latest(second),
   )[0]
   if (selected === undefined)
-    throw new Error("The series rules found no pool entry without a read")
+    throw new Error("The series rules found no listed auditor without a read")
   return selected
 }
 
 /**
- * Rule 1 over one target: its settled reads and the pool entries with no
+ * Rule 1 over one target: its settled reads and the listed auditors with no
  * read that started after the newest event that changed the scope.
  */
 function currentReads(
@@ -420,7 +420,8 @@ function currentReads(
   readonly entries: readonly RoundData[]
   readonly missing: readonly Auditor[]
 } {
-  if (pool.length === 0) throw new Error("The automatic series pool is empty")
+  if (pool.length === 0)
+    throw new Error("The automatic series auditor list is empty")
   // A real bug on any of the stem's targets is an event; reads belong to this one.
   const settledEntries = evidence.roundData.rounds.filter((entry) =>
     settled(entry, current),
@@ -446,9 +447,9 @@ function currentReads(
 
 /**
  * Rule 3 at a series' opening. When the retained data holds a current read by
- * one pool entry and none by another, the series continues where it stood and
- * opens on an entry without one. With no current read at all, or one for
- * every entry, the configured default opens instead, because the rules give
+ * one listed auditor and none by another, the series continues where it stood
+ * and opens on a listed auditor without one. With no current read at all, or
+ * one for every listed auditor, the configured default opens instead, because the rules give
  * that round no reader and the user asked for one.
  */
 export function openingAuditor(
@@ -467,7 +468,7 @@ export function openingAuditor(
 
 /**
  * Apply the three automatic-series rules. A read is current only when it
- * started after the newest event that changed its scope. Every pool entry
+ * started after the newest event that changed its scope. Every listed auditor
  * must have one current read before the phase can end.
  */
 export function decideSeries(
@@ -488,12 +489,12 @@ export function decideSeries(
       return {
         answer,
         reason:
-          "Rule 2: every pool entry has a current read, and the widening recommendation is settle.",
+          "Rule 2: every listed auditor has a current read, and the widening recommendation is settle.",
       }
     if ("phase" in current && current.phase === "widening")
       return {
         answer,
-        reason: `Rule 2: every pool entry has a current read; ${current.settling}`,
+        reason: `Rule 2: every listed auditor has a current read; ${current.settling}`,
       }
     const readyOpen =
       "phase" in current &&
@@ -503,7 +504,7 @@ export function decideSeries(
       )
     return {
       answer: readyOpen ? "ready" : "stop",
-      reason: `Rule 2: every pool entry has a current read; the ${readyOpen ? "detailing plan is ready" : "series stops"}.`,
+      reason: `Rule 2: every listed auditor has a current read; the ${readyOpen ? "detailing plan is ready" : "series stops"}.`,
     }
   }
 
@@ -514,7 +515,7 @@ export function decideSeries(
   }
 }
 
-/** One series-pool entry as terminal messages and retained answers spell it. */
+/** One listed auditor as terminal messages and retained answers spell it. */
 export function auditorText(auditor: Auditor): string {
   return `${auditor.assistant} ${auditor.model} ${auditor.effort}`
 }

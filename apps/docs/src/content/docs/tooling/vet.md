@@ -3,9 +3,9 @@ title: /vet
 description: Check an audit report's planning or implementation findings
 ---
 
-`/vet` checks an audit report's findings from a fresh context, after the report has findings and
-before any correction lands. A round runs every vetter its settings list for the work class, side
-by side, whoever audited.
+`/vet` checks an audit report's findings from a fresh context, after the audit report has findings
+and before any correction lands. A round runs every vetter its settings list for the work class,
+side by side, whoever audited.
 
 | Fact | Detail |
 | --- | --- |
@@ -23,17 +23,16 @@ by side, whoever audited.
 /vet tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
-The command has no flags. The report may come from any assistant, this one included. Each vet gives
-every finding an independent read: it starts fresh and never reads another vet's report. The
-report's opening tells the runner whether to use the
-planning or implementation workflow and which checkout to work in. The whole session uses the
-`/simple` wording requirement.
+The command has no flags. The audit report may come from any assistant, this one included. Each
+vetter gives every finding an independent read: it starts fresh and never reads another vetter's vet
+report. The audit report's opening tells the runner whether to use the planning or implementation
+workflow and which checkout to work in. The whole session uses the `/simple` wording requirement.
 
 ## What it shows you
 
-The vet reads the whole report, compares each audited head with the current head and reads every
-source a finding relies on. When the tree moved since the audit, it reads the changes and drops a
-finding the move already resolved. It checks each finding on three axes, in order:
+The vet reads the whole audit report, compares each audited head with the current head and reads
+every source a finding relies on. When the tree moved since the audit, it reads the changes and
+drops a finding the move already resolved. It checks each finding on three axes, in order:
 
 1. **Authorised.** The round was allowed to raise it. A finding on completed commits' labels, a
    correct departure from the plan or work the episode has not reached does not stand. A finding
@@ -44,7 +43,7 @@ finding the move already resolved. It checks each finding on three axes, in orde
 
 Each finding gets one verdict: Accept, Revise, Drop or Needs user's ruling. When a revision changes
 the tier, its verdict line says `Revise to [A]`, `Revise to [B]`, `Revise to [C]` or
-`Revise to [D]`. A revision at the report's tier stays `Revise`. The explanation states the
+`Revise to [D]`. A revision at the audit report's tier stays `Revise`. The explanation states the
 corrected evidence or correction. Revise means the fix should land something else. A change that
 leaves the landed result the same, such as clearer wording or an extra source, is an Accept with a
 note. The vet may run read-only commands. It runs no formatter and
@@ -52,17 +51,17 @@ changes no tracked file.
 
 ## Early stops
 
-1. **No eligible report is found.** Rerun with the report name from the evidence checkout's
-   `../plan-evidence/active/` folder.
-2. **The plan named in the filename differs from the report's `Target:` line.** The vet names both
-   and refuses.
+1. **No eligible audit report is found.** Rerun with the audit report name from the evidence
+   checkout's `../plan-evidence/active/` folder.
+2. **The plan named in the filename differs from the audit report's `Target:` line.** The vet names
+   both and refuses.
 
 ## Afterwards
 
-The verdicts appear in chat and in the round's `-3-vet.<tag>.md` twin under
+The verdicts appear in chat and in the round's `-3-vet.<tag>.md` vet report under
 `../plan-evidence/active/`. No commit lands. The verdicts decide the next phase:
 
-1. **Every vet's verdicts are all Accept.** Run `/fix <report-file>` or `$fix <report-file>`.
-2. **Any vet's verdict is Revise, Drop or Needs user's ruling.** Return to the report's auditor and
-   run `/rebut <report-file>` or `$rebut <report-file>`. The vet itself asks you no product
-   question.
+1. **Every vetter's verdicts are all Accept.** Run `/fix <report-file>` or `$fix <report-file>`.
+2. **Any vetter's verdict is Revise, Drop or Needs user's ruling.** Return to the audit report's
+   auditor and run `/rebut <report-file>` or `$rebut <report-file>`. The vet itself asks you no
+   product question.

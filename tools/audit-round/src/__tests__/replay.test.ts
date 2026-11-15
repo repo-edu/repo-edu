@@ -144,7 +144,7 @@ function bugFinding(tier: "A" | "B" | "C" | "D" = "B") {
   }
 }
 
-test("replay uses the fixed legacy pool and reports the next round's findings", async (t) => {
+test("replay uses the fixed legacy auditor list and reports the next round's findings", async (t) => {
   const f = await fixture(t)
   const initial = await commitFixture(
     f.runtime.planRoot,

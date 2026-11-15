@@ -26,25 +26,24 @@ requirement.
 
 Only a fix or an implementation worker returns a ruling. It may ask about a real product or cost
 choice that remains after the plan, code, boundaries and earlier decisions have been checked. An
-audit fix also asks who was right when the auditor contests a vet, or two vets give different
+audit fix also asks who was right when the rebuttal contests a vetter, or two vetters give different
 verdicts, on an A-tier or B-tier finding.
 
 The terminal prints a notice in place of the ruling's text. It names the round or step, the ruling
-file, the findings that need a winner, the winner words with the round's vet tags, whose model runs
-the fix and the line `/ruling <stem>`. The
-run then opens the Claude desktop app on the Repo Edu folder when the work touches Repo Edu files,
-and on the plan folder otherwise. The app starts a new chat and asks "Trust this workspace?" each
-time. On Linux the app does not open; the notice says so, and you open a chat yourself. The same
-holds when the run's input or output is redirected, for example into a file, because the app opens
-only from a terminal.
+file, the findings that need a winner, the winner words with the round's vetter tags, whose model
+runs the fix and the line `/ruling <stem>`. The run then opens the Claude desktop app on the Repo
+Edu folder when the work touches Repo Edu files, and on the plan folder otherwise. The app starts a
+new chat and asks "Trust this workspace?" each time. On Linux the app does not open; the notice says
+so, and you open a chat yourself. The same holds when the run's input or output is redirected, for
+example into a file, because the app opens only from a terminal.
 
 ## What it shows you
 
 1. **What is open.** The chat asks the waiting run through the hidden `pnpm audit-round ruling`
    command. When several runs wait, it asks you which one.
 2. **The explanation.** It reads the ruling and, for a disputed finding, the round's audit report,
-   vet and rebuttal. It explains what is being decided, each option and the recommendation, and
-   answers your questions from those files and the sources they cite.
+   vet reports and rebuttal report. It explains what is being decided, each option and the
+   recommendation, and answers your questions from those files and the sources they cite.
 3. **The record it proposes to send.** Each finding's winner and reason, then the free text for the
    fix, exactly as they will be sent. The chat takes them from the ruling's suggested answer. When
    the round's files contradict that answer, it says so and proposes what they support. Nothing is
@@ -53,10 +52,10 @@ only from a terminal.
 ## Your answers
 
 1. **Yes to the proposed record.** The chat sends it through the hidden `pnpm audit-round answer`
-   command and relays the run's reply. An accepted answer resumes the same fix or worker session in
-   the terminal. A refused answer names what is missing; the chat asks for it and shows the record
-   again.
-2. **Your own decision.** Give a finding that needs a winner `report`, the tags of the vets that
+   command and relays the run's response. An accepted answer resumes the same fix or worker session
+   in the terminal. A refused answer names what is missing; the chat asks for it and shows the
+   record again.
+2. **Your own decision.** Give a finding that needs a winner `report`, the tags of the vetters that
    were right or `neither` with a reason in your own words, or change the text for the fix. An
    implementation ruling has no finding; your decision is the text for the fix. Your words replace
    that part of the proposal. The chat asks when a winner or reason is unclear, shows the new record

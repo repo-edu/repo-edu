@@ -20,19 +20,19 @@ The shared launchers live in the plan checkout under
 The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
-The vet's input is an implementation-audit report by any assistant, an `*-2-audit.<tag>.md` file
-in the evidence checkout's `plan-evidence/active/` folder.
-[Report discovery](#report-discovery) says how the file is found. Vet its graded findings. Do not
-run an audit round of your own. Whether a finding is a good idea is not an axis: a finding can be
-appealing and still unauthorised.
+The vet's input is an implementation-audit report by any assistant, an `*-2-audit.<tag>.md` file in
+the evidence checkout's `plan-evidence/active/` folder.
+[Audit report discovery](#audit-report-discovery) says how the file is found. Vet its graded
+findings. Do not run an audit round of your own. Whether a finding is a good idea is not an axis: a
+finding can be appealing and still unauthorised.
 
 Apply the shared protocol's **Vet checks** for read-only authority and
-independence from the panel's other vets.
+independence from the panel's other vetters.
 
 For unattended completion, follow the shared protocol's **Runner result**.
-For a clean report, state that there were no findings to vet.
+For a clean audit report, state that there were no findings to vet.
 
-## Report discovery
+## Audit report discovery
 
 The [shared round protocol](../../../references/round-protocol.md) owns evidence
 rules, tiers, rating meanings, verdict meanings and runner result meanings. Use
@@ -46,10 +46,10 @@ Check head drift and the plan-target filename before vetting:
   [Head drift](../../../references/round-protocol.md#head-drift) and note the
   changes in the verdicts. When the moved tree already resolved the defect,
   drop the finding and name the resolving commit.
-- For a plan target, the plan file in the filename differs from the report's
-  `Target:` line. Refuse and name both. A commit series keeps its original
-  bounded filename while later reports name their advancing exact commit set,
-  so no filename translation applies. The runner refuses any report whose line
+- For a plan target, the plan file in the filename differs from the audit
+  report's `Target:` line. Refuse and name both. A commit series keeps its original
+  bounded filename while later audit reports name their advancing exact commit set,
+  so no filename translation applies. The runner refuses any audit report whose line
   is missing or differs from the target it supplied before it starts a vet.
 
 ## Axes
@@ -78,7 +78,7 @@ Drop findings on that excluded metadata. Classify the remaining findings.
 - A reopening of a decision the plan settled. Quote the decision from the
   plan, name the finding's evidence and judge how serious that evidence is.
   Correctness or quality evidence can reopen a settled decision. Taste never
-  does. Whether the vet may accept the reopening or must hand it to the
+  does. Whether the vetter may accept the reopening or must hand it to the
   user is decided under the verdict rules.
 - New machinery no boundary asks for. Check the supplied boundaries and growth
   patterns. Check its trade under axis 3 instead of
@@ -89,7 +89,7 @@ Drop findings on that excluded metadata. Classify the remaining findings.
 ### 2. Grounded
 
 Verify every load-bearing claim against its source yourself. Do not trust the
-report's quotes or paraphrases.
+audit report's quotes or paraphrases.
 
 - Read the file path the finding names, end to end, and the test that covers it
   when it is code.
@@ -103,7 +103,7 @@ report's quotes or paraphrases.
 
 A claim about behaviour is grounded when you can point at the code that
 produces it. A claim you cannot reach that way is not grounded, whatever the
-report says about it. A claim about how recorded work behaves follows the
+audit report says about it. A claim about how recorded work behaves follows the
 shared protocol's premise kinds under
 [Finding explanations](../../../references/round-protocol.md#finding-explanations):
 check it against the records or code the finding names, and when it names none,
@@ -140,7 +140,7 @@ to the finding's trade and rarity.
 
 Use the shared round protocol's [Vet verdicts](../../../references/round-protocol.md#vet-verdicts)
 for verdict meanings and delivery and the
-[vet twin grammar](../../../references/round-grammar.md#vet-twin) for values,
+[vet report grammar](../../../references/round-grammar.md#vet-report) for values,
 numbering and response shape.
 
 Use the [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
@@ -167,7 +167,7 @@ the round may not author, so the verdict is drop. Check its disposition against 
 
 ## Coverage table
 
-The coverage table follows the report's opening metadata. It has one row per
+The coverage table follows the audit report's opening metadata. It has one row per
 in-scope step or named commit, not per decision or claim. Do not re-audit it.
 Check a row only where a finding depends on it, which is when a finding should
 have been a row, or a row should have been a finding. Missing decision or claim

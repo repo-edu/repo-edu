@@ -358,7 +358,7 @@ reader needs that token anyway for the scope and the severity.
 The session writes its own tag for work outside a round. A session the runner
 starts cannot read its own effort, so the runner's standalone close receives
 its tag in its phase arguments. A round's fix writes
-the full auditor tag from the report filename. The commit hook, this repo's
+the full auditor tag from the audit report filename. The commit hook, this repo's
 `.husky/commit-msg` or the plan repo's `hooks/commit-msg`, replaces it with
 `COMMIT_AUDITOR` when the runner supplies that value.
 

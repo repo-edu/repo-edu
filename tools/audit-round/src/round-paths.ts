@@ -276,7 +276,7 @@ export function documentTag(document: string): string {
   return parsed.tag
 }
 
-/** Read an existing report or twin named without a path in the round folder. */
+/** Read an existing audit, vet or rebuttal report named without a path in the round folder. */
 async function roundDocument(
   context: ExecutionContext,
   file: string,

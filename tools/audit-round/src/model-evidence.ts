@@ -76,16 +76,16 @@ export type RoundVet = {
   readonly verdict: VetVerdict | null
 }
 
-/** Which vets of a split pair the latest ruling proved right. */
+/** Which vetters of a split pair the latest ruling proved right. */
 export type PairEnding = "first" | "second" | "both" | "neither"
 
 /**
- * One finding that two vets of one panel both judged. The pair is ordered by
+ * One finding that two vetters of one panel both judged. The pair is ordered by
  * model text, so every sample of two models has one orientation.
  */
 export type VetPairSample = {
   readonly workClass: WorkClass
-  /** The highest tier the report or a vet gave the finding. */
+  /** The highest tier the audit report or a vetter gave the finding. */
   readonly grade: RoundFinding["tier"]
   readonly first: ModelIdentity
   readonly second: ModelIdentity
@@ -449,8 +449,8 @@ function pairEnding(firstRight: boolean, secondRight: boolean): PairEnding {
 }
 
 /**
- * One sample per pair of panel vets and finding they both judged. A round of
- * one vet has no pair, so it supplies none.
+ * One sample per pair of panel vetters and finding they both judged. A round
+ * of one vetter has no pair, so it supplies none.
  */
 function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
   return records.flatMap((record) =>

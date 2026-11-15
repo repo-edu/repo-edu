@@ -23,20 +23,20 @@ Where a launcher and this file disagree, this file is right.
 The shared [round protocol](../../../references/round-protocol.md) owns
 evidence rules, finding grades, rating meanings, reconciliation and runner
 result meanings. The [round grammar](../../../references/round-grammar.md)
-owns the report and result forms. The runner's
+owns the audit report and result forms. The runner's
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) owns
 target resolution and argument order. Count the supplied step scope against
 the plan's **Implementation plan** numbering.
 
 An invocation that names no plan file and names commit references, including
 `HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan
-covers. After the report output path, its phase arguments contain the parsed
+covers. After the audit report output path, its phase arguments contain the parsed
 commit groups in command-line order. Each group carries its repository,
 `references`, `startingHead`, `commits`, `originalCommits` and
 `shortReferences`. The runner has resolved every original reference and
 validated any typed inclusive range. It builds each later exact `commits` set
 from the original commits and earlier landed fixes. Use `commit-scope.md`
-beside this file for that round's scope, gate, baseline, coverage, report name,
+beside this file for that round's scope, gate, baseline, coverage, audit report name,
 record and settlement. Its workflow checks only these facts:
 
 1. No file a group touched has uncommitted changes.
@@ -50,11 +50,11 @@ This procedure also serves implementation-audit rounds on changes hosted by the 
 the `CLAUDE.md` of every repo the round judges. Use the shared protocol's **Finding metadata** for
 each repo's findings.
 
-An audit with findings ends at its report file. An audit without findings follows
-[Clean completion](#clean-completion). The auditor answers the vet in the rebuttal
-phase. The fix phase reads the report and its available review twins, applies
-settled corrections and lands the records. It writes a ruling document when
-the user must decide an open item.
+An audit with findings ends at its audit report file. An audit without findings follows
+[Clean completion](#clean-completion). The rebuttal phase answers the vetters on the auditor's
+model. The fix phase reads the audit report and its available vet and rebuttal reports, applies
+settled corrections and lands the records. It writes a ruling document when the user must decide an
+open item.
 
 ## Ready gate
 
@@ -90,7 +90,7 @@ Repo Edu. This does not replace or widen the selected step range.
 ## Round
 
 Run one read-only implementation-audit round. Judge only the repos in the
-round's repo set. Report in the order prescribed below under [Report file](#report-file)
+round's repo set. Report in the order prescribed below under [Audit report file](#audit-report-file)
 and complete a clean outcome under [Clean completion](#clean-completion), or
 stop when there are findings.
 
@@ -144,7 +144,7 @@ findings.
 Close the table with one line in the form `Implementation coverage: I/T
 implemented; V deviated; N incomplete; R dropped.` The table proves the round
 inspected its whole scope rather than only the areas where findings cluster. A
-clean report still includes the table and the coverage line before it says
+clean audit report still includes the table and the coverage line before it says
 there are no findings.
 
 ## Findings
@@ -174,17 +174,17 @@ whether it is a deferral.
   direction. It is not a deferral.
 - No choice needed. The correction changes the plan's substantive reference,
   such as a decision's meaning or reason or a missing rule or row, but one
-  correction stands. Show the correction in the report for the user to accept
+  correction stands. Show the correction in the audit report for the user to accept
   or revise.
 - A choice is needed. More than one sensible correction exists. Put the options
-  in the report. The fix phase puts them to the user and carries the answer and
+  in the audit report. The fix phase puts them to the user and carries the answer and
   its reason in the deferral, or keeps the choice open when the user does not
   rule, instead of choosing for them.
 
 The plan is the reference the audit judges the implementation against. A
 substantive rewrite inside the audit could make the implementation pass by
 changing that reference, so the no-choice and choice cases remain deferrals
-when the plan repo is outside the judged set. A stale-text correction is forced
+when the plan repo is outside the judged repo set. A stale-text correction is forced
 and leaves the reference's meaning unchanged.
 
 Before proposing a change to a **Decisions** entry, read the archived source the
@@ -215,9 +215,9 @@ opening adds one line in this exact form:
 
 `Satisfied deferral: <full-sha>/<position> <title>.`
 
-The report opening carries that judgement into either fix route, including a
+The audit report opening carries that judgement into either fix route, including a
 hand-run fix that receives no open-deferral object. The runner also passes the
-same object to an automated fix. The report must account for every supplied
+same object to an automated fix. The audit report must account for every supplied
 item through either a satisfied-deferral line or a finding. Every completed
 route cites every supplied deferral.
 
@@ -233,16 +233,16 @@ remains, and loop-close reads the same set before archiving.
 Follow the shared protocol's
 [Implementation settlement](../../../references/round-protocol.md#implementation-settlement).
 
-## Report order
+## Audit report order
 
 Follow the [audit report grammar](../../../references/round-grammar.md#audit-report)
 for the opening and findings and the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports) for the
 reporting discipline. Supply the plan, ready commit, implementation commits
-and resolved range from this audit's evidence. Deliver the complete report
-under [Report file](#report-file).
+and resolved range from this audit's evidence. Deliver the complete audit
+report under [Audit report file](#audit-report-file).
 
-## Report file
+## Audit report file
 
 Follow the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports) and the

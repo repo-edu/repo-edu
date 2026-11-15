@@ -151,7 +151,7 @@ export function readPlanSteps(source: string): readonly PlanStep[] {
   })
 }
 
-/** Read the ordered audit scopes that tile every listed implementation step. */
+/** Read the ordered audit ranges that tile every listed implementation step. */
 export function readAuditRanges(
   source: string,
   stepCount: number,

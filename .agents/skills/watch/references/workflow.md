@@ -168,7 +168,7 @@ work, so no audit can find where it starts. When the four-part price under
 has no recorded occurrence, the response is a keep-or-delete question to the
 user, put first. The seed the certainty level allows follows that question,
 and the fix plan is suggested only for the case that the user keeps the
-mechanism. A report that says the event never happened and then strongly
+mechanism. A watch that says the event never happened and then strongly
 suggests a fix plan has answered its own price.
 
 On red, and whenever it suggests a targeted fix plan, the watch states how
@@ -383,8 +383,8 @@ the doer's reasoning. So:
   model, the named plan and the episode's earlier watch documents in the evidence checkout's
   `plan-evidence/active/` folder. Inspect named commits as needed to verify a claim; do not repeat
   the episode walk or token counts.
-- Do not read the round's transcript, its report or its vet and rebuttal
-  twins, and do not read the fix session. The invocation gives you
+- Do not read the round's transcript, its audit report or its vet and
+  rebuttal reports, and do not read the fix session. The invocation gives you
   none of them on purpose.
 - The watch session is read-only. Change no file or code, run no writing
   command and land no commit. The runner publishes an admitted automated result.

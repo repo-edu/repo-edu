@@ -20,27 +20,27 @@ The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
 This workflow is the fix phase of an implementation-audit round. The audit is read-only and writes
-its report to the evidence checkout's `plan-evidence/active/` folder. An audit with findings stops
-there. This workflow starts from that report: it reads the report, its vet twins and its rebuttal
-twin, presents the outcome for the user's ruling, applies the accepted corrections, lands the
-round's records.
+its audit report to the evidence checkout's `plan-evidence/active/` folder. An audit with findings
+stops there. This workflow starts from that audit report: it reads the audit report, its vet reports
+and its rebuttal report, presents the outcome for the user's ruling, applies the accepted
+corrections, lands the round's records.
 
 An audit with no findings
 uses the shared protocol's **Direct clean completion**.
 
-The [shared round protocol](../../../references/round-protocol.md)
-owns rating meanings, reconciliation, record meaning and runner result
-meaning. The [round grammar](../../../references/round-grammar.md) owns parsed
-report, twin, record-bullet and result forms. The runner owns paths under
+The [shared round protocol](../../../references/round-protocol.md) owns rating meanings,
+reconciliation, record meaning and runner result meaning. The
+[round grammar](../../../references/round-grammar.md) owns parsed audit report, vet report, rebuttal
+report, record-bullet and result forms. The runner owns paths under
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Follow its **Reconciliation** rule after grounding the findings below.
 
 When the phase arguments include a `contests` object, its entries are the
 serious contests and splits the user owns under **Reconciliation**. An entry
 first names only its finding number. A resumed fix also receives any recorded
-`winner` and `reason`. Present each vet's position and the auditor's answers
+`winner` and `reason`. Present each vetter's position and the rebuttal's answers
 with their evidence in the ruling, then apply recorded answers without deciding
-them again. A winner that names vet tags applies those vets' verdicts.
+them again. A winner that names vetter tags applies those vetters' verdicts.
 Every fix invocation is commit-blocked while any supplied contest lacks a
 winner. `Not yet` keeps that block in place. Do not land settled corrections
 before the runner has recorded every required winner; a fix that reports
@@ -55,10 +55,10 @@ ending.
 
 Follow the `CLAUDE.md` of every repo a fix touches.
 
-## Report discovery
+## Audit report discovery
 
-A hand-run invocation may omit the audit report. Resolve it and its existing review files through
-`paths fix` under the runner's
+A hand-run invocation may omit the audit report. Resolve it and its existing vet and rebuttal
+reports through `paths fix` under the runner's
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Automated invocations use their supplied paths unchanged.
 
@@ -68,8 +68,8 @@ the judged repo set and audited heads.
 
 ## Grounding
 
-Read the report end to end, then its supplied vet and rebuttal twins when
-they exist. Read the plan in `../plan` for the steps the report's scope names
+Read the audit report end to end, then its supplied vet and rebuttal reports
+when they exist. Read the plan in `../plan` for the steps the audit report's scope names
 and for every **Decisions** entry a finding cites. When the plan is archived, read the
 `README.md` beside it first.
 
@@ -79,7 +79,7 @@ resolving commit in the presentation.
 
 For every finding that stays, read the files it names at HEAD, the test that
 covers them when it is code, and the `CLAUDE.md` of each package a fix would
-touch. The report's evidence is the round's; this session verifies what it
+touch. The audit report's evidence is the round's; this session verifies what it
 is about to change.
 
 When a decision stays open in an unattended fix, follow
@@ -99,7 +99,7 @@ structural change is applied as that structural change, never narrowed to
 fit.
 
 When the phase arguments end with an open-deferral object, settle every item in
-the round's records. Check that the report accounts for every object item
+the round's records. Check that the audit report accounts for every object item
 through either a `Satisfied deferral:` line in its opening or a finding. A
 hand-run fix has no object, so those opening lines and findings are its complete
 deferral scope. A changed destination uses a graded bullet with the item's

@@ -6,14 +6,14 @@ work that no plan covers.
 
 This file supplies what a plan supplies in an ordinary round: the round's
 scope, the gate it passes, the baseline its findings are judged against, its
-coverage table, its report name, its record and its settlement. It replaces
+coverage table, its audit report name, its record and its settlement. It replaces
 the **Ready gate**, **Round strategy**, **Coverage** and **Episode settlement**
 sections of `workflow.md`, and the plan reads in its
 **Evidence** section. Read the rest of `workflow.md` as written. The
 [shared round protocol](../../../references/round-protocol.md) owns the tiers,
 finding metadata meanings, growth-pattern tags and trade pricing. The
-[round grammar](../../../references/round-grammar.md) owns report, twin and
-record-bullet shapes.
+[round grammar](../../../references/round-grammar.md) owns audit report, vet
+report, rebuttal report and record-bullet shapes.
 
 The round's repo set is the repositories carried by the parsed commit groups.
 The phase arguments keep the group boundary, repository, references, starting
@@ -40,7 +40,7 @@ scope.
 
 The scope is every group's current `commits` and the state of the files they
 touched, read at that group's `startingHead`. The `references` field is the
-spelling the report's `Target:` line repeats. In a later round it is the exact
+spelling the audit report's `Target:` line repeats. In a later round it is the exact
 full-ID set built by the runner.
 
 ## Gate
@@ -154,7 +154,7 @@ because no stem scan reads one for a commit target.
 A commit target is a series under its bounded `commit-` label. After each
 finished round, the runner reads the label's retained round data and the commit
 times of its landed records. The original references and earlier landed fixes
-define each later round's exact audit scope. It stops once every listed
+define each later round's exact commit set. It stops once every listed
 auditor has a current read or chooses a listed auditor without one. A clean round
 lands no record, but its finished data entry can settle the read. The round's
 files stay in the evidence repo's `active/` folder for good, because a commit

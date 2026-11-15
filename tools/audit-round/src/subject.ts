@@ -21,7 +21,7 @@ export const roles = [
 ] as const
 export type RoleName = (typeof roles)[number]
 
-/** `<form> ::= <stem>/<role>`, with the step or audit scope the role carries. */
+/** `<form> ::= <stem>/<role>`, with the step or step scope the role carries. */
 export type Form = {
   readonly stem: string
   readonly role: RoleName
@@ -133,7 +133,7 @@ function parseForm(token: string): Form {
   if (role.startsWith("impl-audit-")) {
     const scope = role.slice("impl-audit-".length)
     if (!auditScopePattern.test(scope))
-      fail(`the audit scope ${scope} is not <n> or <n>-<n>`)
+      fail(`the step scope ${scope} is not <n> or <n>-<n>`)
     return { stem, role: "impl-audit", scope }
   }
   if (role.startsWith("impl-")) {

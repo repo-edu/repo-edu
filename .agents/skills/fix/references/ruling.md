@@ -14,7 +14,7 @@ answers in the Claude desktop chat through `/ruling`, under
 
 Reuse evidence already established while reconciling the findings. Read more
 only when a claim needs verification. Start with the relevant passage in the
-report, plan or current code and expand when it does not settle the claim.
+audit report, plan or current code and expand when it does not settle the claim.
 Do not reread the whole round merely to write its ruling.
 
 Explain only the decisions the current work left open. An audit fix does not
@@ -47,9 +47,9 @@ item covers:
 
 For each serious contest or split under the shared
 [Reconciliation](../../../references/round-protocol.md#reconciliation), state
-each vet's position, by its tag, and the auditor's answers separately, with the
+each vetter's position, by its tag, and the rebuttal's answers separately, with the
 evidence each uses, before the recommendation. The user gives each such finding
-a winner, `report`, the tags of the vets that were right or `neither`, with a
+a winner, `report`, the tags of the vetters that were right or `neither`, with a
 one-line reason, so the suggested answer names both. Suggest `not yet` when the
 user should first ask the fix a question.
 

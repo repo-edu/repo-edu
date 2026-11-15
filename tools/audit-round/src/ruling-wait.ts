@@ -33,7 +33,7 @@ export const waitingRulingSchema = z.strictObject({
   /** The checkout the desktop app opens on. */
   folder: z.string().min(1),
   /**
-   * Whose model runs the fix: the auditor's, one panel vet's named by its tag,
+   * Whose model runs the fix: the auditor's, one panel vetter's named by its tag,
    * or neither side's; null for an implementation worker.
    */
   fixerSide: z
@@ -81,12 +81,12 @@ export type RulingInput = {
 
 /** The winner words of one waiting ruling, with its panel's own tags. */
 function winnerWords(panel: readonly string[]): string {
-  return `report, neither, one or more of the vet tags ${panel.join(", ")} or not yet`
+  return `report, neither, one or more of the vetter tags ${panel.join(", ")} or not yet`
 }
 
 /**
  * The one check for a complete answer. A winner needs a one-line reason, `not
- * yet` leaves its finding open, a vet tag must name a vet of the round's panel,
+ * yet` leaves its finding open, a vetter tag must name a vetter of the round's panel,
  * and the free reply may be empty only when every open finding has a winner.
  */
 function answerRefusals(
@@ -111,7 +111,7 @@ function answerRefusals(
       for (const tag of ruling.winner)
         if (!panel.includes(tag))
           refusals.push(
-            `Finding ${finding} names ${tag}, which is no vet of this round; use ${winnerWords(panel)}.`,
+            `Finding ${finding} names ${tag}, which is no vetter of this round; use ${winnerWords(panel)}.`,
           )
     const reason = ruling.reason?.trim() ?? ""
     if (ruling.winner === "not yet") {
@@ -212,7 +212,7 @@ export function answerFormText(ruling: WaitingRuling): string {
   const words =
     ruling.findings.length === 0
       ? "This ruling has no finding, so its answer is the reply alone"
-      : `Give each finding one of the winner words, with report, neither and not yet as strings and vet tags as a list, as ${JSON.stringify(ruling.panel.slice(0, 1))}; not yet takes no reason`
+      : `Give each finding one of the winner words, with report, neither and not yet as strings and vetter tags as a list, as ${JSON.stringify(ruling.panel.slice(0, 1))}; not yet takes no reason`
   return [
     `Answer with: pnpm audit-round answer ${ruling.target} <file>`,
     `The file holds one JSON document in this form. ${words}:`,

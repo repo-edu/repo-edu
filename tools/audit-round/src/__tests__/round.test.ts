@@ -133,7 +133,7 @@ const landedRecords = (
     subject,
     message: `${subject}\n\n${fixPhaseStamp}\n`,
   }))
-/** The round's one vet report; its name carries the vet's tag. */
+/** The round's one vet report; its name carries the vetter's tag. */
 const vetTag = "abh"
 const vetReport = `/distinct-twins/example-impl-audit-01..01-01-3-vet.${vetTag}.md`
 /** What every round input carries beyond the plan and the auditor. */
@@ -518,7 +518,7 @@ for (const scenario of [
     side: { vet: vetTag },
     fixer: { assistant: "claude", model: "opus", effort: "high" },
   },
-  // The fixer names the release that the vet's and the auditor's alias resolves to.
+  // The fixer names the release that the vetter's and the auditor's alias resolves to.
   { name: "aliased vet", side: { vet: vetTag }, fixer: opusRelease },
   {
     name: "aliased auditor",
@@ -1046,7 +1046,7 @@ test("not yet in a recovered contest keeps the runner block until a later winner
   )
 })
 
-/** A round account whose one finding the panel reviewed as given. */
+/** Round data whose one finding the panel reviewed as given. */
 function reviewedAccount(
   tier: ReportFinding["tier"],
   ...reviews: readonly RoundFindingReview[]
@@ -1098,7 +1098,7 @@ test("each pair of different verdict words on a B finding is a split the user ru
         )
 })
 
-test("two vets that both send a finding to the user do not split", () => {
+test("two vetters that both send a finding to the user do not split", () => {
   assert.deepEqual(
     seriousFindings(
       reviewedAccount(
@@ -1195,7 +1195,7 @@ test("an implementation split goes to the user on a finding graded C, and a cont
   )
 })
 
-test("a contest on one of two agreeing vets goes to the user", () => {
+test("a contest on one of two agreeing vetters goes to the user", () => {
   const account = reviewedAccount(
     "B",
     panelReview("abx", "drop", "contest"),
@@ -1221,7 +1221,7 @@ test("a contest on one of two agreeing vets goes to the user", () => {
   )
 })
 
-test("the round account retains review, rebuttal and settlement outcomes", async () => {
+test("the round data retains review, rebuttal and settlement outcomes", async () => {
   const round = controlledRound()
   const result = await runRoundWithAccount(
     { ...files, plan: "example.md", scope: "1" },
@@ -2326,7 +2326,8 @@ test("an automatic round publishes its settled entry before the series decision"
   const round = controlledRound()
   const answer = {
     answer: "stop",
-    reason: "Rule 2: every pool entry has a current read; the series stops.",
+    reason:
+      "Rule 2: every listed auditor has a current read; the series stops.",
   } as const
   const result = await runRound(
     {

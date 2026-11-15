@@ -445,7 +445,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /<effort>\s+l = low, m = medium, h = high, x = xhigh/)
   assert.match(
     visible,
-    /default auditor is an entry of the target work class's auditors list in\s+settings\.json/,
+    /default auditor is a listed auditor of the target work class's auditor\s+list in settings\.json/,
   )
   assert.doesNotMatch(
     visible,

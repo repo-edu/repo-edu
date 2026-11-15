@@ -6,7 +6,7 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The ten forms are the audit report, vet twin, rebuttal twin, commit record
+The ten forms are the audit report, vet report, rebuttal report, commit record
 bullet, implementation-plan step, audit-range sentence, phase result, watch
 grade, settling line and watch record.
 
@@ -138,33 +138,29 @@ exactly, so one citation cannot close two deferrals whose short forms collide.
 <finding-evidence>        ::= free Markdown without a heading of depth 1 to 3
 ```
 
-The workflow phrase, exactly one plain `Target:` line and exactly one plain
-`Judged repos:` line occur in the opening. A report field heading ends the
-opening; another level-2 heading remains part of its free Markdown. The target
-line repeats the round's target as the runner resolved it: the plan's filename
-for a planning round, the filename and step scope for a step audit or the
-carried commit references for a commit-scoped round. The first commit round
-carries the user's spelling. A later commit-series round carries the
-runner-built exact set as full commit IDs. The plan filename carries the phase,
-so the opening names no phase of its own. The runner compares the line with the
-round it is running and refuses a report that names another target or none
-before any later phase starts, so a vet never has to ask which target a report
-judged. A planning report uses only the plan head. An implementation report
-uses one of the three ordered repository sets above. A finding's token line is
-the first block after its heading. Finding numbers run from 1 without gaps
-across all fields and titles are distinct across the report.
+The workflow phrase, exactly one plain `Target:` line and exactly one plain `Judged repos:` line
+occur in the opening. An audit report field heading ends the opening; another level-2 heading
+remains part of its free Markdown. The target line repeats the round's target as the runner resolved
+it: the plan's filename for a planning round, the filename and step scope for a step audit or the
+carried commit references for a commit-scoped round. The first commit round carries the user's
+spelling. A later commit-series round carries the runner-built exact set as full commit IDs. The
+plan filename carries the phase, so the opening names no phase of its own. The runner compares the
+line with the round it is running and refuses an audit report that names another target or none
+before any later phase starts, so a vetter never has to ask which target an audit report judged. A
+planning audit report uses only the plan head. An implementation audit report uses one of the three
+ordered repository sets above. A finding's token line is the first block after its heading. Finding
+numbers run from 1 without gaps across all fields and titles are distinct across the audit report.
 
 Each field contains findings or its exact empty sentence, never both.
 
-A widening report ends with the [settling line](#settling-line) as its last
-line, after the last finding field, so the reader meets the round's advice
-where the report stops instead of hunting for it in the opening. The reader
-requires that line on a widening report and refuses one on a detailing or
-implementation report, where no series recommendation belongs.
+A widening audit report ends with the [settling line](#settling-line) as its last line, after the
+last finding field, so the reader meets the round's advice where the audit report stops instead of
+hunting for it in the opening. The reader requires that line on a widening audit report and refuses
+one on a detailing or implementation audit report, where no series recommendation belongs.
 
 ### Implementation location table
 
-The judged set selects the meaning and admission of the implementation
+The judged repo set selects the meaning and admission of the implementation
 location token. Each cell names its example case.
 
 | Judged repos | `[section:]` | `[area:]` with optional `[cover:]` | `[plan:]` |
@@ -255,7 +251,7 @@ Settling: settle. No concrete shape question remains.
 
 #### `report/widening-without-settling` — refused
 
-Refusal: `Widening report must end with a settling line`
+Refusal: `Widening audit report must end with a settling line`
 
 ```markdown
 # Planning round workflow
@@ -274,7 +270,7 @@ No missing findings.
 
 #### `report/detailing-settling` — refused
 
-Refusal: `Only a widening report ends with a settling line`
+Refusal: `Only a widening audit report ends with a settling line`
 
 ```markdown
 # Planning round workflow
@@ -350,7 +346,7 @@ Judged repos: plan@abc123
 
 [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
 
-The correction belongs in Repo Edu, outside the judged set.
+The correction belongs in Repo Edu, outside the judged repo set.
 ```
 
 #### `report/location-plan-plan` — refused
@@ -369,7 +365,7 @@ Judged repos: plan@abc123
 
 [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
 
-The plan repo is already in the judged set.
+The plan repo is already in the judged repo set.
 ```
 
 #### `report/location-repo-edu-section` — refused
@@ -388,7 +384,7 @@ Judged repos: repo-edu@def456
 
 [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none]
 
-The plan repo is outside the judged set.
+The plan repo is outside the judged repo set.
 ```
 
 #### `report/location-repo-edu-area` — parsed
@@ -401,7 +397,7 @@ Judged repos: repo-edu@def456
 
 ## Findings
 
-### 1. B: Correct the report reader
+### 1. B: Correct the audit report reader
 
 [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low]
 
@@ -422,7 +418,7 @@ Judged repos: repo-edu@def456
 
 [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:very-rare] [complexity:medium]
 
-The correction belongs in the plan repo, outside the judged set.
+The correction belongs in the plan repo, outside the judged repo set.
 ```
 
 #### `report/location-both-section` — parsed
@@ -471,11 +467,11 @@ Judged repos: plan@abc123, repo-edu@def456
 
 ## Findings
 
-### 1. C: Reject a deferral inside the judged set
+### 1. C: Reject a deferral inside the judged repo set
 
 [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
 
-The plan repo is already in the judged set.
+The plan repo is already in the judged repo set.
 ```
 
 #### `report/target-missing` — refused
@@ -549,24 +545,24 @@ Judged repos: plan@abc123
 A cover belongs only after an area.
 ```
 
-## Vet twin
+## Vet report
 
 ### Production
 
 ```text
-<vet-twin>          ::= (<free-line> | <vet-verdict-line>)*
+<vet-report>        ::= (<free-line> | <vet-verdict-line>)*
 <vet-verdict-line>  ::= <n>". ["<tier>"] "<vet-verdict>
                       | <n>". ["<tier>"] Revise to ["<tier>"]"
 <vet-verdict>       ::= Accept | Revise | Drop | Needs user's ruling
 <free-line>         ::= any line that does not have the numbered tier-header shape
 ```
 
-There is one verdict line for every report finding, in report order. Its number
+There is one verdict line for every audit report finding, in audit report order. Its number
 and tier match that finding. Leading and trailing whitespace carry no content.
 A revision that changes the finding's tier uses `Revise to [<tier>]`, with the
-new tier after `to`. A revision that keeps the report tier uses plain `Revise`.
+new tier after `to`. A revision that keeps the audit report tier uses plain `Revise`.
 A line with the numbered tier-header shape is a verdict attempt and is refused
-by name when its word is outside the vet list.
+by name when its word is not a vet verdict word.
 
 ### Examples
 
@@ -630,36 +626,34 @@ Refusal: `Vet verdict 1 has malformed revised tier; use Revise to [A], [B], [C] 
 1. [B] Revise to [E]
 ```
 
-## Rebuttal twin
+## Rebuttal report
 
 ### Production
 
 ```text
-<rebuttal-twin>       ::= (<free-line> | <rebut-answer-line>)*
-<rebut-answer-line>   ::= <n>". ["<tier>"] ["<vet-tag>"] "<rebut-answer>
-<vet-tag>             ::= the capability tag of one vet of the round's panel
+<rebuttal-report>     ::= (<free-line> | <rebut-answer-line>)*
+<rebut-answer-line>   ::= <n>". ["<tier>"] ["<vetter-tag>"] "<rebut-answer>
+<vetter-tag>          ::= the capability tag of one vetter of the round's panel
 <rebut-answer>        ::= Agree | Contest | For user's ruling
 ```
 
-The rebuttal omits accepted verdicts. It has one answer for every revise, drop
-and ruling verdict of each vet, in report order and, within one finding, in
-the order the runner supplies the vet reports. Its number and tier match that
-finding. The tag names the vet whose verdict the line answers, as that vet's
-report filename carries it, so a reader takes the vet from the line alone. The
-number is the finding's report number, not the answer's place in the twin.
-When vet `abx` accepts finding 1 and revises finding 2, its only answer is
-numbered 2. Its word is the auditor's answer, never the verdict it answers.
-The number and tier are copied from the vet line and the word is not, so
-agreement with the `2. [C] Revise` of vet `abx` is written
-`2. [C] [abx] Agree`. Leading and trailing whitespace carry no content. A line
-with the numbered tier-header shape is an answer attempt. It is refused by name
-when it names no vet, when its word is outside the rebuttal list or when its
-tag names a vet outside the panel or a vet that accepted the finding.
+The rebuttal omits accepted verdicts. It has one answer for every revise, drop and ruling verdict of
+each vetter, in audit report order and, within one finding, in the order the runner supplies the vet
+reports. Its number and tier match that finding. The tag names the vetter whose verdict the line
+answers, as that vetter's vet report filename carries it, so a reader takes the vetter from the line
+alone. The number is the finding's audit report number, not the answer's place in the rebuttal
+report. When vetter `abx` accepts finding 1 and revises finding 2, its only answer is numbered 2.
+Its word is the rebuttal's answer, never the verdict it answers. The number and tier are copied from
+the verdict line and the word is not, so agreement with the `2. [C] Revise` of vetter `abx` is
+written `2. [C] [abx] Agree`. Leading and trailing whitespace carry no content. A line with the
+numbered tier-header shape is an answer attempt. It is refused by name when it names no vetter, when
+its word is not a rebuttal answer word or when its tag names a vetter outside the panel or a vetter
+that accepted the finding.
 
 ### Examples
 
-The examples answer a panel of two vets in this order. Vet `abx` accepted
-finding 1 `[B]` and revised finding 2 `[C]`. Vet `obh` accepted both.
+The examples answer a panel of two vetters in this order. Vetter `abx` accepted
+finding 1 `[B]` and revised finding 2 `[C]`. Vetter `obh` accepted both.
 
 #### `rebuttal/agree` — parsed
 
@@ -693,7 +687,7 @@ Refusal: `Rebuttal answer 2 uses the word "Drop"; use Agree, Contest or For user
 
 #### `rebuttal/missing-vet` — refused
 
-Refusal: `Rebuttal answer 2 names no vet; put the vet's tag in brackets after the tier`
+Refusal: `Rebuttal answer 2 names no vetter; put the vetter's tag in brackets after the tier`
 
 ```text
 2. [C] Agree
@@ -701,7 +695,7 @@ Refusal: `Rebuttal answer 2 names no vet; put the vet's tag in brackets after th
 
 #### `rebuttal/outside-panel` — refused
 
-Refusal: `Rebuttal answer 2 names atx, which is no vet of this round; use abx or obh`
+Refusal: `Rebuttal answer 2 names atx, which is no vetter of this round; use abx or obh`
 
 ```text
 2. [C] [atx] Agree
@@ -742,11 +736,11 @@ The revision of finding 2 holds.
 <citation-bullet>        ::= "- "<applies-token>(" "<applies-token>)*" The plan stands."
 ```
 
-A bullet that lands a report finding opens its tokens with that finding's
-number from the report. The round data joins the bullet to the finding by this
+A bullet that lands an audit report's finding opens its tokens with that
+finding's number from the audit report. The round data joins the bullet to the finding by this
 number, so the bullet's title may say the correction in its own words. A bullet
-without a number records work no report finding asked for; the round data keeps
-it as unmatched. A number the report does not have is refused when the round
+without a number records work no audit report finding asked for; the round data keeps
+it as unmatched. A number the audit report does not have is refused when the round
 data settles.
 
 A Repo Edu record uses the bracketed tier. Its local location is one area and
@@ -770,7 +764,7 @@ present, including for the first and only deferral.
 #### `record/repo-edu-local` — parsed
 
 ```text
-- [B] [finding:2] [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low] Shared token owner: the report and record readers use one definition.
+- [B] [finding:2] [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low] Shared token owner: the audit report and record readers use one definition.
 ```
 
 #### `record/repo-edu-plan-deferral` — parsed
@@ -1192,8 +1186,8 @@ Watch grade: yellow
 The line is exactly one plain line and closes two widening outputs. A widening
 audit report ends with it as its last line, after the last finding field, under
 [Audit report](#audit-report). A widening fix returns it after its Markdown,
-immediately before the final `PHASE RESULT` line. Every other report and fix
-carries none, and the reader refuses a line where none is required. A fix that
+immediately before the final `PHASE RESULT` line. Every other audit report and
+fix carries none, and the reader refuses a line where none is required. A fix that
 needs a ruling returns no line, because the round has not ended. It is control
 data for the runner, which retains the audit's line, replaced by the fix's line
 when a fix runs, as the round's settling recommendation for the series decision.

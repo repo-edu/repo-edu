@@ -252,7 +252,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
   assert.equal(markdown.match(/^Started /gm)?.length, 2)
 })
 
-test("a stopped panel split resumes its fix with every vet report and each vet's retained phase", async (t) => {
+test("a stopped panel split resumes its fix with every vet report and each vetter's retained phase", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const settings = structuredClone(testSettings)
   settings.implementationAudit.vetters = [
@@ -366,7 +366,7 @@ test("a stopped panel split resumes its fix with every vet report and each vet's
   }
   assert.equal(stored.rounds.length, 1)
   assert.equal(stored.rounds[0]?.status, "finished")
-  // The resumed round restored each vet's phase entry by its tag.
+  // The resumed round restored each vetter's vet phase entry by its tag.
   assert.deepEqual(
     stored.rounds[0]?.phases
       .filter((phase) => phase.phase === "vet")
@@ -1192,7 +1192,7 @@ test("an automatic series follows the deterministic switch and stores its decisi
   )
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped after 2 rounds\. Rule 2: every pool entry has a current read; the series stops\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 2 rounds\. Rule 2: every listed auditor has a current read; the series stops\./,
   )
   const transcripts = (await f.roundFiles()).filter((name) =>
     /-1-round\..+\.md$/.test(name),
@@ -1556,7 +1556,7 @@ test("an automatic series needs a current read from each listed model of one ass
     { assistant: "claude", model: "opus", effort: "xhigh" },
   ]
   // The alias resolves to a release at startup. The round data names each
-  // round's auditor by that release, so the pool offers it under that name.
+  // round's auditor by that release, so the auditor list offers it under that name.
   await f.configure({
     phases: f.phases,
     releases: { opus: "claude-opus-5-5" },
@@ -1608,7 +1608,7 @@ test("an automatic series needs a current read from each listed model of one ass
   ])
 })
 
-test("a --first selection outside the target class's auditors list is refused before any round", async (t) => {
+test("a --first selection outside the target class's auditor list is refused before any round", async (t) => {
   const f = await roundFixture(
     t,
     "claude",
@@ -1637,7 +1637,7 @@ test("a --first selection outside the target class's auditors list is refused be
   )
   assert.match(
     f.errors.join("\n"),
-    /--first atx resolves to claude claude-fable-5-1 xhigh, which the planningAudit\.auditors list in settings\.json does not hold\. Name a listed auditor: codex gpt-5\.6-sol high\./,
+    /--first atx resolves to claude claude-fable-5-1 xhigh, which the auditor list planningAudit\.auditors in settings\.json does not hold\. Name a listed auditor: codex gpt-5\.6-sol high\./,
   )
   await assert.rejects(f.prompts(), { code: "ENOENT" })
 })
@@ -1862,7 +1862,7 @@ test("a widening series ends on its settled recommendation", async (t) => {
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended after 1 round\. Widening is done: run pnpm audit-round settle example\. Rule 2: every pool entry has a current read, and the widening recommendation is settle\./,
+    /Plan audit of example: automatic auditor series ended after 1 round\. Widening is done: run pnpm audit-round settle example\. Rule 2: every listed auditor has a current read, and the widening recommendation is settle\./,
   )
   assert.doesNotMatch(visible, /settle recommendation/)
   const {
@@ -1885,7 +1885,7 @@ test("a widening series ends on its settled recommendation", async (t) => {
   assert.deepEqual(stored?.judge, {
     answer: "settle",
     reason:
-      "Rule 2: every pool entry has a current read, and the widening recommendation is settle.",
+      "Rule 2: every listed auditor has a current read, and the widening recommendation is settle.",
   })
   assert.deepEqual(stored?.pool, [
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
@@ -1931,7 +1931,7 @@ test("a widening keep-open recommendation stops the series without settling", as
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series stopped after 1 round\. Rule 2: every pool entry has a current read; keep open\. The shape question needs evidence only the user can supply\./,
+    /Plan audit of example: automatic auditor series stopped after 1 round\. Rule 2: every listed auditor has a current read; keep open\. The shape question needs evidence only the user can supply\./,
   )
 })
 
@@ -1960,7 +1960,7 @@ test("a detailing series ends ready after every represented assistant has a curr
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Plan audit of example: automatic auditor series ended after 1 round\. Detailing is done: run pnpm audit-round ready example\. Rule 2: every pool entry has a current read; the detailing plan is ready\./,
+    /Plan audit of example: automatic auditor series ended after 1 round\. Detailing is done: run pnpm audit-round ready example\. Rule 2: every listed auditor has a current read; the detailing plan is ready\./,
   )
   const {
     rounds: [stored],
@@ -1977,7 +1977,7 @@ test("a detailing series ends ready after every represented assistant has a curr
   assert.deepEqual(stored?.judge, {
     answer: "ready",
     reason:
-      "Rule 2: every pool entry has a current read; the detailing plan is ready.",
+      "Rule 2: every listed auditor has a current read; the detailing plan is ready.",
   })
   assert.deepEqual(stored?.pool, [
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
@@ -2218,7 +2218,7 @@ test("a rerun opens on the assistant without a current read and names its claime
   )
   assert.match(
     visible,
-    /Implementation audit of example, step 1: automatic auditor series stopped after 1 round\. Rule 2: every pool entry has a current read; the series stops\./,
+    /Implementation audit of example, step 1: automatic auditor series stopped after 1 round\. Rule 2: every listed auditor has a current read; the series stops\./,
   )
   const transcripts = (await f.roundFiles()).filter((name) =>
     /-1-round\..+\.md$/.test(name),

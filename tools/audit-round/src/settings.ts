@@ -73,7 +73,7 @@ export const settingsSchema = z
      * audit level lists its roles in the order a round runs them.
      */
     planningAudit: z.strictObject({
-      /** The ordered pool for planning work. */
+      /** The ordered auditor list for planning work. */
       auditors: z.array(assignedSelection).min(1),
       /** The panel that vets every planning audit report, run in parallel. */
       vetters: z.array(assignedSelection).min(1),
@@ -89,7 +89,7 @@ export const settingsSchema = z
      */
     coders: z.array(assignedSelection).min(1),
     implementationAudit: z.strictObject({
-      /** The ordered pool for implementation work. */
+      /** The ordered auditor list for implementation work. */
       auditors: z.array(assignedSelection).min(1),
       /** The panel that vets every implementation audit report, run in parallel. */
       vetters: z.array(assignedSelection).min(1),
@@ -122,7 +122,7 @@ export const settingsSchema = z
   })
   /**
    * Each vet report is named by its writer's tag, so two vetters of one list
-   * with one tag would write one file and the round would lose a vet's
+   * with one tag would write one file and the round would lose a vetter's
    * verdicts. The good case this blocks is two models of one assistant on one
    * tier and effort; changing one effort lets both run.
    */

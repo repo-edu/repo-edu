@@ -240,7 +240,7 @@ export async function activeRoundData(
  * Move a closed plan's round data from the round folder to the folder its
  * archived plan now sits in, and commit the moved files. The runner does this
  * itself after the close session, because the files are the plan's complete
- * round account and it cannot see whether a session remembered them.
+ * round data and it cannot see whether a session remembered them.
  * Returns null when the plan had no round data.
  */
 export async function archiveRoundData(

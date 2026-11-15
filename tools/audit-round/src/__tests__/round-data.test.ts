@@ -167,7 +167,7 @@ test("round data admits every end state", async (t) => {
   )
 })
 
-test("round data admits the series answer, resolved pool and model settings", async (t) => {
+test("round data admits the series answer, resolved auditor list and model settings", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.roundRoot, "example-impl-rounds.json")
   const parse = (round: unknown) =>
@@ -369,7 +369,7 @@ const review = (
   answer: RoundFindingReview["answer"] = verdict === "accept" ? null : "agree",
 ): RoundFindingReview => ({ vet, verdict, answer })
 
-test("two vets split on every pair of different verdict words", () => {
+test("two vetters split on every pair of different verdict words", () => {
   const verdicts = ["accept", "revise", "drop", "needs-user-ruling"] as const
   for (const [index, first] of verdicts.entries())
     for (const second of verdicts.slice(index + 1)) {
@@ -385,7 +385,7 @@ test("two vets split on every pair of different verdict words", () => {
     }
 })
 
-test("two vets with the same verdict split only on revisions the rebuttal does not both agree with", () => {
+test("two vetters with the same verdict split only on revisions the rebuttal does not both agree with", () => {
   for (const verdict of ["accept", "drop", "needs-user-ruling"] as const)
     assert.equal(
       reviewsSplit(review("abx", verdict), review("obx", verdict)),
@@ -408,7 +408,7 @@ test("two vets with the same verdict split only on revisions the rebuttal does n
     )
 })
 
-test("a panel of three splits when any pair of its vets splits", () => {
+test("a panel of three splits when any pair of its vetters splits", () => {
   assert.equal(
     findingSplit([
       review("abx", "revise"),
@@ -742,7 +742,7 @@ test("plan round data discovery ignores commit round data", async (t) => {
   )
 })
 
-test("each vet's review and its rebuttal answer stay attached to report finding identity", () => {
+test("each vetter's review and its rebuttal answer stay attached to audit report finding identity", () => {
   assert.deepEqual(
     reviewedRoundFindings(
       [reportFinding(1, "Reviewed finding"), reportFinding(2, "Accepted")],

@@ -41,7 +41,7 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   assert.match(visible, /Next round: codex; 3 auditor entries remain\./)
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
   assert.match(visible, /Auditor sequence finished after 4 rounds\./)
-  // Updates and releases are read once for the run; later rounds still seat
+  // Updates and releases are read once for the run; later rounds still set
   // their roles from the releases that first round resolved, one read per
   // model the settings may pin.
   assert.equal(

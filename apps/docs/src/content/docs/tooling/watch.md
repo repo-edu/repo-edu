@@ -28,11 +28,11 @@ due. A commit series runs no watch. This command is the hand-run route.
 
 ## What it shows you
 
-The watch reads the joined plan and Repo Edu episode view through
-`pnpm audit-round episode`, 200 lines at a time: commit subjects, finding tokens and reduced round
-data. It opens named commits and the current plan or code only to ground a claim. It never reads
-round transcripts, reports, vets, rebuttals or fix sessions, so its read stays independent of the
-rounds it judges.
+The watch reads the joined plan and Repo Edu episode view through `pnpm audit-round episode`, 200
+lines at a time: commit subjects, finding tokens and reduced round data. It opens named commits and
+the current plan or code only to ground a claim. It never reads round transcripts, audit reports,
+vet reports, rebuttal reports or fix sessions, so its read stays independent of the rounds it
+judges.
 
 The grade summarises the trajectory:
 

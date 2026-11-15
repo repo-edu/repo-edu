@@ -58,7 +58,7 @@ export type AssistantEvent =
 
 /**
  * Where an invocation's output goes. Starting one opens its own recorder, so
- * vets of one panel that run at the same time never share a record: each
+ * vetters of one panel that run at the same time never share a record: each
  * event reaches the recorder of the invocation that produced it.
  */
 export type PhaseOutput = {

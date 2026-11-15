@@ -744,8 +744,8 @@ Auditor selection (--auditor <selections>):
 
   Quote the whole --auditor value if it contains spaces.
   Each selection applies to both audit and rebuttal. Other phases keep their settings.
-  The default auditor is an entry of the target work class's auditors list in
-  settings.json.
+  The default auditor is a listed auditor of the target work class's auditor
+  list in settings.json.
   Without --auditor, an active plan or commit target starts an automatic series.
   A --first <selection> opens it when supplied and must resolve to a listed
   auditor. Otherwise, a listed auditor without a current read opens when another
@@ -759,7 +759,7 @@ Round sequence:
     - A --first selection opens the series when supplied. Otherwise, a listed
       auditor without a current read opens when another has one. Otherwise,
       the configured default opens. A random default picks that opener from the
-      target work class's auditors list in each scope's series.
+      target work class's auditor list in each scope's series.
     - After each non-red round, the runner applies fixed rules. A read is current
       when it started after the latest real-bug audit, lifecycle change, plan
       step or outside plan edit. When every listed auditor has a current read,
@@ -799,8 +799,9 @@ Round sequence:
     1. Audit     The selected auditor reports findings.
     2. Vet       Every vetter listed for the work class reviews those findings,
                  side by side, whoever audited.
-    3. Rebuttal  The auditor answers each vet's revisions, drops or ruling items.
-                 Skipped if every vet accepts every finding.
+    3. Rebuttal  A new session on the auditor's model answers each vetter's
+                 revisions, drops or ruling items. Skipped if every vetter
+                 accepts every finding.
     4. Fix       The assistant set in settings.json fixes the accepted findings.
     5. Watch     The trajectory watch runs when its glance says it is due.
 
@@ -2181,7 +2182,7 @@ export async function runCommand(
       // The series routes among the listed auditors only.
       const pool: readonly AuditorSeat[] = classAuditors.map(listedSeat)
       // The rules read each round's auditor as the release its CLI resolved,
-      // so the pool keeps every entry under that same name.
+      // so the auditor list keeps every listed auditor under that same name.
       const poolAuditors = pool.map((seat) =>
         auditorSetting(seat, releases, settings),
       )
@@ -2193,7 +2194,7 @@ export async function runCommand(
         )
         if (!poolAuditors.some((auditor) => auditorText(auditor) === firstText))
           throw new InvalidArgumentError(
-            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the ${auditLevels[workClass]}.auditors list in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
+            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the auditor list ${auditLevels[workClass]}.auditors in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
           )
       }
       // Only an implementation plan target reads its ready assignment; the
@@ -2282,8 +2283,8 @@ export async function runCommand(
        * needs the user stops the whole list.
        */
       const runSeries = async (initial: AuditTarget): Promise<SeriesEnding> => {
-        // Only an explicit auditor list owns an editable queue. Automatic
-        // series keep their next seat in this invocation.
+        // Only an `--auditor` sequence owns an editable queue. Automatic
+        // series keep their next auditor in this invocation.
         const queue =
           series.auditor !== undefined
             ? await queueFile({ ...seriesSession, ...initial })
@@ -2298,7 +2299,7 @@ export async function runCommand(
               : "settings"
         let target = initial
         let completed = 0
-        // The reason behind the rule answer that chose the next seat, printed
+        // The reason behind the rule answer that chose the next auditor, printed
         // with the next round's opening line so the log carries it.
         let decisionReason: string | null = null
         const seatFor = (chosen: Auditor): AuditorSeat => {
@@ -2307,7 +2308,7 @@ export async function runCommand(
           )
           if (index === -1)
             throw new Error(
-              `The series rules chose ${auditorText(chosen)}, which the series pool does not hold`,
+              `The series rules chose ${auditorText(chosen)}, which the auditor list does not hold`,
             )
           return pool[index]
         }

@@ -25,7 +25,7 @@ pnpm audit-round disprove -h | --help               show the command's help
 
 ```text
 pnpm audit-round disprove example example-plan-audit 2 1 "The cited behaviour was absent."
-pnpm audit-round disprove example example-plan-audit 2 1 --vet "The vet dropped a valid finding."
+pnpm audit-round disprove example example-plan-audit 2 1 --vet "A vetter dropped a valid finding."
 pnpm audit-round disprove example example-plan-audit --by "gpt-5.6-sol high" "The report predates the data."
 ```
 
@@ -41,18 +41,18 @@ settings.
 
 1. **The attached finding form** checks that the round and finding exist, then records that the
    finding was wrong. The model read-out stops counting it as kept for its auditor and coder. In
-   the vet-pair tables it makes the vets that dropped the finding right.
-2. **The attached `--vet` form** requires at least one vet's `Revise`, `Drop` or
+   the vetter-pair tables it makes the vetters that dropped the finding right.
+2. **The attached `--vet` form** requires at least one vetter's `Revise`, `Drop` or
    `Needs user's ruling` verdict and records that those verdicts were wrong. Every table then reads
-   the finding as kept, including the coder table for an implementation audit. In the vet-pair
-   tables it makes the vets that accepted the finding right.
+   the finding as kept, including the coder table for an implementation audit. In the vetter-pair
+   tables it makes the vetters that accepted the finding right.
 3. **One retained ruling per finding** means that either attached form replaces the earlier entry
    for the same round and finding, including an entry in the other direction.
 4. **The `--by` form** records the date, full reason and the named model and effort, for a finding
    the round data never held. It creates the round-data file when none exists. Each such ruling
    appends, because two unrecorded findings by one auditor may both be real.
 
-The command never rewrites the old report, commit or finding metadata.
+The command never rewrites the old audit report, commit or finding metadata.
 
 ## Output
 

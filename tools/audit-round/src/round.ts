@@ -76,7 +76,7 @@ function samePhaseSelection(
 
 /**
  * Name whether the fix uses the selected model and effort of the auditor or of
- * one vet of the panel, which it names by its tag.
+ * one vetter of the panel, which it names by its tag.
  */
 function selectedFixerSide(
   phases: Pick<RoundPhases, "audit" | "fix">,
@@ -126,9 +126,9 @@ function openContests(
 }
 
 /**
- * The findings the user rules on. A contest is the rebuttal contesting a vet's
- * verdict, and it is serious on a finding that the report or a vet graded A or
- * B. A split is two vets of the panel giving different verdicts, under
+ * The findings the user rules on. A contest is the rebuttal contesting a
+ * vetter's verdict, and it is serious on a finding that the audit report or a
+ * vetter graded A or B. A split is two vetters of the panel giving different verdicts, under
  * `reviewsSplit`, and it is serious on a finding graded within the work
  * class's `splitRulingRange`.
  */
@@ -204,7 +204,7 @@ export type RoundSetup = RoundContext &
     /** What the command line asked of the auditor's phases; absent asks nothing. */
     readonly override?: AuditorOverride
     /**
-     * The series pool the runner routes between, present only for an automatic
+     * The auditor list the runner routes between, present only for an automatic
      * series.
      */
     readonly pool?: readonly Auditor[]
@@ -629,8 +629,8 @@ export async function runRound(
   const deferralScope: DeferralScope | null =
     input.deferrals === undefined ? null : { deferrals: input.deferrals }
   const report = input.documents.report
-  // The run names one report per vet of the panel, in panel order, each with
-  // the tag of the vet that writes it.
+  // The run names one vet report per vetter of the panel, in panel order, each
+  // with the tag of the vetter that writes it.
   const panel: readonly PanelRun[] = input.documents.vets.map(
     (vetReport, index) => ({
       run: phases.vet[index],
@@ -764,9 +764,9 @@ export async function runRound(
       }
     }
 
-    // Every vet reads the audit report on its own and at the same time. The
+    // Every vetter reads the audit report on its own and at the same time. The
     // round waits for the slowest; a failed vet fails the round, and the
-    // finished vets' reports stay in place.
+    // finished vetters' vet reports stay in place.
     const vetted = await Promise.all(
       panel.map((vet) =>
         reportPhase(
@@ -823,7 +823,7 @@ export async function runRound(
       ...account,
       findings: reviewedRoundFindings(evidence.findings, vets),
     }
-    // The rebuttal runs once for the whole panel, unless every vet accepted
+    // The rebuttal runs once for the whole panel, unless every vetter accepted
     // every finding.
     if (!accepted) {
       const rebut = await reportPhase(

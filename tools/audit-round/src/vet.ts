@@ -41,7 +41,7 @@ type RebuttalHeader = Header<keyof typeof rebuttalAnswers & string> & {
 
 /**
  * A verdict or answer header starts `<number>. [<tier>] <word>`. A revised vet
- * tier is the one admitted suffix, and a rebuttal answer names its vet's tag in
+ * tier is the one admitted suffix, and a rebuttal answer names its vetter's tag in
  * brackets before the word. A line in that shape whose word is outside the
  * phase's list is refused by name rather than passed as free text, so a vet
  * word on a rebuttal line, or the reverse, fails on the line that is wrong
@@ -65,7 +65,7 @@ function readRebuttalHeader(line: string): RebuttalHeader | null {
   const tagged = /^\[([^\]]+)\] (.+)$/.exec(header.word)
   if (tagged === null)
     throw new Error(
-      `Rebuttal answer ${header.number} names no vet; put the vet's tag in brackets after the tier`,
+      `Rebuttal answer ${header.number} names no vetter; put the vetter's tag in brackets after the tier`,
     )
   const word = tagged[2] as string
   if (!Object.hasOwn(rebuttalAnswers, word))
@@ -155,10 +155,10 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
 }
 
 /**
- * Read the answers the auditor gave the panel after vetting. Each answer line
- * names the vet it answers, so the reader takes the vet from the line alone.
- * Answers follow report order and, within one finding, panel order. An answer
- * to a vet outside the panel or to a verdict that accepted the finding is
+ * Read the answers the rebuttal gave the panel after vetting. Each answer line
+ * names the vetter it answers, so the reader takes the vetter from the line
+ * alone. Answers follow audit report order and, within one finding, panel
+ * order. An answer to a vetter outside the panel or to a verdict that accepted the finding is
  * refused by name, so a misnumbered or mistagged answer fails on its own line
  * instead of as a missing one.
  */
@@ -178,7 +178,7 @@ export function readRebuttal(
     const vet = panel.find((candidate) => candidate.vet === header.vet)
     if (vet === undefined)
       throw new Error(
-        `Rebuttal answer ${header.number} names ${header.vet}, which is no vet of this round; use ${listWords(panel.map(({ vet }) => vet))}`,
+        `Rebuttal answer ${header.number} names ${header.vet}, which is no vetter of this round; use ${listWords(panel.map(({ vet }) => vet))}`,
       )
     if (
       vet.reviews.find((review) => review.number === header.number)?.verdict ===

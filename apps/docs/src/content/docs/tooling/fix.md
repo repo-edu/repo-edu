@@ -3,8 +3,8 @@ title: /fix
 description: Reconcile one audited round and land its authorised corrections and records
 ---
 
-`/fix` ends an audit round with findings: it reconciles the report, its vet and any rebuttal, then
-lands the settled corrections and the round's record.
+`/fix` ends an audit round with findings: it reconciles the audit report, its vet reports and any
+rebuttal report, then lands the settled corrections and the round's record.
 
 | Fact | Detail |
 | --- | --- |
@@ -22,16 +22,16 @@ lands the settled corrections and the round's record.
 /fix tooling-guide-usability-impl-audit-03..05-01-2-audit.oth.md
 ```
 
-The command has no flags. Without a report it takes the newest eligible report from either
-assistant and that round's newest vet and rebuttal twins. Invoking it grants the settled corrections
-and their record commits. The whole session uses the `/simple` wording requirement.
+The command has no flags. Without an audit report it takes the newest eligible audit report from
+either assistant and that round's newest vet and rebuttal reports. Invoking it grants the settled
+corrections and their record commits. The whole session uses the `/simple` wording requirement.
 
 ## What it shows you
 
-The fix reads the report and every twin, checks for head drift and reads each file a correction will
-change. It then shows one outcome per finding:
+The fix reads the audit report, every vet report and the rebuttal report, checks for head drift and
+reads each file a correction will change. It then shows one outcome per finding:
 
-1. **Agreed.** An accepted finding, or a revision or drop the auditor agreed to, stands as agreed.
+1. **Agreed.** An accepted finding, or a revision or drop the rebuttal agreed to, stands as agreed.
 2. **Decided.** For a contested verdict the fix reads the evidence and decides, with its reason.
 3. **Open.** A real choice between options with different costs, or a contest the evidence leaves
    unclear, goes to you.
@@ -43,9 +43,8 @@ A choice is not open in three cases:
 3. The costlier option only guards against a mistake no round has found, so the option with the
    least upkeep wins.
 
-Planning corrections change only the plan repo. An
-implementation round may change Repo Edu, the plan repo or both, as the report's judged repos and
-finding locations allow.
+Planning corrections change only the plan repo. An implementation round may change Repo Edu, the
+plan repo or both, as the audit report's judged repos and finding locations allow.
 
 ## Your answers
 
@@ -61,8 +60,8 @@ finding locations allow.
 
 ## Early stops
 
-1. **An input is missing or ambiguous.** Rerun with the report name. Run a missing vet or rebuttal
-   first when the round needs it.
+1. **An input is missing or ambiguous.** Rerun with the audit report name. Run a missing vet or
+   rebuttal first when the round needs it.
 2. **A required edit, check or commit fails.** Correct the named problem, then run the recovery
    command the runner printed, if any. The retained session continues the same fix; see
    [Recover a run](/repo-edu/tooling/recover-run/).

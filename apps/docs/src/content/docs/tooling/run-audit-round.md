@@ -3,8 +3,8 @@ title: Run an audit round
 description: Choose a target and carry one audit through vet, rebuttal, fix and the series decision
 ---
 
-An audit round turns one bounded plan, implementation range or commit set into a checked report and
-a durable outcome, with a second assistant checking the first before anything lands.
+An audit round turns one bounded plan, implementation range or commit set into a checked audit
+report and a durable outcome, with a second assistant checking the first before anything lands.
 
 | Fact | Detail |
 | --- | --- |
@@ -15,20 +15,20 @@ a durable outcome, with a second assistant checking the first before anything la
 One reading by one assistant can be wrong in a confident voice. The round therefore splits the
 work so no phase checks itself:
 
-1. **Audit.** One assistant reads the bounded target and writes a report with findings or a clean
-   result.
-2. **Vet.** Every vet listed for the work class checks each finding for authority, evidence and
-   fit, side by side and each from a fresh context. A clean report skips this phase.
-3. **Rebuttal.** The auditor answers only revisions, drops and ruling items, on the same model and
-   effort as the audit, because the answer is the auditor's. One rebuttal answers every vet. When
-   every vet accepts every finding, this phase is skipped.
+1. **Audit.** One assistant reads the bounded target and writes an audit report with findings or a
+   clean result.
+2. **Vet.** Every vetter listed for the work class checks each finding for authority, evidence and
+   fit, side by side and each from a fresh context. A clean audit report skips this phase.
+3. **Rebuttal.** A new session answers only revisions, drops and ruling items for the audit report,
+   on the same model and effort as the audit. One rebuttal answers every vetter. When every vetter
+   accepts every finding, this phase is skipped.
 4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
-   settled corrections and lands the records. When the auditor contests a vet's verdict, or two vets
-   give different verdicts, on a finding the report or a vet graded A or B, the runner asks you
-   whether the audit report, one or more vets by their tags or neither is right and records your
-   one-line reason. In an implementation round it also asks when two vets give different verdicts
-   on a C finding. The fix cannot commit until every required winner is recorded, and
-   returning finished earlier fails the round. The audit target picks the fixer:
+   settled corrections and lands the records. When the rebuttal contests a vetter's verdict, or two
+   vetters give different verdicts, on a finding the audit report or a vetter graded A or B, the
+   runner asks you whether the audit report, one or more vetters by their tags or neither is right
+   and records your one-line reason. In an implementation round it also asks when two vetters give
+   different verdicts on a C finding. The fix cannot commit until every required winner is recorded,
+   and returning finished earlier fails the round. The audit target picks the fixer:
    - A planning round, or a commit audit of plan-repo commits alone, fixes on the configured
      planning fixer.
    - An implementation round fixes on the plan's assigned coder.
@@ -40,12 +40,12 @@ series the runner applies fixed rules to decide whether another assistant needs 
 
 ## One phase or a series
 
-Use [`/audit`](/repo-edu/tooling/audit/) when you want one report before deciding what follows. It
-runs only the audit phase. You then run [`/vet`](/repo-edu/tooling/vet/),
+Use [`/audit`](/repo-edu/tooling/audit/) when you want one audit report before deciding what
+follows. It runs only the audit phase. You then run [`/vet`](/repo-edu/tooling/vet/),
 [`/rebut`](/repo-edu/tooling/rebut/) when needed and [`/fix`](/repo-edu/tooling/fix/) by hand.
 
 Use [`pnpm audit-round round ...`](/repo-edu/tooling/runner-round/) when you want the runner to
-carry the report through those phases and apply the automatic-series rules. Use the bare
+carry the audit report through those phases and apply the automatic-series rules. Use the bare
 [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may
 also proceed through later lifecycle stages without a planned reading between them.
 
@@ -71,7 +71,7 @@ the full implementation range.
 
 An automatic series stops when every listed auditor has a current read, the configured round maximum
 is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes the
-plan's phase. Above a ruling the runner says whether the fix uses the auditor's model, the vet's
+plan's phase. Above a ruling the runner says whether the fix uses the auditor's model, a vetter's
 model or neither. It collects any serious contest and split winners before the free reply, then
 resumes the same fix before the series continues.
 
@@ -85,8 +85,8 @@ its invocation granted them in advance.
 The terminal shows the target, phase selection, elapsed time and each phase's Markdown. The
 evidence checkout's `../plan-evidence/active/` folder keeps the transcript, tool log and retained
 round data. Use
-[Find round outputs](/repo-edu/tooling/find-round-outputs/) when you need the report, a review twin
-or the complete conversation after the terminal has scrolled.
+[Find round outputs](/repo-edu/tooling/find-round-outputs/) when you need the audit report, a vet
+or rebuttal report or the complete conversation after the terminal has scrolled.
 
 On macOS the runner keeps the computer from idle-sleeping for as long as it runs, on battery as
 well, so an unattended run continues after the display sleeps. Closing the lid still puts the Mac

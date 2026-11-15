@@ -168,7 +168,7 @@ test("a real bug makes every earlier read stale and switches assistants", () => 
   )
 })
 
-test("every pool entry needs a current read before detailing is ready", () => {
+test("every listed auditor needs a current read before detailing is ready", () => {
   const claude = planningRound(opus, 1, "2026-11-08T10:00:00Z")
   const codex = planningRound(sol, 2, "2026-11-08T11:00:00Z")
   assert.deepEqual(
@@ -176,7 +176,7 @@ test("every pool entry needs a current read before detailing is ready", () => {
     {
       answer: "ready",
       reason:
-        "Rule 2: every pool entry has a current read; the detailing plan is ready.",
+        "Rule 2: every listed auditor has a current read; the detailing plan is ready.",
     },
   )
 
@@ -190,7 +190,8 @@ test("every pool entry needs a current read before detailing is ready", () => {
     decideSeries(evidence([claude, codex], [ready]), current(codex), pool),
     {
       answer: "stop",
-      reason: "Rule 2: every pool entry has a current read; the series stops.",
+      reason:
+        "Rule 2: every listed auditor has a current read; the series stops.",
     },
   )
 })
@@ -218,7 +219,7 @@ test("widening ends from its retained settling line", () => {
     {
       answer: "stop",
       reason:
-        "Rule 2: every pool entry has a current read; keep open. Decision 3 still needs implementation evidence.",
+        "Rule 2: every listed auditor has a current read; keep open. Decision 3 still needs implementation evidence.",
     },
   )
 })
@@ -363,7 +364,7 @@ test("only the current stem's steps and audits invalidate its reads", () => {
   )
 })
 
-test("a one-assistant pool ends after that assistant's current read", () => {
+test("a one-assistant auditor list ends after that assistant's current read", () => {
   const codex = implementationRound(sol, 1, "2026-11-08T10:00:00Z")
   assert.equal(
     decideSeries(evidence([codex]), current(codex), [sol]).answer,
@@ -408,7 +409,7 @@ test("two models of one assistant choose the least recently read entry", () => {
   )
 })
 
-test("a series opens on the pool entry without a current read when another has one", () => {
+test("a series opens on the listed auditor without a current read when another has one", () => {
   const claude = implementationRound(opus, 1, "2026-11-08T10:00:00Z", "C")
   const failed: RoundData = {
     ...implementationRound(sol, 2, "2026-11-08T11:00:00Z", "C"),

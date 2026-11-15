@@ -84,10 +84,10 @@ outweighs the other. This is the commit-level instance of the account rule in
 
 ## Finding metadata
 
-Every graded concern carries its finding number and metadata from its report
-into the round's durable record. The
-[round document grammar](round-grammar.md#audit-report) owns the report block
-and location cases. Its
+Every graded concern carries its finding number and metadata from its audit
+report into the round's durable record. The
+[round document grammar](round-grammar.md#audit-report) owns the audit report
+block and location cases. Its
 [commit record bullet](round-grammar.md#commit-record-bullet) production owns
 the matching body form. The parsers share the rating-token definition, so the
 report and record cannot give one finding two spellings.
@@ -105,7 +105,7 @@ Location says which owner the correction belongs to:
 
 A deferral exists so a round can record a defect it proved without writing in a
 repo it was not authorised to change. It never turns a repo already in the
-judged set into an outside destination. The plan doctrine's
+judged repo set into an outside destination. The plan doctrine's
 [Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms)
 owns record placement, directed cross-repo fixes and who follows up.
 
@@ -115,7 +115,7 @@ plainly right and the correction changes no decision's meaning or reason. Stale
 text includes a name, path, count, cross-reference or sentence saying which
 steps have landed. The fix writes that correction as its own plan-repo commit
 under the plan doctrine. It is not a deferral. A substantive correction still
-defers when the plan repo is outside the judged set: changing a decision,
+defers when the plan repo is outside the judged repo set: changing a decision,
 adding a missing rule or row or choosing among sensible corrections needs a
 judgement. The plan is the reference the audit judges the implementation
 against, so letting the audit rewrite disputed content could make the
@@ -127,13 +127,12 @@ balance shows whether an artifact is still growing or has started to shed.
 Commit bullets written before that value existed read as missing, because
 excess was not yet a search obligation.
 
-A record bullet that lands a report finding carries that finding's number in
-its first token, `[finding:<n>]`. The round data joins bullet and finding by
-that number, so the bullet's short title may differ from the report's. Keep
-titles distinct across the report, because the vet and rebuttal name findings
-by them. Each accepted graded concern, D included, gets one numbered bullet. A
-bullet without a number records work no finding asked for. A carried decision
-or trade ruling that is not a finding takes no tier or metadata.
+A record bullet that lands an audit report's finding carries that finding's number in its first
+token, `[finding:<n>]`. The round data joins bullet and finding by that number, so the bullet's
+short title may differ from the audit report's. Keep titles distinct across the audit report,
+because the vet and the rebuttal name findings by them. Each accepted graded concern, D included,
+gets one numbered bullet. A bullet without a number records work no finding asked for. A carried
+decision or trade ruling that is not a finding takes no tier or metadata.
 
 Name the abstraction the issue touches, not only its correction, so the watch
 can cluster related findings. When a round reverses or narrows a prior
@@ -150,8 +149,8 @@ the plan file owns the open label set.
 
 Tag the work the finding flags, never the correction it asks for. A finding
 about a guard added control by control therefore carries `growing-lists` even
-when its correction removes the copies. The tag survives in the report and
-matching record so a later watch can see a run.
+when its correction removes the copies. The tag survives in the audit report
+and matching record so a later watch can see a run.
 
 The bar is whether the work could match a pattern, not whether the round has
 already proved that it does. A false positive costs one token, or one priced
@@ -362,9 +361,9 @@ decision on taste; require correctness or quality evidence.
 
 ## Head drift
 
-Vet, rebuttal and fix compare each audited head in the report opening with the
-current short HEAD in that repo. Check each repo independently when the report
-judges both. When a head differs, list the files changed since the audited head
+Vet, rebuttal and fix compare each audited head in the audit report opening with the
+current short HEAD in that repo. Check each repo independently when the audit
+report judges both. When a head differs, list the files changed since the audited head
 and inspect the intervening diff for the artifact and every source a finding or
 verdict relies on.
 
@@ -379,9 +378,9 @@ tracked file, including formatters. Its verdicts inform reconciliation;
 corrections belong to the phase that completes the round. This separation keeps
 the independent check from applying its own proposals.
 
-Every vet of the round's panel checks the findings from a fresh context,
-whichever assistant wrote the report. It reads the report and its sources,
-never another vet's report, so each verdict stays independent.
+Every vetter of the round's panel checks the findings from a fresh context, whichever assistant
+wrote the audit report. It reads the audit report and its sources, never another vetter's vet
+report, so each verdict stays independent.
 
 Check the trade under [Finding explanations](#finding-explanations). The prose
 may carry the whole explanation. Verify the simpler mechanism, cost, benefit
@@ -433,104 +432,98 @@ the fix's recommendation.
 
 ## Vet verdicts
 
-Return one verdict per finding in report order. The
-[vet twin grammar](round-grammar.md#vet-twin) owns the line shape, accepted
+Return one verdict per finding in audit report order.
+The [vet report grammar](round-grammar.md#vet-report) owns the line shape, accepted
 words, numbering and wrong-phase refusal.
 
 - **Accept** keeps the finding as written. It may carry a note that the fix
   reads and the rebuttal need not answer.
-- **Revise** means the fix should land something else: the vet's correction,
+- **Revise** means the fix should land something else: the vetter's correction,
   or its change to the defect's scope, evidence or tier, changes what the fix
   lands. State the corrected tier, evidence or correction in a few short
-  sentences. When the corrected tier differs from the report, write
-  `Revise to [<tier>]` on the verdict line. A revision that keeps the report
-  tier stays plain `Revise`.
+  sentences. When the corrected tier differs from the audit report, write
+  `Revise to [<tier>]` on the verdict line. A revision that keeps the audit
+  report tier stays plain `Revise`.
 - **Drop** states why the finding does not stand.
 - **Needs user's ruling** identifies a real choice or supported decision change
-  that the vet cannot settle.
+  that the vetter cannot settle.
 
-A change that leaves the landed result the same, such as clearer wording or an
-extra source, is an Accept with a note. A Revise is the vet's claim about what
-should land, and the split rule under [Reconciliation](#reconciliation) tests
-that claim against the other vets of the panel. Wording advice written as a
-Revise would read as a disagreement about what lands.
+A change that leaves the landed result the same, such as clearer wording or an extra source, is an
+Accept with a note. A Revise is the vetter's claim about what should land, and the split rule under
+[Reconciliation](#reconciliation) tests that claim against the other vetters of the panel. Wording
+advice written as a Revise would read as a disagreement about what lands.
 
 Put head-drift notes before the first verdict. Free text explains a verdict but
-never changes its kind. Return the complete twin in the final response. The
-runner saves an unattended twin at its supplied path; a hand-run vet writes the
+never changes its kind. Return the complete vet report in the final response.
+The runner saves an unattended vet report at its supplied path; a hand-run vet writes the
 same text to its resolved path. Chat and file must not differ.
 
 ## Rebuttal grounding
 
-Read the report end to end, then every supplied vet twin. Follow
+Read the audit report end to end, then every supplied vet report. Follow
 [Head drift](#head-drift) and say where a moved file changes an answer.
 
 Carry accepts forward without fresh source reads or individual answers. For
 revisions, drops and ruling items, read the source the verdict rests on
 yourself: the named file, its covering test, the plan decision or boundary and
-the episode's commit bodies where the vet calls a departure unrecorded. Do not
-trust the report's or vet's quotation. Read `../plan/BOUNDARIES.md` and
+the episode's commit bodies where the vetter calls a departure unrecorded. Do not
+trust the audit report's or vet report's quotation. Read `../plan/BOUNDARIES.md` and
 `../plan/GROWTH-PATTERNS.md` when a verdict invokes them.
 
 ## Rebuttal answers
 
-Answer every revise, drop and ruling verdict of each vet, in report order and,
-within one finding, in the order the runner supplies the vet reports. Accepts
-need no entry. Each answer line names the vet it answers by the tag in that
-vet's report filename, so the runner reads which vet an answer serves from the
-line alone. One rebuttal answers the whole panel, so its answers to different
-vets on one finding stay consistent. The
-[rebuttal twin grammar](round-grammar.md#rebuttal-twin) owns the line shape,
-accepted words, numbering and wrong-phase refusal. The answer keeps the
-report's tier even when it agrees with a revised tier; the note names the new
-tier and the fix records it.
+Answer every revise, drop and ruling verdict of each vetter, in audit report order and, within one
+finding, in the order the runner supplies the vet reports. Accepts need no entry. Each answer line
+names the vetter it answers by the tag in that vetter's vet report filename, so the runner reads
+which vetter an answer serves from the line alone. One rebuttal answers the whole panel, so its
+answers to different vetters on one finding stay consistent. The
+[rebuttal report grammar](round-grammar.md#rebuttal-report) owns the line shape, accepted words,
+numbering and wrong-phase refusal. The answer keeps the audit report's tier even when it agrees with
+a revised tier; the note names the new tier and the fix records it.
 
 - **Agree** keeps the verdict. Agreement with a revision carries the revised
   correction in full so the fix has one text to apply. Agreement with a drop
   needs no explanation unless another note helps the fix. Agreement with two
-  vets' revisions of one finding leaves the choice between them to the fix.
-- **Contest** says what the vet misread. Quote the evidence, name its file and
+  vetters' revisions of one finding leaves the choice between them to the fix.
+- **Contest** says what the vetter misread. Quote the evidence, name its file and
   line or plan section and state what the verdict should have been. Contest
-  only on evidence the vet can read. A disagreement of taste is agreement with
+  only on evidence the vetter can read. A disagreement of taste is agreement with
   a note. Contest a referred choice when [Real choices](#real-choices) settles
   it, naming the winner and the evidence for every cost.
 - **For user's ruling** keeps a real choice or recorded-decision question open.
-  State the auditor's position and evidence briefly and never settle it here.
+  State the audit report's position and evidence briefly and never settle it here.
 
 Return the complete answers without a grouped closing list. The runner saves an
-unattended twin at its supplied path; a hand-run rebuttal writes the same text
+unattended rebuttal report at its supplied path; a hand-run rebuttal writes the same text
 to its resolved path. Chat and file must not differ.
 
 ## Reconciliation
 
-Build the outcome from every vet's numbered verdicts and the rebuttal's
+Build the outcome from every vetter's numbered verdicts and the rebuttal's
 answers, accounting for every finding. An accept stands without a rebuttal
 answer. Present agreed verdicts, decisions on contested verdicts and items for
 the user's ruling.
 
 The user rules on every serious contest and every serious split:
 
-1. A contest is the rebuttal contesting one vet's verdict. It is serious when
-   the report or a vet graded its finding A or B.
-2. Two vets of the panel split on a finding when their verdict words differ, or
-   when both revise and the rebuttal does not agree with both. Two vets that
-   both write `Needs user's ruling` do not split, because both already send
-   the finding to the user. A split is serious when the report or a vet graded
-   its finding A or B. In an implementation round it is also serious when the
-   report or a vet graded its finding C.
+1. A contest is the rebuttal contesting one vetter's verdict. It is serious when
+   the audit report or a vetter graded its finding A or B.
+2. Two vetters of the panel split on a finding when their verdict words differ, or when both revise
+   and the rebuttal does not agree with both. Two vetters that both write `Needs user's ruling` do
+   not split, because both already send the finding to the user. A split is serious when the audit
+   report or a vetter graded its finding A or B. In an implementation round it is also serious when
+   the audit report or a vetter graded its finding C.
 
-A split stops the round because the rebuttal agrees easily, so its agreement
-cannot say which vet was right, and every ruled split compares two vets
-directly. Implementation audits raise few A or B findings, so their vets could
-seldom be compared on those alone, and a split on a C finding is serious there
-too. A contest on a C finding stays with the fix, because one vet's verdict
-against the rebuttal compares no two vets. Two revisions the rebuttal agrees
-with do not stop the round: both vets and the rebuttal then hold that the
-report's correction was wrong, and only the choice of the new correction is
-left. The fix makes that choice from the evidence and gives its reason, as it
-does for any two different changes the rebuttal agrees with.
+A split stops the round because the rebuttal agrees easily, so its agreement cannot say which vetter
+was right, and every ruled split compares two vetters directly. Implementation audits raise few A or
+B findings, so their vetters could seldom be compared on those alone, and a split on a C finding is
+serious there too. A contest on a C finding stays with the fix, because one vetter's verdict against
+the rebuttal compares no two vetters. Two revisions the rebuttal agrees with do not stop the round:
+both vetters and the rebuttal then hold that the audit report's correction was wrong, and only the
+choice of the new correction is left. The fix makes that choice from the evidence and gives its
+reason, as it does for any two different changes the rebuttal agrees with.
 
-The ruling states each vet's position and the auditor's answers, with the
+The ruling states each vetter's position and the rebuttal's answers, with the
 evidence for each, before any recommendation. The fix decides every other
 contest from the evidence and gives the reason. Never re-argue an agreed
 verdict.
@@ -539,7 +532,7 @@ The runner passes the numbers of the serious findings to the fix. After
 displaying the ruling it asks the user for one answer on each:
 
 1. `report`: the audit report's finding stands as written.
-2. One or more vet tags: those vets' verdicts were right, and the fix applies
+2. One or more vetter tags: those vetters' verdicts were right, and the fix applies
    them.
 3. `neither`: no side was right, such as when a third correction holds.
 4. `not yet`: the user first wants an answer from the fix.
@@ -552,10 +545,10 @@ recorded winner and reason with the free reply. The free reply may be empty
 once every serious finding has a winner.
 
 When every verdict is Accept and no rebuttal exists, present the findings as
-agreed by the auditor and every vet. When a vet has a revision, drop or ruling
+agreed by the auditor and every vetter. When a vetter has a revision, drop or ruling
 item and no rebuttal exists, the fix answers those items from current evidence.
-Carry accepts without answering them. Without a twin, present the report
-findings in number order with any current-source drift correction.
+Carry accepts without answering them. Without a vet report, present the
+audit report's findings in number order with any current-source drift correction.
 
 The user rules by exception: a go on the presented outcome accepts it, and a
 reservation reopens the named item. Ground a reopened item before answering it.
@@ -568,7 +561,7 @@ plan reason, carry the correction and reason as a cross-repo finding so it is
 applied or deferred without re-derivation. When the user keeps the machinery,
 the record carries the ruling and reason.
 
-A cross-repo finding left open by the report goes to the user here. Carry the
+A cross-repo finding left open by the audit report goes to the user here. Carry the
 answer and reason in the deferral, or keep the choice open when the user does
 not rule. Never choose for them.
 
@@ -583,12 +576,12 @@ implementation uses its fix invocation's grant. Stop for a ruling only on:
 - a verdict without a rebuttal that the fix cannot settle from evidence
 
 When nothing is open, state one outcome per finding and apply it. An undirected
-cross-repo choice outside the judged set does not block the fix. Keep it open in
+cross-repo choice outside the judged repo set does not block the fix. Keep it open in
 the deferral and apply the settled findings.
 
 ## Audit reports
 
-The [round grammar](round-grammar.md#audit-report) owns report openings,
+The [round grammar](round-grammar.md#audit-report) owns audit report openings,
 target lines, judged-repo lines, finding fields, location admission, numbering
 and empty sentences. The workflow owns the evidence placed before those fields,
 such as coverage and current-shape advice.
@@ -599,7 +592,7 @@ reading what to add. Each empty field is a checked verdict, never an omission.
 Implementation reports keep local and cross-repo findings in one field because
 the judged repo set and location table already identify their owners.
 
-A report contains only the parts its workflow and grammar require. A planned
+An audit report contains only the parts its workflow and grammar require. A planned
 edit no finding asks for joins the opening so the vet can check it. Material for
 the next round goes in the handoff. A finding dropped under the route's own
 rules stays out of both.
@@ -607,12 +600,12 @@ rules stays out of both.
 The coverage table says what an implementation round inspected and an empty
 finding field says those checks passed. Do not also list passed checks, files
 read or verified claims. Evidence appears only inside the finding it supports.
-Chat carries nothing about the judged work that the report or handoff does not.
+Chat carries nothing about the judged work that the audit report or handoff does not.
 Setup and tooling problems are not about the judged work and stay in chat.
 
-An unattended audit returns the complete report under
+An unattended audit returns the complete audit report under
 [Runner result](#runner-result); the runner saves it at its supplied path. A
-hand-run audit presents the report and writes identical text to the resolved
+hand-run audit presents the audit report and writes identical text to the resolved
 path. The
 [runner documentation](../../tools/audit-round/CLAUDE.md#phase-routing) owns
 path resolution and argument order. With no findings, follow
@@ -624,10 +617,10 @@ An audit with no findings completes without vet, rebuttal, fix, glance or
 watch. An automatic series still applies its fixed decision rules. This route avoids a fresh
 fix session whose only work would be an empty record.
 
-For an unattended plan target, return the complete report under
+For an unattended plan target, return the complete audit report under
 [Runner result](#runner-result). The runner retains it and lands the clean
-record. For a hand-run plan target, write and present the report and land the
-clean record immediately. Every route keeps the report, because a round's files
+record. For a hand-run plan target, write and present the audit report and land the
+clean record immediately. Every route keeps the audit report, because a round's files
 stay in the evidence repo until the close moves them. A commit target lands no
 clean record.
 
@@ -690,7 +683,7 @@ before it; no other fix returns one.
 - `failed` means required work remains incomplete. Give a short non-empty
   reason.
 
-Each phase judges its own outcome. A clean audit finishes. A vet that accepts
+Each phase judges its own outcome. A clean audit finishes. A vetter that accepts
 every finding finishes and needs no rebuttal. A permission refusal, missing
 input, failed required write or unmet workflow gate means failed even when the
 assistant can end its turn normally. A successful permitted retry counts as

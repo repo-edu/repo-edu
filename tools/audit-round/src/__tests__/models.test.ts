@@ -997,7 +997,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
     [
       "### audit-alpha low",
       "",
-      "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
+      "| # | Date | Plan and round | Finding | Tier | Vetters | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- |",
       "| 1 | 2026-11-03 | evidence; no retained round data holds this finding | — | — | — | It predates the data! |",
       "| 2 | 2026-11-02 | evidence; audit-alpha-plan-audit round 1 | #2 audit-alpha claim 2 | B | vet-model low: accept | The vet accepted a stale reading |",
@@ -1009,7 +1009,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
       "",
       "### audit-beta low",
       "",
-      "| # | Date | Plan and round | Finding | Tier | Vet | Reason |",
+      "| # | Date | Plan and round | Finding | Tier | Vetters | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- |",
       "| 4 | 2026-11-04 | evidence; audit-beta-plan-audit round 1 | #2 audit-beta claim 2 | B | vet-model low: accept | Version 1.2 \\| the guard? |",
       "",
@@ -1017,7 +1017,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
       "",
       "### Vet verdicts",
       "",
-      "| # | Date | Auditor | Plan and round | Finding | Tier | Vet | Reason |",
+      "| # | Date | Auditor | Plan and round | Finding | Tier | Vetters | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
       "| 5 | 2026-11-06 | audit-alpha low | evidence; audit-alpha-plan-audit round 1 | #3 audit-alpha claim 3 | B | vet-model low: drop | The dropped alpha finding was right. |",
       "| 6 | 2026-11-05 | audit-beta low | evidence; audit-beta-plan-audit round 1 | #1 audit-beta claim 1 | B | vet-model low: drop | The dropped beta finding was right. |",
@@ -1079,7 +1079,7 @@ test("a read-out with only vet rulings prints only the combined vet table", asyn
     [
       "### Vet verdicts",
       "",
-      "| # | Date | Auditor | Plan and round | Finding | Tier | Vet | Reason |",
+      "| # | Date | Auditor | Plan and round | Finding | Tier | Vetters | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
       "| 1 | 2026-11-01 | audit-alpha low | evidence; audit-alpha-plan-audit round 1 | #1 dropped claim | B | vet-model low: drop | The dropped finding was right. |",
       "",
@@ -1146,7 +1146,7 @@ test("a disproved row names every vet of the round with its verdict", async (t) 
 
 type Review = RoundFinding["reviews"][number]
 
-/** A vet's review, with the rebuttal's agreement on any verdict it answers. */
+/** A vetter's review, with the rebuttal's agreement on any verdict it answers. */
 const review = (
   vet: string,
   verdict: Review["verdict"],
@@ -1331,30 +1331,30 @@ test("vet-pair tables count each class's shared findings per tier range, ruled s
 
   const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
-    report.split("## Planning vet pairs\n\n")[1].split("\n\nA vet is")[0],
+    report.split("## Planning vetter pairs\n\n")[1].split("\n\nA vetter is")[0],
     [
-      "| Vet 1 | Vet 2 | Shared A/B findings | Ruled splits | Split: vet 1 right | Split: vet 2 right | Split: both right | Split: neither right |",
+      "| Vetter 1 | Vetter 2 | Shared A/B findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |",
       "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
       "| vet-alpha low | vet-beta low | 9 | 6 | 4 | 1 | 0 | 1 |",
       "| vet-alpha low | vet-gamma medium | 9 | 5 | 4 | 0 | 1 | 0 |",
       "| vet-beta low | vet-gamma medium | 9 | 5 | 2 | 1 | 0 | 2 |",
       "",
-      "## Implementation vet pairs, A/B findings",
+      "## Implementation vetter pairs, A/B findings",
       "",
-      "| Vet 1 | Vet 2 | Shared A/B findings | Ruled splits | Split: vet 1 right | Split: vet 2 right | Split: both right | Split: neither right |",
+      "| Vetter 1 | Vetter 2 | Shared A/B findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |",
       "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
       "| vet-alpha low | vet-beta low | 1 | 1 | 0 | 1 | 0 | 0 |",
       "",
-      "## Implementation vet pairs, A/B/C findings",
+      "## Implementation vetter pairs, A/B/C findings",
       "",
-      "| Vet 1 | Vet 2 | Shared A/B/C findings | Ruled splits | Split: vet 1 right | Split: vet 2 right | Split: both right | Split: neither right |",
+      "| Vetter 1 | Vetter 2 | Shared A/B/C findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |",
       "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
       "| vet-alpha low | vet-beta low | 4 | 2 | 1 | 1 | 0 | 0 |",
     ].join("\n"),
   )
 })
 
-test("a read-out without a panel of two vets prints no vet pairs", async (t) => {
+test("a read-out without a panel of two vetters prints no vetter pairs", async (t) => {
   const f = await modelFixture(t)
   writeRoundData(join(f.roundRoot, "lone-plan-rounds.json"), {
     ...round(
@@ -1378,7 +1378,7 @@ test("a read-out without a panel of two vets prints no vet pairs", async (t) => 
   const report = await modelsReport(f.runtime, testSettings)
   assert.match(
     report,
-    /## Planning vet pairs\n\nNo two planning vets have judged the same A or B finding\.\n\n## Implementation vet pairs, A\/B findings\n\nNo two implementation vets have judged the same A or B finding\.\n\n## Implementation vet pairs, A\/B\/C findings\n\nNo two implementation vets have judged the same A, B or C finding\.\n/,
+    /## Planning vetter pairs\n\nNo two planning vetters have judged the same A or B finding\.\n\n## Implementation vetter pairs, A\/B findings\n\nNo two implementation vetters have judged the same A or B finding\.\n\n## Implementation vetter pairs, A\/B\/C findings\n\nNo two implementation vetters have judged the same A, B or C finding\.\n/,
   )
 })
 
@@ -1488,7 +1488,7 @@ test("ruled findings list a ruled split, a ruled contest and a rewritten single-
       .split("## Ruled findings\n\n")[1]
       .split("\n\n## Disproved after the round")[0],
     [
-      "| # | Plan and round | Finding | Tier | Auditor | Vets | Answer | Reason |",
+      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Answer | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
       "| 1 | ruled; ruled-plan-audit round 2 | #1 ruled split | A | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | report | The finding stood as written. |",
       "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-alpha low: revise; vet-beta low: drop | vet-alpha low; vet-beta low | Both corrections hold. |",

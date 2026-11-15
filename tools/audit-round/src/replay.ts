@@ -153,9 +153,9 @@ function historicalEvidence(
 }
 
 /**
- * An answer without a stored pool ran when its rules counted reads per
+ * An answer without a stored auditor list ran when its rules counted reads per
  * assistant and its auditors rotated across models, so each round reads as its
- * assistant's legacy pool entry.
+ * assistant's legacy listed auditor.
  */
 function legacyReads(evidence: SeriesEvidence): SeriesEvidence {
   return {
