@@ -978,7 +978,6 @@ export async function runRound(
           fixerSide: selectedFixerSide(phases, panel, releases),
           contests: open,
           panel: panel.map((vet) => vet.tag),
-          judgedRepos: account.judgedRepos,
         })
         if (ruling === null)
           return {

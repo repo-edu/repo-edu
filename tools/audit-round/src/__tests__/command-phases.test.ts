@@ -260,10 +260,6 @@ for (const auditor of ["claude", "codex"] as const) {
             visible,
             /Answer it in the Claude desktop app with: \/ruling example/,
           )
-          // The app opens where the judged work lives.
-          assert.deepEqual(await f.desktop(), [
-            owner === "plan" ? f.planRoot : f.repoRoot,
-          ])
           assert.ok(
             log.includes(
               `Ruling output path (JSON string): ${JSON.stringify(f.ruling)}`,

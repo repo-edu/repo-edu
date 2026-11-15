@@ -121,8 +121,6 @@ export type ImplementationDependencies = {
   /** Waits for the user's reply to the worker's ruling; null when the wait ends unanswered. */
   readonly requestRuling: (request: {
     readonly document: string
-    /** The step's hosting repos, which choose the folder the desktop app opens on. */
-    readonly repositories: readonly Repository[]
   }) => Promise<string | null>
   readonly markImplemented: (repository: Repository) => Promise<MarkerCommit>
   readonly message: (text: string) => Promise<void>
@@ -269,7 +267,6 @@ export async function runImplementation(
         }
         const reply = await dependencies.requestRuling({
           document: opened.rulingFile,
-          repositories: step.repositories,
         })
         if (reply === null)
           return {

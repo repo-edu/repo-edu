@@ -555,7 +555,6 @@ for (const scenario of [
         fixerSide: scenario.side,
         contests: [1],
         panel: [vetTag],
-        judgedRepos: ["repo-edu"],
       },
     ])
   })
@@ -646,7 +645,6 @@ test("a panel of both assistants vets side by side, and every vet report reaches
       fixerSide: { vet: "obh" },
       contests: [1],
       panel: ["abh", "obh"],
-      judgedRepos: ["repo-edu"],
     },
   ])
 })

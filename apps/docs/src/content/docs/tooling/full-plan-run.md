@@ -100,10 +100,11 @@ command. Each recovery ends with running `pnpm audit-round <stem>` again unless 
 continues the run itself.
 
 1. **A ruling needs your answer.** A fix or an implementation worker writes its question. The
-   terminal prints a notice and the run opens the Claude desktop app, where you answer with
-   `/ruling <stem>`. Once the chat sends your answer, the same session resumes and the run
-   continues. Ctrl-C in the terminal leaves the question unanswered, ends the run and prints the
-   session's recovery command. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+   terminal prints a notice and, on macOS, a dialog window that stays until you click OK. You answer
+   in the Claude desktop app with `/ruling <stem>`. Once the chat sends your answer, the same
+   session resumes and the run continues. Ctrl-C in the terminal leaves the question unanswered,
+   ends the run and prints the session's recovery command. See
+   [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase or worker failed.** Fix any outside problem the failure names, then run the printed
    `Resume:` command or the printed `--resume` form of this command. See
    [Recover a run](/repo-edu/tooling/recover-run/).

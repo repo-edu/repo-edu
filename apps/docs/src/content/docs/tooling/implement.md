@@ -42,9 +42,9 @@ Once every share a repo hosts has landed, the runner writes that repo's current 
 marker, carrying the coder's model record and capability tag.
 
 A worker that needs a product decision writes a ruling, and the runner waits for your reply. It
-prints a notice and opens the Claude desktop app on Repo Edu when the step changes Repo Edu files
-and on the plan checkout otherwise. You answer there with `/ruling <stem>`. Your reply resumes the
-same worker session. Time spent waiting is not counted as implementation time.
+prints a notice and, on macOS, shows a dialog window that stays until you click OK. You answer in
+the Claude desktop app with `/ruling <stem>`. Your reply resumes the same worker session. Time spent
+waiting is not counted as implementation time.
 
 `--resume` takes only the value the runner printed after a failure. The resumed session first reads
 Git and the worktrees, because the failed turn may have left uncommitted work or landed a share. The

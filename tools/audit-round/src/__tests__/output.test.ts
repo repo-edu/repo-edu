@@ -104,7 +104,6 @@ for (const [side, line] of [
       target: "example",
       title: output.title,
       ruling: "/active/RULING.md",
-      folder: "/repo-edu",
       fixerSide: side,
       findings: [1, 3],
       panel: ["abh", "oth"],

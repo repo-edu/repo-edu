@@ -9,7 +9,6 @@ import {
 import { join } from "node:path"
 import { execa } from "execa"
 import { z } from "zod"
-import { type CliRuntime, cliCommand } from "./cli-process.js"
 import {
   capabilityTag,
   type RulingWinner,
@@ -30,8 +29,6 @@ export const waitingRulingSchema = z.strictObject({
   /** The round or step, as the run's own title names it. */
   title: z.string().min(1),
   ruling: z.string().min(1),
-  /** The checkout the desktop app opens on. */
-  folder: z.string().min(1),
   /**
    * Whose model runs the fix: the auditor's, one panel vetter's named by its tag,
    * or neither side's; null for an implementation worker.
@@ -435,30 +432,43 @@ export async function sendRulingAnswer(
 }
 
 /**
- * Open the Claude desktop app on the folder of the work. The app takes no
- * prompt, so the user types `/ruling` there. The start gets the run's own
- * input and output, because the CLI refuses the option when either one is
- * redirected. It starts no assistant turn: it prints one line and exits. A
- * failed start, as on Linux where the option does not exist, is reported and
- * the wait goes on, because the notice already holds everything the user
- * needs.
+ * Shows a ruling's message in a window that stays until the user closes it or
+ * the signal ends the wait. It resolves once the window is gone, with null, or
+ * with the reason it could not show.
  */
-export async function openDesktop(
-  folder: string,
-  runtime: CliRuntime,
-  failed: (reason: string) => void,
-): Promise<void> {
-  const invocation = cliCommand(runtime, "claude", ["--desktop"])
-  const result = await execa(invocation.file, invocation.args, {
-    cwd: folder,
-    env: runtime.env,
-    stdin: "inherit",
-    stdout: "inherit",
-    reject: false,
-    cancelSignal: runtime.signal,
-  })
-  if (!result.failed || result.isCanceled) return
-  const stderr = String(result.stderr ?? "").trim()
+export type RulingDialog = (
+  message: string,
+  signal: AbortSignal,
+) => Promise<string | null>
+
+/** The dialog's message: the round or step, then the line to type. */
+export function rulingDialogText(ruling: WaitingRuling): string {
+  return `${ruling.title}\n\nIn the Claude desktop app, type:\n/ruling ${ruling.target}`
+}
+
+/**
+ * The macOS ruling dialog. `display dialog` draws a wider window than
+ * `display alert`, so a file path in the title breaks across fewer lines. The
+ * message and title travel as script arguments, so no text needs AppleScript
+ * quoting.
+ */
+export const macRulingDialog: RulingDialog = async (message, signal) => {
+  const result = await execa(
+    "osascript",
+    [
+      "-e",
+      "on run argv",
+      "-e",
+      'display dialog (item 1 of argv) with title (item 2 of argv) with icon caution buttons {"OK"} default button "OK"',
+      "-e",
+      "end run",
+      message,
+      "Audit round needs your ruling",
+    ],
+    { reject: false, cancelSignal: signal },
+  )
+  if (!result.failed || result.isCanceled) return null
+  const stderr = result.stderr.trim()
   const reason = stderr.length > 0 ? stderr : String(result.shortMessage)
-  failed(reason.split("\n", 1)[0] ?? reason)
+  return reason.split("\n", 1)[0] ?? reason
 }

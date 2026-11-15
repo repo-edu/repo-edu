@@ -1,4 +1,3 @@
-import { fstatSync } from "node:fs"
 import {
   mkdir,
   mkdtemp,
@@ -330,19 +329,6 @@ export async function fixture(
       }
     },
   }
-  const desktopStarts = async (): Promise<
-    readonly { readonly cwd: string; readonly streams: readonly string[] }[]
-  > => {
-    try {
-      return (await readFile(join(root, "desktop.jsonl"), "utf8"))
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line))
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
-      throw error
-    }
-  }
   return {
     releaseLookup,
     root,
@@ -364,23 +350,5 @@ export async function fixture(
         .trim()
         .split("\n")
         .map((line) => JSON.parse(line)),
-    /** The folder each `claude --desktop` start opened, in order. */
-    desktop: async (): Promise<readonly string[]> =>
-      (await desktopStarts()).map(({ cwd }) => cwd),
-    /** The input and output each `claude --desktop` start had, in order. */
-    desktopStreams: async (): Promise<readonly (readonly string[])[]> =>
-      (await desktopStarts()).map(({ streams }) => streams),
   }
-}
-
-/**
- * Name the open files behind this process's input and output, as the process
- * fixture names its own. A child that got these streams reports the same
- * names; one given a replacement does not.
- */
-export function ownStreams(): readonly string[] {
-  return [0, 1].map((descriptor) => {
-    const { dev, ino, rdev } = fstatSync(descriptor, { bigint: true })
-    return `${dev}:${ino}:${rdev}`
-  })
 }

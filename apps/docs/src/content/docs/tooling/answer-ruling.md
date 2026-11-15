@@ -31,11 +31,10 @@ verdicts, on an A-tier or B-tier finding.
 
 The terminal prints a notice in place of the ruling's text. It names the round or step, the ruling
 file, the findings that need a winner, the winner words with the round's vetter tags, whose model
-runs the fix and the line `/ruling <stem>`. The run then opens the Claude desktop app on the Repo
-Edu folder when the work touches Repo Edu files, and on the plan folder otherwise. The app starts a
-new chat and asks "Trust this workspace?" each time. On Linux the app does not open; the notice says
-so, and you open a chat yourself. The same holds when the run's input or output is redirected, for
-example into a file, because the app opens only from a terminal.
+runs the fix and the line `/ruling <stem>`. On macOS the run also shows a dialog window with the
+round and that line. The window stays until you click OK, and it closes by itself once the wait
+ends. Open a chat in the Claude desktop app on the Repo Edu or plan folder and type the line there.
+On Linux no window shows; the notice alone asks for your ruling.
 
 ## What it shows you
 

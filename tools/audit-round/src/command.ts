@@ -130,8 +130,9 @@ import {
 import {
   answerFormText,
   listenForRuling,
-  openDesktop,
+  type RulingDialog,
   type RulingInput,
+  rulingDialogText,
   sendRulingAnswer,
   type WaitingRuling,
   waitingRulingText,
@@ -141,7 +142,6 @@ import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-import type { Repository } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
@@ -1363,6 +1363,8 @@ export async function runCommand(
     readonly awaitAnswer?: (
       ruling: WaitingRuling,
     ) => Promise<RulingInput | null>
+    /** Shows each ruling wait in a window that needs a click; none where the platform has none. */
+    readonly dialog?: RulingDialog
     /** Supplies a random default's opener index below the count in deterministic tests. */
     readonly coin?: (count: number) => number
     /** Shows the model read-out in the full-screen view before it is printed. */
@@ -1651,29 +1653,21 @@ export async function runCommand(
     }
     /**
      * Wait for the chat's answer to one ruling. The run listens before it
-     * prints the notice and opens the desktop app, so the chat finds it as
-     * soon as the app opens. The app opens on Repo Edu when the work touches
-     * Repo Edu files and on the plan checkout otherwise.
+     * prints the notice and shows the dialog, so the chat finds it as soon as
+     * the user acts on either. The dialog lives as long as the wait: ending
+     * the wait closes it, so no stale dialog outlives its ruling.
      */
     const awaitRuling = async (
       active: RoundOutput,
       request: Pick<
         WaitingRuling,
         "ruling" | "fixerSide" | "findings" | "panel"
-      > & {
-        readonly repositories: readonly Repository[]
-      },
+      >,
     ): Promise<RulingInput | null> => {
       const ruling: WaitingRuling = {
         target: active.target,
         title: active.title,
-        ruling: request.ruling,
-        folder: request.repositories.includes("repo-edu")
-          ? context.repoEduRoot
-          : context.planRoot,
-        fixerSide: request.fixerSide,
-        findings: request.findings,
-        panel: request.panel,
+        ...request,
       }
       const seam = options.awaitAnswer
       const answered: () => Promise<RulingInput | null> =
@@ -1694,13 +1688,18 @@ export async function runCommand(
         await active.message(evidenceFailureText(evidence))
       let answer: RulingInput | null = null
       active.beginRuling(ruling)
+      const dialog = new AbortController()
+      const shown = options
+        .dialog?.(rulingDialogText(ruling), dialog.signal)
+        .then((failure) => {
+          if (failure !== null) active.dialogFailed(failure)
+        })
       try {
-        await openDesktop(ruling.folder, runtime, (reason) =>
-          active.desktopFailed(reason),
-        )
         answer = await answered()
         return answer
       } finally {
+        dialog.abort()
+        await shown
         active.endRuling(answer?.reply ?? null)
       }
     }
@@ -1798,7 +1797,6 @@ export async function runCommand(
             fixerSide: request.fixerSide,
             findings: request.contests,
             panel: request.panel,
-            repositories: request.judgedRepos,
           }),
         // The glance decides in the runner; its sentence opens the watch's section
         // of the log and terminal, whether or not a watch follows.
@@ -2036,7 +2034,6 @@ export async function runCommand(
               fixerSide: null,
               findings: [],
               panel: [],
-              repositories: request.repositories,
             })
             return answer?.reply ?? null
           },

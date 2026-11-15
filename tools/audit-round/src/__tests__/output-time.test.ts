@@ -29,7 +29,6 @@ const waiting = {
   target: "example",
   title: "Implementation audit of example.md, step 1 (round 1)",
   ruling: "RULING.md",
-  folder: "/repo",
   fixerSide: null,
   findings: [],
   panel: [],

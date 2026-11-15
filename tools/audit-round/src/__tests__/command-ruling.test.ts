@@ -3,10 +3,10 @@ import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { setTimeout as delay } from "node:timers/promises"
+import type { RulingDialog } from "../ruling-wait.js"
 import { runCommand } from "./configured-runner.js"
 import {
   shortCacheRoot as cacheRoot,
-  ownStreams,
   phaseStream,
   recorded,
   socketRequirement,
@@ -14,6 +14,29 @@ import {
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
 type Fixture = Awaited<ReturnType<typeof roundFixture>>
+
+/**
+ * Record each dialog the run shows. Like the real one, it stays until the
+ * wait's end aborts its signal, and only then does its record say it closed.
+ */
+function dialogRecorder(): {
+  readonly dialog: RulingDialog
+  readonly shown: readonly { readonly message: string; closed: boolean }[]
+} {
+  const shown: { message: string; closed: boolean }[] = []
+  return {
+    shown,
+    dialog: async (message, signal) => {
+      const entry = { message, closed: false }
+      shown.push(entry)
+      await new Promise((resolve) =>
+        signal.addEventListener("abort", resolve, { once: true }),
+      )
+      entry.closed = true
+      return null
+    },
+  }
+}
 
 /** Run one hidden chat command against the fixture and capture what it prints. */
 async function chat(
@@ -111,10 +134,16 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
   // A failed assertion must not leave the run listening, or the test never ends.
   const interruption = new AbortController()
   t.after(() => interruption.abort(new Error("Interrupted")))
+  const recorder = dialogRecorder()
   const run = runCommand(
     ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
     { ...f.runtime, signal: interruption.signal },
-    { ...f.options, cacheRoot: cache, awaitAnswer: undefined },
+    {
+      ...f.options,
+      cacheRoot: cache,
+      awaitAnswer: undefined,
+      dialog: recorder.dialog,
+    },
   )
   const asked = await untilWaiting(f, cache, run)
   assert.match(
@@ -150,7 +179,13 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
     /Answer it in the Claude desktop app with: \/ruling example/,
   )
   assert.match(visible, /Applied the ruling/)
-  assert.deepEqual(await f.desktop(), [f.repoRoot])
+  // The dialog names the round and the line to type, and the answer closed it.
+  assert.equal(recorder.shown.length, 1)
+  assert.match(
+    recorder.shown[0].message,
+    /^Implementation audit of .+\/example\.md, step 1 \(round 1\)\n\nIn the Claude desktop app, type:\n\/ruling example$/,
+  )
+  assert.equal(recorder.shown[0].closed, true)
   const { markdown } = await f.records()
   assert.ok(markdown.includes("## User ruling\n\nChoose option 1."))
   assert.equal((await chat(f, cache, ["ruling"])).code, 1)
@@ -181,10 +216,16 @@ test("Ctrl-C during the wait ends the round as an unanswered ruling", {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const cache = await cacheRoot(t)
   const interruption = new AbortController()
+  const recorder = dialogRecorder()
   const run = runCommand(
     ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
     { ...f.runtime, signal: interruption.signal },
-    { ...f.options, cacheRoot: cache, awaitAnswer: undefined },
+    {
+      ...f.options,
+      cacheRoot: cache,
+      awaitAnswer: undefined,
+      dialog: recorder.dialog,
+    },
   )
   await untilWaiting(f, cache, run)
   interruption.abort(new Error("Interrupted"))
@@ -196,36 +237,22 @@ test("Ctrl-C during the wait ends the round as an unanswered ruling", {
   )
   assert.match(visible, /Resume: /)
   assert.equal((await chat(f, cache, ["ruling"])).code, 1)
-})
-
-// Windows reports a pipe's process-local handle as its file identity, so a
-// child that inherited the run's streams still names other ones.
-test("the app start gets the run's own input and output", {
-  skip:
-    process.platform === "win32"
-      ? "Windows gives a pipe no identity a child shares"
-      : false,
-}, async (t) => {
-  const f = await roundFixture(t, "codex", "repo-edu", true)
-  const code = await runCommand(
-    ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
-    f.runtime,
-    { ...f.options, awaitAnswer: async () => null },
+  // Ending the wait closed the dialog, so no stale one stays on screen.
+  assert.deepEqual(
+    recorder.shown.map(({ closed }) => closed),
+    [true],
   )
-  assert.equal(code, 0, f.errors.join("\n"))
-  // The real CLI refuses `--desktop` when either one is redirected.
-  assert.deepEqual(await f.desktopStreams(), [ownStreams()])
 })
 
-test("a failed app start is reported and the run keeps waiting", async (t) => {
+test("a dialog that cannot show is reported and the run keeps waiting", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
-  await f.configure({ phases: f.phases, desktopExit: 9 })
   let asked = 0
   const code = await runCommand(
     ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
     f.runtime,
     {
       ...f.options,
+      dialog: async () => "no window server",
       awaitAnswer: async () => {
         asked += 1
         return null
@@ -236,79 +263,70 @@ test("a failed app start is reported and the run keeps waiting", async (t) => {
   assert.equal(asked, 1)
   assert.match(
     f.visible.join("\n"),
-    /The Claude desktop app did not open: error: unknown option '--desktop'/,
+    /The ruling dialog did not show: no window server/,
   )
 })
 
-for (const [host, repository] of [
-  ["Repo Edu", "repo-edu"],
-  ["the plan repo", "plan"],
-] as const) {
-  test(`an implementation ruling on a step hosted in ${host} opens that folder`, async (t) => {
-    const f = await roundFixture(
-      t,
+test("an implementation ruling waits with no finding and no panel", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    false,
+    false,
+    false,
+  )
+  await writeFile(
+    join(f.activeRoot, "example.md"),
+    `# Example plan\n\n## Implementation plan\n\n1. **Fixture step.** Hosted in Repo Edu.\n\n### Execution and audits\n\nAudit ranges: 1.\n`,
+  )
+  await commitFixture(
+    f.planRoot,
+    "example/ready: assign the coder\n\nCoder: codex gpt-5.6-sol xhigh",
+  )
+  f.phases.implement = {
+    document: { text: "Which parser should the step use?" },
+    stream: await phaseStream(
       "codex",
-      "repo-edu",
-      false,
-      null,
-      false,
-      "repo-edu",
-      false,
-      false,
-      false,
-    )
-    await writeFile(
-      join(f.activeRoot, "example.md"),
-      `# Example plan\n\n## Implementation plan\n\n1. **Fixture step.** Hosted in ${host}.\n\n### Execution and audits\n\nAudit ranges: 1.\n`,
-    )
-    await commitFixture(
-      f.planRoot,
-      "example/ready: assign the coder\n\nCoder: codex gpt-5.6-sol xhigh",
-    )
-    f.phases.implement = {
-      document: { text: "Which parser should the step use?" },
-      stream: await phaseStream(
-        "codex",
-        'A ruling is needed.\nPHASE RESULT: {"status":"needs-ruling","reason":null}',
-        "implementation-session",
-      ),
-      usage: {
-        path: `${f.root}/rollout-implementation-session.jsonl`,
-        text: await recorded("codex-rollout.jsonl"),
-      },
-    }
-    await f.configure({ phases: f.phases })
-    const rulings: unknown[] = []
-    await runCommand(["implement", "example"], f.runtime, {
-      ...f.options,
-      awaitAnswer: async (ruling) => {
-        rulings.push(ruling)
-        return null
-      },
-    })
-    assert.deepEqual(await f.desktop(), [
-      repository === "plan" ? f.planRoot : f.repoRoot,
-    ])
-    assert.equal(rulings.length, 1)
-    assert.deepEqual(
-      {
-        ...(rulings[0] as Record<string, unknown>),
-        ruling: undefined,
-        title: undefined,
-      },
-      {
-        target: "example",
-        title: undefined,
-        ruling: undefined,
-        folder: repository === "plan" ? f.planRoot : f.repoRoot,
-        fixerSide: null,
-        findings: [],
-        panel: [],
-      },
-    )
-    assert.match(
-      f.visible.join("\n"),
-      /Your ruling is needed: Implementation of example\.md, step 1/,
-    )
+      'A ruling is needed.\nPHASE RESULT: {"status":"needs-ruling","reason":null}',
+      "implementation-session",
+    ),
+    usage: {
+      path: `${f.root}/rollout-implementation-session.jsonl`,
+      text: await recorded("codex-rollout.jsonl"),
+    },
+  }
+  await f.configure({ phases: f.phases })
+  const rulings: unknown[] = []
+  await runCommand(["implement", "example"], f.runtime, {
+    ...f.options,
+    awaitAnswer: async (ruling) => {
+      rulings.push(ruling)
+      return null
+    },
   })
-}
+  assert.equal(rulings.length, 1)
+  assert.deepEqual(
+    {
+      ...(rulings[0] as Record<string, unknown>),
+      ruling: undefined,
+      title: undefined,
+    },
+    {
+      target: "example",
+      title: undefined,
+      ruling: undefined,
+      fixerSide: null,
+      findings: [],
+      panel: [],
+    },
+  )
+  assert.match(
+    f.visible.join("\n"),
+    /Your ruling is needed: Implementation of example\.md, step 1/,
+  )
+})

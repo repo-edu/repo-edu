@@ -13,7 +13,8 @@ user's decision and sends it to the waiting run.
 [Writing a ruling](ruling.md) owns what a ruling holds. This file owns how it is
 answered. The two are halves of one contract and change together. The launcher
 lives in the plan checkout at `home/claude/commands/ruling.md`. It has no Codex
-counterpart, because the waiting run opens only the Claude desktop app.
+counterpart, because the waiting run's notice and dialog name only the Claude
+desktop app.
 
 The chat writes only its answer file. It never edits the ruling, the round's
 files, the plan or the code.

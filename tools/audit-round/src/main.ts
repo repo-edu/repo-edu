@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process"
 import { runCommand } from "./command.js"
 import { createPager } from "./pager.js"
+import { macRulingDialog } from "./ruling-wait.js"
 import { createTerminal } from "./terminal.js"
 
 // An unattended run must outlive the display's sleep on battery too, and
@@ -27,6 +28,8 @@ try {
     {
       terminal: createTerminal(),
       pager: createPager(),
+      // Linux shows no dialog; the printed notice alone asks for the ruling.
+      dialog: process.platform === "darwin" ? macRulingDialog : undefined,
       emergency: (text) => process.stderr.write(`${text}\n`),
     },
   )

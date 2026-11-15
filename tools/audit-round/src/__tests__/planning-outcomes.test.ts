@@ -193,8 +193,6 @@ for (const auditor of ["codex", "claude"] as const) {
       false,
     )
     assert.equal(f.visible.includes("Written ruling by fix"), false)
-    // A planning round opens the desktop app on the plan checkout.
-    assert.deepEqual(await f.desktop(), [f.planRoot])
     assert.equal(session.auditor, recordedTag(auditor))
   })
 }

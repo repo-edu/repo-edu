@@ -54,7 +54,7 @@ plan repo or both, as the audit report's judged repos and finding locations allo
 3. **A reservation on one item.** The fix reads the evidence for that item again and answers before
    applying anything.
 4. **A reply to an open choice.** In a hand-run chat, reply directly. In an automatic run, answer
-   in the Claude desktop app with `/ruling <stem>`, as the runner's notice says; see
+   in the Claude desktop app with `/ruling <stem>`, as the runner's notice and dialog say; see
    [Answer a ruling](/repo-edu/tooling/answer-ruling/). You may ask a question first. A choice that
    stays open produces a revised ruling.
 

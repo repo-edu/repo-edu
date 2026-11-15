@@ -357,11 +357,15 @@ consumers.
   answers accepted or refused with every missing part named, and a refusal keeps it waiting. The
   hidden `ruling` and `answer` commands are only carriers: they find the waiting runs through the
   folder, count a socket that refuses the connection as no run and take the one run that waits when
-  no target is named. The module also starts `claude --desktop` in the folder of the work, as the
-  runtime configures the Claude executable. That start gets the run's own input and output, because
-  the CLI refuses the option when either one is redirected; it starts no assistant turn. A failed
-  start prints one line and the wait goes on. The runner's signal ends the wait unanswered. The
-  assistant never inherits the terminal, and reply recording completes before the fix can resume.
+  no target is named. The module also holds the ruling dialog: a window that names the round and the
+  `/ruling <target>` line, with one OK button. A window that needs a click is hard to miss, while a
+  notice in a busy terminal is easy to miss. On macOS it is AppleScript's `display dialog`, because
+  `display alert` draws a narrow window that breaks a file path across several lines. `main.ts`
+  supplies the dialog on macOS only; Linux shows none, and the notice alone asks for the ruling.
+  The run does not wait for the click. The dialog lives as long as the wait: ending the wait closes
+  it, so no stale window outlives its ruling. A dialog that cannot show prints one line and the wait
+  goes on. The runner's signal ends the wait unanswered. The assistant never inherits the terminal,
+  and reply recording completes before the fix can resume.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
   resolve the same way. The watch workflow and shared

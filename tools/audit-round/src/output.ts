@@ -972,9 +972,9 @@ export class RoundOutput<R extends Run = Run> {
     this.clock.active()
   }
 
-  /** Say that the desktop app did not open; the notice already holds what the user needs. */
-  desktopFailed(reason: string): void {
-    this.say(`The Claude desktop app did not open: ${reason}`)
+  /** Say that the ruling dialog did not show; the notice already holds what the user needs. */
+  dialogFailed(reason: string): void {
+    this.say(`The ruling dialog did not show: ${reason}`)
   }
 
   endRuling(reply: string | null): void {

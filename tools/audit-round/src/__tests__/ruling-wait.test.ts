@@ -22,7 +22,6 @@ function waiting(
     target,
     title: `Implementation audit of ${target}.md, step 1 (round 1)`,
     ruling: `/active/${target}-ruling.md`,
-    folder: "/repo-edu",
     fixerSide: findings.length === 0 ? null : "auditor",
     findings,
     panel: findings.length === 0 ? [] : ["abh", "oth"],
