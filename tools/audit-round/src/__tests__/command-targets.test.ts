@@ -192,11 +192,12 @@ test("close supplies open deferrals to one close session from the plan checkout"
       .stdout,
     "",
   )
-  assert.match(
-    f.visible.join("\n"),
-    new RegExp(
-      `Moved ${closedPlanFiles.length + 1} round files of example to ${folder}\\.`,
-    ),
+  assert.ok(
+    f.visible
+      .join("\n")
+      .includes(
+        `Moved ${closedPlanFiles.length + 1} round files of example to ${folder}.`,
+      ),
   )
   // The session moved the plan; the runner moved the round data and committed it.
   const [sha, subject, body] = (

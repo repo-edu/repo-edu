@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { writeFile } from "node:fs/promises"
-import { basename, join, relative } from "node:path"
+import { basename, join, relative, sep } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { runCommand } from "./configured-runner.js"
@@ -78,7 +78,8 @@ test("each ruling is committed before its wait, so a replaced ruling keeps its f
   })
   assert.equal(code, 0, f.errors.join("\n"))
   assert.equal(asked, 2)
-  const ruling = relative(f.evidenceRoot, f.ruling)
+  // Git names a tree path with forward slashes on every platform.
+  const ruling = relative(f.evidenceRoot, f.ruling).split(sep).join("/")
   const versions = (
     await execa("git", ["log", "--format=%H", "--", ruling], {
       cwd: f.evidenceRoot,

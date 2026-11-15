@@ -352,7 +352,9 @@ test("a stopped panel split resumes its fix with every vet report and each vet's
     .slice(priorPrompts)
     .filter((call) => call.prompt.startsWith("Run the fix phase "))
   assert.equal(resumed.length, 1)
-  for (const vet of vets) assert.ok(resumed[0]?.prompt.includes(vet), vet)
+  // The prompt carries its arguments as JSON, which escapes Windows separators.
+  for (const vet of vets)
+    assert.ok(resumed[0]?.prompt.includes(JSON.stringify(vet)), vet)
   const stored = JSON.parse(
     await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {

@@ -198,7 +198,14 @@ test("Ctrl-C during the wait ends the round as an unanswered ruling", {
   assert.equal((await chat(f, cache, ["ruling"])).code, 1)
 })
 
-test("the app start gets the run's own input and output", async (t) => {
+// Windows reports a pipe's process-local handle as its file identity, so a
+// child that inherited the run's streams still names other ones.
+test("the app start gets the run's own input and output", {
+  skip:
+    process.platform === "win32"
+      ? "Windows gives a pipe no identity a child shares"
+      : false,
+}, async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const code = await runCommand(
     ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
