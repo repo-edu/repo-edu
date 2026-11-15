@@ -4,8 +4,8 @@ description: Answer a waiting run's ruling in the Claude desktop chat, which exp
 ---
 
 `/ruling` answers a ruling a waiting run asks for. A ruling is the fix or implementation worker's
-saved explanation of a decision it cannot make for you. The chat explains it, takes your decision in
-your own words and sends it to the run in the terminal, which resumes the same session.
+saved explanation of a decision it cannot make for you. The chat explains it, proposes an answer,
+takes your decision and sends it to the run in the terminal, which resumes the same session.
 
 | Fact | Detail |
 | --- | --- |
@@ -45,24 +45,26 @@ only from a terminal.
 2. **The explanation.** It reads the ruling and, for a disputed finding, the round's audit report,
    vet and rebuttal. It explains what is being decided, each option and the recommendation, and
    answers your questions from those files and the sources they cite.
-3. **The record it will send.** Each finding's winner and reason, then the free text for the fix,
-   exactly as they will be sent.
+3. **The record it proposes to send.** Each finding's winner and reason, then the free text for the
+   fix, exactly as they will be sent. The chat takes them from the ruling's suggested answer. When
+   the round's files contradict that answer, it says so and proposes what they support. Nothing is
+   sent before your yes.
 
 ## Your answers
 
-1. **A decision.** Give each finding that needs a winner `report`, the tags of the vets that were
-   right or `neither` with a reason in your own words, and add any text for the fix. An
-   implementation ruling has no finding; your decision is the text for the fix. The chat never picks
-   a winner or writes a reason you did not give, and asks for what is missing.
-2. **A question for the chat.** It answers from the round's files and asks for your decision again.
-3. **A question only the fix can answer.** Answer the finding with `not yet` and put the question in
-   the text for the fix. The fix answers and writes a new ruling while the decision stays open; you
-   then answer with `/ruling` again.
-4. **Yes to the shown record.** The chat sends it through the hidden `pnpm audit-round answer`
+1. **Yes to the proposed record.** The chat sends it through the hidden `pnpm audit-round answer`
    command and relays the run's reply. An accepted answer resumes the same fix or worker session in
    the terminal. A refused answer names what is missing; the chat asks for it and shows the record
    again.
-5. **A change to the shown record.** The chat shows the corrected record and waits for your yes.
+2. **Your own decision.** Give a finding that needs a winner `report`, the tags of the vets that
+   were right or `neither` with a reason in your own words, or change the text for the fix. An
+   implementation ruling has no finding; your decision is the text for the fix. Your words replace
+   that part of the proposal. The chat asks when a winner or reason is unclear, shows the new record
+   and waits for your yes.
+3. **A question for the chat.** It answers from the round's files and shows the record again.
+4. **A question only the fix can answer.** Answer the finding with `not yet` and put the question in
+   the text for the fix. The fix answers and writes a new ruling while the decision stays open; you
+   then answer with `/ruling` again.
 
 The free text may be empty only when every finding has a winner. A resolved decision is not asked
 again. Waiting time is excluded from the runner's work timing.

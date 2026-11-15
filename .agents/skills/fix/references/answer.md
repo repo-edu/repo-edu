@@ -6,8 +6,8 @@ reads:
 # Answering a ruling
 
 This workflow runs the `/ruling [target]` chat. A run in the terminal waits for
-the user's ruling. The chat explains the ruling, takes the user's decision in
-the user's own words and sends it to the waiting run.
+the user's ruling. The chat explains the ruling, proposes an answer, takes the
+user's decision and sends it to the waiting run.
 
 [Writing a ruling](ruling.md) owns what a ruling holds. This file owns how it is
 answered. The two are halves of one contract and change together. The launcher
@@ -60,25 +60,35 @@ both commands fail with `EPERM` every time.
 
    Answer the user's questions from those files and the sources they cite.
    Read a cited source before stating what it says.
-3. **Take the decision from the user's words.** Each finding that needs a
-   winner gets one answer:
+3. **Propose the record.** In the same message as the explanation, show the
+   record the chat would send: each finding's winner and reason, then the
+   reply, exactly as they will be sent. Take them from the ruling's suggested
+   answer. When the files read in step 2 contradict that answer, say so, name
+   the evidence and propose what it supports instead.
+
+   Each finding that needs a winner gets one answer:
    1. a winner word with a one-line reason
    2. `not yet`, which leaves the finding open for a question to the fix
 
-   Use the winner words `ruling` printed, because the runner's one list owns them. A winner may name
-   one or more vet tags, written as a list. Never pick a winner and never write a reason the user
-   did not give. When the user's words leave a winner or a reason unclear, ask. A reason keeps the
-   user's words, joined on one line. `not yet` takes no reason.
+   Use the winner words `ruling` printed, because the runner's one list owns
+   them. A winner may name one or more vet tags, written as a list. `not yet`
+   takes no reason.
 
    The reply is the free text for the fix. It holds the user's decision on an
    implementation ruling, the question behind a `not yet` and anything else the
    user wants the fix to know. It may be empty only when every finding has a
    winner.
-4. **Show the record and wait for the user's yes.** Show each finding's winner
-   and reason, then the reply, exactly as they will be sent. Send nothing
-   before the yes. Without it the chat's reading of free words would become
-   the stored winner and reason unseen. When the user changes something, show
-   the new record and wait again.
+
+   The chat proposes because the ruling already holds a recommendation and a
+   suggested answer. Asking the user to type them again adds work and checks
+   nothing, because step 4 shows the user every word before it is sent.
+4. **Take the decision and wait for the user's yes.** The user's yes makes the
+   proposed record the decision. The user's own words replace any part of it.
+   A reason the user gives keeps the user's words, joined on one line. When
+   the user's words leave a winner or a reason unclear, ask. After each
+   change, show the new record and wait again. Send nothing before the yes.
+   Without it a winner or reason that the chat proposed or read from free
+   words would be stored unseen.
 5. **Send and relay.** Write the record as one JSON document in the form
    `ruling` printed, to a new file under `$TMPDIR` with the Write tool. Send it
    with `answer`, naming the target `ruling` printed. Relay the run's reply:

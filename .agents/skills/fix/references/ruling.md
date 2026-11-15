@@ -42,7 +42,8 @@ item covers:
 1. The decision and why it needs the user's answer.
 2. The viable alternatives and their material differences.
 3. One recommendation, its reason and any material tradeoff.
-4. A short suggested answer the user can give in the `/ruling` chat.
+4. A short suggested answer. The `/ruling` chat proposes it to the user as the
+   record to send.
 
 For each serious contest or split under the shared
 [Reconciliation](../../../references/round-protocol.md#reconciliation), state
