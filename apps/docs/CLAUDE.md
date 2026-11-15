@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-Read [`glossaries/analysis.md`](../../glossaries/analysis.md) before working in this package.
+Read [`glossaries/analysis.md`](../../glossaries/analysis.md) and
+[`glossaries/audit-round.md`](../../glossaries/audit-round.md) before working in this package.
 
 This is the static Astro/Starlight documentation site (`@repo-edu/docs`).
 

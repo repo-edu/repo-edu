@@ -121,6 +121,7 @@ export default defineConfig({
               id: "tooling-guide",
               items: [
                 { label: "Overview", slug: "tooling" },
+                { label: "Glossary", slug: "tooling/glossary" },
                 {
                   label: "Audit phases",
                   items: [

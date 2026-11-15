@@ -410,8 +410,12 @@ Plans, audit rounds and other instruction files use a term by reference and
 never copy its definition, because a copy drifts from its owner.
 
 The glossary files are `glossaries/child-process-lifetime.md`,
-`glossaries/program-gate.md` and `glossaries/analysis.md`. A package
-`CLAUDE.md` that one of them governs names it in its opening sentence. Before
+`glossaries/program-gate.md`, `glossaries/analysis.md` and
+`glossaries/audit-round.md`. A package `CLAUDE.md` that one of them governs
+names it in its opening sentence. A glossary file may also govern doctrine
+outside the package layout. `glossaries/audit-round.md` defines the round and
+runner words of the shared references, the phase workflows of both repos and
+the plan doctrine, and every workflow with a `reads` header lists it. Before
 working on a rule in this file, or on a root-level file, that uses a glossary
 file's terms, read that file. The renderer session's own terms, such as
 bootstrap and hydrate, are in `packages/renderer-app/CLAUDE.md`.

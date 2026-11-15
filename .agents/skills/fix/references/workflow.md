@@ -1,5 +1,6 @@
 ---
 reads:
+  - ../../../../glossaries/audit-round.md
   - ../../../references/round-protocol.md
   - ../../../references/round-grammar.md
   - ../../../references/subject-grammar.md

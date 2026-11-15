@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Read [`glossaries/audit-round.md`](../../glossaries/audit-round.md) first: it defines the words
+of the rounds and of this runner.
+
 This is the private planning and implementation-audit tool (`@repo-edu/audit-round`). Its
 primary area is `tool-audit-round`. It targets macOS and Linux and has no product
 consumers.
@@ -1476,13 +1479,6 @@ owner through the hidden `deferrals` command. The audit report opening names
 each supplied item whose correction already holds. Findings name the missing
 items. A clean round cites satisfied items. A fix reads both report parts and
 cites each item it applies or drops.
-
-## Vocabulary
-
-- **round folder**: the `active/` folder of the private evidence checkout
-  `plan-evidence`, beside the plan and Repo Edu checkouts. It holds every file
-  a round, a step, a close or a yield review writes. The plan checkout's own
-  `active/` folder holds plans and their briefs only.
 
 ## Verification
 
