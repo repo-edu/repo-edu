@@ -145,7 +145,7 @@ for (const working of ["repo-edu", "plan"] as const) {
   })
 }
 
-test("clean commit audit keeps the report and makes no commit", async (t) => {
+test("clean commit audit keeps the audit report and makes no commit", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -167,7 +167,7 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
   assert.match(await readFile(f.report, "utf8"), /No findings/)
   const { log, markdown } = await f.records()
   assert.doesNotMatch(log, /\[(?:vet|rebut|fix|watch)\] starting/)
-  assert.match(markdown, /Clean audit\. Report retained/)
+  assert.match(markdown, /Clean audit\. Audit report retained/)
 })
 
 test("clean deferral citations stay in one bullet list", async (t) => {

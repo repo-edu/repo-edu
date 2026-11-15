@@ -64,7 +64,7 @@ test("graded and untiered bullets expose deferral citations", () => {
   )
 })
 
-test("a leading finding token carries the report finding number", () => {
+test("a leading finding token carries the audit report finding number", () => {
   const [numbered] = readFindings(
     "- [B] [finding:12] [area:area-a] [growth-pattern:none] [reach:developer] [complexity:none] Any title: Explanation.",
     "repo-edu",

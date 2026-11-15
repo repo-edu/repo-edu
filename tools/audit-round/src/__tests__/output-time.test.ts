@@ -768,7 +768,7 @@ for (const assistant of ["claude", "codex"] as const) {
   })
 }
 
-test("commit stamps time the finished audit, every vet and rebuttal and never the fix", async (t) => {
+test("commit stamps time the finished audit, every vetter and the rebuttal and never the fix", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
@@ -938,7 +938,7 @@ test("two vetters' mixed events keep their own slots and records, each vetter's 
   await claude.observe(tokens(100))
   await codex.observe(tokens(200))
   t.mock.timers.tick(2 * 60_000)
-  // Only a vet that ends writes its texts, whole and under its own heading.
+  // Only a vetter that ends writes its texts, whole and under its own heading.
   assert.equal(
     markdown.some((text) => text.includes("opens.")),
     false,
@@ -984,7 +984,7 @@ test("two vetters' mixed events keep their own slots and records, each vetter's 
     run.data.path,
     await readFile(run.data.path, "utf8"),
   ).rounds
-  // Each vet keeps its own phase entry: its tag, model, time and tokens.
+  // Each vetter keeps its own phase entry: its tag, model, time and tokens.
   assert.deepEqual(
     entry?.phases.map((phase) =>
       phase.phase === "vet"

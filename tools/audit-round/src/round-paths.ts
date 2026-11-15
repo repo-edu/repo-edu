@@ -340,8 +340,8 @@ export async function newestWatch(
 
 /**
  * Resolve one existing round without claiming it or consulting future writers'
- * settings. A vet may read an audit report of either assistant, its own
- * included, because the panel is every listed vet whoever audits. The rebuttal
+ * settings. A vetter may read an audit report of either assistant, its own
+ * included, because the panel is every listed vetter whoever audits. The rebuttal
  * and the fix receive every vet report of the round.
  */
 export async function manualPhasePaths(

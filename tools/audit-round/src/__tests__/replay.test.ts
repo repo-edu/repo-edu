@@ -25,7 +25,7 @@ const codex: Auditor = {
   effort: "high",
 }
 
-test("legacy continuations match by assistant and stored pools match the full entry", () => {
+test("legacy continuations match by assistant and stored auditor lists match the full entry", () => {
   const otherCodex = { ...codex, model: "gpt-5.6-terra" }
   assert.equal(replayAnswersMatch(codex, otherCodex, false), true)
   assert.equal(replayAnswersMatch(codex, otherCodex, true), false)

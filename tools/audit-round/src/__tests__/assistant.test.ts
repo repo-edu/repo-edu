@@ -637,7 +637,7 @@ for (const assistant of ["claude", "codex"] as const) {
   })
 }
 
-test("a serious contest recovery command keeps its report and session as data", async (t) => {
+test("a serious contest recovery command keeps its audit report and session as data", async (t) => {
   const f = await fixture(t)
   const session = {
     assistant: "codex" as const,

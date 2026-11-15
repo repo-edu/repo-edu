@@ -18,7 +18,7 @@ export type Finding = Omit<
   /** The growth-pattern labels the flagged work could violate, comma-joined, or `none`. */
   readonly growthPattern: string
   readonly tier: TierLetter
-  /** The report finding this bullet lands, or null for work no report finding asked for. */
+  /** The audit report finding this bullet lands, or null for work no audit report finding asked for. */
   readonly number: number | null
   /** The short title before the bullet's explanatory colon. */
   readonly title: string
@@ -114,7 +114,7 @@ export function readRecordBullets(
     const numbered = tokens[0]?.key === "finding"
     const number = numbered ? Number(tokens[0].value) : null
     if (numbered && !/^[1-9]\d*$/.test(tokens[0].value))
-      fail("needs a report finding number from 1 in [finding:...]")
+      fail("needs an audit report finding number from 1 in [finding:...]")
     const first = numbered ? 1 : 0
     const locationTokenKeys =
       repository === "repo-edu"

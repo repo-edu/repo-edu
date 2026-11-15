@@ -485,10 +485,10 @@ consumers.
   ruling's text: the round or step, the target, the ruling file, the findings that need a winner,
   whose model runs the fix and the `/ruling <target>` line to type in the desktop app. `endRuling`
   excludes the user's waiting time and records an accepted reply in the log and transcript before
-  any resumed process starts. Assistant replies use the normal phase output, so launch prompts stay
-  in the log and never reach the terminal. Supplied instruction files appear there by path only;
-  their full contents go to the assistant. Each assistant's reported model line is followed by the
-  model-change notice from `model-change.ts` when that comparison differs.
+  any resumed process starts. Assistant output goes through the normal phase output, so launch
+  prompts stay in the log and never reach the terminal. Supplied instruction files appear there by
+  path only; their full contents go to the assistant. Each assistant's reported model line is
+  followed by the model-change notice from `model-change.ts` when that comparison differs.
 - `model-change.ts` owns the non-blocking model and effort notice. Every round phase and the close
   compare the same way: the notice reads every active and archived plan's checked round data and
   compares the reported model and effort with the newest earlier reading by the same assistant on
@@ -749,83 +749,83 @@ consumers.
   call `name`, `paths`, `episode` and `deferrals`, the `/ruling` chat calls `ruling` and `answer`,
   and the reopen step calls `mark`, so help hides them. `ruling [target]` prints what the waiting
   run asks and the answer form. `answer [target] <file>` carries one JSON answer document to the
-  waiting run, prints its reply and exits 1 on a refusal. Both start no assistant, read no settings
-  and write no file. The printed recovery command for an open serious contest or split calls the
-  hidden `resume-fix` route. It resolves the retained audit, vet and rebuttal reports and
-  in-progress round entry, refuses a round without one, restores earlier phase records and resumes
-  the saved fix session through the ordinary coordinator. `plan` prints the plan an omitted target
-  selects, as its absolute path, and writes nothing, so a user can see it before a round or close
-  takes it. `close` resolves its plan and open deferrals before startup, then runs the close phase
-  alone with its own log. The `deferrals` command prints the active plan's open set through the
-  shared owner. It exists only for the hand-run implementation audit, so help hides it beside
-  `episode` and the other launcher interfaces. The `episode` command prints the requested line range
-  from joined watch evidence produced by the shared reader and formatter, with its returned range
-  and current total. Every call rebuilds the view. It performs no release resolution, assistant
-  startup or file writes. The `name` command claims a round and prints its claim, workflow, working
-  checkout and audit arguments. Its required `--auditor` is the hand-run session's full tag,
-  including `u`, checked separately from a round's model request. The `paths` command prints the
-  workflow, working checkout and argument paths for an existing audit report as a JSON object. It
-  reads the audit report opening's named workflow to select its kind. Both commands bypass assistant
-  startup and release resolution; `paths` writes nothing. `disprove` resolves one active or archived
-  plan's round data, checks an attached finding or records the manually named auditor of a detached
-  finding, writes through the shared atomic writer and commits only an archived file. `--vet`
-  requires at least one non-Accept vet verdict on the attached finding and is refused beside `--by`.
-  It starts no assistant and reads no settings. `settle` and `ready` resolve the active plan that
-  `plan` prints when no stem is given and run only the lifecycle Git owner. The run resolves its
-  named active plan and the stage `lifecycleStage` reads before startup, then reads settings and
-  releases once and calls the stage functions the single commands use, in lifecycle order: the
-  series, `settlePlan`, the series, `readyPlan`, the implementation, the range series and the close.
-  The user's invocation is the settle, ready and close call given in advance, so a runner `settle`
-  or `ready` ending and a range series that ended without needing the user move on to the next
-  stage. After `settlePlan` or `readyPlan` the run reads the next stage through `lifecycleStage`,
-  because a plan reopened after its ready marker keeps the marker and goes on to the implementation
-  or the range series. Every other ending, a refused lifecycle call included, ends the run. Each
-  stage keeps its own files, logs and printed lines; the run adds one line per stage start and one
-  ending line naming the stage it ended in, the stages it completed and that a rerun continues from
-  the plan's state. It takes `-v` and no round option, so every series it opens uses the ordinary
-  opener, the glance and the watch. The hidden `mark` command claims an active plan's next round
-  number for an empty `reopen` marker and prints its path, with no release resolution or assistant.
-  So the program carries an action handler, Commander adds no `help` command, and each command's own
-  `-h` prints its help. A bare command line prints that help; options without a target take
-  `defaultTarget`. `implement` requires its named active plan's assigned ready marker before
-  assistant startup. It uses the assigned coder for every selected pending step and verifies the
-  landed share subjects after each worker before continuing. It also owns the round sequence and its
-  counter. Without `--auditor`, an active plan or commit target runs an automatic series. The
-  `--first` selection runs first. Without it, `openingAuditor` reads the target's retained data and
-  opens on a listed auditor without a current read when another has one, and the configured default
-  opens otherwise. Then each runner answer names the next listed auditor or an ending, from the
-  auditor list of the target's work class. A `first` default opens on the first listed auditor and a
-  `random` default picks a listed auditor for each scope's series. The series writes no queue and
-  ends on settle, ready or stop, the configured maximum, a failure, an unanswered ruling, a red
-  watch or a phase change. It returns that ending as a value: `settle` or `ready` for the runner's
-  lifecycle answer, `ended` for a runner stop, the maximum or an emptied manual queue, and `stopped`
-  for an ending that needs the user, so a reader never parses the printed lines. Before an automatic
-  implementation series starts, the runner computes the open set and chains one scoped planning
-  round for plan-bound deferrals. After each finished implementation-audit round, it computes the
-  set again. It chains the planning round only when the series remains eligible to continue to its
-  decision. A red implementation watch or a plan phase change caused by the implementation fix
-  leaves the deferral open, prints it and stops the series. The chain uses the default listed
-  auditor from `planningAudit.auditors`, including its model and effort. It claims its own
-  planning-round number, takes no implementation-series turn and ends the implementation series when
-  it fails, awaits a ruling, changes phase or receives a red watch. Every automatic series ending on
-  a plan prints the remaining open deferrals or says there are none. A round that changes the plan's
-  phase finishes without a series answer. Commit targets use the same fixed rules and maximum.
-  Before each later commit round, the runner adds landed fixes to the exact scope and advances each
-  repository head while retaining the original label. With `--auditor`, the first entry runs first
-  and the remaining entries seed its editable queue. A clean audit removes queued entries that
-  resolve to that round's assistant, model and effort. Other settings remain. A fix that lands a
-  clean record removes none. Failure, a round requiring a ruling, a red watch or an empty queue
-  stops the manual sequence, and the queue file stays until the close moves it. Each manual round
-  prints the queue's path and contents when it opens. Each automatic round prints its runner answer
-  and reason and repeats the reason in the line that ends the series or opens the next round, so the
-  log and the terminal's last lines both carry the recommendation. A resolved scope list, whether
-  typed or derived from a completed plan's audit ranges, runs one series per scope in list order.
-  Each scope opens as its own series: the opener is chosen again, `--first` opens every scope and
-  the round count starts over. Every ending but `stopped` ends only that scope and the next one is
-  announced. A failure, an unanswered ruling, a red watch or a plan phase change ends the whole list
-  and names the scopes that did not run. After target resolution, the list is refused beside
-  `--auditor`, whose queue belongs to one target and whose pairing with the scopes would need a
-  second reading, and beside `name`, which claims one round. Each round records its own file pair
+  waiting run, prints the waiting run's response and exits 1 on a refusal. Both start no assistant,
+  read no settings and write no file. The printed recovery command for an open serious contest or
+  split calls the hidden `resume-fix` route. It resolves the retained audit, vet and rebuttal
+  reports and in-progress round entry, refuses a round without one, restores earlier phase records
+  and resumes the saved fix session through the ordinary coordinator. `plan` prints the plan an
+  omitted target selects, as its absolute path, and writes nothing, so a user can see it before a
+  round or close takes it. `close` resolves its plan and open deferrals before startup, then runs
+  the close phase alone with its own log. The `deferrals` command prints the active plan's open set
+  through the shared owner. It exists only for the hand-run implementation audit, so help hides it
+  beside `episode` and the other launcher interfaces. The `episode` command prints the requested
+  line range from joined watch evidence produced by the shared reader and formatter, with its
+  returned range and current total. Every call rebuilds the view. It performs no release resolution,
+  assistant startup or file writes. The `name` command claims a round and prints its claim,
+  workflow, working checkout and audit arguments. Its required `--auditor` is the hand-run session's
+  full tag, including `u`, checked separately from a round's model request. The `paths` command
+  prints the workflow, working checkout and argument paths for an existing audit report as a JSON
+  object. It reads the audit report opening's named workflow to select its kind. Both commands
+  bypass assistant startup and release resolution; `paths` writes nothing. `disprove` resolves one
+  active or archived plan's round data, checks an attached finding or records the manually named
+  auditor of a detached finding, writes through the shared atomic writer and commits only an
+  archived file. `--vet` requires at least one non-Accept vet verdict on the attached finding and is
+  refused beside `--by`. It starts no assistant and reads no settings. `settle` and `ready` resolve
+  the active plan that `plan` prints when no stem is given and run only the lifecycle Git owner. The
+  run resolves its named active plan and the stage `lifecycleStage` reads before startup, then reads
+  settings and releases once and calls the stage functions the single commands use, in lifecycle
+  order: the series, `settlePlan`, the series, `readyPlan`, the implementation, the range series and
+  the close. The user's invocation is the settle, ready and close call given in advance, so a runner
+  `settle` or `ready` ending and a range series that ended without needing the user move on to the
+  next stage. After `settlePlan` or `readyPlan` the run reads the next stage through
+  `lifecycleStage`, because a plan reopened after its ready marker keeps the marker and goes on to
+  the implementation or the range series. Every other ending, a refused lifecycle call included,
+  ends the run. Each stage keeps its own files, logs and printed lines; the run adds one line per
+  stage start and one ending line naming the stage it ended in, the stages it completed and that a
+  rerun continues from the plan's state. It takes `-v` and no round option, so every series it opens
+  uses the ordinary opener, the glance and the watch. The hidden `mark` command claims an active
+  plan's next round number for an empty `reopen` marker and prints its path, with no release
+  resolution or assistant. So the program carries an action handler, Commander adds no `help`
+  command, and each command's own `-h` prints its help. A bare command line prints that help;
+  options without a target take `defaultTarget`. `implement` requires its named active plan's
+  assigned ready marker before assistant startup. It uses the assigned coder for every selected
+  pending step and verifies the landed share subjects after each worker before continuing. It also
+  owns the round sequence and its counter. Without `--auditor`, an active plan or commit target runs
+  an automatic series. The `--first` selection runs first. Without it, `openingAuditor` reads the
+  target's retained data and opens on a listed auditor without a current read when another has one,
+  and the configured default opens otherwise. Then each runner answer names the next listed auditor
+  or an ending, from the auditor list of the target's work class. A `first` default opens on the
+  first listed auditor and a `random` default picks a listed auditor for each scope's series. The
+  series writes no queue and ends on settle, ready or stop, the configured maximum, a failure, an
+  unanswered ruling, a red watch or a phase change. It returns that ending as a value: `settle` or
+  `ready` for the runner's lifecycle answer, `ended` for a runner stop, the maximum or an emptied
+  manual queue, and `stopped` for an ending that needs the user, so a reader never parses the
+  printed lines. Before an automatic implementation series starts, the runner computes the open set
+  and chains one scoped planning round for plan-bound deferrals. After each finished
+  implementation-audit round, it computes the set again. It chains the planning round only when the
+  series remains eligible to continue to its decision. A red implementation watch or a plan phase
+  change caused by the implementation fix leaves the deferral open, prints it and stops the series.
+  The chain uses the default listed auditor from `planningAudit.auditors`, including its model and
+  effort. It claims its own planning-round number, takes no implementation-series turn and ends the
+  implementation series when it fails, awaits a ruling, changes phase or receives a red watch. Every
+  automatic series ending on a plan prints the remaining open deferrals or says there are none. A
+  round that changes the plan's phase finishes without a series answer. Commit targets use the same
+  fixed rules and maximum. Before each later commit round, the runner adds landed fixes to the exact
+  scope and advances each repository head while retaining the original label. With `--auditor`, the
+  first entry runs first and the remaining entries seed its editable queue. A clean audit removes
+  queued entries that resolve to that round's assistant, model and effort. Other settings remain. A
+  fix that lands a clean record removes none. Failure, a round requiring a ruling, a red watch or an
+  empty queue stops the manual sequence, and the queue file stays until the close moves it. Each
+  manual round prints the queue's path and contents when it opens. Each automatic round prints its
+  runner answer and reason and repeats the reason in the line that ends the series or opens the next
+  round, so the log and the terminal's last lines both carry the recommendation. A resolved scope
+  list, whether typed or derived from a completed plan's audit ranges, runs one series per scope in
+  list order. Each scope opens as its own series: the opener is chosen again, `--first` opens every
+  scope and the round count starts over. Every ending but `stopped` ends only that scope and the
+  next one is announced. A failure, an unanswered ruling, a red watch or a plan phase change ends
+  the whole list and names the scopes that did not run. After target resolution, the list is refused
+  beside `--auditor`, whose queue belongs to one target and whose pairing with the scopes would need
+  a second reading, and beside `name`, which claims one round. Each round records its own file pair
   and the coordinator has no filesystem side effects: it opens one output per round, retires the
   previous one first, and reads updates and settings once for the whole run before opening any
   files. Startup messages go only to the terminal; the run log begins with the models table. Every

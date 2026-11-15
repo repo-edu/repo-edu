@@ -560,7 +560,7 @@ type ActiveSlot = {
   previousToolTokens: number | null
   statusTokens: number | null
   /**
-   * A vetter's texts, held until its vet ends and then written whole, because
+   * A vetter's texts, held until that vetter ends and then written whole, because
    * vetters that run at the same time would otherwise mix paragraph by
    * paragraph. Null for a phase that runs alone, whose text streams.
    */
@@ -797,7 +797,7 @@ export class RoundOutput<R extends Run = Run> {
     if (visible.length > 0) this.options.terminal.write(visible, "markdown")
   }
 
-  /** Write a vetter's held texts whole, under its heading, once its vet ends. */
+  /** Write a vetter's held texts whole, under its heading, once that vetter ends. */
   private flush(slot: ActiveSlot): void {
     if (slot.held === null) return
     this.heading(slot)

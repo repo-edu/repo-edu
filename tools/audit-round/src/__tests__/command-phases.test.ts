@@ -141,7 +141,7 @@ for (const auditor of ["claude", "codex"] as const) {
             (call.args[0] === "-p" &&
               !call.args.includes("--no-session-persistence")),
         )
-        // The class's panel vets the report whoever audited it.
+        // The class's panel vets the audit report whoever audited it.
         assert.deepEqual(
           invocations.map((call) => call.assistant),
           [auditor, "claude", auditor, "codex"],
@@ -335,7 +335,7 @@ for (const auditor of ["claude", "codex"] as const) {
 }
 
 for (const auditor of ["claude", "codex"] as const) {
-  test(`a vet that accepts every ${auditor} finding skips the rebuttal, and the fix stamps only the phases that ran`, async (t) => {
+  test(`a vetter that accepts every ${auditor} finding skips the rebuttal, and the fix stamps only the phases that ran`, async (t) => {
     const f = await roundFixture(
       t,
       auditor,

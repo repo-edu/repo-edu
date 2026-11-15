@@ -559,7 +559,7 @@ function vetsCell(vets: readonly RoundVet[]): string {
   )
 }
 
-/** The user's answer, with each winning vet named by its model. */
+/** The user's answer, with each winning vetter named by its model. */
 function answerCell(entry: RuledFinding): string {
   if (typeof entry.winner === "string") return entry.winner
   return escapeCell(
@@ -746,7 +746,7 @@ function rangeSections(
 }
 
 /**
- * Read every retained model record and render the auditor, vet-pair and coder
+ * Read every retained model record and render the auditor, vetter-pair and coder
  * results with the user's rulings.
  * The excluded plans print only under `all`: they explain which plans supplied
  * no evidence, which a reader comparing models does not need every time.

@@ -17,12 +17,12 @@ is always named in full.
   is an auditor even before it has run. The auditor does not defend the audit
   report against the vetters; the rebuttal does.
 - **Vet**: the phase in which the panel checks an audit report. Each vetter
-  reads the report and its sources from a fresh context and returns one
+  reads the audit report and its sources from a fresh context and returns one
   verdict per finding. The word names the phase only, never one member of the
   panel.
 - **Vetter**: one entry of a work class's vetter list, and its vet session. A
   vetter checks every audit report of its work class, whoever audited, and
-  never reads another vetter's report.
+  never reads another vetter's vet report.
 - **Panel**: every vetter of the target's work class. The vetters of a panel
   check one audit report side by side.
 - **Rebuttal**: the phase that answers each vetter's revisions, drops and

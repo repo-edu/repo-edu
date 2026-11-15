@@ -210,7 +210,7 @@ removed only by citations in plan commits.
 Judge every supplied deferral into Repo Edu against current code. A missing
 correction becomes a finding that names the deferring full commit ID and
 position. Its fix record cites that item. When current code already holds the
-correction, the audit reports no finding for that item. Instead, its report
+correction, the audit reports no finding for that item. Instead, its audit report
 opening adds one line in this exact form:
 
 `Satisfied deferral: <full-sha>/<position> <title>.`

@@ -551,7 +551,7 @@ export type RulingRequest = {
   readonly contests: readonly number[]
   /** The round's panel tags, which the user may name as winners. */
   readonly panel: readonly string[]
-  /** The report's judged repos, which choose the folder the desktop app opens on. */
+  /** The audit report's judged repos, which choose the folder the desktop app opens on. */
   readonly judgedRepos: readonly Repository[]
 }
 

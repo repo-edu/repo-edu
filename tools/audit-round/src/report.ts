@@ -32,7 +32,7 @@ function openingEndIndex(children: readonly Block[]): number {
   return end === -1 ? children.length : end
 }
 
-/** The named workflow in the report opening owns routing, never its file name. */
+/** The named workflow in the audit report opening owns routing, never its file name. */
 export function reportKind(source: string): RoundKind {
   const children = fromMarkdown(source).children
   const opening = children
@@ -46,7 +46,7 @@ export function reportKind(source: string): RoundKind {
   const implementation = /\bImplementation audit workflow\b/i.test(opening)
   if (planning === implementation)
     throw new Error(
-      "Report opening must name either Planning round workflow or Implementation audit workflow",
+      "Audit report opening must name either Planning round workflow or Implementation audit workflow",
     )
   return planning ? "planning" : "implementation"
 }
@@ -72,7 +72,7 @@ type OpeningLine = {
 
 /**
  * A widening audit report ends on its settling line, so its reader meets the advice
- * where the report stops. No other report class carries one. The line is read
+ * where the audit report stops. No other audit report class carries one. The line is read
  * from its source, so a formatted span in the reason loses no words, and a
  * wrapped paragraph fails the one-line grammar.
  */
@@ -130,7 +130,7 @@ function openingLines(
   })
 }
 
-/** The report names the target the runner resolved, so no later phase has to ask which it judged. */
+/** The audit report names the target the runner resolved, so no later phase has to ask which it judged. */
 function checkTarget(
   children: readonly Block[],
   source: string,
@@ -140,7 +140,7 @@ function checkTarget(
     .map((line) => line.plain)
     .filter((line) => line.startsWith("Target:"))
   if (lines.length !== 1 || lines[0] !== `Target: ${target}`)
-    throw new Error(`Report needs one Target: opening naming ${target}`)
+    throw new Error(`Audit report needs one Target: opening naming ${target}`)
 }
 
 function judgedRepos(
@@ -157,7 +157,7 @@ function judgedRepos(
       : /^Judged repos: plan@[0-9a-f]+$/
   if (lines.length !== 1 || !pattern.test(lines[0]))
     throw new Error(
-      "Report needs one Judged repos: opening with each audited head",
+      "Audit report needs one Judged repos: opening with each audited head",
     )
   return lines[0]
     .slice("Judged repos: ".length)
@@ -198,7 +198,7 @@ function findingData(
   const tokenPrefix = readFindingTokenPrefix(tokenLine(next))
   if (heading === null || tokenPrefix === null || tokenPrefix.remainder !== "")
     throw new Error(
-      `Malformed finding at report line ${title.position?.start.line}: expected a tier heading followed by a token line`,
+      `Malformed finding at audit report line ${title.position?.start.line}: expected a tier heading followed by a token line`,
     )
   if (heading[3].includes(": "))
     throw new Error(`Finding ${heading[1]} title cannot contain ": "`)
@@ -326,7 +326,7 @@ export function readReport(
     reportClass === "implementation" ? "implementation" : "planning"
   if (namedKind !== expectedKind)
     throw new Error(
-      `Report opening names the ${namedKind} workflow but the reader expected ${expectedKind}`,
+      `Audit report opening names the ${namedKind} workflow but the reader expected ${expectedKind}`,
     )
   const definitions =
     reportClass === "implementation"
@@ -359,7 +359,9 @@ export function readReport(
         : [],
     )
     if (headings.length !== 1)
-      throw new Error(`Report needs exactly one ## ${definition.heading} field`)
+      throw new Error(
+        `Audit report needs exactly one ## ${definition.heading} field`,
+      )
     const start = headings[0] + 1
     const next = body.findIndex(
       (node, index) =>
@@ -401,13 +403,13 @@ export function readReport(
   }
   if (findings.some((finding, index) => finding.number !== index + 1))
     throw new Error(
-      "Report finding numbers must run from 1 without gaps or duplicates",
+      "Audit report finding numbers must run from 1 without gaps or duplicates",
     )
   const titles = new Set<string>()
   for (const finding of findings) {
     if (titles.has(finding.title))
       throw new Error(
-        `Report finding title appears more than once: ${finding.title}`,
+        `Audit report finding title appears more than once: ${finding.title}`,
       )
     titles.add(finding.title)
   }

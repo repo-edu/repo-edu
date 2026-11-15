@@ -76,10 +76,10 @@ test("an unresolved serious contest prints the runner recovery route", async (t)
 
 for (const [side, line] of [
   ["auditor", "The fix runs on the auditor's model."],
-  [{ vet: "oth" }, "The fix runs on vet oth's model."],
+  [{ vet: "oth" }, "The fix runs on vetter oth's model."],
   ["neither", "The fix runs on neither side's model."],
 ] as const) {
-  test(`a ruling notice names the ${typeof side === "string" ? side : `vet ${side.vet}`} fix model, the ruling and the chat command`, async (t) => {
+  test(`a ruling notice names the ${typeof side === "string" ? side : `vetter ${side.vet}`} fix model, the ruling and the chat command`, async (t) => {
     const f = await fixture(t)
     const written: string[] = []
     const output = new RoundOutput(

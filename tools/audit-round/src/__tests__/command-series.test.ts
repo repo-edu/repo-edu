@@ -1724,7 +1724,7 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
         awaitAnswer: async () => {
           await rm(widening)
           await rename(settled, widening)
-          // The reopened plan's next audit reads a widening report, which
+          // The reopened plan's next audit reads a widening audit report, which
           // ends on its settling line.
           await writeFile(
             reportSource,
@@ -1918,7 +1918,7 @@ test("a widening keep-open recommendation stops the series without settling", as
     0,
     f.errors.join("\n"),
   )
-  // A clean audit runs no fix, so the report's closing line is the retained recommendation.
+  // A clean audit runs no fix, so the audit report's closing line is the retained recommendation.
   const {
     rounds: [stored],
   } = JSON.parse(

@@ -561,7 +561,7 @@ for (const scenario of [
   })
 }
 
-/** A panel of both assistants, each vet named by the tag its report carries. */
+/** A panel of both assistants, each vetter named by the tag its vet report carries. */
 const panelReports = ["abh", "obh"].map(
   (tag) => `/distinct-twins/example-impl-audit-01..01-01-3-vet.${tag}.md`,
 )
@@ -651,7 +651,7 @@ test("a panel of both assistants vets side by side, and every vet report reaches
   ])
 })
 
-test("a failed vet of a panel fails the round once every vet has ended", async () => {
+test("a failed vetter of a panel fails the round once every vetter has ended", async () => {
   const round = controlledRound()
   const failure = {
     status: "failed",
@@ -1139,7 +1139,7 @@ test("two revisions split only when the rebuttal does not agree with both", () =
     )
 })
 
-test("a planning split on a C finding stays with the fix unless a vet graded it A or B", () => {
+test("a planning split on a C finding stays with the fix unless a vetter graded it A or B", () => {
   assert.deepEqual(
     seriousFindings(
       reviewedAccount(
@@ -1439,7 +1439,7 @@ function arrange(round: ControlledRound, ending: "ruling" | "watch"): void {
   else round.decide(dueDecision)
 }
 
-/** Which assistant a phase seats under the test settings. */
+/** Which assistant a phase runs on under the test settings. */
 function runner(phase: Phase, auditor: Assistant): Assistant {
   if (phase === "audit" || phase === "rebut") return auditor
   if (phase === "vet") return testVetter().assistant
@@ -1949,7 +1949,7 @@ for (const ending of ["failed", "awaiting-ruling"] as const) {
   })
 }
 
-test("a clean widening audit retains the report's settling line as the settling recommendation", async () => {
+test("a clean widening audit retains the audit report's settling line as the settling recommendation", async () => {
   const round = controlledRound()
   round.evidence.settling = "settle. No concrete shape question remains."
   round.evidence.findings = []
@@ -2496,7 +2496,7 @@ test("a later clean-chain failure keeps the landed commit for final recording", 
 })
 
 for (const auditor of ["claude", "codex"] as const) {
-  test(`a vet that accepts every ${auditor} finding skips the rebuttal on the way to the fix`, async () => {
+  test(`a vetter that accepts every ${auditor} finding skips the rebuttal on the way to the fix`, async () => {
     const report = files.documents.report
     const round = controlledRound()
     round.results.vet = {

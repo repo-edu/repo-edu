@@ -184,7 +184,7 @@ test("each class's auditor list names whole selections and replaces the audit pi
       },
     })
     assert.deepEqual(phases.rebut, phases.audit)
-    // The panel is the class's vetter list, so a Claude audit has a Claude vet.
+    // The panel is the class's vetter list, so a Claude audit has a Claude vetter.
     assert.deepEqual(
       phases.vet.map(({ assistant }) => assistant),
       ["claude"],
@@ -519,7 +519,7 @@ test("every audit report of a class gets that class's whole panel, whoever audit
         { assistant: "claude", model: "claude-auditor", effort: "high" },
         { assistant: "codex", model: "codex-auditor", effort: "medium" },
       ],
-      // A vet of each assistant, one on the Claude auditor's own selection.
+      // A vetter of each assistant, one on the Claude auditor's own selection.
       vetters: [
         { assistant: "claude", model: "claude-auditor", effort: "high" },
         { assistant: "codex", model: "codex-vetter", effort: "xhigh" },
@@ -577,7 +577,7 @@ test("a vetter list needs one entry and refuses two entries with one tag", () =>
       [level]: { ...settings[level], vetters },
     })
     assert.equal(settingsSchema.safeParse(config([])).success, false)
-    // Two unlisted models at high both spell `auh`, so their reports would share a name.
+    // Two unlisted models at high both spell `auh`, so their vet reports would share a name.
     const repeated = settingsSchema.safeParse(
       config([
         { assistant: "claude", model: "sonnet", effort: "high" },
@@ -589,7 +589,7 @@ test("a vetter list needs one entry and refuses two entries with one tag", () =>
       repeated.error?.message ?? "",
       new RegExp(`Two ${workClass} vetters share the tag auh`),
     )
-    // Another effort gives the second vet its own tag.
+    // Another effort gives the second vetter its own tag.
     assert.equal(
       settingsSchema.safeParse(
         config([

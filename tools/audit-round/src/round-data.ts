@@ -93,7 +93,7 @@ export const roundFindingSchema = z
     complexity: complexitySchema,
     growthPattern: z.string().min(1),
     location: roundFindingLocationSchema,
-    /** One review per vet of the panel that judged the finding. */
+    /** One review per vetter of the panel that judged the finding. */
     reviews: z.array(roundFindingReviewSchema),
     ruling: z
       .strictObject({
@@ -118,7 +118,7 @@ export const roundFindingSchema = z
     if (finding.outcome !== "unmatched" && finding.number === null)
       context.addIssue({
         code: "custom",
-        message: "An audit finding needs its report number",
+        message: "An audit finding needs its audit report number",
         path: ["number"],
       })
     if (
@@ -613,7 +613,7 @@ export function comparedRanges(workClass: RoundKind): readonly TierRange[] {
 
 /**
  * The tiers on which a split of the class's panel goes to the user. It is the
- * class's widest compared range, because only a ruled split says which vet
+ * class's widest compared range, because only a ruled split says which vetter
  * was right.
  */
 export function splitRulingRange(workClass: RoundKind): TierRange {
@@ -721,7 +721,7 @@ type RecordedFinding = {
   readonly repositories: Set<Repository>
 }
 
-/** Key a record bullet by its report finding number, or by title when it lands none. */
+/** Key a record bullet by its audit report finding number, or by title when it lands none. */
 function recordKey(finding: Pick<RoundFinding, "number" | "title">): string {
   return finding.number === null
     ? `title:${finding.title}`
@@ -773,9 +773,10 @@ function recordFindings(
 }
 
 /**
- * Join the fix's durable record bullets to report findings by finding number.
- * A numbered bullet lands the report finding it names, whatever its title; a
- * bullet without a number records work no report finding asked for.
+ * Join the fix's durable record bullets to audit report findings by finding
+ * number. A numbered bullet lands the audit report finding it names, whatever
+ * its title; a bullet without a number records work no audit report finding
+ * asked for.
  */
 export function settleRoundFindings(
   findings: readonly RoundFinding[],
@@ -786,7 +787,7 @@ export function settleRoundFindings(
   for (const { finding } of recorded.values())
     if (finding.number !== null && !numbers.has(finding.number))
       throw new Error(
-        `Record finding number names no report finding: ${finding.number}`,
+        `Record finding number names no audit report finding: ${finding.number}`,
       )
   const settled = findings.map((finding): RoundFinding => {
     const final = recorded.get(recordKey(finding))?.finding

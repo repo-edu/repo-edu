@@ -184,7 +184,7 @@ export function waitingRulingText(ruling: WaitingRuling): string {
               ? "neither side's model"
               : ruling.fixerSide === "auditor"
                 ? "the auditor's model"
-                : `vet ${ruling.fixerSide.vet}'s model`
+                : `vetter ${ruling.fixerSide.vet}'s model`
           }.`,
         ]
   return [

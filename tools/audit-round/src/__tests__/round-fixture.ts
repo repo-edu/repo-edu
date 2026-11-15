@@ -108,7 +108,7 @@ export async function roundFixture(
   working: "repo-edu" | "plan" = "repo-edu",
   /** Whether the audit reports no findings, which completes without another assistant. */
   clean = false,
-  /** Whether the vet accepts every finding, which sends the round past the rebuttal. */
+  /** Whether the vetter accepts every finding, which sends the round past the rebuttal. */
   accepted = false,
   /**
    * Whether Repo Edu's history has landed step 1, which an implementation

@@ -73,7 +73,7 @@ export type FindingTokenPrefix = {
 
 /**
  * Read the shared `[key:value]` token sequence at the start of a finding line.
- * Report findings require an empty remainder; record bullets require prose.
+ * Audit report findings require an empty remainder; record bullets require prose.
  */
 export function readFindingTokenPrefix(
   source: string,
@@ -169,7 +169,7 @@ export type ReportLocationCell =
 
 export type JudgedRepositorySet = "plan" | "repo-edu" | "plan, repo-edu"
 
-/** The report grammar's complete judged-set/location decision table. */
+/** The audit report grammar's complete judged-repo-set/location decision table. */
 export const reportLocationTable = {
   plan: {
     section: {

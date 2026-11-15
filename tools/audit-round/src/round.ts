@@ -89,7 +89,7 @@ function selectedFixerSide(
   return vet === undefined ? "neither" : { vet: vet.tag }
 }
 
-/** One vet of the round's panel: what it runs on, its report and its tag. */
+/** One vetter of the round's panel: what it runs on, its vet report and its tag. */
 type PanelRun = {
   readonly run: PhaseRun
   readonly report: string
@@ -105,7 +105,7 @@ function contestScope(
     contests: contests.map((number) => {
       const finding = findings.find((candidate) => candidate.number === number)
       if (finding === undefined)
-        throw new Error(`Contest names no report finding: ${number}`)
+        throw new Error(`Contest names no audit report finding: ${number}`)
       return {
         finding: number,
         ...(finding.ruling === undefined ? {} : finding.ruling),
@@ -765,7 +765,7 @@ export async function runRound(
     }
 
     // Every vetter reads the audit report on its own and at the same time. The
-    // round waits for the slowest; a failed vet fails the round, and the
+    // round waits for the slowest; a failed vetter fails the round, and the
     // finished vetters' vet reports stay in place.
     const vetted = await Promise.all(
       panel.map((vet) =>
@@ -1087,7 +1087,7 @@ export async function runRound(
           )
         // The fix ends the round and has answered every ruling it asked, so
         // its settling line is the recommendation the series rules read. The audit
-        // report's closing line stands only when no fix ran.
+        // audit report's closing line stands only when no fix ran.
         const widening =
           "plan" in input &&
           roundKind === "planning" &&

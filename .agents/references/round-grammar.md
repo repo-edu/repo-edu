@@ -476,7 +476,7 @@ The plan repo is already in the judged repo set.
 
 #### `report/target-missing` — refused
 
-Refusal: `Report needs one Target: opening naming example.md 1`
+Refusal: `Audit report needs one Target: opening naming example.md 1`
 
 ```markdown
 # Implementation audit workflow

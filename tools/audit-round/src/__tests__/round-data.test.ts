@@ -241,7 +241,7 @@ test("round data names each vet phase entry by its tag and no other entry", asyn
   assert.throws(() => parse([{ ...vet, tag: "abc" }]))
 })
 
-test("round data stores a revised tier that differs from the report tier", async (t) => {
+test("round data stores a revised tier that differs from the audit report tier", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.roundRoot, "example-impl-rounds.json")
   const findings = reviewedRoundFindings(
@@ -421,7 +421,7 @@ test("a panel of three splits when any pair of its vetters splits", () => {
   assert.equal(findingSplit([]), false)
 })
 
-test("a single-vet round rewritten to the panel form keeps every verdict, answer and winner", async (t) => {
+test("a single-vetter round rewritten to the panel form keeps every verdict, answer and winner", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.roundRoot, "example-impl-rounds.json")
   const reviewed = (
@@ -852,7 +852,7 @@ test("one repository cannot record the same finding number or unnumbered title t
   )
 })
 
-test("a record bullet cannot name a finding the report does not have", () => {
+test("a record bullet cannot name a finding the audit report does not have", () => {
   assert.throws(
     () =>
       settleRoundFindings(reviewedRoundFindings([reportFinding(1, "Only")]), [
@@ -864,7 +864,7 @@ test("a record bullet cannot name a finding the report does not have", () => {
             "- [B] [finding:2] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Only: Apply the correction.",
         },
       ]),
-    /names no report finding: 2/,
+    /names no audit report finding: 2/,
   )
 })
 

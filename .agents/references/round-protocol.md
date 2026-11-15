@@ -586,10 +586,10 @@ target lines, judged-repo lines, finding fields, location admission, numbering
 and empty sentences. The workflow owns the evidence placed before those fields,
 such as coverage and current-shape advice.
 
-Planning reports put excess before missing. An accepted removal can make a gap
+Planning audit reports put excess before missing. An accepted removal can make a gap
 inside the removed area irrelevant, so the user decides what can go before
 reading what to add. Each empty field is a checked verdict, never an omission.
-Implementation reports keep local and cross-repo findings in one field because
+Implementation audit reports keep local and cross-repo findings in one field because
 the judged repo set and location table already identify their owners.
 
 An audit report contains only the parts its workflow and grammar require. A planned

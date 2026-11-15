@@ -45,7 +45,7 @@ const settings: RoundData["settings"] = {
   fix: { assistant: "codex", ...selection("coder-beta") },
 }
 
-/** Every fixture round has one vet, so one tag names it; the panel test names two. */
+/** Every fixture round has one vetter, so one tag names it; the panel test names two. */
 const fixtureVetTag = "aul"
 
 const phase = (
@@ -1089,7 +1089,7 @@ test("a read-out with only vet rulings prints only the combined vet table", asyn
   )
 })
 
-test("a disproved row names every vet of the round with its verdict", async (t) => {
+test("a disproved row names every vetter of the round with its verdict", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -1194,7 +1194,7 @@ const ruledFinding = (
   ...(ruling === undefined ? {} : { ruling }),
 })
 
-test("vet-pair tables count each class's shared findings per tier range, ruled splits and their endings", async (t) => {
+test("vetter-pair tables count each class's shared findings per tier range, ruled splits and their endings", async (t) => {
   const f = await modelFixture(t)
   const { alpha, beta, gamma } = panelVets
   const auditor = {
@@ -1382,7 +1382,7 @@ test("a read-out without a panel of two vetters prints no vetter pairs", async (
   )
 })
 
-test("ruled findings list a ruled split, a ruled contest and a rewritten single-vet ruling, newest first", async (t) => {
+test("ruled findings list a ruled split, a ruled contest and a rewritten single-vetter ruling, newest first", async (t) => {
   const f = await modelFixture(t)
   const { alpha, beta } = panelVets
   const planPath = join(f.roundRoot, "ruled-plan-rounds.json")

@@ -23,7 +23,7 @@ async function commitPlan(f: Fixture, name: string) {
 
 /**
  * A random default opens each series on the entry the coin names, so each
- * series' auditor answers with its own report: the first entry is Codex and
+ * series' auditor answers with its own audit report: the first entry is Codex and
  * the second Claude.
  */
 function openers(...indexes: readonly number[]) {

@@ -188,7 +188,7 @@ if (scenario.phases !== undefined) {
           : phaseArguments[outputIndex]
     if (output !== null) {
       // A fixture audit names its target from the arguments it was given,
-      // as a real auditor does, so one report serves every scope.
+      // as a real auditor does, so one audit report serves every scope.
       const target = (): string => {
         const [, first, ...rest] = phaseArguments as [
           string,
@@ -209,7 +209,7 @@ if (scenario.phases !== undefined) {
         document.source === undefined
           ? document.text
           : await readFile(document.source, "utf8")
-      // A fixture rebuttal names each vet by the tag its report filename
+      // A fixture rebuttal names each vetter by the tag its vet report filename
       // carries, as a real rebuttal does.
       const vetTag = (): string =>
         basename(String(phaseArguments[1])).split(".").at(-2) ?? ""

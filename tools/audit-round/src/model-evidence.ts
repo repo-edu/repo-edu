@@ -69,7 +69,7 @@ export type CoderRow = {
   readonly excluded: Map<string, string>
 }
 
-/** One vet of a round, named by its tag, and its verdict on one finding. */
+/** One vetter of a round, named by its tag, and its verdict on one finding. */
 export type RoundVet = {
   readonly tag: string
   readonly identity: ModelIdentity
@@ -103,7 +103,7 @@ export type RuledFinding = {
   readonly title: string
   readonly tier: RoundFinding["tier"]
   readonly auditor: ModelIdentity
-  /** Every vet of the round, with its verdict on the finding when it gave one. */
+  /** Every vetter of the round, with its verdict on the finding when it gave one. */
   readonly vets: readonly RoundVet[]
   readonly winner: RulingWinner
   readonly reason: string
@@ -126,7 +126,7 @@ export type DisprovedEvidence =
       readonly finding: number
       readonly title: string
       readonly tier: RoundFinding["tier"]
-      /** Every vet of the round, with its verdict on the finding when it gave one. */
+      /** Every vetter of the round, with its verdict on the finding when it gave one. */
       readonly vets: readonly RoundVet[]
     })
   | (DisprovedBase & {
@@ -231,7 +231,7 @@ function emptyFindingCounts(): FindingCounts {
 }
 
 /**
- * The outcomes of the findings the report graded within the range. A kept
+ * The outcomes of the findings the audit report graded within the range. A kept
  * finding whose final tier left the range counts as downgraded.
  */
 function findingCounts(
@@ -346,7 +346,7 @@ function roundRecords(files: readonly RoundFileRecord[]): RoundRecord[] {
     )
 }
 
-/** Each vet the round ran, named by its phase entry, with its review of the finding. */
+/** Each vetter the round ran, named by its phase entry, with its review of the finding. */
 function roundVets(round: RoundData, finding: RoundFinding): RoundVet[] {
   return round.phases.flatMap((phase) =>
     phase.phase === "vet"

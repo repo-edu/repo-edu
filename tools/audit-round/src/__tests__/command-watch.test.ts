@@ -58,7 +58,7 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   assert.match(second, /audit +codex +gpt-5\.6-sol +high/)
 })
 
-test("manual queues do not prune a setting from report prose", async (t) => {
+test("manual queues do not prune a setting from audit report prose", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
     await runCommand(

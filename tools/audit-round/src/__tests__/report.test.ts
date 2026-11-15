@@ -36,7 +36,7 @@ function assertNamedRefusal(run: () => unknown, refusal: string | null): void {
   )
 }
 
-test("the round grammar's report examples are parser fixtures", () => {
+test("the round grammar's audit report examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("report/")) {
     // A refused example without the line is held to the class default.
     const target = /^Target: (.+)$/m.exec(example.source)?.[1]
@@ -59,7 +59,7 @@ test("the round grammar's report examples are parser fixtures", () => {
   }
 })
 
-test("every shared rating and location-table cell has its labelled report example", () => {
+test("every shared rating and location-table cell has its labelled audit report example", () => {
   const examples = roundGrammarExamples("report/")
   for (const reach of reachValues)
     assert.ok(
@@ -86,7 +86,7 @@ test("every shared rating and location-table cell has its labelled report exampl
   }
 })
 
-test("report routing reads the named workflow only in the opening", () => {
+test("audit report routing reads the named workflow only in the opening", () => {
   assert.equal(
     reportKind("# Planning round workflow\n\nJudged repos: plan@abc123"),
     "planning",
@@ -110,7 +110,7 @@ test("report routing reads the named workflow only in the opening", () => {
     "# Audit\n\n## Findings\n\nPlanning round workflow",
     "Planning round workflow\n\nImplementation audit workflow",
   ])
-    assert.throws(() => reportKind(source), /Report opening must name/)
+    assert.throws(() => reportKind(source), /Audit report opening must name/)
 })
 
 const ratings = "[growth-pattern:none] [reach:developer] [complexity:none]"
@@ -129,7 +129,7 @@ const settlingLine = "Settling: settle. No concrete shape question remains."
 const widening = (excess: string, missing: string) =>
   `${planning(excess, missing).replace("Target: example.md", "Target: example-widen.md")}\n\n${settlingLine}`
 
-test("the report opening identifies the judged repos independently of evidence", () => {
+test("the audit report opening identifies the judged repos independently of evidence", () => {
   for (const [line, judgedRepos] of [
     ["plan@abc123", ["plan"]],
     ["repo-edu@def456", ["repo-edu"]],
@@ -149,7 +149,7 @@ test("the report opening identifies the judged repos independently of evidence",
   }
 })
 
-test("planning reports judge only the plan repository", () => {
+test("planning audit reports judge only the plan repository", () => {
   for (const reportClass of ["widening", "detailing"] as const) {
     const valid = (reportClass === "widening" ? widening : planning)(
       "No excess findings.",
@@ -218,7 +218,7 @@ test("missing, duplicate, quoted and malformed judged-repos openings fail", () =
     )
 })
 
-test("the report opening names the round's target exactly once in plain text", () => {
+test("the audit report opening names the round's target exactly once in plain text", () => {
   const valid = planning("No excess findings.", "No missing findings.")
   assert.deepEqual(readAuditReport(valid, "detailing").judgedRepos, ["plan"])
   assert.deepEqual(
@@ -245,7 +245,7 @@ test("the report opening names the round's target exactly once in plain text", (
     assert.throws(
       () =>
         readAuditReport(valid.replace("Target: example.md", line), "detailing"),
-      /^Error: Report needs one Target: opening naming example\.md$/,
+      /^Error: Audit report needs one Target: opening naming example\.md$/,
       line,
     )
   assert.throws(
@@ -254,7 +254,7 @@ test("the report opening names the round's target exactly once in plain text", (
   )
 })
 
-test("settled reports carry findings and judged repositories after routing", () => {
+test("settled audit reports carry findings and judged repositories after routing", () => {
   assert.deepEqual(
     readAuditReport(implementation("No findings."), "implementation"),
     { settling: "", findings: [], judgedRepos: ["plan", "repo-edu"] },
@@ -268,7 +268,7 @@ test("settled reports carry findings and judged repositories after routing", () 
   )
 })
 
-test("widening reports end with their settling line and retain it", () => {
+test("widening audit reports end with their settling line and retain it", () => {
   const empty = widening("No excess findings.", "No missing findings.")
   assert.equal(
     readAuditReport(empty, "widening").settling,
@@ -308,7 +308,7 @@ test("widening reports end with their settling line and retain it", () => {
     )
 })
 
-test("reports require the workflow that matches their class", () => {
+test("audit reports require the workflow that matches their class", () => {
   assert.throws(
     () =>
       readAuditReport(
@@ -323,7 +323,7 @@ test("reports require the workflow that matches their class", () => {
   )
 })
 
-test("reports read explicit empty fields and count both planning fields", () => {
+test("audit reports read explicit empty fields and count both planning fields", () => {
   assert.deepEqual(
     readReport(implementation("No findings."), "implementation"),
     [],
@@ -360,7 +360,7 @@ test("reports read explicit empty fields and count both planning fields", () => 
   )
 })
 
-test("implementation reports count deferred findings at either repository's root", () => {
+test("implementation audit reports count deferred findings at either repository's root", () => {
   assert.deepEqual(
     readReport(
       implementation(
@@ -392,7 +392,7 @@ test("implementation reports count deferred findings at either repository's root
   )
 })
 
-test("reports retain every finding location and both deferral directions", () => {
+test("audit reports retain every finding location and both deferral directions", () => {
   const planningFinding = readAuditReport(
     planning(
       finding(1, "[field:excess] [section:decisions]"),
@@ -454,7 +454,7 @@ test("reports retain every finding location and both deferral directions", () =>
   })
 })
 
-test("report finding titles are unique across tiers", () => {
+test("audit report finding titles are unique across tiers", () => {
   assert.throws(
     () =>
       readAuditReport(
@@ -465,7 +465,7 @@ test("report finding titles are unique across tiers", () => {
   )
 })
 
-test("report finding titles cannot contain the record bullet delimiter", () => {
+test("audit report finding titles cannot contain the record bullet delimiter", () => {
   assert.throws(
     () =>
       readReport(
@@ -697,7 +697,7 @@ test("the round grammar's vet examples cover every verdict and named refusal", (
   }
 })
 
-/** A panel of one vet per verdict source, in the order the reports are supplied. */
+/** A panel of one vetter per verdict source, in the order the reports are supplied. */
 function panel(
   ...vets: readonly (readonly [string, string])[]
 ): readonly PanelVet[] {
@@ -917,7 +917,7 @@ test("rebuttal answers each of two vetters in audit report order, then panel ord
         twoFindings,
         reviews,
       ),
-    /^Error: Rebuttal answers must follow report order, then panel order$/,
+    /^Error: Rebuttal answers must follow audit report order, then panel order$/,
   )
   assert.throws(
     () =>

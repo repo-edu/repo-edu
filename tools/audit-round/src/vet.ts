@@ -43,7 +43,7 @@ type RebuttalHeader = Header<keyof typeof rebuttalAnswers & string> & {
  * A verdict or answer header starts `<number>. [<tier>] <word>`. A revised vet
  * tier is the one admitted suffix, and a rebuttal answer names its vetter's tag in
  * brackets before the word. A line in that shape whose word is outside the
- * phase's list is refused by name rather than passed as free text, so a vet
+ * phase's list is refused by name rather than passed as free text, so a verdict
  * word on a rebuttal line, or the reverse, fails on the line that is wrong
  * instead of as a missing entry. Every other line is free text for the fix
  * phase. Whitespace at either end, such as a Markdown hard break, carries no
@@ -122,7 +122,7 @@ function checkFindingIdentity(
   const finding = findings.find((candidate) => candidate.number === number)
   if (finding === undefined || finding.tier !== tier)
     throw new Error(
-      "Review finding numbers and tiers must match the report exactly",
+      "Review finding numbers and tiers must match the audit report exactly",
     )
 }
 
@@ -146,7 +146,7 @@ export function readVet(source: string, findings: ReportFindings): VetReading {
     reviews.some((review, index) => review.number !== findings[index]?.number)
   )
     throw new Error(
-      "Vet verdict numbers must match the report's finding numbers exactly",
+      "Vet verdict numbers must match the audit report's finding numbers exactly",
     )
   return {
     reviews,
@@ -199,7 +199,7 @@ export function readRebuttal(
     const previous = rebuttals.at(-1)
     if (previous !== undefined && order(previous) >= order(header))
       throw new Error(
-        "Rebuttal answers must follow report order, then panel order",
+        "Rebuttal answers must follow audit report order, then panel order",
       )
     rebuttals.push({
       number: header.number,

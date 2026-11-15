@@ -15,7 +15,7 @@ import { releases, testSetup } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
 for (const working of ["repo-edu", "plan"] as const) {
-  test(`manual routing from ${working} follows the report opening rather than its target name or judged repos`, async (t) => {
+  test(`manual routing from ${working} follows the audit report opening rather than its target name or judged repos`, async (t) => {
     const f = await roundFixture(
       t,
       "codex",
@@ -70,12 +70,12 @@ for (const working of ["repo-edu", "plan"] as const) {
       await runCommand(["paths", "fix", report], f.runtime, f.options),
       1,
     )
-    assert.match(f.errors.at(-1) ?? "", /Report opening must name/)
+    assert.match(f.errors.at(-1) ?? "", /Audit report opening must name/)
   })
 }
 
 for (const working of ["repo-edu", "plan"] as const) {
-  test(`manual phases at ${working} continue from one report with each session's actual tag`, async (t) => {
+  test(`manual phases at ${working} continue from one audit report with each session's actual tag`, async (t) => {
     // The plan has no landed step, so its name alone claims a planning round.
     const f = await roundFixture(
       t,
@@ -192,7 +192,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       return JSON.parse(f.visible[0]).arguments
     }
     // The vet takes the newest audit report whoever wrote it, so a session
-    // may vet its own assistant's report.
+    // may vet its own assistant's audit report.
     await utimes(report, 1_000, 1_000)
     assert.deepEqual(await paths(["vet", "--writer", "obh"]), [
       ownReport,
@@ -207,7 +207,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     assert.deepEqual(await readdir(root, { recursive: true }), before)
     for (const vet of vets) await writeFile(vet, "1. [B] Revise")
-    // The rebuttal and the fix read every vet of the round, in file-name order.
+    // The rebuttal and the fix read every vet report of the round, in file-name order.
     const rebut = join(root, "task-modifier-05-4-rebut.abh.md")
     assert.deepEqual(await paths(["rebut", "--writer", "abh"]), [
       report,
@@ -313,7 +313,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   })
 })
 
-test("every vet of the round reaches the rebuttal and the fix, beside the newest rebuttal unless one is selected", async (t) => {
+test("every vet report of the round reaches the rebuttal and the fix, beside the newest rebuttal unless one is selected", async (t) => {
   const f = await roundFixture(t)
   const report = join(
     f.roundRoot,
@@ -379,7 +379,7 @@ test("every vet of the round reaches the rebuttal and the fix, beside the newest
     1,
   )
   assert.match(f.errors[0], /another round/)
-  // Only the fix reads a rebuttal, and every vet is supplied, so no other
+  // Only the fix reads a rebuttal, and every vet report is supplied, so no other
   // selection exists.
   assert.equal(
     await invoke([

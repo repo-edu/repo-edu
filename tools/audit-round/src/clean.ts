@@ -19,9 +19,9 @@ export type CleanCompletion = {
 }
 
 /**
- * Record a report with no findings without starting another assistant. Keep
- * the report as evidence and leave handoffs untouched: no correction consumed
- * their reasoning. Commit audits have no plan record and keep the report alone.
+ * Record an audit report with no findings without starting another assistant.
+ * Keep the audit report as evidence and leave handoffs untouched: no correction consumed
+ * their reasoning. Commit audits have no plan record and keep the audit report alone.
  */
 export async function completeClean(
   input: CleanInput,
@@ -29,7 +29,7 @@ export async function completeClean(
 ): Promise<CleanCompletion> {
   if ("groups" in input)
     return {
-      message: `Clean audit. Report retained: ${input.report}`,
+      message: `Clean audit. Audit report retained: ${input.report}`,
       commits: [],
     }
 
@@ -57,7 +57,7 @@ export async function completeClean(
     .join("\n\n")
   const { sha } = await commitOnly({ cwd, subject, body, stamps })
   return {
-    message: `Clean audit recorded. Report retained: ${input.report}`,
+    message: `Clean audit recorded. Audit report retained: ${input.report}`,
     commits: [{ repository, sha }],
   }
 }
