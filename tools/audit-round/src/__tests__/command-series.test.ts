@@ -387,6 +387,146 @@ test("a stopped panel split resumes its fix with every vet report and each vette
   for (const path of [report, ...vets, f.rebut]) await readFile(path)
 })
 
+test("a fix that failed with an open serious split finishes through resume-fix", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu")
+  const settings = structuredClone(testSettings)
+  settings.implementationAudit.vetters = [
+    { assistant: "claude", model: "opus", effort: "high" },
+    { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+  ]
+  const options = { ...f.options, settings }
+  const fixPhase = async (
+    result: string,
+    rest: Record<string, unknown> = {},
+  ) => {
+    const stream = await phaseStream(
+      "codex",
+      `Fix turn.\nPHASE RESULT: ${result}`,
+      "fix-session",
+    )
+    return {
+      ...(f.phases.fix as Record<string, unknown>),
+      stream,
+      assistants: { codex: { stream } },
+      document: undefined,
+      commits: [],
+      ...rest,
+    }
+  }
+  // Claude accepts the B finding and Codex drops it, so the panel splits and
+  // the finding needs the user's winner. The rebuttal agrees with the drop,
+  // so no contest joins the split. The fix fails before it asks.
+  await f.configure({
+    phases: {
+      ...f.phases,
+      vet: {
+        ...(f.phases.vet as Record<string, unknown>),
+        documents: {
+          claude: { text: "1. [B] Accept\n" },
+          codex: { text: "1. [B] Drop\n\nThe contract already holds.\n" },
+        },
+      },
+      rebut: {
+        ...(f.phases.rebut as Record<string, unknown>),
+        document: { text: "1. [B] [obh] Agree\n" },
+      },
+      fix: await fixPhase(
+        '{"status":"failed","reason":"Selected model is at capacity."}',
+      ),
+    },
+  })
+  assert.equal(
+    await runCommand(
+      ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
+      f.runtime,
+      options,
+    ),
+    1,
+  )
+  const report = f.report
+  const failed = f.visible.join("\n")
+  assert.match(failed, /\[fix\] failed: Selected model is at capacity\./)
+  assert.match(
+    failed,
+    new RegExp(
+      `^Resume: .* && pnpm audit-round resume-fix ${basename(report).replaceAll(".", "\\.")} fix-session$`,
+      "m",
+    ),
+  )
+  assert.doesNotMatch(failed, /Finish the round by hand/)
+  const roundData = join(f.roundRoot, "example-impl-rounds.json")
+  const stored = async () =>
+    JSON.parse(await readFile(roundData, "utf8")) as {
+      rounds: {
+        status: string
+        findings: { reviews: unknown[]; ruling?: unknown }[]
+      }[]
+    }
+  assert.equal((await stored()).rounds[0]?.status, "failed")
+
+  // The resumed fix writes its ruling first, because the failed turn wrote
+  // none. Once the user names the winner, the same session lands the record.
+  await f.configure({
+    phases: {
+      ...f.phases,
+      fix: await fixPhase('{"status":"needs-ruling","reason":null}', {
+        document: { text: "Written ruling by fix" },
+      }),
+    },
+  })
+  assert.equal(
+    await runCommand(
+      ["resume-fix", basename(report), "fix-session"],
+      f.runtime,
+      {
+        ...options,
+        awaitAnswer: async (ruling) => {
+          assert.deepEqual(ruling.findings, [1])
+          assert.deepEqual(ruling.panel, ["abh", "obh"])
+          await f.configure({
+            phases: {
+              ...f.phases,
+              fix: await fixPhase('{"status":"finished","reason":null}', {
+                commits: [
+                  {
+                    cwd: f.repoRoot,
+                    subject:
+                      "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
+                    body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+                  },
+                ],
+              }),
+            },
+          })
+          return {
+            rulings: [
+              {
+                finding: 1,
+                winner: ["abh"],
+                reason: "The finding holds as written.",
+              },
+            ],
+            reply: "",
+          }
+        },
+      },
+    ),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const { rounds } = await stored()
+  assert.equal(rounds.length, 1)
+  assert.equal(rounds[0]?.status, "finished")
+  assert.deepEqual(rounds[0]?.findings[0]?.reviews, [
+    { vet: "abh", verdict: "accept", answer: null },
+    { vet: "obh", verdict: "drop", answer: "agree" },
+  ])
+  assert.deepEqual(rounds[0]?.findings[0]?.ruling, {
+    winner: ["abh"],
+    reason: "The finding holds as written.",
+  })
+})
+
 /** The ruling pause lets a test act as the user editing the queue mid-round. */
 async function finishFixOnReply(
   f: Awaited<ReturnType<typeof roundFixture>>,

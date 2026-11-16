@@ -1,17 +1,18 @@
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { Writable } from "node:stream"
-import { test } from "node:test"
+import { type TestContext, test } from "node:test"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import type { RoundResult } from "../round.js"
-import { parseRoundDataFile } from "../round-data.js"
+import { parseRoundDataFile, type RoundAccount } from "../round-data.js"
 import { RunClock } from "../run-clock.js"
 import { createTerminal } from "../terminal.js"
 import type { Assistant, AuditorOverride } from "./configured-runner.js"
 import {
   commandText,
   pinned,
+  pinnedCoder,
   RoundOutput,
   roundPhases,
   roundRun,
@@ -69,9 +70,141 @@ test("an unresolved serious contest prints the runner recovery route", async (t)
   }
 
   assert.match(
-    output.resumeCommand(result, "fix-session"),
-    /pnpm audit-round resume-fix example-impl-audit-01\.\.01-01-2-audit\./,
+    output.recoveryText(result) ?? "",
+    /^Resume: .* && pnpm audit-round resume-fix example-impl-audit-01\.\.01-01-2-audit\./,
   )
+})
+
+/** A B finding on which the panel's two vetters split, so its winner is the user's. */
+const splitFinding: RoundAccount["findings"][number] = {
+  number: 1,
+  title: "Serious split",
+  tier: "B",
+  reach: "developer",
+  complexity: "none",
+  growthPattern: "none",
+  location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+  reviews: [
+    { vet: "abh", verdict: "accept", answer: null },
+    { vet: "obh", verdict: "drop", answer: "agree" },
+  ],
+  outcome: "kept",
+  finalTier: "B",
+  finalReach: "developer",
+}
+
+/**
+ * Print the ending of a Claude-audited round whose phase failed, with the
+ * given findings. The rebuttal shares the audit's Claude selection and the
+ * Codex coder fixes.
+ */
+async function failedRoundEnding(
+  t: TestContext,
+  phase: "vet" | "rebut" | "fix",
+  findings: RoundAccount["findings"],
+): Promise<string> {
+  const f = await fixture(t)
+  const written: string[] = []
+  const output = new RoundOutput(
+    await roundRun(
+      {
+        ...testSetup(f.root),
+        auditor: "claude",
+        plan: "example.md",
+        scope: "1",
+      },
+      Date.now(),
+      releases,
+    ),
+    {
+      clock: new RunClock(Date.now),
+      terminal: {
+        write(text) {
+          written.push(text)
+        },
+        status() {},
+        clear() {},
+      },
+    },
+  )
+  t.after(() => output.close())
+  output.finish({
+    status: "failed",
+    phase,
+    reason: "Selected model is at capacity.",
+    sessionId: `${phase}-session`,
+    ...(phase === "fix"
+      ? { assistant: "codex", model: pinnedCoder() }
+      : { assistant: "claude", model: pinned("claude") }),
+    ...testContext(f.root),
+    commits: [],
+    account: { settling: "", judgedRepos: ["repo-edu"], findings },
+  })
+  return written.join("\n")
+}
+
+const report = "example-impl-audit-01..01-01-2-audit.abh.md"
+
+test("a failed rebuttal with an open serious split prints the hand-run rebuttal and fix", async (t) => {
+  const text = await failedRoundEnding(t, "rebut", [splitFinding])
+  assert.match(text, /^Session: rebut-session$/m)
+  assert.ok(
+    text.includes(
+      [
+        "Finish the round by hand, each step in a new session:",
+        "1. Rebuttal on claude claude-opus-5 high:",
+        `   /rebut ${report}`,
+        "2. Fix on codex gpt-5.6-sol high:",
+        `   $fix ${report}`,
+      ].join("\n"),
+    ),
+    text,
+  )
+  assert.doesNotMatch(text, /Resume:/)
+})
+
+test("a failed fix without an open contest or split prints the hand-run fix", async (t) => {
+  const text = await failedRoundEnding(t, "fix", [
+    {
+      ...splitFinding,
+      reviews: [{ vet: "abh", verdict: "revise", answer: "agree" }],
+    },
+  ])
+  assert.match(text, /^Session: fix-session$/m)
+  assert.ok(
+    text.includes(
+      [
+        "Finish the round by hand, each step in a new session:",
+        "1. Fix on codex gpt-5.6-sol high:",
+        `   $fix ${report}`,
+      ].join("\n"),
+    ),
+    text,
+  )
+  assert.doesNotMatch(text, /Rebuttal on|Resume:/)
+})
+
+test("a failed fix with an open serious split prints resume-fix", async (t) => {
+  const text = await failedRoundEnding(t, "fix", [splitFinding])
+  assert.match(
+    text,
+    new RegExp(
+      `^Resume: cd .* && pnpm audit-round resume-fix ${report.replaceAll(".", "\\.")} fix-session$`,
+      "m",
+    ),
+  )
+  assert.doesNotMatch(text, /Finish the round by hand/)
+})
+
+test("a failed vet prints its assistant recovery command", async (t) => {
+  const text = await failedRoundEnding(t, "vet", [
+    { ...splitFinding, reviews: [] },
+  ])
+  assert.match(
+    text,
+    /^Resume: cd .* && claude --resume vet-session --model opus --effort high /m,
+  )
+  assert.doesNotMatch(text, /Finish the round by hand|resume-fix/)
 })
 
 for (const [side, line] of [

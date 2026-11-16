@@ -6,12 +6,14 @@ import { matter } from "vfile-matter"
 import { z } from "zod"
 import { additionalDirectories } from "./context.js"
 import type {
+  Assistant,
   AssistantTurnInput,
+  Effort,
   InteractiveSession,
   PhaseInput,
   PinnedField,
 } from "./phase.js"
-import { phaseLauncher, phaseWorkflow } from "./phase.js"
+import { phaseLauncher, phaseSkills, phaseWorkflow } from "./phase.js"
 
 export const claudeSettingsRequest = {
   type: "control_request",
@@ -106,6 +108,33 @@ export function roundRecoveryCommand(
   report: string,
 ): string {
   return `${shellJoin(["cd", session.cwd])} && ${shellJoin(["pnpm", "audit-round", "resume-fix", basename(report), session.sessionId])}`
+}
+
+/** One phase a user runs by hand, on the selection the round chose for it. */
+export type HandRunStep = {
+  readonly phase: "rebut" | "fix"
+  readonly assistant: Assistant
+  readonly model: string
+  readonly effort: Effort
+}
+
+/**
+ * The hand-run phases that finish a round whose rebuttal or fix failed. A
+ * resumed rebuttal cannot finish the round, because only the runner saves its
+ * report, and `resume-fix` needs that report. Each launcher line resolves the
+ * open round from the audit report's file name, so no step claims a new number.
+ */
+export function handRunAdvice(
+  report: string,
+  steps: readonly HandRunStep[],
+): string {
+  return [
+    "Finish the round by hand, each step in a new session:",
+    ...steps.map(
+      (step, index) =>
+        `${index + 1}. ${step.phase === "rebut" ? "Rebuttal" : "Fix"} on ${step.assistant} ${step.model} ${step.effort}:\n   ${step.assistant === "claude" ? "/" : "$"}${phaseSkills[step.phase]} ${basename(report)}`,
+    ),
+  ].join("\n")
 }
 
 const workflowHeader = z.strictObject({

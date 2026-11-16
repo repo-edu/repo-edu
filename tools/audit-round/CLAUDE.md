@@ -50,9 +50,12 @@ consumers.
   with its recovery session. The same fix session resumes in the background with that reply. Further
   open decisions repeat this route and ask only for the findings still without winners. A completed
   fix follows the same commit checks and watch as an uninterrupted fix. Ending the wait with Ctrl-C
-  retains the round files and ends the auditor sequence. An open serious contest or split prints a
-  runner recovery command. That route reloads the in-progress round, stored winners and the fix
-  session, then re-enters this same loop. It appends the retained log and transcript. A submitted
+  retains the round files and ends the auditor sequence. A fix that stops or fails while a serious
+  contest or split still lacks its winner prints a runner recovery command, `resume-fix`. That route
+  reloads the in-progress round, stored winners and the fix session, then re-enters this same loop.
+  It appends the retained log and transcript. Every other failed fix, and every failed rebuttal,
+  prints the hand-run phases that finish the round instead: a resumed rebuttal cannot finish it,
+  because only the runner saves the rebuttal report, and `resume-fix` needs that report. A submitted
   reply lets a completed round continue any remaining auditor entries. Further open decisions
   replace the ruling in that same session under
   [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate ruling phases run.
@@ -371,37 +374,41 @@ consumers.
   and reply recording completes before the fix can resume.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
-  resolve the same way. The watch workflow and shared
-  grammar own `watch.json`'s shape. `round.ts` orders its write after the admitted document: each
-  episode records both repositories' graded heads beside one grade and written date. The glance
-  counts from the plan head for planning rounds and the Repo Edu head for implementation rounds.
-  Both update checks precede release resolution. Codex compares its installed version with the
-  standalone installer's release channel before running its updater. A current or newer installation
-  is kept. An update is successful only when a fresh version read reaches the checked release or a
-  newer one. Installer output is retained for failure diagnostics, since its success banner does not
-  prove a version change. Failed checks and unverified updates leave the date unstamped so the next
-  run retries. Release resolution asks Claude for the release of each model a round's phases may
-  pin, as `namedModels` derives them from `roundPhases`, because a family alias names whichever
-  release is current. Codex runs a named model under that name. Neither CLI's own model
-  configuration is read, because `settings.json` names every phase's selection. Claude control
-  requests start no LLM turn. `requests.ts` owns headless and manual recovery arguments, including
-  `--approve-for-me` on every Codex phase and resume command and every phase's model and reasoning
-  effort: Codex takes them before any subcommand, so a resumed phase keeps them, and Claude takes
-  `--model` and `--effort`. A fix awaiting a ruling and a failure both carry
-  their phase, so continuation and recovery use the model the round ran that
-  phase on. The `resume-fix` recovery command names the audit report and
-  fix session as quoted runner arguments. Claude uses
+  resolve the same way. The watch workflow and shared grammar own `watch.json`'s shape. `round.ts`
+  orders its write after the admitted document: each episode records both repositories' graded heads
+  beside one grade and written date. The glance counts from the plan head for planning rounds and
+  the Repo Edu head for implementation rounds. Both update checks precede release resolution. Codex
+  compares its installed version with the standalone installer's release channel before running its
+  updater. A current or newer installation is kept. An update is successful only when a fresh
+  version read reaches the checked release or a newer one. Installer output is retained for failure
+  diagnostics, since its success banner does not prove a version change. Failed checks and
+  unverified updates leave the date unstamped so the next run retries. Release resolution asks
+  Claude for the release of each model a round's phases may pin, as `namedModels` derives them from
+  `roundPhases`, because a family alias names whichever release is current. Codex runs a named model
+  under that name. Neither CLI's own model configuration is read, because `settings.json` names
+  every phase's selection. Claude control requests start no LLM turn. `requests.ts` owns headless
+  and manual recovery arguments, including `--approve-for-me` on every Codex phase and resume
+  command and every phase's model and reasoning effort: Codex takes them before any subcommand, so a
+  resumed phase keeps them, and Claude takes `--model` and `--effort`. A fix awaiting a ruling and a
+  failure both carry their phase, so continuation and recovery use the model the round ran that
+  phase on. The `resume-fix` recovery command names the audit report and fix session as quoted
+  runner arguments. `handRunAdvice` builds the hand-run advice for a failed rebuttal or fix: the
+  rebuttal and then the fix, or the fix alone. Each step names the assistant, model and effort the
+  round chose for its phase, then the launcher line with the audit report's file name, `/rebut` or
+  `/fix` for Claude and `$rebut` or `$fix` for Codex. The rebuttal step runs on the auditor's
+  selection, because the rebuttal workflow refuses another assistant's audit report.
+  `RoundOutput.recoveryText` picks the advice, `resume-fix` or the assistant recovery command for
+  each ending, and both the round's ending and the emergency ending print it. Claude uses
   `--permission-mode auto` in release resolution and every session entry. `requests.ts` also
   supplies each fresh phase's selected workflow and whole files listed by the workflow's `reads`
   header. Header paths resolve from the workflow file. `vfile-matter` parses the header and `zod`
   checks its shape. Listed workflows supply their own reads recursively, with each source included
-  once. Audit, vet, rebuttal and fix also receive their home launcher. The watch has no
-  launcher; its workflow header lists the `simple` definition directly. The close has no launcher
-  either, and its prompt names a loop-close rather than a round phase. Resumed sessions receive no
-  files again. The request for a missing result line opens as every phase prompt does, so the
-  session reads it as an unattended phase. It asks for the complete response again, because the
-  runner reads only the last turn's text.
-  Root instructions are not listed. Both assistants receive their phase prompts on
+  once. Audit, vet, rebuttal and fix also receive their home launcher. The watch has no launcher;
+  its workflow header lists the `simple` definition directly. The close has no launcher either, and
+  its prompt names a loop-close rather than a round phase. Resumed sessions receive no files again.
+  The request for a missing result line opens as every phase prompt does, so the session reads it as
+  an unattended phase. It asks for the complete response again, because the runner reads only the
+  last turn's text. Root instructions are not listed. Both assistants receive their phase prompts on
   standard input. Codex command-line arguments contain no prompt text, including on resume, so
   joined evidence is not limited by the operating system's per-argument size. The same collected
   file list produces a separate log prompt containing source paths with an omission notice in place
@@ -757,8 +764,8 @@ consumers.
   and the reopen step calls `mark`, so help hides them. `ruling [target]` prints what the waiting
   run asks and the answer form. `answer [target] <file>` carries one JSON answer document to the
   waiting run, prints the waiting run's response and exits 1 on a refusal. Both start no assistant,
-  read no settings and write no file. The printed recovery command for an open serious contest or
-  split calls the hidden `resume-fix` route. It resolves the retained audit, vet and rebuttal
+  read no settings and write no file. The recovery command a fix prints for an open serious contest
+  or split calls the hidden `resume-fix` route. It resolves the retained audit, vet and rebuttal
   reports and in-progress round entry, refuses a round without one, restores earlier phase records
   and resumes the saved fix session through the ordinary coordinator. `plan` prints the plan an
   omitted target selects, as its absolute path, and writes nothing, so a user can see it before a
@@ -839,7 +846,7 @@ consumers.
   round's title carries the number it claimed for its target, so a rerun's first round names the
   round its data records; a chained round claims the next number for its own target. Required write
   failures stop phase progression. If recording itself fails, the emergency channel still reports
-  the known session and recovery command.
+  the known session and the same recovery command or hand-run advice as the round's ending.
 - `queue.ts` owns the shared entry splitter and the queue file's contents. Commit references, plan
   scopes, `--auditor`, `--first` and queue files admit entries separated by commas, spaces or line
   breaks. Auditor entries are each read by `parseAuditor` and keep the user's spelling, so a rewrite
@@ -1019,12 +1026,20 @@ Work in the printed checkout and follow the printed workflow. Planning phases
 run in the plan checkout; implementation and commit phases run in Repo Edu.
 Never claim a new number to continue an existing round.
 
-`resume-fix <report> <session-id>` is the runner-owned continuation for an open serious contest or
-split. It reloads the retained audit report, every vet report, the rebuttal report and the matching
-round entry, and restores each vetter's vet phase entry by its tag. For an existing ruling, the
-runner prints its notice and waits for the `/ruling` answer before the fix resumes. If the stopped
-fix wrote none, the runner resumes it first. Stored winners are passed back to every resumed fix and
-unresolved numbers remain in `COMMIT_OPEN_CONTESTS`.
+A failed rebuttal prints the hand-run rebuttal and then the hand-run fix in place of a `Resume:`
+line; a failed fix prints the hand-run fix. Each step is the launcher line for this routing, so it
+works on the open round and claims no number. The fix receives every vet report and the new
+rebuttal report. A hand-run fix lands the round's records but not its round data, so the round
+stays `failed` there and the next run audits the scope again. The `Session:` line still names the
+failed session.
+
+`resume-fix <report> <session-id>` is the runner-owned continuation for a fix that stopped or failed
+while a serious contest or split still lacks its winner. It reloads the retained audit report, every
+vet report, the rebuttal report and the matching round entry, and restores each vetter's vet phase
+entry by its tag. For an existing ruling, the runner prints its notice and waits for the `/ruling`
+answer before the fix resumes. If the stopped fix wrote none, the runner resumes it first. Stored
+winners are passed back to every resumed fix and unresolved numbers remain in
+`COMMIT_OPEN_CONTESTS`.
 
 ## Plan targets
 
@@ -1435,7 +1450,9 @@ A clean audit records its outcome directly and retains the audit report,
 without vet, rebuttal or fix sessions. An automatic clean round still applies the series
 rules. A fix that stops for a ruling adds a ruling file. If a serious contest or split
 remains open, its stop or failure prints the runner's `resume-fix` command. The
-recovered fix uses the same retained round and completion path. A finished plan
+recovered fix uses the same retained round and completion path. A failed rebuttal,
+and a failed fix without that open ruling, print the hand-run phases that finish the
+round under [Phase routing](#phase-routing). A finished plan
 round with audit findings ends with a glance at the commit record, and a due
 glance adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is
 how its cadence survives between rounds, and `--no-watch` skips both. Without `--auditor`, an active

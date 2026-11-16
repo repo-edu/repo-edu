@@ -106,7 +106,9 @@ continues the run itself.
    ends the run and prints the session's recovery command. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase or worker failed.** Fix any outside problem the failure names, then run the printed
-   `Resume:` command or the printed `--resume` form of this command. See
+   `Resume:` command or the printed `--resume` form of this command. A failed rebuttal or fix
+   prints the hand-run phases that finish the round instead, unless the fix still needs your
+   winner on a serious contest or split, which prints `resume-fix`. See
    [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** Read the named `-watch.md` file and act on it before you
    rerun.

@@ -76,7 +76,7 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
 | The runner is waiting for a ruling | [`/ruling [stem]`](/repo-edu/tooling/answer-ruling/) in the Claude desktop app | The chat explains the ruling and sends your confirmed answer; the same assistant session resumes |
-| A phase failed or I left without replying | [Run the recovery command](/repo-edu/tooling/recover-run/) printed by the runner | The retained session and files continue that specific work |
+| A phase failed or I left without replying | [Follow the recovery](/repo-edu/tooling/recover-run/) printed by the runner | The retained session or the printed hand-run phases finish that specific work from its retained files |
 
 ### Source upkeep
 

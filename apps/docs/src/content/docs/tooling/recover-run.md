@@ -3,12 +3,13 @@ title: Recover a run
 description: Continue the retained phase or implementation worker after a failure or unanswered ruling
 ---
 
-Recovery continues the stopped session and its existing files; it does not create a replacement
-round, because a new round would claim another number and leave the open one unfinished.
+Recovery finishes the open work from its existing files, through the stopped session or through
+hand-run phases. It never creates a replacement round, because a new round would claim another
+number and leave the open one unfinished.
 
 | Fact | Detail |
 | --- | --- |
-| Owners | `tools/audit-round/CLAUDE.md` sections **Ownership**, **Phase routing** and **Invocation**; `tools/audit-round/src/requests.ts` owns recovery command construction |
+| Owners | `tools/audit-round/CLAUDE.md` sections **Ownership**, **Phase routing** and **Invocation**; `tools/audit-round/src/requests.ts` owns the recovery commands and the hand-run advice |
 
 ## The printed command
 
@@ -21,17 +22,38 @@ fix the startup problem and rerun the original command.
 
 ## A failed audit phase
 
-A failed audit, vet, rebuttal, watch or close prints its assistant recovery
-command when the runner knows the session. A failed fix does the same when no
-serious contest or split is open. Run it as printed. The command reopens the stopped
+A failed audit, vet, watch or close prints its assistant recovery command when
+the runner knows the session. Run it as printed. The command reopens the stopped
 session in the terminal and waits for input. It sends no prompt. Type what the
 session should do, such as continue the phase or answer the question it stopped
 on.
 
 The runner has already stopped. It does not check or save the resumed session's work. A resumed
-audit, vet, rebuttal or watch cannot finish the stopped round because only the runner saves or
-publishes the text those phases return. A resumed fix or close may finish the files and commits it
-owns. Start the next runner command yourself after the session finishes.
+audit, vet or watch cannot finish the stopped round because only the runner saves or publishes the
+text those phases return. A resumed close may finish the files and commits it owns. Start the next
+runner command yourself after the session finishes.
+
+A failed rebuttal or fix prints the hand-run phases that finish the round in place of a `Resume:`
+line. A failed rebuttal lists two steps:
+
+```text
+Finish the round by hand, each step in a new session:
+1. Rebuttal on codex <model> <effort>:
+   $rebut <report>
+2. Fix on claude <model> <effort>:
+   /fix <report>
+```
+
+A failed fix lists the fix step alone. Start each step in a new session of the named assistant, on
+the named model and effort, and type its launcher line. The rebuttal runs on the auditor's
+assistant, because the rebuttal workflow refuses another assistant's audit report. The launcher
+resolves the open round from the audit report, so no step claims a new number, and the fix reads
+every vet report and the new rebuttal report. Rule on any serious contest or split in the fix's
+chat. The hand-run fix lands the round's records, but the round data keeps the round as `failed`,
+so the next run audits the scope again. The `Session:` line still names the failed session.
+
+A failed fix whose serious contest or split still needs your winner prints `resume-fix` instead,
+under [An unanswered ruling](#an-unanswered-ruling).
 
 Do not run `/audit` again for the same work. A new audit would claim another round number instead of
 completing the open one.
@@ -89,6 +111,6 @@ neither.
 For `resume-fix`, recovery is complete only when every serious contest or split has a
 stored winner, the fix reports success and the runner validates its records.
 
-For an assistant recovery command, read the resumed session's final result. The stopped runner does
-not verify it. If recovery fails again, use the newest printed command because it carries the
-current resumable session.
+For an assistant recovery command or the hand-run phases, read the final session's result. The
+stopped runner does not verify it. If recovery fails again, use the newest printed command because
+it carries the current resumable session.

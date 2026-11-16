@@ -2763,14 +2763,19 @@ export async function runCommand(
     options.emergency(`audit-round: ${errorMessage(error)}`)
     // Required recording failures cannot be reported through the failed writer.
     if (result?.status === "failed") {
-      const resumeSessionId = failureResumeSessionId(result)
       options.emergency(
         `[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}`,
       )
-      if (resumeSessionId !== null)
-        options.emergency(
-          `Resume: ${output?.resumeCommand(result, resumeSessionId) ?? recoveryCommand({ ...result, sessionId: resumeSessionId })}`,
-        )
+      // Without an output no round names its report or phases, so only the
+      // failed session's own recovery command remains.
+      const resumeSessionId = failureResumeSessionId(result)
+      const recovery =
+        output === undefined
+          ? resumeSessionId === null
+            ? null
+            : `Resume: ${recoveryCommand({ ...result, sessionId: resumeSessionId })}`
+          : output.recoveryText(result)
+      if (recovery !== null) options.emergency(recovery)
     }
   } finally {
     try {

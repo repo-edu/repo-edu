@@ -45,7 +45,11 @@ import {
   transcribed,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
-import { recoveryCommand, roundRecoveryCommand } from "./requests.js"
+import {
+  handRunAdvice,
+  recoveryCommand,
+  roundRecoveryCommand,
+} from "./requests.js"
 import {
   type CloseResult,
   failureResumeSessionId,
@@ -126,7 +130,7 @@ export type Run = {
   /** Earlier phase measurements restored when a stopped fix re-enters the runner. */
   readonly continued?: RoundData["phases"]
   /**
-   * What a serious-contest recovery command needs: the audit report it names
+   * What a round's recovery advice needs: the audit report its commands name
    * and the work class that decides which findings are serious.
    */
   readonly recovery?: {
@@ -1023,44 +1027,77 @@ export class RoundOutput<R extends Run = Run> {
       this.flush(slot)
       this.say(stamp)
     }
-    if (result.status === "failed") {
-      const resumeSessionId = failureResumeSessionId(result)
-      const resume =
-        resumeSessionId === null
-          ? ""
-          : `\nResume: ${this.resumeCommand(result, resumeSessionId)}`
-      this.say(
-        `\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
-      )
-    } else {
-      this.say(
-        result.status === "finished"
-          ? `${this.run.name} finished.`
-          : `Stopped without a ruling. The round files are retained.\nResume: ${this.resumeCommand(result, result.session.sessionId)}`,
-      )
+    if (result.status === "finished") this.say(`${this.run.name} finished.`)
+    else {
+      const outcome =
+        result.status === "failed"
+          ? `\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}`
+          : "Stopped without a ruling. The round files are retained."
+      const recovery = this.recoveryText(result)
+      this.say(recovery === null ? outcome : `${outcome}\n${recovery}`)
     }
     // The closing rule pairs with the opening one, so the chain's messages
     // between rounds sit outside both boxes.
     this.say(runRule)
   }
 
-  /** Use the runner while an unresolved serious contest or split still owns commit admission. */
-  resumeCommand(
+  /**
+   * What a failed or stopped run prints after its outcome. A failed rebuttal
+   * or fix advises finishing the round by hand. The one exception is a fix
+   * whose open serious contest or split still owns commit admission: the
+   * runner's `resume-fix` re-enters its session. Every other known session
+   * prints its assistant recovery command.
+   */
+  recoveryText(
     result:
       | Extract<RoundResult, { readonly status: "awaiting-ruling" | "failed" }>
       | Extract<CloseResult, { readonly status: "failed" }>,
-    sessionId: string,
-  ): string {
-    const session =
+  ): string | null {
+    const sessionId =
       result.status === "awaiting-ruling"
-        ? { ...result.session, sessionId }
-        : { ...result, sessionId }
+        ? result.session.sessionId
+        : failureResumeSessionId(result)
+    const session =
+      sessionId === null
+        ? null
+        : result.status === "awaiting-ruling"
+          ? result.session
+          : { ...result, sessionId }
     const recovery = this.run.recovery
-    return "account" in result &&
+    const contested =
       recovery !== undefined &&
+      "account" in result &&
       openSeriousFindings(result.account, recovery.workClass).length > 0
-      ? roundRecoveryCommand(session, recovery.report)
-      : recoveryCommand(session)
+    const failed = result.status === "failed" ? result.phase : null
+    if (
+      recovery !== undefined &&
+      (failed === "rebut" ||
+        (failed === "fix" && !(contested && session !== null)))
+    )
+      return handRunAdvice(
+        recovery.report,
+        (failed === "rebut"
+          ? (["rebut", "fix"] as const)
+          : (["fix"] as const)
+        ).map((phase) => {
+          const entry = this.run.phases.find(
+            (candidate) => candidate.phase === phase,
+          )
+          if (entry === undefined)
+            throw new Error(`Run has no ${phase} phase owner`)
+          return {
+            phase,
+            assistant: entry.assistant,
+            ...phaseSelection(entry.model, this.run.releases[entry.assistant]),
+          }
+        }),
+      )
+    if (session === null) return null
+    return `Resume: ${
+      contested && recovery !== undefined
+        ? roundRecoveryCommand(session, recovery.report)
+        : recoveryCommand(session)
+    }`
   }
 
   release(): void {
