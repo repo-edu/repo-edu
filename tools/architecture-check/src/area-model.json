@@ -187,7 +187,7 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/hooks/use-analysis-context\\.ts$"
+          "path": "^packages/renderer-app/src/hooks/(use-analysis-context|use-open-repositories-folder)\\.ts$"
         },
         {
           "type": "pattern",
@@ -249,11 +249,19 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/components/dialogs/(AddGroupDialog|ConnectLmsGroupSetDialog|CopyGroupSetDialog|DeleteGroupDialog|DeleteGroupSetDialog|ImportGitUsernamesDialog|ImportGroupSetDialog|ImportStudentsFromFileDialog|LmsImportConflictDialog|NewAssignmentDialog|NewLocalGroupSetDialog|StudentMultiSelect|StudentSyncDialog|UsernameVerificationDialog)\\.tsx$"
+          "path": "^packages/renderer-app/src/components/dialogs/(AddGroupDialog|ConnectLmsGroupSetDialog|CopyGroupSetDialog|DeleteCourseDialog|DeleteGroupDialog|DeleteGroupSetDialog|DuplicateCourseDialog|ImportGitUsernamesDialog|ImportGroupSetDialog|ImportStudentsFromFileDialog|LmsImportConflictDialog|NewAssignmentDialog|NewLocalGroupSetDialog|RenameCourseDialog|StudentMultiSelect|StudentSyncDialog|UsernameVerificationDialog)\\.tsx$"
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/hooks/(use-courses|use-open-repositories-folder)\\.ts$"
+          "path": "^packages/renderer-app/src/components/(CourseSetupForm|HistoryControls|IssuesButton)\\.tsx$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/sheets/"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/hooks/(use-courses|use-issues)\\.ts$"
         },
         {
           "type": "pattern",
@@ -265,11 +273,11 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/utils/(course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow)\\.ts$"
+          "path": "^packages/renderer-app/src/utils/(course-navigation|export-group-set|history-boundary|issues|lms-provider|repository-workflow)\\.ts$"
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/__tests__/(course-navigation|history-boundary|repository-operation-controls|repository-workflow|use-courses)"
+          "path": "^packages/renderer-app/src/__tests__/(course-navigation|history-boundary|issues|repository-operation-controls|repository-workflow|use-courses)"
         }
       ]
     },
@@ -310,17 +318,22 @@
           "type": "pattern",
           "path": "^packages/renderer-app/src/components/tabs/(analysis|examination|groups-assignments|students)/"
         },
-        { "type": "pattern", "path": "^packages/renderer-app/src/components/dialogs/" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/components/settings/" },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/hooks/(use-analysis-context|use-app-settings|use-courses|use-open-repositories-folder|use-open-submission-folder)\\.ts$"
+          "path": "^packages/renderer-app/src/components/(CourseSetupForm|HistoryControls|IssuesButton)\\.tsx$"
+        },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/dialogs/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/settings/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/sheets/" },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/hooks/(use-analysis-context|use-app-settings|use-courses|use-issues|use-open-repositories-folder|use-open-submission-folder)\\.ts$"
         },
         { "type": "pattern", "path": "^packages/renderer-app/src/source-tokenizer\\.ts$" },
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/(analysis-store|app-settings-store|connections-store|course-store|course-store-selectors|credentials-store|examination|groups-view-store|operation-store|settings-view-store)" },
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/slices/" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/utils/(analysis-[^/]*|author-colors|blame-[^/]*|course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow|token-estimate)\\.ts$" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|process-blame-lines|profile-store|repository-operation-controls|repository-workflow|session-|use-courses)" }
+        { "type": "pattern", "path": "^packages/renderer-app/src/utils/(analysis-[^/]*|author-colors|blame-[^/]*|course-navigation|export-group-set|history-boundary|issues|lms-provider|repository-workflow|token-estimate)\\.ts$" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|issues|process-blame-lines|profile-store|repository-operation-controls|repository-workflow|session-|use-courses)" }
       ]
     },
     {

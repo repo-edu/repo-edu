@@ -85,6 +85,8 @@ surface and worker.
 - `src/analysis/analysis-query-coordinator.tsx`: composes the analysis stage hooks and publishes
   their eight contexts. `App.tsx` installs its `AnalysisCoordinatorProvider` inside
   `QueryClientProvider`.
+- `src/analysis/analysis-course-removal.ts`: drops the cached results of a deleted course,
+  including those of the submissions opened for it. The coordinator runs it.
 - `src/analysis/analysis-contexts.ts`: owns the eight published context values and their accessor
   hooks.
 - `src/analysis/analysis-source-input.ts`: owns the memoised analysis input set, runner factory and

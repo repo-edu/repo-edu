@@ -4,34 +4,18 @@ import {
 } from "@repo-edu/domain/active-surface"
 import type { CourseSummary } from "@repo-edu/domain/types"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Button,
   cn,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
-  Label,
 } from "@repo-edu/ui"
 import {
   ChevronDown,
   Copy,
   FolderOpen,
   Home,
-  Loader2,
   Pencil,
   Trash2,
   X,
@@ -40,7 +24,6 @@ import { type KeyboardEvent, type MouseEvent, useMemo, useState } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
-import { courseOpenedAfterDelete } from "../session/course-list.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -56,6 +39,10 @@ import {
   bindSessionStart,
   type SessionStart,
 } from "../session/session-start.js"
+import {
+  type CourseDialog,
+  useGroupsViewStore,
+} from "../stores/groups-view-store.js"
 import { openSubmissionFolder } from "./tabs/examination/submission-file-listing.js"
 
 function backingBadgeLabel(course: CourseSummary): string {
@@ -96,8 +83,8 @@ export function CourseSwitcher() {
     selectRecentSubmissionFolders,
   )
   const openCourseSubmissionFolder = useOpenSubmissionFolder()
-  const { courses, switchCourse, duplicateCourse, renameCourse, deleteCourse } =
-    useCourses()
+  const { courses, switchCourse } = useCourses()
+  const setCourseDialog = useGroupsViewStore((state) => state.setCourseDialog)
   const [open, setOpen] = useState(false)
 
   const activeCourseName =
@@ -112,33 +99,6 @@ export function CourseSwitcher() {
       }),
     [courses],
   )
-
-  const [renameDialog, setRenameDialog] = useState<{
-    open: boolean
-    id: string
-    currentName: string
-    newName: string
-  }>({ open: false, id: "", currentName: "", newName: "" })
-
-  const [duplicateDialog, setDuplicateDialog] = useState<{
-    open: boolean
-    sourceCourseId: string
-    sourceName: string
-    newCourseName: string
-    isProcessing: boolean
-  }>({
-    open: false,
-    sourceCourseId: "",
-    sourceName: "",
-    newCourseName: "",
-    isProcessing: false,
-  })
-
-  const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean
-    id: string
-    name: string
-  }>({ open: false, id: "", name: "" })
 
   const handleCourseSelect = bindSessionStart(
     "courseOpen",
@@ -205,81 +165,10 @@ export function CourseSwitcher() {
     action()
   }
 
-  const handleDuplicateClick = (courseId: string, courseName: string) => {
+  const openCourseDialog = (dialog: CourseDialog) => {
     setOpen(false)
-    setDuplicateDialog({
-      open: true,
-      sourceCourseId: courseId,
-      sourceName: courseName,
-      newCourseName: `${courseName} copy`,
-      isProcessing: false,
-    })
+    setCourseDialog(dialog)
   }
-
-  const handleDuplicateConfirm = bindSessionStart(
-    "courseDuplicate",
-    async (start: SessionStart) => {
-      const { sourceCourseId, newCourseName } = duplicateDialog
-      if (!newCourseName.trim()) return
-
-      setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }))
-      const success = await duplicateCourse(
-        start,
-        sourceCourseId,
-        newCourseName.trim(),
-      )
-
-      if (success) {
-        setDuplicateDialog({
-          open: false,
-          sourceCourseId: "",
-          sourceName: "",
-          newCourseName: "",
-          isProcessing: false,
-        })
-      } else {
-        setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }))
-      }
-    },
-  )
-
-  const handleRenameClick = (id: string, name: string) => {
-    setOpen(false)
-    setRenameDialog({
-      open: true,
-      id,
-      currentName: name,
-      newName: name,
-    })
-  }
-
-  const handleRenameConfirm = bindSessionStart(
-    "courseRename",
-    async (start: SessionStart) => {
-      const { id, newName } = renameDialog
-      const success = await renameCourse(start, id, newName)
-      if (!success) return
-      setRenameDialog({
-        open: false,
-        id: "",
-        currentName: "",
-        newName: "",
-      })
-    },
-  )
-
-  const handleDeleteClick = (id: string, name: string) => {
-    setOpen(false)
-    setDeleteDialog({ open: true, id, name })
-  }
-
-  const handleDeleteConfirm = bindSessionStart(
-    "courseDelete",
-    async (start: SessionStart) => {
-      await deleteCourse(start, deleteDialog.id)
-      setDeleteDialog({ open: false, id: "", name: "" })
-    },
-  )
 
   const handleHomeSelect = bindSessionStart("home", (start: SessionStart) => {
     if (isHomeSurface) {
@@ -303,9 +192,6 @@ export function CourseSwitcher() {
     controller.removeRecentSubmissionFolder(recent)
   }
 
-  const canDuplicate = duplicateDialog.newCourseName.trim().length > 0
-
-  const nextCourse = courseOpenedAfterDelete(courses, deleteDialog.id)
   const hasCourses = courses.length > 0
 
   const renderCourseRows = (rows: CourseSummary[]) =>
@@ -361,7 +247,11 @@ export function CourseSwitcher() {
               title="Duplicate"
               onClick={(event) =>
                 handleActionClick(event, () =>
-                  handleDuplicateClick(course.id, course.displayName),
+                  openCourseDialog({
+                    kind: "duplicate",
+                    courseId: course.id,
+                    courseName: course.displayName,
+                  }),
                 )
               }
             >
@@ -375,7 +265,11 @@ export function CourseSwitcher() {
               title="Rename"
               onClick={(event) =>
                 handleActionClick(event, () =>
-                  handleRenameClick(course.id, course.displayName),
+                  openCourseDialog({
+                    kind: "rename",
+                    courseId: course.id,
+                    courseName: course.displayName,
+                  }),
                 )
               }
             >
@@ -389,7 +283,11 @@ export function CourseSwitcher() {
               title="Delete"
               onClick={(event) =>
                 handleActionClick(event, () =>
-                  handleDeleteClick(course.id, course.displayName),
+                  openCourseDialog({
+                    kind: "delete",
+                    courseId: course.id,
+                    courseName: course.displayName,
+                  }),
                 )
               }
             >
@@ -510,245 +408,87 @@ export function CourseSwitcher() {
     })
 
   return (
-    <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="max-w-full min-w-0 overflow-hidden"
-          >
-            <span className="flex items-center gap-1 truncate">
-              {isHomeSurface ? (
-                <>
-                  <Home className="size-3.5 shrink-0 text-muted-foreground" />
-                  Home
-                </>
-              ) : activeSubmissionPath !== null ? (
-                <>
-                  <span className="text-muted-foreground">Submission:</span>{" "}
-                  {folderBasename(activeSubmissionPath)}
-                </>
-              ) : activeFolderPath !== null ? (
-                <>
-                  <span className="text-muted-foreground">Folder:</span>{" "}
-                  {folderBasename(activeFolderPath)}
-                </>
-              ) : (
-                <>
-                  <span className="text-muted-foreground">Course:</span>{" "}
-                  {activeCourseName ?? "None"}
-                </>
-              )}
-            </span>
-            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
-          </Button>
-        </DropdownMenuTrigger>
-
-        <DropdownMenuContent align="start" side="bottom">
-          <div
-            role="option"
-            tabIndex={0}
-            aria-selected={isHomeSurface}
-            onClick={handleHomeSelect}
-            onKeyDown={(event) => handleRowKeyDown(event, handleHomeSelect)}
-            className={cn(
-              "flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
-              "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
-              isHomeSurface && "bg-selection",
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="max-w-full min-w-0 overflow-hidden"
+        >
+          <span className="flex items-center gap-1 truncate">
+            {isHomeSurface ? (
+              <>
+                <Home className="size-3.5 shrink-0 text-muted-foreground" />
+                Home
+              </>
+            ) : activeSubmissionPath !== null ? (
+              <>
+                <span className="text-muted-foreground">Submission:</span>{" "}
+                {folderBasename(activeSubmissionPath)}
+              </>
+            ) : activeFolderPath !== null ? (
+              <>
+                <span className="text-muted-foreground">Folder:</span>{" "}
+                {folderBasename(activeFolderPath)}
+              </>
+            ) : (
+              <>
+                <span className="text-muted-foreground">Course:</span>{" "}
+                {activeCourseName ?? "None"}
+              </>
             )}
-          >
-            <Home className="size-3" />
-            Home
-          </div>
+          </span>
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
 
-          {hasCourses && (
-            <>
-              <DropdownMenuSeparator className="my-0.5" />
-              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Courses
-              </div>
-              {renderCourseRows(sortedCourses)}
-            </>
+      <DropdownMenuContent align="start" side="bottom">
+        <div
+          role="option"
+          tabIndex={0}
+          aria-selected={isHomeSurface}
+          onClick={handleHomeSelect}
+          onKeyDown={(event) => handleRowKeyDown(event, handleHomeSelect)}
+          className={cn(
+            "flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
+            "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
+            isHomeSurface && "bg-selection",
           )}
+        >
+          <Home className="size-3" />
+          Home
+        </div>
 
-          {recentFolders.length > 0 && (
-            <>
-              <DropdownMenuSeparator className="my-0.5" />
-              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Recent repo folders
-              </div>
-              {renderRecentFolderRows()}
-            </>
-          )}
-
-          {recentSubmissionFolders.length > 0 && (
-            <>
-              <DropdownMenuSeparator className="my-0.5" />
-              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Recent submissions
-              </div>
-              {renderRecentSubmissionRows()}
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <Dialog
-        open={duplicateDialog.open}
-        onOpenChange={(nextOpen) => {
-          if (!duplicateDialog.isProcessing) {
-            setDuplicateDialog((prev) => ({ ...prev, open: nextOpen }))
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Duplicate Course</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="dup-course-name">Course Name</Label>
-              <Input
-                id="dup-course-name"
-                placeholder="New course name"
-                value={duplicateDialog.newCourseName}
-                onChange={(event) =>
-                  setDuplicateDialog((prev) => ({
-                    ...prev,
-                    newCourseName: event.target.value,
-                  }))
-                }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && canDuplicate) {
-                    void handleDuplicateConfirm()
-                  }
-                }}
-                disabled={duplicateDialog.isProcessing}
-                autoFocus
-              />
+        {hasCourses && (
+          <>
+            <DropdownMenuSeparator className="my-0.5" />
+            <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+              Courses
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setDuplicateDialog((prev) => ({ ...prev, open: false }))
-              }
-              disabled={duplicateDialog.isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={!canDuplicate || duplicateDialog.isProcessing}
-              onClick={() => void handleDuplicateConfirm()}
-            >
-              {duplicateDialog.isProcessing ? (
-                <>
-                  <Loader2 className="size-4 mr-1 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Duplicate"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            {renderCourseRows(sortedCourses)}
+          </>
+        )}
 
-      <Dialog
-        open={renameDialog.open}
-        onOpenChange={(nextOpen) =>
-          setRenameDialog((prev) => ({ ...prev, open: nextOpen }))
-        }
-      >
-        <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Rename Course</DialogTitle>
-          </DialogHeader>
-          <Input
-            placeholder="New name"
-            value={renameDialog.newName}
-            onChange={(event) =>
-              setRenameDialog((prev) => ({
-                ...prev,
-                newName: event.target.value,
-              }))
-            }
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && renameDialog.newName.trim()) {
-                void handleRenameConfirm()
-              }
-            }}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setRenameDialog({
-                  open: false,
-                  id: "",
-                  currentName: "",
-                  newName: "",
-                })
-              }
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={!renameDialog.newName.trim()}
-              onClick={() => void handleRenameConfirm()}
-            >
-              Rename
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {recentFolders.length > 0 && (
+          <>
+            <DropdownMenuSeparator className="my-0.5" />
+            <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+              Recent repo folders
+            </div>
+            {renderRecentFolderRows()}
+          </>
+        )}
 
-      <AlertDialog
-        open={deleteDialog.open}
-        onOpenChange={(nextOpen) =>
-          setDeleteDialog((prev) => ({ ...prev, open: nextOpen }))
-        }
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Course</AlertDialogTitle>
-            <AlertDialogDescription>
-              {nextCourse === null ? (
-                <>
-                  Delete &quot;{deleteDialog.name}&quot;? This is your last
-                  course.
-                </>
-              ) : deleteDialog.id === activeCourseId ? (
-                <>
-                  Delete &quot;{deleteDialog.name}&quot;? You will be switched
-                  to &quot;{nextCourse.displayName}&quot;.
-                </>
-              ) : (
-                <>Delete &quot;{deleteDialog.name}&quot;?</>
-              )}
-              <br />
-              <br />
-              This will also delete the roster data associated with this course.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void handleDeleteConfirm()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+        {recentSubmissionFolders.length > 0 && (
+          <>
+            <DropdownMenuSeparator className="my-0.5" />
+            <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+              Recent submissions
+            </div>
+            {renderRecentSubmissionRows()}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

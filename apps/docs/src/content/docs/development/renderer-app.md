@@ -80,7 +80,7 @@ snapshot heads, statistics, and blame) lives in React Query rather than a store 
 |-------|---------------|
 | `SessionController` | Canonical preferences and credentials, bootstrap, active surface/tab/course, course list, sync status and semantic admission. |
 | `useCourseStore` | The loaded course document: roster, groups, assignments, metadata, validation state, and undo/redo history. |
-| `useGroupsViewStore` | Roster, group-set and assignment view state: which dialogs are open, the issues sheet and sidebar choices. |
+| `useGroupsViewStore` | Course, roster, group-set and assignment view state: which dialogs are open, the issues sheet and sidebar choices. |
 | `useSettingsViewStore` | Whether the settings sheet is open and which category it shows. |
 | `useOperationStore` | Repository operation staging and progress tracking. |
 | `useToastStore` | Toast notification queue with auto-dismiss. |

@@ -19,7 +19,7 @@ import {
   workflowClient,
 } from "./session-controller.test-support.js"
 
-it("names the course that deleting the active course opens", async (t) => {
+it("opens the delete dialog from the switcher and names the course the delete opens", async (t) => {
   resetStores()
   const window = new Window()
   const globals = {
@@ -46,6 +46,9 @@ it("names the course that deleting the active course opens", async (t) => {
   }
   const { createRoot } = await import("react-dom/client")
   const { CourseSwitcher } = await import("../components/CourseSwitcher.js")
+  const { DeleteCourseDialog } = await import(
+    "../components/dialogs/DeleteCourseDialog.js"
+  )
   // `course.list` returns the most recently updated course first, so the
   // session opens Zeta although Alpha sorts first by name.
   const courses = [
@@ -96,6 +99,7 @@ it("names the course that deleting the active course opens", async (t) => {
         <WorkflowClientProvider value={controller.operations}>
           <SessionControllerProvider controller={controller}>
             <CourseSwitcher />
+            <DeleteCourseDialog />
           </SessionControllerProvider>
         </WorkflowClientProvider>
       </RendererHostProvider>,

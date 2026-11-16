@@ -16,8 +16,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo-edu/ui"
-import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
-import { QueryClientProvider, useQueryClient } from "@tanstack/react-query"
+import { Home } from "@repo-edu/ui/components/icons"
+import { QueryClientProvider } from "@tanstack/react-query"
 import { type ReactNode, useEffect, useLayoutEffect, useState } from "react"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import { AnalysisCoordinatorProvider } from "../analysis/analysis-query-coordinator.js"
@@ -26,7 +26,6 @@ import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
-  selectActiveCourseId,
   selectActiveSurface,
   selectActiveTab,
   selectActiveTabBacking,
@@ -44,18 +43,9 @@ import {
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
 import { bindSessionStart } from "../session/session-start.js"
-import { subscribeCourseRemoval } from "../session/source-lifecycle-events.js"
-import {
-  selectCanRedo,
-  selectCanUndo,
-  selectNextRedoDescription,
-  selectNextUndoDescription,
-  useCourseStore,
-} from "../stores/course-store.js"
-import { useSettingsViewStore } from "../stores/settings-view-store.js"
+import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { resolveTabVisibility } from "../utils/course-navigation.js"
-import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
@@ -64,20 +54,24 @@ import { CourseSwitcher } from "./CourseSwitcher.js"
 import { AddGroupDialog } from "./dialogs/AddGroupDialog.js"
 import { ConnectLmsGroupSetDialog } from "./dialogs/ConnectLmsGroupSetDialog.js"
 import { CopyGroupSetDialog } from "./dialogs/CopyGroupSetDialog.js"
+import { DeleteCourseDialog } from "./dialogs/DeleteCourseDialog.js"
 import { DeleteGroupDialog } from "./dialogs/DeleteGroupDialog.js"
 import { DeleteGroupSetDialog } from "./dialogs/DeleteGroupSetDialog.js"
+import { DuplicateCourseDialog } from "./dialogs/DuplicateCourseDialog.js"
 import { ImportGitUsernamesDialog } from "./dialogs/ImportGitUsernamesDialog.js"
 import { ImportGroupSetDialog } from "./dialogs/ImportGroupSetDialog.js"
 import { ImportStudentsFromFileDialog } from "./dialogs/ImportStudentsFromFileDialog.js"
 import { LmsImportConflictDialog } from "./dialogs/LmsImportConflictDialog.js"
 import { NewAssignmentDialog } from "./dialogs/NewAssignmentDialog.js"
 import { NewLocalGroupSetDialog } from "./dialogs/NewLocalGroupSetDialog.js"
+import { RenameCourseDialog } from "./dialogs/RenameCourseDialog.js"
 import { StudentSyncDialog } from "./dialogs/StudentSyncDialog.js"
 import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog.js"
+import { HistoryControls } from "./HistoryControls.js"
 import { HomeView } from "./HomeView.js"
 import { IssuesButton } from "./IssuesButton.js"
-import { SettingsButton } from "./SettingsButton.js"
 import { SyncErrorBanner } from "./SyncErrorBanner.js"
+import { SettingsButton } from "./settings/SettingsButton.js"
 import { SettingsSheet } from "./settings/SettingsSheet.js"
 import { IssuesSheet } from "./sheets/IssuesSheet.js"
 import { ToastStack } from "./ToastStack.js"
@@ -146,7 +140,6 @@ export function RendererSessionRoot({
           <SessionControllerProvider controller={controller}>
             <AnalysisCoordinatorProvider>
               <TooltipProvider>
-                <AnalysisQueryLifecycleBridge />
                 <AppView />
                 {children}
               </TooltipProvider>
@@ -156,42 +149,6 @@ export function RendererSessionRoot({
       </QueryClientProvider>
     </WorkflowClientProvider>
   )
-}
-
-function analysisQueryKeyBelongsToCourse(
-  value: unknown,
-  courseId: string,
-): boolean {
-  if (Array.isArray(value)) {
-    if (value[0] === "course" && value[1] === courseId) return true
-    if (value[0] === "submission" && value[2] === courseId) return true
-    return value.some((entry) =>
-      analysisQueryKeyBelongsToCourse(entry, courseId),
-    )
-  }
-  if (typeof value === "object" && value !== null) {
-    return Object.values(value).some((entry) =>
-      analysisQueryKeyBelongsToCourse(entry, courseId),
-    )
-  }
-  return false
-}
-
-function AnalysisQueryLifecycleBridge() {
-  const queryClient = useQueryClient()
-
-  useEffect(
-    () =>
-      subscribeCourseRemoval((courseId) => {
-        queryClient.removeQueries({
-          predicate: (query) =>
-            analysisQueryKeyBelongsToCourse(query.queryKey, courseId),
-        })
-      }),
-    [queryClient],
-  )
-
-  return null
 }
 
 function AppView() {
@@ -240,16 +197,10 @@ function AppShell() {
   const controller = useSessionController()
   const activeTab = useSessionControllerSelector(selectActiveTab)
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
-  const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
 
   const theme = useSessionControllerSelector(selectTheme)
 
   const isHomeSurface = activeSurface.kind === "home"
-  const showHistoryControls = isDocumentEditingSurface(activeSurface, activeTab)
-  const canUndo = useCourseStore(selectCanUndo)
-  const canRedo = useCourseStore(selectCanRedo)
-  const undoDescription = useCourseStore(selectNextUndoDescription)
-  const redoDescription = useCourseStore(selectNextRedoDescription)
   const loadedCourse = useCourseStore((s) => s.course)
   const leftInsetStyle = hasMacDesktopInset()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
@@ -271,40 +222,6 @@ function AppShell() {
     useToastStore.getState().addToast(commandError, { tone: "error" })
     controller.clearCommandError()
   }, [commandError, controller])
-
-  // Keyboard shortcuts.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      controller.operations.change(() => {
-        const mod = e.metaKey || e.ctrlKey
-        if (!mod) return
-
-        if (e.key === ",") {
-          e.preventDefault()
-          useSettingsViewStore.getState().openSettings()
-          return
-        }
-
-        // Skip undo/redo when focus is in an input or textarea.
-        const tag = (e.target as HTMLElement)?.tagName
-        if (tag === "INPUT" || tag === "TEXTAREA") return
-        if (!showHistoryControls) return
-
-        if (e.key === "z" && !e.shiftKey) {
-          e.preventDefault()
-          if (activeCourseId !== null) controller.undo(activeCourseId)
-          return
-        }
-
-        if ((e.key === "z" && e.shiftKey) || e.key === "Z") {
-          e.preventDefault()
-          if (activeCourseId !== null) controller.redo(activeCourseId)
-        }
-      })
-    }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [activeCourseId, controller, showHistoryControls])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -355,56 +272,7 @@ function AppShell() {
           )}
           <div className="flex-1" />
           <div className="app-no-drag flex items-center gap-1 pr-2">
-            {showHistoryControls && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      disabled={!canUndo}
-                      onClick={() => {
-                        if (activeCourseId !== null) {
-                          controller.undo(activeCourseId)
-                        }
-                      }}
-                    >
-                      <Undo2 className="size-[18px]" />
-                      <span className="sr-only">Undo</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {undoDescription
-                      ? `Undo: ${undoDescription} (Ctrl+Z)`
-                      : "Undo (Ctrl+Z)"}
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      disabled={!canRedo}
-                      onClick={() => {
-                        if (activeCourseId !== null) {
-                          controller.redo(activeCourseId)
-                        }
-                      }}
-                    >
-                      <Redo2 className="size-[18px]" />
-                      <span className="sr-only">Redo</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {redoDescription
-                      ? `Redo: ${redoDescription} (Ctrl+Shift+Z)`
-                      : "Redo (Ctrl+Shift+Z)"}
-                  </TooltipContent>
-                </Tooltip>
-              </>
-            )}
+            <HistoryControls />
             <IssuesButton />
             <SettingsButton />
           </div>
@@ -439,6 +307,11 @@ function AppShell() {
           </>
         )}
       </Tabs>
+
+      {/* Course dialogs */}
+      <RenameCourseDialog />
+      <DuplicateCourseDialog />
+      <DeleteCourseDialog />
 
       {/* Assignment and group dialogs */}
       <NewAssignmentDialog />

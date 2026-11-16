@@ -1,9 +1,12 @@
 import { Button } from "@repo-edu/ui"
 import { Settings } from "@repo-edu/ui/components/icons"
-import { useConnectionsStore } from "../stores/connections-store.js"
-import { useSettingsViewStore } from "../stores/settings-view-store.js"
+import { useEffect } from "react"
+import { useSessionController } from "../../session/session-controller-context.js"
+import { useConnectionsStore } from "../../stores/connections-store.js"
+import { useSettingsViewStore } from "../../stores/settings-view-store.js"
 
 export function SettingsButton() {
+  const controller = useSessionController()
   const openSettings = useSettingsViewStore((s) => s.openSettings)
   const lmsStatus = useConnectionsStore((s) => s.lmsStatus)
   const lmsStatuses = useConnectionsStore((s) => s.lmsStatuses)
@@ -13,6 +16,19 @@ export function SettingsButton() {
     lmsStatus === "connected" ||
     Object.values(lmsStatuses).some((status) => status === "connected") ||
     Object.values(gitStatuses).some((status) => status === "connected")
+
+  // Ctrl+, or Cmd+, opens the settings sheet.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      controller.operations.change(() => {
+        if (!(e.metaKey || e.ctrlKey) || e.key !== ",") return
+        e.preventDefault()
+        openSettings()
+      })
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [controller, openSettings])
 
   return (
     <Button

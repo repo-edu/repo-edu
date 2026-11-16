@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { createNewCourseDraft } from "../components/OpenRepositoriesForm.js"
+import { createNewCourseDraft } from "../components/CourseSetupForm.js"
 import {
   resolveSupportedActiveTab,
   resolveTabVisibility,

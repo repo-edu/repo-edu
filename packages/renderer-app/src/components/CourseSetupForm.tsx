@@ -8,7 +8,6 @@ import {
   Alert,
   AlertDescription,
   Button,
-  cn,
   FormField,
   Input,
   Label,
@@ -22,17 +21,9 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Loader2, Search } from "@repo-edu/ui/components/icons"
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
-import { useOpenRepositoriesFolder } from "../hooks/use-open-repositories-folder.js"
-import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
 import { selectCourses, selectCredentials } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import {
@@ -42,11 +33,11 @@ import {
 import { useGroupsViewStore } from "../stores/groups-view-store.js"
 import { useSettingsViewStore } from "../stores/settings-view-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
+import { SourceActionCard } from "./SourceActionCard.js"
 import { lmsConnectionDisplayName } from "./settings/ConnectionsPane.shared.js"
 
 const NONE_VALUE = "__none__"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
-type SourceChoice = CourseBacking | "folder" | "submission"
 
 export function createNewCourseDraft(input: {
   id: string
@@ -66,56 +57,9 @@ export function createNewCourseDraft(input: {
   })
 }
 
-function SourceActionCard({
-  title,
-  description,
-  selected,
-  onClick,
-  children,
-}: {
-  title: string
-  description: ReactNode
-  selected: boolean
-  onClick: () => void
-  children?: ReactNode
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-md border transition-colors",
-        selected
-          ? "border-primary bg-primary/5"
-          : "border-border hover:border-foreground/30",
-      )}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(
-          "w-full text-left p-3 rounded-md",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        )}
-      >
-        <div
-          className={cn(
-            "font-semibold text-sm mb-1",
-            selected && "text-primary",
-          )}
-        >
-          {title}
-        </div>
-        <Text className="text-xs text-muted-foreground select-text font-normal">
-          {description}
-        </Text>
-      </button>
-      {selected && children !== undefined && (
-        <div className="px-3 pb-3 space-y-4">{children}</div>
-      )}
-    </div>
-  )
-}
-
-export function OpenRepositoriesForm() {
+/** The two Home cards that set up a course, from the LMS or from a RepoBee
+ * student list. They share one course name. */
+export function CourseSetupForm() {
   const existingCourses = useSessionControllerSelector(selectCourses)
   const openSettings = useSettingsViewStore((state) => state.openSettings)
   const setRosterSyncDialogOpen = useGroupsViewStore(
@@ -124,12 +68,10 @@ export function OpenRepositoriesForm() {
   const credentials = useSessionControllerSelector(selectCredentials)
   const workflowClient = useWorkflowClient()
   const { createCourse } = useCourses()
-  const openRepositoriesFolder = useOpenRepositoriesFolder()
-  const openSubmissionFolder = useOpenSubmissionFolder()
 
   const lmsConnections = credentials.lmsConnections
 
-  const [source, setSource] = useState<SourceChoice | null>(null)
+  const [source, setSource] = useState<CourseBacking | null>(null)
   const [courseName, setCourseName] = useState("")
   const [courseSearch, setCourseSearch] = useState("")
   const [courses, setCourses] = useState<LmsCourseSummary[]>([])
@@ -141,8 +83,6 @@ export function OpenRepositoriesForm() {
     useState<string>(lmsConnections[0]?.id ?? "")
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const isCourseSource = source === "lms" || source === "repobee"
 
   const selectedLmsDraft = useMemo(
     () =>
@@ -167,7 +107,7 @@ export function OpenRepositoriesForm() {
   }, [courseSearch, courses])
 
   const isCourseNameTaken = useMemo(() => {
-    if (creating || !isCourseSource) return false
+    if (creating || source === null) return false
     const normalized = courseName.trim().toLowerCase()
     if (normalized.length === 0) {
       return false
@@ -176,7 +116,7 @@ export function OpenRepositoriesForm() {
     return existingCourses.some(
       (course) => course.displayName.trim().toLowerCase() === normalized,
     )
-  }, [creating, existingCourses, courseName, isCourseSource])
+  }, [creating, existingCourses, courseName, source])
 
   const loadLmsCourses = useCallback(() => {
     if (!selectedLmsDraft) {
@@ -229,7 +169,7 @@ export function OpenRepositoriesForm() {
   }, [selectedLmsDraft, workflowClient])
 
   const canCommitCourse = useMemo(() => {
-    if (creating || !isCourseSource) return false
+    if (creating || source === null) return false
     if (courseName.trim().length === 0 || isCourseNameTaken) return false
     if (source === "lms") {
       if (lmsConnections.length === 0) return false
@@ -242,7 +182,6 @@ export function OpenRepositoriesForm() {
   }, [
     courseName,
     creating,
-    isCourseSource,
     isCourseNameTaken,
     source,
     lmsConnections.length,
@@ -261,7 +200,7 @@ export function OpenRepositoriesForm() {
   const handleCreateCourse = bindSessionStart(
     "courseNew",
     async (start: SessionStart) => {
-      if (!isCourseSource) return
+      if (source === null) return
       if (isCourseNameTaken) {
         setError("A course with this name already exists.")
         return
@@ -301,15 +240,7 @@ export function OpenRepositoriesForm() {
     },
   )
 
-  const handleSelectOrCommit = async (target: SourceChoice) => {
-    if (target === "folder") {
-      await openRepositoriesFolder()
-      return
-    }
-    if (target === "submission") {
-      await openSubmissionFolder()
-      return
-    }
+  const handleSelectOrCommit = async (target: CourseBacking) => {
     if (source !== target) {
       setSource(target)
       setError(null)
@@ -330,7 +261,7 @@ export function OpenRepositoriesForm() {
   }
 
   return (
-    <div className="space-y-3">
+    <>
       <SourceActionCard
         title="Set up a course from your LMS"
         description={
@@ -541,20 +472,6 @@ export function OpenRepositoriesForm() {
           <Text className="text-sm text-destructive">{error}</Text>
         )}
       </SourceActionCard>
-
-      <SourceActionCard
-        title="Open an existing folder of repos"
-        description="Open any folder containing student repositories for one-off analysis. No course is created and no roster is tracked. Recent folders are remembered in the course menu."
-        selected={false}
-        onClick={() => void handleSelectOrCommit("folder")}
-      />
-
-      <SourceActionCard
-        title="Open a student submission folder"
-        description="Open one submitted folder and choose the files for examination questions. No course is created and no student details are stored."
-        selected={false}
-        onClick={() => void handleSelectOrCommit("submission")}
-      />
-    </div>
+    </>
   )
 }

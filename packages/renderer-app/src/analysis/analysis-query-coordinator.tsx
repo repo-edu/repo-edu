@@ -18,6 +18,7 @@ import {
   AnalysisSelectionContext,
   type AnalysisSelectionValue,
 } from "./analysis-contexts.js"
+import { useAnalysisCourseRemoval } from "./analysis-course-removal.js"
 import { useAnalysisObservation } from "./analysis-observation.js"
 import { useAnalysisSourceInput } from "./analysis-source-input.js"
 import { useAnalysisViews } from "./analysis-views.js"
@@ -27,6 +28,7 @@ export function AnalysisCoordinatorProvider({
 }: {
   children: ReactNode
 }) {
+  useAnalysisCourseRemoval()
   const source = useAnalysisSourceInput()
   const observation = useAnalysisObservation(source)
   const commands = useAnalysisCommands({ ...source, observation })

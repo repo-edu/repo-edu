@@ -17,6 +17,13 @@ type SidebarSelection = {
 
 type GroupOperationSection = "create" | "clone" | "update" | "clone-all" | null
 
+/** The course dialog a course switcher row opened, with the course it acts on. */
+export type CourseDialog = {
+  kind: "rename" | "duplicate" | "delete"
+  courseId: string
+  courseName: string
+}
+
 export type LmsImportConflict = {
   matchKey: string
   value: string
@@ -24,6 +31,9 @@ export type LmsImportConflict = {
 }
 
 type GroupsViewState = {
+  // Course dialogs
+  courseDialog: CourseDialog | null
+
   // Roster dialogs and the issues sheet
   importFileDialogOpen: boolean
   rosterSyncDialogOpen: boolean
@@ -61,6 +71,8 @@ type GroupsViewState = {
 }
 
 type GroupsViewActions = {
+  setCourseDialog: (dialog: CourseDialog | null) => void
+
   setImportFileDialogOpen: (open: boolean) => void
   setRosterSyncDialogOpen: (open: boolean) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
@@ -102,6 +114,8 @@ type GroupsViewActions = {
 }
 
 const initialState: GroupsViewState = {
+  courseDialog: null,
+
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
   importGitUsernamesDialogOpen: false,
@@ -153,6 +167,9 @@ function operationGroupSetId(
 export const useGroupsViewStore = create<GroupsViewState & GroupsViewActions>(
   (set) => ({
     ...initialState,
+
+    setCourseDialog: (dialog) =>
+      set((state) => setIfChanged(state, "courseDialog", dialog)),
 
     setImportFileDialogOpen: (open) =>
       set((state) => setIfChanged(state, "importFileDialogOpen", open)),
