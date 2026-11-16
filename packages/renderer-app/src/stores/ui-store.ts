@@ -1,7 +1,4 @@
-import type {
-  CourseSummary,
-  GroupSetImportFormat,
-} from "@repo-edu/domain/types"
+import type { GroupSetImportFormat } from "@repo-edu/domain/types"
 import { create } from "zustand"
 
 type GroupSetOperationState =
@@ -74,9 +71,6 @@ type UiState = {
   // Sidebar action triggers
   renameGroupSetTriggerId: string | null
   syncGroupSetTriggerId: string | null
-
-  // Course list cache
-  courseList: CourseSummary[]
 }
 
 type UiActions = {
@@ -121,8 +115,6 @@ type UiActions = {
   setRenameGroupSetTriggerId: (id: string | null) => void
   setSyncGroupSetTriggerId: (id: string | null) => void
 
-  setCourseList: (list: CourseSummary[]) => void
-
   reset: () => void
 }
 
@@ -158,8 +150,6 @@ const initialState: UiState = {
 
   renameGroupSetTriggerId: null,
   syncGroupSetTriggerId: null,
-
-  courseList: [],
 }
 
 function setIfChanged<K extends keyof UiState>(
@@ -301,9 +291,6 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "renameGroupSetTriggerId", id)),
   setSyncGroupSetTriggerId: (id) =>
     set((state) => setIfChanged(state, "syncGroupSetTriggerId", id)),
-
-  setCourseList: (list) =>
-    set((state) => setIfChanged(state, "courseList", list)),
 
   reset: () => set(initialState),
 }))

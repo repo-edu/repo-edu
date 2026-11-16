@@ -5,7 +5,6 @@ import type { PersistedAppPreferences } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import {
   activeCourseId,
   activeSurface,
@@ -36,19 +35,19 @@ describe("SessionController bootstrap", () => {
         assert.fail(id)
       }),
       async onBootstrapReady() {
-        assert.deepEqual(useUiStore.getState().courseList, courses)
+        assert.deepEqual(controller.getSnapshot().courses, courses)
         acknowledgements++
       },
     })
     try {
       await listing.promise
       assert.equal(controller.getSnapshot().bootstrap.status, "loading")
-      assert.deepEqual(useUiStore.getState().courseList, [])
+      assert.deepEqual(controller.getSnapshot().courses, [])
       assert.equal(acknowledgements, 0)
       listed.resolve(courses)
       await controller.waitForIdle()
       assert.equal(controller.getSnapshot().bootstrap.status, "ready")
-      assert.deepEqual(useUiStore.getState().courseList, courses)
+      assert.deepEqual(controller.getSnapshot().courses, courses)
       assert.equal(acknowledgements, 1)
     } finally {
       controller.dispose()
@@ -77,7 +76,7 @@ describe("SessionController bootstrap", () => {
     listed.resolve([makeCourse("course-a")])
     await controller.waitForIdle()
     assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
-    assert.deepEqual(useUiStore.getState().courseList, [])
+    assert.deepEqual(controller.getSnapshot().courses, [])
     assert.equal(acknowledgements, 0)
   })
 
@@ -101,11 +100,11 @@ describe("SessionController bootstrap", () => {
         attempt: 1,
         message: "Course listing unavailable",
       })
-      assert.deepEqual(useUiStore.getState().courseList, [])
+      assert.deepEqual(controller.getSnapshot().courses, [])
       controller.retryBootstrap()
       await controller.waitForIdle()
       assert.equal(controller.getSnapshot().bootstrap.status, "ready")
-      assert.deepEqual(useUiStore.getState().courseList, courses)
+      assert.deepEqual(controller.getSnapshot().courses, courses)
       assert.equal(listings, 2)
     } finally {
       controller.dispose()

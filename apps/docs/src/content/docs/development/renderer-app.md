@@ -78,9 +78,9 @@ snapshot heads, statistics, and blame) lives in React Query rather than a store 
 
 | Store | Responsibility |
 |-------|---------------|
-| `SessionController` | Canonical preferences and credentials, bootstrap, active surface/tab/course, sync status and semantic admission. |
+| `SessionController` | Canonical preferences and credentials, bootstrap, active surface/tab/course, course list, sync status and semantic admission. |
 | `useCourseStore` | The loaded course document: roster, groups, assignments, metadata, validation state, and undo/redo history. |
-| `useUiStore` | Ephemeral UI state: which dialogs are open, course-list cache, sidebar state. |
+| `useUiStore` | Ephemeral UI state: which dialogs are open and sidebar state. |
 | `useOperationStore` | Repository operation staging and progress tracking. |
 | `useToastStore` | Toast notification queue with auto-dismiss. |
 | `useConnectionsStore` | Transient LMS, Git and LLM connection verification status. |

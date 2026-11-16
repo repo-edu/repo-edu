@@ -36,6 +36,7 @@ import type {
 import {
   type AnalysisInputs,
   type CourseBacking,
+  type CourseSummary,
   courseHasRoster,
   createBlankCourse,
   type PersistedCourse,
@@ -44,18 +45,23 @@ import {
 import { useConnectionsStore } from "../stores/connections-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import {
   resolveSupportedActiveTab,
   surfaceTabBacking,
 } from "../utils/course-navigation.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { generateCourseId } from "../utils/nanoid.js"
-import { resolveActiveSurfaceRedirectForCourses } from "./course-list.js"
+import {
+  courseSummary,
+  patchCourseSummary,
+  resolveActiveSurfaceRedirectForCourses,
+  surfaceAfterDelete,
+} from "./course-list.js"
 import {
   type CourseMutationActions,
   CourseMutationController,
 } from "./course-mutation-controller.js"
+import { selectActiveTabBacking } from "./selectors.js"
 import { SessionOperations } from "./session-operations.js"
 import { SessionPersistence } from "./session-persistence.js"
 import { prepareSessionPersistence } from "./session-preparation.js"
@@ -112,39 +118,14 @@ type EnterSurfaceOptions = {
   preloadedCourse?: PersistedCourse
 }
 
+type SurfaceCommitOptions = {
+  preferenceEvents?: readonly PreferenceEvent[]
+  courses?: readonly CourseSummary[]
+  effect?: () => void
+}
+
 function initialTabForBacking(backing: CourseBacking): ActiveTab {
   return backing === "lms" ? "roster" : "groups-assignments"
-}
-
-function fallbackSurfaceForDeletedCourse(
-  courseId: string,
-): PersistedActiveSurface {
-  const fallback = useUiStore
-    .getState()
-    .courseList.find((course) => course.id !== courseId)
-  return fallback === undefined
-    ? { kind: "home" }
-    : { kind: "course", courseId: fallback.id }
-}
-
-function seedLoadedCourseSummary(course: PersistedCourse): void {
-  const uiStore = useUiStore.getState()
-  const summary = {
-    id: course.id,
-    backing: course.backing,
-    displayName: course.displayName,
-    updatedAt: course.updatedAt,
-  }
-  const existingIndex = uiStore.courseList.findIndex(
-    (entry) => entry.id === course.id,
-  )
-  uiStore.setCourseList(
-    existingIndex === -1
-      ? [...uiStore.courseList, summary]
-      : uiStore.courseList.map((entry, index) =>
-          index === existingIndex ? summary : entry,
-        ),
-  )
 }
 
 export class SessionController extends CourseMutationController {
@@ -196,7 +177,10 @@ export class SessionController extends CourseMutationController {
       },
       (course) => {
         this.persistence.applyCommittedCourse(course)
-        seedLoadedCourseSummary(course)
+        this.dispatch({
+          type: "patch-course-summary",
+          summary: courseSummary(course),
+        })
       },
       (scope, surface) =>
         this.enterSurface(scope, normalizeActiveSurface(surface)),
@@ -285,7 +269,6 @@ export class SessionController extends CourseMutationController {
       this.transactions.controllerClient.run("course.list", undefined),
     )
     if (!scope.canContinue()) return
-    useUiStore.getState().setCourseList(courses)
     const current = this.snapshot.settings.preferences.activeSurface
     const courseId = activeCourseIdFromSurface(current)
     const missing =
@@ -296,12 +279,10 @@ export class SessionController extends CourseMutationController {
     const commit = missing
       ? await this.prepareDeletedCourseFallback(scope, target)
       : await this.prepareSurfaceCommit(scope, target)
-    this.commitSurface(
-      scope,
-      commit,
-      [{ type: "prune-submissions-for-courses", courses }],
-      missing ? () => publishCourseRemoval(courseId) : undefined,
-    )
+    this.commitSurface(scope, commit, {
+      courses,
+      effect: missing ? () => publishCourseRemoval(courseId) : undefined,
+    })
   }
 
   private async reconcileDiscovery(
@@ -341,7 +322,10 @@ export class SessionController extends CourseMutationController {
   }
 
   setActiveTab(tab: ActiveTab): void {
-    const backing = this.currentTabBacking()
+    const backing = selectActiveTabBacking(
+      this.snapshot,
+      useCourseStore.getState().course,
+    )
     this.preference({
       type: "set-active-tab",
       tab: resolveSupportedActiveTab(tab, backing),
@@ -512,14 +496,14 @@ export class SessionController extends CourseMutationController {
         try {
           await this.persistence.flushActive(scope)
           await this.persistence.deleteDetached(scope, courseId)
-          const fallback = fallbackSurfaceForDeletedCourse(courseId)
+          const fallback = surfaceAfterDelete(this.snapshot.courses, courseId)
           const commit = await this.prepareDeletedCourseFallback(
             scope,
             fallback,
           )
-          this.commitSurface(scope, commit, [], () =>
-            publishCourseRemoval(courseId),
-          )
+          this.commitSurface(scope, commit, {
+            effect: () => publishCourseRemoval(courseId),
+          })
           await this.refreshCoursesBody(scope)
         } catch (error) {
           this.failCommand(scope, error, "Could not delete course.")
@@ -772,17 +756,18 @@ export class SessionController extends CourseMutationController {
         preloadedCourse: stampedDraft,
       })
       if (
-        !this.commitSurface(
-          scope,
-          commit,
-          [
+        !this.commitSurface(scope, commit, {
+          preferenceEvents: [
             {
               type: "set-last-used-course-backing",
               backing: stampedDraft.backing,
             },
           ],
-          () => seedLoadedCourseSummary(stampedDraft),
-        )
+          courses: patchCourseSummary(
+            this.snapshot.courses,
+            courseSummary(stampedDraft),
+          ),
+        })
       )
         throw new Error(
           `Course "${stampedDraft.displayName}" was created but could not be opened.`,
@@ -820,11 +805,9 @@ export class SessionController extends CourseMutationController {
       if (currentCourseId !== null && currentCourseId !== nextCourseId)
         await this.persistence.flushActive(scope)
       const commit = await this.prepareSurfaceCommit(scope, surface, options)
-      return this.commitSurface(
-        scope,
-        commit,
-        recentContributions(commit.surface),
-      )
+      return this.commitSurface(scope, commit, {
+        preferenceEvents: recentContributions(commit.surface),
+      })
     } catch (error) {
       this.failCommand(scope, error, "Could not activate surface.", previous)
       return false
@@ -918,8 +901,7 @@ export class SessionController extends CourseMutationController {
   private commitSurface(
     scope: SessionTransactionScope,
     commit: PreparedSurfaceCommit,
-    preferenceEvents: readonly PreferenceEvent[] = [],
-    extraEffect?: () => void,
+    { preferenceEvents = [], courses, effect }: SurfaceCommitOptions = {},
   ): boolean {
     const turnId = this.runningTurnId(scope)
     return this.dispatch(
@@ -930,12 +912,13 @@ export class SessionController extends CourseMutationController {
         tab: commit.tab,
         courseLoadStatus: commit.courseLoadStatus,
         preferenceEvents,
+        courses,
       },
       () => {
         if (commit.courseId === null) this.persistence.clearCourse()
         else
           this.persistence.installCourse(commit.courseId, commit.loadedCourse)
-        extraEffect?.()
+        effect?.()
       },
     )
   }
@@ -953,15 +936,6 @@ export class SessionController extends CourseMutationController {
         ? flushed
         : this.persistence.loadCourse(sourceId)
     })
-  }
-
-  private currentTabBacking(): ReturnType<typeof surfaceTabBacking> {
-    const surface = this.snapshot.settings.preferences.activeSurface
-    const courseId = activeCourseIdFromSurface(surface)
-    const course = useCourseStore.getState().course
-    const backing =
-      courseId !== null && course?.id === courseId ? course.backing : undefined
-    return surfaceTabBacking(surface, backing)
   }
 
   private classifyTransaction(

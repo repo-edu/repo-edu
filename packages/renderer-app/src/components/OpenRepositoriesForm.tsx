@@ -33,7 +33,7 @@ import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useOpenRepositoriesFolder } from "../hooks/use-open-repositories-folder.js"
 import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
-import { selectCredentials } from "../session/selectors.js"
+import { selectCourses, selectCredentials } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import {
   bindSessionStart,
@@ -115,7 +115,7 @@ function SourceActionCard({
 }
 
 export function OpenRepositoriesForm() {
-  const existingCourses = useUiStore((state) => state.courseList)
+  const existingCourses = useSessionControllerSelector(selectCourses)
   const openSettings = useUiStore((state) => state.openSettings)
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,

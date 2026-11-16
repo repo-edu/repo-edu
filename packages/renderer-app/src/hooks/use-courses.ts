@@ -1,9 +1,12 @@
 import type { CourseBacking, PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback } from "react"
-import { useSessionController } from "../session/session-controller-context.js"
+import { selectCourses } from "../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../session/session-controller-context.js"
 import type { SessionStart } from "../session/session-start.js"
 import { useToastStore } from "../stores/toast-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 
 type CreateCourseInput = {
@@ -14,7 +17,7 @@ type CreateCourseInput = {
 }
 
 export function useCourses() {
-  const courseList = useUiStore((s) => s.courseList)
+  const courses = useSessionControllerSelector(selectCourses)
   const controller = useSessionController()
 
   const switchCourse = useCallback(
@@ -100,7 +103,7 @@ export function useCourses() {
   )
 
   return {
-    courses: courseList,
+    courses,
     createCourse,
     switchCourse,
     duplicateCourse,

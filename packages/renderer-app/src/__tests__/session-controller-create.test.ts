@@ -6,7 +6,6 @@ import {
 } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import {
   activeCourseId,
   activeSurface,
@@ -172,9 +171,9 @@ describe("SessionController creation", () => {
       const activeId = activeCourseId(controller.getSnapshot())
       if (
         activeId !== null &&
-        !useUiStore
-          .getState()
-          .courseList.some((course) => course.id === activeId)
+        !controller
+          .getSnapshot()
+          .courses.some((course) => course.id === activeId)
       ) {
         missingAtNotification.push(activeId)
       }
@@ -192,7 +191,7 @@ describe("SessionController creation", () => {
       courseId: draft.id,
     })
     assert.deepStrictEqual(
-      useUiStore.getState().courseList.find((course) => course.id === draft.id),
+      controller.getSnapshot().courses.find((course) => course.id === draft.id),
       {
         id: draft.id,
         backing: "lms",

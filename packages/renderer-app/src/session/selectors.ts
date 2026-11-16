@@ -3,7 +3,9 @@ import {
   resolveActiveGitConnection,
   resolveActiveLlmConnection,
 } from "@repo-edu/domain/connection"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import type { PersistenceSyncStatus } from "../persistence/create-persister.js"
+import { surfaceTabBacking } from "../utils/course-navigation.js"
 import type { SessionControllerSnapshot } from "./session-reducer.js"
 
 export const selectBootstrapState = (snapshot: SessionControllerSnapshot) =>
@@ -22,6 +24,25 @@ export const selectActiveCourseId = (snapshot: SessionControllerSnapshot) =>
   activeCourseIdFromSurface(snapshot.settings.preferences.activeSurface)
 export const selectCourseLoadStatus = (snapshot: SessionControllerSnapshot) =>
   snapshot.courseLoadStatus
+export const selectCourses = (snapshot: SessionControllerSnapshot) =>
+  snapshot.courses
+
+/** The tab backing of the active surface. A course surface takes the backing
+ * of its loaded course: the surface commit that activates a course installs
+ * that course before any reader is notified. */
+export function selectActiveTabBacking(
+  snapshot: SessionControllerSnapshot,
+  loadedCourse: Pick<PersistedCourse, "id" | "backing"> | null,
+): ReturnType<typeof surfaceTabBacking> {
+  const surface = snapshot.settings.preferences.activeSurface
+  const courseId = activeCourseIdFromSurface(surface)
+  return surfaceTabBacking(
+    surface,
+    courseId !== null && loadedCourse?.id === courseId
+      ? loadedCourse.backing
+      : undefined,
+  )
+}
 
 export function selectSettingsSyncState(
   snapshot: SessionControllerSnapshot,

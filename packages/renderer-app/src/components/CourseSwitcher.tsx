@@ -40,6 +40,7 @@ import { type KeyboardEvent, type MouseEvent, useMemo, useState } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
+import { courseOpenedAfterDelete } from "../session/course-list.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -304,11 +305,7 @@ export function CourseSwitcher() {
 
   const canDuplicate = duplicateDialog.newCourseName.trim().length > 0
 
-  const remainingCourses = sortedCourses.filter(
-    (course) => course.id !== deleteDialog.id,
-  )
-  const isLastCourse = remainingCourses.length === 0
-  const nextCourse = remainingCourses[0]?.displayName
+  const nextCourse = courseOpenedAfterDelete(courses, deleteDialog.id)
   const hasCourses = courses.length > 0
 
   const renderCourseRows = (rows: CourseSummary[]) =>
@@ -723,7 +720,7 @@ export function CourseSwitcher() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Course</AlertDialogTitle>
             <AlertDialogDescription>
-              {isLastCourse ? (
+              {nextCourse === null ? (
                 <>
                   Delete &quot;{deleteDialog.name}&quot;? This is your last
                   course.
@@ -731,7 +728,7 @@ export function CourseSwitcher() {
               ) : deleteDialog.id === activeCourseId ? (
                 <>
                   Delete &quot;{deleteDialog.name}&quot;? You will be switched
-                  to &quot;{nextCourse}&quot;.
+                  to &quot;{nextCourse.displayName}&quot;.
                 </>
               ) : (
                 <>Delete &quot;{deleteDialog.name}&quot;?</>

@@ -6,10 +6,12 @@ import type {
   PersistedAppCredentials,
   PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
+import type { CourseSummary } from "@repo-edu/domain/types"
 import {
   idleSyncStatus,
   type PersistenceSyncStatus,
 } from "../persistence/create-persister.js"
+import { patchCourseSummary } from "./course-list.js"
 import type { SessionOperationId } from "./session-operation-inventory.js"
 import {
   type CredentialEvent,
@@ -72,6 +74,8 @@ export type SessionControllerSnapshot = {
   bootstrap: SessionBootstrapState
   lifecycle: SessionLifecyclePhase
   settings: SessionSettingsState
+  /** The saved courses as of the last listing, in `course.list` order. */
+  courses: readonly CourseSummary[]
   courseLoadStatus: CourseLoadStatus
   courseSyncStatus: PersistenceSyncStatus
   transactions: SessionTransactionsState
@@ -104,6 +108,7 @@ export function createInitialSessionSnapshot(): SessionControllerSnapshot {
     bootstrap: { status: "loading", attempt: 0 },
     lifecycle: { kind: "live" },
     settings: createInitialSessionSettingsState(),
+    courses: [],
     courseLoadStatus: emptyCourseLoadStatus,
     courseSyncStatus: idleSyncStatus,
     transactions: { admitted: new Map(), runningTurnId: null },
@@ -156,7 +161,10 @@ export type SessionReducerEvent =
       tab: PersistedAppPreferences["activeTab"]
       courseLoadStatus: CourseLoadStatus
       preferenceEvents: readonly PreferenceEvent[]
+      /** A course list landed with the surface; recents are pruned to it. */
+      courses?: readonly CourseSummary[]
     }
+  | { type: "patch-course-summary"; summary: CourseSummary }
   | { type: "set-course-load-status"; turnId: number; status: CourseLoadStatus }
   | { type: "set-course-sync-status"; status: PersistenceSyncStatus }
   | {
@@ -414,9 +422,16 @@ export function sessionReducer(
       for (const contribution of event.preferenceEvents) {
         preferences = reducePreferences(preferences, contribution)
       }
+      if (event.courses !== undefined) {
+        preferences = reducePreferences(preferences, {
+          type: "prune-submissions-for-courses",
+          courses: event.courses,
+        })
+      }
       return {
         ...state,
         settings: { ...state.settings, preferences },
+        courses: event.courses ?? state.courses,
         courseLoadStatus: event.courseLoadStatus,
         courseSyncStatus: switchingCourse
           ? idleSyncStatus
@@ -424,6 +439,11 @@ export function sessionReducer(
         commandError: null,
       }
     }
+    case "patch-course-summary":
+      return {
+        ...state,
+        courses: patchCourseSummary(state.courses, event.summary),
+      }
     case "set-course-load-status":
       return state.transactions.runningTurnId === event.turnId
         ? { ...state, courseLoadStatus: event.status }

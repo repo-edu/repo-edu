@@ -4,7 +4,6 @@ import type {
   WorkflowClient,
 } from "@repo-edu/application-contract"
 import type { ActiveTab } from "@repo-edu/domain/active-surface"
-import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
   Button,
@@ -30,6 +29,7 @@ import {
   selectActiveCourseId,
   selectActiveSurface,
   selectActiveTab,
+  selectActiveTabBacking,
   selectBootstrapState,
   selectCommandError,
   selectTheme,
@@ -54,10 +54,7 @@ import {
 } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
-import {
-  resolveTabVisibility,
-  surfaceTabBacking,
-} from "../utils/course-navigation.js"
+import { resolveTabVisibility } from "../utils/course-navigation.js"
 import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
   hasMacDesktopInset,
@@ -246,7 +243,6 @@ function AppShell() {
   const activeTab = useSessionControllerSelector(selectActiveTab)
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
-  const courseList = useUiStore((s) => s.courseList)
 
   const theme = useSessionControllerSelector(selectTheme)
 
@@ -260,19 +256,9 @@ function AppShell() {
   const leftInsetStyle = hasMacDesktopInset()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
-  const activeCourseSummary =
-    activeCourseId === null
-      ? null
-      : (courseList.find((course) => course.id === activeCourseId) ?? null)
-  const activeBacking: CourseBacking | undefined =
-    activeCourseId === null
-      ? undefined
-      : loadedCourse?.id === activeCourseId
-        ? loadedCourse.backing
-        : activeCourseSummary !== null
-          ? activeCourseSummary.backing
-          : "lms"
-  const tabBacking = surfaceTabBacking(activeSurface, activeBacking)
+  const tabBacking = useSessionControllerSelector((snapshot) =>
+    selectActiveTabBacking(snapshot, loadedCourse),
+  )
   const tabVisibility = resolveTabVisibility(tabBacking)
   const canShowRosterTab = tabVisibility.roster
   const canShowGroupsTab = tabVisibility.groupsAssignments

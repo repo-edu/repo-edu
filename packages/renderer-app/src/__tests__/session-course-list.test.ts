@@ -4,8 +4,8 @@ import type { CourseSummary, PersistedCourse } from "@repo-edu/domain/types"
 import type { SessionController } from "../session/session-controller.js"
 import { canAdmitSessionChange } from "../session/session-reducer.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import {
+  activeCourseId,
   activeSurface,
   commandClient,
   commitPreparation,
@@ -55,7 +55,7 @@ describe("session course listing", () => {
         const listRelease = deferred<void>()
         const order: string[] = []
         const assertPublished = () => {
-          assert.deepEqual(useUiStore.getState().courseList, summaries())
+          assert.deepEqual(controller.getSnapshot().courses, summaries())
           assert.deepEqual(
             controller.getSnapshot().settings.preferences
               .recentSubmissionFolders,
@@ -173,7 +173,7 @@ describe("session course listing", () => {
           assert.equal(useCourseStore.getState().course?.revision, 1)
           assert.equal(useCourseStore.getState().course?.displayName, "Renamed")
           assert.equal(
-            useUiStore.getState().courseList[0]?.displayName,
+            controller.getSnapshot().courses[0]?.displayName,
             "active",
           )
         }
@@ -260,7 +260,7 @@ describe("session course listing", () => {
         },
       ])
       await loading.promise
-      assert.equal(useUiStore.getState().courseList[0]?.id, "new")
+      assert.equal(controller.getSnapshot().courses[0]?.id, "old")
       assert.equal(order.includes(successor), false)
       loadRelease.resolve()
       await Promise.all([refresh, next])
@@ -268,9 +268,57 @@ describe("session course listing", () => {
         kind: "course",
         courseId: "new",
       })
+      assert.equal(controller.getSnapshot().courses[0]?.id, "new")
       assert.deepEqual(order, ["saved", successor])
     })
   }
+
+  it("lands a listing and the surface it redirects to in one notification", async () => {
+    let listings = 0
+    const controller = startController({
+      workflowClient: workflowClient(async (id, input) => {
+        if (id === "settings.loadApp")
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "a" },
+          })
+        if (id === "course.load")
+          return makeCourse((input as { courseId: string }).courseId)
+        if (id === "course.save")
+          return { revision: 1, updatedAt: "2026-09-11T00:00:00Z" }
+        if (id === "course.list")
+          return ++listings === 1
+            ? [makeCourse("a"), makeCourse("b")]
+            : [makeCourse("b", "Renamed")]
+        if (id === "settings.savePreferences") return
+        assert.fail(id)
+      }),
+    })
+    controllers.push(controller)
+    await controller.waitForIdle()
+    const notified: { courseIds: string[]; active: string | null }[] = []
+    const unsubscribe = controller.subscribe(() => {
+      const snapshot = controller.getSnapshot()
+      notified.push({
+        courseIds: snapshot.courses.map((course) => course.id),
+        active: activeCourseId(snapshot),
+      })
+    })
+    await controller.renameCourse(
+      testSessionStart("courseRename"),
+      "b",
+      "Renamed",
+    )
+    unsubscribe()
+    const landed = notified.findIndex(
+      ({ courseIds }) => !courseIds.includes("a"),
+    )
+    assert.ok(landed > 0)
+    assert.deepEqual(notified[landed - 1], {
+      courseIds: ["a", "b"],
+      active: "a",
+    })
+    assert.deepEqual(notified[landed], { courseIds: ["b"], active: "b" })
+  })
 
   it("prunes submission recents in the admitted list body during command freeze", async () => {
     const entered = deferred<void>()
