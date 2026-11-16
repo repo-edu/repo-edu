@@ -46,9 +46,17 @@ The target decides what the audit reads:
 
 A planning or step audit also compares the files the plan's steps change with the list of doctrine
 files that change only inside a plan. A plan that changes such a file needs a **Walk-through**
-section, and a plan without one gets a finding. When a plan changes such a file, the audit reads
-`../plan/FAILURES.md` and checks the walk-through against it. The **Doctrine changes** section of
-`../plan/.agents/references/planning-rules.md` owns that rule. The commit hooks of both repos refuse
+section, and a plan without one gets a finding. Then the two kinds of audit do different work:
+
+1. **A planning audit** of a plan that changes such a file reads `../plan/FAILURES.md` and checks
+   the walk-through against it.
+2. **A step audit** whose steps changed such a file reads `../plan/FAILURES.md` and says so in its
+   opening. A finding whose correction changes what a session does beyond what the walk-through
+   covers answers the walk-through's two questions. The vets check that call and those answers
+   before the fix lands.
+
+The **Doctrine changes** section of `../plan/.agents/references/planning-rules.md` owns these
+rules. The commit hooks of both repos refuse
 a commit that changes such a file unless its subject is a plan step or an implementation-audit fix.
 
 The audit report lists findings by number. Each carries a tier from A, the most serious, to D,
