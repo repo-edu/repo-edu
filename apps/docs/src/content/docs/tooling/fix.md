@@ -38,7 +38,7 @@ reads each file a correction will change. It then shows one outcome per finding:
 
 A choice is not open in three cases:
 
-1. One option is at least as good as every other on every cost.
+1. One option is at least as good as every other on every cost and on what it gives you.
 2. The finding is rare, so the option with the least upkeep wins.
 3. The costlier option only guards against a mistake no round has found, so the option with the
    least upkeep wins.

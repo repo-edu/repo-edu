@@ -189,9 +189,11 @@ whether it is a deferral.
   its own plan-repo commit in the implementation-audit round form without user
   direction. It is not a deferral.
 - No choice needed. The correction changes the plan's substantive reference,
-  such as a decision's meaning or reason or a missing rule or row, but one
-  correction stands. Show the correction in the audit report for the user to accept
-  or revise.
+  but one correction stands. When it changes a plan decision's meaning or
+  reason, the finding carries the comparison of the shared planning rules'
+  [Changes to what a plan holds](../../../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds),
+  and that section decides who settles it. A missing rule or row is new work:
+  show its correction in the audit report for the user to accept or revise.
 - A choice is needed. More than one sensible correction exists. Put the options
   in the audit report. The fix phase puts them to the user and carries the answer and
   its reason in the deferral, or keeps the choice open when the user does not

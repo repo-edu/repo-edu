@@ -387,7 +387,9 @@ may carry the whole explanation. Verify the simpler mechanism, cost, benefit
 and any claim that the choice is settled against their sources. Return Revise
 for missing substance, not for missing labels or separate parts. When the
 correction is the simplest mechanism, verify that claim and its cited boundary
-or decision. Reopen a plan decision only with evidence that it is wrong.
+or decision. A finding that changes what a plan holds follows the shared
+planning rules'
+[Changes to what a plan holds](../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds).
 
 Check the finding's rarity against its cited evidence. A choice about cost that
 is real under [Real choices](#real-choices) goes to the user's ruling; the vet
@@ -399,14 +401,16 @@ winning option as the correction.
 A choice about cost goes to the user only when it is real. Weigh every option
 on each cost the evidence shows: build and upkeep, what people using or
 developing the app meet and other material risk such as a provider charge.
-Doing nothing counts as an option. An option that breaks a boundary drops out.
+Weigh what each option gives those people beside its costs: an option that
+takes away what another gives is worse on that line. Doing nothing counts as an
+option. An option that breaks a boundary drops out.
 Check every cost against its sources first. A cost identical in all options
 does not count.
 
-The choice is settled in two cases:
+The choice is settled in three cases:
 
-1. One option is at least as good as every other on every cost. Unclear
-   evidence rules this case out.
+1. One option is at least as good as every other on every cost and on what it
+   gives. Unclear evidence rules this case out.
 2. The finding's reach is rare or very-rare. The option with the least upkeep
    wins under [Reach and complexity](#reach-and-complexity). Doing nothing and
    changing only wording count as options. On equal upkeep, the option better
@@ -490,7 +494,7 @@ a revised tier; the note names the new tier and the fix records it.
   only on evidence the vetter can read. A disagreement of taste is agreement with
   a note. Contest a referred choice when [Real choices](#real-choices) settles
   it, naming the winner and the evidence for every cost.
-- **For user's ruling** keeps a real choice or recorded-decision question open.
+- **For user's ruling** keeps a real choice or plan-decision question open.
   State the audit report's position and evidence briefly and never settle it here.
 
 Return the complete answers without a grouped closing list. The runner saves an

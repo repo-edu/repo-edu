@@ -36,7 +36,9 @@ drops a finding the move already resolved. It checks each finding on three axes,
 
 1. **Authorised.** The round was allowed to raise it. A finding on completed commits' labels, a
    correct departure from the plan or work the episode has not reached does not stand. A finding
-   may reopen a settled decision with correctness or quality evidence, but never on taste alone.
+   may reopen a settled decision with correctness or quality evidence, but never on taste alone. A
+   finding that changes or removes something the plan holds states what you get from it and whether
+   you still get it afterwards, and the vetter checks that against the plan and its sources.
 2. **Grounded.** Its claims follow from the current plan, code, records and instructions.
 3. **Fixed right.** Its correction resolves the cause at the stated tier, and any trade between
    added machinery and user benefit is priced.
