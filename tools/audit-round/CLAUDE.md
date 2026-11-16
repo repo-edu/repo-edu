@@ -50,8 +50,10 @@ consumers.
   with its recovery session. The same fix session resumes in the background with that reply. Further
   open decisions repeat this route and ask only for the findings still without winners. A completed
   fix follows the same commit checks and watch as an uninterrupted fix. Ending the wait with Ctrl-C
-  retains the round files and ends the auditor sequence. A fix that stops or fails while a serious
-  contest or split still lacks its winner prints a runner recovery command, `resume-fix`. That route
+  retains the round files and ends the auditor sequence. A fix that stops while a serious contest or
+  split still lacks its winner prints a runner recovery command, `resume-fix`. A fix that fails in
+  that state prints it only when the runner knows the fix session, because `resume-fix` resumes that
+  session. That route
   reloads the in-progress round, stored winners and the fix session, then re-enters this same loop.
   It appends the retained log and transcript. Every other failed fix, and every failed rebuttal,
   prints the hand-run phases that finish the round instead: a resumed rebuttal cannot finish it,
@@ -1449,10 +1451,10 @@ writes no file, cache entry or snapshot.
 A clean audit records its outcome directly and retains the audit report,
 without vet, rebuttal or fix sessions. An automatic clean round still applies the series
 rules. A fix that stops for a ruling adds a ruling file. If a serious contest or split
-remains open, its stop or failure prints the runner's `resume-fix` command. The
-recovered fix uses the same retained round and completion path. A failed rebuttal,
-and a failed fix without that open ruling, print the hand-run phases that finish the
-round under [Phase routing](#phase-routing). A finished plan
+remains open, its stop prints the runner's `resume-fix` command. Its failure prints the
+same command when the runner knows the fix session. The recovered fix uses the same
+retained round and completion path. A failed rebuttal and every other failed fix print
+the hand-run phases that finish the round under [Phase routing](#phase-routing). A finished plan
 round with audit findings ends with a glance at the commit record, and a due
 glance adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is
 how its cadence survives between rounds, and `--no-watch` skips both. Without `--auditor`, an active

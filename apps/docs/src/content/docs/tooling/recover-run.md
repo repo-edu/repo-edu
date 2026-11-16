@@ -17,6 +17,10 @@ Read the failure reason, correct any named external problem and run the exact re
 runner printed. It preserves the phase, working checkout, model, effort and known session identity.
 The retained audit, vet and rebuttal reports and logs remain the source of the work being continued.
 
+A failed rebuttal or fix prints hand-run phases instead, except for the one fix case that prints
+`resume-fix`. Each hand-run phase runs in a new session, so no session identity carries over. See
+[A failed audit phase](#a-failed-audit-phase).
+
 A startup failure can happen before a session exists. In that case no recovery command is printed;
 fix the startup problem and rerun the original command.
 
@@ -53,7 +57,9 @@ chat. The hand-run fix lands the round's records, but the round data keeps the r
 so the next run audits the scope again. The `Session:` line still names the failed session.
 
 A failed fix whose serious contest or split still needs your winner prints `resume-fix` instead,
-under [An unanswered ruling](#an-unanswered-ruling).
+under [An unanswered ruling](#an-unanswered-ruling). It does so only when the runner knows the fix
+session, because `resume-fix` resumes that session. Without one, the failed fix prints the hand-run
+fix.
 
 Do not run `/audit` again for the same work. A new audit would claim another round number instead of
 completing the open one.
@@ -94,7 +100,9 @@ for the fix. The reply may be empty once all winners are stored. `Not yet`
 keeps the commit block and lets the fix answer a question before the runner
 waits again.
 
-A failed fix with an unresolved serious contest or split uses the same route. When no
+A failed fix with an unresolved serious contest or split uses the same route when the runner knows
+the fix session. Without one, it prints the hand-run fix under
+[A failed audit phase](#a-failed-audit-phase). When no
 ruling file exists yet, the runner first resumes the fix so it can write one.
 The route then finishes through the ordinary record checks.
 
@@ -112,5 +120,7 @@ For `resume-fix`, recovery is complete only when every serious contest or split 
 stored winner, the fix reports success and the runner validates its records.
 
 For an assistant recovery command or the hand-run phases, read the final session's result. The
-stopped runner does not verify it. If recovery fails again, use the newest printed command because
-it carries the current resumable session.
+stopped runner does not verify it. If an assistant recovery command fails again, use the newest
+printed command because it carries the current resumable session. A hand-run step runs in a new
+session that the runner did not start, so its failure prints no new command. Start that step again
+in a new session with the same launcher line.

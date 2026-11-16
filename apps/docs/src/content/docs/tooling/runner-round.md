@@ -192,7 +192,8 @@ and any other with status 1.
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Resume:`
    command. A failed rebuttal or fix prints the hand-run phases that finish the round instead: the
    rebuttal and then the fix, or the fix alone. A fix whose serious contest or split still needs
-   your winner prints `resume-fix`. See [Recover a run](/repo-edu/tooling/recover-run/).
+   your winner prints `resume-fix` when the runner knows the fix session. Without one, it prints
+   the hand-run fix. See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and
    act on it first.
 4. **A fix changed the plan's phase.** The round finishes without a series decision and the series
