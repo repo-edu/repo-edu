@@ -16,6 +16,7 @@ const formPrefixes = [
   "report/",
   "vet/",
   "rebuttal/",
+  "ruler/",
   "record/",
   "plan-step/",
   "audit-ranges/",

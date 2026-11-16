@@ -296,14 +296,17 @@ test("round data stores a contested verdict's user winner and reason together", 
       findings: [ruled],
     })
   const ruling = (winner: unknown, reason = "The vet applied the contract.") =>
-    ({ ...finding, ruling: { winner, reason } }) as RoundFinding
+    ({
+      ...finding,
+      ruling: { winner, reason, namedBy: "user" },
+    }) as RoundFinding
 
   for (const winner of ["report", "neither", ["abh"], ["abh", "oth"]]) {
     write(ruling(winner))
     assert.deepEqual(
       parseRoundDataFile(path, await readFile(path, "utf8")).rounds[0]
         ?.findings[0]?.ruling,
-      { winner, reason: "The vet applied the contract." },
+      { winner, reason: "The vet applied the contract.", namedBy: "user" },
     )
   }
   for (const winner of ["vet", "auditor", [], ["vet"]])
@@ -334,7 +337,11 @@ test("round data stores a ruling on a split the rebuttal agreed with", async (t)
   assert.ok(finding)
   const ruled: RoundFinding = {
     ...finding,
-    ruling: { winner: ["obx"], reason: "The finding stands as written." },
+    ruling: {
+      winner: ["obx"],
+      reason: "The finding stands as written.",
+      namedBy: "user",
+    },
   }
   writeRoundData(path, {
     ...entry("example-impl-audit-01..01", 1),
@@ -427,11 +434,11 @@ test("a single-vetter round rewritten to the panel form keeps every verdict, ans
   const reviewed = (
     number: number,
     review: Omit<RoundFinding["reviews"][number], "vet">,
-    ruling?: RoundFinding["ruling"],
+    ruling?: Omit<NonNullable<RoundFinding["ruling"]>, "namedBy">,
   ): RoundFinding => ({
     ...reportFinding(number, `Rewritten finding ${number}`),
     reviews: [{ vet: "obx", ...review }],
-    ...(ruling === undefined ? {} : { ruling }),
+    ...(ruling === undefined ? {} : { ruling: { ...ruling, namedBy: "user" } }),
     outcome: "kept",
     finalTier: null,
     finalReach: null,

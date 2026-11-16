@@ -1185,13 +1185,13 @@ const ruledFinding = (
   title: string,
   tier: RoundFinding["tier"],
   reviews: readonly Review[],
-  ruling?: RoundFinding["ruling"],
+  ruling?: Omit<NonNullable<RoundFinding["ruling"]>, "namedBy">,
 ): RoundFinding => ({
   ...finding(title),
   number,
   tier,
   reviews: [...reviews],
-  ...(ruling === undefined ? {} : { ruling }),
+  ...(ruling === undefined ? {} : { ruling: { ...ruling, namedBy: "user" } }),
 })
 
 test("vetter-pair tables count each class's shared findings per tier range, ruled splits and their endings", async (t) => {

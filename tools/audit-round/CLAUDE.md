@@ -174,6 +174,12 @@ consumers.
   panel or a vetter that accepted the finding, so a misnumbered or mistagged answer fails on its own
   line rather than as a missing one. Only Accept verdicts skip the rebuttal. Both readers are
   supplied through `RoundDependencies`, alongside the HEAD and subject reads.
+  `ruler-report.ts` reads the ruler report under the grammar's
+  [Ruler report](../../.agents/references/round-grammar.md#ruler-report) against the findings the
+  ruler was given and the round's panel. It returns one winner and one-line reason per given finding
+  in audit report order, and every source the report names as opened, each once. A source is a
+  file's absolute path or a commit's first six characters, so it can be matched as plain text
+  against the ruler's own tool lines.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.
@@ -483,36 +489,38 @@ consumers.
   audit report tier, verdict and optional revised tier. Retained finding data holds one review per
   vetter of the panel: the vetter's tag, its verdict, its revised tier and the rebuttal's answer to
   it. The panel is every vetter listed for the target's work class. A finding with a contest or a
-  split may also store the user's ruling: its reason and a winner of `report`, `neither` or a list
-  of vetter tags. A planning entry's required `settling` field keeps the widening round's settling
-  recommendation as it stands when the round ends: the fix's settling line, or the audit report's
-  closing settling line when the clean audit ran no fix; detailing entries use `""`. The planning,
-  implementation and commit files each hold a time-ordered entry per round. A commit entry also
-  records its original groups, advancing groups and judged repos. An entry records state, settings
-  with the round's `vetters` panel, chosen auditor and source, the selection its audit launched on,
-  phase measurements including peak context and compactions, landed commits, finding review and
-  outcome data and any series answer. A vetter's vet phase entry also carries the vetter's tag,
-  which links its reviews to its model and effort. New automatic rounds also store the ordered
-  resolved auditor list used for that answer. `RoundOutput` writes the settled findings as
-  `in-progress` before later phases, then replaces the entry with its final state. The writer checks
-  the whole object and publishes it by temporary file rename. `run-files.ts` completes each required
-  write before returning to the invocation; no complete transcript accumulates in memory.
-  `terminal.ts` renders assistant Markdown through the `pi-tui` Markdown component at the current
-  terminal width, preserving paragraph spacing, nested lists and source finding numbers. It uses
-  cyan for inline code without background blocks and honours `NO_COLOR`. It writes the rendered
-  document directly and uses log-update only for the live status line, so permanent text is not
-  wrapped twice. Redirected output retains the original Markdown. The log records each tool
-  invocation once, with shell wrappers removed and no event envelopes or result payloads. Invocation
-  lines stay complete in the log; assistant texts stay complete in Markdown. Only terminal tool
-  lines shorten. The terminal omits the final `PHASE RESULT` control line; the transcript retains
-  it. `beginRuling` releases the live status display and prints the ruling notice in place of the
-  ruling's text: the round or step, the target, the ruling file, the findings that need a winner,
-  whose model runs the fix and the `/ruling <target>` line to type in the desktop app. `endRuling`
-  excludes the user's waiting time and records an accepted reply in the log and transcript before
-  any resumed process starts. Assistant output goes through the normal phase output, so launch
-  prompts stay in the log and never reach the terminal. Supplied instruction files appear there by
-  path only; their full contents go to the assistant. Each assistant's reported model line is
-  followed by the model-change notice from `model-change.ts` when that comparison differs.
+  split may also store its winner: `report`, `neither` or a list of vetter tags, with its reason and
+  who named it, the user or the ruler. An entry's settings record may hold the ruler's selection;
+  entries written before the ruler existed carry none. A planning entry's required `settling` field
+  keeps the widening round's settling recommendation as it stands when the round ends: the fix's
+  settling line, or the audit report's closing settling line when the clean audit ran no fix;
+  detailing entries use `""`. The planning, implementation and commit files each hold a time-ordered
+  entry per round. A commit entry also records its original groups, advancing groups and judged
+  repos. An entry records state, settings with the round's `vetters` panel, chosen auditor and
+  source, the selection its audit launched on, phase measurements including peak context and
+  compactions, landed commits, finding review and outcome data and any series answer. A vetter's vet
+  phase entry also carries the vetter's tag, which links its reviews to its model and effort. New
+  automatic rounds also store the ordered resolved auditor list used for that answer. `RoundOutput`
+  writes the settled findings as `in-progress` before later phases, then replaces the entry with its
+  final state. The writer checks the whole object and publishes it by temporary file rename.
+  `run-files.ts` completes each required write before returning to the invocation; no complete
+  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
+  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
+  source finding numbers. It uses cyan for inline code without background blocks and honours
+  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
+  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
+  log records each tool invocation once, with shell wrappers removed and no event envelopes or
+  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
+  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
+  line; the transcript retains it. `beginRuling` releases the live status display and prints the
+  ruling notice in place of the ruling's text: the round or step, the target, the ruling file, the
+  findings that need a winner, whose model runs the fix and the `/ruling <target>` line to type in
+  the desktop app. `endRuling` excludes the user's waiting time and records an accepted reply in the
+  log and transcript before any resumed process starts. Assistant output goes through the normal
+  phase output, so launch prompts stay in the log and never reach the terminal. Supplied instruction
+  files appear there by path only; their full contents go to the assistant. Each assistant's
+  reported model line is followed by the model-change notice from `model-change.ts` when that
+  comparison differs.
 - `model-change.ts` owns the non-blocking model and effort notice. Every round phase and the close
   compare the same way: the notice reads every active and archived plan's checked round data and
   compares the reported model and effort with the newest earlier reading by the same assistant on

@@ -108,7 +108,9 @@ function contestScope(
         throw new Error(`Contest names no audit report finding: ${number}`)
       return {
         finding: number,
-        ...(finding.ruling === undefined ? {} : finding.ruling),
+        ...(finding.ruling === undefined
+          ? {}
+          : { winner: finding.ruling.winner, reason: finding.ruling.reason }),
       }
     }),
   }
@@ -173,7 +175,11 @@ function recordRulings(
         ? finding
         : {
             ...finding,
-            ruling: { winner: ruling.winner, reason: ruling.reason },
+            ruling: {
+              winner: ruling.winner,
+              reason: ruling.reason,
+              namedBy: "user",
+            },
           }
     }),
   }

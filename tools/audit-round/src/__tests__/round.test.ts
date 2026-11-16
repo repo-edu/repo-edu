@@ -834,6 +834,7 @@ test("not yet keeps a contest open until the runner records its winner and reaso
   assert.deepEqual(result.account.findings[0]?.ruling, {
     winner: "report",
     reason: "The report quotes the owning contract.",
+    namedBy: "user",
   })
   const fixes = round.calls.filter((call) => call.phase === "fix")
   assert.equal(fixes.length, 3)
@@ -1209,7 +1210,11 @@ test("a contest on one of two agreeing vetters goes to the user", () => {
         findings: [
           {
             ...finding,
-            ruling: { winner: ["abx", "obh"], reason: "Both drops held." },
+            ruling: {
+              winner: ["abx", "obh"],
+              reason: "Both drops held.",
+              namedBy: "user",
+            },
           },
         ],
       },

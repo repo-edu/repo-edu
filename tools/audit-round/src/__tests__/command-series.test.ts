@@ -240,6 +240,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
     ruling: {
       winner: "report",
       reason: "The report quotes the owning contract.",
+      namedBy: "user",
     },
     outcome: "kept",
     finalTier: null,
@@ -383,6 +384,7 @@ test("a stopped panel split resumes its fix with every vet report and each vette
   assert.deepEqual(stored.rounds[0]?.findings[0]?.ruling, {
     winner: ["abh"],
     reason: "The finding holds as written.",
+    namedBy: "user",
   })
   for (const path of [report, ...vets, f.rebut]) await readFile(path)
 })
@@ -524,6 +526,7 @@ test("a fix that failed with an open serious split finishes through resume-fix",
   assert.deepEqual(rounds[0]?.findings[0]?.ruling, {
     winner: ["abh"],
     reason: "The finding holds as written.",
+    namedBy: "user",
   })
 })
 

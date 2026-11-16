@@ -95,6 +95,10 @@ export const roundFindingSchema = z
     location: roundFindingLocationSchema,
     /** One review per vetter of the panel that judged the finding. */
     reviews: z.array(roundFindingReviewSchema),
+    /**
+     * The winner of a contest or split, its one-line reason and who named it:
+     * the user through a ruling, or the ruler phase.
+     */
     ruling: z
       .strictObject({
         winner: rulingWinnerSchema,
@@ -102,6 +106,7 @@ export const roundFindingSchema = z
           .string()
           .min(1)
           .regex(/^[^\r\n]+$/),
+        namedBy: z.enum(["user", "ruler"]),
       })
       .optional(),
     outcome: z.enum(["kept", "dropped", "unmatched"]).nullable(),
@@ -213,6 +218,11 @@ const commonRoundData = z.strictObject({
   settings: z.strictObject({
     /** The round's panel: every vetter that judges its audit report. */
     vetters: z.array(modelSelection.extend({ assistant })).min(1),
+    /**
+     * The work class's ruler, which names the winners of contests and splits on
+     * C or D findings. Entries written before the ruler existed carry none.
+     */
+    ruler: modelSelection.extend({ assistant }).optional(),
     fix: modelSelection.extend({ assistant }),
   }),
   auditor: modelSelection.extend({

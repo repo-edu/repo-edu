@@ -6,9 +6,9 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The ten forms are the audit report, vet report, rebuttal report, commit record
-bullet, implementation-plan step, audit-range sentence, phase result, watch
-grade, settling line and watch record.
+The eleven forms are the audit report, vet report, rebuttal report, ruler
+report, commit record bullet, implementation-plan step, audit-range sentence,
+phase result, watch grade, settling line and watch record.
 
 ## Notation
 
@@ -709,6 +709,203 @@ Refusal: `Rebuttal answer 2 names obh, which accepted finding 2; an accept needs
 2. [C] [obh] Agree
 
 The revision of finding 2 holds.
+```
+
+## Ruler report
+
+### Production
+
+```text
+<ruler-report>     ::= <ruler-opening><ruler-entry>+
+<ruler-opening>    ::= (<ruler-free-line> | <source-line>)*
+<ruler-entry>      ::= <ruler-heading> NL (<ruler-free-line> | <source-line> | <winner-line>)*
+<ruler-heading>    ::= "### "<n>". ["<tier>"]"(" "<title>)?
+<source-line>      ::= ("- ")?"Opened: `"<source>"`"(", "<place>)?
+<source>           ::= <absolute-path> | <short-sha>
+<absolute-path>    ::= "/" and a character other than whitespace, then text without "`"
+<place>            ::= non-empty text on one line
+<winner-line>      ::= "Winner: "<winner>". "<one-line-reason>
+<winner>           ::= report | neither | <vetter-tag>(", "<vetter-tag>)*
+<ruler-free-line>  ::= any line that is no <ruler-heading> and opens with neither
+                       "Opened:", "- Opened:" nor "Winner:"
+```
+
+The ruler report answers the findings the runner gives the ruler. Each given finding has exactly one
+entry, in audit report order. Its heading repeats the finding's audit report number and tier, and a
+title may follow them. The entry holds the finding's evidence record and then its winner line.
+ruling.md's [Reading order](../skills/fix/references/ruling.md#reading-order) owns what the record
+says, and its free lines carry the points, each side's claims, the passages read and what each
+passage settles.
+
+A source line names one source the ruler opened, in backticks: a file by its absolute path or a
+commit by its first six characters. A place in the source may follow after a comma. The form is
+fixed because the runner matches each name as plain text against the ruler's logged tool lines and
+the files it supplied whole, and resolves no relative path. Each entry names at least one source. A
+source line before the first heading belongs to no entry but still counts among the report's
+sources.
+
+The winner line names one winner in the user's winner words without `not yet`: `report`, `neither`
+or one or more tags of the round's panel joined by a comma and a space. The one-line reason follows
+after a full stop. Each entry has exactly one winner line. Leading and trailing whitespace carry no
+content. A line that opens with `Opened:`, `- Opened:` or `Winner:` is a source or winner attempt
+and is refused by name when it does not fit.
+
+### Examples
+
+The examples answer a ruler given finding 2 `[C]` of a round whose panel is `abx` and `obh`.
+
+#### `ruler/vetter-winner` — parsed
+
+```markdown
+### 2. [C] Keep the record
+
+Point 1: whether the reader refuses an empty plan target.
+- Audit report: the reader stores it as a deferral.
+- Vetter abx: the reader refuses it.
+- Opened: `/path/to/repo-edu/.agents/references/round-grammar.md`, the case report/empty-plan-target.
+- Read: "Refusal: `Finding 1 has an empty plan target`".
+- Settles: the reader refuses it, so vetter abx is right.
+
+Winner: abx. The grammar's refusal case shows that the reader refuses an empty plan target.
+```
+
+#### `ruler/report-winner` — parsed
+
+```markdown
+### 2. [C]
+
+Point 1: whether the step commit changed the reader.
+- Opened: `abc123`, its diff of the reader.
+- Settles: it did, so the finding stands as written.
+
+Winner: report. The step commit changed the reader as the audit report says.
+```
+
+#### `ruler/neither-winner` — parsed
+
+```markdown
+Head drift: none.
+
+### 2. [C] Keep the record
+
+- Opened: `/path/to/plan/BOUNDARIES.md`, entry 8.
+
+Winner: neither. A real choice remains between the two corrections.
+```
+
+#### `ruler/two-vetters` — parsed
+
+```markdown
+### 2. [C] Keep the record
+
+- Opened: `/path/to/repo-edu/tools/audit-round/src/report.ts`
+
+Winner: abx, obh. Both revisions land the same correction.
+```
+
+#### `ruler/relative-source` — refused
+
+Refusal: `Ruler finding 2 has a source that is no absolute path or six-character commit`
+
+```markdown
+### 2. [C] Keep the record
+
+- Opened: `tools/audit-round/src/report.ts`
+
+Winner: abx. The reader refuses it.
+```
+
+#### `ruler/no-source` — refused
+
+Refusal: `Ruler finding 2 names no opened source`
+
+```markdown
+### 2. [C] Keep the record
+
+The audit report quotes the reader.
+
+Winner: abx. The reader refuses it.
+```
+
+#### `ruler/not-yet` — refused
+
+Refusal: `Ruler finding 2 names the winner "not yet"; use report, neither or tags of abx or obh`
+
+```markdown
+### 2. [C] Keep the record
+
+- Opened: `abc123`
+
+Winner: not yet. The ruler asks no question.
+```
+
+#### `ruler/outside-panel` — refused
+
+Refusal: `Ruler finding 2 names atx, which is no vetter of this round; use abx or obh`
+
+```markdown
+### 2. [C] Keep the record
+
+- Opened: `abc123`
+
+Winner: atx. The reader refuses it.
+```
+
+#### `ruler/missing-reason` — refused
+
+Refusal: `Ruler finding 2 needs a one-line reason after its winner`
+
+```markdown
+### 2. [C] Keep the record
+
+- Opened: `abc123`
+
+Winner: abx
+```
+
+#### `ruler/two-winners` — refused
+
+Refusal: `Ruler finding 2 needs one Winner: line`
+
+```markdown
+### 2. [C] Keep the record
+
+- Opened: `abc123`
+
+Winner: abx. The reader refuses it.
+Winner: obh. The reader stores it.
+```
+
+#### `ruler/not-given` — refused
+
+Refusal: `Ruler report answers finding 1, which the ruler was not given`
+
+```markdown
+### 1. [B] Preserve the evidence
+
+- Opened: `abc123`
+
+Winner: report. The finding stands.
+```
+
+#### `ruler/other-tier` — refused
+
+Refusal: `Ruler finding 2 has tier [B]; the audit report graded it [C]`
+
+```markdown
+### 2. [B] Keep the record
+
+- Opened: `abc123`
+
+Winner: abx. The reader refuses it.
+```
+
+#### `ruler/missing-entry` — refused
+
+Refusal: `Ruler report needs an entry for finding 2`
+
+```markdown
+Every given finding is settled elsewhere.
 ```
 
 ## Commit record bullet
