@@ -727,7 +727,7 @@ test("fresh and resumed Codex fix requests carry large prompts only on stdin", (
   }
 })
 
-test("Claude completes a phase when its settings reply fails", async (t) => {
+test("Claude completes a phase when its settings response fails", async (t) => {
   const stream = (await phaseStream("claude"))
     .trimEnd()
     .split("\n")

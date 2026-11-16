@@ -853,7 +853,7 @@ test("commit stamps time the finished audit, every vetter and the rebuttal and n
   await second.finish(finished)
   second.release()
   assert.equal(time(), "Audit and vet took 9 min.")
-  // The Codex vet runs on the audit's own selection, so it shares its line.
+  // The Codex vetter runs on the audit's own selection, so it shares its line.
   assert.deepEqual(output.commitStamps()?.phases.split("\n").slice(0, -1), [
     "audit, vet: gpt-5.6-sol high",
     "vet: claude-opus-5 high",

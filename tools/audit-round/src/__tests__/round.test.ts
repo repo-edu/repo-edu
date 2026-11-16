@@ -590,7 +590,7 @@ test("a panel of both assistants vets side by side, and every vet report reaches
       documents: { ...files.documents, vets: panelReports },
       plan: "example.md",
       scope: "1",
-      // The Claude vet runs on the auditor's own model.
+      // The Claude vetter runs on the auditor's own model.
       auditor: "claude",
     },
     {

@@ -89,7 +89,7 @@ import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
   readonly report: string
-  /** One vet report per vet of the panel, in panel order. */
+  /** One vet report per vetter of the panel, in panel order. */
   readonly vets: readonly string[]
   readonly rebut: string
   readonly ruling: string

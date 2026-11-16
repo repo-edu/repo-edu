@@ -24,16 +24,6 @@ Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`
 The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and the runner.
 
 - **Stem:** the plan filename without `.md` and without the optional `-widen` ending.
-- **Series:** consecutive audit rounds on one target, with the runner applying fixed rules after
-  each round to decide whether another assistant needs a current read.
-- **Vet:** an independent check of an audit report from a fresh context. Every vetter listed for the
-  work class checks each audit report, whoever audited.
-- **Rebuttal:** a new session on the auditor's model that answers vetter disagreements with
-  evidence.
-- **Ruling:** a saved question that needs your decision before the same assistant session can
-  continue.
-- **Deferral:** an accepted correction that belongs in a repository outside the repositories the
-  current round may change, so it remains open for a later round there.
 
 ## Which command fits my situation?
 

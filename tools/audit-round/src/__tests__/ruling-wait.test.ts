@@ -226,7 +226,7 @@ for (const { name, findings, answer, refusal } of [
     refusal: "The answer does not have the answer form:",
   },
   {
-    name: "the single vet's old winner word",
+    name: "the single vetter's old winner word",
     findings: [1],
     answer: {
       rulings: [{ finding: 1, winner: "auditor", reason: "Fine." }],
