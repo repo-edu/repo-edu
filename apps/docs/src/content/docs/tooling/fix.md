@@ -46,6 +46,10 @@ A choice is not open in three cases:
 Planning corrections change only the plan repo. An implementation round may change Repo Edu, the
 plan repo or both, as the audit report's judged repos and finding locations allow.
 
+A commit audit has no plan, so its fix does not apply a finding whose correction changes one of the
+doctrine files that change only inside a plan. It names that finding in the handoff as work for a
+plan.
+
 ## Your answers
 
 1. **Nothing is open.** You type nothing. The fix applies every outcome, runs the checks for what it

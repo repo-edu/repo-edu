@@ -7,6 +7,7 @@ reads:
   - commit-scope.md
   - ../../../../../plan/GROWTH-PATTERNS.md
   - ../../../../../plan/BOUNDARIES.md
+  - ../../../../tools/audit-round/src/listed-files.json
 ---
 
 # Implementation audit workflow
@@ -146,6 +147,21 @@ implemented; V deviated; N incomplete; R dropped.` The table proves the round
 inspected its whole scope rather than only the areas where findings cluster. A
 clean audit report still includes the table and the coverage line before it says
 there are no findings.
+
+## Listed files
+
+Compare the files the in-scope steps changed, in each judged repo, with that
+repo's paths in the supplied list of files. Apply the implementation-audit
+duties of the shared planning rules'
+[Doctrine changes](../../../../../plan/.agents/references/planning-rules.md#doctrine-changes),
+which own the walk-through, the finding for a plan without one and the call on
+a finding whose correction goes beyond the walk-through. When a step changed a
+listed file, read `../plan/FAILURES.md` whole, and the audit report's opening
+says so and cites that section and the failure record.
+
+A commit-scoped round makes no comparison, because no plan covers its work.
+Its fix leaves a listed-file finding to a plan under `commit-scope.md`'s
+**Record**.
 
 ## Findings
 

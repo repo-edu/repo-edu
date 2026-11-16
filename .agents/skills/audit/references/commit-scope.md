@@ -146,6 +146,14 @@ plan-repo record takes the subject grammar's O2 off-plan form, `<tag> <growth>
 them. Every record follows the shared protocol's **Finding metadata** and the
 [record bullet grammar](../../../references/round-grammar.md#commit-record-bullet).
 
+The fix does not apply a finding whose correction changes a listed file, as the
+shared planning rules'
+[Doctrine changes](../../../../../plan/.agents/references/planning-rules.md#doctrine-changes)
+define it, because such a file changes only inside a plan and this round has
+none. It names that finding in its handoff as work for a plan, and the record
+leaves it out. A round whose every accepted finding is of that kind lands no
+record.
+
 Direct clean completion follows the shared protocol. It creates no record
 because no stem scan reads one for a commit target.
 

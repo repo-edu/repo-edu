@@ -139,7 +139,10 @@ which owns placement and its reasons. Use the shared protocol's
 the [record bullet grammar](../../../references/round-grammar.md#commit-record-bullet)
 for their contents, including a clean record reached through reconciliation. A
 plan-repo commit round's record takes the plan repo's off-plan form rather than
-an implementation-audit form.
+an implementation-audit form. A commit round's fix does not apply a finding
+whose correction changes a listed file; it names that finding in its handoff as
+work for a plan, under the commit scope's
+[Record](../../audit/references/commit-scope.md#record).
 
 The invocation grants the round's record commits, any directed plan-repo
 correction commit and any stale-text plan-repo correction admitted by the

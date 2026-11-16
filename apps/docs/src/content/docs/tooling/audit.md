@@ -44,6 +44,12 @@ The target decides what the audit reads:
    coverage table that gives every step in the range one disposition.
 3. **A commit audit** reads the exact commits the runner resolved before the audit started.
 
+A planning or step audit also compares the files the plan's steps change with the list of doctrine
+files that change only inside a plan. A plan that changes such a file needs a **Walk-through**
+section, and a plan without one gets a finding. When a plan changes such a file, the audit reads
+`../plan/FAILURES.md` and checks the walk-through against it. The **Doctrine changes** section of
+`../plan/.agents/references/planning-rules.md` owns that rule.
+
 The audit report lists findings by number. Each carries a tier from A, the most serious, to D,
 wording, plus its location, the growth patterns it could match, its reach and its maintenance-burden
 change. The audit changes no tracked file.

@@ -1,0 +1,19 @@
+{
+  "plan": [
+    ".agents/references/planning-rules.md",
+    "GROWTH-PATTERNS.md",
+    ".agents/skills/audit/references/",
+    ".agents/skills/vet/references/",
+    ".agents/skills/fix/references/",
+    ".agents/skills/rebut/references/"
+  ],
+  "repo-edu": [
+    ".agents/references/round-protocol.md",
+    ".agents/skills/audit/references/",
+    ".agents/skills/vet/references/",
+    ".agents/skills/fix/references/",
+    ".agents/skills/rebut/references/",
+    ".agents/skills/watch/references/",
+    "tools/audit-round/src/listed-files.json"
+  ]
+}

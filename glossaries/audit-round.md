@@ -171,6 +171,17 @@ is always named in full.
   then the full range.
 - **Plan brief**: a reading aid for one plan, written for a reader who did not
   take part in its discussion. It is not committed, and no round reads it.
+- **Listed file**: a doctrine file that tells a round session how to judge,
+  named on the runner's list of such files or sitting under a folder the list
+  names. It changes only inside a plan, as a step or as a fix from that plan's
+  implementation audit.
+- **Failure record**: the plan repo's root file with one row for each failure
+  the round doctrine exists to prevent. A plan that changes a listed file and
+  its audit rounds measure the change against it.
+- **Walk-through**: the section of a plan that changes a listed file which
+  answers two questions against the failure record: which failures the change
+  answers and why the passages already aimed at them did not prevent them, and
+  which failures it could bring back and why each still holds.
 - **Yield review**: a hand-run rating of each plan decision's benefit to the
   user against its complexity, with optional vet, rebuttal and final reports
   of its own. It allocates no audit round and lands no commit.
