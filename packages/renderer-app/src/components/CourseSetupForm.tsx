@@ -1,9 +1,5 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
-import {
-  type CourseBacking,
-  createBlankCourse,
-  type PersistedCourse,
-} from "@repo-edu/domain/types"
+import type { CourseBacking } from "@repo-edu/domain/types"
 import {
   Alert,
   AlertDescription,
@@ -38,24 +34,6 @@ import { lmsConnectionDisplayName } from "./settings/ConnectionsPane.shared.js"
 
 const NONE_VALUE = "__none__"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
-
-export function createNewCourseDraft(input: {
-  id: string
-  updatedAt: string
-  backing: CourseBacking
-  displayName: string
-  selectedLmsConnectionId: string
-  selectedCourseId: string
-}): PersistedCourse {
-  return createBlankCourse(input.id, input.updatedAt, {
-    backing: input.backing,
-    displayName: input.displayName,
-    lmsConnectionId:
-      input.backing === "lms" ? input.selectedLmsConnectionId || null : null,
-    lmsCourseId:
-      input.backing === "lms" ? input.selectedCourseId.trim() || null : null,
-  })
-}
 
 /** The two Home cards that set up a course, from the LMS or from a RepoBee
  * student list. They share one course name. */

@@ -23,12 +23,15 @@ non-React getter return that gateway. They do not expose the raw client.
 ```typescript
 // In React components
 const operations = useWorkflowClient()
-const refreshCourseListAfterCreate = bindSessionStart("courseNew", async (start) => {
-  await operations.execute(start, "course.list", async (scope) => {
-    const courses = await scope.run("course.list", undefined)
-    scope.publish(() => publishCourses(courses))
-  })
-})
+const loadGroupSets = bindSessionStart("groupSetsLoad", (start) =>
+  operations.execute(start, "groupSet.fetchAvailableFromLms", async (scope) => {
+    const groupSets = await scope.run("groupSet.fetchAvailableFromLms", {
+      course,
+      credentials,
+    })
+    scope.publish(() => setDiscovery({ status: "ready", groupSets }))
+  }),
+)
 ```
 
 `bindSessionStart` supplies the typed start argument when the control runs.
@@ -44,8 +47,9 @@ ready session state.
 existing transaction queue. Host calls, progress/output callbacks, Query cache
 publication and explicit semantic follow-up finish before retirement. Use
 `scope.publish` for publication and `scope.follow` for asynchronous follow-up.
-The example's `publishCourses` is the feature's publication callback and runs
-inside that body. React effects may display results but cannot commit semantic state.
+The example is the Load group sets control of the Connect group set dialog. Its
+`setDiscovery` call publishes the result into the dialog's own state and runs
+inside the reserved body. React effects may display results but cannot commit semantic state.
 
 `session-operation-inventory.ts` assigns every workflow and direct action a
 class. Read-only results that supply command input are session-changing too.
@@ -82,7 +86,6 @@ snapshot heads, statistics, and blame) lives in React Query rather than a store 
 | `useCourseStore` | The loaded course document: roster, groups, assignments, metadata, validation state, and undo/redo history. |
 | `useGroupsViewStore` | Course, roster, group-set and assignment view state: which dialogs are open, the issues sheet and sidebar choices. |
 | `useSettingsViewStore` | Whether the settings sheet is open and which category it shows. |
-| `useOperationStore` | Repository operation staging and progress tracking. |
 | `useToastStore` | Toast notification queue with auto-dismiss. |
 | `useConnectionsStore` | Transient LMS, Git and LLM connection verification status. |
 | `useAnalysisStore` | Scope-keyed analysis-tab view intent: repo selection, author and file filters, display mode, and blame options. |

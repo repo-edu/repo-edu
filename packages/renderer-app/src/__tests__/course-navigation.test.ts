@@ -1,6 +1,5 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { createNewCourseDraft } from "../components/CourseSetupForm.js"
 import {
   resolveSupportedActiveTab,
   resolveTabVisibility,
@@ -55,35 +54,5 @@ describe("course navigation", () => {
 
   it("keeps the analysis tab active for LMS-backed courses", () => {
     assert.equal(resolveSupportedActiveTab("analysis", "lms"), "analysis")
-  })
-
-  it("creates LMS course drafts with LMS binding", () => {
-    const course = createNewCourseDraft({
-      id: "course-1",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      backing: "lms",
-      displayName: "LMS Course",
-      selectedLmsConnectionId: "Canvas",
-      selectedCourseId: "canvas-1",
-    })
-
-    assert.equal(course.backing, "lms")
-    assert.equal(course.lmsConnectionId, "Canvas")
-    assert.equal(course.lmsCourseId, "canvas-1")
-  })
-
-  it("creates RepoBee course drafts without LMS binding", () => {
-    const course = createNewCourseDraft({
-      id: "course-1",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      backing: "repobee",
-      displayName: "RepoBee Course",
-      selectedLmsConnectionId: "Canvas",
-      selectedCourseId: "canvas-1",
-    })
-
-    assert.equal(course.backing, "repobee")
-    assert.equal(course.lmsConnectionId, null)
-    assert.equal(course.lmsCourseId, null)
   })
 })
