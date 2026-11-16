@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { readRulerReport } from "../ruler-report.js"
+import { readRulerReport, unopenedSources } from "../ruler-report.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
 const panel = ["abx", "obh"]
@@ -110,4 +110,24 @@ test("the ruler reader names a commit only by its first six characters", () => {
       /Ruler finding 2 has a source that is no absolute path/,
       name,
     )
+})
+
+test("the reading check passes a source named in a tool line or supplied whole", () => {
+  assert.deepEqual(
+    unopenedSources(
+      ["/repo/a.ts", "abc123", "/repo/b.md", "/repo/c.ts"],
+      ["Read /repo/a.ts", "Bash git show abc123 --stat"],
+      ["/repo/b.md"],
+    ),
+    ["/repo/c.ts"],
+  )
+  // A read relative to an earlier cd does not count for the absolute name.
+  assert.deepEqual(
+    unopenedSources(
+      ["/repo/src/round-data.ts"],
+      ["Bash sed -n 1,5p round-data.ts"],
+      [],
+    ),
+    ["/repo/src/round-data.ts"],
+  )
 })

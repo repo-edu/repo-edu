@@ -128,6 +128,7 @@ export default defineConfig({
                     { label: "/audit", slug: "tooling/audit" },
                     { label: "/vet", slug: "tooling/vet" },
                     { label: "/rebut", slug: "tooling/rebut" },
+                    { label: "/rule", slug: "tooling/rule" },
                     { label: "/fix", slug: "tooling/fix" },
                   ],
                 },

@@ -9,55 +9,59 @@ consumers.
 
 ## Ownership
 
-- `round.ts` owns the fixed audit, vet, rebuttal and fix sequence, the reply a fix's open item
-  needs, the watch that follows a finished planning or plan-scoped implementation round and the
+- `round.ts` owns the fixed audit, vet, rebuttal, ruler and fix sequence, the reply a fix's open
+  item needs, the watch that follows a finished planning or plan-scoped implementation round and the
   fixed decision that routes an automatic series. It retains the audit result and audit report as
-  local values. Audit, vet, rebuttal and fix start fresh. The vetters of the target work class's
-  panel run side by side, each on the audit report alone. The round waits for every vetter; a failed
-  vet fails the round and the finished vetters' vet reports stay. A clean audit completes directly
-  through `clean.ts` without vet, rebuttal, fix, glance or watch; an automatic series still applies
-  its decision rules. The coordinator reads the audit report through `report.ts` to decide whether
-  it is clean. A panel whose every vetter accepted every finding skips the rebuttal the same way,
-  because the rebuttal would have nothing to answer; the fix then reads the audit report with its
-  vet reports alone. The coordinator reads each vet report through `vet.ts` to decide whether every
-  finding was accepted from its verdict lines. One rebuttal answers every vetter of the panel. The
-  rebuttal starts as a new session on the audit's resolved model and effort, including `--auditor`
-  or `--first` fields, because it answers for the audit report. Its workflow grounds answers in
-  current sources. The settings file holds one audit level for each work class, the coder list, the
-  close's selection and the default-auditor rule. Each audit level owns its auditor list, its vetter
-  panel and its watch writer. The planning audit level also owns its fixer. The coder list sits
-  under neither level, because a plan's coder writes its steps and fixes its implementation audits.
-  The audit target picks the work class and fixer, as [Model settings](#model-settings) routes each
-  target. The fix receives a ruling output path separately from its audit report, vet report and
-  rebuttal report arguments. It writes the final ruling and checks it for clarity before returning
-  `needs-ruling`. The runner checks that file, then waits for the user's answer under
-  `ruling-wait.ts`; its notice says whether the fix uses the auditor's model, one vetter's model
-  named by its tag or neither. It compares the releases startup resolved, so a model alias and its
-  release name the same model. `seriousFindings` finds the serious contests and splits under the
-  shared protocol's [Reconciliation](../../.agents/references/round-protocol.md#reconciliation): the
-  rebuttal contests a vetter's verdict on a finding the audit report or a vetter graded A or B, or
-  two vetters of the panel split on a finding graded within the work class's range. That range is A
-  or B for planning work and A, B or C for implementation work, and `targetWorkClass` names the
-  class. `round-data.ts` owns the pairwise split rule, which the schema also reads, because only a
-  contest or a split may store a ruling. It also owns each work class's widest compared range, which
-  the ruling stop and the model read-out share, so the user rules on every split the read-out
-  compares vetters on. Each serious finding goes to the user. The answer names `report`, the tags of
-  the vetters that were right, `neither` or `not yet` for each such finding, with a reason where a
-  winner was named, and the free reply. It retains each winner and reason on the finding and passes
-  them to the resumed fix. Every fix child receives the finding numbers still without winners in
-  `COMMIT_OPEN_CONTESTS`; the shared commit hook refuses a commit while that value is non-empty, and
-  the coordinator refuses a finished fix while any remain. A missing or empty ruling fails the fix
-  with its recovery session. The same fix session resumes in the background with that reply. Further
-  open decisions repeat this route and ask only for the findings still without winners. A completed
-  fix follows the same commit checks and watch as an uninterrupted fix. Ending the wait with Ctrl-C
-  retains the round files and ends the auditor sequence. A fix that stops while a serious contest or
-  split still lacks its winner prints a runner recovery command, `resume-fix`. A fix that fails in
-  that state prints it only when the runner knows the fix session, because `resume-fix` resumes that
-  session. That route
-  reloads the in-progress round, stored winners and the fix session, then re-enters this same loop.
-  It appends the retained log and transcript. Every other failed fix, and every failed rebuttal,
-  prints the hand-run phases that finish the round instead: a resumed rebuttal cannot finish it,
-  because only the runner saves the rebuttal report, and `resume-fix` needs that report. A submitted
+  local values. Audit, vet, rebuttal, ruler and fix start fresh. The vetters of the target work
+  class's panel run side by side, each on the audit report alone. The round waits for every vetter;
+  a failed vet fails the round and the finished vetters' vet reports stay. A clean audit completes
+  directly through `clean.ts` without vet, rebuttal, ruler, fix, glance or watch; an automatic
+  series still applies its decision rules. The coordinator reads the audit report through
+  `report.ts` to decide whether it is clean. A panel whose every vetter accepted every finding skips
+  the rebuttal the same way, because the rebuttal would have nothing to answer; the fix then reads
+  the audit report with its vet reports alone. The coordinator reads each vet report through
+  `vet.ts` to decide whether every finding was accepted from its verdict lines. One rebuttal answers
+  every vetter of the panel. The rebuttal starts as a new session on the audit's resolved model and
+  effort, including `--auditor` or `--first` fields, because it answers for the audit report. Its
+  workflow grounds answers in current sources. The settings file holds one audit level for each work
+  class, the coder list, the close's selection and the default-auditor rule. Each audit level owns
+  its auditor list, its vetter panel and its watch writer. The planning audit level also owns its
+  fixer. The coder list sits under neither level, because a plan's coder writes its steps and fixes
+  its implementation audits. The audit target picks the work class and fixer, as
+  [Model settings](#model-settings) routes each target. The fix receives a ruling output path
+  separately from its audit report, vet report and rebuttal report arguments. It writes the final
+  ruling and checks it for clarity before returning `needs-ruling`. The runner checks that file,
+  then waits for the user's answer under `ruling-wait.ts`; its notice says whether the fix uses the
+  auditor's model, one vetter's model named by its tag or neither. It compares the releases startup
+  resolved, so a model alias and its release name the same model. One winner rule holds in every
+  round and both work classes, under the shared protocol's
+  [Reconciliation](../../.agents/references/round-protocol.md#reconciliation): a contest or split
+  whose highest grade from the audit report or any vetter is A or B goes to the user, and one on C
+  or D goes to the ruler. `seriousFindings` finds the user's set and `rulerFindings` the ruler's.
+  `round-data.ts` owns the pairwise split rule and the highest grade, which the schema also reads,
+  because only a contest or a split may store a ruling. When the ruler's set is not empty, the rule
+  phase runs after the rebuttal in a fresh session on the work class's `ruler` selection. It
+  receives the audit report, every vet report, the rebuttal report, its ruler report output and the
+  ruler's findings with their audit tiers, and its input carries the panel. The runner records each
+  winner it names with the ruler as the namer. A failed ruler fails the round before the fix. The
+  fix receives the ruler report after the rebuttal report, and every contest and split in its first
+  call, the ruler's with winner and reason. Each serious finding goes to the user. The answer names
+  `report`, the tags of the vetters that were right, `neither` or `not yet` for each such finding,
+  with a reason where a winner was named, and the free reply. It retains each winner and reason on
+  the finding and passes them to the resumed fix. Every fix child receives the finding numbers still
+  without winners in `COMMIT_OPEN_CONTESTS`; the shared commit hook refuses a commit while that
+  value is non-empty, and the coordinator refuses a finished fix while any remain. A missing or
+  empty ruling fails the fix with its recovery session. The same fix session resumes in the
+  background with that reply. Further open decisions repeat this route and ask only for the findings
+  still without winners. A completed fix follows the same commit checks and watch as an
+  uninterrupted fix. Ending the wait with Ctrl-C retains the round files and ends the auditor
+  sequence. A fix that stops while a serious contest or split still lacks its winner prints a runner
+  recovery command, `resume-fix`. A fix that fails in that state prints it only when the runner
+  knows the fix session, because `resume-fix` resumes that session. That route reloads the
+  in-progress round, stored winners and the fix session, then re-enters this same loop. It appends
+  the retained log and transcript. Every other failed fix, every failed rebuttal and every failed
+  ruler prints the hand-run phases that finish the round instead: a resumed rebuttal or ruler cannot
+  finish it, because only the runner saves their reports, and `resume-fix` needs them. A submitted
   reply lets a completed round continue any remaining auditor entries. Further open decisions
   replace the ruling in that same session under
   [Writing a ruling](../../.agents/skills/fix/references/ruling.md). No separate ruling phases run.
@@ -179,7 +183,10 @@ consumers.
   ruler was given and the round's panel. It returns one winner and one-line reason per given finding
   in audit report order, and every source the report names as opened, each once. A source is a
   file's absolute path or a commit's first six characters, so it can be matched as plain text
-  against the ruler's own tool lines.
+  against the ruler's own tool lines. `unopenedSources` is that reading check: a source counts as
+  opened when its text appears in a tool invocation line of the session, or when it is the path of
+  a file the first prompt supplied whole. The assistant boundary sends a ruler that missed a source
+  back once with `rulerSourceRequest`, and a second miss fails the phase.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
   reads each assistant name or partial tag in the `--auditor` list and the `--first` selection.
@@ -199,22 +206,25 @@ consumers.
   `auditRoles` is the one reader of a work class's audit level: `planningAudit` for planning and
   `implementationAudit` for implementation. `settings.ts` loads and validates it once at command
   entry, independently of the working directory. That configuration is passed through routing,
-  output naming and commit stamps. A listed auditor, a vetter, a coder, the planning fixer and each
-  class's watch writer carry both fields, each resolved at load when it says `default`. `watchPhase`
-  reads the watch writer through `auditRoles`, by the round's work class. `--auditor` and `--first`
-  override each field they name, using the configured tier table for its model, and a field nothing
-  names reads the assistant's defaults. Listed auditors and command-line overrides bind the audit
-  and rebuttal together, because the rebuttal answers for the audit report. Each named field carries
-  what named it, including which of the two options a tag came from, so the settings header never
-  guesses, and either CLI accepts one. It also defines the private inputs and results for assistant
-  invocations, and the shared workflow and launcher selectors, and owns which phases' texts enter
-  the round transcript: audit, vet, rebuttal and fix. The ruling and watch are separate documents.
-  The runner's automatic-series answer is terminal output and retained data, not a phase or
-  assistant turn. The launcher and commit-record set stays the four recorded phases. The fix writes
-  the ruling; the watch runs once the transcript holds the round. Assistant boundaries own
-  processes, stream validation, session observations and phase output. They return only after
-  accounting for the process, streams and required record writes. A failure retains the known
-  session identity, including a resumed session whose new invocation reported no identity.
+  output naming and commit stamps. A listed auditor, a vetter, a ruler, a coder, the planning fixer
+  and each class's watch writer carry both fields, each resolved at load when it says `default`.
+  `watchPhase` reads the watch writer through `auditRoles`, by the round's work class. `--auditor`
+  and `--first` override each field they name, using the configured tier table for its model, and a
+  field nothing names reads the assistant's defaults. Listed auditors and command-line overrides
+  bind the audit and rebuttal together, because the rebuttal answers for the audit report. Each
+  named field carries what named it, including which of the two options a tag came from, so the
+  settings header never guesses, and either CLI accepts one. It also defines the private inputs and
+  results for assistant invocations, and the shared workflow and launcher selectors, and owns which
+  phases' texts enter the round transcript: audit, vet, rebuttal, ruler and fix. The ruling and
+  watch are separate documents. The runner's automatic-series answer is terminal output and retained
+  data, not a phase or assistant turn. `launched` names the phases that get a home launcher, a
+  workflow root and a transcript section: the four recorded phases and the ruler. The commit-record
+  set stays the four recorded phases, because the subject grammar's model record names those alone.
+  `rulerPhase` names the ruler on the work class's `ruler` selection. The fix writes the ruling; the
+  watch runs once the transcript holds the round. Assistant boundaries own processes, stream
+  validation, session observations and phase output. They return only after accounting for the
+  process, streams and required record writes. A failure retains the known session identity,
+  including a resumed session whose new invocation reported no identity.
 - `episode.ts` owns episode membership and history facts for the glance and joined watch evidence.
   It joins both repos' commits under the plan's stem, includes rework touching the topic's artifacts
   and retains both repositories' heads and anchors. `episode-log.ts` reads Git's commit dates,
@@ -408,27 +418,29 @@ consumers.
   resumed phase keeps them, and Claude takes `--model` and `--effort`. A fix awaiting a ruling and a
   failure both carry their phase, so continuation and recovery use the model the round ran that
   phase on. The `resume-fix` recovery command names the audit report and fix session as quoted
-  runner arguments. `handRunAdvice` builds the hand-run advice for a failed rebuttal or fix: the
-  rebuttal and then the fix, or the fix alone. Each step names the assistant, model and effort the
-  round chose for its phase, then the launcher line with the audit report's file name, `/rebut` or
-  `/fix` for Claude and `$rebut` or `$fix` for Codex. The rebuttal step runs on the auditor's
-  selection, because the rebuttal workflow refuses another assistant's audit report.
-  `RoundOutput.recoveryText` picks the advice, `resume-fix` or the assistant recovery command for
-  each ending, and both the round's ending and the emergency ending print it. Claude uses
-  `--permission-mode auto` in release resolution and every session entry. `requests.ts` also
-  supplies each fresh phase's selected workflow and whole files listed by the workflow's `reads`
-  header. Header paths resolve from the workflow file. `vfile-matter` parses the header and `zod`
-  checks its shape. Listed workflows supply their own reads recursively, with each source included
-  once. Audit, vet, rebuttal and fix also receive their home launcher. The watch has no launcher;
-  its workflow header lists the `simple` definition directly. The close has no launcher either, and
-  its prompt names a loop-close rather than a round phase. Resumed sessions receive no files again.
-  The request for a missing result line opens as every phase prompt does, so the session reads it as
-  an unattended phase. It asks for the complete response again, because the runner reads only the
-  last turn's text. Root instructions are not listed. Both assistants receive their phase prompts on
-  standard input. Codex command-line arguments contain no prompt text, including on resume, so
-  joined evidence is not limited by the operating system's per-argument size. The same collected
-  file list produces a separate log prompt containing source paths with an omission notice in place
-  of file contents.
+  runner arguments. `handRunAdvice` builds the hand-run advice for a failed rebuttal, ruler or fix.
+  A failed rebuttal prints the rebuttal, the ruler and the fix. Its ruler step runs only when the
+  new rebuttal report leaves a contest or split on a C or D finding, because the runner cannot know
+  that before the rebuttal is run again. A failed ruler prints the ruler and the fix, and a failed
+  fix the fix alone. Each step names the assistant, model and effort the round chose for its phase,
+  then the launcher line with the audit report's file name: `/rebut`, `/rule` or `/fix` for Claude
+  and `$rebut`, `$rule` or `$fix` for Codex. The rebuttal step runs on the auditor's selection,
+  because the rebuttal workflow refuses another assistant's audit report. `RoundOutput.recoveryText`
+  picks the advice, `resume-fix` or the assistant recovery command for each ending, and both the
+  round's ending and the emergency ending print it. Claude uses `--permission-mode auto` in release
+  resolution and every session entry. `requests.ts` also supplies each fresh phase's selected
+  workflow and whole files listed by the workflow's `reads` header. Header paths resolve from the
+  workflow file. `vfile-matter` parses the header and `zod` checks its shape. Listed workflows
+  supply their own reads recursively, with each source included once. Audit, vet, rebuttal, ruler
+  and fix also receive their home launcher. The watch has no launcher; its workflow header lists the
+  `simple` definition directly. The close has no launcher either, and its prompt names a loop-close
+  rather than a round phase. Resumed sessions receive no files again. The request for a missing
+  result line opens as every phase prompt does, so the session reads it as an unattended phase. It
+  asks for the complete response again, because the runner reads only the last turn's text. Root
+  instructions are not listed. Both assistants receive their phase prompts on standard input. Codex
+  command-line arguments contain no prompt text, including on resume, so joined evidence is not
+  limited by the operating system's per-argument size. The same collected file list produces a
+  separate log prompt containing source paths with an omission notice in place of file contents.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: every round records a log and transcript,
   a round on an active plan updates one machine-readable per-plan data file, and a commit audit
@@ -441,86 +453,86 @@ consumers.
   effort that phase will run on, each in its own aligned column. Its rows keep the order the round
   runs its phases in, with the vetters in panel order, so the header reads as the round runs. It
   names what set each of them: `--auditor` or `--first`, `audit-round auditors` for a listed
-  auditor, `audit-round <class> vetters` for a vetter, `audit-round <class> watch` for the watch,
-  `audit-round settings` for the close's own pin, or `audit-round defaults` when a field reads the
-  assistant's default selection. A vetter's row is labelled `vet <tag>`. A phase whose two fields
-  came from different places names both, model first. A pinned model reads as the release its CLI
-  resolved it to at startup, so every row names a release. The output holds its round mark. `start`
-  returns a recorder bound to one invocation's slot, keyed by its phase or, for a vetter,
-  `vet <tag>` from its vet report's filename, so the vetters of a panel never share a slot or a
-  record. Each line the output writes for a vetter opens with that key. A vetter's text is held
-  until its vet ends and then written whole under its own transcript heading, because vetters that
-  run at once would otherwise mix paragraph by paragraph. The live status line joins every running
-  slot's stamp. Releasing an invocation that never finished fixes its time and closing stamp in
-  memory only, so a failed record write cannot hide the phase's outcome; the round's finish writes
-  its held text and stamp. It keeps context observations and each started slot's model selection,
-  time, tokens, peak context and compaction count. It warns once when audit, vet, rebuttal or fix
-  first compacts. The watch returns the final count to `round.ts`, which fails a compacted result
-  with the evidence size and the need for one uncompacted session. A phase starts with its launch
-  selection, then its CLI's model feedback replaces it. Each finished invocation adds its elapsed
-  time to the phase's time. Both assistants' latest session totals replace the earlier reading, so a
-  resumed fix counts each token once. Each phase prints its per-model input, cached input and output
-  totals beside its elapsed time. Commit stamps use those phase selections and add a time line for
-  the audit, every vetter and the rebuttal that finished. Every status stamp shows three assistant
-  times, as `[fix] 01:00  round 03:05  run 42:10`: the phase's, the round's and the runner
-  invocation's. Every logged tool line opens with its step's own time, the assistant time since the
-  previous tool line or since the phase start for the first, followed by the round's and the
-  invocation's totals. The run's ending lines repeat the invocation's reading, so it survives the
-  last stamp. Minutes count on past the hour, as `102:10`, so every reading keeps one shape.
-  `run-clock.ts` owns what those readings count. `runCommand` creates one clock per invocation and
-  hands it to every output, so a chained run's rounds, implementation and close share it. Each
-  output takes its round mark at construction. A round measures its assistants, so time the user
-  holds is not the run's. Printing the ruling notice opens a wait and an accepted answer or an ended
-  wait closes it. Each phase, each round and the invocation read the same waiting total through
-  their own mark, so a wait leaves all three alike and one rule serves every reading. The readings
-  are display only; round data keeps per-phase milliseconds and no run total. Two baselines measure
-  context growth: a written status stamp reports the tokens added since the previous written stamp,
-  and a logged tool line reports the tokens added since the previous tool line, beside the time
-  since it. Both chain into the totals beside them; a fresh phase starts its stamp baseline at zero
-  and a resumed phase reports no first change. `round-data.ts` owns the checked JSON schemas, the
-  atomic replace-or-append writer, the disproved-finding writer, the read of one plan's existing
-  round-kind files from one selected active or archive folder and the commit-series readers. The
-  series decision reads one active commit series. The replay reads every active commit series. Each
-  file is an object whose `rounds` list holds the round entries. Plan files also hold the user's
-  later rulings in `disproved`. An attached ruling names whether the finding or its non-Accept vet
-  verdicts were wrong; an older attached ruling without that field means the finding. The series
-  runner reads commit files before reruns and the runner reads them after automatic rounds. Commit
-  files have no `disproved` list. A vet report reading carries each finding's audit report number,
-  audit report tier, verdict and optional revised tier. Retained finding data holds one review per
-  vetter of the panel: the vetter's tag, its verdict, its revised tier and the rebuttal's answer to
-  it. The panel is every vetter listed for the target's work class. A finding with a contest or a
-  split may also store its winner: `report`, `neither` or a list of vetter tags, with its reason and
-  who named it, the user or the ruler. An entry's settings record may hold the ruler's selection;
-  entries written before the ruler existed carry none. A planning entry's required `settling` field
-  keeps the widening round's settling recommendation as it stands when the round ends: the fix's
-  settling line, or the audit report's closing settling line when the clean audit ran no fix;
-  detailing entries use `""`. The planning, implementation and commit files each hold a time-ordered
-  entry per round. A commit entry also records its original groups, advancing groups and judged
-  repos. An entry records state, settings with the round's `vetters` panel, chosen auditor and
-  source, the selection its audit launched on, phase measurements including peak context and
-  compactions, landed commits, finding review and outcome data and any series answer. A vetter's vet
-  phase entry also carries the vetter's tag, which links its reviews to its model and effort. New
-  automatic rounds also store the ordered resolved auditor list used for that answer. `RoundOutput`
-  writes the settled findings as `in-progress` before later phases, then replaces the entry with its
-  final state. The writer checks the whole object and publishes it by temporary file rename.
-  `run-files.ts` completes each required write before returning to the invocation; no complete
-  transcript accumulates in memory. `terminal.ts` renders assistant Markdown through the `pi-tui`
-  Markdown component at the current terminal width, preserving paragraph spacing, nested lists and
-  source finding numbers. It uses cyan for inline code without background blocks and honours
-  `NO_COLOR`. It writes the rendered document directly and uses log-update only for the live status
-  line, so permanent text is not wrapped twice. Redirected output retains the original Markdown. The
-  log records each tool invocation once, with shell wrappers removed and no event envelopes or
-  result payloads. Invocation lines stay complete in the log; assistant texts stay complete in
-  Markdown. Only terminal tool lines shorten. The terminal omits the final `PHASE RESULT` control
-  line; the transcript retains it. `beginRuling` releases the live status display and prints the
-  ruling notice in place of the ruling's text: the round or step, the target, the ruling file, the
-  findings that need a winner, whose model runs the fix and the `/ruling <target>` line to type in
-  the desktop app. `endRuling` excludes the user's waiting time and records an accepted reply in the
-  log and transcript before any resumed process starts. Assistant output goes through the normal
-  phase output, so launch prompts stay in the log and never reach the terminal. Supplied instruction
-  files appear there by path only; their full contents go to the assistant. Each assistant's
-  reported model line is followed by the model-change notice from `model-change.ts` when that
-  comparison differs.
+  auditor, `audit-round <class> vetters` for a vetter, `audit-round <class> ruler` for the ruler,
+  `audit-round <class> watch` for the watch, `audit-round settings` for the close's own pin, or
+  `audit-round defaults` when a field reads the assistant's default selection. A vetter's row is
+  labelled `vet <tag>`. A phase whose two fields came from different places names both, model first.
+  A pinned model reads as the release its CLI resolved it to at startup, so every row names a
+  release. The output holds its round mark. `start` returns a recorder bound to one invocation's
+  slot, keyed by its phase or, for a vetter, `vet <tag>` from its vet report's filename, so the
+  vetters of a panel never share a slot or a record. Each line the output writes for a vetter opens
+  with that key. A vetter's text is held until its vet ends and then written whole under its own
+  transcript heading, because vetters that run at once would otherwise mix paragraph by paragraph.
+  The live status line joins every running slot's stamp. Releasing an invocation that never finished
+  fixes its time and closing stamp in memory only, so a failed record write cannot hide the phase's
+  outcome; the round's finish writes its held text and stamp. It keeps context observations and each
+  started slot's model selection, time, tokens, peak context and compaction count. It warns once
+  when audit, vet, rebuttal, ruler or fix first compacts. The watch returns the final count to
+  `round.ts`, which fails a compacted result with the evidence size and the need for one uncompacted
+  session. A phase starts with its launch selection, then its CLI's model feedback replaces it. Each
+  finished invocation adds its elapsed time to the phase's time. Both assistants' latest session
+  totals replace the earlier reading, so a resumed fix counts each token once. Each phase prints its
+  per-model input, cached input and output totals beside its elapsed time. Commit stamps use those
+  phase selections and add a time line for the audit, every vetter and the rebuttal that finished.
+  Every status stamp shows three assistant times, as `[fix] 01:00  round 03:05  run 42:10`: the
+  phase's, the round's and the runner invocation's. Every logged tool line opens with its step's own
+  time, the assistant time since the previous tool line or since the phase start for the first,
+  followed by the round's and the invocation's totals. The run's ending lines repeat the
+  invocation's reading, so it survives the last stamp. Minutes count on past the hour, as `102:10`,
+  so every reading keeps one shape. `run-clock.ts` owns what those readings count. `runCommand`
+  creates one clock per invocation and hands it to every output, so a chained run's rounds,
+  implementation and close share it. Each output takes its round mark at construction. A round
+  measures its assistants, so time the user holds is not the run's. Printing the ruling notice opens
+  a wait and an accepted answer or an ended wait closes it. Each phase, each round and the
+  invocation read the same waiting total through their own mark, so a wait leaves all three alike
+  and one rule serves every reading. The readings are display only; round data keeps per-phase
+  milliseconds and no run total. Two baselines measure context growth: a written status stamp
+  reports the tokens added since the previous written stamp, and a logged tool line reports the
+  tokens added since the previous tool line, beside the time since it. Both chain into the totals
+  beside them; a fresh phase starts its stamp baseline at zero and a resumed phase reports no first
+  change. `round-data.ts` owns the checked JSON schemas, the atomic replace-or-append writer, the
+  disproved-finding writer, the read of one plan's existing round-kind files from one selected
+  active or archive folder and the commit-series readers. The series decision reads one active
+  commit series. The replay reads every active commit series. Each file is an object whose `rounds`
+  list holds the round entries. Plan files also hold the user's later rulings in `disproved`. An
+  attached ruling names whether the finding or its non-Accept vet verdicts were wrong; an older
+  attached ruling without that field means the finding. The series runner reads commit files before
+  reruns and the runner reads them after automatic rounds. Commit files have no `disproved` list. A
+  vet report reading carries each finding's audit report number, audit report tier, verdict and
+  optional revised tier. Retained finding data holds one review per vetter of the panel: the
+  vetter's tag, its verdict, its revised tier and the rebuttal's answer to it. The panel is every
+  vetter listed for the target's work class. A finding with a contest or a split may also store its
+  winner: `report`, `neither` or a list of vetter tags, with its reason and who named it, the user
+  or the ruler. An entry's settings record may hold the ruler's selection; entries written before
+  the ruler existed carry none. A planning entry's required `settling` field keeps the widening
+  round's settling recommendation as it stands when the round ends: the fix's settling line, or the
+  audit report's closing settling line when the clean audit ran no fix; detailing entries use `""`.
+  The planning, implementation and commit files each hold a time-ordered entry per round. A commit
+  entry also records its original groups, advancing groups and judged repos. An entry records state,
+  settings with the round's `vetters` panel, chosen auditor and source, the selection its audit
+  launched on, phase measurements including peak context and compactions, landed commits, finding
+  review and outcome data and any series answer. A vetter's vet phase entry also carries the
+  vetter's tag, which links its reviews to its model and effort. New automatic rounds also store the
+  ordered resolved auditor list used for that answer. `RoundOutput` writes the settled findings as
+  `in-progress` before later phases, then replaces the entry with its final state. The writer checks
+  the whole object and publishes it by temporary file rename. `run-files.ts` completes each required
+  write before returning to the invocation; no complete transcript accumulates in memory.
+  `terminal.ts` renders assistant Markdown through the `pi-tui` Markdown component at the current
+  terminal width, preserving paragraph spacing, nested lists and source finding numbers. It uses
+  cyan for inline code without background blocks and honours `NO_COLOR`. It writes the rendered
+  document directly and uses log-update only for the live status line, so permanent text is not
+  wrapped twice. Redirected output retains the original Markdown. The log records each tool
+  invocation once, with shell wrappers removed and no event envelopes or result payloads. Invocation
+  lines stay complete in the log; assistant texts stay complete in Markdown. Only terminal tool
+  lines shorten. The terminal omits the final `PHASE RESULT` control line; the transcript retains
+  it. `beginRuling` releases the live status display and prints the ruling notice in place of the
+  ruling's text: the round or step, the target, the ruling file, the findings that need a winner,
+  whose model runs the fix and the `/ruling <target>` line to type in the desktop app. `endRuling`
+  excludes the user's waiting time and records an accepted reply in the log and transcript before
+  any resumed process starts. Assistant output goes through the normal phase output, so launch
+  prompts stay in the log and never reach the terminal. Supplied instruction files appear there by
+  path only; their full contents go to the assistant. Each assistant's reported model line is
+  followed by the model-change notice from `model-change.ts` when that comparison differs.
 - `model-change.ts` owns the non-blocking model and effort notice. Every round phase and the close
   compare the same way: the notice reads every active and archived plan's checked round data and
   compares the reported model and effort with the newest earlier reading by the same assistant on
@@ -679,8 +691,10 @@ consumers.
   vet and rebuttal report inputs only within the exact round at the audit report's root. With no
   input, it selects the most recently modified eligible document in the round folder: any
   assistant's audit for vet, the current assistant's audit for rebuttal or either assistant's audit
-  for fix. The rebuttal and the fix receive every vet report of the round in file-name order, and
-  the fix the newest rebuttal unless one is selected. `recoveryRoundPaths` resolves the same set for
+  for fix, and any assistant's audit for the ruler. The rebuttal, the ruler and the fix receive
+  every vet report of the round in file-name order. The ruler and the fix receive the newest
+  rebuttal unless one is selected, and the fix the newest ruler report when one exists. A ruler with
+  no rebuttal report is refused. `recoveryRoundPaths` resolves the same set for
   `resume-fix`. `planRoundFile` says whether a file in the round folder belongs to one plan: a
   claim, marker, phase file or queue of its plan or implementation audits, a step log or step
   ruling, a close log, a handoff or a yield report. Each form is read whole past the stem, never as
@@ -893,18 +907,18 @@ the invocation owner must release its resources before rejecting. The
 invocation owner's one request for a missing result line is not a retry: it
 repeats no phase work, and the coordinator sees only the invocation's result.
 
-`phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal and fix use the single
+`phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal, ruler and fix use the single
 launcher set under the plan checkout's `home/`; their workflow follows the round's kind. The watch
 has no launcher; the runner supplies its Repo Edu workflow directly. Implement also has no launcher
 and uses Repo Edu's worker-only workflow. Close also has no launcher and its workflow lives in the
 plan checkout. The automatic-series decision is runner code and has no workflow or assistant
 selection. `phaseSkills` names each phase's skill folder and launchers. Planning sessions work in
 the plan checkout; implementation and commit sessions work in Repo Edu. Every round file lives in
-the round folder. The runner names all input and output paths before the audit.
-The runner saves audit, vet and rebuttal final responses, and the watch returns its document for the
-runner to publish. Report phases finish only when their supplied output exists and is non-empty.
-Claude receives the peer checkout and the evidence checkout as additional directories; recovery
-commands restore the working directory.
+the round folder. The runner names all input and output paths before the audit. The runner saves
+audit, vet, rebuttal and ruler final responses, and the watch returns its document for the runner to
+publish. Report phases finish only when their supplied output exists and is non-empty. Claude
+receives the peer checkout and the evidence checkout as additional directories; recovery commands
+restore the working directory.
 
 Workflows own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
@@ -942,6 +956,7 @@ name.
 | 3 | vet | Vet report, one per vetter of the panel |
 | 4 | rebut | Rebuttal report |
 | 5 | fix | Reserved, no report |
+| 6 | rule | Ruler report |
 | 7 | ruling | Ruling |
 | 8 | glance | Reserved, no report |
 | 9 | watch | Watch |
@@ -1007,14 +1022,17 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 - rebuttal: audit report input, every vet report input in panel order, rebuttal report output; each
   answer line names the vetter it answers by the tag in that vet report's input filename. The runner
   saves the rebuttal to the last argument
-- fix: audit report input, then every vet report input and an existing rebuttal report input,
-  followed by the
-  same open-deferral object for a chained planning or plan-scoped
-  implementation round and a contest object when the round holds a serious
-  contest or split under the shared protocol's
-  [Reconciliation](../../.agents/references/round-protocol.md#reconciliation);
-  the first call carries finding numbers and resumed calls also carry recorded
-  winners and reasons.
+- rule: audit report input, every vet report input in panel order, the rebuttal report input,
+  ruler report output and a findings object holding each contest and split on a C or D finding with
+  its audit tier; the input separately carries the panel. The runner saves the ruler report to the
+  argument before the findings object
+- fix: audit report input, then every vet report input, an existing rebuttal report input and an
+  existing ruler report input, followed by the same open-deferral object for a chained planning or
+  plan-scoped implementation round and a contest object when the round holds a contest or split
+  under the shared protocol's
+  [Reconciliation](../../.agents/references/round-protocol.md#reconciliation). The first call
+  carries every contest and split, the ruler's with its winner and reason and the user's by number;
+  resumed calls also carry the user's recorded winners and reasons.
   The fix child's `COMMIT_OPEN_CONTESTS` environment value carries the numbers
   that still lack winners. An empty value lifts the commit block.
 - implement: plan, one-based step number, remaining hosting repo shares,
@@ -1024,41 +1042,47 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 - close: plan, capability tag, model record, open-deferral object and optional
   abort reason
 
-The runner saves audit, vet and rebuttal final text without the parsed phase result line. It then
-reads the audit report under the round grammar and fails the round when the audit report's `Target:`
-line does not repeat the target it supplied to the audit, before any later phase starts, so a vetter
-never has to ask which target an audit report judged. The watch returns Markdown and its grade;
-`round.ts` publishes the admitted document and cadence entry. A fix or implementation worker
+The runner saves audit, vet, rebuttal and ruler final text without the parsed phase result line. It
+then reads the audit report under the round grammar and fails the round when the audit report's
+`Target:` line does not repeat the target it supplied to the audit, before any later phase starts,
+so a vetter never has to ask which target an audit report judged. The watch returns Markdown and its
+grade; `round.ts` publishes the admitted document and cadence entry. A fix or implementation worker
 receives its ruling path separately and reuses it when the same session resumes. An implementation
 resume after a ruling carries the user's reply. One after a failed worker carries the generic
 continuation and no reply. Neither carries a time value.
 
 Hand-run phases use the same resolver. `name [target] [scope-or-commits...]
 --auditor <full tag>` claims a new round and prints `cwd`, `workflow`, `claim`
-and ordered `arguments`. `paths <vet|rebut|fix> [report]` prints `cwd`,
-`workflow` and ordered `arguments` for an existing round. Vet and rebuttal also
-take `--writer <full tag>`. With no input, `paths` selects the most recently
+and ordered `arguments`. `paths <vet|rebut|rule|fix> [report]` prints `cwd`,
+`workflow` and ordered `arguments` for an existing round. Vet, rebuttal and ruler
+also take `--writer <full tag>`. With no input, `paths` selects the most recently
 modified eligible audit report in the round folder: any assistant's for vet, so
 a session may vet its own assistant's audit report, the current assistant's for
-rebuttal and either assistant's for fix. The rebuttal and the fix receive every
-vet report of the round in file-name order. The fix keeps the newest rebuttal
-report unless `--rebut` selects one. Neither command loads settings or starts an
-assistant, and `paths` writes nothing.
+rebuttal and any assistant's for the ruler and the fix. The rebuttal, the ruler
+and the fix receive every vet report of the round in file-name order. The ruler
+and the fix keep the newest rebuttal report unless `--rebut` selects one, and the
+fix also receives the newest ruler report. A hand-run ruler gets no findings
+object: its workflow takes every contest and split on a C or D finding from the
+reports. Neither command loads settings or starts an assistant, and `paths`
+writes nothing.
 
 Work in the printed checkout and follow the printed workflow. Planning phases
 run in the plan checkout; implementation and commit phases run in Repo Edu.
 Never claim a new number to continue an existing round.
 
-A failed rebuttal prints the hand-run rebuttal and then the hand-run fix in place of a `Resume:`
-line; a failed fix prints the hand-run fix. Each step is the launcher line for this routing, so it
-works on the open round and claims no number. The fix receives every vet report and the new
-rebuttal report. A hand-run fix lands the round's records but not its round data, so the round
-stays `failed` there and the next run audits the scope again. The `Session:` line still names the
-failed session.
+A failed rebuttal prints the hand-run rebuttal, the hand-run ruler and then the hand-run fix in
+place of a `Resume:` line. Its ruler step says to run it only when the new rebuttal report leaves a
+contest or split on a C or D finding. A failed ruler prints the hand-run ruler and then the hand-run
+fix, and a failed fix prints the hand-run fix. Each step is the launcher line for this routing, so
+it works on the open round and claims no number. The fix receives every vet report, the new rebuttal
+report and the newest ruler report. A hand-run fix lands the round's records but not its round data,
+so the round stays `failed` there and the next run audits the scope again. The `Session:` line still
+names the failed session.
 
 `resume-fix <report> <session-id>` is the runner-owned continuation for a fix that stopped or failed
 while a serious contest or split still lacks its winner. It reloads the retained audit report, every
-vet report, the rebuttal report and the matching round entry, and restores each vetter's vet phase
+vet report, the rebuttal report, the ruler report when the ruler named a stored winner and the
+matching round entry, and restores each vetter's vet phase
 entry by its tag. For an existing ruling, the runner prints its notice and waits for the `/ruling`
 answer before the fix resumes. If the stopped fix wrote none, the runner resumes it first. Stored
 winners are passed back to every resumed fix and unresolved numbers remain in
@@ -1129,7 +1153,7 @@ in the order a plan meets them: `planningAudit`, `coders`,
 `implementationAudit` and `close`, for the planning audits, the
 implementation, the implementation audits and then the close.
 Each audit level lists its roles in the order a round runs them: `auditors`,
-`vetters`, for planning `fixer`, and `watch`. `maximumAutomaticRounds` and
+`vetters`, `ruler`, for planning `fixer`, and `watch`. `maximumAutomaticRounds` and
 `strengthModels` close the file. The runner reads the fields in any order.
 
 - `defaultAuditor` selects which entry in the target work class's auditor list opens a series when
@@ -1141,7 +1165,8 @@ Each audit level lists its roles in the order a round runs them: `auditors`,
   or list field that says `default` reads it, and `--auditor claude` or
   `--auditor codex` runs the audit on it. Neither CLI's own model configuration
   is ever read, so this file alone decides what every phase runs on.
-- A `default` in a list field, in `planningAudit.fixer` or in an audit level's `watch` resolves when
+- A `default` in a list field, in an audit level's `ruler`, in `planningAudit.fixer` or in an audit
+  level's `watch` resolves when
   the file loads. The auditor list, the `models` read-out, a fix and a ready marker therefore all
   name the resolved selection. A ready marker keeps the coder it recorded when `defaults` changes
   later.
@@ -1158,6 +1183,11 @@ Each audit level lists its roles in the order a round runs them: `auditors`,
   work class's list vets every audit report of that class, side by side and whoever audited, so a
   vetter may sit on an audit report from its own model and effort. A list refuses two entries with
   one capability tag, because the second vetter's vet report would overwrite the first's.
+- `planningAudit.ruler` and `implementationAudit.ruler` each name the assistant, model and effort
+  that judge the contests and splits on a C or D finding in a round of that work class. Either field
+  may say `default`. The tracked default is Claude Fable at xhigh. The ruler is not compared with
+  the auditor or the vetters, so it may share a selection with either. A file without a `ruler` in
+  both levels is refused like any other invalid file.
 - `planningAudit.fixer` names the assistant, model and effort that fix a planning round or a
   plan-only commit audit. Either field may say `default`. `implementationAudit` has no fixer field,
   because a coder fixes its rounds.
@@ -1261,6 +1291,7 @@ pnpm audit-round name example 3 --auditor oth
 pnpm audit-round name --auditor oth
 pnpm audit-round paths vet example-impl-audit-03..03-01-2-audit.oth.md --writer abx
 pnpm audit-round paths rebut example-impl-audit-03..03-01-2-audit.oth.md --writer otm
+pnpm audit-round paths rule example-impl-audit-03..03-01-2-audit.oth.md --writer atx
 pnpm audit-round paths fix example-impl-audit-03..03-01-2-audit.oth.md
 pnpm audit-round resume-fix example-impl-audit-03..03-01-2-audit.oth.md <session-id>
 pnpm audit-round mark reopen
@@ -1273,7 +1304,8 @@ pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
 
-The round names the audit report, vet reports, rebuttal report, ruling and watch before the
+The round names the audit report, vet reports, rebuttal report, ruler report, ruling and watch
+before the
 audit starts. It writes the tagless claim, transcript and log in the round folder.
 A round on an active plan updates `<stem>-plan-rounds.json` or
 `<stem>-impl-rounds.json` there. A commit round updates
@@ -1337,12 +1369,13 @@ It creates only the claim. It does not load settings or start an assistant. Its 
 is the same as the automated round, from either checkout. A plan argument or no target resolves
 under [Plan targets](#plan-targets).
 
-`paths <vet|rebut|fix> [input]` resolves a later manual phase and prints its working checkout,
-workflow and arguments as one JSON object. Vet and rebuttal take `--writer <full tag>` from
-the current session. Fix writes no phase report and needs no writer tag. Without an input, the
-command selects the most recently modified eligible file in the round folder. The rebuttal and
-the fix receive every vet report of that round. Several rebuttals resolve to the newest unless
-`--rebut <file>` selects one for the fix. The command writes nothing and never
+`paths <vet|rebut|rule|fix> [input]` resolves a later manual phase and prints its working
+checkout, workflow and arguments as one JSON object. Vet, rebuttal and ruler take
+`--writer <full tag>` from the current session. Fix writes no phase report and needs no writer tag.
+Without an input, the command selects the most recently modified eligible file in the round folder.
+The rebuttal, the ruler and the fix receive every vet report of that round. Several rebuttals
+resolve to the newest unless `--rebut <file>` selects one for the ruler or the fix, and the fix
+also receives the newest ruler report. The command writes nothing and never
 claims another number. [Phase routing](#phase-routing) owns the manual
 invocation details.
 
@@ -1470,11 +1503,12 @@ reads both histories and current round data again. It starts no assistant and
 writes no file, cache entry or snapshot.
 
 A clean audit records its outcome directly and retains the audit report,
-without vet, rebuttal or fix sessions. An automatic clean round still applies the series
+without vet, rebuttal, ruler or fix sessions. An automatic clean round still applies the series
 rules. A fix that stops for a ruling adds a ruling file. If a serious contest or split
 remains open, its stop prints the runner's `resume-fix` command. Its failure prints the
 same command when the runner knows the fix session. The recovered fix uses the same
-retained round and completion path. A failed rebuttal and every other failed fix print
+retained round and completion path. A failed rebuttal, a failed ruler and every other failed fix
+print
 the hand-run phases that finish the round under [Phase routing](#phase-routing). A finished plan
 round with audit findings ends with a glance at the commit record, and a due
 glance adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is

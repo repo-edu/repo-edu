@@ -16,9 +16,15 @@ import {
 } from "../glance.js"
 import type { SeriesEvidence } from "../judge.js"
 import type { LifecycleCommit } from "../lifecycle.js"
-import { panelPhases, phaseWorkflow, type RulingRequest } from "../phase.js"
+import {
+  panelPhases,
+  phaseWorkflow,
+  type RulerScope,
+  type RulingRequest,
+} from "../phase.js"
 import {
   openSeriousFindings,
+  rulerFindings,
   runRound as runRoundOn,
   seriousFindings,
 } from "../round.js"
@@ -145,6 +151,7 @@ const files = {
     report: `${repoRoot}/AUDIT-example.md`,
     vets: [vetReport],
     rebut: "/distinct-twins/REBUT-example.md",
+    ruler: "/distinct-twins/RULE-example.md",
     ruling,
   },
 }
@@ -217,6 +224,12 @@ function controlledRound(
     rebut: {
       status: "finished",
       sessionId: "rebut-session",
+    },
+    // The stub ruler names `report` on every finding it is given.
+    rule: {
+      status: "finished",
+      sessionId: "rule-session",
+      reading: { winners: [], sources: [] },
     },
     fix: { status: "finished", sessionId: "fix-session", settling: null },
     watch: {
@@ -339,6 +352,24 @@ function controlledRound(
         await record(input)
         return results.rebut
       },
+      async rule(input) {
+        await record(input)
+        const result = results.rule
+        if (result.status !== "finished") return result
+        const scope = input.arguments.at(-1) as RulerScope
+        return {
+          ...result,
+          reading: {
+            winners: scope.findings.map(({ finding, tier }) => ({
+              number: finding,
+              tier,
+              winner: "report",
+              reason: "The finding stands.",
+            })),
+            sources: [],
+          },
+        }
+      },
       async fix(input) {
         await record(input)
         return results.fix
@@ -394,8 +425,10 @@ function controlledRound(
 
 function recoveryPhases(
   calls: readonly PhaseInput[],
-): Pick<RoundPhases, "audit" | "vet" | "rebut" | "fix"> {
-  const phase = (name: "audit" | "vet" | "rebut" | "fix"): PhaseRun => {
+): Pick<RoundPhases, "audit" | "vet" | "rebut" | "rule" | "fix"> {
+  const phase = (
+    name: "audit" | "vet" | "rebut" | "rule" | "fix",
+  ): PhaseRun => {
     const input = calls.find((candidate) => candidate.phase === name)
     assert.ok(input)
     return { assistant: input.assistant, model: input.model }
@@ -404,6 +437,10 @@ function recoveryPhases(
     audit: phase("audit"),
     vet: [phase("vet")],
     rebut: phase("rebut"),
+    // A round whose disputes all went to the user ran no ruler.
+    rule: calls.some((call) => call.phase === "rule")
+      ? phase("rule")
+      : phase("fix"),
     fix: phase("fix"),
   }
 }
@@ -649,6 +686,111 @@ test("a panel of both assistants vets side by side, and every vet report reaches
   ])
 })
 
+/** Run a panel round whose two vetters split on one finding of the given tier. */
+async function panelSplit(
+  round: ReturnType<typeof controlledRound>,
+  tier: ReportFinding["tier"],
+) {
+  round.evidence.findings = [{ ...reportFinding, tier }]
+  return runRoundOn(
+    {
+      ...files,
+      documents: { ...files.documents, vets: panelReports },
+      plan: "example.md",
+      scope: "1",
+      auditor: "claude",
+    },
+    {
+      ...round.dependencies,
+      readVet: async (vetReport) => ({
+        reviews: [
+          {
+            number: 1,
+            tier,
+            verdict: vetReport === panelReports[0] ? "accept" : "drop",
+          },
+        ],
+        allAccepted: vetReport === panelReports[0],
+      }),
+      readRebuttal: async () => [
+        { number: 1, tier, vet: "obh", answer: "agree" },
+      ],
+    },
+    releases,
+    panelSettings,
+  )
+}
+
+test("a split on a C finding goes to the ruler, whose winner reaches the fix without a ruling", async () => {
+  const round = controlledRound()
+  const result = await panelSplit(round, "C")
+  assert.equal(result.status, "finished")
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    ["audit", "vet", "vet", "rebut", "rule", "fix"],
+  )
+  const rule = round.calls.find((call) => call.phase === "rule")
+  assert.ok(rule?.phase === "rule")
+  assert.deepEqual(rule.arguments, [
+    files.documents.report,
+    ...panelReports,
+    files.documents.rebut,
+    files.documents.ruler,
+    { findings: [{ finding: 1, tier: "C" }] },
+  ])
+  assert.deepEqual(rule.panel, ["abh", "obh"])
+  assert.equal(
+    rule.assistant,
+    panelSettings.implementationAudit.ruler.assistant,
+  )
+  // The fix reads the ruler report and receives the winner from its first call.
+  const fix = round.calls.find((call) => call.phase === "fix")
+  assert.deepEqual(fix?.arguments, [
+    files.documents.report,
+    ...panelReports,
+    files.documents.rebut,
+    files.documents.ruler,
+    {
+      contests: [
+        { finding: 1, winner: "report", reason: "The finding stands." },
+      ],
+    },
+  ])
+  assert.deepEqual(round.rulings, [])
+  assert.deepEqual(result.account.findings[0]?.ruling, {
+    winner: "report",
+    reason: "The finding stands.",
+    namedBy: "ruler",
+  })
+})
+
+test("a split on a B finding runs no ruler and goes to the user", async () => {
+  const round = controlledRound()
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const result = await panelSplit(round, "B")
+  assert.equal(result.status, "awaiting-ruling")
+  assert.ok(!round.calls.some((call) => call.phase === "rule"))
+  assert.deepEqual(
+    round.rulings.map(({ contests }) => contests),
+    [[1]],
+  )
+})
+
+test("a failed ruler fails the round before the fix starts", async () => {
+  const round = controlledRound()
+  round.results.rule = {
+    status: "failed",
+    sessionId: "rule-session",
+    reason: "The ruler report names sources its session did not open: abc123",
+  }
+  const result = await panelSplit(round, "D")
+  assert.equal(result.status, "failed")
+  assert.ok(result.status === "failed")
+  assert.equal(result.phase, "rule")
+  assert.equal(result.sessionId, "rule-session")
+  assert.ok(!round.calls.some((call) => call.phase === "fix"))
+})
+
 test("a failed vetter of a panel fails the round once every vetter has ended", async () => {
   const round = controlledRound()
   const failure = {
@@ -706,7 +848,7 @@ test("a contested C finding raised to B goes to the user", async () => {
   assert.deepEqual(round.rulings[0]?.contests, [2])
 })
 
-test("a contested C finding stays with the fix", async () => {
+test("a contested C finding goes to the ruler, and the fix receives its winner", async () => {
   const round = controlledRound()
   round.evidence.findings = [secondReportFinding]
   round.evidence.rebuttalAnswer = "contest"
@@ -716,17 +858,21 @@ test("a contested C finding stays with the fix", async () => {
   )
   assert.equal(result.status, "finished")
   assert.deepEqual(round.rulings, [])
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    ["audit", "vet", "rebut", "rule", "fix"],
+  )
   const fix = round.calls.find((call) => call.phase === "fix")
   assert.ok(fix?.phase === "fix")
-  assert.equal(
-    fix.arguments.some(
-      (argument) =>
-        typeof argument === "object" &&
-        argument !== null &&
-        "contests" in argument,
-    ),
-    false,
-  )
+  assert.deepEqual(fix.arguments.at(-1), {
+    contests: [
+      {
+        finding: secondReportFinding.number,
+        winner: "report",
+        reason: "The finding stands.",
+      },
+    ],
+  })
 })
 
 test("a contested referral goes to the user", async () => {
@@ -1080,35 +1226,26 @@ const panelReview = (
 
 test("each pair of different verdict words on a B finding is a split the user rules on", () => {
   const verdicts = ["accept", "revise", "drop", "needs-user-ruling"] as const
-  for (const workClass of ["planning", "implementation"] as const)
-    for (const [index, first] of verdicts.entries())
-      for (const second of verdicts.slice(index + 1))
-        assert.deepEqual(
-          seriousFindings(
-            reviewedAccount(
-              "B",
-              panelReview("abx", first),
-              panelReview("obh", second),
-            ),
-            workClass,
-          ),
-          [1],
-          `${workClass}: ${first} and ${second}`,
-        )
+  for (const [index, first] of verdicts.entries())
+    for (const second of verdicts.slice(index + 1)) {
+      const account = reviewedAccount(
+        "B",
+        panelReview("abx", first),
+        panelReview("obh", second),
+      )
+      assert.deepEqual(seriousFindings(account), [1], `${first} and ${second}`)
+      assert.deepEqual(rulerFindings(account), [], `${first} and ${second}`)
+    }
 })
 
 test("two vetters that both send a finding to the user do not split", () => {
-  assert.deepEqual(
-    seriousFindings(
-      reviewedAccount(
-        "B",
-        panelReview("abx", "needs-user-ruling", "for-user-ruling"),
-        panelReview("obh", "needs-user-ruling", "for-user-ruling"),
-      ),
-      "planning",
-    ),
-    [],
+  const account = reviewedAccount(
+    "C",
+    panelReview("abx", "needs-user-ruling", "for-user-ruling"),
+    panelReview("obh", "needs-user-ruling", "for-user-ruling"),
   )
+  assert.deepEqual(seriousFindings(account), [])
+  assert.deepEqual(rulerFindings(account), [])
 })
 
 test("two revisions split only when the rebuttal does not agree with both", () => {
@@ -1119,7 +1256,6 @@ test("two revisions split only when the rebuttal does not agree with both", () =
         panelReview("abx", "revise"),
         panelReview("obh", "revise", "agree", "C"),
       ),
-      "planning",
     ),
     [],
   )
@@ -1131,66 +1267,49 @@ test("two revisions split only when the rebuttal does not agree with both", () =
           panelReview("abx", "revise"),
           panelReview("obh", "revise", answer),
         ),
-        "planning",
       ),
       [1],
       answer,
     )
 })
 
-test("a planning split on a C finding stays with the fix unless a vetter graded it A or B", () => {
-  assert.deepEqual(
-    seriousFindings(
-      reviewedAccount(
-        "C",
-        panelReview("abx", "accept"),
-        panelReview("obh", "drop"),
-      ),
-      "planning",
-    ),
-    [],
-  )
-  assert.deepEqual(
-    seriousFindings(
-      reviewedAccount(
-        "C",
-        panelReview("abx", "accept"),
-        panelReview("obh", "revise", "agree", "B"),
-      ),
-      "planning",
-    ),
-    [1],
-  )
-})
-
-test("an implementation split goes to the user on a finding graded C, and a contest only on one graded A or B", () => {
-  const serious = (
+test("the ruler judges every contest and split on a finding no side graded A or B", () => {
+  const judges = (
     tier: ReportFinding["tier"],
     ...reviews: readonly RoundFindingReview[]
-  ) => seriousFindings(reviewedAccount(tier, ...reviews), "implementation")
+  ) => {
+    const account = reviewedAccount(tier, ...reviews)
+    return { user: seriousFindings(account), ruler: rulerFindings(account) }
+  }
+  for (const tier of ["C", "D"] as const) {
+    assert.deepEqual(
+      judges(tier, panelReview("abx", "accept"), panelReview("obh", "drop")),
+      { user: [], ruler: [1] },
+      `${tier} split`,
+    )
+    assert.deepEqual(
+      judges(
+        tier,
+        panelReview("abx", "drop", "contest"),
+        panelReview("obh", "drop"),
+      ),
+      { user: [], ruler: [1] },
+      `${tier} contest`,
+    )
+  }
+  // One side's higher grade keeps the finding with the user.
   assert.deepEqual(
-    serious("C", panelReview("abx", "accept"), panelReview("obh", "drop")),
-    [1],
-  )
-  assert.deepEqual(
-    serious(
-      "D",
-      panelReview("abx", "accept"),
-      panelReview("obh", "revise", "agree", "C"),
-    ),
-    [1],
-  )
-  assert.deepEqual(
-    serious("D", panelReview("abx", "accept"), panelReview("obh", "drop")),
-    [],
-  )
-  assert.deepEqual(
-    serious(
+    judges(
       "C",
-      panelReview("abx", "drop", "contest"),
-      panelReview("obh", "drop"),
+      panelReview("abx", "accept"),
+      panelReview("obh", "revise", "agree", "B"),
     ),
-    [],
+    { user: [1], ruler: [] },
+  )
+  // A finding without a contest or a split needs no judge.
+  assert.deepEqual(
+    judges("C", panelReview("abx", "revise"), panelReview("obh", "revise")),
+    { user: [], ruler: [] },
   )
 })
 
@@ -1200,26 +1319,23 @@ test("a contest on one of two agreeing vetters goes to the user", () => {
     panelReview("abx", "drop", "contest"),
     panelReview("obh", "drop"),
   )
-  assert.deepEqual(seriousFindings(account, "planning"), [1])
+  assert.deepEqual(seriousFindings(account), [1])
   const [finding] = account.findings
   assert.ok(finding)
   assert.deepEqual(
-    openSeriousFindings(
-      {
-        ...account,
-        findings: [
-          {
-            ...finding,
-            ruling: {
-              winner: ["abx", "obh"],
-              reason: "Both drops held.",
-              namedBy: "user",
-            },
+    openSeriousFindings({
+      ...account,
+      findings: [
+        {
+          ...finding,
+          ruling: {
+            winner: ["abx", "obh"],
+            reason: "Both drops held.",
+            namedBy: "user",
           },
-        ],
-      },
-      "planning",
-    ),
+        },
+      ],
+    }),
     [],
   )
 })

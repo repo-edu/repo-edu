@@ -182,7 +182,7 @@ export async function writePhaseInstructions(
     }
   }
   await mkdir(join(planRoot, "home/claude/commands"), { recursive: true })
-  for (const phase of ["audit", "vet", "rebut", "fix"]) {
+  for (const phase of ["audit", "vet", "rebut", "rule", "fix"]) {
     const launcherSkill = join(planRoot, "home/agents/skills", phase)
     await mkdir(launcherSkill, { recursive: true })
     await writeFile(

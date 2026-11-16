@@ -1,6 +1,6 @@
 ---
 title: Find round outputs
-description: Locate audit, vet and rebuttal reports, transcripts, rulings, logs and retained round data
+description: Locate audit, vet, rebuttal and ruler reports, transcripts, rulings, logs and retained round data
 ---
 
 Every planning and implementation round writes its files in `../plan-evidence/active/`, the
@@ -37,11 +37,12 @@ carry no tag.
 | --- | --- |
 | `-0-claim.md` | Empty reservation for the round number |
 | `-0-settle.md`, `-0-reopen.md` | Empty marker files showing where the plan's shape closed or reopened among its rounds |
-| `-1-round.<tag>.md` | Complete audit, vet, rebuttal and fix conversation, including ruling replies |
+| `-1-round.<tag>.md` | Complete audit, vet, rebuttal, ruler and fix conversation, including ruling replies |
 | `-1-round.<tag>.log` | Tool calls and phase prompts, with supplied instruction contents omitted |
 | `-2-audit.<tag>.md` | Audit report and its target, judged repositories and audited heads |
 | `-3-vet.<tag>.md` | Vet report: one vetter's verdicts on every finding; a round keeps one per vetter of its panel |
 | `-4-rebut.<tag>.md` | Rebuttal report: the rebuttal's answers to each vetter's revisions, drops and referrals, each naming its vetter |
+| `-6-rule.<tag>.md` | Ruler report: the ruler's winner and reason for each contest or split on a C or D finding, and the sources it opened |
 | `-7-ruling.<tag>.md` | The fix's current open decision |
 | `-9-watch.<tag>.md` | The episode's admitted green, amber or red trajectory judgement |
 | `<stem>-plan-rounds.json` | Machine-owned retained data for planning rounds |

@@ -59,6 +59,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     "commit-abcdef..123abc-01-2-audit.obh.md",
     "commit-abcdef..123abc-01-3-vet.abh.md",
     "commit-abcdef..123abc-01-4-rebut.obh.md",
+    "commit-abcdef..123abc-01-6-rule.abh.md",
     "commit-abcdef..123abc-01-7-ruling.obh.md",
     "commit-abcdef..123abc-01-9-watch.obh.md",
   ])

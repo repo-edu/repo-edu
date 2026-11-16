@@ -112,17 +112,26 @@ export function roundRecoveryCommand(
 
 /** One phase a user runs by hand, on the selection the round chose for it. */
 export type HandRunStep = {
-  readonly phase: "rebut" | "fix"
+  readonly phase: "rebut" | "rule" | "fix"
   readonly assistant: Assistant
   readonly model: string
   readonly effort: Effort
+  /** The condition a step that may have nothing to do runs under. */
+  readonly onlyWhen?: string
+}
+
+const handRunNames: Record<HandRunStep["phase"], string> = {
+  rebut: "Rebuttal",
+  rule: "Ruler",
+  fix: "Fix",
 }
 
 /**
- * The hand-run phases that finish a round whose rebuttal or fix failed. A
- * resumed rebuttal cannot finish the round, because only the runner saves its
- * report, and `resume-fix` needs that report. Each launcher line resolves the
- * open round from the audit report's file name, so no step claims a new number.
+ * The hand-run phases that finish a round whose rebuttal, ruler or fix failed.
+ * A resumed rebuttal or ruler cannot finish the round, because only the runner
+ * saves its report, and `resume-fix` needs those reports. Each launcher line
+ * resolves the open round from the audit report's file name, so no step claims
+ * a new number.
  */
 export function handRunAdvice(
   report: string,
@@ -132,7 +141,7 @@ export function handRunAdvice(
     "Finish the round by hand, each step in a new session:",
     ...steps.map(
       (step, index) =>
-        `${index + 1}. ${step.phase === "rebut" ? "Rebuttal" : "Fix"} on ${step.assistant} ${step.model} ${step.effort}:\n   ${step.assistant === "claude" ? "/" : "$"}${phaseSkills[step.phase]} ${basename(report)}`,
+        `${index + 1}. ${handRunNames[step.phase]} on ${step.assistant} ${step.model} ${step.effort}${step.onlyWhen === undefined ? "" : `, only when ${step.onlyWhen}`}:\n   ${step.assistant === "claude" ? "/" : "$"}${phaseSkills[step.phase]} ${basename(report)}`,
     ),
   ].join("\n")
 }
@@ -171,6 +180,11 @@ function phaseInstructions(
 export type AssistantPrompt = {
   readonly text: string
   readonly log: string
+  /**
+   * The absolute paths of the files supplied whole in the prompt. A ruler's
+   * reading check counts each as opened; a resumed session receives none.
+   */
+  readonly supplied: readonly string[]
   /**
    * Sent once to a session whose response ended without the result line. An
    * invocation given none fails on that response.
@@ -227,7 +241,22 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
       true,
     ),
     resultRequest: resultRequest(input),
+    supplied: files === null ? [] : [...files.keys()],
   }
+}
+
+/**
+ * Sends a ruler back once to open the sources its report named without
+ * opening them, and to return the whole report again, because the runner reads
+ * only the last turn's text.
+ */
+export function rulerSourceRequest(
+  input: PhaseInput,
+  missed: readonly string[],
+): string {
+  return `${phaseOpening(input, "resumed")}
+Your ruler report names sources this session did not open: ${missed.map((source) => `\`${source}\``).join(", ")}. Open each one now with a tool call that holds that name as written: a file read by its absolute path, or a command that holds the path or the commit's six characters, as the shared protocol's Ruler duties require. Judge again from what you read. Then return your complete ruler report again and end it with the PHASE RESULT line. The runner reads only the new response, and a second miss fails the round.
+${runnerResultRule(input.repoEduRoot)}`
 }
 
 function formatPhasePrompt(

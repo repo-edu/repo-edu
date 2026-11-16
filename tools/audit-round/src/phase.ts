@@ -12,9 +12,11 @@ import type {
   FindingRebuttal,
   LandedCommit,
   PanelVet,
+  ReportFinding,
   RoundAccount,
   RulingWinner,
 } from "./round-data.js"
+import type { RulerReading } from "./ruler-report.js"
 import type { RulingInput } from "./ruling-wait.js"
 import type {
   Auditor,
@@ -47,6 +49,7 @@ export type Phase =
   | "audit"
   | "vet"
   | "rebut"
+  | "rule"
   | "fix"
   | "implement"
   | "watch"
@@ -59,6 +62,7 @@ export const phaseSkills: Record<Phase, string> = {
   audit: "audit",
   vet: "vet",
   rebut: "rebut",
+  rule: "rule",
   fix: "fix",
   implement: "implement",
   watch: "watch",
@@ -75,7 +79,7 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
       ? input.planRoot
       : input.phase === "implement"
         ? input.repoEduRoot
-        : recorded(input.phase)
+        : launched(input.phase)
           ? input.cwd
           : input.repoEduRoot
   return join(
@@ -89,7 +93,7 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
 export function phaseLauncher(
   input: RoundContext & { phase: Phase; assistant: Assistant },
 ): string | null {
-  if (!recorded(input.phase)) return null
+  if (!launched(input.phase)) return null
   const root = join(input.planRoot, "home")
   const skill = phaseSkills[input.phase]
   return input.assistant === "claude"
@@ -332,6 +336,20 @@ export function watchPhase(
   )
 }
 
+/**
+ * The ruler judges every contest and split on a C or D finding, so the auditor
+ * does not select it: the target work class's audit level names its one judge.
+ */
+export function rulerPhase(
+  workClass: RoundKind,
+  config: RoundSettings,
+): PhaseRun {
+  return implementationPhase(
+    auditRoles(workClass, config).ruler,
+    `audit-round ${workClass} ruler`,
+  )
+}
+
 /** Who fixes a round, and what named that selection for the settings header. */
 export type RoundFixer = {
   readonly fixer: Coder
@@ -350,15 +368,15 @@ export function targetWorkClass(target: AuditTarget): RoundKind {
 }
 
 /**
- * The settings level that holds each work class's auditor list, vetter panel
- * and watch writer.
+ * The settings level that holds each work class's auditor list, vetter panel,
+ * ruler and watch writer.
  */
 export const auditLevels = {
   planning: "planningAudit",
   implementation: "implementationAudit",
 } as const satisfies Record<RoundKind, string>
 
-/** The auditor list, vetter panel and watch writer of one work class. */
+/** The auditor list, vetter panel, ruler and watch writer of one work class. */
 export function auditRoles(
   workClass: RoundKind,
   config: RoundSettings,
@@ -421,6 +439,7 @@ export function roundPhases(
     vet: panelPhases(workClass, config),
     // The rebuttal answers for the audit report on the same model and effort.
     rebut: audit,
+    rule: rulerPhase(workClass, config),
     fix: implementationPhase(fixer, fixerSource),
     watch: watchPhase(workClass, config),
     close: closePhase(config),
@@ -464,8 +483,8 @@ export function closePhase(config: RoundSettings): PhaseRun {
 
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
- * the default selection, every class's listed auditors, vetters and watch
- * writer, the planning fixer, the coders, the close's own pin and each tier a
+ * the default selection, every class's listed auditors, vetters, ruler and
+ * watch writer, the planning fixer, the coders, the close's own pin and each tier a
  * tag can ask for.
  */
 export function namedModels(
@@ -476,11 +495,13 @@ export function namedModels(
     ...[
       ...config.planningAudit.auditors,
       ...config.planningAudit.vetters,
+      config.planningAudit.ruler,
       config.planningAudit.fixer,
       config.planningAudit.watch,
       ...config.coders,
       ...config.implementationAudit.auditors,
       ...config.implementationAudit.vetters,
+      config.implementationAudit.ruler,
       config.implementationAudit.watch,
     ].map((entry) => implementationPhase(entry)),
     ...(["claude", "codex"] as const).flatMap((auditor) =>
@@ -505,8 +526,8 @@ export function namedModels(
 }
 
 /**
- * The phases that carry out the round's work: each runs from the working
- * checkout under a launcher and the round's commit model record names it. The
+ * The phases that carry out the round's work, which the round's commit model
+ * record names. The ruler lands nothing, so the record leaves it out. The
  * ruling and the watch are separate documents.
  */
 export function recorded(phase: Phase): boolean {
@@ -515,9 +536,17 @@ export function recorded(phase: Phase): boolean {
   )
 }
 
+/**
+ * The round phases a user may also run by hand: each runs from the working
+ * checkout under a launcher, and its text enters the round transcript.
+ */
+export function launched(phase: Phase): boolean {
+  return recorded(phase) || phase === "rule"
+}
+
 /** The assistant phase texts that enter the round transcript. */
 export function transcribed(phase: Phase): boolean {
-  return recorded(phase)
+  return launched(phase)
 }
 
 /** The open-deferral object a phase receives. */
@@ -526,8 +555,10 @@ export type DeferralScope = {
 }
 
 /**
- * One serious contest or split and the user's answer once the runner has one.
- * The argument keeps its historical name; a split's finding enters it too.
+ * Every contest and split of the round with its winner once one is named. The
+ * ruler's winners arrive with the first call; a serious finding gains the
+ * user's answer once the runner has one. The argument keeps its historical
+ * name; a split's finding enters it too.
  */
 export type ContestScope = {
   readonly contests: readonly {
@@ -542,6 +573,17 @@ export type ContestScope = {
  * auditor, one vetter of the panel named by its tag, or neither.
  */
 export type FixerSide = "auditor" | "neither" | { readonly vet: string }
+
+/**
+ * The findings a ruler judges, each with the tier its audit report gave it,
+ * which the ruler report's heading repeats.
+ */
+export type RulerScope = {
+  readonly findings: readonly {
+    readonly finding: number
+    readonly tier: ReportFinding["tier"]
+  }[]
+}
 
 /** What the ruling notice and the waiting run need from the round coordinator. */
 export type RulingRequest = {
@@ -573,6 +615,18 @@ type PhaseArguments = {
       ...vets: string[],
       rebut: string,
     ]
+    readonly sessionId: null
+  }
+  rule: {
+    /** Every vet report of the panel, in panel order, then the rebuttal report. */
+    readonly arguments: readonly [
+      report: string,
+      ...reports: string[],
+      ruler: string,
+      scope: RulerScope,
+    ]
+    /** The round's panel tags, which a winner may name. */
+    readonly panel: readonly string[]
     readonly sessionId: null
   }
   fix: {
@@ -695,10 +749,14 @@ type ImplementResult =
       readonly sessionId: string
     }
 
+/** A finished ruler returns its admitted winners and the sources it opened. */
+export type RuleResult = ReportResult & { readonly reading: RulerReading }
+
 type PhaseControlResults = {
   audit: ReportResult
   vet: ReportResult
   rebut: ReportResult
+  rule: ReportResult
   fix: FixResult
   implement: ImplementResult
   watch: ReportResult
@@ -714,6 +772,7 @@ type PhaseResults = {
   audit: ReportResult
   vet: ReportResult
   rebut: ReportResult
+  rule: RuleResult
   fix: FixResult
   implement: ImplementResult
   watch: WatchResult

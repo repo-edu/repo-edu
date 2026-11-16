@@ -206,7 +206,7 @@ const vetPhaseEntry = z.strictObject({
   ...phaseMeasurement,
 })
 const phaseEntry = z.strictObject({
-  phase: z.enum(["audit", "rebut", "fix", "watch", "judge"]),
+  phase: z.enum(["audit", "rebut", "rule", "fix", "watch", "judge"]),
   ...phaseMeasurement,
 })
 const commonRoundData = z.strictObject({
@@ -621,15 +621,6 @@ export function comparedRanges(workClass: RoundKind): readonly TierRange[] {
   return widestRange[workClass] === "A/B" ? ["A/B"] : ["A/B", "A/B/C"]
 }
 
-/**
- * The tiers on which a split of the class's panel goes to the user. It is the
- * class's widest compared range, because only a ruled split says which vetter
- * was right.
- */
-export function splitRulingRange(workClass: RoundKind): TierRange {
-  return widestRange[workClass]
-}
-
 export function tierWithin(
   tier: RoundFinding["tier"],
   range: TierRange,
@@ -639,7 +630,8 @@ export function tierWithin(
 
 /**
  * The highest tier the audit report or a vetter of the panel gave the finding.
- * The ruling stop and the vetter comparison both grade a finding by it.
+ * The winner rule and the vetter comparison both grade a finding by it, so one
+ * side alone cannot lower a finding out of the user's reach.
  */
 export function highestGrade(
   finding: Pick<RoundFinding, "tier" | "reviews">,

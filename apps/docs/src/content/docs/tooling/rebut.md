@@ -40,7 +40,8 @@ order, and names on each answer line the vetter it answers by that vetter's tag:
 3. **For user's ruling** keeps a real choice open and states the audit report's position briefly.
 
 Agreeing with two vetters' different revisions of one finding leaves the choice between them to the
-fix. Contesting or referring either one of them sends an A-tier or B-tier finding to you.
+fix. A contest, a referral or two vetters' different verdicts on a finding whose highest grade is
+A or B go to you; on a C or D finding they go to the ruler, [`/rule`](/repo-edu/tooling/rule/).
 
 The rebuttal is an answer, not a second audit. It edits no source, runs no formatter and lands no
 commit.
@@ -55,5 +56,7 @@ commit.
 ## Afterwards
 
 The answers appear in chat and in the round's `-4-rebut.<tag>.md` rebuttal report under
-`../plan-evidence/active/`. Run `/fix <report-file>` or `$fix <report-file>` next. The fix
-reconciles both views and asks you only about a decision that stays genuinely open.
+`../plan-evidence/active/`. When the rebuttal report leaves a contest or split on a C or D finding,
+run `/rule <report-file>` or `$rule <report-file>` next. Then run `/fix <report-file>` or
+`$fix <report-file>`. The fix reconciles both views and asks you only about a decision that stays
+genuinely open.

@@ -39,6 +39,7 @@ const phaseOrder = {
   vet: 3,
   rebut: 4,
   fix: 5,
+  rule: 6,
   ruling: 7,
   glance: 8,
   watch: 9,
@@ -64,7 +65,7 @@ function readPhaseFilename(name: string): {
   extension: "md" | "log"
 } | null {
   const match = new RegExp(
-    `^(.+-\\d{2,})-(\\d)-(round|audit|vet|rebut|ruling|watch)\\.(${tagPattern})\\.(md|log)$`,
+    `^(.+-\\d{2,})-(\\d)-(round|audit|vet|rebut|rule|ruling|watch)\\.(${tagPattern})\\.(md|log)$`,
   ).exec(name)
   if (match === null) return null
   const kind = match[3] as FileKind
@@ -328,7 +329,7 @@ async function roundDocument(
   )
 }
 
-export type ManualPhase = "vet" | "rebut" | "fix"
+export type ManualPhase = "vet" | "rebut" | "rule" | "fix"
 
 export type RecoveryRoundPaths = {
   readonly nameStart: string
@@ -336,6 +337,8 @@ export type RecoveryRoundPaths = {
   /** Every vet report of the round, ordered by file name. */
   readonly vets: readonly string[]
   readonly rebut: string
+  /** The round's newest ruler report, or null when no ruler ran. */
+  readonly ruler: string | null
   readonly ruling: string | null
 }
 
@@ -368,8 +371,10 @@ export async function newestWatch(
 /**
  * Resolve one existing round without claiming it or consulting future writers'
  * settings. A vetter may read an audit report of either assistant, its own
- * included, because the panel is every listed vetter whoever audits. The rebuttal
- * and the fix receive every vet report of the round.
+ * included, because the panel is every listed vetter whoever audits. The
+ * rebuttal, the ruler and the fix receive every vet report of the round. The
+ * ruler and the fix also receive the rebuttal report, and the fix the round's
+ * newest ruler report.
  */
 export async function manualPhasePaths(
   context: ExecutionContext,
@@ -401,7 +406,7 @@ export async function manualPhasePaths(
   }
   const source = await roundDocument(context, input, "audit")
   const root = dirname(source.path)
-  const output = (kind: "vet" | "rebut") => {
+  const output = (kind: "vet" | "rebut" | "rule") => {
     if (options.writer === undefined)
       throw new Error(
         `The ${phase} phase needs --writer with the current session's full tag.`,
@@ -411,7 +416,7 @@ export async function manualPhasePaths(
       `${phaseFilename(source.nameStart, kind, options.writer)}.md`,
     )
   }
-  const reviews = async (kind: "vet" | "rebut") =>
+  const reviews = async (kind: "vet" | "rebut" | "rule") =>
     (await phaseDocuments(root, kind)).filter(
       (document) => document.nameStart === source.nameStart,
     )
@@ -438,7 +443,20 @@ export async function manualPhasePaths(
     return [source.path, ...vets, output("rebut")]
   }
   const rebut = await rebuttal()
-  return [source.path, ...vets, ...(rebut === undefined ? [] : [rebut])]
+  if (phase === "rule") {
+    if (rebut === undefined)
+      throw new Error(`No rebuttal file for ${source.nameStart} at ${root}.`)
+    return [source.path, ...vets, rebut, output("rule")]
+  }
+  const ruler = await newestDocument(
+    (await reviews("rule")).map(({ path }) => path),
+  )
+  return [
+    source.path,
+    ...vets,
+    ...(rebut === undefined ? [] : [rebut]),
+    ...(ruler === undefined ? [] : [ruler]),
+  ]
 }
 
 /** Resolve the retained reports and optional ruling for one stopped fix. */
@@ -448,12 +466,11 @@ export async function recoveryRoundPaths(
 ): Promise<RecoveryRoundPaths> {
   const source = await roundDocument(context, input, "audit")
   const reviews = await manualPhasePaths(context, "fix", input, {})
-  const rebut = reviews.at(-1)
-  if (
-    reviews.length < 3 ||
-    rebut === undefined ||
-    readPhaseFilename(basename(rebut))?.kind !== "rebut"
-  )
+  const kind = (path: string) => readPhaseFilename(basename(path))?.kind
+  const ruler = reviews.find((path) => kind(path) === "rule") ?? null
+  const rebut = reviews.find((path) => kind(path) === "rebut")
+  const vets = reviews.filter((path) => kind(path) === "vet")
+  if (vets.length === 0 || rebut === undefined)
     throw new Error(
       `A serious-contest recovery needs the audit, vet and rebuttal files for ${source.nameStart}.`,
     )
@@ -465,8 +482,9 @@ export async function recoveryRoundPaths(
   return {
     nameStart: source.nameStart,
     report: reviews[0] as string,
-    vets: reviews.slice(1, -1),
+    vets,
     rebut,
+    ruler,
     ruling: ruling ?? null,
   }
 }

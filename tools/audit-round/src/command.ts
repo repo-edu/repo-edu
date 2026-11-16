@@ -909,11 +909,15 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
     .description(
       "Resolve a manual phase's workflow, working checkout and arguments without starting an assistant.",
     )
-    .argument("<phase>", "vet, rebut or fix", (value: string): ManualPhase => {
-      if (!["vet", "rebut", "fix"].includes(value))
-        throw new InvalidArgumentError("Expected vet, rebut or fix.")
-      return value as ManualPhase
-    })
+    .argument(
+      "<phase>",
+      "vet, rebut, rule or fix",
+      (value: string): ManualPhase => {
+        if (!["vet", "rebut", "rule", "fix"].includes(value))
+          throw new InvalidArgumentError("Expected vet, rebut, rule or fix.")
+        return value as ManualPhase
+      },
+    )
     .argument(
       "[input]",
       "bare audit report name; defaults to the newest eligible file in the active folder",
@@ -1319,7 +1323,7 @@ async function preparedFixRecovery(
       ],
     }
   }
-  if (openSeriousFindings(account, targetWorkClass(target)).length === 0)
+  if (openSeriousFindings(account).length === 0)
     throw new Error(
       `${paths.nameStart} has no serious contest or split without a recorded winner.`,
     )

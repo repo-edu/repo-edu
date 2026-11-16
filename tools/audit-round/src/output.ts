@@ -79,12 +79,7 @@ import { type WaitingRuling, waitingRulingText } from "./ruling-wait.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Auditor, RoundSettings } from "./settings.js"
-import {
-  isActivePlanPath,
-  planPhase,
-  planStem,
-  type RoundKind,
-} from "./target.js"
+import { isActivePlanPath, planPhase, planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
@@ -92,6 +87,8 @@ export type RoundDocuments = {
   /** One vet report per vetter of the panel, in panel order. */
   readonly vets: readonly string[]
   readonly rebut: string
+  /** The ruler report, which sorts after the rebuttal report. */
+  readonly ruler: string
   readonly ruling: string
 }
 
@@ -129,13 +126,9 @@ export type Run = {
   readonly previousModels: readonly ModelReference[]
   /** Earlier phase measurements restored when a stopped fix re-enters the runner. */
   readonly continued?: RoundData["phases"]
-  /**
-   * What a round's recovery advice needs: the audit report its commands name
-   * and the work class that decides which findings are serious.
-   */
+  /** What a round's recovery advice needs: the audit report its commands name. */
   readonly recovery?: {
     readonly report: string
-    readonly workClass: RoundKind
   }
   /** Present for every active plan-target round, with settled and final writes. */
   readonly data?: {
@@ -174,13 +167,17 @@ function resolvedRun(
 /** Settings recorded for the model read-out, resolved by the execution owner. */
 function roundSettingsData(
   releases: Record<Assistant, ModelReleases>,
-  phases: Pick<RoundPhases, "vet" | "fix">,
+  phases: Pick<RoundPhases, "vet" | "rule" | "fix">,
 ): RoundData["settings"] {
   return {
     vetters: phases.vet.map((vet) => ({
       assistant: vet.assistant,
       ...resolvedRun(vet, releases),
     })),
+    ruler: {
+      assistant: phases.rule.assistant,
+      ...resolvedRun(phases.rule, releases),
+    },
     fix: {
       assistant: phases.fix.assistant,
       ...resolvedRun(phases.fix, releases),
@@ -297,6 +294,7 @@ export async function roundRun(
       report: `${path("audit", "audit")}.md`,
       vets: vets.map((vet) => `${named("vet", vet.tag)}.md`),
       rebut: `${path("rebut", "rebut")}.md`,
+      ruler: `${path("rule", "rule")}.md`,
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
@@ -306,6 +304,7 @@ export async function roundRun(
       entry("audit"),
       ...vets,
       entry("rebut"),
+      entry("rule"),
       entry("fix"),
       ...("plan" in setup ? [entry("watch")] : []),
     ],
@@ -316,10 +315,7 @@ export async function roundRun(
       reopenLog: false,
     },
     previousModels,
-    recovery: {
-      report: `${path("audit", "audit")}.md`,
-      workClass: targetWorkClass(setup),
-    },
+    recovery: { report: `${path("audit", "audit")}.md` },
     ...(data === undefined ? {} : { data }),
     releases,
     settings,
@@ -332,6 +328,7 @@ type SinglePhase = Exclude<RoundPhase, "vet">
 const singlePhases: readonly SinglePhase[] = [
   "audit",
   "rebut",
+  "rule",
   "fix",
   "watch",
   "close",
@@ -357,7 +354,8 @@ function retainedPhaseRun(retained: RoundData["phases"][number]): PhaseRun {
 
 /**
  * Reopen one retained round and restore the phase records its fix must
- * finish: every vetter's record by the tag its vet report carries.
+ * finish: every vetter's record by the tag its vet report carries, and the
+ * ruler's when it ran.
  */
 export async function resumedRoundRun(
   setup: RoundSetup,
@@ -367,6 +365,7 @@ export async function resumedRoundRun(
     readonly report: string
     readonly vets: readonly string[]
     readonly rebut: string
+    readonly ruler: string | null
     readonly ruling: string | null
   },
   started: number,
@@ -379,7 +378,7 @@ export async function resumedRoundRun(
     readonly documents: RoundDocuments
     readonly recoveredPhases: Pick<
       RoundPhases,
-      "audit" | "vet" | "rebut" | "fix"
+      "audit" | "vet" | "rebut" | "rule" | "fix"
     >
     readonly paths: { readonly claim: null; readonly markdown: string }
   }
@@ -391,7 +390,7 @@ export async function resumedRoundRun(
     setup,
     targetWorkClass(setup),
   )
-  const single = (phase: "audit" | "rebut" | "fix"): PhaseRun => {
+  const single = (phase: "audit" | "rebut" | "rule" | "fix"): PhaseRun => {
     const entry = retained.entry.phases.find(
       (candidate) => candidate.phase === phase,
     )
@@ -413,6 +412,7 @@ export async function resumedRoundRun(
     audit: single("audit"),
     vet: vets.map(({ assistant, model }) => ({ assistant, model })),
     rebut: single("rebut"),
+    rule: single("rule"),
     fix: single("fix"),
   }
   const runEntry = (phase: SinglePhase): RunEntry => ({
@@ -435,6 +435,12 @@ export async function resumedRoundRun(
     report: paths.report,
     vets: paths.vets,
     rebut: paths.rebut,
+    ruler:
+      paths.ruler ??
+      join(
+        setup.roundRoot,
+        `${phaseFilename(paths.nameStart, "rule", tag("rule"))}.md`,
+      ),
     ruling,
   }
   const data = {
@@ -475,6 +481,7 @@ export async function resumedRoundRun(
       runEntry("audit"),
       ...vets,
       runEntry("rebut"),
+      runEntry("rule"),
       runEntry("fix"),
       ...("plan" in setup ? [runEntry("watch")] : []),
     ],
@@ -486,7 +493,7 @@ export async function resumedRoundRun(
     },
     previousModels: await readPreviousRoundModels(setup),
     continued: retained.entry.phases,
-    recovery: { report: paths.report, workClass: targetWorkClass(setup) },
+    recovery: { report: paths.report },
     data,
     releases,
     settings,
@@ -860,7 +867,7 @@ export class RoundOutput<R extends Run = Run> {
         })
         if (
           run.compactions === 0 &&
-          ["audit", "vet", "rebut", "fix"].includes(active.input.phase)
+          ["audit", "vet", "rebut", "rule", "fix"].includes(active.input.phase)
         )
           this.say(
             `Warning: The ${slot.key} phase compacted. Use a narrower scope instead of a larger context window.`,
@@ -1041,9 +1048,10 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   /**
-   * What a failed or stopped run prints after its outcome. A failed rebuttal
-   * or fix advises finishing the round by hand. The one exception is a fix
-   * whose open serious contest or split still owns commit admission: the
+   * What a failed or stopped run prints after its outcome. A failed rebuttal,
+   * ruler or fix advises finishing the round by hand, and every such route
+   * passes through the hand-run ruler before the fix. The one exception is a
+   * fix whose open serious contest or split still owns commit admission: the
    * runner's `resume-fix` re-enters its session. Every other known session
    * prints its assistant recovery command.
    */
@@ -1066,18 +1074,21 @@ export class RoundOutput<R extends Run = Run> {
     const contested =
       recovery !== undefined &&
       "account" in result &&
-      openSeriousFindings(result.account, recovery.workClass).length > 0
+      openSeriousFindings(result.account).length > 0
     const failed = result.status === "failed" ? result.phase : null
     if (
       recovery !== undefined &&
       (failed === "rebut" ||
+        failed === "rule" ||
         (failed === "fix" && !(contested && session !== null)))
     )
       return handRunAdvice(
         recovery.report,
         (failed === "rebut"
-          ? (["rebut", "fix"] as const)
-          : (["fix"] as const)
+          ? (["rebut", "rule", "fix"] as const)
+          : failed === "rule"
+            ? (["rule", "fix"] as const)
+            : (["fix"] as const)
         ).map((phase) => {
           const entry = this.run.phases.find(
             (candidate) => candidate.phase === phase,
@@ -1088,6 +1099,14 @@ export class RoundOutput<R extends Run = Run> {
             phase,
             assistant: entry.assistant,
             ...phaseSelection(entry.model, this.run.releases[entry.assistant]),
+            // The runner cannot know yet whether the new rebuttal report
+            // leaves the ruler anything to judge.
+            ...(failed === "rebut" && phase === "rule"
+              ? {
+                  onlyWhen:
+                    "the new rebuttal report leaves a contest or split on a C or D finding",
+                }
+              : {}),
           }
         }),
       )

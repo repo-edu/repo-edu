@@ -22,21 +22,25 @@ work so no phase checks itself:
 3. **Rebuttal.** A new session answers only revisions, drops and ruling items for the audit report,
    on the same model and effort as the audit. One rebuttal answers every vetter. When every vetter
    accepts every finding, this phase is skipped.
-4. **Fix.** The fixer reconciles both readings, asks about any real open decision, applies the
-   settled corrections and lands the records. When the rebuttal contests a vetter's verdict, or two
-   vetters give different verdicts, on a finding the audit report or a vetter graded A or B, the
-   runner asks you whether the audit report, one or more vetters by their tags or neither is right
-   and records your one-line reason. In an implementation round it also asks when two vetters give
-   different verdicts on a C finding. The fix cannot commit until every required winner is recorded,
-   and returning finished earlier fails the round. The audit target picks the fixer:
+4. **Ruler.** When the rebuttal contests a vetter's verdict, or two vetters give different verdicts,
+   on a finding whose highest grade from the audit report or any vetter is C or D, a new session
+   names the winner of each such dispute after opening every source it cites. Without such a
+   dispute, this phase is skipped.
+5. **Fix.** The fixer reconciles the readings, applies the ruler's winners, asks about any real open
+   decision, applies the settled corrections and lands the records. When the rebuttal contests a
+   vetter's verdict, or two vetters give different verdicts, on a finding whose highest grade is A
+   or B, the runner asks you whether the audit report, one or more vetters by their tags or neither
+   is right and records your one-line reason. The fix cannot commit until every required winner is
+   recorded, and returning finished earlier fails the round. The audit target picks the fixer:
    - A planning round, or a commit audit of plan-repo commits alone, fixes on the configured
      planning fixer.
    - An implementation round fixes on the plan's assigned coder.
    - A commit audit with Repo Edu commits fixes on the first listed coder.
 
-The audit, vet and rebuttal are read-only. The fix is the phase that receives authority to change
-the judged repositories. Where due, a watch then checks the episode's trajectory. In an automatic
-series the runner applies fixed rules to decide whether another assistant needs a current read.
+The audit, vet, rebuttal and ruler are read-only. The fix is the phase that receives authority to
+change the judged repositories. Where due, a watch then checks the episode's trajectory. In an
+automatic series the runner applies fixed rules to decide whether another assistant needs a current
+read.
 
 ## One phase or a series
 

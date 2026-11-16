@@ -35,6 +35,11 @@
                 "effort": "high"
             }
         ],
+        "ruler": {
+            "assistant": "claude",
+            "model": "fable",
+            "effort": "xhigh"
+        },
         "fixer": {
             "assistant": "codex",
             "model": "default",
@@ -78,6 +83,11 @@
                 "effort": "default"
             }
         ],
+        "ruler": {
+            "assistant": "claude",
+            "model": "fable",
+            "effort": "xhigh"
+        },
         "watch": {
             "assistant": "codex",
             "model": "default",

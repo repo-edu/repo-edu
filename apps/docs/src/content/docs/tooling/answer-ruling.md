@@ -29,7 +29,8 @@ requirement.
 Only a fix or an implementation worker returns a ruling. It may ask about a real product or cost
 choice that remains after the plan, code, boundaries and earlier decisions have been checked. An
 audit fix also asks who was right when the rebuttal contests a vetter, or two vetters give different
-verdicts, on an A-tier or B-tier finding.
+verdicts, on a finding whose highest grade is A or B. The ruler names the winner of the same
+disputes on a C or D finding before the fix starts, so they never reach you.
 
 The terminal prints a notice in place of the ruling's text. It names the round or step, the ruling
 file, the findings that need a winner, the winner words with the round's vetter tags, whose model
@@ -43,8 +44,9 @@ On Linux no window shows; the notice alone asks for your ruling.
 1. **What is open.** The chat asks the waiting run through the hidden `pnpm audit-round ruling`
    command. When several runs wait, it asks you which one.
 2. **The explanation.** It reads the ruling and, for a disputed finding, the round's audit report,
-   vet reports and rebuttal report. It explains what is being decided, each option and the
-   ruling's recommendation, and answers your questions from those files and the sources they cite.
+   vet reports, rebuttal report and any ruler report. It explains what is being decided, each option
+   and the ruling's recommendation, and answers your questions from those files and the sources they
+   cite.
 3. **Its own reading.** Before its first message the chat lists the points the sides differ on and
    opens every source behind them itself. It shows its own record: for each point, what each side
    claims, the passage it read and what that passage settles. It names where its reading differs

@@ -118,7 +118,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       assert.equal(result.exitCode, 2, result.stderr)
       assert.match(
         result.stderr,
-        /positive step number|Name the plan by its stem|Expected vet, rebut or fix/,
+        /positive step number|Name the plan by its stem|Expected vet, rebut, rule or fix/,
       )
     }
     await assert.rejects(readFile(calls), { code: "ENOENT" })

@@ -77,6 +77,8 @@ export const settingsSchema = z
       auditors: z.array(assignedSelection).min(1),
       /** The panel that vets every planning audit report, run in parallel. */
       vetters: z.array(assignedSelection).min(1),
+      /** The one judge of every contest and split on a C or D planning finding. */
+      ruler: assignedSelection,
       /** The one fixer of planning work. */
       fixer: assignedSelection,
       /** The one writer of the watch that follows a planning round. */
@@ -93,6 +95,8 @@ export const settingsSchema = z
       auditors: z.array(assignedSelection).min(1),
       /** The panel that vets every implementation audit report, run in parallel. */
       vetters: z.array(assignedSelection).min(1),
+      /** The one judge of every contest and split on a C or D implementation finding. */
+      ruler: assignedSelection,
       /** The one writer of the watch that follows an implementation round. */
       watch: assignedSelection,
     }),
@@ -109,6 +113,7 @@ export const settingsSchema = z
       planningAudit: {
         auditors: settings.planningAudit.auditors.map(resolve),
         vetters: settings.planningAudit.vetters.map(resolve),
+        ruler: resolve(settings.planningAudit.ruler),
         fixer: resolve(settings.planningAudit.fixer),
         watch: resolve(settings.planningAudit.watch),
       },
@@ -116,6 +121,7 @@ export const settingsSchema = z
       implementationAudit: {
         auditors: settings.implementationAudit.auditors.map(resolve),
         vetters: settings.implementationAudit.vetters.map(resolve),
+        ruler: resolve(settings.implementationAudit.ruler),
         watch: resolve(settings.implementationAudit.watch),
       },
     }

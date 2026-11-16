@@ -247,6 +247,7 @@ test("list entries that say default read the assistant's defaults when the file 
     planningAudit: {
       auditors: [{ assistant: "claude", model: "default", effort: "default" }],
       vetters: [{ assistant: "claude", model: "default", effort: "default" }],
+      ruler: { assistant: "claude", model: "listed-ruler", effort: "default" },
       fixer: { assistant: "claude", model: "default", effort: "low" },
       watch: { assistant: "claude", model: "default", effort: "medium" },
     },
@@ -257,9 +258,29 @@ test("list entries that say default read the assistant's defaults when the file 
         { assistant: "codex", model: "listed-auditor", effort: "default" },
       ],
       vetters: [{ assistant: "codex", model: "default", effort: "low" }],
+      ruler: { assistant: "codex", model: "default", effort: "xhigh" },
       watch: { assistant: "codex", model: "listed-watch", effort: "default" },
     },
   })
+  // Each work class's round runs its own level's ruler.
+  assert.deepEqual(config.planningAudit.ruler, {
+    assistant: "claude",
+    model: "listed-ruler",
+    effort: "xhigh",
+  })
+  assert.deepEqual(
+    roundPhases("codex", noOverride, config, undefined, "implementation").rule,
+    {
+      assistant: "codex",
+      model: {
+        model: {
+          value: "codex-default",
+          source: "audit-round implementation ruler",
+        },
+        effort: { value: "xhigh", source: "audit-round implementation ruler" },
+      },
+    },
+  )
   assert.deepEqual(config.planningAudit.watch, {
     assistant: "claude",
     model: "claude-default",
@@ -655,6 +676,12 @@ test("settings reject null fields, unsupported effort, misspelt fields and indep
     const { watch: _, ...withoutWatch } = settings[level]
     assert.equal(
       settingsSchema.safeParse({ ...settings, [level]: withoutWatch }).success,
+      false,
+    )
+    // A file written before the ruler existed stops with the validation error.
+    const { ruler: __, ...withoutRuler } = settings[level]
+    assert.equal(
+      settingsSchema.safeParse({ ...settings, [level]: withoutRuler }).success,
       false,
     )
   }

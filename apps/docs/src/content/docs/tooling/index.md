@@ -42,14 +42,14 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
-| I want a plan checked and settled corrections applied | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | Audit findings, an independent vet, any rebuttal and the fix |
+| I want a plan checked and settled corrections applied | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | Audit findings, an independent vet, any rebuttal and ruler, and the fix |
 | I want a plan checked after a step has landed | [`pnpm audit-round round <stem> plan`](/repo-edu/tooling/runner-round/) | A planning round that treats landed steps as fixed inputs |
 | I want to check implemented steps | [`pnpm audit-round round <stem> <n\|a-b>`](/repo-edu/tooling/runner-round/) | Coverage and findings for that step range, followed by any auditor the fixed series rules require |
 | I want to replay the automatic-series rules | [`pnpm audit-round replay`](/repo-edu/tooling/runner-round/#replay-the-rules) | Computed and stored answers, the next round's findings and totals; nothing is written |
 | I want to check every range of a finished plan | [`pnpm audit-round round <stem>`](/repo-edu/tooling/runner-round/) | One series for each range in the plan, followed by a series over the full range |
 | I want to check several ranges in one sitting | [`pnpm audit-round round <stem> 2,3-5,6-7`](/repo-edu/tooling/runner-round/) | One series per scope in list order |
 | I want to check work outside a plan | [`pnpm audit-round round <commits>`](/repo-edu/tooling/runner-round/) | A series over the named commits and any fixes it lands |
-| I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; any assistant vets and the auditor's assistant answers |
+| I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/), [`/rule`](/repo-edu/tooling/rule/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; any assistant vets and the auditor's assistant answers |
 | I want to check a round's trajectory | [`/watch [stem\|commit]`](/repo-edu/tooling/watch/) | A grounded green, amber or red judgement; you decide the response |
 | I want to compare the recorded auditors, vetters and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | Auditor, vetter-pair and coder tables, the findings you ruled on and a coder recommendation when the records clearly support one |
 | I found that an earlier audit finding or vet verdict was wrong | [`pnpm audit-round disprove ...`](/repo-edu/tooling/disprove/) | Your dated ruling, chosen side and full reason enter the plan's round data |

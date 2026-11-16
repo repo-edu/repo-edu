@@ -165,3 +165,23 @@ export function readRulerReport(
     sources,
   }
 }
+
+/**
+ * The reading check: the sources a ruler report names that the ruler's session
+ * did not open. A source counts as opened when its name appears as text in one
+ * of the session's tool lines, or when it is the path of a file the runner
+ * supplied whole in the first prompt. The test is plain text: it resolves no
+ * relative path and follows no `cd`, so the report's fixed source form is what
+ * makes a read count.
+ */
+export function unopenedSources(
+  sources: readonly string[],
+  toolLines: readonly string[],
+  supplied: readonly string[],
+): readonly string[] {
+  return sources.filter(
+    (source) =>
+      !supplied.includes(source) &&
+      !toolLines.some((line) => line.includes(source)),
+  )
+}

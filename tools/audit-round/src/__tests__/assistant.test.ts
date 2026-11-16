@@ -807,6 +807,66 @@ test("Codex fix excludes all pre-invocation usage and retains the new selection"
   )
 })
 
+test("a ruler is sent back once to open what it named, and a second miss fails the phase", async (t) => {
+  const f = await fixture(t)
+  const ruler = join(f.root, "ruler.md")
+  // The runner supplies the workflow whole, so naming it needs no tool call.
+  const workflow = join(f.root, ".agents/skills/rule/references/workflow.md")
+  const phase: PhaseInput<"rule"> = {
+    phase: "rule",
+    assistant: "claude",
+    model: pinned("claude"),
+    ...testContext(f.root),
+    arguments: [
+      join(f.root, "audit.md"),
+      join(f.root, "vet.abh.md"),
+      join(f.root, "rebut.md"),
+      ruler,
+      { findings: [{ finding: 1, tier: "C" }] },
+    ],
+    panel: ["abh"],
+    sessionId: null,
+  }
+  const report = (source: string) =>
+    phaseStream(
+      "claude",
+      `### 1. [C] Keep the record\n- Opened: \`${source}\`\n\nWinner: abh. The drop held.\nPHASE RESULT: {"status":"finished","reason":null}`,
+    )
+  await f.configure({
+    phases: {
+      rule: { streams: [await report("fedcba"), await report(workflow)] },
+    },
+  })
+  const ruled = await runAssistantPhase(phase, f.output, f.runtime)
+  assert.deepEqual(ruled, {
+    status: "finished",
+    sessionId: "test-session",
+    reading: {
+      winners: [
+        { number: 1, tier: "C", winner: ["abh"], reason: "The drop held." },
+      ],
+      sources: [workflow],
+    },
+  })
+  assert.match(await readFile(ruler, "utf8"), /Winner: abh\./)
+  const prompts = await f.prompts()
+  assert.equal(prompts.length, 2)
+  assert.match(
+    prompts[1].prompt,
+    /names sources this session did not open: `fedcba`/,
+  )
+
+  await writeFile(join(f.root, "rule-count"), "0")
+  await f.configure({
+    phases: { rule: { streams: [await report("fedcba")] } },
+  })
+  assert.deepEqual(await runAssistantPhase(phase, f.output, f.runtime), {
+    status: "failed",
+    sessionId: "test-session",
+    reason: "The ruler report names sources its session did not open: fedcba",
+  })
+})
+
 test("a rejected required final write fails after the child has ended", async (t) => {
   const f = await fixture(t, { stream: await phaseStream("claude") })
   const result = await runAssistantPhase(

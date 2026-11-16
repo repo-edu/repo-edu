@@ -23,18 +23,20 @@ rebuttal report, then lands the settled corrections and the round's record.
 ```
 
 The command has no flags. Without an audit report it takes the newest eligible audit report from
-either assistant and that round's newest vet and rebuttal reports. Invoking it grants the settled
-corrections and their record commits. The whole session uses the `/simple` wording requirement.
+either assistant and that round's vet reports and newest rebuttal and ruler reports. Invoking it
+grants the settled corrections and their record commits. The whole session uses the `/simple`
+wording requirement.
 
 ## What it shows you
 
-The fix reads the audit report, every vet report and the rebuttal report, checks for head drift and
-reads each file a correction will change. It then shows one outcome per finding:
+The fix reads the audit report, every vet report, the rebuttal report and any ruler report, checks
+for head drift and reads each file a correction will change. It then shows one outcome per finding:
 
 1. **Agreed.** An accepted finding, or a revision or drop the rebuttal agreed to, stands as agreed.
-2. **Decided.** For a contested verdict the fix reads the evidence and decides, with its reason.
-3. **Open.** A real choice between options with different costs, or a contest the evidence leaves
-   unclear, goes to you.
+2. **Ruled.** A contest or split on a C or D finding takes the winner the ruler named, with its
+   reason. The fix never picks a side itself.
+3. **Open.** A contest or split on an A or B finding, or a real choice between options with
+   different costs, goes to you.
 
 A choice is not open in three cases:
 
@@ -64,8 +66,8 @@ plan.
 
 ## Early stops
 
-1. **An input is missing or ambiguous.** Rerun with the audit report name. Run a missing vet or
-   rebuttal first when the round needs it.
+1. **An input is missing or ambiguous.** Rerun with the audit report name. Run a missing vet,
+   rebuttal or ruler first when the round needs it.
 2. **A required edit, check or commit fails.** Correct the named problem, then run the recovery
    command the runner printed, if any. The retained session continues the same fix; see
    [Recover a run](/repo-edu/tooling/recover-run/).

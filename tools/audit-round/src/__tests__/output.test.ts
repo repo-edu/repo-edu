@@ -100,7 +100,7 @@ const splitFinding: RoundAccount["findings"][number] = {
  */
 async function failedRoundEnding(
   t: TestContext,
-  phase: "vet" | "rebut" | "fix",
+  phase: "vet" | "rebut" | "rule" | "fix",
   findings: RoundAccount["findings"],
 ): Promise<string> {
   const f = await fixture(t)
@@ -145,7 +145,7 @@ async function failedRoundEnding(
 
 const report = "example-impl-audit-01..01-01-2-audit.abh.md"
 
-test("a failed rebuttal with an open serious split prints the hand-run rebuttal and fix", async (t) => {
+test("a failed rebuttal with an open serious split prints the hand-run rebuttal, ruler and fix", async (t) => {
   const text = await failedRoundEnding(t, "rebut", [splitFinding])
   assert.match(text, /^Session: rebut-session$/m)
   assert.ok(
@@ -154,13 +154,33 @@ test("a failed rebuttal with an open serious split prints the hand-run rebuttal 
         "Finish the round by hand, each step in a new session:",
         "1. Rebuttal on claude claude-opus-5 high:",
         `   /rebut ${report}`,
-        "2. Fix on codex gpt-5.6-sol high:",
+        "2. Ruler on claude claude-opus-5 high, only when the new rebuttal report leaves a contest or split on a C or D finding:",
+        `   /rule ${report}`,
+        "3. Fix on codex gpt-5.6-sol high:",
         `   $fix ${report}`,
       ].join("\n"),
     ),
     text,
   )
   assert.doesNotMatch(text, /Resume:/)
+})
+
+test("a failed ruler prints the hand-run ruler and then the fix", async (t) => {
+  const text = await failedRoundEnding(t, "rule", [splitFinding])
+  assert.match(text, /^Session: rule-session$/m)
+  assert.ok(
+    text.includes(
+      [
+        "Finish the round by hand, each step in a new session:",
+        "1. Ruler on claude claude-opus-5 high:",
+        `   /rule ${report}`,
+        "2. Fix on codex gpt-5.6-sol high:",
+        `   $fix ${report}`,
+      ].join("\n"),
+    ),
+    text,
+  )
+  assert.doesNotMatch(text, /Rebuttal on|Resume:/)
 })
 
 test("a failed fix without an open contest or split prints the hand-run fix", async (t) => {
@@ -929,6 +949,7 @@ test("the settings header lists phases in round order in aligned columns", async
     "audit    codex   gpt-5.6-sol       high  audit-round defaults",
     "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
     "rebut    codex   gpt-5.6-sol       high  audit-round defaults",
+    "rule     claude  claude-opus-5[1m] high  audit-round implementation ruler",
     "fix      codex   gpt-5.6-sol       high  audit-round coders",
     "watch    codex   gpt-5.6-sol       high  audit-round implementation watch",
   ]
@@ -938,6 +959,7 @@ test("the settings header lists phases in round order in aligned columns", async
       "audit    claude  claude-opus-5[1m] high  audit-round defaults",
       "vet abh  claude  claude-opus-5[1m] high  audit-round implementation vetters",
       "rebut    claude  claude-opus-5[1m] high  audit-round defaults",
+      "rule     claude  claude-opus-5[1m] high  audit-round implementation ruler",
       "fix      codex   gpt-5.6-sol       high  audit-round coders",
       "watch    codex   gpt-5.6-sol       high  audit-round implementation watch",
     ].join("\n"),
@@ -1004,6 +1026,7 @@ test("the settings header names what set each phase's model and effort", async (
       "audit    codex   gpt-6-astra     extra high  --auditor",
       "vet abh  claude  claude-opus-5-5 high        audit-round implementation vetters",
       "rebut    codex   gpt-6-astra     extra high  --auditor",
+      "rule     claude  claude-opus-5-5 high        audit-round implementation ruler",
       "fix      codex   gpt-5.6-sol     high        audit-round coders",
       "watch    codex   gpt-5.6-sol     high        audit-round implementation watch",
     ],

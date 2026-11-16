@@ -405,3 +405,46 @@ test("every vet report of the round reaches the rebuttal and the fix, beside the
     code: "ENOENT",
   })
 })
+
+test("the hand-run ruler reads every vet report and the rebuttal, and the fix also reads the ruler report", async (t) => {
+  const f = await roundFixture(t)
+  const report = join(
+    f.roundRoot,
+    "example-impl-audit-01..01-01-2-audit.obh.md",
+  )
+  await writeFile(report, "# Implementation audit workflow")
+  const invoke = async (args: string[]) => {
+    f.visible.length = 0
+    f.errors.length = 0
+    return runCommand(["paths", ...args], f.runtime, f.options)
+  }
+  const vet = join(f.roundRoot, "example-impl-audit-01..01-01-3-vet.abl.md")
+  await writeFile(vet, "Review")
+  // A ruler judges only what a rebuttal left in dispute.
+  assert.equal(await invoke(["rule", basename(report), "--writer", "atx"]), 1)
+  assert.match(f.errors[0], /No rebuttal file/)
+  const rebut = join(f.roundRoot, "example-impl-audit-01..01-01-4-rebut.otm.md")
+  await writeFile(rebut, "Answers")
+  assert.equal(await invoke(["rule", basename(report)]), 1)
+  assert.match(f.errors[0], /needs --writer/)
+  assert.equal(
+    await invoke(["rule", basename(report), "--writer", "atx"]),
+    0,
+    f.errors.join("\n"),
+  )
+  const output = JSON.parse(f.visible[0])
+  const ruler = join(f.roundRoot, "example-impl-audit-01..01-01-6-rule.atx.md")
+  assert.deepEqual(output.arguments, [report, vet, rebut, ruler])
+  assert.match(
+    output.workflow,
+    /\/\.agents\/skills\/rule\/references\/workflow\.md$/,
+  )
+  await writeFile(ruler, "Winners")
+  assert.equal(await invoke(["fix", basename(report)]), 0)
+  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
+    report,
+    vet,
+    rebut,
+    ruler,
+  ])
+})

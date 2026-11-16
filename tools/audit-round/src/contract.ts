@@ -251,7 +251,11 @@ export async function recordContracts(
             arguments: ["CLI contract probe"],
             sessionId: null,
           },
-          { text: contractPrompt(assistant), log: contractPrompt(assistant) },
+          {
+            text: contractPrompt(assistant),
+            log: contractPrompt(assistant),
+            supplied: [],
+          },
           observedOutput(output.phase, observe),
           runtime,
           async (record) => {
@@ -306,7 +310,11 @@ export async function recordContracts(
             sessionId: result.sessionId,
             rulingReply: "Resume the CLI contract probe.",
           },
-          { text: contractResumePrompt, log: contractResumePrompt },
+          {
+            text: contractResumePrompt,
+            log: contractResumePrompt,
+            supplied: [],
+          },
           observedOutput(output.phase, (event) => {
             if (event.type === "tokens") resumedTokens = true
           }),

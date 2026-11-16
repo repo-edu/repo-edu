@@ -30,6 +30,11 @@
         "effort": "default"
       }
     ],
+    "ruler": {
+      "assistant": "claude",
+      "model": "default",
+      "effort": "default"
+    },
     "fixer": {
       "assistant": "codex",
       "model": "default",
@@ -68,6 +73,11 @@
         "effort": "default"
       }
     ],
+    "ruler": {
+      "assistant": "claude",
+      "model": "default",
+      "effort": "default"
+    },
     "watch": {
       "assistant": "codex",
       "model": "default",

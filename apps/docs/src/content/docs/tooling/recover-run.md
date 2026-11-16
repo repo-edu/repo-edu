@@ -15,10 +15,12 @@ number and leave the open one unfinished.
 
 Read the failure reason, correct any named external problem and run the exact recovery command the
 runner printed. It preserves the phase, working checkout, model, effort and known session identity.
-The retained audit, vet and rebuttal reports and logs remain the source of the work being continued.
+The retained audit, vet, rebuttal and ruler reports and logs remain the source of the work being
+continued.
 
-A failed rebuttal or fix prints hand-run phases instead, except for the one fix case that prints
-`resume-fix`. Each hand-run phase runs in a new session, so no session identity carries over. See
+A failed rebuttal, ruler or fix prints hand-run phases instead, except for the one fix case that
+prints `resume-fix`. Each hand-run phase runs in a new session, so no session identity carries over.
+See
 [A failed audit phase](#a-failed-audit-phase).
 
 A startup failure can happen before a session exists. In that case no recovery command is printed;
@@ -37,24 +39,29 @@ audit, vet or watch cannot finish the stopped round because only the runner save
 text those phases return. A resumed close may finish the files and commits it owns. Start the next
 runner command yourself after the session finishes.
 
-A failed rebuttal or fix prints the hand-run phases that finish the round in place of a `Resume:`
-line. A failed rebuttal lists two steps:
+A failed rebuttal, ruler or fix prints the hand-run phases that finish the round in place of a
+`Resume:` line. A failed rebuttal lists three steps:
 
 ```text
 Finish the round by hand, each step in a new session:
 1. Rebuttal on codex <model> <effort>:
    $rebut <report>
-2. Fix on claude <model> <effort>:
+2. Ruler on claude <model> <effort>, only when the new rebuttal report leaves a contest or split on a C or D finding:
+   /rule <report>
+3. Fix on claude <model> <effort>:
    /fix <report>
 ```
 
-A failed fix lists the fix step alone. Start each step in a new session of the named assistant, on
-the named model and effort, and type its launcher line. The rebuttal runs on the auditor's
-assistant, because the rebuttal workflow refuses another assistant's audit report. The launcher
-resolves the open round from the audit report, so no step claims a new number, and the fix reads
-every vet report and the new rebuttal report. Rule on any serious contest or split in the fix's
-chat. The hand-run fix lands the round's records, but the round data keeps the round as `failed`,
-so the next run audits the scope again. The `Session:` line still names the failed session.
+Skip the ruler step when the new rebuttal report contests nothing on a C or D finding and no two
+vetters split on one. A failed ruler lists the ruler and fix steps, and a failed fix lists the fix
+step alone. Start each step in a new session of the named assistant, on the named model and effort,
+and type its launcher line. The rebuttal runs on the auditor's assistant, because the rebuttal
+workflow refuses another assistant's audit report. The launcher resolves the open round from the
+audit report, so no step claims a new number. The ruler reads every vet report and the new rebuttal
+report, and the fix reads those and the ruler report. Rule on any serious contest or split in the
+fix's chat. The hand-run fix lands the round's records, but the round data keeps the round as
+`failed`, so the next run audits the scope again. The `Session:` line still names the failed
+session.
 
 A failed fix whose serious contest or split still needs your winner prints `resume-fix` instead,
 under [An unanswered ruling](#an-unanswered-ruling). It does so only when the runner knows the fix

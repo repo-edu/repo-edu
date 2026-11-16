@@ -38,15 +38,15 @@ import {
   type LandedCommit,
   type PanelVet,
   type RoundAccount,
+  type RoundFinding,
+  type RulingWinner,
   reviewedRoundFindings,
   roundDataIdentity,
   type SeriesAnswer,
   settleRoundFindings,
-  splitRulingRange,
   tierWithin,
 } from "./round-data.js"
 import { documentTag, transcriptNameStart } from "./round-paths.js"
-import type { RulingInput } from "./ruling-wait.js"
 import type { Auditor, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
@@ -55,7 +55,6 @@ import {
   planPhase,
   planStem,
   type RoundContext,
-  type RoundKind,
   reportTarget,
 } from "./target.js"
 
@@ -128,61 +127,93 @@ function openContests(
 }
 
 /**
- * The findings the user rules on. A contest is the rebuttal contesting a
- * vetter's verdict, and it is serious on a finding that the audit report or a
- * vetter graded A or B. A split is two vetters of the panel giving different verdicts, under
- * `reviewsSplit`, and it is serious on a finding graded within the work
- * class's `splitRulingRange`.
+ * Whether a finding holds a dispute that needs a judge: the rebuttal contests
+ * a vetter's verdict, or two vetters of the panel split under `reviewsSplit`.
  */
-export function seriousFindings(
+function disputed(finding: RoundFinding): boolean {
+  return (
+    finding.reviews.some((review) => review.answer === "contest") ||
+    findingSplit(finding.reviews)
+  )
+}
+
+/**
+ * Every contest and split of the round, under one rule in every round and
+ * both work classes: the user names the winner on a finding the audit report
+ * or a vetter graded A or B, and the ruler on every other one. The grade is
+ * the highest any side gave, so one side alone cannot lower a finding out of
+ * the user's reach.
+ */
+function disputedFindings(
   account: RoundAccount,
-  workClass: RoundKind,
+  judge?: "user" | "ruler",
 ): readonly number[] {
-  return account.findings.flatMap((finding) => {
-    if (finding.number === null) return []
-    const grade = highestGrade(finding)
-    const contested = finding.reviews.some(
-      (review) => review.answer === "contest",
-    )
-    const serious =
-      (contested && tierWithin(grade, "A/B")) ||
-      (findingSplit(finding.reviews) &&
-        tierWithin(grade, splitRulingRange(workClass)))
-    return serious ? [finding.number] : []
-  })
+  return account.findings.flatMap((finding) =>
+    finding.number !== null &&
+    disputed(finding) &&
+    (judge === undefined ||
+      tierWithin(highestGrade(finding), "A/B") === (judge === "user"))
+      ? [finding.number]
+      : [],
+  )
+}
+
+/** The contests and splits whose winner the user names. */
+export function seriousFindings(account: RoundAccount): readonly number[] {
+  return disputedFindings(account, "user")
+}
+
+/** The contests and splits whose winner the ruler names. */
+export function rulerFindings(account: RoundAccount): readonly number[] {
+  return disputedFindings(account, "ruler")
 }
 
 /** The serious findings that still need the user's winner. */
-export function openSeriousFindings(
-  account: RoundAccount,
-  workClass: RoundKind,
-): readonly number[] {
-  return openContests(account, seriousFindings(account, workClass))
+export function openSeriousFindings(account: RoundAccount): readonly number[] {
+  return openContests(account, seriousFindings(account))
 }
 
-/** Record each admitted winner; the waiting run already checked the answer is complete. */
-function recordRulings(
+/**
+ * Record each admitted winner with who named it. The waiting run already
+ * checked that the user's answer is complete, and the ruler report's reader
+ * that the ruler answered every finding it was given.
+ */
+function recordWinners(
   account: RoundAccount,
-  rulings: RulingInput["rulings"],
+  winners: readonly {
+    readonly finding: number
+    readonly winner: RulingWinner
+    readonly reason: string
+  }[],
+  namedBy: "user" | "ruler",
 ): RoundAccount {
-  const byNumber = new Map(rulings.map((ruling) => [ruling.finding, ruling]))
+  const byNumber = new Map(winners.map((winner) => [winner.finding, winner]))
   return {
     ...account,
     findings: account.findings.map((finding) => {
-      const ruling =
+      const named =
         finding.number === null ? undefined : byNumber.get(finding.number)
-      return ruling === undefined
+      return named === undefined
         ? finding
         : {
             ...finding,
-            ruling: {
-              winner: ruling.winner,
-              reason: ruling.reason,
-              namedBy: "user",
-            },
+            ruling: { winner: named.winner, reason: named.reason, namedBy },
           }
     }),
   }
+}
+
+/** The tier the audit report gave one of its findings. */
+function auditTier(
+  evidence: AuditReport,
+  number: number,
+): RoundFinding["tier"] {
+  const finding = evidence.findings.find(
+    (candidate) => candidate.number === number,
+  )
+  if (finding === undefined)
+    throw new Error(`The ruler was given no audit report finding ${number}`)
+  return finding.tier
 }
 
 /** Compare the commit body's complete leading model record with this round's stamps. */
@@ -235,7 +266,10 @@ export type RoundInput = RoundSetup & {
   /** Retained state used only by the runner-owned serious-contest recovery. */
   readonly recovery?: {
     readonly account: RoundAccount
-    readonly phases: Pick<RoundPhases, "audit" | "vet" | "rebut" | "fix">
+    readonly phases: Pick<
+      RoundPhases,
+      "audit" | "vet" | "rebut" | "rule" | "fix"
+    >
     readonly sessionId: string
     readonly rulingReady: boolean
     readonly records: readonly LandedRecord[]
@@ -877,9 +911,67 @@ export async function runRound(
         }
       }
       twins.push(input.documents.rebut)
+      // The ruler names the winner of every contest and split on a C or D
+      // finding before the fix starts, so the fix applies winners and never
+      // picks a side. It runs only when such a dispute exists.
+      const given = rulerFindings(account)
+      if (given.length > 0) {
+        const ruled = await reportPhase(
+          () =>
+            dependencies.runPhase.rule({
+              phase: "rule",
+              ...phases.rule,
+              ...context,
+              arguments: [
+                report,
+                ...vetReports,
+                input.documents.rebut,
+                input.documents.ruler,
+                {
+                  findings: given.map((number) => ({
+                    finding: number,
+                    tier: auditTier(evidence, number),
+                  })),
+                },
+              ],
+              panel: panel.map((vet) => vet.tag),
+              sessionId: null,
+            }),
+          input.documents.ruler,
+          dependencies,
+        )
+        if (ruled.status === "failed") {
+          return {
+            ...ruled,
+            phase: "rule",
+            ...phases.rule,
+            ...context,
+            commits: [],
+            account,
+          }
+        }
+        account = recordWinners(
+          account,
+          ruled.reading.winners.map(({ number, winner, reason }) => ({
+            finding: number,
+            winner,
+            reason,
+          })),
+          "ruler",
+        )
+        twins.push(input.documents.ruler)
+      }
     }
   } else {
     twins.push(input.documents.rebut)
+    // Only an admitted ruler report stores a ruler's winner, so a recovered
+    // round holding one also holds the report the fix reads.
+    if (
+      input.recovery.account.findings.some(
+        (finding) => finding.ruling?.namedBy === "ruler",
+      )
+    )
+      twins.push(input.documents.ruler)
   }
 
   const repositories: readonly { root: string; repository: Repository }[] = [
@@ -903,9 +995,12 @@ export async function runRound(
       account,
     }
   }
-  const contests = seriousFindings(account, targetWorkClass(input))
+  // The fix receives every contest and split: the ruler's with their winners
+  // from the first call and the serious ones as the user names theirs.
+  const serious = seriousFindings(account)
+  const disputes = disputedFindings(account)
   const fixArguments = (): PhaseInput<"fix">["arguments"] => {
-    const scope = contestScope(account.findings, contests)
+    const scope = contestScope(account.findings, disputes)
     return [
       report,
       ...twins,
@@ -978,7 +1073,7 @@ export async function runRound(
         ...context,
       }
       try {
-        const open = openContests(account, contests)
+        const open = openContests(account, serious)
         const ruling = await dependencies.requestRuling({
           document: input.documents.ruling,
           fixerSide: selectedFixerSide(phases, panel, releases),
@@ -993,7 +1088,7 @@ export async function runRound(
             commits,
             account,
           }
-        account = recordRulings(account, ruling.rulings)
+        account = recordWinners(account, ruling.rulings, "user")
         fixInput = {
           ...fixInput,
           arguments: fixArguments(),
@@ -1085,7 +1180,7 @@ export async function runRound(
 
     if (fix.status === "finished") {
       try {
-        const unresolved = openContests(account, contests)
+        const unresolved = openContests(account, serious)
         if (unresolved.length > 0)
           throw new Error(
             `The finished fix left serious contests or splits without winners: ${unresolved.map((number) => `finding ${number}`).join(", ")}`,

@@ -19,6 +19,7 @@ import type {
   PhaseInput,
   PhaseResult,
   RoundDependencies,
+  RulerScope,
 } from "./phase.js"
 import {
   hasPhaseResult,
@@ -26,7 +27,17 @@ import {
   watchOutput,
   withoutPhaseResult,
 } from "./phase-result.js"
-import { type AssistantPrompt, phasePrompt, phaseRequest } from "./requests.js"
+import {
+  type AssistantPrompt,
+  phasePrompt,
+  phaseRequest,
+  rulerSourceRequest,
+} from "./requests.js"
+import {
+  type RulerReading,
+  readRulerReport,
+  unopenedSources,
+} from "./ruler-report.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
 
@@ -44,6 +55,33 @@ function openContests(input: AssistantTurnInput): readonly number[] {
       .filter((contest) => contest.winner === undefined)
       .map((contest) => contest.finding) ?? []
   )
+}
+
+/**
+ * Read a ruler's finished response against the findings it was given and the
+ * round's panel, and name the sources its session did not open. A response
+ * that did not finish returns null, because its phase result fails it anyway.
+ */
+function readRuling(
+  input: PhaseInput<"rule">,
+  finalText: string,
+  toolLines: readonly string[],
+  supplied: readonly string[],
+): {
+  readonly reading: RulerReading
+  readonly missed: readonly string[]
+} | null {
+  if (phaseResult("rule", "", finalText).status !== "finished") return null
+  const scope = input.arguments.at(-1) as RulerScope
+  const reading = readRulerReport(
+    withoutPhaseResult(finalText),
+    scope.findings.map(({ finding, tier }) => ({ number: finding, tier })),
+    input.panel,
+  )
+  return {
+    reading,
+    missed: unopenedSources(reading.sources, toolLines, supplied),
+  }
 }
 
 export function runAssistantPhase<P extends Phase>(
@@ -74,13 +112,47 @@ export function runAssistantInvocation(
   runtime: AssistantRuntime,
   record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult> {
+  // The ruler's reading check reads its report before the runner admits it,
+  // and sends the session back once when the report names an unopened source.
+  const review =
+    input.phase === "rule"
+      ? (finalText: string, toolLines: readonly string[]) => {
+          const ruling = readRuling(
+            input,
+            finalText,
+            toolLines,
+            prompt.supplied,
+          )
+          return ruling === null || ruling.missed.length === 0
+            ? null
+            : rulerSourceRequest(input, ruling.missed)
+        }
+      : undefined
   return runAssistantTurn(
     input,
     prompt,
     output,
     runtime,
-    async (sessionId, finalText) => {
+    async (sessionId, finalText, toolLines) => {
       const result = phaseResult(input.phase, sessionId, finalText)
+      if (input.phase === "rule" && result.status === "finished") {
+        const ruling = readRuling(input, finalText, toolLines, prompt.supplied)
+        if (ruling === null) throw new Error("The ruler did not finish")
+        if (ruling.missed.length > 0)
+          throw new Error(
+            `The ruler report names sources its session did not open: ${ruling.missed.join(", ")}`,
+          )
+        // The ruler's output follows every vet report and the rebuttal report.
+        await writeFile(
+          input.arguments[input.arguments.length - 2] as string,
+          `${withoutPhaseResult(finalText)}\n`,
+          "utf8",
+        )
+        return {
+          phaseResult: result,
+          complete: () => ({ ...result, reading: ruling.reading }),
+        }
+      }
       if (result.status === "finished") {
         const report =
           input.phase === "audit"
@@ -111,6 +183,7 @@ export function runAssistantInvocation(
       }
     },
     record,
+    review,
   )
 }
 
@@ -122,17 +195,24 @@ async function runAssistantTurn<T>(
   admit: (
     sessionId: string,
     finalText: string,
+    toolLines: readonly string[],
   ) => Promise<{
     readonly phaseResult: PhaseControlResult
     readonly complete: (completion: PhaseCompletion) => T
   }>,
   record?: (value: unknown) => Promise<void>,
+  /** Returns a request that sends the session back once, or null to admit the response. */
+  review?: (finalText: string, toolLines: readonly string[]) => string | null,
 ): Promise<T | PhaseFailure> {
   let sessionId = input.sessionId
   let recorder: PhaseRecorder | undefined
+  // The invocation's tool lines, as the round log keeps them, for the reading check.
+  const toolLines: string[] = []
   const observe = async (feedback: Feedback): Promise<void> => {
     if (recorder === undefined)
       throw new Error("Phase feedback arrived before its phase started")
+    if (feedback.type === "tool" && feedback.invocation !== null)
+      toolLines.push(feedback.invocation)
     await recorder.observe(feedback)
   }
   const usage =
@@ -189,21 +269,40 @@ async function runAssistantTurn<T>(
       runtime.signal?.throwIfAborted()
       recorder = await output.start(input, prompt.log)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
-      let response = await respond(prompt.text)
+      let resultRequested = false
       // The model can leave the line off a finished response. The session is
       // asked once to end again, which repeats no phase work; a second
       // response without the line fails the phase as any other does.
-      if (
-        prompt.resultRequest !== undefined &&
-        !hasPhaseResult(response.finalText)
-      ) {
+      const ended = async (
+        response: Awaited<ReturnType<typeof respond>>,
+      ): Promise<Awaited<ReturnType<typeof respond>>> => {
+        if (
+          resultRequested ||
+          prompt.resultRequest === undefined ||
+          hasPhaseResult(response.finalText)
+        )
+          return response
+        resultRequested = true
         await observe({
           type: "diagnostic",
           text: "The response ended without its PHASE RESULT line. Asking the session once to end with it.",
         })
-        response = await respond(prompt.resultRequest)
+        return respond(prompt.resultRequest)
       }
-      const admitted = await admit(response.sessionId, response.finalText)
+      let response = await ended(await respond(prompt.text))
+      const sendBack = review?.(response.finalText, toolLines) ?? null
+      if (sendBack !== null) {
+        await observe({
+          type: "diagnostic",
+          text: "The ruler report names sources the session did not open. Sending the session back once to open them.",
+        })
+        response = await ended(await respond(sendBack))
+      }
+      const admitted = await admit(
+        response.sessionId,
+        response.finalText,
+        toolLines,
+      )
       const completion = await recorder.finish(admitted.phaseResult)
       return admitted.complete(completion)
     } finally {
@@ -225,6 +324,7 @@ export function assistantDependencies(
       audit: (input) => runAssistantPhase(input, output, runtime),
       vet: (input) => runAssistantPhase(input, output, runtime),
       rebut: (input) => runAssistantPhase(input, output, runtime),
+      rule: (input) => runAssistantPhase(input, output, runtime),
       fix: (input) => runAssistantPhase(input, output, runtime),
       watch: (input) => runAssistantPhase(input, output, runtime),
       close: (input) => runAssistantPhase(input, output, runtime),

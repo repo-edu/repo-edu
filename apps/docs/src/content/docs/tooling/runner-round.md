@@ -3,9 +3,9 @@ title: pnpm audit-round round
 description: Run one audit round or series on a plan scope or commit set
 ---
 
-`pnpm audit-round round` runs the audit, vet, rebuttal and fix sequence on one plan scope or commit
-set, and lets fixed runner rules or your own queue decide whether another auditor follows, without
-granting any later plan stage.
+`pnpm audit-round round` runs the audit, vet, rebuttal, ruler and fix sequence on one plan scope or
+commit set, and lets fixed runner rules or your own queue decide whether another auditor follows,
+without granting any later plan stage.
 
 | Fact | Detail |
 | --- | --- |
@@ -72,25 +72,31 @@ reference keeps `.md` to mark it as a plan.
 3. **Rebuttal.** A new session on the audit's model and effort answers every vetter's revisions,
    drops and ruling items for the audit report. It is skipped when every vetter accepts every
    finding.
-4. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
+4. **Ruler.** When the rebuttal contests a vetter's verdict, or two vetters of the panel give
+   different verdicts, on a finding whose highest grade from the audit report or any vetter is C or
+   D, a new session names the winner of each such dispute. It runs on the `ruler` selection of the
+   target work class's audit level in `tools/audit-round/settings.json` and opens every source it
+   cites; the runner sends it back once when its report names a source its session did not open.
+   It is skipped when no such dispute exists. See [`/rule`](/repo-edu/tooling/rule/).
+5. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
    commit audit of plan-repo commits alone fix on `planningAudit.fixer` in
    `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder. A
    commit audit with Repo Edu commits fixes on the first `coders` entry. The fix may stop for your
    ruling. When the rebuttal contests a vetter's verdict, or two vetters of the panel give different
-   verdicts, on a finding the audit report or a vetter graded A or B, that ruling shows every
-   position and you name what was right: the audit report, one or more vetters by their tags, or
-   neither. In an implementation round two vetters' different verdicts on a C finding stop for your
-   ruling too, because those rounds raise too few A or B findings to compare the vetters on. Two
+   verdicts, on a finding whose highest grade from the audit report or any vetter is A or B, that
+   ruling shows every position and you name what was right: the audit report, one or more vetters
+   by their tags, or neither. The fix applies the ruler's winners without judging them again. Two
    revisions the rebuttal agrees with both do not stop the round; the fix picks one.
-5. **Glance and watch.** After a finished plan round with findings, the glance decides from the
+6. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade. The watch
    runs on the `watch` selection of the target work class's audit level in
    `tools/audit-round/settings.json`, so planning and implementation rounds may use different ones.
-6. **Series decision.** In an automatic series the runner reads retained data and bounded commit
+7. **Series decision.** In an automatic series the runner reads retained data and bounded commit
    evidence, then ends the series or names the next auditor without starting an assistant.
 
-A clean audit skips the vet, rebuttal, fix, glance and watch. A plan target lands its `clean` record
-directly; a commit target lands nothing. An automatic series still applies its decision rules.
+A clean audit skips the vet, rebuttal, ruler, fix, glance and watch. A plan target lands its `clean`
+record directly; a commit target lands nothing. An automatic series still applies its decision
+rules.
 
 ### Series
 
@@ -143,7 +149,8 @@ All files live in `../plan-evidence/active/`:
 
 1. **Every round** claims `<target>-<round>-0-claim.md` and writes its transcript
    `<target>-<round>-1-round.<tag>.md` with a log beside it.
-2. **The audit, vet and rebuttal** stay as `-2-audit`, `-3-vet` and `-4-rebut` files after the
+2. **The audit, vet, rebuttal and ruler** stay as `-2-audit`, `-3-vet`, `-4-rebut` and `-6-rule`
+   files after the
    fix, a ruling or a clean audit, until the close moves them.
 3. **A ruling** adds `-7-ruling.<tag>.md` and **a due watch** `-9-watch.<tag>.md`.
 4. **Round data** goes to `<stem>-plan-rounds.json` or `<stem>-impl-rounds.json` for a plan target
@@ -190,8 +197,9 @@ and any other with status 1.
    the fix's recovery command and ends the series. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Resume:`
-   command. A failed rebuttal or fix prints the hand-run phases that finish the round instead: the
-   rebuttal and then the fix, or the fix alone. A fix whose serious contest or split still needs
+   command. A failed rebuttal, ruler or fix prints the hand-run phases that finish the round
+   instead: the rebuttal, the ruler when a C or D dispute remains and the fix; the ruler and the
+   fix; or the fix alone. A fix whose serious contest or split still needs
    your winner prints `resume-fix` when the runner knows the fix session. Without one, it prints
    the hand-run fix. See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and

@@ -36,8 +36,8 @@ The read-out compares rather than ranks by taste:
    on those plans, so a model is not rewarded for auditing easier plans than the others. A model
    with fewer than five shared plans in a class is printed in a second table below the main one.
 2. **Vetter pairs** have separate planning and implementation tables. Each row compares two vetters
-   on the A and B findings they both judged on one panel. Where the two vetters split and you ruled,
-   your answer says which of them was right.
+   on the A and B findings they both judged on one panel. Where the two vetters split and the round
+   named a winner, that winner says which of them was right.
 3. **Coders** are compared on closed plans whose archived step list the current grammar reads, whose
    every hosted share has a readable model record and whose whole-plan audit follows the final
    share. A step record without active time falls back to the span from the ready marker or the
@@ -46,13 +46,13 @@ The read-out compares rather than ranks by taste:
 4. **Later rulings**, recorded with
    [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/), read in either direction. A finding
    ruling counts against the auditor and removes it from coder evidence. A vet ruling restores a
-   dropped or downgraded finding as kept for the auditor and coder. Either ruling outranks your
-   answer in the round when a vetter-pair table ends a split.
+   dropped or downgraded finding as kept for the auditor and coder. Either ruling outranks the
+   winner named in the round when a vetter-pair table ends a split.
 
 Implementation audits raise few A or B findings. Implementation auditors, implementation vetter
 pairs and coders are therefore each shown twice: once on A and B findings and once on A, B and C
-findings. In an implementation round you also rule on two vetters' different verdicts on a C
-finding, so the A/B/C vetter-pair table can say which vetter was right.
+findings. When two vetters give different verdicts on a C finding, the ruler names the winner, so
+the A/B/C vetter-pair table can say which vetter was right.
 
 The auditor tables carry no evaluation and no recommendation. The best model is the top row of the
 main table, and the time stands in its own column. Coder recommendations keep the direct
@@ -83,9 +83,9 @@ is below that floor.
    above the main table, where `--first` can correct the count. Other models share one line below
    the last table.
 2. **Vetter-pair tables** have one row per pair of vetters, where a vetter is a model and an effort.
-   A row counts the findings of its range both vetters judged on one panel, the splits you have
-   ruled on and how each ruled split ended: vetter 1 right, vetter 2 right, both right or neither. A
-   split you have not ruled on counts only as shared. A later disproved finding makes the vetters
+   A row counts the findings of its range both vetters judged on one panel, the splits with a named
+   winner and how each such split ended: vetter 1 right, vetter 2 right, both right or neither. A
+   split without a winner counts only as shared. A later disproved finding makes the vetters
    that dropped it right, and a later vet ruling makes the vetters that accepted it right. A round
    with one vetter adds no row.
 3. **Each coder table** sorts by its range's kept findings per step, fewest first, then by time. It
