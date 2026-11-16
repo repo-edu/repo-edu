@@ -10,7 +10,10 @@ import {
   X,
 } from "@repo-edu/ui/components/icons"
 import type { ReactNode } from "react"
-import { useUiStore } from "../../stores/ui-store.js"
+import {
+  type SettingsCategory,
+  useSettingsViewStore,
+} from "../../stores/settings-view-store.js"
 import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
@@ -22,15 +25,6 @@ import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
 import { LlmConnectionsPane } from "./LlmConnectionsPane.js"
 import { LmsConnectionsPane } from "./LmsConnectionsPane.js"
 import { PerformancePane } from "./PerformancePane.js"
-
-type SettingsCategory =
-  | "lms-connections"
-  | "git-connections"
-  | "llm-connections"
-  | "display"
-  | "analysis"
-  | "performance"
-  | "shortcuts"
 
 type CategoryItem = {
   id: SettingsCategory
@@ -77,9 +71,9 @@ const categories: CategoryItem[] = [
 ]
 
 export function SettingsSheet() {
-  const open = useUiStore((state) => state.settingsDialogOpen)
-  const setOpen = useUiStore((state) => state.setSettingsDialogOpen)
-  const activeCategory = useUiStore((state) => state.settingsCategory)
+  const open = useSettingsViewStore((state) => state.settingsDialogOpen)
+  const setOpen = useSettingsViewStore((state) => state.setSettingsDialogOpen)
+  const activeCategory = useSettingsViewStore((state) => state.settingsCategory)
   const macInset = hasMacDesktopInset()
   const macInsetMaxWidth = macInset
     ? `min(42rem, calc(100vw - ${MAC_TRAFFIC_LIGHT_INSET_PX}px))`
@@ -113,7 +107,7 @@ export function SettingsSheet() {
                   <button
                     type="button"
                     onClick={() =>
-                      useUiStore.getState().openSettings(category.id)
+                      useSettingsViewStore.getState().openSettings(category.id)
                     }
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 rounded-md transition-colors whitespace-nowrap",

@@ -16,12 +16,16 @@ import {
   selectGroupSetById,
   useCourseStore,
 } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 
 export function CopyGroupSetDialog() {
-  const sourceId = useUiStore((state) => state.copyGroupSetSourceId)
-  const setSourceId = useUiStore((state) => state.setCopyGroupSetSourceId)
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
+  const sourceId = useGroupsViewStore((state) => state.copyGroupSetSourceId)
+  const setSourceId = useGroupsViewStore(
+    (state) => state.setCopyGroupSetSourceId,
+  )
+  const setSidebarSelection = useGroupsViewStore(
+    (state) => state.setSidebarSelection,
+  )
   const open = sourceId !== null
 
   const groupSet = useCourseStore(selectGroupSetById(sourceId ?? ""))

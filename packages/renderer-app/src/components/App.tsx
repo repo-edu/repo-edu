@@ -52,8 +52,8 @@ import {
   selectNextUndoDescription,
   useCourseStore,
 } from "../stores/course-store.js"
+import { useSettingsViewStore } from "../stores/settings-view-store.js"
 import { useToastStore } from "../stores/toast-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import { resolveTabVisibility } from "../utils/course-navigation.js"
 import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
@@ -72,10 +72,8 @@ import { ImportStudentsFromFileDialog } from "./dialogs/ImportStudentsFromFileDi
 import { LmsImportConflictDialog } from "./dialogs/LmsImportConflictDialog.js"
 import { NewAssignmentDialog } from "./dialogs/NewAssignmentDialog.js"
 import { NewLocalGroupSetDialog } from "./dialogs/NewLocalGroupSetDialog.js"
-import { PreflightDialog } from "./dialogs/PreflightDialog.js"
 import { StudentSyncDialog } from "./dialogs/StudentSyncDialog.js"
 import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog.js"
-import { ValidationDialog } from "./dialogs/ValidationDialog.js"
 import { HomeView } from "./HomeView.js"
 import { IssuesButton } from "./IssuesButton.js"
 import { SettingsButton } from "./SettingsButton.js"
@@ -283,7 +281,7 @@ function AppShell() {
 
         if (e.key === ",") {
           e.preventDefault()
-          useUiStore.getState().openSettings()
+          useSettingsViewStore.getState().openSettings()
           return
         }
 
@@ -451,10 +449,6 @@ function AppShell() {
       <DeleteGroupSetDialog />
       <DeleteGroupDialog />
       <AddGroupDialog />
-
-      {/* Operation dialogs */}
-      <ValidationDialog />
-      <PreflightDialog />
 
       {/* Document and roster dialogs */}
       <StudentSyncDialog />

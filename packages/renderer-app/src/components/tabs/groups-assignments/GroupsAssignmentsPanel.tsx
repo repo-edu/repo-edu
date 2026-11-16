@@ -5,7 +5,7 @@ import {
   selectGroupSetById,
   useCourseStore,
 } from "../../../stores/course-store.js"
-import { useUiStore } from "../../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../../stores/groups-view-store.js"
 import { GroupSetPanel } from "./GroupSetPanel.js"
 
 type SidebarSelection = { kind: "group-set"; id: string } | null
@@ -20,7 +20,7 @@ export function GroupsAssignmentsPanel({
   const selectedGroupSet = useCourseStore(
     selectGroupSetById(selection?.id ?? ""),
   )
-  const setSidebarSelection = useUiStore((s) => s.setSidebarSelection)
+  const setSidebarSelection = useGroupsViewStore((s) => s.setSidebarSelection)
 
   // Clear stale selection if the group set was deleted.
   useEffect(() => {

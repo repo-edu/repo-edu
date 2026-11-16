@@ -12,8 +12,8 @@ import {
   selectRoster,
   useCourseStore,
 } from "../../stores/course-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { useToastStore } from "../../stores/toast-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { MemberListPane } from "./students/MemberListPane.js"
 
@@ -27,12 +27,16 @@ export function StudentsTab() {
   const courseId = useCourseStore(selectCourseId)
   const addToast = useToastStore((s) => s.addToast)
 
-  const setImportFileDialogOpen = useUiStore((s) => s.setImportFileDialogOpen)
-  const setRosterSyncDialogOpen = useUiStore((s) => s.setRosterSyncDialogOpen)
-  const setImportGitUsernamesDialogOpen = useUiStore(
+  const setImportFileDialogOpen = useGroupsViewStore(
+    (s) => s.setImportFileDialogOpen,
+  )
+  const setRosterSyncDialogOpen = useGroupsViewStore(
+    (s) => s.setRosterSyncDialogOpen,
+  )
+  const setImportGitUsernamesDialogOpen = useGroupsViewStore(
     (s) => s.setImportGitUsernamesDialogOpen,
   )
-  const setUsernameVerificationDialogOpen = useUiStore(
+  const setUsernameVerificationDialogOpen = useGroupsViewStore(
     (s) => s.setUsernameVerificationDialogOpen,
   )
 

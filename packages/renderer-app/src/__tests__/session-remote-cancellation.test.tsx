@@ -20,7 +20,7 @@ import {
   sessionCancellationControl,
 } from "../session/session-controller-context.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
+import { useGroupsViewStore } from "../stores/groups-view-store.js"
 import {
   deferred,
   makeCourse,
@@ -250,7 +250,7 @@ it("remote requests start explicitly and retain window-gate cancellation", {
         })
       }
       await React.act(async () => {
-        useUiStore.getState().setConnectLmsGroupSetDialogOpen(true)
+        useGroupsViewStore.getState().setConnectLmsGroupSetDialogOpen(true)
         root.render(
           <SessionControllerProvider controller={controller}>
             <ConnectLmsGroupSetDialog />
@@ -263,7 +263,7 @@ it("remote requests start explicitly and retain window-gate cancellation", {
       assert.equal(button("Apply").disabled, true)
       await click("Cancel")
       await React.act(async () => {
-        useUiStore.getState().setConnectLmsGroupSetDialogOpen(true)
+        useGroupsViewStore.getState().setConnectLmsGroupSetDialogOpen(true)
         await flush()
       })
       assert.deepEqual(calls, [])
@@ -321,7 +321,7 @@ it("remote requests start explicitly and retain window-gate cancellation", {
         4,
       )
       await React.act(async () => {
-        useUiStore.getState().setConnectLmsGroupSetDialogOpen(true)
+        useGroupsViewStore.getState().setConnectLmsGroupSetDialogOpen(true)
         await flush()
       })
       assert.equal(
@@ -412,11 +412,11 @@ it("remote requests start explicitly and retain window-gate cancellation", {
         await controller.waitForIdle()
         const originalCourse = useCourseStore.getState().course
         if (operation === "roster.importFromLms")
-          useUiStore.getState().setRosterSyncDialogOpen(true)
+          useGroupsViewStore.getState().setRosterSyncDialogOpen(true)
         else if (operation === "groupSet.syncFromLms")
-          useUiStore.getState().setSyncGroupSetTriggerId("connected")
+          useGroupsViewStore.getState().setSyncGroupSetTriggerId("connected")
         else if (operation !== "repo.listNamespace")
-          useUiStore.getState().setConnectLmsGroupSetDialogOpen(true)
+          useGroupsViewStore.getState().setConnectLmsGroupSetDialogOpen(true)
         const client = createRendererQueryClient()
         const container = window.document.createElement("div")
         window.document.body.appendChild(container)
@@ -569,12 +569,18 @@ it("remote requests start explicitly and retain window-gate cancellation", {
             false,
           )
         } else {
-          assert.equal(useUiStore.getState().rosterSyncDialogOpen, false)
           assert.equal(
-            useUiStore.getState().connectLmsGroupSetDialogOpen,
+            useGroupsViewStore.getState().rosterSyncDialogOpen,
             false,
           )
-          assert.equal(useUiStore.getState().syncGroupSetTriggerId, null)
+          assert.equal(
+            useGroupsViewStore.getState().connectLmsGroupSetDialogOpen,
+            false,
+          )
+          assert.equal(
+            useGroupsViewStore.getState().syncGroupSetTriggerId,
+            null,
+          )
         }
         container
           .querySelector("nav button")

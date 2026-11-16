@@ -26,7 +26,7 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../../session/session-controller-context.js"
-import { useUiStore } from "../../../stores/ui-store.js"
+import { useSettingsViewStore } from "../../../stores/settings-view-store.js"
 import { formatMemberStatus } from "../../../utils/labels.js"
 import {
   getNextProgressiveSorting,
@@ -81,7 +81,7 @@ export function MemberListPane({
   onClear,
   onExport,
 }: MemberListPaneProps) {
-  const openSettings = useUiStore((s) => s.openSettings)
+  const openSettings = useSettingsViewStore((s) => s.openSettings)
   const controller = useSessionController()
   const rosterColumnVisibility = useSessionControllerSelector(
     selectRosterColumnVisibility,

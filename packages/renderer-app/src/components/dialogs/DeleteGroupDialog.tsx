@@ -15,11 +15,13 @@ import {
   selectGroupReferenceCount,
   useCourseStore,
 } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 
 export function DeleteGroupDialog() {
-  const targetId = useUiStore((state) => state.deleteGroupTargetId)
-  const setTargetId = useUiStore((state) => state.setDeleteGroupTargetId)
+  const targetId = useGroupsViewStore((state) => state.deleteGroupTargetId)
+  const setTargetId = useGroupsViewStore(
+    (state) => state.setDeleteGroupTargetId,
+  )
   const open = targetId !== null
 
   const group = useCourseStore(selectGroupById(targetId ?? ""))

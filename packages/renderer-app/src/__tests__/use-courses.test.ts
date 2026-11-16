@@ -6,7 +6,6 @@ import { clearWorkflowClient } from "../contexts/workflow-client.js"
 import { resolveActiveSurfaceRedirectForCourses } from "../session/course-list.js"
 import { reducePreferences } from "../session/session-settings.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 
 function courseSummary(id: string, backing: CourseBacking): CourseSummary {
   return {
@@ -20,7 +19,6 @@ function courseSummary(id: string, backing: CourseBacking): CourseSummary {
 beforeEach(() => {
   clearWorkflowClient()
   useCourseStore.getState().clear()
-  useUiStore.getState().reset()
 })
 
 describe("course refresh submission pruning", () => {

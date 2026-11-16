@@ -30,7 +30,7 @@ import {
   type SessionStart,
 } from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 type Discovery =
@@ -46,8 +46,8 @@ const groupSetOperations = [
 ] as const
 
 export function ConnectLmsGroupSetDialog() {
-  const open = useUiStore((state) => state.connectLmsGroupSetDialogOpen)
-  const syncId = useUiStore((state) => state.syncGroupSetTriggerId)
+  const open = useGroupsViewStore((state) => state.connectLmsGroupSetDialogOpen)
+  const syncId = useGroupsViewStore((state) => state.syncGroupSetTriggerId)
   const course = useCourseStore((state) => state.course)
   return (open || syncId !== null) && course && courseSupportsLms(course) ? (
     <GroupSetPreviewDialog
@@ -72,9 +72,13 @@ function GroupSetPreviewDialog({
     ),
   )
   const course = useCourseStore((state) => state.course)
-  const setOpen = useUiStore((state) => state.setConnectLmsGroupSetDialogOpen)
-  const setSyncId = useUiStore((state) => state.setSyncGroupSetTriggerId)
-  const setSelection = useUiStore((state) => state.setSidebarSelection)
+  const setOpen = useGroupsViewStore(
+    (state) => state.setConnectLmsGroupSetDialogOpen,
+  )
+  const setSyncId = useGroupsViewStore(
+    (state) => state.setSyncGroupSetTriggerId,
+  )
+  const setSelection = useGroupsViewStore((state) => state.setSidebarSelection)
   const [discovery, setDiscovery] = useState<Discovery>({ status: "idle" })
   const { state, preview, apply, reset } = useLmsPreview()
 

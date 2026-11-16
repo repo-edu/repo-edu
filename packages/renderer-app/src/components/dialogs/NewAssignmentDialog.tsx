@@ -13,20 +13,22 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 
 export function NewAssignmentDialog() {
   const [name, setName] = useState("")
 
-  const open = useUiStore((state) => state.newAssignmentDialogOpen)
-  const setOpen = useUiStore((state) => state.setNewAssignmentDialogOpen)
-  const preSelectedGroupSetId = useUiStore(
+  const open = useGroupsViewStore((state) => state.newAssignmentDialogOpen)
+  const setOpen = useGroupsViewStore(
+    (state) => state.setNewAssignmentDialogOpen,
+  )
+  const preSelectedGroupSetId = useGroupsViewStore(
     (state) => state.preSelectedGroupSetId,
   )
-  const setPreSelectedGroupSetId = useUiStore(
+  const setPreSelectedGroupSetId = useGroupsViewStore(
     (state) => state.setPreSelectedGroupSetId,
   )
-  const selection = useUiStore((state) => state.sidebarSelection)
+  const selection = useGroupsViewStore((state) => state.sidebarSelection)
 
   const controller = useSessionController()
   const roster = useCourseStore((state) => state.course?.roster ?? null)

@@ -10,12 +10,16 @@ import {
 } from "@repo-edu/ui"
 import { useMemo } from "react"
 import { selectStudents, useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 
 export function UsernameVerificationDialog() {
-  const open = useUiStore((state) => state.usernameVerificationDialogOpen)
-  const setOpen = useUiStore((state) => state.setUsernameVerificationDialogOpen)
-  const setImportGitUsernamesDialogOpen = useUiStore(
+  const open = useGroupsViewStore(
+    (state) => state.usernameVerificationDialogOpen,
+  )
+  const setOpen = useGroupsViewStore(
+    (state) => state.setUsernameVerificationDialogOpen,
+  )
+  const setImportGitUsernamesDialogOpen = useGroupsViewStore(
     (state) => state.setImportGitUsernamesDialogOpen,
   )
 

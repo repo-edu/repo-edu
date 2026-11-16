@@ -65,7 +65,9 @@ it("starts no lookup for input or connection edits while Settings is open", {
   )
   const { RendererHostProvider } = await import("../contexts/renderer-host.js")
   const { useExaminationStore } = await import("../stores/examination-store.js")
-  const { useUiStore } = await import("../stores/ui-store.js")
+  const { useSettingsViewStore } = await import(
+    "../stores/settings-view-store.js"
+  )
   resetStores()
   useExaminationStore.getState().reset()
   useExaminationStore.getState().setQuestionCount(4)
@@ -146,7 +148,7 @@ it("starts no lookup for input or connection edits while Settings is open", {
     controller.dispose()
     clearSessionController(controller)
     useExaminationStore.getState().reset()
-    useUiStore.getState().reset()
+    useSettingsViewStore.getState().reset()
     await window.happyDOM.close()
     for (const key of Object.keys(globals)) {
       const descriptor = descriptors[key]
@@ -189,8 +191,11 @@ it("starts no lookup for input or connection edits while Settings is open", {
   await render()
   assert.equal(lookups.length, 0)
   await change(() => getView().commands.openLlmSettings())
-  assert.equal(useUiStore.getState().settingsDialogOpen, true)
-  assert.equal(useUiStore.getState().settingsCategory, "llm-connections")
+  assert.equal(useSettingsViewStore.getState().settingsDialogOpen, true)
+  assert.equal(
+    useSettingsViewStore.getState().settingsCategory,
+    "llm-connections",
+  )
   const updated = { ...connection, name: "Renamed", apiKey: "current-key" }
   const second = { ...connection, id: "second", name: "Second" }
   for (const edit of [

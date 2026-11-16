@@ -13,16 +13,20 @@ import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import { useMemo } from "react"
 import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 
 const EMPTY_ASSIGNMENTS: Assignment[] = []
 const EMPTY_GROUPS: Group[] = []
 const EMPTY_GROUP_SETS: GroupSet[] = []
 
 export function DeleteGroupSetDialog() {
-  const targetId = useUiStore((state) => state.deleteGroupSetTargetId)
-  const setTargetId = useUiStore((state) => state.setDeleteGroupSetTargetId)
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
+  const targetId = useGroupsViewStore((state) => state.deleteGroupSetTargetId)
+  const setTargetId = useGroupsViewStore(
+    (state) => state.setDeleteGroupSetTargetId,
+  )
+  const setSidebarSelection = useGroupsViewStore(
+    (state) => state.setSidebarSelection,
+  )
   const open = targetId !== null
 
   const roster = useCourseStore((state) => state.course?.roster ?? null)

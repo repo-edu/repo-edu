@@ -25,8 +25,8 @@ import {
   selectSystemGroupSet,
   useCourseStore,
 } from "../../../stores/course-store.js"
+import { useGroupsViewStore } from "../../../stores/groups-view-store.js"
 import { useToastStore } from "../../../stores/toast-store.js"
-import { useUiStore } from "../../../stores/ui-store.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
 import { exportGroupSet } from "../../../utils/export-group-set.js"
 import {
@@ -208,28 +208,34 @@ export function GroupsAssignmentsSidebar({
     isLmsRosterConnection(s.course?.roster?.connection),
   )
   const controller = useSessionController()
-  const groupSetOperation = useUiStore((s) => s.groupSetOperation)
+  const groupSetOperation = useGroupsViewStore((s) => s.groupSetOperation)
   const isOperationActive = groupSetOperation !== null
   const busyGroupSetId =
     groupSetOperation && "groupSetId" in groupSetOperation
       ? groupSetOperation.groupSetId
       : null
 
-  const setRenameGroupSetTriggerId = useUiStore(
+  const setRenameGroupSetTriggerId = useGroupsViewStore(
     (s) => s.setRenameGroupSetTriggerId,
   )
-  const setSyncGroupSetTriggerId = useUiStore((s) => s.setSyncGroupSetTriggerId)
-  const setReimportGroupSetTargetId = useUiStore(
+  const setSyncGroupSetTriggerId = useGroupsViewStore(
+    (s) => s.setSyncGroupSetTriggerId,
+  )
+  const setReimportGroupSetTargetId = useGroupsViewStore(
     (s) => s.setReimportGroupSetTargetId,
   )
-  const setCopyGroupSetSourceId = useUiStore((s) => s.setCopyGroupSetSourceId)
-  const setDeleteGroupSetTargetId = useUiStore(
+  const setCopyGroupSetSourceId = useGroupsViewStore(
+    (s) => s.setCopyGroupSetSourceId,
+  )
+  const setDeleteGroupSetTargetId = useGroupsViewStore(
     (s) => s.setDeleteGroupSetTargetId,
   )
-  const setNewAssignmentDialogOpen = useUiStore(
+  const setNewAssignmentDialogOpen = useGroupsViewStore(
     (s) => s.setNewAssignmentDialogOpen,
   )
-  const setPreSelectedGroupSetId = useUiStore((s) => s.setPreSelectedGroupSetId)
+  const setPreSelectedGroupSetId = useGroupsViewStore(
+    (s) => s.setPreSelectedGroupSetId,
+  )
 
   const course = useCourseStore((s) => s.course)
   const allowLmsActions = course !== null && courseSupportsLms(course)
@@ -276,7 +282,7 @@ export function GroupsAssignmentsSidebar({
     ],
   )
 
-  const editingGroupSetId = useUiStore((s) => s.renameGroupSetTriggerId)
+  const editingGroupSetId = useGroupsViewStore((s) => s.renameGroupSetTriggerId)
 
   const handleRenameSubmit = useCallback(
     (groupSetId: string, newName: string) => {

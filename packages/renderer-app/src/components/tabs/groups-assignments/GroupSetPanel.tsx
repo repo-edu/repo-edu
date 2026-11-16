@@ -14,7 +14,7 @@ import {
   selectGroupsForGroupSet,
   useCourseStore,
 } from "../../../stores/course-store.js"
-import { useUiStore } from "../../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../../stores/groups-view-store.js"
 import { AssignmentChipsRow } from "./AssignmentChipsRow.js"
 import { GroupsTable } from "./GroupSetGroupsTable/index.js"
 import { RepoNameTemplateBuilder } from "./RepoNameTemplateBuilder.js"
@@ -38,20 +38,26 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const controller = useSessionController()
   const roster = useCourseStore((s) => s.course?.roster ?? null)
   const courseId = useCourseStore((s) => s.course?.id ?? null)
-  const groupSetOperation = useUiStore((s) => s.groupSetOperation)
-  const setNewAssignmentDialogOpen = useUiStore(
+  const groupSetOperation = useGroupsViewStore((s) => s.groupSetOperation)
+  const setNewAssignmentDialogOpen = useGroupsViewStore(
     (s) => s.setNewAssignmentDialogOpen,
   )
-  const setPreSelectedGroupSetId = useUiStore((s) => s.setPreSelectedGroupSetId)
-  const setAddGroupDialogGroupSetId = useUiStore(
+  const setPreSelectedGroupSetId = useGroupsViewStore(
+    (s) => s.setPreSelectedGroupSetId,
+  )
+  const setAddGroupDialogGroupSetId = useGroupsViewStore(
     (s) => s.setAddGroupDialogGroupSetId,
   )
-  const setDeleteGroupTargetId = useUiStore((s) => s.setDeleteGroupTargetId)
+  const setDeleteGroupTargetId = useGroupsViewStore(
+    (s) => s.setDeleteGroupTargetId,
+  )
 
-  const selectedAssignmentId = useUiStore(
+  const selectedAssignmentId = useGroupsViewStore(
     (s) => s.selectedAssignmentIdByGroupSet[groupSetId] ?? null,
   )
-  const setSelectedAssignmentId = useUiStore((s) => s.setSelectedAssignmentId)
+  const setSelectedAssignmentId = useGroupsViewStore(
+    (s) => s.setSelectedAssignmentId,
+  )
 
   // Build a memberGroupIndex for MemberChip dedup (active members only).
   const memberGroupIndex = useMemo(() => {

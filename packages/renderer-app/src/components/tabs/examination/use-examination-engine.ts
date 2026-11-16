@@ -40,8 +40,8 @@ import {
   useExaminationStore,
 } from "../../../stores/examination-store.js"
 import type { ExaminationPreferencePersistenceEffect } from "../../../stores/examination-store-types.js"
+import { useSettingsViewStore } from "../../../stores/settings-view-store.js"
 import { useToastStore } from "../../../stores/toast-store.js"
-import { useUiStore } from "../../../stores/ui-store.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
 import { toExaminationEntry } from "./archive-entries.js"
 import {
@@ -141,7 +141,7 @@ export function useExaminationEngine({
   const controller = useSessionController()
   const rendererHost = useRendererHost()
   const addToast = useToastStore((state) => state.addToast)
-  const openSettings = useUiStore((state) => state.openSettings)
+  const openSettings = useSettingsViewStore((state) => state.openSettings)
   const preferenceSnapshot = useExaminationPreferenceSnapshot()
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const analysisSourceKey = useMemo(

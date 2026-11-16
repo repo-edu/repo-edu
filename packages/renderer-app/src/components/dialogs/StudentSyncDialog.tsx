@@ -24,11 +24,11 @@ import {
 } from "../../session/session-controller-context.js"
 import { bindSessionStart } from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { lmsConnectionDisplayName } from "../settings/ConnectionsPane.shared.js"
 
 export function StudentSyncDialog() {
-  const open = useUiStore((state) => state.rosterSyncDialogOpen)
+  const open = useGroupsViewStore((state) => state.rosterSyncDialogOpen)
   const course = useCourseStore((state) => state.course)
   return open && course && courseSupportsLms(course) ? (
     <RosterPreviewDialog key={course.id} courseId={course.id} />
@@ -39,8 +39,10 @@ function RosterPreviewDialog({ courseId }: { courseId: string }) {
   const controller = useSessionController()
   const credentials = useSessionControllerSelector(selectCredentials)
   const course = useCourseStore((state) => state.course)
-  const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen)
-  const setConflicts = useUiStore((state) => state.setLmsImportConflicts)
+  const setOpen = useGroupsViewStore((state) => state.setRosterSyncDialogOpen)
+  const setConflicts = useGroupsViewStore(
+    (state) => state.setLmsImportConflicts,
+  )
   const { state, preview, apply } = useLmsPreview()
   const result =
     state.status === "ready" && "summary" in state.result ? state.result : null

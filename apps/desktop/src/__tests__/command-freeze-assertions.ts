@@ -8,13 +8,11 @@ import {
 } from "../../../../packages/renderer-app/src/session/session-operation-inventory"
 import { canStartPersistenceWorker } from "../../../../packages/renderer-app/src/session/session-reducer"
 import { useCourseStore } from "../../../../packages/renderer-app/src/stores/course-store"
-import { useUiStore } from "../../../../packages/renderer-app/src/stores/ui-store"
 
 /** Exercise each admission route while a real command owns its reservation. */
 export async function assertCommandFreeze(controller: SessionController) {
   const settings = controller.getSnapshot().settings
   const course = useCourseStore.getState()
-  const ui = useUiStore.getState()
   assert.equal(canStartPersistenceWorker(controller.getSnapshot()), false)
 
   for (const [id, classification] of [
@@ -87,5 +85,4 @@ export async function assertCommandFreeze(controller: SessionController) {
   }
   assert.equal(controller.getSnapshot().settings, settings)
   assert.equal(useCourseStore.getState(), course)
-  assert.equal(useUiStore.getState(), ui)
 }

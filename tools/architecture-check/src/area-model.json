@@ -249,7 +249,7 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/components/dialogs/(AddGroupDialog|ConnectLmsGroupSetDialog|CopyGroupSetDialog|DeleteGroupDialog|DeleteGroupSetDialog|ImportGitUsernamesDialog|ImportGroupSetDialog|ImportStudentsFromFileDialog|LmsImportConflictDialog|NewAssignmentDialog|NewLocalGroupSetDialog|PreflightDialog|StudentMultiSelect|StudentSyncDialog|UsernameVerificationDialog|ValidationDialog)\\.tsx$"
+          "path": "^packages/renderer-app/src/components/dialogs/(AddGroupDialog|ConnectLmsGroupSetDialog|CopyGroupSetDialog|DeleteGroupDialog|DeleteGroupSetDialog|ImportGitUsernamesDialog|ImportGroupSetDialog|ImportStudentsFromFileDialog|LmsImportConflictDialog|NewAssignmentDialog|NewLocalGroupSetDialog|StudentMultiSelect|StudentSyncDialog|UsernameVerificationDialog)\\.tsx$"
         },
         {
           "type": "pattern",
@@ -257,7 +257,7 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/stores/(course-store|course-store-selectors|operation-store)\\.ts$"
+          "path": "^packages/renderer-app/src/stores/(course-store|course-store-selectors|groups-view-store|operation-store)\\.ts$"
         },
         {
           "type": "pattern",
@@ -285,7 +285,7 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/stores/connections-store\\.ts$"
+          "path": "^packages/renderer-app/src/stores/(connections-store|settings-view-store)\\.ts$"
         },
         {
           "type": "pattern",
@@ -317,7 +317,7 @@
           "path": "^packages/renderer-app/src/hooks/(use-analysis-context|use-app-settings|use-courses|use-open-repositories-folder|use-open-submission-folder)\\.ts$"
         },
         { "type": "pattern", "path": "^packages/renderer-app/src/source-tokenizer\\.ts$" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/stores/(analysis-store|app-settings-store|connections-store|course-store|course-store-selectors|credentials-store|examination|operation-store)" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/stores/(analysis-store|app-settings-store|connections-store|course-store|course-store-selectors|credentials-store|examination|groups-view-store|operation-store|settings-view-store)" },
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/slices/" },
         { "type": "pattern", "path": "^packages/renderer-app/src/utils/(analysis-[^/]*|author-colors|blame-[^/]*|course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow|token-estimate)\\.ts$" },
         { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|process-blame-lines|profile-store|repository-operation-controls|repository-workflow|session-|use-courses)" }

@@ -29,7 +29,7 @@ import {
   type EditableGroupTarget,
   useCourseStore,
 } from "../../../../stores/course-store.js"
-import { useUiStore } from "../../../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../../../stores/groups-view-store.js"
 import {
   getNextProgressiveSorting,
   normalizeProgressiveSorting,
@@ -170,10 +170,10 @@ export function GroupsTable({
   const groupsColumnSizing = groupSet?.columnSizing ?? {}
   const controller = useSessionController()
 
-  const groupCountFilterByGroupSet = useUiStore(
+  const groupCountFilterByGroupSet = useGroupsViewStore(
     (s) => s.groupCountFilterByGroupSet,
   )
-  const setGroupCountFilter = useUiStore((s) => s.setGroupCountFilter)
+  const setGroupCountFilter = useGroupsViewStore((s) => s.setGroupCountFilter)
 
   const course = useCourseStore((s) => s.course)
 

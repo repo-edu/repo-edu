@@ -18,7 +18,7 @@ import {
   selectGroupsForGroupSet,
   useCourseStore,
 } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { StudentMultiSelect } from "./StudentMultiSelect.js"
 
 const EMPTY_STUDENTS: RosterMember[] = []
@@ -30,8 +30,12 @@ export function AddGroupDialog() {
   const [userEditedName, setUserEditedName] = useState(false)
   const normalizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const groupSetId = useUiStore((state) => state.addGroupDialogGroupSetId)
-  const setGroupSetId = useUiStore((state) => state.setAddGroupDialogGroupSetId)
+  const groupSetId = useGroupsViewStore(
+    (state) => state.addGroupDialogGroupSetId,
+  )
+  const setGroupSetId = useGroupsViewStore(
+    (state) => state.setAddGroupDialogGroupSetId,
+  )
   const open = groupSetId !== null
   const roster = useCourseStore((state) => state.course?.roster ?? null)
   const courseId = useCourseStore((state) => state.course?.id ?? null)

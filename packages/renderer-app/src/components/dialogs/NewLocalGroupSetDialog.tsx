@@ -31,7 +31,7 @@ import {
   selectSystemGroupSet,
   useCourseStore,
 } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 
 type GroupNameCompiler = typeof compileGroupNamePattern
 
@@ -78,9 +78,13 @@ export function NewLocalGroupSetDialog() {
   const [checkedGroupIds, setCheckedGroupIds] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
 
-  const open = useUiStore((state) => state.newLocalGroupSetDialogOpen)
-  const setOpen = useUiStore((state) => state.setNewLocalGroupSetDialogOpen)
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
+  const open = useGroupsViewStore((state) => state.newLocalGroupSetDialogOpen)
+  const setOpen = useGroupsViewStore(
+    (state) => state.setNewLocalGroupSetDialogOpen,
+  )
+  const setSidebarSelection = useGroupsViewStore(
+    (state) => state.setSidebarSelection,
+  )
   const connectedSets = useCourseStore(selectConnectedGroupSets)
   const localSets = useCourseStore(selectLocalGroupSets)
   const individualStudentsSet = useCourseStore(

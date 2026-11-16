@@ -18,14 +18,16 @@ import { useState } from "react"
 import { useIssues } from "../../hooks/use-issues.js"
 import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import type { IssueCard } from "../../types/index.js"
 
 export function IssuesSheet() {
-  const open = useUiStore((state) => state.issuesSheetOpen)
-  const setOpen = useUiStore((state) => state.setIssuesSheetOpen)
+  const open = useGroupsViewStore((state) => state.issuesSheetOpen)
+  const setOpen = useGroupsViewStore((state) => state.setIssuesSheetOpen)
   const controller = useSessionController()
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
+  const setSidebarSelection = useGroupsViewStore(
+    (state) => state.setSidebarSelection,
+  )
   const setAssignmentSelection = useCourseStore(
     (state) => state.setAssignmentSelection,
   )

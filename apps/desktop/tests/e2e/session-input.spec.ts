@@ -30,7 +30,7 @@ test.beforeAll("prepare the packaged session fixture", async () => {
           import { RendererHostProvider } from "./contexts/renderer-host"
           import { ExaminationControlsCard } from "./components/tabs/examination/ExaminationControlsCard"
           import { ImportStudentsFromFileDialog } from "./components/dialogs/ImportStudentsFromFileDialog"
-          import { useUiStore } from "./stores/ui-store"
+          import { useGroupsViewStore } from "./stores/groups-view-store"
 
           let active
           let stops = 0
@@ -108,7 +108,7 @@ test.beforeAll("prepare the packaged session fixture", async () => {
                 onStopGeneration={() => active.abort.abort()}
                 onRegenerate={() => {}} onCopyMarkdown={() => {}}
               />
-              <button onClick={() => useUiStore.getState().setImportFileDialogOpen(true)}>Open import</button>
+              <button onClick={() => useGroupsViewStore.getState().setImportFileDialogOpen(true)}>Open import</button>
               <ImportStudentsFromFileDialog />
               {isListing && createPortal(
                 <button data-session-cancellation-control="repo.listNamespace"

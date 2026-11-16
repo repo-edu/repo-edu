@@ -17,12 +17,14 @@ import {
   type SessionStart,
 } from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 export function ImportStudentsFromFileDialog() {
-  const importFileDialogOpen = useUiStore((state) => state.importFileDialogOpen)
-  const setImportFileDialogOpen = useUiStore(
+  const importFileDialogOpen = useGroupsViewStore(
+    (state) => state.importFileDialogOpen,
+  )
+  const setImportFileDialogOpen = useGroupsViewStore(
     (state) => state.setImportFileDialogOpen,
   )
 

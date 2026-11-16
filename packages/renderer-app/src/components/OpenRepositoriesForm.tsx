@@ -39,7 +39,8 @@ import {
   bindSessionStart,
   type SessionStart,
 } from "../session/session-start.js"
-import { useUiStore } from "../stores/ui-store.js"
+import { useGroupsViewStore } from "../stores/groups-view-store.js"
+import { useSettingsViewStore } from "../stores/settings-view-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { lmsConnectionDisplayName } from "./settings/ConnectionsPane.shared.js"
 
@@ -116,8 +117,8 @@ function SourceActionCard({
 
 export function OpenRepositoriesForm() {
   const existingCourses = useSessionControllerSelector(selectCourses)
-  const openSettings = useUiStore((state) => state.openSettings)
-  const setRosterSyncDialogOpen = useUiStore(
+  const openSettings = useSettingsViewStore((state) => state.openSettings)
+  const setRosterSyncDialogOpen = useGroupsViewStore(
     (state) => state.setRosterSyncDialogOpen,
   )
   const credentials = useSessionControllerSelector(selectCredentials)

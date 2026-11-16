@@ -64,7 +64,7 @@ surface and worker.
 - `src/stores/*`: Zustand stores for course content and transient or view state:
   `course-store.ts` (with `course-store-selectors.ts`), `connections-store.ts`,
   `analysis-store.ts`, `examination-store.ts`, `operation-store.ts`,
-  `ui-store.ts`, `toast-store.ts`
+  `groups-view-store.ts`, `settings-view-store.ts`, `toast-store.ts`
 - `src/stores/slices/*`: course store slices (`roster-actions.ts`, `lifecycle.ts`, `history.ts`,
   `metadata-actions.ts`); roster-actions uses domain `id-allocator` for group/member creation
 - `src/persistence/*`: shared persister machinery and document-specific worker

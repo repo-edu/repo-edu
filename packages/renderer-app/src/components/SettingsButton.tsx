@@ -1,10 +1,10 @@
 import { Button } from "@repo-edu/ui"
 import { Settings } from "@repo-edu/ui/components/icons"
 import { useConnectionsStore } from "../stores/connections-store.js"
-import { useUiStore } from "../stores/ui-store.js"
+import { useSettingsViewStore } from "../stores/settings-view-store.js"
 
 export function SettingsButton() {
-  const openSettings = useUiStore((s) => s.openSettings)
+  const openSettings = useSettingsViewStore((s) => s.openSettings)
   const lmsStatus = useConnectionsStore((s) => s.lmsStatus)
   const lmsStatuses = useConnectionsStore((s) => s.lmsStatuses)
   const gitStatuses = useConnectionsStore((s) => s.gitStatuses)

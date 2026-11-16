@@ -25,8 +25,9 @@ import type { SessionControllerSnapshot } from "../session/session-reducer.js"
 import { bindSessionStart } from "../session/session-start.js"
 import type { SessionStartId } from "../session/session-start-inventory.js"
 import { useCourseStore } from "../stores/course-store.js"
+import { useGroupsViewStore } from "../stores/groups-view-store.js"
+import { useSettingsViewStore } from "../stores/settings-view-store.js"
 import { useToastStore } from "../stores/toast-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 
 export function testSessionStart(id: SessionStartId = "analysisRun") {
   return bindSessionStart(id, (start) => start)()
@@ -188,7 +189,8 @@ export async function waitForSnapshot(
 export function resetStores() {
   useCourseStore.getState().clear()
   useToastStore.getState().clearToasts()
-  useUiStore.getState().reset()
+  useGroupsViewStore.getState().reset()
+  useSettingsViewStore.getState().reset()
 }
 
 export const activeCourseId = selectActiveCourseId

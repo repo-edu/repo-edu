@@ -20,12 +20,14 @@ import {
   type SessionStart,
 } from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 export function ImportGitUsernamesDialog() {
-  const open = useUiStore((state) => state.importGitUsernamesDialogOpen)
-  const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
+  const open = useGroupsViewStore((state) => state.importGitUsernamesDialogOpen)
+  const setOpen = useGroupsViewStore(
+    (state) => state.setImportGitUsernamesDialogOpen,
+  )
   const course = useCourseStore((state) => state.course)
   const credentials = useSessionControllerSelector(selectCredentials)
   const pickUserFile = useUserFilePicker()

@@ -23,7 +23,7 @@ import {
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js"
 import { GroupsAssignmentsSidebar } from "./groups-assignments/GroupsAssignmentsSidebar.js"
 
@@ -41,15 +41,17 @@ export function GroupsAssignmentsTab() {
 
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const course = useCourseStore((s) => s.course)
-  const selection = useUiStore((s) => s.sidebarSelection)
-  const setSidebarSelection = useUiStore((s) => s.setSidebarSelection)
-  const setNewLocalGroupSetDialogOpen = useUiStore(
+  const selection = useGroupsViewStore((s) => s.sidebarSelection)
+  const setSidebarSelection = useGroupsViewStore((s) => s.setSidebarSelection)
+  const setNewLocalGroupSetDialogOpen = useGroupsViewStore(
     (s) => s.setNewLocalGroupSetDialogOpen,
   )
-  const setConnectLmsGroupSetDialogOpen = useUiStore(
+  const setConnectLmsGroupSetDialogOpen = useGroupsViewStore(
     (s) => s.setConnectLmsGroupSetDialogOpen,
   )
-  const setImportGroupSetFormat = useUiStore((s) => s.setImportGroupSetFormat)
+  const setImportGroupSetFormat = useGroupsViewStore(
+    (s) => s.setImportGroupSetFormat,
+  )
 
   const initialSidebarWidthPxRef = useRef(
     clampSidebarWidthPx(

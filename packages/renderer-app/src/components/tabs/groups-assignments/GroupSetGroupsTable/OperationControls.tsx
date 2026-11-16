@@ -1,6 +1,6 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
 import { ChevronDown } from "@repo-edu/ui/components/icons"
-import { useUiStore } from "../../../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../../../stores/groups-view-store.js"
 import type {
   OperationModeKey,
   RepositoryOperationMode,
@@ -41,10 +41,10 @@ export function OperationControls({
     emptyCount,
     disabled,
   })
-  const openSection = useUiStore(
+  const openSection = useGroupsViewStore(
     (state) => state.groupOperationSectionByGroupSet[groupSetId] ?? null,
   )
-  const setGroupOperationSection = useUiStore(
+  const setGroupOperationSection = useGroupsViewStore(
     (state) => state.setGroupOperationSection,
   )
 

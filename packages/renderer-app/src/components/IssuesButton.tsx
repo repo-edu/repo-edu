@@ -2,14 +2,14 @@ import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
 import { useIssues } from "../hooks/use-issues.js"
 import { useSessionController } from "../session/session-controller-context.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
+import { useGroupsViewStore } from "../stores/groups-view-store.js"
 
 export function IssuesButton() {
   const { issueCards, checksDirty, checksStatus } = useIssues()
   const hasRoster = useCourseStore((state) => !!state.course?.roster)
   const courseId = useCourseStore((state) => state.course?.id ?? null)
   const controller = useSessionController()
-  const setIssuesSheetOpen = useUiStore((s) => s.setIssuesSheetOpen)
+  const setIssuesSheetOpen = useGroupsViewStore((s) => s.setIssuesSheetOpen)
 
   const issueCount = issueCards.length
   const isRunningChecks = checksStatus === "running"

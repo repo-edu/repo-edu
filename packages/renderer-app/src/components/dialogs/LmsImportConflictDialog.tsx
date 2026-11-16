@@ -7,11 +7,13 @@ import {
   DialogTitle,
   Text,
 } from "@repo-edu/ui"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 
 export function LmsImportConflictDialog() {
-  const conflicts = useUiStore((state) => state.lmsImportConflicts)
-  const setConflicts = useUiStore((state) => state.setLmsImportConflicts)
+  const conflicts = useGroupsViewStore((state) => state.lmsImportConflicts)
+  const setConflicts = useGroupsViewStore(
+    (state) => state.setLmsImportConflicts,
+  )
 
   const open = (conflicts?.length ?? 0) > 0
 

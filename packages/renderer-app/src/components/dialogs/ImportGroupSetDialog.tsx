@@ -28,7 +28,7 @@ import {
   selectGroupSetById,
   useCourseStore,
 } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { useGroupsViewStore } from "../../stores/groups-view-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 const FORMAT_HINTS: Record<GroupSetImportFormat, string> = {
@@ -55,19 +55,27 @@ export function ImportGroupSetDialog() {
   const [error, setError] = useState<string | null>(null)
 
   // New-import trigger
-  const newImportFormat = useUiStore((state) => state.importGroupSetFormat)
-  const setNewImportFormat = useUiStore(
+  const newImportFormat = useGroupsViewStore(
+    (state) => state.importGroupSetFormat,
+  )
+  const setNewImportFormat = useGroupsViewStore(
     (state) => state.setImportGroupSetFormat,
   )
 
   // Reimport trigger
-  const reimportTargetId = useUiStore((state) => state.reimportGroupSetTargetId)
-  const setReimportTargetId = useUiStore(
+  const reimportTargetId = useGroupsViewStore(
+    (state) => state.reimportGroupSetTargetId,
+  )
+  const setReimportTargetId = useGroupsViewStore(
     (state) => state.setReimportGroupSetTargetId,
   )
 
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
-  const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
+  const setSidebarSelection = useGroupsViewStore(
+    (state) => state.setSidebarSelection,
+  )
+  const setGroupSetOperation = useGroupsViewStore(
+    (state) => state.setGroupSetOperation,
+  )
   const course = useCourseStore((state) => state.course)
   const pickUserFile = useUserFilePicker()
   const workflowClient = useWorkflowClient()
