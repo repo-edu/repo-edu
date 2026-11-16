@@ -17,11 +17,19 @@ reopen settled findings, add findings or change agreed verdicts. If current
 code contradicts an open item's evidence, state that uncertainty within the
 item.
 
+The user names the winner of each serious contest or split, and the ruler
+names the winner of every other one under the shared
+[Reconciliation](../../../references/round-protocol.md#reconciliation). A
+winner the ruler named is settled like an agreed verdict, and the ruling does
+not reopen it. When the ruler's reason says a real choice remains, that choice
+is an open item like any other.
+
 ## Reading order
 
 Every session that judges an open item reads its evidence in one fixed order.
-That holds for the session that writes a ruling and for the `/ruling` chat that
-answers it. Work each open item in five steps:
+That holds for the session that writes a ruling, for the `/ruling` chat that
+answers it and for the ruler, which names the winner of a contest or split on
+a C or D finding. Work each open item in five steps:
 
 1. List every point on which the sides differ. For a contest or a split the
    sides are the audit report, each vetter and the rebuttal. For an item with
@@ -40,7 +48,9 @@ answers it. Work each open item in five steps:
 
 A source counts as opened when this session read it: through a tool call, or as
 a file the runner supplied whole. A source the session opened earlier, while it
-grounded the findings, is not opened twice.
+grounded the findings, is not opened twice. The ruler also names and opens each
+source in the one form that the shared protocol's
+[Ruler duties](../../../references/round-protocol.md#ruler-duties) set.
 
 This section owns the order for every session that judges a dispute. Another
 workflow points here instead of copying it. Two copies in two listed files

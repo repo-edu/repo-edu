@@ -361,7 +361,7 @@ decision on taste; require correctness or quality evidence.
 
 ## Head drift
 
-Vet, rebuttal and fix compare each audited head in the audit report opening with the
+Vet, rebuttal, ruler and fix compare each audited head in the audit report opening with the
 current short HEAD in that repo. Check each repo independently when the audit
 report judges both. When a head differs, list the files changed since the audited head
 and inspect the intervening diff for the artifact and every source a finding or
@@ -423,11 +423,11 @@ The choice is settled in three cases:
 The winning option becomes the finding's correction. Any other choice is real.
 A boundary entry or user decision can still settle a real choice.
 
-Every phase that grounds the item applies this test. The vet applies it before
-referring an item, the rebuttal when answering a referral and the fix during
-reconciliation. A referral is a claim like any other verdict and a later phase
-overturns it on evidence. A ruling on a settled choice costs the user a reading
-and a resumed fix but decides nothing.
+Every phase that grounds the item applies this test. The vet applies it before referring an item,
+the rebuttal when answering a referral, the ruler before it names a winner and the fix during
+reconciliation. A referral is a claim like any other verdict and a later phase overturns it on
+evidence. A ruling on a settled choice costs the user a reading and a resumed fix but decides
+nothing.
 
 A serious contest or split named in the fix phase's `contests` argument is the
 exception. It stays in the ruling even when this test settles the choice,
@@ -501,39 +501,88 @@ Return the complete answers without a grouped closing list. The runner saves an
 unattended rebuttal report at its supplied path; a hand-run rebuttal writes the same text
 to its resolved path. Chat and file must not differ.
 
+## Ruler duties
+
+The ruler names the winner of each contest or split that
+[Reconciliation](#reconciliation) gives it. It runs after the rebuttal and before the fix, in a
+session that wrote none of the round's reports and applies none of its corrections. It is read-only
+and lands nothing; it runs no command that changes a tracked file. It reads the audit report, every
+vet report and the rebuttal report, follows [Head drift](#head-drift) and works each finding it was
+given in the [Reading order](../skills/fix/references/ruling.md#reading-order) of `ruling.md`. The
+[ruler report grammar](round-grammar.md#ruler-report) owns the report's form. Three duties are the
+ruler's own:
+
+1. **Name and open each source in one form.** Name a file by its absolute path and a commit by its
+   first six characters. Open each with a tool call that holds that name as typed: a file read by
+   its absolute path, or a command that holds the path or the six characters. A file the runner
+   supplied whole in the first prompt is open already. A read that names a file relative to a repo
+   or to an earlier `cd` does not count; read the file again by its absolute path.
+2. **Name the winner in the winner words.** Each entry names `report`, one or more vetter tags or
+   `neither`, with a one-line reason. A winner that names vetter tags means those vetters' verdicts
+   were right. `Not yet` is no ruler word, because the ruler asks no question.
+3. **Keep to the limit of [Real choices](#real-choices).** Name the winner the evidence supports.
+   When a real choice remains, do not choose: name the vetter that referred the finding, or
+   `neither`, and say in the reason that a real choice remains. The fix then stops for the user
+   under its own rule. A change to a fixed input stays a premise error for the user.
+
+The runner checks each named source against the tool lines it logged for the ruler's session and
+the files it supplied whole in the first prompt. The check is a plain text test, so the form is
+fixed. A file read logs its absolute path, while a shell command logs its text as typed, often
+relative to a folder an earlier `cd` chose. Both repos also hold files with the same relative path,
+so a relative name could pass for a file the ruler never opened. When a source fails, the runner
+sends the ruler back once to open what it missed; a second miss fails the round. A hand-run ruler
+gets no check, because the runner logs no hand-run session. There the user can read the ruler
+report before starting the fix. Return the complete ruler report under
+[Runner result](#runner-result); a hand-run ruler writes the same text to its resolved path.
+
+This rule's case: it is triggered by every ruler report in a round the runner runs. On the rounds
+from 2026-11-14 to 2026-11-16 that is 14 of 34 rounds. Without it, a ruler can fill its record from
+the quotations in the reports, and the winner lands on text nobody opened. Accepting that was
+rejected because the ruler takes the user's place for these findings. The user sees an A or B
+record before it is sent, but no user reads a C or D winner before the fix applies it, and the user
+reported that rulings through `/ruling` skipped their evidence too often. Each use costs one
+comparison of the named sources with the logged tool lines and the supplied files. A miss costs one
+more ruler turn and a second miss the round. The check proves that the ruler opened each source it
+names. It does not prove that the ruler named every source it should have, or judged a passage
+well.
+
 ## Reconciliation
 
-Build the outcome from every vetter's numbered verdicts and the rebuttal's
-answers, accounting for every finding. An accept stands without a rebuttal
+Build the outcome from every vetter's numbered verdicts, the rebuttal's
+answers and the ruler's winners, accounting for every finding. An accept stands without a rebuttal
 answer. Present agreed verdicts, decisions on contested verdicts and items for
 the user's ruling.
 
-The user rules on every serious contest and every serious split:
+Every contest and every split gets a winner from a judge that is no party to
+it. One rule names the judge, in every round and in both work classes:
 
-1. A contest is the rebuttal contesting one vetter's verdict. It is serious when
-   the audit report or a vetter graded its finding A or B.
+1. A contest is the rebuttal contesting one vetter's verdict.
 2. Two vetters of the panel split on a finding when their verdict words differ, or when both revise
    and the rebuttal does not agree with both. Two vetters that both write `Needs user's ruling` do
-   not split, because both already send the finding to the user. A split is serious when the audit
-   report or a vetter graded its finding A or B. In an implementation round it is also serious when
-   the audit report or a vetter graded its finding C.
+   not split, because both already send the finding to the user.
+3. A contest or split is serious when the audit report or a vetter graded its finding A or B. The
+   user names the winner of every serious contest and split.
+4. The ruler names the winner of every other contest and split, on a C or D finding, under
+   [Ruler duties](#ruler-duties). It runs before the fix. In a round that also holds a serious
+   contest or split, the user then rules on the A and B findings only.
 
-A split stops the round because the rebuttal agrees easily, so its agreement cannot say which vetter
-was right, and every ruled split compares two vetters directly. Implementation audits raise few A or
-B findings, so their vetters could seldom be compared on those alone, and a split on a C finding is
-serious there too. A contest on a C finding stays with the fix, because one vetter's verdict against
-the rebuttal compares no two vetters. Two revisions the rebuttal agrees with do not stop the round:
-both vetters and the rebuttal then hold that the audit report's correction was wrong, and only the
-choice of the new correction is left. The fix makes that choice from the evidence and gives its
-reason, as it does for any two different changes the rebuttal agrees with.
+The grade is the highest any side gave, so one side alone cannot lower a finding out of the user's
+reach. A split needs a judge because the rebuttal agrees easily, so its agreement cannot say which
+vetter was right. A contest needs one because the fix applies the corrections and the rebuttal
+answers for the audit report, so neither judges a dispute fairly. Two revisions the rebuttal agrees
+with are no split: both vetters and the rebuttal then hold that the audit report's correction was
+wrong, and only the choice of the new correction is left. The fix makes that choice from the
+evidence and gives its reason, as it does for any two different changes the rebuttal agrees with.
 
 The ruling states each vetter's position and the rebuttal's answers, with the
-evidence for each, before any recommendation. The fix decides every other
-contest from the evidence and gives the reason. Never re-argue an agreed
-verdict.
+evidence for each, before any recommendation. The fix applies every winner
+without deciding it again, whoever named it, and never picks a side in a
+contest or split itself. A winner that names vetter tags applies those vetters'
+verdicts. Never re-argue an agreed verdict.
 
-The runner passes the numbers of the serious findings to the fix. After
-displaying the ruling it asks the user for one answer on each:
+The runner passes every contest and split to the fix: the ruler's with their
+winners and reasons on the first call and the serious ones by number. After
+displaying the ruling it asks the user for one answer on each serious finding:
 
 1. `report`: the audit report's finding stands as written.
 2. One or more vetter tags: those vetters' verdicts were right, and the fix applies
@@ -548,11 +597,11 @@ resumed fix can answer the user's question. A resumed fix receives every
 recorded winner and reason with the free reply. The free reply may be empty
 once every serious finding has a winner.
 
-When every verdict is Accept and no rebuttal exists, present the findings as
-agreed by the auditor and every vetter. When a vetter has a revision, drop or ruling
-item and no rebuttal exists, the fix answers those items from current evidence.
-Carry accepts without answering them. Without a vet report, present the
-audit report's findings in number order with any current-source drift correction.
+When every verdict is Accept and no rebuttal exists, present the findings as agreed by the auditor
+and every vetter. When a vetter has a revision, drop or ruling item and no rebuttal exists, the fix
+answers those items from current evidence, except a split, which goes to its judge under the rule
+above. Carry accepts without answering them. Without a vet report, present the audit report's
+findings in number order with any current-source drift correction.
 
 The user rules by exception: a go on the presented outcome accepts it, and a
 reservation reopens the named item. Ground a reopened item before answering it.
@@ -575,7 +624,6 @@ implementation uses its fix invocation's grant. Stop for a ruling only on:
 
 - a real choice sent to the user
 - a serious contest or split
-- a contested verdict whose evidence stays unclear
 - a drift correction that changes a finding
 - a verdict without a rebuttal that the fix cannot settle from evidence
 
@@ -668,13 +716,13 @@ body. Commit-scoped rounds use their own series settlement rule.
 ## Runner result
 
 When the prompt identifies an unattended phase, follow this rule for every
-ending, including an early stop. It is shared by audit, vet, rebuttal, fix,
+ending, including an early stop. It is shared by audit, vet, rebuttal, ruler, fix,
 implement, watch and close. Ordinary interactive invocations add
 no result line.
 
 The [phase-result grammar](round-grammar.md#phase-result) owns the final control
 line, exact JSON object, statuses and phase admission. Keep that line outside a
-code fence and make it the last line of the response. Audit, vet and rebuttal
+code fence and make it the last line of the response. Audit, vet, rebuttal and ruler
 return their complete document before it and write no file; the runner saves
 that text without the control line. A finished fix in a widening planning round
 puts the grammar's [settling line](round-grammar.md#settling-line) immediately

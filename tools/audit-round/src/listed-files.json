@@ -5,7 +5,8 @@
     ".agents/skills/audit/references/",
     ".agents/skills/vet/references/",
     ".agents/skills/fix/references/",
-    ".agents/skills/rebut/references/"
+    ".agents/skills/rebut/references/",
+    ".agents/skills/rule/references/"
   ],
   "repo-edu": [
     ".agents/references/round-protocol.md",
@@ -13,6 +14,7 @@
     ".agents/skills/vet/references/",
     ".agents/skills/fix/references/",
     ".agents/skills/rebut/references/",
+    ".agents/skills/rule/references/",
     ".agents/skills/watch/references/",
     "tools/audit-round/src/listed-files.json"
   ]

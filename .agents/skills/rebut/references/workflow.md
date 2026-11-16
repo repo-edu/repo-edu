@@ -26,8 +26,8 @@ and effort. Session selection follows Repo Edu's
 [Commit Capability Tag](../../../../CLAUDE.md#commit-capability-tag) and the runner's
 [Round files](../../../../tools/audit-round/CLAUDE.md#round-files). A hand-run rebuttal may use the
 audit session while it still holds the round. In either route, ground answers as the shared round
-protocol requires under **Rebuttal grounding**. The fix phase then reads the audit report, every vet
-report and the rebuttal report, so it has every view.
+protocol requires under **Rebuttal grounding**. The ruler, when the round needs one, and the fix
+then read the audit report, every vet report and the rebuttal report, so each has every view.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. Only a hand-run rebuttal writes its `-4-rebut.<tag>.md` rebuttal report.
@@ -54,9 +54,9 @@ verdict needs an answer, state that once.
 
 Your answers decide whether two vetters' revisions of one finding split under the
 shared **Reconciliation**. Agreeing with both leaves the choice between them to
-the fix. Contesting or referring either one is a split, and a serious split
-goes to the user.
+the fix. Contesting or referring either one is a split. Every contest and split gets its judge
+under **Reconciliation**: the user on an A or B finding and the ruler on a C or D finding.
 
-Then stop. The fix phase consumes the audit report, the vet reports and the rebuttal report under
-the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing). Planning
+Then stop. The ruler and the fix consume the audit report, the vet reports and the rebuttal report
+under the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing). Planning
 rebuttals use their route's completion rule.

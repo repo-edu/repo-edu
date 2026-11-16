@@ -21,9 +21,9 @@ Where a launcher and this file disagree, this file is right.
 
 This workflow is the fix phase of an implementation-audit round. The audit is read-only and writes
 its audit report to the evidence checkout's `plan-evidence/active/` folder. An audit with findings
-stops there. This workflow starts from that audit report: it reads the audit report, its vet reports
-and its rebuttal report, presents the outcome for the user's ruling, applies the accepted
-corrections, lands the round's records.
+stops there. This workflow starts from that audit report: it reads the audit report, its vet
+reports, its rebuttal report and any ruler report, presents the outcome for the user's ruling,
+applies the accepted corrections and the winners, and lands the round's records.
 
 An audit with no findings
 uses the shared protocol's **Direct clean completion**.
@@ -35,19 +35,20 @@ report, record-bullet and result forms. The runner owns paths under
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Follow its **Reconciliation** rule after grounding the findings below.
 
-When the phase arguments include a `contests` object, its entries are the
-serious contests and splits the user owns under **Reconciliation**. An entry
-first names only its finding number. A resumed fix also receives any recorded
-`winner` and `reason`. Present each vetter's position and the rebuttal's answers
-with their evidence in the ruling, then apply recorded answers without deciding
-them again. A winner that names vetter tags applies those vetters' verdicts.
-Every fix invocation is commit-blocked while any supplied contest lacks a
-winner. `Not yet` keeps that block in place. Do not land settled corrections
-before the runner has recorded every required winner; a fix that reports
-finished with an open contest fails the round. If the round stops, use the
-printed `pnpm audit-round resume-fix ...` command. It reloads the stored round,
-collects missing winners and resumes this session with the same block. A bare
-assistant resume is only for work without an open serious contest or split.
+When the phase arguments include a `contests` object, its entries are the round's contests and
+splits under **Reconciliation**. An entry the ruler judged carries its `winner` and `reason` from
+the first call. A serious entry, which the user owns, first names only its finding number, and a
+resumed fix also receives its recorded `winner` and `reason`. Present each serious entry's vetter
+positions and the rebuttal's answers with their evidence in the ruling. Apply every recorded winner
+without deciding it again, whoever named it, and never pick a side in a contest or split yourself. A
+winner that names vetter tags applies those vetters' verdicts. A ruler's reason that says a real
+choice remains makes that choice an open item of the ruling. Every fix invocation is commit-blocked
+while any supplied contest lacks a winner. `Not yet` keeps that block in place. Do not land settled
+corrections before the runner has recorded every required winner; a fix that reports finished with
+an open contest fails the round. If the round stops, use the printed
+`pnpm audit-round resume-fix ...` command. It reloads the stored round, collects missing winners and
+resumes this session with the same block. A bare assistant resume is only for work without an open
+serious contest or split.
 
 When unattended, follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every
@@ -55,10 +56,14 @@ ending.
 
 Follow the `CLAUDE.md` of every repo a fix touches.
 
+A hand-run round runs the ruler in its own session before the fix when it holds a contest or
+split on a C or D finding. A hand-run fix applies the winners in the ruler report. When such a
+dispute has no ruler report, the fix stops and names the hand-run ruler instead of judging it.
+
 ## Audit report discovery
 
-A hand-run invocation may omit the audit report. Resolve it and its existing vet and rebuttal
-reports through `paths fix` under the runner's
+A hand-run invocation may omit the audit report. Resolve it and its existing vet, rebuttal and
+ruler reports through `paths fix` under the runner's
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Automated invocations use their supplied paths unchanged.
 
@@ -68,8 +73,8 @@ the judged repo set and audited heads.
 
 ## Grounding
 
-Read the audit report end to end, then its supplied vet and rebuttal reports
-when they exist. Read the plan in `../plan` for the steps the audit report's scope names
+Read the audit report end to end, then its supplied vet, rebuttal and ruler
+reports when they exist. Read the plan in `../plan` for the steps the audit report's scope names
 and for every **Decisions** entry a finding cites. When the plan is archived, read the
 `README.md` beside it first.
 

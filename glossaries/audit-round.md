@@ -10,7 +10,7 @@ is always named in full.
 
 - **Phase**: two senses. A round phase is one part of a round, or one runner
   command, that runs in its own assistant session, such as the audit, the vet,
-  the rebuttal, the fix, the watch, a step's implementation or the close. A
+  the rebuttal, the ruler, the fix, the watch, a step's implementation or the close. A
   plan's phase is widening or detailing, which the plan's filename shows.
 - **Auditor**: the selection that runs or ran an audit, whether it is on the
   auditor list or not, and that audit's session. An entry of the auditor list
@@ -31,6 +31,10 @@ is always named in full.
   wrote the audit report. A hand-run round may answer from the audit session
   while that session still holds the round. No rebuttal runs when every vetter
   accepted every finding.
+- **Ruler**: the phase that names the winner of each contest or split on a C or
+  D finding, its selection and its session. It runs after the rebuttal and
+  before the fix, in a session that wrote none of the round's reports, and it
+  lands nothing. Each audit level names its own ruler.
 - **Coder**: one entry of the coder list in the runner settings. Declaring a
   plan ready assigns it the next coder in turn. That coder implements every
   step of the plan and fixes its implementation audits.
@@ -44,12 +48,13 @@ is always named in full.
 
 - **Contest**: a rebuttal answer that disputes one vetter's verdict on evidence
   that vetter can read. A contest is serious when the audit report or a vetter
-  graded the finding A or B, and a serious contest goes to the user.
+  graded the finding A or B. A serious contest goes to the user and any other
+  contest to the ruler.
 - **Split**: two senses. A panel split is two vetters whose verdicts on one
   finding differ, or who both revise it while the rebuttal does not agree with
-  both. It is serious when the finding's grade lies within its work class's
-  range, A or B for planning and A to C for implementation, and a serious
-  split goes to the user. A plan split divides one topic's work into peer
+  both. It is serious when the audit report or a vetter graded the finding A
+  or B. A serious split goes to the user and any other split to the ruler. A
+  plan split divides one topic's work into peer
   plans, a shape decision recorded with its reason.
 - **Referral**: a vetter's verdict that sends a finding to the user's ruling
   instead of settling it. Like any verdict it is a claim about the evidence,
@@ -65,8 +70,8 @@ is always named in full.
   what each side claims, the source the session opened with the place in it,
   the passage read and what that passage settles. A claim the session could not
   check is marked as unchecked and supports no conclusion. A ruling carries one
-  for each open item, and the ruling chat builds its own before it proposes an
-  answer.
+  for each open item, the ruling chat builds its own before it proposes an
+  answer and a ruler report carries one for each finding it answers.
 - **Deferral**: an accepted correction whose destination repo is outside the
   judged repo set, so the round could not land it. The round records it in its
   commit body. It stays open until a later round in the destination repo
@@ -82,6 +87,8 @@ is always named in full.
   the audit report.
 - **Rebuttal report**: the rebuttal's document, with one answer for each
   verdict other than an accept, naming the vetter it answers.
+- **Ruler report**: the ruler's document, with an evidence record and one
+  winner for each finding the ruler was given.
 - **Phase result**: the control line that ends an unattended phase's response.
   It tells the runner whether the phase finished, failed or needs a ruling.
 - **Settling line**: the one line that ends a widening audit report and a
