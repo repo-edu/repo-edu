@@ -301,8 +301,7 @@ export async function roundRun(
     },
     name: "Audit round",
     target: "plan" in setup ? planStem(setup.plan) : identity.target,
-    // The claimed number, so the title names the round the data records.
-    title: `${title} (round ${identity.round})`,
+    title,
     phases: [
       entry("audit"),
       ...vets,

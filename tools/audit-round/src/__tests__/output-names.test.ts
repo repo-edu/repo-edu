@@ -318,6 +318,37 @@ test("an automatic series adds no assistant phase for its decision", async (t) =
   assert.notEqual(run.phases.at(-1)?.phase, "judge")
 })
 
+test("a planning title counts its round from the latest phase marker beside the file number", async (t) => {
+  const f = await fixture(t)
+  const context = testSetup(f.root, "planning")
+  const retain = (name: string) =>
+    writeFile(join(context.roundRoot, `example-plan-audit-${name}`), "")
+  const title = async (plan: string) =>
+    (await roundRun({ ...context, plan }, 0, releases)).title
+  assert.equal(
+    await title("example-widen.md"),
+    "Plan audit of example-widen.md (widening round 1, file round 1)",
+  )
+  await retain("01-0-claim.md")
+  await retain("02-2-audit.abh.md")
+  await retain("03-0-settle.md")
+  assert.equal(
+    await title("example.md"),
+    "Plan audit of example.md (detailing round 1, file round 4)",
+  )
+  await retain("04-0-claim.md")
+  await retain("05-0-claim.md")
+  assert.equal(
+    await title("example.md"),
+    "Plan audit of example.md (detailing round 3, file round 6)",
+  )
+  await retain("06-0-reopen.md")
+  assert.equal(
+    await title("example-widen.md"),
+    "Plan audit of example-widen.md (widening round 1, file round 7)",
+  )
+})
+
 test("planning rounds number their bare target in the round folder and write there", async (t) => {
   const f = await fixture(t)
   const context = testSetup(f.root, "planning")

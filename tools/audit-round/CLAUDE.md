@@ -656,7 +656,12 @@ consumers.
   the step log, the step ruling and the close log. A plan target's name carries `-plan` or
   `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>` commit roles. A
   round's title opens with its kind and scope, such as `Plan audit of <plan>` or
-  `Implementation audit of <plan>, steps 1-6`. It derives each commit group label from its original
+  `Implementation audit of <plan>, steps 1-6`. The title ends with the round's file number in
+  brackets, as `(round 2)`, because the round's files, its round data and `disprove` are keyed by
+  that number. A planning title first counts the round from the plan's latest settle or reopen
+  marker file, as `(detailing round 3, file round 6)`. The marker file took a number of its own, so
+  the file number alone does not say how far the current phase is. Before the first marker file both
+  numbers are equal. It derives each commit group label from its original
   ordered exact set: one commit uses its six-character ID and a longer set uses
   `<oldest>..<newest>`. It joins group labels with `+` and scans the round folder for the next
   target-wide number. Later rounds keep that bounded label while their audit report's target

@@ -5,6 +5,7 @@ import {
   type AuditTarget,
   type CommitGroup,
   type CommitTarget,
+  planPhase,
   planStem,
   type RoundKind,
 } from "./target.js"
@@ -194,30 +195,55 @@ export function roundSubject(
   return `Implementation audit of ${plan}, ${steps}`
 }
 
-/** Read every retained numbered kind in the round folder; opening the run claims this candidate. */
-async function nextNameStart(
+/**
+ * Read every retained numbered kind in the round folder; opening the run
+ * claims the candidate round. The marker is the number the target's latest
+ * settle or reopen marker took, or zero before its first one.
+ */
+async function nextRound(
   context: ExecutionContext,
   target: string,
-): Promise<string> {
+): Promise<{ round: number; marker: number }> {
   const files = await readdir(context.roundRoot, { withFileTypes: true })
-  const numbers = files
+  const numbered = files
     .filter((file) => file.isFile())
     .map((file) => file.name)
     .filter((name) => name.startsWith(`${target}-`))
     .map((name) => {
       const suffix = name.slice(target.length + 1)
       const claim = /^(\d{2,})-0-(claim|settle|reopen)\.md$/.exec(suffix)
-      if (claim !== null) return Number(claim[1])
+      if (claim !== null)
+        return { number: Number(claim[1]), marker: claim[2] !== "claim" }
       const parsed = readPhaseFilename(name)
       const number = parsed?.nameStart.slice(target.length + 1)
-      return number !== undefined && /^\d{2,}$/.test(number)
-        ? Number(number)
-        : 0
+      return {
+        number:
+          number !== undefined && /^\d{2,}$/.test(number) ? Number(number) : 0,
+        marker: false,
+      }
     })
-  const next = Math.max(0, ...numbers) + 1
-  if (!Number.isSafeInteger(next))
+  const highest = (entries: typeof numbered): number =>
+    Math.max(0, ...entries.map((entry) => entry.number))
+  const round = highest(numbered) + 1
+  if (!Number.isSafeInteger(round))
     throw new Error(`Round number exhausted for ${target}`)
-  return `${target}-${String(next).padStart(2, "0")}`
+  return { round, marker: highest(numbered.filter((entry) => entry.marker)) }
+}
+
+/**
+ * How a title names its round. Every title carries the file number, because
+ * the round's files, its round data and a later `disprove` are keyed by it. A
+ * planning round first counts from the latest phase marker, which took a
+ * number of its own, so the title says how far the plan's current phase is.
+ */
+function roundNumbers(
+  target: AuditTarget,
+  round: number,
+  marker: number,
+): string {
+  return target.roundKind === "planning"
+    ? `${planPhase(target.plan)} round ${round - marker}, file round ${round}`
+    : `round ${round}`
 }
 
 /** Both entry routes allocate through the same target and retained-file rules. */
@@ -225,9 +251,10 @@ export async function roundIdentity(
   setup: NamingTarget,
 ): Promise<{ nameStart: string; title: string }> {
   const target = await targetDescription(setup)
+  const { round, marker } = await nextRound(setup, target.label)
   return {
-    nameStart: await nextNameStart(setup, target.label),
-    title: target.title,
+    nameStart: `${target.label}-${String(round).padStart(2, "0")}`,
+    title: `${target.title} (${roundNumbers(setup, round, marker)})`,
   }
 }
 

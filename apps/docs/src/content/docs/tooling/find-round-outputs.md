@@ -24,7 +24,9 @@ The target ends in `-plan-audit` for a planning round and `-impl-audit-<a>..<b>`
 implementation range. A one-step range repeats its endpoint. Implementation worker logs use
 `-impl-<step>`, so a sorted file list shows a plan's worker logs, implementation audits and plan
 audits as three separate groups. Commit targets begin with `commit-`, so every commit audit sorts
-together. The round number is not a commit number. The order number places the phases in reading
+together. The round number is not a commit number. A run's opening line names it as the file round.
+For a planning round that line first counts the round from the plan's latest settle or reopen
+marker, as `(detailing round 3, file round 6)`. The order number places the phases in reading
 order, and a skipped phase leaves a gap. The three-letter tag identifies the assistant, model tier
 and effort that wrote the file. The claim, the settle and reopen markers, the handoff and the queue
 carry no tag.
