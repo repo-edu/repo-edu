@@ -292,9 +292,9 @@ At tiers A to C, explain the trade when the growth-pattern value is not `none`,
 reach is not `ordinary` and complexity is an increase. State the simplest
 mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery
 costs to build and own, what it gives the user over that mechanism and whether a
-boundary entry or recorded user decision settles the choice. Deletion or doing
-nothing counts when either is enough. Name concrete obligations and their
-interactions rather than repeating the rating.
+boundary entry or user decision settles the choice. Deletion or doing nothing
+counts when either is enough. Name concrete obligations and their interactions
+rather than repeating the rating.
 
 Keep the trade in the finding's explanation. A separate block is optional.
 When the correction is the simplest mechanism, one sentence naming the
@@ -304,10 +304,10 @@ explanation.
 Check the simpler mechanism against the plan's recorded reasons and the code.
 When a reason still rules it out, say why no simpler mechanism works. When the
 reason looks wrong, quote it and give the evidence against it. A plan can
-settle whether a mechanism works. Only a boundary entry or recorded user
-decision settles a real choice about whether machinery is worth its cost. A
-choice that stays real under [Real choices](#real-choices) goes to the user
-under [Reconciliation](#reconciliation).
+settle whether a mechanism works. Only a boundary entry or user decision
+settles a real choice about whether machinery is worth its cost. A choice that
+stays real under [Real choices](#real-choices) goes to the user under
+[Reconciliation](#reconciliation).
 
 This trade rule applies only when an A to C finding meets all three trigger
 conditions above. Most findings sit at the floor values. Without the rule the
@@ -417,7 +417,7 @@ The choice is settled in two cases:
    the least upkeep wins. A crumb of yield does not make a choice real.
 
 The winning option becomes the finding's correction. Any other choice is real.
-A boundary entry or recorded user decision can still settle a real choice.
+A boundary entry or user decision can still settle a real choice.
 
 Every phase that grounds the item applies this test. The vet applies it before
 referring an item, the rebuttal when answering a referral and the fix during

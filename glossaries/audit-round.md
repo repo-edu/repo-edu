@@ -186,6 +186,28 @@ is always named in full.
   user against its complexity, with optional vet, rebuttal and final reports
   of its own. It allocates no audit round and lands no commit.
 
+## What binds a round
+
+- **Fixed input**: something a round may not change by an ordinary finding.
+  There are four kinds: an entry of the plan repo's boundaries file, a user
+  decision, a decision of a shipped plan and a landed step. Each kind has one
+  route for a change:
+  1. A boundary entry, a user decision or a landed step changes only through
+     the user. A round that has new evidence against one reports a premise
+     error, and the user decides.
+  2. A shipped plan's decision changes only when a plan names the narrowing or
+     reversal in its Baseline with its new evidence. A change named that way
+     is no premise error: the finding that brings it settles like a change to
+     a plan decision. A change the Baseline does not name is a finding against
+     the plan.
+- **User decision**: a decision the user made, recorded in a plan's Product
+  constraints as a numbered entry with its date and the user's words. It is a
+  fixed input. An entry that lacks the date or the words is no user decision.
+- **Plan decision**: an entry in a plan's Decisions: the plan's own choice,
+  with its reason. It is no fixed input, so a round may change it under the
+  shared planning rules. Once its plan has shipped, it is a shipped plan's
+  decision.
+
 ## Finding ratings
 
 - **Reach**: how far a finding's fault reaches a person: developer, ordinary,
