@@ -51,7 +51,7 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | I want to check work outside a plan | [`pnpm audit-round round <commits>`](/repo-edu/tooling/runner-round/) | A series over the named commits and any fixes it lands |
 | I want to run one audit phase by hand | [`/audit`](/repo-edu/tooling/audit/), [`/vet`](/repo-edu/tooling/vet/), [`/rebut`](/repo-edu/tooling/rebut/), [`/rule`](/repo-edu/tooling/rule/) or [`/fix`](/repo-edu/tooling/fix/) | One phase at a time; any assistant vets and the auditor's assistant answers |
 | I want to check a round's trajectory | [`/watch [stem\|commit]`](/repo-edu/tooling/watch/) | A grounded green, amber or red judgement; you decide the response |
-| I want to compare the recorded auditors, vetters and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | Auditor, vetter-pair and coder tables, the findings you ruled on and a coder recommendation when the records clearly support one |
+| I want to compare the recorded auditors, vetters and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | Auditor, vetter-pair and coder tables, the findings you ruled on, the ruler's winners and a coder recommendation when the records clearly support one |
 | I found that an earlier audit finding or vet verdict was wrong | [`pnpm audit-round disprove ...`](/repo-edu/tooling/disprove/) | Your dated ruling, chosen side and full reason enter the plan's round data |
 
 ### Implementation

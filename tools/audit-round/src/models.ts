@@ -23,11 +23,12 @@ import {
   type PairEnding,
   type RoundVet,
   type RuledFinding,
+  type RulerWinner,
   readModelEvidence,
   type VetPairSample,
   type WorkClass,
 } from "./model-evidence.js"
-import { comparedRanges, type TierRange, tierWithin } from "./round-data.js"
+import { type TierRange, tierRanges, tierWithin } from "./round-data.js"
 import type { RoundSettings } from "./settings.js"
 
 function escapeCell(text: string): string {
@@ -559,7 +560,7 @@ function vetsCell(vets: readonly RoundVet[]): string {
   )
 }
 
-/** The user's answer, with each winning vetter named by its model. */
+/** The stored winner, with each winning vetter named by its model. */
 function answerCell(entry: RuledFinding): string {
   if (typeof entry.winner === "string") return entry.winner
   return escapeCell(
@@ -572,6 +573,22 @@ function answerCell(entry: RuledFinding): string {
   )
 }
 
+/** The row cells a stored winner shares in the user's list and the ruler's. */
+function winnerCells(entry: RuledFinding, ruler: readonly string[]): ReasonRow {
+  return {
+    cells: [
+      escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
+      escapeCell(`#${entry.finding} ${entry.title}`),
+      entry.tier,
+      escapeCell(modelText(entry.auditor)),
+      vetsCell(entry.vets),
+      ...ruler,
+      answerCell(entry),
+    ],
+    reason: entry.reason,
+  }
+}
+
 function ruledSection(entries: readonly RuledFinding[]): string[] {
   const lines = ["## Ruled findings", ""]
   if (entries.length === 0)
@@ -580,17 +597,39 @@ function ruledSection(entries: readonly RuledFinding[]): string[] {
     ...lines,
     ...reasonTable(
       ["Plan and round", "Finding", "Tier", "Auditor", "Vetters", "Answer"],
-      entries.map((entry) => ({
-        cells: [
-          escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
-          escapeCell(`#${entry.finding} ${entry.title}`),
-          entry.tier,
-          escapeCell(modelText(entry.auditor)),
-          vetsCell(entry.vets),
-          answerCell(entry),
-        ],
-        reason: entry.reason,
-      })),
+      entries.map((entry) => winnerCells(entry, [])),
+      1,
+    ),
+  ]
+}
+
+/**
+ * The ruler's winners in the form of the user's list, with the ruler that named
+ * each, so the user can check them and overturn one with `disprove`.
+ */
+function rulerSection(entries: readonly RulerWinner[]): string[] {
+  const lines = ["## Ruler winners", ""]
+  if (entries.length === 0)
+    return [...lines, "No round holds a winner the ruler named."]
+  return [
+    ...lines,
+    ...reasonTable(
+      [
+        "Plan and round",
+        "Finding",
+        "Tier",
+        "Auditor",
+        "Vetters",
+        "Ruler",
+        "Answer",
+      ],
+      entries.map((entry) =>
+        winnerCells(entry, [
+          escapeCell(
+            entry.ruler === null ? "no recorded ruler" : modelText(entry.ruler),
+          ),
+        ]),
+      ),
       1,
     ),
   ]
@@ -726,19 +765,13 @@ function excludedSection(rows: ReadonlyMap<string, CoderRow>): string[] {
   return lines
 }
 
-/**
- * One section per tier range the class is compared on, each closed by a blank
- * line. A title names its range only when the class has more than one, so a
- * class with one keeps a plain title.
- */
+/** One section per tier range, each titled with its range and closed by a blank line. */
 function rangeSections(
   title: string,
-  workClass: WorkClass,
   body: (range: TierRange) => readonly string[],
 ): string[] {
-  const ranges = comparedRanges(workClass)
-  return ranges.flatMap((range) => [
-    `## ${ranges.length === 1 ? title : `${title}, ${range} findings`}`,
+  return tierRanges.flatMap((range) => [
+    `## ${title}, ${range} findings`,
     "",
     ...body(range),
     "",
@@ -747,7 +780,7 @@ function rangeSections(
 
 /**
  * Read every retained model record and render the auditor, vetter-pair and coder
- * results with the user's rulings.
+ * results with the user's rulings and the ruler's winners.
  * The excluded plans print only under `all`: they explain which plans supplied
  * no evidence, which a reader comparing models does not need every time.
  */
@@ -763,23 +796,23 @@ export async function modelsReport(
   const lines = [
     "# Model read-out",
     "",
-    ...rangeSections("Planning auditors", "planning", (range) =>
+    ...rangeSections("Planning auditors", (range) =>
       auditorSection(planning, "planning", settings, range),
     ),
-    ...rangeSections("Implementation auditors", "implementation", (range) =>
+    ...rangeSections("Implementation auditors", (range) =>
       auditorSection(implementation, "implementation", settings, range),
     ),
-    `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a section is printed in a second table below the main one. Each per-round figure divides the kept findings by the rounds in the count cell beside it, over all shared plans. A section counts A and B findings unless its heading names A/B/C. That section counts C findings too, and its downgrade is a kept finding that ended at D. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
+    `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a section is printed in a second table below the main one. Each per-round figure divides the kept findings by the rounds in the count cell beside it, over all shared plans. Each heading names its range. An A/B/C section counts C findings too, and its downgrade is a kept finding that ended at D. The A/B sections keep the serious findings apart, because in an A/B/C section a kept C counts as much as a kept A. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
     "",
-    ...rangeSections("Planning vetter pairs", "planning", (range) =>
+    ...rangeSections("Planning vetter pairs", (range) =>
       vetPairSection(evidence.vetPairs, "planning", range),
     ),
-    ...rangeSections("Implementation vetter pairs", "implementation", (range) =>
+    ...rangeSections("Implementation vetter pairs", (range) =>
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
-    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel and that the audit report or a vetter graded A or B, or A, B or C in the A/B/C section. Ruled splits counts the shared findings where the two vetters split and the user has ruled. Each ruled split ends in one of the four Split columns, so those four add up to Ruled splits and not to the shared findings. The user rules on a split of an implementation panel on a C finding too. A split without a ruling enters Ruled splits when its ruling lands. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
+    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel and that the audit report or a vetter graded within the section's range. Ruled splits counts the shared findings where the two vetters split and a winner is stored: the user names it on an A or B finding and the ruler on a C finding. Each ruled split ends in one of the four Split columns, so those four add up to Ruled splits and not to the shared findings. A split without a winner enters Ruled splits when its winner is stored. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
     "",
-    ...rangeSections("Coders", "implementation", (range) => [
+    ...rangeSections("Coders", (range) => [
       ...coderReading(coders, settings, range),
       "",
       ...coderTable(coders, range),
@@ -788,11 +821,13 @@ export async function modelsReport(
     "",
     ...ruledSection(evidence.rulings),
     "",
+    ...rulerSection(evidence.rulerWinners),
+    "",
     ...disprovedSection(evidence.disproved),
     ...(options.all
       ? [
           "",
-          ...rangeSections("Planning rounds by plan", "planning", (range) =>
+          ...rangeSections("Planning rounds by plan", (range) =>
             auditorPlanTable(
               auditorPlanReadings(
                 evidence.auditors,
@@ -803,19 +838,16 @@ export async function modelsReport(
               range,
             ),
           ),
-          ...rangeSections(
-            "Implementation rounds by plan",
-            "implementation",
-            (range) =>
-              auditorPlanTable(
-                auditorPlanReadings(
-                  evidence.auditors,
-                  evidence.disproved,
-                  "implementation",
-                  range,
-                ),
+          ...rangeSections("Implementation rounds by plan", (range) =>
+            auditorPlanTable(
+              auditorPlanReadings(
+                evidence.auditors,
+                evidence.disproved,
+                "implementation",
                 range,
               ),
+              range,
+            ),
           ),
           ...excludedSection(evidence.coders),
         ]

@@ -36,8 +36,9 @@ The read-out compares rather than ranks by taste:
    on those plans, so a model is not rewarded for auditing easier plans than the others. A model
    with fewer than five shared plans in a class is printed in a second table below the main one.
 2. **Vetter pairs** have separate planning and implementation tables. Each row compares two vetters
-   on the A and B findings they both judged on one panel. Where the two vetters split and the round
-   named a winner, that winner says which of them was right.
+   on the findings of its range they both judged on one panel. Where the two vetters split and the
+   round stored a winner, that winner says which of them was right, whether you or the ruler named
+   it.
 3. **Coders** are compared on closed plans whose archived step list the current grammar reads, whose
    every hosted share has a readable model record and whose whole-plan audit follows the final
    share. A step record without active time falls back to the span from the ready marker or the
@@ -49,10 +50,12 @@ The read-out compares rather than ranks by taste:
    dropped or downgraded finding as kept for the auditor and coder. Either ruling outranks the
    winner named in the round when a vetter-pair table ends a split.
 
-Implementation audits raise few A or B findings. Implementation auditors, implementation vetter
-pairs and coders are therefore each shown twice: once on A and B findings and once on A, B and C
-findings. When two vetters give different verdicts on a C finding, the ruler names the winner, so
-the A/B/C vetter-pair table can say which vetter was right.
+Auditors, vetter pairs and coders are each shown twice, in planning and in implementation: once on
+A and B findings and once on A, B and C findings. Implementation audits raise few A or B findings,
+so the A/B/C sections give them enough evidence. When two vetters give different verdicts on a C
+finding, the ruler names the winner, so the A/B/C vetter-pair table can say which vetter was right.
+The A/B sections stay the ones to choose auditors by, because in an A/B/C section a kept C counts
+as much as a kept A.
 
 The auditor tables carry no evaluation and no recommendation. The best model is the top row of the
 main table, and the time stands in its own column. Coder recommendations keep the direct
@@ -65,11 +68,11 @@ not audit that plan.
 
 ## Output
 
-Terminal Markdown in seven core parts: planning auditors, implementation auditors, planning vetter
-pairs, implementation vetter pairs, coders, ruled findings and disproved findings. Implementation
-auditors, implementation vetter pairs and coders each have two sections, whose headings end in
-`A/B findings` and `A/B/C findings`. The second also counts C findings. Under `--all`, planning
-rounds by plan, implementation rounds by plan once per range and excluded plans follow. Each auditor
+Terminal Markdown in eight core parts: planning auditors, implementation auditors, planning vetter
+pairs, implementation vetter pairs, coders, ruled findings, ruler winners and disproved findings.
+Every auditor, vetter-pair and coder part has two sections, whose headings end in `A/B findings` and
+`A/B/C findings`. The second also counts C findings. Under `--all`, planning and implementation
+rounds by plan, each once per range, and excluded plans follow. Each auditor
 section prints its main table, then a second table under `Fewer than 5 shared plans:` when a model
 is below that floor.
 
@@ -77,17 +80,17 @@ is below that floor.
    findings per round, then by time. Each side shows its kept findings in rounds, such as
    `16 in 79`, beside the per-round figure that division gives. Wrong claims is dropped, downgraded
    and disproved as a percentage of all four finding outcomes. In an A/B/C section a downgrade is a
-   kept finding that ended at D. Cost is audit plus rebuttal time per
-   complete round. Planning also reports a model whose first-round count differs from its even share
-   by more than a tenth of its shared plans and by at least two. A current auditor gets a bullet
+   kept finding that ended at D. Cost is audit plus rebuttal time per complete round. Planning also
+   reports a model whose first-round count differs from its even share by more than a tenth of its
+   shared plans and by at least two, in both planning sections. A current auditor gets a bullet
    above the main table, where `--first` can correct the count. Other models share one line below
    the last table.
 2. **Vetter-pair tables** have one row per pair of vetters, where a vetter is a model and an effort.
-   A row counts the findings of its range both vetters judged on one panel, the splits with a named
-   winner and how each such split ended: vetter 1 right, vetter 2 right, both right or neither. A
-   split without a winner counts only as shared. A later disproved finding makes the vetters
-   that dropped it right, and a later vet ruling makes the vetters that accepted it right. A round
-   with one vetter adds no row.
+   A row counts the findings of its range both vetters judged on one panel, the splits with a stored
+   winner, yours or the ruler's, and how each such split ended: vetter 1 right, vetter 2 right, both
+   right or neither. A split without a winner counts only as shared. A later disproved finding makes
+   the vetters that dropped it right, and a later vet ruling makes the vetters that accepted it
+   right. A round with one vetter adds no row.
 3. **Each coder table** sorts by its range's kept findings per step, fewest first, then by time. It
    shows plans, steps, kept findings, kept per step and time per step. Each coder section gives its
    own verdict from its own figures.
@@ -95,13 +98,16 @@ is below that floor.
    plan and round, the finding and its tier, the auditor, every vetter's verdict, your answer and
    your reason. A winning vetter is named by its model. The table shows each reason's first
    sentence, then the full reasons as a numbered list.
-5. **Later rulings** keep finding rulings in a numbered table per auditor. Vet rulings follow in one
+5. **Ruler winners** list every winner the ruler named, in the same form with a column for the
+   ruler's model and effort. You can check each one and overturn it with
+   [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
+6. **Later rulings** keep finding rulings in a numbered table per auditor. Vet rulings follow in one
    table, newest first and with an auditor column. Each row names every vetter of the round with its
    verdict. Every table shows each reason's first sentence,
    then the full reasons as a numbered list, numbered across the section.
-6. **Rounds by plan** sort by plan and then model. Their finding columns sum to the class totals
+7. **Rounds by plan** sort by plan and then model. Their finding columns sum to the class totals
    behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.
-7. **Excluded plans** group by reason with their recorded models.
+8. **Excluded plans** group by reason with their recorded models.
 
 When the read-out is taller than the terminal window, the command first shows it in a full-screen
 view that you scroll yourself. The view keeps three things in sight for the part under the top

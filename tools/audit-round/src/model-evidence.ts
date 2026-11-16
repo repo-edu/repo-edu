@@ -94,7 +94,7 @@ export type VetPairSample = {
   readonly ending: PairEnding | null
 }
 
-/** A finding whose round stored the user's winner. */
+/** A finding whose round stored a winner, the user's or the ruler's. */
 export type RuledFinding = {
   readonly stem: string
   readonly target: string
@@ -107,6 +107,12 @@ export type RuledFinding = {
   readonly vets: readonly RoundVet[]
   readonly winner: RulingWinner
   readonly reason: string
+}
+
+/** A finding whose round stored the ruler's winner, with the ruler that named it. */
+export type RulerWinner = RuledFinding & {
+  /** The model and effort the round's rule phase reported, or null without that entry. */
+  readonly ruler: ModelIdentity | null
 }
 
 type DisprovedBase = {
@@ -137,8 +143,10 @@ export type ModelEvidence = {
   readonly auditors: ReadonlyMap<string, AuditorRow>
   readonly coders: ReadonlyMap<string, CoderRow>
   readonly vetPairs: readonly VetPairSample[]
-  /** Newest round first, then in finding order. */
+  /** The user's winners, newest round first, then in finding order. */
   readonly rulings: readonly RuledFinding[]
+  /** The ruler's winners, in the same order. */
+  readonly rulerWinners: readonly RulerWinner[]
   readonly disproved: readonly DisprovedEvidence[]
 }
 
@@ -488,30 +496,45 @@ function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
   )
 }
 
-function ruledFindings(records: readonly RoundRecord[]): RuledFinding[] {
-  return [...records].reverse().flatMap((record) =>
-    record.data.findings.flatMap((finding): RuledFinding[] =>
-      finding.ruling === undefined || finding.number === null
-        ? []
-        : [
-            {
-              stem: record.stem,
-              target: record.data.target,
-              round: record.data.round,
-              finding: finding.number,
-              title: finding.title,
-              tier: finding.tier,
-              auditor: selectionIdentity(
-                record.data.auditor.assistant,
-                record.data.auditor,
-              ),
-              vets: roundVets(record.data, finding),
-              winner: finding.ruling.winner,
-              reason: finding.ruling.reason,
-            },
-          ],
-    ),
-  )
+/** The round's ruler, as its rule phase entry reported it. */
+function roundRuler(round: RoundData): ModelIdentity | null {
+  const entry = round.phases.find((phase) => phase.phase === "rule")
+  return entry === undefined ? null : selectionIdentity(entry.assistant, entry)
+}
+
+/**
+ * Every stored winner, newest round first and in finding order within a round,
+ * split by who named it. The user's and the ruler's stay apart, so the user can
+ * check the ruler's winners without them burying the user's own.
+ */
+function ruledFindings(records: readonly RoundRecord[]): {
+  readonly user: RuledFinding[]
+  readonly ruler: RulerWinner[]
+} {
+  const user: RuledFinding[] = []
+  const ruler: RulerWinner[] = []
+  for (const record of [...records].reverse())
+    for (const finding of record.data.findings) {
+      if (finding.ruling === undefined || finding.number === null) continue
+      const entry: RuledFinding = {
+        stem: record.stem,
+        target: record.data.target,
+        round: record.data.round,
+        finding: finding.number,
+        title: finding.title,
+        tier: finding.tier,
+        auditor: selectionIdentity(
+          record.data.auditor.assistant,
+          record.data.auditor,
+        ),
+        vets: roundVets(record.data, finding),
+        winner: finding.ruling.winner,
+        reason: finding.ruling.reason,
+      }
+      if (finding.ruling.namedBy === "user") user.push(entry)
+      else ruler.push({ ...entry, ruler: roundRuler(record.data) })
+    }
+  return { user, ruler }
 }
 
 function auditorRows(
@@ -934,11 +957,13 @@ export async function readModelEvidence(
   const files = await readRoundFiles(context)
   const records = roundRecords(files)
   const disproved = disprovedEvidence(files)
+  const winners = ruledFindings(records)
   return {
     auditors: auditorRows(records, disproved),
     coders: await coderRows(context, records),
     vetPairs: vetPairSamples(records),
-    rulings: ruledFindings(records),
+    rulings: winners.user,
+    rulerWinners: winners.ruler,
     disproved,
   }
 }

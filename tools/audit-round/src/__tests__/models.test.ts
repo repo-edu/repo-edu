@@ -190,6 +190,16 @@ async function archivePlan(
   return directory
 }
 
+/** The body of one planning auditor section, named by its tier range. */
+const planningAuditors = (report: string, range: "A/B" | "A/B/C") =>
+  report
+    .split(`## Planning auditors, ${range} findings\n\n`)[1]
+    .split(
+      range === "A/B"
+        ? "\n\n## Planning auditors, A/B/C findings"
+        : "\n\n## Implementation auditors",
+    )[0]
+
 /** The body of one implementation auditor section, named by its tier range. */
 const implementationAuditors = (report: string, range: "A/B" | "A/B/C") =>
   report
@@ -267,9 +277,7 @@ test("auditor tables compare the same plans and sort by the per-round gap", asyn
       })
 
   const report = await modelsReport(f.runtime, testSettings)
-  const planning = report
-    .split("## Planning auditors\n\n")[1]
-    .split("\n\n## Implementation auditors")[0]
+  const planning = planningAuditors(report, "A/B")
   assert.equal(
     planning,
     [
@@ -375,9 +383,7 @@ test("same-plan gap sorting does not reward a model for auditing harder plans", 
   }
 
   const report = await modelsReport(f.runtime, testSettings)
-  const planning = report
-    .split("## Planning auditors\n\n")[1]
-    .split("\n\n## Implementation auditors")[0]
+  const planning = planningAuditors(report, "A/B")
   assert.ok(
     planning.indexOf("| easy-model low |") <
       planning.indexOf("| hard-model low |"),
@@ -460,9 +466,7 @@ test("auditor classes print no evaluation and move models below the floor to a s
     "| Model | Plans | Own findings in rounds | Own per round | Others on same plans | Others per round | Minutes per round | Wrong claims |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ]
-  const planning = report
-    .split("## Planning auditors\n\n")[1]
-    .split("\n\n## Implementation auditors")[0]
+  const planning = planningAuditors(report, "A/B")
   assert.equal(
     planning,
     [
@@ -603,9 +607,7 @@ test("planning opener notes frame both tables, separate current and unlisted aud
       auditors: [{ assistant: "claude", model: "listed", effort: "low" }],
     },
   })
-  const planning = report
-    .split("## Planning auditors\n\n")[1]
-    .split("\n\n## Implementation auditors")[0]
+  const planning = planningAuditors(report, "A/B")
   const unlistedLine =
     "Not in the current `planningAudit.auditors` list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6."
   const mainTable = planning.indexOf("| Model |")
@@ -620,6 +622,12 @@ test("planning opener notes frame both tables, separate current and unlisted aud
     planning,
     /Not in the current `planningAudit\.auditors` list, opened an uneven share: `old-one low` 0 of 6; `old-two low` 0 of 6\./,
   )
+  // Openers count plans, not findings, so the A/B/C section prints the same lines.
+  const widePlanning = planningAuditors(report, "A/B/C")
+  assert.ok(
+    widePlanning.startsWith("- `listed low` opened 6 of 6 plans.\n\n| Model |"),
+  )
+  assert.ok(widePlanning.endsWith(unlistedLine))
   const implementation = implementationAuditors(report, "A/B")
   assert.doesNotMatch(implementation, /opened|uneven share/)
 })
@@ -869,8 +877,8 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
   )
   assert.equal(
     report
-      .split("## Planning rounds by plan\n\n")[1]
-      .split("\n\n## Implementation rounds by plan")[0],
+      .split("## Planning rounds by plan, A/B findings\n\n")[1]
+      .split("\n\n## Planning rounds by plan, A/B/C findings")[0],
     [
       "| Plan | Model | Rounds | A/B kept | Dropped | Downgraded | Disproved | Minutes per round |",
       "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -880,6 +888,10 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
       "|  | model-b low | 2 | 4 | 0 | 0 | 0 | 4.0 |",
       "| gamma | model-a low | 0 | 0 | 0 | 0 | 1 | — |",
     ].join("\n"),
+  )
+  assert.match(
+    report,
+    /## Planning rounds by plan, A\/B\/C findings\n\n\| Plan \| Model \| Rounds \| A\/B\/C kept \|/,
   )
   assert.match(
     report,
@@ -1238,7 +1250,14 @@ test("vetter-pair tables count each class's shared findings per tier range, rule
         trio(1, "B", ["accept", "accept", "accept"]),
         trio(2, "B", ["drop", "accept", "accept"], ["atl"]),
         trio(3, "B", ["revise", "revise", "accept"], ["atl", "obl"]),
-        trio(4, "C", ["drop", "accept", "accept"]),
+        {
+          ...trio(4, "C", ["drop", "accept", "accept"]),
+          ruling: {
+            winner: ["obl", "abm"],
+            reason: "The ruler read the cited rule.",
+            namedBy: "ruler",
+          },
+        },
         ruledFinding(5, "claim 5", "C", [
           review("atl", "accept"),
           review("obl", "revise", { revisedTier: "B" }),
@@ -1331,13 +1350,23 @@ test("vetter-pair tables count each class's shared findings per tier range, rule
 
   const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
-    report.split("## Planning vetter pairs\n\n")[1].split("\n\nA vetter is")[0],
+    report
+      .split("## Planning vetter pairs, A/B findings\n\n")[1]
+      .split("\n\nA vetter is")[0],
     [
       "| Vetter 1 | Vetter 2 | Shared A/B findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |",
       "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
       "| vet-alpha low | vet-beta low | 9 | 6 | 4 | 1 | 0 | 1 |",
       "| vet-alpha low | vet-gamma medium | 9 | 5 | 4 | 0 | 1 | 0 |",
       "| vet-beta low | vet-gamma medium | 9 | 5 | 2 | 1 | 0 | 2 |",
+      "",
+      "## Planning vetter pairs, A/B/C findings",
+      "",
+      "| Vetter 1 | Vetter 2 | Shared A/B/C findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| vet-alpha low | vet-beta low | 10 | 7 | 4 | 2 | 0 | 1 |",
+      "| vet-alpha low | vet-gamma medium | 10 | 6 | 4 | 1 | 1 | 0 |",
+      "| vet-beta low | vet-gamma medium | 10 | 5 | 2 | 1 | 0 | 2 |",
       "",
       "## Implementation vetter pairs, A/B findings",
       "",
@@ -1378,11 +1407,11 @@ test("a read-out without a panel of two vetters prints no vetter pairs", async (
   const report = await modelsReport(f.runtime, testSettings)
   assert.match(
     report,
-    /## Planning vetter pairs\n\nNo two planning vetters have judged the same A or B finding\.\n\n## Implementation vetter pairs, A\/B findings\n\nNo two implementation vetters have judged the same A or B finding\.\n\n## Implementation vetter pairs, A\/B\/C findings\n\nNo two implementation vetters have judged the same A, B or C finding\.\n/,
+    /## Planning vetter pairs, A\/B findings\n\nNo two planning vetters have judged the same A or B finding\.\n\n## Planning vetter pairs, A\/B\/C findings\n\nNo two planning vetters have judged the same A, B or C finding\.\n\n## Implementation vetter pairs, A\/B findings\n\nNo two implementation vetters have judged the same A or B finding\.\n\n## Implementation vetter pairs, A\/B\/C findings\n\nNo two implementation vetters have judged the same A, B or C finding\.\n/,
   )
 })
 
-test("ruled findings list a ruled split, a ruled contest and a rewritten single-vetter ruling, newest first", async (t) => {
+test("ruled findings list the user's winners newest first and the ruler's winners apart with their ruler", async (t) => {
   const f = await modelFixture(t)
   const { alpha, beta } = panelVets
   const planPath = join(f.roundRoot, "ruled-plan-rounds.json")
@@ -1463,9 +1492,25 @@ test("ruled findings list a ruled split, a ruled contest and a rewritten single-
         chosenBy: "settings",
       },
       panelSettings([alpha, beta]),
-      [phase("audit", "codex", "audit-beta", 60_000), alpha, beta],
+      [
+        phase("audit", "codex", "audit-beta", 60_000),
+        alpha,
+        beta,
+        phase("rule", "claude", "rule-model", 60_000, "xhigh"),
+      ],
       [],
       [
+        {
+          ...ruledFinding(1, "ruled C split", "C", [
+            review("atl", "accept"),
+            review("obl", "drop"),
+          ]),
+          ruling: {
+            winner: ["atl"],
+            reason: "The ruler opened the cited test. It covers the case.",
+            namedBy: "ruler",
+          },
+        },
         ruledFinding(
           2,
           "ruled contest",
@@ -1484,9 +1529,7 @@ test("ruled findings list a ruled split, a ruled contest and a rewritten single-
 
   const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
-    report
-      .split("## Ruled findings\n\n")[1]
-      .split("\n\n## Disproved after the round")[0],
+    report.split("## Ruled findings\n\n")[1].split("\n\n## Ruler winners")[0],
     [
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Answer | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
@@ -1499,6 +1542,18 @@ test("ruled findings list a ruled split, a ruled contest and a rewritten single-
       "2. Both corrections hold.",
       "3. Neither side held; a third correction landed.",
       "4. The vet was right. The guard already holds.",
+    ].join("\n"),
+  )
+  assert.equal(
+    report
+      .split("## Ruler winners\n\n")[1]
+      .split("\n\n## Disproved after the round")[0],
+    [
+      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Answer | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #1 ruled C split | C | audit-beta low | vet-alpha low: accept; vet-beta low: drop | rule-model xhigh | vet-alpha low | The ruler opened the cited test. |",
+      "",
+      "1. The ruler opened the cited test. It covers the case.",
     ].join("\n"),
   )
 })

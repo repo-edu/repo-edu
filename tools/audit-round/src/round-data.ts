@@ -607,19 +607,11 @@ const rangeTiers: Record<TierRange, readonly RoundFinding["tier"][]> = {
 }
 
 /**
- * The widest range each work class compares on. Implementation audits raise
- * few A or B findings, so their auditors, vetters and coders could seldom be
- * compared on those alone, and that class counts C findings too.
+ * The ranges every work class is compared on, narrowest first. The A/B range
+ * keeps the serious findings apart, and the A/B/C range counts the C findings
+ * whose disputes the ruler judges.
  */
-const widestRange: Record<RoundKind, TierRange> = {
-  planning: "A/B",
-  implementation: "A/B/C",
-}
-
-/** The ranges a work class is compared on, narrowest first. */
-export function comparedRanges(workClass: RoundKind): readonly TierRange[] {
-  return widestRange[workClass] === "A/B" ? ["A/B"] : ["A/B", "A/B/C"]
-}
+export const tierRanges: readonly TierRange[] = ["A/B", "A/B/C"]
 
 export function tierWithin(
   tier: RoundFinding["tier"],

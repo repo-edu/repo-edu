@@ -1033,7 +1033,7 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
   command
     .command("models")
     .description(
-      "Read auditor, vetter-pair and coder results and the user's rulings from retained records without starting assistants.",
+      "Read auditor, vetter-pair and coder results, the user's rulings and the ruler's winners from retained records without starting assistants.",
     )
     .option("--all", "print per-plan round data and excluded plans")
     .action((flags: { all?: boolean }) => {
