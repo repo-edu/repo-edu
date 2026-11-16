@@ -60,6 +60,13 @@ is always named in full.
   session then resumes. A reply always means the user's answer to a ruling.
 - **Open item**: one numbered decision in a ruling that still needs the user's
   answer.
+- **Evidence record**: a judging session's own account of what it read for one
+  disputed finding or open choice. For each point the sides differ on, it names
+  what each side claims, the source the session opened with the place in it,
+  the passage read and what that passage settles. A claim the session could not
+  check is marked as unchecked and supports no conclusion. A ruling carries one
+  for each open item, and the ruling chat builds its own before it proposes an
+  answer.
 - **Deferral**: an accepted correction whose destination repo is outside the
   judged repo set, so the round could not land it. The round records it in its
   commit body. It stays open until a later round in the destination repo

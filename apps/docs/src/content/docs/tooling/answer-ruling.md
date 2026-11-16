@@ -4,7 +4,9 @@ description: Answer a waiting run's ruling in the Claude desktop chat, which exp
 ---
 
 `/ruling` answers a ruling a waiting run asks for. A ruling is the fix or implementation worker's
-saved explanation of a decision it cannot make for you. The chat explains it, proposes an answer,
+saved explanation of a decision it cannot make for you. Each open item shows what its writer read:
+the points the sides differ on, the source it opened for each and what that source settles. The
+chat reads the evidence itself, explains the ruling, proposes the answer its own reading supports,
 takes your decision and sends it to the run in the terminal, which resumes the same session.
 
 | Fact | Detail |
@@ -42,11 +44,16 @@ On Linux no window shows; the notice alone asks for your ruling.
    command. When several runs wait, it asks you which one.
 2. **The explanation.** It reads the ruling and, for a disputed finding, the round's audit report,
    vet reports and rebuttal report. It explains what is being decided, each option and the
-   recommendation, and answers your questions from those files and the sources they cite.
-3. **The record it proposes to send.** Each finding's winner and reason, then the free text for the
-   fix, exactly as they will be sent. The chat takes them from the ruling's suggested answer. When
-   the round's files contradict that answer, it says so and proposes what they support. Nothing is
-   sent before your yes.
+   ruling's recommendation, and answers your questions from those files and the sources they cite.
+3. **Its own reading.** Before its first message the chat lists the points the sides differ on and
+   opens every source behind them itself. It shows its own record: for each point, what each side
+   claims, the passage it read and what that passage settles. It names where its reading differs
+   from the ruling's, or says that both agree.
+4. **The record it proposes to send.** Each finding's winner and reason, then the free text for the
+   fix, exactly as they will be sent. It comes last in the first message. The chat proposes what
+   its own reading supports, not simply the ruling's suggested answer. When it could not open a
+   source that decides a finding, it proposes no winner for that finding, says what is missing and
+   proposes `not yet` with a question for the fix. Nothing is sent before your yes.
 
 ## Your answers
 
