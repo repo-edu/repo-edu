@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import type { WorkflowResult } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
+import { courseOpenedAfterDelete } from "../session/course-list.js"
 import { useCourseStore } from "../stores/course-store.js"
 import {
   activeCourseId,
@@ -190,6 +191,119 @@ describe("SessionController deletion", () => {
     controller.dispose()
   })
 
+  it("lands the dialog's course and the reordered listing in one notification", async () => {
+    let removed = false
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.delete") {
+          removed = true
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        // A save since the last listing moved course-c to the front.
+        if (workflowId === "course.list")
+          return removed
+            ? [makeCourse("course-c"), makeCourse("course-b")]
+            : [
+                makeCourse("course-a"),
+                makeCourse("course-b"),
+                makeCourse("course-c"),
+              ]
+        if (workflowId === "settings.savePreferences") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+    const named = courseOpenedAfterDelete(
+      controller.getSnapshot().courses,
+      "course-a",
+    )?.id
+    assert.equal(named, "course-b")
+    const notified: { courseIds: string[]; active: string | null }[] = []
+    const unsubscribe = controller.subscribe(() => {
+      const snapshot = controller.getSnapshot()
+      notified.push({
+        courseIds: snapshot.courses.map((course) => course.id),
+        active: activeCourseId(snapshot),
+      })
+    })
+
+    await controller.deleteCourse(testSessionStart("courseDelete"), "course-a")
+    unsubscribe()
+
+    const landed = notified.findIndex(
+      ({ courseIds }) => !courseIds.includes("course-a"),
+    )
+    assert.ok(landed > 0)
+    assert.ok(
+      notified.slice(0, landed).every(({ active }) => active === "course-a"),
+    )
+    assert.deepEqual(notified[landed], {
+      courseIds: ["course-c", "course-b"],
+      active: named,
+    })
+    assert.equal(useCourseStore.getState().course?.id, named)
+
+    controller.dispose()
+  })
+
+  it("closes the deleted course when the listing after it fails", async () => {
+    let removed = false
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.delete") {
+          removed = true
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.list") {
+          if (removed) throw new Error("listing unavailable")
+          return [makeCourse("course-a"), makeCourse("course-b")]
+        }
+        if (workflowId === "settings.savePreferences") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    await assert.rejects(
+      controller.deleteCourse(testSessionStart("courseDelete"), "course-a"),
+      /listing unavailable/,
+    )
+
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-b")
+    assert.equal(useCourseStore.getState().course?.id, "course-b")
+    assert.equal(pendingTransaction(controller.getSnapshot()), null)
+
+    controller.dispose()
+  })
+
   it("keeps the committed course and resumes saving when active delete fails", async () => {
     const savedDrafts: PersistedCourse[] = []
     const controller = startController({
@@ -320,8 +434,16 @@ describe("SessionController deletion", () => {
           deleted.push((input as { courseId: string }).courseId)
           return undefined as WorkflowResult<typeof workflowId>
         }
+        // A delete classified against course-a would choose course-c from
+        // this reordered listing instead of the held list's course-a.
         if (workflowId === "course.list")
-          return deleted.length > 0 ? [] : [makeCourse("course-a")]
+          return deleted.length > 0
+            ? [makeCourse("course-c"), makeCourse("course-a")]
+            : [
+                makeCourse("course-a"),
+                makeCourse("course-b"),
+                makeCourse("course-c"),
+              ]
         if (
           workflowId === "course.save" ||
           workflowId === "settings.savePreferences" ||
@@ -357,7 +479,10 @@ describe("SessionController deletion", () => {
     await deletion
 
     assert.deepEqual(deleted, ["course-b"])
-    assert.deepEqual(activeSurface(controller.getSnapshot()), { kind: "home" })
+    assert.deepEqual(activeSurface(controller.getSnapshot()), {
+      kind: "course",
+      courseId: "course-a",
+    })
     controller.dispose()
   })
 })

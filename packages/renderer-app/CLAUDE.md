@@ -191,7 +191,7 @@ the existing transaction owner. Follow-up bodies retain the initiating start.
 | Set up a course from your LMS, Set up a course from a RepoBee student list or Enter in the course-name field | Home view | `course.save`, then `course.list` | none |
 | Rename | Course switcher | `course.load` when needed, then `course.save` and `course.list` | none |
 | Duplicate | Course switcher | `course.load` when needed, then `course.save` and `course.list` | none |
-| Delete | Course switcher | `course.delete`, fallback surface change when needed, then `course.list` | none |
+| Delete | Course switcher | `course.delete`, then `course.list`, with the fallback surface change when needed | none |
 | Refresh | Submission tab | `analysis.listFolderFiles` | none |
 | Load questions, Refresh questions | Examination view | `examination.prepareSubmissionSource` as needed, then `examination.lookupQuestions` and `examination.lookupQuestionSummaries` | none |
 | Generate questions, Re-generate | Examination view | preparation and lookup as needed, then `examination.generateQuestions` | Stop |

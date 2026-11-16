@@ -261,13 +261,19 @@ export class SessionController extends CourseMutationController {
     )
   }
 
+  private listCourses(
+    scope: SessionTransactionScope,
+  ): Promise<readonly CourseSummary[]> {
+    return scope.required(() =>
+      this.transactions.controllerClient.run("course.list", undefined),
+    )
+  }
+
   private async refreshCoursesBody(
     scope: SessionTransactionScope,
   ): Promise<void> {
     await this.persistence.flushActive(scope)
-    const courses = await scope.required(() =>
-      this.transactions.controllerClient.run("course.list", undefined),
-    )
+    const courses = await this.listCourses(scope)
     if (!scope.canContinue()) return
     const current = this.snapshot.settings.preferences.activeSurface
     const courseId = activeCourseIdFromSurface(current)
@@ -496,15 +502,7 @@ export class SessionController extends CourseMutationController {
         try {
           await this.persistence.flushActive(scope)
           await this.persistence.deleteDetached(scope, courseId)
-          const fallback = surfaceAfterDelete(this.snapshot.courses, courseId)
-          const commit = await this.prepareDeletedCourseFallback(
-            scope,
-            fallback,
-          )
-          this.commitSurface(scope, commit, {
-            effect: () => publishCourseRemoval(courseId),
-          })
-          await this.refreshCoursesBody(scope)
+          await this.leaveDeletedActiveCourse(scope, courseId)
         } catch (error) {
           this.failCommand(scope, error, "Could not delete course.")
           throw error
@@ -895,6 +893,28 @@ export class SessionController extends CourseMutationController {
       return await this.prepareSurfaceCommit(scope, fallbackSurface)
     } catch {
       return await this.prepareSurfaceCommit(scope, { kind: "home" })
+    }
+  }
+
+  /** Lands the next course and the new listing in one commit. The next course
+   * comes from the list the delete dialog read, because `course.list` may
+   * order the courses differently. A failed listing still closes the deleted
+   * course, so its worker cannot save it again. */
+  private async leaveDeletedActiveCourse(
+    scope: SessionTransactionScope,
+    courseId: string,
+  ): Promise<void> {
+    const fallback = surfaceAfterDelete(this.snapshot.courses, courseId)
+    let courses: readonly CourseSummary[] | undefined
+    try {
+      courses = await this.listCourses(scope)
+    } finally {
+      if (scope.canContinue())
+        this.commitSurface(
+          scope,
+          await this.prepareDeletedCourseFallback(scope, fallback),
+          { courses, effect: () => publishCourseRemoval(courseId) },
+        )
     }
   }
 

@@ -207,7 +207,7 @@ export const sessionStartInventory = {
     control: "Delete",
     where: "Course switcher",
     starts:
-      "`course.delete`, fallback surface change when needed, then `course.list`",
+      "`course.delete`, then `course.list`, with the fallback surface change when needed",
     cancel: "none",
   },
   submissionRefresh: {
