@@ -3,4 +3,3 @@
 944	packages/application/src/analysis-workflows/analysis-handler.ts	analysis-handler mixes workflow orchestration, stats aggregation, identity collapse, exclusion filtering, and roster input validation.	23baa252aa95408dcc8ae94adf4702b8c9c762ef
 855	packages/fixture-engine/src/cli.ts	"developer-only fixture CLI; split is reasonable but not worth prioritizing now"	d56a5edea3ac82bcf3c97ed54bc9826d5298f0c0
 775	tools/release/src/macos-signing.ts	tool-release repeated-fix signal and macOS signing responsibilities need a planned split	6a0c6ad374fc6eb4b8824fc6036d6c2e676b6103
-754	packages/renderer-app/src/components/CourseSwitcher.tsx	planned in renderer-shell	8d70c79b02ff52d6b8023a565292ad4c49753ca0
