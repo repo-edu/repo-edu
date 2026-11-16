@@ -48,7 +48,8 @@ A planning or step audit also compares the files the plan's steps change with th
 files that change only inside a plan. A plan that changes such a file needs a **Walk-through**
 section, and a plan without one gets a finding. When a plan changes such a file, the audit reads
 `../plan/FAILURES.md` and checks the walk-through against it. The **Doctrine changes** section of
-`../plan/.agents/references/planning-rules.md` owns that rule.
+`../plan/.agents/references/planning-rules.md` owns that rule. The commit hooks of both repos refuse
+a commit that changes such a file unless its subject is a plan step or an implementation-audit fix.
 
 The audit report lists findings by number. Each carries a tier from A, the most serious, to D,
 wording, plus its location, the growth patterns it could match, its reach and its maintenance-burden

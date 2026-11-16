@@ -472,10 +472,86 @@ test("the hook blocks both repositories while serious contests need winners", ()
           repository,
           none,
           areaKinds,
-          { openContests: [2, 5] },
+          { openContests: [2, 5], changedPaths: [] },
         ),
       /findings 2, 5 still need the user's contest winner/,
     )
+})
+
+test("only a plan step or an implementation-audit fix changes a listed path of its repository", () => {
+  const changing = (
+    subject: string,
+    repository: Repository,
+    changedPaths: readonly string[],
+    model = "gpt-6-astra high",
+  ) =>
+    stampCommitMessage(
+      message(
+        subject,
+        subject.startsWith("oth ")
+          ? repository === "repo-edu"
+            ? codeFinding
+            : planFinding
+          : "",
+        model,
+      ),
+      repository,
+      none,
+      areaKinds,
+      { openContests: [], changedPaths },
+    )
+  const listed = {
+    "repo-edu": ".agents/references/round-protocol.md",
+    plan: ".agents/references/planning-rules.md",
+  } as const
+  const otherRepository = {
+    "repo-edu": "GROWTH-PATTERNS.md",
+    plan: "tools/audit-round/src/listed-files.json",
+  } as const
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const offPlan = "oth growth-none docs(x): s"
+    for (const path of [
+      listed[repository],
+      ".agents/skills/vet/references/new-judgement.md",
+    ])
+      assert.throws(
+        () => changing(offPlan, repository, ["README.md", path]),
+        (error: unknown) =>
+          error instanceof SubjectError &&
+          error.message.startsWith(`${path} is a listed file`) &&
+          /FAILURES\.md/.test(error.message) &&
+          /Doctrine changes in \.agents\/references\/planning-rules\.md/.test(
+            error.message,
+          ),
+      )
+    assert.doesNotThrow(() =>
+      changing(
+        "example/impl-3 oth docs(x): s",
+        repository,
+        [listed[repository]],
+        "gpt-6-astra high\nImplementation took 3 min.",
+      ),
+    )
+    assert.doesNotThrow(() =>
+      changing("example/impl-audit-1-3 oth: s", repository, [
+        listed[repository],
+      ]),
+    )
+    for (const path of [
+      ".agents/skills/implement/references/workflow.md",
+      ".agents/skills/vet/referencesx/workflow.md",
+      otherRepository[repository],
+    ])
+      assert.doesNotThrow(() => changing(offPlan, repository, [path]))
+  }
+  assert.throws(
+    () =>
+      changing("example/plan-audit oth: s", "plan", [
+        "GROWTH-PATTERNS.md",
+        ".agents/skills/fix/references/workflow.md",
+      ]),
+    /GROWTH-PATTERNS\.md, \.agents\/skills\/fix\/references\/workflow\.md are listed files/,
+  )
 })
 
 test("the hook entry writes the derived sequence and leaves a refused file untouched", async () => {
@@ -485,7 +561,11 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
     const main = fileURLToPath(
       new URL("../commit-msg-main.ts", import.meta.url),
     )
-    const run = (repository: Repository, env: Record<string, string> = {}) =>
+    const run = (
+      repository: Repository,
+      env: Record<string, string> = {},
+      changedPaths = "",
+    ) =>
       execa(
         process.execPath,
         ["--import", import.meta.resolve("tsx"), main, repository, file],
@@ -496,6 +576,7 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
             COMMIT_OPEN_CONTESTS: "",
             ...env,
           },
+          input: changedPaths,
           reject: false,
         },
       )
@@ -580,6 +661,21 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
         }
       }
     }
+    const offPlan = message("oth growth-none docs(repo): s", codeFinding)
+    await writeFile(file, offPlan)
+    const listed = await run(
+      "repo-edu",
+      {},
+      "README.md\0.agents/skills/watch/references/new.md\0",
+    )
+    assert.equal(listed.exitCode, 1)
+    assert.match(
+      listed.stderr,
+      /\.agents\/skills\/watch\/references\/new\.md is a listed file/,
+    )
+    assert.equal(await readFile(file, "utf8"), offPlan)
+    const unlisted = await run("repo-edu", {}, "README.md\0")
+    assert.equal(unlisted.exitCode, 0, unlisted.stderr)
     const joined = message(
       "oth fix(audit-round): correct the record",
       `${codeFinding}\n${codeFinding.replace("[C] ", "[C]")}`,

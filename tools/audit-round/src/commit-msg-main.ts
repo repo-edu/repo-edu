@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises"
+import { text } from "node:stream/consumers"
 import areaModel from "../../architecture-check/src/area-model.json" with {
   type: "json",
 }
@@ -6,9 +7,11 @@ import { stampCommitMessage } from "./commit-msg.js"
 import { type Repository, SubjectError } from "./subject.js"
 
 /**
- * The commit-msg hook of both repositories: `<repository> <message file>`.
- * A refusal names the subject grammar, so whoever meets one lands on the
- * document that owns the shape.
+ * The commit-msg hook of both repositories: `<repository> <message file>`,
+ * with the paths the commit changes in that repository on standard input,
+ * each ended by a NUL byte as `git diff --cached --name-only --no-renames -z`
+ * writes them. A refusal names the subject grammar, so whoever meets one
+ * lands on the document that owns the shape.
  */
 const [repository, file] = process.argv.slice(2)
 if (
@@ -16,7 +19,7 @@ if (
   file === undefined
 ) {
   process.stderr.write(
-    "commit-msg: usage: commit-msg-main.ts <repo-edu|plan> <message file>\n",
+    "commit-msg: usage: commit-msg-main.ts <repo-edu|plan> <message file> < <NUL-separated changed paths>\n",
   )
   process.exit(2)
 }
@@ -42,6 +45,9 @@ try {
         openContestValue.length === 0
           ? []
           : openContestValue.split(",").map(Number),
+      changedPaths: (await text(process.stdin))
+        .split("\0")
+        .filter((path) => path.length > 0),
     },
   )
   await writeFile(file, stamped)

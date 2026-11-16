@@ -308,9 +308,17 @@ consumers.
   `COMMIT_OPEN_CONTESTS` names serious findings that still need the user's winner. It also refuses a
   single-model record whose effort disagrees with the tag, a step record
   without active implementation time and a ready marker without its coder.
-  `commit-msg-main.ts` is the
-  entry both repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar
-  file.
+  It refuses a commit that changes a listed file unless the subject has an `impl-<n>` or
+  `impl-audit-<scope>` role. `listed-files.json` keeps each repository's listed paths apart; a path
+  ending in `/` names a folder and covers every path under it, and any other path names one file.
+  The list names its own path, so a change to it goes through a plan too. That refusal names
+  `FAILURES.md` and the plan repo's **Doctrine changes** rule, which owns the route. Each hook
+  collects the paths the commit changes in its own repository, both names of a rename included, and
+  passes them on standard input; the reader asks Git nothing. The plan repo's hook collects them
+  before it moves to the Repo Edu checkout, where Git would answer for Repo Edu's index.
+  `commit-msg-main.ts` is the entry both repositories' hooks run,
+  `<repo-edu|plan> <message file>` with the NUL-separated changed paths on standard input; a refusal
+  names the grammar file.
 - `assistant.ts` owns one invocation's session identity, final text and turn evidence. A session
   is one or more turns and ends with its process: Claude's print mode emits one result per turn,
   a background task or subagent wakes the session for a further turn, and while a subagent is

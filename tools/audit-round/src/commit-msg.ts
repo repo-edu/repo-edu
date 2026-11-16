@@ -1,4 +1,5 @@
 import { readFindings } from "./findings.js"
+import listedFiles from "./listed-files.json" with { type: "json" }
 import { stampSequence } from "./sequence.js"
 import { parseCoderRecord } from "./settings.js"
 import {
@@ -23,6 +24,29 @@ export type CommitStamps = {
 export type CommitAdmission = {
   /** Serious contests that still need the user's winner. */
   readonly openContests: readonly number[]
+  /**
+   * Every path the commit changes in its own repository, both names of a
+   * rename included. The hook collects them; this reader asks Git nothing.
+   */
+  readonly changedPaths: readonly string[]
+}
+
+/**
+ * The changed paths that `listed-files.json` names for this repository: a
+ * path equal to a listed file or under a listed folder, whose entry ends in
+ * `/`. Such a file changes only inside a plan, under the plan repo's
+ * Doctrine changes rule.
+ */
+export function listedPaths(
+  paths: readonly string[],
+  repository: Repository,
+): readonly string[] {
+  const entries: readonly string[] = listedFiles[repository]
+  return paths.filter((path) =>
+    entries.some((entry) =>
+      entry.endsWith("/") ? path.startsWith(entry) : path === entry,
+    ),
+  )
 }
 
 const efforts = {
@@ -98,14 +122,15 @@ export function readStepModelRecord(body: string): StepModelRecord {
  * auditor the round holds, every subject parses under the repository's form,
  * a tagged subject's body opens with the model the work ran on, and a
  * single-model record agrees with the tag on the effort. Runner-written settle
- * and ready markers and the user's disprove ruling have neither.
+ * and ready markers and the user's disprove ruling have neither. A commit that
+ * changes a listed file must carry a step or implementation-audit subject.
  */
 export function stampCommitMessage(
   text: string,
   repository: Repository,
   stamps: CommitStamps,
   areaKinds: ReadonlyMap<string, string>,
-  admission: CommitAdmission = { openContests: [] },
+  admission: CommitAdmission = { openContests: [], changedPaths: [] },
 ): string {
   if (admission.openContests.length > 0)
     throw new SubjectError(
@@ -145,6 +170,15 @@ export function stampCommitMessage(
   }
   const subjectLine = stampSequence(tokens.join(" "), findings, repository)
   const subject = parseSubject(subjectLine, repository)
+  const listed = listedPaths(admission.changedPaths, repository)
+  if (
+    listed.length > 0 &&
+    subject.form?.role !== "impl" &&
+    subject.form?.role !== "impl-audit"
+  )
+    throw new SubjectError(
+      `${listed.join(", ")} ${listed.length === 1 ? "is a listed file" : "are listed files"}, which change only as a plan step (<stem>/impl-<n>) or a fix from that plan's implementation audit (<stem>/impl-audit-<scope>); the change rule is Doctrine changes in .agents/references/planning-rules.md and the failure record is FAILURES.md, both in the plan checkout`,
+    )
 
   // Git strips comment lines and reads the body from the first blank line, so
   // a model record right after the subject would join it in every one-line log
