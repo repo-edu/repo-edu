@@ -323,6 +323,14 @@ test("unrelated events are ignored while malformed consumed fields fail", () => 
   )
 })
 
+test("a Codex error event is a notice that becomes a diagnostic", () => {
+  const message =
+    "Reconnecting... 2/5 (Selected model is at capacity. Please try a different model.)"
+  assert.deepEqual(decodeCodex({ type: "error", message }), [
+    { type: "diagnostic", text: message },
+  ])
+})
+
 test("Codex completion does not depend on unused usage fields", () => {
   for (const record of [
     { type: "turn.completed" },

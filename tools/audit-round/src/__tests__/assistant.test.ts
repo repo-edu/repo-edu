@@ -60,6 +60,36 @@ test("a fix child receives its unresolved contest commit block", async (t) => {
   assert.equal((await f.calls())[1]?.openContests, "")
 })
 
+test("a Codex child that prints a reconnect notice and then completes its turn finishes the phase", async (t) => {
+  const f = await fixture(t)
+  const notice =
+    "Reconnecting... 2/5 (Selected model is at capacity. Please try a different model.)"
+  const lines = (await phaseStream("codex")).trimEnd().split("\n")
+  lines.splice(1, 0, JSON.stringify({ type: "error", message: notice }))
+  await f.configure({
+    stream: `${lines.join("\n")}\n`,
+    usage: {
+      path: join(f.root, "rollout-test-session.jsonl"),
+      text: await recorded("codex-rollout.jsonl"),
+    },
+  })
+  const result = await runAssistantPhase(
+    input("codex", f.root),
+    f.output,
+    f.runtime,
+  )
+  assert.deepEqual(result, {
+    status: "finished",
+    settling: null,
+    sessionId: "test-session",
+  })
+  assert.ok(
+    f.feedback.some(
+      (event) => event.type === "diagnostic" && event.text === notice,
+    ),
+  )
+})
+
 test("Claude compact boundaries become phase feedback", () => {
   assert.deepEqual(
     decodeClaude({ type: "system", subtype: "compact_boundary" }),

@@ -323,6 +323,9 @@ consumers.
   Context and token measurements pass directly to the output observer. Both
   assistants replace the phase total with the session's newest running total.
   Claude and Codex decoders validate the fields they consume.
+  `codex.ts` reads a top-level Codex `error` event as a notice, such as a reconnect, and returns it
+  as a diagnostic line of the phase, because Codex keeps running after it. Only `turn.failed` ends
+  a Codex turn with a failure, and it repeats the last notice when the turn has no error of its own.
   `claude.ts` reads `modelUsage` from each turn's result. Its input is
   `inputTokens + cacheReadInputTokens + cacheCreationInputTokens`, its cached
   input is `cacheReadInputTokens` and its output is `outputTokens`.

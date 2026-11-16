@@ -21,10 +21,15 @@ export function decodeCodex(record: unknown): AssistantEvent[] {
           .object({ error: z.object({ message: z.string().min(1) }) })
           .parse(event).error.message,
       )
+    // Codex prints a reconnect or server notice as a top-level error and keeps
+    // running. Only turn.failed ends the turn, and it repeats the last notice.
     case "error":
-      throw new Error(
-        z.object({ message: z.string().min(1) }).parse(event).message,
-      )
+      return [
+        {
+          type: "diagnostic",
+          text: z.object({ message: z.string().min(1) }).parse(event).message,
+        },
+      ]
     case "item.started":
     case "item.updated":
     case "item.completed":
