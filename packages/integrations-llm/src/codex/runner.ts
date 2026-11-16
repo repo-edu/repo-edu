@@ -256,10 +256,11 @@ async function* runCodexTurnStream(
         recorder.recordError(terminalOutcome.message)
         break
       }
+      // Codex prints a top-level error event as a retry notice and keeps
+      // running; a turn that really fails ends with turn.failed.
       if (event.type === "error") {
-        terminalOutcome = { kind: "failed", message: event.message }
-        recorder.recordError(terminalOutcome.message)
-        break
+        recorder.recordError(event.message)
+        yield { kind: "activity", label: shortActivityText(event.message) }
       }
     }
     if (options.signal?.aborted) {

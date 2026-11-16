@@ -31,6 +31,11 @@ Provider adapters for the `LlmTextClient` contract from
   `LlmError` includes `context.provider` and the effective `context.authMode`.
 - An aborted Codex turn throws a `DOMException` named `AbortError`. The
   application layer maps this to public cancellation.
+- A top-level Codex `error` event is a notice, such as a reconnect, because
+  Codex keeps running after it. The Codex adapter records it in the trace,
+  shows its message as an activity and keeps reading. Only `turn.completed` and
+  `turn.failed` end a turn. A failed turn's message repeats the last notice
+  when the turn has no error of its own.
 - An adapter check that fails before anything starts, such as a missing key,
   a missing Claude CLI or an unsupported effort, sets `context.outcome` to
   `refused`.

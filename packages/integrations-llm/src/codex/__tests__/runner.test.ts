@@ -532,6 +532,71 @@ describe("createCodexRunnerTestClient — error classification", () => {
     )
   })
 
+  it("shows an error notice as activity and returns the reply when the turn completes", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "error",
+          message:
+            "Reconnecting... 2/5 (Selected model is at capacity. Please try a different model.)",
+        },
+        {
+          type: "item.completed",
+          item: { id: "1", type: "agent_message", text: "pong" },
+        },
+        completedTurn({ input_tokens: 1, output_tokens: 1 }),
+      ],
+    })
+    const client = createCodexRunnerTestClient(undefined, factory)
+    const events: LlmStreamEvent[] = []
+
+    for await (const event of client.streamText(request(codexSpec))) {
+      events.push(event)
+    }
+
+    assert.deepEqual(
+      events.map((event) =>
+        event.kind === "text-delta"
+          ? event.text
+          : event.kind === "activity"
+            ? event.label
+            : event.kind,
+      ),
+      [
+        "Contacting Codex.",
+        "Reconnecting... 2/5 (Selected model is at capacity. Please try a different model.)",
+        "pong",
+        "done",
+      ],
+    )
+  })
+
+  it("rejects with the turn.failed message after an error notice", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "error",
+          message: "Reconnecting... 1/5 (connection reset)",
+        },
+        {
+          type: "turn.failed",
+          error: { message: "429 rate limit; retry-after 5s" },
+        },
+      ],
+    })
+    const client = createCodexRunnerTestClient(undefined, factory)
+    await assert.rejects(
+      () => client.generateText(request(codexSpec)),
+      (err: unknown) =>
+        err instanceof LlmError &&
+        err.kind === "rate_limit" &&
+        err.message === "429 rate limit; retry-after 5s" &&
+        err.context.provider === "codex",
+    )
+  })
+
   it("classifies long-retry rate-limit failures as quota_exhausted", async () => {
     process.env[CODEX] = "k"
     const { factory } = createFakeCodex({
