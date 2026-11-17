@@ -506,6 +506,11 @@ Every vetter of the round's panel checks the findings from a fresh context, whic
 wrote the audit report. It reads the audit report and its sources, never another vetter's vet
 report, so each verdict stays independent.
 
+Whether a finding is a good idea is not an axis: a finding can be appealing and
+still unauthorised. A finding that changes what a plan holds is the exception,
+under the shared planning rules'
+[The vet's check](../../../plan/.agents/references/planning-rules.md#the-vets-check).
+
 Check the trade under [Finding explanations](#finding-explanations). The prose
 may carry the whole explanation. Verify the simpler mechanism, cost, benefit
 and any claim that the choice is settled against their sources. Return Revise

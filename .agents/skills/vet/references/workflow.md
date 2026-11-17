@@ -18,13 +18,11 @@ Where a launcher and this file disagree, this file is right.
 
 The vet's input is an implementation-audit report by any assistant.
 [Audit report discovery](#audit-report-discovery) says how the file is found. Vet its graded
-findings. Do not run an audit round of your own. Whether a finding is a good idea is not an axis: a
-finding can be appealing and still unauthorised. A finding that reopens a plan decision is the
-exception: under [Verdicts](#verdicts), the vetter judges whether the plan is as good for the user
-after the change.
+findings. Do not run an audit round of your own.
 
-Apply the shared protocol's **Vet checks** for read-only authority and
-independence from the panel's other vetters.
+Apply the shared protocol's **Vet checks** for read-only authority,
+independence from the panel's other vetters and the axes a vetter does not
+judge.
 
 For unattended completion, follow the shared protocol's **Runner result**.
 For a clean audit report, state that there were no findings to vet.
@@ -143,10 +141,6 @@ Use the shared planning rules'
 [Changes to what a plan holds](../../../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds)
 for a finding that reopens a plan decision. That section owns the comparison
 each vetter checks against its sources and when the user must rule.
-
-Write `Revise` only when the fix should land something else, as the shared
-**Vet verdicts** defines it. A correction that leaves the landed result the
-same, such as clearer wording or an extra source, is an `Accept` with a note.
 
 ## Cross-repo findings
 

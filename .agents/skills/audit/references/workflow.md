@@ -170,15 +170,11 @@ for directed fixes and deferrals, and the shared protocol's **Finding metadata**
 for their location tokens. State the required correction, the inspected-code
 evidence and any user ruling with its reason.
 
-Split each plan-bound cross-repo finding into these cases before deciding
-whether it is a deferral.
+Split each plan-bound cross-repo finding into these cases. The shared
+protocol's **Finding metadata** decides which of them is a deferral.
 
-- Stale text. Implementation history has made text in any section false, one
-  correction is plainly right and the correction changes no decision's meaning
-  or reason. A name, path, count, cross-reference or sentence saying which
-  steps have landed belongs to this case. The fix phase lands the correction as
-  its own plan-repo commit in the implementation-audit round form without user
-  direction. It is not a deferral.
+- Stale text, under the stale-text rule of the shared protocol's
+  [Finding metadata](../../../references/round-protocol.md#finding-metadata).
 - No choice needed. The correction changes the plan's substantive reference,
   but one correction stands. When it changes a plan decision's meaning or
   reason, the finding carries the comparison of the shared planning rules'
@@ -189,12 +185,6 @@ whether it is a deferral.
   in the audit report. The fix phase puts them to the user and carries the answer and
   its reason in the deferral, or keeps the choice open when the user does not
   rule, instead of choosing for them.
-
-The plan is the reference the audit judges the implementation against. A
-substantive rewrite inside the audit could make the implementation pass by
-changing that reference, so the no-choice and choice cases remain deferrals
-when the plan repo is outside the judged repo set. A stale-text correction is forced
-and leaves the reference's meaning unchanged.
 
 Before proposing a change to a **Decisions** entry, read the archived source the
 plan came from when one exists. The user should not choose against a reason the
