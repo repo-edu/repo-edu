@@ -64,18 +64,69 @@ both commands fail with `EPERM` every time.
    options the ruling weighs, and open every source its record names beside the
    sources the reading order adds. Read the open items only and reopen no
    settled finding.
-3. **Explain and propose the record.** The first message holds, in this order:
-   1. what is being decided, each option and what it means for the user, and
-      the ruling's recommendation with its reason
-   2. the chat's own evidence record
-   3. each difference from the ruling's record, or that both readings agree. A
-      difference is a source that reads otherwise than the ruling says, a
-      point the ruling leaves out or a claim the ruling marks as unchecked that
-      the chat could check.
-   4. the record the chat would send: each finding's winner and reason, then
-      the reply, exactly as they will be sent
+3. **Explain and propose the record.** The first message shows what the user
+   needs to decide and keeps the rest of the record for a request. It holds
+   three parts, in this order:
+   1. **The result.** One line for each open item says what the chat's own
+      reading gives: it supports the ruling's suggested answer, it differs from
+      it or a point that decides the open item could not be checked. The result
+      leads because it is what the user acts on first.
+   2. **Each open item in turn.** Under a heading that names the open item,
+      such as `Finding 2`, the open item shows:
+      1. what is being decided, each option and what it means for the user, and
+         the ruling's recommendation with its reason
+      2. the points that settle it: the chat's own record in short form
+      3. the differences from the ruling's record
+   3. **The proposed record.** Each finding's winner and reason, then the
+      reply, in the words that will be sent.
 
    The proposed record comes last, so the user meets it where the message ends.
+   Only the request for the yes and the line on asking for the full record
+   follow it.
+
+   Scale the explanation to the decision. A plain choice takes a few sentences.
+   The message holds several numbered lists, so each list inside an open item
+   stands under a label that names its entries: the options, the points and
+   the differences. A reference then names the open item, the kind of entry and
+   its number, such as `finding 2, point 1`. A bare number, or a word that fits
+   every list, would not say which list is meant.
+
+   The points that settle it stand under a label that calls them points, such
+   as `Points that settle it`. Each point holds three things: the question or
+   claim the sides differ on, the source the chat opened with the place in it
+   and what that source settles. A claim the chat could not check keeps its
+   place, and its entry says what could not be opened. On an open item with no
+   dispute, such as a real choice or a worker's question, the points are the
+   claims an option rests on. The shown point leaves out each side's claim in
+   full and the passage read. A claim on which all sides agree is not listed;
+   when the chat finds such a claim false, that is a difference. An example:
+
+   ```text
+   Points that settle it:
+   1. Would the watch lose the wide-name rule? No. Its workflow states
+      the rule itself, at lines 482 to 484. Vetter `abx` is right.
+   2. Would the close lose rules? No. Its workflow states each of them
+      itself, at lines 51, 71 and 138. Vetter `abx` is right.
+   3. Is Walk-through item 2.4 false? No. "Both kinds" means both kinds
+      of round, by Decision 4, item 1. Vetter `abx` is right.
+   ```
+
+   Each point keeps its source and the place, so the user can check any point
+   and a point without a source shows as unchecked. What the short form leaves
+   out the user needs only when a point surprises.
+
+   A difference is a source that reads otherwise than the ruling says, a point
+   the ruling leaves out or a claim the ruling marks as unchecked that the chat
+   could check. A difference that changes the proposed winner, its reason or
+   the reply, or that leaves a deciding point unchecked, is told with its
+   evidence: the source, the place and the passage. Any other difference gets
+   one line, because it still shows how exact the ruling was. When there is
+   none, the result line says that both readings agree and the open item has
+   no differences to list.
+
+   The proposed record is shown once, in words. The JSON document is written
+   only at sending, in step 5: the words are what the user confirms, and the
+   run checks the document's form.
 
    Propose for each finding the winner and the one-line reason that the chat's
    own record supports. When they match the ruling's suggested answer, use its
@@ -100,6 +151,14 @@ both commands fail with `EPERM` every time.
    Answer the user's later questions from the same files and the sources they
    cite. Read a cited source before stating what it says.
 
+   The full record stays in this session and is written to no file. When the
+   user asks about an open item or names a point, give that part in full: what
+   each side claims, the source and the place in it, the passage read and what
+   it settles. The chat opened those sources itself, so it gives a passage
+   without a new round of reading. The first message closes with one line,
+   after the proposed record and the request for the yes, that says how to ask:
+   name the open item and the point's number, such as `finding 2, point 1`.
+
    The chat proposes because a user who must retype an answer checks nothing
    by typing it. It proposes from its own record and not from the ruling's
    suggested answer, because a yes turns the proposal into the stored winner and
@@ -113,12 +172,14 @@ both commands fail with `EPERM` every time.
    from the ruling and the reports, and nothing shows what it opened. Accepting
    that was rejected because of what a wrong winner costs: the fix applies the
    wrong side, and the model read-out counts the wrong side as wrong. Each chat
-   costs the reading before its first message, a longer first message and a
-   second reading of sources the fix already read. A finding whose deciding
-   source cannot be opened gets no proposed winner and costs one more exchange.
-   Two smaller rules were weighed and not taken. Opening the sources without a
-   record leaves nothing for the user to see. Checking only the sources the
-   ruling's record names keeps out a point the fix left out.
+   costs the reading before its first message, a short list of the points that
+   settle each open item in that message and a second reading of sources the
+   fix already read. A finding whose deciding source cannot be opened gets no
+   proposed winner and costs one more exchange. Two smaller rules were weighed
+   and not taken. Opening the sources without a record leaves nothing for the
+   user to see. Checking only the sources the ruling's record names keeps out a
+   point the fix left out.
+
 4. **Take the decision and wait for the user's yes.** The user's yes makes the
    proposed record the decision. The user's own words replace any part of it.
    A reason the user gives keeps the user's words, joined on one line. When

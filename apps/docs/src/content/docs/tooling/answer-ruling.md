@@ -44,19 +44,28 @@ On Linux no window shows; the notice alone asks for your ruling.
 
 1. **What is open.** The chat asks the waiting run through the hidden `pnpm audit-round ruling`
    command. When several runs wait, it asks you which one.
-2. **The explanation.** It reads the ruling and, for a disputed finding, the round's audit report,
-   vet reports, rebuttal report and any ruler report. It explains what is being decided, each option
-   and the ruling's recommendation, and answers your questions from those files and the sources they
-   cite.
-3. **Its own reading.** Before its first message the chat lists the points the sides differ on and
-   opens every source behind them itself. It shows its own record: for each point, what each side
-   claims, the passage it read and what that passage settles. It names where its reading differs
-   from the ruling's, or says that both agree.
-4. **The record it proposes to send.** Each finding's winner and reason, then the free text for the
-   fix, exactly as they will be sent. It comes last in the first message. The chat proposes what
-   its own reading supports, not simply the ruling's suggested answer. When it could not open a
-   source that decides a finding, it proposes no winner for that finding, says what is missing and
-   proposes `not yet` with a question for the fix. Nothing is sent before your yes.
+2. **What it reads.** It reads the ruling and, for a disputed finding, the round's audit report,
+   vet reports, rebuttal report and any ruler report. It answers your questions from those files
+   and the sources they cite.
+3. **Its own reading.** Before its first message the chat lists the points the sides differ on,
+   opens every source behind them itself and builds its own full record. The first message opens
+   with one line for each open item: the chat's reading supports the ruling's suggested answer,
+   differs from it or could not check a point that decides it.
+4. **Each open item.** What is being decided, each option and what it means for you, and the
+   ruling's recommendation. Then the points that settle it, as a short numbered list: the question,
+   the source the chat opened with the place in it and what that source settles. A difference from
+   the ruling's record that changes the answer is told with its evidence; any other difference gets
+   one line.
+5. **The record it proposes to send.** Each finding's winner and reason, then the free text for the
+   fix, in the words that will be sent. It is the last part of the first message; only the request
+   for your yes and the line of item 6 follow it. The chat proposes what its own reading supports,
+   not simply the ruling's suggested answer. When it could not open a source that decides a
+   finding, it proposes no winner for that finding, says what is missing and proposes `not yet`
+   with a question for the fix. Nothing is sent before your yes.
+6. **The full record on request.** Each side's claim and the passage read are left out of the
+   first message. Name a point by its open item and its number, such as `finding 2, point 1`, or
+   ask about a whole open item, and the chat gives that part in full. The message's last line says
+   how.
 
 ## Your answers
 
