@@ -29,12 +29,12 @@ consumers.
   fixer. The coder list sits under neither level, because a plan's coder writes its steps and fixes
   its implementation audits. The audit target picks the work class and fixer, as
   [Model settings](#model-settings) routes each target. The fix receives a ruling output path
-  separately from its audit report, vet report and rebuttal report arguments. It writes the final
-  ruling and checks it for clarity before returning `needs-ruling`. The runner checks that file,
-  then waits for the user's answer under `ruling-wait.ts`; its notice says whether the fix uses the
-  auditor's model, one vetter's model named by its tag or neither. It compares the releases startup
-  resolved, so a model alias and its release name the same model. One winner rule holds in every
-  round and both work classes, under the shared protocol's
+  separately from its audit report, vet report, rebuttal report and ruler report arguments. It
+  writes the final ruling and checks it for clarity before returning `needs-ruling`. The runner
+  checks that file, then waits for the user's answer under `ruling-wait.ts`; its notice says whether
+  the fix uses the auditor's model, one vetter's model named by its tag or neither. It compares the
+  releases startup resolved, so a model alias and its release name the same model. One winner rule
+  holds in every round and both work classes, under the shared protocol's
   [Reconciliation](../../.agents/references/round-protocol.md#reconciliation): a contest or split
   whose highest grade from the audit report or any vetter is A or B goes to the user, and one on C
   or D goes to the ruler. `seriousFindings` finds the user's set and `rulerFindings` the ruler's.
@@ -929,7 +929,8 @@ Workflows own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
 `../../.agents/references/round-protocol.md#runner-result` defines their
 meaning. Phase results carry only status and reason. The runner reads audit
-reports, vet reports and the fix's landed subjects for routing and completion checks. It also reads
+reports, vet reports, rebuttal reports, ruler reports and the fix's landed subjects for routing and
+completion checks. It also reads
 each commit group's starting HEAD before naming, resolves the typed references
 against it for the filename, validates any typed inclusive range and reads the
 log the glance counts. For later commit rounds, the runner builds each exact
