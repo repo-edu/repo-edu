@@ -719,7 +719,8 @@ The revision of finding 2 holds.
 <ruler-report>     ::= <ruler-opening><ruler-entry>+
 <ruler-opening>    ::= (<ruler-free-line> | <source-line>)*
 <ruler-entry>      ::= <ruler-heading> NL (<ruler-free-line> | <source-line> | <winner-line>)*
-<ruler-heading>    ::= "### "<n>". ["<tier>"]"(" "<title>)?
+<ruler-heading>    ::= "### "<n>". ["<tier>"]"(" "<heading-text>)?
+<heading-text>     ::= any text on one line
 <source-line>      ::= ("- ")?"Opened: `"<source>"`"(", "<place>)?
 <source>           ::= <absolute-path> | <short-sha>
 <absolute-path>    ::= "/" and a character other than whitespace, then text without "`"
@@ -732,10 +733,11 @@ The revision of finding 2 holds.
 
 The ruler report answers the findings the runner gives the ruler. Each given finding has exactly one
 entry, in audit report order. Its heading repeats the finding's audit report number and tier, and a
-title may follow them. The entry holds the finding's evidence record and then its winner line.
-ruling.md's [Reading order](../skills/fix/references/ruling.md#reading-order) owns what the record
-says, and its free lines carry the points, each side's claims, the passages read and what each
-passage settles.
+title may follow them. That title may hold `: `, unlike a `<title>`, because no reader uses it and
+nothing follows it on the line. The entry holds the finding's evidence record and then its winner
+line. ruling.md's [Reading order](../skills/fix/references/ruling.md#reading-order) owns what the
+record says, and its free lines carry the points, each side's claims, the passages read and what
+each passage settles.
 
 A source line names one source the ruler opened, in backticks: a file by its absolute path or a
 commit by its first six characters. A place in the source may follow after a comma. The form is
