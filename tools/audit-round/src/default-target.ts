@@ -4,6 +4,7 @@ import { execa } from "execa"
 import type { ExecutionContext, PlanRoots } from "./context.js"
 import { stemCommits } from "./episode.js"
 import { type LogCommit, readLog, shortSha } from "./episode-log.js"
+import { requirePlanAtHead } from "./lifecycle.js"
 import { type PlanStep, readAuditRanges, readPlanSteps } from "./plan-steps.js"
 import {
   type ImplementationRoundData,
@@ -51,7 +52,11 @@ export async function defaultPlan(context: ExecutionContext): Promise<string> {
   ).path
 }
 
-/** The audits a command line asks for, with no target meaning the newest plan. */
+/**
+ * The audits a command line asks for, with no target meaning the newest plan.
+ * A planning audit of a plan no commit holds is refused here, before any
+ * assistant starts.
+ */
 export async function resolveTargets(
   context: ExecutionContext,
   request: TargetRequest | null,
@@ -73,7 +78,15 @@ export async function resolveTargets(
       },
     ]
   }
-  return selectTargets(await readImplementationLogs(context), context, request)
+  const targets = await selectTargets(
+    await readImplementationLogs(context),
+    context,
+    request,
+  )
+  for (const target of targets)
+    if (target.roundKind === "planning")
+      await requirePlanAtHead(context.planRoot, target.plan)
+  return targets
 }
 
 /**

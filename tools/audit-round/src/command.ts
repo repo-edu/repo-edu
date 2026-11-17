@@ -54,6 +54,7 @@ import {
   markImplemented,
   readReadyCoder,
   readyPlan,
+  requirePlanAtHead,
   requireReadyMarker,
   settlePlan,
 } from "./lifecycle.js"
@@ -1227,11 +1228,10 @@ async function preparedRun(
     invocation.stem,
     "run",
   )
-  return {
-    ...invocation,
-    stem: planStem(plan),
-    stage: await lifecycleStage(context, plan),
-  }
+  const stage = await lifecycleStage(context, plan)
+  if (stage === "widening" || stage === "detailing")
+    await requirePlanAtHead(context.planRoot, plan)
+  return { ...invocation, stem: planStem(plan), stage }
 }
 
 type PreparedRun = Awaited<ReturnType<typeof preparedRun>>

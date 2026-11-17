@@ -123,17 +123,34 @@ Audit ranges: 1.
 ) {
   const name = phase === "settled" ? `${stem}.md` : `${stem}-widen.md`
   const other = phase === "settled" ? `${stem}-widen.md` : `${stem}.md`
-  await rm(join(fixture.activeRoot, other), { force: true })
+  // The fixture's init holds both example artifacts, so Git drops them before
+  // the one this test needs is written in the state it asks for.
+  await execa(
+    "git",
+    [
+      "rm",
+      "--quiet",
+      "--force",
+      "--ignore-unmatch",
+      "--",
+      join("active", name),
+      join("active", other),
+    ],
+    { cwd: fixture.planRoot },
+  )
+  // Git removes a folder it has emptied.
+  await mkdir(fixture.activeRoot, { recursive: true })
   await writeFile(join(fixture.activeRoot, name), source)
-  if (tracked) {
+  if (tracked)
     await execa("git", ["add", "--", join("active", name)], {
       cwd: fixture.planRoot,
     })
-    await commitFixture(
-      fixture.planRoot,
-      "example/plan-audit ath clean: track the active plan",
-    )
-  }
+  await commitFixture(
+    fixture.planRoot,
+    tracked
+      ? "example/plan-audit ath clean: track the active plan"
+      : "fixture/init ath: leave the active plan untracked",
+  )
   return join(fixture.activeRoot, name)
 }
 

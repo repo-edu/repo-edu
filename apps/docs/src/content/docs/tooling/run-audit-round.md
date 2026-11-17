@@ -71,6 +71,10 @@ Before implementation, a bare stem selects the planning round its history calls 
 step share and implementation marker has landed, it runs the plan's listed audit ranges and then
 the full implementation range.
 
+A planning round needs a committed plan. When no commit holds the plan file, the command stops
+before any assistant starts and asks for the plan's `init` commit. Commit the plan and run the
+command again.
+
 ## When a series stops
 
 An automatic series stops when every listed auditor has a current read, the configured round maximum

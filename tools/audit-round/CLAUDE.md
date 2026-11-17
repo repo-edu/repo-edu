@@ -136,7 +136,9 @@ consumers.
   validates the committed plan's steps and audit ranges, advances through
   `coders` and writes the assignment in its marker. Both routes
   keep the plan checkout's normal hooks enabled. An implemented marker carries
-  the assigned coder's resolved model record and capability tag.
+  the assigned coder's resolved model record and capability tag. It also owns
+  the check that a new planning round's plan is in `HEAD`, which
+  [Plan targets](#plan-targets) states with its reason.
 - `implement.ts` owns the assigned-ready gate, optional step scope, per-repo
   landed-share scan and sequential worker loop. It starts one fresh worker for
   each selected step with pending shares. A ruling resumes only that worker.
@@ -1121,6 +1123,15 @@ the ordinary `plan-audit` record. The plan doctrine's
 reaches for it. With no target, the runner selects the active artifact whose
 stem commit is newest across both repos. `plan` prints that selected plan
 without writing anything.
+
+A new planning round is refused when `HEAD` of the plan checkout does not hold
+the plan file. `round`, `name` and the run's widening and detailing stages
+refuse before any assistant starts, and the refusal names the missing `init`
+commit. The audit report names the judged commit and the fix lands the round's
+record after the plan's `init`. Without the refusal, a plan no commit holds
+passes the audit, the vet and the rebuttal, and the round then stalls in its
+fix on a ruling about the missing `init`. `resume-fix` continues a round that
+has already started, so it does not apply the check.
 
 ## Report lifecycle
 

@@ -364,6 +364,19 @@ test("run refuses a plan without an active artifact before any assistant starts"
   })
 })
 
+test("run refuses a plan no commit holds before any assistant starts", async (t) => {
+  const f = await roundFixture(t)
+  await writeFile(join(f.activeRoot, "draft-widen.md"), "# Draft plan\n")
+  assert.equal(await runCommand(["draft"], f.runtime, f.options), 1)
+  assert.match(
+    f.errors.join("\n"),
+    /draft-widen\.md has no commit, so a planning round cannot start\./,
+  )
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
 test("the plan's state names the stage a run starts at", async (t) => {
   const f = await roundFixture(t)
   const context = {

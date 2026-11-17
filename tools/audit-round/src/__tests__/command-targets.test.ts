@@ -500,6 +500,25 @@ test("a missing plan file is refused before any assistant starts", async (t) => 
   })
 })
 
+test("a planning round on a plan no commit holds is refused before any assistant starts", async (t) => {
+  const f = await roundFixture(t)
+  await writeFile(join(f.activeRoot, "draft-widen.md"), "# Draft plan\n")
+  for (const argv of [
+    ["round", "draft"],
+    ["name", "draft", "--auditor", "oth"],
+  ]) {
+    assert.equal(await runCommand(argv, f.runtime, f.options), 1)
+    assert.match(
+      f.errors.at(-1) as string,
+      /draft-widen\.md has no commit, so a planning round cannot start\. Commit it first as draft\/init <tag>: <sentence>\./,
+    )
+  }
+  assert.deepEqual(await f.roundFiles(), [])
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
 test("an archived plan is refused before any assistant starts", async (t) => {
   const f = await roundFixture(t)
   const archive = join(f.planRoot, "archive/old")

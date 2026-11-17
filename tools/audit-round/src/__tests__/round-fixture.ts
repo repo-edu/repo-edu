@@ -167,6 +167,9 @@ Audit ranges: 1.
   await evidenceRepository(evidenceRoot)
   const roundRoot = join(evidenceRoot, "active")
   const outputRoot = roundRoot
+  // The plan checkout's init commit holds its plans, as a planning round requires.
+  await execa("git", ["init", "--quiet"], { cwd: planRoot })
+  await execa("git", ["add", "active"], { cwd: planRoot })
   const recordHeads = {
     "repo-edu": await commitFixture(
       repoRoot,

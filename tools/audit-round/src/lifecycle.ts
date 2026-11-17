@@ -110,6 +110,26 @@ async function requireCommittedPlan(planRoot: string, plan: string) {
   )
 }
 
+/**
+ * A new planning round reads a plan that HEAD holds. The audit report names the
+ * judged commit and the fix lands the round's record after the plan's init, so
+ * a plan no commit holds would pass every reading phase and stall in its fix.
+ */
+export async function requirePlanAtHead(
+  planRoot: string,
+  plan: string,
+): Promise<void> {
+  const held = await execa(
+    "git",
+    ["cat-file", "-e", `HEAD:${relative(planRoot, plan)}`],
+    { cwd: planRoot, reject: false },
+  )
+  if (held.exitCode === 0) return
+  throw new Error(
+    `${basename(plan)} has no commit, so a planning round cannot start. Commit it first as ${planStem(plan)}/init <tag>: <sentence>.`,
+  )
+}
+
 /** Rename a widening plan, commit only that rename and then claim its marker. */
 export async function settlePlan(
   context: ExecutionContext,
