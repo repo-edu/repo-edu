@@ -158,6 +158,15 @@ last finding field, so the reader meets the round's advice where the audit repor
 hunting for it in the opening. The reader requires that line on a widening audit report and refuses
 one on a detailing or implementation audit report, where no series recommendation belongs.
 
+An implementation audit report's opening holds its coverage table, closed by one coverage line. A
+plan-scoped round counts steps in the line
+`Implementation coverage: I/T implemented; V deviated; N incomplete; R dropped.` A commit-scoped
+round counts commits in the line
+`Commit coverage: C/T commits hold; V overreached; N short; R superseded.` and prefixes the
+six-character SHA in each commit cell with its repo, as `repo-edu@c5c651` or `plan@e8128b`. Each
+supplied deferral into Repo Edu whose correction already holds adds one line to the opening in the
+form `Satisfied deferral: <full-sha>/<position> <title>.` No parser reads these lines.
+
 ### Implementation location table
 
 The judged repo set selects the meaning and admission of the implementation
@@ -562,7 +571,8 @@ and tier match that finding. Leading and trailing whitespace carry no content.
 A revision that changes the finding's tier uses `Revise to [<tier>]`, with the
 new tier after `to`. A revision that keeps the audit report tier uses plain `Revise`.
 A line with the numbered tier-header shape is a verdict attempt and is refused
-by name when its word is not a vet verdict word.
+by name when its word is not a vet verdict word. Head-drift notes come before
+the first verdict line.
 
 ### Examples
 

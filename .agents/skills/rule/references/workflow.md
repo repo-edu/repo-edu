@@ -14,16 +14,13 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-The shared launchers live in the plan checkout under
-`home/claude/commands/rule.md` and `home/agents/skills/rule/SKILL.md`.
-The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
 The ruler names the winner of each contest or split on a C or D finding of an implementation-audit
-round, under the shared protocol's **Reconciliation**. The round's audit report, its
-`-3-vet.<tag>.md` vet reports and its `-4-rebut.<tag>.md` rebuttal report are its inputs, and the
-fix then applies its winners. Its duties, its read-only limit and its delivery are the shared
-protocol's **Ruler duties**. It works each finding in the **Reading order** of `ruling.md`, and the
+round, under the shared protocol's **Reconciliation**. The round's audit report, its vet reports and
+its rebuttal report are its inputs, and the fix then applies its winners. Its duties, its read-only
+limit and its delivery are the shared protocol's **Ruler duties**. It works each finding in the
+**Reading order** of `ruling.md`, and the
 [ruler report grammar](../../../references/round-grammar.md#ruler-report) owns the report's form.
 For unattended completion, follow the shared protocol's **Runner result**.
 

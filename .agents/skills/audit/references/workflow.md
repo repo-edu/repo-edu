@@ -15,9 +15,6 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-The shared launchers live in the plan checkout under
-`home/claude/commands/audit.md` and `home/agents/skills/audit/SKILL.md`.
-The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
 The shared [round protocol](../../../references/round-protocol.md) owns
@@ -31,18 +28,18 @@ the plan's **Implementation plan** numbering.
 An invocation that names no plan file and names commit references, including
 `HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan
 covers. After the audit report output path, its phase arguments contain the parsed
-commit groups in command-line order. Each group carries its repository,
-`references`, `startingHead`, `commits`, `originalCommits` and
-`shortReferences`. The runner has resolved every original reference and
-validated any typed inclusive range. It builds each later exact `commits` set
-from the original commits and earlier landed fixes. Use `commit-scope.md`
+commit groups in command-line order, with the fields the runner's
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) names.
+The runner has resolved every original reference and validated any typed
+inclusive range. It builds each later exact commit set from the original
+commits and earlier landed fixes. Use `commit-scope.md`
 beside this file for that round's scope, gate, baseline, coverage, audit report name,
 record and settlement. Its workflow checks only these facts:
 
 1. No file a group touched has uncommitted changes.
 2. Each original list is contiguous in first-parent history.
 3. Every current commit is reachable from HEAD.
-4. No commit in `originalCommits` carries a plan stem.
+4. No commit in the original set carries a plan stem.
 
 Follow the rest of this workflow unchanged.
 
@@ -67,12 +64,8 @@ and stop. Continue only when the user explicitly says to.
 
 The user sets the step range, or gives the plan alone or no target so the
 command resolves one under the runner's
-[Plan targets](../../../../tools/audit-round/CLAUDE.md#plan-targets). For a
-completed bare plan, the runner reads the fixed `Audit ranges:` sentence in the
-plan's **Execution and audits** subsection and starts one series per listed
-range, followed by one on the full range. That sentence is the runner's source;
-a sentence listing only the full range runs it once. The audit workflow still
-follows each supplied resolved range exactly. Never select, propose or replace
+[Plan targets](../../../../tools/audit-round/CLAUDE.md#plan-targets). The
+audit workflow follows each supplied resolved range exactly. Never select, propose or replace
 it.
 
 The step range decides the repo set. Read each in-range step's host sentence in
@@ -141,11 +134,10 @@ Every round inspects the complete in-range implementation and checks every
 binding **Decisions** entry without adding decision rows. Violations land as
 findings.
 
-Close the table with one line in the form `Implementation coverage: I/T
-implemented; V deviated; N incomplete; R dropped.` The table proves the round
-inspected its whole scope rather than only the areas where findings cluster. A
-clean audit report still includes the table and the coverage line before it says
-there are no findings.
+Close the table with the coverage line of the
+[audit report grammar](../../../references/round-grammar.md#audit-report). The table proves the
+round inspected its whole scope rather than only the areas where findings cluster. A clean audit
+report still includes the table and the coverage line before it says there are no findings.
 
 ## Listed files
 
@@ -209,41 +201,25 @@ plan came from when one exists. The user should not choose against a reason the
 plan never carried forward. Absence of an older source is normal, not an error.
 
 Every deferral traces to the files this round inspected or to a choice the user
-made in the round's fix phase. A later round applies it with
-`[applies:<sha>/<position>]`, where the position counts that commit's deferrals
-into the destination repo from one in body order. A graded bullet in the
-destination repo carries the token when it changes the destination. When a
-deferral into Repo Edu is satisfied or dropped without a Repo Edu file change,
-the untiered `The plan stands.` bullet sits in whichever judged repo already
+made in the round's fix phase. A later round applies it with a citation in the
+[commit record bullet](../../../references/round-grammar.md#commit-record-bullet)
+form. A graded bullet in the destination repo carries the citation when it
+changes the destination. When a deferral into Repo Edu is satisfied or dropped
+without a Repo Edu file change, the untiered citation bullet sits in whichever judged repo already
 gets the round record. Deferrals into the plan repo still close only from plan
 commits. The citation closes the deferral without a text comparison.
-
-The runner's open-deferral owner reads both Git histories. It selects deferrals
-into the plan repo from every Repo Edu commit by destination plan, selects
-deferrals into Repo Edu from the plan's stem commits and removes the ones cited
-in Repo Edu history or those stem commits. Deferrals into the plan repo are
-removed only by citations in plan commits.
 
 Judge every supplied deferral into Repo Edu against current code. A missing
 correction becomes a finding that names the deferring full commit ID and
 position. Its fix record cites that item. When current code already holds the
 correction, the audit reports no finding for that item. Instead, its audit report
-opening adds one line in this exact form:
-
-`Satisfied deferral: <full-sha>/<position> <title>.`
-
+opening adds one satisfied-deferral line in the
+[audit report grammar](../../../references/round-grammar.md#audit-report) form.
 The audit report opening carries that judgement into either fix route, including a
 hand-run fix that receives no open-deferral object. The runner also passes the
 same object to an automated fix. The audit report must account for every supplied
 item through either a satisfied-deferral line or a finding. Every completed
 route cites every supplied deferral.
-
-An automatic implementation series reads the open set before its first round
-and after each finished implementation-audit round. Open deferrals into the plan
-repo chain one planning round on the supplied deferrals before the series
-decision. The next user-selected implementation audit receives deferrals into Repo
-Edu without starting another round. Every automatic series ending prints what
-remains, and loop-close reads the same set before archiving.
 
 ## Episode settlement
 

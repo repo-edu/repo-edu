@@ -6,7 +6,7 @@ decision remains open. Use the supplied output path under the runner's
 report completion under the shared protocol's
 [Runner result](../../../references/round-protocol.md#runner-result). Review it
 for clarity in this same session. No separate drafting or editing session
-follows. The runner prints a notice in place of the ruling's text. The user
+follows. The user
 answers in the Claude desktop chat through `/ruling`, under
 [Answering a ruling](answer.md), and that chat reads this document whole.
 

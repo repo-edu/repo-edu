@@ -276,7 +276,9 @@ consumers.
   also serves hand-run default-topic resolution. Each
   file-changing audit correction commit for the selected plan counts once per area
   with an A–C correction, across all step scopes. Off-plan work and other plans'
-  audits remain watch evidence but do not advance the count.
+  audits remain watch evidence but do not advance the count; otherwise maintenance work could
+  trigger a watch on the first audit of a new step scope. The thresholds are code because they
+  apply without the user in the loop.
   Repo Edu groups by finding area and planning groups by finding section.
   D-only work, clean records, deferral-only records and planned steps do not count.
   Green waits for three audit correction commits in one area; amber and red wait for two. Red
@@ -1013,8 +1015,9 @@ whole. `round-paths.ts` supplies each phase's absolute arguments in this order:
 - audit: audit report output, then either a plan with an optional implementation
   scope and open-deferral object, a plan with an open-deferral object for a
   chained planning round, or one structured object per commit group carrying
-  its repository, references, starting HEAD, advancing exact commit set,
-  original commit set and resolved short references
+  its `repository`, its carried `references`, its starting HEAD as
+  `startingHead`, its advancing exact commit set as `commits`, its original
+  commit set as `originalCommits` and its resolved `shortReferences`
 - vet: audit report input, vet report output; no vetter receives another vetter's vet report
 - rebuttal: audit report input, every vet report input in panel order, rebuttal report output; each
   answer line names the vetter it answers by the tag in that vet report's input filename. The runner
@@ -1048,7 +1051,8 @@ receives its ruling path separately and reuses it when the same session resumes.
 resume after a ruling carries the user's reply. One after a failed worker carries the generic
 continuation and no reply. Neither carries a time value.
 
-Hand-run phases use the same resolver. `name [target] [scope-or-commits...]
+Hand-run phases start through the shared launchers, such as `/rebut` or `$rebut` for a fresh
+rebuttal session, and use the same resolver. `name [target] [scope-or-commits...]
 --auditor <full tag>` claims a new round and prints `cwd`, `workflow`, `claim`
 and ordered `arguments`. `paths <vet|rebut|rule|fix> [report]` prints `cwd`,
 `workflow` and ordered `arguments` for an existing round. Vet, rebuttal and ruler
@@ -1480,8 +1484,10 @@ audit workflow needs the list before its session starts.
 `ruling [target]` and `answer [target] <file>` are the `/ruling` chat's two carriers to a run that
 waits for a ruling, as `ruling-wait.ts` owns them. The chat follows
 [Answering a ruling](../../.agents/skills/fix/references/answer.md). With no target they take the
-one run that waits and refuse when none or several wait. A chat's sandbox refuses Unix sockets, so
-the user's Claude Code settings list `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
+one run that waits and refuse when none or several wait. The chat's launcher lives in the plan
+checkout at `home/claude/commands/ruling.md`. It has no Codex counterpart, because the waiting run's
+notice and dialog name only the Claude desktop app. A chat's sandbox refuses Unix sockets, so the
+user's Claude Code settings list `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
 `pnpm audit-round answer *` under `sandbox.excludedCommands`. Without those entries both commands
 fail inside the sandbox with an `EPERM` error.
 

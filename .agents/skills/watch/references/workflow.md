@@ -15,8 +15,7 @@ The runner supplies them whole; in a hand-run session, read them whole, followin
 any listed workflow's header too. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
 
-The runner starts one watch session directly from this workflow.
-Its settings select the assistant. Hand-run watches use the launchers below.
+Hand-run watches use the launchers below.
 
 This workflow owns the watch's rules for hand-run watches and automated
 planning or plan-scoped implementation-audit rounds. The shared
@@ -25,8 +24,7 @@ and rating meanings. The runner's
 [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) own file names
 and writer tags.
 
-The round kind sets automated sessions' working directory: plan for planning,
-Repo Edu for implementation. Use the supplied checkout paths.
+Use the supplied checkout paths.
 
 A hand-run watch returns its watch in chat and writes no file or cadence
 record. An automated watch returns its finished document and grade to the
@@ -74,54 +72,21 @@ The runner's watch phase runs after the round's own work is done, so there is
 nothing in flight to block. A red grade from that phase ends the auditor
 sequence, so no queued round starts before the user decides.
 
-The shared episode module in Repo Edu computes membership and counts from Git.
-The runner supplies the audited plan's topic and formats the reduced JSON view
-only after a finished fix when glance says watch is due. The view names the two
-graded heads and includes the applicable parts of each existing round data
-file. The writer owns both the judgement and the finished wording. The runner
-owns publication after it admits the result. A hand-run watch obtains the same
-view under **Hand-run entry**. No route writes an episode file or computes an
-episode before audit.
+The writer owns both the judgement and the finished wording. A hand-run watch
+obtains the same view under **Hand-run entry**. No route writes an episode
+file.
 
 The evidence is bounded to commits reachable from each repository's HEAD.
 Other branches and refs are outside it. The watch may inspect named commits
 and current artifacts to ground a claim, but does not repeat membership or
 count computation.
 
-The cadence differs by route, because only the runner keeps a record. Under
-`/watch` the recommended cadence is advice: the user acts on it by invoking
-`/watch` again, sooner on amber, skipping a couple on green. Under the round's
-watch phase the runner keeps a record after admitting the returned watch, so
-the cadence is counted rather than remembered. That record holds the episode
-stem, each repository's HEAD it last graded, the grade and the written date.
-The grade selects a fixed limit owned by the glance. It lives
-outside both repositories, in the audit-round runner's shared cache, because it
-is machine state about when the watch ran and not part of either repository's
-history. A counted cadence replaces a watch run on intuition.
+Under `/watch` the recommended cadence is advice: the user acts on it by
+invoking `/watch` again, sooner on amber, skipping a couple on green.
 
-Before running the watch the runner runs a glance: a cheap read of the
-plan log for a planning round or the Repo Edu log for an implementation round
-since that repo's recorded HEAD, which answers only whether
-the watch has enough new correction evidence to run. The watch judges whether
-those corrections share an unresolved cause; the glance grades nothing and
-suggests nothing. Readers changing the counting or membership rules use
-[the runner's code documentation](../../../../tools/audit-round/CLAUDE.md),
-[`glance.ts`](../../../../tools/audit-round/src/glance.ts) and
-[the shared episode module](../../../../tools/audit-round/src/episode.ts).
-The thresholds are code because they apply without the user in the loop.
-The runner writes both graded heads from the supplied view; one repository's
-commit never supplies the other's history position.
-
-Only file-changing audit correction commits for the selected plan advance the
-green or amber count. Step scopes share that count. Off-plan work and other
-plans' audits remain evidence for the watch's judgement but cannot trigger it
-through the count. Otherwise maintenance work can trigger a watch on the first
-audit of a new step scope.
-
-A round that stopped for the user's ruling runs no watch. Its work has not
-provably landed, so the record it would grade may be missing that round's own
-commit. Nothing is lost by waiting, because the glance counts commits and not
-rounds.
+The watch judges whether the correction commits the glance counted share an
+unresolved cause. Off-plan work and other plans' audits remain evidence for the
+watch's judgement.
 
 The watch returns one of three grades, a summary of the
 [Trajectory diagnostic](#trajectory-diagnostic) rather than a new threshold:
@@ -280,11 +245,6 @@ The plan doctrine keeps the **AI in watch** role and points here. Keep the episo
 rules, grades, response classes and trajectory diagnostic here so consumers
 cannot drift.
 
-The hand-run definitions live under `home/` in the plan repo: a Claude agent,
-a Claude slash command and a Codex skill. Their installation follows
-[home/README.md](../../../../../plan/home/README.md).
-The runner supplies this workflow directly to its watch session.
-
 ## Trajectory diagnostic
 
 The watch alone applies this diagnostic to the supplied evidence for each
@@ -422,12 +382,9 @@ No route reads or writes an episode file.
 
 Return the finished watch Markdown in the final response. After it, write one
 plain grade line in the shared
-[watch grade grammar](../../../references/round-grammar.md#watch-grade):
-`Watch grade: green`, `Watch grade: amber` or `Watch grade: red`. Keep
-`PHASE RESULT` as the response's final line.
+[watch grade grammar](../../../references/round-grammar.md#watch-grade).
 
-Write no file or cadence record. The runner removes the two control lines,
-admits the result and publishes the Markdown and record. Check the wording
+Write no file or cadence record. Check the wording
 before returning; there is no separate editing phase.
 
 ## Voice
@@ -531,15 +488,4 @@ finished watch.
 Follow the shared [Runner result](../../../references/round-protocol.md#runner-result).
 Automated completion returns the finished Markdown, its parsed grade and a
 finished phase result. The output recorder supplies the phase's final
-compaction count. The runner admits only a result with zero compactions. A
-compacted watch fails with the supplied evidence size and the need for one
-uncompacted session, before either output is written.
-
-After admission, the runner saves the Markdown at the named
-`-9-watch.<tag>.md` path. It then replaces only this episode's `watch.json`
-entry in the shared cache, using the supplied heads, returned grade and current
-date under the shared
-[watch record grammar](../../../references/round-grammar.md#watch-record). A
-document-write failure skips the record write. A record-write failure leaves
-the valid document and earlier record in place. Either write failure fails the
-phase.
+compaction count.

@@ -90,20 +90,16 @@ ordinary round.
 
 Before drafting findings, build one coverage table with one row per commit
 across all groups, with columns for the commit, its changed code and one
-disposition for the commit as a whole. Prefix the six-character SHA in the commit cell
-with its repo, as `repo-edu@c5c651` or `plan@e8128b`. Inspect every touched
-file whether or not the message names it.
+disposition for the commit as a whole. Inspect every touched file whether or
+not the message names it.
 
 - `holds`: the code at HEAD delivers the commit's substantive intent.
 - `overreached`: the change materially exceeds that intent's scope.
 - `short`: the substantive intent is not fully delivered.
 - `superseded`: a later commit in the range undid the change.
 
-Close the table with one line, counting commits.
-
-```text
-Commit coverage: C/T commits hold; V overreached; N short; R superseded.
-```
+Close the table with the commit coverage line of the
+[audit report grammar](../../../references/round-grammar.md#audit-report).
 
 ## What this round looks for
 
@@ -129,21 +125,17 @@ and the shared protocol's
 In place of plan and step evidence, supply every group's carried references,
 its original commit set, its exact current commit set and the statement that no
 plan covers the original work. Open `Judged repos:` with every group's
-`startingHead` in the grammar's order, `plan@<sha>, repo-edu@<sha>` when both
-are present. Use the commit coverage table above. Naming and allocation follow the
+`startingHead`. Use the commit coverage table above. Naming and allocation follow the
 runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) and
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 
 ## Record
 
-A commit-scoped round has no plan stem, so its fix commits carry no
-`impl-audit-` role token. It lands one record in each judged repo whose files
-took accepted findings and none in a judged repo without findings. A Repo Edu
-record takes Repo Edu's ordinary severity-prefixed conventional form. A
-plan-repo record takes the subject grammar's O2 off-plan form, `<tag> <growth>
-<sequence> <kind>: <sentence>`. Its body uses unbracketed tiers with
-`[section:]` locations. A round that judges both repos defers nothing between
-them. Every record follows the shared protocol's **Finding metadata** and the
+A commit-scoped round has no plan stem, so its fix commits carry no `impl-audit-` role token. It
+lands one record in each judged repo whose files took accepted findings and none in a judged repo
+without findings. A Repo Edu record takes Repo Edu's ordinary severity-prefixed conventional form. A
+plan-repo record takes the subject grammar's O2 off-plan form. A round that judges both repos defers
+nothing between them. Every record follows the shared protocol's **Finding metadata** and the
 [record bullet grammar](../../../references/round-grammar.md#commit-record-bullet).
 
 The fix does not apply a finding whose correction changes a listed file, as the
@@ -159,17 +151,6 @@ because no stem scan reads one for a commit target.
 
 ## Settlement
 
-A commit target is a series under its bounded `commit-` label. After each
-finished round, the runner reads the label's retained round data and the commit
-times of its landed records. The original references and earlier landed fixes
-define each later round's exact commit set. It stops once every listed
-auditor has a current read or chooses a listed auditor without one. A clean round
-lands no record, but its finished data entry can settle the read. The round's
-files stay in the evidence repo's `active/` folder for good, because a commit
-target has no close. There is no plan episode, `implemented:` or `closed:` marker and no trajectory
+A commit target is a series under its bounded `commit-` label. It has no
+close, no plan episode, no `implemented:` or `closed:` marker and no trajectory
 watch.
-
-`pnpm audit-round round` accepts the original references as its target
-arguments. Without `--auditor` it runs the automatic series. With
-`--auditor`, it runs the entries in order through the editable queue. No commit
-round runs a trajectory glance or watch after its fix.

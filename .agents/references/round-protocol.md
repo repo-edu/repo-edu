@@ -140,12 +140,13 @@ balance shows whether an artifact is still growing or has started to shed.
 Commit bullets written before that value existed read as missing, because
 excess was not yet a search obligation.
 
-A record bullet that lands an audit report's finding carries that finding's number in its first
-token, `[finding:<n>]`. The round data joins bullet and finding by that number, so the bullet's
-short title may differ from the audit report's. Keep titles distinct across the audit report,
-because the vet and the rebuttal name findings by them. Each accepted graded concern, D included,
-gets one numbered bullet. A bullet without a number records work no finding asked for. A carried
-decision or trade ruling that is not a finding takes no tier or metadata.
+A record bullet that lands an audit report's finding carries that finding's number in the round
+grammar's [commit record bullet](round-grammar.md#commit-record-bullet) form. The round data joins
+bullet and finding by that number, so the bullet's short title may differ from the audit report's.
+Keep titles distinct across the audit report, because the vet and the rebuttal name findings by
+them. Each accepted graded concern, D included, gets one numbered bullet. A bullet without a number
+records work no finding asked for. A carried decision or trade ruling that is not a finding takes no
+tier or metadata.
 
 Name the abstraction the issue touches, not only its correction, so the watch
 can cluster related findings. When a round reverses or narrows a prior
@@ -568,9 +569,7 @@ words, numbering and wrong-phase refusal.
 - **Revise** means the fix should land something else: the vetter's correction,
   or its change to the defect's scope, evidence or tier, changes what the fix
   lands. State the corrected tier, evidence or correction in a few short
-  sentences. When the corrected tier differs from the audit report, write
-  `Revise to [<tier>]` on the verdict line. A revision that keeps the audit
-  report tier stays plain `Revise`.
+  sentences.
 - **Drop** states why the finding does not stand.
 - **Needs user's ruling** identifies a real choice or supported decision change
   that the vetter cannot settle.
@@ -580,10 +579,9 @@ Accept with a note. A Revise is the vetter's claim about what should land, and t
 [Reconciliation](#reconciliation) tests that claim against the other vetters of the panel. Wording
 advice written as a Revise would read as a disagreement about what lands.
 
-Put head-drift notes before the first verdict. Free text explains a verdict but
-never changes its kind. Return the complete vet report in the final response.
-The runner saves an unattended vet report at its supplied path; a hand-run vet writes the
-same text to its resolved path. Chat and file must not differ.
+Free text explains a verdict but never changes its kind. Return the complete vet
+report in the final response. A hand-run vet writes the same text to its
+resolved path. Chat and file must not differ.
 
 ## Rebuttal grounding
 
@@ -600,13 +598,11 @@ trust the audit report's or vet report's quotation. Read `../plan/BOUNDARIES.md`
 ## Rebuttal answers
 
 Answer every revise, drop and ruling verdict of each vetter, in audit report order and, within one
-finding, in the order the runner supplies the vet reports. Accepts need no entry. Each answer line
-names the vetter it answers by the tag in that vetter's vet report filename, so the runner reads
-which vetter an answer serves from the line alone. One rebuttal answers the whole panel, so its
-answers to different vetters on one finding stay consistent. The
+finding, in the order the runner supplies the vet reports. Accepts need no entry. One rebuttal
+answers the whole panel, so its answers to different vetters on one finding stay consistent. The
 [rebuttal report grammar](round-grammar.md#rebuttal-report) owns the line shape, accepted words,
-numbering and wrong-phase refusal. The answer keeps the audit report's tier even when it agrees with
-a revised tier; the note names the new tier and the fix records it.
+numbering and wrong-phase refusal, including the vetter each answer names. When an answer agrees
+with a revised tier, its note names the new tier and the fix records it.
 
 - **Agree** keeps the verdict. Agreement with a revision carries the revised
   correction in full so the fix has one text to apply. Agreement with a drop
@@ -620,9 +616,8 @@ a revised tier; the note names the new tier and the fix records it.
 - **For user's ruling** keeps a real choice or plan-decision question open.
   State the audit report's position and evidence briefly and never settle it here.
 
-Return the complete answers without a grouped closing list. The runner saves an
-unattended rebuttal report at its supplied path; a hand-run rebuttal writes the same text
-to its resolved path. Chat and file must not differ.
+Return the complete answers without a grouped closing list. A hand-run rebuttal writes the same
+text to its resolved path. Chat and file must not differ.
 
 ## Ruler duties
 
@@ -635,8 +630,8 @@ given in the [Reading order](../skills/fix/references/ruling.md#reading-order) o
 [ruler report grammar](round-grammar.md#ruler-report) owns the report's form. Three duties are the
 ruler's own:
 
-1. **Name and open each source in one form.** Name a file by its absolute path and a commit by its
-   first six characters. Open each with a tool call that holds that name as typed: a file read by
+1. **Open each source by the name the report gives it.** The ruler report grammar's source line
+   fixes that name. Open each source with a tool call that holds the name as typed: a file read by
    its absolute path, or a command that holds the path or the six characters. A file the runner
    supplied whole in the first prompt is open already. A read that names a file relative to a repo
    or to an earlier `cd` does not count; read the file again by its absolute path.
@@ -778,12 +773,10 @@ read or verified claims. Evidence appears only inside the finding it supports.
 Chat carries nothing about the judged work that the audit report or handoff does not.
 Setup and tooling problems are not about the judged work and stay in chat.
 
-An unattended audit returns the complete audit report under
-[Runner result](#runner-result); the runner saves it at its supplied path. A
-hand-run audit presents the audit report and writes identical text to the resolved
-path. The
-[runner documentation](../../tools/audit-round/CLAUDE.md#phase-routing) owns
-path resolution and argument order. With no findings, follow
+An unattended audit returns the complete audit report under [Runner result](#runner-result). A
+hand-run audit presents the audit report and writes identical text to the resolved path. The
+[runner documentation](../../tools/audit-round/CLAUDE.md#phase-routing) owns path resolution and
+argument order. With no findings, follow
 [Direct clean completion](#direct-clean-completion).
 
 ## Direct clean completion
@@ -919,19 +912,18 @@ never changes record keying. Each round may read the other repo as evidence. A
 round defers a finding whose fix falls outside its repo set in its own commit
 body until a later round cites and applies it. The rule is
 direction-free and deferral covers only work nobody directed. A later round
-record that applies a deferral carries `[applies:<sha>/<k>]`, where the SHA is
-the deferring commit's full commit ID and `k` counts that commit's deferrals
-into the destination repo from one in body order. The reader compares both
-exactly, so one citation cannot close two deferrals whose short forms and
-positions match. A graded bullet in the destination repo carries one token per
-deferral its change applies, in the round grammar's
-[commit record bullet](round-grammar.md#commit-record-bullet) form. When a
+record that applies a deferral cites it by the deferring commit's full commit
+ID and the deferral's position, in the round grammar's
+[commit record bullet](round-grammar.md#commit-record-bullet) form. The reader
+compares both exactly, so one citation cannot close two deferrals whose short
+forms and positions match. A graded bullet in the destination repo carries one
+citation per deferral its change applies. When a
 deferral into Repo Edu is satisfied or dropped without a Repo Edu file change,
 the untiered citation bullet sits in whichever judged repo already gets the
 round record. No extra Repo Edu record lands for the citation. Deferrals into
 the plan repo still close only from plan commits. The open-deferral reader
 accepts Repo Edu-bound citations from Repo Edu history and the plan's stem
-commits. The token makes openness a Git fact instead of a judgement from
+commits. The citation makes openness a Git fact instead of a judgement from
 comparing the deferral with the destination text.
 
 The citation rule is triggered a few times a month: three deferrals arose in
@@ -979,12 +971,9 @@ implement, watch and close. Ordinary interactive invocations add
 no result line.
 
 The [phase-result grammar](round-grammar.md#phase-result) owns the final control
-line, exact JSON object, statuses and phase admission. Keep that line outside a
-code fence and make it the last line of the response. Audit, vet, rebuttal and ruler
-return their complete document before it and write no file; the runner saves
-that text without the control line. A finished fix in a widening planning round
-puts the grammar's [settling line](round-grammar.md#settling-line) immediately
-before it; no other fix returns one.
+line, its place, exact JSON object, statuses and phase admission. Audit, vet,
+rebuttal and ruler return their complete document before it and write no file;
+the runner saves that text without the control line.
 
 - `finished` means the phase completed all required work.
 - `needs-ruling` means the fix or implementation worker wrote the final ruling

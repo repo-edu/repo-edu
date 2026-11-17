@@ -13,16 +13,13 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-The shared launchers live in the plan checkout under
-`home/claude/commands/fix.md` and `home/agents/skills/fix/SKILL.md`.
-The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
-This workflow is the fix phase of an implementation-audit round. The audit is read-only and writes
-its audit report to the evidence checkout's `plan-evidence/active/` folder. An audit with findings
-stops there. This workflow starts from that audit report: it reads the audit report, its vet
-reports, its rebuttal report and any ruler report, presents the outcome for the user's ruling,
-applies the accepted corrections and the winners, and lands the round's records.
+This workflow is the fix phase of an implementation-audit round. The audit is read-only and ends at
+its audit report. An audit with findings stops there. This workflow starts from that audit report:
+it reads the audit report, its vet reports, its rebuttal report and any ruler report, presents the
+outcome for the user's ruling, applies the accepted corrections and the winners, and lands the
+round's records.
 
 An audit with no findings
 uses the shared protocol's **Direct clean completion**.
@@ -44,8 +41,8 @@ winner that names vetter tags applies those vetters' verdicts. A ruler's reason 
 choice remains makes that choice an open item of the ruling. Every fix invocation is commit-blocked
 while any supplied contest lacks a winner. `Not yet` keeps that block in place. Do not land settled
 corrections before the runner has recorded every required winner; a fix that reports finished with
-an open contest fails the round. If the round stops, use the printed
-`pnpm audit-round resume-fix ...` command. It reloads the stored round, collects missing winners and
+an open contest fails the round. If the round stops, use the recovery command the runner prints. It
+reloads the stored round, collects missing winners and
 resumes this session with the same block. A bare assistant resume is only for work without an open
 serious contest or split.
 
@@ -107,7 +104,9 @@ the round's records. Check that the audit report accounts for every object item
 through either a `Satisfied deferral:` line in its opening or a finding. A
 hand-run fix has no object, so those opening lines and findings are its complete
 deferral scope. A changed destination uses a graded bullet with the item's
-`[applies:<full-sha>/<position>]` token. A satisfied item, or an item the review
+citation in the round grammar's
+[commit record bullet](../../../references/round-grammar.md#commit-record-bullet)
+form. A satisfied item, or an item the review
 drops, uses the untiered citation. Direct clean completion adds the untiered
 citations itself when no fix runs. When a deferral into Repo Edu is satisfied
 or dropped without a Repo Edu file change, put that citation in whichever

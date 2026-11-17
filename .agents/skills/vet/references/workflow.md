@@ -14,13 +14,9 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
 any listed workflow's header too. Read each file once.
 
-The shared launchers live in the plan checkout under
-`home/claude/commands/vet.md` and `home/agents/skills/vet/SKILL.md`.
-The runner selects this workflow and its working checkout for both entry routes.
 Where a launcher and this file disagree, this file is right.
 
-The vet's input is an implementation-audit report by any assistant, an `*-2-audit.<tag>.md` file in
-the evidence checkout's `plan-evidence/active/` folder.
+The vet's input is an implementation-audit report by any assistant.
 [Audit report discovery](#audit-report-discovery) says how the file is found. Vet its graded
 findings. Do not run an audit round of your own. Whether a finding is a good idea is not an axis: a
 finding can be appealing and still unauthorised. A finding that reopens a plan decision is the
@@ -50,8 +46,7 @@ Check head drift and the plan-target filename before vetting:
 - For a plan target, the plan file in the filename differs from the audit
   report's `Target:` line. Refuse and name both. A commit series keeps its original
   bounded filename while later audit reports name their advancing exact commit set,
-  so no filename translation applies. The runner refuses any audit report whose line
-  is missing or differs from the target it supplied before it starts a vet.
+  so no filename translation applies.
 
 ## Axes
 
@@ -152,11 +147,6 @@ each vetter checks against its sources and when the user must rule.
 Write `Revise` only when the fix should land something else, as the shared
 **Vet verdicts** defines it. A correction that leaves the landed result the
 same, such as clearer wording or an extra source, is an `Accept` with a note.
-
-When a `Revise` verdict changes the finding's tier, write the verdict line as
-`<n>. [<report-tier>] Revise to [<new-tier>]`. Keep plain `Revise` when the
-tier does not change. The explanation still states the corrected evidence or
-correction.
 
 ## Cross-repo findings
 
