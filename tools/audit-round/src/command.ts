@@ -934,9 +934,9 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
         input: string | undefined,
         flags: { writer?: string; rebut?: string },
       ) => {
-        if (flags.rebut !== undefined && phase !== "fix")
+        if (flags.rebut !== undefined && phase !== "rule" && phase !== "fix")
           throw new InvalidArgumentError(
-            "A rebuttal selection applies only to the fix, which reads it.",
+            "A rebuttal selection applies only to the ruler and the fix, which read it.",
           )
         invocation = { kind: "paths", phase, input, ...flags }
       },

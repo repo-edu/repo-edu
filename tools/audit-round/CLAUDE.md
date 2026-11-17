@@ -335,36 +335,35 @@ consumers.
   `commit-msg-main.ts` is the entry both repositories' hooks run,
   `<repo-edu|plan> <message file>` with the NUL-separated changed paths on standard input; a refusal
   names the grammar file.
-- `assistant.ts` owns one invocation's session identity, final text and turn evidence. A session
-  is one or more turns and ends with its process: Claude's print mode emits one result per turn,
-  a background task or subagent wakes the session for a further turn, and while a subagent is
-  pending the CLI defers the results and flushes them at exit behind an empty result of no turns.
-  The phase's final text is the last turn's text. A model sometimes leaves the result line off a
+- `assistant.ts` owns one invocation's session identity, final text and turn evidence. A session is
+  one or more turns and ends with its process: Claude's print mode emits one result per turn, a
+  background task or subagent wakes the session for a further turn, and while a subagent is pending
+  the CLI defers the results and flushes them at exit behind an empty result of no turns. The
+  phase's final text is the last turn's text. A model sometimes leaves the result line off a
   finished response, and that miss would fail a round whose work was complete. So when the process
   ends on a response without the line, the invocation resumes the same session once and asks it to
-  end again. The request repeats no phase work, and the new response becomes the phase's final
-  text. A second response without the line fails the phase with its session. A line that is
-  present but malformed fails at once. The contract recorder supplies no such request, so each
-  recording stays one invocation. After the process ends with at least one turn,
-  it saves audit, vet and rebuttal reports from that text without the result line. A failed write
-  fails the phase before progression. For the watch it parses the grade line and returns the
-  remaining Markdown with the output recorder's final compaction count, without writing a file.
-  Context and token measurements pass directly to the output observer. Both
-  assistants replace the phase total with the session's newest running total.
-  Claude and Codex decoders validate the fields they consume.
-  `codex.ts` reads a top-level Codex `error` event as a notice, such as a reconnect, and returns it
-  as a diagnostic line of the phase, because Codex keeps running after it. Only `turn.failed` ends
-  a Codex turn with a failure, and it repeats the last notice when the turn has no error of its own.
-  `claude.ts` reads `modelUsage` from each turn's result. Its input is
-  `inputTokens + cacheReadInputTokens + cacheCreationInputTokens`, its cached
-  input is `cacheReadInputTokens` and its output is `outputTokens`.
-  `cli-process.ts` owns the child's environment and stops the child before unwinding a failed line
-  consumer, because Execa's iterator return awaits the child. It then awaits all readers and the
-  process. Process output is never accumulated by Execa. Every child carries the round's commit
-  stamps, overriding any inherited ones, so a phase that commits records the round that ran rather
-  than whatever started it. The stamps are read when the child starts, from the output's record
-  of the phases that have run, so a clean round that skipped the vet and the rebuttal stamps
-  neither into its record, and a round whose vetters accepted every finding stamps no rebuttal.
+  end again. The request repeats no phase work, and the new response becomes the phase's final text.
+  A second response without the line fails the phase with its session. A line that is present but
+  malformed fails at once. The contract recorder supplies no such request, so each recording stays
+  one invocation. After the process ends with at least one turn, it saves audit, vet, rebuttal and
+  ruler reports from that text without the result line. A failed write fails the phase before
+  progression. For the watch it parses the grade line and returns the remaining Markdown with the
+  output recorder's final compaction count, without writing a file. Context and token measurements
+  pass directly to the output observer. Both assistants replace the phase total with the session's
+  newest running total. Claude and Codex decoders validate the fields they consume. `codex.ts` reads
+  a top-level Codex `error` event as a notice, such as a reconnect, and returns it as a diagnostic
+  line of the phase, because Codex keeps running after it. Only `turn.failed` ends a Codex turn with
+  a failure, and it repeats the last notice when the turn has no error of its own. `claude.ts` reads
+  `modelUsage` from each turn's result. Its input is
+  `inputTokens + cacheReadInputTokens + cacheCreationInputTokens`, its cached input is
+  `cacheReadInputTokens` and its output is `outputTokens`. `cli-process.ts` owns the child's
+  environment and stops the child before unwinding a failed line consumer, because Execa's iterator
+  return awaits the child. It then awaits all readers and the process. Process output is never
+  accumulated by Execa. Every child carries the round's commit stamps, overriding any inherited
+  ones, so a phase that commits records the round that ran rather than whatever started it. The
+  stamps are read when the child starts, from the output's record of the phases that have run, so a
+  clean round that skipped the vet and the rebuttal stamps neither into its record, and a round
+  whose vetters accepted every finding stamps no rebuttal.
 - `codex-session.ts` reads the current session's appended records. A resumed
   fix starts at the file's pre-invocation end. An
   incomplete record stays with the reader until more bytes arrive; a final
@@ -688,25 +687,24 @@ consumers.
   that number. A planning title first counts the round from the plan's latest settle or reopen
   marker file, as `(detailing round 3, file round 6)`. The marker file took a number of its own, so
   the file number alone does not say how far the current phase is. Before the first marker file both
-  numbers are equal. It derives each commit group label from its original
-  ordered exact set: one commit uses its six-character ID and a longer set uses
-  `<oldest>..<newest>`. It joins group labels with `+` and scans the round folder for the next
-  target-wide number. Later rounds keep that bounded label while their audit report's target
-  advances. Automated rounds supply every phase path. A manual audit names only its claim and audit
-  report; later manual phases retain that audit report's round and name their output with the
-  current session's writer tag. `manualPhasePaths` returns the ordinary phase arguments and finds
-  vet and rebuttal report inputs only within the exact round at the audit report's root. With no
-  input, it selects the most recently modified eligible document in the round folder: any
-  assistant's audit for vet, the current assistant's audit for rebuttal or either assistant's audit
-  for fix, and any assistant's audit for the ruler. The rebuttal, the ruler and the fix receive
-  every vet report of the round in file-name order. The ruler and the fix receive the newest
-  rebuttal unless one is selected, and the fix the newest ruler report when one exists. A ruler with
-  no rebuttal report is refused. `recoveryRoundPaths` resolves the same set for
-  `resume-fix`. `planRoundFile` says whether a file in the round folder belongs to one plan: a
-  claim, marker, phase file or queue of its plan or implementation audits, a step log or step
-  ruling, a close log, a handoff or a yield report. Each form is read whole past the stem, never as
-  a bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's round
-  data is not among them, because the close archives it beside the plan. Round data does not
+  numbers are equal. It derives each commit group label from its original ordered exact set: one
+  commit uses its six-character ID and a longer set uses `<oldest>..<newest>`. It joins group labels
+  with `+` and scans the round folder for the next target-wide number. Later rounds keep that
+  bounded label while their audit report's target advances. Automated rounds supply every phase
+  path. A manual audit names only its claim and audit report; later manual phases retain that audit
+  report's round and name their output with the current session's writer tag. `manualPhasePaths`
+  returns the ordinary phase arguments and finds vet, rebuttal and ruler report inputs only within
+  the exact round at the audit report's root. With no input, it selects the most recently modified
+  eligible document in the round folder: any assistant's audit for vet, the current assistant's
+  audit for rebuttal or either assistant's audit for fix, and any assistant's audit for the ruler.
+  The rebuttal, the ruler and the fix receive every vet report of the round in file-name order. The
+  ruler and the fix receive the newest rebuttal unless one is selected, and the fix the newest ruler
+  report when one exists. A ruler with no rebuttal report is refused. `recoveryRoundPaths` resolves
+  the same set for `resume-fix`. `planRoundFile` says whether a file in the round folder belongs to
+  one plan: a claim, marker, phase file or queue of its plan or implementation audits, a step log or
+  step ruling, a close log, a handoff or a yield report. Each form is read whole past the stem,
+  never as a bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's
+  round data is not among them, because the close archives it beside the plan. Round data does not
   participate in numbered allocation. `queueFile` names a manual series' `<target>-queue.md` beside
   its rounds. It carries no round number because it belongs to the whole sequence: one path stays
   valid across rounds, so an editor holding it open keeps editing the file the runner reads.
@@ -810,53 +808,53 @@ consumers.
   waiting run, prints the waiting run's response and exits 1 on a refusal. Both start no assistant,
   read no settings and write no file. The recovery command a fix prints for an open serious contest
   or split calls the hidden `resume-fix` route. It resolves the retained audit, vet and rebuttal
-  reports and in-progress round entry, refuses a round without one, restores earlier phase records
-  and resumes the saved fix session through the ordinary coordinator. `plan` prints the plan an
-  omitted target selects, as its absolute path, and writes nothing, so a user can see it before a
-  round or close takes it. `close` resolves its plan and open deferrals before startup, then runs
-  the close phase alone with its own log. The `deferrals` command prints the active plan's open set
-  through the shared owner. It exists only for the hand-run implementation audit, so help hides it
-  beside `episode` and the other launcher interfaces. The `episode` command prints the requested
-  line range from joined watch evidence produced by the shared reader and formatter, with its
-  returned range and current total. Every call rebuilds the view. It performs no release resolution,
-  assistant startup or file writes. The `name` command claims a round and prints its claim,
-  workflow, working checkout and audit arguments. Its required `--auditor` is the hand-run session's
-  full tag, including `u`, checked separately from a round's model request. The `paths` command
-  prints the workflow, working checkout and argument paths for an existing audit report as a JSON
-  object. It reads the audit report opening's named workflow to select its kind. Both commands
-  bypass assistant startup and release resolution; `paths` writes nothing. `disprove` resolves one
-  active or archived plan's round data, checks an attached finding or records the manually named
-  auditor of a detached finding, writes through the shared atomic writer and commits only an
-  archived file. `--vet` requires at least one non-Accept vet verdict on the attached finding and is
-  refused beside `--by`. It starts no assistant and reads no settings. `settle` and `ready` resolve
-  the active plan that `plan` prints when no stem is given and run only the lifecycle Git owner. The
-  run resolves its named active plan and the stage `lifecycleStage` reads before startup, then reads
-  settings and releases once and calls the stage functions the single commands use, in lifecycle
-  order: the series, `settlePlan`, the series, `readyPlan`, the implementation, the range series and
-  the close. The user's invocation is the settle, ready and close call given in advance, so a runner
-  `settle` or `ready` ending and a range series that ended without needing the user move on to the
-  next stage. After `settlePlan` or `readyPlan` the run reads the next stage through
-  `lifecycleStage`, because a plan reopened after its ready marker keeps the marker and goes on to
-  the implementation or the range series. Every other ending, a refused lifecycle call included,
-  ends the run. Each stage keeps its own files, logs and printed lines; the run adds one line per
-  stage start and one ending line naming the stage it ended in, the stages it completed and that a
-  rerun continues from the plan's state. It takes `-v` and no round option, so every series it opens
-  uses the ordinary opener, the glance and the watch. The hidden `mark` command claims an active
-  plan's next round number for an empty `reopen` marker and prints its path, with no release
-  resolution or assistant. So the program carries an action handler, Commander adds no `help`
-  command, and each command's own `-h` prints its help. A bare command line prints that help;
-  options without a target take `defaultTarget`. `implement` requires its named active plan's
-  assigned ready marker before assistant startup. It uses the assigned coder for every selected
-  pending step and verifies the landed share subjects after each worker before continuing. It also
-  owns the round sequence and its counter. Without `--auditor`, an active plan or commit target runs
-  an automatic series. The `--first` selection runs first. Without it, `openingAuditor` reads the
-  target's retained data and opens on a listed auditor without a current read when another has one,
-  and the configured default opens otherwise. Then each runner answer names the next listed auditor
-  or an ending, from the auditor list of the target's work class. A `first` default opens on the
-  first listed auditor and a `random` default picks a listed auditor for each scope's series. The
-  series writes no queue and ends on settle, ready or stop, the configured maximum, a failure, an
-  unanswered ruling, a red watch or a phase change. It returns that ending as a value: `settle` or
-  `ready` for the runner's lifecycle answer, `ended` for a runner stop, the maximum or an emptied
+  reports, any ruler report and the in-progress round entry, refuses a round without that entry,
+  restores earlier phase records and resumes the saved fix session through the ordinary coordinator.
+  `plan` prints the plan an omitted target selects, as its absolute path, and writes nothing, so a
+  user can see it before a round or close takes it. `close` resolves its plan and open deferrals
+  before startup, then runs the close phase alone with its own log. The `deferrals` command prints
+  the active plan's open set through the shared owner. It exists only for the hand-run
+  implementation audit, so help hides it beside `episode` and the other launcher interfaces. The
+  `episode` command prints the requested line range from joined watch evidence produced by the
+  shared reader and formatter, with its returned range and current total. Every call rebuilds the
+  view. It performs no release resolution, assistant startup or file writes. The `name` command
+  claims a round and prints its claim, workflow, working checkout and audit arguments. Its required
+  `--auditor` is the hand-run session's full tag, including `u`, checked separately from a round's
+  model request. The `paths` command prints the workflow, working checkout and argument paths for an
+  existing audit report as a JSON object. It reads the audit report opening's named workflow to
+  select its kind. Both commands bypass assistant startup and release resolution; `paths` writes
+  nothing. `disprove` resolves one active or archived plan's round data, checks an attached finding
+  or records the manually named auditor of a detached finding, writes through the shared atomic
+  writer and commits only an archived file. `--vet` requires at least one non-Accept vet verdict on
+  the attached finding and is refused beside `--by`. It starts no assistant and reads no settings.
+  `settle` and `ready` resolve the active plan that `plan` prints when no stem is given and run only
+  the lifecycle Git owner. The run resolves its named active plan and the stage `lifecycleStage`
+  reads before startup, then reads settings and releases once and calls the stage functions the
+  single commands use, in lifecycle order: the series, `settlePlan`, the series, `readyPlan`, the
+  implementation, the range series and the close. The user's invocation is the settle, ready and
+  close call given in advance, so a runner `settle` or `ready` ending and a range series that ended
+  without needing the user move on to the next stage. After `settlePlan` or `readyPlan` the run
+  reads the next stage through `lifecycleStage`, because a plan reopened after its ready marker
+  keeps the marker and goes on to the implementation or the range series. Every other ending, a
+  refused lifecycle call included, ends the run. Each stage keeps its own files, logs and printed
+  lines; the run adds one line per stage start and one ending line naming the stage it ended in, the
+  stages it completed and that a rerun continues from the plan's state. It takes `-v` and no round
+  option, so every series it opens uses the ordinary opener, the glance and the watch. The hidden
+  `mark` command claims an active plan's next round number for an empty `reopen` marker and prints
+  its path, with no release resolution or assistant. So the program carries an action handler,
+  Commander adds no `help` command, and each command's own `-h` prints its help. A bare command line
+  prints that help; options without a target take `defaultTarget`. `implement` requires its named
+  active plan's assigned ready marker before assistant startup. It uses the assigned coder for every
+  selected pending step and verifies the landed share subjects after each worker before continuing.
+  It also owns the round sequence and its counter. Without `--auditor`, an active plan or commit
+  target runs an automatic series. The `--first` selection runs first. Without it, `openingAuditor`
+  reads the target's retained data and opens on a listed auditor without a current read when another
+  has one, and the configured default opens otherwise. Then each runner answer names the next listed
+  auditor or an ending, from the auditor list of the target's work class. A `first` default opens on
+  the first listed auditor and a `random` default picks a listed auditor for each scope's series.
+  The series writes no queue and ends on settle, ready or stop, the configured maximum, a failure,
+  an unanswered ruling, a red watch or a phase change. It returns that ending as a value: `settle`
+  or `ready` for the runner's lifecycle answer, `ended` for a runner stop, the maximum or an emptied
   manual queue, and `stopped` for an ending that needs the user, so a reader never parses the
   printed lines. Before an automatic implementation series starts, the runner computes the open set
   and chains one scoped planning round for plan-bound deferrals. After each finished
@@ -1130,7 +1128,7 @@ without writing anything.
 
 ## Report lifecycle
 
-Nothing deletes a round's files. A round's audit, vet and rebuttal reports stay
+Nothing deletes a round's files. A round's audit, vet, rebuttal and ruler reports stay
 in the round folder after a finished fix, a failure, a ruling or a clean audit,
 and a hand-run round keeps its reports the same way. The evidence commit puts
 each of them in Git within one command of its writing.

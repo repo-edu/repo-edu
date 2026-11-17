@@ -8,7 +8,7 @@ report and a durable outcome, with a second assistant checking the first before 
 
 | Fact | Detail |
 | --- | --- |
-| Owners | `tools/audit-round/CLAUDE.md` owns target resolution and sequencing; the audit, vet, rebuttal and fix workflows under `.agents/skills/` own their phases |
+| Owners | `tools/audit-round/CLAUDE.md` owns target resolution and sequencing; the audit, vet, rebuttal, ruler and fix workflows under `.agents/skills/` own their phases |
 
 ## Why a round has four phases
 

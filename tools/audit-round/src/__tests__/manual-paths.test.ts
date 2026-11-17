@@ -379,8 +379,27 @@ test("every vet report of the round reaches the rebuttal and the fix, beside the
     1,
   )
   assert.match(f.errors[0], /another round/)
-  // Only the fix reads a rebuttal, and every vet report is supplied, so no other
-  // selection exists.
+  // The ruler takes the same selected rebuttal, so it judges what the fix reads.
+  assert.equal(
+    await invoke([
+      "rule",
+      basename(report),
+      "--writer",
+      "atx",
+      "--rebut",
+      basename(rebuts[1]),
+    ]),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
+    report,
+    ...vets,
+    rebuts[1],
+    join(f.roundRoot, "example-impl-audit-01..01-01-6-rule.atx.md"),
+  ])
+  // Only the ruler and the fix read a rebuttal, and every vet report is
+  // supplied, so no other selection exists.
   assert.equal(
     await invoke([
       "rebut",
