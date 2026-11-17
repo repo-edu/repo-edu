@@ -77,17 +77,18 @@ The burden level uses [Reach and complexity](#reach-and-complexity).
 `[complexity:minus-high]` and `growth-none` to `[complexity:none]`. The same
 measurement in the subject and body keeps the short trajectory honest.
 
-Grade every concern a file-changing commit closes, D included and off-plan work
-included, with the [Finding metadata](#finding-metadata) and the round grammar's
-[commit record bullet](round-grammar.md#commit-record-bullet). The primary area
-owns supporting documentation too. The implementation tiers grade a concern
-whether the AI surfaced it formally in a review or only addressed it in the
-commit body; grade each concern against that rubric in its bullet.
+A file-changing Repo Edu commit grades every concern it closes, D included and
+off-plan work included, with the [Finding metadata](#finding-metadata) and the
+round grammar's [commit record bullet](round-grammar.md#commit-record-bullet).
+The primary area owns supporting documentation too. In a Repo Edu commit, the
+implementation tiers grade a concern whether the AI surfaced it formally in a
+review or only addressed it in the commit body. Grade each concern against that
+rubric in its bullet.
 
-`redesign` is the typical conventional kind at tier A, alongside `refactor`,
-`feat` and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
-redesign that closes a bug, and commits as `A1` with `redesign` and the bug
-named in the sentence.
+In a Repo Edu commit, `redesign` is the typical conventional kind at tier A,
+alongside `refactor`, `feat` and `docs`. `fix` is essentially never tier A: an
+A-tier bug fix is a redesign that closes a bug, and commits as `A1` with
+`redesign` and the bug named in the sentence.
 
 Explain a graded commit's net change in one untiered decision bullet in its
 existing body. Name the obligations added and removed and why one side
