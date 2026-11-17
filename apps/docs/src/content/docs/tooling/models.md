@@ -50,12 +50,13 @@ The read-out compares rather than ranks by taste:
    dropped or downgraded finding as kept for the auditor and coder. Either ruling outranks the
    winner named in the round when a vetter-pair table ends a split.
 
-Auditors, vetter pairs and coders are each shown twice, in planning and in implementation: once on
-A and B findings and once on A, B and C findings. Implementation audits raise few A or B findings,
-so the A/B/C sections give them enough evidence. When two vetters give different verdicts on a C
-finding, the ruler names the winner, so the A/B/C vetter-pair table can say which vetter was right.
-The A/B sections stay the ones to choose auditors by, because in an A/B/C section a kept C counts
-as much as a kept A.
+Auditors and vetter pairs are each shown twice in planning and twice in implementation: once on A
+and B findings and once on A, B and C findings. Coders have one part, not split into planning and
+implementation, and it is shown twice in the same way. Implementation audits raise few A or B
+findings, so the A/B/C sections give them enough evidence. When two vetters give different verdicts
+on a C finding, the ruler names the winner, so the A/B/C vetter-pair table can say which vetter was
+right. The A/B sections stay the ones to choose auditors by, because in an A/B/C section a kept C
+counts as much as a kept A.
 
 The auditor tables carry no evaluation and no recommendation. The best model is the top row of the
 main table, and the time stands in its own column. Coder recommendations keep the direct

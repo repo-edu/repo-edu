@@ -552,78 +552,78 @@ consumers.
   row in each class where it has a complete round, and a coder gets a row once one of its plans is
   admitted; a model known only through excluded plans or the other class prints no zero row, because
   the excluded-plans section or the other table already names it. Planning and implementation
-  auditors have separate tables. Every auditor, vetter-pair, coder and rounds-by-plan section prints
-  twice, in both work classes: one counts A and B findings and one counts A, B and C findings, and
-  every section title names its range. `tierRanges` in `round-data.ts` lists the two ranges, and no
-  work class has a range of its own. Implementation audits raise too few A or B findings to compare
-  models on those alone, and the ruler names the winners of C disputes in both classes. The A/B
-  sections stay because in an A/B/C section a kept C counts as much as a kept A. An auditor row
-  compares only plans where another auditor has a complete round. Each side's per-round figure
-  divides its kept findings of the section's range by its rounds over all those plans, and the count
-  cell beside it shows that division. Averaging per plan first was rejected: a plan with one round
-  would then weigh as much as a plan with nine, and the figure could no longer be checked in its
-  row. No evaluation or recommendation is printed, because the sorted table and its time column
-  already state the order. A row with fewer than five shared plans is printed in a second table
-  below the main one, so the main table's top row is the best of the models with enough plans. Each
-  table sorts by the gap between the two per-round figures, then by time. Planning also reports an
-  opener count when it differs from its even share by more than a tenth of the row's shared plans
-  and by at least two. The count reads plans rather than findings, so both planning sections print
-  the same opener lines. Current auditors get correctable bullets above the main table; other
-  auditors share one line below the last table. Auditor cost remains the mean audit and rebuttal
-  time over every complete round. Kept, dropped, downgraded and disproved findings are exclusive
-  counts; wrong claims is the last three as a percentage of all four across those rounds. A
-  downgrade is a kept finding whose final tier left the section's range. A later finding ruling
-  removes a kept finding from coder evidence. A later vet ruling moves a dropped or downgraded
-  finding to kept for the auditor and coder. Planning and implementation each have a vetter-pair
-  table. A vetter is a model and an effort, and a row is one pair of vetters that both judged a
-  finding on one panel whose highest grade, from the audit report or a vetter, is within the
-  section's range. `round-data.ts` shares that grade with the runner's winner rule. A round of one
-  vetter supplies no pair. The pair is ordered by model text, so two models keep one orientation
-  across rounds. A row counts the shared findings, the splits under `reviewsSplit` with a stored
-  winner and each ruled split's ending: vetter 1 right, vetter 2 right, both or neither. A winner
-  counts whoever named it, the user or the ruler. A split without a winner counts only as shared
-  until its winner is stored, so the table has no open column. The latest ruling decides the ending.
-  A later disproved finding proves right the vetters that dropped it. A later vet ruling, like the
-  round's `report` winner, proves right the vetters that accepted it. `neither` proves no vetter
-  right and a list of vetter tags proves those vetters right. A row needs no auditor column, because
-  both vetters judged the same audit reports. Under `--all`, each class gains a measured-data table
-  per range, each with one row per plan and auditor. The rows contain rounds, all four finding
-  outcomes and mean minutes per round, sorted by plan and then model. A detached disproved finding
-  creates a zero-round row when its auditor has no round on that plan. These tables precede the
-  excluded plans. Coder yield comparisons use one closed plan per example. The archived plan
-  supplies the listed steps, every hosted share must have a readable model record and the whole-plan
-  audit must follow the final share. A missing archived plan and a step list the current grammar
-  cannot read are separate exclusion reasons, because the read-out names what it found and never
-  rewrites the archive. Records admit a plan without a ready assignment when they name one model and
-  effort. An assignment, when present, must match on assistant and effort; its model may be a family
-  alias the implement worker resolved at run time, so the records' release is not compared with it
-  and a mismatch is its own exclusion reason. A readable step record without active time falls back
-  to the span from the ready marker or previous step to that step's later share commit. A two-repo
-  span counts once. A plan with a step time that neither source gives is excluded with its own
-  reason, so every admitted plan supplies both its yield and its time and a row holds one sample
-  list. Incomplete or mixed records move to the excluded-plans section. Time adds step and
-  implementation-fix time and excludes planning fixes. Mean comes from `simple-statistics`. Direct
-  observed-range comparisons own the clear-cut recommendation. Every row that reaches its minimum
-  enters it. Each coder section has its own recommendation and table. The table sorts by its range's
-  accepted findings per step, fewest first, then by time. A winning coder outside `coders` is named
-  as such. The ruled-findings section lists every finding whose round stored the user's winner,
-  newest round first and in finding order within a round: plan and round, finding, tier, auditor,
-  every vetter of the round with its verdict, the answer and the reason. The answer names each
-  winning vetter by its model rather than its tag, because a tag names a vetter only within its
-  round. Splits and contests share the list, because both end in the same ruling. Like the disproved
-  tables, it shows each reason's first sentence and then the full reasons as a numbered list. The
-  ruler-winners section follows it in the same form, with a ruler column that names the model and
-  effort of the round's rule phase entry. It stays apart so the ruler's many winners do not bury the
-  user's, and the user can check one and overturn it with `disprove`. Later finding rulings print
-  per auditor as a numbered table that shows each reason's first sentence, because a full reason
-  wraps the terminal table into an unreadable grid. Later vet rulings print newest first in one
-  table after them, with an auditor column. Every table's vetter column names each vetter of the
-  round with its verdict on the finding. A numbered list of the full reasons follows each table,
-  numbered across the section so each ruling keeps one number. Excluded plans, grouped by reason
-  with their recorded models, print only under `--all`, because a reader comparing models does not
-  need the measured rows or plans that supplied no evidence every time. The command starts no
-  assistant and writes no round file or round data. Like other commands that read settings, it
-  creates a missing `settings.json` from the defaults.
+  auditors have separate tables. Every auditor, vetter-pair and rounds-by-plan part prints twice in
+  each work class, and the one coder part prints twice: one section counts A and B findings and one
+  counts A, B and C findings, and every section title names its range. `tierRanges` in
+  `round-data.ts` lists the two ranges, and no work class has a range of its own. Implementation
+  audits raise too few A or B findings to compare models on those alone, and the ruler names the
+  winners of C disputes in both classes. The A/B sections stay because in an A/B/C section a kept C
+  counts as much as a kept A. An auditor row compares only plans where another auditor has a
+  complete round. Each side's per-round figure divides its kept findings of the section's range by
+  its rounds over all those plans, and the count cell beside it shows that division. Averaging per
+  plan first was rejected: a plan with one round would then weigh as much as a plan with nine, and
+  the figure could no longer be checked in its row. No evaluation or recommendation is printed,
+  because the sorted table and its time column already state the order. A row with fewer than five
+  shared plans is printed in a second table below the main one, so the main table's top row is the
+  best of the models with enough plans. Each table sorts by the gap between the two per-round
+  figures, then by time. Planning also reports an opener count when it differs from its even share
+  by more than a tenth of the row's shared plans and by at least two. The count reads plans rather
+  than findings, so both planning sections print the same opener lines. Current auditors get
+  correctable bullets above the main table; other auditors share one line below the last table.
+  Auditor cost remains the mean audit and rebuttal time over every complete round. Kept, dropped,
+  downgraded and disproved findings are exclusive counts; wrong claims is the last three as a
+  percentage of all four across those rounds. A downgrade is a kept finding whose final tier left
+  the section's range. A later finding ruling removes a kept finding from coder evidence. A later
+  vet ruling moves a dropped or downgraded finding to kept for the auditor and coder. Planning and
+  implementation each have a vetter-pair table. A vetter is a model and an effort, and a row is one
+  pair of vetters that both judged a finding on one panel whose highest grade, from the audit report
+  or a vetter, is within the section's range. `round-data.ts` shares that grade with the runner's
+  winner rule. A round of one vetter supplies no pair. The pair is ordered by model text, so two
+  models keep one orientation across rounds. A row counts the shared findings, the splits under
+  `reviewsSplit` with a stored winner and each ruled split's ending: vetter 1 right, vetter 2 right,
+  both or neither. A winner counts whoever named it, the user or the ruler. A split without a winner
+  counts only as shared until its winner is stored, so the table has no open column. The latest
+  ruling decides the ending. A later disproved finding proves right the vetters that dropped it. A
+  later vet ruling, like the round's `report` winner, proves right the vetters that accepted it.
+  `neither` proves no vetter right and a list of vetter tags proves those vetters right. A row needs
+  no auditor column, because both vetters judged the same audit reports. Under `--all`, each class
+  gains a measured-data table per range, each with one row per plan and auditor. The rows contain
+  rounds, all four finding outcomes and mean minutes per round, sorted by plan and then model. A
+  detached disproved finding creates a zero-round row when its auditor has no round on that plan.
+  These tables precede the excluded plans. Coder yield comparisons use one closed plan per example.
+  The archived plan supplies the listed steps, every hosted share must have a readable model record
+  and the whole-plan audit must follow the final share. A missing archived plan and a step list the
+  current grammar cannot read are separate exclusion reasons, because the read-out names what it
+  found and never rewrites the archive. Records admit a plan without a ready assignment when they
+  name one model and effort. An assignment, when present, must match on assistant and effort; its
+  model may be a family alias the implement worker resolved at run time, so the records' release is
+  not compared with it and a mismatch is its own exclusion reason. A readable step record without
+  active time falls back to the span from the ready marker or previous step to that step's later
+  share commit. A two-repo span counts once. A plan with a step time that neither source gives is
+  excluded with its own reason, so every admitted plan supplies both its yield and its time and a
+  row holds one sample list. Incomplete or mixed records move to the excluded-plans section. Time
+  adds step and implementation-fix time and excludes planning fixes. Mean comes from
+  `simple-statistics`. Direct observed-range comparisons own the clear-cut recommendation. Every row
+  that reaches its minimum enters it. Each coder section has its own recommendation and table. The
+  table sorts by its range's accepted findings per step, fewest first, then by time. A winning coder
+  outside `coders` is named as such. The ruled-findings section lists every finding whose round
+  stored the user's winner, newest round first and in finding order within a round: plan and round,
+  finding, tier, auditor, every vetter of the round with its verdict, the answer and the reason. The
+  answer names each winning vetter by its model rather than its tag, because a tag names a vetter
+  only within its round. Splits and contests share the list, because both end in the same ruling.
+  Like the disproved tables, it shows each reason's first sentence and then the full reasons as a
+  numbered list. The ruler-winners section follows it in the same form, with a ruler column that
+  names the model and effort of the round's rule phase entry. It stays apart so the ruler's many
+  winners do not bury the user's, and the user can check one and overturn it with `disprove`. Later
+  finding rulings print per auditor as a numbered table that shows each reason's first sentence,
+  because a full reason wraps the terminal table into an unreadable grid. Later vet rulings print
+  newest first in one table after them, with an auditor column. Every table's vetter column names
+  each vetter of the round with its verdict on the finding. A numbered list of the full reasons
+  follows each table, numbered across the section so each ruling keeps one number. Excluded plans,
+  grouped by reason with their recorded models, print only under `--all`, because a reader comparing
+  models does not need the measured rows or plans that supplied no evidence every time. The command
+  starts no assistant and writes no round file or round data. Like other commands that read
+  settings, it creates a missing `settings.json` from the defaults.
 - `pager.ts` owns the full-screen view of the model read-out. `command.ts` awaits it before the
   ordinary terminal write. The printed read-out therefore stays the only permanent output, and it is
   the same with or without the view. The view opens only when standard output and standard input are
@@ -1323,8 +1323,9 @@ runner owns both writes.
 
 `models` reads every retained round-data file and both Git histories. It prints planning auditors,
 implementation auditors, planning and implementation vetter pairs, coders, ruled findings, ruler
-winners and disproved findings. Every auditor, vetter-pair and coder part prints an A/B section and
-an A/B/C section, which also counts C findings, in both work classes. Under `--all` it also prints
+winners and disproved findings. Every auditor and vetter-pair part prints an A/B section and an
+A/B/C section, which also counts C findings, in each work class. The one coder part prints the same
+two sections without a work class. Under `--all` it also prints
 planning and implementation rounds by plan once per range before the excluded plans. Each auditor
 section prints its main table and, when a model has fewer than five shared plans, a second table for
 those models below it. It prints no evaluation and no recommendation. Each auditor table divides

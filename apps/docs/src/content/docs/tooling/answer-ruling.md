@@ -30,7 +30,8 @@ Only a fix or an implementation worker returns a ruling. It may ask about a real
 choice that remains after the plan, code, boundaries and earlier decisions have been checked. An
 audit fix also asks who was right when the rebuttal contests a vetter, or two vetters give different
 verdicts, on a finding whose highest grade is A or B. The ruler names the winner of the same
-disputes on a C or D finding before the fix starts, so they never reach you.
+disputes on a C or D finding before the fix starts. Such a dispute reaches you only when the ruler
+finds that a real choice remains or that the finding would change a fixed input.
 
 The terminal prints a notice in place of the ruling's text. It names the round or step, the ruling
 file, the findings that need a winner, the winner words with the round's vetter tags, whose model
