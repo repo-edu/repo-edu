@@ -11,9 +11,9 @@ this repo.
 The [tooling design document](../plan/notes/tooling-design.md) explains the planning and audit
 tooling's system-wide structure and reasons. The
 [tooling user guide](apps/docs/src/content/docs/tooling/index.md) explains each tool's purpose and
-loop, which commands to use and which decisions are the user's. The plan doctrine's
-[Layout](../plan/CLAUDE.md#layout) owns their mirror status and the duty to keep them in sync with
-changes to the tooling.
+loop, which commands to use and which decisions are the user's. The shared round protocol's
+[Tooling mirrors](.agents/references/round-protocol.md#tooling-mirrors) owns their mirror status
+and the duty to keep them in sync with changes to the tooling.
 
 Areas are stable IDs in
 `tools/architecture-check/src/area-model.json`. Attribute touched tracked source
@@ -29,8 +29,8 @@ ledgers or generated files. Do not justify a feature or proposal by their
 upkeep or readability.
 
 Rule text, `CLAUDE.md` files included, states each decision and its reason,
-never who directed it or when. The plan doctrine's
-[Mechanism cases](../plan/CLAUDE.md#mechanism-cases) owns this rule.
+never who directed it or when. The shared round protocol's
+[Mechanism cases](.agents/references/round-protocol.md#mechanism-cases) owns this rule.
 
 Before adding a tracked source file under `apps/*/src`, `packages/*/src` or
 `tools/*/src`, assign it to one primary area from the area model. If no existing
@@ -284,43 +284,29 @@ for their substance.
 Omit routine test and check results from commit messages.
 
 The [shared severity sequence](.agents/references/round-protocol.md#severity-sequence)
-owns the counts, reach marks and whole-commit burden marks. Follow it for every
-file-changing commit except a plan step. The
-[subject grammar](.agents/references/subject-grammar.md) owns their placement.
-
-Use the shared [finding metadata](.agents/references/round-protocol.md#finding-metadata)
-and the [record bullet grammar](.agents/references/round-grammar.md#commit-record-bullet)
-for every graded concern, D included, including off-plan work. The primary area
-owns supporting documentation too. Steps and markers carry no graded bullets.
-
-The shared [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) grade a
-concern's severity whether the AI surfaced it formally in a review or only addressed it in the
-commit body. Grade each concern against that rubric in its bullet.
+owns the counts, reach marks and whole-commit burden marks, and how every concern
+is graded and recorded. Follow it for every file-changing commit except a plan
+step. The [subject grammar](.agents/references/subject-grammar.md) owns their
+placement.
 
 The conventional commit kind is the last tag before the sentence, from the
 closed list the subject grammar admits:
 `abx growth-none B3C8d4 fix(renderer-app): surface session command errors`.
 
-`redesign` is the typical kind at tier A, alongside `refactor`, `feat`
-and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
-redesign that closes a bug, and commits as `A1` with `redesign` and the bug
-named in the sentence.
-
 Plan-related commits use the shared `<stem>/` forms. Their meaning and keying
-are owned by the plan repo doctrine at
-`../plan/CLAUDE.md#shared-implementation-forms` and their shape by the subject
-grammar. Use those owners for plan identity and step numbers. A commit unattached to
-a plan keeps this repo's ordinary severity-prefixed conventional subject.
+are owned by the shared protocol's
+[Shared implementation forms](.agents/references/round-protocol.md#shared-implementation-forms)
+and their shape by the subject grammar. Use those owners for plan identity and step numbers. A
+commit unattached to a plan keeps this repo's ordinary severity-prefixed conventional subject.
 
-For implementation-audit records, follow the plan repo's
-[Shared implementation forms](../plan/CLAUDE.md#shared-implementation-forms)
+For implementation-audit records, follow the shared protocol's
+[Shared implementation forms](.agents/references/round-protocol.md#shared-implementation-forms)
 for record placement, the
 [shared round protocol](.agents/references/round-protocol.md) for finding
 metadata and the [fix workflow](.agents/skills/fix/references/workflow.md#records)
 for record writing.
 
-Follow the plan doctrine's **Shared implementation forms** for cross-repo
-deferrals and directed plan-file fixes.
+Follow the same section for cross-repo deferrals and directed plan-file fixes.
 
 ## Commit Capability Tag
 
@@ -440,12 +426,11 @@ One test cannot do both jobs. The reading test would keep a rarely met name
 out, and the entry test would license a bare word the user has never met.
 
 A change that introduces a project term passing the entry test adds its entry
-in the same change, in the tier above. An audit treats a coined name without an
-entry, or a second name for a concept that already has one, as a finding under
-the ordinary tiers. The rule exists because a name coined without an entry
-spreads silently through code, tests, instructions and plans, and its only
-repair is a rename plan: unwinding three such names once took a plan of about
-700 lines across more than 50 files.
+in the same change, in the tier above. The rule exists because a name coined
+without an entry spreads silently through code, tests, instructions and plans,
+and its only repair is a rename plan. An audit treats such a name as a finding,
+under the shared protocol's
+[Coined names](.agents/references/round-protocol.md#coined-names).
 
 Each entry is a bold term followed by a short plain explanation that teaches the
 concept to a reader who does not know the source ecosystem's jargon, without

@@ -131,8 +131,8 @@ a winner, `report`, the tags of the vetters that were right or `neither`, with a
 one-line reason, so the suggested answer names both. Suggest `not yet` when the
 user should first ask the fix a question.
 
-Price the request under the plan doctrine's
-[Mechanism cases](../../../../../plan/CLAUDE.md#mechanism-cases).
+Price the request under the shared protocol's
+[Mechanism cases](../../../references/round-protocol.md#mechanism-cases).
 Do not invent a disadvantage for every option. Explain changes to owners, state or rules when they
 affect the choice. Include the finding context needed to decide each open item. The full round's
 findings and ratings stay in the round transcript.

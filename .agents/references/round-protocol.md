@@ -77,6 +77,18 @@ The burden level uses [Reach and complexity](#reach-and-complexity).
 `[complexity:minus-high]` and `growth-none` to `[complexity:none]`. The same
 measurement in the subject and body keeps the short trajectory honest.
 
+Grade every concern a file-changing commit closes, D included and off-plan work
+included, with the [Finding metadata](#finding-metadata) and the round grammar's
+[commit record bullet](round-grammar.md#commit-record-bullet). The primary area
+owns supporting documentation too. The implementation tiers grade a concern
+whether the AI surfaced it formally in a review or only addressed it in the
+commit body; grade each concern against that rubric in its bullet.
+
+`redesign` is the typical conventional kind at tier A, alongside `refactor`,
+`feat` and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
+redesign that closes a bug, and commits as `A1` with `redesign` and the bug
+named in the sentence.
+
 Explain a graded commit's net change in one untiered decision bullet in its
 existing body. Name the obligations added and removed and why one side
 outweighs the other. This is the commit-level instance of the account rule in
@@ -105,16 +117,17 @@ Location says which owner the correction belongs to:
 
 A deferral exists so a round can record a defect it proved without writing in a
 repo it was not authorised to change. It never turns a repo already in the
-judged repo set into an outside destination. The plan doctrine's
-[Shared implementation forms](../../../plan/CLAUDE.md#shared-implementation-forms)
-owns record placement, directed cross-repo fixes and who follows up.
+judged repo set into an outside destination.
+[Shared implementation forms](#shared-implementation-forms) owns record
+placement, directed cross-repo fixes and who follows up.
 
 An implementation audit lands a plan correction without user direction when
 implementation history has made text in any section false, one correction is
 plainly right and the correction changes no decision's meaning or reason. Stale
 text includes a name, path, count, cross-reference or sentence saying which
 steps have landed. The fix writes that correction as its own plan-repo commit
-under the plan doctrine. It is not a deferral. A substantive correction still
+under [Shared implementation forms](#shared-implementation-forms). It is not a
+deferral. A substantive correction still
 defers when the plan repo is outside the judged repo set: changing a decision,
 adding a missing rule or row or choosing among sensible corrections needs a
 judgement. The plan is the reference the audit judges the implementation
@@ -160,6 +173,15 @@ for. The tag is a suspicion, never a verdict, and blocks nothing by itself.
 
 Apply [History reads](#history-reads) to these tags. Each finding prices its own
 trade; the watch judges the cross-round signal.
+
+## Coined names
+
+A Repo Edu project term has one defining entry, under the tiers of Repo Edu's
+`CLAUDE.md` **Vocabulary**. An audit treats a coined name without an entry, or a
+second name for a concept that already has one, as a finding under the ordinary
+tiers. A name coined without an entry spreads silently through code, tests,
+instructions and plans, and its only repair is a rename plan: unwinding three
+such names once took a plan of about 700 lines across more than 50 files.
 
 ## Reach and complexity
 
@@ -315,6 +337,64 @@ risk tags flag a trade nobody prices. Each firing costs a short explanation and
 a vet check. A real unresolved choice also costs the user's ruling. That charge
 is smaller than the correction round needed after unpriced machinery lands.
 
+## Mechanism cases
+
+When a round proposes either of these mechanisms, record its case before the
+mechanism enters:
+
+- A plan guard: code whose only purpose is to detect a situation and change how
+  it ends, whoever meets the refusal: a person using the product or a developer
+  running a check. The rule the code enforces may be an integrity rule that
+  other decisions depend on. That rule needs no case. The code that enforces it
+  is still a guard and records one.
+- A mechanical doctrine rule: a new required record, check or gate that the AI
+  applies on its own. Advice that leaves judgment with the round is not a
+  mechanical rule.
+
+A mechanism the user directs needs no case: the user named it and has judged
+its cost. A mechanism the AI proposed and the user accepted is not directed,
+however short the acceptance. The case stays the proposer's burden and lands in
+the record that lands the mechanism, the plan decision or the commit body.
+Without this line, a chat proposal accepted in one word carried a write ceiling
+into a ready plan past the case, and the round that then read the plan sized
+the ceiling instead of pricing it.
+
+Rule text in both repos, `CLAUDE.md` files included, states each decision and
+its reason, never who directed it or when. The commit that adds a rule records
+its origin. A phase that needs the origin, for example to tell whether a rule
+needs a case, reads it from Git under [History reads](#history-reads).
+Repeated examples do not create requirements.
+
+The case answers five questions: what triggers the mechanism, how often that
+trigger is expected, what goes wrong without it, why accepting that outcome was
+rejected and what the mechanism charges each time it applies, including how
+often that charge is paid. Accepting the outcome, with its bound, is the default
+answer. A plan guard records the case in its **Decisions** paragraph and counts
+implementation cost, runtime cost and the audit and reading cost of the record.
+A doctrine rule records the case beside the rule in the file that owns it and
+counts the audit surfaces it adds, the findings and extra rounds those surfaces
+can draw, and the user's reading and ruling time. AI writing time is not part of
+either cost.
+
+This rule's own case: it is triggered when a round proposes a mechanical
+doctrine rule. The git record shows a few such proposals or refinements per
+month. Without the case, a reflex rule can impose a standing cost that stays
+hidden until a later audit finds it. Accepting that outcome was rejected because
+the reopen-criterion rule ran for two months and spread through three maintained
+rule files before its cost became visible. Each use adds one cost answer to a
+plan guard or one five-answer case beside a doctrine rule, which later readers
+and auditors must read. The rule passes only when the work it prevents is worth
+that standing charge. The plan repo's
+[`notes/doctrine-rule-cost.md`](../../../plan/notes/doctrine-rule-cost.md) holds
+the full evidence.
+
+One further rule governs how any ruling reaches the user. A round that asks the
+user to rule prices the question first: the request states how rare the defended
+event is, what the mechanism costs to build and own, what the cheapest
+alternative is and what the user notices in each case. An unpriced ruling
+request is not ready to be asked: an unpriced boundary ruling once let a costly
+mechanism stand.
+
 ## History reads
 
 Cross-round scans belong to the automatic-series decision, glance and watch. Other phases read
@@ -323,9 +403,52 @@ origin or an implementation departure. Lifecycle, scope discovery and handoff
 lookups remain required. This keeps current-work review separate from series
 and trajectory judgement without withholding the evidence a finding needs.
 
-The plan doctrine's [Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff
-for both round kinds. The phase landing the record writes it. The next audit
-reads it under that section's read gate.
+[Handoff](#handoff) owns the handoff for both round kinds. The phase landing the record writes it.
+The next audit reads it under that section's read gate.
+
+## Handoff
+
+`<stem>-handoff.<sha>.md` is the ephemeral round-to-round handoff. It lives
+with the other round files in `plan-evidence/active/`, never in the plan repo.
+The name keeps the `<stem>` of the plan the chain refines, so one topic search
+surfaces every sidecar of a project. The `<sha>` is the first six characters of
+the commit the handoff describes, normally the writing round's fix commit, or
+the current `HEAD` when the round lands nothing. Six is fixed, so every name has
+the same shape; where git widens an abbreviation to disambiguate, the name
+truncates back to six. The SHA sits after the dot so the stem and file kind stay
+together. The name carries no writer tag and uses the described commit's SHA
+rather than the runner's round key. The name carries the ancestry gate: a round
+resolves which handoffs stand on the current chain from
+`git merge-base --is-ancestor <sha> HEAD` per listed file.
+
+- Content: what the round did, considered and rejected, what to look at first,
+  plus findings deferred as out of scope, blocked or a deliberate non-fix; the
+  round-to-round briefing not visible in the artifact or the git log. Its first
+  line names the stem of the artifact it briefs, as context rather than as the
+  identifier.
+- Read: the handoff whose commit is an ancestor of HEAD or is HEAD itself, the
+  most recent where several qualify; absence is the normal case, not an error.
+  Ancestry rather than equality, so a commit landing between the writing and the
+  reading round does not strand the handoff. A handoff whose commit is not an
+  ancestor of HEAD belongs to a paused chain and is left alone.
+- Write: after the round commit lands, or against the current `HEAD` when the
+  round lands nothing; never a constant filename, so the next round can tell
+  whether the handoff matches the chain it stands on.
+- Keep: a handoff is never deleted. It stays in `plan-evidence/active/` until
+  loop-close moves it with the plan's other round files into
+  `plan-evidence/<stem>/`. The read gate already leaves an older, paused or
+  orphaned handoff alone, so a kept handoff changes no read. The reason is its
+  content: what the round considered and rejected is not visible in the
+  artifact or the git log, and keeping it also removes a duty from every round.
+
+An audit that reports no findings leaves every existing handoff untouched and
+writes none, whether the runner or the hand-run audit completes its clean
+record. A round that reaches a clean record after vetting or discussion follows
+the ordinary handoff rules above. The shared planning rules'
+[Round completion](../../../plan/.agents/references/planning-rules.md#round-completion)
+own the planning clean-record mandate;
+[Direct clean completion](#direct-clean-completion) owns how the runner and
+hand-run audit finish.
 
 ## Completed commit metadata
 
@@ -676,14 +799,14 @@ clean record immediately. Every route keeps the audit report, because a round's 
 stay in the evidence repo until the close moves them. A commit target lands no
 clean record.
 
-Use the plan doctrine's
-[record meanings and placement](../../../plan/CLAUDE.md#shared-implementation-forms)
-and
-[planning clean-record mandate](../../../plan/CLAUDE.md#commit-message-convention).
+Use the
+[record meanings and placement](#shared-implementation-forms) and the shared
+planning rules'
+[planning clean-record mandate](../../../plan/.agents/references/planning-rules.md#round-completion).
 Those rules grant the empty record without separate permission. The subject
 follows the [subject grammar](subject-grammar.md) with the auditing session's
-capability tag and model record. The plan doctrine's
-[Handoff](../../../plan/CLAUDE.md#handoff) owns the handoff exception. A round
+capability tag and model record. [Handoff](#handoff) owns the handoff
+exception. A round
 made clean through reconciliation follows ordinary fix completion.
 
 ## Implementation settlement
@@ -709,9 +832,144 @@ is the last point where a missing audit can still be noticed.
 
 Loop-close follows on the user's word through the
 [loop-close workflow](../../../plan/.agents/skills/close/references/workflow.md).
-That workflow writes each repo's closing form under the plan doctrine. Stem
+That workflow writes each repo's closing form under
+[Shared implementation forms](#shared-implementation-forms). Stem
 scans already show every round, so no compiled history belongs in a closing
 body. Commit-scoped rounds use their own series settlement rule.
+
+## Shared implementation forms
+
+This section owns what the `<stem>/` forms used for plan-related implementation
+work record in both repos. A stem is the current plan filename without `.md` and
+without any `-widen` postfix. The [subject grammar](subject-grammar.md) owns
+the shape of every implementation subject: role spellings, scope forms and slot
+order. Repo Edu's
+[Commit Capability Tag](../../CLAUDE.md#commit-capability-tag) and
+[Commit Model Record](../../CLAUDE.md#commit-model-record) own attribution. The
+runner's [Round files](../../tools/audit-round/CLAUDE.md#round-files) rules own
+audit report filenames; a subject scope and an audit report filename need not
+have the same spelling.
+
+A step commit has no severity segment. A severity sequence measures a round:
+the graded findings an audit surfaced. A step lands planned work as designed,
+so a grade on it can only restate the plan rounds that decided the work or the
+kind in its postfix, and a run of steps at the plan's tier would read in the
+trajectory as the same maximum repeating.
+
+Two roles change files. `impl-<n>` lands one plan step, always a single step per
+commit, and carries a conventional kind and no severity sequence. Its opening
+model record names the reported model, launched effort and active
+implementation time. A step hosted in both repos splits that time at its first
+commit, so its two records do not count work twice.
+`impl-audit-<step scope>` with a severity sequence and a conventional kind lands
+an implementation-audit fix. The subject grammar requires the conventional kind
+on fix commits. The watch workflow owns how it reads these records as trajectory
+evidence.
+
+Empty records and markers carry no conventional kind:
+
+- `impl-audit-<step scope>` with a severity sequence and no kind records an
+  implementation-audit round that accepts only findings deferred to the other
+  repo and changes no file in its own repo. Its body carries those deferrals
+  until a later destination-repo round cites and applies them.
+- `impl-audit-<step scope>` with `clean` in the sequence's place records a clean
+  implementation-audit round. It lands once per round, in the sole judged repo
+  or in Repo Edu when both repos were judged. The round grammar's
+  [audit report](round-grammar.md#audit-report) identifies the judged repo set.
+  A repo whose files took no finding gets no record from a round that found
+  some elsewhere, so a both-repo round with findings in one repo lands one
+  record, and the peer repo's trajectory reads that record through the judged
+  repos' walks. A declined round lands no commit because disagreement is not a
+  state.
+- `implemented` records that every implementation step its repo hosts has
+  landed; its subject names that share, and a plan with steps in both repos
+  carries one marker per repo. The implementation request authorises the
+  marker without further approval. The runner writes it after Git proves every
+  hosted share landed and required verification passes. It uses the assigned
+  coder's resolved release and effort for the marker's capability tag and
+  model record. The current marker must be newer than that
+  repo's latest hosted step; a later hosted step makes an older marker stale.
+  Working-tree and index changes never block the marker, including changes to
+  files a hosted step touched, because the hosted step commits alone determine
+  whether implementation landed. The marker is an empty commit and includes no
+  concurrent work.
+- `closed` records that its repo's implementation-audit rounds have settled. It
+  is that repo's closing commit and is written on the user's word.
+
+An extra empty record would read as convergence evidence for files the round
+did not re-test.
+
+Plan identity, role, auditor, step numbers and step scope live only in the
+subject. No `Plan:`, manual `Step:` or `Audit:` body lines repeat them. A
+plan-related commit carries a stem prefix only when it is a step, an
+implementation-audit round or a marker. Off-plan rework keeps the repo's
+ordinary conventional subject and enters the watch through the files it touches.
+
+Implementation records are keyed to the repo that hosts their changed files,
+never to a plan kind. A step commit lands in the repo whose files it changes; a
+step changing files in both repos lands one independent commit in each. An
+implementation-audit round's records follow the same keying: its fix commits and
+deferral records land only in repos whose files took accepted findings; a
+clean round follows the single-placement rule above. The implementation audit
+workflow derives the initial judged repo set from the user's step scope. Open
+deferrals into Repo Edu add that repo to the set for their named corrections,
+without changing the selected step range. Report placement under the runner's
+[Report lifecycle](../../tools/audit-round/CLAUDE.md#report-lifecycle)
+never changes record keying. Each round may read the other repo as evidence. A
+round defers a finding whose fix falls outside its repo set in its own commit
+body until a later round cites and applies it. The rule is
+direction-free and deferral covers only work nobody directed. A later round
+record that applies a deferral carries `[applies:<sha>/<k>]`, where the SHA is
+the deferring commit's full commit ID and `k` counts that commit's deferrals
+into the destination repo from one in body order. The reader compares both
+exactly, so one citation cannot close two deferrals whose short forms and
+positions match. A graded bullet in the destination repo carries one token per
+deferral its change applies, in the round grammar's
+[commit record bullet](round-grammar.md#commit-record-bullet) form. When a
+deferral into Repo Edu is satisfied or dropped without a Repo Edu file change,
+the untiered citation bullet sits in whichever judged repo already gets the
+round record. No extra Repo Edu record lands for the citation. Deferrals into
+the plan repo still close only from plan commits. The open-deferral reader
+accepts Repo Edu-bound citations from Repo Edu history and the plan's stem
+commits. The token makes openness a Git fact instead of a judgement from
+comparing the deferral with the destination text.
+
+The citation rule is triggered a few times a month: three deferrals arose in
+nine rounds of the desktop architecture plan over two weeks. Without it, the
+series and close cannot tell whether another repo has applied a deferral. That
+outcome is rejected because the desktop architecture plan reached its close
+call with three false passages. Each use adds one token to a bullet the fixer
+already writes, and the commit hook checks only its shape without reading the
+peer checkout.
+
+The user may direct such a fix into the running round instead, a plan-file fix
+included; a directed plan-file fix lands as its own plan-repo commit in the
+round form. A stale-text correction under [Finding metadata](#finding-metadata)
+lands as its own plan-repo commit in the round form with the finding's section
+location. Each plan-file commit cites the finding it applies; do not also record
+that finding as a deferral or an implementation record. A stale-text fix carries
+an `applies` citation only when it also applies an earlier deferral.
+
+No write in one repo otherwise triggers or waits on a write in the other. Two
+undirected exceptions apply. An implementation-audit fix lands the stale-text
+correction above in the plan repo. An automatic implementation series chains one
+scoped planning round before its series decision when a deferral into the plan
+repo is open. Each round still lands its own record, and a failed or unfinished
+planning round leaves the deferral open. Plan records, the plan file, its rounds
+and `ready`, stay in the plan repo for every plan. The plan repo's loop-close
+move is its one `<stem>/closed` commit, so no second closing marker is written
+there.
+
+## Tooling mirrors
+
+The plan repo's [design document](../../../plan/notes/tooling-design.md)
+explains the planning and audit tooling's system-wide structure and reasons.
+The [user guide](../../apps/docs/src/content/docs/tooling/index.md) explains
+each tool's purpose and loop, which commands to use and which decisions are the
+user's. Both are mirrors of the AI spec in the doctrine, workflows, launchers
+and runner; that spec wins where they disagree. Keep them in sync: a step that
+changes a workflow, launcher, shared reference or runner option updates the
+affected mirror text in the same step.
 
 ## Runner result
 

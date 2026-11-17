@@ -3,7 +3,6 @@ reads:
   - ../../../../glossaries/audit-round.md
   - ../../../references/round-protocol.md
   - ../../../references/round-grammar.md
-  - ../../../../../plan/CLAUDE.md
   - ../../../../../plan/.agents/references/planning-rules.md
   - ../../../../../plan/BOUNDARIES.md
   - ../../../../../plan/GROWTH-PATTERNS.md
@@ -68,7 +67,7 @@ Drop findings on that excluded metadata. Classify the remaining findings.
   repo's standards set. This is the ordinary kind and it needs no further
   authority.
 - A defect in the plan text that the shipped code exposes. It stays a graded
-  finding under the plan doctrine's **Shared implementation forms**.
+  finding under the shared protocol's **Shared implementation forms**.
 - A departure from the plan where the shipped code is right. The audit
   workflow records this as a deviated row in the coverage table. Drop a finding
   on the departure itself. A missing reason must pass
@@ -161,11 +160,11 @@ correction.
 
 ## Cross-repo findings
 
-Cross-repo findings are graded findings, so vet all three axes. Also verify that
-each one traces to files this round inspected or to an answer the user gave in
-this round's own discussion. A deferral resting on any other evidence is work
-the round may not author, so the verdict is drop. Check its disposition against the plan doctrine's
-[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms).
+Cross-repo findings are graded findings, so vet all three axes. Also verify that each one traces to
+files this round inspected or to an answer the user gave in this round's own discussion. A deferral
+resting on any other evidence is work the round may not author, so the verdict is drop. Check its
+disposition against the shared protocol's
+[Shared implementation forms](../../../references/round-protocol.md#shared-implementation-forms).
 
 ## Coverage table
 

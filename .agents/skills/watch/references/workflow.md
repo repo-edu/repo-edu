@@ -480,8 +480,8 @@ The watch has these sections in this order.
    Then write the seed that level allows:
    - **Strong**: the full seed.
      - A **name** that states the problem area and never the fix, under the
-       wide-name rule in the plan doctrine's
-       [Artifact lifecycle](../../../../../plan/CLAUDE.md#artifact-lifecycle).
+       wide-name rule in the shared planning rules'
+       [Prior attempts](../../../../../plan/.agents/references/planning-rules.md#prior-attempts).
      - A **Baseline** of the drift evidence, with the commit each load-bearing
        claim rests on.
      - The **scope**: which part of which parent step the plan owns, listed

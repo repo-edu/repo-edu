@@ -1489,9 +1489,9 @@ fail inside the sandbox with an `EPERM` error.
 the plan `plan` prints when none is named, writes the empty
 `<stem>-plan-audit-<round>-0-reopen.md` in the round folder and prints its path. The
 marker takes a number so a file list shows where the reopen fell among the
-rounds. The plan repo's
-[Artifact lifecycle](../../../plan/CLAUDE.md#artifact-lifecycle) owns when each marker is
-written; the command loads no settings and starts no assistant.
+rounds. The shared planning rules'
+[Round completion](../../../plan/.agents/references/planning-rules.md#round-completion) own when
+the reopen marker is written; the command loads no settings and starts no assistant.
 
 `episode [stem-or-commit] --lines <start>-<end>` prints one one-based inclusive
 line range from the current indented watch evidence view. It resolves the

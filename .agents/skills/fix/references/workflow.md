@@ -4,7 +4,6 @@ reads:
   - ../../../references/round-protocol.md
   - ../../../references/round-grammar.md
   - ../../../references/subject-grammar.md
-  - ../../../../../plan/CLAUDE.md
   - ruling.md
 ---
 
@@ -96,7 +95,7 @@ For blocked work, follow the shared
 ## Applying corrections
 
 Apply every correction settled under the shared **Reconciliation** rule.
-Use the plan doctrine's **Shared implementation forms** for directed fixes
+Use the shared protocol's **Shared implementation forms** for directed fixes
 and deferrals. Every fix is a
 root-cause fix under the repo's `CLAUDE.md` and the home policy's complexity
 escalation rule. A correction those rules turn into a
@@ -137,8 +136,8 @@ exist yet.
 
 ## Records
 
-Land records under the plan doctrine's
-[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms),
+Land records under the shared protocol's
+[Shared implementation forms](../../../references/round-protocol.md#shared-implementation-forms),
 which owns placement and its reasons. Use the shared protocol's
 [Finding metadata](../../../references/round-protocol.md#finding-metadata) and
 the [record bullet grammar](../../../references/round-grammar.md#commit-record-bullet)
@@ -157,7 +156,7 @@ round's file set still asks.
 ## Completion
 
 After all required corrections, checks and records are complete, follow the
-plan doctrine's [Handoff](../../../../../plan/CLAUDE.md#handoff), then the
+shared protocol's [Handoff](../../../references/round-protocol.md#handoff), then the
 shared protocol's **Runner result**. The round's reports stay where they are.
 
 ## Closing the episode

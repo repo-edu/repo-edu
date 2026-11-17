@@ -3,7 +3,6 @@ reads:
   - ../../../../glossaries/audit-round.md
   - ../../../references/round-protocol.md
   - ../../../references/round-grammar.md
-  - ../../../../../plan/CLAUDE.md
   - commit-scope.md
   - ../../../../../plan/GROWTH-PATTERNS.md
   - ../../../../../plan/BOUNDARIES.md
@@ -173,8 +172,8 @@ protocol's **Finding metadata**.
 
 ## Cross-repo findings
 
-Use the plan doctrine's
-[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms)
+Use the shared protocol's
+[Shared implementation forms](../../../references/round-protocol.md#shared-implementation-forms)
 for directed fixes and deferrals, and the shared protocol's **Finding metadata**
 for their location tokens. State the required correction, the inspected-code
 evidence and any user ruling with its reason.

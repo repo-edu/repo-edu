@@ -6,10 +6,10 @@ shape only. What each part means and why it exists stays where it is owned:
 Repo Edu's `CLAUDE.md` owns the capability tag and model-record rules under
 **Commit Capability Tag** and **Commit Model Record**.
 The [shared round protocol](round-protocol.md#severity-sequence) owns severity
-and burden meanings, and the plan repo's
-`CLAUDE.md` owns the roles and the keying rules under **Shared implementation
-forms** and **Commit message convention**. Those sections link here instead of
-restating the shape. The
+and burden meanings and, under **Shared implementation forms**, what each
+implementation role records and its keying rules. The plan repo's `CLAUDE.md`
+owns the planning roles under **Commit message convention**. Those sections link
+here instead of restating the shape. The
 [round document grammar](round-grammar.md#commit-record-bullet) owns the graded
 body bullet that supplies the sequence. Read this file from the Repo Edu
 checkout; plan-repo readers reach it at
@@ -206,15 +206,16 @@ Rules across the classes:
   body has no record.
 - The P4 `disprove` body contains the user's non-empty free-text reason and no
   model record.
-- I1 carries no `<severity>`, under the plan doctrine's **Shared implementation
-  forms**, and its body opens with a `<step-model-record>`. Other independently
+- I1 carries no `<severity>`, under the shared round protocol's **Shared
+  implementation forms**, and its body opens with a `<step-model-record>`. Other independently
   written tagged commits use the single-model record.
 - Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
   off-plan plan-repo commit (O2) carries one when it closes a graded concern
   and none otherwise.
 - P1, P3, I3, I4 and I5 change no graded file and fill only the slots their
   productions show. I3 changes no file in its own repo at all.
-- Body placement follows the plan doctrine's **Shared implementation forms**.
+- Body placement follows the shared round protocol's **Shared implementation
+  forms**.
 
 ## Roles
 
