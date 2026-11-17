@@ -85,18 +85,9 @@ Point 2: whether a past round wrote an empty plan target.
   session opened shows one.
 ```
 
-This rule's case: it applies to every ruling that a fix or an implementation
-worker writes. Ten rounds wrote one between 2026-11-14 and 2026-11-16. Without
-it, a ruling states a side's evidence from the reports, and nothing shows which
-claims the writer opened. Three of those ten rulings have an open item with no
-word on what the fix checked. Accepting that was rejected because the suggested
-answer becomes the stored winner and reason. All eleven winners stored from
-those rulings name the vetter the ruling suggested, and ten keep its reason word
-for word. Each ruling costs the reads its writer had not yet made and a longer
-text for the chat and the user. A plain choice now carries a short record too. A
-list of what the session checked was weighed instead and not taken: it shows
-what was checked but not what was left out, while a row for each point shows
-both.
+Without the record, a ruling states a side's evidence from the reports, and nothing shows which
+claims the writer opened. Case:
+[`ruling-evidence-record`](../../../../../plan/CASES.md#ruling-evidence-record).
 
 ## Length and voice
 

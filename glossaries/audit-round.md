@@ -192,6 +192,10 @@ is always named in full.
 - **Failure record**: the plan repo's root file with one row for each failure
   the round doctrine exists to prevent. A plan that changes a listed file and
   its audit rounds measure the change against it.
+- **Case record**: the plan repo's root file with one entry for each priced
+  case of a doctrine rule: what triggers the rule, how often, what goes wrong
+  without it, why that outcome was rejected and what each use costs. The rule
+  names its entry by label, and a plan that changes the rule reads it.
 - **Walk-through**: the section of a plan that changes a listed file which
   answers two questions against the failure record: which failures the change
   answers and why the passages already aimed at them did not prevent them, and

@@ -237,11 +237,8 @@ required under [Severity sequence](#severity-sequence). The rating summarises
 that account. The anchors guide judgement rather than impose numerical
 thresholds.
 
-The account rule applies whenever a finding, yield decision or whole commit is
-graded. Without it, a size label hides which obligations support the rating.
-Accepting that opacity was rejected after a kind-based burden mark failed to
-say how much a contained delegation procedure added. Each assessment adds an
-account to an existing explanation rather than another report or gate.
+Without the account rule, a size label hides which obligations support the
+rating. Case: [`burden-account`](../../../plan/CASES.md#burden-account).
 
 One burden scale serves commit marks, findings and yield reports. Scope,
 evidence and output stay prescribed while burden size is judged. The account
@@ -281,12 +278,9 @@ rule prints or decides states what the rule gives on those records today, read
 from them by hand, and whether the finding's case appears in them. A case that
 appears in no record is stated as such, and the finding then says why the
 records will change. A constructed case without that statement is not evidence
-that the rule is wrong. This rule's case: it is triggered by a planning finding
-on a record-reading rule, a few per plan of that kind. Without it, a run of
-rounds can add and remove a test on argument alone while the rule gives the
-same result on every real record. Accepting that was rejected because each such
-round costs a full audit, vet and fix for a change nobody can see. The charge
-is one count read from the records per such finding.
+that the rule is wrong. Without this rule, a run of rounds can add and remove a
+test on argument alone while the rule gives the same result on every real
+record. Case: [`record-reading-findings`](../../../plan/CASES.md#record-reading-findings).
 
 Every premise a correction rests on is one of three kinds. A claim about what a
 text says is backed by a quote and its location. A claim about how recorded
@@ -301,15 +295,8 @@ finding states what that evidence says and why the correction wins against it.
 The record-reading rule above is the case where the records sit in the
 repository.
 
-This rule's case: it applies to every A to C finding, a few per round. Without
-it a conjecture written as a fact passes the quote check, because there is no
-quote to test. On 2026-11-03 one such finding replaced counts the plan carried
-with the opposite rule, the vet accepted it, and the read-out built on it
-discarded three quarters of its own evidence. Accepting that was rejected
-because the error surfaced only when the user read the records eleven rounds
-later. Each use costs one named source per premise in the finding and one check
-per premise in the vet, which the grounding rules already charge for text
-claims.
+Without this rule a conjecture written as a fact passes the quote check,
+because there is no quote to test. Case: [`premise-kinds`](../../../plan/CASES.md#premise-kinds).
 
 At tiers A to C, explain the trade when the growth-pattern value is not `none`,
 reach is not `ordinary` and complexity is an increase. State the simplest
@@ -332,11 +319,8 @@ settles a real choice about whether machinery is worth its cost. A choice that
 stays real under [Real choices](#real-choices) goes to the user under
 [Reconciliation](#reconciliation).
 
-This trade rule applies only when an A to C finding meets all three trigger
-conditions above. Most findings sit at the floor values. Without the rule the
-risk tags flag a trade nobody prices. Each firing costs a short explanation and
-a vet check. A real unresolved choice also costs the user's ruling. That charge
-is smaller than the correction round needed after unpriced machinery lands.
+Without the trade rule the risk tags flag a trade nobody prices.
+Case: [`trade-explanation`](../../../plan/CASES.md#trade-explanation).
 
 ## Mechanism cases
 
@@ -352,13 +336,13 @@ mechanism enters:
   applies on its own. Advice that leaves judgment with the round is not a
   mechanical rule.
 
-A mechanism the user directs needs no case: the user named it and has judged
-its cost. A mechanism the AI proposed and the user accepted is not directed,
-however short the acceptance. The case stays the proposer's burden and lands in
-the record that lands the mechanism, the plan decision or the commit body.
-Without this line, a chat proposal accepted in one word carried a write ceiling
-into a ready plan past the case, and the round that then read the plan sized
-the ceiling instead of pricing it.
+A mechanism the user directs needs no case: the user named it and has judged its cost. A mechanism
+the AI proposed and the user accepted is not directed, however short the acceptance. The case stays
+the proposer's burden and lands in the record that lands the mechanism, the plan decision or the
+commit body. Without this line, a chat proposal accepted in one word carried a write ceiling into a
+ready plan past the case, and the round that then read the plan sized the ceiling instead of pricing
+it (failure row
+[`accepted-proposal-without-case`](../../../plan/FAILURES.md#accepted-proposal-without-case)).
 
 Rule text in both repos, `CLAUDE.md` files included, states each decision and
 its reason, never who directed it or when. The commit that adds a rule records
@@ -372,29 +356,21 @@ rejected and what the mechanism charges each time it applies, including how
 often that charge is paid. Accepting the outcome, with its bound, is the default
 answer. A plan guard records the case in its **Decisions** paragraph and counts
 implementation cost, runtime cost and the audit and reading cost of the record.
-A doctrine rule records the case beside the rule in the file that owns it and
-counts the audit surfaces it adds, the findings and extra rounds those surfaces
+A doctrine rule records the case as an entry of the case record, the plan
+repo's [`CASES.md`](../../../plan/CASES.md), names that entry by its label beside
+the rule and counts the audit surfaces it adds, the findings and extra rounds those surfaces
 can draw, and the user's reading and ruling time. AI writing time is not part of
 either cost.
 
-This rule's own case: it is triggered when a round proposes a mechanical
-doctrine rule. The git record shows a few such proposals or refinements per
-month. Without the case, a reflex rule can impose a standing cost that stays
-hidden until a later audit finds it. Accepting that outcome was rejected because
-the reopen-criterion rule ran for two months and spread through three maintained
-rule files before its cost became visible. Each use adds one cost answer to a
-plan guard or one five-answer case beside a doctrine rule, which later readers
-and auditors must read. The rule passes only when the work it prevents is worth
-that standing charge. The plan repo's
-[`notes/doctrine-rule-cost.md`](../../../plan/notes/doctrine-rule-cost.md) holds
-the full evidence.
+Without the case, a reflex rule can impose a standing cost that stays hidden
+until a later audit finds it. Case: [`mechanism-cases`](../../../plan/CASES.md#mechanism-cases).
 
-One further rule governs how any ruling reaches the user. A round that asks the
-user to rule prices the question first: the request states how rare the defended
-event is, what the mechanism costs to build and own, what the cheapest
-alternative is and what the user notices in each case. An unpriced ruling
-request is not ready to be asked: an unpriced boundary ruling once let a costly
-mechanism stand.
+One further rule governs how any ruling reaches the user. A round that asks the user to rule prices
+the question first: the request states how rare the defended event is, what the mechanism costs to
+build and own, what the cheapest alternative is and what the user notices in each case. An unpriced
+ruling request is not ready to be asked: an unpriced boundary ruling once let a costly mechanism
+stand (failure row
+[`unpriced-session-exit-ruling`](../../../plan/FAILURES.md#unpriced-session-exit-ruling)).
 
 ## History reads
 
@@ -658,16 +634,9 @@ gets no check, because the runner logs no hand-run session. There the user can r
 report before starting the fix. Return the complete ruler report under
 [Runner result](#runner-result); a hand-run ruler writes the same text to its resolved path.
 
-This rule's case: it is triggered by every ruler report in a round the runner runs. On the rounds
-from 2026-11-14 to 2026-11-16 that is 14 of 34 rounds. Without it, a ruler can fill its record from
-the quotations in the reports, and the winner lands on text nobody opened. Accepting that was
-rejected because the ruler takes the user's place for these findings. The user sees an A or B
-record before it is sent, but no user reads a C or D winner before the fix applies it, and the user
-reported that rulings through `/ruling` skipped their evidence too often. Each use costs one
-comparison of the named sources with the logged tool lines and the supplied files. A miss costs one
-more ruler turn and a second miss the round. The check proves that the ruler opened each source it
-names. It does not prove that the ruler named every source it should have, or judged a passage
-well.
+Without this rule, a ruler can fill its record from the quotations in the reports, and the winner
+lands on text nobody opened. Case:
+[`ruler-source-check`](../../../plan/CASES.md#ruler-source-check).
 
 ## Reconciliation
 
@@ -930,14 +899,7 @@ the plan repo still close only from plan commits. The open-deferral reader
 accepts Repo Edu-bound citations from Repo Edu history and the plan's stem
 commits. The citation makes openness a Git fact instead of a judgement from
 comparing the deferral with the destination text.
-
-The citation rule is triggered a few times a month: three deferrals arose in
-nine rounds of the desktop architecture plan over two weeks. Without it, the
-series and close cannot tell whether another repo has applied a deferral. That
-outcome is rejected because the desktop architecture plan reached its close
-call with three false passages. Each use adds one token to a bullet the fixer
-already writes, and the commit hook checks only its shape without reading the
-peer checkout.
+Case: [`deferral-citation`](../../../plan/CASES.md#deferral-citation).
 
 The user may direct such a fix into the running round instead, a plan-file fix
 included; a directed plan-file fix lands as its own plan-repo commit in the

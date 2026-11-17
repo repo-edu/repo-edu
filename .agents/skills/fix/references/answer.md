@@ -163,20 +163,7 @@ both commands fail with `EPERM` every time.
    reason. The chat is the one reader between the fix and the user that wrote
    nothing in the round. The fix often runs on one side's model, and a chat that
    passed on the fix's answer would pass on that lean.
-
-   This rule's case: the own record and the bar on an unchecked point apply to
-   every `/ruling` chat, one for each ruling. Ten rulings were written between
-   2026-11-14 and 2026-11-16. Without the rule, the chat explains and proposes
-   from the ruling and the reports, and nothing shows what it opened. Accepting
-   that was rejected because of what a wrong winner costs: the fix applies the
-   wrong side, and the model read-out counts the wrong side as wrong. Each chat
-   costs the reading before its first message, a short list of the points that
-   settle each open item in that message and a second reading of sources the
-   fix already read. A finding whose deciding source cannot be opened gets no
-   proposed winner and costs one more exchange. Two smaller rules were weighed
-   and not taken. Opening the sources without a record leaves nothing for the
-   user to see. Checking only the sources the ruling's record names keeps out a
-   point the fix left out.
+   Case: [`ruling-chat-record`](../../../../../plan/CASES.md#ruling-chat-record).
 
 4. **Take the decision and wait for the user's yes.** The user's yes makes the
    proposed record the decision. The user's own words replace any part of it.
