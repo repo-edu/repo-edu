@@ -264,14 +264,16 @@ consumers.
   follows the current round's parsed settling line, detailing answers ready before the ready marker
   and every other series answers stop. Otherwise it selects the listed auditor without a current
   read that read the scope least recently, with list order breaking a never-read tie, so the auditor
-  of this round goes last. The same decision function serves `replay.ts`, which reads each answer
-  stored without an auditor list as the assistant-keyed rules that produced it. `openingAuditor`
-  applies rule 3 when a series opens: when the retained data holds a current read of the target by
-  one listed auditor and none by another, the series opens on a listed auditor without one, so a
-  rerun after a failed round continues where the series stood. With no current read at all, or one
-  for every listed auditor, the configured default opens, because the rules give that round no
-  reader and the user asked for one. `auditorText` owns the answer's `<assistant> <model> <effort>`
-  spelling.
+  of this round goes last. Its reason names the chosen auditor's last read of the target and the
+  latest event, or says that the auditor has no read, because the bare conclusion left the reader to
+  work out which event made a read stale. The same decision function serves `replay.ts`, which reads
+  each answer stored without an auditor list as the assistant-keyed rules that produced it.
+  `openingAuditor` applies rule 3 when a series opens: when the retained data holds a current read
+  of the target by one listed auditor and none by another, the series opens on a listed auditor
+  without one, so a rerun after a failed round continues where the series stood. With no current
+  read at all, or one for every listed auditor, the configured default opens, because the rules give
+  that round no reader and the user asked for one. `auditorText` owns the answer's
+  `<assistant> <model> <effort>` spelling.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
   topic from the audited plan for every runner glance. The episode reader

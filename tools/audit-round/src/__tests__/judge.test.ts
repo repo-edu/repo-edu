@@ -154,7 +154,7 @@ test("a real bug makes every earlier read stale and switches assistants", () => 
   assert.deepEqual(decideSeries(evidence([codex]), current(codex), pool), {
     answer: opus,
     reason:
-      "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
+      "Rule 3: claude claude-opus-5-5 xhigh has no read of this scope yet.",
   })
 
   const claude = planningRound(opus, 2, "2026-11-08T11:00:00Z")
@@ -163,9 +163,49 @@ test("a real bug makes every earlier read stale and switches assistants", () => 
     {
       answer: sol,
       reason:
-        "Rule 3: codex gpt-5.6-sol xhigh has no current read and did not audit this round.",
+        "Rule 3: codex gpt-5.6-sol xhigh last read in round 1, before round 1's accepted B landed as 111111, so it reads again.",
     },
   )
+})
+
+test("the rule 3 reason names the event that made the last read stale", () => {
+  const claude = planningRound(opus, 1, "2026-11-08T10:00:00Z")
+  const codex = planningRound(sol, 2, "2026-11-08T11:00:00Z")
+  const committed = "2026-11-08T10:30:00Z"
+  const events: readonly (readonly [SeriesCommit, string])[] = [
+    [
+      commit({ committed, role: "init", files: ["active/example-widen.md"] }),
+      "the init aaaaaa landed",
+    ],
+    [commit({ committed, role: "settle" }), "the settle aaaaaa landed"],
+    [
+      commit({
+        committed,
+        renames: [{ from: "active/example.md", to: "active/example-widen.md" }],
+      }),
+      "the reopen aaaaaa landed",
+    ],
+    [
+      commit({
+        committed,
+        repository: "repo-edu",
+        role: "impl-2",
+        files: [],
+        changesPlan: false,
+      }),
+      "step 2 landed as aaaaaa",
+    ],
+    [
+      commit({ committed, role: null, ownStem: false }),
+      "the plan edit aaaaaa landed",
+    ],
+  ]
+  for (const [event, text] of events)
+    assert.equal(
+      decideSeries(evidence([claude, codex], [event]), current(codex), pool)
+        .reason,
+      `Rule 3: claude claude-opus-5-5 xhigh last read in round 1, before ${text}, so it reads again.`,
+    )
 })
 
 test("every listed auditor needs a current read before detailing is ready", () => {
@@ -246,7 +286,7 @@ test("a hand-run A audit in the commit list invalidates older reads", () => {
     {
       answer: opus,
       reason:
-        "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
+        "Rule 3: claude claude-opus-5-5 xhigh last read in round 1, before the audit bbbbbb landed an accepted A, so it reads again.",
     },
   )
 })
@@ -274,7 +314,7 @@ test("a bare init makes a hand-run B audit invalidate older reads", () => {
     {
       answer: opus,
       reason:
-        "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
+        "Rule 3: claude claude-opus-5-5 xhigh last read in round 1, before the audit bbbbbb landed an accepted B, so it reads again.",
     },
   )
 })
@@ -296,8 +336,7 @@ test("real bugs on every retained target invalidate older reads", () => {
       decideSeries(evidence([claude, bug, codex]), current(codex), pool),
       {
         answer: opus,
-        reason:
-          "Rule 3: claude claude-opus-5-5 xhigh has no current read and did not audit this round.",
+        reason: `Rule 3: claude claude-opus-5-5 xhigh last read in round 1, before ${bug.target} round 3's accepted B landed as 333333, so it reads again.`,
       },
     )
 })
@@ -321,7 +360,7 @@ test("a real bug becomes an event when its latest record lands", () => {
     {
       answer: sol,
       reason:
-        "Rule 3: codex gpt-5.6-sol xhigh has no current read and did not audit this round.",
+        "Rule 3: codex gpt-5.6-sol xhigh last read in round 2, before round 1's accepted B landed as 111111, so it reads again.",
     },
   )
 })
@@ -419,7 +458,7 @@ test("a series opens on the listed auditor without a current read when another h
   const target = claude.target
   assert.deepEqual(openingAuditor(evidence([claude, failed]), target, pool), {
     answer: sol,
-    reason: "Rule 3: codex gpt-5.6-sol xhigh has no current read.",
+    reason: "Rule 3: codex gpt-5.6-sol xhigh has no read of this scope yet.",
   })
 
   // No settled read, or one for every assistant, leaves the opener to the settings.

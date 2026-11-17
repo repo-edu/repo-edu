@@ -1331,7 +1331,7 @@ test("an automatic series follows the deterministic switch and stores its decisi
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Next round: claude opus high; \d+ rounds remain before the maximum\. Rule 3: claude opus high has no current read and did not audit this round\./,
+    /Next round: claude opus high; \d+ rounds remain before the maximum\. Rule 3: claude opus high has no read of this scope yet\./,
   )
   assert.match(
     visible,
@@ -2357,7 +2357,7 @@ test("a rerun opens on the assistant without a current read and names its claime
   const visible = f.visible.join("\n")
   assert.match(
     visible,
-    /Opening round: codex gpt-5\.6-sol high\. Rule 3: codex gpt-5\.6-sol high has no current read\./,
+    /Opening round: codex gpt-5\.6-sol high\. Rule 3: codex gpt-5\.6-sol high has no read of this scope yet\./,
   )
   assert.match(
     visible,

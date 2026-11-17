@@ -1,6 +1,11 @@
 import type { ExecutionContext } from "./context.js"
 import { episodeMembers } from "./episode.js"
-import { type LogCommit, readCommitTimes, readLog } from "./episode-log.js"
+import {
+  type LogCommit,
+  readCommitTimes,
+  readLog,
+  shortSha,
+} from "./episode-log.js"
 import { readFindings } from "./findings.js"
 import {
   type CommitRoundData,
@@ -244,31 +249,49 @@ function settled(entry: RoundData, current?: CurrentRound): boolean {
   )
 }
 
-/** Whether this round found a real bug under its phase's settled threshold. */
-function foundRealBug(entry: RoundData): boolean {
-  const tiers =
-    "phase" in entry && entry.phase === "widening"
-      ? (["A"] as const)
-      : (["A", "B"] as const)
-  return entry.findings.some(
-    (finding) =>
-      (finding.outcome === "kept" || finding.outcome === "unmatched") &&
-      (tiers as readonly string[]).includes(finding.finalTier ?? finding.tier),
-  )
+/** One event that changed a scope, in the words the series reason names it by. */
+type ScopeEvent = { readonly time: number; readonly text: string }
+
+/** The highest tier of a real bug this round found under its phase's settled threshold. */
+function realBugTier(entry: RoundData): "A" | "B" | null {
+  const tiers: readonly ("A" | "B")[] =
+    "phase" in entry && entry.phase === "widening" ? ["A"] : ["A", "B"]
+  const accepted = entry.findings
+    .filter(
+      (finding) =>
+        finding.outcome === "kept" || finding.outcome === "unmatched",
+    )
+    .map((finding) => finding.finalTier ?? finding.tier)
+  return tiers.find((tier) => accepted.includes(tier)) ?? null
 }
 
-function realBugEventTime(evidence: SeriesEvidence, entry: RoundData): number {
-  const times = entry.commits.flatMap((commit) => {
-    const time = evidence.roundCommitTimes.get(
-      roundCommitKey(commit.repository, commit.sha),
-    )
-    return time === undefined ? [] : [time]
-  })
-  if (times.length === 0)
+/** A real-bug round is an event when its latest record lands. */
+function realBugEvent(
+  evidence: SeriesEvidence,
+  entry: RoundData,
+  tier: "A" | "B",
+  target: string,
+): ScopeEvent {
+  const newest = entry.commits
+    .flatMap((commit) => {
+      const time = evidence.roundCommitTimes.get(
+        roundCommitKey(commit.repository, commit.sha),
+      )
+      return time === undefined ? [] : [{ time, sha: commit.sha }]
+    })
+    .toSorted((first, second) => second.time - first.time)[0]
+  if (newest === undefined)
     throw new Error(
       `Real-bug round ${entry.target} ${entry.round} has no landed commit time`,
     )
-  return Math.max(...times)
+  const round =
+    entry.target === target
+      ? `round ${entry.round}`
+      : `${entry.target} round ${entry.round}`
+  return {
+    time: newest.time,
+    text: `${round}'s accepted ${tier} landed as ${shortSha(newest.sha)}`,
+  }
 }
 
 function timestamp(value: string): number {
@@ -304,32 +327,32 @@ function initialPlanningPhase(commit: SeriesCommit): "widening" | "detailing" {
  * audit commits are excluded because retained data dates them from the latest
  * landed record.
  */
-function commitEvents(evidence: SeriesEvidence): number[] {
+function commitEvents(evidence: SeriesEvidence): ScopeEvent[] {
   let planningPhase: "widening" | "detailing" = "widening"
-  const events: number[] = []
+  const events: ScopeEvent[] = []
   for (const commit of evidence.commits) {
     const time = timestamp(commit.committed)
+    const sha = shortSha(commit.sha)
     if (commit.ownStem && commit.role === "settle") {
       planningPhase = "detailing"
-      events.push(time)
+      events.push({ time, text: `the settle ${sha} landed` })
       continue
     }
     if (commit.ownStem && commit.role === "init") {
       planningPhase = initialPlanningPhase(commit)
-      events.push(time)
+      events.push({ time, text: `the init ${sha} landed` })
       continue
     }
     if (commit.ownStem && reopens(commit)) {
       planningPhase = "widening"
-      events.push(time)
+      events.push({ time, text: `the reopen ${sha} landed` })
       continue
     }
-    if (
-      commit.ownStem &&
-      commit.role !== null &&
-      /^impl-\d+$/.test(commit.role)
-    ) {
-      events.push(time)
+    const step = commit.ownStem
+      ? commit.role?.match(/^impl-(\d+)$/)?.[1]
+      : undefined
+    if (step !== undefined) {
+      events.push({ time, text: `step ${step} landed as ${sha}` })
       continue
     }
     const recorded = evidence.roundCommits.has(commit.sha)
@@ -342,11 +365,14 @@ function commitEvents(evidence: SeriesEvidence): number[] {
         (commit.role?.startsWith("impl-audit-") === true &&
           commit.acceptedTiers.includes("B")))
     ) {
-      events.push(time)
+      events.push({
+        time,
+        text: `the audit ${sha} landed an accepted ${commit.acceptedTiers.includes("A") ? "A" : "B"}`,
+      })
       continue
     }
     if (!recorded && !isAuditRole(commit.role) && commit.changesPlan)
-      events.push(time)
+      events.push({ time, text: `the plan edit ${sha} landed` })
   }
   return events
 }
@@ -384,6 +410,18 @@ function readBy(entry: RoundData, auditor: Auditor): boolean {
   )
 }
 
+/** The listed auditor's newest settled read of the target, current or stale. */
+function lastReadBy(
+  entries: readonly RoundData[],
+  auditor: Auditor,
+): RoundData | undefined {
+  return entries
+    .filter((entry) => readBy(entry, auditor))
+    .toSorted(
+      (first, second) => timestamp(second.started) - timestamp(first.started),
+    )[0]
+}
+
 /**
  * Rule 3's choice among the listed auditors without a current read: the one that
  * read the scope least recently, with list order breaking a never-read tie.
@@ -392,13 +430,10 @@ function leastRecentEntry(
   missing: readonly Auditor[],
   entries: readonly RoundData[],
 ): Auditor {
-  const latest = (candidate: Auditor): number =>
-    Math.max(
-      -Infinity,
-      ...entries
-        .filter((entry) => readBy(entry, candidate))
-        .map((entry) => timestamp(entry.started)),
-    )
+  const latest = (candidate: Auditor): number => {
+    const read = lastReadBy(entries, candidate)
+    return read === undefined ? -Infinity : timestamp(read.started)
+  }
   const selected = missing.toSorted(
     (first, second) => latest(first) - latest(second),
   )[0]
@@ -408,8 +443,28 @@ function leastRecentEntry(
 }
 
 /**
- * Rule 1 over one target: its settled reads and the listed auditors with no
- * read that started after the newest event that changed the scope.
+ * Rule 3's reason names what the chosen auditor's read lacks: either the
+ * auditor has no read of the target, or its last read started before the
+ * newest event, which the reason names.
+ */
+function rule3Reason(
+  answer: Auditor,
+  entries: readonly RoundData[],
+  latestEvent: ScopeEvent | undefined,
+): string {
+  const last = lastReadBy(entries, answer)
+  if (last === undefined)
+    return `Rule 3: ${auditorText(answer)} has no read of this scope yet.`
+  if (latestEvent === undefined)
+    throw new Error(
+      `The series rules found no event after the read in round ${last.round}`,
+    )
+  return `Rule 3: ${auditorText(answer)} last read in round ${last.round}, before ${latestEvent.text}, so it reads again.`
+}
+
+/**
+ * Rule 1 over one target: its settled reads, the newest event that changed the
+ * scope and the listed auditors with no read that started after that event.
  */
 function currentReads(
   evidence: SeriesEvidence,
@@ -419,6 +474,7 @@ function currentReads(
 ): {
   readonly entries: readonly RoundData[]
   readonly missing: readonly Auditor[]
+  readonly latestEvent: ScopeEvent | undefined
 } {
   if (pool.length === 0)
     throw new Error("The automatic series auditor list is empty")
@@ -427,21 +483,23 @@ function currentReads(
     settled(entry, current),
   )
   const entries = settledEntries.filter((entry) => entry.target === target)
-  const eventTimes = [
+  const latestEvent = [
     ...commitEvents(evidence),
-    ...settledEntries
-      .filter(foundRealBug)
-      .map((entry) => realBugEventTime(evidence, entry)),
-  ]
-  const latestEvent = Math.max(-Infinity, ...eventTimes)
+    ...settledEntries.flatMap((entry) => {
+      const tier = realBugTier(entry)
+      return tier === null ? [] : [realBugEvent(evidence, entry, tier, target)]
+    }),
+  ].toSorted((first, second) => second.time - first.time)[0]
   const reads = entries.filter(
-    (entry) => timestamp(entry.started) > latestEvent,
+    (entry) =>
+      latestEvent === undefined || timestamp(entry.started) > latestEvent.time,
   )
   return {
     entries,
     missing: pool.filter(
       (auditor) => !reads.some((entry) => readBy(entry, auditor)),
     ),
+    latestEvent,
   }
 }
 
@@ -457,13 +515,10 @@ export function openingAuditor(
   target: string,
   pool: readonly Auditor[],
 ): { readonly answer: Auditor; readonly reason: string } | null {
-  const { entries, missing } = currentReads(evidence, target, pool)
+  const { entries, missing, latestEvent } = currentReads(evidence, target, pool)
   if (missing.length === 0 || missing.length === pool.length) return null
   const answer = leastRecentEntry(missing, entries)
-  return {
-    answer,
-    reason: `Rule 3: ${auditorText(answer)} has no current read.`,
-  }
+  return { answer, reason: rule3Reason(answer, entries, latestEvent) }
 }
 
 /**
@@ -477,7 +532,7 @@ export function decideSeries(
   pool: readonly Auditor[],
 ): SeriesAnswer {
   const current = currentRoundEntry(evidence.roundData.rounds, currentRound)
-  const { entries, missing } = currentReads(
+  const { entries, missing, latestEvent } = currentReads(
     evidence,
     current.target,
     pool,
@@ -509,10 +564,7 @@ export function decideSeries(
   }
 
   const answer = leastRecentEntry(missing, entries)
-  return {
-    answer,
-    reason: `Rule 3: ${auditorText(answer)} has no current read${readBy(current, answer) ? "" : " and did not audit this round"}.`,
-  }
+  return { answer, reason: rule3Reason(answer, entries, latestEvent) }
 }
 
 /** One listed auditor as terminal messages and retained answers spell it. */
