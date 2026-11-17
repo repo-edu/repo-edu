@@ -663,20 +663,11 @@ consumers.
   Row boundaries come from the rule lines the renderer draws, so a table too narrow to draw as a
   grid pins nothing. The document title is no region, because it would stay in view for the whole
   document.
-- `pinned-headings.ts` also owns where a scroll step ends. A table row is its text lines and the
-  rule under it. The column headings count as one row, and the bottom border belongs to the last
-  row. Outside a drawn table every line is its own row. A position is a resting place when every
-  pinned heading shows whole and the first line under them starts a row. The start and the end of
-  the document are resting places too. A step ends at the furthest resting place within its length
-  that skips no line: the lines in view under the headings before and after the step must join.
-  When no resting place qualifies, the step goes to the nearest one. One line of scrolling
-  therefore moves one whole row, a heading that leaves goes in one piece, and the last row of a
-  table leaves together with the table's headings. The reader does not rest on half a row, which
-  would show a rule line with no text. A row taller than the view under the headings is the one
-  exception: when the nearest resting place would skip lines, the step ends at the furthest
-  position within its length that skips none. Such a row therefore scrolls line by line until its
-  end can be reached. The rule against skipped lines shortens a page step, because the library's
-  page length does not count the lines the headings cover.
+- `pinned-headings.ts` also owns where a scroll step ends. A step moves the lines it asks for, so
+  the view follows the trackpad, the wheel and the keys at their own pace. It may end in the middle
+  of a row or with a heading partly shown. A step is shortened only where it would skip a line: the
+  lines in view under the headings before and after the step must join. This shortens a page step,
+  because the library's page length does not count the lines the headings cover.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
   document resolution and the match of one plan's round files for both entry routes. It also names
   the step log, the step ruling and the close log. A plan target's name carries `-plan` or
@@ -1358,8 +1349,8 @@ At a terminal, a read-out taller than the window first opens in the full-screen 
 owns. The top lines of the view keep the section heading and the table's column headings of the part
 under the top edge. A top row that leaves its plan cell empty shows the plan's name in that cell.
 The mouse wheel, the arrow keys, Page Up, Page Down, Home and End scroll it, and `q`, Esc or Ctrl-C
-leaves it. Inside a table a step moves whole rows, except that a row taller than the view moves
-line by line; elsewhere a step moves lines. The command then prints
+leaves it. A step moves lines, inside a table too, and a page step is shortened so that no line
+is skipped under the headings. The command then prints
 the whole read-out as it does without the view. Redirected output and a read-out that fits the
 window skip the view.
 

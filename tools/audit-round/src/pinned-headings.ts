@@ -41,12 +41,6 @@ export type DocumentLayout = {
   readonly lines: string[]
   readonly regions: readonly Region[]
   readonly groupedRows: readonly GroupedRow[]
-  /**
-   * The table lines that continue the row above them: the further lines of a
-   * wrapped row, the rule under a row and the bottom border. The column
-   * headings count as one row, from the top border through the first rule.
-   */
-  readonly rowTails: ReadonlySet<number>
 }
 
 /** Renders Markdown to terminal lines at a width, without outer blank lines. */
@@ -98,11 +92,10 @@ function groupedRows(
 }
 
 /**
- * The table's region, row tails and grouped rows, read from its drawn lines:
- * the heading runs from the top border through the first rule, and each
- * further rule ends one row. A row starts at the top border and after every
- * rule that a row follows. A table too narrow to draw as a grid has no such
- * lines and gets none of the three.
+ * The table's region and grouped rows, read from its drawn lines: the heading
+ * runs from the top border through the first rule, and each further rule ends
+ * one row. A table too narrow to draw as a grid has no such lines and gets
+ * neither.
  */
 function tableLayout(
   token: Tokens.Table,
@@ -110,16 +103,12 @@ function tableLayout(
   start: number,
 ): {
   readonly region: Region
-  readonly rowTails: readonly number[]
   readonly groupedRows: readonly GroupedRow[]
 } | null {
   const separators = lines.flatMap((line, index) =>
     line.startsWith("├") ? [index] : [],
   )
   if (!lines[0]?.startsWith("┌") || separators.length === 0) return null
-  const startsRow = (index: number) =>
-    index === 0 ||
-    (lines[index - 1].startsWith("├") && index < lines.length - 1)
   return {
     region: {
       start,
@@ -127,9 +116,6 @@ function tableLayout(
       header: lines.slice(0, separators[0] + 1),
       children: [],
     },
-    rowTails: lines.flatMap((_line, index) =>
-      startsRow(index) ? [] : [start + index],
-    ),
     groupedRows: groupedRows(token.rows, lines, separators, start),
   }
 }
@@ -148,7 +134,6 @@ export function layoutDocument(
 ): DocumentLayout {
   const lines = render(markdown, width)
   const regions: Region[] = []
-  const rowTails = new Set<number>()
   const grouped: GroupedRow[] = []
   const open: { readonly depth: number; readonly region: OpenRegion }[] = []
   let cursor = 0
@@ -184,14 +169,13 @@ export function layoutDocument(
       const table = tableLayout(token as Tokens.Table, own, start)
       if (table !== null) {
         siblings().push(table.region)
-        for (const line of table.rowTails) rowTails.add(line)
         grouped.push(...table.groupedRows)
       }
     }
     cursor = start + own.length
   }
   closeFrom(1)
-  return { lines, regions, groupedRows: grouped, rowTails }
+  return { lines, regions, groupedRows: grouped }
 }
 
 /**
@@ -250,8 +234,8 @@ function pinnedCapacity(viewport: number): number {
 
 /**
  * The heading lines that stay at the top when the document is scrolled to
- * `top` in a view `viewport` lines high, and whether every one of those
- * headings shows whole. They cover the first lines of the view, so each level
+ * `top` in a view `viewport` lines high. They cover the first lines of the
+ * view, so each level
  * asks which region holds the first line its heading would cover. A heading
  * is pinned from the moment its own lines reach that place, which draws the
  * same lines where they already are, until its region's last line has passed
@@ -264,9 +248,8 @@ function pinnedAt(
   regions: readonly Region[],
   top: number,
   viewport: number,
-): { readonly lines: string[]; readonly whole: boolean } {
+): string[] {
   const lines: string[] = []
-  let whole = true
   let level = regions
   for (;;) {
     const line = top + lines.length
@@ -274,12 +257,10 @@ function pinnedAt(
       (candidate) => candidate.start <= line && line < candidate.end,
     )
     if (region === undefined) break
-    const shown = region.header.slice(-(region.end - line))
-    whole &&= shown.length === region.header.length
-    lines.push(...shown)
+    lines.push(...region.header.slice(-(region.end - line)))
     level = region.children
   }
-  return { lines: lines.slice(0, pinnedCapacity(viewport)), whole }
+  return lines.slice(0, pinnedCapacity(viewport))
 }
 
 /**
@@ -293,7 +274,7 @@ export function pinnedLines(
   top: number,
   viewport: number,
 ): string[] {
-  const headings = pinnedAt(layout.regions, top, viewport).lines
+  const headings = pinnedAt(layout.regions, top, viewport)
   return [
     ...headings,
     ...namedRow(
@@ -306,22 +287,12 @@ export function pinnedLines(
 
 /**
  * The scroll position a step of `lines` from `top` ends at, in a view that is
- * `viewport` lines high. A position is a resting place when every pinned
- * heading shows whole and the first line under them starts a row, so the
- * reader does not rest on half a row or half a heading. The start and the
- * end of the document are resting places too.
- *
- * A step ends at the furthest resting place within `lines` that skips no
- * line: the lines in view under the headings before and after the step must
- * join. A page step is longer than that, because the headings cover the first
- * lines of the view. When no resting place qualifies, the step goes to the
- * nearest one, which is how one line of scrolling becomes one whole row.
- *
- * A row taller than the view under the headings is the one exception. When
- * the nearest resting place would skip lines, the step ends at the furthest
- * position within `lines` that skips none, so such a row scrolls line by line
- * until its end can be reached. The pinned capacity keeps a one-line step
- * joined, so this step always moves.
+ * `viewport` lines high. A step moves the lines it asks for, so the view
+ * follows the trackpad, the wheel and the keys at their own pace. It is
+ * shortened only where it would skip a line: the lines in view under the
+ * headings before and after the step must join. A page step needs this,
+ * because the headings cover the first lines of the view. The pinned capacity
+ * keeps a step of half the view joined, so every step moves.
  */
 export function steppedTop(
   layout: DocumentLayout,
@@ -330,30 +301,14 @@ export function steppedTop(
   viewport: number,
 ): number {
   const direction = Math.sign(lines)
-  if (direction === 0) return top
   const last = Math.max(0, layout.lines.length - viewport)
-  const clamp = (position: number) => Math.max(0, Math.min(last, position))
   const firstShown = (position: number) =>
-    position + pinnedAt(layout.regions, position, viewport).lines.length
-  const rests = (position: number) => {
-    if (position <= 0 || position >= last) return true
-    const pinned = pinnedAt(layout.regions, position, viewport)
-    return pinned.whole && !layout.rowTails.has(position + pinned.lines.length)
-  }
+    position + pinnedAt(layout.regions, position, viewport).length
   const joins = (position: number) =>
     direction > 0
       ? firstShown(position) <= top + viewport
       : position + viewport >= firstShown(top)
-  let nearest = top + direction
-  while (!rests(nearest)) nearest += direction
-  for (
-    let position = clamp(top + lines);
-    direction * (position - nearest) > 0;
-    position -= direction
-  )
-    if (rests(position) && joins(position)) return position
-  if (joins(clamp(nearest))) return clamp(nearest)
-  let position = clamp(top + lines)
+  let position = Math.max(0, Math.min(last, top + lines))
   while (direction * (position - top) > 1 && !joins(position))
     position -= direction
   return position

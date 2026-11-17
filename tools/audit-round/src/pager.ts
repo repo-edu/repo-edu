@@ -37,7 +37,7 @@ type Step = (top: number, lines: number, viewport: number) => number
 /**
  * A scroll view whose steps end where `step` says. The library sends every
  * line key, page key and wheel move through `scrollBy`, so this is the one
- * place that turns a step of lines into a step of whole rows.
+ * place that shortens a step that would skip a line under the headings.
  */
 class SteppedScrollView extends ScrollView {
   readonly #step: Step
@@ -123,9 +123,8 @@ export function createPager(
       invalidate: () => {},
     }
 
-    // The library binds no key to one line of scrolling, which the scroll view
-    // turns into one row. Letters stay unbound because its search panel reads
-    // them as text.
+    // The library binds no key to one line of scrolling. Letters stay unbound
+    // because its search panel reads them as text.
     getKeybindings().setUserBindings({
       "tui.altScreen.lineUp": "up",
       "tui.altScreen.lineDown": "down",

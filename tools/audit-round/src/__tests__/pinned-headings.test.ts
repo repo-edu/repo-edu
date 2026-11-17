@@ -135,21 +135,17 @@ function steps(from: number, lines: number, viewport: number): number[] {
   }
 }
 
-test("the rule under a row and the bottom border continue the row above them", () => {
-  const layout = layoutDocument(readOut, 60, render)
-  assert.deepEqual([...layout.rowTails], [5, 6, 8, 10, 12, 14, 16, 18])
-})
-
-test("a step of one line moves one whole row inside a table", () => {
+test("a step of one line moves one line, inside a table too", () => {
   // A view of 8 lines ends its scrolling at line 20.
-  // 3 to 13: one row of two lines per step. 13 to 18: the last row leaves
-  // together with the table's headings and the bottom border.
-  assert.deepEqual(steps(0, 1, 8), [1, 2, 3, 5, 7, 9, 11, 13, 18, 19, 20])
-  assert.deepEqual(steps(20, -1, 8), [19, 18, 13, 11, 9, 7, 5, 3, 2, 1, 0])
+  const all = Array.from({ length: 20 }, (_, index) => index + 1)
+  assert.deepEqual(steps(0, 1, 8), all)
+  assert.deepEqual(steps(20, -1, 8), [...all.slice(0, -1).reverse(), 0])
 })
 
-test("a longer step ends at the furthest row start that skips no line", () => {
+test("a longer step moves its full length unless that would skip a line", () => {
   const layout = layoutDocument(readOut, 60, render)
+  // A step may end in the middle of a row.
+  assert.equal(steppedTop(layout, 3, 3, 12), 6)
   assert.equal(steppedTop(layout, 3, 4, 12), 7)
   // At 3 the view shows lines 7 to 14 under the headings. At 13 it would
   // start at line 17, so the step stops at 11, which starts at line 15.
@@ -170,9 +166,7 @@ test("a name of several lines fills the row's lines and is cut in a shorter row"
     "|  | m3 |",
     "| b | m1 |",
   ].join("\n")
-  const layout = layoutDocument(wrapped, 30, render)
   // The name and both longer model names take two lines each.
-  assert.deepEqual([...layout.rowTails], [3, 4, 6, 7, 9, 10, 12, 14])
   const named = (top: number) => pinnedAt(top, wrapped, 30).slice(4)
   assert.deepEqual(named(4), [
     "│ a long plan    │ second    │",
@@ -199,46 +193,8 @@ test("the pinned lines fill at most half the view and a name cut there ends in �
   assert.deepEqual(pinned(4), ["Rounds", "┌────────────────┬───────────┐"])
 })
 
-test("a row taller than the view scrolls line by line and skips no line", () => {
-  const tall = [
-    "## Rounds",
-    "",
-    "| Plan | Note |",
-    "| --- | --- |",
-    "| a | short |",
-    `| b | ${Array.from({ length: 26 }, (_, index) => `w${index}`).join(" ")} |`,
-    "| c | short |",
-    "| d | short |",
-    "| e | short |",
-    "| f | short |",
-  ].join("\n")
-  const layout = layoutDocument(tall, 24, render)
-  // Row b runs from line 7 to 14. Under the four pinned lines a view of 8
-  // shows 4 lines, so the row cannot pass in one step.
-  assert.deepEqual(
-    [...layout.rowTails],
-    [3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 21, 23],
-  )
-  const walk = (from: number, lines: number) => {
-    const passed: number[] = []
-    for (let top = from; ; ) {
-      const next = steppedTop(layout, top, lines, 8)
-      if (next === top) return passed
-      passed.push(next)
-      top = next
-    }
-  }
-  // At 3 the view shows lines 7 to 10 under the headings and at 8 lines 12
-  // to 15. From 8 the next row start at 12 shows lines 16 to 19, so whole
-  // rows resume.
-  assert.deepEqual(walk(0, 1), [1, 3, 4, 5, 6, 7, 8, 12, 14, 16])
-  assert.deepEqual(walk(16, -1), [14, 12, 11, 10, 9, 8, 7, 3, 1, 0])
-  assert.deepEqual(walk(0, 7), [3, 7, 11, 14, 16])
-})
-
-test("a table too narrow to draw as a grid has no pinned headings and no rows", () => {
+test("a table too narrow to draw as a grid has no pinned headings and no grouped rows", () => {
   const layout = layoutDocument(readOut, 8, render)
   assert.deepEqual(layout.regions[0].children, [])
-  assert.equal(layout.rowTails.size, 0)
   assert.deepEqual(layout.groupedRows, [])
 })

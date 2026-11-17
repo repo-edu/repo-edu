@@ -140,11 +140,14 @@ test("the view pins the headings of the part under the top edge and leaves on q"
   ])
   assert.match(fake.drawn[11], /lines 4–14 of 26$/)
 
-  // One more step moves one whole row: its text line and the rule under it.
-  // The new first row leaves its plan cell empty, so the view names it.
+  // One more step moves one line, so the rule above the next row is on top.
+  await fake.press(down)
+  assert.equal(fake.drawn[4], "├───────┼───────┼────────┤")
+  assert.match(fake.drawn[11], /lines 5–15 of 26$/)
+  // The next row leaves its plan cell empty, so the view names it once the
+  // row is on top.
   await fake.press(down)
   assert.equal(fake.drawn[4], "│ alpha │ m2    │ 2      │")
-  assert.equal(fake.drawn[6], "│       │ m3    │ 3      │")
   assert.match(fake.drawn[11], /lines 6–16 of 26$/)
   assert.equal(left, false)
 

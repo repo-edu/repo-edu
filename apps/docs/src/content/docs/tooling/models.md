@@ -119,13 +119,11 @@ edge:
 3. **The plan name** shows in the top row. A row for a further model of the same plan leaves its
    Plan cell empty, so the view writes the name into that cell while the row is the top row.
 
-Scroll with the mouse wheel, the arrow keys, Page Up, Page Down, Home and End. Inside a table, one
-step of the wheel or an arrow key moves one whole row, however many lines the row takes. A row
-taller than the view is the exception: it moves line by line, so you see all of it. Elsewhere a step
-moves one line. Page Up and Page Down stop at the start of a row where they can, and they never
-skip a line. When the last row of a table scrolls away, the table's fixed lines leave with it. The
-fixed lines take at most half the view; any beyond that are left out, and a plan name cut short
-ends in `…`.
+Scroll with the trackpad, the mouse wheel, the arrow keys, Page Up, Page Down, Home and End. The
+view moves line by line, inside a table too, so it follows the trackpad at its own pace. Page Up and
+Page Down never skip a line under the fixed lines. When the last row of a table scrolls away, the
+table's fixed lines leave with it. The fixed lines take at most half the view; any beyond that are
+left out, and a plan name cut short ends in `…`.
 
 Press `q` or Esc to leave. The command then prints the whole read-out into the terminal, as it does
 when the view does not open. The view does not open when the read-out fits the window or when the
