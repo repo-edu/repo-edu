@@ -50,7 +50,6 @@ import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
   continuedSetup,
-  failureResumeSessionId,
   type RoundResult,
   type RoundSetup,
 } from "./round.js"
@@ -145,6 +144,11 @@ export type Run = {
     readonly settings: RoundData["settings"]
     readonly auditor: RoundData["auditor"]
     readonly pool?: readonly Auditor[]
+    /**
+     * When the round's audit started. A continued round keeps its stored
+     * start, because its kept audit report read the code at that time.
+     */
+    readonly started: string
   } & (
     | {
         readonly phase: "widening" | "detailing"
@@ -352,6 +356,7 @@ export async function roundRun(
             seat: resolvedRun(audit, releases),
           },
           ...(setup.pool === undefined ? {} : { pool: setup.pool }),
+          started: stored?.started ?? new Date(started).toISOString(),
         }
   const data =
     record === undefined
@@ -1018,10 +1023,9 @@ export class RoundOutput<R extends Run = Run> {
         throw new Error("A round run names no command that continues it")
       return `Rerun: ${this.run.rerun}`
     }
-    const sessionId = failureResumeSessionId(result)
-    return sessionId === null
+    return result.sessionId === null
       ? null
-      : `Resume: ${recoveryCommand({ ...result, sessionId })}`
+      : `Resume: ${recoveryCommand({ ...result, sessionId: result.sessionId })}`
   }
 
   release(): void {
@@ -1058,7 +1062,7 @@ export class RoundOutput<R extends Run = Run> {
       target: data.target,
       round: data.round,
       tag: data.tag,
-      started: new Date(this.run.started).toISOString(),
+      started: data.started,
       status,
       settings: data.settings,
       auditor: {

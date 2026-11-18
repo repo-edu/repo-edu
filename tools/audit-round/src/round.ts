@@ -403,16 +403,7 @@ export type RoundFailure = PhaseFailure &
   PhaseRun &
   RoundContext & {
     readonly phase: Phase | "ruling-input" | "complete"
-    /** Overrides the diagnostic session identity when this failure cannot resume it. */
-    readonly resumeSessionId?: string | null
   }
-
-/** The session a failed round may resume, which can differ from its diagnostic identity. */
-export function failureResumeSessionId(failure: RoundFailure): string | null {
-  return failure.resumeSessionId === undefined
-    ? failure.sessionId
-    : failure.resumeSessionId
-}
 
 export type RoundResult = (
   | {
@@ -647,7 +638,6 @@ async function runWatch(
     const startFresh = (reason: string): RoundFailure => ({
       status: "failed",
       sessionId: watch.sessionId,
-      resumeSessionId: null,
       phase: "watch",
       ...phases.watch,
       ...context,

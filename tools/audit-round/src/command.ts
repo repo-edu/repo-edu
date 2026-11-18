@@ -96,7 +96,6 @@ import { readReport } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
-  failureResumeSessionId,
   type RoundResult,
   runClose,
   runRound,
@@ -2430,15 +2429,7 @@ export async function runCommand(
       options.emergency(
         `[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}`,
       )
-      // Without an output no round names its report or phases, so only the
-      // failed session's own recovery command remains.
-      const resumeSessionId = failureResumeSessionId(result)
-      const recovery =
-        output === undefined
-          ? resumeSessionId === null
-            ? null
-            : `Resume: ${recoveryCommand({ ...result, sessionId: resumeSessionId })}`
-          : output.recoveryText(result)
+      const recovery = output?.recoveryText(result) ?? null
       if (recovery !== null) options.emergency(recovery)
     }
   } finally {

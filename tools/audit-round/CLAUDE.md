@@ -1072,7 +1072,9 @@ whose audit report judged no deferral, which would close each deferral without a
 kinds differ, the call opens a new round.
 
 The continued round keeps its number, its audit report, its transcript and its log, which carry
-the audit's tag, and appends to the transcript and log. `continuedSetup` takes from the stored
+the audit's tag, and appends to the transcript and log. Its entry keeps the stored start time,
+because its kept audit report read the code then, and the series rules and the range a bare plan
+name starts at read that time. `continuedSetup` takes from the stored
 entry what no report holds. The kept audit report fixes the auditor, so the audit and the rebuttal
 run on the selection the stored audit launched on. The panel is the current vetter list: a kept
 vet report counts for the listed vetter whose tag it carries, and a listed vetter without a valid

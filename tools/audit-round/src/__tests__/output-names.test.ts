@@ -441,6 +441,37 @@ test("a call continues its target's newest stopped round on the kept audit repor
   assert.equal(next.data.tag, "obh")
 })
 
+test("a continued round keeps the stored round's start in its round data", async (t) => {
+  const f = await fixture(t)
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+  await stoppedRound(setup, implementationReport("example.md 1"))
+  // The rerun starts an hour later, but the kept audit report read the code
+  // at the first start, which the series rules and the range start read.
+  const next = await roundRun(setup, 3_600_000, releases)
+  assert.equal(next.stored?.round, 1)
+  const output = new RoundOutput(next, options)
+  output.finish({
+    status: "failed",
+    phase: "vet",
+    reason: "Usage limit",
+    sessionId: null,
+    assistant: "claude",
+    model: pinned("claude"),
+    ...testContext(setup.repoEduRoot),
+    commits: [],
+    account: { settling: "", judgedRepos: [], findings: [] },
+  })
+  output.close()
+  assert.ok(next.data)
+  const stored = JSON.parse(await readFile(next.data.path, "utf8")) as {
+    rounds: { round: number; started: string }[]
+  }
+  assert.deepEqual(
+    stored.rounds.map(({ round, started }) => ({ round, started })),
+    [{ round: 1, started: new Date(0).toISOString() }],
+  )
+})
+
 test("a stopped round without a valid kept audit report leaves the call a new round", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
