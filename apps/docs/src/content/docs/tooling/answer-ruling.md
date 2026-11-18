@@ -98,8 +98,8 @@ again. Waiting time is excluded from the runner's work timing.
    stay, and the runner prints a recovery command. Use that exact command to return to the retained
    work.
 
-A round left at a ruling prints its `Rerun:` command, the command you typed. The rerun continues the
-round on its kept reports with a fresh fix, which writes the ruling again. Winners you already gave
+A round left at a ruling prints its `Rerun:` command. Running it continues the round on its kept
+reports with a fresh fix, which writes the ruling again. Winners you already gave
 stay stored, and commits stay blocked while one is missing. An implementation worker left at a
 ruling prints the assistant's recovery command. Answer there, then rerun the original
 `pnpm audit-round implement ...` or bare full-plan command so the runner can read Git and continue.

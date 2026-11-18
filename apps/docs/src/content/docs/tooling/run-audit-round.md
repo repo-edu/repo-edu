@@ -81,8 +81,9 @@ plan's phase. Above a ruling the runner says whether the fix uses the auditor's 
 model or neither. It collects any serious contest and split winners before the free reply, then
 resumes the same fix before the series continues.
 
-A round that stops early prints a `Rerun:` line with the command you typed. Running it continues
-the stopped round on its kept reports. See [Recover a run](/repo-edu/tooling/recover-run/).
+A round that stops early prints a `Rerun:` line with the command that continues it. Running it
+continues the stopped round on its kept reports. See
+[Recover a run](/repo-edu/tooling/recover-run/).
 
 The runner answers stop after the read floor. For a widening plan, the retained settling line may
 instead answer settle. During detailing before the ready marker, the answer is ready. These answers

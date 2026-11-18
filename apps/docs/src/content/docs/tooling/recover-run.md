@@ -23,10 +23,14 @@ Rerun: pnpm audit-round <stem>
 ```
 
 Correct any problem the failure names, such as a usage limit, a model name in the settings or a
-premise the plan must settle. Then run the printed command. It is the command you typed, so a bare
-run prints `pnpm audit-round <stem>` and a `round` command prints its own target and options. A
-commit audit names its commits by their IDs, because a `HEAD` form would name other commits once
-`HEAD` has moved.
+premise the plan must settle. Then run the printed command. It repeats the command you typed, so a
+bare run prints `pnpm audit-round <stem>` and a `round` command prints its own target and options.
+Two targets are spelled out instead:
+
+1. A commit audit names its commits by their IDs, because a `HEAD` form would name other commits
+   once `HEAD` has moved.
+2. A `round` typed without a target names the plan it chose, as `<stem>.md`, because another plan
+   may hold the newest stem commit by the time you rerun.
 
 The rerun continues the round when its audit report was kept. The round keeps its number and adds
 to its transcript and log. It skips each phase whose kept report still reads as valid and starts

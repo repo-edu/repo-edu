@@ -807,10 +807,13 @@ consumers.
   built from the parsed invocation: the bare run as `pnpm audit-round <stem>` and `round` with its
   typed target and options. A commit target is spelled by its original commits' six-character IDs,
   with `plan@` before the plan group's first, because a `HEAD` form typed again names other commits
-  once `HEAD` has moved and the stopped round would not be found. `plan` prints the plan an omitted
-  target selects, as its absolute path, and writes nothing, so a user can see it before a round or
-  close takes it. `close` resolves its plan and open deferrals before startup, then runs the close
-  phase alone with its own log. The `episode` command prints the requested line range
+  once `HEAD` has moved and the stopped round would not be found. A `round` typed without a target
+  is spelled with the plan it resolved to, as `<stem>.md`, because another plan may hold the newest
+  stem commit by the time of the rerun. The `.md` keeps a stem that reads as a SHA a plan. `plan`
+  prints the plan an omitted target selects, as its absolute path, and writes nothing, so a user
+  can see it before a round or close takes it. `close` resolves its plan and open deferrals before
+  startup, then runs the close phase alone with its own log. The `episode` command prints the
+  requested line range
   from joined watch evidence produced by the shared reader and formatter, with its returned range
   and current total. Every call rebuilds the view. It performs no release resolution, assistant
   startup or file writes. `disprove` resolves one active or archived

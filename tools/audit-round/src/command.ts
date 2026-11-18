@@ -1724,7 +1724,10 @@ export async function runCommand(
      * The command a stopped round prints to continue it: the command the user
      * typed. A commit target is spelled by its original commits, each by its
      * six-character ID, because a `HEAD` form typed again names other commits
-     * once `HEAD` has moved and the stopped round would not be found.
+     * once `HEAD` has moved and the stopped round would not be found. An
+     * omitted target is spelled as the plan it resolved to, with `.md` so a
+     * stem that reads as a SHA stays a plan, because the newest plan typed
+     * again may be another once another plan gains a stem commit.
      */
     const rerunCommand = (target: AuditTarget): string => {
       if (invocation.kind === "run")
@@ -1745,7 +1748,7 @@ export async function runCommand(
               ),
             )
           : invocation.first === undefined
-            ? []
+            ? [`${planStem(target.plan)}.md`]
             : [invocation.first, ...invocation.rest]
       return shellJoin([
         "pnpm",

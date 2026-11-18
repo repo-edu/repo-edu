@@ -199,10 +199,9 @@ and any other with status 1.
    the command that continues the round and ends the series. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Rerun:`
-   command, which is the command you typed. It continues the stopped round on its kept reports and
-   starts the first phase without one in a new session. A round that stopped in its audit kept no
-   audit report, so the rerun opens a new round. See
-   [Recover a run](/repo-edu/tooling/recover-run/).
+   command. It continues the stopped round on its kept reports and starts the first phase without
+   one in a new session. A round that stopped in its audit kept no audit report, so the rerun opens
+   a new round. See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and
    act on it first.
 4. **A fix changed the plan's phase.** The round finishes without a series decision and the series

@@ -272,6 +272,116 @@ test("a rerun continues a stopped serious contest on its kept reports with a fre
   assert.equal(markdown.match(/^Started /gm)?.length, 2)
 })
 
+test("a targetless round's rerun names its plan and continues it after another plan becomes newest", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  const options = { ...f.options, settings: continuedRoundSettings }
+  await commitFixture(f.repoRoot, "example/implemented ath: marker")
+  await f.configure({
+    phases: {
+      ...f.phases,
+      rebut: {
+        ...(f.phases.rebut as Record<string, unknown>),
+        document: {
+          text: "1. [B] [<vet>] Contest\n\nThe report quotes the owning contract.\n",
+        },
+      },
+    },
+  })
+  assert.equal(
+    await runCommand(["round", "--no-watch"], f.runtime, options),
+    0,
+    f.errors.join("\n"),
+  )
+  const rerun = f.visible
+    .join("\n")
+    .match(/^Rerun: pnpm audit-round (.+)$/m)?.[1]
+  assert.equal(rerun, "round example.md --no-watch")
+  // Another active plan gains the newest stem commit, so an omitted target
+  // typed again would now open rounds on it.
+  await writeFile(join(f.activeRoot, "other.md"), "# Other plan\n")
+  const nextDay = Math.floor(Date.now() / 1000) + 86_400
+  await commitFixture(
+    f.planRoot,
+    "other/init ath: other plan",
+    `@${nextDay} +0000`,
+  )
+  f.visible.length = 0
+  assert.equal(await runCommand(["plan"], f.runtime, options), 0)
+  assert.ok(f.visible.join("\n").includes(join(f.activeRoot, "other.md")))
+  const priorPrompts = (await f.prompts()).length
+
+  assert.equal(
+    await runCommand(rerun.split(" "), f.runtime, {
+      ...options,
+      awaitAnswer: async (ruling) => {
+        assert.deepEqual(ruling.findings, [1])
+        const stream = await phaseStream(
+          "codex",
+          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          "fix-session",
+        )
+        await f.configure({
+          phases: {
+            ...f.phases,
+            fix: {
+              ...(f.phases.fix as Record<string, unknown>),
+              stream,
+              assistants: { codex: { stream } },
+              commits: [
+                {
+                  cwd: f.repoRoot,
+                  subject:
+                    "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
+                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
+                },
+              ],
+            },
+          },
+        })
+        return {
+          rulings: [
+            {
+              finding: 1,
+              winner: "report",
+              reason: "The report quotes the owning contract.",
+            },
+          ],
+          reply: "",
+        }
+      },
+    }),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  // The rerun found the stopped round on its own plan, so only the fix ran
+  // again and no round opened on the newer plan.
+  assert.deepEqual(
+    (await f.prompts())
+      .slice(priorPrompts)
+      .filter((call) => call.prompt.startsWith("Run the "))
+      .map(({ prompt }) =>
+        /^Run the (\w+) phase .* in this (\w+) session\./
+          .exec(prompt)
+          ?.slice(1),
+      ),
+    [
+      ["fix", "fresh"],
+      ["fix", "resumed"],
+    ],
+  )
+  const stored = JSON.parse(
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { rounds: { status: string }[] }
+  assert.deepEqual(
+    stored.rounds.map((entry) => entry.status),
+    ["finished"],
+  )
+  assert.equal(
+    (await f.roundFiles()).some((name) => name.startsWith("other-")),
+    false,
+  )
+})
+
 test("a rerun continues a stopped panel split with a fresh fix that reads every kept vet report", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const command = ["round", "example.md", "1", "--no-watch"]
