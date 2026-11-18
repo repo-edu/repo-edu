@@ -123,17 +123,7 @@ export default defineConfig({
                 { label: "Overview", slug: "tooling" },
                 { label: "Glossary", slug: "tooling/glossary" },
                 {
-                  label: "Audit phases",
-                  items: [
-                    { label: "/audit", slug: "tooling/audit" },
-                    { label: "/vet", slug: "tooling/vet" },
-                    { label: "/rebut", slug: "tooling/rebut" },
-                    { label: "/rule", slug: "tooling/rule" },
-                    { label: "/fix", slug: "tooling/fix" },
-                  ],
-                },
-                {
-                  label: "Other chat commands",
+                  label: "Chat commands",
                   items: [
                     { label: "/simple", link: "/tooling/chat-helpers/#simple" },
                     { label: "/rewrite", link: "/tooling/chat-helpers/#rewrite" },

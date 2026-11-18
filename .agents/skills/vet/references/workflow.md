@@ -12,11 +12,8 @@ reads:
 # Implementation-finding vet workflow
 
 The header's files are part of this workflow. Paths are relative to this file.
-The runner supplies them whole; in a hand-run session, read them whole, following
-any listed workflow's header too. Read each file once. Apply the `simple`
+The runner supplies them whole. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
-
-Where a launcher and this file disagree, this file is right.
 
 The vet's input is an implementation-audit report by any assistant.
 [Audit report discovery](#audit-report-discovery) says how the file is found. Vet its graded
@@ -27,7 +24,6 @@ independence from the panel's other vetters and the axes a vetter does not
 judge.
 
 For unattended completion, follow the shared protocol's **Runner result**.
-For a clean audit report, state that there were no findings to vet.
 
 ## Audit report discovery
 

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises"
+import { mkdir, readdir, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "./configured-runner.js"
 import { phaseStream, recordedTag, recordedText } from "./helpers.js"
-import { commitFixture, roundFixture } from "./round-fixture.js"
+import { roundFixture } from "./round-fixture.js"
 
 test("a single explicit auditor claims one round", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
@@ -84,16 +84,15 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       for (const call of phases.filter((call) => call.assistant === "claude"))
         assert.equal(call.args[call.args.indexOf("--add-dir") + 1], f.repoRoot)
+      // Every phase of a planning round takes the plan checkout's workflow.
       for (const phase of ["audit", "vet", "rebut", "fix"]) {
-        // The planning fixer runs on Codex and the planning panel on Claude.
-        const assistant =
-          phase === "fix" ? "codex" : phase === "vet" ? "claude" : auditor
-        const launcher =
-          assistant === "codex"
-            ? join(f.planRoot, `home/agents/skills/${phase}/SKILL.md`)
-            : join(f.planRoot, `home/claude/commands/${phase}.md`)
-        assert.ok(log.includes(launcher), launcher)
+        const workflow = join(
+          f.planRoot,
+          `.agents/skills/${phase}/references/workflow.md`,
+        )
+        assert.ok(log.includes(`Source file: ${workflow} `), workflow)
       }
+      assert.doesNotMatch(log, /Source file: .*\/home\//)
       assert.ok(
         log.includes(
           `${f.repoRoot}/.agents/references/round-protocol.md#runner-result`,
@@ -136,51 +135,6 @@ for (const auditor of ["codex", "claude"] as const) {
   }
 }
 
-for (const working of ["repo-edu", "plan"] as const) {
-  test(`name uses the same target grammar from ${working}`, async (t) => {
-    const f = await roundFixture(
-      t,
-      "codex",
-      working,
-      false,
-      null,
-      false,
-      working,
-      false,
-      false,
-      false,
-    )
-    const name = (args: readonly string[]) =>
-      runCommand(["name", ...args, "--auditor", "oth"], f.runtime, f.options)
-    // Before any step lands, the name alone plans; afterwards a scope audits.
-    assert.equal(await name(["example"]), 0, f.errors.join("\n"))
-    assert.equal(
-      JSON.parse(f.visible[0]).claim,
-      join(f.roundRoot, "example-plan-audit-01-0-claim.md"),
-    )
-    const head = await commitFixture(
-      f.repoRoot,
-      "example/impl-1 ath feat(x): step",
-    )
-    for (const [args, target] of [
-      [["example", "1"], "example-impl-audit-01..01"],
-      [["example", "1-2"], "example-impl-audit-01..02"],
-      [["example", "9-12"], "example-impl-audit-09..12"],
-      [["HEAD"], `commit-${head.slice(0, 6)}`],
-    ] as const) {
-      f.visible.length = 0
-      assert.equal(await name(args), 0, f.errors.join("\n"))
-      assert.equal(
-        JSON.parse(f.visible[0]).claim,
-        join(f.roundRoot, `${target}-01-0-claim.md`),
-      )
-    }
-    await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-      code: "ENOENT",
-    })
-  })
-}
-
 test("discovery accepts aliases, subdirectories and unrelated directories", async (t) => {
   const f = await roundFixture(t)
   const nested = join(f.repoRoot, "nested")
@@ -191,11 +145,7 @@ test("discovery accepts aliases, subdirectories and unrelated directories", asyn
   await symlink(f.repoRoot, alias)
   for (const cwd of [nested, unrelated, alias]) {
     assert.equal(
-      await runCommand(
-        ["name", "example", "1", "--auditor", "oth"],
-        { ...f.runtime, cwd },
-        f.options,
-      ),
+      await runCommand(["plan"], { ...f.runtime, cwd }, f.options),
       0,
       f.errors.join("\n"),
     )

@@ -1,5 +1,5 @@
-import { readdir, realpath, stat } from "node:fs/promises"
-import { basename, dirname, join, resolve } from "node:path"
+import { readdir } from "node:fs/promises"
+import { basename, join } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import {
   type AuditTarget,
@@ -80,15 +80,6 @@ function readPhaseFilename(name: string): {
     tag: match[4],
     extension: match[5] as "md" | "log",
   }
-}
-
-async function phaseDocuments(root: string, kind: FileKind) {
-  return (await readdir(root, { withFileTypes: true })).flatMap((file) => {
-    const parsed = readPhaseFilename(file.name)
-    return file.isFile() && parsed?.kind === kind && parsed.extension === "md"
-      ? [{ path: join(root, file.name), ...parsed }]
-      : []
-  })
 }
 
 /** The log one implementation worker keeps for its step. */
@@ -349,148 +340,4 @@ export function documentTag(document: string): string {
       `A round document's name carries no writer tag: ${document}`,
     )
   return parsed.tag
-}
-
-/** Read an existing audit, vet or rebuttal report named without a path in the round folder. */
-async function roundDocument(
-  context: ExecutionContext,
-  file: string,
-  kind: "audit" | "vet" | "rebut",
-): Promise<{ path: string; nameStart: string }> {
-  try {
-    if (/[\\/]/.test(file)) throw new Error("Expected a bare file name")
-    const path = await realpath(resolve(context.roundRoot, file))
-    const parsed = readPhaseFilename(basename(path))
-    if (
-      (await stat(path)).isFile() &&
-      dirname(path) === context.roundRoot &&
-      parsed?.kind === kind &&
-      parsed.extension === "md"
-    )
-      return { path, nameStart: parsed.nameStart }
-  } catch {
-    // Report the required document form below when the input cannot be opened.
-  }
-  throw new Error(
-    `Name a round's *-${phaseOrder[kind]}-${kind}.<tag>.md report by its bare file name in the evidence checkout's active folder: ${file}`,
-  )
-}
-
-export type ManualPhase = "vet" | "rebut" | "rule" | "fix"
-
-/** The most recently modified document decides between eligible candidates. */
-async function newestDocument(
-  paths: readonly string[],
-): Promise<string | undefined> {
-  const dated = await Promise.all(
-    paths.map(async (path) => ({ path, time: (await stat(path)).mtimeMs })),
-  )
-  return dated.sort((first, second) => second.time - first.time)[0]?.path
-}
-
-/** The newest watch for one episode, across its planning and step scopes. */
-export async function newestWatch(
-  roundRoot: string,
-  stem: string,
-): Promise<string | undefined> {
-  return newestDocument(
-    (await phaseDocuments(roundRoot, "watch"))
-      .filter(
-        (document) =>
-          planTargetKind(stem, document.nameStart.replace(/-\d{2,}$/, "")) !==
-          null,
-      )
-      .map((document) => document.path),
-  )
-}
-
-/**
- * Resolve one existing round without claiming it or consulting future writers'
- * settings. A vetter may read an audit report of either assistant, its own
- * included, because the panel is every listed vetter whoever audits. The
- * rebuttal, the ruler and the fix receive every vet report of the round. The
- * ruler and the fix also receive the rebuttal report, and the fix the round's
- * newest ruler report.
- */
-export async function manualPhasePaths(
-  context: ExecutionContext,
-  phase: ManualPhase,
-  input: string | undefined,
-  options: {
-    readonly writer?: string
-    readonly rebut?: string
-  },
-): Promise<readonly string[]> {
-  if (phase !== "fix" && options.writer === undefined)
-    throw new Error(
-      `The ${phase} phase needs --writer with the current session's full tag.`,
-    )
-  if (input === undefined) {
-    const newest = await newestDocument(
-      (await phaseDocuments(context.roundRoot, "audit"))
-        .filter(
-          (document) =>
-            phase !== "rebut" || document.tag[0] === options.writer?.[0],
-        )
-        .map((document) => document.path),
-    )
-    if (newest === undefined)
-      throw new Error(
-        `No eligible audit report for ${phase} at ${context.roundRoot}. Supply a file name.`,
-      )
-    input = basename(newest)
-  }
-  const source = await roundDocument(context, input, "audit")
-  const root = dirname(source.path)
-  const output = (kind: "vet" | "rebut" | "rule") => {
-    if (options.writer === undefined)
-      throw new Error(
-        `The ${phase} phase needs --writer with the current session's full tag.`,
-      )
-    return join(
-      root,
-      `${phaseFilename(source.nameStart, kind, options.writer)}.md`,
-    )
-  }
-  const reviews = async (kind: "vet" | "rebut" | "rule") =>
-    (await phaseDocuments(root, kind)).filter(
-      (document) => document.nameStart === source.nameStart,
-    )
-  const rebuttal = async (): Promise<string | undefined> => {
-    if (options.rebut !== undefined) {
-      const chosen = await roundDocument(context, options.rebut, "rebut")
-      if (
-        dirname(chosen.path) !== root ||
-        chosen.nameStart !== source.nameStart
-      )
-        throw new Error(
-          `The rebut file belongs to another round: ${options.rebut}`,
-        )
-      return chosen.path
-    }
-    return newestDocument((await reviews("rebut")).map(({ path }) => path))
-  }
-  if (phase === "vet") return [source.path, output(phase)]
-  // File-name order, so every route lists one round's panel the same way.
-  const vets = (await reviews("vet")).map(({ path }) => path).sort()
-  if (phase === "rebut") {
-    if (vets.length === 0)
-      throw new Error(`No vet file for ${source.nameStart} at ${root}.`)
-    return [source.path, ...vets, output("rebut")]
-  }
-  const rebut = await rebuttal()
-  if (phase === "rule") {
-    if (rebut === undefined)
-      throw new Error(`No rebuttal file for ${source.nameStart} at ${root}.`)
-    return [source.path, ...vets, rebut, output("rule")]
-  }
-  const ruler = await newestDocument(
-    (await reviews("rule")).map(({ path }) => path),
-  )
-  return [
-    source.path,
-    ...vets,
-    ...(rebut === undefined ? [] : [rebut]),
-    ...(ruler === undefined ? [] : [ruler]),
-  ]
 }

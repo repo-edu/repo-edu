@@ -11,24 +11,20 @@ reads:
 # Implementation-vet rebuttal workflow
 
 The header's files are part of this workflow. Paths are relative to this file.
-The runner supplies them whole; in a hand-run session, read them whole, following
-any listed workflow's header too. Read each file once. Apply the `simple`
+The runner supplies them whole. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
-
-Where a launcher and this file disagree, this file is right.
 
 The rebuttal answers the round's vetters on behalf of the audit report. An implementation-audit
 round writes its audit report, each vetter of the round's panel vets it into its own vet report and
 this workflow answers every vetter's verdicts in one rebuttal report. The runner starts it as a new
 session on the auditor's model and effort. Session selection follows Repo Edu's
 [Commit Capability Tag](../../../../CLAUDE.md#commit-capability-tag) and the runner's
-[Round files](../../../../tools/audit-round/CLAUDE.md#round-files). A hand-run rebuttal may use the
-audit session while it still holds the round. In either route, ground answers as the shared round
-protocol requires under **Rebuttal grounding**. The ruler, when the round needs one, and the fix
-then read the audit report, every vet report and the rebuttal report, so each has every view.
+[Round files](../../../../tools/audit-round/CLAUDE.md#round-files). Ground answers as the shared
+round protocol requires under **Rebuttal grounding**. The ruler, when the round needs one, and the
+fix then read the audit report, every vet report and the rebuttal report, so each has every view.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
-a tracked file. Only a hand-run rebuttal writes its rebuttal report.
+a tracked file.
 
 For unattended completion, follow the shared protocol's **Runner result**.
 
@@ -38,11 +34,6 @@ Follow the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phas
 for path resolution and argument order. Follow the
 [audit report grammar](../../../references/round-grammar.md#audit-report) for
 the judged repos and heads.
-
-Never answer the vetters on an audit report whose tag's vendor letter names
-another assistant. The rebuttal runs on the auditor's assistant, and another assistant's
-findings are not yours to defend. Continue only when the user explicitly says
-to.
 
 ## Rebuttal file
 

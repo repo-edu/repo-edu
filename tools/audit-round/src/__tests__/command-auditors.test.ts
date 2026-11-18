@@ -358,7 +358,6 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["round", "example.md", "1", "--first", "other"],
     ["round", "example.md", "1", "--first", "codex", "--auditor", "claude"],
     ["round", "example.md", "--chain"],
-    ["name", "example.md", "--auditor", "oth,ath"],
     // A tag names its fields by letter, in order, and never asks for `u`.
     ["round", "example.md", "1", "--auditor", "claudex"],
     ["round", "example.md", "1", "--auditor", "xa"],
@@ -420,8 +419,8 @@ test("argument errors and help start no assistant processes", async (t) => {
     visible,
     /Omitted +round alone, or with options only, takes the active plan/,
   )
-  // Hand-run launchers call the housekeeping commands; help shows what a user runs.
-  assert.doesNotMatch(visible, /^\s+(name|paths|episode|deferrals)\s/m)
+  // Chats and the reopen step call the hidden commands; help shows what a user runs.
+  assert.doesNotMatch(visible, /^\s+(episode|mark|ruling|answer)\s/m)
   for (const name of [
     "models",
     "replay",

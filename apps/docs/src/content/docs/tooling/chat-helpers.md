@@ -27,9 +27,9 @@ Dense technical prose costs a second reading, and a sentence read twice costs mo
 once. The two helpers cover the two moments you notice that. `/simple` is the standing rule, set
 before the work starts. `/rewrite` is the repair for one reply that already arrived dense.
 
-The `/simple` requirement is also built into the audit-phase launchers. `/audit`, `/vet`, `/rebut`,
-`/fix` and `/brief-plan` apply it to their whole session without its confirm-and-wait step. The
-audit, vet, rebuttal, ruler, fix and watch workflows apply it too.
+The `/simple` requirement is also built into `/brief-plan`, which applies it to its whole session
+without its confirm-and-wait step. The audit, vet, rebuttal, ruler, fix and watch workflows apply it
+the same way.
 
 ## What plain wording means
 

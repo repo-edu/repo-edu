@@ -140,14 +140,14 @@ test("a fresh prompt supplies routed workflows and shared files once under their
     assert.equal(log.split(`Source file: ${path} `).length, 2)
     assert.ok(!log.includes(content))
   }
-  assert.ok(prompt.includes("Codex rebut launcher"))
-  assert.doesNotMatch(log, /Codex rebut launcher/)
+  assert.ok(prompt.includes("Follow the supplied workflow below."))
+  assert.doesNotMatch(prompt, /Source file: .*\/home\//)
   assert.doesNotMatch(prompt, /Source file: .*CLAUDE\.md/)
   await writeFile(route, "---\nreads: wrong-shape\n---\n")
   assert.throws(() => phasePrompt(input), /Invalid workflow header/)
 })
 
-test("fresh prompts use the owning launcher while resumed fixes supply no files again", async (t) => {
+test("fresh prompts supply the owning workflow while resumed fixes supply no files again", async (t) => {
   const f = await fixture(t)
   for (const roundKind of ["implementation", "planning"] as const) {
     for (const assistant of ["claude", "codex"] as const) {
@@ -162,18 +162,12 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
         rulingFile: join(context.cwd, "ruling.md"),
       }
       const { text: prompt } = phasePrompt(input)
-      const launcher = join(
-        context.planRoot,
-        assistant === "claude"
-          ? "home/claude/commands/fix.md"
-          : "home/agents/skills/fix/SKILL.md",
+      const workflow = join(
+        context.cwd,
+        ".agents/skills/fix/references/workflow.md",
       )
-      assert.ok(prompt.includes(`Source file: ${launcher}`))
-      assert.ok(
-        prompt.includes(
-          `Source file: ${join(context.cwd, ".agents/skills/fix/references/workflow.md")}`,
-        ),
-      )
+      assert.ok(prompt.includes(`Source file: ${workflow}`))
+      assert.doesNotMatch(prompt, /Source file: .*\/home\//)
       assert.ok(
         prompt.includes(
           `Ruling output path (JSON string): ${JSON.stringify(input.rulingFile)}`,
@@ -194,10 +188,10 @@ test("fresh prompts use the owning launcher while resumed fixes supply no files 
       )
       assert.doesNotMatch(reply, /Source file:|supplied phase instructions/)
       assert.ok(reply.endsWith("User reply:\nApply the correction."))
-      const launcherContent = await readFile(launcher, "utf8")
-      await rm(launcher)
+      const workflowContent = await readFile(workflow, "utf8")
+      await rm(workflow)
       assert.equal(phasePrompt(resumed).text, reply)
-      await writeFile(launcher, launcherContent)
+      await writeFile(workflow, workflowContent)
     }
   }
 })
@@ -215,7 +209,7 @@ test("implementation workers may request a ruling but other report phases may no
   )
 })
 
-test("watch receives Repo Edu's workflow and joined evidence without a launcher", async (t) => {
+test("watch receives Repo Edu's workflow and joined evidence", async (t) => {
   const f = await fixture(t)
   const common = {
     ...testContext(f.root, "planning"),
@@ -229,7 +223,6 @@ test("watch receives Repo Edu's workflow and joined evidence without a launcher"
     arguments: [],
     evidence: "Joined episode facts",
   })
-  assert.doesNotMatch(writer, /launcher|SKILL\.md/)
   assert.ok(
     writer.includes(
       `Source file: ${join(f.root, ".agents/skills/watch/references/workflow.md")}`,

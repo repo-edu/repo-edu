@@ -420,13 +420,12 @@ resolves which handoffs stand on the current chain from
   artifact or the git log, and keeping it also removes a duty from every round.
 
 An audit that reports no findings leaves every existing handoff untouched and
-writes none, whether the runner or the hand-run audit completes its clean
-record. A round that reaches a clean record after vetting or discussion follows
-the ordinary handoff rules above. The shared planning rules'
+writes none. A round that reaches a clean record after vetting or discussion
+follows the ordinary handoff rules above. The shared planning rules'
 [Round completion](../../../plan/.agents/references/planning-rules.md#round-completion)
 own the planning clean-record mandate;
-[Direct clean completion](#direct-clean-completion) owns how the runner and
-hand-run audit finish.
+[Direct clean completion](#direct-clean-completion) owns how the runner finishes
+such an audit.
 
 ## Completed commit metadata
 
@@ -562,8 +561,7 @@ Accept with a note. A Revise is the vetter's claim about what should land, and t
 advice written as a Revise would read as a disagreement about what lands.
 
 Free text explains a verdict but never changes its kind. Return the complete vet
-report in the final response. A hand-run vet writes the same text to its
-resolved path. Chat and file must not differ.
+report in the final response.
 
 ## Rebuttal grounding
 
@@ -598,8 +596,7 @@ with a revised tier, its note names the new tier and the fix records it.
 - **For user's ruling** keeps a real choice or plan-decision question open.
   State the audit report's position and evidence briefly and never settle it here.
 
-Return the complete answers without a grouped closing list. A hand-run rebuttal writes the same
-text to its resolved path. Chat and file must not differ.
+Return the complete answers without a grouped closing list.
 
 ## Ruler duties
 
@@ -630,10 +627,8 @@ the files it supplied whole in the first prompt. The check is a plain text test,
 fixed. A file read logs its absolute path, while a shell command logs its text as typed, often
 relative to a folder an earlier `cd` chose. Both repos also hold files with the same relative path,
 so a relative name could pass for a file the ruler never opened. When a source fails, the runner
-sends the ruler back once to open what it missed; a second miss fails the round. A hand-run ruler
-gets no check, because the runner logs no hand-run session. There the user can read the ruler
-report before starting the fix. Return the complete ruler report under
-[Runner result](#runner-result); a hand-run ruler writes the same text to its resolved path.
+sends the ruler back once to open what it missed; a second miss fails the round. Return the
+complete ruler report under [Runner result](#runner-result).
 
 Without this rule, a ruler can fill its record from the quotations in the reports, and the winner
 lands on text nobody opened. Case:
@@ -691,10 +686,7 @@ recorded winner and reason with the free reply. The free reply may be empty
 once every serious finding has a winner.
 
 When every verdict is Accept and no rebuttal exists, present the findings as agreed by the auditor
-and every vetter. When a vetter has a revision, drop or ruling item and no rebuttal exists, the fix
-answers those items from current evidence, except a split, which goes to its judge under the rule
-above. Carry accepts without answering them. Without a vet report, present the audit report's
-findings in number order with any current-source drift correction.
+and every vetter.
 
 The user rules by exception: a go on the presented outcome accepts it, and a
 reservation reopens the named item. Ground a reopened item before answering it.
@@ -748,8 +740,7 @@ read or verified claims. Evidence appears only inside the finding it supports.
 Chat carries nothing about the judged work that the audit report or handoff does not.
 Setup and tooling problems are not about the judged work and stay in chat.
 
-An unattended audit returns the complete audit report under [Runner result](#runner-result). A
-hand-run audit presents the audit report and writes identical text to the resolved path. The
+An audit returns the complete audit report under [Runner result](#runner-result). The
 [runner documentation](../../tools/audit-round/CLAUDE.md#phase-routing) owns path resolution and
 argument order. With no findings, follow
 [Direct clean completion](#direct-clean-completion).
@@ -760,12 +751,10 @@ An audit with no findings completes without vet, rebuttal, fix, glance or
 watch. An automatic series still applies its fixed decision rules. This route avoids a fresh
 fix session whose only work would be an empty record.
 
-For an unattended plan target, return the complete audit report under
+For a plan target, return the complete audit report under
 [Runner result](#runner-result). The runner retains it and lands the clean
-record. For a hand-run plan target, write and present the audit report and land the
-clean record immediately. Every route keeps the audit report, because a round's files
-stay in the evidence repo until the close moves them. A commit target lands no
-clean record.
+record. It keeps the audit report, because a round's files stay in the evidence
+repo until the close moves them. A commit target lands no clean record.
 
 Use the
 [record meanings and placement](#shared-implementation-forms) and the shared

@@ -251,7 +251,9 @@ for (const auditor of ["claude", "codex"] as const) {
           )
         }
         assert.ok(
-          log.includes(join(f.planRoot, "home/agents/skills/fix/SKILL.md")),
+          log.includes(
+            `Source file: ${join(f.repoRoot, ".agents/skills/fix/references/workflow.md")} `,
+          ),
         )
         assert.match(log, /audit-round-probe-error/)
         assert.equal(visible.includes("audit-round-probe-error"), false)

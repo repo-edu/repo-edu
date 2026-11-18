@@ -432,7 +432,7 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.ok(
       logged.includes(`Source file: ${workflow} (contents omitted from log)`),
     )
-    assert.doesNotMatch(logged, /fix workflow\n|fix launcher\n/)
+    assert.doesNotMatch(logged, /fix workflow\n/)
     const [call] = await f.calls()
     if (assistant === "codex") {
       assert.deepEqual(call.args, [

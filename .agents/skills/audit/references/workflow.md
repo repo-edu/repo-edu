@@ -13,11 +13,8 @@ reads:
 # Implementation audit workflow
 
 The header's files are part of this workflow. Paths are relative to this file.
-The runner supplies them whole; in a hand-run session, read them whole, following
-any listed workflow's header too. Read each file once. Apply the `simple`
+The runner supplies them whole. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
-
-Where a launcher and this file disagree, this file is right.
 
 The shared [round protocol](../../../references/round-protocol.md) owns
 evidence rules, finding grades, rating meanings, reconciliation and runner
@@ -78,9 +75,7 @@ sentence does not use the fixed form, stop for a plan correction.
 For a plan-scoped implementation audit, the runner adds one final object with
 the plan's open deferrals into Repo Edu. Those deferrals add Repo Edu to the
 repo set for their named corrections, even when the selected steps are hosted
-only in the plan repo. In a hand-run audit with no object, run
-`pnpm audit-round deferrals <stem>` and take the entries whose destination is
-Repo Edu. This does not replace or widen the selected step range.
+only in the plan repo. This does not replace or widen the selected step range.
 
 ## Round
 
@@ -207,9 +202,8 @@ position. Its fix record cites that item. When current code already holds the
 correction, the audit reports no finding for that item. Instead, its audit report
 opening adds one satisfied-deferral line in the
 [audit report grammar](../../../references/round-grammar.md#audit-report) form.
-The audit report opening carries that judgement into either fix route, including a
-hand-run fix that receives no open-deferral object. The runner also passes the
-same object to an automated fix. The audit report must account for every supplied
+The audit report opening carries that judgement into the fix, and the runner
+passes the fix the same object. The audit report must account for every supplied
 item through either a satisfied-deferral line or a finding. Every completed
 route cites every supplied deferral.
 

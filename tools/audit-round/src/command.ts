@@ -80,7 +80,6 @@ import {
   type LandedRecord,
   listedSeat,
   noOverride,
-  phaseWorkflow,
   type RoundDependencies,
   roundFixer,
   targetWorkClass,
@@ -93,7 +92,7 @@ import {
   writeQueue,
 } from "./queue.js"
 import { replayReport } from "./replay.js"
-import { readReport, reportKind } from "./report.js"
+import { readReport } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
@@ -113,14 +112,10 @@ import {
 } from "./round-data.js"
 import {
   commitTargetLabel,
-  type ManualPhase,
   type MarkerKind,
-  manualPhasePaths,
   markerPath,
-  phaseFilename,
   planTargetKind,
   queueFile,
-  roundIdentity,
   roundSubject,
   targetLabel,
 } from "./round-paths.js"
@@ -146,7 +141,6 @@ import {
   archivedPlans,
   type CommitGroup,
   type CommitTarget,
-  commitAuditGroups,
   isActivePlanPath,
   planPhase,
   planRepositoryPrefix,
@@ -187,25 +181,6 @@ type Invocation =
           }
     }
   | { readonly kind: "plan" }
-  | {
-      readonly kind: "deferrals"
-      /** Absent when the command takes the plan `plan` prints. */
-      readonly stem?: string
-    }
-  | {
-      readonly kind: "name"
-      /** Absent when the runner takes the newest plan. */
-      readonly first?: string
-      readonly rest: readonly string[]
-      readonly auditor: string
-    }
-  | {
-      readonly kind: "paths"
-      readonly phase: ManualPhase
-      readonly input?: string
-      readonly writer?: string
-      readonly rebut?: string
-    }
   | {
       readonly kind: "ruling"
       /** Absent when the command takes the one run that waits. */
@@ -279,7 +254,6 @@ const roundFileWriters: ReadonlySet<Invocation["kind"]> = new Set([
   "round",
   "implement",
   "close",
-  "name",
   "mark",
   "settle",
   "disprove",
@@ -292,7 +266,7 @@ type SeriesOptions = Pick<
 >
 
 function requestedTarget(
-  invocation: Extract<Invocation, { kind: "round" | "name" }>,
+  invocation: Extract<Invocation, { kind: "round" }>,
 ): TargetRequest | null {
   if (invocation.first === undefined) return null
   return targetRequest(invocation.first, invocation.rest)
@@ -301,30 +275,17 @@ function requestedTarget(
 /**
  * A resolved target list runs one automatic series per target. It joins no
  * `--auditor` list, whose editable queue belongs to one target and whose
- * pairing with several targets would need a second reading, and `name` claims
- * one hand-run round.
+ * pairing with several targets would need a second reading.
  */
 function requireSingleTarget(
-  invocation: Extract<Invocation, { kind: "round" | "name" }>,
+  invocation: Extract<Invocation, { kind: "round" }>,
   targets: AuditTargets,
 ): void {
   if (targets.length === 1) return
-  if (invocation.kind === "name")
-    throw new InvalidArgumentError(
-      "A hand-run round claims one scope. Name one step or range.",
-    )
   if (invocation.auditor !== undefined)
     throw new InvalidArgumentError(
       "A scope list runs one automatic series per scope. Use --auditor with one scope.",
     )
-}
-
-function sessionTag(value: string): string {
-  if (!/^[ao][btu][lmhx]$/.test(value))
-    throw new InvalidArgumentError(
-      "Expected a full session tag, such as oth or oux.",
-    )
-  return value
 }
 
 type LineRange = {
@@ -863,70 +824,6 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       },
     )
   command
-    .command("name", { hidden: true })
-    .description(
-      "Claim a hand-run round and print its workflow, working checkout and arguments.",
-    )
-    .argument(
-      "[target]",
-      "the same plan or commit target accepted by a round, or none for the newest plan",
-    )
-    .argument(
-      "[scope-or-commits...]",
-      "the planning word, a step scope or further commits, as audit-round --help explains",
-    )
-    .requiredOption(
-      "--auditor <tag>",
-      "the auditing session's full three-letter tag, including u for an unlisted model",
-      sessionTag,
-    )
-    .action(
-      (
-        first: string | undefined,
-        rest: string[],
-        flags: { auditor: string },
-      ) => {
-        invocation = { kind: "name", first, rest, auditor: flags.auditor }
-      },
-    )
-  command
-    .command("paths", { hidden: true })
-    .description(
-      "Resolve a manual phase's workflow, working checkout and arguments without starting an assistant.",
-    )
-    .argument(
-      "<phase>",
-      "vet, rebut, rule or fix",
-      (value: string): ManualPhase => {
-        if (!["vet", "rebut", "rule", "fix"].includes(value))
-          throw new InvalidArgumentError("Expected vet, rebut, rule or fix.")
-        return value as ManualPhase
-      },
-    )
-    .argument(
-      "[input]",
-      "bare audit report name; defaults to the newest eligible file in the active folder",
-    )
-    .option(
-      "--writer <tag>",
-      "current session's full tag; required except for fix",
-      sessionTag,
-    )
-    .option("--rebut <file>", "select a rebuttal instead of the round's newest")
-    .action(
-      (
-        phase: ManualPhase,
-        input: string | undefined,
-        flags: { writer?: string; rebut?: string },
-      ) => {
-        if (flags.rebut !== undefined && phase !== "rule" && phase !== "fix")
-          throw new InvalidArgumentError(
-            "A rebuttal selection applies only to the ruler and the fix, which read it.",
-          )
-        invocation = { kind: "paths", phase, input, ...flags }
-      },
-    )
-  command
     .command("episode", { hidden: true })
     .description(
       "Print a line range of joined Git and round data evidence for a hand-run watch without writing files.",
@@ -942,15 +839,6 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
     )
     .action((target: string | undefined, flags: { lines: LineRange }) => {
       invocation = { kind: "episode", target, lines: flags.lines }
-    })
-  command
-    .command("deferrals", { hidden: true })
-    .description(
-      "Print one active plan's open deferrals without writing files or starting assistants.",
-    )
-    .argument("[stem]", "an active plan, or none for the newest plan")
-    .action((stem: string | undefined) => {
-      invocation = { kind: "deferrals", stem }
     })
   command
     .command("ruling", { hidden: true })
@@ -1346,20 +1234,6 @@ export async function runCommand(
       options.terminal.write(await defaultPlan(context))
       return 0
     }
-    if (invocation.kind === "deferrals") {
-      const plan =
-        invocation.stem === undefined
-          ? await defaultPlan(context)
-          : await requiredActivePlan(
-              context.activeRoot,
-              invocation.stem,
-              "deferrals",
-            )
-      const stem = planStem(plan)
-      const { deferrals } = await deferralState(context, stem)
-      options.terminal.write(openDeferralText(stem, deferrals))
-      return 0
-    }
     if (invocation.kind === "ruling") {
       const { ruling } = await waitingRun(
         resolveCacheRoot(runtime, options.cacheRoot),
@@ -1421,26 +1295,6 @@ export async function runCommand(
       }
       return 0
     }
-    if (invocation.kind === "paths") {
-      const args = await manualPhasePaths(
-        context,
-        invocation.phase,
-        invocation.input,
-        invocation,
-      )
-      const session = roundContext(
-        context,
-        reportKind(await readFile(args[0], "utf8")),
-      )
-      options.terminal.write(
-        JSON.stringify({
-          cwd: session.cwd,
-          workflow: phaseWorkflow({ ...session, phase: invocation.phase }),
-          arguments: args,
-        }),
-      )
-      return 0
-    }
     const prepared =
       invocation.kind === "implement"
         ? {
@@ -1462,39 +1316,8 @@ export async function runCommand(
                   requestedTarget(invocation),
                 ),
               }
-    if (prepared.kind === "round" || prepared.kind === "name")
+    if (prepared.kind === "round")
       requireSingleTarget(prepared, prepared.targets)
-    if (prepared.kind === "name") {
-      const [target] = prepared.targets
-      const { nameStart } = await roundIdentity({
-        ...context,
-        ...target,
-      })
-      const claim = join(context.roundRoot, `${nameStart}-0-claim.md`)
-      claimRound(claim)
-      const report = join(
-        context.roundRoot,
-        `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
-      )
-      const session = roundContext(context, target.roundKind)
-      options.terminal.write(
-        JSON.stringify({
-          cwd: session.cwd,
-          workflow: phaseWorkflow({ ...session, phase: "audit" }),
-          claim,
-          arguments: [
-            report,
-            ...("plan" in target
-              ? [
-                  target.plan,
-                  ...(target.roundKind === "planning" ? [] : [target.scope]),
-                ]
-              : commitAuditGroups(target)),
-          ],
-        }),
-      )
-      return 0
-    }
     // The close moves the plan and commits in the plan checkout first.
     const session = roundContext(
       context,

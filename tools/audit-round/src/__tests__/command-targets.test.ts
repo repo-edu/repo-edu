@@ -8,7 +8,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { runCommand } from "./configured-runner.js"
@@ -99,23 +99,6 @@ test("plan prints the newest active plan without claiming a round", async (t) =>
   )
   assert.deepEqual(f.visible, [join(f.activeRoot, "example.md")])
   assert.deepEqual(await readdir(f.activeRoot), before)
-})
-
-test("deferrals prints only the active plan's open deferrals", async (t) => {
-  const f = await roundFixture(t)
-  const deferral = await deferPlanChoice(f.repoRoot)
-
-  assert.equal(
-    await runCommand(["deferrals", "example"], f.runtime, f.options),
-    0,
-    f.errors.join("\n"),
-  )
-  assert.deepEqual(f.visible, [
-    `Open deferrals for example:\n- repo-edu@${deferral.sha}/1 [C] -> ../plan/example.md#decisions: Plan choice`,
-  ])
-  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-    code: "ENOENT",
-  })
 })
 
 /** One file of every kind a plan keeps in the round folder until its close. */
@@ -435,55 +418,44 @@ test("a completed bare range series is refused beside --auditor", async (t) => {
   assert.deepEqual(await f.roundFiles(), [])
 })
 
-test("a hand-run claim refuses a completed bare range series", async (t) => {
-  const f = await roundFixture(t)
-  await completeRangePlan(f)
-
-  assert.equal(
-    await runCommand(
-      ["name", "example", "--auditor", "oth"],
-      f.runtime,
-      f.options,
-    ),
-    2,
-  )
-  assert.match(f.errors.join("\n"), /claims one scope/)
-  assert.deepEqual(await f.roundFiles(), [])
-})
-
 test("options without a target run the audit the newest plan's history calls for", async (t) => {
   // The fixture's Repo Edu history has landed step 1 without its marker.
   const f = await roundFixture(t)
   const nextDay = Math.floor(Date.now() / 1000) + 86_400
   const commit = (cwd: string, subject: string, offset: number) =>
     commitFixture(cwd, subject, `@${nextDay + offset} +0000`)
-  const name = async () => {
+  const round = async () => {
     f.visible.length = 0
     f.errors.length = 0
-    return runCommand(["name", "--auditor", "oth"], f.runtime, f.options)
+    return runCommand(["round", "--auditor", "codex"], f.runtime, f.options)
   }
-  assert.equal(await name(), 2)
+  assert.equal(await round(), 2)
   assert.match(f.errors[0], /implemented marker is missing in Repo Edu/)
   await commit(f.repoRoot, "example/impl-audit-2-3 ath clean: record", 0)
-  assert.equal(await name(), 2)
+  assert.equal(await round(), 2)
   assert.match(f.errors[0], /implemented marker is missing in Repo Edu/)
   await commit(
     f.repoRoot,
     "example/impl-audit-2-3 ath growth-none c1 fix(x): correction",
     1,
   )
-  assert.equal(await name(), 2)
+  assert.equal(await round(), 2)
   assert.match(f.errors[0], /implemented marker is missing in Repo Edu/)
+  assert.deepEqual(await f.roundFiles(), [])
   // Audit records and a later plan round do not choose the target. The listed
   // steps and the current marker do.
   await commit(f.repoRoot, "example/implemented ath: marker", 2)
   await commit(f.planRoot, "example/plan-audit ath clean: plan round", 3)
-  assert.equal(await name(), 0, f.errors.join("\n"))
-  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
-    join(f.roundRoot, "example-impl-audit-01..01-01-2-audit.oth.md"),
-    join(f.activeRoot, "example.md"),
-    "1",
-  ])
+  assert.equal(await round(), 0, f.errors.join("\n"))
+  const { log, transcript } = await f.records()
+  assert.ok(
+    basename(transcript).startsWith("example-impl-audit-01..01-01-1-round."),
+  )
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, join(f.activeRoot, "example.md"), "1"]).slice(0, -1)}`,
+    ),
+  )
 })
 
 test("a missing plan file is refused before any assistant starts", async (t) => {
@@ -503,16 +475,11 @@ test("a missing plan file is refused before any assistant starts", async (t) => 
 test("a planning round on a plan no commit holds is refused before any assistant starts", async (t) => {
   const f = await roundFixture(t)
   await writeFile(join(f.activeRoot, "draft-widen.md"), "# Draft plan\n")
-  for (const argv of [
-    ["round", "draft"],
-    ["name", "draft", "--auditor", "oth"],
-  ]) {
-    assert.equal(await runCommand(argv, f.runtime, f.options), 1)
-    assert.match(
-      f.errors.at(-1) as string,
-      /draft-widen\.md has no commit, so a planning round cannot start\. Commit it first as draft\/init <tag>: <sentence>\./,
-    )
-  }
+  assert.equal(await runCommand(["round", "draft"], f.runtime, f.options), 1)
+  assert.match(
+    f.errors.at(-1) as string,
+    /draft-widen\.md has no commit, so a planning round cannot start\. Commit it first as draft\/init <tag>: <sentence>\./,
+  )
   assert.deepEqual(await f.roundFiles(), [])
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",

@@ -79,7 +79,7 @@ reference keeps `.md` to mark it as a plan.
    D, a new session names the winner of each such dispute. It runs on the `ruler` selection of the
    target work class's audit level in `tools/audit-round/settings.json` and opens every source it
    cites; the runner sends it back once when its report names a source its session did not open.
-   It is skipped when no such dispute exists. See [`/rule`](/repo-edu/tooling/rule/).
+   It is skipped when no such dispute exists.
 5. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
    commit audit of plan-repo commits alone fix on `planningAudit.fixer` in
    `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder. A

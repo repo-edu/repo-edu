@@ -397,128 +397,6 @@ for (const working of ["repo-edu", "plan"] as const) {
   })
 }
 
-for (const working of ["repo-edu", "plan"] as const) {
-  for (const tag of ["abl", "otx", "oux", "auh"]) {
-    test(`name at ${working} preserves the actual ${tag} auditor and only writes its claim`, async (t) => {
-      const f = await roundFixture(
-        t,
-        "codex",
-        working,
-        false,
-        null,
-        false,
-        working,
-      )
-      const root = f.roundRoot
-      const target =
-        working === "plan" ? "example-plan-audit" : "example-impl-audit-02..02"
-      await writeFile(join(root, `${target}-09-2-audit.oth.md`), "Peer report")
-      const before = await readdir(root)
-      const settings = structuredClone(testSettings)
-      settings[
-        working === "plan" ? "planningAudit" : "implementationAudit"
-      ].auditors = (["claude", "codex"] as const).map((assistant) => ({
-        assistant,
-        model: settings.strengthModels[assistant].top,
-        effort: "medium",
-      }))
-      const args = [
-        "name",
-        "example.md",
-        ...(working === "plan" ? [] : ["2"]),
-        "--auditor",
-        tag,
-      ]
-      assert.equal(
-        await runCommand(args, f.runtime, { ...f.options, settings }),
-        0,
-        f.errors.join("\n"),
-      )
-      assert.equal(
-        JSON.parse(f.visible[0]).cwd,
-        working === "plan" ? f.planRoot : f.repoRoot,
-      )
-      assert.equal(
-        JSON.parse(f.visible[0]).workflow,
-        join(
-          working === "plan" ? f.planRoot : f.repoRoot,
-          ".agents/skills/audit/references/workflow.md",
-        ),
-      )
-      assert.deepEqual(
-        [JSON.parse(f.visible[0]).claim, JSON.parse(f.visible[0]).arguments[0]],
-        [`${target}-10-0-claim.md`, `${target}-10-2-audit.${tag}.md`].map(
-          (name) => join(root, name),
-        ),
-      )
-      assert.deepEqual(
-        (await readdir(root)).filter((name) => !before.includes(name)),
-        [`${target}-10-0-claim.md`],
-      )
-      assert.equal(await readFile(JSON.parse(f.visible[0]).claim, "utf8"), "")
-      f.visible.length = 0
-      assert.equal(await runCommand(args, f.runtime, f.options), 0)
-      assert.equal(
-        JSON.parse(f.visible[0]).claim,
-        join(root, `${target}-11-0-claim.md`),
-      )
-      await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-        code: "ENOENT",
-      })
-    })
-  }
-}
-
-test("name shares commit range and list targets with the runner", async (t) => {
-  const f = await roundFixture(t)
-  let startingHead = f.heads["repo-edu"]
-  for (const n of [1, 2])
-    startingHead = await commitFixture(f.repoRoot, `Fixture ${n}`)
-  const head = await shortCommit(f.repoRoot, "HEAD")
-  const back = [
-    await shortCommit(f.repoRoot, "HEAD~1"),
-    await shortCommit(f.repoRoot, "HEAD~2"),
-  ]
-  const full = async (revision: string) =>
-    (await execa("git", ["rev-parse", revision], { cwd: f.repoRoot })).stdout
-  const ordered = await Promise.all(["HEAD~2", "HEAD~1", "HEAD"].map(full))
-  for (const [index, [references, shortReferences, target]] of [
-    [["HEAD-2..HEAD"], [`${back[1]}..${head}`], `commit-${back[1]}..${head}`],
-    [
-      [back[1], "HEAD", back[0]],
-      [back[1], head, back[0]],
-      `commit-${back[1]}..${head}`,
-    ],
-  ].entries()) {
-    f.visible.length = 0
-    assert.equal(
-      await runCommand(
-        ["name", ...references, "--auditor", "oux"],
-        f.runtime,
-        f.options,
-      ),
-      0,
-    )
-    assert.equal(
-      JSON.parse(f.visible[0]).arguments[0],
-      join(
-        f.roundRoot,
-        `${target}-${String(index + 1).padStart(2, "0")}-2-audit.oux.md`,
-      ),
-    )
-    assert.deepEqual(JSON.parse(f.visible[0]).arguments.slice(1), [
-      {
-        references,
-        repository: "repo-edu",
-        startingHead,
-        commits: ordered,
-        shortReferences,
-        originalCommits: ordered,
-      },
-    ])
-  }
-})
-
 test("a plan-prefixed commit round keeps the typed prefix in its audit arguments", async (t) => {
   const f = await roundFixture(
     t,
@@ -559,54 +437,6 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
     `# Commit audit of ${reference} (round 1)`,
   )
   assert.ok(basename(transcript).startsWith(`commit-${label}-01-1-round.`))
-})
-
-test("name passes two parsed commit groups to a hand-run audit", async (t) => {
-  const f = await roundFixture(t)
-  const references = ["HEAD", `${planRepositoryPrefix}HEAD`] as const
-
-  assert.equal(
-    await runCommand(
-      ["name", ...references, "--auditor", "oux"],
-      f.runtime,
-      f.options,
-    ),
-    0,
-    f.errors.join("\n"),
-  )
-
-  const named = JSON.parse(f.visible[0])
-  const repoCommit = (
-    await execa("git", ["rev-parse", "HEAD"], { cwd: f.repoRoot })
-  ).stdout
-  const planCommit = (
-    await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
-  ).stdout
-  assert.deepEqual(named.arguments.slice(1), [
-    {
-      repository: "repo-edu",
-      references: ["HEAD"],
-      startingHead: f.heads["repo-edu"],
-      commits: [repoCommit],
-      shortReferences: [f.heads["repo-edu"].slice(0, 6)],
-      originalCommits: [repoCommit],
-    },
-    {
-      repository: "plan",
-      references: [`${planRepositoryPrefix}HEAD`],
-      startingHead: f.heads.plan,
-      commits: [planCommit],
-      shortReferences: [f.heads.plan.slice(0, 6)],
-      originalCommits: [planCommit],
-    },
-  ])
-  assert.equal(
-    named.claim,
-    join(
-      f.roundRoot,
-      `commit-${f.heads["repo-edu"].slice(0, 6)}+${f.heads.plan.slice(0, 6)}-01-0-claim.md`,
-    ),
-  )
 })
 
 test("a two-repo commit round passes parsed groups and joins their labels", async (t) => {
@@ -669,62 +499,6 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
     basename(transcript).startsWith(
       `commit-${f.heads["repo-edu"].slice(0, 6)}+${f.heads.plan.slice(0, 6)}-01-1-round.`,
     ),
-  )
-})
-
-test("name requires a complete session tag before any assistant or claim", async (t) => {
-  const f = await roundFixture(t)
-  for (const tag of [null, "o", "ot", "ox", "utx", "otz", "otxx", "Otx"]) {
-    assert.equal(
-      await runCommand(
-        ["name", "example.md", ...(tag === null ? [] : ["--auditor", tag])],
-        f.runtime,
-        f.options,
-      ),
-      2,
-    )
-  }
-  assert.equal(
-    (await readdir(f.repoRoot)).some((name) => name.endsWith("-0-claim.md")),
-    false,
-  )
-  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
-    code: "ENOENT",
-  })
-})
-
-test("name preserves the hand-run implementation-step route from the plan checkout", async (t) => {
-  const f = await roundFixture(
-    t,
-    "codex",
-    "plan",
-    false,
-    null,
-    false,
-    "plan",
-    false,
-    false,
-    true,
-  )
-  assert.equal(
-    await runCommand(
-      ["name", "example.md", "2-3", "--auditor", "oux"],
-      f.runtime,
-      f.options,
-    ),
-    0,
-  )
-  assert.equal(
-    JSON.parse(f.visible[0]).arguments[0],
-    join(f.roundRoot, "example-impl-audit-02..03-01-2-audit.oux.md"),
-  )
-  assert.equal(
-    await runCommand(
-      ["name", "HEAD", "--auditor", "oux"],
-      f.runtime,
-      f.options,
-    ),
-    0,
   )
 })
 
@@ -1305,7 +1079,7 @@ for (const command of ["settle", "ready"] as const) {
   }
 }
 
-test("mark claims the plan's next number only for an empty reopen marker that later rounds skip", async (t) => {
+test("mark claims the plan's next number only for an empty reopen marker that later claims skip", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   const root = f.roundRoot
   await writeFile(
@@ -1326,17 +1100,10 @@ test("mark claims the plan's next number only for an empty reopen marker that la
   )
   assert.equal(await readFile(reopen, "utf8"), "")
   assert.equal(
-    await runCommand(
-      ["name", "example.md", "--auditor", "oux"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(["mark", "reopen", "example"], f.runtime, f.options),
     0,
   )
-  assert.equal(
-    JSON.parse(f.visible[1]).claim,
-    join(root, "example-plan-audit-05-0-claim.md"),
-  )
+  assert.equal(f.visible[1], join(root, "example-plan-audit-05-0-reopen.md"))
   for (const args of [
     ["mark", "close", "example"],
     ["mark", "settle", "example"],

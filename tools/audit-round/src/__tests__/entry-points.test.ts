@@ -79,8 +79,11 @@ for (const working of ["repo-edu", "plan"] as const) {
           `${working} ${assistant} ${phase}`,
         )
         assert.match(prompt, /skip its confirm-and-wait step/)
-        if (phase === "watch")
-          assert.doesNotMatch(prompt, /Source file: .*\/SKILL\.md/)
+        // No phase receives a chat launcher; the workflow header supplies everything.
+        assert.doesNotMatch(
+          prompt,
+          /Source file: .*\/(SKILL\.md|commands\/(audit|vet|rebut|rule|fix|watch)\.md)\n/,
+        )
       }
     }
   })
@@ -118,14 +121,13 @@ for (const working of ["repo-edu", "plan"] as const) {
     const invalid = [
       ["round", "example.md", "0"],
       ["round", "../plan/example.md", "1"],
-      ["paths", "watch"],
     ]
     for (const args of invalid) {
       const result = await execa("pnpm", ["audit-round", ...args], options)
       assert.equal(result.exitCode, 2, result.stderr)
       assert.match(
         result.stderr,
-        /positive step number|Name the plan by its stem|Expected vet, rebut, rule or fix/,
+        /positive step number|Name the plan by its stem/,
       )
     }
     await assert.rejects(readFile(calls), { code: "ENOENT" })

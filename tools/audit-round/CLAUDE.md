@@ -220,12 +220,12 @@ consumers.
   bind the audit and rebuttal together, because the rebuttal answers for the audit report. Each
   named field carries what named it, including which of the two options a tag came from, so the
   settings header never guesses, and either CLI accepts one. It also defines the private inputs and
-  results for assistant invocations, and the shared workflow and launcher selectors, and owns which
-  phases' texts enter the round transcript: audit, vet, rebuttal, ruler and fix. The ruling and
-  watch are separate documents. The runner's automatic-series answer is terminal output and retained
-  data, not a phase or assistant turn. `launched` names the phases that get a home launcher, a
-  workflow root and a transcript section: the four recorded phases and the ruler. The commit-record
-  set stays the four recorded phases, because the subject grammar's model record names those alone.
+  results for assistant invocations and the shared workflow selector, and owns which phases' texts
+  enter the round transcript: audit, vet, rebuttal, ruler and fix. The ruling and watch are separate
+  documents. The runner's automatic-series answer is terminal output and retained data, not a phase
+  or assistant turn. `transcribed` names the phases that get a transcript section: the four recorded
+  phases and the ruler. The commit-record set stays the four recorded phases, because the subject
+  grammar's model record names those alone.
   `rulerPhase` names the ruler on the work class's `ruler` selection. The fix writes the ruling; the
   watch runs once the transcript holds the round. Assistant boundaries own processes, stream
   validation, session observations and phase output. They return only after accounting for the
@@ -432,10 +432,10 @@ consumers.
   release resolution and every session entry. `requests.ts` also supplies each fresh phase's
   selected workflow and whole files listed by the workflow's `reads` header. Header paths resolve
   from the workflow file. `vfile-matter` parses the header and `zod` checks its shape. Listed
-  workflows supply their own reads recursively, with each source included once. Audit, vet,
-  rebuttal, ruler and fix also receive their home launcher. Their workflow headers list the `simple`
-  definition directly, as the watch's does. The watch has no launcher. The close has no launcher
-  either, and its prompt names a loop-close rather than a round phase. Resumed sessions receive no
+  workflows supply their own reads recursively, with each source included once. No phase receives a
+  launcher: the audit, vet, rebuttal, ruler, fix and watch workflow headers list the `simple`
+  definition directly. The close's prompt names a loop-close rather than a round phase. Resumed
+  sessions receive no
   files again. The request for a missing result line opens as every phase prompt does, so the
   session reads it as an unattended phase. It asks for the complete response again, because the
   runner reads only the last turn's text. Root instructions are not listed. Both assistants receive
@@ -678,36 +678,27 @@ consumers.
   of a row or with a heading partly shown. A step is shortened only where it would skip a line: the
   lines in view under the headings before and after the step must join. This shortens a page step,
   because the library's page length does not count the lines the headings cover.
-- `round-paths.ts` owns the file-name grammar, target names, round allocation candidates, existing
-  document resolution and the match of one plan's round files for both entry routes. It also names
-  the step log, the step ruling and the close log. A plan target's name carries `-plan` or
-  `-impl-<scope>` after the stem, matching the `plan-audit` and `impl-audit-<scope>` commit roles. A
-  round's title opens with its kind and scope, such as `Plan audit of <plan>` or
-  `Implementation audit of <plan>, steps 1-6`. The title ends with the round's file number in
-  brackets, as `(round 2)`, because the round's files, its round data and `disprove` are keyed by
-  that number. A planning title first counts the round from the plan's latest settle or reopen
-  marker file, as `(detailing round 3, file round 6)`. The marker file took a number of its own, so
-  the file number alone does not say how far the current phase is. Before the first marker file both
-  numbers are equal. It derives each commit group label from its original ordered exact set: one
-  commit uses its six-character ID and a longer set uses `<oldest>..<newest>`. It joins group labels
-  with `+` and scans the round folder for the next target-wide number. `newestRound` names the
-  target's newest round, the highest number a claim or phase file carries, because only that round
-  may be continued; a marker file is no round. A continued round keeps its number, and its title
-  counts from the latest marker before it. Later rounds keep that bounded label while their audit
-  report's target advances. Automated rounds supply every phase path. A manual audit names only its
-  claim and audit report; later manual phases retain that audit report's round and name their output
-  with the current session's writer tag. `manualPhasePaths` returns the ordinary phase arguments and
-  finds vet, rebuttal and ruler report inputs only within the exact round at the audit report's
-  root. With no input, it selects the most recently modified eligible document in the round folder:
-  any assistant's audit for vet, the current assistant's audit for rebuttal or either assistant's
-  audit for fix, and any assistant's audit for the ruler. The rebuttal, the ruler and the fix
-  receive every vet report of the round in file-name order. The ruler and the fix receive the newest
-  rebuttal unless one is selected, and the fix the newest ruler report when one exists. A ruler with
-  no rebuttal report is refused. `planRoundFile` says whether a file in the round folder belongs to
-  one plan: a claim, marker, phase file or queue of its plan or implementation audits, a step log or
-  step ruling, a close log, a handoff or a yield report. Each form is read whole past the stem,
-  never as a bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's
-  round data is not among them, because the close archives it beside the plan. Round data does not
+- `round-paths.ts` owns the file-name grammar, target names, round allocation candidates and the
+  match of one plan's round files. It also names the step log, the step ruling and the close log. A
+  plan target's name carries `-plan` or `-impl-<scope>` after the stem, matching the `plan-audit`
+  and `impl-audit-<scope>` commit roles. A round's title opens with its kind and scope, such as
+  `Plan audit of <plan>` or `Implementation audit of <plan>, steps 1-6`. The title ends with the
+  round's file number in brackets, as `(round 2)`, because the round's files, its round data and
+  `disprove` are keyed by that number. A planning title first counts the round from the plan's
+  latest settle or reopen marker file, as `(detailing round 3, file round 6)`. The marker file took
+  a number of its own, so the file number alone does not say how far the current phase is. Before
+  the first marker file both numbers are equal. It derives each commit group label from its original
+  ordered exact set: one commit uses its six-character ID and a longer set uses
+  `<oldest>..<newest>`. It joins group labels with `+` and scans the round folder for the next
+  target-wide number. `newestRound` names the target's newest round, the highest number a claim or
+  phase file carries, because only that round may be continued; a marker file is no round. A
+  continued round keeps its number, and its title counts from the latest marker before it. Later
+  rounds keep that bounded label while their audit report's target advances. The runner supplies
+  every phase path. `planRoundFile` says whether a file in the round folder belongs to one plan: a
+  claim, marker, phase file or queue of its plan or implementation audits, a step log or step
+  ruling, a close log, a handoff or a yield report. Each form is read whole past the stem, never as
+  a bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's round
+  data is not among them, because the close archives it beside the plan. Round data does not
   participate in numbered allocation. `queueFile` names a manual series' `<target>-queue.md` beside
   its rounds. It carries no round number because it belongs to the whole sequence: one path stays
   valid across rounds, so an editor holding it open keeps editing the file the runner reads.
@@ -718,7 +709,7 @@ consumers.
   commit. A failure returns its reason instead of throwing, because the files stay in place and the
   next commit takes them. `command.ts` calls it at two moments. Every command that may write a round
   file commits once it ends, after its run files close and whatever its outcome: the run, `round`,
-  `implement`, `close`, `name`, `mark`, `settle`, and `disprove`. One refused for its
+  `implement`, `close`, `mark`, `settle`, and `disprove`. One refused for its
   arguments, exit code 2, wrote no round file and commits nothing, so a test that drives the
   published entry with bad arguments never commits the real checkout. The other commands write
   nothing there, so a hand-run session's file waits for the next of these. Before each ruling
@@ -735,7 +726,7 @@ consumers.
   `plan-evidence` with its `active/` folder, the round folder. A missing evidence checkout or round
   folder fails that resolution, so no command runs without it. It reads no invoking directory and
   carries no round kind.
-- `target.ts` owns the argument grammar for automated rounds and `name`. `targetRequest` reads a
+- `target.ts` owns the argument grammar for rounds. `targetRequest` reads a
   plan stem with an optional scope, or commit references, which are a complete target. A plan's
   scope is the word `plan` for its planning round, or step scopes in audit order, each a step or an
   increasing range, separated by commas or spaces as auditor entries are; `planningScope` is the one
@@ -802,14 +793,14 @@ consumers.
   The run is the command itself, taking the plan stem as its own argument; `round` runs one audit
   round or series on a target. A run option given before a subcommand is refused, because the run
   owns it and no subcommand reads it; options go after the subcommand. Its subcommands are `models`,
-  `replay`, `disprove`, `settle`, `ready`, `implement`, `close`, `round`, `plan`, `name`, `paths`,
-  `mark`, `episode`, `deferrals`, `ruling` and `answer`. Help lists the run, `round`, `models`,
+  `replay`, `disprove`, `settle`, `ready`, `implement`, `close`, `round`, `plan`, `mark`, `episode`,
+  `ruling` and `answer`. Help lists the run, `round`, `models`,
   `replay`, `disprove`, `settle`, `ready`, `implement`, `close` and `plan`, the commands a user
   runs. `models` reads its retained data and `coders` before assistant startup or release
   resolution. `replay` reads the retained plan-series answers and every active commit-series answer.
-  It applies the same fixed decision function without starting an assistant. The hand-run launchers
-  call `name`, `paths`, `episode` and `deferrals`, the `/ruling` chat calls `ruling` and `answer`,
-  and the reopen step calls `mark`, so help hides them. `ruling [target]` prints what the waiting
+  It applies the same fixed decision function without starting an assistant. The hand-run watch
+  calls `episode`, the `/ruling` chat calls `ruling` and `answer`, and the reopen step calls `mark`,
+  so help hides them. `ruling [target]` prints what the waiting
   run asks and the answer form. `answer [target] <file>` carries one JSON answer document to the
   waiting run, prints the waiting run's response and exits 1 on a refusal. Both start no assistant,
   read no settings and write no file. A stopped round's `Rerun:` line is the command the user typed,
@@ -819,17 +810,10 @@ consumers.
   once `HEAD` has moved and the stopped round would not be found. `plan` prints the plan an omitted
   target selects, as its absolute path, and writes nothing, so a user can see it before a round or
   close takes it. `close` resolves its plan and open deferrals before startup, then runs the close
-  phase alone with its own log. The `deferrals` command prints the active plan's open set through
-  the shared owner. It exists only for the hand-run implementation audit, so help hides it beside
-  `episode` and the other launcher interfaces. The `episode` command prints the requested line range
+  phase alone with its own log. The `episode` command prints the requested line range
   from joined watch evidence produced by the shared reader and formatter, with its returned range
   and current total. Every call rebuilds the view. It performs no release resolution, assistant
-  startup or file writes. The `name` command claims a round and prints its claim, workflow, working
-  checkout and audit arguments. Its required `--auditor` is the hand-run session's full tag,
-  including `u`, checked separately from a round's model request. The `paths` command prints the
-  workflow, working checkout and argument paths for an existing audit report as a JSON object. It
-  reads the audit report opening's named workflow to select its kind. Both commands bypass assistant
-  startup and release resolution; `paths` writes nothing. `disprove` resolves one active or archived
+  startup or file writes. `disprove` resolves one active or archived
   plan's round data, checks an attached finding or records the manually named auditor of a detached
   finding, writes through the shared atomic writer and commits only an archived file. `--vet`
   requires at least one non-Accept vet verdict on the attached finding and is refused beside `--by`.
@@ -891,7 +875,7 @@ consumers.
   announced. A failure, an unanswered ruling, a red watch or a plan phase change ends the whole list
   and names the scopes that did not run. After target resolution, the list is refused beside
   `--auditor`, whose queue belongs to one target and whose pairing with the scopes would need a
-  second reading, and beside `name`, which claims one round. Each round records its own file pair
+  second reading. Each round records its own file pair
   and the coordinator has no filesystem side effects: it opens one output per round, retires the
   previous one first, and reads updates and settings once for the whole run before opening any
   files. Startup messages go only to the terminal; the run log begins with the models table. Every
@@ -923,18 +907,16 @@ the invocation owner must release its resources before rejecting. The
 invocation owner's one request for a missing result line is not a retry: it
 repeats no phase work, and the coordinator sees only the invocation's result.
 
-`phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal, ruler and fix use the single
-launcher set under the plan checkout's `home/`; their workflow follows the round's kind. The watch
-has no launcher; the runner supplies its Repo Edu workflow directly. Implement also has no launcher
-and uses Repo Edu's worker-only workflow. Close also has no launcher and its workflow lives in the
-plan checkout. The automatic-series decision is runner code and has no workflow or assistant
-selection. `phaseSkills` names each phase's skill folder and launchers. Planning sessions work in
-the plan checkout; implementation and commit sessions work in Repo Edu. Every round file lives in
-the round folder. The runner names all input and output paths before the audit. The runner saves
-audit, vet, rebuttal and ruler final responses, and the watch returns its document for the runner to
-publish. Report phases finish only when their supplied output exists and is non-empty. Claude
-receives the peer checkout and the evidence checkout as additional directories; recovery commands
-restore the working directory.
+`phase.ts` owns workflow selection. The workflow of audit, vet, rebuttal, ruler and fix follows the
+round's kind. The watch uses Repo Edu's workflow and implement Repo Edu's worker-only workflow. The
+close's workflow lives in the plan checkout. The automatic-series decision is runner code and has no
+workflow or assistant selection. `phaseSkills` names each phase's skill folder. Planning sessions
+work in the plan checkout; implementation and commit sessions work in Repo Edu. Every round file
+lives in the round folder. The runner names all input and output paths before the audit. The runner
+saves audit, vet, rebuttal and ruler final responses, and the watch returns its document for the
+runner to publish. Report phases finish only when their supplied output exists and is non-empty.
+Claude receives the peer checkout and the evidence checkout as additional directories; recovery
+commands restore the working directory.
 
 Workflows own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
@@ -995,9 +977,8 @@ exact set.
 
 Later phases preserve the audit report's target and round. Their tag names their own
 writer under Repo Edu's **Commit Capability Tag**, not the audit report's auditor.
-The transcript and its log use the auditor tag. A hand-run session resolves its
-own model and effort before asking the runner for a path. The runner resolves
-every file-writing phase's tag before opening output.
+The transcript and its log use the auditor tag. The runner resolves every
+file-writing phase's tag before opening output.
 
 `round-data.ts` owns `<stem>-plan-rounds.json`, `<stem>-impl-rounds.json` and
 `<commit-label>-rounds.json`. They are checked objects with a `rounds` list keyed by target and
@@ -1069,26 +1050,6 @@ grade; `round.ts` publishes the admitted document and cadence entry. A fix or im
 receives its ruling path separately and reuses it when the same session resumes. An implementation
 resume after a ruling carries the user's reply. One after a failed worker carries the generic
 continuation and no reply. Neither carries a time value.
-
-Hand-run phases start through the shared launchers, such as `/rebut` or `$rebut` for a fresh
-rebuttal session, and use the same resolver. `name [target] [scope-or-commits...]
---auditor <full tag>` claims a new round and prints `cwd`, `workflow`, `claim`
-and ordered `arguments`. `paths <vet|rebut|rule|fix> [report]` prints `cwd`,
-`workflow` and ordered `arguments` for an existing round. Vet, rebuttal and ruler
-also take `--writer <full tag>`. With no input, `paths` selects the most recently
-modified eligible audit report in the round folder: any assistant's for vet, so
-a session may vet its own assistant's audit report, the current assistant's for
-rebuttal and any assistant's for the ruler and the fix. The rebuttal, the ruler
-and the fix receive every vet report of the round in file-name order. The ruler
-and the fix keep the newest rebuttal report unless `--rebut` selects one, and the
-fix also receives the newest ruler report. A hand-run ruler gets no findings
-object: its workflow takes every contest and split on a C or D finding from the
-reports. Neither command loads settings or starts an assistant, and `paths`
-writes nothing.
-
-Work in the printed checkout and follow the printed workflow. Planning phases
-run in the plan checkout; implementation and commit phases run in Repo Edu.
-Never claim a new number to continue an existing round.
 
 ## Stopped rounds
 
@@ -1174,7 +1135,7 @@ stem commit is newest across both repos. `plan` prints that selected plan
 without writing anything.
 
 A new planning round is refused when `HEAD` of the plan checkout does not hold
-the plan file. `round`, `name` and the run's widening and detailing stages
+the plan file. `round` and the run's widening and detailing stages
 refuse before any assistant starts, and the refusal names the missing `init`
 commit. The audit report names the judged commit and the fix lands the round's
 record after the plan's `init`. Without the refusal, a plan no commit holds
@@ -1184,8 +1145,8 @@ fix on a ruling about the missing `init`.
 ## Report lifecycle
 
 Nothing deletes a round's files. A round's audit, vet, rebuttal and ruler reports stay
-in the round folder after a finished fix, a failure, a ruling or a clean audit,
-and a hand-run round keeps its reports the same way. The evidence commit puts
+in the round folder after a finished fix, a failure, a ruling or a clean audit.
+The evidence commit puts
 each of them in Git within one command of its writing.
 
 A clean plan-target audit lands its record through `clean.ts` and retains the
@@ -1356,12 +1317,6 @@ pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
 pnpm audit-round example
 pnpm audit-round example -v
-pnpm audit-round name example 3 --auditor oth
-pnpm audit-round name --auditor oth
-pnpm audit-round paths vet example-impl-audit-03..03-01-2-audit.oth.md --writer abx
-pnpm audit-round paths rebut example-impl-audit-03..03-01-2-audit.oth.md --writer otm
-pnpm audit-round paths rule example-impl-audit-03..03-01-2-audit.oth.md --writer atx
-pnpm audit-round paths fix example-impl-audit-03..03-01-2-audit.oth.md
 pnpm audit-round mark reopen
 pnpm audit-round episode example --lines 1-200
 pnpm audit-round episode HEAD-2 --lines 201-400
@@ -1432,23 +1387,6 @@ Its ordinary totals cover every stored answer and count commit series as their o
 Baseline totals exclude commit series and use plan entries started before `2026-11-08T18:53:13Z`
 with the historical auditor list fixed by the deterministic-judge plan. The command starts no
 assistant and writes nothing.
-
-`name` prints one JSON object with `cwd`, `workflow`, `claim` and `arguments`.
-The arguments hold the audit report path followed by the resolved plan and scope, or
-the commit groups with their captured starting heads.
-It creates only the claim. It does not load settings or start an assistant. Its argument grammar
-is the same as the automated round, from either checkout. A plan argument or no target resolves
-under [Plan targets](#plan-targets).
-
-`paths <vet|rebut|rule|fix> [input]` resolves a later manual phase and prints its working
-checkout, workflow and arguments as one JSON object. Vet, rebuttal and ruler take
-`--writer <full tag>` from the current session. Fix writes no phase report and needs no writer tag.
-Without an input, the command selects the most recently modified eligible file in the round folder.
-The rebuttal, the ruler and the fix receive every vet report of that round. Several rebuttals
-resolve to the newest unless `--rebut <file>` selects one for the ruler or the fix, and the fix
-also receives the newest ruler report. The command writes nothing and never
-claims another number. [Phase routing](#phase-routing) owns the manual
-invocation details.
 
 `settle [stem]` takes an active widening plan, or the plan `plan` prints when
 no stem is named. It refuses any other current filename and a target plan with
@@ -1544,11 +1482,6 @@ the session starts and supplies them in its phase arguments. Where close would n
 answer, including permission to archive with an open deferral, it fails with the question, and its
 printed resume command continues that session.
 
-`deferrals [stem]` prints one active plan's open deferrals through the shared owner. It resolves the
-same default plan as close when the stem is omitted. It starts no assistant, performs no release
-resolution and writes nothing. The command is hidden because only the hand-run implementation
-audit workflow needs the list before its session starts.
-
 `ruling [target]` and `answer [target] <file>` are the `/ruling` chat's two carriers to a run that
 waits for a ruling, as `ruling-wait.ts` owns them. The chat follows
 [Answering a ruling](../../.agents/skills/fix/references/answer.md). With no target they take the
@@ -1617,8 +1550,7 @@ then prints the remaining open deferrals or says there are none.
 
 Before each plan-scoped implementation audit, the runner supplies the open
 deferrals into Repo Edu to its audit and fix phases. Those items add Repo Edu to
-the judged repo set for their named corrections. A hand-run audit reads the same
-owner through the hidden `deferrals` command. The audit report opening names
+the judged repo set for their named corrections. The audit report opening names
 each supplied item whose correction already holds. Findings name the missing
 items. A clean round cites satisfied items. A fix reads both audit report parts and
 cites each item it applies or drops.

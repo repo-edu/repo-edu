@@ -11,7 +11,7 @@ import type {
   PhaseInput,
   PinnedField,
 } from "./phase.js"
-import { phaseLauncher, phaseWorkflow } from "./phase.js"
+import { phaseWorkflow } from "./phase.js"
 
 export const claudeSettingsRequest = {
   type: "control_request",
@@ -105,10 +105,7 @@ const workflowHeader = z.strictObject({
 })
 
 /** Headers resolve from their own file, including a routed workflow's reads. */
-function phaseInstructions(
-  launcher: string | null,
-  workflow: string,
-): ReadonlyMap<string, string> {
+function phaseInstructions(workflow: string): ReadonlyMap<string, string> {
   const files = new Map<string, string>()
   function supply(path: string): void {
     const source = resolve(path)
@@ -126,7 +123,6 @@ function phaseInstructions(
     for (const reference of header.data.reads)
       supply(resolve(dirname(source), reference))
   }
-  if (launcher !== null) supply(launcher)
   supply(workflow)
   return files
 }
@@ -171,11 +167,8 @@ ${runnerResultRule(input.repoEduRoot)}`
 }
 
 export function phasePrompt(input: PhaseInput): AssistantPrompt {
-  const launcher = phaseLauncher(input)
   const files =
-    input.sessionId === null
-      ? phaseInstructions(launcher, phaseWorkflow(input))
-      : null
+    input.sessionId === null ? phaseInstructions(phaseWorkflow(input)) : null
   return {
     text: formatPhasePrompt(
       input,
@@ -219,15 +212,14 @@ function formatPhasePrompt(
   omitEvidence = false,
 ): string {
   const { repoEduRoot, cwd } = input
-  const launcher = phaseLauncher(input)
   const prompt = `${phaseOpening(input, input.sessionId === null ? "fresh" : "resumed")}
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
-${instructions === null ? "Continue the supplied workflow in this resumed session." : `Follow the supplied ${launcher === null ? "workflow" : "launcher and workflow"} below. The workflow's listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
+${instructions === null ? "Continue the supplied workflow in this resumed session." : `Follow the supplied workflow below. The workflow's listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Workflow: ${phaseWorkflow(input)}
-The supplied workflow and phase arguments are already resolved. Do not run name or paths again. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
+The supplied workflow and phase arguments are already resolved. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
 ${runnerResultRule(repoEduRoot)}${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : ""}`
   if (input.phase !== "fix" && input.phase !== "implement") return prompt
   const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md at that path.`

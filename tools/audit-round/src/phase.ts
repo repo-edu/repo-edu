@@ -57,7 +57,7 @@ export type Phase =
 
 export type RoundPhase = Exclude<Phase, "implement">
 
-/** Each phase's skill name, which names its workflow folder and launchers. */
+/** Each phase's skill name, which names its workflow folder. */
 export const phaseSkills: Record<Phase, string> = {
   audit: "audit",
   vet: "vet",
@@ -70,35 +70,23 @@ export const phaseSkills: Record<Phase, string> = {
 }
 
 /**
- * Manual and automated phases share one workflow selection. Loop-close is plan
- * doctrine, so its workflow lives in the plan checkout beside its launchers.
+ * A round phase's workflow follows the round's kind, so it lives in the
+ * working checkout. The watch and a step's implementation use Repo Edu's
+ * workflow, and loop-close, which is plan doctrine, the plan checkout's.
  */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root =
     input.phase === "close"
       ? input.planRoot
-      : input.phase === "implement"
+      : input.phase === "implement" || input.phase === "watch"
         ? input.repoEduRoot
-        : launched(input.phase)
-          ? input.cwd
-          : input.repoEduRoot
+        : input.cwd
   return join(
     root,
     ".agents/skills",
     phaseSkills[input.phase],
     "references/workflow.md",
   )
-}
-
-export function phaseLauncher(
-  input: RoundContext & { phase: Phase; assistant: Assistant },
-): string | null {
-  if (!launched(input.phase)) return null
-  const root = join(input.planRoot, "home")
-  const skill = phaseSkills[input.phase]
-  return input.assistant === "claude"
-    ? join(root, "claude", "commands", `${skill}.md`)
-    : join(root, "agents", "skills", skill, "SKILL.md")
 }
 
 /** The model tiers a round may ask its auditor for, as the command line names them. */
@@ -537,16 +525,11 @@ export function recorded(phase: Phase): boolean {
 }
 
 /**
- * The round phases a user may also run by hand: each runs from the working
- * checkout under a launcher, and its text enters the round transcript.
+ * The assistant phase texts that enter the round transcript: the recorded
+ * phases and the ruler.
  */
-export function launched(phase: Phase): boolean {
-  return recorded(phase) || phase === "rule"
-}
-
-/** The assistant phase texts that enter the round transcript. */
 export function transcribed(phase: Phase): boolean {
-  return launched(phase)
+  return recorded(phase) || phase === "rule"
 }
 
 /** The open-deferral object a phase receives. */

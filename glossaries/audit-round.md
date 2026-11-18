@@ -28,9 +28,8 @@ is always named in full.
 - **Rebuttal**: the phase that answers each vetter's revisions, drops and
   referrals, its session and its answers. The runner always starts it as a new
   session on the auditor's model and effort, so the session that answers never
-  wrote the audit report. A hand-run round may answer from the audit session
-  while that session still holds the round. No rebuttal runs when every vetter
-  accepted every finding.
+  wrote the audit report. No rebuttal runs when every vetter accepted every
+  finding.
 - **Ruler**: the phase that names the winner of each contest or split on a C or
   D finding, its selection and its session. It runs after the rebuttal and
   before the fix, in a session that wrote none of the round's reports, and it

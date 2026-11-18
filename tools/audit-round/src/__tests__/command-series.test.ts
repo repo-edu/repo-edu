@@ -2369,7 +2369,11 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
   const resumed = fixes[1].args
   assert.equal(resumed[resumed.indexOf("--resume") + 1], "fix-session")
   const { log } = await f.records()
-  assert.ok(log.includes(join(f.planRoot, "home/claude/commands/fix.md")))
+  assert.ok(
+    log.includes(
+      `Source file: ${join(f.repoRoot, ".agents/skills/fix/references/workflow.md")} `,
+    ),
+  )
   assert.match(log, /fix +claude /)
 })
 
@@ -2451,16 +2455,17 @@ test("a ruling left unanswered stops the scope list before its later scopes", as
   assert.match(visible, /Scope list stopped before 2, 3-4\./)
 })
 
-test("a scope list is refused beside --auditor and for a hand-run claim", async (t) => {
+test("a scope list is refused beside --auditor", async (t) => {
   const f = await roundFixture(t)
-  for (const argv of [
-    ["round", "example.md", "1,2", "--auditor", "codex"],
-    ["name", "example.md", "1", "2", "--auditor", "oth"],
-  ])
-    assert.equal(await runCommand(argv, f.runtime, f.options), 2)
-  const errors = f.errors.join("\n")
-  assert.match(errors, /Use --auditor with one scope/)
-  assert.match(errors, /claims one scope/)
+  assert.equal(
+    await runCommand(
+      ["round", "example.md", "1,2", "--auditor", "codex"],
+      f.runtime,
+      f.options,
+    ),
+    2,
+  )
+  assert.match(f.errors.join("\n"), /Use --auditor with one scope/)
   assert.deepEqual(await f.roundFiles(), [])
 })
 

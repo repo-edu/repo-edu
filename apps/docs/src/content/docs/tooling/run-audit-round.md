@@ -42,14 +42,11 @@ change the judged repositories. Where due, a watch then checks the episode's tra
 automatic series the runner applies fixed rules to decide whether another assistant needs a current
 read.
 
-## One phase or a series
+## A round or the full run
 
-Use [`/audit`](/repo-edu/tooling/audit/) when you want one audit report before deciding what
-follows. It runs only the audit phase. You then run [`/vet`](/repo-edu/tooling/vet/),
-[`/rebut`](/repo-edu/tooling/rebut/) when needed and [`/fix`](/repo-edu/tooling/fix/) by hand.
-
-Use [`pnpm audit-round round ...`](/repo-edu/tooling/runner-round/) when you want the runner to
-carry the audit report through those phases and apply the automatic-series rules. Use the bare
+Every round runs in the runner, which has no chat command for a single phase. Use
+[`pnpm audit-round round ...`](/repo-edu/tooling/runner-round/) when you want the runner to carry
+the audit report through those phases and apply the automatic-series rules. Use the bare
 [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may
 also proceed through later lifecycle stages without a planned reading between them.
 

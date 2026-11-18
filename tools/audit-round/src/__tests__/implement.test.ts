@@ -458,7 +458,7 @@ test("a sessionless failure retains no session to resume", async () => {
   assert.equal(result.session, null)
 })
 
-test("the implement phase uses Repo Edu's worker workflow without a chat launcher", async (t) => {
+test("the implement phase uses Repo Edu's worker workflow", async (t) => {
   const f = await fixture(t)
   const context = testContext(f.root)
   const phase: PhaseInput<"implement"> = {
@@ -484,7 +484,6 @@ test("the implement phase uses Repo Edu's worker workflow without a chat launche
       ),
     ),
   )
-  assert.doesNotMatch(prompt, /launcher|SKILL\.md/)
   assert.ok(prompt.includes(JSON.stringify(phase.arguments)))
   const resumed = phasePrompt({
     ...phase,

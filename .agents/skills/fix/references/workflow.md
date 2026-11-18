@@ -11,11 +11,8 @@ reads:
 # Implementation fix workflow
 
 The header's files are part of this workflow. Paths are relative to this file.
-The runner supplies them whole; in a hand-run session, read them whole, following
-any listed workflow's header too. Read each file once. Apply the `simple`
+The runner supplies them whole. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
-
-Where a launcher and this file disagree, this file is right.
 
 This workflow is the fix phase of an implementation-audit round. The audit is read-only and ends at
 its audit report. An audit with findings stops there. This workflow starts from that audit report:
@@ -35,39 +32,28 @@ Follow its **Reconciliation** rule after grounding the findings below.
 
 When the phase arguments include a `contests` object, its entries are the round's contests and
 splits under **Reconciliation**. An entry the ruler judged carries its `winner` and `reason` from
-the first call. A serious entry, which the user owns, first names only its finding number, and a
-resumed fix also receives its recorded `winner` and `reason`. Present each serious entry's vetter
-positions and the rebuttal's answers with their evidence in the ruling. Apply every recorded winner
-without deciding it again, whoever named it, and never pick a side in a contest or split yourself. A
-winner that names vetter tags applies those vetters' verdicts. A ruler's reason that says a real
-choice remains makes that choice an open item of the ruling. Every fix invocation is commit-blocked
-while any supplied contest lacks a winner. `Not yet` keeps that block in place. Do not land settled
-corrections before the runner has recorded every required winner; a fix that reports finished with
-an open contest fails the round. If the round stops, use the recovery command the runner prints. It
-reloads the stored round, collects missing winners and
-resumes this session with the same block. A bare assistant resume is only for work without an open
-serious contest or split.
+the first call. A serious entry, which the user owns, names only its finding number until the runner
+records the user's answer, and then also carries its recorded `winner` and `reason`. Present each
+serious entry's vetter positions and the rebuttal's answers with their evidence in the ruling. Apply
+every recorded winner without deciding it again, whoever named it, and never pick a side in a
+contest or split yourself. A winner that names vetter tags applies those vetters' verdicts. A
+ruler's reason that says a real choice remains makes that choice an open item of the ruling. Every
+fix invocation is commit-blocked while any supplied contest lacks a winner. `Not yet` keeps that
+block in place. Do not land settled corrections before the runner has recorded every required
+winner; a fix that reports finished with an open contest fails the round.
 
-When unattended, follow the shared
+Follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every
 ending.
 
 Follow the `CLAUDE.md` of every repo a fix touches.
 
-A hand-run round runs the ruler in its own session before the fix when it holds a contest or
-split on a C or D finding. A hand-run fix applies the winners in the ruler report. When such a
-dispute has no ruler report, the fix stops and names the hand-run ruler instead of judging it.
-
 ## Audit report discovery
 
-A hand-run invocation may omit the audit report. Resolve it and its existing vet, rebuttal and
-ruler reports through `paths fix` under the runner's
-[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
-Automated invocations use their supplied paths unchanged.
-
-Use that section for arguments and the
-[audit report grammar](../../../references/round-grammar.md#audit-report) for
-the judged repo set and audited heads.
+Use the supplied paths unchanged. The runner's
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) owns the arguments and the
+[audit report grammar](../../../references/round-grammar.md#audit-report) the judged repo set and
+audited heads.
 
 ## Grounding
 
@@ -78,14 +64,16 @@ and for every **Decisions** entry a finding cites. When the plan is archived, re
 
 Follow [Head drift](../../../references/round-protocol.md#head-drift). When the
 moved tree already resolved the defect, drop the finding and name the
-resolving commit in the presentation.
+resolving commit in the presentation. A fix that continues a stopped round reads the commits the
+round already landed and any uncommitted change in a file its corrections touch before it applies
+the rest.
 
 For every finding that stays, read the files it names at HEAD, the test that
 covers them when it is code, and the `CLAUDE.md` of each package a fix would
 touch. The audit report's evidence is the round's; this session verifies what it
 is about to change.
 
-When a decision stays open in an unattended fix, follow
+When a decision stays open, follow
 [Writing a ruling](ruling.md) at the supplied ruling path, including when a
 repo's `CLAUDE.md` requires a ruling before a correction.
 For blocked work, follow the shared
@@ -104,8 +92,7 @@ fit.
 When the phase arguments end with an open-deferral object, settle every item in
 the round's records. Check that the audit report accounts for every object item
 through either a `Satisfied deferral:` line in its opening or a finding. A
-hand-run fix has no object, so those opening lines and findings are its complete
-deferral scope. A changed destination uses a graded bullet with the item's
+changed destination uses a graded bullet with the item's
 citation in the round grammar's
 [commit record bullet](../../../references/round-grammar.md#commit-record-bullet)
 form. A satisfied item, or an item the review
