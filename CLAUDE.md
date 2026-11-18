@@ -228,16 +228,21 @@ Keep the installed tree current. An obsolete package is a concern whether it
 arrived as a direct or a transitive dependency; the unit of concern is the
 resolved version lagging its latest published release, not how it got there.
 
-Renovate is the standing mechanism (`renovate.json`): it groups and schedules
-updates (AI SDKs on a tighter cadence than the long tail), holds each new
-release for a maturity window before adopting it so others hit the early bugs
-first, raises security fixes immediately and runs lock-file maintenance to
-re-resolve transitives forward within range. A lock-file refresh gives Renovate
-no release date to check, so Renovate's maturity window would keep it pending
-forever. That window is therefore off for lock-file maintenance, and pnpm's own
-`minimumReleaseAge` default holds new transitive releases back instead. Green
-updates fast-forward onto
-`main` once CI passes on a `renovate/**` branch; a PR surfaces only when CI
+Renovate is the standing mechanism (`renovate.json`). It admits ordinary
+updates throughout Saturday and Sunday, groups only dependencies that must move
+together and keeps at most ten update branches in flight to bound CI and rebase
+work. The peer-coupled AI SDKs share a branch. Unrelated updates stay isolated
+so one failure does not hold them together. Pull-request creation has no
+separate concurrency or hourly cap, so every failed branch becomes visible.
+
+Renovate holds each new release for a maturity window before adopting it so
+others hit the early bugs first, raises security fixes immediately and runs
+lock-file maintenance each Sunday to re-resolve transitives forward within
+range. A lock-file refresh gives Renovate no release date to check, so
+Renovate's maturity window would keep it pending forever. That window is
+therefore off for lock-file maintenance, and pnpm's own `minimumReleaseAge`
+default holds new transitive releases back instead. Green updates fast-forward
+onto `main` once CI passes on a `renovate/**` branch; a PR surfaces only when CI
 fails. So an upstream release produces a gated branch, never a direct build
 failure on `main`.
 

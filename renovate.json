@@ -2,10 +2,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "timezone": "Europe/Amsterdam",
-  "schedule": ["* 0-4 1 */2 *"],
-  "dependencyDashboard": true,
-  "prConcurrentLimit": 3,
-  "prHourlyLimit": 2,
+  "schedule": ["* * * * 0,6"],
+  "dependencyDashboard": {
+    "enabled": true
+  },
+  "branchConcurrentLimit": 10,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
   "automerge": true,
   "automergeType": "branch",
   "automergeStrategy": "fast-forward",
@@ -14,7 +17,7 @@
   "lockFileMaintenance": {
     "enabled": true,
     "updateNotScheduled": false,
-    "schedule": ["* 0-4 2 */2 *"],
+    "schedule": ["* * * * 0"],
     "minimumReleaseAge": null
   },
   "vulnerabilityAlerts": {
@@ -25,11 +28,6 @@
   },
   "packageRules": [
     {
-      "description": "Batch the long tail of non-major updates into one bi-monthly fast-forward",
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "non-major dependencies"
-    },
-    {
       "description": "Electron runtime patch/minor updates: weekly with a short maturity window because Electron carries Chromium and has a short support cycle",
       "matchPackageNames": ["electron"],
       "matchUpdateTypes": ["minor", "patch"],
@@ -38,10 +36,9 @@
       "minimumReleaseAge": "2 days"
     },
     {
-      "description": "Fast-moving, peer-coupled AI SDKs: monthly (8th), grouped so they move in lockstep",
+      "description": "Peer-coupled AI SDKs: grouped so they move in lockstep",
       "matchPackageNames": ["@anthropic-ai/**", "@modelcontextprotocol/sdk"],
-      "groupName": "ai sdks",
-      "schedule": ["* 0-4 8 * *"]
+      "groupName": "ai sdks"
     },
     {
       "description": "Major bumps: wait 30 days for the release to mature so others hit the early bugs, then take the same automatic fast-forward",
