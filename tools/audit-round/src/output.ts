@@ -124,7 +124,7 @@ export type Run = {
   readonly paths: RunPaths
   /** Earlier applied selections used only to surface a model or effort change. */
   readonly previousModels: readonly ModelReference[]
-  /** Earlier phase measurements restored when a stopped fix re-enters the runner. */
+  /** The stored phase measurements of the stopped round this run continues. */
   readonly continued?: RoundData["phases"]
   /** What a round's recovery advice needs: the audit report its commands name. */
   readonly recovery?: {
@@ -376,10 +376,6 @@ export async function resumedRoundRun(
     readonly nameStart: string
     readonly watch: string
     readonly documents: RoundDocuments
-    readonly recoveredPhases: Pick<
-      RoundPhases,
-      "audit" | "vet" | "rebut" | "rule" | "fix"
-    >
     readonly paths: { readonly claim: null; readonly markdown: string }
   }
 > {
@@ -467,7 +463,6 @@ export async function resumedRoundRun(
       `${phaseFilename(paths.nameStart, "watch", tag("watch"))}.md`,
     ),
     documents,
-    recoveredPhases: phaseRuns,
     name: "Audit round recovery",
     target:
       "plan" in setup
@@ -600,7 +595,8 @@ export class RoundOutput<R extends Run = Run> {
    * selection lets that child identify itself. Feedback replaces that
    * selection without changing another phase's record. A resumed phase adds
    * each finished invocation's time and replaces tokens with the latest
-   * session total.
+   * session total. A fresh session starts its phase's record over, so a phase
+   * a continued round runs again drops what its stopped run spent.
    */
   private readonly ran = new Map<string, RanPhase>()
 
@@ -757,7 +753,7 @@ export class RoundOutput<R extends Run = Run> {
       ended: null,
     }
     this.active.set(key, slot)
-    const earlier = this.ran.get(key)
+    const earlier = input.sessionId === null ? undefined : this.ran.get(key)
     this.ran.set(key, {
       phase: input.phase,
       ...(tag === undefined ? {} : { tag }),
@@ -1052,7 +1048,8 @@ export class RoundOutput<R extends Run = Run> {
    * ruler or fix advises finishing the round by hand, and every such route
    * passes through the hand-run ruler before the fix. The one exception is a
    * fix whose open serious contest or split still owns commit admission: the
-   * runner's `resume-fix` re-enters its session. Every other known session
+   * runner's `resume-fix` continues the round on its kept reports with a fresh
+   * fix. Every other known session
    * prints its assistant recovery command.
    */
   recoveryText(

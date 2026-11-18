@@ -120,7 +120,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.match(log, /Run the fix phase .* resumed session/)
 })
 
-test("a stopped serious contest re-enters the retained runner round", async (t) => {
+test("a stopped serious contest continues on its kept reports with a fresh fix", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   await f.configure({
     phases: {
@@ -151,30 +151,9 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
   )
   const priorCalls = (await f.calls()).length
   const priorPrompts = (await f.prompts()).length
-  const stream = await phaseStream(
-    "codex",
-    'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
-    "fix-session",
-  )
-  await f.configure({
-    phases: {
-      ...f.phases,
-      fix: {
-        ...(f.phases.fix as Record<string, unknown>),
-        stream,
-        assistants: { codex: { stream } },
-        commits: [
-          {
-            cwd: f.repoRoot,
-            subject:
-              "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
-            body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
-          },
-        ],
-      },
-    },
-  })
 
+  // The audit, vet and rebuttal reports stand. A fresh fix writes the ruling
+  // again, and the user's answer resumes that session to land the record.
   assert.equal(
     await runCommand(
       ["resume-fix", basename(report), "fix-session"],
@@ -183,6 +162,29 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
         ...f.options,
         awaitAnswer: async (ruling) => {
           assert.deepEqual(ruling.findings, [1])
+          const stream = await phaseStream(
+            "codex",
+            'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+            "fix-session",
+          )
+          await f.configure({
+            phases: {
+              ...f.phases,
+              fix: {
+                ...(f.phases.fix as Record<string, unknown>),
+                stream,
+                assistants: { codex: { stream } },
+                commits: [
+                  {
+                    cwd: f.repoRoot,
+                    subject:
+                      "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
+                    body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
+                  },
+                ],
+              },
+            },
+          })
           return {
             rulings: [
               {
@@ -204,14 +206,28 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
   const phasePrompts = (await f.prompts())
     .slice(priorPrompts)
     .filter((call) => call.prompt.startsWith("Run the "))
-  assert.equal(phasePrompts.length, 1)
-  assert.match(phasePrompts[0]?.prompt ?? "", /^Run the fix phase /)
-  const phaseCalls = recoveryCalls.filter(
-    (call) => call.args.includes("fix-session") && call.openContests !== null,
+  assert.deepEqual(
+    phasePrompts.map(({ prompt }) =>
+      /^Run the (\w+) phase .* in this (\w+) session\./.exec(prompt)?.slice(1),
+    ),
+    [
+      ["fix", "fresh"],
+      ["fix", "resumed"],
+    ],
   )
-  assert.equal(phaseCalls.length, 1)
-  assert.equal(phaseCalls[0]?.openContests, "")
-  assert.ok(phaseCalls[0]?.args.includes("fix-session"))
+  // The Codex fixer's calls: the fresh one blocked on the open contest, then
+  // the resumed one after the user named its winner.
+  const fixCalls = recoveryCalls.filter((call) => call.args[0] === "exec")
+  assert.deepEqual(
+    fixCalls.map((call) => [
+      call.openContests,
+      call.args.includes("fix-session"),
+    ]),
+    [
+      ["1", false],
+      ["", true],
+    ],
+  )
   const stored = JSON.parse(
     await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
@@ -253,7 +269,7 @@ test("a stopped serious contest re-enters the retained runner round", async (t) 
   assert.equal(markdown.match(/^Started /gm)?.length, 2)
 })
 
-test("a stopped panel split resumes its fix with every vet report and each vetter's retained phase", async (t) => {
+test("a stopped panel split continues with a fresh fix that reads every kept vet report", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const settings = structuredClone(testSettings)
   settings.implementationAudit.vetters = [
@@ -300,29 +316,6 @@ test("a stopped panel split resumes its fix with every vet report and each vette
     ),
   )
   const priorPrompts = (await f.prompts()).length
-  const stream = await phaseStream(
-    "codex",
-    'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
-    "fix-session",
-  )
-  await f.configure({
-    phases: {
-      ...f.phases,
-      fix: {
-        ...(f.phases.fix as Record<string, unknown>),
-        stream,
-        assistants: { codex: { stream } },
-        commits: [
-          {
-            cwd: f.repoRoot,
-            subject:
-              "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
-            body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
-          },
-        ],
-      },
-    },
-  })
 
   assert.equal(
     await runCommand(
@@ -333,6 +326,29 @@ test("a stopped panel split resumes its fix with every vet report and each vette
         awaitAnswer: async (ruling) => {
           assert.deepEqual(ruling.findings, [1])
           assert.deepEqual(ruling.panel, ["abh", "obh"])
+          const stream = await phaseStream(
+            "codex",
+            'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+            "fix-session",
+          )
+          await f.configure({
+            phases: {
+              ...f.phases,
+              fix: {
+                ...(f.phases.fix as Record<string, unknown>),
+                stream,
+                assistants: { codex: { stream } },
+                commits: [
+                  {
+                    cwd: f.repoRoot,
+                    subject:
+                      "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
+                    body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+                  },
+                ],
+              },
+            },
+          })
           return {
             rulings: [
               {
@@ -349,13 +365,23 @@ test("a stopped panel split resumes its fix with every vet report and each vette
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
-  const resumed = (await f.prompts())
+  // Only the fix runs, fresh and then on the user's answer; the kept vet
+  // reports stand.
+  const started = (await f.prompts())
     .slice(priorPrompts)
-    .filter((call) => call.prompt.startsWith("Run the fix phase "))
-  assert.equal(resumed.length, 1)
+    .filter((call) => call.prompt.startsWith("Run the "))
+  assert.deepEqual(
+    started.map(({ prompt }) =>
+      /^Run the (\w+) phase .* in this (\w+) session\./.exec(prompt)?.slice(1),
+    ),
+    [
+      ["fix", "fresh"],
+      ["fix", "resumed"],
+    ],
+  )
   // The prompt carries its arguments as JSON, which escapes Windows separators.
   for (const vet of vets)
-    assert.ok(resumed[0]?.prompt.includes(JSON.stringify(vet)), vet)
+    assert.ok(started[0]?.prompt.includes(JSON.stringify(vet)), vet)
   const stored = JSON.parse(
     await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
   ) as {
@@ -367,7 +393,7 @@ test("a stopped panel split resumes its fix with every vet report and each vette
   }
   assert.equal(stored.rounds.length, 1)
   assert.equal(stored.rounds[0]?.status, "finished")
-  // The resumed round restored each vetter's vet phase entry by its tag.
+  // The continued round keeps each vetter's vet phase entry by its tag.
   assert.deepEqual(
     stored.rounds[0]?.phases
       .filter((phase) => phase.phase === "vet")
@@ -466,8 +492,8 @@ test("a fix that failed with an open serious split finishes through resume-fix",
     }
   assert.equal((await stored()).rounds[0]?.status, "failed")
 
-  // The resumed fix writes its ruling first, because the failed turn wrote
-  // none. Once the user names the winner, the same session lands the record.
+  // A fresh fix writes the ruling the failed turn never wrote. Once the user
+  // names the winner, that session lands the record.
   await f.configure({
     phases: {
       ...f.phases,

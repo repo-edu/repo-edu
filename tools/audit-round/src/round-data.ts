@@ -250,9 +250,24 @@ const commonRoundData = z.strictObject({
   judge: seriesAnswerSchema,
 })
 
+/** One open deferral as its owner reads it from Git, with the full commit ID that cites it. */
+const openDeferral = z.strictObject({
+  deferringRepository: repository,
+  sha: fullCommit,
+  position: z.number().int().positive(),
+  tier: z.enum(["a", "b", "c", "d"]),
+  destination: z.string().min(1),
+  title: z.string().min(1),
+})
+
 export const planningRoundDataSchema = commonRoundData.extend({
   phase: z.enum(["widening", "detailing"]),
   settling: z.string(),
+  /**
+   * The open deferrals a chained round judged, which its fix receives when the
+   * round continues. Only a chained round holds them.
+   */
+  deferrals: z.array(openDeferral).optional(),
 })
 export const implementationRoundDataSchema = commonRoundData.extend({
   scope: z.string().min(1),

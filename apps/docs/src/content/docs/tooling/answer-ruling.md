@@ -99,10 +99,11 @@ again. Waiting time is excluded from the runner's work timing.
    work; do not start the decision again in a fresh round.
 
 An audit fix with an unresolved serious contest or split prints `pnpm audit-round resume-fix ...`.
-That command reloads the stored winners, keeps commits blocked while one is missing and resumes the
-same fix session. An implementation worker left at a ruling prints the assistant's recovery command.
-Answer there, then rerun the original `pnpm audit-round implement ...` or bare full-plan command so
-the runner can read Git and continue. See [Recover a run](/repo-edu/tooling/recover-run/).
+That command reloads the stored winners, keeps commits blocked while one is missing and continues
+the round with a fresh fix. An implementation worker left at a ruling prints the assistant's
+recovery command. Answer there, then rerun the original `pnpm audit-round implement ...` or bare
+full-plan command so the runner can read Git and continue. See
+[Recover a run](/repo-edu/tooling/recover-run/).
 
 ## Ruling files
 

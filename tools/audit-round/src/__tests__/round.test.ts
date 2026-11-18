@@ -23,33 +23,37 @@ import {
   type RulingRequest,
 } from "../phase.js"
 import {
+  continuedSetup,
   openSeriousFindings,
   rulerFindings,
   runRound as runRoundOn,
   seriousFindings,
 } from "../round.js"
 import type {
+  FindingRebuttal,
   ImplementationRoundData,
   LandedCommit,
+  PlanningRoundData,
   ReportFinding,
   RoundAccount,
+  RoundFinding,
   RoundFindingReview,
 } from "../round-data.js"
 import type { RulingInput } from "../ruling-wait.js"
 import { RunClock } from "../run-clock.js"
 import { type CommitGroup, targetRequest } from "../target.js"
+import type { VetReading } from "../vet.js"
 import {
   type Assistant,
   roundRun as allocateRound,
+  type LandedRecord,
   type Phase,
   type PhaseInput,
   type PhaseResult,
-  type PhaseRun,
   pinned,
   pinnedCoder,
   type RoundDependencies,
   RoundOutput,
-  type RoundPhases,
   runClose,
   runRound as runRoundWithAccount,
   testSettings,
@@ -212,6 +216,19 @@ function controlledRound(
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
   // A close that finished moved its plan unless a test leaves it in place.
   let planRemains = false
+  // The reports a stopped round kept, and those of them their readers refuse.
+  // A phase that runs writes its report afresh, which its reader admits.
+  const kept = new Set<string>()
+  const refused = new Set<string>()
+  const admit = (file: string) => {
+    if (refused.has(file)) throw new Error(`Refused kept report ${file}`)
+  }
+  const wrote = (file: string) => {
+    kept.add(file)
+    refused.delete(file)
+  }
+  // The commits a stopped fix landed, read back by their full IDs.
+  const storedRecords = new Map<string, LandedRecord>()
   const results: { [P in Exclude<Phase, "implement">]: PhaseResult<P> } = {
     audit: {
       status: "finished",
@@ -247,6 +264,16 @@ function controlledRound(
   async function record(input: PhaseInput) {
     calls.push(input)
     await settle(input)
+    // Only a finished report phase leaves its report behind.
+    if (
+      input.phase === "implement" ||
+      results[input.phase].status !== "finished"
+    )
+      return
+    if (input.phase === "audit") wrote(input.arguments[0])
+    if (input.phase === "vet") wrote(input.arguments[1])
+    if (input.phase === "rebut") wrote(input.arguments.at(-1) as string)
+    if (input.phase === "rule") wrote(input.arguments.at(-2) as string)
   }
   const evidence: {
     settling: string
@@ -264,6 +291,28 @@ function controlledRound(
     rebuttalAnswer: "agree",
     subjects: ["example/impl-audit-1 oth clean: settled"],
   }
+  const vetReading = (): VetReading => ({
+    reviews: evidence.findings.map((finding) => ({
+      number: finding.number,
+      tier: finding.tier,
+      verdict: evidence.accepted ? "accept" : evidence.vetVerdict,
+      ...(evidence.revisedTier === undefined
+        ? {}
+        : { revisedTier: evidence.revisedTier }),
+    })),
+    allAccepted: evidence.accepted,
+  })
+  const rebuttalReading = (): FindingRebuttal[] =>
+    evidence.accepted
+      ? []
+      : [
+          {
+            number: evidence.findings[0]?.number ?? 1,
+            tier: evidence.findings[0]?.tier ?? "B",
+            vet: vetTag,
+            answer: evidence.rebuttalAnswer,
+          },
+        ]
   const dependencies: RoundDependencies = {
     watchEvidence: async (input) => {
       assert.equal(calls.at(-1)?.phase, "fix")
@@ -285,36 +334,38 @@ function controlledRound(
       completions.push(input)
       return { message: "Clean audit recorded", commits: [] }
     },
-    readReport: async () => ({
-      settling: evidence.settling,
-      findings: evidence.findings,
-      judgedRepos: ["repo-edu"],
-    }),
-    readVet: async () => ({
-      reviews: evidence.findings.map((finding) => ({
-        number: finding.number,
-        tier: finding.tier,
-        verdict: evidence.accepted ? "accept" : evidence.vetVerdict,
-        ...(evidence.revisedTier === undefined
-          ? {}
-          : { revisedTier: evidence.revisedTier }),
-      })),
-      allAccepted: evidence.accepted,
-    }),
-    readRebuttal: async () =>
-      evidence.accepted
-        ? []
-        : [
-            {
-              number: evidence.findings[0]?.number ?? 1,
-              tier: evidence.findings[0]?.tier ?? "B",
-              vet: vetTag,
-              answer: evidence.rebuttalAnswer,
-            },
-          ],
+    readReport: async (file) => {
+      admit(file)
+      return {
+        settling: evidence.settling,
+        findings: evidence.findings,
+        judgedRepos: ["repo-edu"],
+      }
+    },
+    readVet: async (file) => {
+      admit(file)
+      return vetReading()
+    },
+    readRebuttal: async (file) => {
+      admit(file)
+      return rebuttalReading()
+    },
+    // A kept ruler report names `report` on every finding the ruler is given.
+    readRuler: async (file, given) => {
+      admit(file)
+      return {
+        winners: given.map(({ number, tier }) => ({
+          number,
+          tier,
+          winner: "report",
+          reason: "The finding stands.",
+        })),
+        sources: [],
+      }
+    },
     readHead: async (root) => `before-${root}`,
     resolvePlan: async (roots, stem) => join(roots.activeRoot, `${stem}.md`),
-    fileExists: async () => planRemains,
+    fileExists: async (file) => planRemains || kept.has(file),
     archiveRoundData: async (stem, tag, record) => {
       assert.equal(planRemains, false)
       archived.push({ stem, tag, record })
@@ -326,8 +377,18 @@ function controlledRound(
       moved.push(stem)
       return closedFiles(stem)
     },
-    readRecords: async (root, _before, repository) =>
-      root === repoRoot ? landedRecords(repository, evidence.subjects) : [],
+    // A landed record stays readable by its full ID for a continued round.
+    readRecords: async (root, _before, repository) => {
+      if (root !== repoRoot) return []
+      const records = landedRecords(repository, evidence.subjects)
+      for (const record of records) storedRecords.set(record.sha, record)
+      return records
+    },
+    readRecord: async (_root, sha) => {
+      const record = storedRecords.get(sha)
+      assert.ok(record, `No landed record ${sha}`)
+      return record
+    },
     commitPhaseStamps: () => [fixPhaseStamp],
     seriesEvidence: async (): Promise<SeriesEvidence> => ({
       roundData: { file: "example-impl-rounds.json", rounds: [] },
@@ -420,28 +481,9 @@ function controlledRound(
     holdRoundData(commit: LifecycleCommit) {
       roundDataCommit = commit
     },
-  }
-}
-
-function recoveryPhases(
-  calls: readonly PhaseInput[],
-): Pick<RoundPhases, "audit" | "vet" | "rebut" | "rule" | "fix"> {
-  const phase = (
-    name: "audit" | "vet" | "rebut" | "rule" | "fix",
-  ): PhaseRun => {
-    const input = calls.find((candidate) => candidate.phase === name)
-    assert.ok(input)
-    return { assistant: input.assistant, model: input.model }
-  }
-  return {
-    audit: phase("audit"),
-    vet: [phase("vet")],
-    rebut: phase("rebut"),
-    // A round whose disputes all went to the user ran no ruler.
-    rule: calls.some((call) => call.phase === "rule")
-      ? phase("rule")
-      : phase("fix"),
-    fix: phase("fix"),
+    kept,
+    refused,
+    storedRecords,
   }
 }
 
@@ -1029,8 +1071,47 @@ test("a fix cannot finish while a serious contest has no winner", async () => {
   assert.match(result.reason, /finished fix left serious contests.*finding 1/)
 })
 
+/** The open contests one fix call receives: those its contest object names without a winner. */
+function openInCall(call: PhaseInput): readonly number[] {
+  return call.arguments
+    .flatMap((argument) =>
+      typeof argument === "object" &&
+      argument !== null &&
+      "contests" in argument
+        ? argument.contests
+        : [],
+    )
+    .filter((contest) => contest.winner === undefined)
+    .map((contest) => contest.finding)
+}
+
+/** The entry a stopped round stored, as the runner writes it when the round ends. */
+function storedEntry(
+  stopped: {
+    readonly commits: readonly LandedCommit[]
+    readonly account: RoundAccount
+  },
+  status: ImplementationRoundData["status"] = "failed",
+): ImplementationRoundData {
+  return {
+    ...implementationRead("codex", 1, status),
+    commits: [...stopped.commits],
+    findings: [...stopped.account.findings],
+    judgedRepos: [...stopped.account.judgedRepos],
+  }
+}
+
+/** The audit report's one finding as its vetter reviewed it, before the fix settles it. */
+const reviewedFinding = {
+  ...reportFinding,
+  reviews: [{ vet: vetTag, verdict: "revise", answer: "agree" }],
+  outcome: null,
+  finalTier: null,
+  finalReach: null,
+} as const satisfies RoundFinding
+
 for (const stopped of ["left-ruling", "failed-fix", "finished-fix"] as const) {
-  test(`a ${stopped} serious contest resumes through the retained runner round`, async () => {
+  test(`a ${stopped} serious contest continues on its kept reports with a fresh fix`, async () => {
     const round = controlledRound()
     round.evidence.rebuttalAnswer = "contest"
     if (stopped === "left-ruling")
@@ -1053,18 +1134,12 @@ for (const stopped of ["left-ruling", "failed-fix", "finished-fix"] as const) {
     const priorCalls = round.calls.length
     round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
 
-    const recovered = await runRoundWithAccount(
+    const continued = await runRoundWithAccount(
       {
         ...files,
         plan: "example.md",
         scope: "1",
-        recovery: {
-          account: initial.account,
-          phases: recoveryPhases(round.calls),
-          sessionId: "fix-session",
-          rulingReady: stopped === "left-ruling",
-          records: [],
-        },
+        stored: storedEntry(initial, initial.status),
       },
       {
         ...round.dependencies,
@@ -1089,35 +1164,23 @@ for (const stopped of ["left-ruling", "failed-fix", "finished-fix"] as const) {
       },
     )
 
-    assert.equal(recovered.status, "finished")
-    assert.deepEqual(recovered.account.findings[0]?.ruling?.winner, [vetTag])
-    const resumed = round.calls.slice(priorCalls)
-    assert.ok(resumed.every((call) => call.phase === "fix"))
+    assert.equal(continued.status, "finished")
+    assert.deepEqual(continued.account.findings[0]?.ruling?.winner, [vetTag])
+    // The kept audit, vet and rebuttal reports stand. The fix starts fresh,
+    // writes its ruling again and resumes only with the user's answer.
+    const later = round.calls.slice(priorCalls)
     assert.deepEqual(
-      resumed.map((call) => call.sessionId),
-      stopped === "left-ruling"
-        ? ["fix-session"]
-        : ["fix-session", "fix-session"],
+      later.map((call) => [call.phase, call.sessionId]),
+      [
+        ["fix", null],
+        ["fix", "fix-session"],
+      ],
     )
-    assert.deepEqual(
-      resumed.map((call) =>
-        call.arguments
-          .flatMap((argument) =>
-            typeof argument === "object" &&
-            argument !== null &&
-            "contests" in argument
-              ? argument.contests
-              : [],
-          )
-          .filter((contest) => contest.winner === undefined)
-          .map((contest) => contest.finding),
-      ),
-      stopped === "left-ruling" ? [[]] : [[1], []],
-    )
+    assert.deepEqual(later.map(openInCall), [[1], []])
   })
 }
 
-test("not yet in a recovered contest keeps the runner block until a later winner", async () => {
+test("not yet in a continued contest keeps the runner block until a later winner", async () => {
   const round = controlledRound()
   round.evidence.rebuttalAnswer = "contest"
   round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
@@ -1129,18 +1192,12 @@ test("not yet in a recovered contest keeps the runner block until a later winner
   const priorCalls = round.calls.length
   let requests = 0
 
-  const recovered = await runRoundWithAccount(
+  const continued = await runRoundWithAccount(
     {
       ...files,
       plan: "example.md",
       scope: "1",
-      recovery: {
-        account: initial.account,
-        phases: recoveryPhases(round.calls),
-        sessionId: "fix-session",
-        rulingReady: true,
-        records: [],
-      },
+      stored: storedEntry(initial, "awaiting-ruling"),
     },
     {
       ...round.dependencies,
@@ -1167,28 +1224,270 @@ test("not yet in a recovered contest keeps the runner block until a later winner
     },
   )
 
-  assert.equal(recovered.status, "finished")
+  assert.equal(continued.status, "finished")
   assert.equal(requests, 2)
-  const resumed = round.calls.slice(priorCalls)
+  const later = round.calls.slice(priorCalls)
   assert.deepEqual(
-    resumed.map((call) => call.phase),
-    ["fix", "fix"],
+    later.map((call) => call.phase),
+    ["fix", "fix", "fix"],
   )
+  assert.deepEqual(later.map(openInCall), [[1], [1], []])
+})
+
+test("a stored winner stands only while the kept reports rebuild its finding as stored", async () => {
+  const round = controlledRound()
+  round.evidence.rebuttalAnswer = "contest"
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const initial = await runRoundWithAccount(
+    { ...files, plan: "example.md", scope: "1" },
+    round.dependencies,
+  )
+  assert.equal(initial.status, "awaiting-ruling")
+  const [finding] = initial.account.findings
+  assert.ok(finding)
+  const ruled = (reviews: RoundFinding["reviews"]) =>
+    storedEntry(
+      {
+        commits: [],
+        account: {
+          ...initial.account,
+          findings: [
+            {
+              ...finding,
+              reviews,
+              ruling: {
+                winner: "report",
+                reason: "The report quotes the owning contract.",
+                namedBy: "user",
+              },
+            },
+          ],
+        },
+      },
+      "awaiting-ruling",
+    )
+  const asked = round.rulings.length
+
+  // The kept reports rebuild the finding as stored, so its winner stands and
+  // the fix finishes without asking again.
+  round.results.fix = {
+    status: "finished",
+    sessionId: "fix-session",
+    settling: null,
+  }
+  const kept = await runRoundWithAccount(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "1",
+      stored: ruled(finding.reviews),
+    },
+    round.dependencies,
+  )
+  assert.equal(kept.status, "finished")
+  assert.equal(round.rulings.length, asked)
+  assert.deepEqual(openInCall(round.calls.at(-1) as PhaseInput), [])
+
+  // A winner given on a drop the kept vet report no longer gives judged other
+  // reviews, so the user rules again.
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const changed = await runRoundWithAccount(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "1",
+      stored: ruled([{ vet: vetTag, verdict: "drop", answer: "contest" }]),
+    },
+    round.dependencies,
+  )
+  assert.equal(changed.status, "awaiting-ruling")
+  assert.deepEqual(openInCall(round.calls.at(-1) as PhaseInput), [1])
+})
+
+test("a continued vet runs only the vetters of the current panel without a kept vet report", async () => {
+  const round = controlledRound()
+  round.evidence.accepted = true
+  round.kept.add(files.documents.report)
+  round.kept.add(panelReports[0] as string)
+  const result = await runRoundOn(
+    {
+      ...files,
+      documents: { ...files.documents, vets: panelReports },
+      plan: "example.md",
+      scope: "1",
+      stored: storedEntry({
+        commits: [],
+        account: {
+          settling: "",
+          judgedRepos: ["repo-edu"],
+          findings: [{ ...reviewedFinding, reviews: [] }],
+        },
+      }),
+    },
+    round.dependencies,
+    releases,
+    panelSettings,
+  )
+  assert.equal(result.status, "finished")
   assert.deepEqual(
-    resumed.map((call) =>
-      call.arguments
-        .flatMap((argument) =>
-          typeof argument === "object" &&
-          argument !== null &&
-          "contests" in argument
-            ? argument.contests
-            : [],
-        )
-        .filter((contest) => contest.winner === undefined)
-        .map((contest) => contest.finding),
-    ),
-    [[1], []],
+    round.calls.map((call) => [
+      call.phase,
+      call.phase === "vet" ? call.arguments[1] : null,
+    ]),
+    [
+      ["vet", panelReports[1]],
+      ["fix", null],
+    ],
   )
+})
+
+test("a kept report its reader refuses runs its phase again in a fresh session", async () => {
+  const round = controlledRound()
+  for (const file of [files.documents.report, vetReport, files.documents.rebut])
+    round.kept.add(file)
+  round.refused.add(vetReport)
+  const result = await runRoundWithAccount(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "1",
+      stored: storedEntry({
+        commits: [],
+        account: {
+          settling: "",
+          judgedRepos: ["repo-edu"],
+          findings: [reviewedFinding],
+        },
+      }),
+    },
+    round.dependencies,
+  )
+  assert.equal(result.status, "finished")
+  assert.deepEqual(
+    round.calls.map((call) => [call.phase, call.sessionId]),
+    [
+      ["vet", null],
+      ["fix", null],
+    ],
+  )
+})
+
+test("the commits a stopped fix landed count for the fresh fix that finishes the round", async () => {
+  const round = controlledRound()
+  for (const file of [files.documents.report, vetReport, files.documents.rebut])
+    round.kept.add(file)
+  // The stopped fix landed the record; the fresh fix finds nothing left to land.
+  const [record] = landedRecords("repo-edu", [
+    "example/impl-audit-1 oth clean: settled",
+  ])
+  assert.ok(record)
+  round.storedRecords.set(record.sha, record)
+  round.evidence.subjects = []
+  const landed = [{ repository: "repo-edu", sha: record.sha }] as const
+  const result = await runRoundWithAccount(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "1",
+      stored: storedEntry({
+        commits: landed,
+        account: {
+          settling: "",
+          judgedRepos: ["repo-edu"],
+          findings: [reviewedFinding],
+        },
+      }),
+    },
+    round.dependencies,
+  )
+  assert.equal(result.status, "finished")
+  assert.deepEqual(result.commits, landed)
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    ["fix"],
+  )
+})
+
+for (const ended of ["fix", "clean completion"] as const) {
+  test(`a continued round whose ${ended} ended runs only what follows it`, async () => {
+    const round = controlledRound()
+    const landed = [{ repository: "repo-edu", sha: "2".repeat(40) }] as const
+    const account: RoundAccount = {
+      settling: "",
+      judgedRepos: ["repo-edu"],
+      findings:
+        ended === "fix" ? [{ ...reviewedFinding, outcome: "kept" }] : [],
+    }
+    const result = await runRoundWithAccount(
+      {
+        ...files,
+        plan: "example.md",
+        scope: "1",
+        stored: storedEntry({ commits: landed, account }),
+      },
+      round.dependencies,
+    )
+    assert.equal(result.status, "finished")
+    assert.ok(result.status === "finished")
+    assert.equal(result.cleanAudit, ended === "clean completion")
+    assert.deepEqual(result.commits, landed)
+    assert.deepEqual(round.calls, [])
+    assert.deepEqual(round.completions, [])
+    // The settled account is published again before the watch and series rules read it.
+    assert.deepEqual(round.settledWrites, [{ commits: landed, account }])
+    assert.equal(round.glances.length, ended === "fix" ? 1 : 0)
+  })
+}
+
+test("a continued round's setup takes the stored audit's launched selection and a chained round's stored deferrals", () => {
+  const deferral = {
+    deferringRepository: "repo-edu",
+    sha: "a".repeat(40),
+    position: 1,
+    tier: "c",
+    destination: "../plan/example.md#decisions",
+    title: "Defer the decision",
+  } as const
+  const {
+    scope: _scope,
+    judgedRepos: _judged,
+    ...common
+  } = implementationRead("claude", 1)
+  const chained: PlanningRoundData = {
+    ...common,
+    target: "example-plan-audit",
+    auditor: {
+      assistant: "claude",
+      model: "claude-fable-5-2",
+      effort: "high",
+      chosenBy: "command-line",
+    },
+    phases: [
+      {
+        phase: "audit",
+        assistant: "claude",
+        model: "claude-fable-5-2",
+        effort: "high",
+        launched: { model: "fable", effort: "xhigh" },
+        milliseconds: 1,
+        tokens: [],
+        peakContext: null,
+        compactions: 0,
+      },
+    ],
+    phase: "detailing",
+    settling: "",
+    deferrals: [deferral],
+  }
+  assert.deepEqual(continuedSetup(chained), {
+    auditor: "claude",
+    auditorSelectionSource: "--auditor",
+    override: { listed: { model: "fable", effort: "xhigh" } },
+    deferrals: [deferral],
+  })
+  // An ordinary round stores no list, so the call's own deferrals stay.
+  const { deferrals: _deferrals, ...ordinary } = chained
+  assert.equal("deferrals" in continuedSetup(ordinary), false)
 })
 
 /** Round data whose one finding the panel reviewed as given. */

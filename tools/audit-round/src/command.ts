@@ -79,6 +79,7 @@ import {
   auditRoles,
   type DeferralChainOutcome,
   efforts,
+  type LandedRecord,
   listedSeat,
   phaseWorkflow,
   type RoundDependencies,
@@ -97,12 +98,14 @@ import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
+  continuedSetup,
   failureResumeSessionId,
   openSeriousFindings,
   type RoundResult,
   type RoundSetup,
   runClose,
   runRound,
+  storedAccount,
 } from "./round.js"
 import {
   type DisprovedFinding,
@@ -128,6 +131,7 @@ import {
   roundSubject,
   targetLabel,
 } from "./round-paths.js"
+import { readRulerReport } from "./ruler-report.js"
 import {
   answerFormText,
   listenForRuling,
@@ -1236,6 +1240,19 @@ async function preparedRun(
 
 type PreparedRun = Awaited<ReturnType<typeof preparedRun>>
 
+/** One landed commit with the subject and message its round's records are read from. */
+async function readLandedRecord(
+  cwd: string,
+  sha: string,
+  repository: LandedCommit["repository"],
+): Promise<LandedRecord> {
+  const [subject, message] = await Promise.all([
+    execa("git", ["show", "-s", "--format=%s", sha], { cwd }),
+    execa("git", ["show", "-s", "--format=%B", sha], { cwd }),
+  ])
+  return { repository, sha, subject: subject.stdout, message: message.stdout }
+}
+
 function recoveredCommitGroup(group: {
   readonly repository: "repo-edu" | "plan"
   readonly commits: readonly string[]
@@ -1277,12 +1294,7 @@ async function preparedFixRecovery(
     throw new Error(
       `${paths.nameStart} has status ${retained.entry.status}; only a stopped fix can resume.`,
     )
-  const account = {
-    settling: "settling" in retained.entry ? retained.entry.settling : "",
-    judgedRepos:
-      "judgedRepos" in retained.entry ? retained.entry.judgedRepos : [],
-    findings: retained.entry.findings,
-  }
+  const account = storedAccount(retained.entry)
   let target: AuditTarget
   if ("phase" in retained.entry || "scope" in retained.entry) {
     const scopeParts =
@@ -1748,6 +1760,8 @@ export async function runCommand(
           readVet(await readFile(file, "utf8"), findings),
         readRebuttal: async (file, findings, panel) =>
           readRebuttal(await readFile(file, "utf8"), findings, panel),
+        readRuler: async (file, findings, panel) =>
+          readRulerReport(await readFile(file, "utf8"), findings, panel),
         seriesEvidence: readSeriesEvidence,
         chainDeferrals,
         readHead: async (cwd) =>
@@ -1774,20 +1788,10 @@ export async function runCommand(
           )
           const shas = stdout.length === 0 ? [] : stdout.split("\n")
           return Promise.all(
-            shas.map(async (sha) => {
-              const [subject, message] = await Promise.all([
-                execa("git", ["show", "-s", "--format=%s", sha], { cwd }),
-                execa("git", ["show", "-s", "--format=%B", sha], { cwd }),
-              ])
-              return {
-                repository,
-                sha,
-                subject: subject.stdout,
-                message: message.stdout,
-              }
-            }),
+            shas.map((sha) => readLandedRecord(cwd, sha, repository)),
           )
         },
+        readRecord: readLandedRecord,
         commitPhaseStamps: () => [...fixPhaseStamps],
         ...assistantDependencies(
           { ...runtime, cwd: phaseContext.cwd, commit: childCommitStamps },
@@ -1814,7 +1818,10 @@ export async function runCommand(
       }
     }
 
-    /** Finish one stopped serious-contest fix through the retained round owner. */
+    /**
+     * Finish one stopped serious-contest round through the retained round
+     * owner: its kept reports stand and a fresh fix starts.
+     */
     const resumeFixStage = async (
       recovery: PreparedFixRecovery,
     ): Promise<RoundResult["status"]> => {
@@ -1830,18 +1837,6 @@ export async function runCommand(
         !efforts.includes(fixSelection.effort as (typeof efforts)[number])
       )
         throw new Error("The retained fix has no supported effort.")
-      const auditPhase = recovery.retained.entry.phases.find(
-        (phase) => phase.phase === "audit",
-      )
-      const auditSelection = auditPhase?.launched ?? {
-        model: recovery.retained.entry.auditor.model,
-        effort: recovery.retained.entry.auditor.effort,
-      }
-      if (
-        auditSelection.effort === null ||
-        !efforts.includes(auditSelection.effort as (typeof efforts)[number])
-      )
-        throw new Error("The retained audit has no supported effort.")
       const phaseContext = roundContext(context, recovery.target.roundKind)
       let deferrals: readonly OpenDeferral[] | undefined
       if ("plan" in recovery.target) {
@@ -1853,7 +1848,6 @@ export async function runCommand(
           (deferral) => deferral.deferringRepository !== destination,
         )
       }
-      const chosenBy = recovery.retained.entry.auditor.chosenBy
       const setup: RoundSetup = {
         ...phaseContext,
         ...recovery.target,
@@ -1863,19 +1857,11 @@ export async function runCommand(
           effort: fixSelection.effort as (typeof efforts)[number],
         },
         fixerSource: "retained round",
-        auditor: recovery.retained.entry.auditor.assistant,
-        auditorSelectionSource:
-          chosenBy === "command-line" ? "--auditor" : chosenBy,
-        override: {
-          listed: {
-            model: auditSelection.model,
-            effort: auditSelection.effort as (typeof efforts)[number],
-          },
-        },
         ...(recovery.retained.entry.pool === undefined
           ? {}
           : { pool: recovery.retained.entry.pool }),
         ...(deferrals === undefined ? {} : { deferrals }),
+        ...continuedSetup(recovery.retained.entry),
       }
       const run = await resumedRoundRun(
         setup,
@@ -1886,25 +1872,6 @@ export async function runCommand(
         settings,
       )
       const active = open(run)
-      const records = await Promise.all(
-        recovery.retained.entry.commits.map(async ({ repository, sha }) => {
-          const cwd =
-            repository === "repo-edu" ? context.repoEduRoot : context.planRoot
-          const [subject, message] = await Promise.all([
-            execa("git", ["show", "-s", "--format=%s", sha], { cwd }),
-            execa("git", ["show", "-s", "--format=%B", sha], { cwd }),
-          ])
-          return {
-            repository,
-            sha,
-            subject: subject.stdout,
-            message: message.stdout,
-          }
-        }),
-      )
-      const rulingReady =
-        recovery.paths.ruling !== null &&
-        (await readFile(recovery.paths.ruling, "utf8")).trim().length > 0
       const round = await runRound(
         {
           ...setup,
@@ -1917,13 +1884,7 @@ export async function runCommand(
                   cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
                 }
               : null,
-          recovery: {
-            account: recovery.account,
-            phases: run.recoveredPhases,
-            sessionId: recovery.sessionId,
-            rulingReady,
-            records,
-          },
+          stored: recovery.retained.entry,
         },
         dependenciesFor(active, phaseContext),
         releases,

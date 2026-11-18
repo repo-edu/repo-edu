@@ -65,8 +65,7 @@ session.
 
 A failed fix whose serious contest or split still needs your winner prints `resume-fix` instead,
 under [An unanswered ruling](#an-unanswered-ruling). It does so only when the runner knows the fix
-session, because `resume-fix` resumes that session. Without one, the failed fix prints the hand-run
-fix.
+session, which the command still names. Without one, the failed fix prints the hand-run fix.
 
 Do not run `/audit` again for the same work. A new audit would claim another round number instead of
 completing the open one.
@@ -98,8 +97,11 @@ An audit fix with an unresolved serious contest or split prints a runner command
 pnpm audit-round resume-fix <report> <session-id>
 ```
 
-Run it as printed. The runner reloads the in-progress round and its saved fix
-session. It prints the ruling notice and waits; the terminal asks nothing.
+Run it as printed. The runner reloads the in-progress round and keeps each audit,
+vet, rebuttal and ruler report that still reads as valid. It starts a fresh fix
+with the winners you already gave and the commits the stopped fix landed. When
+the fix writes its ruling, the runner prints the ruling notice and waits; the
+terminal asks nothing.
 Answer in the desktop app with `/ruling`. For each missing winner, give
 `report`, the tags of the vetters that were right or `neither` with a one-line
 reason, or `not yet`. Add any free reply
@@ -109,9 +111,9 @@ waits again.
 
 A failed fix with an unresolved serious contest or split uses the same route when the runner knows
 the fix session. Without one, it prints the hand-run fix under
-[A failed audit phase](#a-failed-audit-phase). When no
-ruling file exists yet, the runner first resumes the fix so it can write one.
-The route then finishes through the ordinary record checks.
+[A failed audit phase](#a-failed-audit-phase). The fresh fix writes the ruling
+again, so a winner you already gave is not asked again, but a free reply you gave
+the stopped fix is. The route then finishes through the ordinary record checks.
 
 An implementation worker left at a ruling prints the worker's assistant recovery command instead
 of `--resume`. Answer in that session, then rerun the original runner command without attaching a

@@ -810,10 +810,19 @@ export type RoundDependencies = {
     findings: ReportFindings,
     panel: readonly PanelVet[],
   ) => Promise<readonly FindingRebuttal[]>
+  /** Read a ruler report against the findings the ruler is given and the round's panel tags. */
+  readonly readRuler: (
+    file: string,
+    findings: readonly Pick<ReportFinding, "number" | "tier">[],
+    panel: readonly string[],
+  ) => Promise<RulerReading>
   readonly readHead: (root: string) => Promise<string>
   /** Resolve the plan's current file after a fix may have changed its phase. */
   readonly resolvePlan: (roots: PlanRoots, stem: string) => Promise<string>
-  /** Whether a file exists, which tells a finished close that left its plan in place. */
+  /**
+   * Whether a file exists: a round's kept report, or the plan a finished close
+   * left in place.
+   */
   readonly fileExists: (file: string) => Promise<boolean>
   /** Move a closed plan's round data beside its archived plan and commit it; null without data. */
   readonly archiveRoundData: (
@@ -828,6 +837,12 @@ export type RoundDependencies = {
     before: string,
     repository: LandedRecord["repository"],
   ) => Promise<readonly LandedRecord[]>
+  /** Read one commit a stopped round already landed, with its subject and message. */
+  readonly readRecord: (
+    root: string,
+    sha: string,
+    repository: LandedRecord["repository"],
+  ) => Promise<LandedRecord>
   /** The exact leading phase records supplied to this round's fix sessions. */
   readonly commitPhaseStamps: () => readonly string[]
   readonly runPhase: {
