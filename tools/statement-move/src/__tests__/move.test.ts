@@ -40,6 +40,26 @@ test("moves statements to a new target and imports them back into the source", (
   })
 })
 
+test("moves statements to a target in a folder only the move creates", () => {
+  withProject(
+    {
+      "src/shapes.ts": SHAPES,
+      "src/user.ts": `import { area } from "./shapes.js"\n\nexport const UNIT = area({ size: 1 })\n`,
+    },
+    (project) => {
+      const result = project.move("src/shapes.ts", 7, 9, "src/shapes/area.ts")
+
+      assert.equal(result.kind, "accepted")
+      assert.match(
+        project.read("src/shapes/area.ts"),
+        /export function area\(shape: Shape\): number \{/,
+      )
+      assert.match(project.read("src/shapes.ts"), /from "\.\/shapes\/area\.js"/)
+      assert.match(project.read("src/user.ts"), /from "\.\/shapes\/area\.js"/)
+    },
+  )
+})
+
 test("moves statements into an existing target", () => {
   withProject(
     {

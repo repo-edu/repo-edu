@@ -114,7 +114,12 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
       overlay.has(fileName) || ts.sys.fileExists(fileName),
     readFile,
     readDirectory: ts.sys.readDirectory,
-    directoryExists: ts.sys.directoryExists,
+    // A new target may sit in a folder that only the overlay holds. Module
+    // resolution checks an import's folder before the file, so without this a
+    // file that still imports the moved code gets a false missing-module error.
+    directoryExists: (directoryName) =>
+      ts.sys.directoryExists(directoryName) ||
+      overlayHoldsDirectory(overlay, directoryName),
     getDirectories: ts.sys.getDirectories,
     // pnpm links one package into several node_modules folders. Without real
     // paths the service loads it twice and reports errors between the copies.
@@ -275,6 +280,16 @@ function loadConfiguration(request: MoveRequest): ts.ParsedCommandLine {
     )
   }
   return parsed
+}
+
+function overlayHoldsDirectory(
+  overlay: ReadonlyMap<string, OverlayEntry>,
+  directoryName: string,
+): boolean {
+  const prefix = `${path.resolve(directoryName)}${path.sep}`
+  return [...overlay.keys()].some((fileName) =>
+    path.resolve(fileName).startsWith(prefix),
+  )
 }
 
 function requireProgram(service: ts.LanguageService): ts.Program {
