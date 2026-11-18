@@ -16,9 +16,10 @@ consumers.
   one skips each phase whose kept report its reader admits and runs the first that has none, so a
   new round is the case where nothing is kept. A kept report its reader refuses runs its phase
   again. The stored round data entry supplies what no report holds: the audit's launched selection,
-  which the rebuttal runs on, the winners the user named, the commits the round landed and a chained
-  round's deferral list. A stored user winner stands only while the kept reports rebuild its finding
-  as stored. A continued round whose fix or clean completion already ended runs only what follows
+  which the rebuttal runs on, the winners the user named, the commits the round landed and the
+  deferral list of a chained or plan-scoped implementation round. A stored user winner stands only
+  while the kept reports rebuild its finding as stored. A continued round whose fix or clean
+  completion already ended runs only what follows
   it. The vetters of the target work class's panel run side by side, each on the audit report alone.
   The round waits for every vetter; a failed vet fails the round and the finished vetters' vet
   reports stay. A clean audit completes directly through `clean.ts` without vet, rebuttal, ruler,
@@ -517,6 +518,8 @@ consumers.
   repos. Each advancing group keeps the references the round carried, because the audit report's
   `Target:` line repeats them and a continued round reads that report against them. A chained
   planning round's entry keeps the deferral list its audit judged, which marks the round as chained.
+  A plan-scoped implementation round's entry keeps the deferral list into Repo Edu its audit
+  received, an empty one included.
   An entry records state, settings with the round's `vetters` panel, chosen auditor and source, the
   selection its audit launched on, phase measurements including peak context and compactions, landed
   commits, finding review and outcome data and any series answer. A vetter's vet phase entry also
@@ -992,7 +995,8 @@ one review per vetter, named by that tag. A review records a revised tier only w
 `Revise to [<tier>]` line differs from the audit report tier. New automatic rounds also record the
 ordered resolved auditor list used for that answer. A commit entry additionally records its original
 groups, advancing groups with their references and judged repos. A chained planning round's entry
-records its deferral list. Each disproved entry records its date and full reason,
+records its deferral list, and a plan-scoped implementation round's entry the list its audit
+received. Each disproved entry records its date and full reason,
 then either its target, round and finding numbers with the side the ruling disproves, or the
 manually named auditor model and effort. An attached entry without a side predates the field and
 disproves the finding. Each phase carries the model and effort the tool reported and the launched
@@ -1069,10 +1073,10 @@ the range a bare plan name's range list starts at under [Plan targets](#plan-tar
 
 A chained round is the planning round an implementation series adds for open deferrals into the
 plan repo. Its entry stores its deferral list, and a planning entry with that list marks the round
-as chained. A deferral list alone is no mark, because implementation rounds also receive the
-deferrals into Repo Edu. The kind match keeps a chained call from continuing an ordinary round
-whose audit report judged no deferral, which would close each deferral without an audit. When the
-kinds differ, the call opens a new round.
+as chained. A deferral list alone is no mark, because implementation rounds also receive and
+store the deferrals into Repo Edu. The kind match keeps a chained call from continuing an ordinary
+round whose audit report judged no deferral, which would close each deferral without an audit.
+When the kinds differ, the call opens a new round.
 
 The continued round keeps its number, its audit report, its transcript and its log, which carry
 the audit's tag, and appends to the transcript and log. Its entry keeps the stored start time,
@@ -1082,8 +1086,10 @@ entry what no report holds. The kept audit report fixes the auditor, so the audi
 run on the selection the stored audit launched on. The panel is the current vetter list: a kept
 vet report counts for the listed vetter whose tag it carries, and a listed vetter without a valid
 report runs. A kept rebuttal or ruler report counts under the tag the current settings give its
-phase. Every other phase still to run takes the current settings. A chained round's fix receives
-the stored deferral list, because the fix must cite the deferrals the kept audit report judged. A
+phase. Every other phase still to run takes the current settings. The fix of a chained round or a
+plan-scoped implementation round receives the stored deferral list, an empty one included,
+because the fix must cite the deferrals the kept audit report judged. A deferral that opened
+during the stop waits for a later round whose audit report judges it. A
 commit round keeps the exact commits and references its kept audit report judged, because the
 call's target has moved on to the fixes landed since. The round's coordinator then skips each
 phase whose kept report reads as valid, under the `round.ts` ownership above. An option that names

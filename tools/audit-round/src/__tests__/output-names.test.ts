@@ -557,6 +557,60 @@ test("a chained call continues a stopped chained round on its stored deferral li
   assert.deepEqual(next.setup.deferrals, [deferral])
 })
 
+test("a continued implementation round keeps the deferral list its audit received, an empty one included", async (t) => {
+  const f = await fixture(t)
+  const setup = { ...testSetup(f.root), plan: "example.md" }
+  const deferral = {
+    deferringRepository: "plan" as const,
+    sha: "d".repeat(40),
+    position: 1,
+    tier: "c" as const,
+    destination: "tool-audit-round",
+    title: "Fixture deferral",
+  }
+  const storedDeferrals = async (path: string, target: string) =>
+    (
+      JSON.parse(await readFile(path, "utf8")) as {
+        rounds: { target: string; deferrals?: unknown }[]
+      }
+    ).rounds.find((entry) => entry.target === target)?.deferrals
+  // A deferral that opens during the stop waits for a report that judges it.
+  const judged = await stoppedRound(
+    { ...setup, scope: "1", deferrals: [deferral] },
+    implementationReport("example.md 1"),
+  )
+  assert.ok(judged.data)
+  assert.deepEqual(
+    await storedDeferrals(judged.data.path, judged.data.target),
+    [deferral],
+  )
+  const opened = { ...deferral, position: 2 }
+  const next = await roundRun(
+    { ...setup, scope: "1", deferrals: [deferral, opened] },
+    0,
+    releases,
+  )
+  assert.equal(next.nameStart, judged.nameStart)
+  assert.deepEqual(next.setup.deferrals, [deferral])
+  // An audit that received no deferral keeps that empty list.
+  const empty = await stoppedRound(
+    { ...setup, scope: "2", deferrals: [] },
+    implementationReport("example.md 2"),
+  )
+  assert.ok(empty.data)
+  assert.deepEqual(
+    await storedDeferrals(empty.data.path, empty.data.target),
+    [],
+  )
+  const later = await roundRun(
+    { ...setup, scope: "2", deferrals: [opened] },
+    0,
+    releases,
+  )
+  assert.equal(later.nameStart, empty.nameStart)
+  assert.deepEqual(later.setup.deferrals, [])
+})
+
 test("a continued commit round keeps the commits and references its kept audit report judged", async (t) => {
   const f = await fixture(t)
   const original = {

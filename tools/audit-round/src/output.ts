@@ -155,7 +155,11 @@ export type Run = {
         /** A chained round's deferral list, which marks it as chained. */
         readonly deferrals?: readonly OpenDeferral[]
       }
-    | { readonly scope: string }
+    | {
+        readonly scope: string
+        /** The deferral list into Repo Edu its audit received. */
+        readonly deferrals?: readonly OpenDeferral[]
+      }
     | {
         readonly originalGroups: RoundDataCommitGroups
         readonly groups: RoundDataCommitGroups
@@ -228,7 +232,8 @@ function roundDataPath(setup: RoundSetup): string | null {
 /**
  * A chained round is the planning round an implementation series adds for
  * open deferrals into the plan repo. A deferral list alone does not mark one,
- * because an implementation round also receives the deferrals into Repo Edu.
+ * because an implementation round also receives and stores the deferrals into
+ * Repo Edu.
  */
 function chainedCall(setup: RoundSetup): boolean {
   return setup.roundKind === "planning" && setup.deferrals !== undefined
@@ -388,7 +393,13 @@ export async function roundRun(
                 ? {}
                 : { deferrals: setup.deferrals }),
             }
-          : { ...record, scope: setup.scope }
+          : {
+              ...record,
+              scope: setup.scope,
+              ...(setup.deferrals === undefined
+                ? {}
+                : { deferrals: setup.deferrals }),
+            }
   const runPhases: readonly RunEntry[] = [
     audit,
     ...vets,
@@ -1109,6 +1120,9 @@ export class RoundOutput<R extends Run = Run> {
           ? {
               scope: data.scope,
               judgedRepos: [...account.judgedRepos],
+              ...(data.deferrals === undefined
+                ? {}
+                : { deferrals: [...data.deferrals] }),
             }
           : {
               originalGroups: data.originalGroups.map(

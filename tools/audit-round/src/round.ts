@@ -311,9 +311,9 @@ function storedCommitGroup(group: {
 /**
  * What a continued round's setup takes from its stored entry. The kept audit
  * report fixes the auditor, so the audit and the rebuttal, which answers for
- * it, run on the selection the stored audit launched on. A chained round's fix
- * receives the deferral list its kept audit report judged, not the list read
- * from Git again. A commit round keeps the exact commits and references its
+ * it, run on the selection the stored audit launched on. The fix of a chained
+ * round or of a plan-scoped implementation round receives the deferral list its
+ * kept audit report judged, not the list read from Git again. A commit round keeps the exact commits and references its
  * kept audit report judged, while the call's target has already moved on to
  * the fixes landed since. Every other phase takes the current settings, as in
  * a new round. Spread it over the setup the call would give a new round.

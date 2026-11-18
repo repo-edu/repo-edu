@@ -281,6 +281,11 @@ export const planningRoundDataSchema = commonRoundData.extend({
 export const implementationRoundDataSchema = commonRoundData.extend({
   scope: z.string().min(1),
   judgedRepos: z.array(repository),
+  /**
+   * The open deferrals into Repo Edu its audit received, an empty list
+   * included, which its fix receives when the round continues.
+   */
+  deferrals: z.array(openDeferral).optional(),
 })
 export const commitRoundDataSchema = commonRoundData.extend({
   originalGroups: z.array(commitGroup).min(1),
