@@ -253,6 +253,12 @@ type AuditorPlanReading = {
   minutes: number
 }
 
+/**
+ * One reading per plan and auditor. Plans run from the newest complete round
+ * of the class to the oldest, so the plans in work open the table. A plan with
+ * no such round, known only through a detached disproved finding, comes last
+ * by name, because its rounds predate the retained data.
+ */
 function auditorPlanReadings(
   rows: ReadonlyMap<string, AuditorRow>,
   disproved: readonly DisprovedEvidence[],
@@ -260,6 +266,7 @@ function auditorPlanReadings(
   range: TierRange,
 ): AuditorPlanReading[] {
   const readings = new Map<string, AuditorPlanReading>()
+  const newestRound = new Map<string, string>()
   const ensureReading = (plan: string, identity: ModelIdentity) => {
     const key = `${plan}\u0000${auditorKey(identity)}`
     const reading = readings.get(key) ?? {
@@ -279,6 +286,8 @@ function auditorPlanReadings(
       reading.rounds += 1
       reading.counts = addCounts(reading.counts, sample.counts[range])
       reading.minutes += sample.minutes
+      if ((newestRound.get(sample.plan) ?? "") < sample.started)
+        newestRound.set(sample.plan, sample.started)
     }
 
   for (const entry of disproved)
@@ -290,8 +299,10 @@ function auditorPlanReadings(
       }
     }
 
+  const planTime = (plan: string) => newestRound.get(plan) ?? ""
   return [...readings.values()].sort(
     (first, second) =>
+      planTime(second.plan).localeCompare(planTime(first.plan)) ||
       first.plan.localeCompare(second.plan) ||
       modelText(first.identity).localeCompare(modelText(second.identity)),
   )

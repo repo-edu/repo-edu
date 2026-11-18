@@ -601,8 +601,11 @@ consumers.
   `neither` proves no vetter right and a list of vetter tags proves those vetters right. A row needs
   no auditor column, because both vetters judged the same audit reports. Under `--all`, each class
   gains a measured-data table per range, each with one row per plan and auditor. The rows contain
-  rounds, all four finding outcomes and mean minutes per round, sorted by plan and then model. A
-  detached disproved finding creates a zero-round row when its auditor has no round on that plan.
+  rounds, all four finding outcomes and mean minutes per round. Plans run from the newest complete
+  round of the class to the oldest, so the plans in work open the table, and a plan's rows sort by
+  model. A detached disproved finding creates a zero-round row when its auditor has no round on
+  that plan. A plan with no complete round in the class comes last, by name, because its rounds
+  predate the retained data.
   These tables precede the excluded plans. Coder yield comparisons use one closed plan per example.
   The archived plan supplies the listed steps, every hosted share must have a readable model record
   and the whole-plan audit must follow the final share. A missing archived plan and a step list the

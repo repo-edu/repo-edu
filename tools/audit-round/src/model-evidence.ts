@@ -42,6 +42,8 @@ export type FindingCounts = {
 /** One complete round of an auditor, with its finding outcomes per tier range. */
 export type AuditorSample = {
   readonly plan: string
+  /** The round's start time, as its round data records it. */
+  readonly started: string
   /** Whether it is the class's first complete round on the plan. */
   readonly first: boolean
   readonly workClass: WorkClass
@@ -572,6 +574,7 @@ function auditorRows(
     firstCompleteRounds.add(planClass)
     row.samples.push({
       plan: record.stem,
+      started: record.data.started,
       first,
       workClass: record.workClass,
       minutes:

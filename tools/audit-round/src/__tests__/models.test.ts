@@ -882,10 +882,10 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
     [
       "| Plan | Model | Rounds | A/B kept | Dropped | Downgraded | Disproved | Minutes per round |",
       "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
-      "| alpha | model-a low | 2 | 2 | 1 | 1 | 1 | 2.0 |",
-      "|  | model-b low | 1 | 0 | 0 | 0 | 0 | 4.0 |",
       "| beta | model-a low | 1 | 0 | 0 | 0 | 0 | 2.0 |",
       "|  | model-b low | 2 | 4 | 0 | 0 | 0 | 4.0 |",
+      "| alpha | model-a low | 2 | 2 | 1 | 1 | 1 | 2.0 |",
+      "|  | model-b low | 1 | 0 | 0 | 0 | 0 | 4.0 |",
       "| gamma | model-a low | 0 | 0 | 0 | 0 | 1 | — |",
     ].join("\n"),
   )

@@ -106,7 +106,8 @@ is below that floor.
    table, newest first and with an auditor column. Each row names every vetter of the round with its
    verdict. Every table shows each reason's first sentence,
    then the full reasons as a numbered list, numbered across the section.
-7. **Rounds by plan** sort by plan and then model. Their finding columns sum to the class totals
+7. **Rounds by plan** list the plan with the newest round first, and a plan's rows by model. A plan
+   without a retained round comes last. Their finding columns sum to the class totals
    behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.
 8. **Excluded plans** group by reason with their recorded models.
 
