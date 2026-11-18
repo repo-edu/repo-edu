@@ -3,8 +3,8 @@
 This file describes the rounds that follow one another on a target: the automatic series and its
 fixed rules, scope lists, open deferrals and the manual queue. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. Read this file before changing `judge.ts`, `queue.ts`,
-`open-deferrals.ts` or the series code in `command.ts`. It follows the runner documentation's
+[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
+source files this file describes. It follows the runner documentation's
 [Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
 
 ## Series

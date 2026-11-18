@@ -2,8 +2,8 @@
 
 This file describes the `models` command of the audit-round runner and its full-screen view. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. Read this file before changing `models.ts`, `model-evidence.ts`,
-`model-comparison.ts`, `pager.ts` or `pinned-headings.ts`. It follows the runner documentation's
+[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
+source files this file describes. It follows the runner documentation's
 [Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
 
 ## The command

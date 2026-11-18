@@ -2,9 +2,8 @@
 
 This file describes how the runner picks who runs a phase and how it starts and reads one assistant
 session. Read [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. Read this file before changing `phase.ts`, `settings.ts`,
-`startup.ts`, `requests.ts`, `assistant.ts`, `claude.ts`, `codex.ts`, `codex-session.ts` or
-`cli-process.ts`. It follows the runner documentation's
+[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
+source files this file describes. It follows the runner documentation's
 [Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
 
 ## Selections

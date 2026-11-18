@@ -3,9 +3,9 @@
 This file describes the watch that follows a round: the glance that decides whether it is due, the
 watch record and the episode evidence. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. Read this file before changing `glance.ts`, `episode.ts`,
-`episode-log.ts`, `episode-facts.ts` or the watch code in `round.ts`. It follows the runner
-documentation's [Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
+source files this file describes. It follows the runner documentation's
+[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
 
 ## Watch
 

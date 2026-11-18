@@ -2,8 +2,8 @@
 
 This file describes one round: its phase sequence, the readers of its reports, the winner rule and a
 ruling's wait. Read [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the
-runner's [CLAUDE.md](../CLAUDE.md) first. Read this file before changing `round.ts`, `clean.ts`,
-`report.ts`, `vet.ts`, `ruler-report.ts` or `ruling-wait.ts`. It follows the runner documentation's
+runner's [CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names
+the source files this file describes. It follows the runner documentation's
 [Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
 
 ## Round sequence

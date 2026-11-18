@@ -22,8 +22,9 @@ Before this rule the file held the automatic-series rules in four places.
 - A reference file holds one subject that no outside document links to by name. This file is
   loaded whole into every session that works on the runner, while a reference file costs only the
   work that needs it.
-- [Ownership](#ownership) maps each source file to the sections that describe it. Before changing
-  a source file, read the sections its row names. A change to the runner updates the section for
+- [Ownership](#ownership) maps each file directly inside `src/` to the sections that describe it.
+  It is the one such map: a reference file does not list its source files. Before changing a
+  source file, read the sections its row names. A change to the runner updates the section for
   the behaviour it changes, and it adds a table row only for a new file.
 
 | Reference | Subject |
@@ -49,6 +50,8 @@ Before this rule the file held the automatic-series rules in four places.
 | `round.ts` | The fixed phase sequence of a round, the reply a fix's open item needs, the watch that follows a round, the call of the series decision and the close's run | [Round sequence](references/rounds.md#round-sequence), [Winners and rulings](references/rounds.md#winners-and-rulings), [Watch](references/watch.md#watch), [close](#close) |
 | `clean.ts` | Direct completion when the audit report has no findings | [Clean audits](references/rounds.md#clean-audits) |
 | `report.ts`, `vet.ts`, `ruler-report.ts` | The readers of the audit report, the vet and rebuttal reports and the ruler report | [Report readers](references/rounds.md#report-readers) |
+| `phase-result.ts` | The readers of the `PHASE RESULT` line, the watch grade line and the settling line | [Phase routing](#phase-routing), [One invocation](references/sessions.md#one-invocation), [After the fix](references/rounds.md#after-the-fix), [Watch](references/watch.md#watch) |
+| `finding-tokens.ts` | The rating and location token definitions that the audit report reader, the record bullet reader and round data share | [Audit report](references/rounds.md#audit-report), [Record bullets](references/commit-hooks.md#record-bullets), [Round data](#round-data) |
 | `phase.ts`, `settings.ts` | Who runs each phase and on what, the capability tag's vocabulary, workflow selection and the loaded settings | [Selections](references/sessions.md#selections), [Model settings](#model-settings) |
 | `judge.ts`, `replay.ts` | The automatic-series evidence, the three fixed rules and their replay | [Automatic series](references/series.md#automatic-series), [replay](#replay) |
 | `queue.ts` | The shared entry splitter and the queue file's contents | [Manual queue](references/series.md#manual-queue) |
@@ -63,11 +66,14 @@ Before this rule the file held the automatic-series rules in four places.
 | `lifecycle.ts` | The plan-file preflight and the Git operations for settle, ready, the `implemented` marker and the close's round-data commit, and the check that a planning round's plan is committed | [settle](#settle), [ready](#ready), [implement](#implement), [close](#close), [Plan targets](#plan-targets) |
 | `implement.ts`, `implement-output.ts` | The implementation of plan steps and its logs | [implement](#implement), [Step logs](#step-logs) |
 | `subject.ts`, `commit-msg.ts`, `commit-msg-main.ts`, `findings.ts`, `sequence.ts` | The commit subject reader, the record bullet reader and the commit hook's rule | [Commit hooks](references/commit-hooks.md#commit-hooks) |
+| `listed-files.json` | Each repository's listed files | [Listed files](references/commit-hooks.md#listed-files) |
 | `startup.ts`, `requests.ts` | The cache root, the update checks, release resolution, and every phase's arguments and prompt | [Assistant sessions](references/sessions.md#assistant-sessions) |
 | `assistant.ts`, `claude.ts`, `codex.ts`, `codex-session.ts`, `cli-process.ts` | One assistant invocation, its decoders and its child process | [Assistant sessions](references/sessions.md#assistant-sessions) |
+| `feedback.ts` | The selection, event, output and recorder types that the assistant sessions and the output share | [One invocation](references/sessions.md#one-invocation), [Recorder slots](references/output.md#recorder-slots), [Measurements](references/output.md#measurements) |
 | `output.ts`, `run-clock.ts`, `terminal.ts`, `model-change.ts` | Terminal presentation, run recording, the number and files of every round, time readings and the model-change notice | [Output](references/output.md), [Numbers and claims](#numbers-and-claims), [Stopped rounds](#stopped-rounds) |
+| `output-format.ts` | The text of the settings header, the time and token readings, the capability tag and the commit stamps | [Settings header](references/output.md#settings-header), [Time readings](references/output.md#time-readings), [The hook's rule](references/commit-hooks.md#the-hooks-rule) |
 | `models.ts`, `model-evidence.ts`, `model-comparison.ts`, `pager.ts`, `pinned-headings.ts` | The model read-out and its full-screen view | [Model read-out](references/model-read-out.md) |
-| `contract.ts` | The CLI contract recorder | [Contract recorder](#contract-recorder) |
+| `contract-main.ts`, `contract.ts` | The contract command's entry and the CLI contract recorder | [Contract recorder](#contract-recorder) |
 
 Workflows own findings, authority, gates and phase outcomes. The shared protocol's
 [Runner result](../../.agents/references/round-protocol.md#runner-result) rule defines the meaning
@@ -1007,8 +1013,9 @@ read no settings and write no file.
 
 ### Contract recorder
 
-`pnpm audit-round:contract` runs `contract.ts`. It invokes the same assistant and output
-boundaries as a round, with a probe prompt on the built-in default selection.
+`pnpm audit-round:contract` runs `contract-main.ts`, which calls the recorder in `contract.ts`.
+The recorder invokes the same assistant and output boundaries as a round, with a probe prompt on
+the built-in default selection.
 
 - It requires successful and deliberately failed shell calls before replacing any selected
   fixtures.
