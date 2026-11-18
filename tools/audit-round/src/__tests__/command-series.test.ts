@@ -1693,12 +1693,29 @@ test("a commit series keeps its label while the next auditor reads the original 
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
 
-  const audits = (await f.prompts()).filter((call) =>
+  const prompts = await f.prompts()
+  const audits = prompts.filter((call) =>
     call.prompt.startsWith("Run the audit phase "),
   )
   assert.deepEqual(
     audits.map((call) => call.assistant),
     ["codex", "claude"],
+  )
+  // The round hands its label to the hook, so its fix lands under that label
+  // and the hand-run commit beside it stays outside the round.
+  const fixes = prompts.filter((call) =>
+    call.prompt.startsWith("Run the fix phase "),
+  )
+  assert.ok(fixes.length > 0)
+  assert.deepEqual([...new Set(fixes.map((call) => call.series))], [label])
+  const fixSubjects = (
+    await execa("git", ["log", "--format=%s", "--grep", "/commit-audit "], {
+      cwd: f.repoRoot,
+    })
+  ).stdout.split("\n")
+  assert.deepEqual(
+    [...new Set(fixSubjects)],
+    [`${label}/commit-audit oth growth-none c1 fix(audit-round): fixture`],
   )
   const secondArguments = /^Phase arguments \(JSON array\): (.+)$/m.exec(
     audits[1].prompt,

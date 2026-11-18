@@ -450,6 +450,27 @@ export function looseRole(line: string): string | null {
 }
 
 /**
+ * The series label a commit audit's record opens with, read loosely as
+ * `planForm` reads a plan's stem; null for every other subject. A commit
+ * round collects its records by it, as a plan round collects by its stem.
+ */
+export function seriesLabel(line: string): string | null {
+  const form = looseSplit(line)
+  return form?.role === seriesRole ? form.stem : null
+}
+
+/**
+ * Open a subject with a commit series' form, in place of any form it opened
+ * with. The commit hook writes a commit round's label this way, so a fix
+ * session never types it.
+ */
+export function withSeriesForm(line: string, series: string): string {
+  const tokens = line.split(" ")
+  const rest = looseSplit(line) === null ? tokens : tokens.slice(1)
+  return [`${series}/${seriesRole}`, ...rest].join(" ")
+}
+
+/**
  * Whether a loosely read role is an audit record's: a plan round, an
  * implementation-audit round or a commit audit.
  */

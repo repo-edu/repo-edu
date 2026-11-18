@@ -251,6 +251,8 @@ Skipped phases leave gaps.
   Group labels join with `+` in repository order.
 - Later rounds of a commit series keep the original label, while the audit report's target names
   the advancing exact set.
+- The same label opens every record the series' rounds land, under
+  [After the fix](references/rounds.md#after-the-fix).
 
 **Tags.**
 

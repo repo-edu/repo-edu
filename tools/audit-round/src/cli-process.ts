@@ -19,14 +19,15 @@ export type CliRuntime = {
   readonly env?: Readonly<Record<string, string>>
   /**
    * What the commit-msg hook stamps into a commit this round's work lands: the
-   * body's phase lines and the auditor's subject mark. It is read when a child
-   * starts, so the phase lines name the phases that ran by then; a run with no
-   * audit stamps nothing.
+   * body's phase lines, the auditor's subject mark and a commit round's series
+   * label. It is read when a child starts, so the phase lines name the phases
+   * that ran by then; a run with no audit stamps nothing.
    */
   readonly commit?: () =>
     | {
         readonly phases: string
         readonly auditor: string | null
+        readonly series: string | null
       }
     | undefined
   /** Serious contest findings whose missing winners block a fix commit. */
@@ -45,11 +46,14 @@ function environment(runtime: CliRuntime) {
     COMMIT_OPEN_CONTESTS: (runtime.openContests ?? []).join(","),
   }
   if (stamps === undefined) return { ...runtime.env, ...admission }
-  const { phases, auditor } = stamps
+  const { phases, auditor, series } = stamps
   return {
     ...runtime.env,
     ...admission,
     COMMIT_PHASES: phases,
+    // A plan round's empty label clears an inherited one, which would turn
+    // its records into a commit round's.
+    COMMIT_SERIES: series ?? "",
     ...(auditor === null ? {} : { COMMIT_AUDITOR: auditor }),
   }
 }

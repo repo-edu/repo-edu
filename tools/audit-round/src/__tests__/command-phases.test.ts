@@ -160,19 +160,23 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(invocations[2].args.includes("--resume"), false)
         assert.equal(invocations[3].args.includes("resume"), false)
         // The fix commits the round, so it carries the round's commit stamps:
-        // the phases grouped by what they ran on, and the auditor's capability
-        // tag. The phase reports take precedence over the startup settings.
+        // the phases grouped by what they ran on, the auditor's capability
+        // tag and an empty series label, which keeps the plan round's records
+        // in its plan form. The phase reports take precedence over the
+        // startup settings.
         const stamps = {
           phases:
             auditor === "codex"
               ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
               : `audit, vet, rebut: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
           auditor: recordedTag(auditor),
+          series: "",
         }
         assert.deepEqual(
           {
             phases: invocations[3].phases,
             auditor: invocations[3].auditor,
+            series: invocations[3].series,
           },
           stamps,
         )

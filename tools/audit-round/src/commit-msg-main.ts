@@ -38,6 +38,7 @@ try {
     {
       auditor: process.env.COMMIT_AUDITOR || null,
       phases: process.env.COMMIT_PHASES || null,
+      series: process.env.COMMIT_SERIES || null,
     },
     new Map(areaModel.areas.map((area) => [area.id, area.kind])),
     {

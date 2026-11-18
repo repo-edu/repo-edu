@@ -122,6 +122,8 @@ export type Run = {
   readonly title: string
   /** The plan stem or commit label the run serves; a ruling wait answers to it. */
   readonly target: string
+  /** A commit round's series label, which opens every record it lands; absent otherwise. */
+  readonly series?: string
   readonly phases: readonly RunEntry[]
   readonly releases: Record<Assistant, ModelReleases>
   readonly paths: RunPaths
@@ -424,6 +426,7 @@ export async function roundRun(
     },
     name: "Audit round",
     target: "plan" in setup ? planStem(setup.plan) : targetLabel(setup),
+    ...("groups" in setup ? { series: targetLabel(setup) } : {}),
     title: stored === undefined ? title : `${title}, continued`,
     phases: runPhases,
     paths: {
@@ -669,7 +672,12 @@ export class RoundOutput<R extends Run = Run> {
    * rebuttal stamps neither.
    */
   commitStamps = (): ReturnType<typeof commitStamps> =>
-    commitStamps(this.run.phases, this.ran, this.run.settings)
+    commitStamps(
+      this.run.phases,
+      this.ran,
+      this.run.settings,
+      this.run.series ?? null,
+    )
 
   private say(text: string): void {
     this.files.log(text)

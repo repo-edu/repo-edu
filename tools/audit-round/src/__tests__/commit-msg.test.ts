@@ -8,7 +8,7 @@ import { execa } from "execa"
 import { stampCommitMessage } from "../commit-msg.js"
 import { type Repository, SubjectError } from "../subject.js"
 
-const none = { auditor: null, phases: null }
+const none = { auditor: null, phases: null, series: null }
 const areaKinds = new Map([
   ["tool-audit-round", "partition"],
   ["area-x", "partition"],
@@ -370,6 +370,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
     auditor: "otx",
     phases:
       "audit, rebut: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: gpt-6-astra high",
+    series: null,
   }
   assert.equal(
     stampCommitMessage(
@@ -426,7 +427,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
     stampCommitMessage(
       step,
       "repo-edu",
-      { auditor: "otx", phases: null },
+      { auditor: "otx", phases: null, series: null },
       areaKinds,
     ),
     step,
@@ -436,7 +437,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
       stampCommitMessage(
         step.replace("gpt medium", "gpt high"),
         "repo-edu",
-        { auditor: "otx", phases: null },
+        { auditor: "otx", phases: null, series: null },
         areaKinds,
       ),
     /disagree/,
@@ -452,11 +453,55 @@ test("round stamps compose with the derived sequence and retain every finding", 
     )
 })
 
+test("a commit round's label opens every record its fix lands, in place of any form the fix wrote", () => {
+  const stamps = {
+    auditor: "otx",
+    phases: "audit, rebut: gpt-6-astra xhigh\nfix: gpt-6-astra high",
+    series: "commit-83bde0+3095d1",
+  }
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const finding = repository === "repo-edu" ? codeFinding : planFinding
+    const expected = message(
+      "commit-83bde0+3095d1/commit-audit otx growth-none c1 docs(x): s",
+      finding,
+      stamps.phases,
+    )
+    for (const subject of [
+      "a growth-none docs(x): s",
+      "commit-804833/commit-audit a growth-none docs(x): s",
+      "example/impl-audit-1 a growth-none docs(x): s",
+    ]) {
+      const stamped = stampCommitMessage(
+        message(subject, finding),
+        repository,
+        stamps,
+        areaKinds,
+      )
+      assert.equal(stamped, expected)
+      assert.equal(
+        stampCommitMessage(stamped, repository, stamps, areaKinds),
+        expected,
+      )
+    }
+  }
+  assert.throws(
+    () =>
+      stampCommitMessage(
+        message("a growth-none docs(x): s"),
+        "repo-edu",
+        stamps,
+        areaKinds,
+      ),
+    /graded/,
+  )
+})
+
 test("round stamps replace the whole opening model record and time line without changing on a second stamp", () => {
   const stamps = {
     auditor: "ath",
     phases:
       "audit: claude-fable-5-1 high\nvet, fix: gpt-6-astra high\nAudit and vet took 7 min.",
+    series: null,
   }
   const previous =
     "audit: claude-fable-5-1 medium\nvet, fix: gpt-6-astra medium\nAudit and vet took 9 min."
@@ -615,6 +660,7 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
           env: {
             COMMIT_AUDITOR: "",
             COMMIT_PHASES: "",
+            COMMIT_SERIES: "",
             COMMIT_OPEN_CONTESTS: "",
             ...env,
           },
@@ -718,6 +764,19 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
     assert.equal(await readFile(file, "utf8"), offPlan)
     const unlisted = await run("repo-edu", {}, "README.md\0")
     assert.equal(unlisted.exitCode, 0, unlisted.stderr)
+    for (const repository of ["repo-edu", "plan"] as const) {
+      const finding = repository === "repo-edu" ? codeFinding : planFinding
+      await writeFile(file, message("oth growth-none docs(repo): s", finding))
+      const series = await run(repository, { COMMIT_SERIES: "commit-804833" })
+      assert.equal(series.exitCode, 0, series.stderr)
+      assert.equal(
+        await readFile(file, "utf8"),
+        message(
+          "commit-804833/commit-audit oth growth-none c1 docs(repo): s",
+          finding,
+        ),
+      )
+    }
     const joined = message(
       "oth fix(audit-round): correct the record",
       `${codeFinding}\n${codeFinding.replace("[C] ", "[C]")}`,

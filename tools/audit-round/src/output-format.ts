@@ -193,14 +193,21 @@ function reportedTag(
 
 /**
  * What a round stamps into a commit its fix lands: the body's phase lines with
- * their time line and the auditor's subject mark. A run with no audit phase
- * stamps neither.
+ * their time line, the auditor's subject mark and a commit round's series
+ * label, null for a plan round. A run with no audit phase stamps none of them.
  */
 export function commitStamps(
   entries: readonly RunEntry[],
   ran: ReadonlyMap<string, RanPhase>,
   settings: RoundSettings,
-): { readonly phases: string; readonly auditor: string | null } | undefined {
+  series: string | null,
+):
+  | {
+      readonly phases: string
+      readonly auditor: string | null
+      readonly series: string | null
+    }
+  | undefined {
   const audit = entries.find(({ phase }) => phase === "audit")
   const run = ran.get(slotKey("audit"))
   if (audit === undefined || run === undefined) return undefined
@@ -211,6 +218,7 @@ export function commitStamps(
       ...(time === null ? [] : [time]),
     ].join("\n"),
     auditor: reportedTag(audit.assistant, run.selection, settings),
+    series,
   }
 }
 

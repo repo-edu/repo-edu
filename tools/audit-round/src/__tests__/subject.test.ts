@@ -11,6 +11,8 @@ import {
   type Repository,
   type SubjectClass,
   SubjectError,
+  seriesLabel,
+  withSeriesForm,
 } from "../subject.js"
 
 const grammar = fileURLToPath(
@@ -428,4 +430,27 @@ test("the role, not the label's spelling, tells a series form from a plan form",
     parseSubject("commit-804833/impl-audit-1 abx clean: x", "repo-edu").class,
     "I4",
   )
+})
+
+test("a commit round reads its records by their series label and writes that label itself", () => {
+  assert.equal(
+    seriesLabel("commit-83bde0+3095d1/commit-audit obx clean: x"),
+    "commit-83bde0+3095d1",
+  )
+  for (const other of [
+    "commit-804833/impl-2 abx feat(x): x",
+    "example/impl-audit-1 abx clean: x",
+    "abx growth-none c1 fix(repo): x",
+  ])
+    assert.equal(seriesLabel(other), null, other)
+  for (const subject of [
+    "abx growth-none c1 fix(repo): x",
+    "commit-733686..d081b7/commit-audit abx growth-none c1 fix(repo): x",
+    "example/impl-audit-1 abx growth-none c1 fix(repo): x",
+  ])
+    assert.equal(
+      withSeriesForm(subject, "commit-804833"),
+      "commit-804833/commit-audit abx growth-none c1 fix(repo): x",
+      subject,
+    )
 })

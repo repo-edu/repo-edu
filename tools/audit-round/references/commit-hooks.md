@@ -57,6 +57,11 @@ Stamps the runner supplies:
   commit audit's record is an audit record like a plan's.
 - It replaces the body's opening phase lines and time line with `COMMIT_PHASES` when a round
   supplies it, so a second stamp repeats neither. It requires a model line otherwise.
+- It opens the subject with `<label>/commit-audit` when a commit round supplies its series label as
+  `COMMIT_SERIES`, in place of any form the subject opened with. The fix session never types the
+  label: a mistyped one would leave the record outside the round without a sign, because a commit
+  round may land nothing. The subject is then an audit record, so the other stamps and the derived
+  severity apply to it. A plan round supplies an empty label.
 - Every assistant child carries the round's commit stamps, overriding any inherited ones, so a
   phase that commits records the round that ran rather than whatever started it.
 - The stamps are read when the child starts, from the output's record of the phases that have run.

@@ -346,6 +346,7 @@ test("commit stamps retain each phase's reported selection across later phases",
     phases:
       "audit: claude-fable-5-1 high\nvet, fix: gpt-6-astra medium\nrebut: claude-fable-5-1 xhigh",
     auditor: "ath",
+    series: null,
   })
 })
 

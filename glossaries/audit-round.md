@@ -152,7 +152,10 @@ is always named in full.
   this way whenever the user types no manual queue.
 - **Commit series**: a series whose target is a set of commits rather than a
   plan. Each later round adds the fixes the series has landed. It has no close,
-  so its round files stay in the round folder.
+  so its round files stay in the round folder. Its series label, `commit-`
+  followed by the short IDs of the commits it first audited, names its round
+  files and round data and opens every record its rounds land, where a plan's
+  records open with the plan's stem.
 - **Current read**: a listed auditor's audit of the target that started after
   the latest event that changed the target's scope. Those events are a settle
   or reopen, a plan step, a plan-file edit outside a round and an audit with a

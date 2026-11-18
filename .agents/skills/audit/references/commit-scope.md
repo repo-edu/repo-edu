@@ -53,7 +53,9 @@ Before any audit work, check three things.
   outside the touched set is never read and does not block the round. When
   the check fails, name the repo and every dirty touched path and stop.
 - Every current commit in each group is reachable from that repo's HEAD.
-- No commit in `originalCommits` carries a plan stem. Earlier round fixes have
+- No commit in `originalCommits` carries a plan stem. An earlier series'
+  `commit-audit` record opens with a series label, which is no plan stem, so
+  the round audits it like any commit without a plan. Earlier round fixes have
   already passed the runner's subject validation and do not repeat this gate.
 
 A commit carrying a plan stem belongs to a plan-scoped round, which judges it
@@ -131,11 +133,18 @@ runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) and
 
 ## Record
 
-A commit-scoped round has no plan stem, so its fix commits carry no `impl-audit-` role token. It
-lands one record in each judged repo whose files took accepted findings and none in a judged repo
-without findings. A Repo Edu record takes Repo Edu's ordinary severity-prefixed conventional form. A
-plan-repo record takes the subject grammar's O2 off-plan form. A round that judges both repos defers
-nothing between them. Every record follows the shared protocol's **Finding metadata** and the
+Every commit a commit-scoped round lands is one of its records. In either repo it takes the subject
+grammar's commit-audit form: the series label and the `commit-audit` role, then the tag, burden
+mark, severity sequence and kind of an audit record. Write the subject from the tag on, as
+`abx growth-none docs(claude): …`. The commit hook opens it with the round's `<label>/commit-audit`
+in place of any form it opened with, so the label is never typed, and the runner collects the
+round's records by that label. The label reads like the ID column of the log beside the audited
+commits, so the log shows which commits a record belongs to. Case:
+[`commit-audit-form`](../../../../../plan/CASES.md#commit-audit-form).
+
+The round lands one record in each judged repo whose files took accepted findings and none in a
+judged repo without findings. A round that judges both repos defers nothing between them. Every
+record follows the shared protocol's **Finding metadata** and the
 [record bullet grammar](../../../references/round-grammar.md#commit-record-bullet).
 
 The fix does not apply a finding whose correction changes a listed file, as the

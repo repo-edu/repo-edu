@@ -25,6 +25,7 @@ await appendFile(
     cwd: process.cwd(),
     phases: process.env.COMMIT_PHASES ?? null,
     auditor: process.env.COMMIT_AUDITOR ?? null,
+    series: process.env.COMMIT_SERIES ?? null,
     openContests: process.env.COMMIT_OPEN_CONTESTS ?? null,
   })}\n`,
 )
@@ -95,7 +96,7 @@ if (assistant === "claude") {
 }
 await appendFile(
   join(root, "prompts.jsonl"),
-  `${JSON.stringify({ assistant, args, prompt, auditor: process.env.COMMIT_AUDITOR ?? null, phases: process.env.COMMIT_PHASES ?? null })}\n`,
+  `${JSON.stringify({ assistant, args, prompt, auditor: process.env.COMMIT_AUDITOR ?? null, phases: process.env.COMMIT_PHASES ?? null, series: process.env.COMMIT_SERIES ?? null })}\n`,
 )
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
@@ -230,14 +231,24 @@ if (scenario.phases !== undefined) {
   }
 }
 
+// The commits skip the hooks, so a round's commit stamps are written here as
+// the hook writes them: the phase lines open the body and a commit round's
+// series label opens the subject in place of any form it opened with. A
+// commit without the round's stamps stands for hand-run work.
 for (const commit of scenario.commits ?? []) {
+  const stamped = commit.roundStamp !== false
   const phaseStamp = process.env.COMMIT_PHASES?.trim()
+  const series = process.env.COMMIT_SERIES || undefined
   const body = [
-    ...(commit.roundStamp === false || phaseStamp === undefined
-      ? []
-      : [phaseStamp]),
+    ...(!stamped || phaseStamp === undefined ? [] : [phaseStamp]),
     ...(commit.body === undefined ? [] : [commit.body]),
   ].join("\n\n")
+  const subject =
+    commitTarget && commit.commitSubject !== undefined
+      ? commit.commitSubject
+      : commit.subject
+  const [opening = "", ...rest] = subject.split(" ")
+  const unformed = opening.includes("/") ? rest.join(" ") : subject
   await promisify(execFile)(
     "git",
     [
@@ -253,9 +264,9 @@ for (const commit of scenario.commits ?? []) {
       "--allow-empty",
       "-q",
       "-m",
-      commitTarget && commit.commitSubject !== undefined
-        ? commit.commitSubject
-        : commit.subject,
+      stamped && series !== undefined
+        ? `${series}/commit-audit ${unformed}`
+        : subject,
       ...(body.length === 0 ? [] : ["-m", body]),
     ],
     { cwd: commit.cwd },

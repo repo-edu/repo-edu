@@ -302,7 +302,9 @@ Plan-related commits use the shared `<stem>/` forms. Their meaning and keying
 are owned by the shared protocol's
 [Shared implementation forms](.agents/references/round-protocol.md#shared-implementation-forms)
 and their shape by the subject grammar. Use those owners for plan identity and step numbers. A
-commit unattached to a plan keeps this repo's ordinary severity-prefixed conventional subject.
+commit audit's records open with its series label instead of a stem, under the commit scope's
+[Record](.agents/skills/audit/references/commit-scope.md#record). Any other commit unattached to a
+plan keeps this repo's ordinary severity-prefixed conventional subject.
 
 For implementation-audit records, follow the shared protocol's
 [Shared implementation forms](.agents/references/round-protocol.md#shared-implementation-forms)

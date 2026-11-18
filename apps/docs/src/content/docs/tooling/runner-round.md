@@ -83,12 +83,15 @@ reference keeps `.md` to mark it as a plan.
 5. **Fix.** The fixer applies the agreed corrections and lands the record. A planning round and a
    commit audit of plan-repo commits alone fix on `planningAudit.fixer` in
    `tools/audit-round/settings.json`. An implementation round fixes on the plan's assigned coder. A
-   commit audit with Repo Edu commits fixes on the first `coders` entry. The fix may stop for your
-   ruling. When the rebuttal contests a vetter's verdict, or two vetters of the panel give different
-   verdicts, on a finding whose highest grade from the audit report or any vetter is A or B, that
-   ruling shows every position and you name what was right: the audit report, one or more vetters
-   by their tags, or neither. The fix applies the ruler's winners without judging them again. Two
-   revisions the rebuttal agrees with both do not stop the round; the fix picks one.
+   commit audit with Repo Edu commits fixes on the first `coders` entry. A commit audit's fix
+   commits open with its series label, as
+   `commit-804833/commit-audit abx pruning-low c3 docs(audit-round): …`; the commit hook writes the
+   label, so the log ties each fix to the commits it audited. The fix may stop for your ruling. When
+   the rebuttal contests a vetter's verdict, or two vetters of the panel give different verdicts, on
+   a finding whose highest grade from the audit report or any vetter is A or B, that ruling shows
+   every position and you name what was right: the audit report, one or more vetters by their tags,
+   or neither. The fix applies the ruler's winners without judging them again. Two revisions the
+   rebuttal agrees with both do not stop the round; the fix picks one.
 6. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade. The watch
    runs on the `watch` selection of the target work class's audit level in

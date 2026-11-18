@@ -826,8 +826,6 @@ export type RoundDependencies = {
     sha: string,
     repository: LandedRecord["repository"],
   ) => Promise<LandedRecord>
-  /** The exact leading phase records supplied to this round's fix sessions. */
-  readonly commitPhaseStamps: () => readonly string[]
   readonly runPhase: {
     readonly [P in Exclude<Phase, "implement">]: (
       input: PhaseInput<P>,

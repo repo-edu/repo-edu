@@ -99,8 +99,3 @@ export const capabilityTag = (
   entry: format.RunEntry,
   configured: Parameters<typeof format.capabilityTag>[1],
 ) => format.capabilityTag(entry, configured, testSettings)
-
-export const commitStamps = (
-  entries: Parameters<typeof format.commitStamps>[0],
-  selections: Parameters<typeof format.commitStamps>[1],
-) => format.commitStamps(entries, selections, testSettings)

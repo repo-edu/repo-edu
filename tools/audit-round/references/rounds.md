@@ -60,6 +60,9 @@ landed records and validates every subject under its repository's grammar.
 
 - A plan target keeps only the records whose subject carries its stem, because another plan's
   round may land in the same checkout while the fix runs.
+- A commit target keeps only the records whose subject opens with its series label, which the
+  [hook](commit-hooks.md#the-hooks-rule) writes into every commit the fix lands. Another series
+  has another label and hand-run work has none, so neither joins the round.
 - A plan target fails when a finished fix landed no commit.
 - A commit target may land nothing. A finished clean commit entry settles the runner's read
   without a landed record.

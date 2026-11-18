@@ -8,17 +8,19 @@ import {
   parseSubject,
   type Repository,
   SubjectError,
+  withSeriesForm,
 } from "./subject.js"
 
 /**
  * What a round hands the commit hook through the environment: the auditor's
- * tag for a record's subject and the body's phase lines with their time line.
- * A session committing on its own hands it nothing and writes its own tag and
- * model line.
+ * tag for a record's subject, the body's phase lines with their time line and,
+ * for a commit round, its series label. A session committing on its own hands
+ * it nothing and writes its own tag and model line.
  */
 export type CommitStamps = {
   readonly auditor: string | null
   readonly phases: string | null
+  readonly series: string | null
 }
 
 export type CommitAdmission = {
@@ -123,9 +125,10 @@ export function readStepModelRecord(body: string): StepModelRecord {
  * a tagged subject's body opens with the model the work ran on, and a
  * single-model record agrees with the tag on the effort. Runner-written settle
  * and ready markers and the user's disprove ruling have neither. A commit
- * audit's record is an audit record like a plan's. A commit that changes a
- * listed file must carry a step or implementation-audit subject, so a commit
- * audit's record is refused one.
+ * round's series label opens the subject with the commit-audit form, so every
+ * commit the round lands is its record. A commit audit's record is an audit
+ * record like a plan's. A commit that changes a listed file must carry a step
+ * or implementation-audit subject, so a commit audit's record is refused one.
  */
 export function stampCommitMessage(
   text: string,
@@ -141,8 +144,12 @@ export function stampCommitMessage(
   const trailing = text.endsWith("\n")
   const lines = (trailing ? text.slice(0, -1) : text).split("\n")
   if (text.length === 0) return text
-  const tokens = lines[0].split(" ")
-  const role = looseRole(lines[0])
+  // The round supplies its own label. A mistyped one would leave the record
+  // outside the round without a sign, because a commit round may land nothing.
+  const opening =
+    stamps.series === null ? lines[0] : withSeriesForm(lines[0], stamps.series)
+  const tokens = opening.split(" ")
+  const role = looseRole(opening)
   // A plan or series form opens the subject and takes the first field, so the
   // tag follows it; an ordinary subject opens with the tag itself.
   const slot = role === null ? 0 : 1

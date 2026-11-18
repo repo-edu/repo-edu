@@ -1,5 +1,4 @@
 import { isDeepStrictEqual } from "node:util"
-import { readModelRecord } from "./commit-msg.js"
 import type { ClosedRoundFiles } from "./evidence.js"
 import { errorMessage, type ModelReleases } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
@@ -50,9 +49,14 @@ import {
   settleRoundFindings,
   tierWithin,
 } from "./round-data.js"
-import { documentTag, transcriptNameStart } from "./round-paths.js"
+import { documentTag, targetLabel, transcriptNameStart } from "./round-paths.js"
 import type { Auditor, RoundSettings } from "./settings.js"
-import { parseSubject, planForm, type Repository } from "./subject.js"
+import {
+  parseSubject,
+  planForm,
+  type Repository,
+  seriesLabel,
+} from "./subject.js"
 import {
   type AuditTarget,
   type CommitGroup,
@@ -221,22 +225,6 @@ function auditTier(
   if (finding === undefined)
     throw new Error(`The ruler was given no audit report finding ${number}`)
   return finding.tier
-}
-
-/** Compare the commit body's complete leading model record with this round's stamps. */
-function carriesPhaseStamp(
-  record: LandedRecord,
-  stamps: readonly string[],
-): boolean {
-  const body = record.message.startsWith(`${record.subject}\n`)
-    ? record.message.slice(record.subject.length + 1)
-    : record.message
-  try {
-    const recordStamp = readModelRecord(body).join("\n")
-    return stamps.includes(recordStamp)
-  } catch {
-    return false
-  }
 }
 
 /** What names a round before it starts: its target, who audits and fixes and on what. */
@@ -1283,29 +1271,28 @@ export async function runRound(
   let commits: readonly LandedCommit[] = landed
     .flat()
     .map(({ repository, sha }) => ({ repository, sha }))
+  // A commit belongs to the round when it opens with the round's own form: a
+  // plan round's stem or a commit round's series label. Another plan's round,
+  // another series and hand-run work carry another form or none.
+  const belongsToRound =
+    "plan" in input
+      ? (record: LandedRecord) =>
+          planForm(record.subject)?.stem === planStem(input.plan)
+      : (record: LandedRecord) =>
+          seriesLabel(record.subject) === targetLabel(input)
   // A fix may commit before it fails, is interrupted or asks for a ruling.
   // Read its records after every invocation so every exit retains the same
   // exact scope evidence as a finished fix.
   const readFixRecords = async (): Promise<
     readonly (readonly LandedRecord[])[]
-  > => {
-    const stem = "plan" in input ? planStem(input.plan) : null
-    const phaseStamps = stem === null ? dependencies.commitPhaseStamps() : []
-    if (stem === null && phaseStamps.length === 0)
-      throw new Error("Missing fix phase stamp for a commit target")
-    const belongsToRound = (record: LandedRecord): boolean => {
-      if ((planForm(record.subject)?.stem ?? null) !== stem) return false
-      if (stem !== null) return true
-      return carriesPhaseStamp(record, phaseStamps)
-    }
-    return (
+  > =>
+    (
       await Promise.all(
         repositories.map(({ root, repository }, index) =>
           dependencies.readRecords(root, before[index], repository),
         ),
       )
     ).map((records) => records.filter(belongsToRound))
-  }
   const collectFixRecords = async (): Promise<void> => {
     const found = await readFixRecords()
     landed = landed.map((records, index) => {

@@ -80,7 +80,7 @@ for (const working of ["plan", "repo-edu"] as const) {
         stampCommitMessage(
           message,
           owner,
-          { auditor: null, phases: null },
+          { auditor: null, phases: null, series: null },
           new Map(),
         ),
         message,
@@ -208,6 +208,7 @@ test("clean deferral citations stay in one bullet list", async (t) => {
     {
       auditor: "obx",
       phases: "audit: gpt-6.1-sol xhigh\nAudit took 1 min.",
+      series: null,
     },
   )
 
@@ -315,7 +316,7 @@ test("clean records share archived and widening plan identities with output file
         report: "/repo/topic-01-2-audit.oth.md",
         judgedRepos: ["plan"],
       },
-      { auditor: null, phases: null },
+      { auditor: null, phases: null, series: null },
     ),
     /audit's model/,
   )

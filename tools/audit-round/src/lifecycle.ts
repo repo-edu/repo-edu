@@ -71,6 +71,7 @@ export async function commitOnly(
         : {
             COMMIT_AUDITOR: input.stamps.auditor ?? undefined,
             COMMIT_PHASES: input.stamps.phases ?? undefined,
+            COMMIT_SERIES: input.stamps.series ?? "",
           },
   })
   const sha = (await execa("git", ["rev-parse", "HEAD"], { cwd: input.cwd }))
