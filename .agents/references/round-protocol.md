@@ -342,7 +342,7 @@ the AI proposed and the user accepted is not directed, however short the accepta
 the proposer's burden and lands in the record that lands the mechanism, the plan decision or the
 commit body. Without this line, a chat proposal accepted in one word carried a write ceiling into a
 ready plan past the case, and the round that then read the plan sized the ceiling instead of pricing
-it (failure row
+it (failure entry
 [`accepted-proposal-without-case`](../../../plan/FAILURES.md#accepted-proposal-without-case)).
 
 Rule text in both repos, `CLAUDE.md` files included, states each decision and
@@ -370,7 +370,7 @@ One further rule governs how any ruling reaches the user. A round that asks the 
 the question first: the request states how rare the defended event is, what the mechanism costs to
 build and own, what the cheapest alternative is and what the user notices in each case. An unpriced
 ruling request is not ready to be asked: an unpriced boundary ruling once let a costly mechanism
-stand (failure row
+stand (failure entry
 [`unpriced-session-exit-ruling`](../../../plan/FAILURES.md#unpriced-session-exit-ruling)).
 
 ## History reads

@@ -193,7 +193,7 @@ is always named in full.
   named on the runner's list of such files or sitting under a folder the list
   names. It changes only inside a plan, as a step or as a fix from that plan's
   implementation audit.
-- **Failure record**: the plan repo's root file with one row for each failure
+- **Failure record**: the plan repo's root file with one entry for each failure
   the round doctrine exists to prevent. A plan that changes a listed file and
   its audit rounds measure the change against it.
 - **Case record**: the plan repo's root file with one entry for each priced
