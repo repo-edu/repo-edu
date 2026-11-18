@@ -776,9 +776,12 @@ consumers.
   listed step, hosting repo and audit range. Loose forms find each hosted step, its repo's newest
   step and its newest `implemented` marker. When every hosted share has landed and each marker is
   newer than its repo's latest hosted step, the bare plan resolves to the listed audit ranges in
-  order followed by the full listed range. A sentence listing only that full range resolves it
-  once. Otherwise it names pending steps by repo and every missing or stale marker. It does not skip
-  a listed range because an implementation-audit record already exists for it. `defaultPlan`
+  order followed by the full listed range; otherwise it names pending steps by repo and every
+  missing or stale marker. A sentence listing only that full range resolves it once. The list starts
+  at the range where a stopped run left off: the range whose newest round, by the round folder's
+  numbers as `roundRun` reads them, has an entry that `stoppedEarly` in `round-data.ts` reads as
+  stopped, and of several such ranges the one whose round started last. It reads the plan's round
+  data once and no commit. A finished implementation-audit record skips no range. `defaultPlan`
   applies the same plan rule alone for the `plan` command and a `close` given no stem. The home
   `/brief-plan` runs `plan` for an omitted stem, and `/close` runs `close` itself.
   The implement command reuses this per-repo progress reader without applying
@@ -1097,6 +1100,8 @@ scope list and a chained round need no rule of their own. A round that stopped i
 audit report, so the call opens a new round, and `--first`, `--auditor` and the current settings
 apply to it. Only the newest round counts: a stopped round that a later round followed is never
 continued. A runner that is killed writes no entry, so its round is not continued either.
+`stoppedEarly` in `round-data.ts` owns which statuses mean a stopped round, for this rule and for
+the range a bare plan name's range list starts at under [Plan targets](#plan-targets).
 
 A chained round is the planning round an implementation series adds for open deferrals into the
 plan repo. Its entry stores its deferral list, and a planning entry with that list marks the round
@@ -1147,9 +1152,17 @@ stem history decide what a bare plan name means:
 A concrete step scope selects an implementation audit and is refused before
 any step lands. A list of step scopes, as in `pnpm audit-round <stem> 2,3-5,6-7`,
 selects one implementation audit per scope and runs an automatic series on each
-in list order. The completed bare name uses the same path for the plan's listed
-ranges and its final full range. It skips no listed range because that range
-has an earlier implementation-audit record. Once a step has landed, no
+in list order, as typed. The completed bare name uses the same path for the
+plan's listed ranges and its final full range. A finished implementation-audit
+record skips no range. A rerun after a stopped run goes on at the range where
+the run stopped: the range whose newest round stopped early under
+[Stopped rounds](#stopped-rounds), or of several such ranges the one whose
+round started last. The ranges before it are not audited again, because a
+restart does not redo finished work. An earlier range is not read again after a
+later range's fix changed its code; the full range that ends the list still
+reads every step's current code before the close. With no stopped round the
+list starts at its first range. A killed round leaves no entry, so its range
+holds no stopped round. Once a step has landed, no
 unscoped invocation selects a planning audit. The scope word `plan`, as in
 `pnpm audit-round <stem> plan`,
 selects the planning audit whatever has landed, without reading the step list.
@@ -1489,9 +1502,10 @@ it is the user's settle, ready and close call, so the run settles on the runner'
 range series that needed nobody, through the same lifecycle functions and commit forms as `settle`,
 `ready` and `close`. Any other ending ends the run with the stage's own lines and recovery command,
 then one line naming the stage it ended in and the stages it completed. Running the same command
-again continues from where the plan stands; no run file or cursor exists. The run takes `-v`, the
-implementation recovery option `--resume` and no round option: every series it opens starts with the
-ordinary opener and runs the glance and the watch. A resumed session attaches only
+again continues from where the plan stands; no run file or cursor exists. In the audit range series
+it goes on at the range where the run stopped, under [Plan targets](#plan-targets). The run takes
+`-v`, the implementation recovery option `--resume` and no round option: every series it opens
+starts with the ordinary opener and runs the glance and the watch. A resumed session attaches only
 when the run starts in the implementation; a run starting in another stage says the session stays
 unused. A user who wants another opener, no watch or a read between stages runs the stage
 commands.

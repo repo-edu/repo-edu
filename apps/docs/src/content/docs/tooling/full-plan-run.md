@@ -58,7 +58,8 @@ the close.
 The run keeps no state of its own. Each stage prints its own lines and keeps its own files, and the
 run adds one line per stage start and one ending line naming the stage it ended in and the stages it
 completed. Running the same command again reads both repos again and continues from where the plan
-stands.
+stands. In the audit range series it starts at the range whose round stopped, so the ranges before
+it are not audited again, and the full range at the end still reads every step.
 
 `--resume` attaches the printed worker session only when the run starts in the implementation and
 that step is still pending. Otherwise the run prints that the session stays unused and continues

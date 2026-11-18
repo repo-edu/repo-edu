@@ -9,7 +9,9 @@ import { type PlanStep, readAuditRanges, readPlanSteps } from "./plan-steps.js"
 import {
   type ImplementationRoundData,
   readPlanRoundData,
+  stoppedEarly,
 } from "./round-data.js"
+import { newestRound, targetLabel } from "./round-paths.js"
 import { looseForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
@@ -192,11 +194,13 @@ async function orderedCommits(
  * the planning round whatever has landed, because a bare name stops selecting
  * it once a step lands. Moving on to another scope is the user's call, so a
  * plan between its steps stops with its reason. Named step scopes each become
- * one target, in the order given, once any step has landed.
+ * one target, in the order given, once any step has landed, and run as typed.
+ * An implemented plan's name lists its audit ranges and then the full range,
+ * starting at the range where a stopped run left off.
  */
 export async function selectTargets(
   logs: ImplementationLogs,
-  roots: PlanRoots,
+  roots: PlanRoots & Pick<ExecutionContext, "roundRoot">,
   request: {
     readonly plan: string
     readonly scope: ScopeRequest | null
@@ -231,12 +235,16 @@ export async function selectTargets(
     const last = listedSteps.length
     const fullRange = last === 1 ? "1" : `1-${last}`
     const ranges = readAuditRanges(source, last)
-    if (ranges.length === 1) return [implementation(fullRange)]
-    return [
-      implementation(ranges[0]),
-      ...ranges.slice(1).map(implementation),
-      implementation(fullRange),
-    ]
+    const listed: AuditTargets =
+      ranges.length === 1
+        ? [implementation(fullRange)]
+        : [
+            implementation(ranges[0]),
+            ...ranges.slice(1).map(implementation),
+            implementation(fullRange),
+          ]
+    const start = await stoppedRange(roots, topic, listed)
+    return [listed[start], ...listed.slice(start + 1)]
   }
   const pending = status.repositories.flatMap(({ name, pending }) =>
     pending.length === 0
@@ -258,6 +266,38 @@ export async function selectTargets(
   throw new InvalidArgumentError(
     `${topic} is still being implemented. ${[...pending, ...markers].join(" ")} ${scopeHint}`,
   )
+}
+
+/**
+ * Where the range list a bare plan name resolves to starts: at the range whose
+ * newest round stopped early, the one that started last when several ranges
+ * hold such a round, or at the first range when none does. A restart does not
+ * redo finished work, so the ranges before it are not audited again; the full
+ * range that ends the list still reads every step's current code. The newest
+ * round is the one a rerun would continue, so a killed round, which keeps a
+ * claim but no entry, leaves its range with no stopped round.
+ */
+async function stoppedRange(
+  roots: Pick<ExecutionContext, "roundRoot">,
+  topic: string,
+  ranges: AuditTargets,
+): Promise<number> {
+  const { implementation = [] } = await readPlanRoundData(
+    roots.roundRoot,
+    topic,
+  )
+  let start = { index: 0, started: Number.NEGATIVE_INFINITY }
+  for (const [index, range] of ranges.entries()) {
+    const target = targetLabel(range)
+    const round = await newestRound(roots, target)
+    const stored = implementation.find(
+      (entry) => entry.target === target && entry.round === round,
+    )
+    if (stored === undefined || !stoppedEarly(stored)) continue
+    const started = Date.parse(stored.started)
+    if (started > start.started) start = { index, started }
+  }
+  return start.index
 }
 
 /**

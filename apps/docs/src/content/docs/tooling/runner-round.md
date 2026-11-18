@@ -49,7 +49,9 @@ Separate list entries with commas or spaces, and quote a list that holds spaces.
 1. **A plan stem alone** runs the audit its history calls for. Before any step lands it is a
    planning audit of the plan document. Once every listed share has landed and each hosting repo's
    `implemented` marker follows its newest hosted step, it runs each `Audit ranges:` scope in order,
-   then the full listed range; a sentence listing only the full range runs that range once.
+   then the full listed range; a sentence listing only the full range runs that range once. When a
+   round on one of those ranges stopped, the rerun starts at that range and does not audit the
+   ranges before it again. The full range at the end still reads every step.
 2. **The word `plan`** selects the planning audit whatever has landed, for a plan edited after
    ready. It continues the plan's `-plan-audit` series.
 3. **A step or range** selects an implementation audit of those steps. A list of scopes runs one

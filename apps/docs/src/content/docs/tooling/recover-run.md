@@ -41,6 +41,10 @@ run the printed command, and the new audit reads the changed text.
 
 An `--auditor` or `--first` option on the rerun applies to the rounds after the continued one.
 
+When the stopped round sits in a plan's audit range series, a rerun of the plan name starts at that
+range. The ranges before it are not audited again, and the full range at the end still reads every
+step. A list of scopes you typed runs as typed.
+
 The `Session:` line names the stopped session, so you can still open it and ask what went wrong.
 A resumed session cannot finish the round, because only the runner saves the reports and stores
 the round's data.

@@ -7,14 +7,23 @@ import { InvalidArgumentError } from "commander"
 import type { PlanRoots } from "../context.js"
 import { selectTargets } from "../default-target.js"
 import type { LogCommit } from "../episode-log.js"
+import {
+  type ImplementationRoundData,
+  roundDataFilename,
+  writeRoundData,
+} from "../round-data.js"
 import type { Repository } from "../subject.js"
 import { type AuditTarget, planningScope, planStem } from "../target.js"
 
-async function planRoots(t: TestContext): Promise<PlanRoots> {
+async function planRoots(
+  t: TestContext,
+): Promise<PlanRoots & { readonly roundRoot: string }> {
   const planRoot = await mkdtemp(join(tmpdir(), "default-target-"))
   t.after(() => rm(planRoot, { recursive: true, force: true }))
   const root = join(planRoot, "active")
   await mkdir(root)
+  const roundRoot = join(planRoot, "rounds")
+  await mkdir(roundRoot)
   await writeFile(
     join(root, "example.md"),
     `# Plan
@@ -74,7 +83,7 @@ The shape is still open, so no implementation steps exist yet.
 Audit ranges: 1, 3.
 `,
   )
-  return { planRoot, activeRoot: root }
+  return { planRoot, activeRoot: root, roundRoot }
 }
 
 /** Each repository's commits are supplied oldest first and returned in Git order. */
@@ -208,6 +217,102 @@ test("a completed bare plan refuses malformed audit ranges", async (t) => {
     ),
     /Audit ranges leave a gap before step 3; expected step 2\./,
   )
+})
+
+/** One retained round on a range of the example plan, as the runner keeps it. */
+function rangeRound(
+  scope: "1-2" | "3" | "1-3",
+  round: number,
+  started: number,
+  status: ImplementationRoundData["status"],
+): ImplementationRoundData {
+  const target = {
+    "1-2": "example-impl-audit-01..02",
+    "3": "example-impl-audit-03..03",
+    "1-3": "example-impl-audit-01..03",
+  }[scope]
+  return {
+    target,
+    round,
+    tag: "obx",
+    started: new Date(started * 1000).toISOString(),
+    status,
+    settings: {
+      vetters: [
+        { assistant: "claude", model: "claude-opus-5", effort: "high" },
+      ],
+      fix: { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
+    },
+    auditor: {
+      assistant: "codex",
+      model: "gpt-5.6-sol",
+      effort: "xhigh",
+      chosenBy: "settings",
+    },
+    phases: [],
+    commits: [],
+    findings: [],
+    judge: null,
+    scope,
+    judgedRepos: ["repo-edu"],
+  }
+}
+
+test("an implemented plan's name goes on at the range where its run stopped", async (t) => {
+  const root = await planRoots(t)
+  const data = join(
+    root.roundRoot,
+    roundDataFilename("example", "implementation"),
+  )
+  const claim = (target: string, round: number) =>
+    writeFile(
+      join(
+        root.roundRoot,
+        `${target}-${String(round).padStart(2, "0")}-0-claim.md`,
+      ),
+      "",
+    )
+  const keep = async (round: ImplementationRoundData) => {
+    await claim(round.target, round.round)
+    writeRoundData(data, round)
+  }
+  const scopes = (targets: readonly AuditTarget[]) =>
+    targets.map((target) =>
+      "scope" in target ? target.scope : target.roundKind,
+    )
+  const resolved = async () =>
+    scopes(await selectTargets(implemented, root, named))
+
+  await keep(rangeRound("1-2", 1, 10, "finished"))
+  assert.deepEqual(await resolved(), ["1-2", "3", "1-3"])
+  // A stopped round on a later range skips the ranges before it.
+  await keep(rangeRound("3", 1, 20, "failed"))
+  assert.deepEqual(await resolved(), ["3", "1-3"])
+  assert.deepEqual(scopes(await selectTargets(implemented, root, null)), [
+    "3",
+    "1-3",
+  ])
+  // A typed scope list runs as typed.
+  assert.deepEqual(
+    scopes(
+      await selectTargets(implemented, root, {
+        plan: "example",
+        scope: ["1-2", "3"],
+      }),
+    ),
+    ["1-2", "3"],
+  )
+  // Of several stopped ranges, the round that started last names the range.
+  await keep(rangeRound("1-2", 2, 30, "interrupted"))
+  assert.deepEqual(await resolved(), ["1-2", "3", "1-3"])
+  await keep(rangeRound("1-3", 1, 40, "awaiting-ruling"))
+  assert.deepEqual(await resolved(), ["1-3"])
+  // A killed round keeps its claim but no entry, so its range holds no stopped round.
+  await claim("example-impl-audit-01..03", 2)
+  assert.deepEqual(await resolved(), ["1-2", "3", "1-3"])
+  // Only a range's newest round counts.
+  await keep(rangeRound("1-2", 3, 50, "finished"))
+  assert.deepEqual(await resolved(), ["3", "1-3"])
 })
 
 test("named step scopes audit implementation in list order once a step has landed", async (t) => {

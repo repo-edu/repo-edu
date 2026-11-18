@@ -570,6 +570,19 @@ export async function readStoredRound(
   )
 }
 
+/**
+ * Whether a round stopped early: it failed, was interrupted or waits for a
+ * ruling. A rerun continues such a round, and a rerun of a plan's range list
+ * goes on at the range that holds one.
+ */
+export function stoppedEarly(entry: Pick<RoundData, "status">): boolean {
+  return (
+    entry.status === "failed" ||
+    entry.status === "interrupted" ||
+    entry.status === "awaiting-ruling"
+  )
+}
+
 /** Split the allocated name into the target-wide identity stored in JSON. */
 export function roundDataIdentity(nameStart: string): {
   readonly target: string

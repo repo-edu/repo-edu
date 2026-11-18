@@ -69,7 +69,8 @@ omitted target selects the active plan whose stem commit is newest across both r
 
 Before implementation, a bare stem selects the planning round its history calls for. After every
 step share and implementation marker has landed, it runs the plan's listed audit ranges and then
-the full implementation range.
+the full implementation range. After a stopped round, it starts at the range where the round
+stopped.
 
 A planning round needs a committed plan. When no commit holds the plan file, the command stops
 before any assistant starts and asks for the plan's `init` commit. Commit the plan and run the

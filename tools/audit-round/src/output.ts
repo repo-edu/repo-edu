@@ -62,6 +62,7 @@ import {
   roundDataFilename,
   roundDataIdentity,
   type SeriesAnswer,
+  stoppedEarly,
   writeRoundData,
 } from "./round-data.js"
 import {
@@ -205,13 +206,6 @@ function fileTag(
   return capabilityTag(entry, releases[entry.assistant], settings)
 }
 
-/** The statuses of a round that stopped early, which a rerun continues. */
-const stoppedStatuses: readonly RoundData["status"][] = [
-  "failed",
-  "interrupted",
-  "awaiting-ruling",
-]
-
 /** Where a round's entry is stored; a plan outside the active folder keeps none. */
 function roundDataPath(setup: RoundSetup): string | null {
   if ("groups" in setup)
@@ -260,7 +254,7 @@ async function continuedRound(
   const stored = await readStoredRound(data, label, round)
   if (
     stored === null ||
-    !stoppedStatuses.includes(stored.status) ||
+    !stoppedEarly(stored) ||
     chainedEntry(stored) !== chainedCall(call)
   )
     return null
