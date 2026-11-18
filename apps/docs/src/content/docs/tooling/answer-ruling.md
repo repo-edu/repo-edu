@@ -12,7 +12,7 @@ takes your decision and sends it to the run in the terminal, which resumes the s
 | Fact | Detail |
 | --- | --- |
 | Runs in | Claude desktop chat in the Repo Edu or plan checkout; there is no Codex counterpart |
-| Owners | `../plan/home/claude/commands/ruling.md` launches it; `.agents/skills/fix/references/answer.md` owns the answer; `.agents/skills/fix/references/ruling.md` owns the ruling's contents; `tools/audit-round/CLAUDE.md` owns the wait and resumption |
+| Owners | `../plan/home/claude/commands/ruling.md` launches it; `.agents/skills/fix/references/answer.md` owns the answer; `.agents/skills/fix/references/ruling.md` owns the ruling's contents; `tools/audit-round/references/rounds.md` owns the wait and resumption |
 
 ## Usage
 

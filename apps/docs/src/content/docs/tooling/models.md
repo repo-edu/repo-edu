@@ -12,7 +12,7 @@ in `tools/audit-round/settings.json`.
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root |
-| Owners | `tools/audit-round/CLAUDE.md`, `tools/audit-round/src/models.ts` and its evidence and comparison modules |
+| Owners | `tools/audit-round/references/model-read-out.md`, `tools/audit-round/src/models.ts` and its evidence and comparison modules |
 
 ## Usage
 
