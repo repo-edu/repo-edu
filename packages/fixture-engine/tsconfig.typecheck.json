@@ -21,5 +21,6 @@
     "../integrations-llm-catalog/src/**/*.ts",
     "../integrations-llm/src/**/*.ts",
     "../tree-sitter-grammar-assets/src/index.ts"
-  ]
+  ],
+  "exclude": []
 }

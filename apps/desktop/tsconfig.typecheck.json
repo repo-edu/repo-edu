@@ -27,5 +27,6 @@
     "../../packages/renderer-host-contract/src/**/*.ts",
     "../../packages/host-node/src/**/*.ts",
     "../../packages/test-fixtures/src/**/*.ts"
-  ]
+  ],
+  "exclude": []
 }

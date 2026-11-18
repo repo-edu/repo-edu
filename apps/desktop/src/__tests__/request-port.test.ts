@@ -181,10 +181,7 @@ it("carries persistence, input, progress, output, settlement and release on one 
     h.admission.dispatch({
       type: "outcome-fixed",
       request: state.request,
-      completion: {
-        operation: input,
-        result: settlement.outcome.completion.result,
-      },
+      completion: { operation: input, outcome: settlement.outcome },
     })
     h.host.settlement(state.request, settlement)
     await until(() => events.includes("settlement"))
@@ -301,7 +298,7 @@ it("terminates unexpected remote closure and removes both listener sets", async 
 })
 
 it("validates command-specific result and input payloads", () => {
-  const parse = createRequestMessageParser(
+  const parse = createRequestMessageParser<unknown, unknown, unknown, unknown>(
     commandPayloadSchemas("userFile.exportPreview"),
   )
   assert.deepEqual(parse({ type: "input", input }), { type: "input", input })
@@ -342,7 +339,12 @@ it("validates the prepared input of every declared exclusive command", () => {
             }
           : undefined,
     }
-    const parse = createRequestMessageParser(commandPayloadSchemas(command))
+    const parse = createRequestMessageParser<
+      unknown,
+      unknown,
+      unknown,
+      unknown
+    >(commandPayloadSchemas(command))
     assert.equal(parse({ type: "input", input: operation }).type, "input")
     assert.throws(() =>
       parse({ type: "input", input: { ...operation, input: null } }),

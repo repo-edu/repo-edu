@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "../application/src/**/*.ts",
+    "../application-contract/src/**/*.ts",
+    "../domain/src/**/*.ts",
+    "../tree-sitter-grammar-assets/src/index.ts",
+    "../host-node/src/**/*.ts",
+    "../host-runtime-contract/src/**/*.ts",
+    "../integrations-git/src/**/*.ts",
+    "../integrations-git-contract/src/**/*.ts",
+    "../integrations-llm/src/**/*.ts",
+    "../integrations-llm-catalog/src/**/*.ts",
+    "../integrations-llm-contract/src/**/*.ts",
+    "../integrations-lms-contract/src/**/*.ts",
+    "../test-fixtures/src/**/*.ts"
+  ],
+  "exclude": []
+}

@@ -17,5 +17,6 @@
     "../integrations-llm-catalog/src/**/*.ts",
     "../integrations-llm-contract/src/**/*.ts",
     "../integrations-lms-contract/src/**/*.ts"
-  ]
+  ],
+  "exclude": []
 }

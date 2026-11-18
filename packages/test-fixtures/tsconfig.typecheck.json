@@ -10,5 +10,6 @@
     "src/**/*.ts",
     "../../packages/domain/src/**/*.ts",
     "../tree-sitter-grammar-assets/src/index.ts"
-  ]
+  ],
+  "exclude": []
 }

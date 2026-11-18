@@ -1,5 +1,10 @@
 import { EventEmitter } from "node:events"
-import type { WorkflowHandlerMap } from "@repo-edu/application-contract"
+import type {
+  DiagnosticOutput,
+  MilestoneProgress,
+  WorkflowCallOptions,
+  WorkflowHandlerMap,
+} from "@repo-edu/application-contract"
 import { workflowCatalog } from "@repo-edu/application-contract"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import type {
@@ -43,8 +48,15 @@ export function observeTerminalEnding(
 
 import { createDesktopWorkflowRouter } from "../trpc"
 
+/** The one stub the harness registers under every workflow id. It receives
+ * whichever input the test sends, so it claims no workflow's own types. */
+export type TransportStubHandler = (
+  input: unknown,
+  options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+) => Promise<unknown>
+
 export function transportHarness(
-  handler: WorkflowHandlerMap[keyof WorkflowHandlerMap],
+  handler: TransportStubHandler,
   rendererUrl = "file:///app/index.html",
   load = true,
 ) {
@@ -65,21 +77,27 @@ export function transportHarness(
     (event: IpcMainInvokeEvent, raw: unknown) => unknown
   >()
   const ipc = {
-    on(channel, receive) {
+    on(channel: string, receive: (event: IpcMainEvent, raw: unknown) => void) {
       listeners.set(channel, receive)
       return this
     },
-    handle(channel, receive) {
+    handle(
+      channel: string,
+      receive: (event: IpcMainInvokeEvent, raw: unknown) => unknown,
+    ) {
       handlers.set(channel, receive)
     },
-    removeListener(channel) {
+    removeListener(channel: string) {
       listeners.delete(channel)
       return this
     },
-    removeHandler(channel) {
+    removeHandler(channel: string) {
       handlers.delete(channel)
     },
-  } as Pick<IpcMain, "on" | "handle" | "removeListener" | "removeHandler">
+  } as unknown as Pick<
+    IpcMain,
+    "on" | "handle" | "removeListener" | "removeHandler"
+  >
   const mainFrame = {
     url: rendererUrl,
     parent: null,
@@ -152,6 +170,20 @@ export function transportHarness(
       )
     },
   }
+}
+
+/** Whether a wire response delivers a workflow's `failed` event. */
+export function carriesFailedWorkflowEvent(
+  response: TRPCResponseMessage,
+): boolean {
+  if (!("result" in response) || response.result.type !== "data") return false
+  const event: unknown = response.result.data
+  return (
+    typeof event === "object" &&
+    event !== null &&
+    "type" in event &&
+    event.type === "failed"
+  )
 }
 
 export const flushTransport = () =>

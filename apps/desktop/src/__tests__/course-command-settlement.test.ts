@@ -28,7 +28,7 @@ import { createRendererCommandClient } from "../renderer-command-client"
 import { commandPayloadSchemas } from "../request-command-schemas"
 import { commitRequestPersistence } from "../request-persistence"
 import { assertCommandFreeze } from "./command-freeze-assertions"
-import { requestChannel, until } from "./request-port-harness"
+import { requestChannel, until, workflowHandlers } from "./request-port-harness"
 
 const file = {
   kind: "user-file-ref" as const,
@@ -468,7 +468,7 @@ for (const boundary of ["before", "after"] as const) {
         },
         settlementInput: undefined,
       },
-      handlers: {
+      handlers: workflowHandlers({
         "gitUsernames.import": async ({ course }) => course.roster,
         "course.save": async (value) => {
           writes += 1
@@ -479,7 +479,7 @@ for (const boundary of ["before", "after"] as const) {
             message: "Row mismatch",
           }
         },
-      } as WorkflowHandlerMap,
+      }),
       transport: {
         progress() {},
         output() {},

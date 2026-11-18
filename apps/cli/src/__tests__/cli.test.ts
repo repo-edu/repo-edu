@@ -484,7 +484,7 @@ describe("CLI workflow-backed behaviors", () => {
     const assignment = course.roster.assignments[0]
     assert.ok(assignment)
     assignment.templateCommitSha = "old-template-sha"
-    let savedCourse: PersistedCourse | null = null
+    const savedCourses: PersistedCourse[] = []
     const handlers: Partial<WorkflowHandlerMap> = {
       "course.load": async () => course,
       "settings.loadApp": async () => ({
@@ -501,7 +501,7 @@ describe("CLI workflow-backed behaviors", () => {
         completedAt: "2026-09-06T12:00:00.000Z",
       }),
       "course.save": async (input) => {
-        savedCourse = input
+        savedCourses.push(input)
         return { revision: 1, updatedAt: "2026-09-06T12:01:00.000Z" }
       },
     }
@@ -522,7 +522,7 @@ describe("CLI workflow-backed behaviors", () => {
 
     assert.equal(result.exitCode, 0)
     assert.equal(
-      savedCourse?.roster.assignments[0]?.templateCommitSha,
+      savedCourses.at(-1)?.roster.assignments[0]?.templateCommitSha,
       "old-template-sha",
     )
   })

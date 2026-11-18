@@ -1,9 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import {
-  CommandOutcomeError,
-  type WorkflowHandlerMap,
-} from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import {
   deferred,
   makeCourse,
@@ -23,7 +20,7 @@ import { createPreloadRequestTransport } from "../preload-request-transport"
 import { createRendererCommandClient } from "../renderer-command-client"
 import { commitRequestPersistence } from "../request-persistence"
 import { assertCommandFreeze } from "./command-freeze-assertions"
-import { requestChannel, until } from "./request-port-harness"
+import { requestChannel, until, workflowHandlers } from "./request-port-harness"
 
 for (const reason of ["confirmation-expired", "proof-lost"] as const) {
   it(`${reason} ${reason === "confirmation-expired" ? "retires unknown before the next session operation" : "ends admission without settlement"}`, {
@@ -51,7 +48,7 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
         host.dispose()
       }
     })
-    const handlers = {
+    const handlers = workflowHandlers({
       "course.save": async (course) => {
         writes += 1
         assert.equal(course.displayName, "Dirty")
@@ -66,7 +63,7 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
         await effect.promise
         throw new CommandOutcomeError(outcome)
       },
-    } as WorkflowHandlerMap
+    })
     const host = createHostRequestTransport({
       admission,
       receive(request, message) {

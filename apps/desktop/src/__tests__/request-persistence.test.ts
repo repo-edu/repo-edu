@@ -19,6 +19,7 @@ import {
 import { canStartPersistenceWorker } from "../../../../packages/renderer-app/src/session/session-reducer"
 import { HostAdmission } from "../host-admission"
 import type { HostRequest } from "../host-admission-model"
+import { isDesktopTrpcWorkflowId } from "../host-entry-inventory"
 import { createHostRequestTransport } from "../host-request-transport"
 import {
   createPreloadRequestTransport,
@@ -61,6 +62,7 @@ it("claims a save refused after close-port transfer while its renderer queue tur
     workflowClient: workflowClient(async (id) => {
       if (id === "settings.loadApp") return makeSettings()
       if (id === "course.list") return []
+      assert.ok(isDesktopTrpcWorkflowId(id))
       try {
         admission.startWorkflow(id, { cancel() {} })
       } catch (error) {
@@ -184,7 +186,7 @@ for (const close of [false, true]) {
         const h = admitted(close)
         const writes: string[] = []
         const error = new Error(`${unit} ${boundary}`)
-        const write = async (name: string) => {
+        const write = async (name: string): Promise<undefined> => {
           if (name === unit && boundary === "before") throw error
           writes.push(name)
           if (name === unit && boundary === "after") throw error
@@ -204,6 +206,9 @@ for (const close of [false, true]) {
           transport: {
             persistenceCommitted() {
               published = true
+            },
+            settlement() {
+              assert.fail("No settlement after a failed commit")
             },
           },
         })
@@ -238,12 +243,15 @@ it("treats an application-handler row mismatch as terminal preparation", async (
     bundle: { course },
     handlers: {
       ...handlers,
-      "settings.saveCredentials": async () => {},
-      "settings.savePreferences": async () => {},
+      "settings.saveCredentials": async () => undefined,
+      "settings.savePreferences": async () => undefined,
     },
     transport: {
       persistenceCommitted() {
         assert.fail("No result after row mismatch")
+      },
+      settlement() {
+        assert.fail("No settlement after row mismatch")
       },
     },
   })
@@ -312,9 +320,11 @@ for (const close of [false, true]) {
         prepared = true
       },
       persisted(value) {
+        assert.ok(exchange)
         exchange.persisted(value)
       },
       failed(value) {
+        assert.ok(exchange)
         exchange.failed(value)
       },
       progress() {},

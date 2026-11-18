@@ -1,9 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import type {
-  ExclusiveRequestOperation,
-  WorkflowHandlerMap,
-} from "@repo-edu/application-contract"
+import type { ExclusiveRequestOperation } from "@repo-edu/application-contract"
 import {
   deferred,
   makeCourse,
@@ -24,7 +21,7 @@ import { createPreloadRequestTransport } from "../preload-request-transport"
 import { createRendererCommandClient } from "../renderer-command-client"
 import { commitRequestPersistence } from "../request-persistence"
 import { assertCommandFreeze } from "./command-freeze-assertions"
-import { requestChannel, until } from "./request-port-harness"
+import { requestChannel, until, workflowHandlers } from "./request-port-harness"
 
 const target = {
   kind: "user-save-target-ref" as const,
@@ -142,7 +139,7 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
     order.push(event.type)
     if (event.type === "release-command") releaseRequest = event.request
   })
-  const handlers = {
+  const handlers = workflowHandlers({
     "settings.savePreferences": async (preferences) => {
       assert.equal(preferences.appearance.theme, "dark")
       order.push("preferences")
@@ -168,7 +165,7 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
       await effect.promise
       return { file: target }
     },
-  } as WorkflowHandlerMap
+  })
   const host = createHostRequestTransport({
     admission,
     receive(request, message) {
@@ -368,7 +365,7 @@ it("settles a save the host already holds before the command intent", {
   const admission = new HostAdmission((event) => {
     if (event.type === "release-command") host.release(event.request)
   })
-  const handlers = {
+  const handlers = workflowHandlers({
     "settings.savePreferences": async () => assert.fail("No preferences"),
     "settings.saveCredentials": async () => assert.fail("No credentials"),
     "course.save": async () =>
@@ -379,7 +376,7 @@ it("settles a save the host already holds before the command intent", {
       assert.equal(input.course.displayName, "Dirty")
       return { file: target }
     },
-  } as WorkflowHandlerMap
+  })
   const host = createHostRequestTransport({
     admission,
     receive(request, message) {

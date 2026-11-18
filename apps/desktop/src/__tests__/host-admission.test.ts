@@ -368,7 +368,7 @@ describe("desktop host admission", () => {
     dispatch({ type: "cancel-request", request: current })
     dispatch({ type: "cancel-request", request: current })
     assert.equal(owner.getSnapshot().phase, "preparing")
-    assert.deepEqual(effects, [])
+    assert.deepEqual<typeof effects>(effects, [])
     dispatch({ type: "preparation-committed", request: current })
     assert.equal(owner.getSnapshot().phase, "executing.settling")
     assert.equal(

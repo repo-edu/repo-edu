@@ -1,5 +1,13 @@
 import { MessageChannel } from "node:worker_threads"
+import type { WorkflowHandlerMap } from "@repo-edu/application-contract"
 import type { RequestPort } from "../request-port-endpoint"
+
+/** The handler map of a test that names only the workflows it expects to run. */
+export function workflowHandlers(
+  handlers: Partial<WorkflowHandlerMap>,
+): WorkflowHandlerMap {
+  return handlers as WorkflowHandlerMap
+}
 
 export function requestChannel() {
   const channel = new MessageChannel()

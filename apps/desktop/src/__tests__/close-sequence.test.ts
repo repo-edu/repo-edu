@@ -12,6 +12,7 @@ import {
 } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
 import { useCourseStore } from "../../../../packages/renderer-app/src/stores/course-store"
 import { HostAdmission } from "../host-admission"
+import { isDesktopTrpcWorkflowId } from "../host-entry-inventory"
 import { createHostRequestTransport } from "../host-request-transport"
 import { createPreloadRequestTransport } from "../preload-request-transport"
 import { commitRequestPersistence } from "../request-persistence"
@@ -48,6 +49,7 @@ it("drains host calls before close transfer and queues persistence behind render
       if (id === "course.load") return makeCourse("course")
       if (id === "course.list" && admission.getSnapshot().phase === "starting")
         return [makeCourse("course")]
+      assert.ok(isDesktopTrpcWorkflowId(id))
       const retire = admission.startWorkflow(id, { cancel() {} })
       hostStarted.resolve()
       await hostResult.promise
@@ -137,7 +139,7 @@ it("drains host calls before close transfer and queues persistence behind render
       request: { cancel() {} },
     })
     assert.equal(admission.getSnapshot().phase, "closing.draining")
-    assert.deepEqual(order, [])
+    assert.deepEqual<string[]>(order, [])
     assert.throws(() => admission.startWorkflow("course.list", { cancel() {} }))
     hostResult.resolve()
     await until(() => order.includes("queued"))

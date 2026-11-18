@@ -1,6 +1,5 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import type { WorkflowHandlerMap } from "@repo-edu/application-contract"
 import { HostAdmissionRefusedError } from "@repo-edu/application-contract"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
 import { makeCourse } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -10,7 +9,7 @@ import { createHostRequestTransport } from "../host-request-transport"
 import { createPreloadRequestTransport } from "../preload-request-transport"
 import { createRendererCommandClient } from "../renderer-command-client"
 import { commitRequestPersistence } from "../request-persistence"
-import { requestChannel, until } from "./request-port-harness"
+import { requestChannel, until, workflowHandlers } from "./request-port-harness"
 
 const input = workflowInputs["userFile.exportPreview"]
 
@@ -27,7 +26,7 @@ function harness(
       host.dispose()
     }
   })
-  const handlers = {
+  const handlers = workflowHandlers({
     "course.save": async () => {
       assert.ok(options.storageFailure)
       throw { type: "course-storage", message: "row mismatch" }
@@ -45,7 +44,7 @@ function harness(
         savedAt: "now",
       }
     },
-  } as WorkflowHandlerMap
+  })
   const host = createHostRequestTransport({
     admission,
     receive(request, message) {

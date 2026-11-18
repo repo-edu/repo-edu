@@ -10,7 +10,7 @@ it("activation during startup does not create a renderer and quit needs no rende
   const events: string[] = []
   const admission = new HostAdmission((effect) => events.push(effect.type))
   installDesktopSessionLifetime({
-    app: app as Pick<App, "on">,
+    app: app as unknown as App,
     getWindow: () => undefined,
     close: () => {
       admission.dispatch({
@@ -46,7 +46,7 @@ it("last-window close ends the host and activation cannot replace the session", 
   })
   admission.dispatch({ type: "bootstrap-acknowledged" })
   installDesktopSessionLifetime({
-    app: app as Pick<App, "on">,
+    app: app as unknown as App,
     getWindow: () => window,
     close: () => {
       admission.dispatch({

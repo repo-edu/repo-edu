@@ -20,5 +20,6 @@
     "../integrations-llm-contract/src/**/*.ts",
     "../integrations-lms-contract/src/**/*.ts",
     "../test-fixtures/src/**/*.ts"
-  ]
+  ],
+  "exclude": []
 }

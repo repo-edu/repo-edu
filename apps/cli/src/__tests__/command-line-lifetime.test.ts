@@ -84,6 +84,7 @@ describe("command-line lifetime", () => {
           async stopAndConfirm() {
             events.push("stop")
             await stop.promise
+            return { outcome: "confirmed" }
           },
         },
         releaseProgramGate() {
@@ -117,6 +118,7 @@ describe("command-line lifetime", () => {
           childProcessLifetimeController: {
             async stopAndConfirm() {
               events.push("stop")
+              return { outcome: "confirmed" }
             },
           },
           releaseProgramGate() {
@@ -146,6 +148,7 @@ describe("command-line lifetime", () => {
         childProcessLifetimeController: {
           async stopAndConfirm() {
             events.push("stop")
+            return { outcome: "confirmed" }
           },
         },
         releaseProgramGate() {
@@ -185,6 +188,7 @@ describe("command-line lifetime", () => {
         childProcessLifetimeController: {
           async stopAndConfirm() {
             events.push("stop")
+            return { outcome: "confirmed" }
           },
         },
         releaseProgramGate() {

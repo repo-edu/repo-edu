@@ -126,7 +126,7 @@ for (const rendererUrl of [
       h.contents.emit("will-redirect", { isMainFrame: false })
       h.contents.emit("did-frame-navigate", {}, rendererUrl, 200, "OK", false)
       h.contents.emit("did-navigate-in-page", {}, rendererUrl, false)
-      assert.deepEqual(h.effects, [])
+      assert.deepEqual<typeof h.effects>(h.effects, [])
       h.invoke({ action: "pickDirectory" }, {
         ...h.event,
         senderFrame: { ...h.contents.mainFrame, parent: h.contents.mainFrame },

@@ -8,6 +8,7 @@ import { createCourseStore } from "@repo-edu/host-node"
 import { getFixture } from "@repo-edu/test-fixtures"
 import { seedDesktopFixtureFromEnvironment } from "../fixture-seed"
 import {
+  carriesFailedWorkflowEvent,
   flushTransport,
   startMessage,
   transportHarness,
@@ -113,15 +114,7 @@ describe("desktop shared course database", () => {
           h.effects.some((effect) => effect.type === "prepare-close"),
           false,
         )
-        assert.equal(
-          h.responses.some(
-            (response) =>
-              "result" in response &&
-              response.result.type === "data" &&
-              response.result.data.type === "failed",
-          ),
-          false,
-        )
+        assert.equal(h.responses.some(carriesFailedWorkflowEvent), false)
         h.gateway.dispose()
       } finally {
         await rm(root, { recursive: true, force: true })

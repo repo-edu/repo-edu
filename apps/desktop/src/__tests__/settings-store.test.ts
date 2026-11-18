@@ -10,6 +10,7 @@ import {
 } from "@repo-edu/domain/settings"
 import { createDesktopAppSettingsStore } from "../settings-store"
 import {
+  carriesFailedWorkflowEvent,
   flushTransport,
   startMessage,
   transportHarness,
@@ -87,15 +88,7 @@ describe("createDesktopAppSettingsStore", () => {
           h.effects.filter((effect) => effect.type === "end-host").length,
           1,
         )
-        assert.equal(
-          h.responses.some(
-            (response) =>
-              "result" in response &&
-              response.result.type === "data" &&
-              response.result.data.type === "failed",
-          ),
-          false,
-        )
+        assert.equal(h.responses.some(carriesFailedWorkflowEvent), false)
         h.gateway.dispose()
       } finally {
         await rm(root, { recursive: true, force: true })

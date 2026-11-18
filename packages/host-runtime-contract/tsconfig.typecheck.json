@@ -8,5 +8,6 @@
     "src/**/*.ts",
     "../domain/src/**/*.ts",
     "../tree-sitter-grammar-assets/src/index.ts"
-  ]
+  ],
+  "exclude": []
 }

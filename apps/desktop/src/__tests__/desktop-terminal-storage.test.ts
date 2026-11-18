@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import type { ExaminationArchiveStoragePort } from "@repo-edu/host-runtime-contract"
+import type {
+  ExaminationArchiveStoragePort,
+  ExaminationArchiveStoredEntry,
+} from "@repo-edu/host-runtime-contract"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
 import { observeDesktopExaminationStorage } from "../desktop-terminal-sources"
 import { HostAdmission } from "../host-admission"
@@ -82,7 +85,7 @@ it("an archive read failure cannot become an ordinary workflow error or start cl
   })
   const archive = observeDesktopExaminationStorage(
     {
-      exportAll() {
+      exportAll(): ExaminationArchiveStoredEntry[] {
         throw error
       },
     } as ExaminationArchiveStoragePort,
@@ -128,7 +131,7 @@ it("rethrowing an archive failure through outer owners starts shutdown once", ()
   const error = new Error("archive unavailable")
   const archive = observeDesktopExaminationStorage(
     {
-      exportAll() {
+      exportAll(): ExaminationArchiveStoredEntry[] {
         throw error
       },
     } as ExaminationArchiveStoragePort,

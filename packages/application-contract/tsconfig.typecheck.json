@@ -13,5 +13,6 @@
     "../host-runtime-contract/src/**/*.ts",
     "../integrations-llm-contract/src/**/*.ts",
     "../integrations-lms-contract/src/**/*.ts"
-  ]
+  ],
+  "exclude": []
 }

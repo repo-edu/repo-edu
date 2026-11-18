@@ -8,6 +8,8 @@
   },
   "include": [
     "src/**/*.ts",
+    "scripts/copy-assets.ts",
     "../domain/src/**/*.ts"
-  ]
+  ],
+  "exclude": []
 }

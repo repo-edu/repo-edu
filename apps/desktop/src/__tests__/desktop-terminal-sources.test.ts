@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { EventEmitter } from "node:events"
 import { it } from "node:test"
-import type { Details, WebContents } from "electron"
+import type { App, Details, WebContents } from "electron"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
 import { installDesktopTerminalSources } from "../desktop-terminal-sources"
 import { HostAdmission } from "../host-admission"
@@ -61,8 +61,8 @@ function sourceHarness() {
   })
   const events = recordTerminalEvents(admission)
   const sources = installDesktopTerminalSources({
-    app,
-    process,
+    app: app as unknown as App,
+    process: process as unknown as NodeJS.Process,
     terminal: admission.terminal,
   })
   sources.observeRenderer(renderer as unknown as WebContents)
