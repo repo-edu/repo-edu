@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { stopSignals } from "./cli-process.js"
 import { runCommand } from "./command.js"
 import { createPager } from "./pager.js"
 import { macRulingDialog } from "./ruling-wait.js"
@@ -18,9 +19,13 @@ if (process.platform === "darwin") {
 
 const interruption = new AbortController()
 const interrupt = () => interruption.abort(new Error("Interrupted"))
+// A closed terminal fails every later write to both streams. An unobserved
+// failure would end the process before the run's ending lands, and a write's
+// failure can arrive after the command returns, so these listeners stay.
 const outputFailed = (error: Error) => interruption.abort(error)
-process.on("SIGINT", interrupt)
 process.stdout.on("error", outputFailed)
+process.stderr.on("error", outputFailed)
+for (const signal of stopSignals) process.on(signal, interrupt)
 try {
   process.exitCode = await runCommand(
     process.argv.slice(2),
@@ -34,6 +39,5 @@ try {
     },
   )
 } finally {
-  process.off("SIGINT", interrupt)
-  process.stdout.off("error", outputFailed)
+  for (const signal of stopSignals) process.off(signal, interrupt)
 }

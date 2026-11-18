@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
+import { stopSignals } from "../cli-process.js"
 import { prepareAssistants, updateClis } from "../startup.js"
 import { testSettings } from "./configured-runner.js"
 import { fixture } from "./helpers.js"
@@ -137,22 +138,24 @@ for (const mode of ["error", "exit", "missing"] as const) {
   })
 }
 
-test("Ctrl-C during an update stops startup without attempting the other CLI", async (t) => {
-  const f = await fixture(t, { updateWait: true })
-  await assert.rejects(
-    updateClis(
-      f.runtime,
-      {
-        message: async (text) => {
-          if (text === "claude update output") process.emit("SIGINT")
+for (const signal of stopSignals) {
+  test(`${signal} during an update stops startup without attempting the other CLI`, async (t) => {
+    const f = await fixture(t, { updateWait: true })
+    await assert.rejects(
+      updateClis(
+        f.runtime,
+        {
+          message: async (text) => {
+            if (text === "claude update output") process.emit(signal)
+          },
+          warning: async () => {
+            assert.fail("An interrupted update must not be retried")
+          },
         },
-        warning: async () => {
-          assert.fail("An interrupted update must not be retried")
-        },
-      },
-      join(f.root, "cache"),
-      now,
-    ),
-  )
-  assert.equal((await f.calls()).length, 1)
-})
+        join(f.root, "cache"),
+        now,
+      ),
+    )
+    assert.equal((await f.calls()).length, 1)
+  })
+}

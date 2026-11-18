@@ -1,6 +1,13 @@
 import { execa } from "execa"
 import type { Assistant } from "./phase.js"
 
+/**
+ * The signals that stop a run: Ctrl-C, a closed terminal and a termination
+ * request. Each ends a round as Ctrl-C does, so a closed terminal still
+ * leaves the round's entry.
+ */
+export const stopSignals = ["SIGINT", "SIGHUP", "SIGTERM"] as const
+
 export type CliRuntime = {
   readonly cwd: string
   readonly executables?: Partial<
@@ -111,10 +118,11 @@ export async function withCliProcess<T>(
       ? interruption.signal
       : AbortSignal.any([interruption.signal, runtime.signal])
   const child = launch({ ...runtime, signal }, assistant, args, input)
-  // The foreground CLI receives Ctrl-C too; cancellation prevents further work
-  // even when that CLI handles the signal and exits with a successful code.
+  // The CLI shares the terminal's process group, so Ctrl-C and a closed
+  // terminal reach it too; cancellation prevents further work even when that
+  // CLI handles the signal and exits with a successful code.
   const interrupt = () => interruption.abort()
-  process.on("SIGINT", interrupt)
+  for (const stop of stopSignals) process.on(stop, interrupt)
   const work = consume(child)
   const stderr = readCliLines(child, "stderr", diagnostic)
   try {
@@ -125,6 +133,6 @@ export async function withCliProcess<T>(
     // A consumer failure must not leave the CLI running or readers unobserved.
     child.kill()
     await Promise.allSettled([work, stderr, child])
-    process.off("SIGINT", interrupt)
+    for (const stop of stopSignals) process.off(stop, interrupt)
   }
 }

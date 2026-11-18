@@ -1263,6 +1263,15 @@ unattended run otherwise stops once the display sleeps on battery and no app hol
 The hold ends with the runner process however it exits. A failed start prints one warning and the
 command continues. Linux takes no hold.
 
+Ctrl-C, a closed terminal and a termination request stop the run alike: `main.ts` aborts the run as
+`Interrupted` on the interrupt, hang-up and termination signals, and `cli-process.ts` cancels its
+child on the same signals, because the child shares the terminal's process group and may exit
+successfully on them. The round then stops its phase's process, confirms it gone and writes its
+entry as `interrupted`, so a closed terminal leaves the entry that Ctrl-C leaves. A failed write to
+standard output or standard error also aborts the run. A closed terminal fails both, so both carry
+a listener for the process's whole life: an unobserved failure would end the process before its
+ending lands. A runner that is killed writes no entry.
+
 The terminal renderer is `@earendil-works/pi-tui`, replacing Glow. The accepted presentation keeps
 tables aligned, preserves paragraph and nested-list spacing and uses cyan code references without
 heavy background blocks. Preserve these qualities when changing terminal rendering.
