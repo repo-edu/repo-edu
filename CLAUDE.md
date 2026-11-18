@@ -59,7 +59,7 @@ the named plan and step from either checkout. The
 [runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
 options, settings and outcomes. Its [Round files](tools/audit-round/CLAUDE.md#round-files)
 and [Phase routing](tools/audit-round/CLAUDE.md#phase-routing) sections own file
-names and manual phase paths.
+names and phase argument order.
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
