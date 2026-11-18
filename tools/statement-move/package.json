@@ -1,0 +1,14 @@
+{
+  "name": "@repo-edu/statement-move",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "node --import tsx --test src/__tests__/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck && pnpm run test"
+  },
+  "dependencies": {
+    "commander": "^15.0.0"
+  }
+}

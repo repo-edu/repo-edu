@@ -9,7 +9,6 @@
     "dependency-cruiser": "17.4.3",
     "html-escaper": "3.0.3",
     "open": "11.0.4",
-    "typescript": "6.0.3",
     "zod": "^4.5.4"
   },
   "scripts": {

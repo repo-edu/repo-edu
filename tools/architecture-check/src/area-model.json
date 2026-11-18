@@ -429,6 +429,12 @@
       ]
     },
     {
+      "id": "tool-statement-move",
+      "name": "Statement move tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/statement-move/src/" }]
+    },
+    {
       "id": "tool-sweep",
       "name": "File-growth sweep tool",
       "kind": "partition",

@@ -56,6 +56,7 @@
         "area-view": "pnpm --filter @repo-edu/architecture-check run overview",
         "sweep": "tsx tools/sweep/src/main.ts",
         "file-sizes": "tsx tools/file-sizes/src/main.ts",
+        "move-statements": "tsx tools/statement-move/src/main.ts",
         "claude2assistants": "node scripts/claude2assistants.mjs",
         "check-links": "node scripts/check-links.mjs",
         "leak-scan": "bash ./scripts/leak-scan.sh",
@@ -68,11 +69,12 @@
         "@biomejs/biome": "2.6.5",
         "@faker-js/faker": "^10.3.0",
         "@types/node": "25.9.9",
+        "@typescript/native": "npm:typescript@7.0.2",
         "bun": "^1.4.2",
         "globby": "^16.1.1",
         "husky": "9.1.7",
         "rumdl": "0.3.2",
         "tsx": "^4.21.0",
-        "typescript": "6.0.3"
+        "typescript": "npm:@typescript/typescript6@6.0.2"
     }
 }
