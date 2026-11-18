@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
-import { basename, join, relative } from "node:path"
+import { basename, dirname, join, relative } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import {
@@ -571,6 +571,157 @@ test("settle commits only the widening rename through hooks and then leaves its 
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
+})
+
+/** Commit a peer plan, a note and an archived plan that each link to the widening plan. */
+async function linkingFiles(f: Fixture) {
+  const files = {
+    "active/peer.md": "The [`example-widen.md`](example-widen.md) peer.\n",
+    "notes/design.md": "See [example](../active/example-widen.md#decisions).\n",
+    "archive/old/plan.md": "Frozen [example](../../active/example-widen.md).\n",
+  }
+  for (const [path, source] of Object.entries(files)) {
+    await mkdir(dirname(join(f.planRoot, path)), { recursive: true })
+    await writeFile(join(f.planRoot, path), source)
+  }
+  await execa("git", ["add", "--", ...Object.keys(files)], {
+    cwd: f.planRoot,
+  })
+  await commitFixture(f.planRoot, "fixture/init ath: link to the example plan")
+}
+
+test("settle points other tracked files' links at the settled plan in its commit", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(
+    f,
+    "widening",
+    true,
+    "example",
+    "# Example plan\n\nThis is [`example-widen.md`](example-widen.md).\n",
+  )
+  await linkingFiles(f)
+
+  assert.equal(
+    await runCommand(["settle", "example"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const read = (path: string) => readFile(join(f.planRoot, path), "utf8")
+  assert.equal(
+    await read("active/peer.md"),
+    "The [`example.md`](example.md) peer.\n",
+  )
+  assert.equal(
+    await read("notes/design.md"),
+    "See [example](../active/example.md#decisions).\n",
+  )
+  assert.equal(
+    await read("archive/old/plan.md"),
+    "Frozen [example](../../active/example-widen.md).\n",
+  )
+  assert.equal(
+    await read("active/example.md"),
+    "# Example plan\n\nThis is [`example-widen.md`](example-widen.md).\n",
+  )
+  assert.deepEqual(
+    (
+      await execa(
+        "git",
+        [
+          "diff-tree",
+          "--no-commit-id",
+          "--name-status",
+          "--find-renames",
+          "-r",
+          "HEAD",
+        ],
+        { cwd: f.planRoot },
+      )
+    ).stdout.split("\n"),
+    [
+      "R100\tactive/example-widen.md\tactive/example.md",
+      "M\tactive/peer.md",
+      "M\tnotes/design.md",
+    ],
+  )
+  assert.equal(
+    (
+      await execa("git", ["status", "--porcelain", "--untracked-files=no"], {
+        cwd: f.planRoot,
+      })
+    ).stdout,
+    "",
+  )
+})
+
+test("settle rewrites a file with other changes but leaves it out of its commit", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(f, "widening")
+  await linkingFiles(f)
+  await writeFile(
+    join(f.planRoot, "notes/design.md"),
+    "See [example](../active/example-widen.md#decisions).\n\nDraft.\n",
+  )
+  await writeFile(
+    join(f.planRoot, "active/draft.md"),
+    "Draft of [example](example-widen.md).\n",
+  )
+
+  assert.equal(
+    await runCommand(["settle", "example"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+
+  const read = (path: string) => readFile(join(f.planRoot, path), "utf8")
+  assert.equal(
+    await read("notes/design.md"),
+    "See [example](../active/example.md#decisions).\n\nDraft.\n",
+  )
+  assert.equal(
+    await read("active/draft.md"),
+    "Draft of [example](example.md).\n",
+  )
+  assert.equal(
+    (
+      await execa("git", ["show", "HEAD:notes/design.md"], {
+        cwd: f.planRoot,
+      })
+    ).stdout,
+    "See [example](../active/example-widen.md#decisions).",
+  )
+  assert.deepEqual(
+    (
+      await execa(
+        "git",
+        [
+          "diff-tree",
+          "--no-commit-id",
+          "--name-status",
+          "--find-renames",
+          "-r",
+          "HEAD",
+        ],
+        { cwd: f.planRoot },
+      )
+    ).stdout.split("\n"),
+    ["R100\tactive/example-widen.md\tactive/example.md", "M\tactive/peer.md"],
+  )
+  assert.deepEqual(
+    (
+      await execa(
+        "git",
+        ["status", "--porcelain", "--", "active/draft.md", "notes/design.md"],
+        { cwd: f.planRoot },
+      )
+    ).stdout.split("\n"),
+    [" M notes/design.md", "?? active/draft.md"],
+  )
+  assert.equal(
+    f.visible.at(-1)?.split("\n").at(-1),
+    "Links rewritten but left uncommitted beside other changes: active/draft.md, notes/design.md",
+  )
 })
 
 test("ready lands one empty commit through hooks and refuses a second marker", async (t) => {

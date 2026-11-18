@@ -1,8 +1,9 @@
-import { readFile, rename, stat } from "node:fs/promises"
+import { readFile, rename, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, join, relative } from "node:path"
 import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
+import { retargetLinks } from "./plan-links.js"
 import { readAuditRanges, readPlanSteps } from "./plan-steps.js"
 import { roundDataFilename } from "./round-data.js"
 import { markerPath } from "./round-paths.js"
@@ -26,6 +27,8 @@ export type LifecycleCommit = {
 
 export type SettleCommit = LifecycleCommit & {
   readonly marker: string
+  /** Files whose rewritten links stay uncommitted beside their other changes. */
+  readonly uncommitted: readonly string[]
 }
 
 /**
@@ -81,7 +84,18 @@ export async function commitOnly(
 
 /** A lifecycle marker records only a plan version already committed at HEAD. */
 async function requireCommittedPlan(planRoot: string, plan: string) {
-  const path = relative(planRoot, plan)
+  const states = await uncommittedStates(planRoot, relative(planRoot, plan))
+  if (states.length === 0) return
+  throw new Error(
+    `${basename(plan)} is not committed as it stands: ${states.join(" and ")}.`,
+  )
+}
+
+/** How one path differs from HEAD, or nothing when HEAD holds it as it stands. */
+async function uncommittedStates(
+  planRoot: string,
+  path: string,
+): Promise<readonly string[]> {
   const { stdout } = await execa(
     "git",
     [
@@ -94,10 +108,8 @@ async function requireCommittedPlan(planRoot: string, plan: string) {
     ],
     { cwd: planRoot },
   )
-  if (stdout.length === 0) return
-
   const states = new Set<string>()
-  for (const line of stdout.split("\n")) {
+  for (const line of stdout.split("\n").filter((line) => line.length > 0)) {
     const status = line.slice(0, 2)
     if (status === "??" || status === "!!") {
       states.add("untracked")
@@ -106,9 +118,7 @@ async function requireCommittedPlan(planRoot: string, plan: string) {
     if (status[0] !== " " && status[0] !== "!") states.add("staged changes")
     if (status[1] !== " " && status[1] !== "!") states.add("unstaged changes")
   }
-  throw new Error(
-    `${basename(plan)} is not committed as it stands: ${[...states].join(" and ")}.`,
-  )
+  return [...states]
 }
 
 /**
@@ -131,7 +141,10 @@ export async function requirePlanAtHead(
   )
 }
 
-/** Rename a widening plan, commit only that rename and then claim its marker. */
+/**
+ * Rename a widening plan, point other files' links at the new name, commit only
+ * those changes and then claim its marker.
+ */
 export async function settlePlan(
   context: ExecutionContext,
   plan: string,
@@ -146,18 +159,86 @@ export async function settlePlan(
   const settled = join(context.activeRoot, `${planStem(plan)}.md`)
   const source = relative(context.planRoot, plan)
   const destination = relative(context.planRoot, settled)
+  const linking = await retargetedFiles(context.planRoot, plan, settled)
   await execa("git", ["mv", "--", source, destination], {
     cwd: context.planRoot,
   })
+  for (const file of linking)
+    await writeFile(join(context.planRoot, file.path), file.source)
   const subject = `${planStem(plan)}/settle: settle the plan's shape`
   const commit = await commitOnly({
     cwd: context.planRoot,
     subject,
-    paths: [source, destination],
+    paths: [
+      source,
+      destination,
+      ...linking.filter((file) => file.clean).map((file) => file.path),
+    ],
   })
   const marker = await markerPath(context, settled, "settle")
   claimRound(marker)
-  return { ...commit, marker }
+  return {
+    ...commit,
+    marker,
+    uncommitted: linking
+      .filter((file) => !file.clean)
+      .map((file) => file.path),
+  }
+}
+
+/**
+ * Every other Markdown file outside the archive that Git does not ignore and
+ * that links to the widening plan, with those links pointed at the settled
+ * name. That is the set the repo-wide `rumdl fmt .` checks, and nothing else
+ * repairs a link in another file. The plan's own text stays as it is. A file
+ * is clean when HEAD holds it as it stands. The settle commit takes only clean
+ * files, because Git commits a whole file and would take its other changes too.
+ */
+async function retargetedFiles(
+  planRoot: string,
+  plan: string,
+  settled: string,
+): Promise<
+  readonly {
+    readonly path: string
+    readonly source: string
+    readonly clean: boolean
+  }[]
+> {
+  const found = await execa(
+    "git",
+    [
+      "grep",
+      "--untracked",
+      "-l",
+      "-z",
+      "-F",
+      "-e",
+      basename(plan),
+      "--",
+      "*.md",
+      ":(exclude)archive/",
+    ],
+    { cwd: planRoot, reject: false },
+  )
+  if (found.exitCode !== 0 && found.exitCode !== 1)
+    throw new Error(`git grep failed: ${found.stderr}`)
+  const own = relative(planRoot, plan)
+  const files = []
+  for (const path of found.stdout.split("\0").sort()) {
+    if (path.length === 0 || path === own) continue
+    const source = await readFile(join(planRoot, path), "utf8")
+    const retargeted = retargetLinks(
+      source,
+      join(planRoot, path),
+      plan,
+      settled,
+    )
+    if (retargeted === source) continue
+    const clean = (await uncommittedStates(planRoot, path)).length === 0
+    files.push({ path, source: retargeted, clean })
+  }
+  return files
 }
 
 /** Record the user's ready declaration for one clean, settled plan version. */

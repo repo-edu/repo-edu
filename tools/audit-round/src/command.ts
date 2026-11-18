@@ -56,6 +56,7 @@ import {
   readyPlan,
   requirePlanAtHead,
   requireReadyMarker,
+  type SettleCommit,
   settlePlan,
 } from "./lifecycle.js"
 import { modelsReport } from "./models.js"
@@ -1123,6 +1124,19 @@ function stageRoundKind(stage: LifecycleStage): RoundKind {
     : "implementation"
 }
 
+/** What a settle reports, from the settle command and from the run. */
+function settleReport(result: SettleCommit): string {
+  return [
+    `Committed ${result.sha}: ${result.subject}`,
+    `Marker: ${result.marker}`,
+    ...(result.uncommitted.length === 0
+      ? []
+      : [
+          `Links rewritten but left uncommitted beside other changes: ${result.uncommitted.join(", ")}`,
+        ]),
+  ].join("\n")
+}
+
 export async function runCommand(
   argv: readonly string[],
   runtime: AssistantRuntime,
@@ -1284,10 +1298,7 @@ export async function runCommand(
               invocation.kind,
             )
       if (invocation.kind === "settle") {
-        const result = await settlePlan(context, plan)
-        options.terminal.write(
-          `Committed ${result.sha}: ${result.subject}\nMarker: ${result.marker}`,
-        )
+        options.terminal.write(settleReport(await settlePlan(context, plan)))
       } else {
         const lifecycleSettings = options.settings ?? (await readSettings())
         const result = await readyPlan(context, plan, lifecycleSettings.coders)
@@ -2352,10 +2363,7 @@ export async function runCommand(
             completed.push(current)
             current = call
             if (call === "settle") {
-              const settled = await settlePlan(context, plan)
-              await say(
-                `Committed ${settled.sha}: ${settled.subject}\nMarker: ${settled.marker}`,
-              )
+              await say(settleReport(await settlePlan(context, plan)))
             } else {
               const ready = await readyPlan(context, plan, settings.coders)
               await say(`Committed ${ready.sha}: ${ready.subject}`)

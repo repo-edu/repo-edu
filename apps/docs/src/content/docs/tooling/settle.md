@@ -27,10 +27,17 @@ concrete shape question remains. The runner only reports what the fixed rules de
 makes the call. The full run [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) makes the
 same call itself on a settle answer.
 
-The command renames `<stem>-widen.md` to `<stem>.md` in `../plan/active/` and commits only that
-rename, with the plan checkout's normal hooks, so unrelated work in the plan checkout stays as it
-was. It then claims the empty settle marker beside the plan's round files. It loads no settings and
-starts no assistant.
+The command renames `<stem>-widen.md` to `<stem>.md` in `../plan/active/`. Every link to the old
+name in the plan checkout's other Markdown files outside `archive/` that Git does not ignore then
+points at the new name. A link whose whole text is the old file name shows the new name too.
+Without this, the links stay broken until the next `rumdl fmt .` over the whole repo fails on them,
+for example in an unrelated plan's close. The plan's own text stays as it is.
+
+The command commits the rename and the link rewrites in files that had no other changes, with the
+plan checkout's normal hooks. A file with your own uncommitted changes, or an untracked file, keeps
+its rewrite as one more uncommitted change, so your work stays out of the settle commit. It then
+claims the empty settle marker beside the plan's round files. It loads no settings and starts no
+assistant.
 
 ## Output
 
@@ -39,7 +46,8 @@ starts no assistant.
 2. **The marker** `../plan-evidence/active/<stem>-plan-audit-<round>-0-settle.md`, empty, numbered
    so a file list shows where the settle fell among the rounds.
 
-It prints `Committed <sha>: <subject>` and `Marker: <path>`.
+It prints `Committed <sha>: <subject>` and `Marker: <path>`. When a rewrite stayed uncommitted, it
+adds `Links rewritten but left uncommitted beside other changes: <files>`.
 
 ## Refuses when
 

@@ -64,6 +64,7 @@ Before this rule the file held the automatic-series rules in four places.
 | `run-files.ts` | The exclusive creation of the claim and every required file write | [Numbers and claims](#numbers-and-claims), [Step logs](#step-logs), [Output](references/output.md) |
 | `evidence.ts` | The two writes that change the evidence checkout | [Report lifecycle](#report-lifecycle) |
 | `lifecycle.ts` | The plan-file preflight and the Git operations for settle, ready, the `implemented` marker and the close's round-data commit, and the check that a planning round's plan is committed | [settle](#settle), [ready](#ready), [implement](#implement), [close](#close), [Plan targets](#plan-targets), [The run](#the-run) |
+| `plan-links.ts` | The rewrite of the Markdown links that settle points at the plan's new name | [settle](#settle) |
 | `implement.ts`, `implement-output.ts` | The implementation of plan steps and its logs | [implement](#implement), [Step logs](#step-logs) |
 | `subject.ts`, `commit-msg.ts`, `commit-msg-main.ts`, `findings.ts`, `sequence.ts` | The commit subject reader, the record bullet reader and the commit hook's rule | [Commit hooks](references/commit-hooks.md#commit-hooks) |
 | `listed-files.json` | Each repository's listed files | [Listed files](references/commit-hooks.md#listed-files) |
@@ -835,9 +836,15 @@ hooks enabled.
 
 1. It refuses any current filename other than a widening one, and a target plan with untracked,
    staged or unstaged changes. Unrelated work in the plan checkout remains untouched.
-2. It renames the plan onto its bare name and commits only that rename, as
-   `<stem>/settle: settle the plan's shape`.
-3. It then claims and prints the empty settle marker file beside the commit.
+2. It points every link to the widening name in the plan checkout's other Markdown files outside
+   `archive/` that Git does not ignore at the bare name. That is the set the repo-wide
+   `rumdl fmt .` checks, and nothing else repairs a link in another file. A link whose whole text
+   is the old file name takes the new name as its text too. The plan's own text stays as it is.
+3. It renames the plan onto its bare name and commits the rename and the rewrites of files HEAD
+   held as they stood, as `<stem>/settle: settle the plan's shape`. A rewrite in a file with
+   other uncommitted changes stays uncommitted beside them, because Git commits a whole file. It
+   prints those files after the commit.
+4. It then claims and prints the empty settle marker file beside the commit.
 
 ### ready
 
