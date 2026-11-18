@@ -6,14 +6,12 @@ import { matter } from "vfile-matter"
 import { z } from "zod"
 import { additionalDirectories } from "./context.js"
 import type {
-  Assistant,
   AssistantTurnInput,
-  Effort,
   InteractiveSession,
   PhaseInput,
   PinnedField,
 } from "./phase.js"
-import { phaseLauncher, phaseSkills, phaseWorkflow } from "./phase.js"
+import { phaseLauncher, phaseWorkflow } from "./phase.js"
 
 export const claudeSettingsRequest = {
   type: "control_request",
@@ -100,50 +98,6 @@ export function interactiveArguments(session: InteractiveSession): string[] {
 
 export function recoveryCommand(session: InteractiveSession): string {
   return `${shellJoin(["cd", session.cwd])} && ${shellJoin([session.assistant, ...interactiveArguments(session)])}`
-}
-
-/** Re-enter a stopped serious-contest fix through the runner that owns its state. */
-export function roundRecoveryCommand(
-  session: InteractiveSession,
-  report: string,
-): string {
-  return `${shellJoin(["cd", session.cwd])} && ${shellJoin(["pnpm", "audit-round", "resume-fix", basename(report), session.sessionId])}`
-}
-
-/** One phase a user runs by hand, on the selection the round chose for it. */
-export type HandRunStep = {
-  readonly phase: "rebut" | "rule" | "fix"
-  readonly assistant: Assistant
-  readonly model: string
-  readonly effort: Effort
-  /** The condition a step that may have nothing to do runs under. */
-  readonly onlyWhen?: string
-}
-
-const handRunNames: Record<HandRunStep["phase"], string> = {
-  rebut: "Rebuttal",
-  rule: "Ruler",
-  fix: "Fix",
-}
-
-/**
- * The hand-run phases that finish a round whose rebuttal, ruler or fix failed.
- * A resumed rebuttal or ruler cannot finish the round, because only the runner
- * saves its report, and `resume-fix` needs those reports. Each launcher line
- * resolves the open round from the audit report's file name, so no step claims
- * a new number.
- */
-export function handRunAdvice(
-  report: string,
-  steps: readonly HandRunStep[],
-): string {
-  return [
-    "Finish the round by hand, each step in a new session:",
-    ...steps.map(
-      (step, index) =>
-        `${index + 1}. ${handRunNames[step.phase]} on ${step.assistant} ${step.model} ${step.effort}${step.onlyWhen === undefined ? "" : `, only when ${step.onlyWhen}`}:\n   ${step.assistant === "claude" ? "/" : "$"}${phaseSkills[step.phase]} ${basename(report)}`,
-    ),
-  ].join("\n")
 }
 
 const workflowHeader = z.strictObject({

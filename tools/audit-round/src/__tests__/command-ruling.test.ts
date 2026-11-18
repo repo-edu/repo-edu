@@ -235,7 +235,11 @@ test("Ctrl-C during the wait ends the round as an unanswered ruling", {
     visible,
     /Stopped without a ruling\. The round files are retained\./,
   )
-  assert.match(visible, /Resume: /)
+  assert.match(
+    visible,
+    /^Rerun: pnpm audit-round round example\.md 1 --auditor codex --no-watch$/m,
+  )
+  assert.doesNotMatch(visible, /Resume: /)
   assert.equal((await chat(f, cache, ["ruling"])).code, 1)
   // Ending the wait closed the dialog, so no stale one stays on screen.
   assert.deepEqual(

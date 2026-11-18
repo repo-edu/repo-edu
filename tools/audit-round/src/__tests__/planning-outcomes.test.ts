@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { split } from "shellwords"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream, recordedTag } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
@@ -90,7 +89,7 @@ for (const auditor of ["codex", "claude"] as const) {
     })
   }
 
-  test(`a chained ${auditor} premise stop records recovery without a vet or watch`, async (t) => {
+  test(`a chained ${auditor} premise stop names the rerun without a vet or watch`, async (t) => {
     const f = await roundFixture(t, auditor, "plan", false, null, false, "plan")
     await f.configure({
       phases: {
@@ -122,35 +121,12 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.match(markdown, /Premise needs a decision/)
     assert.match(log, /\[audit\] failed: Premise conflict/)
     assert.doesNotMatch(log, /\[(?:vet|rebut|fix|rule|watch)\] starting/)
-    assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
-      "cd",
-      f.planRoot,
-      "&&",
-      auditor,
-      ...(auditor === "codex"
-        ? [
-            "-m",
-            "gpt-5.6-sol",
-            "-c",
-            "model_reasoning_effort=high",
-            "resume",
-            "--approve-for-me",
-            "audit-session",
-          ]
-        : [
-            "--resume",
-            "audit-session",
-            "--model",
-            "opus",
-            "--effort",
-            "high",
-            "--permission-mode",
-            "auto",
-            "--add-dir",
-            f.repoRoot,
-            f.evidenceRoot,
-          ]),
-    ])
+    assert.match(log, /^Session: audit-session$/m)
+    assert.equal(
+      log.match(/^Rerun: (.+)$/m)?.[1],
+      `pnpm audit-round round example.md --auditor ${auditor === "codex" ? "o,a" : "a,o"}`,
+    )
+    assert.doesNotMatch(log, /^Resume:/m)
     assert.match(
       f.visible.join("\n"),
       /Auditor sequence stopped: this round failed/,

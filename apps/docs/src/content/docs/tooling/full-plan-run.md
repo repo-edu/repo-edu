@@ -102,14 +102,14 @@ continues the run itself.
 1. **A ruling needs your answer.** A fix or an implementation worker writes its question. The
    terminal prints a notice and, on macOS, a dialog window that stays until you click OK. You answer
    in the Claude desktop app with `/ruling <stem>`. Once the chat sends your answer, the same
-   session resumes and the run continues. Ctrl-C in the terminal leaves the question unanswered,
-   ends the run and prints the session's recovery command. See
+   session resumes and the run continues. Ctrl-C in the terminal leaves the question unanswered
+   and ends the run. A round prints the `Rerun:` command that continues it; an implementation
+   worker prints its session's recovery command. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase or worker failed.** Fix any outside problem the failure names, then run the printed
-   `Resume:` command or the printed `--resume` form of this command. A failed rebuttal, ruler or fix
-   prints the hand-run phases that finish the round instead. The one exception is a fix that still
-   needs your winner on a serious contest or split while the runner knows the fix session. That fix
-   prints `resume-fix`. See [Recover a run](/repo-edu/tooling/recover-run/).
+   `Rerun:` command, which is `pnpm audit-round <stem>`, or the printed `--resume` form of it for a
+   failed worker. The rerun continues a stopped round on its kept reports. See
+   [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** Read the named `-watch.md` file and act on it before you
    rerun.
 4. **A fix changed the plan's phase.** For example an implementation-audit fix renamed the plan to

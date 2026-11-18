@@ -12,6 +12,7 @@ import {
   unprefixedCommitReference,
 } from "../target.js"
 import {
+  pinned,
   RoundOutput,
   roundRun,
   testFixer,
@@ -314,6 +315,7 @@ test("an automatic series adds no assistant phase for its decision", async (t) =
     0,
     releases,
     testSettings,
+    "pnpm audit-round example",
   )
 
   assert.notEqual(run.phases.at(-1)?.phase, "judge")
@@ -387,4 +389,168 @@ test("planning rounds number their bare target in the round folder and write the
   )
   assert.equal(archived.nameStart, "topic-plan-audit-01")
   assert.equal(archived.data, undefined)
+})
+
+const head = "c".repeat(40)
+
+/** An implementation audit report on the target it names, with no findings. */
+const implementationReport = (target: string) =>
+  `Implementation audit workflow\nTarget: ${target}\nJudged repos: repo-edu@${head}\n\n## Findings\n\nNo findings.\n`
+
+/** Leave a round that failed in its vet, keeping the given audit report. */
+async function stoppedRound(
+  setup: Parameters<typeof roundRun>[0],
+  report: string | null,
+) {
+  const run = await roundRun(setup, 0, releases)
+  const output = new RoundOutput(run, options)
+  if (report !== null) await writeFile(run.documents.report, report)
+  output.finish({
+    status: "failed",
+    phase: "vet",
+    reason: "Usage limit",
+    sessionId: null,
+    assistant: "claude",
+    model: pinned("claude"),
+    ...testContext(setup.repoEduRoot),
+    commits: [],
+    account: { settling: "", judgedRepos: [], findings: [] },
+  })
+  output.close()
+  return run
+}
+
+test("a call continues its target's newest stopped round on the kept audit report", async (t) => {
+  const f = await fixture(t)
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+  const stopped = await stoppedRound(
+    setup,
+    implementationReport("example.md 1"),
+  )
+  // The kept audit report fixes the auditor, whatever the call asks.
+  const next = await roundRun({ ...setup, auditor: "claude" }, 0, releases)
+  assert.equal(next.nameStart, stopped.nameStart)
+  assert.equal(next.stored?.round, 1)
+  assert.equal(next.setup.auditor, "codex")
+  assert.equal(next.paths.claim, null)
+  assert.equal(next.paths.reopenLog, true)
+  assert.equal(next.paths.markdown, stopped.paths.markdown)
+  assert.equal(next.documents.report, stopped.documents.report)
+  assert.match(next.title, /\(round 1\), continued$/)
+  assert.ok(next.data)
+  assert.equal(next.data.tag, "obh")
+})
+
+test("a stopped round without a valid kept audit report leaves the call a new round", async (t) => {
+  const f = await fixture(t)
+  const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
+  await stoppedRound(setup, null)
+  const afterAudit = await roundRun(setup, 0, releases)
+  assert.equal(afterAudit.nameStart, "example-impl-audit-01..01-02")
+  assert.equal(afterAudit.stored, undefined)
+  new RoundOutput(afterAudit, options).close()
+  // A report that names another target does not read as valid.
+  const mistargeted = await stoppedRound(
+    setup,
+    implementationReport("example.md 2"),
+  )
+  assert.equal(mistargeted.nameStart, "example-impl-audit-01..01-03")
+  const refused = await roundRun(setup, 0, releases)
+  assert.equal(refused.nameStart, "example-impl-audit-01..01-04")
+  assert.equal(refused.stored, undefined)
+})
+
+test("a call continues a stopped planning round only when both are chained or neither is", async (t) => {
+  const f = await fixture(t)
+  const planning = {
+    ...testSetup(f.root, "planning"),
+    roundKind: "planning" as const,
+    plan: "example.md",
+  }
+  const deferrals = [
+    {
+      deferringRepository: "repo-edu" as const,
+      sha: "d".repeat(40),
+      position: 1,
+      tier: "b" as const,
+      destination: "plan",
+      title: "Fixture deferral",
+    },
+  ]
+  const report = `Planning round workflow\nTarget: example.md\nJudged repos: plan@${head}\n\n## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\nNo missing findings.\n`
+  const chained = await stoppedRound({ ...planning, deferrals }, report)
+  const stored = JSON.parse(
+    await readFile(
+      join(f.root, "../plan-evidence/active/example-plan-rounds.json"),
+      "utf8",
+    ),
+  ) as { rounds: { deferrals?: unknown }[] }
+  assert.deepEqual(stored.rounds[0]?.deferrals, deferrals)
+  // An ordinary call opens a new round beside the stopped chained one.
+  const ordinary = await roundRun(planning, 0, releases)
+  assert.equal(ordinary.stored, undefined)
+  assert.equal(ordinary.nameStart, "example-plan-audit-02")
+  new RoundOutput(ordinary, options).close()
+  // A chained call continues only the newest round, which is no longer the chained one.
+  const later = await roundRun({ ...planning, deferrals: [] }, 0, releases)
+  assert.equal(later.stored, undefined)
+  assert.notEqual(later.nameStart, chained.nameStart)
+})
+
+test("a chained call continues a stopped chained round on its stored deferral list", async (t) => {
+  const f = await fixture(t)
+  const planning = {
+    ...testSetup(f.root, "planning"),
+    roundKind: "planning" as const,
+    plan: "example.md",
+  }
+  const deferral = {
+    deferringRepository: "repo-edu" as const,
+    sha: "d".repeat(40),
+    position: 1,
+    tier: "b" as const,
+    destination: "plan",
+    title: "Fixture deferral",
+  }
+  const report = `Planning round workflow\nTarget: example.md\nJudged repos: plan@${head}\n\n## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\nNo missing findings.\n`
+  const chained = await stoppedRound(
+    { ...planning, deferrals: [deferral] },
+    report,
+  )
+  const next = await roundRun(
+    { ...planning, deferrals: [{ ...deferral, position: 2 }] },
+    0,
+    releases,
+  )
+  assert.equal(next.nameStart, chained.nameStart)
+  assert.deepEqual(next.setup.deferrals, [deferral])
+})
+
+test("a continued commit round keeps the commits and references its kept audit report judged", async (t) => {
+  const f = await fixture(t)
+  const original = {
+    repository: "repo-edu" as const,
+    references: ["abcdef"] as [string],
+    startingHead: head,
+    commits: ["abcdef".padEnd(40, "0")] as [string],
+    shortReferences: ["abcdef"] as [string],
+  }
+  const setup = {
+    ...testSetup(f.root),
+    originalGroups: [original] as [typeof original],
+    groups: [original] as [typeof original],
+  }
+  const stopped = await stoppedRound(setup, implementationReport("abcdef"))
+  // A later call advances its target by the fixes the series has landed.
+  const fix = "123abc".padEnd(40, "0")
+  const advanced = {
+    ...original,
+    references: [original.commits[0], fix] as [string, string],
+    commits: [original.commits[0], fix] as [string, string],
+  }
+  const next = await roundRun({ ...setup, groups: [advanced] }, 0, releases)
+  assert.equal(next.nameStart, stopped.nameStart)
+  assert.ok("groups" in next.setup)
+  assert.deepEqual(next.setup.groups[0]?.references, ["abcdef"])
+  assert.deepEqual(next.setup.groups[0]?.commits, original.commits)
 })

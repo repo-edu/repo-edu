@@ -20,11 +20,14 @@ export const testSettings = settingsSchema.parse(fixture)
 export const runCommand = (...args: Parameters<typeof command.runCommand>) =>
   command.runCommand(args[0], args[1], { settings: testSettings, ...args[2] })
 
+/** The command a stopped test round names to continue it. */
+export const testRerun = "pnpm audit-round example"
+
 export const roundRun = (
   setup: Parameters<typeof output.roundRun>[0],
   started: number,
   selections: Parameters<typeof output.roundRun>[2],
-) => output.roundRun(setup, started, selections, testSettings)
+) => output.roundRun(setup, started, selections, testSettings, testRerun)
 
 export const closeRun = (
   plan: string,

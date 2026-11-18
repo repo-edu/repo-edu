@@ -197,16 +197,15 @@ export function roundSubject(
 }
 
 /**
- * Read every retained numbered kind in the round folder; opening the run
- * claims the candidate round. The marker is the number the target's latest
- * settle or reopen marker took, or zero before its first one.
+ * Every number a target's files in the round folder carry: a claim, a phase
+ * file or a settle or reopen marker, which takes a number of its own.
  */
-async function nextRound(
-  context: ExecutionContext,
+async function numberedFiles(
+  context: Pick<ExecutionContext, "roundRoot">,
   target: string,
-): Promise<{ round: number; marker: number }> {
+): Promise<readonly { readonly number: number; readonly marker: boolean }[]> {
   const files = await readdir(context.roundRoot, { withFileTypes: true })
-  const numbered = files
+  return files
     .filter((file) => file.isFile())
     .map((file) => file.name)
     .filter((name) => name.startsWith(`${target}-`))
@@ -223,12 +222,45 @@ async function nextRound(
         marker: false,
       }
     })
-  const highest = (entries: typeof numbered): number =>
-    Math.max(0, ...entries.map((entry) => entry.number))
-  const round = highest(numbered) + 1
+}
+
+function highestNumber(
+  entries: readonly { readonly number: number }[],
+): number {
+  return Math.max(0, ...entries.map((entry) => entry.number))
+}
+
+/**
+ * Read every retained numbered kind in the round folder; opening the run
+ * claims the candidate round. The marker is the number the target's latest
+ * settle or reopen marker took, or zero before its first one.
+ */
+async function nextRound(
+  context: ExecutionContext,
+  target: string,
+): Promise<{ round: number; marker: number }> {
+  const numbered = await numberedFiles(context, target)
+  const round = highestNumber(numbered) + 1
   if (!Number.isSafeInteger(round))
     throw new Error(`Round number exhausted for ${target}`)
-  return { round, marker: highest(numbered.filter((entry) => entry.marker)) }
+  return {
+    round,
+    marker: highestNumber(numbered.filter((entry) => entry.marker)),
+  }
+}
+
+/**
+ * The number of a target's newest round, or null before its first. A settle or
+ * reopen marker takes a number but is no round.
+ */
+export async function newestRound(
+  context: Pick<ExecutionContext, "roundRoot">,
+  target: string,
+): Promise<number | null> {
+  const newest = highestNumber(
+    (await numberedFiles(context, target)).filter((entry) => !entry.marker),
+  )
+  return newest === 0 ? null : newest
 }
 
 /**
@@ -247,12 +279,27 @@ function roundNumbers(
     : `round ${round}`
 }
 
-/** Both entry routes allocate through the same target and retained-file rules. */
+/**
+ * Both entry routes allocate through the same target and retained-file rules.
+ * A continued round keeps the number it claimed, so its title counts from the
+ * latest marker before it.
+ */
 export async function roundIdentity(
   setup: NamingTarget,
+  kept?: number,
 ): Promise<{ nameStart: string; title: string }> {
   const target = await targetDescription(setup)
-  const { round, marker } = await nextRound(setup, target.label)
+  const { round, marker } =
+    kept === undefined
+      ? await nextRound(setup, target.label)
+      : {
+          round: kept,
+          marker: highestNumber(
+            (await numberedFiles(setup, target.label)).filter(
+              (entry) => entry.marker && entry.number < kept,
+            ),
+          ),
+        }
   return {
     nameStart: `${target.label}-${String(round).padStart(2, "0")}`,
     title: `${target.title} (${roundNumbers(setup, round, marker)})`,
@@ -330,17 +377,6 @@ async function roundDocument(
 }
 
 export type ManualPhase = "vet" | "rebut" | "rule" | "fix"
-
-export type RecoveryRoundPaths = {
-  readonly nameStart: string
-  readonly report: string
-  /** Every vet report of the round, ordered by file name. */
-  readonly vets: readonly string[]
-  readonly rebut: string
-  /** The round's newest ruler report, or null when no ruler ran. */
-  readonly ruler: string | null
-  readonly ruling: string | null
-}
 
 /** The most recently modified document decides between eligible candidates. */
 async function newestDocument(
@@ -457,34 +493,4 @@ export async function manualPhasePaths(
     ...(rebut === undefined ? [] : [rebut]),
     ...(ruler === undefined ? [] : [ruler]),
   ]
-}
-
-/** Resolve the retained reports and optional ruling for one stopped fix. */
-export async function recoveryRoundPaths(
-  context: ExecutionContext,
-  input: string,
-): Promise<RecoveryRoundPaths> {
-  const source = await roundDocument(context, input, "audit")
-  const reviews = await manualPhasePaths(context, "fix", input, {})
-  const kind = (path: string) => readPhaseFilename(basename(path))?.kind
-  const ruler = reviews.find((path) => kind(path) === "rule") ?? null
-  const rebut = reviews.find((path) => kind(path) === "rebut")
-  const vets = reviews.filter((path) => kind(path) === "vet")
-  if (vets.length === 0 || rebut === undefined)
-    throw new Error(
-      `A serious-contest recovery needs the audit, vet and rebuttal files for ${source.nameStart}.`,
-    )
-  const ruling = await newestDocument(
-    (await phaseDocuments(context.roundRoot, "ruling"))
-      .filter((document) => document.nameStart === source.nameStart)
-      .map((document) => document.path),
-  )
-  return {
-    nameStart: source.nameStart,
-    report: reviews[0] as string,
-    vets,
-    rebut,
-    ruler,
-    ruling: ruling ?? null,
-  }
 }

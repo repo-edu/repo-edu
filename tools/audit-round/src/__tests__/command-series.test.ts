@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { documentTag } from "../round-paths.js"
@@ -18,6 +18,15 @@ const singleAuditorSettings = {
     ...testSettings.implementationAudit,
     auditors: [testSettings.implementationAudit.auditors[0]],
   },
+}
+
+/**
+ * A continued round's landed B makes its auditor's read stale, so the series
+ * would read again. The continuation tests follow the continued round alone.
+ */
+const continuedRoundSettings = {
+  ...singleAuditorSettings,
+  maximumAutomaticRounds: 1,
 }
 
 const splitAuditorSettings = {
@@ -120,8 +129,10 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.match(log, /Run the fix phase .* resumed session/)
 })
 
-test("a stopped serious contest continues on its kept reports with a fresh fix", async (t) => {
+test("a rerun continues a stopped serious contest on its kept reports with a fresh fix", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
+  const command = ["round", "example.md", "1", "--no-watch"]
+  const options = { ...f.options, settings: continuedRoundSettings }
   await f.configure({
     phases: {
       ...f.phases,
@@ -134,70 +145,62 @@ test("a stopped serious contest continues on its kept reports with a fresh fix",
     },
   })
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
-      f.runtime,
-      f.options,
-    ),
+    await runCommand(command, f.runtime, options),
     0,
     f.errors.join("\n"),
   )
-  const report = f.report
+  const stopped = f.visible.join("\n")
+  assert.match(stopped, /^Session: fix-session$/m)
   assert.match(
-    f.visible.join("\n"),
-    new RegExp(
-      `pnpm audit-round resume-fix ${basename(report).replaceAll(".", "\\.")} fix-session`,
-    ),
+    stopped,
+    /^Rerun: pnpm audit-round round example\.md 1 --no-watch$/m,
   )
+  assert.doesNotMatch(stopped, /Resume:/)
   const priorCalls = (await f.calls()).length
   const priorPrompts = (await f.prompts()).length
 
   // The audit, vet and rebuttal reports stand. A fresh fix writes the ruling
   // again, and the user's answer resumes that session to land the record.
   assert.equal(
-    await runCommand(
-      ["resume-fix", basename(report), "fix-session"],
-      f.runtime,
-      {
-        ...f.options,
-        awaitAnswer: async (ruling) => {
-          assert.deepEqual(ruling.findings, [1])
-          const stream = await phaseStream(
-            "codex",
-            'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
-            "fix-session",
-          )
-          await f.configure({
-            phases: {
-              ...f.phases,
-              fix: {
-                ...(f.phases.fix as Record<string, unknown>),
-                stream,
-                assistants: { codex: { stream } },
-                commits: [
-                  {
-                    cwd: f.repoRoot,
-                    subject:
-                      "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
-                    body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
-                  },
-                ],
-              },
+    await runCommand(command, f.runtime, {
+      ...options,
+      awaitAnswer: async (ruling) => {
+        assert.deepEqual(ruling.findings, [1])
+        const stream = await phaseStream(
+          "codex",
+          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          "fix-session",
+        )
+        await f.configure({
+          phases: {
+            ...f.phases,
+            fix: {
+              ...(f.phases.fix as Record<string, unknown>),
+              stream,
+              assistants: { codex: { stream } },
+              commits: [
+                {
+                  cwd: f.repoRoot,
+                  subject:
+                    "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
+                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
+                },
+              ],
             },
-          })
-          return {
-            rulings: [
-              {
-                finding: 1,
-                winner: "report",
-                reason: "The report quotes the owning contract.",
-              },
-            ],
-            reply: "",
-          }
-        },
+          },
+        })
+        return {
+          rulings: [
+            {
+              finding: 1,
+              winner: "report",
+              reason: "The report quotes the owning contract.",
+            },
+          ],
+          reply: "",
+        }
       },
-    ),
+    }),
     0,
     f.errors.join("\n"),
   )
@@ -269,9 +272,10 @@ test("a stopped serious contest continues on its kept reports with a fresh fix",
   assert.equal(markdown.match(/^Started /gm)?.length, 2)
 })
 
-test("a stopped panel split continues with a fresh fix that reads every kept vet report", async (t) => {
+test("a rerun continues a stopped panel split with a fresh fix that reads every kept vet report", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
-  const settings = structuredClone(testSettings)
+  const command = ["round", "example.md", "1", "--no-watch"]
+  const settings = structuredClone(continuedRoundSettings)
   settings.implementationAudit.vetters = [
     { assistant: "claude", model: "opus", effort: "high" },
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
@@ -296,11 +300,7 @@ test("a stopped panel split continues with a fresh fix that reads every kept vet
     },
   })
   assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
-      f.runtime,
-      options,
-    ),
+    await runCommand(command, f.runtime, options),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -311,57 +311,51 @@ test("a stopped panel split continues with a fresh fix that reads every kept vet
   for (const vet of vets) assert.ok((await readFile(vet, "utf8")).length > 0)
   assert.match(
     f.visible.join("\n"),
-    new RegExp(
-      `pnpm audit-round resume-fix ${basename(report).replaceAll(".", "\\.")} fix-session`,
-    ),
+    /^Rerun: pnpm audit-round round example\.md 1 --no-watch$/m,
   )
   const priorPrompts = (await f.prompts()).length
 
   assert.equal(
-    await runCommand(
-      ["resume-fix", basename(report), "fix-session"],
-      f.runtime,
-      {
-        ...options,
-        awaitAnswer: async (ruling) => {
-          assert.deepEqual(ruling.findings, [1])
-          assert.deepEqual(ruling.panel, ["abh", "obh"])
-          const stream = await phaseStream(
-            "codex",
-            'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
-            "fix-session",
-          )
-          await f.configure({
-            phases: {
-              ...f.phases,
-              fix: {
-                ...(f.phases.fix as Record<string, unknown>),
-                stream,
-                assistants: { codex: { stream } },
-                commits: [
-                  {
-                    cwd: f.repoRoot,
-                    subject:
-                      "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
-                    body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
-                  },
-                ],
-              },
+    await runCommand(command, f.runtime, {
+      ...options,
+      awaitAnswer: async (ruling) => {
+        assert.deepEqual(ruling.findings, [1])
+        assert.deepEqual(ruling.panel, ["abh", "obh"])
+        const stream = await phaseStream(
+          "codex",
+          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          "fix-session",
+        )
+        await f.configure({
+          phases: {
+            ...f.phases,
+            fix: {
+              ...(f.phases.fix as Record<string, unknown>),
+              stream,
+              assistants: { codex: { stream } },
+              commits: [
+                {
+                  cwd: f.repoRoot,
+                  subject:
+                    "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
+                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+                },
+              ],
             },
-          })
-          return {
-            rulings: [
-              {
-                finding: 1,
-                winner: ["abh"],
-                reason: "The finding holds as written.",
-              },
-            ],
-            reply: "",
-          }
-        },
+          },
+        })
+        return {
+          rulings: [
+            {
+              finding: 1,
+              winner: ["abh"],
+              reason: "The finding holds as written.",
+            },
+          ],
+          reply: "",
+        }
       },
-    ),
+    }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -415,9 +409,10 @@ test("a stopped panel split continues with a fresh fix that reads every kept vet
   for (const path of [report, ...vets, f.rebut]) await readFile(path)
 })
 
-test("a fix that failed with an open serious split finishes through resume-fix", async (t) => {
+test("a fix that failed with an open serious split finishes on the rerun", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu")
-  const settings = structuredClone(testSettings)
+  const command = ["round", "example.md", "1", "--no-watch"]
+  const settings = structuredClone(continuedRoundSettings)
   settings.implementationAudit.vetters = [
     { assistant: "claude", model: "opus", effort: "high" },
     { assistant: "codex", model: "gpt-5.6-sol", effort: "high" },
@@ -463,25 +458,15 @@ test("a fix that failed with an open serious split finishes through resume-fix",
       ),
     },
   })
-  assert.equal(
-    await runCommand(
-      ["round", "example.md", "1", "--auditor", "codex", "--no-watch"],
-      f.runtime,
-      options,
-    ),
-    1,
-  )
-  const report = f.report
+  assert.equal(await runCommand(command, f.runtime, options), 1)
   const failed = f.visible.join("\n")
   assert.match(failed, /\[fix\] failed: Selected model is at capacity\./)
+  assert.match(failed, /^Session: fix-session$/m)
   assert.match(
     failed,
-    new RegExp(
-      `^Resume: .* && pnpm audit-round resume-fix ${basename(report).replaceAll(".", "\\.")} fix-session$`,
-      "m",
-    ),
+    /^Rerun: pnpm audit-round round example\.md 1 --no-watch$/m,
   )
-  assert.doesNotMatch(failed, /Finish the round by hand/)
+  assert.doesNotMatch(failed, /Resume:|by hand/)
   const roundData = join(f.roundRoot, "example-impl-rounds.json")
   const stored = async () =>
     JSON.parse(await readFile(roundData, "utf8")) as {
@@ -503,42 +488,38 @@ test("a fix that failed with an open serious split finishes through resume-fix",
     },
   })
   assert.equal(
-    await runCommand(
-      ["resume-fix", basename(report), "fix-session"],
-      f.runtime,
-      {
-        ...options,
-        awaitAnswer: async (ruling) => {
-          assert.deepEqual(ruling.findings, [1])
-          assert.deepEqual(ruling.panel, ["abh", "obh"])
-          await f.configure({
-            phases: {
-              ...f.phases,
-              fix: await fixPhase('{"status":"finished","reason":null}', {
-                commits: [
-                  {
-                    cwd: f.repoRoot,
-                    subject:
-                      "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
-                    body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
-                  },
-                ],
-              }),
+    await runCommand(command, f.runtime, {
+      ...options,
+      awaitAnswer: async (ruling) => {
+        assert.deepEqual(ruling.findings, [1])
+        assert.deepEqual(ruling.panel, ["abh", "obh"])
+        await f.configure({
+          phases: {
+            ...f.phases,
+            fix: await fixPhase('{"status":"finished","reason":null}', {
+              commits: [
+                {
+                  cwd: f.repoRoot,
+                  subject:
+                    "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
+                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+                },
+              ],
+            }),
+          },
+        })
+        return {
+          rulings: [
+            {
+              finding: 1,
+              winner: ["abh"],
+              reason: "The finding holds as written.",
             },
-          })
-          return {
-            rulings: [
-              {
-                finding: 1,
-                winner: ["abh"],
-                reason: "The finding holds as written.",
-              },
-            ],
-            reply: "",
-          }
-        },
+          ],
+          reply: "",
+        }
       },
-    ),
+    }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -554,6 +535,154 @@ test("a fix that failed with an open serious split finishes through resume-fix",
     reason: "The finding holds as written.",
     namedBy: "user",
   })
+})
+
+test("a stopped commit round names its commits by ID and its rerun continues it on the kept target", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  const head = await commitFixture(f.repoRoot, "oth docs(x): fixture")
+  const options = { ...f.options, settings: continuedRoundSettings }
+  await f.configure({
+    phases: {
+      ...f.phases,
+      rebut: {
+        ...(f.phases.rebut as Record<string, unknown>),
+        document: {
+          text: "1. [B] [<vet>] Contest\n\nThe report quotes the owning contract.\n",
+        },
+      },
+    },
+  })
+  assert.equal(
+    await runCommand(["round", "HEAD"], f.runtime, options),
+    0,
+    f.errors.join("\n"),
+  )
+  // A `HEAD` form typed again would name another commit once HEAD moves.
+  const rerun = f.visible
+    .join("\n")
+    .match(/^Rerun: pnpm audit-round (.+)$/m)?.[1]
+  assert.ok(rerun)
+  assert.equal(rerun, `round ${head.slice(0, 6)}`)
+  await commitFixture(f.repoRoot, "oth docs(x): later work")
+  const priorPrompts = (await f.prompts()).length
+  assert.equal(
+    await runCommand(rerun.split(" "), f.runtime, {
+      ...options,
+      awaitAnswer: async (ruling) => {
+        assert.deepEqual(ruling.findings, [1])
+        const stream = await phaseStream(
+          "codex",
+          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          "fix-session",
+        )
+        await f.configure({
+          phases: {
+            ...f.phases,
+            fix: {
+              ...(f.phases.fix as Record<string, unknown>),
+              stream,
+              assistants: { codex: { stream } },
+              commits: [],
+            },
+          },
+        })
+        return {
+          rulings: [
+            {
+              finding: 1,
+              winner: "report",
+              reason: "The report quotes the owning contract.",
+            },
+          ],
+          reply: "",
+        }
+      },
+    }),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  // The kept audit report still reads as valid against the target it judged,
+  // so only the fix runs again.
+  assert.deepEqual(
+    (await f.prompts())
+      .slice(priorPrompts)
+      .filter((call) => call.prompt.startsWith("Run the "))
+      .map(({ prompt }) =>
+        /^Run the (\w+) phase .* in this (\w+) session\./
+          .exec(prompt)
+          ?.slice(1),
+      ),
+    [
+      ["fix", "fresh"],
+      ["fix", "resumed"],
+    ],
+  )
+  const stored = JSON.parse(
+    await readFile(
+      join(f.roundRoot, `commit-${head.slice(0, 6)}-rounds.json`),
+      "utf8",
+    ),
+  ) as { rounds: { status: string; groups: { references: string[] }[] }[] }
+  assert.equal(stored.rounds.length, 1)
+  assert.equal(stored.rounds[0]?.status, "finished")
+  assert.deepEqual(stored.rounds[0]?.groups[0]?.references, ["HEAD"])
+})
+
+test("an --auditor rerun continues the stopped round before its first entry runs", async (t) => {
+  const f = await roundFixture(t)
+  const command = [
+    "round",
+    "example.md",
+    "1",
+    "--auditor",
+    "codex",
+    "--no-watch",
+  ]
+  const failing = await phaseStream(
+    "codex",
+    'Fix turn.\nPHASE RESULT: {"status":"failed","reason":"Selected model is at capacity."}',
+    "fix-session",
+  )
+  await f.configure({
+    phases: {
+      ...f.phases,
+      fix: {
+        ...(f.phases.fix as Record<string, unknown>),
+        stream: failing,
+        assistants: { codex: { stream: failing } },
+        commits: [],
+      },
+    },
+  })
+  assert.equal(await runCommand(command, f.runtime, f.options), 1)
+  assert.match(
+    f.visible.join("\n"),
+    /^Rerun: pnpm audit-round round example\.md 1 --auditor codex --no-watch$/m,
+  )
+  await f.configure({ phases: f.phases })
+  f.visible.length = 0
+  assert.equal(
+    await runCommand(command, f.runtime, f.options),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Continuing round 1, which ended failed, on its kept audit report by codex /,
+  )
+  assert.match(visible, /Next round: codex; 1 auditor entries remain\./)
+  assert.match(visible, /Auditor sequence finished after 2 rounds\./)
+  const stored = JSON.parse(
+    await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
+  ) as { rounds: { round: number; status: string }[] }
+  assert.deepEqual(
+    stored.rounds.map(({ round, status }) => ({ round, status })),
+    [
+      { round: 1, status: "finished" },
+      { round: 2, status: "finished" },
+    ],
+  )
 })
 
 /** The ruling pause lets a test act as the user editing the queue mid-round. */

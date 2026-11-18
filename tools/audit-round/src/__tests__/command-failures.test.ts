@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { split } from "shellwords"
 import { runCommand } from "./configured-runner.js"
 import { phaseStream, recordedTag, recordedText } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
@@ -120,19 +119,12 @@ for (const auditor of ["codex", "claude"] as const) {
         assert.ok(
           log.includes(`${f.repoRoot}/.agents/skills/fix/references/ruling.md`),
         )
-        assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
-          "cd",
-          f.planRoot,
-          "&&",
-          "codex",
-          "-m",
-          "gpt-5.6-sol",
-          "-c",
-          "model_reasoning_effort=high",
-          "resume",
-          "--approve-for-me",
-          "fix-session",
-        ])
+        assert.match(log, /^Session: fix-session$/m)
+        assert.equal(
+          log.match(/^Rerun: (.+)$/m)?.[1],
+          `pnpm audit-round round example-widen.md --auditor ${auditor === "codex" ? "o" : "a"}`,
+        )
+        assert.doesNotMatch(log, /^Resume:/m)
       }
       assert.equal(
         (await readdir(f.repoRoot)).some((name) =>
@@ -318,23 +310,14 @@ test("a failed planning audit retains its root and recovery session without star
   const { log } = await f.records()
   assert.match(log, /Premise conflict/)
   assert.doesNotMatch(log, /\[vet\] starting/)
-  assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
-    "cd",
-    f.planRoot,
-    "&&",
-    "claude",
-    "--resume",
-    "audit-session",
-    "--model",
-    "opus",
-    "--effort",
-    "high",
-    "--permission-mode",
-    "auto",
-    "--add-dir",
-    f.repoRoot,
-    f.evidenceRoot,
-  ])
+  // A premise stop is answered by a rerun once the user has recorded the
+  // decision; the session stays open to ask what went wrong.
+  assert.match(log, /^Session: audit-session$/m)
+  assert.equal(
+    log.match(/^Rerun: (.+)$/m)?.[1],
+    "pnpm audit-round round example.md --auditor a",
+  )
+  assert.doesNotMatch(log, /^Resume:/m)
   for (const output of [log, f.visible.join("\n")])
     assert.doesNotMatch(output, /Files at repository roots:/)
 })

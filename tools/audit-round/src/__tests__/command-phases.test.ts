@@ -203,7 +203,10 @@ for (const auditor of ["claude", "codex"] as const) {
         // The run's rule is heavier than the phase rule and boxes the run in,
         // whether the round finished or handed over for a ruling.
         assert.match(log, /\n═{72}\n[^\n]+\nStarted \d{4}-/)
-        assert.match(log, /(finished\.|retained\.\n[^\n]+)\n═{72}\n/)
+        assert.match(
+          log,
+          /(finished\.|retained\.\nSession: [^\n]+\nRerun: [^\n]+)\n═{72}\n/,
+        )
         assert.equal(log.match(/═{72}/g)?.length, 2)
         assert.doesNotMatch(log, /─{72}\n[^\n]*\nStarted /)
         // A round that handed over has not proved its work landed, so it never glances.

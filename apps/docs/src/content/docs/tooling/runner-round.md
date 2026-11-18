@@ -194,14 +194,13 @@ and any other with status 1.
    `not yet`, which sends your question to the fix and asks again when the ruling returns. The fix
    remains unable to commit until every required winner is recorded. The free reply may be empty
    once every listed finding has a winner. Ctrl-C in the terminal keeps the round's files, prints
-   the fix's recovery command and ends the series. See
+   the command that continues the round and ends the series. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
-2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Resume:`
-   command. A failed rebuttal, ruler or fix prints the hand-run phases that finish the round
-   instead: the rebuttal, the ruler when a C or D dispute remains and the fix; the ruler and the
-   fix; or the fix alone. A fix whose serious contest or split still needs
-   your winner prints `resume-fix` when the runner knows the fix session. Without one, it prints
-   the hand-run fix. See [Recover a run](/repo-edu/tooling/recover-run/).
+2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Rerun:`
+   command, which is the command you typed. It continues the stopped round on its kept reports and
+   starts the first phase without one in a new session. A round that stopped in its audit kept no
+   audit report, so the rerun opens a new round. See
+   [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and
    act on it first.
 4. **A fix changed the plan's phase.** The round finishes without a series decision and the series

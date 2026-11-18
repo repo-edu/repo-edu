@@ -32,9 +32,11 @@ test("an unavailable writer still prints the known session to the emergency chan
     ),
     1,
   )
+  const errors = f.errors.join("\n")
+  assert.match(errors, /^Session: audit-session$/m)
   assert.match(
-    f.errors.join("\n"),
-    /Resume: cd .* && codex -m gpt-5\.6-sol -c model_reasoning_effort\\=high resume --approve-for-me audit-session/,
+    errors,
+    /^Rerun: pnpm audit-round round example\.md 1 --auditor o$/m,
   )
 })
 

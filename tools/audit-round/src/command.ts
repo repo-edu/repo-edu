@@ -66,7 +66,6 @@ import {
   type OutputOptions,
   RoundOutput,
   type Run,
-  resumedRoundRun,
   roundRun,
 } from "./output.js"
 import { elapsedText } from "./output-format.js"
@@ -78,9 +77,9 @@ import {
   auditLevels,
   auditRoles,
   type DeferralChainOutcome,
-  efforts,
   type LandedRecord,
   listedSeat,
+  noOverride,
   phaseWorkflow,
   type RoundDependencies,
   roundFixer,
@@ -98,21 +97,16 @@ import { readReport, reportKind } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
-  continuedSetup,
   failureResumeSessionId,
-  openSeriousFindings,
   type RoundResult,
-  type RoundSetup,
   runClose,
   runRound,
-  storedAccount,
 } from "./round.js"
 import {
   type DisprovedFinding,
   type LandedCommit,
   parseRoundDataFile,
   type RoundFinding,
-  readActiveRoundData,
   readCommitRoundData,
   roundDataFilename,
   writeDisprovedFinding,
@@ -126,7 +120,6 @@ import {
   phaseFilename,
   planTargetKind,
   queueFile,
-  recoveryRoundPaths,
   roundIdentity,
   roundSubject,
   targetLabel,
@@ -214,12 +207,6 @@ type Invocation =
       readonly rebut?: string
     }
   | {
-      readonly kind: "resume-fix"
-      readonly report: string
-      readonly sessionId: string
-      readonly verbose?: boolean
-    }
-  | {
       readonly kind: "ruling"
       /** Absent when the command takes the one run that waits. */
       readonly target?: string
@@ -292,7 +279,6 @@ const roundFileWriters: ReadonlySet<Invocation["kind"]> = new Set([
   "round",
   "implement",
   "close",
-  "resume-fix",
   "name",
   "mark",
   "settle",
@@ -516,12 +502,6 @@ function workerResume(value: string): WorkerResume {
       "Expected <step>:<session-id>, as a failed implementation worker prints it.",
     )
   return { step, sessionId: match[2] }
-}
-
-function sessionIdentifier(value: string): string {
-  if (value.trim().length === 0 || /\s/.test(value))
-    throw new InvalidArgumentError("Expected one non-empty session ID.")
-  return value
 }
 
 const resumeOption = () =>
@@ -947,19 +927,6 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
       },
     )
   command
-    .command("resume-fix", { hidden: true })
-    .description(
-      "Resume one stopped serious-contest fix through its retained runner state.",
-    )
-    .argument("<report>", "the stopped round's bare audit report name")
-    .argument("<session-id>", "the retained fix session", sessionIdentifier)
-    .option("-v, --verbose", "show tool calls as well as assistant text")
-    .action(
-      (report: string, sessionId: string, flags: { verbose?: boolean }) => {
-        invocation = { kind: "resume-fix", report, sessionId, ...flags }
-      },
-    )
-  command
     .command("episode", { hidden: true })
     .description(
       "Print a line range of joined Git and round data evidence for a hand-run watch without writing files.",
@@ -1253,103 +1220,6 @@ async function readLandedRecord(
   return { repository, sha, subject: subject.stdout, message: message.stdout }
 }
 
-function recoveredCommitGroup(group: {
-  readonly repository: "repo-edu" | "plan"
-  readonly commits: readonly string[]
-  readonly startingHead: string
-}): CommitGroup {
-  if (group.commits.length === 0)
-    throw new Error(`Retained ${group.repository} commit group is empty.`)
-  const references = group.commits.map((commit, index) =>
-    group.repository === "plan" && index === 0
-      ? `${planRepositoryPrefix}${commit}`
-      : commit,
-  ) as [string, ...string[]]
-  const shortReferences = references.map((reference) => {
-    const prefix = reference.startsWith(planRepositoryPrefix)
-      ? planRepositoryPrefix
-      : ""
-    return `${prefix}${reference.slice(prefix.length, prefix.length + 6)}`
-  }) as [string, ...string[]]
-  return {
-    repository: group.repository,
-    references,
-    startingHead: group.startingHead,
-    commits: [...group.commits] as [string, ...string[]],
-    shortReferences,
-  }
-}
-
-async function preparedFixRecovery(
-  context: ExecutionContext,
-  invocation: Extract<Invocation, { kind: "resume-fix" }>,
-) {
-  const paths = await recoveryRoundPaths(context, invocation.report)
-  const retained = await readActiveRoundData(context.roundRoot, paths.nameStart)
-  if (
-    retained.entry.status !== "awaiting-ruling" &&
-    retained.entry.status !== "failed" &&
-    retained.entry.status !== "interrupted"
-  )
-    throw new Error(
-      `${paths.nameStart} has status ${retained.entry.status}; only a stopped fix can resume.`,
-    )
-  const account = storedAccount(retained.entry)
-  let target: AuditTarget
-  if ("phase" in retained.entry || "scope" in retained.entry) {
-    const scopeParts =
-      "scope" in retained.entry
-        ? retained.entry.scope.split("-").map((step) => step.padStart(2, "0"))
-        : []
-    const suffix =
-      "phase" in retained.entry
-        ? "-plan-audit"
-        : `-impl-audit-${scopeParts[0]}..${scopeParts[1] ?? scopeParts[0]}`
-    if (!retained.entry.target.endsWith(suffix))
-      throw new Error(
-        `Retained target ${retained.entry.target} does not end with ${suffix}.`,
-      )
-    const stem = retained.entry.target.slice(0, -suffix.length)
-    const plan = await requiredActivePlan(
-      context.activeRoot,
-      stem,
-      "resume-fix",
-    )
-    target =
-      "phase" in retained.entry
-        ? { roundKind: "planning", plan }
-        : {
-            roundKind: "implementation",
-            plan,
-            scope: retained.entry.scope,
-          }
-  } else {
-    target = {
-      roundKind: "implementation",
-      originalGroups: retained.entry.originalGroups.map(
-        recoveredCommitGroup,
-      ) as [CommitGroup, ...CommitGroup[]],
-      groups: retained.entry.groups.map(recoveredCommitGroup) as [
-        CommitGroup,
-        ...CommitGroup[],
-      ],
-    }
-  }
-  if (openSeriousFindings(account).length === 0)
-    throw new Error(
-      `${paths.nameStart} has no serious contest or split without a recorded winner.`,
-    )
-  return {
-    ...invocation,
-    paths,
-    retained,
-    account,
-    target,
-  }
-}
-
-type PreparedFixRecovery = Awaited<ReturnType<typeof preparedFixRecovery>>
-
 const runStageNames: Readonly<Record<LifecycleStage, string>> = {
   widening: "widening series",
   detailing: "detailing series",
@@ -1572,28 +1442,26 @@ export async function runCommand(
       return 0
     }
     const prepared =
-      invocation.kind === "resume-fix"
-        ? await preparedFixRecovery(context, invocation)
-        : invocation.kind === "implement"
-          ? {
-              ...invocation,
-              ...(await prepareImplementation(
-                context,
-                invocation.stem,
-                invocation.scope,
-              )),
-            }
-          : invocation.kind === "close"
-            ? await preparedClose(context, invocation)
-            : invocation.kind === "run"
-              ? await preparedRun(context, invocation)
-              : {
-                  ...invocation,
-                  targets: await resolveTargets(
-                    context,
-                    requestedTarget(invocation),
-                  ),
-                }
+      invocation.kind === "implement"
+        ? {
+            ...invocation,
+            ...(await prepareImplementation(
+              context,
+              invocation.stem,
+              invocation.scope,
+            )),
+          }
+        : invocation.kind === "close"
+          ? await preparedClose(context, invocation)
+          : invocation.kind === "run"
+            ? await preparedRun(context, invocation)
+            : {
+                ...invocation,
+                targets: await resolveTargets(
+                  context,
+                  requestedTarget(invocation),
+                ),
+              }
     if (prepared.kind === "round" || prepared.kind === "name")
       requireSingleTarget(prepared, prepared.targets)
     if (prepared.kind === "name") {
@@ -1630,15 +1498,13 @@ export async function runCommand(
     // The close moves the plan and commits in the plan checkout first.
     const session = roundContext(
       context,
-      prepared.kind === "resume-fix"
-        ? prepared.target.roundKind
-        : prepared.kind === "implement"
-          ? "implementation"
-          : prepared.kind === "close"
-            ? "planning"
-            : prepared.kind === "run"
-              ? stageRoundKind(prepared.stage)
-              : prepared.targets[0].roundKind,
+      prepared.kind === "implement"
+        ? "implementation"
+        : prepared.kind === "close"
+          ? "planning"
+          : prepared.kind === "run"
+            ? stageRoundKind(prepared.stage)
+            : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
@@ -1816,84 +1682,6 @@ export async function runCommand(
           return decision
         },
       }
-    }
-
-    /**
-     * Finish one stopped serious-contest round through the retained round
-     * owner: its kept reports stand and a fresh fix starts.
-     */
-    const resumeFixStage = async (
-      recovery: PreparedFixRecovery,
-    ): Promise<RoundResult["status"]> => {
-      const fixPhase = recovery.retained.entry.phases.find(
-        (phase) => phase.phase === "fix",
-      )
-      const fixSelection = fixPhase?.launched ?? {
-        model: recovery.retained.entry.settings.fix.model,
-        effort: recovery.retained.entry.settings.fix.effort,
-      }
-      if (
-        fixSelection.effort === null ||
-        !efforts.includes(fixSelection.effort as (typeof efforts)[number])
-      )
-        throw new Error("The retained fix has no supported effort.")
-      const phaseContext = roundContext(context, recovery.target.roundKind)
-      let deferrals: readonly OpenDeferral[] | undefined
-      if ("plan" in recovery.target) {
-        const destination =
-          recovery.target.roundKind === "implementation" ? "repo-edu" : "plan"
-        deferrals = (
-          await deferralState(context, planStem(recovery.target.plan))
-        ).deferrals.filter(
-          (deferral) => deferral.deferringRepository !== destination,
-        )
-      }
-      const setup: RoundSetup = {
-        ...phaseContext,
-        ...recovery.target,
-        fixer: {
-          assistant: recovery.retained.entry.settings.fix.assistant,
-          model: fixSelection.model,
-          effort: fixSelection.effort as (typeof efforts)[number],
-        },
-        fixerSource: "retained round",
-        ...(recovery.retained.entry.pool === undefined
-          ? {}
-          : { pool: recovery.retained.entry.pool }),
-        ...(deferrals === undefined ? {} : { deferrals }),
-        ...continuedSetup(recovery.retained.entry),
-      }
-      const run = await resumedRoundRun(
-        setup,
-        recovery.retained,
-        recovery.paths,
-        now(),
-        releases,
-        settings,
-      )
-      const active = open(run)
-      const round = await runRound(
-        {
-          ...setup,
-          documents: run.documents,
-          transcript: run.paths.markdown,
-          watch:
-            "plan" in setup
-              ? {
-                  file: run.watch,
-                  cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
-                }
-              : null,
-          stored: recovery.retained.entry,
-        },
-        dependenciesFor(active, phaseContext),
-        releases,
-        settings,
-      )
-      result = round
-      code = exitCode(round)
-      active.finish(round, runtime.signal)
-      return round.status
     }
 
     /**
@@ -2111,6 +1899,51 @@ export async function runCommand(
       return closed.status
     }
     /**
+     * The command a stopped round prints to continue it: the command the user
+     * typed. A commit target is spelled by its original commits, each by its
+     * six-character ID, because a `HEAD` form typed again names other commits
+     * once `HEAD` has moved and the stopped round would not be found.
+     */
+    const rerunCommand = (target: AuditTarget): string => {
+      if (invocation.kind === "run")
+        return shellJoin([
+          "pnpm",
+          "audit-round",
+          invocation.stem,
+          ...(invocation.verbose === true ? ["-v"] : []),
+        ])
+      if (invocation.kind !== "round")
+        throw new Error(`The ${invocation.kind} command opens no round`)
+      const words =
+        "groups" in target
+          ? target.originalGroups.flatMap((group) =>
+              group.commits.map(
+                (commit, index) =>
+                  `${group.repository === "plan" && index === 0 ? planRepositoryPrefix : ""}${commit.slice(0, 6)}`,
+              ),
+            )
+          : invocation.first === undefined
+            ? []
+            : [invocation.first, ...invocation.rest]
+      return shellJoin([
+        "pnpm",
+        "audit-round",
+        "round",
+        ...words,
+        ...(invocation.auditor === undefined
+          ? []
+          : [
+              "--auditor",
+              invocation.auditor.map((entry) => entry.text).join(","),
+            ]),
+        ...(invocation.firstAuditor === undefined
+          ? []
+          : ["--first", invocation.firstAuditor.text]),
+        ...(invocation.watch ? [] : ["--no-watch"]),
+        ...(invocation.verbose === true ? ["-v"] : []),
+      ])
+    }
+    /**
      * The audit series a resolved target list asks for, one per target in
      * order. The ending is the last series' own, or `stopped` when a series
      * needed the user and the rest of the list did not run.
@@ -2202,7 +2035,13 @@ export async function runCommand(
           override: seat.override,
           deferrals,
         }
-        const chainedRun = await roundRun(setup, now(), releases, settings)
+        const chainedRun = await roundRun(
+          setup,
+          now(),
+          releases,
+          settings,
+          rerunCommand(setup),
+        )
         const active = nested
           ? new RoundOutput(chainedRun, {
               ...options,
@@ -2213,12 +2052,15 @@ export async function runCommand(
         try {
           const chained = await runRound(
             {
-              ...setup,
+              ...chainedRun.setup,
               documents: chainedRun.documents,
               transcript: chainedRun.paths.markdown,
               watch: series.watch
                 ? { file: chainedRun.watch, cacheRoot }
                 : null,
+              ...(chainedRun.stored === undefined
+                ? {}
+                : { stored: chainedRun.stored }),
             },
             dependenciesFor(active, planningSession),
             releases,
@@ -2415,14 +2257,6 @@ export async function runCommand(
             const plan = await resolvePlan(context, planStem(target.plan))
             target = { ...target, plan }
           }
-          if (automatic && decisionReason !== null) {
-            const text =
-              completed === 0
-                ? `Opening round: ${auditorText(auditorSetting(seat, releases, settings))}. ${decisionReason}`
-                : `Next round: ${auditorText(auditorSetting(seat, releases, settings))}; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${decisionReason}`
-            if (output === undefined) options.terminal.write(text)
-            else await output.message(text)
-          }
           const repoEduDeferrals =
             seriesSession.roundKind === "implementation" && "plan" in target
               ? (await deferralsInto(target.plan, "repo-edu")).deferrals
@@ -2439,7 +2273,42 @@ export async function runCommand(
               ? {}
               : { deferrals: repoEduDeferrals }),
           }
-          const run = await roundRun(setup, now(), releases, settings)
+          const run = await roundRun(
+            setup,
+            now(),
+            releases,
+            settings,
+            rerunCommand(target),
+          )
+          // A continued round runs on the auditor its kept audit report
+          // fixes, so the seat this call chose waits for the round after it.
+          const ranSeat: AuditorSeat =
+            run.stored === undefined
+              ? seat
+              : {
+                  assistant: run.setup.auditor,
+                  override: run.setup.override ?? noOverride,
+                }
+          const opening =
+            run.stored !== undefined
+              ? `Continuing round ${run.stored.round}, which ended ${run.stored.status}, on its kept audit report by ${auditorText(auditorSetting(ranSeat, releases, settings))}.`
+              : automatic && decisionReason !== null
+                ? completed === 0
+                  ? `Opening round: ${auditorText(auditorSetting(seat, releases, settings))}. ${decisionReason}`
+                  : `Next round: ${auditorText(auditorSetting(seat, releases, settings))}; ${settings.maximumAutomaticRounds - completed} rounds remain before the maximum. ${decisionReason}`
+                : null
+          if (opening !== null) {
+            if (output === undefined) options.terminal.write(opening)
+            else await output.message(opening)
+          }
+          if (
+            run.stored !== undefined &&
+            queue !== null &&
+            first !== undefined
+          ) {
+            rest = [first, ...rest]
+            await writeQueue(queue, rest)
+          }
           const active = open(run)
           if (queue !== null)
             await active.message(
@@ -2447,7 +2316,7 @@ export async function runCommand(
             )
           const round = await runRound(
             {
-              ...setup,
+              ...run.setup,
               documents: run.documents,
               transcript: run.paths.markdown,
               watch: series.watch
@@ -2456,6 +2325,7 @@ export async function runCommand(
                     cacheRoot,
                   }
                 : null,
+              ...(run.stored === undefined ? {} : { stored: run.stored }),
             },
             dependenciesFor(active, seriesSession, async ({ plan }) => {
               const openPlanDeferrals = await deferralsInto(plan, "plan")
@@ -2554,16 +2424,23 @@ export async function runCommand(
               await printDeferrals()
               break
             }
-            seat = seatFor(decision.answer)
-            decisionReason = decision.reason
-            auditorSelectionSource = "settings"
+            // A `--first` selection opens the first round after a
+            // continued one, because the continued round is not its own.
+            const waiting = run.stored === undefined ? undefined : opened
+            seat = waiting ?? seatFor(decision.answer)
+            decisionReason =
+              waiting === undefined
+                ? decision.reason
+                : `--first ${waiting.text} opens the first round after the continued one.`
+            auditorSelectionSource =
+              waiting === undefined ? "settings" : "--first"
             if ("groups" in target)
               target = await advanceCommitTarget(target, round.commits)
             continue
           }
           const ending = round.cleanAudit ? "Clean audit" : null
           const ended =
-            ending === null ? null : auditorSetting(seat, releases, settings)
+            ending === null ? null : auditorSetting(ranSeat, releases, settings)
           if (queue === null) break
           const taken = await takeNext(queue, ended, releases, settings)
           if (taken.skipped > 0)
@@ -2706,8 +2583,7 @@ export async function runCommand(
         await say(`Run of ${stem} finished: the plan is closed. ${runTime()}`)
       else await ended(current)
     }
-    if (prepared.kind === "resume-fix") await resumeFixStage(prepared)
-    else if (prepared.kind === "implement")
+    if (prepared.kind === "implement")
       await implementStage(prepared, {
         command: [
           "pnpm",

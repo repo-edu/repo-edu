@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { format } from "date-fns"
 import type { RoundDataRoots } from "./context.js"
@@ -12,6 +13,7 @@ import {
   modelChangeNotice,
   readPreviousRoundModels,
 } from "./model-change.js"
+import type { OpenDeferral } from "./open-deferrals.js"
 import {
   type Context,
   capabilityTag,
@@ -33,8 +35,6 @@ import {
   type Assistant,
   type AssistantTurnInput,
   closePhase,
-  type Effort,
-  efforts,
   noOverride,
   type PhaseControlResult,
   type PhaseRun,
@@ -45,23 +45,20 @@ import {
   transcribed,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
-import {
-  handRunAdvice,
-  recoveryCommand,
-  roundRecoveryCommand,
-} from "./requests.js"
+import { readReport } from "./report.js"
+import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
+  continuedSetup,
   failureResumeSessionId,
-  openSeriousFindings,
   type RoundResult,
   type RoundSetup,
 } from "./round.js"
 import {
   type ModelTokenUsage,
-  type RetainedRoundData,
   type RoundAccount,
   type RoundData,
+  readStoredRound,
   roundDataFilename,
   roundDataIdentity,
   type SeriesAnswer,
@@ -71,15 +68,21 @@ import {
   closeLogFilename,
   documentTag,
   type FileKind,
+  newestRound,
   phaseFilename,
   roundIdentity,
-  roundSubject,
+  targetLabel,
 } from "./round-paths.js"
 import { type WaitingRuling, waitingRulingText } from "./ruling-wait.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Auditor, RoundSettings } from "./settings.js"
-import { isActivePlanPath, planPhase, planStem } from "./target.js"
+import {
+  isActivePlanPath,
+  planPhase,
+  planStem,
+  reportTarget,
+} from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
@@ -126,10 +129,12 @@ export type Run = {
   readonly previousModels: readonly ModelReference[]
   /** The stored phase measurements of the stopped round this run continues. */
   readonly continued?: RoundData["phases"]
-  /** What a round's recovery advice needs: the audit report its commands name. */
-  readonly recovery?: {
-    readonly report: string
-  }
+  /**
+   * The command that continues a round when it stops, which every round run
+   * carries. A resumed phase session cannot finish the round, so a stopped
+   * round names this command rather than its session's.
+   */
+  readonly rerun?: string
   /** Present for every active plan-target round, with settled and final writes. */
   readonly data?: {
     readonly path: string
@@ -140,7 +145,11 @@ export type Run = {
     readonly auditor: RoundData["auditor"]
     readonly pool?: readonly Auditor[]
   } & (
-    | { readonly phase: "widening" | "detailing" }
+    | {
+        readonly phase: "widening" | "detailing"
+        /** A chained round's deferral list, which marks it as chained. */
+        readonly deferrals?: readonly OpenDeferral[]
+      }
     | { readonly scope: string }
     | {
         readonly originalGroups: RoundDataCommitGroups
@@ -155,6 +164,8 @@ type RoundDataCommitGroups = readonly {
   readonly repository: "repo-edu" | "plan"
   readonly commits: readonly [string, ...string[]]
   readonly startingHead: string
+  /** The references the audit report's `Target:` line repeats. */
+  readonly references?: readonly [string, ...string[]]
 }[]
 
 function resolvedRun(
@@ -194,19 +205,115 @@ function fileTag(
   return capabilityTag(entry, releases[entry.assistant], settings)
 }
 
+/** The statuses of a round that stopped early, which a rerun continues. */
+const stoppedStatuses: readonly RoundData["status"][] = [
+  "failed",
+  "interrupted",
+  "awaiting-ruling",
+]
+
+/** Where a round's entry is stored; a plan outside the active folder keeps none. */
+function roundDataPath(setup: RoundSetup): string | null {
+  if ("groups" in setup)
+    return join(
+      setup.roundRoot,
+      roundDataFilename(targetLabel(setup), "commit"),
+    )
+  return isActivePlanPath(setup.activeRoot, setup.plan)
+    ? join(
+        setup.roundRoot,
+        roundDataFilename(planStem(setup.plan), setup.roundKind),
+      )
+    : null
+}
+
+/**
+ * A chained round is the planning round an implementation series adds for
+ * open deferrals into the plan repo. A deferral list alone does not mark one,
+ * because an implementation round also receives the deferrals into Repo Edu.
+ */
+function chainedCall(setup: RoundSetup): boolean {
+  return setup.roundKind === "planning" && setup.deferrals !== undefined
+}
+function chainedEntry(stored: RoundData): boolean {
+  return "phase" in stored && stored.deferrals !== undefined
+}
+
+/**
+ * The stopped round a call continues, and the setup it continues on: the
+ * target's newest round, when its entry says it stopped early, it is chained
+ * exactly when the call is, and its kept audit report reads as valid against
+ * the target that report judged. A round that stopped in its audit kept no
+ * report, so the call opens a new round. Only the newest round counts, because
+ * a round that a later one followed is never continued.
+ */
+async function continuedRound(
+  call: RoundSetup,
+  data: string,
+): Promise<{
+  readonly stored: RoundData
+  readonly setup: RoundSetup
+} | null> {
+  const label = targetLabel(call)
+  const round = await newestRound(call, label)
+  if (round === null) return null
+  const stored = await readStoredRound(data, label, round)
+  if (
+    stored === null ||
+    !stoppedStatuses.includes(stored.status) ||
+    chainedEntry(stored) !== chainedCall(call)
+  )
+    return null
+  const setup = { ...call, ...continuedSetup(stored) } as RoundSetup
+  const { nameStart } = await roundIdentity(setup, round)
+  const report = join(
+    call.roundRoot,
+    `${phaseFilename(nameStart, "audit", stored.tag)}.md`,
+  )
+  try {
+    readReport(
+      await readFile(report, "utf8"),
+      setup.roundKind === "implementation"
+        ? "implementation"
+        : planPhase(setup.plan),
+      reportTarget(setup),
+    )
+  } catch {
+    return null
+  }
+  return { stored, setup }
+}
+
+/**
+ * Describe the round a call opens. When the target's newest round stopped
+ * early and kept a valid audit report, the call continues that round under
+ * its number and files, on the selections the stored entry fixes, and every
+ * phase still to run takes the current settings. Otherwise it claims the next
+ * number for a new round.
+ */
 export async function roundRun(
-  setup: RoundSetup,
+  call: RoundSetup,
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
+  rerun: string,
 ): Promise<
   Run & {
     readonly nameStart: string
     readonly watch: string
     readonly documents: RoundDocuments
-    readonly paths: { readonly claim: string; readonly markdown: string }
+    readonly paths: { readonly claim: string | null; readonly markdown: string }
+    /** What the round runs on: the call's setup, or the stopped round's. */
+    readonly setup: RoundSetup
+    /** The stored entry of the stopped round this run continues. */
+    readonly stored?: RoundData
   }
 > {
+  const dataPath = roundDataPath(call)
+  const continued =
+    dataPath === null ? null : await continuedRound(call, dataPath)
+  const setup = continued?.setup ?? call
+  const stored = continued?.stored
   const phases = roundPhases(
     setup.auditor,
     setup.override ?? noOverride,
@@ -226,96 +333,116 @@ export async function roundRun(
     const vet = { phase: "vet", ...run } as const
     return { ...vet, tag: fileTag(vet, releases, settings) }
   })
-  const { nameStart, title } = await roundIdentity(setup)
+  const { nameStart, title } = await roundIdentity(setup, stored?.round)
   const previousModels = await readPreviousRoundModels(setup)
   const named = (kind: FileKind, tag: string) =>
     join(setup.roundRoot, phaseFilename(nameStart, kind, tag))
   const path = (kind: FileKind, phase: SinglePhase) => named(kind, tag(phase))
-  const base = path("round", "audit")
+  // The kept audit report fixes a continued round's audit tag, which names
+  // the audit report, the transcript, the log and the stored entry.
+  const auditTag = stored?.tag ?? tag("audit")
+  const base = named("round", auditTag)
   const audit = entry("audit")
-  const identity = roundDataIdentity(nameStart)
-  const activePlan =
-    "plan" in setup && isActivePlanPath(setup.activeRoot, setup.plan)
-  const data =
-    "groups" in setup
-      ? {
-          path: join(
-            setup.roundRoot,
-            roundDataFilename(identity.target, "commit"),
-          ),
-          ...identity,
-          tag: tag("audit"),
+  const record =
+    dataPath === null
+      ? undefined
+      : {
+          path: dataPath,
+          ...roundDataIdentity(nameStart),
+          tag: auditTag,
           settings: roundSettingsData(releases, phases),
-          auditor: {
+          auditor: stored?.auditor ?? {
             assistant: audit.assistant,
             ...resolvedRun(audit, releases),
             chosenBy: setup.auditorSelectionSource,
             seat: resolvedRun(audit, releases),
           },
           ...(setup.pool === undefined ? {} : { pool: setup.pool }),
-          originalGroups: setup.originalGroups.map(
-            ({ repository, commits, startingHead }) => ({
-              repository,
-              commits,
-              startingHead,
-            }),
-          ),
-          groups: setup.groups.map(({ repository, commits, startingHead }) => ({
-            repository,
-            commits,
-            startingHead,
-          })),
         }
-      : activePlan
+  const data =
+    record === undefined
+      ? undefined
+      : "groups" in setup
         ? {
-            path: join(
-              setup.roundRoot,
-              roundDataFilename(planStem(setup.plan), setup.roundKind),
+            ...record,
+            originalGroups: setup.originalGroups.map(
+              ({ repository, commits, startingHead }) => ({
+                repository,
+                commits,
+                startingHead,
+              }),
             ),
-            ...identity,
-            tag: tag("audit"),
-            settings: roundSettingsData(releases, phases),
-            auditor: {
-              assistant: audit.assistant,
-              ...resolvedRun(audit, releases),
-              chosenBy: setup.auditorSelectionSource,
-              seat: resolvedRun(audit, releases),
-            },
-            ...(setup.pool === undefined ? {} : { pool: setup.pool }),
-            ...(setup.roundKind === "planning"
-              ? { phase: planPhase(setup.plan) }
-              : { scope: setup.scope }),
+            groups: setup.groups.map(
+              ({ repository, commits, startingHead, references }) => ({
+                repository,
+                commits,
+                startingHead,
+                references,
+              }),
+            ),
           }
-        : undefined
+        : setup.roundKind === "planning"
+          ? {
+              ...record,
+              phase: planPhase(setup.plan),
+              ...(setup.deferrals === undefined
+                ? {}
+                : { deferrals: setup.deferrals }),
+            }
+          : { ...record, scope: setup.scope }
+  const runPhases: readonly RunEntry[] = [
+    audit,
+    ...vets,
+    entry("rebut"),
+    entry("rule"),
+    entry("fix"),
+    ...("plan" in setup ? [entry("watch")] : []),
+  ]
+  // A kept vet report counts only for a vetter of the current panel.
+  const slots = new Set(
+    runPhases.map((phase) => slotKey(phase.phase, phase.tag)),
+  )
   return {
     nameStart,
     watch: `${path("watch", "watch")}.md`,
     documents: {
-      report: `${path("audit", "audit")}.md`,
+      report: `${named("audit", auditTag)}.md`,
       vets: vets.map((vet) => `${named("vet", vet.tag)}.md`),
       rebut: `${path("rebut", "rebut")}.md`,
       ruler: `${path("rule", "rule")}.md`,
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
-    target: "plan" in setup ? planStem(setup.plan) : identity.target,
-    title,
-    phases: [
-      entry("audit"),
-      ...vets,
-      entry("rebut"),
-      entry("rule"),
-      entry("fix"),
-      ...("plan" in setup ? [entry("watch")] : []),
-    ],
+    target: "plan" in setup ? planStem(setup.plan) : targetLabel(setup),
+    title: stored === undefined ? title : `${title}, continued`,
+    phases: runPhases,
     paths: {
-      claim: join(setup.roundRoot, `${nameStart}-0-claim.md`),
+      claim:
+        stored === undefined
+          ? join(setup.roundRoot, `${nameStart}-0-claim.md`)
+          : null,
       log: `${base}.log`,
       markdown: `${base}.md`,
-      reopenLog: false,
+      reopenLog: stored !== undefined,
     },
     previousModels,
-    recovery: { report: `${path("audit", "audit")}.md` },
+    rerun,
+    setup,
+    ...(stored === undefined
+      ? {}
+      : {
+          stored,
+          continued: stored.phases.filter(
+            (phase) =>
+              phase.phase !== "judge" &&
+              slots.has(
+                slotKey(
+                  phase.phase,
+                  phase.phase === "vet" ? phase.tag : undefined,
+                ),
+              ),
+          ),
+        }),
     ...(data === undefined ? {} : { data }),
     releases,
     settings,
@@ -333,168 +460,6 @@ const singlePhases: readonly SinglePhase[] = [
   "watch",
   "close",
 ]
-
-/** What one retained phase entry ran on, as the run's settings header names it. */
-function retainedPhaseRun(retained: RoundData["phases"][number]): PhaseRun {
-  const launched = retained.launched ?? {
-    model: retained.model,
-    effort: retained.effort,
-  }
-  if (launched.effort === null || !efforts.includes(launched.effort as Effort))
-    throw new Error(`Retained ${retained.phase} phase has no supported effort`)
-  const source = "retained round"
-  return {
-    assistant: retained.assistant,
-    model: {
-      model: { value: launched.model, source },
-      effort: { value: launched.effort as Effort, source },
-    },
-  }
-}
-
-/**
- * Reopen one retained round and restore the phase records its fix must
- * finish: every vetter's record by the tag its vet report carries, and the
- * ruler's when it ran.
- */
-export async function resumedRoundRun(
-  setup: RoundSetup,
-  retained: RetainedRoundData,
-  paths: {
-    readonly nameStart: string
-    readonly report: string
-    readonly vets: readonly string[]
-    readonly rebut: string
-    readonly ruler: string | null
-    readonly ruling: string | null
-  },
-  started: number,
-  releases: Record<Assistant, ModelReleases>,
-  settings: RoundSettings,
-): Promise<
-  Run & {
-    readonly nameStart: string
-    readonly watch: string
-    readonly documents: RoundDocuments
-    readonly paths: { readonly claim: null; readonly markdown: string }
-  }
-> {
-  const fresh = roundPhases(
-    setup.auditor,
-    setup.override ?? noOverride,
-    settings,
-    setup,
-    targetWorkClass(setup),
-  )
-  const single = (phase: "audit" | "rebut" | "rule" | "fix"): PhaseRun => {
-    const entry = retained.entry.phases.find(
-      (candidate) => candidate.phase === phase,
-    )
-    return entry === undefined ? fresh[phase] : retainedPhaseRun(entry)
-  }
-  const vets: readonly RunEntry[] = paths.vets.map((file) => {
-    const tag = documentTag(file)
-    const entry = retained.entry.phases.find(
-      (candidate) => candidate.phase === "vet" && candidate.tag === tag,
-    )
-    if (entry === undefined)
-      throw new Error(
-        `The retained round ${paths.nameStart} has no vet phase entry for ${tag}`,
-      )
-    return { phase: "vet", ...retainedPhaseRun(entry), tag }
-  })
-  const phaseRuns = {
-    ...fresh,
-    audit: single("audit"),
-    vet: vets.map(({ assistant, model }) => ({ assistant, model })),
-    rebut: single("rebut"),
-    rule: single("rule"),
-    fix: single("fix"),
-  }
-  const runEntry = (phase: SinglePhase): RunEntry => ({
-    phase,
-    ...phaseRuns[phase],
-  })
-  const tag = (phase: SinglePhase): string =>
-    fileTag(runEntry(phase), releases, settings)
-  const base = join(
-    setup.roundRoot,
-    `${phaseFilename(paths.nameStart, "round", retained.entry.tag)}`,
-  )
-  const ruling =
-    paths.ruling ??
-    join(
-      setup.roundRoot,
-      `${phaseFilename(paths.nameStart, "ruling", tag("fix"))}.md`,
-    )
-  const documents = {
-    report: paths.report,
-    vets: paths.vets,
-    rebut: paths.rebut,
-    ruler:
-      paths.ruler ??
-      join(
-        setup.roundRoot,
-        `${phaseFilename(paths.nameStart, "rule", tag("rule"))}.md`,
-      ),
-    ruling,
-  }
-  const data = {
-    path: retained.file,
-    target: retained.entry.target,
-    round: retained.entry.round,
-    tag: retained.entry.tag,
-    settings: retained.entry.settings,
-    auditor: retained.entry.auditor,
-    ...(retained.entry.pool === undefined ? {} : { pool: retained.entry.pool }),
-    ...(retained.entry && "phase" in retained.entry
-      ? { phase: retained.entry.phase }
-      : "scope" in retained.entry
-        ? { scope: retained.entry.scope }
-        : {
-            originalGroups: retained.entry.originalGroups,
-            groups: retained.entry.groups,
-          }),
-  } as Run["data"]
-  return {
-    nameStart: paths.nameStart,
-    watch: join(
-      setup.roundRoot,
-      `${phaseFilename(paths.nameStart, "watch", tag("watch"))}.md`,
-    ),
-    documents,
-    name: "Audit round recovery",
-    target:
-      "plan" in setup
-        ? planStem(setup.plan)
-        : roundDataIdentity(paths.nameStart).target,
-    title:
-      "plan" in setup
-        ? `Recovery of ${roundSubject(setup, setup.plan)}`
-        : `Recovery of commit audit ${paths.nameStart}`,
-    phases: [
-      runEntry("audit"),
-      ...vets,
-      runEntry("rebut"),
-      runEntry("rule"),
-      runEntry("fix"),
-      ...("plan" in setup ? [runEntry("watch")] : []),
-    ],
-    paths: {
-      claim: null,
-      log: `${base}.log`,
-      markdown: `${base}.md`,
-      reopenLog: true,
-    },
-    previousModels: await readPreviousRoundModels(setup),
-    continued: retained.entry.phases,
-    recovery: { report: paths.report },
-    data,
-    releases,
-    settings,
-    started,
-  }
-}
 
 /**
  * The capability tag and model record the close's commits carry, resolved
@@ -1034,7 +999,7 @@ export class RoundOutput<R extends Run = Run> {
       const outcome =
         result.status === "failed"
           ? `\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}`
-          : "Stopped without a ruling. The round files are retained."
+          : `Stopped without a ruling. The round files are retained.\nSession: ${result.session.sessionId ?? "unavailable"}`
       const recovery = this.recoveryText(result)
       this.say(recovery === null ? outcome : `${outcome}\n${recovery}`)
     }
@@ -1044,75 +1009,25 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   /**
-   * What a failed or stopped run prints after its outcome. A failed rebuttal,
-   * ruler or fix advises finishing the round by hand, and every such route
-   * passes through the hand-run ruler before the fix. The one exception is a
-   * fix whose open serious contest or split still owns commit admission: the
-   * runner's `resume-fix` continues the round on its kept reports with a fresh
-   * fix. Every other known session
-   * prints its assistant recovery command.
+   * What a failed or stopped run prints after its outcome. A round names the
+   * command that continues it, because a resumed phase session cannot finish
+   * the round: only the runner saves the reports and stores the entry. A close
+   * names its assistant recovery command when its session is known.
    */
   recoveryText(
     result:
       | Extract<RoundResult, { readonly status: "awaiting-ruling" | "failed" }>
       | Extract<CloseResult, { readonly status: "failed" }>,
   ): string | null {
-    const sessionId =
-      result.status === "awaiting-ruling"
-        ? result.session.sessionId
-        : failureResumeSessionId(result)
-    const session =
-      sessionId === null
-        ? null
-        : result.status === "awaiting-ruling"
-          ? result.session
-          : { ...result, sessionId }
-    const recovery = this.run.recovery
-    const contested =
-      recovery !== undefined &&
-      "account" in result &&
-      openSeriousFindings(result.account).length > 0
-    const failed = result.status === "failed" ? result.phase : null
-    if (
-      recovery !== undefined &&
-      (failed === "rebut" ||
-        failed === "rule" ||
-        (failed === "fix" && !(contested && session !== null)))
-    )
-      return handRunAdvice(
-        recovery.report,
-        (failed === "rebut"
-          ? (["rebut", "rule", "fix"] as const)
-          : failed === "rule"
-            ? (["rule", "fix"] as const)
-            : (["fix"] as const)
-        ).map((phase) => {
-          const entry = this.run.phases.find(
-            (candidate) => candidate.phase === phase,
-          )
-          if (entry === undefined)
-            throw new Error(`Run has no ${phase} phase owner`)
-          return {
-            phase,
-            assistant: entry.assistant,
-            ...phaseSelection(entry.model, this.run.releases[entry.assistant]),
-            // The runner cannot know yet whether the new rebuttal report
-            // leaves the ruler anything to judge.
-            ...(failed === "rebut" && phase === "rule"
-              ? {
-                  onlyWhen:
-                    "the new rebuttal report leaves a contest or split on a C or D finding",
-                }
-              : {}),
-          }
-        }),
-      )
-    if (session === null) return null
-    return `Resume: ${
-      contested && recovery !== undefined
-        ? roundRecoveryCommand(session, recovery.report)
-        : recoveryCommand(session)
-    }`
+    if ("commits" in result) {
+      if (this.run.rerun === undefined)
+        throw new Error("A round run names no command that continues it")
+      return `Rerun: ${this.run.rerun}`
+    }
+    const sessionId = failureResumeSessionId(result)
+    return sessionId === null
+      ? null
+      : `Resume: ${recoveryCommand({ ...result, sessionId })}`
   }
 
   release(): void {
@@ -1185,20 +1100,33 @@ export class RoundOutput<R extends Run = Run> {
       ...(data.pool === undefined ? {} : { pool: [...data.pool] }),
       judge: decision,
       ...("phase" in data
-        ? { phase: data.phase, settling: account.settling }
+        ? {
+            phase: data.phase,
+            settling: account.settling,
+            ...(data.deferrals === undefined
+              ? {}
+              : { deferrals: [...data.deferrals] }),
+          }
         : "scope" in data
           ? {
               scope: data.scope,
               judgedRepos: [...account.judgedRepos],
             }
           : {
-              originalGroups: data.originalGroups.map((group) => ({
-                ...group,
-                commits: [...group.commits],
-              })),
+              originalGroups: data.originalGroups.map(
+                ({ repository, commits, startingHead }) => ({
+                  repository,
+                  commits: [...commits],
+                  startingHead,
+                }),
+              ),
               groups: data.groups.map((group) => ({
-                ...group,
+                repository: group.repository,
                 commits: [...group.commits],
+                startingHead: group.startingHead,
+                ...(group.references === undefined
+                  ? {}
+                  : { references: [...group.references] }),
               })),
               judgedRepos: [...account.judgedRepos],
             }),

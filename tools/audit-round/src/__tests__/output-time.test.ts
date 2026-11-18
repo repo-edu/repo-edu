@@ -321,7 +321,13 @@ test("a finished phase stops its status timer", async (t) => {
 test("round data attributes the auditor to the audit phase's reported model", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-  const run = await buildRoundRun(setup, Date.now(), releases, testSettings)
+  const run = await buildRoundRun(
+    setup,
+    Date.now(),
+    releases,
+    testSettings,
+    "pnpm audit-round example",
+  )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
@@ -384,6 +390,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
     Date.now(),
     releases,
     testSettings,
+    "pnpm audit-round example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -415,6 +422,7 @@ test("widening planning data retains the settling recommendation", async (t) => 
     Date.now(),
     releases,
     testSettings,
+    "pnpm audit-round example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -450,6 +458,7 @@ test("the final retained write stores the series answer and resolved auditor lis
     Date.now(),
     releases,
     testSettings,
+    "pnpm audit-round example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -500,6 +509,7 @@ for (const [name, abortReason, status] of [
       Date.now(),
       releases,
       testSettings,
+      "pnpm audit-round example",
     )
     const output = new RoundOutput(run, {
       clock: new RunClock(Date.now),
@@ -551,7 +561,13 @@ for (const assistant of ["claude", "codex"] as const) {
       scope: "1",
       fixer: settings.coders[0],
     }
-    const run = await buildRoundRun(setup, Date.now(), releases, settings)
+    const run = await buildRoundRun(
+      setup,
+      Date.now(),
+      releases,
+      settings,
+      "pnpm audit-round example",
+    )
     const log: string[] = []
     const output = new RoundOutput(run, {
       clock: new RunClock(Date.now),
@@ -700,7 +716,13 @@ for (const assistant of ["claude", "codex"] as const) {
       scope: "1",
       fixer: settings.coders[0],
     }
-    const run = await buildRoundRun(setup, Date.now(), releases, settings)
+    const run = await buildRoundRun(
+      setup,
+      Date.now(),
+      releases,
+      settings,
+      "pnpm audit-round example",
+    )
     const output = new RoundOutput(run, {
       clock: new RunClock(Date.now),
       terminal: {
@@ -782,7 +804,13 @@ test("commit stamps time the finished audit, every vetter and the rebuttal and n
     },
   })
   const phases = roundPhases("codex", noOverride, settings)
-  const run = await buildRoundRun(setup, Date.now(), releases, settings)
+  const run = await buildRoundRun(
+    setup,
+    Date.now(),
+    releases,
+    settings,
+    "pnpm audit-round example",
+  )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
     terminal: { write: () => {}, status: () => {}, clear: () => {} },
@@ -883,7 +911,13 @@ test("two vetters' mixed events keep their own slots and records, each vetter's 
     },
   })
   const phases = roundPhases("codex", noOverride, settings)
-  const run = await buildRoundRun(setup, Date.now(), releases, settings)
+  const run = await buildRoundRun(
+    setup,
+    Date.now(),
+    releases,
+    settings,
+    "pnpm audit-round example",
+  )
   const log: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(run, {

@@ -38,6 +38,15 @@ const commitGroup = z.strictObject({
   commits: z.array(fullCommit).min(1),
   startingHead: z.string().regex(/^[0-9a-f]{6,40}$/i),
 })
+/**
+ * A group the round audited also keeps its references as the round carried
+ * them, because its audit report's `Target:` line repeats them and a continued
+ * round reads that report against them. Entries written before it was kept
+ * carry none.
+ */
+const auditedCommitGroup = commitGroup.extend({
+  references: z.array(z.string().min(1)).min(1).optional(),
+})
 
 const planningLocation = z.strictObject({
   kind: z.literal("planning"),
@@ -275,7 +284,7 @@ export const implementationRoundDataSchema = commonRoundData.extend({
 })
 export const commitRoundDataSchema = commonRoundData.extend({
   originalGroups: z.array(commitGroup).min(1),
-  groups: z.array(commitGroup).min(1),
+  groups: z.array(auditedCommitGroup).min(1),
   judgedRepos: z.array(repository),
 })
 export const roundDataSchema = z.union([
@@ -378,10 +387,6 @@ export type RetainedCommitRoundData = {
   readonly file: string
   readonly label: string
   readonly rounds: readonly CommitRoundData[]
-}
-export type RetainedRoundData = {
-  readonly file: string
-  readonly entry: RoundData
 }
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
@@ -542,40 +547,27 @@ export async function readCommitRoundData(
     .rounds
 }
 
-/** Read the one retained active entry named by a round's target and number. */
-export async function readActiveRoundData(
-  roundRoot: string,
-  nameStart: string,
-): Promise<RetainedRoundData> {
-  const identity = roundDataIdentity(nameStart)
-  const files = (await readdir(roundRoot, { withFileTypes: true }))
-    .filter(
-      (entry) =>
-        entry.isFile() &&
-        (roundDataFilenamePattern.test(entry.name) ||
-          isCommitRoundDataName(entry.name)),
-    )
-    .map((entry) => join(roundRoot, entry.name))
-  const matches = (
-    await Promise.all(
-      files.map(async (file) => ({
-        file,
-        data: parseRoundDataFile(file, await readFile(file, "utf8")),
-      })),
-    )
-  ).flatMap(({ file, data }) =>
-    data.rounds
-      .filter(
-        (entry) =>
-          entry.target === identity.target && entry.round === identity.round,
-      )
-      .map((entry) => ({ file, entry })),
+/**
+ * The stored entry of one round in its round data file, or null when the file
+ * or the entry does not exist, as for a round whose runner was killed.
+ */
+export async function readStoredRound(
+  file: string,
+  target: string,
+  round: number,
+): Promise<RoundData | null> {
+  let source: string
+  try {
+    source = await readFile(file, "utf8")
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null
+    throw error
+  }
+  return (
+    parseRoundDataFile(file, source).rounds.find(
+      (entry) => entry.target === target && entry.round === round,
+    ) ?? null
   )
-  if (matches.length !== 1)
-    throw new Error(
-      `Expected one retained entry for ${nameStart}; found ${matches.length}.`,
-    )
-  return matches[0] as RetainedRoundData
 }
 
 /** Split the allocated name into the target-wide identity stored in JSON. */

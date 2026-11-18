@@ -167,8 +167,13 @@ is always named in full.
   reason: settle, ready, stop or the next listed auditor. Round data keeps it.
 - **Chained round**: a planning round that the runner adds to an automatic
   implementation series for open deferrals into the plan repo. It audits only
-  those deferrals, claims its own planning-round number and takes no turn of
-  the implementation series.
+  those deferrals and takes no turn of the implementation series. It claims its
+  own planning-round number unless it continues a stopped chained round.
+- **Stopped round**: a round whose round data entry ends `failed`,
+  `interrupted` or `awaiting-ruling`. The command that opens a round on its
+  target continues it when it is the target's newest round and its kept audit
+  report still reads as valid. The continued round keeps its number and files
+  and runs only the phases whose kept reports do not read as valid.
 - **Chain**: one succession of rounds along one branch of history, together
   with the handoffs those rounds write. A second branch carries its own chain.
 

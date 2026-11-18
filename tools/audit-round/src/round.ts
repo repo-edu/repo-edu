@@ -55,8 +55,11 @@ import type { Auditor, RoundSettings } from "./settings.js"
 import { looseForm, parseSubject, type Repository } from "./subject.js"
 import {
   type AuditTarget,
+  type CommitGroup,
+  type CommitTarget,
   commitAuditGroups,
   planPhase,
+  planRepositoryPrefix,
   planStem,
   type RoundContext,
   reportTarget,
@@ -277,19 +280,51 @@ export type RoundInput = RoundSetup & {
 }
 
 /**
+ * One stored commit group as a round's target carries it. A group stored
+ * before its references were kept names each commit by its full ID, as a later
+ * round of a commit series does.
+ */
+function storedCommitGroup(group: {
+  readonly repository: Repository
+  readonly commits: readonly string[]
+  readonly startingHead: string
+  readonly references?: readonly string[]
+}): CommitGroup {
+  const commits = group.commits as [string, ...string[]]
+  return {
+    repository: group.repository,
+    references: (group.references ??
+      commits.map((commit, index) =>
+        group.repository === "plan" && index === 0
+          ? `${planRepositoryPrefix}${commit}`
+          : commit,
+      )) as [string, ...string[]],
+    startingHead: group.startingHead,
+    commits,
+    shortReferences: commits.map((commit) => commit.slice(0, 6)) as [
+      string,
+      ...string[],
+    ],
+  }
+}
+
+/**
  * What a continued round's setup takes from its stored entry. The kept audit
  * report fixes the auditor, so the audit and the rebuttal, which answers for
  * it, run on the selection the stored audit launched on. A chained round's fix
  * receives the deferral list its kept audit report judged, not the list read
- * from Git again. Every other phase takes the current settings, as in a new
- * round. Spread it over the setup the call would give a new round.
+ * from Git again. A commit round keeps the exact commits and references its
+ * kept audit report judged, while the call's target has already moved on to
+ * the fixes landed since. Every other phase takes the current settings, as in
+ * a new round. Spread it over the setup the call would give a new round.
  */
 export function continuedSetup(
   stored: RoundData,
 ): Pick<
   RoundSetup,
   "auditor" | "auditorSelectionSource" | "override" | "deferrals"
-> {
+> &
+  Partial<Pick<CommitTarget, "originalGroups" | "groups">> {
   const audit = stored.phases.find((phase) => phase.phase === "audit")
   const { model, effort } = audit?.launched ?? stored.auditor
   if (effort === null || !efforts.includes(effort as Effort))
@@ -306,6 +341,18 @@ export function continuedSetup(
     ...("deferrals" in stored && stored.deferrals !== undefined
       ? { deferrals: stored.deferrals }
       : {}),
+    ...("groups" in stored
+      ? {
+          originalGroups: stored.originalGroups.map(storedCommitGroup) as [
+            CommitGroup,
+            ...CommitGroup[],
+          ],
+          groups: stored.groups.map(storedCommitGroup) as [
+            CommitGroup,
+            ...CommitGroup[],
+          ],
+        }
+      : {}),
   }
 }
 
@@ -321,7 +368,7 @@ function settledAccount(stored: RoundData): boolean {
 }
 
 /** The account a stored entry holds. A planning entry stores no judged repositories. */
-export function storedAccount(stored: RoundData): RoundAccount {
+function storedAccount(stored: RoundData): RoundAccount {
   return {
     settling: "settling" in stored ? stored.settling : "",
     judgedRepos: "judgedRepos" in stored ? stored.judgedRepos : [],

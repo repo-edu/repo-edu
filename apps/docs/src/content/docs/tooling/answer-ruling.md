@@ -96,13 +96,14 @@ again. Waiting time is excluded from the runner's work timing.
    `pnpm audit-round answer *`.
 3. **You leave without an answer.** Ctrl-C in the terminal stops the run. The round or step files
    stay, and the runner prints a recovery command. Use that exact command to return to the retained
-   work; do not start the decision again in a fresh round.
+   work.
 
-An audit fix with an unresolved serious contest or split prints `pnpm audit-round resume-fix ...`.
-That command reloads the stored winners, keeps commits blocked while one is missing and continues
-the round with a fresh fix. An implementation worker left at a ruling prints the assistant's
-recovery command. Answer there, then rerun the original `pnpm audit-round implement ...` or bare
-full-plan command so the runner can read Git and continue. See
+A round left at a ruling prints its `Rerun:` command, the command you typed. The rerun continues the
+round on its kept reports with a fresh fix, which writes the ruling again. Winners you already gave
+stay stored, and commits stay blocked while one is missing. An implementation worker left at a
+ruling prints the assistant's recovery command. Answer there, then rerun the original
+`pnpm audit-round implement ...` or bare full-plan command so the runner can read Git and continue.
+See
 [Recover a run](/repo-edu/tooling/recover-run/).
 
 ## Ruling files
