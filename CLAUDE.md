@@ -41,6 +41,25 @@ area ID and the child area ID each output file will join. If the split creates
 a new primary concern, update the area model in the same change and record
 `splitFrom`.
 
+Move top-level statements during a split with the statement move tool, so
+TypeScript's own **Move to file** refactor moves the code and repairs its
+imports. The [tool documentation](tools/statement-move/CLAUDE.md) owns what the
+command checks and refuses.
+
+1. Move each range of complete top-level statements with
+   `pnpm move-statements <source> <start-line> <end-line> <target>`. Run one
+   command per target; line numbers refer to the file as the previous move
+   left it.
+2. In a test file, first move shared helpers to a module that holds no tests,
+   then move the tests. A test file that imports another test file runs that
+   file's tests again.
+3. Move nested code and any move the command refuses by hand. Repoint
+   importers in other packages by hand too, because the command loads only the
+   source package's project.
+4. Run `pnpm check` after the move batch. The command proves each move against
+   TypeScript 6 only, and `check` runs TypeScript 7 and the Biome fix that
+   restores the layout the refactor drops.
+
 ## Build and Development Commands
 
 Use pnpm scripts only. All validation runs from the workspace root:
@@ -69,6 +88,9 @@ names and phase argument order.
   workspace-relative path
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
+- `move-statements` — moves complete top-level TypeScript statements to another
+  file through TypeScript's **Move to file** refactor
+  (`pnpm move-statements <source> <start-line> <end-line> <target>`)
 
 Run `fix` after a small change and `check` after a large one; either one closes
 a piece of work. Run `test` yourself when a plan asks for it or the change
@@ -116,6 +138,7 @@ repo-edu/
     ├── fixture-cli/               # `pnpm fixture` entry into @repo-edu/fixture-engine
     ├── fixtures-check/            # Validates @repo-edu/test-fixtures matrix
     ├── release/                   # Versioning, signing and runtime-notice gates
+    ├── statement-move/            # TypeScript Move to file refactor (pnpm move-statements)
     └── sweep/                     # Source-growth triage (pnpm sweep)
 ```
 
@@ -151,12 +174,13 @@ non-obvious conventions:
 - [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
 - [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
-The audit-round, architecture-check, release and sweep tools and the analysis-workflows
-sub-area carry their own `CLAUDE.md` too:
+The audit-round, architecture-check, release, statement-move and sweep tools and
+the analysis-workflows sub-area carry their own `CLAUDE.md` too:
 
 - [tools/architecture-check/CLAUDE.md](tools/architecture-check/CLAUDE.md)
 - [tools/audit-round/CLAUDE.md](tools/audit-round/CLAUDE.md)
 - [tools/release/CLAUDE.md](tools/release/CLAUDE.md)
+- [tools/statement-move/CLAUDE.md](tools/statement-move/CLAUDE.md)
 - [tools/sweep/CLAUDE.md](tools/sweep/CLAUDE.md)
 - [packages/application/src/analysis-workflows/CLAUDE.md](packages/application/src/analysis-workflows/CLAUDE.md)
 

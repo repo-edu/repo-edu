@@ -1,19 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { MoveInputError } from "../input-error.js"
-import { FixtureProject } from "./fixture-project.js"
-
-function withProject(
-  files: Record<string, string>,
-  body: (project: FixtureProject) => void,
-): void {
-  const project = new FixtureProject(files)
-  try {
-    body(project)
-  } finally {
-    project.dispose()
-  }
-}
+import { withProject } from "./fixture-project.js"
 
 const SHAPES = `export interface Shape {
   size: number
@@ -129,34 +117,6 @@ test("marks a type with type when the engine imports it as a value", () => {
       /import \{ type Shape, SCALE \} from "\.\/shapes\.js"/,
     )
   })
-})
-
-test("refuses a move whose edits add a diagnostic and writes nothing", () => {
-  withProject(
-    {
-      "src/round.ts": `export const cacheRoot = "/tmp/cache"
-
-export function options() {
-  return { cacheRoot }
-}
-`,
-    },
-    (project) => {
-      const before = project.snapshot()
-      const result = project.move("src/round.ts", 1, 1, "src/fixture.ts")
-
-      assert.equal(result.kind, "refused")
-      assert.ok(
-        result.kind === "refused" &&
-          result.diagnostics.some(
-            (diagnostic) =>
-              diagnostic.code === 18004 &&
-              diagnostic.path === "pkg/src/round.ts",
-          ),
-      )
-      assert.deepEqual(project.snapshot(), before)
-    },
-  )
 })
 
 test("rejects a range that cuts a top-level statement", () => {

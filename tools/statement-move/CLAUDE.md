@@ -48,7 +48,10 @@ These terms belong to the statement move tool alone.
    writes every file of the candidate.
 
 The command preserves the statement text the engine returns. Formatting is left
-to the ordinary `pnpm fix` run.
+to the ordinary `pnpm fix` run. The engine reprints moved statements and drops
+layout such as trailing commas and wrapped conditions. The fix run restores it,
+so Biome-formatted bodies end byte-equivalent to the source apart from import
+and export edits.
 
 ## Compiler layout
 

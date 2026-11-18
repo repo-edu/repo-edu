@@ -97,3 +97,16 @@ export class FixtureProject {
     fs.rmSync(this.root, { recursive: true, force: true })
   }
 }
+
+/** Runs the body against a fresh fixture project and always removes it. */
+export function withProject(
+  files: Record<string, string>,
+  body: (project: FixtureProject) => void,
+): void {
+  const project = new FixtureProject(files)
+  try {
+    body(project)
+  } finally {
+    project.dispose()
+  }
+}
