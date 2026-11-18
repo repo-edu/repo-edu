@@ -433,16 +433,16 @@ consumers.
   selected workflow and whole files listed by the workflow's `reads` header. Header paths resolve
   from the workflow file. `vfile-matter` parses the header and `zod` checks its shape. Listed
   workflows supply their own reads recursively, with each source included once. Audit, vet,
-  rebuttal, ruler and fix also receive their home launcher. The watch has no launcher; its workflow
-  header lists the `simple` definition directly. The close has no launcher either, and its prompt
-  names a loop-close rather than a round phase. Resumed sessions receive no files again. The request
-  for a missing result line opens as every phase prompt does, so the session reads it as an
-  unattended phase. It asks for the complete response again, because the runner reads only the last
-  turn's text. Root instructions are not listed. Both assistants receive their phase prompts on
-  standard input. Codex command-line arguments contain no prompt text, including on resume, so
-  joined evidence is not limited by the operating system's per-argument size. The same collected
-  file list produces a separate log prompt containing source paths with an omission notice in place
-  of file contents.
+  rebuttal, ruler and fix also receive their home launcher. Their workflow headers list the `simple`
+  definition directly, as the watch's does. The watch has no launcher. The close has no launcher
+  either, and its prompt names a loop-close rather than a round phase. Resumed sessions receive no
+  files again. The request for a missing result line opens as every phase prompt does, so the
+  session reads it as an unattended phase. It asks for the complete response again, because the
+  runner reads only the last turn's text. Root instructions are not listed. Both assistants receive
+  their phase prompts on standard input. Codex command-line arguments contain no prompt text,
+  including on resume, so joined evidence is not limited by the operating system's per-argument
+  size. The same collected file list produces a separate log prompt containing source paths with an
+  omission notice in place of file contents.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: every round records a log and transcript,
   a round on an active plan updates one machine-readable per-plan data file, and a commit audit

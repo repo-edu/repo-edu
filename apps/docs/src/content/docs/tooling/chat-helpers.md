@@ -28,8 +28,8 @@ once. The two helpers cover the two moments you notice that. `/simple` is the st
 before the work starts. `/rewrite` is the repair for one reply that already arrived dense.
 
 The `/simple` requirement is also built into the audit-phase launchers. `/audit`, `/vet`, `/rebut`,
-`/fix` and `/brief-plan` apply it to their whole session without its confirm-and-wait step, and the
-watch workflow applies it too.
+`/fix` and `/brief-plan` apply it to their whole session without its confirm-and-wait step. The
+audit, vet, rebuttal, ruler, fix and watch workflows apply it too.
 
 ## What plain wording means
 

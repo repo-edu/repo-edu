@@ -46,7 +46,14 @@ for (const working of ["repo-edu", "plan"] as const) {
       working === "plan" ? "planning" : "implementation",
     )
     for (const assistant of ["claude", "codex"] as const) {
-      for (const phase of ["audit", "vet", "rebut", "fix", "watch"] as const) {
+      for (const phase of [
+        "audit",
+        "vet",
+        "rebut",
+        "rule",
+        "fix",
+        "watch",
+      ] as const) {
         const { text: prompt } = phasePrompt({
           ...context,
           phase,
@@ -65,15 +72,15 @@ for (const working of ["repo-edu", "plan"] as const) {
           `${working} ${assistant} ${phase}`,
         )
         assert.ok(prompt.includes("End of supplied phase instructions."))
-        if (phase === "watch") {
-          assert.ok(
-            prompt.includes(
-              `Source file: ${join(context.planRoot, "home/claude/commands/simple.md")}\n`,
-            ),
-          )
+        const simple = `Source file: ${join(context.planRoot, "home/claude/commands/simple.md")}\n`
+        assert.equal(
+          prompt.split(simple).length,
+          2,
+          `${working} ${assistant} ${phase}`,
+        )
+        assert.match(prompt, /skip its confirm-and-wait step/)
+        if (phase === "watch")
           assert.doesNotMatch(prompt, /Source file: .*\/SKILL\.md/)
-          assert.match(prompt, /skip its confirm-and-wait step/)
-        }
       }
     }
   })

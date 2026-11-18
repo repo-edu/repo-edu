@@ -1,6 +1,7 @@
 ---
 reads:
   - ../../../../glossaries/audit-round.md
+  - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
   - ../../../references/round-grammar.md
   - commit-scope.md
@@ -13,7 +14,8 @@ reads:
 
 The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
-any listed workflow's header too. Read each file once.
+any listed workflow's header too. Read each file once. Apply the `simple`
+requirement to the whole session and skip its confirm-and-wait step.
 
 Where a launcher and this file disagree, this file is right.
 
