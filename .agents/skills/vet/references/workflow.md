@@ -23,7 +23,7 @@ Apply the shared protocol's **Vet checks** for read-only authority,
 independence from the panel's other vetters and the axes a vetter does not
 judge.
 
-For unattended completion, follow the shared protocol's **Runner result**.
+Follow the shared protocol's **Runner result** for every ending.
 
 ## Audit report discovery
 
@@ -33,16 +33,10 @@ the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routi
 for argument order and the [audit report grammar](../../../references/round-grammar.md#audit-report)
 for the judged repos and heads.
 
-Check head drift and the plan-target filename before vetting:
-
-- An audited head differs from its repo's current head. Follow
-  [Head drift](../../../references/round-protocol.md#head-drift) and note the
-  changes in the verdicts. When the moved tree already resolved the defect,
-  drop the finding and name the resolving commit.
-- For a plan target, the plan file in the filename differs from the audit
-  report's `Target:` line. Refuse and name both. A commit series keeps its original
-  bounded filename while later audit reports name their advancing exact commit set,
-  so no filename translation applies.
+When an audited head differs from its repo's current head, follow
+[Head drift](../../../references/round-protocol.md#head-drift) before vetting
+and say in the verdicts what moved. When the moved tree already resolved the
+defect, drop the finding and name the resolving commit.
 
 ## Axes
 

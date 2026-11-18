@@ -710,7 +710,6 @@ implementation uses its fix invocation's grant. Stop for a ruling only on:
 - a real choice sent to the user
 - a serious contest or split
 - a drift correction that changes a finding
-- a verdict without a rebuttal that the fix cannot settle from evidence
 
 When nothing is open, state one outcome per finding and apply it. An undirected
 cross-repo choice outside the judged repo set does not block the fix. Keep it open in

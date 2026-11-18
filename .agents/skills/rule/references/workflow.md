@@ -21,7 +21,7 @@ its rebuttal report are its inputs, and the fix then applies its winners. Its du
 limit and its delivery are the shared protocol's **Ruler duties**. It works each finding in the
 **Reading order** of `ruling.md`, and the
 [ruler report grammar](../../../references/round-grammar.md#ruler-report) owns the report's form.
-For unattended completion, follow the shared protocol's **Runner result**.
+Follow the shared protocol's **Runner result** for every ending.
 
 ## Inputs
 

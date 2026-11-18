@@ -26,7 +26,7 @@ fix then read the audit report, every vet report and the rebuttal report, so eac
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file.
 
-For unattended completion, follow the shared protocol's **Runner result**.
+Follow the shared protocol's **Runner result** for every ending.
 
 ## Audit report discovery
 
@@ -37,8 +37,7 @@ the judged repos and heads.
 
 ## Rebuttal file
 
-Follow the shared round protocol's **Rebuttal answers** for delivery. When no
-verdict needs an answer, state that once.
+Follow the shared round protocol's **Rebuttal answers** for delivery.
 
 Your answers decide whether two vetters' revisions of one finding split under the
 shared **Reconciliation**. Agreeing with both leaves the choice between them to
