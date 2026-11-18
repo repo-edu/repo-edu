@@ -180,9 +180,7 @@ export async function settlePlan(
   return {
     ...commit,
     marker,
-    uncommitted: linking
-      .filter((file) => !file.clean)
-      .map((file) => file.path),
+    uncommitted: linking.filter((file) => !file.clean).map((file) => file.path),
   }
 }
 
