@@ -52,7 +52,7 @@ import {
 } from "./round-data.js"
 import { documentTag, transcriptNameStart } from "./round-paths.js"
 import type { Auditor, RoundSettings } from "./settings.js"
-import { looseForm, parseSubject, type Repository } from "./subject.js"
+import { parseSubject, planForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
   type CommitGroup,
@@ -1294,7 +1294,7 @@ export async function runRound(
     if (stem === null && phaseStamps.length === 0)
       throw new Error("Missing fix phase stamp for a commit target")
     const belongsToRound = (record: LandedRecord): boolean => {
-      if ((looseForm(record.subject)?.stem ?? null) !== stem) return false
+      if ((planForm(record.subject)?.stem ?? null) !== stem) return false
       if (stem !== null) return true
       return carriesPhaseStamp(record, phaseStamps)
     }

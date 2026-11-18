@@ -109,10 +109,13 @@ Audit, vet and rebuttal took 7 min.
 ## Terminals and small non-terminals
 
 ```text
-<form>      ::= <stem>/<role>
+<form>      ::= <stem>/<role> | <series>/commit-audit
 <stem>      ::= <stem-char>+                ; the plan file's name without .md and without a -widen postfix
 <stem-char> ::= any character except / and space
 <role>      ::= init | plan-audit | settle | ready | disprove | impl-<n> | impl-audit-<scope> | implemented | closed
+<series>    ::= commit-<group>[+<group>]     ; a commit series' label
+<group>     ::= <sha6> | <sha6>..<sha6>
+<sha6>      ::= six lowercase hexadecimal characters ; a commit's first six
 <scope>     ::= <n> | <n>-<n>
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -144,6 +147,13 @@ for an address. In an implementation-audit subject the step scope always names o
 an inclusive range. The role already identifies steps, so the step scope needs no `step` word. One
 planned step is one commit; `implemented` records completion, so there is no implementation-wide
 step role.
+
+A commit audit's record opens with its commit series' label where a plan form has its stem. The
+runner's [Names](../../tools/audit-round/CLAUDE.md#names) rules own the label, which also names the
+series' round files and round data. The `commit-audit` role marks the form, never the label's
+spelling: a series label is no plan stem, and a plan whose stem looks like a label keeps its plan
+forms. The parser holds the one test that tells the two forms apart, and every reader that groups
+commits by plan uses it.
 
 The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
 `<conventional>` is the Angular set that Conventional Commits recommends, plus `redesign`; a new
@@ -189,6 +199,14 @@ changes:
                        | <stem>/closed <tag>: <S> ; Repo Edu only
 ```
 
+Commit-audit records, either repo. A record lands in the repo whose files it
+changes:
+
+```text
+<C1 fix>          ::= <series>/commit-audit <tag> <growth> <sequence> <kind>: <S>
+<C2 clean record> ::= <series>/commit-audit <tag> clean: <S>
+```
+
 Off-plan commits, no `<form>`:
 
 ```text
@@ -212,14 +230,14 @@ Rules across the classes:
 - Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
   off-plan plan-repo commit (O2) carries one when it closes a graded concern
   and none otherwise.
-- P1, P3, I3, I4 and I5 change no graded file and fill only the slots their
-  productions show. I3 changes no file in its own repo at all.
+- P1, P3, I3, I4, I5 and C2 change no graded file and fill only the slots
+  their productions show. I3 changes no file in its own repo at all.
 - Body placement follows the shared round protocol's **Shared implementation
   forms**.
 
 ## Roles
 
-| `<role>` | Repo | Meaning |
+| Role | Repo | Meaning |
 | --- | --- | --- |
 | `init` | plan | first commit recording the plan's initial solution |
 | `plan-audit` | plan | one planning round; its name pairs it with `impl-audit-<scope>`, so a record says which audit it was |
@@ -230,6 +248,7 @@ Rules across the classes:
 | `impl-audit-<scope>` | either | an implementation-audit fix commit or record |
 | `implemented` | either | every step this repo hosts has landed |
 | `closed` | either | Repo Edu: its audit rounds have settled; plan: the loop-close move to `archive/` |
+| `commit-audit` | either | a commit audit's fix commit or clean record; its name pairs it with `plan-audit` and `impl-audit-<scope>`, so a record says which audit it was |
 
 ## Subject examples
 
@@ -256,6 +275,8 @@ I2        round-file-naming/impl-audit-2-3 oth pruning-low c3 docs(audit):
 I3        planning-rounds/impl-audit-1-6 oth B1:
 I4        planning-rounds/impl-audit-1-6 otm clean:
 I5        planning-rounds/implemented oth:
+C1        commit-e8128b/commit-audit abx growth-none c1 docs(claude):
+C2        commit-e8128b/commit-audit obx clean:
 O2        ath chore(repo):
 O2        ath growth-none c1 docs(claude):
 O2        ath growth-low B1c1 docs(claude):
@@ -269,6 +290,9 @@ I2           round-file-naming/impl-audit-1-4 oth growth-medium c1 fix(audit-rou
 I3           planning-rounds/impl-audit-1-6 oth B1:
 I4           planning-rounds/impl-audit-1-6 ath clean:
 I5           planning-rounds/closed oth:
+C1           commit-804833/commit-audit abx pruning-low c3 docs(audit-round):
+C1           commit-733686..d081b7/commit-audit abx growth-none c1 fix(audit-round):
+C2           commit-83bde0+3095d1/commit-audit obx clean:
 O1           ath growth-medium c1 feat(audit-round):
 O1           abx pruning-low c1 redesign(audit-round):
 O1           abx growth-low c1d1 fix(repo):

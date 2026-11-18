@@ -22,7 +22,7 @@ import {
   type VetVerdict,
 } from "./round-data.js"
 import { type Coder, parseCoderRecord } from "./settings.js"
-import { looseForm } from "./subject.js"
+import { planForm } from "./subject.js"
 
 export type WorkClass = "planning" | "implementation"
 
@@ -747,7 +747,7 @@ function hasWholePlanAudit(
       round.data.scope === scope &&
       round.data.commits.some((commit) => {
         const record = history.get(historyKey(commit.repository, commit.sha))
-        const form = record === undefined ? null : looseForm(record.subject)
+        const form = record === undefined ? null : planForm(record.subject)
         return (
           record !== undefined &&
           records.every((step) => newerThanStep(record, step)) &&
@@ -857,7 +857,7 @@ async function coderRows(
     if (record.workClass === "implementation")
       planEvidence(record.stem, plans).rounds.push(record)
   for (const commit of [...repoEduHistory, ...planHistory]) {
-    const form = looseForm(commit.subject)
+    const form = planForm(commit.subject)
     if (form === null) continue
     const plan = planEvidence(form.stem, plans)
     if (form.role === "ready" && commit.repository === "plan") {

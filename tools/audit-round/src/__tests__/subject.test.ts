@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url"
 import { readModelRecord, readStepModelRecord } from "../commit-msg.js"
 import {
   isAuditRole,
-  looseForm,
+  looseRole,
   parseSubject,
+  planForm,
   type Repository,
   type SubjectClass,
   SubjectError,
@@ -36,7 +37,7 @@ async function examples(): Promise<Example[]> {
   )) {
     const repository: Repository = heading === "Plan repo" ? "plan" : "repo-edu"
     for (const line of block.split("\n").filter((line) => line.length > 0)) {
-      const match = /^([PIO]\d)(?: plan| Repo Edu)?\s+(.+)$/.exec(line)
+      const match = /^([PICO]\d)(?: plan| Repo Edu)?\s+(.+)$/.exec(line)
       assert.ok(match, `unreadable example line: ${line}`)
       found.push({
         repository,
@@ -127,6 +128,31 @@ test("the parser reads every slot of a marked subject", () => {
     role: "impl",
     scope: "12",
   })
+  for (const repository of ["repo-edu", "plan"] as const) {
+    assert.deepEqual(
+      parseSubject(
+        "commit-733686..d081b7+8d6f95/commit-audit abx pruning-low c3 docs(audit-round): s",
+        repository,
+      ),
+      {
+        class: "C1",
+        form: { series: "commit-733686..d081b7+8d6f95", role: "commit-audit" },
+        tag: { vendor: "a", tier: "b", effort: "x" },
+        burden: { direction: "pruning", level: "low" },
+        severity: {
+          ordinary: false,
+          upper: [],
+          lower: [{ tier: "c", count: 3 }],
+        },
+        kind: { conventional: "docs", scope: "audit-round" },
+        sentence: "s",
+      },
+    )
+    assert.equal(
+      parseSubject("commit-804833/commit-audit obx clean: s", repository).class,
+      "C2",
+    )
+  }
   // The sentence may hold colons of its own; only the first tag-ending colon splits.
   assert.equal(
     parseSubject(
@@ -291,6 +317,51 @@ const refusals: [Repository, string, RegExp][] = [
   ["repo-edu", "example/impl-all atx fix(x): s", /step/],
   ["repo-edu", "example/deploy atx: s", /role deploy/],
   ["repo-edu", "/impl-3 atx fix(x): s", /empty stem/],
+  // A commit audit's record and its series label.
+  ["repo-edu", "example/commit-audit atx clean: s", /series label example/],
+  [
+    "repo-edu",
+    "commit-80483/commit-audit atx clean: s",
+    /series label commit-80483/,
+  ],
+  [
+    "plan",
+    "commit-8048339f/commit-audit atx clean: s",
+    /series label commit-8048339f/,
+  ],
+  [
+    "repo-edu",
+    "commit-80483A/commit-audit atx clean: s",
+    /series label commit-80483A/,
+  ],
+  [
+    "repo-edu",
+    "commit-733686..d081b7+8d6f95+2de91d/commit-audit atx clean: s",
+    /series label/,
+  ],
+  ["repo-edu", "commit-804833/commit-audit clean: s", /capability tag/],
+  ["repo-edu", "commit-804833/commit-audit atx: s", /needs a severity/],
+  ["repo-edu", "commit-804833/commit-audit atx docs(x): s", /needs a severity/],
+  [
+    "plan",
+    "commit-804833/commit-audit atx clean docs(x): s",
+    /clean record carries no kind/,
+  ],
+  [
+    "repo-edu",
+    "commit-804833/commit-audit atx B1: s",
+    /conventional kind after its severity sequence/,
+  ],
+  [
+    "repo-edu",
+    "commit-804833/commit-audit atx c1 docs(x): s",
+    /carries a growth or pruning mark/,
+  ],
+  [
+    "plan",
+    "commit-804833/commit-audit atx growth-none clean: s",
+    /beside a severity/,
+  ],
 ]
 
 test("the parser refuses what the grammar refuses and names the slot", () => {
@@ -305,14 +376,14 @@ test("the parser refuses what the grammar refuses and names the slot", () => {
 
 test("the loose form read reaches subjects older than the settled grammar", () => {
   assert.deepEqual(
-    looseForm("desktop-application-architecture/impl-23: docs(desktop): x"),
+    planForm("desktop-application-architecture/impl-23: docs(desktop): x"),
     {
       stem: "desktop-application-architecture",
       role: "impl-23",
     },
   )
   assert.deepEqual(
-    looseForm(
+    planForm(
       "implementation-audit-rounds-ts/impl-audit-all/C4D1: fix(audit-round): x",
     ),
     {
@@ -320,12 +391,41 @@ test("the loose form read reaches subjects older than the settled grammar", () =
       role: "impl-audit-all/C4D1",
     },
   )
-  assert.equal(looseForm("abx growth-none c1 fix(repo): x"), null)
-  assert.equal(looseForm("/impl-3 abx fix(repo): x"), null)
+  assert.equal(planForm("abx growth-none c1 fix(repo): x"), null)
+  assert.equal(planForm("/impl-3 abx fix(repo): x"), null)
+  assert.equal(looseRole("/impl-3 abx fix(repo): x"), null)
+  assert.equal(
+    looseRole("example/impl-audit-2-3 abx clean: x"),
+    "impl-audit-2-3",
+  )
   assert.equal(isAuditRole("plan-audit"), true)
   assert.equal(isAuditRole("audit"), false)
   assert.equal(isAuditRole("impl-audit-2-3"), true)
   assert.equal(isAuditRole("impl-audit-all/C4D1"), true)
+  assert.equal(isAuditRole("commit-audit"), true)
   assert.equal(isAuditRole("impl-3"), false)
   assert.equal(isAuditRole("audit-x"), false)
+})
+
+test("the role, not the label's spelling, tells a series form from a plan form", () => {
+  // A commit audit's record names no plan, so no reader that groups commits by
+  // plan meets its label, while the hook still reads its role.
+  for (const record of [
+    "commit-804833/commit-audit abx pruning-low c3 docs(audit-round): x",
+    "commit-83bde0+3095d1/commit-audit obx clean: x",
+    "anything/commit-audit abx clean: x",
+  ]) {
+    assert.equal(planForm(record), null, record)
+    assert.equal(looseRole(record), "commit-audit", record)
+  }
+  // A plan whose stem looks like a series label keeps its plan forms.
+  for (const role of ["impl-2", "plan-audit", "ready"])
+    assert.deepEqual(planForm(`commit-804833/${role} abx: x`), {
+      stem: "commit-804833",
+      role,
+    })
+  assert.equal(
+    parseSubject("commit-804833/impl-audit-1 abx clean: x", "repo-edu").class,
+    "I4",
+  )
 })

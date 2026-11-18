@@ -20,9 +20,14 @@ names the grammar file.
 either repository's form, names the class it matched and refuses with the first slot that does not
 fit. The commit hooks and the glance both read through it.
 
-Its loose form read, the first token split at its slash, is the one read that reaches subjects
-older than the settled grammar, because episode scoping and auditor stamping need nothing else
-from them.
+Its two loose reads split the first token at its slash. They are the only reads that reach
+subjects older than the settled grammar, because episode scoping and auditor stamping need nothing
+else from them.
+
+- The plan-form read is the one test that tells a commit audit's series form from a plan form. It
+  reads a series form as no plan form, so every reader that groups commits by plan reads through
+  it and never takes a series label for a plan stem.
+- The role read returns the role of either form, for the hook and the record bullet readers.
 
 ### Record bullets
 
@@ -48,7 +53,8 @@ subject. It then stamps and refuses as follows.
 
 Stamps the runner supplies:
 
-- It replaces a record's auditor tag with `COMMIT_AUDITOR` when the runner supplies it.
+- It replaces an audit record's auditor tag with `COMMIT_AUDITOR` when the runner supplies it. A
+  commit audit's record is an audit record like a plan's.
 - It replaces the body's opening phase lines and time line with `COMMIT_PHASES` when a round
   supplies it, so a second stamp repeats neither. It requires a model line otherwise.
 - Every assistant child carries the round's commit stamps, overriding any inherited ones, so a
@@ -67,8 +73,8 @@ Refusals:
 - a step record without active implementation time;
 - a ready marker without its coder;
 - a commit that changes a listed file unless the subject has an `impl-<n>` or
-  `impl-audit-<scope>` role. That refusal names `FAILURES.md` and the plan repo's
-  **Doctrine changes** rule, which owns the route.
+  `impl-audit-<scope>` role, so a commit audit's record is refused too. That refusal names
+  `FAILURES.md` and the plan repo's **Doctrine changes** rule, which owns the route.
 
 ### Listed files
 

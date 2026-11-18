@@ -17,7 +17,7 @@ import {
   type SeriesAnswer,
 } from "./round-data.js"
 import type { Auditor } from "./settings.js"
-import { looseForm, type Repository } from "./subject.js"
+import { planForm, type Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
 export type SeriesCommit = {
@@ -142,7 +142,7 @@ export function planSeriesEvidence(input: {
       episodeMembers(log, repository, input.stem)
         .members.toReversed()
         .map((commit): SeriesCommit => {
-          const form = looseForm(commit.subject)
+          const form = planForm(commit.subject)
           const role = form?.role ?? null
           return {
             repository,
@@ -314,7 +314,7 @@ function reopens(commit: SeriesCommit): boolean {
 }
 
 function initialPlanningPhase(commit: SeriesCommit): "widening" | "detailing" {
-  const stem = looseForm(commit.subject)?.stem
+  const stem = planForm(commit.subject)?.stem
   return commit.files.some(
     (file) => file.split("/").at(-1) === `${stem}-widen.md`,
   )

@@ -15,8 +15,9 @@ import {
   readPlanRoundData,
 } from "./round-data.js"
 import {
-  looseForm,
+  looseRole,
   parseSubject,
+  planForm,
   type Repository,
   type Subject,
 } from "./subject.js"
@@ -53,8 +54,7 @@ export type Episode = {
 }
 
 export function commitTopic(commit: LogCommit): string | null {
-  const form = looseForm(commit.subject)
-  return form?.stem ?? null
+  return planForm(commit.subject)?.stem ?? null
 }
 
 export function historyTopic(log: readonly LogCommit[]): string | null {
@@ -132,14 +132,13 @@ function readCommit(
   } catch {
     /* Loose form still scopes older subjects. */
   }
-  const loose = looseForm(commit.subject)
   let findings: EpisodeFinding[] = []
   let unreadable: string | null = null
   try {
     findings = readFindings(
       commit.body,
       repository,
-      parsed?.form?.role ?? loose?.role ?? null,
+      parsed?.form?.role ?? looseRole(commit.subject),
     ).map((finding) => resolveFinding(finding, areas))
     checkFindingTotals(parsed, findings)
   } catch (error) {

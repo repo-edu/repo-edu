@@ -4,7 +4,12 @@ import {
   type Finding,
   readRecordBullets,
 } from "./findings.js"
-import { looseForm, type Repository, type TierLetter } from "./subject.js"
+import {
+  looseRole,
+  planForm,
+  type Repository,
+  type TierLetter,
+} from "./subject.js"
 import { planStem } from "./target.js"
 
 export type OpenDeferral = {
@@ -22,11 +27,7 @@ type DeferralCandidate = OpenDeferral & {
 
 function readableBullets(commit: LogCommit, repository: Repository) {
   try {
-    return readRecordBullets(
-      commit.body,
-      repository,
-      looseForm(commit.subject)?.role ?? null,
-    )
+    return readRecordBullets(commit.body, repository, looseRole(commit.subject))
   } catch {
     return []
   }
@@ -97,7 +98,7 @@ export function openDeferrals(
 ): OpenDeferral[] {
   const topic = planStem(stem)
   const planCommits = logs.plan.filter(
-    (commit) => looseForm(commit.subject)?.stem === topic,
+    (commit) => planForm(commit.subject)?.stem === topic,
   )
   const intoPlan = deferrals(
     logs["repo-edu"],

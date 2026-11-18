@@ -8,7 +8,7 @@
 /** Which repository's form a subject is read under. */
 export type Repository = "repo-edu" | "plan"
 
-export const roles = [
+const planRoles = [
   "init",
   "plan-audit",
   "settle",
@@ -19,15 +19,31 @@ export const roles = [
   "implemented",
   "closed",
 ] as const
-export type RoleName = (typeof roles)[number]
+export type PlanRoleName = (typeof planRoles)[number]
 
-/** `<form> ::= <stem>/<role>`, with the step or step scope the role carries. */
-export type Form = {
+/**
+ * The one role a commit series' form carries. The role, never the spelling of
+ * the label before it, tells a series form from a plan form.
+ */
+const seriesRole = "commit-audit"
+export type RoleName = PlanRoleName | typeof seriesRole
+
+/** `<stem>/<role>`: a plan's form, with the step or step scope the role carries. */
+export type PlanForm = {
   readonly stem: string
-  readonly role: RoleName
+  readonly role: PlanRoleName
   /** `<n>` for a step, `<scope>` for an audit record, null for the other roles. */
   readonly scope: string | null
 }
+
+/** `<series>/commit-audit`: a commit audit's record, named by its series' label. */
+export type SeriesForm = {
+  readonly series: string
+  readonly role: typeof seriesRole
+}
+
+/** `<form>`: a plan form or a commit series' form. */
+export type Form = PlanForm | SeriesForm
 
 export type Tag = {
   readonly vendor: "a" | "o"
@@ -95,6 +111,8 @@ export type SubjectClass =
   | "I3"
   | "I4"
   | "I5"
+  | "C1"
+  | "C2"
   | "O1"
   | "O2"
 
@@ -120,6 +138,8 @@ const runPattern = /([A-Da-d])([1-9]\d*)/g
 const kindPattern = /^([a-z]+)\(([a-z0-9-]+)\)$/
 const stepPattern = /^[1-9]\d*$/
 const auditScopePattern = /^(?:[1-9]\d*|[1-9]\d*-[1-9]\d*)$/
+const seriesPattern =
+  /^commit-[0-9a-f]{6}(?:\.\.[0-9a-f]{6})?(?:\+[0-9a-f]{6}(?:\.\.[0-9a-f]{6})?)?$/
 
 function fail(message: string): never {
   throw new SubjectError(message)
@@ -130,6 +150,13 @@ function parseForm(token: string): Form {
   const stem = token.slice(0, slash)
   const role = token.slice(slash + 1)
   if (stem.length === 0) fail(`the form ${token} has an empty stem`)
+  if (role === seriesRole) {
+    if (!seriesPattern.test(stem))
+      fail(
+        `the series label ${stem} is not commit-<group>[+<group>], each group <sha6> or <sha6>..<sha6>`,
+      )
+    return { series: stem, role }
+  }
   if (role.startsWith("impl-audit-")) {
     const scope = role.slice("impl-audit-".length)
     if (!auditScopePattern.test(scope))
@@ -141,7 +168,7 @@ function parseForm(token: string): Form {
     if (!stepPattern.test(scope)) fail(`the step ${scope} is not a number`)
     return { stem, role: "impl", scope }
   }
-  const named = roles.find((name) => name === role)
+  const named = planRoles.find((name) => name === role)
   if (named === undefined || named === "impl" || named === "impl-audit")
     fail(`the role ${role} is not one the grammar names`)
   return { stem, role: named, scope: null }
@@ -300,6 +327,16 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (burden !== null)
         fail("a record without a kind carries no growth or pruning mark")
       return severity === "clean" ? "I4" : "I3"
+    case "commit-audit":
+      if (tag === null) fail(`${where} needs a capability tag`)
+      if (severity === null) fail(`${where} needs a severity sequence or clean`)
+      if (kind !== null) {
+        if (severity === "clean") fail("a clean record carries no kind")
+        return "C1"
+      }
+      if (severity !== "clean")
+        fail(`${where} needs a conventional kind after its severity sequence`)
+      return "C2"
   }
 }
 
@@ -371,19 +408,14 @@ export function parseSubject(line: string, repository: Repository): Subject {
   return { class: classify(slots, repository), ...slots }
 }
 
-/** A form read loosely: the stem and the role token as written, unchecked. */
+/** A plan form read loosely: the stem and the role token as written, unchecked. */
 export type LooseForm = {
   readonly stem: string
   readonly role: string
 }
 
-/**
- * The form a subject opens with, read loosely: the first token split at its
- * first slash. This is the one read that reaches subjects older than the
- * settled grammar, because the form has kept its place through every revision
- * and episode scoping and auditor stamping need nothing else from it.
- */
-export function looseForm(line: string): LooseForm | null {
+/** The first token split at its first slash, before any role is known. */
+function looseSplit(line: string): LooseForm | null {
   const first = (line.split(" ")[0] ?? "").replace(/:$/, "")
   const slash = first.indexOf("/")
   return slash > 0
@@ -391,7 +423,40 @@ export function looseForm(line: string): LooseForm | null {
     : null
 }
 
-/** Whether a loosely read role is an audit record's: a plan round or an implementation-audit round. */
+/**
+ * The plan form a subject opens with, read loosely: the first token split at
+ * its first slash. It and `looseRole` are the only reads that reach subjects
+ * older than the settled grammar, because the form has kept its place through
+ * every revision and episode scoping needs nothing else from it.
+ *
+ * It is also the one test that tells a series form from a plan form: a commit
+ * audit's record opens with its series' label, which names no plan, so it
+ * reads as none. The role decides, not the label's spelling, so a plan whose
+ * stem looks like a label keeps its plan forms. Every reader that groups
+ * commits by plan reads through it.
+ */
+export function planForm(line: string): LooseForm | null {
+  const form = looseSplit(line)
+  return form === null || form.role === seriesRole ? null : form
+}
+
+/**
+ * The role token of any form, a plan's or a commit series', read loosely as
+ * `planForm` reads it. The hook and the record-bullet readers need the role
+ * whatever the form names.
+ */
+export function looseRole(line: string): string | null {
+  return looseSplit(line)?.role ?? null
+}
+
+/**
+ * Whether a loosely read role is an audit record's: a plan round, an
+ * implementation-audit round or a commit audit.
+ */
 export function isAuditRole(role: string): boolean {
-  return role === "plan-audit" || role.startsWith("impl-audit-")
+  return (
+    role === "plan-audit" ||
+    role.startsWith("impl-audit-") ||
+    role === seriesRole
+  )
 }

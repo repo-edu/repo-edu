@@ -2,7 +2,7 @@ import type { Finding } from "./findings.js"
 import {
   isAuditRole,
   locateSubjectSlots,
-  looseForm,
+  looseRole,
   type Repository,
   type Run,
   type Severity,
@@ -43,8 +43,9 @@ export function printSequence(sequence: Severity): string {
 
 /**
  * Fill only the severity slot before full subject validation. The role, repo
- * and presence of a kind decide whether this class takes findings or clean.
- * Everything outside the derived slot remains subject to parseSubject.
+ * and presence of a kind decide whether this class takes findings or clean. A
+ * commit audit's record takes them as a plan's audit record does. Everything
+ * outside the derived slot remains subject to parseSubject.
  */
 export function stampSequence(
   line: string,
@@ -58,14 +59,14 @@ export function stampSequence(
     hasSeverity,
     kind,
   } = locateSubjectSlots(line)
-  const form = looseForm(line)
+  const role = looseRole(line)
   if (hasSeverity) tags.splice(slot, 1)
   const sequence = findingSequence(findings)
-  const audit = isAuditRole(form?.role ?? "")
+  const audit = isAuditRole(role ?? "")
   const hasKind = kind !== null
-  if (audit || form === null) {
+  if (audit || role === null) {
     if (sequence !== "clean") tags.splice(slot, 0, printSequence(sequence))
-    else if (form?.role === "plan-audit" || (audit && !hasKind))
+    else if (role === "plan-audit" || (audit && !hasKind))
       tags.splice(slot, 0, "clean")
     else if (audit || repository === "repo-edu")
       throw new SubjectError(
@@ -73,7 +74,7 @@ export function stampSequence(
       )
   } else if (sequence !== "clean") {
     throw new SubjectError(
-      `the ${form.role} class carries no severity and refuses graded finding bullets`,
+      `the ${role} class carries no severity and refuses graded finding bullets`,
     )
   }
   return `${tags.join(" ")}: ${sentence}`

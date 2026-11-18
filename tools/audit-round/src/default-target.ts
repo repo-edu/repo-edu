@@ -12,7 +12,7 @@ import {
   stoppedEarly,
 } from "./round-data.js"
 import { newestRound, targetLabel } from "./round-paths.js"
-import { looseForm, type Repository } from "./subject.js"
+import { planForm, type Repository } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
@@ -322,7 +322,7 @@ export async function lifecycleStage(
   const topic = planStem(plan)
   const logs = await readImplementationLogs(context)
   const ready = logs.plan.some((commit) => {
-    const form = looseForm(commit.subject)
+    const form = planForm(commit.subject)
     return form?.stem === topic && form.role === "ready"
   })
   if (!ready) return "detailing"
@@ -367,7 +367,7 @@ function fullRangeSettled(
   return Object.values(logs).every((commits) =>
     commits.every(
       (commit) =>
-        looseForm(commit.subject)?.stem !== topic ||
+        planForm(commit.subject)?.stem !== topic ||
         commit.files.length === 0 ||
         own.has(commit.sha) ||
         Date.parse(commit.committedAt) < started,
@@ -386,7 +386,7 @@ function implementationComplete(status: ImplementationProgress): boolean {
 function hasLandedStep(logs: ImplementationLogs, topic: string): boolean {
   return Object.values(logs).some((commits) =>
     commits.some((commit) => {
-      const form = looseForm(commit.subject)
+      const form = planForm(commit.subject)
       return form?.stem === topic && /^impl-[1-9]\d*$/.test(form.role)
     }),
   )
@@ -429,7 +429,7 @@ export function implementationProgress(
     let markerIndex: number | undefined
     logs[repository]
       .flatMap((commit) => {
-        const form = looseForm(commit.subject)
+        const form = planForm(commit.subject)
         return form?.stem === topic ? [form.role] : []
       })
       .forEach((role, index) => {

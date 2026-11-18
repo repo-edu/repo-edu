@@ -4,7 +4,7 @@ import { stampSequence } from "./sequence.js"
 import { parseCoderRecord } from "./settings.js"
 import {
   isAuditRole,
-  looseForm,
+  looseRole,
   parseSubject,
   type Repository,
   SubjectError,
@@ -122,8 +122,10 @@ export function readStepModelRecord(body: string): StepModelRecord {
  * auditor the round holds, every subject parses under the repository's form,
  * a tagged subject's body opens with the model the work ran on, and a
  * single-model record agrees with the tag on the effort. Runner-written settle
- * and ready markers and the user's disprove ruling have neither. A commit that
- * changes a listed file must carry a step or implementation-audit subject.
+ * and ready markers and the user's disprove ruling have neither. A commit
+ * audit's record is an audit record like a plan's. A commit that changes a
+ * listed file must carry a step or implementation-audit subject, so a commit
+ * audit's record is refused one.
  */
 export function stampCommitMessage(
   text: string,
@@ -140,13 +142,13 @@ export function stampCommitMessage(
   const lines = (trailing ? text.slice(0, -1) : text).split("\n")
   if (text.length === 0) return text
   const tokens = lines[0].split(" ")
-  const form = looseForm(lines[0])
-  // A plan form opens the subject and takes the first field, so the tag follows
-  // it; an ordinary subject opens with the tag itself.
-  const slot = form === null ? 0 : 1
+  const role = looseRole(lines[0])
+  // A plan or series form opens the subject and takes the first field, so the
+  // tag follows it; an ordinary subject opens with the tag itself.
+  const slot = role === null ? 0 : 1
   if (tokens.length <= slot)
     throw new SubjectError("the subject needs a capability tag, as atx")
-  const record = form !== null && isAuditRole(form.role)
+  const record = role !== null && isAuditRole(role)
   // A round record names the audit, whose capability the round holds and the
   // session composing the subject does not.
   if (record && stamps.auditor !== null)
@@ -154,9 +156,9 @@ export function stampCommitMessage(
       ? `${stamps.auditor}:`
       : stamps.auditor
   const findings =
-    form?.role === "disprove"
+    role === "disprove"
       ? []
-      : readFindings(lines.slice(1).join("\n"), repository, form?.role ?? null)
+      : readFindings(lines.slice(1).join("\n"), repository, role)
   for (const finding of findings) {
     const check = (id: string, kind: string, name: string) => {
       if (areaKinds.get(id) !== kind)

@@ -8,7 +8,7 @@ import { roundDataFilename } from "./round-data.js"
 import { markerPath } from "./round-paths.js"
 import { claimRound } from "./run-files.js"
 import { type Coder, coderRecord, parseCoderRecord } from "./settings.js"
-import { looseForm, type Repository } from "./subject.js"
+import { planForm, type Repository } from "./subject.js"
 import { archivedPlans, planStem } from "./target.js"
 
 type CommitOnlyInput = {
@@ -340,7 +340,7 @@ async function readyMarkers(planRoot: string): Promise<readonly ReadyMarker[]> {
   const markers: ReadyMarker[] = []
   for (const line of stdout.split("\n")) {
     const [sha, short, subject] = line.split("\t", 3)
-    const form = subject === undefined ? null : looseForm(subject)
+    const form = subject === undefined ? null : planForm(subject)
     if (form?.role === "ready")
       markers.push({ sha, short, stem: form.stem, subject })
   }

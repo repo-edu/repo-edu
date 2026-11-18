@@ -183,6 +183,25 @@ test("every subject class derives only the severity its role admits", () => {
       () => stamp(message("example/impl-audit-1 oth fix(x): s"), repository),
       /graded finding bullet/,
     )
+    // A commit audit's record takes a fix's or a clean record's severity, and
+    // no deferral record exists for it.
+    const series = "commit-83bde0+3095d1/commit-audit"
+    assert.equal(
+      stamp(message(`${series} oth: s`), repository),
+      message(`${series} oth clean: s`),
+    )
+    assert.equal(
+      stamp(message(`${series} oth growth-low fix(x): s`, finding), repository),
+      message(`${series} oth growth-low c1 fix(x): s`, finding),
+    )
+    assert.throws(
+      () => stamp(message(`${series} oth growth-none fix(x): s`), repository),
+      /graded finding bullet/,
+    )
+    assert.throws(
+      () => stamp(message(`${series} oth: s`, finding), repository),
+      /conventional kind/,
+    )
   }
   assert.equal(
     stamp(message("example/plan-audit oth: s"), "plan"),
@@ -265,6 +284,7 @@ test("only planning-audit findings carry a search direction", () => {
       for (const subject of [
         "example/impl-audit-1 oth growth-none docs(x)",
         "example/impl-audit-1-2 oth",
+        "commit-804833/commit-audit oth growth-none docs(x)",
         "oth growth-none docs(x)",
       ]) {
         assert.doesNotThrow(() =>
@@ -381,6 +401,19 @@ test("round stamps compose with the derived sequence and retain every finding", 
     message(
       "example/impl-audit-2 ath growth-none c1 docs(x): s",
       planFinding,
+      stamps.phases,
+    ),
+  )
+  assert.equal(
+    stampCommitMessage(
+      message("commit-804833/commit-audit a growth-low fix(x): s", codeFinding),
+      "repo-edu",
+      stamps,
+      areaKinds,
+    ),
+    message(
+      "commit-804833/commit-audit otx growth-low c1 fix(x): s",
+      codeFinding,
       stamps.phases,
     ),
   )
@@ -536,6 +569,15 @@ test("only a plan step or an implementation-audit fix changes a listed path of i
       changing("example/impl-audit-1-3 oth: s", repository, [
         listed[repository],
       ]),
+    )
+    assert.throws(
+      () =>
+        changing("commit-804833/commit-audit oth: s", repository, [
+          listed[repository],
+        ]),
+      (error: unknown) =>
+        error instanceof SubjectError &&
+        error.message.startsWith(`${listed[repository]} is a listed file`),
     )
     for (const path of [
       ".agents/skills/implement/references/workflow.md",

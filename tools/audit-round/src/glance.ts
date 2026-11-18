@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { format } from "date-fns"
 import { z } from "zod"
 import { type Episode, readEpisode, sameHead } from "./episode.js"
-import type { Repository } from "./subject.js"
+import { planForm, type Repository } from "./subject.js"
 
 /**
  * The glance that follows a finished plan round whose audit had findings.
@@ -156,8 +156,7 @@ export function glanceDecision(
     const subject = commit.parsed
     if (
       subject === null ||
-      subject.form === null ||
-      subject.form.stem !== stem ||
+      planForm(commit.subject)?.stem !== stem ||
       (subject.class !== "P2" && subject.class !== "I2") ||
       subject.severity === null ||
       subject.severity === "clean"
