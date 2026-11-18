@@ -182,3 +182,37 @@ test("writes no extension when the source's first relative import has none", () 
     },
   )
 })
+
+test("skips an asset import before the first relative code import", () => {
+  withProject(
+    {
+      "src/lib.ts": "export const LIMIT = 3\n",
+      "src/settings.json": '{ "step": 1 }\n',
+      "src/sizes.ts": `import settings from "./settings.json"
+import { LIMIT } from "./lib.js"
+
+export const STEP = settings.step
+
+export function grow(size: number): number {
+  return Math.min(size + 1, LIMIT)
+}
+
+export const START = grow(STEP)
+`,
+    },
+    (project) => {
+      const result = project.move("src/sizes.ts", 6, 8, "src/grow.ts")
+
+      assert.equal(result.kind, "accepted")
+      assert.equal(result.importEnding, "js")
+      assert.match(
+        project.read("src/grow.ts"),
+        /^import \{ LIMIT \} from "\.\/lib\.js"$/m,
+      )
+      assert.match(
+        project.read("src/sizes.ts"),
+        /^import \{ grow \} from "\.\/grow\.js"$/m,
+      )
+    },
+  )
+})

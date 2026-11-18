@@ -16,6 +16,7 @@ const TSCONFIG = JSON.stringify({
     target: "ES2024",
     module: "ESNext",
     moduleResolution: "Bundler",
+    resolveJsonModule: true,
     strict: true,
     verbatimModuleSyntax: true,
     noEmit: true,

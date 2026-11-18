@@ -37,8 +37,10 @@ These terms belong to the statement move tool alone.
    judgement about which statements belong together.
 3. It records the project's TypeScript 6 diagnostics, asks the engine for its
    edits and applies them to the overlay. The import ending follows the source
-   file's first relative import: `.js` gives `js`, no extension gives `minimal`
-   and a file without a relative import gives `js`.
+   file's first relative import that ends in `.js` or has no extension: `.js`
+   gives `js` and no extension gives `minimal`. Imports with any other ending,
+   such as `.json`, `.css` or a dotted name, are skipped. A file without such
+   an import gives `js`.
 4. It applies the language service's own fix for each wrong import kind the
    move introduced, until the service offers none. A value imported with
    `import type` (code 1361) loses `type`; a type imported as a value (code

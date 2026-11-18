@@ -24,13 +24,6 @@ const IMPORT_KIND_FIXES = new Map<number, string>([
   [1484, "convertToTypeOnlyImport"],
 ])
 
-const MODULE_EXTENSIONS_WITHOUT_EXTENSIONLESS_FORM = [
-  ".mjs",
-  ".cjs",
-  ".mts",
-  ".cts",
-]
-
 const FORMAT_SETTINGS: ts.FormatCodeSettings = {
   ...ts.getDefaultFormatCodeSettings("\n"),
   indentSize: 2,
@@ -376,10 +369,12 @@ function selectStatements(
 }
 
 /**
- * The source file's first relative import decides the ending, as
- * TypeScript's own default does; a file without one takes `.js`, the style
- * of most of the workspace. Without this preference a new target file gets no
- * extension whatever its package writes.
+ * The first relative import that ends in `.js` or has no extension decides
+ * the ending. Every other ending, such as `.json`, `.css` or a dotted name,
+ * says nothing about how the file writes code imports and is skipped. A file
+ * without a deciding import takes `.js`, the style of most of the workspace.
+ * Without this preference a new target file gets no extension whatever its
+ * package writes.
  */
 function sourceImportEnding(sourceFile: ts.SourceFile): ImportEnding {
   for (const statement of sourceFile.statements) {
@@ -390,15 +385,16 @@ function sourceImportEnding(sourceFile: ts.SourceFile): ImportEnding {
       ts.isStringLiteral(statement.moduleSpecifier)
     ) {
       const specifier = statement.moduleSpecifier.text
-      if (
-        !(specifier.startsWith("./") || specifier.startsWith("../")) ||
-        MODULE_EXTENSIONS_WITHOUT_EXTENSIONLESS_FORM.some((extension) =>
-          specifier.endsWith(extension),
-        )
-      ) {
+      if (!(specifier.startsWith("./") || specifier.startsWith("../"))) {
         continue
       }
-      return specifier.endsWith(".js") ? "js" : "minimal"
+      const lastPart = specifier.slice(specifier.lastIndexOf("/") + 1)
+      if (lastPart.endsWith(".js")) {
+        return "js"
+      }
+      if (!lastPart.includes(".")) {
+        return "minimal"
+      }
     }
   }
   return "js"
