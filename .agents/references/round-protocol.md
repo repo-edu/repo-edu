@@ -750,10 +750,10 @@ An audit with no findings completes without vet, rebuttal, fix, glance or
 watch. An automatic series still applies its fixed decision rules. This route avoids a fresh
 fix session whose only work would be an empty record.
 
-For a plan target, return the complete audit report under
-[Runner result](#runner-result). The runner retains it and lands the clean
-record. It keeps the audit report, because a round's files stay in the evidence
-repo until the close moves them. A commit target lands no clean record.
+Return the complete audit report under [Runner result](#runner-result). The
+runner retains it and lands the clean record, for a plan target and a commit
+target alike, so the log shows that the audit ran. It keeps the audit report,
+because a round's files stay in the evidence repo.
 
 Use the
 [record meanings and placement](#shared-implementation-forms) and the shared
@@ -836,7 +836,9 @@ Empty records and markers carry no conventional kind:
   some elsewhere, so a both-repo round with findings in one repo lands one
   record, and the peer repo's trajectory reads that record through the judged
   repos' walks. A declined round lands no commit because disagreement is not a
-  state.
+  state. A clean commit audit's record, its series label and `commit-audit`
+  role with `clean`, lands by the same rule, so one rule places every clean
+  record.
 - `implemented` records that every implementation step its repo hosts has
   landed; its subject names that share, and a plan with steps in both repos
   carries one marker per repo. The implementation request authorises the

@@ -1763,6 +1763,66 @@ test("a commit series keeps its label while the next auditor reads the original 
   assert.deepEqual(data.rounds[1].groups[0].commits, secondGroup.commits)
 })
 
+test("a commit series keeps its clean record out of the next round's audited set", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  const original = (
+    await execa("git", ["rev-parse", "HEAD"], { cwd: f.repoRoot })
+  ).stdout
+  const label = `commit-${original.slice(0, 6)}`
+
+  assert.equal(
+    await runCommand(["round", "HEAD", "--no-watch"], f.runtime, f.options),
+    0,
+    `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+  )
+
+  const data = JSON.parse(
+    await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
+  ) as {
+    rounds: {
+      commits: { sha: string }[]
+      groups: { commits: string[] }[]
+    }[]
+  }
+  assert.equal(data.rounds.length, 2)
+  const clean = data.rounds[0].commits.map((commit) => commit.sha)
+  assert.equal(clean.length, 1)
+  assert.match(
+    (
+      await execa("git", ["show", "-s", "--format=%s", clean[0]], {
+        cwd: f.repoRoot,
+      })
+    ).stdout,
+    new RegExp(`^${label}/commit-audit [ao][btu][lmhx] clean: `),
+  )
+  // The second auditor reads the original commit alone, at the head that
+  // holds the first round's clean record.
+  const audits = (await f.prompts()).filter((call) =>
+    call.prompt.startsWith("Run the audit phase "),
+  )
+  assert.equal(audits.length, 2)
+  const secondArguments = /^Phase arguments \(JSON array\): (.+)$/m.exec(
+    audits[1].prompt,
+  )
+  assert.ok(secondArguments)
+  const [, secondGroup] = JSON.parse(secondArguments[1]) as [
+    string,
+    { commits: string[]; startingHead: string },
+  ]
+  assert.deepEqual(secondGroup.commits, [original])
+  assert.equal(secondGroup.startingHead, clean[0])
+  assert.deepEqual(data.rounds[1].groups[0].commits, [original])
+})
+
 test("a rerun starts with fixes retained by the same commit-series label", async (t) => {
   const f = await roundFixture(
     t,

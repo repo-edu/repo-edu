@@ -145,30 +145,112 @@ for (const working of ["repo-edu", "plan"] as const) {
   })
 }
 
-test("clean commit audit keeps the audit report and makes no commit", async (t) => {
-  const f = await roundFixture(
-    t,
-    "codex",
-    "repo-edu",
-    false,
-    null,
-    true,
-    "repo-edu",
-    true,
-  )
-  assert.equal(
-    await runCommand(["round", "HEAD"], f.runtime, {
-      ...f.options,
-      settings: singleAuditorSettings,
-    }),
-    0,
-  )
-  assert.equal(await shortCommit(f.repoRoot, "HEAD"), f.heads["repo-edu"])
-  assert.match(await readFile(f.report, "utf8"), /No findings/)
-  const { log, markdown } = await f.records()
-  assert.doesNotMatch(log, /\[(?:vet|rebut|fix|watch)\] starting/)
-  assert.match(markdown, /Clean audit\. Audit report retained/)
-})
+for (const { name, args, judged, owner } of [
+  {
+    name: "Repo Edu",
+    args: ["HEAD"],
+    judged: ["repo-edu"],
+    owner: "repo-edu",
+  },
+  { name: "plan-repo", args: ["plan@HEAD"], judged: ["plan"], owner: "plan" },
+  {
+    name: "both-repo",
+    args: ["HEAD", "plan@HEAD"],
+    judged: ["plan", "repo-edu"],
+    owner: "repo-edu",
+  },
+] as const) {
+  test(`a clean ${name} commit audit lands one labelled record in ${owner}`, async (t) => {
+    const f = await roundFixture(
+      t,
+      "codex",
+      owner,
+      false,
+      null,
+      true,
+      "repo-edu",
+      true,
+    )
+    const rootOf = (repository: "plan" | "repo-edu") =>
+      repository === "plan" ? f.planRoot : f.repoRoot
+    const full = Object.fromEntries(
+      await Promise.all(
+        (["plan", "repo-edu"] as const).map(
+          async (repository) =>
+            [
+              repository,
+              (
+                await execa("git", ["rev-parse", "HEAD"], {
+                  cwd: rootOf(repository),
+                })
+              ).stdout,
+            ] as const,
+        ),
+      ),
+    ) as Record<"plan" | "repo-edu", string>
+    await writeFile(
+      f.report,
+      `Implementation audit workflow\nTarget: <arguments>\nJudged repos: ${judged.map((repository) => `${repository}@${f.heads[repository]}`).join(", ")}\n\n## Findings\n\nNo findings.\n`,
+    )
+    assert.equal(
+      await runCommand(["round", ...args], f.runtime, {
+        ...f.options,
+        settings: singleAuditorSettings,
+      }),
+      0,
+      `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
+    )
+    // Group labels join in repository order, Repo Edu's first.
+    const label = `commit-${(["repo-edu", "plan"] as const)
+      .filter((repository) =>
+        (judged as readonly string[]).includes(repository),
+      )
+      .map((repository) => full[repository].slice(0, 6))
+      .join("+")}`
+    for (const repository of ["repo-edu", "plan"] as const) {
+      const count = (
+        await execa(
+          "git",
+          ["rev-list", "--count", `${f.heads[repository]}..HEAD`],
+          { cwd: rootOf(repository) },
+        )
+      ).stdout
+      assert.equal(count, repository === owner ? "1" : "0")
+    }
+    const git = async (...gitArgs: string[]) =>
+      (await execa("git", gitArgs, { cwd: rootOf(owner) })).stdout
+    assert.equal(
+      await git("rev-parse", "HEAD^{tree}"),
+      await git("rev-parse", "HEAD^^{tree}"),
+    )
+    const message = await git("log", "-1", "--format=%B")
+    assert.equal(
+      message.split("\n")[0],
+      `${label}/commit-audit ${recordedTag("codex")} clean: record audit with no findings`,
+    )
+    // The hook would open it with the same label and change nothing else.
+    for (const series of [null, label])
+      assert.equal(
+        stampCommitMessage(
+          message,
+          owner,
+          { auditor: null, phases: null, series },
+          new Map(),
+        ),
+        message,
+      )
+    const data = JSON.parse(
+      await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
+    ) as { rounds: { commits: { repository: string; sha: string }[] }[] }
+    assert.deepEqual(data.rounds[0]?.commits, [
+      { repository: owner, sha: await git("rev-parse", "HEAD") },
+    ])
+    assert.match(await readFile(f.report, "utf8"), /No findings/)
+    const { log, markdown } = await f.records()
+    assert.doesNotMatch(log, /\[(?:vet|rebut|fix|watch)\] starting/)
+    assert.match(markdown, /Clean audit recorded\. Audit report retained/)
+  })
+}
 
 test("clean deferral citations stay in one bullet list", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")

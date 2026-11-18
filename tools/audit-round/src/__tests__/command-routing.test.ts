@@ -451,6 +451,13 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
     true,
   )
   const references = ["HEAD", `${planRepositoryPrefix}HEAD`] as const
+  // Read before the run, because the round's clean record moves a head.
+  const repoCommit = (
+    await execa("git", ["rev-parse", "HEAD"], { cwd: f.repoRoot })
+  ).stdout
+  const planCommit = (
+    await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
+  ).stdout
 
   assert.equal(
     await runCommand(["round", ...references], f.runtime, {
@@ -462,12 +469,6 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
   )
 
   const { log, markdown, transcript } = await f.records()
-  const repoCommit = (
-    await execa("git", ["rev-parse", "HEAD"], { cwd: f.repoRoot })
-  ).stdout
-  const planCommit = (
-    await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
-  ).stdout
   const groups = [
     {
       repository: "repo-edu",

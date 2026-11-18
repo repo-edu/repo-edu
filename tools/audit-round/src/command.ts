@@ -134,6 +134,7 @@ import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
+import { parseSubject } from "./subject.js"
 import {
   type AuditTarget,
   activePlan,
@@ -1969,19 +1970,33 @@ export async function runCommand(
             throw new Error(
               `Commit round landed ${unexpected.repository}@${unexpected.sha} outside its original repository groups`,
             )
+          const root = (repository: LandedCommit["repository"]): string =>
+            repository === "plan" ? context.planRoot : context.repoEduRoot
+          // A clean record changes no file, so the next auditor has nothing to
+          // read in it. The round data still keeps it among the landed commits.
+          const fixes = (
+            await Promise.all(
+              landed.map(async (commit) => {
+                const { subject } = await readLandedRecord(
+                  root(commit.repository),
+                  commit.sha,
+                  commit.repository,
+                )
+                return parseSubject(subject, commit.repository).class === "C2"
+                  ? []
+                  : [commit]
+              }),
+            )
+          ).flat()
           const rebuilt = await Promise.all(
             value.groups.map(async (group) => {
-              const fixes = landed
+              const groupFixes = fixes
                 .filter((commit) => commit.repository === group.repository)
                 .map((commit) => commit.sha)
-              const commits = [...new Set([...group.commits, ...fixes])] as [
-                string,
-                ...string[],
-              ]
-              const cwd =
-                group.repository === "plan"
-                  ? context.planRoot
-                  : context.repoEduRoot
+              const commits = [
+                ...new Set([...group.commits, ...groupFixes]),
+              ] as [string, ...string[]]
+              const cwd = root(group.repository)
               const startingHead = (
                 await execa("git", ["rev-parse", "HEAD"], { cwd })
               ).stdout

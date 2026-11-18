@@ -42,16 +42,17 @@ no phase work, and the coordinator sees only the invocation's result.
 A clean audit completes directly through `clean.ts`, without vet, rebuttal, ruler, fix, glance or
 watch. An automatic series still applies its decision rules to a clean round.
 
-- A plan target lands one empty clean record in the sole judged repo, or in Repo Edu when both
+- Every target lands one empty clean record in the sole judged repo, or in Repo Edu when both
   repos were judged. The record uses the audit report's judged-repos opening and the audit's actual
   model record and capability tag. `git commit --only --allow-empty` preserves staged work while
   using the normal hooks and signing settings. Full commit IDs identify any deferrals that the
   clean record closes.
-- A commit target lands no commit.
+- A plan target's record opens with its stem. A commit target's record opens with its series label
+  and the `commit-audit` role, as the [hook](commit-hooks.md#the-hooks-rule) would open it.
 
-Both routes retain their audit report and leave existing handoffs untouched. Completion failures
+The round retains its audit report and leaves existing handoffs untouched. Completion failures
 stop the run without a fictitious fix session or resume command. `target.ts` supplies the active
-plan stem shared by output naming and clean records.
+plan stem shared by output naming and clean records, and `round-paths.ts` the series label.
 
 ### After the fix
 
@@ -64,8 +65,9 @@ landed records and validates every subject under its repository's grammar.
   [hook](commit-hooks.md#the-hooks-rule) writes into every commit the fix lands. Another series
   has another label and hand-run work has none, so neither joins the round.
 - A plan target fails when a finished fix landed no commit.
-- A commit target may land nothing. A finished clean commit entry settles the runner's read
-  without a landed record.
+- A commit target may land nothing, because a round whose every accepted finding needs a
+  listed-file change lands no record. A finished commit entry settles the runner's read without a
+  landed record.
 
 Reader failures retain the owning phase and its session for recovery.
 

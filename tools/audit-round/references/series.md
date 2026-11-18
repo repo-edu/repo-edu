@@ -60,7 +60,8 @@ evidence for the decision:
 - A plan target supplies all of the stem's planning and implementation round data plus its episode
   commits. A commit target supplies only its round data.
 - A read is settled when its findings have outcomes and it has a landed record, except that a
-  finished or current clean commit round needs none. The current `in-progress` entry is eligible.
+  finished or current commit round needs none, because a commit round whose every accepted finding
+  needs a listed-file change lands nothing. The current `in-progress` entry is eligible.
 - The glossary's **Current read** and **Real bug** entries name the events that make earlier reads
   stale. Reads that started after the latest event are current.
 - A hand-run audit represented only by Git still contributes its event.

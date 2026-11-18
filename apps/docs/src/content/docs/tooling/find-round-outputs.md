@@ -25,7 +25,8 @@ implementation range. A one-step range repeats its endpoint. Implementation work
 `-impl-<step>`, so a sorted file list shows a plan's worker logs, implementation audits and plan
 audits as three separate groups. Commit targets begin with `commit-`, so every commit audit sorts
 together. The same label opens every commit the audit lands, as `commit-804833/commit-audit`, so
-`git log --oneline` shows its records beside the audited commits. The round number is not a commit
+`git log --oneline` shows its records beside the audited commits. A clean commit audit lands one
+empty record with the label, so the log shows that the audit ran. The round number is not a commit
 number. A run's opening line names it as the file round. For a planning round that line first counts
 the round from the plan's latest settle or reopen marker, as `(detailing round 3, file round 6)`.
 The order number places the phases in reading order, and a skipped phase leaves a gap. The

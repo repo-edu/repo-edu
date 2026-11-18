@@ -204,7 +204,9 @@ returns a commit target as a list of one.
 The original exact groups own the label, under [Names](#names). Each audit phase group carries
 those original commits beside its advancing exact set. Before each later round of a commit series,
 `command.ts` builds each exact set from the original commits and the earlier landed fixes and
-advances each repository head, while the label stays the original one.
+advances each repository head, while the label stays the original one. A clean record joins no set:
+it changes no file, so the next auditor has nothing to read in it. The round data still keeps it
+among its round's landed commits.
 
 ## Round files
 

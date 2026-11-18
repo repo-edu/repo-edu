@@ -155,8 +155,13 @@ none. It names that finding in its handoff as work for a plan, and the record
 leaves it out. A round whose every accepted finding is of that kind lands no
 record.
 
-Direct clean completion follows the shared protocol. It creates no record
-because no stem scan reads one for a commit target.
+A clean round lands one empty record in the commit-audit form with `clean` in
+the severity slot, so the log shows that the audit ran and found nothing. The
+shared protocol's **Shared implementation forms** places it as a plan's clean
+record: in the sole judged repo, or in Repo Edu when both repos were judged.
+Direct clean completion lands it for an audit with no findings, and the fix
+lands it for a round whose every finding was dropped. A clean record changes no
+file, so it joins no later round's audited set.
 
 ## Settlement
 

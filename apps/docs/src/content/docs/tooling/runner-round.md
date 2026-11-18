@@ -99,8 +99,11 @@ reference keeps `.md` to mark it as a plan.
 7. **Series decision.** In an automatic series the runner reads retained data and bounded commit
    evidence, then ends the series or names the next auditor without starting an assistant.
 
-A clean audit skips the vet, rebuttal, ruler, fix, glance and watch. A plan target lands its `clean`
-record directly; a commit target lands nothing. An automatic series still applies its decision
+A clean audit skips the vet, rebuttal, ruler, fix, glance and watch. The runner lands its empty
+`clean` record directly, once, in the sole judged repo or in Repo Edu when both repos were judged.
+A commit audit's clean record opens with its series label, as
+`commit-83bde0+3095d1/commit-audit obx clean: …`, so the log shows that the audit ran. It joins no
+later round's commits, because it changes no file. An automatic series still applies its decision
 rules.
 
 ### Series
