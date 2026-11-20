@@ -193,17 +193,17 @@ and any other with status 1.
 
 ## Stop and recovery
 
-1. **A fix needs your ruling.** The terminal prints a notice and the run opens the Claude desktop
-   app on the folder of the work. The notice names the round, the ruling file, the findings that
+1. **A fix needs your ruling.** The terminal prints a notice and, on macOS, shows a dialog window
+   that stays until you click OK. The notice names the round, the ruling file, the findings that
    need a winner, the winner words with the round's vetter tags, whether the fix uses the auditor's
-   model, one vetter's model by its tag or neither, and the line to type in the app,
-   `/ruling <stem>`. The terminal reads no answer. For each listed serious contest or split you name
-   `report`, the tags of the vetters that were right or `neither` with a one-line reason, or
-   `not yet`, which sends your question to the fix and asks again when the ruling returns. The fix
-   remains unable to commit until every required winner is recorded. The free reply may be empty
-   once every listed finding has a winner. Ctrl-C in the terminal keeps the round's files, prints
-   the command that continues the round and ends the series. See
-   [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+   model, one vetter's model by its tag or neither, and the line to type in each app:
+   `/ruling <stem>` in a Claude chat or `$ruling <stem>` in a Codex chat. The terminal reads no
+   answer. For each listed serious contest or split you name `report`, the tags of the vetters that
+   were right or `neither` with a one-line reason, or `not yet`, which sends your question to the
+   fix and asks again when the ruling returns. The fix remains unable to commit until every required
+   winner is recorded. The free reply may be empty once every listed finding has a winner. Ctrl-C in
+   the terminal keeps the round's files, prints the command that continues the round and ends the
+   series. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Rerun:`
    command. It continues the stopped round on its kept reports and starts the first phase without
    one in a new session. A round that stopped in its audit kept no audit report, so the rerun opens

@@ -43,8 +43,8 @@ marker, carrying the coder's model record and capability tag.
 
 A worker that needs a product decision writes a ruling, and the runner waits for your reply. It
 prints a notice and, on macOS, shows a dialog window that stays until you click OK. You answer in
-the Claude desktop app with `/ruling <stem>`. Your reply resumes the same worker session. Time spent
-waiting is not counted as implementation time.
+a Claude chat with `/ruling <stem>` or a Codex chat with `$ruling <stem>`. Your reply resumes the
+same worker session. Time spent waiting is not counted as implementation time.
 
 `--resume` takes only the value the runner printed after a failure. The resumed session first reads
 Git and the worktrees, because the failed turn may have left uncommitted work or landed a share. The
@@ -78,9 +78,9 @@ status 2 and any other with status 1.
 A failed worker, an unanswered ruling or a missing landed share stops the command before the next
 step. The runner never retries a worker on its own.
 
-1. **A worker needs a ruling.** Answer it in the Claude desktop app with `/ruling <stem>`, as the
-   notice says. Ctrl-C in the terminal instead prints the worker's own assistant recovery command;
-   answer in that session, then run the runner again. See
+1. **A worker needs a ruling.** Answer it in a Claude chat with `/ruling <stem>` or a Codex chat
+   with `$ruling <stem>`, as the notice says. Ctrl-C in the terminal instead prints the worker's own
+   assistant recovery command; answer in that session, then run the runner again. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A worker failed or landed no share.** Fix any outside problem the failure names, then run the
    printed command. It repeats the command you typed, `-v` included, with `--resume <step>:<id>`.

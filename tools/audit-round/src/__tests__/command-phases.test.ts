@@ -265,10 +265,8 @@ for (const auditor of ["claude", "codex"] as const) {
         if (ruling) {
           // The notice names the ruling, and the chat shows its text.
           assert.equal(visible.includes("Written ruling by fix"), false)
-          assert.match(
-            visible,
-            /Answer it in the Claude desktop app with: \/ruling example/,
-          )
+          assert.match(visible, /^Claude: \/ruling example$/m)
+          assert.match(visible, /^Codex: \$ruling example$/m)
           assert.ok(
             log.includes(
               `Ruling output path (JSON string): ${JSON.stringify(f.ruling)}`,

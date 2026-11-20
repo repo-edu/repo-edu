@@ -73,7 +73,11 @@ import {
   roundIdentity,
   targetLabel,
 } from "./round-paths.js"
-import { type WaitingRuling, waitingRulingText } from "./ruling-wait.js"
+import {
+  rulingCommandsText,
+  type WaitingRuling,
+  waitingRulingText,
+} from "./ruling-wait.js"
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Auditor, RoundSettings } from "./settings.js"
@@ -956,7 +960,7 @@ export class RoundOutput<R extends Run = Run> {
   beginRuling(ruling: WaitingRuling): void {
     this.release()
     this.say(
-      `\n${separator}\n${waitingRulingText(ruling)}\nAnswer it in the Claude desktop app with: /ruling ${ruling.target}\nThe run waits for that answer; Ctrl-C stops without one.`,
+      `\n${separator}\n${waitingRulingText(ruling)}\n${rulingCommandsText(ruling.target)}\nThe run waits for that answer; Ctrl-C stops without one.`,
     )
     this.clock.active()
   }

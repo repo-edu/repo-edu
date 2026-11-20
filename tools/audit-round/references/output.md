@@ -149,7 +149,8 @@ ruling's text. The notice names:
 - the ruling file;
 - the findings that need a winner;
 - whose model runs the fix;
-- the `/ruling <target>` line to type in the desktop app.
+- the two chat commands, Claude's `/ruling <target>` and Codex's `$ruling <target>`, in the
+  wording the dialog shares under [Ruling wait](rounds.md#ruling-wait).
 
 `endRuling` excludes the user's waiting time and records an accepted reply in the log and the
 transcript before any resumed process starts.

@@ -441,9 +441,21 @@ export type RulingDialog = (
   signal: AbortSignal,
 ) => Promise<string | null>
 
-/** The dialog's message: the round or step, then the line to type. */
+/**
+ * The two chat commands that answer a waiting ruling, one for each app, shared
+ * by the notice and the dialog. Either reaches the same wait.
+ */
+export function rulingCommandsText(target: string): string {
+  return [
+    "In a chat on the Repo Edu or plan checkout, type:",
+    `Claude: /ruling ${target}`,
+    `Codex: $ruling ${target}`,
+  ].join("\n")
+}
+
+/** The dialog's message: the round or step, then the commands to type. */
 export function rulingDialogText(ruling: WaitingRuling): string {
-  return `${ruling.title}\n\nIn the Claude desktop app, type:\n/ruling ${ruling.target}`
+  return `${ruling.title}\n\n${rulingCommandsText(ruling.target)}`
 }
 
 /**

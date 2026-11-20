@@ -587,7 +587,7 @@ lists live work only. The move follows the round data's move beside the archived
 | [`episode`](#episode) | Page the watch evidence view | Hidden |
 | [`ruling`, `answer`](#ruling-and-answer) | Carry a ruling and its answer to a waiting run | Hidden |
 
-Help lists the commands a user runs. The hand-run watch calls `episode`, the `/ruling` chat calls
+Help lists the commands a user runs. The hand-run watch calls `episode`, the ruling chat calls
 `ruling` and `answer`, and the reopen step calls `mark`, so help hides them.
 
 ### Model settings
@@ -719,9 +719,17 @@ warning and the command continues. Linux takes no hold.
 - A runner that is killed writes no entry.
 
 **From a chat.** A chat's sandbox refuses Unix sockets, which `ruling` and `answer` open. The
-user's Claude Code settings therefore list `pnpm audit-round ruling`, `pnpm audit-round ruling *`
-and `pnpm audit-round answer *` under `sandbox.excludedCommands`. Without those entries both
-commands fail inside the sandbox with an `EPERM` error.
+ruling chat runs each as the bare `pnpm audit-round ruling [target]` or
+`pnpm audit-round answer <target> <file>`, and each app lets it run outside the sandbox its own way:
+
+- **Claude.** The user's Claude Code settings list `pnpm audit-round ruling`,
+  `pnpm audit-round ruling *` and `pnpm audit-round answer *` under `sandbox.excludedCommands`.
+  Without those entries both commands fail inside the sandbox with an `EPERM` error. The chat then
+  says so, names the three entries and stops. It does not retry inside the sandbox, because there
+  both commands fail with `EPERM` every time.
+- **Codex.** The commands run under Codex's command permissions. When the sandbox blocks one, the
+  chat requests permission for that command. When access is refused, it reports the permission
+  error and stops.
 
 ```bash
 pnpm audit-round round example 1-3
@@ -1009,7 +1017,7 @@ the current view of the [episode evidence](references/watch.md#episode-evidence)
 
 ### ruling and answer
 
-`ruling [target]` and `answer [target] <file>` are the `/ruling` chat's two carriers to a run that
+`ruling [target]` and `answer [target] <file>` are the ruling chat's two carriers to a run that
 waits for a ruling, under [Ruling wait](references/rounds.md#ruling-wait). Both start no assistant,
 read no settings and write no file.
 
@@ -1018,9 +1026,10 @@ read no settings and write no file.
   and exits 1 on a refusal.
 - With no target they take the one run that waits and refuse when none or several wait.
 - The chat follows [Answering a ruling](../../.agents/skills/fix/references/answer.md). Its
-  launcher lives in the plan checkout at `home/claude/commands/ruling.md`. It has no Codex
-  counterpart, because the waiting run's notice and dialog name only the Claude desktop app.
-- [Invocation](#invocation) names the sandbox entries both commands need in a chat.
+  launchers live in the plan checkout: Claude's `/ruling` at `home/claude/commands/ruling.md` and
+  Codex's `$ruling` at `home/agents/skills/ruling/SKILL.md`. The waiting run's notice and dialog
+  name both, so the user picks the app whatever model runs the fix or worker.
+- [Invocation](#invocation) says how each app runs both commands outside a chat's sandbox.
 
 ### Contract recorder
 

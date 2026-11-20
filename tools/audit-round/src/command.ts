@@ -881,7 +881,7 @@ Use pnpm audit-round <stem> to take a plan from its current stage through its cl
   command
     .command("ruling", { hidden: true })
     .description(
-      "Print what the run that waits for a ruling asks, for the /ruling chat.",
+      "Print what the run that waits for a ruling asks, for the ruling chat.",
     )
     .argument(
       "[target]",

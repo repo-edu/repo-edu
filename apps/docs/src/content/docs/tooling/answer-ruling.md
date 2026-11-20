@@ -1,18 +1,19 @@
 ---
 title: /ruling
-description: Answer a waiting run's ruling in the Claude desktop chat, which explains it and sends your confirmed decision
+description: Answer a waiting run's ruling in a Claude or Codex chat, which explains it and sends your confirmed decision
 ---
 
-`/ruling` answers a ruling a waiting run asks for. A ruling is the fix or implementation worker's
-saved explanation of a decision it cannot make for you. Each open item shows what its writer read:
-the points the sides differ on, the source it opened for each and what that source settles. The
-chat reads the evidence itself, explains the ruling, proposes the answer its own reading supports,
-takes your decision and sends it to the run in the terminal, which resumes the same session.
+`/ruling` answers a ruling a waiting run asks for; `$ruling` does the same in Codex. A ruling is the
+fix or implementation worker's saved explanation of a decision it cannot make for you. Each open
+item shows what its writer read: the points the sides differ on, the source it opened for each and
+what that source settles. The chat reads the evidence itself, explains the ruling, proposes the
+answer its own reading supports, takes your decision and sends it to the run in the terminal, which
+resumes the same session.
 
 | Fact | Detail |
 | --- | --- |
-| Runs in | Claude desktop chat in the Repo Edu or plan checkout; there is no Codex counterpart |
-| Owners | `../plan/home/claude/commands/ruling.md` launches it; `.agents/skills/fix/references/answer.md` owns the answer; `.agents/skills/fix/references/ruling.md` owns the ruling's contents; `tools/audit-round/references/rounds.md` owns the wait and resumption |
+| Runs in | Claude chat in the Repo Edu or plan checkout; `$ruling` is the Codex counterpart |
+| Owners | `../plan/home/claude/commands/ruling.md` and `../plan/home/agents/skills/ruling/SKILL.md` launch it; `.agents/skills/fix/references/answer.md` owns the answer; `.agents/skills/fix/references/ruling.md` owns the ruling's contents; `tools/audit-round/references/rounds.md` owns the wait and resumption |
 
 ## Usage
 
@@ -21,8 +22,8 @@ takes your decision and sends it to the run in the terminal, which resumes the s
 /ruling <stem>               answer the run that waits on that plan or commit target
 ```
 
-The terminal notice prints the exact line to type. The whole session uses the `/simple` wording
-requirement.
+In Codex type `$ruling` or `$ruling <stem>`. The terminal notice prints the exact line for each
+app. The whole session uses the `/simple` wording requirement.
 
 ## When a run waits
 
@@ -35,10 +36,11 @@ finds that a real choice remains or that the finding would change a fixed input.
 
 The terminal prints a notice in place of the ruling's text. It names the round or step, the ruling
 file, the findings that need a winner, the winner words with the round's vetter tags, whose model
-runs the fix and the line `/ruling <stem>`. On macOS the run also shows a dialog window with the
-round and that line. The window stays until you click OK, and it closes by itself once the wait
-ends. Open a chat in the Claude desktop app on the Repo Edu or plan folder and type the line there.
-On Linux no window shows; the notice alone asks for your ruling.
+runs the fix and the two lines to type, `Claude: /ruling <stem>` and `Codex: $ruling <stem>`. On
+macOS the run also shows a dialog window with the round and those two lines. The window stays until
+you click OK, and it closes by itself once the wait ends. Open a Claude or Codex chat on the Repo
+Edu or plan folder and type that app's line there. Either app answers the same wait, whichever model
+runs the fix. On Linux no window shows; the notice alone asks for your ruling.
 
 ## What it shows you
 
@@ -81,7 +83,7 @@ On Linux no window shows; the notice alone asks for your ruling.
 3. **A question for the chat.** It answers from the round's files and shows the record again.
 4. **A question only the fix can answer.** Answer the finding with `not yet` and put the question in
    the text for the fix. The fix answers and writes a new ruling while the decision stays open; you
-   then answer with `/ruling` again.
+   then answer with `/ruling` or `$ruling` again.
 
 The free text may be empty only when every finding has a winner. A resolved decision is not asked
 again. Waiting time is excluded from the runner's work timing.
@@ -91,9 +93,11 @@ again. Waiting time is excluded from the runner's work timing.
 1. **No run waits.** The chat says so and stops. Check the terminal; a run that ended no longer
    takes an answer.
 2. **The chat's command is refused by the sandbox.** Both hidden commands open a local socket, which
-   the chat's sandbox refuses. Add these three entries to `sandbox.excludedCommands` in your Claude
-   Code settings once: `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
-   `pnpm audit-round answer *`.
+   the chat's sandbox refuses. In Claude, add these three entries to `sandbox.excludedCommands` in
+   your Claude Code settings once: `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
+   `pnpm audit-round answer *`. In Codex, the chat asks your permission to run the blocked command
+   outside the sandbox; when you refuse, it reports the permission error and stops. That permission
+   is not your yes to the proposed record.
 3. **You leave without an answer.** Ctrl-C in the terminal stops the run. The round or step files
    stay, and the runner prints a recovery command. Use that exact command to return to the retained
    work.

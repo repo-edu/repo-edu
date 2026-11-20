@@ -6,8 +6,9 @@ reads:
 
 # Answering a ruling
 
-This workflow runs the `/ruling [target]` chat. A run in the terminal waits for
-the user's ruling. The chat reads the evidence itself, explains the ruling,
+This workflow runs the ruling chat, which Claude's `/ruling [target]` and
+Codex's `$ruling [target]` start. A run in the terminal waits for the user's
+ruling. The chat reads the evidence itself, explains the ruling,
 proposes the answer its own reading supports, takes the user's decision and
 sends it to the waiting run.
 
@@ -28,12 +29,11 @@ from the checkout the chat runs in:
 2. `pnpm audit-round answer [target] <file>` sends one answer document and
    prints the run's response.
 
-Both open a Unix socket, which the chat's sandbox refuses. They run outside it
-through the user's `sandbox.excludedCommands` entries, as the runner's
-[Invocation](../../../../tools/audit-round/CLAUDE.md#invocation) section names
-them. A command that fails with `EPERM` means the entries are missing. Say so,
-name the three entries and stop. Do not retry inside the sandbox, because there
-both commands fail with `EPERM` every time.
+Both open a Unix socket, which a chat's sandbox refuses. When either fails on a
+permission error, follow the runner's
+[Invocation](../../../../tools/audit-round/CLAUDE.md#invocation) section for
+this chat's app. Permission to run a command is not the user's yes to the
+proposed record, and that yes grants no permission to run a command.
 
 ## Order
 
@@ -173,8 +173,9 @@ both commands fail with `EPERM` every time.
    Without it a winner or reason that the chat proposed or read from free
    words would be stored unseen.
 5. **Send and relay.** Write the record as one JSON document in the form
-   `ruling` printed, to a new file under `$TMPDIR` with the Write tool. Send it
-   with `answer`, naming the target `ruling` printed. Relay the run's response:
+   `ruling` printed, to a new file under `$TMPDIR` with the chat's file-editing
+   tool. Send it with `answer`, naming the target `ruling` printed. Relay the
+   run's response:
    1. Accepted: the run resumes the same fix or worker session in its
       terminal, and this chat's work ends.
    2. Refused: the response names what is missing. Ask the user for it, show the
@@ -188,5 +189,5 @@ did, still goes to it. So does a point that decides a finding when this chat
 could not open its source. On an audit fix, answer the finding with `not yet`
 and put the question in the reply. On an implementation ruling, put the
 question in the reply. The session answers and writes a new ruling when the
-decision stays open. The run then waits again, and the user answers with
-`/ruling` once more.
+decision stays open. The run then waits again, and the user answers in a ruling
+chat once more.

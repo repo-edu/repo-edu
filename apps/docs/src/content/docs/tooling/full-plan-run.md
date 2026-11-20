@@ -102,10 +102,10 @@ continues the run itself.
 
 1. **A ruling needs your answer.** A fix or an implementation worker writes its question. The
    terminal prints a notice and, on macOS, a dialog window that stays until you click OK. You answer
-   in the Claude desktop app with `/ruling <stem>`. Once the chat sends your answer, the same
-   session resumes and the run continues. Ctrl-C in the terminal leaves the question unanswered
-   and ends the run. A round prints the `Rerun:` command that continues it; an implementation
-   worker prints its session's recovery command. See
+   in a Claude chat with `/ruling <stem>` or a Codex chat with `$ruling <stem>`. Once the chat sends
+   your answer, the same session resumes and the run continues. Ctrl-C in the terminal leaves the
+   question unanswered and ends the run. A round prints the `Rerun:` command that continues it; an
+   implementation worker prints its session's recovery command. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase or worker failed.** Fix any outside problem the failure names, then run the printed
    `Rerun:` command, which is `pnpm audit-round <stem>`, or the printed `--resume` form of it for a

@@ -138,7 +138,7 @@ for (const [side, line] of [
   [{ vet: "oth" }, "The fix runs on vetter oth's model."],
   ["neither", "The fix runs on neither side's model."],
 ] as const) {
-  test(`a ruling notice names the ${typeof side === "string" ? side : `vetter ${side.vet}`} fix model, the ruling and the chat command`, async (t) => {
+  test(`a ruling notice names the ${typeof side === "string" ? side : `vetter ${side.vet}`} fix model, the ruling and both chat commands`, async (t) => {
     const f = await fixture(t)
     const written: string[] = []
     const output = new RoundOutput(
@@ -177,9 +177,11 @@ for (const [side, line] of [
       /^Winner words: report, neither, one or more of the vetter tags abh, oth or not yet$/m,
     )
     assert.ok(text.includes(line))
-    assert.match(
-      text,
-      /^Answer it in the Claude desktop app with: \/ruling example$/m,
+    // The notice gives the target's command for each app.
+    assert.ok(
+      text.includes(
+        "In a chat on the Repo Edu or plan checkout, type:\nClaude: /ruling example\nCodex: $ruling example\n",
+      ),
     )
   })
 }

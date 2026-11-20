@@ -6,9 +6,9 @@ decision remains open. Use the supplied output path under the runner's
 report completion under the shared protocol's
 [Runner result](../../../references/round-protocol.md#runner-result). Review it
 for clarity in this same session. No separate drafting or editing session
-follows. The user
-answers in the Claude desktop chat through `/ruling`, under
-[Answering a ruling](answer.md), and that chat reads this document whole.
+follows. The user answers in a ruling chat, started with Claude's `/ruling` or
+Codex's `$ruling`, under [Answering a ruling](answer.md), and that chat reads
+this document whole.
 
 ## Scope
 
@@ -27,7 +27,7 @@ is an open item like any other.
 ## Reading order
 
 Every session that judges an open item reads its evidence in one fixed order.
-That holds for the session that writes a ruling, for the `/ruling` chat that
+That holds for the session that writes a ruling, for the ruling chat that
 answers it and for the ruler, which names the winner of a contest or split on
 a C or D finding. Work each open item in five steps:
 
@@ -110,7 +110,7 @@ item covers:
 2. The viable alternatives and their material differences.
 3. The evidence record, under [Evidence record](#evidence-record).
 4. One recommendation, its reason and any material tradeoff.
-5. A short suggested answer. The `/ruling` chat compares it with its own record
+5. A short suggested answer. The ruling chat compares it with its own record
    and proposes what that record supports.
 
 For each serious contest or split under the shared

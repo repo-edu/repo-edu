@@ -174,17 +174,19 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
   assert.equal(await run, 0, f.errors.join("\n"))
 
   const visible = f.visible.join("\n")
-  assert.match(
-    visible,
-    /Answer it in the Claude desktop app with: \/ruling example/,
-  )
+  // The notice and the dialog give the same command for each app, with the
+  // waiting run's target.
+  const commands =
+    "In a chat on the Repo Edu or plan checkout, type:\nClaude: /ruling example\nCodex: $ruling example"
+  assert.ok(visible.includes(`${commands}\n`))
   assert.match(visible, /Applied the ruling/)
-  // The dialog names the round and the line to type, and the answer closed it.
+  // The dialog names the round and the commands to type, and the answer closed it.
   assert.equal(recorder.shown.length, 1)
   assert.match(
     recorder.shown[0].message,
-    /^Implementation audit of .+\/example\.md, step 1 \(round 1\)\n\nIn the Claude desktop app, type:\n\/ruling example$/,
+    /^Implementation audit of .+\/example\.md, step 1 \(round 1\)\n\n/,
   )
+  assert.ok(recorder.shown[0].message.endsWith(`\n\n${commands}`))
   assert.equal(recorder.shown[0].closed, true)
   const { markdown } = await f.records()
   assert.ok(markdown.includes("## User ruling\n\nChoose option 1."))
