@@ -1,44 +1,47 @@
 ---
-title: pnpm audit-round round
+title: round and round-commits
 description: Run one audit round or series on a plan scope or commit set
 ---
 
-`pnpm audit-round round` runs the audit, vet, rebuttal, ruler and fix sequence on one plan scope or
-commit set, and lets fixed runner rules or your own queue decide whether another auditor follows,
-without granting any later plan stage.
+Use `pnpm audit-round round` to audit a plan or its steps. Use `pnpm audit-round round-commits`
+to audit Git commits. Both run the audit, vet, rebuttal, ruler and fix sequence. The runner's
+series rules or your auditor queue decide whether another auditor follows.
 
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root; arguments mean the same from either |
-| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/command.ts` own the command; the workflows under `.agents/skills/` and `../plan/.agents/skills/` own each phase |
+| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/command.ts` own both commands. The workflows under `.agents/skills/` and `../plan/.agents/skills/` own each phase |
 
 ## Usage
 
 ```text
-pnpm audit-round round <stem>                        audit the stage the plan's history selects
-pnpm audit-round round <stem> plan                   audit the plan document whatever has landed
-pnpm audit-round round <stem> <step>|<first>-<last>  audit implemented steps
-pnpm audit-round round <stem> 2,3-5,6-7              one automatic series per scope, in order
-pnpm audit-round round <commit> [<commit> ...]       audit commits outside a plan
-pnpm audit-round round <from>..<to>                  audit an inclusive commit range
-pnpm audit-round round                               use the plan pnpm audit-round plan prints
-pnpm audit-round round <target> --first <selection>  open the automatic series with this auditor
-pnpm audit-round round <target> --auditor <list>     run a manual series in this auditor order
-pnpm audit-round round <target> --no-watch           skip the trajectory glance and watch
-pnpm audit-round round <target> -v | --verbose       also show assistant tool calls
-pnpm audit-round round -h | --help                   show the command's help
-pnpm audit-round replay                              replay stored answers through the fixed rules
+pnpm audit-round round                                 use the plan pnpm audit-round plan prints
+pnpm audit-round round <stem>                          audit the stage the plan's history selects
+pnpm audit-round round <stem> plan                     audit the plan document whatever has landed
+pnpm audit-round round <stem> <step>|<first>-<last>    audit implemented steps
+pnpm audit-round round <stem> 2,3-5,6-7                one automatic series per scope, in order
+pnpm audit-round round <stem> --first <selection>      open the automatic series with this auditor
+pnpm audit-round round <stem> --auditor <list>         run a manual series in this auditor order
+pnpm audit-round round <stem> --no-watch               skip the trajectory glance and watch
+pnpm audit-round round <stem> --verbose                also show assistant tool calls
+pnpm audit-round round -h                              show plan audit help
+
+pnpm audit-round round-commits <commits>               audit commits from Repo Edu
+pnpm audit-round round-commits [<commits>] plan@<commits>
+                                                       include commits from the plan repo
+pnpm audit-round round-commits -h                      show commit audit help
 ```
 
 ```text
 pnpm audit-round round tooling-help-pages 3-5
 pnpm audit-round round tooling-help-pages 3 --auditor atx,obm
-pnpm audit-round round HEAD plan@HEAD
-pnpm audit-round round HEAD-2..HEAD
+pnpm audit-round round-commits HEAD plan@HEAD
+pnpm audit-round round-commits HEAD-2..HEAD
 ```
 
-An auditor selection is `claude`, `codex` or a capability tag without spaces: `a` or `o` for the
-assistant, then optionally `b` or `t` for the base or top model and `l`, `m`, `h` or `x` for the
+Both commands accept `--first`, `--auditor` and `-v` or `--verbose`. An auditor selection is
+`claude`, `codex` or a capability tag written without spaces. Use `a` or `o` for the assistant,
+then optionally `b` or `t` for the base or top model and `l`, `m`, `h` or `x` for the
 effort. A field a tag omits reads that assistant's `defaults` in `tools/audit-round/settings.json`.
 Separate list entries with commas or spaces, and quote a list that holds spaces.
 
@@ -56,15 +59,14 @@ Separate list entries with commas or spaces, and quote a list that holds spaces.
    ready. It continues the plan's `-plan-audit` series.
 3. **A step or range** selects an implementation audit of those steps. A list of scopes runs one
    automatic series per scope, each on its own target and files.
-4. **Commit references** are a commit ID, `HEAD`, `HEAD-<n>`, a list of them or an inclusive
-   `<from>..<to>` range. An unprefixed reference is a Repo Edu commit. `plan@` marks a plan-repo
-   commit, and every reference after the first `plan@` one belongs to the plan repo too, so list
-   Repo Edu commits first. A commit series has no watch.
-5. **No target** takes the active plan with the newest stem commit in either repo, as if named
-   alone.
+4. **`round` with no target** takes the active plan with the newest stem commit in either repo,
+   as if named alone.
+5. **`round-commits` requires commit references.** For each repo, supply a commit ID, `HEAD`,
+   `HEAD-<n>`, a list of references or one inclusive `<from>..<to>` range. Prefix the first
+   plan-repo reference with `plan@`. Earlier references belong to Repo Edu and the rest belong
+   to the plan repo. Commit audits skip the watch.
 
-The first line of every round names the target it resolved. A plan whose name looks like a commit
-reference keeps `.md` to mark it as a plan.
+The first line of every round names the target it resolved.
 
 ### Phases of a round
 

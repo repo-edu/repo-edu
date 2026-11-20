@@ -41,7 +41,7 @@ import type {
 } from "../round-data.js"
 import type { RulingInput, RulingQuestion } from "../ruling-wait.js"
 import { RunClock } from "../run-clock.js"
-import { type CommitGroup, targetRequest } from "../target.js"
+import { type CommitGroup, commitTargetRequest } from "../target.js"
 import type { VetReading } from "../vet.js"
 import {
   type Assistant,
@@ -2722,7 +2722,7 @@ for (const ruling of [false, true]) {
 test("commit groups keep their starting head after document allocation", async (t) => {
   const fixture = await roundFixture(t)
   const context = testContext(fixture.repoRoot)
-  const [target] = await resolveTargets(context, targetRequest("HEAD", []))
+  const [target] = await resolveTargets(context, commitTargetRequest(["HEAD"]))
   assert.ok("groups" in target)
   const setup = { ...testSetup(fixture.repoRoot), ...target }
   const allocated = await allocateRound(setup, 0, releases)

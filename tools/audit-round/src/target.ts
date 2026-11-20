@@ -198,9 +198,8 @@ export function unprefixedCommitReference(value: string): string {
 }
 
 /**
- * A reference attempt is judged as commits, so a malformed `HEAD-<n>` or
- * range is refused as one, and a plan whose bare stem reads as a SHA keeps its
- * `.md` to be told apart.
+ * The episode command accepts either a stem or a commit anchor. An unresolved
+ * anchor-shaped argument reports a missing commit.
  */
 export function commitShaped(value: string): boolean {
   const reference = unprefixedCommitReference(value)
@@ -231,7 +230,7 @@ function commitGroup(
     )
   )
     throw new InvalidArgumentError(
-      "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
+      "Name a commit ID, HEAD, HEAD-<n>, a list of commit references or one inclusive <from>..<to> range per repository.",
     )
   return { repository, references }
 }
@@ -244,25 +243,24 @@ export function refusePath(value: string): void {
     )
 }
 
-/** Keep typed references for the runner's Git resolution and range admission. */
-export function targetRequest(
-  first: string,
-  rest: readonly string[],
-): TargetRequest {
-  refusePath(first)
-  const [target, ...entries] = splitEntries([first, ...rest].join(" "))
-  if (target === undefined)
-    throw new InvalidArgumentError(
-      "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
-    )
-  if (!target.startsWith(planRepositoryPrefix) && !commitShaped(target)) {
-    const [scope, ...more] = entries
-    return {
-      plan: planStem(target),
-      scope: scope === undefined ? null : planScope([scope, ...more]),
-    }
+export function planTargetRequest(stem: string, scopes: readonly string[]) {
+  refusePath(stem)
+  const [first, ...more] = splitEntries(scopes.join(" "))
+  if (stem.trim().length === 0)
+    throw new InvalidArgumentError("Name a plan stem.")
+  return {
+    plan: planStem(stem),
+    scope: first === undefined ? null : planScope([first, ...more]),
   }
-  const references = [target, ...entries] as [string, ...string[]]
+}
+
+/** Keep typed references for the runner's Git resolution and range admission. */
+export function commitTargetRequest(
+  values: readonly string[],
+): CommitTargetRequest {
+  const references = splitEntries(values.join(" "))
+  if (references.length === 0)
+    throw new InvalidArgumentError("Name at least one commit reference.")
   const planIndex = references.findIndex((reference) =>
     reference.startsWith(planRepositoryPrefix),
   )

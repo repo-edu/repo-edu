@@ -245,7 +245,7 @@ for (const target of ["implementation", "planning", "commits"] as const) {
     )
     const args =
       target === "commits"
-        ? ["round", "HEAD", "--no-watch"]
+        ? ["round-commits", "HEAD", "--no-watch"]
         : [
             "round",
             "example.md",

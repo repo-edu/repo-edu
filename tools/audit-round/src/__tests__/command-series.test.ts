@@ -292,7 +292,7 @@ test("a targetless round's rerun names its plan and continues it after another p
   const rerun = f.visible
     .join("\n")
     .match(/^Rerun: pnpm audit-round (.+)$/m)?.[1]
-  assert.equal(rerun, "round example.md --no-watch")
+  assert.equal(rerun, "round example --no-watch")
   // Another active plan gains the newest stem commit, so an omitted target
   // typed again would now open rounds on it.
   await writeFile(join(f.activeRoot, "other.md"), "# Other plan\n")
@@ -665,7 +665,7 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
     },
   })
   assert.equal(
-    await runCommand(["round", "HEAD"], f.runtime, options),
+    await runCommand(["round-commits", "HEAD"], f.runtime, options),
     0,
     f.errors.join("\n"),
   )
@@ -674,7 +674,7 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
     .join("\n")
     .match(/^Rerun: pnpm audit-round (.+)$/m)?.[1]
   assert.ok(rerun)
-  assert.equal(rerun, `round ${head.slice(0, 6)}`)
+  assert.equal(rerun, `round-commits ${head.slice(0, 6)}`)
   await commitFixture(f.repoRoot, "oth docs(x): later work")
   const priorPrompts = (await f.prompts()).length
   assert.equal(
@@ -918,7 +918,11 @@ test("a malformed queue edit stops the sequence and names the entry", async (t) 
 test("a commit audit keeps no queue file", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
-    await runCommand(["round", "HEAD", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round-commits", "HEAD", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1183,10 +1187,14 @@ No findings.
     })
 
     assert.equal(
-      await runCommand(["round", ...target.args, "--no-watch"], f.runtime, {
-        ...f.options,
-        settings: splitAuditorSettings,
-      }),
+      await runCommand(
+        ["round-commits", ...target.args, "--no-watch"],
+        f.runtime,
+        {
+          ...f.options,
+          settings: splitAuditorSettings,
+        },
+      ),
       0,
       `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
     )
@@ -1686,7 +1694,7 @@ test("a commit series keeps its label while the next auditor reads the original 
 
   assert.equal(
     await runCommand(
-      ["round", "HEAD-2", "HEAD", "--no-watch"],
+      ["round-commits", "HEAD-2", "HEAD", "--no-watch"],
       f.runtime,
       f.options,
     ),
@@ -1781,7 +1789,11 @@ test("a commit series keeps its clean record out of the next round's audited set
   const label = `commit-${original.slice(0, 6)}`
 
   assert.equal(
-    await runCommand(["round", "HEAD", "--no-watch"], f.runtime, f.options),
+    await runCommand(
+      ["round-commits", "HEAD", "--no-watch"],
+      f.runtime,
+      f.options,
+    ),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
@@ -1847,10 +1859,14 @@ test("a rerun starts with fixes retained by the same commit-series label", async
   const label = `commit-${original[0].slice(0, 6)}..${original[1].slice(0, 6)}`
   for (const expected of ["Rule 2", "Rule 2"]) {
     assert.equal(
-      await runCommand(["round", ...original, "--no-watch"], f.runtime, {
-        ...f.options,
-        settings: singleAuditorSettings,
-      }),
+      await runCommand(
+        ["round-commits", ...original, "--no-watch"],
+        f.runtime,
+        {
+          ...f.options,
+          settings: singleAuditorSettings,
+        },
+      ),
       0,
       `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
     )

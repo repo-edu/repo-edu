@@ -146,7 +146,7 @@ export default defineConfig({
                       label: "pnpm audit-round <stem>",
                       slug: "tooling/full-plan-run",
                     },
-                    { label: "pnpm audit-round round", slug: "tooling/runner-round" },
+                    { label: "round and round-commits", slug: "tooling/runner-round" },
                     { label: "pnpm audit-round models", slug: "tooling/models" },
                     { label: "pnpm audit-round disprove", slug: "tooling/disprove" },
                     { label: "pnpm audit-round settle", slug: "tooling/settle" },

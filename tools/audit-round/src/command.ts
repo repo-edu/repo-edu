@@ -142,10 +142,12 @@ import {
   archivedPlans,
   type CommitGroup,
   type CommitTarget,
+  commitTargetRequest,
   isActivePlanPath,
   planPhase,
   planRepositoryPrefix,
   planStem,
+  planTargetRequest,
   type RoundContext,
   type RoundKind,
   refusePath,
@@ -153,7 +155,6 @@ import {
   resolvePlan,
   roundContext,
   type TargetRequest,
-  targetRequest,
 } from "./target.js"
 import { readRebuttal, readVet } from "./vet.js"
 
@@ -217,18 +218,15 @@ type Invocation =
       /** Absent when the marker takes the plan `plan` prints. */
       readonly stem?: string
     }
-  | {
+  | (SeriesOptions & {
       readonly kind: "round"
-      /** Absent when the runner takes the newest plan. */
-      readonly first?: string
-      readonly rest: readonly string[]
-      readonly auditor?: readonly AuditorEntry[]
-      /** The `--first` selection, which replaces the series opener. */
-      readonly firstAuditor?: AuditorEntry
-      /** False when `--no-watch` was given; Commander defaults it to true. */
-      readonly watch: boolean
-      readonly verbose?: boolean
-    }
+      readonly stem?: string
+      readonly scopes: readonly string[]
+    })
+  | (SeriesOptions & {
+      readonly kind: "round-commits"
+      readonly commits: readonly string[]
+    })
   | {
       readonly kind: "close"
       /** Absent when the close takes the plan `plan` prints. */
@@ -253,6 +251,7 @@ type Invocation =
 const roundFileWriters: ReadonlySet<Invocation["kind"]> = new Set([
   "run",
   "round",
+  "round-commits",
   "implement",
   "close",
   "mark",
@@ -260,17 +259,22 @@ const roundFileWriters: ReadonlySet<Invocation["kind"]> = new Set([
   "disprove",
 ])
 
-/** The round options one series reads; the run supplies the defaults alone. */
-type SeriesOptions = Pick<
-  Extract<Invocation, { kind: "round" }>,
-  "auditor" | "firstAuditor" | "watch"
->
+/** Both round commands use these options. The full plan run supplies the defaults. */
+type SeriesOptions = {
+  readonly auditor?: readonly AuditorEntry[]
+  readonly first?: AuditorEntry
+  readonly watch: boolean
+  readonly verbose?: boolean
+}
 
 function requestedTarget(
-  invocation: Extract<Invocation, { kind: "round" }>,
+  invocation: Extract<Invocation, { kind: "round" | "round-commits" }>,
 ): TargetRequest | null {
-  if (invocation.first === undefined) return null
-  return targetRequest(invocation.first, invocation.rest)
+  if (invocation.kind === "round-commits")
+    return commitTargetRequest(invocation.commits)
+  return invocation.stem === undefined
+    ? null
+    : planTargetRequest(invocation.stem, invocation.scopes)
 }
 
 /**
@@ -534,9 +538,62 @@ function auditorEntries(value: string, option: AuditorOption): AuditorEntry[] {
 const roundUsage = `[options]
        audit-round round [options] <stem>
        audit-round round [options] <stem> plan
-       audit-round round [options] <stem> <step-scope>...
-       audit-round round [options] <commits>
-       audit-round round [options] [<commits>] ${planRepositoryPrefix}<commits>`
+       audit-round round [options] <stem> <step-scope>...`
+
+const commitRoundUsage = `[options] <commits>
+       audit-round round-commits [options] [<commits>] ${planRepositoryPrefix}<commits>`
+
+function withAuditorOptions(command: Command): Command {
+  return command
+    .addOption(
+      new Option(
+        "--auditor <selections>",
+        "auditors in round order (see below)",
+      ).argParser((value) => auditorEntries(value, "--auditor")),
+    )
+    .addOption(
+      new Option(
+        "--first <selection>",
+        "first auditor of an automatic series (see below)",
+      )
+        .argParser((value) => {
+          const [entry, ...more] = auditorEntries(value, "--first")
+          if (more.length > 0)
+            throw new InvalidArgumentError(
+              "Expected one auditor. Use --auditor for a list.",
+            )
+          return entry
+        })
+        .conflicts("auditor"),
+    )
+    .option("-v, --verbose", "show tool calls as well as assistant text")
+}
+
+const auditorSelectionHelp = `Auditor selection (--auditor <selections>):
+  <selections> is a list of names or tags, separated by commas or spaces.
+  Each entry runs one round, from left to right: --auditor a,o runs a round
+  audited by Claude, then a round audited by Codex. Each entry is one of:
+
+    claude | codex
+      Use that assistant's default selection in settings.json.
+
+    <assistant>[<tier>][<effort>]
+      A capability tag, written without spaces. Brackets mark optional fields.
+      <assistant>  a = Claude, o = Codex
+      <tier>       b = base model, t = top model
+      <effort>     l = low, m = medium, h = high, x = xhigh
+      Omitted fields use the assistant's default selection in settings.json.
+
+  Quote the whole --auditor value if it contains spaces.
+  Each selection applies to both audit and rebuttal. Other phases keep their settings.
+  The default auditor is a listed auditor of the target work class's auditor
+  list in settings.json.
+  Without --auditor, the runner starts an automatic series.
+  A --first <selection> opens it when supplied and must resolve to a listed
+  auditor. Otherwise, a listed auditor without a current read opens when another
+  has one. Otherwise, the configured default opens. --first cannot be combined
+  with --auditor.
+  Settings file: tools/audit-round/settings.json in the Repo Edu checkout.`
 
 function parseInvocation(
   argv: readonly string[],
@@ -548,7 +605,7 @@ function parseInvocation(
   const command = new Command("audit-round")
     .enablePositionalOptions()
     .description(
-      "Take a plan from its current stage through its close, or run one of its stages.\nArguments have the same meaning from either checkout.",
+      "Run a plan through its close, run one of its stages or audit Git commits.\nArguments have the same meaning from either checkout.",
     )
     .configureHelp({
       helpWidth: 88,
@@ -557,6 +614,7 @@ function parseInvocation(
     .usage(
       `[options] <stem>
        audit-round round ${roundUsage}
+       audit-round round-commits ${commitRoundUsage}
        audit-round models [options]
        audit-round replay
        audit-round disprove [--vet] <stem> <target> <round> <finding> <reason>
@@ -590,13 +648,13 @@ glance and the watch.
 A failed implementation worker prints this command with --resume, which resumes
 that worker's session on its step before the run continues.
 
-Use round to run one audit round or series on a plan scope or on commits.
+Use round to audit a plan or its steps. Use round-commits to audit Git commits.
 Use models to read the auditor, vetter-pair and coder results.
 Use replay to compare retained automatic-series answers with the fixed rules.
 Use disprove to record a finding or vet verdict that later evidence disproved.
 Use implement to land ready plan steps on their assigned coder.
 Use settle, ready or close to record the corresponding plan lifecycle call.
-Use round --help or close --help for their arguments and options.`,
+Each command's --help shows its arguments and options.`,
     )
     .action(
       (stem: string, flags: { verbose?: boolean; resume?: WorkerResume }) => {
@@ -619,40 +677,15 @@ Use round --help or close --help for their arguments and options.`,
         )
     })
   // The program owns the run, so Commander adds no `help` command of its own.
-  command
-    .command("round")
-    .description(
-      "Run one audit round or series on a plan scope or on commits: audit, vet, rebuttal and the fix that lands the agreed corrections.",
-    )
+  withAuditorOptions(command.command("round"))
+    .description("Audit a plan document or the implementation of its steps.")
     .usage(roundUsage)
-    .argument("[target]")
-    .argument("[scope-or-commits...]")
-    .addOption(
-      new Option(
-        "--auditor <selections>",
-        "auditors in round order (see below)",
-      ).argParser((value) => auditorEntries(value, "--auditor")),
-    )
-    .addOption(
-      new Option(
-        "--first <selection>",
-        "first auditor of an automatic series (see below)",
-      )
-        .argParser((value) => {
-          const [entry, ...more] = auditorEntries(value, "--first")
-          if (more.length > 0)
-            throw new InvalidArgumentError(
-              "Expected one auditor. Use --auditor for a list.",
-            )
-          return entry
-        })
-        .conflicts("auditor"),
-    )
+    .argument("[stem]")
+    .argument("[scope...]")
     .option(
       "--no-watch",
       "skip the trajectory glance and watch after every round",
     )
-    .option("-v, --verbose", "show tool calls as well as assistant text")
     .addHelpText(
       "after",
       `
@@ -660,32 +693,18 @@ Notation:
   <name>      Supply a value.
   [item]      The item is optional.
   <item>...   Supply one or more items.
-  Type round, plan and the prefix ${planRepositoryPrefix} exactly as shown.
+  Type round and plan exactly as shown.
 
 Arguments:
   <stem>
     The name of an active plan in the sibling plan repo. Supply the name
     without a directory path. You may omit the -widen and .md suffixes.
-    Keep .md if the name could be read as a commit reference, as in face.md.
 
   <step-scope>
     One positive step number or an inclusive range in ascending order,
     such as 2 or 3-5. Separate multiple scopes with spaces or commas.
     The runner audits each scope separately, in the order given. At least
     one step of the plan must have landed. With --auditor, supply one scope.
-
-  <commits>
-    Supply a single commit reference, a list of references separated by
-    spaces or commas, or one inclusive range written <from>..<to>.
-    Both endpoints are commit references in the same repo. The first must
-    be an ancestor of the last or the same commit.
-
-    A commit reference is a 4- to 40-digit hexadecimal commit ID, HEAD or
-    HEAD-<n>, where <n> is a non-negative first-parent distance from HEAD.
-
-    References before ${planRepositoryPrefix} belong to Repo Edu. Put ${planRepositoryPrefix} directly before
-    the first reference in the plan repo. All following references belong
-    to that repo. The runner audits the selected commits together.
 
 Choosing the audit:
   With no positional arguments
@@ -711,35 +730,11 @@ Choosing the audit:
   <stem> <step-scope>...
     Audit the implementation of the specified steps.
 
-Auditor selection (--auditor <selections>):
-  <selections> is a list of names or tags, separated by commas or spaces.
-  Each entry runs one round, from left to right: --auditor a,o runs a round
-  audited by Claude, then a round audited by Codex. Each entry is one of:
-
-    claude | codex
-      Use that assistant's default selection in settings.json.
-
-    <assistant>[<tier>][<effort>]
-      A capability tag, written without spaces. Brackets mark optional fields.
-      <assistant>  a = Claude, o = Codex
-      <tier>       b = base model, t = top model
-      <effort>     l = low, m = medium, h = high, x = xhigh
-      Omitted fields use the assistant's default selection in settings.json.
-
-  Quote the whole --auditor value if it contains spaces.
-  Each selection applies to both audit and rebuttal. Other phases keep their settings.
-  The default auditor is a listed auditor of the target work class's auditor
-  list in settings.json.
-  Without --auditor, an active plan or commit target starts an automatic series.
-  A --first <selection> opens it when supplied and must resolve to a listed
-  auditor. Otherwise, a listed auditor without a current read opens when another
-  has one. Otherwise, the configured default opens. --first cannot be combined
-  with --auditor.
-  Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
+${auditorSelectionHelp}
 
 Round sequence:
 
-  Automatic series (active plan or commit target without --auditor):
+  Automatic series (without --auditor):
     - A --first selection opens the series when supplied. Otherwise, a listed
       auditor without a current read opens when another has one. Otherwise,
       the configured default opens. A random default picks that opener from the
@@ -753,9 +748,7 @@ Round sequence:
       recently.
     - No queue file is written.
     - settings.json sets the maximum round count, including the first round.
-    - A commit round keeps the original bounded label, then adds earlier landed
-      fixes to the next round's exact scope and advances its repository heads.
-      It has no watch. A phase change ends a plan series.
+    - A plan phase change ends the series.
 
   Scope list (2,3-5,6-7):
     - Each scope runs its own series on its own target and files, in list order.
@@ -766,8 +759,7 @@ Round sequence:
     - A scope list is refused beside --auditor, whose queue belongs to one scope.
 
   Manual order (--auditor):
-    - Every round runs on the same plan scope or commit series. A later commit
-      round reads the original commits and earlier landed fixes.
+    - Every round runs on the same plan scope.
     - Repeat a name or tag to run another round with that auditor.
 
   Queue file (manual series):
@@ -806,7 +798,6 @@ Round sequence:
     - After a completed plan round with findings, the glance decides if a watch is due.
     - A red watch stops the sequence, so you act on it before more rounds run.
     - --no-watch skips both the glance and the watch.
-    - Commit audits never run a glance or watch.
 
 Examples (from either checkout):
 
@@ -819,48 +810,82 @@ Examples (from either checkout):
 
      $ pnpm audit-round round example 3 --auditor atx,obm
 
-  3. Audit both repo shares of one change as one round.
-
-     $ pnpm audit-round round HEAD ${planRepositoryPrefix}HEAD
-
-  4. Audit one Repo Edu commit and one plan repo commit by ID as one round.
-
-     $ pnpm audit-round round 3f2a1c9 ${planRepositoryPrefix}5c71e0a
-
-  5. Audit an inclusive commit range in the plan repo.
-
-     $ pnpm audit-round round ${planRepositoryPrefix}HEAD-2..HEAD
-
-  6. Run the audit the newest plan calls for with Codex.
+  3. Run the audit the newest plan calls for with Codex.
 
      $ pnpm audit-round round --auditor codex
 
-  7. Start an automatic series on steps 1-4 with Codex instead of the default.
+  4. Start an automatic series on steps 1-4 with Codex instead of the default.
 
      $ pnpm audit-round round example 1-4 --first codex
 
-  8. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
+  5. Run an automatic series on step 2, then on steps 3-5, then on steps 6-7.
 
      $ pnpm audit-round round example 2,3-5,6-7
 
 Use pnpm audit-round <stem> to take a plan from its current stage through its close.`,
     )
     .action(
-      (
-        first: string | undefined,
-        rest: string[],
-        flags: {
-          auditor?: readonly AuditorEntry[]
-          first?: AuditorEntry
-          watch: boolean
-          verbose?: boolean
-        },
-      ) => {
-        // The target's first argument already holds the name `first`.
-        const { first: firstAuditor, ...rounds } = flags
-        invocation = { kind: "round", first, rest, firstAuditor, ...rounds }
+      (stem: string | undefined, scopes: string[], flags: SeriesOptions) => {
+        invocation = { kind: "round", stem, scopes, ...flags }
       },
     )
+  withAuditorOptions(command.command("round-commits"))
+    .description(
+      "Audit a set of Git commits from Repo Edu, the plan repo or both.",
+    )
+    .usage(commitRoundUsage)
+    .argument("<commits...>")
+    .option(
+      "--no-watch",
+      "commit audits always skip the trajectory glance and watch",
+    )
+    .addHelpText(
+      "after",
+      `
+Notation:
+  <name>      Supply a value.
+  [item]      The item is optional.
+  Type round-commits and the prefix ${planRepositoryPrefix} exactly as shown.
+
+Arguments:
+  <commits>
+    Supply a single commit reference, a list of references separated by
+    spaces or commas, or one inclusive range written <from>..<to>.
+    Both endpoints are commit references in the same repo. The first must
+    be an ancestor of the last or the same commit.
+
+    A commit reference is a 4- to 40-digit hexadecimal commit ID, HEAD or
+    HEAD-<n>, where <n> is a non-negative first-parent distance from HEAD.
+
+    References before ${planRepositoryPrefix} belong to Repo Edu. Put ${planRepositoryPrefix} directly before
+    the first reference in the plan repo. All following references belong
+    to that repo. The runner audits the selected commits together.
+
+${auditorSelectionHelp}
+
+Round sequence:
+  Each round audits the selected commits together. Later rounds in the same series
+  also audit fixes landed by earlier rounds. With --auditor, the entries run in
+  the given order. Without it, the automatic series ends when every listed auditor
+  has a current read or the configured round limit is reached.
+
+Examples (from either checkout):
+
+  1. Audit both repo shares of one change as one round.
+
+     $ pnpm audit-round round-commits HEAD ${planRepositoryPrefix}HEAD
+
+  2. Audit one Repo Edu commit and one plan repo commit by ID as one round.
+
+     $ pnpm audit-round round-commits 3f2a1c9 ${planRepositoryPrefix}5c71e0a
+
+  3. Audit an inclusive commit range in the plan repo.
+
+     $ pnpm audit-round round-commits ${planRepositoryPrefix}HEAD-2..HEAD`,
+    )
+    .action((commits: string[], flags: SeriesOptions) => {
+      invocation = { kind: "round-commits", commits, ...flags }
+    })
   command
     .command("episode", { hidden: true })
     .description(
@@ -1762,9 +1787,8 @@ export async function runCommand(
      * typed. A commit target is spelled by its original commits, each by its
      * six-character ID, because a `HEAD` form typed again names other commits
      * once `HEAD` has moved and the stopped round would not be found. An
-     * omitted target is spelled as the plan it resolved to, with `.md` so a
-     * stem that reads as a SHA stays a plan, because the newest plan typed
-     * again may be another once another plan gains a stem commit.
+     * omitted plan is named explicitly because another plan may have gained
+     * the newest stem commit since the series started.
      */
     const rerunCommand = (target: AuditTarget): string => {
       if (invocation.kind === "run")
@@ -1774,7 +1798,7 @@ export async function runCommand(
           invocation.stem,
           ...(invocation.verbose === true ? ["-v"] : []),
         ])
-      if (invocation.kind !== "round")
+      if (invocation.kind !== "round" && invocation.kind !== "round-commits")
         throw new Error(`The ${invocation.kind} command opens no round`)
       const words =
         "groups" in target
@@ -1784,13 +1808,13 @@ export async function runCommand(
                   `${group.repository === "plan" && index === 0 ? planRepositoryPrefix : ""}${commit.slice(0, 6)}`,
               ),
             )
-          : invocation.first === undefined
-            ? [`${planStem(target.plan)}.md`]
-            : [invocation.first, ...invocation.rest]
+          : invocation.kind === "round" && invocation.stem !== undefined
+            ? [invocation.stem, ...invocation.scopes]
+            : [planStem(target.plan)]
       return shellJoin([
         "pnpm",
         "audit-round",
-        "round",
+        invocation.kind,
         ...words,
         ...(invocation.auditor === undefined
           ? []
@@ -1798,9 +1822,9 @@ export async function runCommand(
               "--auditor",
               invocation.auditor.map((entry) => entry.text).join(","),
             ]),
-        ...(invocation.firstAuditor === undefined
+        ...(invocation.first === undefined
           ? []
-          : ["--first", invocation.firstAuditor.text]),
+          : ["--first", invocation.first.text]),
         ...(invocation.watch ? [] : ["--no-watch"]),
         ...(invocation.verbose === true ? ["-v"] : []),
       ])
@@ -1835,7 +1859,7 @@ export async function runCommand(
         )
       const planningOpener = (): AuditorSeat =>
         settingsOpener(settings.planningAudit.auditors)
-      const opened = first ?? series.firstAuditor
+      const opened = first ?? series.first
       // The series routes among the listed auditors only.
       const pool: readonly AuditorSeat[] = classAuditors.map(listedSeat)
       // The rules read each round's auditor as the release its CLI resolved,
@@ -1845,13 +1869,13 @@ export async function runCommand(
       )
       // The series ends on one current read per listed auditor, so a
       // `--first` auditor outside the list would read without counting.
-      if (series.firstAuditor !== undefined) {
+      if (series.first !== undefined) {
         const firstText = auditorText(
-          auditorSetting(series.firstAuditor, releases, settings),
+          auditorSetting(series.first, releases, settings),
         )
         if (!poolAuditors.some((auditor) => auditorText(auditor) === firstText))
           throw new InvalidArgumentError(
-            `--first ${series.firstAuditor.text} resolves to ${firstText}, which the auditor list ${auditLevels[workClass]}.auditors in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
+            `--first ${series.first.text} resolves to ${firstText}, which the auditor list ${auditLevels[workClass]}.auditors in settings.json does not hold. Name a listed auditor: ${poolAuditors.map(auditorText).join(", ")}.`,
           )
       }
       // Only an implementation plan target reads its ready assignment; the
@@ -1960,7 +1984,7 @@ export async function runCommand(
         let auditorSelectionSource: AuditorSelectionSource =
           first !== undefined
             ? "--auditor"
-            : series.firstAuditor !== undefined
+            : series.first !== undefined
               ? "--first"
               : "settings"
         let target = initial

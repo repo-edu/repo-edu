@@ -44,11 +44,11 @@ read.
 
 ## A round or the full run
 
-Every round runs in the runner, which has no chat command for a single phase. Use
-[`pnpm audit-round round ...`](/repo-edu/tooling/runner-round/) when you want the runner to carry
-the audit report through those phases and apply the automatic-series rules. Use the bare
-[`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may
-also proceed through later lifecycle stages without a planned reading between them.
+Every round runs in the runner, which has no chat command for a single phase. Use `round` for a plan
+and `round-commits` for Git commits. Both carry the audit report through those phases and apply the
+automatic-series rules. See [round and round-commits](/repo-edu/tooling/runner-round/). Use the bare
+[`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may also proceed through
+later lifecycle stages without a planned reading between them.
 
 ## Targets
 
@@ -58,11 +58,12 @@ pnpm audit-round round <stem> plan            planning round after a step has la
 pnpm audit-round round <stem> <n>             one implementation step
 pnpm audit-round round <stem> <a>-<b>         one implementation step range
 pnpm audit-round round <stem> 2,3-5,6-7       several ranges, one series each
-pnpm audit-round round <commits>              work outside a plan
+pnpm audit-round round-commits <commits>      work outside a plan
 ```
 
-Prefix a plan-repository commit with `plan@`. Unprefixed commit references belong to Repo Edu. An
-omitted target selects the active plan whose stem commit is newest across both repositories.
+With `round-commits`, prefix the first plan-repository reference with `plan@`. Earlier references
+belong to Repo Edu. With `round`, omitting the stem selects the active plan whose stem commit is
+newest across both repositories.
 
 Before implementation, a bare stem selects the planning round its history calls for. After every
 step share and implementation marker has landed, it runs the plan's listed audit ranges and then

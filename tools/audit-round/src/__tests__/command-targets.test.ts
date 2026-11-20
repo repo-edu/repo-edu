@@ -472,13 +472,17 @@ test("a missing plan file is refused before any assistant starts", async (t) => 
   })
 })
 
-test("a planning round on a plan no commit holds is refused before any assistant starts", async (t) => {
+test("round selects the plan even when its bare stem resolves to a Git commit", async (t) => {
   const f = await roundFixture(t)
-  await writeFile(join(f.activeRoot, "draft-widen.md"), "# Draft plan\n")
-  assert.equal(await runCommand(["round", "draft"], f.runtime, f.options), 1)
-  assert.match(
-    f.errors.at(-1) as string,
-    /draft-widen\.md has no commit, so a planning round cannot start\. Commit it first as draft\/init <tag>: <sentence>\./,
+  const stem = f.heads["repo-edu"]
+  await writeFile(join(f.activeRoot, `${stem}-widen.md`), "# Draft plan\n")
+  assert.equal(await runCommand(["round", stem], f.runtime, f.options), 1)
+  assert.ok(
+    f.errors
+      .at(-1)
+      ?.includes(
+        `${stem}-widen.md has no commit, so a planning round cannot start. Commit it first as ${stem}/init <tag>: <sentence>.`,
+      ),
   )
   assert.deepEqual(await f.roundFiles(), [])
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {

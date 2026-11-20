@@ -81,20 +81,16 @@ for (const route of [
         "example/ready: declare the plan ready for implementation\n\nCoder: codex codex-assigned xhigh",
       )
     const target = {
-      "pre-ready plan": ["example.md", "plan"],
-      "post-ready plan": ["example.md", "plan"],
-      implementation: ["example.md", "1"],
-      "named commit": ["HEAD"],
+      "pre-ready plan": ["round", "example.md", "plan"],
+      "post-ready plan": ["round", "example.md", "plan"],
+      implementation: ["round", "example.md", "1"],
+      "named commit": ["round-commits", "HEAD"],
     }[route]
     assert.equal(
-      await runCommand(
-        ["round", ...target, "--auditor", "o", "--no-watch"],
-        f.runtime,
-        {
-          ...f.options,
-          settings,
-        },
-      ),
+      await runCommand([...target, "--auditor", "o", "--no-watch"], f.runtime, {
+        ...f.options,
+        settings,
+      }),
       0,
       f.errors.join("\n"),
     )

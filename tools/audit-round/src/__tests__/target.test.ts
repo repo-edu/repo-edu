@@ -3,25 +3,25 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import {
-  commitShaped,
+  commitTargetRequest,
   planningScope,
   planRepositoryPrefix,
+  planTargetRequest,
   resolvePlan,
-  targetRequest,
 } from "../target.js"
 import { fixture } from "./helpers.js"
 
 test("a plan request carries its scopes, or none for the plan's history to decide", () => {
-  assert.deepEqual(targetRequest("example", []), {
+  assert.deepEqual(planTargetRequest("example", []), {
     plan: "example",
     scope: null,
   })
   for (const scope of ["1", "2-4"])
-    assert.deepEqual(targetRequest("example.md", [scope]), {
+    assert.deepEqual(planTargetRequest("example.md", [scope]), {
       plan: "example",
       scope: [scope],
     })
-  assert.deepEqual(targetRequest("example.md", [planningScope]), {
+  assert.deepEqual(planTargetRequest("example.md", [planningScope]), {
     plan: "example",
     scope: planningScope,
   })
@@ -37,22 +37,22 @@ test("a scope list reads commas and spaces alike and keeps its order", () => {
     ["2, 3-5, 6-7"],
     ["2", ",", "3-5", "6-7"],
   ])
-    assert.deepEqual(targetRequest("example", rest), {
+    assert.deepEqual(planTargetRequest("example", rest), {
       plan: "example",
       scope: ["2", "3-5", "6-7"],
     })
-  assert.deepEqual(targetRequest("example", ["3", "1-2"]), {
+  assert.deepEqual(planTargetRequest("example", ["3", "1-2"]), {
     plan: "example",
     scope: ["3", "1-2"],
   })
   for (const rest of [["1,"], [",1"], ["1,,2"]])
-    assert.deepEqual(targetRequest("example", rest), {
+    assert.deepEqual(planTargetRequest("example", rest), {
       plan: "example",
       scope: rest[0].includes("2") ? ["1", "2"] : ["1"],
     })
   for (const rest of [[`${planningScope},1`], ["1", planningScope]])
     assert.throws(
-      () => targetRequest("example", rest),
+      () => planTargetRequest("example", rest),
       /The plan word stands alone/,
     )
 })
@@ -64,18 +64,23 @@ test("plan arguments discard the extension and widening postfix", () => {
     "example-widen",
     "example-widen.md",
   ])
-    assert.deepEqual(targetRequest(name, []), {
+    assert.deepEqual(planTargetRequest(name, []), {
       plan: "example",
       scope: null,
     })
 })
 
-test("commit-shaped stems keep .md to name a plan", () => {
-  for (const first of ["HEAD", "HEAD-1", "abcdef", "HEAD-2..HEAD"])
-    assert.deepEqual(targetRequest(`${first}.md`, []), {
-      plan: first,
-      scope: null,
-    })
+test("plan stems can be spelled like commit references", () => {
+  for (const stem of [
+    "cd8b28",
+    "HEAD",
+    "HEAD-1",
+    "HEAD-2..HEAD",
+    "plan@HEAD",
+  ]) {
+    for (const name of [stem, `${stem}.md`])
+      assert.deepEqual(planTargetRequest(name, []), { plan: stem, scope: null })
+  }
 })
 
 test("commit targets keep typed references for the runner to resolve", () => {
@@ -92,7 +97,7 @@ test("commit targets keep typed references for the runner to resolve", () => {
     ["abcdef..23674f"],
     ["HEAD-2", "23674f", "HEAD"],
   ])
-    assert.deepEqual(targetRequest(references[0], references.slice(1)), {
+    assert.deepEqual(commitTargetRequest(references), {
       groups: [{ references, repository: "repo-edu" }],
       roundKind: "implementation",
     })
@@ -107,8 +112,7 @@ test("plan-prefixed commit targets preserve the typed prefix and name their repo
     [`${planRepositoryPrefix}23674f..HEAD`],
     [`${planRepositoryPrefix}HEAD-2`, "23674f", "HEAD"],
   ]) {
-    assert.equal(commitShaped(references[0]), true)
-    assert.deepEqual(targetRequest(references[0], references.slice(1)), {
+    assert.deepEqual(commitTargetRequest(references), {
       groups: [{ references, repository: "plan" }],
       roundKind: "implementation",
     })
@@ -117,7 +121,12 @@ test("plan-prefixed commit targets preserve the typed prefix and name their repo
 
 test("the first plan prefix opens a second repository group", () => {
   assert.deepEqual(
-    targetRequest("HEAD-1", ["HEAD", `${planRepositoryPrefix}HEAD-2`, "HEAD"]),
+    commitTargetRequest([
+      "HEAD-1",
+      "HEAD",
+      `${planRepositoryPrefix}HEAD-2`,
+      "HEAD",
+    ]),
     {
       groups: [
         {
@@ -136,13 +145,25 @@ test("the first plan prefix opens a second repository group", () => {
 
 test("commit references share the comma-and-space entry grammar", () => {
   assert.deepEqual(
-    targetRequest("HEAD-1,HEAD", [`${planRepositoryPrefix}HEAD-2,`, "HEAD"]),
-    targetRequest("HEAD-1", ["HEAD", `${planRepositoryPrefix}HEAD-2`, "HEAD"]),
+    commitTargetRequest([
+      "HEAD-1,HEAD",
+      `${planRepositoryPrefix}HEAD-2,`,
+      "HEAD",
+    ]),
+    commitTargetRequest([
+      "HEAD-1",
+      "HEAD",
+      `${planRepositoryPrefix}HEAD-2`,
+      "HEAD",
+    ]),
   )
 })
 
-test("invalid targets and mixed plan/commit scopes are refused", () => {
+test("commit audits refuse empty lists, invalid references and mixed ranges", () => {
   for (const args of [
+    [],
+    [","],
+    ["example"],
     ["HEAD--1"],
     ["HEAD-1.5"],
     ["HEAD-9007199254740992"],
@@ -158,6 +179,12 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     [`${planRepositoryPrefix}HEAD.md`],
     ["HEAD", "example.md"],
     ["HEAD", "3"],
+  ])
+    assert.throws(() => commitTargetRequest(args))
+})
+
+test("plan audits refuse paths and invalid scopes", () => {
+  for (const args of [
     ["example.md", "HEAD"],
     ["example.md", "0"],
     ["example.md", "3-1"],
@@ -173,9 +200,9 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["/tmp/example.md"],
     ["archive/example/plan.md"],
   ])
-    assert.throws(() => targetRequest(args[0], args.slice(1)))
+    assert.throws(() => planTargetRequest(args[0], args.slice(1)))
   assert.throws(
-    () => targetRequest("example", ["all"]),
+    () => planTargetRequest("example", ["all"]),
     /Use plan for a planning round, or a positive step number or an increasing range/,
   )
 })

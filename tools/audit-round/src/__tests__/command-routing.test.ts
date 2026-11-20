@@ -418,7 +418,7 @@ test("a plan-prefixed commit round keeps the typed prefix in its audit arguments
   const commits = await Promise.all(["HEAD~2", "HEAD~1", "HEAD"].map(full))
 
   assert.equal(
-    await runCommand(["round", reference], f.runtime, {
+    await runCommand(["round-commits", reference], f.runtime, {
       ...f.options,
       settings: singleAuditorSettings,
     }),
@@ -460,7 +460,7 @@ test("a two-repo commit round passes parsed groups and joins their labels", asyn
   ).stdout
 
   assert.equal(
-    await runCommand(["round", ...references], f.runtime, {
+    await runCommand(["round-commits", ...references], f.runtime, {
       ...f.options,
       settings: singleAuditorSettings,
     }),

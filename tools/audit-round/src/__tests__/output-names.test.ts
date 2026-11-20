@@ -7,8 +7,8 @@ import { resolveTargets } from "../default-target.js"
 import { roundRun as buildRoundRun } from "../output.js"
 import { RunClock } from "../run-clock.js"
 import {
+  commitTargetRequest,
   planRepositoryPrefix,
-  targetRequest,
   unprefixedCommitReference,
 } from "../target.js"
 import {
@@ -241,8 +241,7 @@ test("commit filenames resolve each group's references to six characters and joi
       `commit-${await shortCommit(planRoot, "HEAD~4")}..${planHead}`,
     ],
   ] as const) {
-    const [first, ...rest] = commits
-    const [target] = await resolveTargets(context, targetRequest(first, rest))
+    const [target] = await resolveTargets(context, commitTargetRequest(commits))
     const run = await roundRun({ ...testSetup(f.root), ...target }, 0, releases)
     assert.equal(basename(run.paths.markdown), `${label}-01-1-round.obh.md`)
     assert.equal(run.title, `Commit audit of ${commits.join(" ")} (round 1)`)
@@ -251,7 +250,7 @@ test("commit filenames resolve each group's references to six characters and joi
   const references = ["HEAD-1", "HEAD", `${planRepositoryPrefix}HEAD`] as const
   const [target] = await resolveTargets(
     context,
-    targetRequest(references[0], references.slice(1)),
+    commitTargetRequest(references),
   )
   assert.ok("groups" in target)
   assert.deepEqual(
@@ -271,7 +270,7 @@ test("commit filenames resolve each group's references to six characters and joi
     [`${planRepositoryPrefix}abcd1234..HEAD`, "plan"],
   ] as const) {
     await assert.rejects(
-      resolveTargets(context, targetRequest(reference, [])),
+      resolveTargets(context, commitTargetRequest([reference])),
       {
         message: `${unprefixedCommitReference(reference).split("..")[0]} names no commit in the ${repository} checkout.`,
       },

@@ -166,7 +166,7 @@ test("a commit target accepts two explicit auditors and advances their shared sc
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")
   assert.equal(
     await runCommand(
-      ["round", "HEAD", "--auditor", "codex,claude"],
+      ["round-commits", "HEAD", "--auditor", "codex,claude"],
       f.runtime,
       f.options,
     ),
@@ -341,10 +341,13 @@ test("auditor lists keep each entry's model and effort independent", async (t) =
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
-    ["round", "HEAD-2..HEAD", "--auditor", "codex,claude"],
-    ["round", "23674f", "--auditor", "codex,claude"],
-    ["round", "HEAD--1"],
-    ["round", "HEAD", "3"],
+    ["round-commits", "HEAD-2..HEAD", "--auditor", "codex,claude"],
+    ["round-commits", "23674f", "--auditor", "codex,claude"],
+    ["round-commits"],
+    ["round-commits", "--auditor", "codex"],
+    ["round-commits", "example.md"],
+    ["round-commits", "HEAD--1"],
+    ["round-commits", "HEAD", "3"],
     ["round", "example.md", "HEAD"],
     ["round", "example.md", "3-1"],
     ["round", "example.md", "0"],
@@ -397,6 +400,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["implement", "--help"],
     ["close", "--help"],
     ["round", "--help"],
+    ["round-commits", "--help"],
     ["models", "--help"],
     ["replay", "--help"],
     ["disprove", "--help"],
@@ -412,12 +416,15 @@ test("argument errors and help start no assistant processes", async (t) => {
     "audit-round round [options] <stem>",
     "audit-round round [options] <stem> plan",
     "audit-round round [options] <stem> <step-scope>...",
-    "audit-round round [options] <commits>",
-    "audit-round round [options] [<commits>] plan@<commits>",
+  ]
+  const commitForms = [
+    "audit-round round-commits [options] <commits>",
+    "audit-round round-commits [options] [<commits>] plan@<commits>",
   ]
   const rootForms = [
     "audit-round [options] <stem>",
     ...roundForms,
+    ...commitForms,
     "audit-round models [options]",
     "audit-round replay",
     "audit-round disprove [--vet] <stem> <target> <round> <finding> <reason>",
@@ -427,10 +434,15 @@ test("argument errors and help start no assistant processes", async (t) => {
     "audit-round close [options] [stem]",
     "audit-round plan",
   ]
-  for (const forms of [rootForms, roundForms]) {
+  for (const forms of [rootForms, roundForms, commitForms]) {
     assert.ok(visible.includes(`Usage: ${forms.join("\n       ")}\n\n`))
   }
-  assert.doesNotMatch(visible, /scope-or-commits/)
+  const helpFor = (command: string) =>
+    visible.split(`Usage: audit-round ${command} `)[1].split("Usage:")[0]
+  assert.match(helpFor("round"), /\n {2}<step-scope>\n/)
+  assert.doesNotMatch(helpFor("round"), /<commits>|plan@/)
+  assert.match(helpFor("round-commits"), /\n {2}<commits>\n/)
+  assert.doesNotMatch(helpFor("round-commits"), /<step-scope>|<stem>/)
   for (const name of ["<stem>", "<step-scope>", "<commits>"])
     assert.ok(visible.includes(`\n  ${name}\n`))
   assert.match(visible, /<stem> alone\n +Before any step has landed/)
@@ -450,6 +462,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     "implement",
     "close",
     "round",
+    "round-commits",
     "plan",
   ])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
@@ -526,7 +539,12 @@ for (const auditor of ["codex", "claude"] as const) {
     const auditGroup = { ...group, originalCommits: group.commits }
     assert.equal(
       await runCommand(
-        ["round", ...commits, "--auditor", auditor === "codex" ? "o" : "a"],
+        [
+          "round-commits",
+          ...commits,
+          "--auditor",
+          auditor === "codex" ? "o" : "a",
+        ],
         f.runtime,
         f.options,
       ),

@@ -193,7 +193,7 @@ for (const { name, args, judged, owner } of [
       `Implementation audit workflow\nTarget: <arguments>\nJudged repos: ${judged.map((repository) => `${repository}@${f.heads[repository]}`).join(", ")}\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
-      await runCommand(["round", ...args], f.runtime, {
+      await runCommand(["round-commits", ...args], f.runtime, {
         ...f.options,
         settings: singleAuditorSettings,
       }),

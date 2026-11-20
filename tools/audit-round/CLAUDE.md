@@ -93,16 +93,15 @@ step form.
 
 ### Arguments
 
-`targetRequest` in `target.ts` reads a plan stem with an optional scope, or commit references,
-which are a complete target under [Commit targets](#commit-targets).
+`round` takes an optional plan stem followed by its scope. `planTargetRequest` reads these
+arguments. Every stem names a plan, including a stem that looks like a commit ID.
 
 - A plan's scope is the word `plan` for its planning round, or step scopes in audit order. Each
   step scope is a step or an increasing range, and scopes are separated by commas or spaces as
   auditor entries are.
 - `planningScope` is the one spelling of the word `plan`. It stands alone, because a planning
   round and a step series share nothing a list could sequence.
-- Plan arguments drop `.md` and `-widen` and refuse paths with a stem example. A commit-shaped plan
-  stem keeps `.md` to identify it as a plan.
+- Plan arguments drop `.md` and `-widen` and refuse paths with a stem example.
 - `resolvePlan` accepts the active artifact in the active folder and reports an archived plan as
   unavailable for audit.
 - `requiredActivePlan` accepts only the active artifact. It keeps path validation common, while
@@ -188,10 +187,10 @@ and the round then stalls in its fix on a ruling about the missing `init`.
 
 ## Commit targets
 
-A commit target carries parsed groups across the phase boundary. Bare references before the first
-`plan@` reference form the Repo Edu group, and that reference and every reference after it form the
-plan group. Each request group keeps its repository and its references as typed. `resolveTargets`
-returns a commit target as a list of one.
+`round-commits` requires commit references. `commitTargetRequest` groups them by repository. Bare
+references before the first `plan@` reference form the Repo Edu group, and that reference and every
+reference after it form the plan group. Each request group keeps its repository and its references
+as typed. `resolveTargets` returns a commit target as a list of one.
 
 `default-target.ts` resolves the references:
 
@@ -508,12 +507,11 @@ The `Rerun:` line is the command the user typed, built from the parsed invocatio
 
 - The bare run is spelled `pnpm audit-round <stem>`, and `round` keeps its typed target and
   options.
-- A commit target is spelled by its original commits' six-character IDs, with `plan@` before the
+- `round-commits` names its original commits by their six-character IDs, with `plan@` before the
   plan group's first. A `HEAD` form typed again names other commits once `HEAD` has moved, and the
   stopped round would not be found.
-- A `round` typed without a target is spelled with the plan it resolved to, as `<stem>.md`,
-  because another plan may hold the newest stem commit by the time of the rerun. The `.md` keeps a
-  stem that reads as a SHA a plan.
+- A `round` typed without a target names the resolved stem on a rerun because another plan may
+  have gained the newest stem commit.
 
 ## Report lifecycle
 
@@ -533,9 +531,9 @@ or model record, because nothing reads that log as a trajectory. `command.ts` ca
 moments, so every round file is in Git within one command of being written:
 
 - Every command that may write a round file commits once it ends, after its run files close and
-  whatever its outcome: the run, `round`, `implement`, `close`, `mark`, `settle` and `disprove`.
-  The other commands write nothing there, so a hand-run session's file waits for the next of
-  these.
+  whatever its outcome: the run, `round`, `round-commits`, `implement`, `close`, `mark`, `settle`
+  and `disprove`. The other commands write nothing there, so a hand-run session's file waits for the
+  next of these.
 - Before each ruling wait, the shared wait commits too, because a further open decision replaces
   the ruling in the same file and the commit keeps every version.
 
@@ -574,7 +572,8 @@ lists live work only. The move follows the round data's move beside the archived
 | Command | Purpose | Help |
 | --- | --- | --- |
 | [`<stem>`](#the-run) | Take an active plan from its current stage through its close | Listed |
-| [`round`](#round) | Run one audit round or series on a target | Listed |
+| [`round`](#round) | Audit a plan or its steps | Listed |
+| [`round-commits`](#commit-targets) | Audit a set of Git commits | Listed |
 | [`settle`](#settle) | Record the user's settle call | Listed |
 | [`ready`](#ready) | Record the user's ready call and assign the coder | Listed |
 | [`implement`](#implement) | Implement the pending steps of a ready plan | Listed |
@@ -743,9 +742,9 @@ pnpm audit-round round example 3 --auditor codex,claude,claude
 pnpm audit-round round example 3 --auditor "atx, obm"
 pnpm audit-round round example 1-4 --first codex
 pnpm audit-round round example 3 --no-watch
-pnpm audit-round round HEAD-1
-pnpm audit-round round HEAD-2..HEAD
-pnpm audit-round round HEAD plan@HEAD
+pnpm audit-round round-commits HEAD-1
+pnpm audit-round round-commits HEAD-2..HEAD
+pnpm audit-round round-commits HEAD plan@HEAD
 pnpm audit-round round --auditor codex
 pnpm audit-round models
 pnpm audit-round models --all
@@ -777,7 +776,8 @@ pnpm audit-round:contract codex
 
 ### round
 
-`round` runs one audit round or a series on a target. These sections own its behaviour:
+`round` audits a plan document or its steps. `round-commits` audits Git commits.
+Both commands use the same round sequence.
 
 - [Plan targets](#plan-targets) and [Commit targets](#commit-targets) for what the target selects.
 - [Series](references/series.md#series) for `--auditor`, `--first` and the rounds that follow the
