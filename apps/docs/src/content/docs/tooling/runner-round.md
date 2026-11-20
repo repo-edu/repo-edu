@@ -88,12 +88,13 @@ The first line of every round names the target it resolved.
    commit audit with Repo Edu commits fixes on the first `coders` entry. A commit audit's fix
    commits open with its series label, as
    `commit-804833/commit-audit abx pruning-low c3 docs(audit-round): …`; the commit hook writes the
-   label, so the log ties each fix to the commits it audited. The fix may stop for your ruling. When
-   the rebuttal contests a vetter's verdict, or two vetters of the panel give different verdicts, on
-   a finding whose highest grade from the audit report or any vetter is A or B, that ruling shows
-   every position and you name what was right: the audit report, one or more vetters by their tags,
-   or neither. The fix applies the ruler's winners without judging them again. Two revisions the
-   rebuttal agrees with both do not stop the round; the fix picks one.
+   label, so the log ties each fix to the commits it audited. Before the fix starts, the runner asks
+   you once for every question the reviews leave. These are the winner of each such dispute on a
+   finding whose highest grade is A or B, each referral no review disputes and each open choice the
+   ruler states. [Stop and recovery](#stop-and-recovery) item 1 says how you answer. The fix starts
+   with your answers. It stops for your ruling only on a decision it meets in its own work. The fix
+   applies the ruler's winners without judging them again. Two revisions the rebuttal agrees with
+   both do not stop the round; the fix picks one.
 6. **Glance and watch.** After a finished plan round with findings, the glance decides from the
    commit record whether a trajectory watch is due, and a due watch writes its grade. The watch
    runs on the `watch` selection of the target work class's audit level in
@@ -162,7 +163,9 @@ All files live in `../plan-evidence/active/`:
 2. **The audit, vet, rebuttal and ruler** stay as `-2-audit`, `-3-vet`, `-4-rebut` and `-6-rule`
    files after the
    fix, a ruling or a clean audit, until the close moves them.
-3. **A ruling** adds `-7-ruling.<tag>.md` and **a due watch** `-9-watch.<tag>.md`.
+3. **A fix's own ruling**, on a decision the fix meets in its own work, adds
+   `-7-ruling.<tag>.md`. The questions the runner asks before the fix add no file. **A due watch**
+   adds `-9-watch.<tag>.md`.
 4. **Round data** goes to `<stem>-plan-rounds.json` or `<stem>-impl-rounds.json` for a plan target
    and to `<commit-label>-rounds.json` for a commit target.
 5. **A manual series** keeps `<target>-queue.md` until the close moves it.

@@ -26,12 +26,16 @@ work so no phase checks itself:
    on a finding whose highest grade from the audit report or any vetter is C or D, a new session
    names the winner of each such dispute after opening every source it cites. Without such a
    dispute, this phase is skipped.
-5. **Fix.** The fixer reconciles the readings, applies the ruler's winners, asks about any real open
-   decision, applies the settled corrections and lands the records. When the rebuttal contests a
-   vetter's verdict, or two vetters give different verdicts, on a finding whose highest grade is A
-   or B, the runner asks you whether the audit report, one or more vetters by their tags or neither
-   is right and records your one-line reason. The fix cannot commit until every required winner is
-   recorded, and returning finished earlier fails the round. The audit target picks the fixer:
+5. **Fix.** Before the fixer starts, the runner asks you once for every winner and choice the
+   reviews leave to you. When the rebuttal contests a vetter's verdict, or two vetters give
+   different verdicts, on a finding whose highest grade is A or B, you name whether the audit
+   report, one or more vetters by their tags or neither is right, and the runner records your
+   one-line reason. You also give your choice on each referral no review disputes and each open
+   choice the ruler states. The fixer then reconciles the readings and applies the ruler's winners
+   and the winners and choices you gave. It applies the settled corrections and lands the records.
+   It writes a ruling only for a decision it meets in its own work. The fix cannot commit until
+   every required winner is recorded, and returning finished earlier fails the round. The audit
+   target picks the fixer:
    - A planning round, or a commit audit of plan-repo commits alone, fixes on the configured
      planning fixer.
    - An implementation round fixes on the plan's assigned coder.
