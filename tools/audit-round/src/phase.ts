@@ -17,7 +17,7 @@ import type {
   RulingWinner,
 } from "./round-data.js"
 import type { RulerReading } from "./ruler-report.js"
-import type { RulingInput } from "./ruling-wait.js"
+import type { RulingInput, RulingQuestion } from "./ruling-wait.js"
 import type {
   Auditor,
   Coder,
@@ -539,15 +539,28 @@ export type DeferralScope = {
 
 /**
  * Every contest and split of the round with its winner once one is named. The
- * ruler's winners arrive with the first call; a serious finding gains the
- * user's answer once the runner has one. The argument keeps its historical
- * name; a split's finding enters it too.
+ * runner asks the user before the fix starts, so every winner, the ruler's and
+ * the user's, arrives with the first call; an entry without one keeps the
+ * fix's commits blocked. The argument keeps its historical name; a split's
+ * finding enters it too.
  */
 export type ContestScope = {
   readonly contests: readonly {
     readonly finding: number
     readonly winner?: RulingWinner
     readonly reason?: string
+  }[]
+}
+
+/**
+ * The choices the user made before the fix, each on one finding and in the
+ * user's words. A choice credits no reviewer, so the runner passes it here and
+ * stores none.
+ */
+export type ChoiceScope = {
+  readonly choices: readonly {
+    readonly finding: number
+    readonly choice: string
   }[]
 }
 
@@ -570,10 +583,13 @@ export type RulerScope = {
 
 /** What the ruling notice and the waiting run need from the round coordinator. */
 export type RulingRequest = {
-  readonly document: string
+  /** The ruling a fix wrote; null for the questions asked before the fix. */
+  readonly document: string | null
+  /** The audit report, then the vet, rebuttal and ruler reports the round has. */
+  readonly reports: readonly string[]
   readonly fixerSide: FixerSide
-  /** The findings that still need the user's winner: serious contests and splits. */
-  readonly contests: readonly number[]
+  /** The findings the user answers before the fix; a fix's own ruling asks none. */
+  readonly questions: readonly RulingQuestion[]
   /** The round's panel tags, which the user may name as winners. */
   readonly panel: readonly string[]
 }
@@ -615,7 +631,12 @@ type PhaseArguments = {
   fix: {
     readonly arguments: readonly [
       report: string,
-      ...twinsDeferralsOrContests: (string | DeferralScope | ContestScope)[],
+      ...twinsDeferralsContestsOrChoices: (
+        | string
+        | DeferralScope
+        | ContestScope
+        | ChoiceScope
+      )[],
     ]
     readonly rulingFile: string
   } & (

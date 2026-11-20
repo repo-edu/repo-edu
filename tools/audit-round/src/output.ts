@@ -74,6 +74,8 @@ import {
   targetLabel,
 } from "./round-paths.js"
 import {
+  type RulingInput,
+  rulingAnswerText,
   rulingCommandsText,
   type WaitingRuling,
   waitingRulingText,
@@ -970,11 +972,16 @@ export class RoundOutput<R extends Run = Run> {
     this.say(`The ruling dialog did not show: ${reason}`)
   }
 
-  endRuling(reply: string | null): void {
+  /**
+   * Record the user's answer. A choice is stored nowhere else, so the
+   * transcript and the log keep it beside the winners and the reply.
+   */
+  endRuling(answer: RulingInput | null): void {
     this.clock.awaited()
-    if (reply === null) return
-    this.files.log(`[ruling] User reply:\n${reply}`)
-    this.transcribe(`## User ruling\n\n${reply}\n`)
+    if (answer === null) return
+    const text = rulingAnswerText(answer)
+    this.files.log(`[ruling] User answer:\n${text}`)
+    this.transcribe(`## User ruling\n\n${text}\n`)
   }
 
   /** Publish the settled account before the watch and series rules read this round. */
@@ -1021,7 +1028,7 @@ export class RoundOutput<R extends Run = Run> {
       const outcome =
         result.status === "failed"
           ? `\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}`
-          : `Stopped without a ruling. The round files are retained.\nSession: ${result.session.sessionId ?? "unavailable"}`
+          : `Stopped without a ruling. The round files are retained.\nSession: ${result.sessionId ?? "unavailable"}`
       const recovery = this.recoveryText(result)
       this.say(recovery === null ? outcome : `${outcome}\n${recovery}`)
     }

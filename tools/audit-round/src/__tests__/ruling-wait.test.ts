@@ -7,26 +7,43 @@ import { test } from "node:test"
 import {
   answerFormText,
   listenForRuling,
+  type RulingQuestion,
   rulingSocketPath,
   sendRulingAnswer,
   type WaitingRuling,
+  waitingRulingText,
   waitingRun,
 } from "../ruling-wait.js"
 import { shortCacheRoot as cacheRoot, socketRequirement } from "./helpers.js"
 
+/**
+ * A round's questions before the fix, which have no ruling document, or an
+ * implementation worker's ruling, which asks about no finding.
+ */
 function waiting(
   target: string,
-  findings: readonly number[] = [1, 2],
+  questions: readonly RulingQuestion[] = [
+    { finding: 1, needs: "winner" },
+    { finding: 2, needs: "choice" },
+  ],
 ): WaitingRuling {
+  const worker = questions.length === 0
   return {
     target,
     title: `Implementation audit of ${target}.md, step 1 (round 1)`,
-    ruling: `/active/${target}-ruling.md`,
-    fixerSide: findings.length === 0 ? null : "auditor",
-    findings,
-    panel: findings.length === 0 ? [] : ["abh", "oth"],
+    ruling: worker ? `/active/${target}-ruling.md` : null,
+    reports: worker
+      ? []
+      : [`/active/${target}-audit.md`, `/active/${target}-vet.abh.md`],
+    fixerSide: worker ? null : "auditor",
+    questions,
+    panel: worker ? [] : ["abh", "oth"],
   }
 }
+
+/** Questions that ask only for winners, on the given findings. */
+const winners = (...findings: number[]): RulingQuestion[] =>
+  findings.map((finding) => ({ finding, needs: "winner" }))
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -46,7 +63,7 @@ async function send(cache: string, target: string, answer: unknown) {
   )
 }
 
-test("a complete answer is accepted, drops not yet and ends the wait", {
+test("a complete answer is accepted, keeps winners apart from choices and ends the wait", {
   skip: socketRequirement,
 }, async (t) => {
   const cache = await cacheRoot(t)
@@ -58,10 +75,15 @@ test("a complete answer is accepted, drops not yet and ends the wait", {
   assert.deepEqual(ruling, waiting("example"))
   const sent = await send(cache, "example", {
     rulings: [
-      { finding: 1, winner: ["abh"], reason: "  The vet read the contract.  " },
-      { finding: 2, winner: "not yet" },
+      {
+        finding: 1,
+        winner: ["abh"],
+        reason: "  The vet read the contract.  ",
+        choice: " Keep the field.\nDrop the test. ",
+      },
+      { finding: 2, choice: "Take the smaller rule." },
     ],
-    reply: "Explain the evidence for finding 2.\nQuote the plan.",
+    reply: "",
   })
   assert.equal(sent.accepted, true)
   assert.match(sent.text, /^Accepted: /)
@@ -69,7 +91,11 @@ test("a complete answer is accepted, drops not yet and ends the wait", {
     rulings: [
       { finding: 1, winner: ["abh"], reason: "The vet read the contract." },
     ],
-    reply: "Explain the evidence for finding 2.\nQuote the plan.",
+    choices: [
+      { finding: 1, choice: "Keep the field.\nDrop the test." },
+      { finding: 2, choice: "Take the smaller rule." },
+    ],
+    reply: "",
   })
   // Closing the server removes its file, so no command finds the run again.
   assert.equal(await exists(rulingSocketPath(cache, "example")), false)
@@ -78,13 +104,13 @@ test("a complete answer is accepted, drops not yet and ends the wait", {
   })
 })
 
-test("every winner may close the answer without a reply", {
+test("every winner word answers a finding that needs a winner", {
   skip: socketRequirement,
 }, async (t) => {
   const cache = await cacheRoot(t)
   const wait = await listenForRuling({
     cacheRoot: cache,
-    ruling: waiting("example", [1, 2, 3]),
+    ruling: waiting("example", winners(1, 2, 3)),
   })
   const sent = await send(cache, "example", {
     rulings: [
@@ -95,17 +121,38 @@ test("every winner may close the answer without a reply", {
     reply: "",
   })
   assert.equal(sent.accepted, true)
-  assert.deepEqual((await wait.answer)?.reply, "")
+  assert.deepEqual((await wait.answer)?.choices, [])
+})
+
+test("the notice names the round reports and what each finding needs", () => {
+  const text = waitingRulingText(waiting("example"))
+  assert.doesNotMatch(text, /^Ruling:/m)
+  assert.match(
+    text,
+    /^Round reports:\n {2}\/active\/example-audit\.md\n {2}\/active\/example-vet\.abh\.md$/m,
+  )
+  assert.match(text, /^Findings that need a winner: 1$/m)
+  assert.match(text, /^Findings that need a choice: 2$/m)
+  assert.match(
+    text,
+    /^Winner words: report, neither or one or more of the vetter tags abh, oth$/m,
+  )
+  const worker = waitingRulingText(waiting("example", []))
+  assert.match(worker, /^Ruling: \/active\/example-ruling\.md$/m)
+  assert.doesNotMatch(worker, /^Round reports:|^Winner words:/m)
 })
 
 test("the answer form writes vetter tags as a list and an implementation ruling as its reply", () => {
+  const form = answerFormText(waiting("example"))
   assert.match(
-    answerFormText(waiting("example", [1])),
-    /with report, neither and not yet as strings and vetter tags as a list, as \["abh"\]; not yet takes no reason:$/m,
+    form,
+    /with report and neither as strings and vetter tags as a list, as \["abh"\]; add a choice when the winning side leaves one open\. Give each finding that needs a choice the choice alone\. The reply stays empty:$/m,
   )
+  assert.match(form, /"rulings":\[\{"finding":1,"winner":"report"/)
+  assert.match(form, /\{"finding":2,"choice":/)
   assert.match(
     answerFormText(waiting("example", [])),
-    /This ruling has no finding, so its answer is the reply alone:$/m,
+    /This ruling asks about no finding, so its answer is the reply alone:$/m,
   )
 })
 
@@ -124,14 +171,17 @@ test("an implementation ruling takes a free reply alone", {
   assert.equal(sent.accepted, true)
   assert.deepEqual(await wait.answer, {
     rulings: [],
+    choices: [],
     reply: "Use the existing parser.",
   })
 })
 
-for (const { name, findings, answer, refusal } of [
+const winnerWords = "report, neither or one or more of the vetter tags abh, oth"
+
+for (const { name, questions, answer, refusal } of [
   {
-    name: "a finding that needs no winner",
-    findings: [1],
+    name: "a finding that is not asked",
+    questions: winners(1),
     answer: {
       rulings: [
         { finding: 1, winner: ["abh"], reason: "Fine." },
@@ -139,11 +189,11 @@ for (const { name, findings, answer, refusal } of [
       ],
       reply: "",
     },
-    refusal: "Finding 3 does not need a winner.",
+    refusal: "Finding 3 is not asked.",
   },
   {
     name: "a finding answered twice",
-    findings: [1],
+    questions: winners(1),
     answer: {
       rulings: [
         { finding: 1, winner: ["abh"], reason: "Fine." },
@@ -155,33 +205,59 @@ for (const { name, findings, answer, refusal } of [
   },
   {
     name: "a finding without an answer",
-    findings: [1, 2],
+    questions: winners(1, 2),
     answer: {
       rulings: [{ finding: 1, winner: ["abh"], reason: "Fine." }],
-      reply: "Go on.",
+      reply: "",
+    },
+    refusal: `Finding 2 has no answer; use ${winnerWords}.`,
+  },
+  {
+    name: "a choice in place of a winner",
+    questions: winners(1),
+    answer: { rulings: [{ finding: 1, choice: "Keep it." }], reply: "" },
+    refusal: `Finding 1 needs a winner; use ${winnerWords}.`,
+  },
+  {
+    name: "a winner on a finding that needs a choice",
+    questions: [{ finding: 1, needs: "choice" }],
+    answer: {
+      rulings: [{ finding: 1, winner: "report", reason: "Fine." }],
+      reply: "",
     },
     refusal:
-      "Finding 2 has no answer; use report, neither, one or more of the vetter tags abh, oth or not yet.",
+      "Finding 1 needs a choice, which names no winner and takes no reason.",
+  },
+  {
+    name: "an empty choice",
+    questions: [{ finding: 1, needs: "choice" }],
+    answer: { rulings: [{ finding: 1, choice: " " }], reply: "" },
+    refusal: "Finding 1 has an empty choice.",
+  },
+  {
+    name: "a finding that needs a choice without one",
+    questions: [{ finding: 1, needs: "choice" }],
+    answer: { rulings: [{ finding: 1 }], reply: "" },
+    refusal: "Finding 1 needs a choice.",
   },
   {
     name: "a vetter tag outside the round's panel",
-    findings: [1],
+    questions: winners(1),
     answer: {
       rulings: [{ finding: 1, winner: ["abh", "atx"], reason: "Fine." }],
       reply: "",
     },
-    refusal:
-      "Finding 1 names atx, which is no vetter of this round; use report, neither, one or more of the vetter tags abh, oth or not yet.",
+    refusal: `Finding 1 names atx, which is no vetter of this round; use ${winnerWords}.`,
   },
   {
     name: "a winner without a reason",
-    findings: [1],
+    questions: winners(1),
     answer: { rulings: [{ finding: 1, winner: ["abh"] }], reply: "" },
     refusal: "Finding 1 needs a one-line reason for its winner.",
   },
   {
     name: "a reason over two lines",
-    findings: [1],
+    questions: winners(1),
     answer: {
       rulings: [
         {
@@ -196,38 +272,31 @@ for (const { name, findings, answer, refusal } of [
     refusal: "Finding 1 needs its reason on one line.",
   },
   {
-    name: "a reason beside not yet",
-    findings: [1],
+    name: "a reply before the fix",
+    questions: winners(1),
     answer: {
-      rulings: [{ finding: 1, winner: "not yet", reason: "Why?" }],
-      reply: "Explain it.",
+      rulings: [{ finding: 1, winner: "report", reason: "Fine." }],
+      reply: "Explain finding 1.",
     },
     refusal:
-      "Finding 1 is left open with not yet, so it takes no reason; put the question in the reply.",
-  },
-  {
-    name: "not yet without a reply",
-    findings: [1],
-    answer: { rulings: [{ finding: 1, winner: "not yet" }], reply: " " },
-    refusal:
-      "The reply is empty; it may be empty only when every finding has a winner.",
+      "The reply must be empty, because no session reads it before the fix; put the user's words in a finding's reason or choice.",
   },
   {
     name: "an implementation ruling without a reply",
-    findings: [],
+    questions: [],
     answer: { rulings: [], reply: "" },
     refusal:
-      "The reply is empty; this ruling has no finding to decide, so its answer is the reply.",
+      "The reply is empty; this ruling asks about no finding, so its answer is the reply.",
   },
   {
-    name: "a winner outside the runner's list",
-    findings: [1],
-    answer: { rulings: [{ finding: 1, winner: "vett" }], reply: "" },
+    name: "the removed word that left a finding open",
+    questions: winners(1),
+    answer: { rulings: [{ finding: 1, winner: "not yet" }], reply: "" },
     refusal: "The answer does not have the answer form:",
   },
   {
     name: "the single vetter's old winner word",
-    findings: [1],
+    questions: winners(1),
     answer: {
       rulings: [{ finding: 1, winner: "auditor", reason: "Fine." }],
       reply: "",
@@ -236,18 +305,23 @@ for (const { name, findings, answer, refusal } of [
   },
   {
     name: "a document that is not JSON",
-    findings: [1],
+    questions: winners(1),
     answer: "auditor — the finding stands",
     refusal: "The answer is not JSON:",
   },
-] as const) {
+] as const satisfies readonly {
+  name: string
+  questions: readonly RulingQuestion[]
+  answer: unknown
+  refusal: string
+}[]) {
   test(`the waiting run refuses ${name} and keeps waiting`, {
     skip: socketRequirement,
   }, async (t) => {
     const cache = await cacheRoot(t)
     const wait = await listenForRuling({
       cacheRoot: cache,
-      ruling: waiting("example", findings),
+      ruling: waiting("example", questions),
     })
     const refused = await send(cache, "example", answer)
     assert.equal(refused.accepted, false)
@@ -257,12 +331,12 @@ for (const { name, findings, answer, refusal } of [
     )
     // A refusal leaves the run waiting for a complete answer.
     const accepted = await send(cache, "example", {
-      rulings: findings.map((finding) => ({
-        finding,
-        winner: ["abh"],
-        reason: "The vet read the contract.",
-      })),
-      reply: "Go on.",
+      rulings: questions.map(({ finding, needs }) =>
+        needs === "winner"
+          ? { finding, winner: ["abh"], reason: "The vet read the contract." }
+          : { finding, choice: "Keep it." },
+      ),
+      reply: questions.length === 0 ? "Go on." : "",
     })
     assert.equal(accepted.accepted, true)
     assert.notEqual(await wait.answer, null)

@@ -55,15 +55,15 @@ the round's data.
 
 ## A ruling the round still needs
 
-When the rerun reaches a fix whose serious contest or split still needs your winner, the fresh fix
-writes the ruling again. The runner prints the ruling notice and waits; the terminal asks nothing.
-Answer in a Claude chat with `/ruling` or a Codex chat with `$ruling`. For each missing winner, give
-`report`, the tags of the vetters that were right or `neither` with a one-line reason, or `not yet`.
-Add any free reply for the fix. The reply may be empty once all winners are stored. `Not yet` keeps
-the commit block and lets the fix answer a question before the runner waits again.
+When the rerun reaches the fix with a question still open, the runner asks it again before the
+fresh fix starts. The runner prints the ruling notice and waits; the terminal asks nothing. Answer
+in a Claude chat with `/ruling` or a Codex chat with `$ruling`. For each missing winner, give
+`report`, the tags of the vetters that were right or `neither` with a one-line reason. For each
+open choice, give what the fix should do.
 
-A winner you already gave is stored and is not asked again. A free reply you gave the stopped fix
-is asked again, because the fresh fix does not have it.
+A winner you already gave is stored and is not asked again. A choice is asked again, because it is
+not stored. A free reply you gave a stopped fix's ruling is lost, because the fresh fix does not
+have it; it writes its ruling again when the decision is still open.
 
 ## A failed implementation worker
 

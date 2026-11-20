@@ -1414,7 +1414,7 @@ export async function runCommand(
       active: RoundOutput,
       request: Pick<
         WaitingRuling,
-        "ruling" | "fixerSide" | "findings" | "panel"
+        "ruling" | "reports" | "fixerSide" | "questions" | "panel"
       >,
     ): Promise<RulingInput | null> => {
       const ruling: WaitingRuling = {
@@ -1431,7 +1431,7 @@ export async function runCommand(
               signal: runtime.signal,
             }).then((wait) => () => wait.answer)
           : () => seam(ruling)
-      // A later ruling of the same session replaces this file, so Git keeps
+      // A later ruling of the same session replaces its file, so Git keeps
       // each version before the user is asked.
       const evidence = await commitEvidence(
         context.evidenceRoot,
@@ -1453,7 +1453,7 @@ export async function runCommand(
       } finally {
         dialog.abort()
         await shown
-        active.endRuling(answer?.reply ?? null)
+        active.endRuling(answer)
       }
     }
     // The commit stamps are the output's, because the output records which
@@ -1525,8 +1525,9 @@ export async function runCommand(
       requestRuling: (request) =>
         awaitRuling(active, {
           ruling: request.document,
+          reports: request.reports,
           fixerSide: request.fixerSide,
-          findings: request.contests,
+          questions: request.questions,
           panel: request.panel,
         }),
       // The glance decides in the runner; its sentence opens the watch's section
@@ -1641,8 +1642,9 @@ export async function runCommand(
               throw new Error("Implementation ruling has no active output")
             const answer = await awaitRuling(active, {
               ruling: request.document,
+              reports: [],
               fixerSide: null,
-              findings: [],
+              questions: [],
               panel: [],
             })
             return answer?.reply ?? null

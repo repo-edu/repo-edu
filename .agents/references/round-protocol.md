@@ -366,11 +366,12 @@ either cost.
 Without the case, a reflex rule can impose a standing cost that stays hidden
 until a later audit finds it. Case: [`mechanism-cases`](../../../plan/CASES.md#mechanism-cases).
 
-One further rule governs how any ruling reaches the user. A round that asks the user to rule prices
-the question first: the request states how rare the defended event is, what the mechanism costs to
-build and own, what the cheapest alternative is and what the user notices in each case. An unpriced
-ruling request is not ready to be asked: an unpriced boundary ruling once let a costly mechanism
-stand (failure entry
+One further rule governs how any ruling reaches the user. Whoever puts a ruling to the user prices
+the question first: the fix or worker in the ruling it writes, and the ruling chat for a question
+the runner asks before the fix. The request states how rare the defended event is, what the
+mechanism costs to build and own, what the cheapest alternative is and what the user notices in each
+case. An unpriced ruling request is not ready to be asked: an unpriced boundary ruling once let a
+costly mechanism stand (failure entry
 [`unpriced-session-exit-ruling`](../../../plan/FAILURES.md#unpriced-session-exit-ruling)).
 
 ## History reads
@@ -529,15 +530,13 @@ The winning option becomes the finding's correction. Any other choice is real.
 A boundary entry or user decision can still settle a real choice.
 
 Every phase that grounds the item applies this test. The vet applies it before referring an item,
-the rebuttal when answering a referral, the ruler before it names a winner and the fix during
-reconciliation. A referral is a claim like any other verdict and a later phase overturns it on
-evidence. A ruling on a settled choice costs the user a reading and a resumed fix but decides
-nothing.
+the rebuttal when answering a referral, the ruler before it names a winner, the ruling chat before
+it recommends an answer and the fix during reconciliation. A referral is a claim like any other
+verdict and a later phase overturns it on evidence. A ruling on a settled choice costs the user a
+reading but decides nothing.
 
-A serious contest or split named in the fix phase's `contests` argument is the
-exception. It stays in the ruling even when this test settles the choice,
-because the runner still requires the user's winner. The settled option becomes
-the fix's recommendation.
+A serious contest or split is the exception. The runner still asks the user for its winner when this
+test settles the choice, and the settled option becomes the ruling chat's recommendation.
 
 ## Vet verdicts
 
@@ -616,11 +615,12 @@ ruler's own:
    or to an earlier `cd` does not count; read the file again by its absolute path.
 2. **Name the winner in the winner words.** Each entry names `report`, one or more vetter tags or
    `neither`, with a one-line reason. A winner that names vetter tags means those vetters' verdicts
-   were right. `Not yet` is no ruler word, because the ruler asks no question.
+   were right.
 3. **Keep to the limit of [Real choices](#real-choices).** Name the winner the evidence supports.
    When a real choice remains, do not choose: name the vetter that referred the finding, or
-   `neither`, and say in the reason that a real choice remains. The fix then stops for the user
-   under its own rule. A change to a fixed input stays a premise error for the user.
+   `neither`, and state the choice in the entry's open-choice line. The runner asks the user that
+   choice before the fix, and the winner stays the ruler's. A change to a fixed input stays a
+   premise error for the user.
 
 The runner checks each named source against the tool lines it logged for the ruler's session and
 the files it supplied whole in the first prompt. The check is a plain text test, so the form is
@@ -662,28 +662,33 @@ with are no split: both vetters and the rebuttal then hold that the audit report
 wrong, and only the choice of the new correction is left. The fix makes that choice from the
 evidence and gives its reason, as it does for any two different changes the rebuttal agrees with.
 
-The ruling states each vetter's position and the rebuttal's answers, with the
-evidence for each, before any recommendation. The fix applies every winner
-without deciding it again, whoever named it, and never picks a side in a
-contest or split itself. A winner that names vetter tags applies those vetters'
-verdicts. Never re-argue an agreed verdict.
+The fix applies every winner without deciding it again, whoever named it, and never picks a side in
+a contest or split itself. A winner that names vetter tags applies those vetters' verdicts. Never
+re-argue an agreed verdict.
 
-The runner passes every contest and split to the fix: the ruler's with their
-winners and reasons on the first call and the serious ones by number. After
-displaying the ruling it asks the user for one answer on each serious finding:
+Before the fix starts, the runner asks the user every question the reviews leave, in one wait:
+
+1. the winner of each serious contest or split
+2. a choice on each finding that a vetter refers or the rebuttal answers for the user's ruling, when
+   no contest or split disputes it
+3. a choice on each finding whose ruler entry names an open choice
+
+The ruling chat reads the round's reports and the sources behind them, explains each question and
+recommends an answer under [Answering a ruling](../skills/fix/references/answer.md). A winner is one
+of:
 
 1. `report`: the audit report's finding stands as written.
 2. One or more vetter tags: those vetters' verdicts were right, and the fix applies
    them.
 3. `neither`: no side was right, such as when a third correction holds.
-4. `not yet`: the user first wants an answer from the fix.
 
-The first three answers need a one-line reason and are retained on the finding.
-The runner refuses a tag outside the round's panel, because a stored winner
-must name a verdict on the finding. `Not yet` leaves that finding open so the
-resumed fix can answer the user's question. A resumed fix receives every
-recorded winner and reason with the free reply. The free reply may be empty
-once every serious finding has a winner.
+A winner needs a one-line reason and is retained on the finding. The runner refuses a tag outside
+the round's panel, because a stored winner must name a verdict on the finding. A choice says in the
+user's words what the fix does. It credits no reviewer, so the runner passes it to the fix and
+stores none, and a stopped round asks it again. A winner may carry a choice when the winning side
+leaves one open. An agreed revision or drop asks nothing, and a referral that a contest or split
+overturns reaches the user only through its judge. The fix receives every contest and split with
+its winner, and every choice, from its first call.
 
 When every verdict is Accept and no rebuttal exists, present the findings as agreed by the auditor
 and every vetter.
@@ -705,10 +710,11 @@ not rule. Never choose for them.
 
 The route's approval rule grants the settled corrections. Planning uses the
 [planning round completion rules](../../../plan/.agents/references/planning-rules.md#round-completion);
-implementation uses its fix invocation's grant. Stop for a ruling only on:
+implementation uses its fix invocation's grant. The fix stops for a ruling only on a decision the
+runner did not ask before it:
 
-- a real choice sent to the user
-- a serious contest or split
+- a real choice still sent to the user, such as one that a change in the repository, a rebuttal's
+  note or an open cross-repo finding raises
 - a drift correction that changes a finding
 
 When nothing is open, state one outcome per finding and apply it. An undirected

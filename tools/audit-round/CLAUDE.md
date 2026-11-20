@@ -47,7 +47,7 @@ Before this rule the file held the automatic-series rules in four places.
 | `target.ts` | The argument grammar for rounds | [Plan targets](#plan-targets), [Commit targets](#commit-targets), [Clean audits](references/rounds.md#clean-audits), [Watch](references/watch.md#watch) |
 | `default-target.ts` | The round a plan argument or no target selects, the resolution of commit references and the stage a run starts at | [Plan targets](#plan-targets), [Commit targets](#commit-targets), [The run](#the-run) |
 | `plan-steps.ts` | The read of a plan's step list and audit ranges | [Plan targets](#plan-targets) |
-| `round.ts` | The fixed phase sequence of a round, the reply a fix's open item needs, the watch that follows a round, the call of the series decision and the close's run | [Round sequence](references/rounds.md#round-sequence), [Winners and rulings](references/rounds.md#winners-and-rulings), [Watch](references/watch.md#watch), [Stopped rounds](#stopped-rounds), [close](#close) |
+| `round.ts` | The fixed phase sequence of a round, the questions the user answers before the fix, the reply a fix's open item needs, the watch that follows a round, the call of the series decision and the close's run | [Round sequence](references/rounds.md#round-sequence), [Winners and rulings](references/rounds.md#winners-and-rulings), [Watch](references/watch.md#watch), [Stopped rounds](#stopped-rounds), [close](#close) |
 | `clean.ts` | Direct completion when the audit report has no findings | [Clean audits](references/rounds.md#clean-audits) |
 | `report.ts`, `vet.ts`, `ruler-report.ts` | The readers of the audit report, the vet and rebuttal reports and the ruler report | [Report readers](references/rounds.md#report-readers) |
 | `phase-result.ts` | The readers of the `PHASE RESULT` line, the watch grade line and the settling line | [Phase routing](#phase-routing), [One invocation](references/sessions.md#one-invocation), [After the fix](references/rounds.md#after-the-fix), [Watch](references/watch.md#watch) |
@@ -399,13 +399,13 @@ restore the working directory.
   argument before the findings object
 - fix: audit report input, then every vet report input, an existing rebuttal report input and an
   existing ruler report input, followed by the same open-deferral object for a chained planning or
-  plan-scoped implementation round and a contest object when the round holds a contest or split
+  plan-scoped implementation round, a contest object when the round holds a contest or split
   under the shared protocol's
-  [Reconciliation](../../.agents/references/round-protocol.md#reconciliation). The first call
-  carries every contest and split, the ruler's with its winner and reason and the user's by number;
-  resumed calls also carry the user's recorded winners and reasons.
-  The fix child's `COMMIT_OPEN_CONTESTS` environment value carries the numbers
-  that still lack winners. An empty value lifts the commit block.
+  [Reconciliation](../../.agents/references/round-protocol.md#reconciliation) and a choice object
+  when the user gave a choice. The contest object carries every contest and split with its winner
+  and reason, the ruler's and the user's, because the runner asks before the fix starts. The fix
+  child's `COMMIT_OPEN_CONTESTS` environment value carries the numbers that still lack winners. An
+  empty value lifts the commit block.
 - implement: plan, one-based step number, remaining hosting repo shares,
   resolved model release and launched effort; the ruling path is supplied
   separately and reused when the same worker resumes
@@ -468,7 +468,7 @@ plan-scoped implementation round.
 - **Other phases.** A kept rebuttal or ruler report counts under the tag the current settings give
   its phase. Every other phase still to run takes the current settings.
 - **Winners.** A stored user winner stands only while the kept reports rebuild its finding as
-  stored.
+  stored. A choice is not stored, so the runner asks for it again before the fix.
 - **Deferrals.** The fix of a chained round or a plan-scoped implementation round receives the
   stored deferral list, an empty one included, because the fix must cite the deferrals the kept
   audit report judged. A deferral that opened during the stop waits for a later round whose audit

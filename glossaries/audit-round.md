@@ -33,7 +33,8 @@ is always named in full.
 - **Ruler**: the phase that names the winner of each contest or split on a C or
   D finding, its selection and its session. It runs after the rebuttal and
   before the fix, in a session that wrote none of the round's reports, and it
-  lands nothing. Each audit level names its own ruler.
+  lands nothing. A winner may leave a choice open, which the ruler states for
+  the user. Each audit level names its own ruler.
 - **Coder**: one entry of the coder list in the runner settings. Declaring a
   plan ready assigns it the next coder in turn. That coder implements every
   step of the plan and fixes its implementation audits.
@@ -59,9 +60,16 @@ is always named in full.
   instead of settling it. Like any verdict it is a claim about the evidence,
   and a later phase may overturn it.
 - **Ruling**: a decision a round or a plan step leaves to the user, and the
-  document that asks for it. The fix or the implementation worker writes the
-  document, the user answers it with a reply in the ruling chat and the same
-  session then resumes. A reply always means the user's answer to a ruling.
+  request that asks for it. Before an audit fix the runner asks, from the
+  round's reports, for every winner and choice the reviews leave open, and the
+  fix starts on the answer. During the fix or a plan step the fix or the
+  implementation worker writes a document, the user answers it with a reply in
+  the ruling chat and the same session then resumes. A reply always means the
+  user's free-text answer to such a document.
+- **Choice**: what the fix does about a finding whose correction is the user's
+  call: a referral no later phase overturned or an open choice a ruler states.
+  The user gives it in the ruling chat before the fix. A choice credits no
+  reviewer and is not stored, so a stopped round asks for it again.
 - **Open item**: one numbered decision in a ruling that still needs the user's
   answer.
 - **Evidence record**: a judging session's own account of what it read for one
@@ -87,7 +95,8 @@ is always named in full.
 - **Rebuttal report**: the rebuttal's document, with one answer for each
   verdict other than an accept, naming the vetter it answers.
 - **Ruler report**: the ruler's document, with an evidence record and one
-  winner for each finding the ruler was given.
+  winner for each finding the ruler was given, and any open choice a winner
+  leaves.
 - **Phase result**: the control line that ends an unattended phase's response.
   It tells the runner whether the phase finished, failed or needs a ruling.
 - **Settling line**: the one line that ends a widening audit report and a

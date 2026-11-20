@@ -9,7 +9,8 @@ the source files this file describes. It follows the runner documentation's
 ## Round sequence
 
 `round.ts` is the coordinator of one round. It runs a fixed sequence of phases: audit, vet,
-rebuttal, ruler and fix. Each phase starts a fresh session. The coordinator retains the audit
+rebuttal, ruler and fix, and asks the user's questions before the fix. Each phase starts a fresh
+session. The coordinator retains the audit
 result and the audit report as local values. A round that continues a stopped one skips phases
 under [Stopped rounds](../CLAUDE.md#stopped-rounds).
 
@@ -28,8 +29,10 @@ under [Stopped rounds](../CLAUDE.md#stopped-rounds).
    answer, and the fix then reads the audit report with its vet reports alone.
 4. **Ruler.** The rule phase runs only when a contest or split falls to the ruler, under
    [The ruler](#the-ruler).
-5. **Fix.** The fix lands the round's records. It stops for a ruling when a decision is the
-   user's, under [The user's ruling](#the-users-ruling).
+5. **Questions.** The runner asks the user for every winner and choice the reviews leave open,
+   under [The user's ruling](#the-users-ruling).
+6. **Fix.** The fix lands the round's records. It stops for a ruling only on a decision it meets
+   in its own work.
 
 The coordinator has no process, filesystem or terminal side effects of its own. Its dependencies
 supply those operations explicitly. A returned phase failure stops the sequence. A rejected phase
@@ -128,8 +131,8 @@ fields.
 
 `ruler-report.ts` reads the ruler report under the grammar's
 [Ruler report](../../../.agents/references/round-grammar.md#ruler-report), against the findings the
-ruler was given and the round's panel. It returns one winner and one-line reason per given finding
-in audit report order, and every source the report names as opened, each once.
+ruler was given and the round's panel. It returns one winner, one-line reason and any open choice
+per given finding in audit report order, and every source the report names as opened, each once.
 
 A source is a file's absolute path or a commit's first six characters, so it can be matched as
 plain text against the ruler's own tool lines. `unopenedSources` is that reading check: a source
@@ -155,20 +158,34 @@ the ruler names with the ruler as the namer. A failed ruler fails the round befo
 
 ### The user's ruling
 
-Each serious finding goes to the user:
+The runner asks every question the reviews leave to the user before the fix starts, so the fix
+begins with each decision it needs. `rulingQuestions` lists them in finding order:
+
+- A serious contest or split without a stored winner needs a winner.
+- A referral that no review disputes needs a choice. `referredFindings` finds them. A referral the
+  rebuttal disputes is a contest instead, and a revise or drop all sides agree on needs nothing.
+- An open choice in the ruler report needs a choice.
+
+The questions follow one route:
+
+1. The runner waits once for all of them under [Ruling wait](#ruling-wait), with no ruling file.
+   Its notice names the round's reports and says whether the fix uses the auditor's model, one
+   vetter's model named by its tag or neither. The runner compares the releases startup resolved,
+   so a model alias and its release name the same model.
+2. The runner stores each winner and reason on the finding with the user as its namer. It passes
+   each choice to the fix in the user's words, in a choice object after the contest object.
+3. A choice is not stored, so a stopped round asks for it again. A stored winner stands under
+   [Stopped rounds](../CLAUDE.md#stopped-rounds) and is not asked again.
+4. Ending the wait with Ctrl-C stops the round with no fix session. The round files stay, and the
+   rerun asks the open questions again.
+
+A decision the fix meets in its own work takes the ruling route:
 
 1. The fix writes the final ruling to the ruling path it received and checks it for clarity before
    returning `needs-ruling`. A missing or empty ruling fails the fix with its recovery session.
-2. The runner checks that file, then waits for the user's answer under
-   [Ruling wait](#ruling-wait). Its notice says whether the fix uses the auditor's model, one
-   vetter's model named by its tag or neither. The runner compares the releases startup resolved,
-   so a model alias and its release name the same model.
-3. The answer names `report`, the tags of the vetters that were right, `neither` or `not yet` for
-   each such finding, with a reason where a winner was named, and the free reply.
-4. The runner retains each winner and reason on the finding and passes them to the resumed fix.
-   The same fix session resumes in the background with that reply.
-5. Further open decisions repeat this route and ask only for the findings still without winners.
-   They replace the ruling in that same session under
+2. The runner checks that file and waits under the same wait. The answer is the user's reply, and
+   the same fix session resumes in the background with it.
+3. Further open decisions repeat this route and replace the ruling in that same session under
    [Writing a ruling](../../../.agents/skills/fix/references/ruling.md). No separate ruling phases
    run.
 
@@ -177,16 +194,16 @@ shared commit hook refuses a commit while that value is non-empty, and the coord
 finished fix while any remain.
 
 A completed fix follows the same commit checks and watch as an uninterrupted fix. A submitted
-reply lets a completed round continue any remaining auditor entries. Ending the wait with Ctrl-C
-retains the round files and ends the auditor sequence. A continued round's fresh fix starts with
-the stored winners and the commits the stopped fix landed, then re-enters this same loop.
+answer lets a completed round continue any remaining auditor entries. Ending a wait with Ctrl-C
+retains the round files and ends the auditor sequence. A continued round asks only its open
+questions, and its fresh fix starts with the stored winners and the commits the stopped fix landed.
 
 ### Ruling wait
 
-`ruling-wait.ts` owns a ruling's wait under the ruling-answer plan's Decisions 2 and 3. It serves a
-fix and an implementation worker alike.
+`ruling-wait.ts` owns a ruling's wait under the ruling-answer plan's Decisions 2 and 3. It serves
+the questions before a fix, a fix and an implementation worker alike.
 
-**The socket.** While a fix or implementation worker waits for a ruling, the run listens on one
+**The socket.** While a run waits for a ruling, it listens on one
 Unix domain socket in the `rulings` folder under the cache root. It serves two `node:http`
 requests: what is open, and the answer.
 
@@ -197,19 +214,24 @@ requests: what is open, and the answer.
 - When two runs of one target wait at once, the later one takes the name, and ending the earlier
   one removes the later one's file. That outcome is accepted.
 
-**The answer.** One `zod` schema covers the waiting ruling and the answer document. The winner
-words are `round-data.ts`'s list plus `not yet`. The waiting ruling carries the round's panel tags
-once, because every finding of a round has the same panel, and the notice and `ruling` print them
-among the winner words. The module owns the one check for a complete answer:
+**The answer.** One `zod` schema covers the waiting ruling and the answer document. The waiting
+ruling names the ruling file when a fix or worker wrote one, the round's reports and each finding
+that needs a winner or a choice. The winner words are `round-data.ts`'s list. The waiting ruling
+carries the round's panel tags once, because every finding of a round has the same panel, and the
+notice and `ruling` print them among the winner words. The module owns the one check for a
+complete answer:
 
-- Each open finding gets a winner with a one-line reason, or `not yet`, which takes no reason.
+- Each finding that needs a winner gets one with a one-line reason, and may add a choice.
+- Each finding that needs a choice gets a choice alone.
 - A winner's vetter tags name vetters of the round's panel.
-- The free reply may be empty only when every open finding has a winner.
-- An implementation ruling has no finding and no panel, so its answer is the reply.
+- The answer names only asked findings, each once.
+- A ruling that asks about no finding, such as an implementation ruling, takes the reply as its
+  answer.
+- Before the fix the reply stays empty, because no session reads it.
 
 The run answers accepted or refused with every missing part named, and a refusal keeps it waiting.
-Reply recording completes before the fix can resume. The runner's signal ends the wait unanswered.
-The assistant never inherits the terminal.
+Answer recording completes before the fix starts or resumes. The runner's signal ends the wait
+unanswered. The assistant never inherits the terminal.
 
 **The carriers.** The hidden `ruling` and `answer` commands are only carriers, under
 [ruling and answer](../CLAUDE.md#ruling-and-answer). They find the waiting runs through the folder

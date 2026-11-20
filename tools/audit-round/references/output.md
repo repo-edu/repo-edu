@@ -146,14 +146,15 @@ ruling's text. The notice names:
 
 - the round or step;
 - the target;
-- the ruling file;
-- the findings that need a winner;
+- the ruling file, when a fix or worker wrote one;
+- the round's reports, when the runner asks before the fix;
+- the findings that need a winner and the findings that need a choice;
 - whose model runs the fix;
 - the two chat commands, Claude's `/ruling <target>` and Codex's `$ruling <target>`, in the
   wording the dialog shares under [Ruling wait](rounds.md#ruling-wait).
 
-`endRuling` excludes the user's waiting time and records an accepted reply in the log and the
-transcript before any resumed process starts.
+`endRuling` excludes the user's waiting time and records an accepted answer's winners, choices and
+reply in the log and the transcript before any fix process starts or resumes.
 
 ## Model-change notice
 

@@ -1,7 +1,9 @@
 # Writing a ruling
 
 The fix session or implementation worker writes the final ruling when a user
-decision remains open. Use the supplied output path under the runner's
+decision remains open. The runner asks the questions an audit's reviews leave
+before the fix starts, without a ruling, so a fix writes one only for a
+decision that arises during the fix. Use the supplied output path under the runner's
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) and
 report completion under the shared protocol's
 [Runner result](../../../references/round-protocol.md#runner-result). Review it
@@ -17,19 +19,17 @@ reopen settled findings, add findings or change agreed verdicts. If current
 code contradicts an open item's evidence, state that uncertainty within the
 item.
 
-The user names the winner of each serious contest or split, and the ruler
-names the winner of every other one under the shared
-[Reconciliation](../../../references/round-protocol.md#reconciliation). A
-winner the ruler named is settled like an agreed verdict, and the ruling does
-not reopen it. When the ruler's reason says a real choice remains, that choice
-is an open item like any other.
+Every winner and choice the fix receives was settled before it started, under
+the shared
+[Reconciliation](../../../references/round-protocol.md#reconciliation). Each is
+settled like an agreed verdict, and the ruling does not reopen it.
 
 ## Reading order
 
-Every session that judges an open item reads its evidence in one fixed order.
-That holds for the session that writes a ruling, for the ruling chat that
-answers it and for the ruler, which names the winner of a contest or split on
-a C or D finding. Work each open item in five steps:
+Every session that judges an open item reads its evidence in one fixed order. That holds for the
+session that writes a ruling, for the ruling chat that answers a ruling or a question the runner
+asks before the fix, and for the ruler, which names the winner of a contest or split on a C or D
+finding. Work each open item in five steps:
 
 1. List every point on which the sides differ. For a contest or a split the
    sides are the audit report, each vetter and the rebuttal. For an item with
@@ -113,15 +113,6 @@ item covers:
 5. A short suggested answer. The ruling chat compares it with its own record
    and proposes what that record supports.
 
-For each serious contest or split under the shared
-[Reconciliation](../../../references/round-protocol.md#reconciliation), state
-each vetter's position, by its tag, and the rebuttal's answers separately, with the
-evidence each names, before the record and the recommendation. The record then
-shows what that evidence says. The user gives each such finding
-a winner, `report`, the tags of the vetters that were right or `neither`, with a
-one-line reason, so the suggested answer names both. Suggest `not yet` when the
-user should first ask the fix a question.
-
 Price the request under the shared protocol's
 [Mechanism cases](../../../references/round-protocol.md#mechanism-cases).
 Do not invent a disadvantage for every option. Explain changes to owners, state or rules when they
@@ -136,14 +127,10 @@ recommendation uses no unchecked claim. Check that
 each open item is a real choice under the shared
 [Real choices](../../../references/round-protocol.md#real-choices). An item
 that section settles is not open: apply its winning option and drop it from
-the ruling. A serious contest or split named in the `contests` phase argument
-stays in the ruling even when that section settles the choice. The winning option becomes
-the recommendation. Revise any unclear or unsupported claim in this session.
+the ruling. Revise any unclear or unsupported claim in this session.
 
 After a user reply, answer any questions before acting. If a decision remains
 open, replace the ruling with the current choices and return `needs-ruling`
 again. Carry resolved choices into the resumed work; do not ask the user to
-decide them again. The resumed phase arguments carry each serious contest's or
-split's recorded winner and reason. Apply those answers without reinterpreting the
-user's words. Use the shared **Runner result** for required write failures.
-Finished work needs no ruling document.
+decide them again. Use the shared **Runner result** for required write
+failures. Finished work needs no ruling document.

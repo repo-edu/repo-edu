@@ -16,9 +16,8 @@ requirement to the whole session and skip its confirm-and-wait step.
 
 This workflow is the fix phase of an implementation-audit round. The audit is read-only and ends at
 its audit report. An audit with findings stops there. This workflow starts from that audit report:
-it reads the audit report, its vet reports, its rebuttal report and any ruler report, presents the
-outcome for the user's ruling, applies the accepted corrections and the winners, and lands the
-round's records.
+it reads the audit report, its vet reports, its rebuttal report and any ruler report, applies the
+accepted corrections, the winners and the user's choices, and lands the round's records.
 
 An audit with no findings
 uses the shared protocol's **Direct clean completion**.
@@ -30,17 +29,14 @@ report, record-bullet and result forms. The runner owns paths under
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Follow its **Reconciliation** rule after grounding the findings below.
 
-When the phase arguments include a `contests` object, its entries are the round's contests and
-splits under **Reconciliation**. An entry the ruler judged carries its `winner` and `reason` from
-the first call. A serious entry, which the user owns, names only its finding number until the runner
-records the user's answer, and then also carries its recorded `winner` and `reason`. Present each
-serious entry's vetter positions and the rebuttal's answers with their evidence in the ruling. Apply
-every recorded winner without deciding it again, whoever named it, and never pick a side in a
-contest or split yourself. A winner that names vetter tags applies those vetters' verdicts. A
-ruler's reason that says a real choice remains makes that choice an open item of the ruling. Every
-fix invocation is commit-blocked while any supplied contest lacks a winner. `Not yet` keeps that
-block in place. Do not land settled corrections before the runner has recorded every required
-winner; a fix that reports finished with an open contest fails the round.
+The runner asks the user every question the reviews leave before this fix starts, under
+**Reconciliation**. When the phase arguments include a `contests` object, its entries are the
+round's contests and splits, each with the `winner` and `reason` the ruler or the user named. A
+`choices` object carries the user's choice on a finding, in the user's words. Apply every winner and
+choice without deciding it again, and never pick a side in a contest or split yourself. A winner
+that names vetter tags applies those vetters' verdicts. Every fix invocation is commit-blocked while
+any supplied contest lacks a winner, and a fix that reports finished with an open contest fails the
+round.
 
 Follow the shared
 [Runner result](../../../references/round-protocol.md#runner-result) for every
@@ -73,7 +69,7 @@ covers them when it is code, and the `CLAUDE.md` of each package a fix would
 touch. The audit report's evidence is the round's; this session verifies what it
 is about to change.
 
-When a decision stays open, follow
+When a decision the fix meets in its own work stays open, follow
 [Writing a ruling](ruling.md) at the supplied ruling path, including when a
 repo's `CLAUDE.md` requires a ruling before a correction.
 For blocked work, follow the shared

@@ -814,7 +814,13 @@ test("a ruler is sent back once to open what it named, and a second miss fails t
     sessionId: "test-session",
     reading: {
       winners: [
-        { number: 1, tier: "C", winner: ["abh"], reason: "The drop held." },
+        {
+          number: 1,
+          tier: "C",
+          winner: ["abh"],
+          reason: "The drop held.",
+          choice: null,
+        },
       ],
       sources: [workflow],
     },

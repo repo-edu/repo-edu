@@ -77,9 +77,9 @@ command again.
 
 An automatic series stops when every listed auditor has a current read, the configured round maximum
 is reached, a phase fails, a ruling is left unanswered, a watch grades red or a fix changes the
-plan's phase. Above a ruling the runner says whether the fix uses the auditor's model, a vetter's
-model or neither. It collects any serious contest and split winners before the free reply, then
-resumes the same fix before the series continues.
+plan's phase. Before the fix the runner asks once for every winner and choice the reviews leave to
+you and says whether the fix uses the auditor's model, a vetter's model or neither. A fix's own
+ruling resumes the same fix on your reply before the series continues.
 
 A round that stops early prints a `Rerun:` line with the command that continues it. Running it
 continues the stopped round on its kept reports. See

@@ -153,6 +153,7 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
   assert.match(asked, /^Target: example$/m)
   assert.match(asked, /^Ruling: .+-ruling\..+\.md$/m)
   assert.match(asked, /^Findings that need a winner: none$/m)
+  assert.match(asked, /^Findings that need a choice: none$/m)
   assert.doesNotMatch(asked, /^Winner words:/m)
   assert.match(asked, /^The fix runs on the auditor's model\.$/m)
   assert.match(asked, /^Answer with: pnpm audit-round answer example <file>$/m)
@@ -161,7 +162,7 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
   assert.equal(refused.code, 1)
   assert.match(
     refused.text,
-    /^Refused: The reply is empty; this ruling has no finding to decide/,
+    /^Refused: The reply is empty; this ruling asks about no finding/,
   )
 
   await finishFixOnAnswer(f)
@@ -326,8 +327,9 @@ test("an implementation ruling waits with no finding and no panel", async (t) =>
       target: "example",
       title: undefined,
       ruling: undefined,
+      reports: [],
       fixerSide: null,
-      findings: [],
+      questions: [],
       panel: [],
     },
   )

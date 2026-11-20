@@ -43,12 +43,7 @@ test("a round stopped without a ruling prints its session and the rerun", async 
   output.finish({
     status: "awaiting-ruling",
     report: "REPORT.md",
-    session: {
-      assistant: "codex",
-      model: pinned("codex"),
-      sessionId: "fix-session",
-      ...testContext(f.root),
-    },
+    sessionId: "fix-session",
     commits: [],
     account: { settling: "", judgedRepos: ["repo-edu"], findings: [] },
   })
@@ -162,19 +157,30 @@ for (const [side, line] of [
     output.beginRuling({
       target: "example",
       title: output.title,
-      ruling: "/active/RULING.md",
+      ruling: null,
+      reports: ["/active/AUDIT.md", "/active/VET.abh.md"],
       fixerSide: side,
-      findings: [1, 3],
+      questions: [
+        { finding: 1, needs: "winner" },
+        { finding: 2, needs: "choice" },
+        { finding: 3, needs: "winner" },
+      ],
       panel: ["abh", "oth"],
     })
     output.endRuling(null)
     const text = written.join("\n")
     assert.match(text, /Your ruling is needed: Implementation audit of example/)
-    assert.match(text, /^Ruling: \/active\/RULING\.md$/m)
-    assert.match(text, /^Findings that need a winner: 1, 3$/m)
+    // Questions asked before the fix have no ruling document.
+    assert.doesNotMatch(text, /^Ruling:/m)
     assert.match(
       text,
-      /^Winner words: report, neither, one or more of the vetter tags abh, oth or not yet$/m,
+      /^Round reports:\n {2}\/active\/AUDIT\.md\n {2}\/active\/VET\.abh\.md$/m,
+    )
+    assert.match(text, /^Findings that need a winner: 1, 3$/m)
+    assert.match(text, /^Findings that need a choice: 2$/m)
+    assert.match(
+      text,
+      /^Winner words: report, neither or one or more of the vetter tags abh, oth$/m,
     )
     assert.ok(text.includes(line))
     // The notice gives the target's command for each app.

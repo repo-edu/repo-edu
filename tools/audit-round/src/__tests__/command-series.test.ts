@@ -81,7 +81,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
             },
           },
         })
-        return { rulings: [], reply }
+        return { rulings: [], choices: [], reply }
       },
     },
   )
@@ -129,7 +129,7 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
   assert.match(log, /Run the fix phase .* resumed session/)
 })
 
-test("a rerun continues a stopped serious contest on its kept reports with a fresh fix", async (t) => {
+test("a rerun asks again for a stopped serious contest on its kept reports before a fresh fix", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const command = ["round", "example.md", "1", "--no-watch"]
   const options = { ...f.options, settings: continuedRoundSettings }
@@ -150,7 +150,9 @@ test("a rerun continues a stopped serious contest on its kept reports with a fre
     f.errors.join("\n"),
   )
   const stopped = f.visible.join("\n")
-  assert.match(stopped, /^Session: fix-session$/m)
+  // The round stops at the question before the fix, so no fix session ran.
+  assert.match(stopped, /^Stopped without a ruling\./m)
+  assert.match(stopped, /^Session: unavailable$/m)
   assert.match(
     stopped,
     /^Rerun: pnpm audit-round round example\.md 1 --no-watch$/m,
@@ -159,13 +161,14 @@ test("a rerun continues a stopped serious contest on its kept reports with a fre
   const priorCalls = (await f.calls()).length
   const priorPrompts = (await f.prompts()).length
 
-  // The audit, vet and rebuttal reports stand. A fresh fix writes the ruling
-  // again, and the user's answer resumes that session to land the record.
+  // The audit, vet and rebuttal reports stand. The runner asks the unanswered
+  // question again, and the fix starts once the user names the winner.
   assert.equal(
     await runCommand(command, f.runtime, {
       ...options,
       awaitAnswer: async (ruling) => {
-        assert.deepEqual(ruling.findings, [1])
+        assert.equal(ruling.ruling, null)
+        assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
         const stream = await phaseStream(
           "codex",
           'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
@@ -197,6 +200,7 @@ test("a rerun continues a stopped serious contest on its kept reports with a fre
               reason: "The report quotes the owning contract.",
             },
           ],
+          choices: [],
           reply: "",
         }
       },
@@ -213,23 +217,16 @@ test("a rerun continues a stopped serious contest on its kept reports with a fre
     phasePrompts.map(({ prompt }) =>
       /^Run the (\w+) phase .* in this (\w+) session\./.exec(prompt)?.slice(1),
     ),
-    [
-      ["fix", "fresh"],
-      ["fix", "resumed"],
-    ],
+    [["fix", "fresh"]],
   )
-  // The Codex fixer's calls: the fresh one blocked on the open contest, then
-  // the resumed one after the user named its winner.
+  // The one fix call starts with the contest's winner, so no commit is blocked.
   const fixCalls = recoveryCalls.filter((call) => call.args[0] === "exec")
   assert.deepEqual(
     fixCalls.map((call) => [
       call.openContests,
       call.args.includes("fix-session"),
     ]),
-    [
-      ["1", false],
-      ["", true],
-    ],
+    [["", false]],
   )
   const stored = JSON.parse(
     await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
@@ -314,7 +311,8 @@ test("a targetless round's rerun names its plan and continues it after another p
     await runCommand(rerun.split(" "), f.runtime, {
       ...options,
       awaitAnswer: async (ruling) => {
-        assert.deepEqual(ruling.findings, [1])
+        assert.equal(ruling.ruling, null)
+        assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
         const stream = await phaseStream(
           "codex",
           'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
@@ -346,6 +344,7 @@ test("a targetless round's rerun names its plan and continues it after another p
               reason: "The report quotes the owning contract.",
             },
           ],
+          choices: [],
           reply: "",
         }
       },
@@ -354,7 +353,7 @@ test("a targetless round's rerun names its plan and continues it after another p
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
   // The rerun found the stopped round on its own plan, so only the fix ran
-  // again and no round opened on the newer plan.
+  // and no round opened on the newer plan.
   assert.deepEqual(
     (await f.prompts())
       .slice(priorPrompts)
@@ -364,10 +363,7 @@ test("a targetless round's rerun names its plan and continues it after another p
           .exec(prompt)
           ?.slice(1),
       ),
-    [
-      ["fix", "fresh"],
-      ["fix", "resumed"],
-    ],
+    [["fix", "fresh"]],
   )
   const stored = JSON.parse(
     await readFile(join(f.roundRoot, "example-impl-rounds.json"), "utf8"),
@@ -382,7 +378,7 @@ test("a targetless round's rerun names its plan and continues it after another p
   )
 })
 
-test("a rerun continues a stopped panel split with a fresh fix that reads every kept vet report", async (t) => {
+test("a rerun asks again for a stopped panel split before a fresh fix that reads every kept vet report", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   const command = ["round", "example.md", "1", "--no-watch"]
   const settings = structuredClone(continuedRoundSettings)
@@ -429,7 +425,8 @@ test("a rerun continues a stopped panel split with a fresh fix that reads every 
     await runCommand(command, f.runtime, {
       ...options,
       awaitAnswer: async (ruling) => {
-        assert.deepEqual(ruling.findings, [1])
+        assert.equal(ruling.ruling, null)
+        assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
         assert.deepEqual(ruling.panel, ["abh", "obh"])
         const stream = await phaseStream(
           "codex",
@@ -462,6 +459,7 @@ test("a rerun continues a stopped panel split with a fresh fix that reads every 
               reason: "The finding holds as written.",
             },
           ],
+          choices: [],
           reply: "",
         }
       },
@@ -469,8 +467,7 @@ test("a rerun continues a stopped panel split with a fresh fix that reads every 
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
-  // Only the fix runs, fresh and then on the user's answer; the kept vet
-  // reports stand.
+  // Only the fix runs, after the user's answer; the kept vet reports stand.
   const started = (await f.prompts())
     .slice(priorPrompts)
     .filter((call) => call.prompt.startsWith("Run the "))
@@ -478,10 +475,7 @@ test("a rerun continues a stopped panel split with a fresh fix that reads every 
     started.map(({ prompt }) =>
       /^Run the (\w+) phase .* in this (\w+) session\./.exec(prompt)?.slice(1),
     ),
-    [
-      ["fix", "fresh"],
-      ["fix", "resumed"],
-    ],
+    [["fix", "fresh"]],
   )
   // The prompt carries its arguments as JSON, which escapes Windows separators.
   for (const vet of vets)
@@ -519,7 +513,7 @@ test("a rerun continues a stopped panel split with a fresh fix that reads every 
   for (const path of [report, ...vets, f.rebut]) await readFile(path)
 })
 
-test("a fix that failed with an open serious split finishes on the rerun", async (t) => {
+test("a fix that failed after the user named a split's winner finishes on the rerun without asking again", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu")
   const command = ["round", "example.md", "1", "--no-watch"]
   const settings = structuredClone(continuedRoundSettings)
@@ -548,7 +542,8 @@ test("a fix that failed with an open serious split finishes on the rerun", async
   }
   // Claude accepts the B finding and Codex drops it, so the panel splits and
   // the finding needs the user's winner. The rebuttal agrees with the drop,
-  // so no contest joins the split. The fix fails before it asks.
+  // so no contest joins the split. The user names the winner before the fix,
+  // and the fix fails.
   await f.configure({
     phases: {
       ...f.phases,
@@ -568,7 +563,31 @@ test("a fix that failed with an open serious split finishes on the rerun", async
       ),
     },
   })
-  assert.equal(await runCommand(command, f.runtime, options), 1)
+  let asked = 0
+  assert.equal(
+    await runCommand(command, f.runtime, {
+      ...options,
+      awaitAnswer: async (ruling) => {
+        asked++
+        assert.equal(ruling.ruling, null)
+        assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
+        assert.deepEqual(ruling.panel, ["abh", "obh"])
+        return {
+          rulings: [
+            {
+              finding: 1,
+              winner: ["abh"],
+              reason: "The finding holds as written.",
+            },
+          ],
+          choices: [],
+          reply: "",
+        }
+      },
+    }),
+    1,
+  )
+  assert.equal(asked, 1)
   const failed = f.visible.join("\n")
   assert.match(failed, /\[fix\] failed: Selected model is at capacity\./)
   assert.match(failed, /^Session: fix-session$/m)
@@ -587,52 +606,35 @@ test("a fix that failed with an open serious split finishes on the rerun", async
     }
   assert.equal((await stored()).rounds[0]?.status, "failed")
 
-  // A fresh fix writes the ruling the failed turn never wrote. Once the user
-  // names the winner, that session lands the record.
+  // The stored winner survives the failed fix, so the rerun's fresh fix
+  // starts with it and asks nothing.
   await f.configure({
     phases: {
       ...f.phases,
-      fix: await fixPhase('{"status":"needs-ruling","reason":null}', {
-        document: { text: "Written ruling by fix" },
+      fix: await fixPhase('{"status":"finished","reason":null}', {
+        commits: [
+          {
+            cwd: f.repoRoot,
+            subject:
+              "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
+            body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+          },
+        ],
       }),
     },
   })
   assert.equal(
     await runCommand(command, f.runtime, {
       ...options,
-      awaitAnswer: async (ruling) => {
-        assert.deepEqual(ruling.findings, [1])
-        assert.deepEqual(ruling.panel, ["abh", "obh"])
-        await f.configure({
-          phases: {
-            ...f.phases,
-            fix: await fixPhase('{"status":"finished","reason":null}', {
-              commits: [
-                {
-                  cwd: f.repoRoot,
-                  subject:
-                    "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
-                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
-                },
-              ],
-            }),
-          },
-        })
-        return {
-          rulings: [
-            {
-              finding: 1,
-              winner: ["abh"],
-              reason: "The finding holds as written.",
-            },
-          ],
-          reply: "",
-        }
+      awaitAnswer: async () => {
+        asked++
+        return null
       },
     }),
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
+  assert.equal(asked, 1)
   const { rounds } = await stored()
   assert.equal(rounds.length, 1)
   assert.equal(rounds[0]?.status, "finished")
@@ -679,7 +681,8 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
     await runCommand(rerun.split(" "), f.runtime, {
       ...options,
       awaitAnswer: async (ruling) => {
-        assert.deepEqual(ruling.findings, [1])
+        assert.equal(ruling.ruling, null)
+        assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
         const stream = await phaseStream(
           "codex",
           'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
@@ -704,6 +707,7 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
               reason: "The report quotes the owning contract.",
             },
           ],
+          choices: [],
           reply: "",
         }
       },
@@ -712,7 +716,7 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
   // The kept audit report still reads as valid against the target it judged,
-  // so only the fix runs again.
+  // so only the fix runs.
   assert.deepEqual(
     (await f.prompts())
       .slice(priorPrompts)
@@ -722,10 +726,7 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
           .exec(prompt)
           ?.slice(1),
       ),
-    [
-      ["fix", "fresh"],
-      ["fix", "resumed"],
-    ],
+    [["fix", "fresh"]],
   )
   const stored = JSON.parse(
     await readFile(
@@ -865,7 +866,7 @@ for (const { auditors, seeded, edit, rounds } of [
           if (edit === null) await rm(queue)
           else await writeFile(queue, edit)
           await finishFixOnReply(f)
-          return { rulings: [], reply: "Choose option 1." }
+          return { rulings: [], choices: [], reply: "Choose option 1." }
         },
       },
     )
@@ -899,7 +900,7 @@ test("a malformed queue edit stops the sequence and names the entry", async (t) 
       awaitAnswer: async () => {
         await writeFile(queue, "claude\nclaud\n")
         await finishFixOnReply(f)
-        return { rulings: [], reply: "Choose option 1." }
+        return { rulings: [], choices: [], reply: "Choose option 1." }
       },
     },
   )
@@ -2150,7 +2151,7 @@ test("an automatic series stops when its fix reopens the plan", async (t) => {
         await rm(widening)
         await rename(settled, widening)
         await finishFixOnReply(f)
-        return { rulings: [], reply: "Reopen the plan." }
+        return { rulings: [], choices: [], reply: "Reopen the plan." }
       },
     }),
     0,
@@ -2220,7 +2221,7 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
             undefined,
             "Settling: keep open. The reopened decision still needs evidence.",
           )
-          return { rulings: [], reply: "Reopen the plan." }
+          return { rulings: [], choices: [], reply: "Reopen the plan." }
         },
       },
     ),
@@ -2538,7 +2539,7 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
             },
           },
         })
-        return { rulings: [], reply: "Choose option 1." }
+        return { rulings: [], choices: [], reply: "Choose option 1." }
       },
     },
   )

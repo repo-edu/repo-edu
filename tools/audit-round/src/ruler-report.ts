@@ -4,12 +4,16 @@ import {
   type RulingWinner,
 } from "./round-data.js"
 
-/** One winner the ruler named, with its one-line reason. */
+/**
+ * One winner the ruler named, with its one-line reason and the choice it left
+ * open for the user, or null when it left none.
+ */
 export type RulerWinner = {
   readonly number: number
   readonly tier: ReportFinding["tier"]
   readonly winner: RulingWinner
   readonly reason: string
+  readonly choice: string | null
 }
 
 /**
@@ -26,14 +30,16 @@ export type RulerReading = {
 type Entry = {
   readonly number: number
   readonly tier: ReportFinding["tier"]
-  winner: Omit<RulerWinner, "number" | "tier"> | null
+  winner: Omit<RulerWinner, "number" | "tier" | "choice"> | null
   winnerLines: number
+  choices: string[]
   sourceCount: number
 }
 
 const headingPattern = /^### ([1-9]\d*)\. \[([A-D])\](?: .*)?$/
 const sourcePattern = /^(?:- )?Opened:(.*)$/
 const winnerPattern = /^Winner:(.*)$/
+const choicePattern = /^Open choice:(.*)$/
 
 function listWords(names: readonly string[]): string {
   return names.length === 1
@@ -63,7 +69,7 @@ function readWinner(
   entry: Entry,
   rest: string,
   panel: readonly string[],
-): Omit<RulerWinner, "number" | "tier"> {
+): Omit<RulerWinner, "number" | "tier" | "choice"> {
   const line = /^ (.+?)\.\s+(\S.*)$/.exec(rest.trimEnd())
   const words = line?.[1] ?? rest.trim()
   const reason = line?.[2]
@@ -92,9 +98,10 @@ function readWinner(
  * Read the ruler report against the findings the ruler was given and the
  * round's panel. Each given finding opens its entry with a depth-3 heading
  * that repeats its audit report number and tier. The entry holds the finding's
- * evidence record, at least one source line and exactly one winner line. Every
- * other line is free text for the fix. A source line before the first heading
- * still counts among the report's sources.
+ * evidence record, at least one source line, exactly one winner line and at
+ * most one open-choice line, which names a choice the ruler leaves to the
+ * user. Every other line is free text for the fix. A source line before the
+ * first heading still counts among the report's sources.
  */
 export function readRulerReport(
   source: string,
@@ -130,11 +137,26 @@ export function readRulerReport(
         tier,
         winner: null,
         winnerLines: 0,
+        choices: [],
         sourceCount: 0,
       })
       continue
     }
     const entry = entries.at(-1)
+    const choice = choicePattern.exec(line)
+    if (choice !== null) {
+      if (entry === undefined)
+        throw new Error(
+          "Ruler report names an open choice before its first finding",
+        )
+      const text = (choice[1] as string).trim()
+      if (text.length === 0)
+        throw new Error(
+          `Ruler finding ${entry.number} has an empty open choice`,
+        )
+      entry.choices.push(text)
+      continue
+    }
     const opened = sourcePattern.exec(line)
     if (opened !== null) {
       const name = readSource(opened[1] as string, entry)
@@ -160,7 +182,16 @@ export function readRulerReport(
         throw new Error(`Ruler finding ${entry.number} needs one Winner: line`)
       if (entry.sourceCount === 0)
         throw new Error(`Ruler finding ${entry.number} names no opened source`)
-      return { number: entry.number, tier: entry.tier, ...entry.winner }
+      if (entry.choices.length > 1)
+        throw new Error(
+          `Ruler finding ${entry.number} needs at most one Open choice: line`,
+        )
+      return {
+        number: entry.number,
+        tier: entry.tier,
+        ...entry.winner,
+        choice: entry.choices[0] ?? null,
+      }
     }),
     sources,
   }

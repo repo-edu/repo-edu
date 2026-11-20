@@ -11,6 +11,7 @@ import {
   type Assistant,
   type AuditorOverride,
   type AuditorSelectionSource,
+  type ChoiceScope,
   type ContestScope,
   closePhase,
   type DeferralChainOutcome,
@@ -18,7 +19,6 @@ import {
   type Effort,
   efforts,
   type FixerSide,
-  type InteractiveSession,
   type LandedRecord,
   noOverride,
   type Phase,
@@ -50,6 +50,7 @@ import {
   tierWithin,
 } from "./round-data.js"
 import { documentTag, targetLabel, transcriptNameStart } from "./round-paths.js"
+import type { RulingInput, RulingQuestion } from "./ruling-wait.js"
 import type { Auditor, RoundSettings } from "./settings.js"
 import {
   parseSubject,
@@ -182,6 +183,50 @@ export function rulerFindings(account: RoundAccount): readonly number[] {
 /** The serious findings that still need the user's winner. */
 export function openSeriousFindings(account: RoundAccount): readonly number[] {
   return openContests(account, seriousFindings(account))
+}
+
+/**
+ * The findings the reviews agree to send to the user: a vetter refers the
+ * finding or the rebuttal answers a verdict for the user's ruling, and no
+ * contest or split disputes it. An agreed revision or drop sends nothing, and
+ * a referral overturned in a contest or split reaches the user only through
+ * its judge.
+ */
+export function referredFindings(account: RoundAccount): readonly number[] {
+  return account.findings.flatMap((finding) =>
+    finding.number !== null &&
+    !disputed(finding) &&
+    finding.reviews.some(
+      (review) =>
+        review.verdict === "needs-user-ruling" ||
+        review.answer === "for-user-ruling",
+    )
+      ? [finding.number]
+      : [],
+  )
+}
+
+/**
+ * Every question the user answers before the fix starts, in finding order:
+ * the winner of each serious contest or split still without one, and a choice
+ * on each finding the reviews refer to the user or the ruler report names an
+ * open choice for.
+ */
+export function rulingQuestions(
+  account: RoundAccount,
+  rulerChoices: readonly number[],
+): readonly RulingQuestion[] {
+  const winners = openSeriousFindings(account)
+  const choices = new Set([...referredFindings(account), ...rulerChoices])
+  return account.findings.flatMap(({ number }): RulingQuestion[] =>
+    number === null
+      ? []
+      : winners.includes(number)
+        ? [{ finding: number, needs: "winner" }]
+        : choices.has(number)
+          ? [{ finding: number, needs: "choice" }]
+          : [],
+  )
 }
 
 /**
@@ -409,7 +454,8 @@ export type RoundResult = (
   | {
       readonly status: "awaiting-ruling"
       readonly report: string
-      readonly session: InteractiveSession
+      /** The fix session that wrote the ruling; null for a question asked before the fix. */
+      readonly sessionId: string | null
     }
   | RoundFailure
 ) & {
@@ -807,6 +853,8 @@ type Review = {
   readonly account: RoundAccount
   /** The vet, rebuttal and ruler reports the fix reads after the audit report. */
   readonly twins: readonly string[]
+  /** The findings whose ruler entry names an open choice for the user. */
+  readonly rulerChoices: readonly number[]
 }
 
 /**
@@ -876,7 +924,8 @@ async function reviewRound(
   }
   // Zero findings complete in the runner. No later assistant can add anything
   // needed to close this audit.
-  if (evidence.findings.length === 0) return { evidence, account, twins: [] }
+  if (evidence.findings.length === 0)
+    return { evidence, account, twins: [], rulerChoices: [] }
 
   // Every vetter without a kept vet report reads the audit report on its own
   // and at the same time. The round waits for the slowest; a failed vetter
@@ -911,6 +960,7 @@ async function reviewRound(
     findings: reviewedRoundFindings(evidence.findings, vets),
   }
   const twins = panel.map((vet) => vet.report)
+  const rulerChoices: number[] = []
   // The rebuttal runs once for the whole panel, unless every vetter accepted
   // every finding.
   if (!accepted) {
@@ -940,7 +990,9 @@ async function reviewRound(
     twins.push(rebut)
     // The ruler names the winner of every contest and split on a C or D
     // finding before the fix starts, so the fix applies winners and never
-    // picks a side. It runs only when such a dispute exists.
+    // picks a side. It runs only when such a dispute exists. A choice it
+    // leaves open joins the questions the user answers before the fix, while
+    // its winner stays credited to it.
     const given = rulerFindings(account).map((number) => ({
       number,
       tier: auditTier(evidence, number),
@@ -984,6 +1036,8 @@ async function reviewRound(
         })),
         "ruler",
       )
+      for (const { number, choice } of ruled.reading.winners)
+        if (choice !== null) rulerChoices.push(number)
       twins.push(ruler)
     }
   }
@@ -992,6 +1046,7 @@ async function reviewRound(
     account:
       input.stored === undefined ? account : userWinners(account, input.stored),
     twins,
+    rulerChoices,
   }
 }
 
@@ -1170,7 +1225,7 @@ export async function runRound(
   )
   const review = await reviewRound(input, phases, panel, dependencies)
   if ("status" in review) return review
-  const { evidence, twins } = review
+  const { evidence, twins, rulerChoices } = review
   let account = review.account
   if (evidence.findings.length === 0) {
     let landedClean: readonly LandedCommit[]
@@ -1202,6 +1257,49 @@ export async function runRound(
       dependencies,
       settings,
     )
+  }
+
+  // One wait before the fix asks every question the reviews leave, so no fix
+  // writes a recommendation for them. A stored winner is not asked again; a
+  // choice is, because only winners are stored.
+  const fixerSide = selectedFixerSide(phases, panel, releases)
+  const tags = panel.map((vet) => vet.tag)
+  const reports = [report, ...twins]
+  const questions = rulingQuestions(account, rulerChoices)
+  let choices: ChoiceScope["choices"] = []
+  if (questions.length > 0) {
+    const asked = stored?.commits ?? []
+    let answer: RulingInput | null
+    try {
+      answer = await dependencies.requestRuling({
+        document: null,
+        reports,
+        fixerSide,
+        questions,
+        panel: tags,
+      })
+    } catch (error) {
+      return {
+        status: "failed",
+        phase: "ruling-input",
+        ...phases.fix,
+        ...context,
+        sessionId: null,
+        reason: errorMessage(error),
+        commits: asked,
+        account,
+      }
+    }
+    if (answer === null)
+      return {
+        status: "awaiting-ruling",
+        report,
+        sessionId: null,
+        commits: asked,
+        account,
+      }
+    account = recordWinners(account, answer.rulings, "user")
+    choices = answer.choices
   }
 
   const deferralScope: DeferralScope | null =
@@ -1247,24 +1345,21 @@ export async function runRound(
   } catch (error) {
     return fixFailure(null, error, stored?.commits ?? [])
   }
-  // The fix receives every contest and split: the ruler's with their winners
-  // from the first call and the serious ones as the user names theirs.
+  // The fix receives every contest and split with the winner the ruler or the
+  // user named, and every choice the user made, from its first call.
   const serious = seriousFindings(account)
-  const disputes = disputedFindings(account)
-  const fixArguments = (): PhaseInput<"fix">["arguments"] => {
-    const scope = contestScope(account.findings, disputes)
-    return [
-      report,
-      ...twins,
-      ...(deferralScope === null ? [] : [deferralScope]),
-      ...(scope === null ? [] : [scope]),
-    ]
-  }
+  const contests = contestScope(account.findings, disputedFindings(account))
   let fixInput: PhaseInput<"fix"> = {
     phase: "fix",
     ...phases.fix,
     ...context,
-    arguments: fixArguments(),
+    arguments: [
+      report,
+      ...twins,
+      ...(deferralScope === null ? [] : [deferralScope]),
+      ...(contests === null ? [] : [contests]),
+      ...(choices.length === 0 ? [] : [{ choices }]),
+    ],
     rulingFile: input.documents.ruling,
     sessionId: null,
   }
@@ -1306,51 +1401,45 @@ export async function runRound(
     })
     commits = landed.flat().map(({ repository, sha }) => ({ repository, sha }))
   }
+  // A fix that finds a decision the reviews could not raise writes a ruling;
+  // its own session resumes with the user's reply.
   let pendingRuling = false
   while (true) {
     if (pendingRuling) {
       const sessionId: string | null = fixInput.sessionId
       if (sessionId === null)
         throw new Error("A ruling has no fix session to resume")
-      const session: InteractiveSession = {
-        ...phases.fix,
-        sessionId,
-        ...context,
-      }
+      let answer: RulingInput | null
       try {
-        const open = openContests(account, serious)
-        const ruling = await dependencies.requestRuling({
+        answer = await dependencies.requestRuling({
           document: input.documents.ruling,
-          fixerSide: selectedFixerSide(phases, panel, releases),
-          contests: open,
-          panel: panel.map((vet) => vet.tag),
+          reports,
+          fixerSide,
+          questions: [],
+          panel: tags,
         })
-        if (ruling === null)
-          return {
-            status: "awaiting-ruling",
-            report,
-            session,
-            commits,
-            account,
-          }
-        account = recordWinners(account, ruling.rulings, "user")
-        fixInput = {
-          ...fixInput,
-          arguments: fixArguments(),
-          sessionId,
-          rulingReply: ruling.reply,
-        }
-        pendingRuling = false
       } catch (error) {
         return {
           status: "failed",
           phase: "ruling-input",
-          ...session,
-          reason: error instanceof Error ? error.message : String(error),
+          ...phases.fix,
+          ...context,
+          sessionId,
+          reason: errorMessage(error),
           commits,
           account,
         }
       }
+      if (answer === null)
+        return {
+          status: "awaiting-ruling",
+          report,
+          sessionId,
+          commits,
+          account,
+        }
+      fixInput = { ...fixInput, sessionId, rulingReply: answer.reply }
+      pendingRuling = false
     }
     let fix: PhaseResult<"fix">
     try {

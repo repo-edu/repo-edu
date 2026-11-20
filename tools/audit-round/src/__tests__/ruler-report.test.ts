@@ -25,7 +25,7 @@ test("the round grammar's ruler examples are reader fixtures", () => {
   }
 })
 
-test("the ruler reader returns each winner and every named source once", () => {
+test("the ruler reader returns each winner, its open choice and every named source once", () => {
   const reading = readRulerReport(
     [
       "Head drift: none.",
@@ -42,6 +42,7 @@ test("the ruler reader returns each winner and every named source once", () => {
       "",
       "Opened: `/path/to/plan/active/example.md`",
       "Winner: neither.  A real choice remains.  ",
+      "  Open choice:  whether to keep the field.  ",
     ].join("\n"),
     [
       { number: 1, tier: "C" },
@@ -56,12 +57,14 @@ test("the ruler reader returns each winner and every named source once", () => {
         tier: "C",
         winner: ["abx", "obh"],
         reason: "Both revisions land one correction.",
+        choice: null,
       },
       {
         number: 3,
         tier: "D",
         winner: "neither",
         reason: "A real choice remains.",
+        choice: "whether to keep the field.",
       },
     ],
     sources: [
@@ -70,6 +73,23 @@ test("the ruler reader returns each winner and every named source once", () => {
       "abc123",
     ],
   })
+})
+
+test("the ruler reader refuses an open choice outside a finding or without its question", () => {
+  const given = [{ number: 2, tier: "C" as const }]
+  for (const [source, refusal] of [
+    [
+      "Open choice: whether to keep it.\n### 2. [C]\n- Opened: `abc123`\nWinner: abx. It holds.",
+      "Ruler report names an open choice before its first finding",
+    ],
+    [
+      "### 2. [C]\n- Opened: `abc123`\nWinner: abx. It holds.\nOpen choice:  ",
+      "Ruler finding 2 has an empty open choice",
+    ],
+  ] as const)
+    assert.throws(() => readRulerReport(source, given, panel), {
+      message: refusal,
+    })
 })
 
 test("the ruler reader refuses entries out of audit report order", () => {

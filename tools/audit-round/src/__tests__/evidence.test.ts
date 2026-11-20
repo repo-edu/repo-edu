@@ -73,7 +73,7 @@ test("each ruling is committed before its wait, so a replaced ruling keeps its f
           },
         },
       })
-      return { rulings: [], reply: "Choose option 1." }
+      return { rulings: [], choices: [], reply: "Choose option 1." }
     },
   })
   assert.equal(code, 0, f.errors.join("\n"))

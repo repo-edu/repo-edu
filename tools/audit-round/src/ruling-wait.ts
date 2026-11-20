@@ -22,13 +22,30 @@ import {
  * findings still open, so the sending command only carries the document.
  */
 
+/**
+ * What the user answers on one finding: the winner of a serious contest or
+ * split, or a choice on what the fix does when the reviews or the ruler leave
+ * that choice to the user.
+ */
+export const rulingQuestionSchema = z.strictObject({
+  finding: z.number().int().positive(),
+  needs: z.enum(["winner", "choice"]),
+})
+export type RulingQuestion = z.infer<typeof rulingQuestionSchema>
+
 /** What a waiting run asks, as the notice and the `ruling` command print it. */
 export const waitingRulingSchema = z.strictObject({
   /** The plan stem or commit label the commands name the run by. */
   target: z.string().min(1),
   /** The round or step, as the run's own title names it. */
   title: z.string().min(1),
-  ruling: z.string().min(1),
+  /**
+   * The ruling a fix or an implementation worker wrote; null for the questions
+   * the runner asks before the fix starts, which have no ruling document.
+   */
+  ruling: z.string().min(1).nullable(),
+  /** The round's reports the chat reads; an implementation worker has none. */
+  reports: z.array(z.string().min(1)).readonly(),
   /**
    * Whose model runs the fix: the auditor's, one panel vetter's named by its tag,
    * or neither side's; null for an implementation worker.
@@ -39,8 +56,8 @@ export const waitingRulingSchema = z.strictObject({
       z.strictObject({ vet: capabilityTag }),
     ])
     .nullable(),
-  /** The findings that still need the user's winner. */
-  findings: z.array(z.number().int().positive()).readonly(),
+  /** The findings the user answers, each with what it needs. */
+  questions: z.array(rulingQuestionSchema).readonly(),
   /**
    * The round's panel tags, which a winner may name. Every finding of a round
    * has the same panel, so the tags appear once; an implementation worker has
@@ -50,53 +67,74 @@ export const waitingRulingSchema = z.strictObject({
 })
 export type WaitingRuling = z.infer<typeof waitingRulingSchema>
 
-/** The runner's one list of winner words, plus the word that leaves a finding open. */
-const answerWinner = z.union([rulingWinnerSchema, z.literal("not yet")])
-
 /** The one answer document the chat writes and `answer` carries. */
 const rulingAnswerSchema = z.strictObject({
   rulings: z.array(
     z.strictObject({
       finding: z.number().int().positive(),
-      winner: answerWinner,
+      winner: rulingWinnerSchema.optional(),
       reason: z.string().optional(),
+      choice: z.string().optional(),
     }),
   ),
   reply: z.string(),
 })
 type RulingAnswer = z.infer<typeof rulingAnswerSchema>
 
-/** An admitted answer: each named winner with its reason, and the free reply. */
+/**
+ * An admitted answer: each named winner with its reason, each choice in the
+ * user's words, and the free reply.
+ */
 export type RulingInput = {
   readonly rulings: readonly {
     readonly finding: number
     readonly winner: RulingWinner
     readonly reason: string
   }[]
+  readonly choices: readonly {
+    readonly finding: number
+    readonly choice: string
+  }[]
   readonly reply: string
 }
 
 /** The winner words of one waiting ruling, with its panel's own tags. */
 function winnerWords(panel: readonly string[]): string {
-  return `report, neither, one or more of the vetter tags ${panel.join(", ")} or not yet`
+  return `report, neither or one or more of the vetter tags ${panel.join(", ")}`
+}
+
+/** The findings of one waiting ruling that need the given answer. */
+function asked(
+  questions: readonly RulingQuestion[],
+  needs: RulingQuestion["needs"],
+): readonly number[] {
+  return questions.flatMap((question) =>
+    question.needs === needs ? [question.finding] : [],
+  )
 }
 
 /**
- * The one check for a complete answer. A winner needs a one-line reason, `not
- * yet` leaves its finding open, a vetter tag must name a vetter of the round's panel,
- * and the free reply may be empty only when every open finding has a winner.
+ * The one check for a complete answer. Every asked finding gets its answer: a
+ * winner with a one-line reason, which a choice may join when the winning side
+ * leaves one open, or a choice alone, which credits no side. A vetter tag must
+ * name a vetter of the round's panel. The free reply is for the session that
+ * wrote the ruling: it is the whole answer when the ruling asks about no
+ * finding, and it stays empty before the fix, when no session would read it.
  */
 function answerRefusals(
-  waiting: Pick<WaitingRuling, "findings" | "panel">,
+  waiting: Pick<WaitingRuling, "ruling" | "questions" | "panel">,
   answer: RulingAnswer,
 ): readonly string[] {
-  const { findings, panel } = waiting
+  const { questions, panel } = waiting
   const refusals: string[] = []
   const answered = new Set<number>()
   for (const ruling of answer.rulings) {
     const { finding } = ruling
-    if (!findings.includes(finding)) {
-      refusals.push(`Finding ${finding} does not need a winner.`)
+    const question = questions.find(
+      (candidate) => candidate.finding === finding,
+    )
+    if (question === undefined) {
+      refusals.push(`Finding ${finding} is not asked.`)
       continue
     }
     if (answered.has(finding)) {
@@ -104,6 +142,23 @@ function answerRefusals(
       continue
     }
     answered.add(finding)
+    if (ruling.choice !== undefined && ruling.choice.trim().length === 0)
+      refusals.push(`Finding ${finding} has an empty choice.`)
+    if (question.needs === "choice") {
+      if (ruling.winner !== undefined || ruling.reason !== undefined)
+        refusals.push(
+          `Finding ${finding} needs a choice, which names no winner and takes no reason.`,
+        )
+      else if (ruling.choice === undefined)
+        refusals.push(`Finding ${finding} needs a choice.`)
+      continue
+    }
+    if (ruling.winner === undefined) {
+      refusals.push(
+        `Finding ${finding} needs a winner; use ${winnerWords(panel)}.`,
+      )
+      continue
+    }
     if (Array.isArray(ruling.winner))
       for (const tag of ruling.winner)
         if (!panel.includes(tag))
@@ -111,36 +166,35 @@ function answerRefusals(
             `Finding ${finding} names ${tag}, which is no vetter of this round; use ${winnerWords(panel)}.`,
           )
     const reason = ruling.reason?.trim() ?? ""
-    if (ruling.winner === "not yet") {
-      if (reason.length > 0)
-        refusals.push(
-          `Finding ${finding} is left open with not yet, so it takes no reason; put the question in the reply.`,
-        )
-    } else if (reason.length === 0)
+    if (reason.length === 0)
       refusals.push(
         `Finding ${finding} needs a one-line reason for its winner.`,
       )
     else if (/[\r\n]/.test(reason))
       refusals.push(`Finding ${finding} needs its reason on one line.`)
   }
-  for (const finding of findings)
+  for (const { finding, needs } of questions)
     if (!answered.has(finding))
       refusals.push(
-        `Finding ${finding} has no answer; use ${winnerWords(panel)}.`,
+        needs === "winner"
+          ? `Finding ${finding} has no answer; use ${winnerWords(panel)}.`
+          : `Finding ${finding} has no answer; give the user's choice.`,
       )
-  const decided = answer.rulings.every((ruling) => ruling.winner !== "not yet")
-  if (answer.reply.trim().length === 0 && (findings.length === 0 || !decided))
+  const replied = answer.reply.trim().length > 0
+  if (!replied && questions.length === 0)
     refusals.push(
-      findings.length === 0
-        ? "The reply is empty; this ruling has no finding to decide, so its answer is the reply."
-        : "The reply is empty; it may be empty only when every finding has a winner.",
+      "The reply is empty; this ruling asks about no finding, so its answer is the reply.",
+    )
+  if (replied && waiting.ruling === null)
+    refusals.push(
+      "The reply must be empty, because no session reads it before the fix; put the user's words in a finding's reason or choice.",
     )
   return refusals
 }
 
 /** Read one carried answer document, or name everything that keeps it out. */
 function admitAnswer(
-  waiting: Pick<WaitingRuling, "findings" | "panel">,
+  waiting: Pick<WaitingRuling, "ruling" | "questions" | "panel">,
   text: string,
 ): { readonly answer: RulingInput } | { readonly refusal: string } {
   let json: unknown
@@ -161,13 +215,21 @@ function admitAnswer(
   return {
     answer: {
       rulings: parsed.data.rulings.flatMap(({ finding, winner, reason }) =>
-        winner === "not yet"
+        winner === undefined
           ? []
           : [{ finding, winner, reason: (reason as string).trim() }],
+      ),
+      choices: parsed.data.rulings.flatMap(({ finding, choice }) =>
+        choice === undefined ? [] : [{ finding, choice: choice.trim() }],
       ),
       reply: parsed.data.reply.trim(),
     },
   }
+}
+
+/** A list of finding numbers, or `none`. */
+function findingList(findings: readonly number[]): string {
+  return findings.length === 0 ? "none" : findings.join(", ")
 }
 
 /** The text a waiting ruling shows, shared by the notice and `ruling`. */
@@ -184,12 +246,17 @@ export function waitingRulingText(ruling: WaitingRuling): string {
                 : `vetter ${ruling.fixerSide.vet}'s model`
           }.`,
         ]
+  const winners = asked(ruling.questions, "winner")
   return [
     `Your ruling is needed: ${ruling.title}`,
     `Target: ${ruling.target}`,
-    `Ruling: ${ruling.ruling}`,
-    `Findings that need a winner: ${ruling.findings.length === 0 ? "none" : ruling.findings.join(", ")}`,
-    ...(ruling.findings.length === 0
+    ...(ruling.ruling === null ? [] : [`Ruling: ${ruling.ruling}`]),
+    ...(ruling.reports.length === 0
+      ? []
+      : ["Round reports:", ...ruling.reports.map((report) => `  ${report}`)]),
+    `Findings that need a winner: ${findingList(winners)}`,
+    `Findings that need a choice: ${findingList(asked(ruling.questions, "choice"))}`,
+    ...(winners.length === 0
       ? []
       : [`Winner words: ${winnerWords(ruling.panel)}`]),
     ...side,
@@ -199,21 +266,42 @@ export function waitingRulingText(ruling: WaitingRuling): string {
 /** How the chat answers, printed by `ruling` beside what is open. */
 export function answerFormText(ruling: WaitingRuling): string {
   const example = {
-    rulings: ruling.findings.map((finding) => ({
-      finding,
-      winner: "report",
-      reason: "One line in the user's words.",
-    })),
-    reply: "Free text for the fix, or empty once every finding has a winner.",
+    rulings: ruling.questions.map(({ finding, needs }) =>
+      needs === "winner"
+        ? {
+            finding,
+            winner: "report",
+            reason: "One line in the user's words.",
+          }
+        : { finding, choice: "What the fix does, in the user's words." },
+    ),
+    reply:
+      ruling.ruling === null
+        ? ""
+        : "The user's answer for the session that wrote the ruling.",
   }
   const words =
-    ruling.findings.length === 0
-      ? "This ruling has no finding, so its answer is the reply alone"
-      : `Give each finding one of the winner words, with report, neither and not yet as strings and vetter tags as a list, as ${JSON.stringify(ruling.panel.slice(0, 1))}; not yet takes no reason`
+    ruling.questions.length === 0
+      ? "This ruling asks about no finding, so its answer is the reply alone"
+      : `Give each finding that needs a winner one winner word and a one-line reason, with report and neither as strings and vetter tags as a list, as ${JSON.stringify(ruling.panel.slice(0, 1))}; add a choice when the winning side leaves one open. Give each finding that needs a choice the choice alone.${ruling.ruling === null ? " The reply stays empty" : ""}`
   return [
     `Answer with: pnpm audit-round answer ${ruling.target} <file>`,
     `The file holds one JSON document in this form. ${words}:`,
     JSON.stringify(example),
+  ].join("\n")
+}
+
+/** The answer as the round's transcript and log record it. */
+export function rulingAnswerText(answer: RulingInput): string {
+  return [
+    ...answer.rulings.map(
+      ({ finding, winner, reason }) =>
+        `Finding ${finding} winner: ${Array.isArray(winner) ? winner.join(", ") : winner}. ${reason}`,
+    ),
+    ...answer.choices.map(
+      ({ finding, choice }) => `Finding ${finding} choice: ${choice}`,
+    ),
+    ...(answer.reply.length === 0 ? [] : [answer.reply]),
   ].join("\n")
 }
 

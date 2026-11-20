@@ -29,10 +29,14 @@ const waiting = {
   target: "example",
   title: "Implementation audit of example.md, step 1 (round 1)",
   ruling: "RULING.md",
+  reports: [],
   fixerSide: null,
-  findings: [],
+  questions: [],
   panel: [],
 } as const
+
+/** The user's reply to a ruling that asks about no finding. */
+const reply = (text: string) => ({ rulings: [], choices: [], reply: text })
 
 for (const { zone, instant, timestamp } of [
   {
@@ -171,7 +175,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   output.beginRuling(waiting)
   // The user is away with the ruling; the round is doing nothing meanwhile.
   t.mock.timers.tick(30 * 60_000)
-  output.endRuling("Take the redesign.")
+  output.endRuling(reply("Take the redesign."))
   await inTurn(output).start(
     {
       ...session,
@@ -195,7 +199,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   output.finish({
     status: "awaiting-ruling",
     report: "REPORT.md",
-    session,
+    sessionId: session.sessionId,
     commits: [],
     account: { settling: "", judgedRepos: ["repo-edu"], findings: [] },
   })
@@ -265,7 +269,7 @@ test("outputs sharing one clock carry the run reading across rounds and subtract
   })
   second.output.beginRuling(waiting)
   t.mock.timers.tick(30 * 60_000)
-  second.output.endRuling("Take the redesign.")
+  second.output.endRuling(reply("Take the redesign."))
   await inTurn(second.output).start(
     { ...fix, sessionId: "second", rulingReply: "Take the redesign." },
     "Continue the fix",
@@ -622,7 +626,7 @@ for (const assistant of ["claude", "codex"] as const) {
     })
     output.beginRuling(waiting)
     t.mock.timers.tick(60_000)
-    output.endRuling("Use the single owner.")
+    output.endRuling(reply("Use the single owner."))
     await inTurn(output).start(
       {
         ...turn,
@@ -1109,7 +1113,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   }
   output.beginRuling(waiting)
   t.mock.timers.tick(30 * 60_000)
-  output.endRuling("Take the redesign.")
+  output.endRuling(reply("Take the redesign."))
   await inTurn(output).start(
     {
       ...session,

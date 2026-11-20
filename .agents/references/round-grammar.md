@@ -728,7 +728,8 @@ The revision of finding 2 holds.
 ```text
 <ruler-report>     ::= <ruler-opening><ruler-entry>+
 <ruler-opening>    ::= (<ruler-free-line> | <source-line>)*
-<ruler-entry>      ::= <ruler-heading> NL (<ruler-free-line> | <source-line> | <winner-line>)*
+<ruler-entry>      ::= <ruler-heading> NL
+                       (<ruler-free-line> | <source-line> | <winner-line> | <choice-line>)*
 <ruler-heading>    ::= "### "<n>". ["<tier>"]"(" "<heading-text>)?
 <heading-text>     ::= any text on one line
 <source-line>      ::= ("- ")?"Opened: `"<source>"`"(", "<place>)?
@@ -737,8 +738,10 @@ The revision of finding 2 holds.
 <place>            ::= non-empty text on one line
 <winner-line>      ::= "Winner: "<winner>". "<one-line-reason>
 <winner>           ::= report | neither | <vetter-tag>(", "<vetter-tag>)*
-<ruler-free-line>  ::= any line that is no <ruler-heading> and opens with neither
-                       "Opened:", "- Opened:" nor "Winner:"
+<choice-line>      ::= "Open choice: "<one-line-question>
+<one-line-question> ::= non-empty text on one line
+<ruler-free-line>  ::= any line that is no <ruler-heading> and opens with none of
+                       "Opened:", "- Opened:", "Winner:" and "Open choice:"
 ```
 
 The ruler report answers the findings the runner gives the ruler. Each given finding has exactly one
@@ -756,11 +759,17 @@ the files it supplied whole, and resolves no relative path. Each entry names at 
 source line before the first heading belongs to no entry but still counts among the report's
 sources.
 
-The winner line names one winner in the user's winner words without `not yet`: `report`, `neither`
-or one or more tags of the round's panel joined by a comma and a space. The one-line reason follows
-after a full stop. Each entry has exactly one winner line. Leading and trailing whitespace carry no
-content. A line that opens with `Opened:`, `- Opened:` or `Winner:` is a source or winner attempt
-and is refused by name when it does not fit.
+The winner line names one winner in the user's winner words: `report`, `neither` or one or more tags
+of the round's panel joined by a comma and a space. The one-line reason follows after a full stop.
+Each entry has exactly one winner line.
+
+An entry has at most one open-choice line. It states, as one line, the choice the ruler leaves to
+the user when a real choice remains, and the runner asks the user that choice before the fix. An
+open-choice line before the first heading belongs to no finding and is refused.
+
+Leading and trailing whitespace carry no content. A line that opens with `Opened:`, `- Opened:`,
+`Winner:` or `Open choice:` is a source, winner or choice attempt and is refused by name when it
+does not fit.
 
 ### Examples
 
@@ -803,6 +812,7 @@ Head drift: none.
 - Opened: `/path/to/plan/BOUNDARIES.md`, entry 8.
 
 Winner: neither. A real choice remains between the two corrections.
+Open choice: whether the reader keeps the field or the fix drops it.
 ```
 
 #### `ruler/two-vetters` — parsed
@@ -839,16 +849,30 @@ The audit report quotes the reader.
 Winner: abx. The reader refuses it.
 ```
 
-#### `ruler/not-yet` — refused
+#### `ruler/unknown-winner` — refused
 
-Refusal: `Ruler finding 2 names the winner "not yet"; use report, neither or tags of abx or obh`
+Refusal: `Ruler finding 2 names the winner "both"; use report, neither or tags of abx or obh`
 
 ```markdown
 ### 2. [C] Keep the record
 
 - Opened: `abc123`
 
-Winner: not yet. The ruler asks no question.
+Winner: both. Each side holds part of it.
+```
+
+#### `ruler/two-choices` — refused
+
+Refusal: `Ruler finding 2 needs at most one Open choice: line`
+
+```markdown
+### 2. [C] Keep the record
+
+- Opened: `abc123`
+
+Winner: abx. A real choice remains.
+Open choice: whether to keep the field.
+Open choice: whether to drop the test.
 ```
 
 #### `ruler/outside-panel` — refused
