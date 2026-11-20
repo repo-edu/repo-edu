@@ -209,15 +209,22 @@ export function referredFindings(account: RoundAccount): readonly number[] {
 /**
  * Every question the user answers before the fix starts, in finding order:
  * the winner of each serious contest or split still without one, and a choice
- * on each finding the reviews refer to the user or the ruler report names an
- * open choice for.
+ * on each finding the reviews refer to the user, the ruler report names an
+ * open choice for or whose stored winner the user gave with a choice. A
+ * choice is not stored, so a stopped round asks it again.
  */
 export function rulingQuestions(
   account: RoundAccount,
   rulerChoices: readonly number[],
 ): readonly RulingQuestion[] {
   const winners = openSeriousFindings(account)
-  const choices = new Set([...referredFindings(account), ...rulerChoices])
+  const choices = new Set([
+    ...referredFindings(account),
+    ...rulerChoices,
+    ...account.findings.flatMap(({ number, ruling }) =>
+      number !== null && ruling?.withChoice === true ? [number] : [],
+    ),
+  ])
   return account.findings.flatMap(({ number }): RulingQuestion[] =>
     number === null
       ? []
@@ -230,9 +237,10 @@ export function rulingQuestions(
 }
 
 /**
- * Record each admitted winner with who named it. The waiting run already
- * checked that the user's answer is complete, and the ruler report's reader
- * that the ruler answered every finding it was given.
+ * Record each admitted winner with who named it, and whether the user's
+ * answer added a choice to it. The waiting run already checked that the
+ * user's answer is complete, and the ruler report's reader that the ruler
+ * answered every finding it was given.
  */
 function recordWinners(
   account: RoundAccount,
@@ -242,6 +250,7 @@ function recordWinners(
     readonly reason: string
   }[],
   namedBy: "user" | "ruler",
+  chosen: ReadonlySet<number> = new Set(),
 ): RoundAccount {
   const byNumber = new Map(winners.map((winner) => [winner.finding, winner]))
   return {
@@ -253,7 +262,14 @@ function recordWinners(
         ? finding
         : {
             ...finding,
-            ruling: { winner: named.winner, reason: named.reason, namedBy },
+            ruling: {
+              winner: named.winner,
+              reason: named.reason,
+              namedBy,
+              ...(chosen.has(named.finding)
+                ? { withChoice: true as const }
+                : {}),
+            },
           }
     }),
   }
@@ -1298,8 +1314,13 @@ export async function runRound(
         commits: asked,
         account,
       }
-    account = recordWinners(account, answer.rulings, "user")
     choices = answer.choices
+    account = recordWinners(
+      account,
+      answer.rulings,
+      "user",
+      new Set(choices.map(({ finding }) => finding)),
+    )
   }
 
   const deferralScope: DeferralScope | null =

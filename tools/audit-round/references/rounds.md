@@ -165,6 +165,8 @@ begins with each decision it needs. `rulingQuestions` lists them in finding orde
 - A referral that no review disputes needs a choice. `referredFindings` finds them. A referral the
   rebuttal disputes is a contest instead, and a revise or drop all sides agree on needs nothing.
 - An open choice in the ruler report needs a choice.
+- A stored winner the user gave with a choice needs that choice again, because the choice is not
+  stored. The winner stands and is not asked again.
 
 The questions follow one route:
 

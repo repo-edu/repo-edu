@@ -1405,6 +1405,80 @@ test("a choice answered before a stopped fix is asked again, because only winner
   )
 })
 
+test("a winner answered with a choice before a stopped fix stands, and only its choice is asked again", async () => {
+  const round = controlledRound()
+  round.evidence.rebuttalAnswer = "contest"
+  round.results.fix = {
+    status: "failed",
+    sessionId: "fix-session",
+    reason: "The fix stopped.",
+  }
+  const initial = await runRoundWithAccount(
+    { ...files, plan: "example.md", scope: "1" },
+    {
+      ...round.dependencies,
+      requestRuling: async (request) => {
+        round.rulings.push(request)
+        return {
+          ...vetWins,
+          choices: [{ finding: 1, choice: "Take the smaller rule." }],
+        }
+      },
+    },
+  )
+  assert.equal(initial.status, "failed")
+  round.results.fix = {
+    status: "finished",
+    sessionId: "fix-session",
+    settling: null,
+  }
+  const priorCalls = round.calls.length
+  const continued = await runRoundWithAccount(
+    {
+      ...files,
+      plan: "example.md",
+      scope: "1",
+      stored: storedEntry(initial, initial.status),
+    },
+    {
+      ...round.dependencies,
+      requestRuling: async (request) => {
+        round.rulings.push(request)
+        return {
+          rulings: [],
+          choices: [{ finding: 1, choice: "Take the smaller rule." }],
+          reply: "",
+        }
+      },
+    },
+  )
+  assert.equal(continued.status, "finished")
+  assert.deepEqual(
+    round.rulings.map((request) => request.questions),
+    [[{ finding: 1, needs: "winner" }], [{ finding: 1, needs: "choice" }]],
+  )
+  assert.deepEqual(continued.account.findings[0]?.ruling, {
+    winner: [vetTag],
+    reason: "The vet read the current contract.",
+    namedBy: "user",
+    withChoice: true,
+  })
+  // The fresh fix starts with the stored winner and the choice asked again.
+  const fix = round.calls.slice(priorCalls).find((call) => call.phase === "fix")
+  assert.deepEqual(fix?.arguments.slice(-2), [
+    {
+      contests: [
+        {
+          finding: 1,
+          winner: [vetTag],
+          reason: "The vet read the current contract.",
+        },
+      ],
+    },
+    { choices: [{ finding: 1, choice: "Take the smaller rule." }] },
+  ])
+})
+
 test("a stored winner stands only while the kept reports rebuild its finding as stored", async () => {
   const round = controlledRound()
   round.evidence.rebuttalAnswer = "contest"

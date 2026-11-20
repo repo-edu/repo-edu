@@ -116,6 +116,12 @@ export const roundFindingSchema = z
           .min(1)
           .regex(/^[^\r\n]+$/),
         namedBy: z.enum(["user", "ruler"]),
+        /**
+         * Present only when the user's answer added a choice to the winner.
+         * The choice itself is not stored, so a stopped round asks for it
+         * again.
+         */
+        withChoice: z.literal(true).optional(),
       })
       .optional(),
     outcome: z.enum(["kept", "dropped", "unmatched"]).nullable(),

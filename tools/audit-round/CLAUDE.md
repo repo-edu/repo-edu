@@ -347,7 +347,8 @@ tier and the rebuttal's answer to it.
   optional revised tier. A review records a revised tier only when its `Revise to [<tier>]` line
   differs from the audit report tier.
 - A finding with a contest or a split may also store its winner: `report`, `neither` or a list of
-  vetter tags, with its reason and who named it, the user or the ruler.
+  vetter tags, with its reason and who named it, the user or the ruler. A user's winner also
+  records whether the user's answer added a choice to it, but never the choice itself.
 
 **A disproved entry** records its date and full reason. It then records either its target, round
 and finding numbers with the side the ruling disproves, or the manually named auditor model and
