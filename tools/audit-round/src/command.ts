@@ -531,6 +531,13 @@ function auditorEntries(value: string, option: AuditorOption): AuditorEntry[] {
   return entries
 }
 
+const roundUsage = `[options]
+       audit-round round [options] <stem>
+       audit-round round [options] <stem> plan
+       audit-round round [options] <stem> <step-scope>...
+       audit-round round [options] <commits>
+       audit-round round [options] [<commits>] ${planRepositoryPrefix}<commits>`
+
 function parseInvocation(
   argv: readonly string[],
   options: Pick<OutputOptions, "terminal"> & {
@@ -548,7 +555,16 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      "[options] <stem>\n       audit-round round [options] [target] [scope-or-commits...]\n       audit-round models [options]\n       audit-round replay\n       audit-round disprove [--vet] <stem> <target> <round> <finding> <reason>\n       audit-round settle [stem]\n       audit-round ready [stem]\n       audit-round implement [options] <stem> [scope]\n       audit-round close [options] [stem]\n       audit-round plan",
+      `[options] <stem>
+       audit-round round ${roundUsage}
+       audit-round models [options]
+       audit-round replay
+       audit-round disprove [--vet] <stem> <target> <round> <finding> <reason>
+       audit-round settle [stem]
+       audit-round ready [stem]
+       audit-round implement [options] <stem> [scope]
+       audit-round close [options] [stem]
+       audit-round plan`,
     )
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
@@ -608,14 +624,9 @@ Use round --help or close --help for their arguments and options.`,
     .description(
       "Run one audit round or series on a plan scope or on commits: audit, vet, rebuttal and the fix that lands the agreed corrections.",
     )
-    .argument(
-      "[target]",
-      "a plan stem or commit references; see Targets and scope below",
-    )
-    .argument(
-      "[scope-or-commits...]",
-      "the planning word, a step scope or more commits; see Targets and scope below",
-    )
+    .usage(roundUsage)
+    .argument("[target]")
+    .argument("[scope-or-commits...]")
     .addOption(
       new Option(
         "--auditor <selections>",
@@ -645,34 +656,60 @@ Use round --help or close --help for their arguments and options.`,
     .addHelpText(
       "after",
       `
-Targets and scope:
-  Plan     A stem names a plan in the sibling plan repo. .md and -widen are ignored.
-           Paths and archived plans are refused. A stem shaped like a commit
-           reference keeps .md to identify it as a plan.
-           Alone, the stem runs the audit the plan's history calls for:
-             - no step has landed: a plan audit of the plan document
-             - every listed step has landed in each hosting repo and each repo's
-               implemented marker follows its newest hosted step: every Audit ranges:
-               scope in order, then the full listed step range; one full-range
-               sentence runs that range only
-             - otherwise: stop and name pending steps and missing or stale markers
-  Scope    One step (3) or an increasing range (1-3) audits implementation.
-           A list such as 2,3-5,6-7, separated by commas or spaces, runs one
-           automatic series per scope in that order; see Round sequence below.
-           A step scope is refused until a step has landed. The word plan selects
-           the planning audit whatever has landed, for a plan edited after ready.
-  Commits  A commit ID, HEAD or HEAD-<n>, a comma-or-space-separated list of them,
-           or an inclusive range <from>..<to>.
-           A reference without a prefix is a Repo Edu commit. plan@ marks a plan
-           repo commit, as in plan@HEAD or plan@5c71e0a. Every reference after the
-           first plan@ one is also a plan repo commit, so list Repo Edu commits
-           first. HEAD-1 is the previous first-parent commit in that reference's
-           repo. The ordered exact set owns one bounded commit- label and
-           round-data file.
-  Omitted  round alone, or with options only, takes the active plan with the
-           newest stem commit in either repo, which audit-round plan prints, as
-           if named alone.
-  The first line of every round names the target it resolved.
+Notation:
+  <name>      Supply a value.
+  [item]      The item is optional.
+  <item>...   Supply one or more items.
+  Type round, plan and the prefix ${planRepositoryPrefix} exactly as shown.
+
+Arguments:
+  <stem>
+    The name of an active plan in the sibling plan repo. Supply the name
+    without a directory path. You may omit the -widen and .md suffixes.
+    Keep .md if the name could be read as a commit reference, as in face.md.
+
+  <step-scope>
+    One positive step number or an inclusive range in ascending order,
+    such as 2 or 3-5. Separate multiple scopes with spaces or commas.
+    The runner audits each scope separately, in the order given. At least
+    one step of the plan must have landed. With --auditor, supply one scope.
+
+  <commits>
+    Supply a single commit reference, a list of references separated by
+    spaces or commas, or one inclusive range written <from>..<to>.
+    Both endpoints are commit references in the same repo. The first must
+    be an ancestor of the last or the same commit.
+
+    A commit reference is a 4- to 40-digit hexadecimal commit ID, HEAD or
+    HEAD-<n>, where <n> is a non-negative first-parent distance from HEAD.
+
+    References before ${planRepositoryPrefix} belong to Repo Edu. Put ${planRepositoryPrefix} directly before
+    the first reference in the plan repo. All following references belong
+    to that repo. The runner audits the selected commits together.
+
+Choosing the audit:
+  With no positional arguments
+    Select the active plan whose latest plan commit is the newest across
+    both repos. The command audit-round plan prints the selected path.
+    Continue as if that plan's <stem> had been supplied alone.
+
+  <stem> alone
+    Before any step has landed, audit the plan document.
+
+    Once every listed step has landed in every repo that hosts it, and each
+    such repo has an implemented marker newer than its last step for this
+    plan, audit the ranges listed under "Audit ranges:" in order. Then
+    audit all steps together. If the plan lists only the full range,
+    audit it once.
+
+    Otherwise, stop and report the pending steps and missing or stale
+    markers by repo.
+
+  <stem> plan
+    Audit the plan document regardless of which steps have landed.
+
+  <stem> <step-scope>...
+    Audit the implementation of the specified steps.
 
 Auditor selection (--auditor <selections>):
   <selections> is a list of names or tags, separated by commas or spaces.

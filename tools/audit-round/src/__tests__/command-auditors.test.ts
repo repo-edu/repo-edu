@@ -407,18 +407,38 @@ test("argument errors and help start no assistant processes", async (t) => {
     code: "ENOENT",
   })
   const visible = f.visible.join("\n")
+  const roundForms = [
+    "audit-round round [options]",
+    "audit-round round [options] <stem>",
+    "audit-round round [options] <stem> plan",
+    "audit-round round [options] <stem> <step-scope>...",
+    "audit-round round [options] <commits>",
+    "audit-round round [options] [<commits>] plan@<commits>",
+  ]
+  const rootForms = [
+    "audit-round [options] <stem>",
+    ...roundForms,
+    "audit-round models [options]",
+    "audit-round replay",
+    "audit-round disprove [--vet] <stem> <target> <round> <finding> <reason>",
+    "audit-round settle [stem]",
+    "audit-round ready [stem]",
+    "audit-round implement [options] <stem> [scope]",
+    "audit-round close [options] [stem]",
+    "audit-round plan",
+  ]
+  for (const forms of [rootForms, roundForms]) {
+    assert.ok(visible.includes(`Usage: ${forms.join("\n       ")}\n\n`))
+  }
+  assert.doesNotMatch(visible, /scope-or-commits/)
+  for (const name of ["<stem>", "<step-scope>", "<commits>"])
+    assert.ok(visible.includes(`\n  ${name}\n`))
+  assert.match(visible, /<stem> alone\n +Before any step has landed/)
   assert.match(
     visible,
-    /Usage: audit-round \[options\] <stem>\n {7}audit-round round \[options\] \[target\] \[scope-or-commits\.\.\.\]\n {7}audit-round models \[options\]\n {7}audit-round replay\n {7}audit-round disprove \[--vet\] <stem> <target> <round> <finding> <reason>\n {7}audit-round settle \[stem\]\n {7}audit-round ready \[stem\]\n {7}audit-round implement \[options\] <stem> \[scope\]\n {7}audit-round close \[options\] \[stem\]\n {7}audit-round plan/,
+    /With no positional arguments\n +Select the active plan/,
   )
-  assert.match(
-    visible,
-    /Alone, the stem runs the audit the plan's history calls for/,
-  )
-  assert.match(
-    visible,
-    /Omitted +round alone, or with options only, takes the active plan/,
-  )
+  assert.match(visible, /<stem> plan\n +Audit the plan document/)
   // Chats and the reopen step call the hidden commands; help shows what a user runs.
   assert.doesNotMatch(visible, /^\s+(episode|mark|ruling|answer)\s/m)
   for (const name of [
@@ -452,7 +472,6 @@ test("argument errors and help start no assistant processes", async (t) => {
     visible,
     /audit pair|alternate default|member of the pair/,
   )
-  assert.match(visible, /Targets and scope:/)
   assert.match(visible, /Auditor selection \(--auditor <selections>\):/)
   assert.match(visible, /Each entry runs\s+one round, from left to right/)
   assert.match(visible, /<assistant>\[<tier>\]\[<effort>\]/)
