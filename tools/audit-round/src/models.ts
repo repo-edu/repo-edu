@@ -156,19 +156,29 @@ function addCounts(first: FindingCounts, second: FindingCounts): FindingCounts {
   }
 }
 
+/** Only the historical A/B comparison includes disprovals without a recorded tier. */
+function detachedDisprovedPlans(
+  row: AuditorRow,
+  workClass: WorkClass,
+  range: TierRange,
+): readonly string[] {
+  return range === "A/B" ? row.detachedDisproved[workClass] : []
+}
+
 function auditorCounts(
   row: AuditorRow,
   workClass: WorkClass,
   range: TierRange,
 ): FindingCounts {
-  const counts = auditorSamples(row, workClass).reduce(
+  return auditorSamples(row, workClass).reduce(
     (total, sample) => addCounts(total, sample.counts[range]),
-    { kept: 0, dropped: 0, downgraded: 0, disproved: 0 },
+    {
+      kept: 0,
+      dropped: 0,
+      downgraded: 0,
+      disproved: detachedDisprovedPlans(row, workClass, range).length,
+    },
   )
-  return {
-    ...counts,
-    disproved: counts.disproved + row.detachedDisproved[workClass],
-  }
 }
 
 function wrongClaims(counts: FindingCounts): string {
@@ -261,7 +271,6 @@ type AuditorPlanReading = {
  */
 function auditorPlanReadings(
   rows: ReadonlyMap<string, AuditorRow>,
-  disproved: readonly DisprovedEvidence[],
   workClass: WorkClass,
   range: TierRange,
 ): AuditorPlanReading[] {
@@ -271,7 +280,7 @@ function auditorPlanReadings(
     const key = `${plan}\u0000${auditorKey(identity)}`
     const reading = readings.get(key) ?? {
       plan,
-      identity: rows.get(auditorKey(identity))?.identity ?? identity,
+      identity,
       rounds: 0,
       counts: { kept: 0, dropped: 0, downgraded: 0, disproved: 0 },
       minutes: 0,
@@ -280,7 +289,7 @@ function auditorPlanReadings(
     return reading
   }
 
-  for (const row of rows.values())
+  for (const row of rows.values()) {
     for (const sample of auditorSamples(row, workClass)) {
       const reading = ensureReading(sample.plan, row.identity)
       reading.rounds += 1
@@ -290,14 +299,14 @@ function auditorPlanReadings(
         newestRound.set(sample.plan, sample.started)
     }
 
-  for (const entry of disproved)
-    if (entry.kind === "detached" && entry.workClass === workClass) {
-      const reading = ensureReading(entry.stem, entry.auditor)
+    for (const plan of detachedDisprovedPlans(row, workClass, range)) {
+      const reading = ensureReading(plan, row.identity)
       reading.counts = {
         ...reading.counts,
         disproved: reading.counts.disproved + 1,
       }
     }
+  }
 
   const planTime = (plan: string) => newestRound.get(plan) ?? ""
   return [...readings.values()].sort(
@@ -514,7 +523,7 @@ function vetPairSection(
   const rows = vetPairRows(samples, workClass, range)
   if (rows.length === 0)
     return [
-      `No two ${workClass} vetters have judged the same ${range === "A/B" ? "A or B" : "A, B or C"} finding.`,
+      `No two ${workClass} vetters have judged the same ${range === "A/B" ? "A or B" : "C"} finding.`,
     ]
   return [
     `| Vetter 1 | Vetter 2 | Shared ${range} findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |`,
@@ -600,15 +609,19 @@ function winnerCells(entry: RuledFinding, ruler: readonly string[]): ReasonRow {
   }
 }
 
-function ruledSection(entries: readonly RuledFinding[]): string[] {
-  const lines = ["## Ruled findings", ""]
-  if (entries.length === 0)
-    return [...lines, "No round holds a finding the user ruled on."]
+function rulingSection(
+  entries: readonly RuledFinding[],
+  workClass: WorkClass,
+): string[] {
+  const lines = [`## ${titleCase(workClass)} ruling winners`, ""]
+  const findings = entries.filter((entry) => entry.workClass === workClass)
+  if (findings.length === 0)
+    return [...lines, `No ${workClass} round holds a winner the user named.`]
   return [
     ...lines,
     ...reasonTable(
       ["Plan and round", "Finding", "Tier", "Auditor", "Vetters", "Answer"],
-      entries.map((entry) => winnerCells(entry, [])),
+      findings.map((entry) => winnerCells(entry, [])),
       1,
     ),
   ]
@@ -618,10 +631,14 @@ function ruledSection(entries: readonly RuledFinding[]): string[] {
  * The ruler's winners in the form of the user's list, with the ruler that named
  * each, so the user can check them and overturn one with `disprove`.
  */
-function rulerSection(entries: readonly RulerWinner[]): string[] {
-  const lines = ["## Ruler winners", ""]
-  if (entries.length === 0)
-    return [...lines, "No round holds a winner the ruler named."]
+function rulerSection(
+  entries: readonly RulerWinner[],
+  workClass: WorkClass,
+): string[] {
+  const lines = [`## ${titleCase(workClass)} ruler winners`, ""]
+  const winners = entries.filter((entry) => entry.workClass === workClass)
+  if (winners.length === 0)
+    return [...lines, `No ${workClass} round holds a winner the ruler named.`]
   return [
     ...lines,
     ...reasonTable(
@@ -634,7 +651,7 @@ function rulerSection(entries: readonly RulerWinner[]): string[] {
         "Ruler",
         "Answer",
       ],
-      entries.map((entry) =>
+      winners.map((entry) =>
         winnerCells(entry, [
           escapeCell(
             entry.ruler === null ? "no recorded ruler" : modelText(entry.ruler),
@@ -813,7 +830,7 @@ export async function modelsReport(
     ...rangeSections("Implementation auditors", (range) =>
       auditorSection(implementation, "implementation", settings, range),
     ),
-    `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a section is printed in a second table below the main one. Each per-round figure divides the kept findings by the rounds in the count cell beside it, over all shared plans. Each heading names its range. An A/B/C section counts C findings too, and its downgrade is a kept finding that ended at D. The A/B sections keep the serious findings apart, because in an A/B/C section a kept C counts as much as a kept A. Wrong claims covers every complete round: dropped and downgraded findings from the round plus the user's later disprovals, as a percentage of kept and wrong claims together. Auditor time includes audit and rebuttal only.`,
+    `Auditor rows sort by the gap between the two per-round figures, then by time. A model with fewer than ${auditorFloor} shared plans in a section is printed in a second table below the main one. Each per-round figure divides the kept findings by the rounds in the count cell beside it, over all shared plans. The reported tier determines the section. A kept C finding counts as downgraded only if it ended at D. Wrong claims is the percentage of claims that were dropped, downgraded or later disproved across all complete rounds. The A/B figures also include later disprovals with no recorded tier. Auditor time includes audit and rebuttal only.`,
     "",
     ...rangeSections("Planning vetter pairs", (range) =>
       vetPairSection(evidence.vetPairs, "planning", range),
@@ -821,18 +838,22 @@ export async function modelsReport(
     ...rangeSections("Implementation vetter pairs", (range) =>
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
-    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel and that the audit report or a vetter graded within the section's range. Ruled splits counts the shared findings where the two vetters split and a winner is stored: the user names it on an A or B finding and the ruler on a C finding. Each ruled split ends in one of the four Split columns, so those four add up to Ruled splits and not to the shared findings. A split without a winner enters Ruled splits when its winner is stored. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
+    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel. The highest tier given by the audit report or any vetter determines the section. Ruled splits counts the shared findings where the two vetters split and a winner is stored. The user names the winner on an A or B finding and the ruler on a C finding. The four Split columns show how those ruled splits ended. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
     "",
     ...rangeSections("Coders", (range) => [
       ...coderReading(coders, settings, range),
       "",
       ...coderTable(coders, range),
     ]),
-    "Rows sort by the per-step figure, the mean over plans of accepted findings per step, fewest first, then by time. The A/B/C section counts C findings too, and each section's verdict rests on its own figures. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort; the assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit, and a plan whose step time cannot be read is excluded. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
+    "Rows sort by the per-step figure, the mean over plans of accepted findings per step, fewest first, then by time. Each section's verdict rests on its own figures. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort. The assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit, and a plan whose step time cannot be read is excluded. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",
-    ...ruledSection(evidence.rulings),
+    ...rulingSection(evidence.rulings, "planning"),
     "",
-    ...rulerSection(evidence.rulerWinners),
+    ...rulingSection(evidence.rulings, "implementation"),
+    "",
+    ...rulerSection(evidence.rulerWinners, "planning"),
+    "",
+    ...rulerSection(evidence.rulerWinners, "implementation"),
     "",
     ...disprovedSection(evidence.disproved),
     ...(options.all
@@ -840,23 +861,13 @@ export async function modelsReport(
           "",
           ...rangeSections("Planning rounds by plan", (range) =>
             auditorPlanTable(
-              auditorPlanReadings(
-                evidence.auditors,
-                evidence.disproved,
-                "planning",
-                range,
-              ),
+              auditorPlanReadings(evidence.auditors, "planning", range),
               range,
             ),
           ),
           ...rangeSections("Implementation rounds by plan", (range) =>
             auditorPlanTable(
-              auditorPlanReadings(
-                evidence.auditors,
-                evidence.disproved,
-                "implementation",
-                range,
-              ),
+              auditorPlanReadings(evidence.auditors, "implementation", range),
               range,
             ),
           ),

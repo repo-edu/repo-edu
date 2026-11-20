@@ -629,26 +629,15 @@ export function findingSplit(reviews: readonly RoundFindingReview[]): boolean {
   )
 }
 
-/** The tiers a comparison counts: A and B, or those and C. */
-export type TierRange = "A/B" | "A/B/C"
-
-const rangeTiers: Record<TierRange, readonly RoundFinding["tier"][]> = {
-  "A/B": ["A", "B"],
-  "A/B/C": ["A", "B", "C"],
-}
-
-/**
- * The ranges every work class is compared on, narrowest first. The A/B range
- * keeps the serious findings apart, and the A/B/C range counts the C findings
- * whose disputes the ruler judges.
- */
-export const tierRanges: readonly TierRange[] = ["A/B", "A/B/C"]
+/** The finding groups in report order for every work class. */
+export const tierRanges = ["A/B", "C"] as const
+export type TierRange = (typeof tierRanges)[number]
 
 export function tierWithin(
   tier: RoundFinding["tier"],
   range: TierRange,
 ): boolean {
-  return rangeTiers[range].includes(tier)
+  return range === "A/B" ? tier === "A" || tier === "B" : tier === "C"
 }
 
 /**

@@ -18,8 +18,8 @@ It prints these parts in order:
 1. Planning auditors and implementation auditors.
 2. Planning and implementation vetter pairs.
 3. Coders.
-4. Ruled findings.
-5. Ruler winners.
+4. Planning and implementation ruling winners.
+5. Planning and implementation ruler winners.
 6. Disproved findings.
 
 Under `--all` it also prints the planning and implementation rounds by plan, once per range, and
@@ -43,13 +43,9 @@ need the measured rows or the plans that supplied no evidence every time.
 ## Ranges
 
 Every auditor, vetter-pair and rounds-by-plan part prints twice in each work class. The one coder
-part prints twice without a work class. One section counts A and B findings and one counts A, B
-and C findings, and every section title names its range. `tierRanges` in `round-data.ts` lists the
-two ranges, and no work class has a range of its own.
-
-- The A/B/C sections exist because implementation audits raise too few A or B findings to compare
-  models on those alone, and the ruler names the winners of C disputes in both classes.
-- The A/B sections stay because in an A/B/C section a kept C counts as much as a kept A.
+part prints twice without a work class. Each heading names the findings it counts. The first section
+counts A and B findings. The second counts C findings only, so models can be compared on C findings
+independently of their serious findings. `tierRanges` in `round-data.ts` lists the two groups.
 
 ## Rows
 
@@ -57,12 +53,14 @@ An auditor gets a row in each class where it has a complete round. A coder gets 
 its plans is admitted. A model known only through excluded plans or the other class prints no zero
 row, because the excluded-plans section or the other table already names it.
 
-Kept, dropped, downgraded and disproved findings are exclusive counts. A downgrade is a kept
-finding whose final tier left the section's range. Later rulings from `disprove` move findings
-between the counts:
+Auditor and coder counts use the tier the auditor reported. Kept, dropped, downgraded and disproved
+findings are exclusive counts. A downgrade is a kept finding whose final tier fell below the
+section's range. A C finding raised to A or B stays kept in the C section. Later rulings from
+`disprove` move findings between the counts:
 
 - A later finding ruling removes a kept finding from coder evidence.
 - A later vet ruling moves a dropped or downgraded finding to kept for the auditor and the coder.
+- A detached disproval has no recorded tier. Only the A/B auditor figures include it.
 
 ## Auditors
 
@@ -122,7 +120,8 @@ auditor. These tables precede the excluded plans.
   the table. A plan's rows sort by model.
 - A plan with no complete round in the class comes last, by name, because its rounds predate the
   retained data.
-- A detached disproved finding creates a zero-round row when its auditor has no round on that plan.
+- In the A/B table, a detached disproved finding creates a zero-round row when its auditor has no
+  round on that plan.
 
 ## Coders
 
@@ -155,20 +154,22 @@ The comparison works as follows:
   sorts by its range's accepted findings per step, fewest first, then by time.
 - A winning coder outside `coders` is named as such.
 
-## Ruled findings and ruler winners
+## Ruling winners and ruler winners
 
-The ruled-findings section lists every finding whose round stored the user's winner. It runs
-newest round first and in finding order within a round. Each row holds the plan and round, the
-finding, its tier, the auditor, every vetter of the round with its verdict, the answer and the
-reason.
+Ruling winners and ruler winners each have a planning section followed by an implementation
+section. Each section lists its newest round first and keeps findings in order within a round.
+
+The ruling winners tables list every winner the user named in a round. Each row shows
+the plan and round, the finding and its tier, the auditor, every vetter's verdict, the answer
+and the reason.
 
 - The answer names each winning vetter by its model rather than its tag, because a tag names a
   vetter only within its round.
 - Splits and contests share the list, because both end in the same ruling.
 
-The ruler-winners section follows it in the same form, with a ruler column that names the model
-and effort of the round's rule phase entry. It stays apart so the ruler's many winners do not bury
-the user's. The user can check one and overturn it with `disprove`.
+The ruler-winners tables use the same form, with a ruler column that names the model and effort
+of the round's rule phase entry. Separate tables keep the user's decisions easy to find. The
+user can check a ruler's winner and overturn it with `disprove`.
 
 ## Disproved findings
 
@@ -177,7 +178,7 @@ in one table after them, with an auditor column.
 
 ## Reasons and vetter columns
 
-These rules hold for the ruled-findings, ruler-winners and disproved tables:
+These rules hold for ruling winners, ruler winners and disproved findings:
 
 - Every table's vetter column names each vetter of the round with its verdict on the finding.
 - Every table shows each reason's first sentence, because a full reason wraps the terminal table

@@ -54,7 +54,8 @@ export type AuditorSample = {
 export type AuditorRow = {
   readonly identity: ModelIdentity
   readonly samples: AuditorSample[]
-  readonly detachedDisproved: Record<WorkClass, number>
+  /** One plan name per disproved finding whose original tier is unknown. */
+  readonly detachedDisproved: Record<WorkClass, string[]>
 }
 
 /** One admitted plan: its steps, its minutes per step and its kept findings per tier range. */
@@ -98,6 +99,7 @@ export type VetPairSample = {
 
 /** A finding whose round stored a winner, the user's or the ruler's. */
 export type RuledFinding = {
+  readonly workClass: WorkClass
   readonly stem: string
   readonly target: string
   readonly round: number
@@ -232,17 +234,13 @@ export function modelRoundComplete(round: {
   )
 }
 
-function finalTier(finding: RoundFinding): RoundFinding["tier"] {
-  return finding.finalTier ?? finding.tier
-}
-
 function emptyFindingCounts(): FindingCounts {
   return { kept: 0, dropped: 0, downgraded: 0, disproved: 0 }
 }
 
 /**
  * The outcomes of the findings the audit report graded within the range. A kept
- * finding whose final tier left the range counts as downgraded.
+ * finding counts as downgraded only when its final tier fell below the range.
  */
 function findingCounts(
   findings: readonly RoundFinding[],
@@ -265,7 +263,9 @@ function findingCounts(
       counts.disproved += 1
       continue
     }
-    if (tierWithin(finalTier(finding), range)) counts.kept += 1
+    const finalTier = finding.finalTier ?? finding.tier
+    if (finalTier < finding.tier || tierWithin(finalTier, range))
+      counts.kept += 1
     else counts.downgraded += 1
   }
   return counts
@@ -277,7 +277,7 @@ function rangeCounts(
 ): Record<TierRange, FindingCounts> {
   return {
     "A/B": findingCounts(findings, disproved, "A/B"),
-    "A/B/C": findingCounts(findings, disproved, "A/B/C"),
+    C: findingCounts(findings, disproved, "C"),
   }
 }
 
@@ -519,6 +519,7 @@ function ruledFindings(records: readonly RoundRecord[]): {
     for (const finding of record.data.findings) {
       if (finding.ruling === undefined || finding.number === null) continue
       const entry: RuledFinding = {
+        workClass: record.workClass,
         stem: record.stem,
         target: record.data.target,
         round: record.data.round,
@@ -547,10 +548,10 @@ function auditorRows(
   const firstCompleteRounds = new Set<string>()
   const ensureRow = (identity: ModelIdentity) => {
     const key = auditorKey(identity)
-    const row = rows.get(key) ?? {
+    const row: AuditorRow = rows.get(key) ?? {
       identity,
       samples: [],
-      detachedDisproved: { planning: 0, implementation: 0 },
+      detachedDisproved: { planning: [], implementation: [] },
     }
     rows.set(key, row)
     return row
@@ -584,7 +585,9 @@ function auditorRows(
   }
   for (const entry of disproved)
     if (entry.kind === "detached")
-      ensureRow(entry.auditor).detachedDisproved[entry.workClass] += 1
+      ensureRow(entry.auditor).detachedDisproved[entry.workClass].push(
+        entry.stem,
+      )
   return rows
 }
 
@@ -945,7 +948,7 @@ async function coderRows(
       row.samples.push({
         stem: plan.stem,
         steps: stepCount,
-        kept: { "A/B": kept("A/B"), "A/B/C": kept("A/B/C") },
+        kept: { "A/B": kept("A/B"), C: kept("C") },
         minutes: (admission + fixMinutes) / stepCount,
       })
     }
