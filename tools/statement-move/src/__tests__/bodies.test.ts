@@ -17,8 +17,12 @@ const ROOT = path.resolve(
  */
 function formatLikeFix(text: string): string {
   return execFileSync(
-    path.join(ROOT, "node_modules", ".bin", "biome"),
-    ["format", "--stdin-file-path=tools/statement-move/src/moved.ts"],
+    process.execPath,
+    [
+      fileURLToPath(import.meta.resolve("@biomejs/biome/bin/biome")),
+      "format",
+      "--stdin-file-path=tools/statement-move/src/moved.ts",
+    ],
     { cwd: ROOT, input: text, encoding: "utf8" },
   )
 }

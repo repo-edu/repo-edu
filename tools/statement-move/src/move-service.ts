@@ -175,7 +175,9 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
     MOVE_TO_FILE,
     MOVE_TO_FILE,
     preferences,
-    { targetFile: request.targetPath },
+    // The refactor keeps this spelling for a new file. Its later reads use
+    // forward slashes, so the overlay must receive the same path on Windows.
+    { targetFile: request.targetPath.replaceAll(path.sep, "/") },
   )
   if (edits?.notApplicableReason !== undefined) {
     throw new MoveInputError(

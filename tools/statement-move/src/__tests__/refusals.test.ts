@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import * as path from "node:path"
 import { test } from "node:test"
 import { withProject } from "./fixture-project.js"
 
@@ -45,7 +46,7 @@ export function base(): void {
           result.diagnostics.every(
             (diagnostic) =>
               diagnostic.code === 2300 &&
-              diagnostic.path === "pkg/src/fixture.ts",
+              diagnostic.path === path.join("pkg", "src", "fixture.ts"),
           ),
       )
       assert.deepEqual(project.snapshot(), before)
@@ -73,7 +74,7 @@ export function options() {
           result.diagnostics.some(
             (diagnostic) =>
               diagnostic.code === 18004 &&
-              diagnostic.path === "pkg/src/round.ts",
+              diagnostic.path === path.join("pkg", "src", "round.ts"),
           ),
       )
       assert.deepEqual(project.snapshot(), before)
