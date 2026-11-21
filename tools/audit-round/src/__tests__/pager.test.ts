@@ -82,6 +82,7 @@ function fakeScreen(columns: number, rows: number) {
     clearScreen() {},
     setTitle() {},
     setProgress() {},
+    setProgramStatus() {},
   }
   return {
     screen,
@@ -160,7 +161,7 @@ test("the view pins the headings of the part under the top edge and leaves on q"
   assert.doesNotMatch(closing, /Model read-out/)
 })
 
-test("the view leaves on Esc too", async () => {
+test("q and Esc go to search until focus returns to the document", async () => {
   const fake = fakeScreen(60, 12)
   const reading = createPager(
     stream(true),
@@ -168,6 +169,11 @@ test("the view leaves on Esc too", async () => {
     () => fake.screen,
   )(readOut)
   await fake.press()
+  const openSearch = `${esc}[102;6u` // Ctrl-Shift-F
+  await fake.press(openSearch, "q")
+  assert.match(fake.drawn.join("\n"), /No matches/)
+  await fake.press(esc)
+  assert.ok(!fake.writes.join("").includes(leaveAlternateScreen))
   await fake.press(esc)
   await reading
   assert.ok(fake.writes.join("").includes(leaveAlternateScreen))

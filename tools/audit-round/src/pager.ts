@@ -7,6 +7,7 @@ import {
   ProcessTerminal,
   type Terminal as Screen,
   ScrollView,
+  Spacer,
   TuiAltScreen,
   truncateToWidth,
   VStack,
@@ -78,15 +79,17 @@ export function createPager(
     if (layoutAt(screen.columns).lines.length < screen.rows) return
 
     const { promise: left, resolve: leave } = Promise.withResolvers<void>()
-    const scroll = new SteppedScrollView(
-      {
-        render: (width) => layoutAt(width).lines,
-        invalidate: () => {
-          layout = undefined
-        },
+    const document: Component = {
+      render: (width) => layoutAt(width).lines,
+      handleInput: (data) => {
+        if (matchesKey(data, "q") || matchesKey(data, "escape")) leave()
       },
-      (top, lines, viewport) =>
-        steppedTop(layoutAt(screen.columns), top, lines, viewport),
+      invalidate: () => {
+        layout = undefined
+      },
+    }
+    const scroll = new SteppedScrollView(document, (top, lines, viewport) =>
+      steppedTop(layoutAt(screen.columns), top, lines, viewport),
     )
     // The pinned lines are drawn over the view's first lines rather than above
     // it, so the document never jumps when their number changes. Their number
@@ -97,9 +100,8 @@ export function createPager(
         pinnedLines(layoutAt(width), scroll.scrollTop, scroll.viewportHeight),
       invalidate: () => {},
     }
-    // The footer holds the keyboard focus, so `q` and Esc leave only while the
-    // reader is not typing into the library's search panel. There `q` is text
-    // and Esc closes the panel.
+    // Scrolling reuses layout rows. An overlay reads the final viewport for
+    // each frame, including frames that only change the scroll position.
     const footer: Component = {
       render: (width) => {
         const total = layoutAt(width).lines.length
@@ -117,9 +119,6 @@ export function createPager(
           ),
         ]
       },
-      handleInput: (data) => {
-        if (matchesKey(data, "q") || matchesKey(data, "escape")) leave()
-      },
       invalidate: () => {},
     }
 
@@ -135,7 +134,7 @@ export function createPager(
     tui.setLayoutRoot(
       new VStack([
         { component: scroll, basis: 0, grow: 1, minSize: 1 },
-        { component: footer, basis: 1, shrink: 0 },
+        { component: new Spacer(1), basis: 1, shrink: 0 },
       ]),
     )
     tui.showOverlay(pinned, {
@@ -144,7 +143,12 @@ export function createPager(
       width: "100%",
       nonCapturing: true,
     })
-    tui.setFocus(footer)
+    tui.showOverlay(footer, {
+      anchor: "bottom-left",
+      width: "100%",
+      nonCapturing: true,
+    })
+    tui.setFocus(document)
     // Raw input carries Ctrl-C as a key, so no interrupt signal ends the view.
     tui.addInputListener((data) => {
       if (!matchesKey(data, Key.ctrl("c"))) return undefined

@@ -229,8 +229,9 @@ permanent output, and it is the same with or without the view.
 - The view opens only when standard output and standard input are terminals and the rendered
   read-out is at least as tall as the window. Redirected output and a read-out that fits the window
   skip it.
-- It runs on `pi-tui`'s alternate-screen renderer: one scroll view over the lines `terminal.ts`
-  renders and a one-line footer with the keys and the line position.
+- It runs on `pi-tui`'s alternate-screen renderer. One scroll view shows the lines `terminal.ts`
+  renders, with one row below it for the keys and the line position. The footer is an overlay
+  because the renderer reuses layout rows when only the scroll position changes.
 - It stops that renderer with the screen preserved, because the renderer would otherwise print the
   document a second time.
 
@@ -239,7 +240,7 @@ Keys:
 - The mouse wheel, the arrow keys, Page Up, Page Down, Home and End scroll the view. The up and
   down arrows are bound to one line of scrolling.
 - No letter scrolls, because the library's search panel reads letters as text.
-- `q` and Esc leave through the footer's keyboard focus. While the reader types into the search
+- `q` and Esc leave through the document's keyboard focus. While the reader types into the search
   panel, `q` therefore stays a letter and Esc closes the panel.
 - Ctrl-C leaves through an input listener, because raw input carries it as a key.
 
