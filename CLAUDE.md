@@ -253,11 +253,21 @@ arrived as a direct or a transitive dependency; the unit of concern is the
 resolved version lagging its latest published release, not how it got there.
 
 Renovate is the standing mechanism (`renovate.json`). It admits ordinary
-updates throughout Saturday and Sunday, groups only dependencies that must move
-together and keeps at most ten update branches in flight to bound CI and rebase
-work. The peer-coupled AI SDKs share a branch. Unrelated updates stay isolated
-so one failure does not hold them together. Pull-request creation has no
-separate concurrency or hourly cap, so every failed branch becomes visible.
+updates throughout Saturday and Sunday and keeps at most ten update branches in
+flight to bound CI and rebase work. Pull-request creation has no separate
+concurrency or hourly cap, so every failed branch becomes visible.
+
+Non-major updates land in six groups, one for each part of the repository where
+a failure would show: the LLM SDKs, the Electron runtime, the docs site, the
+renderer UI stack, development tooling and a catch-all for every other library.
+`main` then gets one commit per group instead of one per package, and a failure
+holds only the updates of its own group. The catch-all groups a new dependency
+without a config edit. The named groups match by package name, because a
+package declared in several manifests would otherwise split over two branches.
+Only the docs site matches by manifest, since its packages appear in no other
+one. Major updates stay out of these groups, because each one can break on its
+own. The peer-coupled Anthropic and MCP SDKs are the exception: they must move
+in lockstep, so they also share their major branch.
 
 Renovate holds each new release for a maturity window before adopting it so
 others hit the early bugs first, raises security fixes immediately and runs
