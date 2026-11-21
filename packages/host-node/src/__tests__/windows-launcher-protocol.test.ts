@@ -324,9 +324,8 @@ describe("Windows launcher protocol", () => {
       assert.equal(next.done, false)
       return parseWindowsLauncherMessage(next.value)
     }
-    // The input-relay failure must reach this side of the pipe as the same
-    // broken-pipe error a direct Node child delivers to its writer. Write
-    // callbacks observe it; the error listener only keeps the emit handled.
+    // The write callback observes the relay failure. The listener handles
+    // the stream's error event.
     launcher.stdin?.on("error", () => {})
     const relayFailure = Promise.withResolvers<NodeJS.ErrnoException>()
 
@@ -368,7 +367,8 @@ describe("Windows launcher protocol", () => {
     })
     const failure = await relayFailure.promise
     clearInterval(writer)
-    assert.match(String(failure.code), /^(EPIPE|EOF)$/)
+    // A write can reach the broken pipe or find that Node already destroyed the stream.
+    assert.match(String(failure.code), /^(EPIPE|EOF|ERR_STREAM_DESTROYED)$/)
     assert.deepEqual(await nextMessage(), {
       kind: "terminal",
       exitCode: 7,
