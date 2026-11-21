@@ -73,7 +73,7 @@ pnpm test
 pnpm test tools/audit-round
 ```
 
-`pnpm audit-round example 3` runs an implementation-audit round for
+`pnpm audit-round round example 3` runs an implementation-audit round for
 the named plan and step from either checkout. The
 [runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
 options, settings and outcomes. Its [Round files](tools/audit-round/CLAUDE.md#round-files)

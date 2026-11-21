@@ -49,7 +49,7 @@ test("a round stopped without a ruling prints its session and the rerun", async 
   })
   const text = written.join("\n")
   assert.match(text, /^Session: fix-session$/m)
-  assert.match(text, /^Rerun: pnpm audit-round example$/m)
+  assert.match(text, /^Rerun: pnpm audit-round run example$/m)
   assert.doesNotMatch(text, /Resume:/)
 })
 
@@ -123,7 +123,7 @@ for (const phase of [
     })
     const text = written.join("\n")
     assert.match(text, new RegExp(`^Session: ${phase}-session$`, "m"))
-    assert.match(text, /^Rerun: pnpm audit-round example$/m)
+    assert.match(text, /^Rerun: pnpm audit-round run example$/m)
     assert.doesNotMatch(text, /Resume:|by hand|resume-fix/)
   })
 }

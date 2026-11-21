@@ -604,6 +604,7 @@ function parseInvocation(
   let invocation: Invocation | undefined
   const command = new Command("audit-round")
     .enablePositionalOptions()
+    .helpCommand(false)
     .description(
       "Run a plan through its close, run one of its stages or audit Git commits.\nArguments have the same meaning from either checkout.",
     )
@@ -612,7 +613,7 @@ function parseInvocation(
       subcommandTerm: (subcommand) => subcommand.name(),
     })
     .usage(
-      `[options] <stem>
+      `run [options] <stem>
        audit-round round ${roundUsage}
        audit-round round-commits ${commitRoundUsage}
        audit-round models [options]
@@ -629,6 +630,9 @@ function parseInvocation(
       writeErr: (text) => options.emergency(text.trimEnd()),
     })
     .exitOverride()
+  command
+    .command("run")
+    .description("Run an active plan from its current stage through its close.")
     .argument("<stem>", "the active plan to run")
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .addOption(resumeOption())
@@ -641,42 +645,17 @@ implementation, the audit range series and the close. Invoking it is your settle
 ready and close call. Any other ending stops the run with the stage's own lines,
 and the same command continues from where the plan stands. Once the full step
 range's newest series has ended on stop and no plan commit has changed a
-file since, the run goes straight to the close. Every series it opens
-uses this opener order: a round --first selection, a listed auditor without a
-current read when another has one, then the configured default. It runs the
-glance and the watch.
+file since, the run goes straight to the close. Each series opens with a listed
+auditor without a current read when another has one, or the configured default.
+It runs the glance and the watch.
 A failed implementation worker prints this command with --resume, which resumes
-that worker's session on its step before the run continues.
-
-Use round to audit a plan or its steps. Use round-commits to audit Git commits.
-Use models to read the auditor, vetter-pair and coder results.
-Use replay to compare retained automatic-series answers with the fixed rules.
-Use disprove to record a finding or vet verdict that later evidence disproved.
-Use implement to land ready plan steps on their assigned coder.
-Use settle, ready or close to record the corresponding plan lifecycle call.
-Each command's --help shows its arguments and options.`,
+that worker's session on its step before the run continues.`,
     )
     .action(
       (stem: string, flags: { verbose?: boolean; resume?: WorkerResume }) => {
         invocation = { kind: "run", stem, ...flags }
       },
     )
-    // Positional options give an option before a subcommand to the run,
-    // which the subcommand never reads. Refusing it keeps an option from
-    // being dropped without a word.
-    .hook("preSubcommand", (run, subcommand) => {
-      const given = run.options
-        .filter(
-          (option) =>
-            run.getOptionValueSource(option.attributeName()) === "cli",
-        )
-        .map((option) => option.long ?? option.short)
-      if (given.length > 0)
-        run.error(
-          `${given.join(", ")} came before ${subcommand.name()}. Put options after the subcommand, as audit-round ${subcommand.name()} --help shows.`,
-        )
-    })
-  // The program owns the run, so Commander adds no `help` command of its own.
   withAuditorOptions(command.command("round"))
     .description("Audit a plan document or the implementation of its steps.")
     .usage(roundUsage)
@@ -822,7 +801,7 @@ Examples (from either checkout):
 
      $ pnpm audit-round round example 2,3-5,6-7
 
-Use pnpm audit-round <stem> to take a plan from its current stage through its close.`,
+Use pnpm audit-round run <stem> to take a plan from its current stage through its close.`,
     )
     .action(
       (stem: string | undefined, scopes: string[], flags: SeriesOptions) => {
@@ -1073,7 +1052,7 @@ Examples (from either checkout):
       },
     )
   try {
-    // A bare command line asks for help rather than reporting a missing plan.
+    // A bare command line prints help and exits successfully.
     command.parse(argv.length === 0 ? ["--help"] : [...argv], { from: "user" })
   } catch (error) {
     // Commander reports its own refusals before its exit override throws a
@@ -1157,6 +1136,16 @@ async function preparedRun(
 }
 
 type PreparedRun = Awaited<ReturnType<typeof preparedRun>>
+
+function planRunCommand(run: Extract<Invocation, { kind: "run" }>): string[] {
+  return [
+    "pnpm",
+    "audit-round",
+    run.kind,
+    run.stem,
+    ...(run.verbose ? ["-v"] : []),
+  ]
+}
 
 /** One landed commit with the subject and message its round's records are read from. */
 async function readLandedRecord(
@@ -1792,12 +1781,7 @@ export async function runCommand(
      */
     const rerunCommand = (target: AuditTarget): string => {
       if (invocation.kind === "run")
-        return shellJoin([
-          "pnpm",
-          "audit-round",
-          invocation.stem,
-          ...(invocation.verbose === true ? ["-v"] : []),
-        ])
+        return shellJoin(planRunCommand(invocation))
       if (invocation.kind !== "round" && invocation.kind !== "round-commits")
         throw new Error(`The ${invocation.kind} command opens no round`)
       const words =
@@ -2400,7 +2384,7 @@ export async function runCommand(
         `Run time ${elapsedText(clock.elapsed(clock.invocation))}.`
       const ended = (stage: string) =>
         say(
-          `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, pnpm audit-round ${stem} continues from where the plan stands. ${runTime()}`,
+          `Run of ${stem} ended in the ${stage}${completed.length === 0 ? "" : ` after the ${completed.join(", ")}`}. Once that ending is handled, ${shellJoin(planRunCommand(run))} continues from where the plan stands. ${runTime()}`,
         )
       const defaults: SeriesOptions = { watch: true }
       // A worker's session belongs to the implementation the run starts in.
@@ -2441,12 +2425,7 @@ export async function runCommand(
             const status = await implementStage(
               await prepareImplementation(context, stem),
               {
-                command: [
-                  "pnpm",
-                  "audit-round",
-                  stem,
-                  ...(run.verbose === true ? ["-v"] : []),
-                ],
+                command: planRunCommand(run),
                 resume: run.stage === "implement" ? (run.resume ?? null) : null,
               },
             )

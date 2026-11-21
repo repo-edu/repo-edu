@@ -314,7 +314,7 @@ test("an automatic series adds no assistant phase for its decision", async (t) =
     0,
     releases,
     testSettings,
-    "pnpm audit-round example",
+    "pnpm audit-round run example",
   )
 
   assert.notEqual(run.phases.at(-1)?.phase, "judge")

@@ -330,7 +330,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
     Date.now(),
     releases,
     testSettings,
-    "pnpm audit-round example",
+    "pnpm audit-round run example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -394,7 +394,7 @@ test("stopping between retained writes leaves the settled entry in progress", as
     Date.now(),
     releases,
     testSettings,
-    "pnpm audit-round example",
+    "pnpm audit-round run example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -426,7 +426,7 @@ test("widening planning data retains the settling recommendation", async (t) => 
     Date.now(),
     releases,
     testSettings,
-    "pnpm audit-round example",
+    "pnpm audit-round run example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -462,7 +462,7 @@ test("the final retained write stores the series answer and resolved auditor lis
     Date.now(),
     releases,
     testSettings,
-    "pnpm audit-round example",
+    "pnpm audit-round run example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -513,7 +513,7 @@ for (const [name, abortReason, status] of [
       Date.now(),
       releases,
       testSettings,
-      "pnpm audit-round example",
+      "pnpm audit-round run example",
     )
     const output = new RoundOutput(run, {
       clock: new RunClock(Date.now),
@@ -570,7 +570,7 @@ for (const assistant of ["claude", "codex"] as const) {
       Date.now(),
       releases,
       settings,
-      "pnpm audit-round example",
+      "pnpm audit-round run example",
     )
     const log: string[] = []
     const output = new RoundOutput(run, {
@@ -725,7 +725,7 @@ for (const assistant of ["claude", "codex"] as const) {
       Date.now(),
       releases,
       settings,
-      "pnpm audit-round example",
+      "pnpm audit-round run example",
     )
     const output = new RoundOutput(run, {
       clock: new RunClock(Date.now),
@@ -813,7 +813,7 @@ test("commit stamps time the finished audit, every vetter and the rebuttal and n
     Date.now(),
     releases,
     settings,
-    "pnpm audit-round example",
+    "pnpm audit-round run example",
   )
   const output = new RoundOutput(run, {
     clock: new RunClock(Date.now),
@@ -920,7 +920,7 @@ test("two vetters' mixed events keep their own slots and records, each vetter's 
     Date.now(),
     releases,
     settings,
-    "pnpm audit-round example",
+    "pnpm audit-round run example",
   )
   const log: string[] = []
   const markdown: string[] = []

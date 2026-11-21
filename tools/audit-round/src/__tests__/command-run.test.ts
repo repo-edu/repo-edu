@@ -114,7 +114,7 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
   })
 
   assert.equal(
-    await runCommand(["example"], f.runtime, {
+    await runCommand(["run", "example"], f.runtime, {
       ...f.options,
       settings: runSettings,
       coin: openers(0, 1),
@@ -200,7 +200,7 @@ test("a whole-life recovery resumes the failed worker and continues through mark
   }
   await f.configure({ phases: f.phases })
   assert.equal(
-    await runCommand(["example"], f.runtime, {
+    await runCommand(["run", "example"], f.runtime, {
       ...f.options,
       settings: runSettings,
     }),
@@ -208,7 +208,7 @@ test("a whole-life recovery resumes the failed worker and continues through mark
   )
   assert.match(
     f.visible.join("\n"),
-    /^Resume: pnpm audit-round example --resume 1:implementation-session$/m,
+    /^Resume: pnpm audit-round run example --resume 1:implementation-session$/m,
   )
 
   const implementation = join(f.activeRoot, "implementation-source.md")
@@ -229,7 +229,7 @@ test("a whole-life recovery resumes the failed worker and continues through mark
   await configureRun(f, { codex: implementation, claude: implementation })
   assert.equal(
     await runCommand(
-      ["example", "--resume", "1:implementation-session"],
+      ["run", "example", "--resume", "1:implementation-session"],
       f.runtime,
       { ...f.options, settings: runSettings },
     ),
@@ -270,7 +270,7 @@ test("a recovery whose plan has left the implementation leaves the session unuse
     "example/implemented obx: complete the Repo Edu share",
   )
   await configureRun(f, { codex: f.report, claude: f.report })
-  await runCommand(["example", "--resume", "1:old-session"], f.runtime, {
+  await runCommand(["run", "example", "--resume", "1:old-session"], f.runtime, {
     ...f.options,
     settings: runSettings,
   })
@@ -327,7 +327,7 @@ test("run continues a plan reopened after ready from its state once it settles",
   })
 
   assert.equal(
-    await runCommand(["example"], f.runtime, {
+    await runCommand(["run", "example"], f.runtime, {
       ...f.options,
       settings: runSettings,
       coin: openers(0, 1),
@@ -353,7 +353,10 @@ test("run continues a plan reopened after ready from its state once it settles",
 test("run refuses a plan without an active artifact before any assistant starts", async (t) => {
   const f = await roundFixture(t)
   // A trailing -v is the run's own option, so it reaches the plan lookup.
-  for (const argv of [["missing"], ["missing", "-v"]])
+  for (const argv of [
+    ["run", "missing"],
+    ["run", "missing", "-v"],
+  ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 1)
   assert.match(
     f.errors.join("\n"),
@@ -367,7 +370,7 @@ test("run refuses a plan without an active artifact before any assistant starts"
 test("run refuses a plan no commit holds before any assistant starts", async (t) => {
   const f = await roundFixture(t)
   await writeFile(join(f.activeRoot, "draft-widen.md"), "# Draft plan\n")
-  assert.equal(await runCommand(["draft"], f.runtime, f.options), 1)
+  assert.equal(await runCommand(["run", "draft"], f.runtime, f.options), 1)
   assert.match(
     f.errors.join("\n"),
     /draft-widen\.md has no commit, so a planning round cannot start\./,
@@ -525,7 +528,7 @@ test("run closes a plan whose full range has settled without another audit", asy
   const f = await implementedFixture(t)
   writeRoundData(f.roundData, fullRangeRound(1, Date.now() + 60_000, "stop"))
   assert.equal(
-    await runCommand(["example"], f.runtime, {
+    await runCommand(["run", "example"], f.runtime, {
       ...f.options,
       settings: runSettings,
     }),

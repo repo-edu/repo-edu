@@ -19,13 +19,13 @@ that continues the round:
 
 ```text
 Session: <session-id>
-Rerun: pnpm audit-round <stem>
+Rerun: pnpm audit-round run <stem>
 ```
 
 Correct any problem the failure names, such as a usage limit, a model name in the settings or a
 premise the plan must settle. Then run the printed command. It repeats the command you typed, so a
-bare run prints `pnpm audit-round <stem>` and a `round` command prints its own target and options.
-Two targets are spelled out instead:
+full-plan run prints `pnpm audit-round run <stem>` and a `round` command prints its own target and
+options. Two targets are spelled out instead:
 
 1. A commit audit names its commits by their IDs, because a `HEAD` form would name other commits
    once `HEAD` has moved.
@@ -77,7 +77,7 @@ Run the whole printed command, for example:
 
 ```text
 pnpm audit-round implement <stem> <scope> --resume 3:<session-id>
-pnpm audit-round <stem> --resume 3:<session-id>
+pnpm audit-round run <stem> --resume 3:<session-id>
 ```
 
 The runner reads Git first. It resumes the session only if that step is selected and still has a

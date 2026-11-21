@@ -46,8 +46,8 @@ first.
 2. **Go on route to a plan.** The assistant writes the plan's init while the file is fresh, as
    `../plan/active/<topic>-widen.md` or, when the requirement has one reasonable shape,
    `<topic>.md`. It asks before committing the `<stem>/init`. After an approved commit it runs
-   `pnpm sweep flag <path> --reason "planned in <stem>"` and prints `pnpm audit-round <stem>` as the
-   next command. It leaves the new plan and a backlog row that names it.
+   `pnpm sweep flag <path> --reason "planned in <stem>"` and prints `pnpm audit-round run <stem>` as
+   the next command. It leaves the new plan and a backlog row that names it.
 3. **Go on dropping a stale entry.** The assistant runs `pnpm sweep done <path>` and leaves no
    commit.
 4. **Name the other route.** Go applies the route you name instead of the recommendation.

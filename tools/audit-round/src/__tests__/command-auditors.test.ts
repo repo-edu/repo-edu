@@ -374,27 +374,29 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["close", "example", "extra"],
     ["close", "example", "--aborted"],
     ["close", "example", "--aborted", " "],
-    // The run takes only its stem and -v; the round keeps the round options.
-    ["example", "extra"],
-    ["example", "--auditor", "codex"],
-    ["example", "--first", "codex"],
-    ["example", "--no-watch"],
-    // An option before a subcommand belongs to the run, which no subcommand reads.
+    ["run"],
+    ["run", "example", "extra"],
+    ["run", "example", "--auditor", "codex"],
+    ["run", "example", "--first", "codex"],
+    ["run", "example", "--no-watch"],
     ["-v", "round", "example"],
-    ["-v", "close", "example"],
+    ["-v", "run", "example"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
-  // A bare command line, -h and --help all reach the same help.
   assert.match(f.errors.join("\n"), /Auditor entry 2 \(other\): expected/)
-  assert.match(
-    f.errors.join("\n"),
-    /--verbose came before round\. Put options after the subcommand/,
-  )
-  assert.match(f.errors.join("\n"), /--verbose came before close\./)
+  for (const argv of [
+    ["example"],
+    ["commit-round", "8838c7", "--auditor", "abx"],
+  ]) {
+    assert.equal(await runCommand(argv, f.runtime, f.options), 2)
+    assert.ok(f.errors.at(-1)?.includes(`unknown command '${argv[0]}'`))
+  }
+  // A bare command line, -h and --help all reach the same help.
   for (const argv of [
     [],
     ["-h"],
     ["--help"],
+    ["run", "--help"],
     ["settle", "--help"],
     ["ready", "--help"],
     ["implement", "--help"],
@@ -422,7 +424,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     "audit-round round-commits [options] [<commits>] plan@<commits>",
   ]
   const rootForms = [
-    "audit-round [options] <stem>",
+    "audit-round run [options] <stem>",
     ...roundForms,
     ...commitForms,
     "audit-round models [options]",
@@ -454,6 +456,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   // Chats and the reopen step call the hidden commands; help shows what a user runs.
   assert.doesNotMatch(visible, /^\s+(episode|mark|ruling|answer)\s/m)
   for (const name of [
+    "run",
     "models",
     "replay",
     "disprove",
@@ -494,7 +497,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /<target>-queue\.md at the\s+active folder/)
   assert.match(visible, /Examples \(from either checkout\):/)
   assert.ok(visible.split("\n").every((line) => line.length <= 88))
-  // The run is the command itself, and each command carries its own help.
+  // Each command carries its own help.
   assert.doesNotMatch(visible, /^\s+help\b/m)
 })
 

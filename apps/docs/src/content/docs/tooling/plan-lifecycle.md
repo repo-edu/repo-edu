@@ -33,9 +33,9 @@ words. A reversal is cheapest while the shape is open, before detail stacks on t
 
 | Stage | What changes | What ends the stage |
 | --- | --- | --- |
-| Widen | Audits challenge the problem, scope and load-bearing decisions while the filename ends in `-widen.md` | You run [`pnpm audit-round settle [stem]`](/repo-edu/tooling/settle/) or grant settle through the [bare full-plan run](/repo-edu/tooling/full-plan-run/) |
+| Widen | Audits challenge the problem, scope and load-bearing decisions while the filename ends in `-widen.md` | You run [`pnpm audit-round settle [stem]`](/repo-edu/tooling/settle/) or grant settle through the [full-plan run](/repo-edu/tooling/full-plan-run/) |
 | Settle | The runner renames the committed plan onto `<stem>.md` and records the phase marker | The rename commit lands |
-| Detail | Audits complete the decisions, implementation steps and checks | You run [`pnpm audit-round ready [stem]`](/repo-edu/tooling/ready/) or grant ready through the bare full-plan run |
+| Detail | Audits complete the decisions, implementation steps and checks | You run [`pnpm audit-round ready [stem]`](/repo-edu/tooling/ready/) or grant ready through the full-plan run |
 | Ready | The runner records the assigned coder without starting implementation | The ready marker lands |
 | Implement | [One fresh worker](/repo-edu/tooling/implement/) implements and commits each remaining step share in order | Every hosting repository has every step share and a current `implemented` marker |
 | Audit implementation | [Series](/repo-edu/tooling/runner-round/) inspect the plan's listed audit ranges, then the full step range | The fixed series rules stop after every available assistant has a current read and the user accepts that state |
@@ -56,9 +56,9 @@ pnpm audit-round ready [stem]
 pnpm audit-round close [stem]
 ```
 
-Running `pnpm audit-round <stem>` grants all three calls in advance. It still stops when a ruling,
-failure, red watch or open close decision needs you. Run the stage commands instead when you want to
-read the plan between stages.
+Running `pnpm audit-round run <stem>` grants all three calls in advance. It still stops when a
+ruling, failure, red watch or open close decision needs you. Run the stage commands instead when you
+want to read the plan between stages.
 
 ## Steps and audit ranges
 

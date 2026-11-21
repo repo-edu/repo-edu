@@ -1,10 +1,10 @@
 ---
-title: "pnpm audit-round <stem>"
-description: Take one active plan from its current stage through its close with pnpm audit-round
+title: "pnpm audit-round run <stem>"
+description: Take one active plan from its current stage through its close with pnpm audit-round run
 ---
 
-`pnpm audit-round <stem>` takes one active plan from the stage it stands at through its close, by
-running the same stages the single runner commands run, in lifecycle order.
+`pnpm audit-round run <stem>` takes one active plan from the stage it stands at through its close,
+by running the same stages the single runner commands run, in lifecycle order.
 
 | Fact | Detail |
 | --- | --- |
@@ -14,15 +14,15 @@ running the same stages the single runner commands run, in lifecycle order.
 ## Usage
 
 ```text
-pnpm audit-round <stem>                               run the plan from its current stage to close
-pnpm audit-round <stem> -v | --verbose                also show assistant tool calls
-pnpm audit-round <stem> --resume <step>:<session-id>  resume the failed worker the runner printed
-pnpm audit-round -h | --help                          show the runner's help; a bare call does too
+pnpm audit-round run <stem>                               run the plan from its current stage to close
+pnpm audit-round run <stem> -v | --verbose                also show assistant tool calls
+pnpm audit-round run <stem> --resume <step>:<session-id>  resume the failed worker the runner printed
+pnpm audit-round run -h | --help                          show help for the run command
 ```
 
 ```text
-pnpm audit-round tooling-help-pages
-pnpm audit-round tooling-help-pages --resume 2:019a5d7d-example
+pnpm audit-round run tooling-help-pages
+pnpm audit-round run tooling-help-pages --resume 2:019a5d7d-example
 ```
 
 The stem is the plan filename without `.md` or `-widen`. The run takes no round option. When one
@@ -90,14 +90,13 @@ refusal with status 1.
 1. **No active plan has that stem.** `No active plan named <stem> at <active folder>. The run
    command requires an active plan.` An archived plan gives the same refusal.
 2. **The stem is a path.** `Name the plan by its stem, such as <stem>, without a path.`
-3. **An option comes before a subcommand.** For example `pnpm audit-round -v round <stem>`. The
-   argument parser prints `--verbose came before round.` without the `audit-round:` prefix. Put the
-   option after the subcommand.
+3. **An option comes before the subcommand.** `pnpm audit-round -v run <stem>` reports
+   `unknown option '-v'`. Put the option after `run`.
 
 ## Stop and recovery
 
 Any ending other than the stages' own progress ends the run with that stage's lines and recovery
-command. Each recovery ends with running `pnpm audit-round <stem>` again unless a resume command
+command. Each recovery ends with running `pnpm audit-round run <stem>` again unless a resume command
 continues the run itself.
 
 1. **A ruling needs your answer.** Before an audit fix the runner asks for the decisions the round's
@@ -109,8 +108,8 @@ continues the run itself.
    continues it; an implementation worker prints its session's recovery command. See
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase or worker failed.** Fix any outside problem the failure names, then run the printed
-   `Rerun:` command, which is `pnpm audit-round <stem>`, or the printed `--resume` form of it for a
-   failed worker. The rerun continues a stopped round on its kept reports. See
+   `Rerun:` command, which is `pnpm audit-round run <stem>`, or the printed `--resume` form of it
+   for a failed worker. The rerun continues a stopped round on its kept reports. See
    [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** Read the named `-watch.md` file and act on it before you
    rerun.

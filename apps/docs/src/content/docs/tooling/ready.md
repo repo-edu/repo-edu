@@ -24,8 +24,8 @@ pnpm audit-round ready -h | --help   show the command's help
 
 Run it after a detailing series ends with the runner's ready answer, or whenever you judge the brief
 complete. The runner only reports what the fixed rules decide; this command makes the call. The full
-run [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) makes the same call itself on a
-ready answer.
+run [`pnpm audit-round run <stem>`](/repo-edu/tooling/full-plan-run/) makes the same call itself on
+a ready answer.
 
 Before it commits, the command reads the committed plan and checks the two forms the runner later
 parses: the **Implementation plan** step list, where each step opens with a bold title and a hosting

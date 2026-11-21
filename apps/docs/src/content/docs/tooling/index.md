@@ -34,7 +34,7 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | I want to start or reopen a plan | Give the start or reopen instruction in the plan checkout | A planning document whose open shape can be audited |
 | I want to settle a plan's shape | [`pnpm audit-round settle [stem]`](/repo-edu/tooling/settle/) | The widening filename is changed to its settled name; the command starts no assistant |
 | I want to mark a detailed plan ready | [`pnpm audit-round ready [stem]`](/repo-edu/tooling/ready/) | The ready marker records your call and assigns the next coder |
-| I want one command to take a plan through its whole life | [`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) | The plan advances from its current stage; a stop that needs you ends the run and the same command continues later |
+| I want one command to take a plan through its whole life | [`pnpm audit-round run <stem>`](/repo-edu/tooling/full-plan-run/) | The plan advances from its current stage; a stop that needs you ends the run and the same command continues later |
 | I want to close a finished plan | [`/close [stem]`](/repo-edu/tooling/close/) or [`pnpm audit-round close [stem]`](/repo-edu/tooling/runner-close/) | The plan and its round data move to the archive; the command asks before closing with an open decision |
 | I want to archive an abandoned plan | [`/close aborted [stem]`](/repo-edu/tooling/close/) or [`pnpm audit-round close <stem> --aborted "<reason>"`](/repo-edu/tooling/runner-close/) | The abandoned episode and its reason move to the archive |
 

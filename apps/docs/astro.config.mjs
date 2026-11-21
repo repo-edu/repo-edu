@@ -143,7 +143,7 @@ export default defineConfig({
                   label: "Runner commands",
                   items: [
                     {
-                      label: "pnpm audit-round <stem>",
+                      label: "pnpm audit-round run <stem>",
                       slug: "tooling/full-plan-run",
                     },
                     { label: "round and round-commits", slug: "tooling/runner-round" },

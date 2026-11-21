@@ -437,7 +437,7 @@ A round stopped early when its round data entry says `failed`, `interrupted` or 
 The command that opens a round on a target continues the target's newest round when that round
 stopped early, kept an audit report that reads as valid against the target it judged and is a
 chained round exactly when the call is one. `roundRun` in `output.ts` is the one owner of the rule,
-so the bare run, `round`, a scope list and a chained round need no rule of their own.
+so `run`, `round`, a scope list and a chained round need no rule of their own.
 
 - A round that stopped in its audit kept no audit report, so the call opens a new round, and
   `--first`, `--auditor` and the current settings apply to it.
@@ -506,7 +506,7 @@ the line, and both the round's ending and the emergency ending print it.
 
 The `Rerun:` line is the command the user typed, built from the parsed invocation:
 
-- The bare run is spelled `pnpm audit-round <stem>`, and `round` keeps its typed target and
+- The full-plan command is `pnpm audit-round run <stem>`, and `round` keeps its typed target and
   options.
 - `round-commits` names its original commits by their six-character IDs, with `plan@` before the
   plan group's first. A `HEAD` form typed again names other commits once `HEAD` has moved, and the
@@ -564,15 +564,14 @@ lists live work only. The move follows the round data's move beside the archived
 
 `command.ts` owns the command grammar, startup and final reporting.
 
-- The run is the command itself, taking the plan stem as its own argument.
-- A run option given before a subcommand is refused, because the run owns it and no subcommand
-  reads it. Options go after the subcommand.
-- The program carries an action handler, so Commander adds no `help` command, and each command's
-  own `-h` prints its help. A bare command line prints that help.
+- The first word selects a subcommand. `run` takes the plan stem so Commander can report an
+  unknown command before checking its arguments or options.
+- Options belong to their subcommand and follow its name. Each command's `-h` prints its help.
+  A bare command line prints the top-level help.
 
 | Command | Purpose | Help |
 | --- | --- | --- |
-| [`<stem>`](#the-run) | Take an active plan from its current stage through its close | Listed |
+| [`run`](#the-run) | Take an active plan from its current stage through its close | Listed |
 | [`round`](#round) | Audit a plan or its steps | Listed |
 | [`round-commits`](#commit-targets) | Audit a set of Git commits | Listed |
 | [`settle`](#settle) | Record the user's settle call | Listed |
@@ -763,8 +762,8 @@ pnpm audit-round implement example 2-4
 pnpm audit-round close example
 pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
-pnpm audit-round example
-pnpm audit-round example -v
+pnpm audit-round run example
+pnpm audit-round run example -v
 pnpm audit-round mark reopen
 pnpm audit-round episode example --lines 1-200
 pnpm audit-round episode HEAD-2 --lines 201-400
@@ -788,7 +787,7 @@ Both commands use the same round sequence.
 
 ### The run
 
-`<stem> [-v] [--resume <step>:<session-id>]`, the bare command, takes an active plan from the
+`run <stem> [-v] [--resume <step>:<session-id>]` takes an active plan from the
 stage its state calls for through its close. Invoking it is the user's settle, ready and close
 call, given in advance.
 
@@ -894,7 +893,7 @@ optional step scope, the per-repo landed-share scan and the sequential worker lo
 
 - A failed worker or missing landed share with a known session prints the entry that owned the
   worker, with `--resume <step>:<session-id>` naming the step and its session. That entry is
-  `pnpm audit-round implement <stem> [scope]` or the bare `pnpm audit-round <stem>`, with `-v`
+  `pnpm audit-round implement <stem> [scope]` or `pnpm audit-round run <stem>`, with `-v`
   when it was typed.
 - A failure without a session prints no runner command, and the ordinary rerun remains.
 - An unanswered ruling prints the worker's assistant recovery command instead: the user answers in

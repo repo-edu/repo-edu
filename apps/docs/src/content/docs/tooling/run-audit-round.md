@@ -51,8 +51,8 @@ read.
 Every round runs in the runner, which has no chat command for a single phase. Use `round` for a plan
 and `round-commits` for Git commits. Both carry the audit report through those phases and apply the
 automatic-series rules. See [round and round-commits](/repo-edu/tooling/runner-round/). Use the bare
-[`pnpm audit-round <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may also proceed through
-later lifecycle stages without a planned reading between them.
+[`pnpm audit-round run <stem>`](/repo-edu/tooling/full-plan-run/) when the plan may also proceed
+through later lifecycle stages without a planned reading between them.
 
 ## Targets
 
@@ -92,7 +92,7 @@ continues the stopped round on its kept reports. See
 
 The runner answers stop after the read floor. For a widening plan, the retained settling line may
 instead answer settle. During detailing before the ready marker, the answer is ready. These answers
-do not make the user's lifecycle call; the bare full-plan run acts on settle and ready only because
+do not make the user's lifecycle call; the full-plan run acts on settle and ready only because
 its invocation granted them in advance.
 
 ## Following a round
