@@ -700,7 +700,7 @@ function disprovedRow(entry: DisprovedEvidence): ReasonRow {
   }
 }
 
-/** The model a table's rows group by: the party whose claim the table holds. */
+/** The model a table's rows group by: the auditor, or the ruler in a ruler table. */
 function disprovedModel(entry: DisprovedEvidence): string {
   if (entry.claim !== "ruler") return modelText(entry.auditor)
   const ruler = entry.wrong.find((party) => party.role === "ruler")?.identity

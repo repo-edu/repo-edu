@@ -176,7 +176,12 @@ for (const auditor of ["codex", "claude"] as const) {
         [join(installationRoot, "../plan/hooks/commit-msg"), message],
         {
           cwd: f.planRoot,
-          env: { COMMIT_AUDITOR: call.auditor, COMMIT_PHASES: call.phases },
+          env: {
+            COMMIT_AUDITOR: call.auditor,
+            COMMIT_PHASES: call.phases,
+            COMMIT_SERIES: "",
+            COMMIT_OPEN_CONTESTS: "",
+          },
         },
       )
       assert.equal(

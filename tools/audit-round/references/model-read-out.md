@@ -160,8 +160,9 @@ Ruling winners and ruler winners each have a planning section followed by an imp
 section. Each section lists its newest round first and keeps findings in order within a round.
 
 The ruling winners tables list every winner the user named in a round. Each row shows
-the plan and round, the finding and its tier, the auditor, every vetter's verdict, the answer
-and the reason.
+the plan and round, the finding and its tier, the auditor, the vetters, the answer and the reason.
+The `Vetters` column names each vetter of the round by its model and effort, with its verdict on
+the finding or `no verdict`.
 
 - The answer names each winning vetter by its model rather than its tag, because a tag names a
   vetter only within its round.
@@ -214,9 +215,6 @@ These rules hold for ruling winners, ruler winners and disproved findings:
   into an unreadable grid.
 - A numbered list of the full reasons follows each table. It is numbered across the section, so
   each ruling keeps one number.
-
-The vetter column of the ruling-winner and ruler-winner tables names each vetter of the round with
-its verdict on the finding.
 
 ## Excluded plans
 
