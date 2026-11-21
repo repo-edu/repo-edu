@@ -441,8 +441,8 @@ importers:
         specifier: ^5.5.2
         version: 5.5.2
       web-tree-sitter:
-        specifier: 0.27.1
-        version: 0.27.1
+        specifier: 0.27.2
+        version: 0.27.2
 
   packages/application-contract:
     dependencies:
@@ -498,8 +498,8 @@ importers:
         specifier: 1.6.4
         version: 1.6.4
       web-tree-sitter:
-        specifier: 0.27.1
-        version: 0.27.1
+        specifier: 0.27.2
+        version: 0.27.2
       zod:
         specifier: ^4.5.4
         version: 4.6.7
@@ -549,8 +549,8 @@ importers:
         specifier: 'catalog:'
         version: 3.3.7
       web-tree-sitter:
-        specifier: 0.27.1
-        version: 0.27.1
+        specifier: 0.27.2
+        version: 0.27.2
       write-file-atomic:
         specifier: 'catalog:'
         version: 8.0.0
@@ -737,8 +737,8 @@ importers:
         specifier: ^4.0.2
         version: 4.6.0
       web-tree-sitter:
-        specifier: 0.27.1
-        version: 0.27.1
+        specifier: 0.27.2
+        version: 0.27.2
       zustand:
         specifier: ^5.0.12
         version: 5.1.0(@types/react@19.3.0)(immer@11.2.9)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))
@@ -787,8 +787,8 @@ importers:
         version: link:../domain
     devDependencies:
       web-tree-sitter:
-        specifier: 0.27.1
-        version: 0.27.1
+        specifier: 0.27.2
+        version: 0.27.2
 
   packages/ui:
     dependencies:
@@ -7105,8 +7105,8 @@ packages:
     engines: {node: ^20.12||^22.13||>=24.0}
     hasBin: true
 
-  web-tree-sitter@0.27.1:
-    resolution: {integrity: sha512-qtx0VyUyNRHtL3ze7+v0hCKB/sLcAmY7ZAVp/ZK/bCj0yED8ptvNrr7Vd7DwDyKDWN9baqcUx4uaD2r2ql+6IA==}
+  web-tree-sitter@0.27.2:
+    resolution: {integrity: sha512-ZRo86GKI4aOSBAqOrPmCtriExI3xIzu1sNw/V6v3b4QGxrEmO19FGwbMNdyhw3MJLAZIw0xAV0oSpqX361eAyQ==}
 
   webcrypto-core@1.9.2:
     resolution: {integrity: sha512-gsXecm82UQNlTBURJGuqOWy1Ww08S3kZUcr3aOJS02Pk0xLtkfeUAVC0u0xhgdonFme80edSJUIJyuvL/7250Q==}
@@ -13417,7 +13417,7 @@ snapshots:
 
   watskeburt@5.0.3: {}
 
-  web-tree-sitter@0.27.1: {}
+  web-tree-sitter@0.27.2: {}
 
   webcrypto-core@1.9.2:
     dependencies:
