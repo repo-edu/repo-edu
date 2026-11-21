@@ -491,11 +491,12 @@ test("a rerun asks again for a stopped panel split before a fresh fix that reads
   }
   assert.equal(stored.rounds.length, 1)
   assert.equal(stored.rounds[0]?.status, "finished")
-  // The continued round keeps each vetter's vet phase entry by its tag.
+  // Concurrent vetters can start in either order. Both tagged entries survive the rerun.
   assert.deepEqual(
     stored.rounds[0]?.phases
       .filter((phase) => phase.phase === "vet")
-      .map(({ tag, assistant }) => ({ tag, assistant })),
+      .map(({ tag, assistant }) => ({ tag, assistant }))
+      .sort((a, b) => a.assistant.localeCompare(b.assistant)),
     [
       { tag: "abh", assistant: "claude" },
       { tag: "obh", assistant: "codex" },

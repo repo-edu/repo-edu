@@ -156,19 +156,21 @@ test("rendered reports wrap nested evidence and long paths at the current width"
 })
 
 test("NO_COLOR removes styling while preserving report layout", (t) => {
-  const previous = process.env.NO_COLOR
+  t.mock.property(process, "env", { TERM: "xterm-256color" })
+  const renderReport = () => {
+    const { stream, chunks } = capture(true)
+    const terminal = createTerminal(stream)
+    terminal.write("## Findings\n\nEvidence in `source.ts`.", "markdown")
+    terminal.clear()
+    return chunks.join("")
+  }
+  const styled = renderReport()
+  const plain = stripVTControlCharacters(styled)
+  assert.notEqual(styled, plain)
+  assert.match(plain, /Findings\s*\n\s*\nEvidence in source\.ts\./)
+
   process.env.NO_COLOR = "1"
-  t.after(() => {
-    if (previous === undefined) delete process.env.NO_COLOR
-    else process.env.NO_COLOR = previous
-  })
-  const { stream, chunks } = capture(true)
-  const terminal = createTerminal(stream)
-  terminal.write("## Findings\n\nEvidence in `source.ts`.", "markdown")
-  const rendered = chunks.join("")
-  assert.equal(rendered, stripVTControlCharacters(rendered))
-  assert.match(rendered, /Findings\s*\n\s*\nEvidence in source\.ts\./)
-  terminal.clear()
+  assert.equal(renderReport(), plain)
 })
 
 test("redirected Markdown and plain status messages do not invoke the renderer", () => {
