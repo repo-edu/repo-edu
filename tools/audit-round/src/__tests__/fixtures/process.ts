@@ -27,6 +27,7 @@ await appendFile(
     auditor: process.env.COMMIT_AUDITOR ?? null,
     series: process.env.COMMIT_SERIES ?? null,
     openContests: process.env.COMMIT_OPEN_CONTESTS ?? null,
+    cacheLifetime: process.env.CLAUDE_CODE_PROMPT_CACHE_TTL ?? null,
   })}\n`,
 )
 

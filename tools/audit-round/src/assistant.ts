@@ -41,6 +41,29 @@ import {
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
 
+/**
+ * The phases whose Claude sessions keep their prompt cache for five minutes
+ * instead of an hour. The Cache lifetime section of `references/sessions.md`
+ * gives the measured reason.
+ */
+const fiveMinuteCachePhases: ReadonlySet<Phase> = new Set([
+  "audit",
+  "vet",
+  "rebut",
+  "rule",
+  "watch",
+])
+
+/** The child's environment: the caller's, with the selected phases' cache lifetime. */
+function childEnvironment(
+  input: AssistantTurnInput,
+  env: CliRuntime["env"],
+): CliRuntime["env"] {
+  return input.assistant === "claude" && fiveMinuteCachePhases.has(input.phase)
+    ? { ...env, CLAUDE_CODE_PROMPT_CACHE_TTL: "5m" }
+    : env
+}
+
 /** Derive the fix commit block from the contest arguments the runner already owns. */
 function openContests(input: AssistantTurnInput): readonly number[] {
   if (input.phase !== "fix") return []
@@ -220,6 +243,7 @@ async function runAssistantTurn<T>(
       ? new CodexSessionReader(codexSessionsRoot(runtime))
       : undefined
   const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
+  const env = childEnvironment(input, runtime.env)
   /**
    * One CLI process on the session. A session is one or more turns and ends
    * with its process; the response is the last finished turn's text.
@@ -229,7 +253,7 @@ async function runAssistantTurn<T>(
     let turns = 0
     const request = phaseRequest(input, sessionId, text)
     await withCliProcess(
-      { ...runtime, cwd: input.cwd, openContests: openContests(input) },
+      { ...runtime, cwd: input.cwd, env, openContests: openContests(input) },
       input.assistant,
       request.args,
       request.input,

@@ -137,6 +137,25 @@ phase before progression. The watch's result is handled under [Watch](watch.md#w
 assistants replace the phase total with the session's newest running total. The Claude and Codex
 decoders validate the fields they consume.
 
+### Cache lifetime
+
+A Claude child of the audit, vet, rebuttal, ruler or watch receives
+`CLAUDE_CODE_PROMPT_CACHE_TTL=5m`, on a fresh run and on each automatic continuation of the same
+phase. Every other launch, and every Codex child, inherits the caller's environment unchanged,
+including any explicit setting of its own. `assistant.ts` sets the value per invocation, so
+concurrent vetters and the parent environment never share it.
+
+- **Why five minutes.** Claude's print mode otherwise writes a one-hour cache on a subscription's
+  included allowance. Five-minute writes cost 37.5% less, and each cache hit restarts the five
+  minutes. Across a measured week of 307 sessions in these five phases, no follow-up request came
+  five or more minutes after the one before it, so no hit inside a session is lost.
+- **What it costs.** A later session that reuses the same prompt between five minutes and an hour
+  later misses the cache and Claude processes that input again. The session's conversation and
+  evidence stay the same.
+- **Why not the fix or the implementation.** Fix and plan-step sessions each had many gaps of five
+  minutes or more, so a shorter cache would lose hits inside the session. They keep the caller's
+  setting.
+
 ### Claude and Codex readings
 
 - `claude.ts` reads `modelUsage` from each turn's result. Its input is
@@ -154,7 +173,8 @@ decoders validate the fields they consume.
 
 ### Child process
 
-`cli-process.ts` owns the child's environment. It stops the child before unwinding a failed line
+`cli-process.ts` owns the child's environment, built on the one the invocation passes it, which
+carries the [Cache lifetime](#cache-lifetime). It stops the child before unwinding a failed line
 consumer, because Execa's iterator return awaits the child. It then awaits all readers and the
 process. Process output is never accumulated by Execa. The child's commit stamps are described under
 [Commit hooks](commit-hooks.md#commit-hooks), and its stop signals under

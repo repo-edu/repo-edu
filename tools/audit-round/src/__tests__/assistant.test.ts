@@ -59,6 +59,127 @@ test("a fix child receives its unresolved contest commit block", async (t) => {
   assert.equal((await f.calls())[1]?.openContests, "")
 })
 
+/** One launch of each phase on `assistant`, with what the runner supplies it. */
+function cachePhases(assistant: Assistant, root: string): PhaseInput[] {
+  const context = { assistant, model: pinned(assistant), ...testContext(root) }
+  const report = join(root, "audit.md")
+  return [
+    {
+      ...context,
+      phase: "audit",
+      arguments: [report, "example.md"],
+      sessionId: null,
+    },
+    {
+      ...context,
+      phase: "vet",
+      arguments: [report, join(root, "vet.abh.md")],
+      sessionId: null,
+    },
+    {
+      ...context,
+      phase: "rebut",
+      arguments: [report, join(root, "vet.abh.md"), join(root, "rebut.md")],
+      sessionId: null,
+    },
+    {
+      ...context,
+      phase: "rule",
+      arguments: [
+        report,
+        join(root, "vet.abh.md"),
+        join(root, "rebut.md"),
+        join(root, "ruler.md"),
+        { findings: [{ finding: 1, tier: "C" }] },
+      ],
+      panel: ["abh"],
+      sessionId: null,
+    },
+    {
+      ...context,
+      phase: "watch",
+      arguments: [],
+      evidence: "{}",
+      sessionId: null,
+    },
+    { ...input(assistant, root) },
+    {
+      ...context,
+      phase: "implement",
+      rulingFile: join(root, "RULING.md"),
+      arguments: ["/plan/example.md", 1, ["repo-edu"], "claude-test", "high"],
+      sessionId: null,
+    },
+  ]
+}
+
+const fiveMinutePhases = ["audit", "vet", "rebut", "rule", "watch"]
+
+test("a Claude child of the five reviewing phases keeps its cache for five minutes, on a fresh run and its continuation", async (t) => {
+  const f = await fixture(t)
+  // A response without its result line makes the runner continue the session once.
+  await f.configure({ stream: await phaseStream("claude", "No result line") })
+  const runtime = {
+    ...f.runtime,
+    env: { CLAUDE_CODE_PROMPT_CACHE_TTL: "1h" },
+  }
+  for (const phase of cachePhases("claude", f.root)) {
+    const before = (
+      await readFile(join(f.root, "calls.jsonl"), "utf8").catch(() => "")
+    ).length
+    await runAssistantPhase(phase, f.output, runtime)
+    const calls = (await readFile(join(f.root, "calls.jsonl"), "utf8"))
+      .slice(before)
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line))
+    assert.equal(calls.length, 2, phase.phase)
+    assert.deepEqual(calls[1].args.slice(0, 3), [
+      "-p",
+      "--resume",
+      "test-session",
+    ])
+    const expected = fiveMinutePhases.includes(phase.phase) ? "5m" : "1h"
+    assert.deepEqual(
+      calls.map((call) => call.cacheLifetime),
+      [expected, expected],
+      phase.phase,
+    )
+  }
+  assert.deepEqual(runtime.env, { CLAUDE_CODE_PROMPT_CACHE_TTL: "1h" })
+})
+
+test("a Codex child and a concurrent Claude worker inherit the caller's cache lifetime", async (t) => {
+  const f = await fixture(t)
+  await f.configure({
+    stream: await phaseStream("claude"),
+    assistants: { codex: { stream: await phaseStream("codex") } },
+  })
+  const runtime = {
+    ...f.runtime,
+    env: { CLAUDE_CODE_PROMPT_CACHE_TTL: "1h" },
+  }
+  const [claudeVet, claudeFix] = cachePhases("claude", f.root).filter(
+    (phase) => phase.phase === "vet" || phase.phase === "fix",
+  )
+  const [codexVet] = cachePhases("codex", f.root).filter(
+    (phase) => phase.phase === "vet",
+  )
+  await Promise.all(
+    [claudeVet, claudeFix, codexVet].map((phase) =>
+      runAssistantPhase(phase, f.output, runtime),
+    ),
+  )
+  const calls = await f.calls()
+  const lifetimes = (assistant: Assistant) =>
+    calls
+      .filter((call) => call.assistant === assistant)
+      .map((call) => call.cacheLifetime)
+      .sort()
+  assert.deepEqual(lifetimes("claude"), ["1h", "5m"])
+  assert.deepEqual(lifetimes("codex"), ["1h"])
+})
+
 test("a Codex child that prints a reconnect notice and then completes its turn finishes the phase", async (t) => {
   const f = await fixture(t)
   const notice =
