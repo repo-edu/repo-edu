@@ -73,7 +73,7 @@
         "bun": "^1.4.2",
         "globby": "^16.1.1",
         "husky": "9.1.7",
-        "rumdl": "0.3.2",
+        "rumdl": "0.3.4",
         "tsx": "^4.21.0",
         "typescript": "npm:@typescript/typescript6@6.0.2"
     }
