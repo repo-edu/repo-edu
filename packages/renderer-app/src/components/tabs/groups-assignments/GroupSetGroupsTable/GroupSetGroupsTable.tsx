@@ -13,15 +13,10 @@ import {
 } from "@repo-edu/ui"
 import { ArrowUp, Plus, Search } from "@repo-edu/ui/components/icons"
 import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
+  functionalUpdate,
   type SortingState,
   type Updater,
-  useReactTable,
-  type VisibilityState,
+  useTable,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSessionController } from "../../../../session/session-controller-context.js"
@@ -34,6 +29,10 @@ import {
   getNextProgressiveSorting,
   normalizeProgressiveSorting,
 } from "../../../../utils/sorting.js"
+import {
+  type RosterColumnDef,
+  rosterTableFeatures,
+} from "../../../common/table-features.js"
 import {
   buildGroupRows,
   createGroupColumns,
@@ -84,7 +83,7 @@ function unnamedColumnLabel(columnId: string): string {
   return labels[columnId] ?? columnId
 }
 
-function createUnnamedColumns(): ColumnDef<UnnamedTeamRow>[] {
+function createUnnamedColumns(): RosterColumnDef<UnnamedTeamRow>[] {
   return [
     {
       id: "repoName",
@@ -219,9 +218,7 @@ export function GroupsTable({
 
   const handleSortingChange = useCallback((updater: Updater<SortingState>) => {
     setSorting((current) =>
-      normalizeProgressiveSorting(
-        typeof updater === "function" ? updater(current) : updater,
-      ),
+      normalizeProgressiveSorting(functionalUpdate(updater, current)),
     )
   }, [])
 
@@ -323,9 +320,9 @@ export function GroupsTable({
     selectedCountFilterCount > 0 && !allCountFiltersSelected
 
   // Column definitions
-  const columns = useMemo<ColumnDef<TableRow>[]>(() => {
+  const columns = useMemo<RosterColumnDef<TableRow>[]>(() => {
     if (isUnnamedGroupSet) {
-      return createUnnamedColumns() as unknown as ColumnDef<TableRow>[]
+      return createUnnamedColumns() as unknown as RosterColumnDef<TableRow>[]
     }
     return createGroupColumns({
       groupSetId,
@@ -353,7 +350,7 @@ export function GroupsTable({
           controller.copyMemberToGroup(course.id, memberId, targetGroupId)
         }
       },
-    }) as unknown as ColumnDef<TableRow>[]
+    }) as unknown as RosterColumnDef<TableRow>[]
   }, [
     controller,
     course,
@@ -374,7 +371,8 @@ export function GroupsTable({
     setLocalColumnSizing(groupsColumnSizing)
   }, [groupsColumnSizing])
 
-  const table = useReactTable<TableRow>({
+  const table = useTable({
+    features: rosterTableFeatures,
     data: filteredRows,
     columns,
     columnResizeMode: "onChange",
@@ -386,24 +384,14 @@ export function GroupsTable({
     },
     onSortingChange: handleSortingChange,
     onGlobalFilterChange: setGlobalFilter,
-    onColumnSizingChange: (updater) => {
-      setLocalColumnSizing((prev) =>
-        typeof updater === "function" ? updater(prev) : updater,
-      )
-    },
-    onColumnVisibilityChange: (updater: Updater<VisibilityState>) => {
-      const next =
-        typeof updater === "function"
-          ? updater(groupsColumnVisibility)
-          : updater
+    onColumnSizingChange: setLocalColumnSizing,
+    onColumnVisibilityChange: (updater) => {
+      const next = functionalUpdate(updater, groupsColumnVisibility)
       if (course !== null) {
         controller.updateGroupSetColumnVisibility(course.id, groupSetId, next)
       }
     },
     getRowId: (row) => (isUnnamedTeamRow(row) ? row.teamId : row.group.id),
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: (row, _columnId, filterValue: string) => {
       const query = filterValue.trim().toLowerCase()
       if (!query) return true
@@ -428,7 +416,7 @@ export function GroupsTable({
   const totalColumnSize = table.getTotalSize()
   const toColumnWidth = (size: number): string | undefined =>
     totalColumnSize > 0 ? `${(size / totalColumnSize) * 100}%` : undefined
-  const isResizingColumn = table.getState().columnSizingInfo.isResizingColumn
+  const isResizingColumn = table.state.columnResizing.isResizingColumn
   const prevIsResizingRef = useRef<string | false>(false)
 
   useEffect(() => {
@@ -614,7 +602,7 @@ export function GroupsTable({
           <div className="px-3 pb-2">
             <div className="border rounded mb-2">
               <table
-                className={`w-full text-sm ${table.getState().columnSizingInfo.isResizingColumn ? "select-none" : ""}`}
+                className={`w-full text-sm ${isResizingColumn ? "select-none" : ""}`}
                 style={{ tableLayout: "fixed" }}
               >
                 <thead className="bg-muted">
@@ -626,12 +614,9 @@ export function GroupsTable({
                           className="bg-muted sticky top-0 z-10 p-2 text-left font-medium relative min-w-0"
                           style={{ width: toColumnWidth(header.getSize()) }}
                         >
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )}
+                          {!header.isPlaceholder && (
+                            <table.FlexRender header={header} />
+                          )}
                           {header.column.getCanResize() && (
                             // biome-ignore lint/a11y/noStaticElementInteractions: column resize handle uses mouse/touch drag
                             <div
@@ -660,10 +645,7 @@ export function GroupsTable({
                             width: toColumnWidth(cell.column.getSize()),
                           }}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
+                          <table.FlexRender cell={cell} />
                         </td>
                       ))}
                     </tr>

@@ -1,8 +1,8 @@
 import type { MemberStatus, RosterMember } from "@repo-edu/domain/types"
-import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo } from "react"
 import { chainComparisons, compareText } from "../../../utils/sorting.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
+import type { RosterColumnDef } from "../../common/table-features.js"
 import { EditableTextCell } from "./cells/EditableTextCell.js"
 import { StatusCell } from "./cells/StatusSelectCell.js"
 import {
@@ -51,8 +51,8 @@ export function useMemberColumns({
   onUpdateGitUsername,
   onUpdateStatus,
   onRequestPermanentDelete,
-}: UseMemberColumnsArgs): ColumnDef<RosterMember>[] {
-  return useMemo<ColumnDef<RosterMember>[]>(
+}: UseMemberColumnsArgs): RosterColumnDef<RosterMember>[] {
+  return useMemo<RosterColumnDef<RosterMember>[]>(
     () => [
       {
         id: "name",
@@ -67,7 +67,7 @@ export function useMemberColumns({
             onToggle={() => onSort(column.id)}
           />
         ),
-        sortingFn: compareRosterMemberNames,
+        sortFn: compareRosterMemberNames,
         cell: ({ row }) => (
           <EditableTextCell
             value={row.original.name}
@@ -89,7 +89,7 @@ export function useMemberColumns({
             onToggle={() => onSort(column.id)}
           />
         ),
-        sortingFn: compareRosterMemberEmails,
+        sortFn: compareRosterMemberEmails,
         cell: ({ row }) => (
           <div className="min-w-0">
             <EditableTextCell
@@ -114,7 +114,7 @@ export function useMemberColumns({
             onToggle={() => onSort(column.id)}
           />
         ),
-        sortingFn: compareRosterMemberStatuses,
+        sortFn: compareRosterMemberStatuses,
         cell: ({ row }) => (
           <StatusCell
             status={row.original.status}
@@ -138,7 +138,7 @@ export function useMemberColumns({
             onToggle={() => onSort(column.id)}
           />
         ),
-        sortingFn: compareRosterMemberRoles,
+        sortFn: compareRosterMemberRoles,
         cell: ({ row }) => (
           <span className="text-muted-foreground">
             {memberTypeLabel(row.original)}
@@ -158,7 +158,7 @@ export function useMemberColumns({
             onToggle={() => onSort(column.id)}
           />
         ),
-        sortingFn: (rowA, rowB) =>
+        sortFn: (rowA, rowB) =>
           chainComparisons(
             compareText(
               memberGroupNames.get(rowA.original.id)?.join(", ") ?? "",
@@ -190,7 +190,7 @@ export function useMemberColumns({
             onToggle={() => onSort(column.id)}
           />
         ),
-        sortingFn: compareRosterMemberGitUsernames,
+        sortFn: compareRosterMemberGitUsernames,
         cell: ({ row }) => (
           <EditableTextCell
             value={row.original.gitUsername ?? ""}

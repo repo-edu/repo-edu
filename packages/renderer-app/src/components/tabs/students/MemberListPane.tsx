@@ -9,13 +9,10 @@ import {
 } from "@repo-edu/ui"
 import { ArrowUp, Plus, Search } from "@repo-edu/ui/components/icons"
 import {
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
+  functionalUpdate,
   type SortingState,
   type Updater,
-  useReactTable,
-  type VisibilityState,
+  useTable,
 } from "@tanstack/react-table"
 import { useCallback, useMemo, useState } from "react"
 import {
@@ -32,6 +29,7 @@ import {
   getNextProgressiveSorting,
   normalizeProgressiveSorting,
 } from "../../../utils/sorting.js"
+import { rosterTableFeatures } from "../../common/table-features.js"
 import { AddMemberForm } from "./AddMemberForm.js"
 import {
   ClearRosterDialog,
@@ -186,9 +184,7 @@ export function MemberListPane({
 
   const handleSortingChange = useCallback((updater: Updater<SortingState>) => {
     setSorting((current) =>
-      normalizeProgressiveSorting(
-        typeof updater === "function" ? updater(current) : updater,
-      ),
+      normalizeProgressiveSorting(functionalUpdate(updater, current)),
     )
   }, [])
 
@@ -202,7 +198,8 @@ export function MemberListPane({
     onRequestPermanentDelete: handleRequestPermanentDelete,
   })
 
-  const table = useReactTable({
+  const table = useTable({
+    features: rosterTableFeatures,
     data: members,
     columns,
     columnResizeMode: "onChange",
@@ -214,21 +211,14 @@ export function MemberListPane({
     },
     onSortingChange: handleSortingChange,
     onGlobalFilterChange: setGlobalFilter,
-    onColumnSizingChange: (updater) => {
-      const next =
-        typeof updater === "function" ? updater(rosterColumnSizing) : updater
-      controller.setRosterColumnSizing(next)
-    },
-    onColumnVisibilityChange: (updater: Updater<VisibilityState>) => {
-      const next =
-        typeof updater === "function"
-          ? updater(rosterColumnVisibility)
-          : updater
-      controller.setRosterColumnVisibility(next)
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    onColumnSizingChange: (updater) =>
+      controller.setRosterColumnSizing(
+        functionalUpdate(updater, rosterColumnSizing),
+      ),
+    onColumnVisibilityChange: (updater) =>
+      controller.setRosterColumnVisibility(
+        functionalUpdate(updater, rosterColumnVisibility),
+      ),
     globalFilterFn: (row, _columnId, filterValue) => {
       const query = String(filterValue ?? "")
         .trim()

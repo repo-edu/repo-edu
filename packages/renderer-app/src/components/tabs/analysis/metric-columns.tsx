@@ -5,7 +5,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@repo-edu/ui"
-import type { ColumnDef } from "@tanstack/react-table"
 import type { ReactNode } from "react"
 import { useMemo } from "react"
 import {
@@ -13,6 +12,7 @@ import {
   type MetricTotals,
 } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
+import type { SortedColumnDef } from "../../common/table-features.js"
 
 const LINES_OF_CODE_TOOLTIP =
   "Lines attributed by blame across the files selected by the N-files cap. Other columns reflect the full repo-wide history."
@@ -43,9 +43,9 @@ export function useMetricColumns<T extends MetricRow>({
   showCommits,
   showInsertions,
   showDeletions,
-}: MetricColumnOptions): ColumnDef<T>[] {
+}: MetricColumnOptions): SortedColumnDef<T>[] {
   return useMemo(() => {
-    const cols: ColumnDef<T>[] = []
+    const cols: SortedColumnDef<T>[] = []
     if (showLinesOfCode) {
       cols.push({
         id: "linesOfCode",

@@ -5,7 +5,6 @@ import {
   surnameSortKey,
 } from "@repo-edu/domain/roster"
 import type { Assignment, Group, RosterMember } from "@repo-edu/domain/types"
-import type { ColumnDef } from "@tanstack/react-table"
 import type { EditableGroupTarget } from "../../../../stores/course-store.js"
 import {
   chainComparisons,
@@ -14,6 +13,7 @@ import {
   compareText,
 } from "../../../../utils/sorting.js"
 import { SortHeaderButton } from "../../../common/SortHeaderButton.js"
+import type { RosterColumnDef } from "../../../common/table-features.js"
 import { GroupNameCell } from "../GroupNameCell.js"
 import { MemberChip } from "../MemberChip.js"
 
@@ -107,7 +107,7 @@ type ColumnFactoryParams = {
 
 export function createGroupColumns(
   params: ColumnFactoryParams,
-): ColumnDef<GroupRow>[] {
+): RosterColumnDef<GroupRow>[] {
   const {
     groupSetId,
     isSetEditable,
@@ -136,7 +136,7 @@ export function createGroupColumns(
           onToggle={() => onSort(column.id)}
         />
       ),
-      sortingFn: compareGroupRowsByName,
+      sortFn: compareGroupRowsByName,
       cell: ({ row }) => (
         <GroupNameCell
           group={row.original.group}
@@ -160,7 +160,7 @@ export function createGroupColumns(
           onToggle={() => onSort(column.id)}
         />
       ),
-      sortingFn: compareGroupRowsByRepoName,
+      sortFn: compareGroupRowsByRepoName,
       cell: ({ row }) => (
         <span className="block text-sm text-muted-foreground">
           {insertWordBreaks(row.original.repoNamePreview ?? "")}
@@ -228,7 +228,7 @@ export function createGroupColumns(
           onToggle={() => onSort(column.id)}
         />
       ),
-      sortingFn: compareGroupRowsByMemberCount,
+      sortFn: compareGroupRowsByMemberCount,
       cell: ({ row }) => (
         <span className="text-sm">{row.original.memberCount}</span>
       ),

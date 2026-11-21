@@ -13,15 +13,8 @@ import {
   DataTableRow,
   EmptyState,
 } from "@repo-edu/ui"
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  type SortingState,
-  useReactTable,
-} from "@tanstack/react-table"
-import { useMemo, useState } from "react"
+import { useTable } from "@tanstack/react-table"
+import { useMemo } from "react"
 import {
   useAnalysisAuthorView,
   useAnalysisResult,
@@ -30,6 +23,10 @@ import {
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
+import {
+  type SortedColumnDef,
+  sortedTableFeatures,
+} from "../../common/table-features.js"
 import {
   AnalysisChartMetricControls,
   AnalysisDisplayControls,
@@ -132,10 +129,6 @@ export function AuthorPanel() {
     )
   }, [authorStats, result])
 
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "linesOfCode", desc: true },
-  ])
-
   const metricColumns = useMetricColumns<AuthorStats>({
     totals,
     isPercent,
@@ -145,8 +138,8 @@ export function AuthorPanel() {
     showDeletions,
   })
 
-  const columns = useMemo<ColumnDef<AuthorStats>[]>(() => {
-    const cols: ColumnDef<AuthorStats>[] = [
+  const columns = useMemo<SortedColumnDef<AuthorStats>[]>(() => {
+    const cols: SortedColumnDef<AuthorStats>[] = [
       {
         id: "author",
         accessorFn: (row) => row.canonicalName,
@@ -261,13 +254,11 @@ export function AuthorPanel() {
     showEmail,
   ])
 
-  const table = useReactTable({
+  const table = useTable({
+    features: sortedTableFeatures,
     data: authorStats,
     columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    initialState: { sorting: [{ id: "linesOfCode", desc: true }] },
     getRowId: (row) => row.personId,
   })
 
@@ -290,10 +281,7 @@ export function AuthorPanel() {
                 key={header.id}
                 className={header.id === "author" ? "sticky left-0 z-20" : ""}
               >
-                {flexRender(
-                  header.column.columnDef.header,
-                  header.getContext(),
-                )}
+                <table.FlexRender header={header} />
               </DataTableHead>
             ))}
           </DataTableHeader>
@@ -335,7 +323,7 @@ export function AuthorPanel() {
                       toggleAuthor(analysisScopeKey, row.original.personId)
                     }}
                   >
-                    {row.getVisibleCells().map((cell) => (
+                    {row.getAllCells().map((cell) => (
                       <DataTableCell
                         key={cell.id}
                         className={
@@ -344,10 +332,7 @@ export function AuthorPanel() {
                             : ""
                         }
                       >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
+                        <table.FlexRender cell={cell} />
                       </DataTableCell>
                     ))}
                   </DataTableRow>

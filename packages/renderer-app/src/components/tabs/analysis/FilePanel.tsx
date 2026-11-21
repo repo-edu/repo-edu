@@ -9,15 +9,8 @@ import {
   DataTableRow,
   EmptyState,
 } from "@repo-edu/ui"
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  type SortingState,
-  useReactTable,
-} from "@tanstack/react-table"
-import { useMemo, useState } from "react"
+import { useTable } from "@tanstack/react-table"
+import { useMemo } from "react"
 import {
   useAnalysisAuthorView,
   useAnalysisFileView,
@@ -30,6 +23,10 @@ import {
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
+import {
+  type SortedColumnDef,
+  sortedTableFeatures,
+} from "../../common/table-features.js"
 import {
   AnalysisChartMetricControls,
   AnalysisDisplayControls,
@@ -61,10 +58,6 @@ export function FilePanel() {
     [fileStats],
   )
 
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "linesOfCode", desc: true },
-  ])
-
   const metricColumns = useMetricColumns<FileStats>({
     totals,
     isPercent,
@@ -74,8 +67,8 @@ export function FilePanel() {
     showDeletions,
   })
 
-  const columns = useMemo<ColumnDef<FileStats>[]>(() => {
-    const cols: ColumnDef<FileStats>[] = [
+  const columns = useMemo<SortedColumnDef<FileStats>[]>(() => {
+    const cols: SortedColumnDef<FileStats>[] = [
       {
         id: "path",
         accessorFn: (row) => row.path,
@@ -114,13 +107,11 @@ export function FilePanel() {
     return cols
   }, [metricColumns, showAge])
 
-  const table = useReactTable({
+  const table = useTable({
+    features: sortedTableFeatures,
     data: fileStats,
     columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    initialState: { sorting: [{ id: "linesOfCode", desc: true }] },
     getRowId: (row) => row.path,
   })
 
@@ -146,10 +137,7 @@ export function FilePanel() {
                 key={header.id}
                 className={header.id === "path" ? "sticky left-0 z-20" : ""}
               >
-                {flexRender(
-                  header.column.columnDef.header,
-                  header.getContext(),
-                )}
+                <table.FlexRender header={header} />
               </DataTableHead>
             ))}
           </DataTableHeader>
@@ -177,7 +165,7 @@ export function FilePanel() {
                 />
                 {table.getRowModel().rows.map((row) => (
                   <DataTableRow key={row.id} className="group">
-                    {row.getVisibleCells().map((cell) => (
+                    {row.getAllCells().map((cell) => (
                       <DataTableCell
                         key={cell.id}
                         className={
@@ -186,10 +174,7 @@ export function FilePanel() {
                             : ""
                         }
                       >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
+                        <table.FlexRender cell={cell} />
                       </DataTableCell>
                     ))}
                   </DataTableRow>

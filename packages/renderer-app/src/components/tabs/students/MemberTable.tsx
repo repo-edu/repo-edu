@@ -1,11 +1,12 @@
 import type { RosterMember } from "@repo-edu/domain/types"
-import { flexRender, type Table } from "@tanstack/react-table"
+import type { ReactTable } from "@tanstack/react-table"
+import type { rosterTableFeatures } from "../../common/table-features.js"
 
 export function MemberTable({
   table,
   globalFilter,
 }: {
-  table: Table<RosterMember>
+  table: ReactTable<typeof rosterTableFeatures, RosterMember>
   globalFilter: string
 }) {
   const totalColumnSize = table.getTotalSize()
@@ -16,7 +17,7 @@ export function MemberTable({
     <div className="px-3 pb-2">
       <div className="border rounded">
         <table
-          className={`w-full text-sm ${table.getState().columnSizingInfo.isResizingColumn ? "select-none" : ""}`}
+          className={`w-full text-sm ${table.state.columnResizing.isResizingColumn ? "select-none" : ""}`}
           style={{ tableLayout: "fixed" }}
         >
           <thead className="bg-muted">
@@ -28,12 +29,9 @@ export function MemberTable({
                     className="bg-muted sticky top-0 z-10 p-2 text-left font-medium relative min-w-0"
                     style={{ width: toColumnWidth(header.getSize()) }}
                   >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
+                    {!header.isPlaceholder && (
+                      <table.FlexRender header={header} />
+                    )}
                     {header.column.getCanResize() && (
                       // biome-ignore lint/a11y/noStaticElementInteractions: column resize handle uses mouse/touch drag, not keyboard interaction
                       <div
@@ -63,7 +61,7 @@ export function MemberTable({
                     className="p-2 align-middle min-w-0"
                     style={{ width: toColumnWidth(cell.column.getSize()) }}
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <table.FlexRender cell={cell} />
                   </td>
                 ))}
               </tr>
