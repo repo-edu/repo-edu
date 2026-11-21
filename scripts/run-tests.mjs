@@ -8,9 +8,11 @@ const usage = "Usage: pnpm test [apps/<package> | packages/<package> | tools/<pa
 const scriptPath = fileURLToPath(import.meta.url)
 const workspaceRoot = resolve(dirname(scriptPath), "..")
 
-export function createPnpmTestArguments(argv) {
+export function createPnpmTestArguments(argv, platform = process.platform) {
   if (argv.length === 0) {
-    return ["-r", "--stream", "--if-present", "run", "test"]
+    // The audit runner targets macOS and Linux.
+    const filter = platform === "win32" ? ["--filter", "!@repo-edu/audit-round"] : []
+    return ["-r", "--stream", "--if-present", ...filter, "run", "test"]
   }
 
   if (argv.length !== 1) {

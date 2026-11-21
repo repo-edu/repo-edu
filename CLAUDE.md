@@ -84,8 +84,8 @@ names and phase argument order.
 - `fix` — markdown auto-fix + Biome auto-fix
 - `check` — fix + typecheck + build:types + check:fixtures +
   check:architecture
-- `test` — runs all package tests workspace-wide, or one package when given its
-  workspace-relative path
+- `test` — runs workspace package tests, or one package given its workspace-relative path.
+  The default Windows run excludes the audit runner, which targets macOS and Linux.
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
 - `move-statements` — moves complete top-level TypeScript statements to another

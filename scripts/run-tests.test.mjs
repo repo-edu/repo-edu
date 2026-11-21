@@ -3,18 +3,32 @@ import test from "node:test"
 import { packageManagerCommand } from "./package-manager-command.mjs"
 import { createPnpmTestArguments } from "./run-tests.mjs"
 
-test("runs every workspace test when no package is given", () => {
-  assert.deepEqual(createPnpmTestArguments([]), [
+test("runs every workspace test on macOS and Linux", () => {
+  for (const platform of ["darwin", "linux"]) {
+    assert.deepEqual(createPnpmTestArguments([], platform), [
+      "-r",
+      "--stream",
+      "--if-present",
+      "run",
+      "test",
+    ])
+  }
+})
+
+test("the Windows workspace run excludes only the audit runner", () => {
+  assert.deepEqual(createPnpmTestArguments([], "win32"), [
     "-r",
     "--stream",
     "--if-present",
+    "--filter",
+    "!@repo-edu/audit-round",
     "run",
     "test",
   ])
 })
 
 test("filters tests by workspace package path", () => {
-  assert.deepEqual(createPnpmTestArguments(["tools/audit-round"]), [
+  assert.deepEqual(createPnpmTestArguments(["tools/audit-round"], "win32"), [
     "--filter",
     "./tools/audit-round",
     "--fail-if-no-match",
