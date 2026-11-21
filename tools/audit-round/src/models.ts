@@ -16,6 +16,7 @@ import {
   auditorKey,
   type CoderRow,
   type DisprovedEvidence,
+  type DisprovedParty,
   type FindingCounts,
   type ModelIdentity,
   modelKey,
@@ -663,63 +664,60 @@ function rulerSection(
   ]
 }
 
-function disprovedCells(
-  entry: DisprovedEvidence,
-): readonly [string, string, string, string, string] {
-  return entry.kind === "detached"
-    ? [
-        entry.date,
-        escapeCell(`${entry.stem}; no retained round data holds this finding`),
-        "—",
-        "—",
-        "—",
-      ]
-    : [
-        entry.date,
-        escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
-        escapeCell(`#${entry.finding} ${entry.title}`),
-        entry.tier,
-        vetsCell(entry.vets),
-      ]
-}
-
-function newestDisprovedFirst(
-  first: DisprovedEvidence,
-  second: DisprovedEvidence,
-): number {
-  return (
-    second.date.localeCompare(first.date) ||
-    first.stem.localeCompare(second.stem)
+function partiesCell(parties: readonly DisprovedParty[]): string {
+  if (parties.length === 0) return "—"
+  return escapeCell(
+    parties
+      .map(
+        (party) =>
+          `${party.role} ${party.identity === null ? "not recorded" : modelText(party.identity)}${party.detail === null ? "" : ` (${party.detail})`}`,
+      )
+      .join("; "),
   )
 }
 
-function disprovedTable(
-  entries: readonly DisprovedEvidence[],
-  start: number,
-  showAuditor: boolean,
-): string[] {
-  return reasonTable(
-    [
-      "Date",
-      ...(showAuditor ? ["Auditor"] : []),
-      "Plan and round",
-      "Finding",
-      "Tier",
-      "Vetters",
+function disprovedRow(entry: DisprovedEvidence): ReasonRow {
+  return {
+    cells: [
+      entry.date,
+      ...(entry.kind === "detached"
+        ? [
+            escapeCell(
+              `${entry.stem}; no retained round data holds this finding`,
+            ),
+            "—",
+            "—",
+          ]
+        : [
+            escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
+            escapeCell(`#${entry.finding} ${entry.title}`),
+            entry.tier,
+          ]),
+      partiesCell(entry.wrong),
+      partiesCell(entry.right),
     ],
-    entries.map((entry) => {
-      const [date, ...cells] = disprovedCells(entry)
-      const auditor = showAuditor ? [escapeCell(modelText(entry.auditor))] : []
-      return { cells: [date, ...auditor, ...cells], reason: entry.reason }
-    }),
-    start,
-  )
+    reason: entry.reason,
+  }
 }
+
+/** The model a table's rows group by: the party whose claim the table holds. */
+function disprovedModel(entry: DisprovedEvidence): string {
+  if (entry.claim !== "ruler") return modelText(entry.auditor)
+  const ruler = entry.wrong.find((party) => party.role === "ruler")?.identity
+  return ruler == null ? "" : modelText(ruler)
+}
+
+const disprovedClaims = [
+  ["auditor", "auditor findings"],
+  ["vetter", "vetter verdicts"],
+  ["ruler", "ruler winners"],
+] as const
 
 /**
- * Finding rulings stay grouped by auditor. Vet rulings follow in one table,
- * where the auditor column identifies whose finding the vetters judged. Each table
- * shows a reason's first sentence and its numbered list shows the full reason.
+ * One table per claim and work class, named like the sections above it, and
+ * printed only when it has rows. Each row lists who the ruling proved wrong
+ * and who right. A table's rows group by model, newest first within one. Each
+ * table shows a reason's first sentence and its numbered list the full reason.
  */
 function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
   const lines = ["## Disproved after the round", ""]
@@ -728,37 +726,32 @@ function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
       ...lines,
       "No findings or vet verdicts were disproved after a round.",
     ]
-  const groups = new Map<string, DisprovedEvidence[]>()
-  for (const entry of entries.filter(
-    (candidate) => candidate.side === "finding",
-  )) {
-    const key = modelText(entry.auditor)
-    const group = groups.get(key) ?? []
-    group.push(entry)
-    groups.set(key, group)
-  }
   let numbered = 0
-  for (const [auditor, group] of [...groups].sort(([first], [second]) =>
-    first.localeCompare(second),
-  )) {
-    const rows = group.sort(newestDisprovedFirst)
-    const start = numbered + 1
-    numbered += rows.length
-    if (lines.length > 2) lines.push("")
-    lines.push(`### ${auditor}`, "", ...disprovedTable(rows, start, false))
-  }
-  const vetEntries = entries
-    .filter((entry) => entry.side === "vet")
-    .sort(newestDisprovedFirst)
-  if (vetEntries.length > 0) {
-    const start = numbered + 1
-    if (lines.length > 2) lines.push("")
-    lines.push(
-      "### Vet verdicts",
-      "",
-      ...disprovedTable(vetEntries, start, true),
-    )
-  }
+  for (const [claim, title] of disprovedClaims)
+    for (const workClass of ["planning", "implementation"] as const) {
+      const rows = entries
+        .filter(
+          (entry) => entry.claim === claim && entry.workClass === workClass,
+        )
+        .sort(
+          (first, second) =>
+            disprovedModel(first).localeCompare(disprovedModel(second)) ||
+            second.date.localeCompare(first.date) ||
+            first.stem.localeCompare(second.stem),
+        )
+      if (rows.length === 0) continue
+      if (lines.length > 2) lines.push("")
+      lines.push(
+        `### ${titleCase(workClass)} ${title}`,
+        "",
+        ...reasonTable(
+          ["Date", "Plan and round", "Finding", "Tier", "Wrong", "Right"],
+          rows.map(disprovedRow),
+          numbered + 1,
+        ),
+      )
+      numbered += rows.length
+    }
   return lines
 }
 

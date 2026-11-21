@@ -119,13 +119,33 @@ export type RulerWinner = RuledFinding & {
   readonly ruler: ModelIdentity | null
 }
 
+/**
+ * One auditor, vetter or ruler of a disproved finding, on the side the later
+ * ruling put it.
+ */
+export type DisprovedParty = {
+  readonly role: "auditor" | "vetter" | "ruler"
+  /** Null for a ruler whose round kept no rule phase entry. */
+  readonly identity: ModelIdentity | null
+  /** A vetter's verdict, or the winner a ruler named with each vetter as its model. */
+  readonly detail: string | null
+}
+
 type DisprovedBase = {
   readonly stem: string
   readonly workClass: WorkClass
   readonly date: string
   readonly reason: string
   readonly auditor: ModelIdentity
-  readonly side: "finding" | "vet"
+  /**
+   * Whose claim the ruling overturned last: the ruler's winner when the ruling
+   * proves it wrong, else the vet verdicts of a vet ruling, else the auditor's
+   * finding.
+   */
+  readonly claim: DisprovedParty["role"]
+  /** In the order auditor, vetters in panel order, ruler. */
+  readonly wrong: readonly DisprovedParty[]
+  readonly right: readonly DisprovedParty[]
 }
 
 export type DisprovedEvidence =
@@ -136,8 +156,6 @@ export type DisprovedEvidence =
       readonly finding: number
       readonly title: string
       readonly tier: RoundFinding["tier"]
-      /** Every vetter of the round, with its verdict on the finding when it gave one. */
-      readonly vets: readonly RoundVet[]
     })
   | (DisprovedBase & {
       readonly kind: "detached"
@@ -377,22 +395,103 @@ function roundVets(round: RoundData, finding: RoundFinding): RoundVet[] {
   )
 }
 
+/** The round's ruler, as its rule phase entry reported it. */
+function roundRuler(round: RoundData): ModelIdentity | null {
+  const entry = round.phases.find((phase) => phase.phase === "rule")
+  return entry === undefined ? null : selectionIdentity(entry.assistant, entry)
+}
+
+type DisprovedSide = NonNullable<
+  Extract<DisprovedFinding, { readonly target: string }>["side"]
+>
+
+/**
+ * Which verdict a later ruling proves right. A disproved finding proves its
+ * drops right, and a disproved vet verdict proves its accepts right.
+ */
+function disprovalProves(side: DisprovedSide, verdict: VetVerdict): boolean {
+  return verdict === (side === "finding" ? "drop" : "accept")
+}
+
+/**
+ * Every party of a disproved finding on the side the ruling put it. A vetter
+ * without a verdict took no part. A vetter that sent a disproved finding to
+ * the user took no side either, so it is on neither.
+ */
+function disprovedSides(
+  side: DisprovedSide,
+  auditor: ModelIdentity,
+  vets: readonly RoundVet[],
+  ruling: RoundFinding["ruling"],
+  ruler: ModelIdentity | null,
+): Pick<DisprovedBase, "claim" | "wrong" | "right"> {
+  const wrong: DisprovedParty[] = []
+  const right: DisprovedParty[] = []
+  ;(side === "finding" ? wrong : right).push({
+    role: "auditor",
+    identity: auditor,
+    detail: null,
+  })
+  const rightTags = new Set<string>()
+  for (const vet of vets) {
+    if (vet.verdict === null) continue
+    const proved = disprovalProves(side, vet.verdict)
+    if (proved) rightTags.add(vet.tag)
+    else if (side === "finding" && vet.verdict === "needs-user-ruling") continue
+    ;(proved ? right : wrong).push({
+      role: "vetter",
+      identity: vet.identity,
+      detail: vet.verdict,
+    })
+  }
+  if (ruling?.namedBy !== "ruler")
+    return { claim: side === "vet" ? "vetter" : "auditor", wrong, right }
+  const winner = ruling.winner
+  const rulerRight =
+    winner === "report"
+      ? side === "vet"
+      : winner === "neither"
+        ? side === "finding" && rightTags.size === 0
+        : winner.every((tag) => rightTags.has(tag))
+  const named =
+    typeof winner === "string"
+      ? winner
+      : winner
+          .map((tag) => {
+            const vet = vets.find((candidate) => candidate.tag === tag)
+            return vet === undefined ? tag : modelText(vet.identity)
+          })
+          .join(", ")
+  ;(rulerRight ? right : wrong).push({
+    role: "ruler",
+    identity: ruler,
+    detail: `named ${named}`,
+  })
+  return {
+    claim: rulerRight ? (side === "vet" ? "vetter" : "auditor") : "ruler",
+    wrong,
+    right,
+  }
+}
+
 function disprovedEvidence(
   files: readonly RoundFileRecord[],
 ): DisprovedEvidence[] {
   return files
     .flatMap((file) =>
       file.data.disproved.map((entry): DisprovedEvidence => {
-        if ("auditor" in entry)
+        if ("auditor" in entry) {
+          const auditor = { assistant: null, ...entry.auditor }
           return {
             kind: "detached",
             stem: file.stem,
             workClass: file.workClass,
             date: entry.date,
             reason: entry.reason,
-            auditor: { assistant: null, ...entry.auditor },
-            side: "finding",
+            auditor,
+            ...disprovedSides("finding", auditor, [], undefined, null),
           }
+        }
         const round = (file.data.rounds as readonly RoundData[]).find(
           (candidate) =>
             candidate.target === entry.target &&
@@ -405,20 +504,29 @@ function disprovedEvidence(
           throw new Error(
             `Disproved finding ${entry.target} round ${entry.round} finding ${entry.finding} has no retained finding in ${file.file}`,
           )
+        const auditor = selectionIdentity(
+          round.auditor.assistant,
+          round.auditor,
+        )
         return {
           kind: "attached",
           stem: file.stem,
           workClass: file.workClass,
           date: entry.date,
           reason: entry.reason,
-          auditor: selectionIdentity(round.auditor.assistant, round.auditor),
-          side: entry.side ?? "finding",
+          auditor,
+          ...disprovedSides(
+            entry.side ?? "finding",
+            auditor,
+            roundVets(round, finding),
+            finding.ruling,
+            roundRuler(round),
+          ),
           target: entry.target,
           round: entry.round,
           finding: entry.finding,
           title: finding.title,
           tier: finding.tier,
-          vets: roundVets(round, finding),
         }
       }),
     )
@@ -442,9 +550,9 @@ function rulingProof(
   disproved: RoundRecord["disprovedFindingNumbers"],
 ): ((review: RoundFindingReview) => boolean) | null {
   if (finding.number !== null && disproved.finding.has(finding.number))
-    return (review) => review.verdict === "drop"
+    return (review) => disprovalProves("finding", review.verdict)
   if (finding.number !== null && disproved.vet.has(finding.number))
-    return (review) => review.verdict === "accept"
+    return (review) => disprovalProves("vet", review.verdict)
   const winner = finding.ruling?.winner
   if (winner === undefined) return null
   if (winner === "report") return (review) => review.verdict === "accept"
@@ -496,12 +604,6 @@ function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
       )
     }),
   )
-}
-
-/** The round's ruler, as its rule phase entry reported it. */
-function roundRuler(round: RoundData): ModelIdentity | null {
-  const entry = round.phases.find((phase) => phase.phase === "rule")
-  return entry === undefined ? null : selectionIdentity(entry.assistant, entry)
 }
 
 /**

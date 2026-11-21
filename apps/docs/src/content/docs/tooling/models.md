@@ -100,10 +100,12 @@ is below that floor.
    The tables use the same form with a column for the ruler's model and effort. You can check
    each winner and overturn it with
    [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
-6. **Later rulings** keep finding rulings in a numbered table per auditor. Vet rulings follow in one
-   table, newest first and with an auditor column. Each row names every vetter of the round with its
-   verdict. Every table shows each reason's first sentence,
-   then the full reasons as a numbered list, numbered across the section.
+6. **Later rulings** print in up to six numbered tables, each named by its work class and by the
+   claim your ruling overturned: auditor findings, vetter verdicts or ruler winners. A ruling that
+   proves a ruler's winner wrong prints under ruler winners. The `Wrong` and `Right` columns name
+   each auditor, vetter and ruler on the side your ruling put it, with a vetter's verdict or the
+   ruler's winner in brackets. Every table shows each reason's first sentence, then the full
+   reasons as a numbered list, numbered across the section.
 7. **Rounds by plan** list the plan with the newest round first, and a plan's rows by model. A plan
    without a retained round comes last. Their finding columns sum to the class totals
    behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.

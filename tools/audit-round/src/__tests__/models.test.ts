@@ -748,7 +748,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
   assert.doesNotMatch(report, /finds (more|fewer) than|more shared plan/)
   assert.match(report, /## Disproved after the round/)
   assert.match(report, /#4 later disproved claim/)
-  assert.match(report, /vet-model low: accept/)
+  assert.match(report, /vetter vet-model low \(accept\)/)
   assert.match(report, /The retained claim did not hold\./)
   assert.match(report, /no retained round data holds this finding/)
   assert.match(report, /No retained round held this finding\./)
@@ -1020,32 +1020,26 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
   assert.equal(
     report.split("## Disproved after the round\n\n")[1],
     [
-      "### audit-alpha low",
+      "### Planning auditor findings",
       "",
-      "| # | Date | Plan and round | Finding | Tier | Vetters | Reason |",
-      "| ---: | --- | --- | --- | --- | --- | --- |",
-      "| 1 | 2026-11-03 | evidence; no retained round data holds this finding | — | — | — | It predates the data! |",
-      "| 2 | 2026-11-02 | evidence; audit-alpha-plan-audit round 1 | #2 audit-alpha claim 2 | B | vet-model low: accept | The vet accepted a stale reading |",
-      "| 3 | 2026-11-01 | evidence; audit-alpha-plan-audit round 1 | #1 audit-alpha claim 1 | B | vet-model low: accept | The claim misread the guard. |",
+      "| # | Date | Plan and round | Finding | Tier | Wrong | Right | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | 2026-11-03 | evidence; no retained round data holds this finding | — | — | auditor audit-alpha low | — | It predates the data! |",
+      "| 2 | 2026-11-02 | evidence; audit-alpha-plan-audit round 1 | #2 audit-alpha claim 2 | B | auditor audit-alpha low; vetter vet-model low (accept) | — | The vet accepted a stale reading |",
+      "| 3 | 2026-11-01 | evidence; audit-alpha-plan-audit round 1 | #1 audit-alpha claim 1 | B | auditor audit-alpha low; vetter vet-model low (accept) | — | The claim misread the guard. |",
+      "| 4 | 2026-11-04 | evidence; audit-beta-plan-audit round 1 | #2 audit-beta claim 2 | B | auditor audit-beta low; vetter vet-model low (accept) | — | Version 1.2 \\| the guard? |",
       "",
       "1. It predates the data! No retained round holds it.",
       "2. The vet accepted a stale reading",
       "3. The claim misread the guard. The guard runs before the write, so no race exists.",
-      "",
-      "### audit-beta low",
-      "",
-      "| # | Date | Plan and round | Finding | Tier | Vetters | Reason |",
-      "| ---: | --- | --- | --- | --- | --- | --- |",
-      "| 4 | 2026-11-04 | evidence; audit-beta-plan-audit round 1 | #2 audit-beta claim 2 | B | vet-model low: accept | Version 1.2 \\| the guard? |",
-      "",
       "4. Version 1.2 | the guard? It already handles this.",
       "",
-      "### Vet verdicts",
+      "### Planning vetter verdicts",
       "",
-      "| # | Date | Auditor | Plan and round | Finding | Tier | Vetters | Reason |",
+      "| # | Date | Plan and round | Finding | Tier | Wrong | Right | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
-      "| 5 | 2026-11-06 | audit-alpha low | evidence; audit-alpha-plan-audit round 1 | #3 audit-alpha claim 3 | B | vet-model low: drop | The dropped alpha finding was right. |",
-      "| 6 | 2026-11-05 | audit-beta low | evidence; audit-beta-plan-audit round 1 | #1 audit-beta claim 1 | B | vet-model low: drop | The dropped beta finding was right. |",
+      "| 5 | 2026-11-06 | evidence; audit-alpha-plan-audit round 1 | #3 audit-alpha claim 3 | B | vetter vet-model low (drop) | auditor audit-alpha low | The dropped alpha finding was right. |",
+      "| 6 | 2026-11-05 | evidence; audit-beta-plan-audit round 1 | #1 audit-beta claim 1 | B | vetter vet-model low (drop) | auditor audit-beta low | The dropped beta finding was right. |",
       "",
       "5. The dropped alpha finding was right.",
       "6. The dropped beta finding was right. Its defect still reproduces.",
@@ -1054,7 +1048,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
   )
 })
 
-test("a read-out with only vet rulings prints only the combined vet table", async (t) => {
+test("a read-out with only vet rulings prints only the vetter verdicts table", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -1102,11 +1096,11 @@ test("a read-out with only vet rulings prints only the combined vet table", asyn
   assert.equal(
     report.split("## Disproved after the round\n\n")[1],
     [
-      "### Vet verdicts",
+      "### Planning vetter verdicts",
       "",
-      "| # | Date | Auditor | Plan and round | Finding | Tier | Vetters | Reason |",
+      "| # | Date | Plan and round | Finding | Tier | Wrong | Right | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | 2026-11-01 | audit-alpha low | evidence; audit-alpha-plan-audit round 1 | #1 dropped claim | B | vet-model low: drop | The dropped finding was right. |",
+      "| 1 | 2026-11-01 | evidence; audit-alpha-plan-audit round 1 | #1 dropped claim | B | vetter vet-model low (drop) | auditor audit-alpha low | The dropped finding was right. |",
       "",
       "1. The dropped finding was right.",
       "",
@@ -1114,7 +1108,7 @@ test("a read-out with only vet rulings prints only the combined vet table", asyn
   )
 })
 
-test("a disproved row names every vetter of the round with its verdict", async (t) => {
+test("a disproved row names every vetter of the round on its side with its verdict", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -1165,7 +1159,88 @@ test("a disproved row names every vetter of the round with its verdict", async (
   const report = await modelsReport(f.runtime, testSettings)
   assert.match(
     report,
-    /\| #1 dropped claim \| B \| vet-alpha low: drop; vet-model low: accept \| The dropped finding was right\. \|/,
+    /\| #1 dropped claim \| B \| vetter vet-alpha low \(drop\) \| auditor audit-alpha low; vetter vet-model low \(accept\) \| The dropped finding was right\. \|/,
+  )
+})
+
+test("a ruling against a ruler's winner prints in the ruler table of its work class", async (t) => {
+  const f = await modelFixture(t)
+  const { alpha, beta } = panelVets
+  const ruled = (
+    number: number,
+    verdicts: readonly [Review["verdict"], Review["verdict"]],
+    winner: NonNullable<RoundFinding["ruling"]>["winner"],
+  ): RoundFinding => ({
+    ...ruledFinding(number, `claim ${number}`, "C", [
+      review("atl", verdicts[0]),
+      review("obl", verdicts[1]),
+    ]),
+    ruling: { winner, reason: "fixture ruling", namedBy: "ruler" },
+  })
+  const path = join(f.roundRoot, "ruled-impl-rounds.json")
+  writeRoundData(path, {
+    ...round(
+      "ruled-impl-audit-01..01",
+      1,
+      "2026-10-02T10:00:00.000Z",
+      { assistant: "codex", ...selection("audit-beta"), chosenBy: "settings" },
+      panelSettings([alpha, beta]),
+      [
+        phase("audit", "codex", "audit-beta", 60_000),
+        alpha,
+        beta,
+        phase("rule", "claude", "rule-model", 60_000, "xhigh"),
+      ],
+      [],
+      [
+        ruled(1, ["accept", "drop"], ["obl"]),
+        ruled(2, ["accept", "drop"], "report"),
+        ruled(3, ["accept", "drop"], ["obl"]),
+        ruled(4, ["needs-user-ruling", "revise"], "neither"),
+      ],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+  const disprove = (finding: number, side: "finding" | "vet") =>
+    writeDisprovedFinding(path, {
+      date: `2026-11-0${finding}`,
+      reason: `Ruling ${finding}.`,
+      target: "ruled-impl-audit-01..01",
+      round: 1,
+      finding,
+      side,
+    })
+  disprove(1, "vet")
+  disprove(2, "finding")
+  disprove(3, "finding")
+  disprove(4, "finding")
+
+  const report = await modelsReport(f.runtime, testSettings)
+  assert.equal(
+    report.split("## Disproved after the round\n\n")[1],
+    [
+      "### Implementation auditor findings",
+      "",
+      "| # | Date | Plan and round | Finding | Tier | Wrong | Right | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | 2026-11-04 | ruled; ruled-impl-audit-01..01 round 1 | #4 claim 4 | C | auditor audit-beta low; vetter vet-beta low (revise) | ruler rule-model xhigh (named neither) | Ruling 4. |",
+      "| 2 | 2026-11-03 | ruled; ruled-impl-audit-01..01 round 1 | #3 claim 3 | C | auditor audit-beta low; vetter vet-alpha low (accept) | vetter vet-beta low (drop); ruler rule-model xhigh (named vet-beta low) | Ruling 3. |",
+      "",
+      "1. Ruling 4.",
+      "2. Ruling 3.",
+      "",
+      "### Implementation ruler winners",
+      "",
+      "| # | Date | Plan and round | Finding | Tier | Wrong | Right | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+      "| 3 | 2026-11-02 | ruled; ruled-impl-audit-01..01 round 1 | #2 claim 2 | C | auditor audit-beta low; vetter vet-alpha low (accept); ruler rule-model xhigh (named report) | vetter vet-beta low (drop) | Ruling 2. |",
+      "| 4 | 2026-11-01 | ruled; ruled-impl-audit-01..01 round 1 | #1 claim 1 | C | vetter vet-beta low (drop); ruler rule-model xhigh (named vet-beta low) | auditor audit-beta low; vetter vet-alpha low (accept) | Ruling 1. |",
+      "",
+      "3. Ruling 2.",
+      "4. Ruling 1.",
+      "",
+    ].join("\n"),
   )
 })
 
@@ -2004,13 +2079,13 @@ test("vet rulings restore dropped and downgraded findings for auditor and coder 
   assert.deepEqual(
     evidence.disproved
       .filter((entry) => entry.kind === "attached")
-      .map((entry) => ({ finding: entry.finding, side: entry.side }))
+      .map((entry) => ({ finding: entry.finding, claim: entry.claim }))
       .sort((first, second) => first.finding - second.finding),
     [
-      { finding: 1, side: "vet" },
-      { finding: 2, side: "vet" },
-      { finding: 3, side: "finding" },
-      { finding: 8, side: "finding" },
+      { finding: 1, claim: "vetter" },
+      { finding: 2, claim: "vetter" },
+      { finding: 3, claim: "auditor" },
+      { finding: 8, claim: "auditor" },
     ],
   )
 

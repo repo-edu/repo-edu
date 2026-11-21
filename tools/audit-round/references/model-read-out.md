@@ -173,18 +173,50 @@ user can check a ruler's winner and overturn it with `disprove`.
 
 ## Disproved findings
 
-Later finding rulings print per auditor as a numbered table. Later vet rulings print newest first
-in one table after them, with an auditor column.
+Each later ruling prints once, in one of six numbered tables. A table is named by its work class
+and by the claim the ruling overturned, like the sections above it: `Planning auditor findings`,
+`Implementation auditor findings`, `Planning vetter verdicts`, `Implementation vetter verdicts`,
+`Planning ruler winners` and `Implementation ruler winners`. They print in that order, and a table
+without rows is not printed.
 
-## Reasons and vetter columns
+- A finding ruling prints under auditor findings and a vet ruling under vetter verdicts.
+- A ruling that proves a ruler's winner wrong prints under ruler winners instead, because the
+  ruler judged the finding last.
+- Rows group by the auditor, or by the ruler in a ruler table, and run newest first within one.
+- A detached entry prints under its work class's auditor findings and says that no retained round
+  data holds the finding.
+
+The model is no heading, because a vetter row names several vetters.
+
+### Wrong and right
+
+The `Wrong` and `Right` columns list who the ruling proved wrong and who right. Each party is its
+role word, its model and effort and, in brackets, a vetter's verdict or the winner a ruler named.
+The order is auditor, vetters in panel order, ruler. The finding shares the auditor's side.
+
+- A finding ruling puts the auditor under `Wrong`. A vetter that dropped the finding is right, and
+  one that accepted or revised it is wrong. A vetter that sent it to the user took no side and is
+  in neither column.
+- A vet ruling puts the auditor under `Right`. A vetter that accepted is right and every other
+  vetter is wrong.
+- A vetter without a verdict on the finding is in neither column.
+- A ruler is right when every vetter it named is right, when it named `report` and the finding
+  stood, or when it named `neither` and the ruling proved the finding wrong and no vetter right.
+  Otherwise it is wrong. A ruler that is right stays in the auditor or vetter table.
+
+The vetter rule is the one the [vetter pairs](#vetter-pairs) count by.
+
+## Reasons
 
 These rules hold for ruling winners, ruler winners and disproved findings:
 
-- Every table's vetter column names each vetter of the round with its verdict on the finding.
 - Every table shows each reason's first sentence, because a full reason wraps the terminal table
   into an unreadable grid.
 - A numbered list of the full reasons follows each table. It is numbered across the section, so
   each ruling keeps one number.
+
+The vetter column of the ruling-winner and ruler-winner tables names each vetter of the round with
+its verdict on the finding.
 
 ## Excluded plans
 
