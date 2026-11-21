@@ -426,7 +426,7 @@ importers:
         version: 6.1.0
       papaparse:
         specifier: ^5.5.3
-        version: 5.7.0
+        version: 5.7.1
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
@@ -5866,8 +5866,8 @@ packages:
     resolution: {integrity: sha512-yeOd9EA0TUE1PUfbQIluBxzPadBG5/0BV48FAxwMVLkhZcOvwCz6TX4/a/Ofz97pF9/FwwT7CVbTC97BfmI+LQ==}
     hasBin: true
 
-  papaparse@5.7.0:
-    resolution: {integrity: sha512-qBGxg/7Q3Kl9Wfhrz2Z74UnvnHTXLNG6jmKJFeBvP2+y4lV7So+7SR62+Zd47JvdrCkX+nDcnr0ObPzek/+6RA==}
+  papaparse@5.7.1:
+    resolution: {integrity: sha512-qOR+UDWv6D3hMxnWWOk0ZpBdCkd+kw5Yh7aXOaNSQU8A+73EA2bhW7EiUix/hY0yulUi5FRvt7PpYSI2VDvY0g==}
 
   parse-conflict-json@5.0.1:
     resolution: {integrity: sha512-ZHEmNKMq1wyJXNwLxyHnluPfRAFSIliBvbK/UiOceROt4Xh9Pz0fq49NytIaeaCUf5VR86hwQ/34FCcNU5/LKQ==}
@@ -12141,7 +12141,7 @@ snapshots:
       '@pagefind/windows-arm64': 1.6.0
       '@pagefind/windows-x64': 1.6.0
 
-  papaparse@5.7.0: {}
+  papaparse@5.7.1: {}
 
   parse-conflict-json@5.0.1:
     dependencies:
