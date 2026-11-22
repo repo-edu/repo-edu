@@ -253,9 +253,10 @@ arrived as a direct or a transitive dependency; the unit of concern is the
 resolved version lagging its latest published release, not how it got there.
 
 Renovate is the standing mechanism (`renovate.json`). It admits ordinary
-updates throughout Saturday and Sunday and keeps at most ten update branches in
-flight to bound CI and rebase work. Pull-request creation has no separate
-concurrency or hourly cap, so every failed branch becomes visible.
+updates throughout Saturday and Sunday. It keeps at most four update branches
+open to limit how many rerun CI when `main` advances. Four leaves room for one
+more update when three branches are blocked. Pull-request creation has no
+separate concurrency or hourly cap, so every failed branch becomes visible.
 
 Non-major updates land in six groups, one for each part of the repository where
 a failure would show: the LLM SDKs, the Electron runtime, the docs site, the
