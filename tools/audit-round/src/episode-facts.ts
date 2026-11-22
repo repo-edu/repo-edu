@@ -13,11 +13,20 @@ function findingCounts(subject: Subject): Record<TierLetter, number> {
 /** Counts are per bullet. A split finding contributes once to each current area. */
 export function tokenCounts(findings: readonly EpisodeFinding[]) {
   const counts: Record<
-    "growthPattern" | "reach" | "complexity" | "sections" | "areas" | "covers",
+    | "growthPattern"
+    | "reach"
+    | "rarity"
+    | "harm"
+    | "complexity"
+    | "sections"
+    | "areas"
+    | "covers",
     Record<string, number>
   > = {
     growthPattern: {},
     reach: {},
+    rarity: {},
+    harm: {},
     complexity: {},
     sections: {},
     areas: {},
@@ -31,6 +40,8 @@ export function tokenCounts(findings: readonly EpisodeFinding[]) {
     for (const label of new Set(finding.growthPattern.split(",")))
       add("growthPattern", label)
     add("reach", finding.reach)
+    add("rarity", finding.rarity)
+    if (finding.harm !== undefined) add("harm", finding.harm)
     add("complexity", finding.complexity)
     if (finding.location.key === "section")
       add("sections", finding.location.value)
@@ -90,10 +101,11 @@ export function runEvidence(commits: readonly EpisodeCommit[]) {
       continue
     }
     if (commit.findings.length === 0) continue
+    // The run covers every finding except an end-user harm with no condition.
     if (
       commit.findings.some(
         (finding) =>
-          finding.reach !== "ordinary" &&
+          (finding.reach === "developer" || finding.rarity !== "ordinary") &&
           ["low", "medium", "high"].includes(finding.complexity),
       )
     )

@@ -62,11 +62,10 @@ hook.
 
 Three marks give the sequence its meaning:
 
-- A tier letter is uppercase when the concern's reach is `ordinary`, `rare` or
-  `very-rare`, which an end user can meet. It is lowercase for `developer`
-  reach.
-- A leading `!` means at least one concern has `ordinary` reach, where no
-  special condition has to hold.
+- A tier letter is uppercase when the concern's reach is `end-user` and
+  lowercase when it is `developer`.
+- A leading `!` means at least one concern has `end-user` reach and `ordinary`
+  rarity: an end user meets it with no special condition.
 - A leading `growth-<level>` or `pruning-<level>` states the whole commit's net
   change in maintenance burden. `growth-none` means no material net change.
   Measure the commit, never add up its finding tokens. A deferral record changes
@@ -187,24 +186,80 @@ such names once took a plan of about 700 lines across more than 50 files.
 
 ## Reach and complexity
 
-Every finding carries a reach and complexity value. Floor values are explicit:
-`developer` and `none` are written rather than implied. No absence carries
-meaning, so a forgotten rating cannot pass as a floor.
+Every finding carries a reach, a rarity and a complexity value. A finding whose
+rarity is not `ordinary` also carries a harm level. Floor values are explicit:
+`developer`, `ordinary` and `none` are written rather than implied. No absence
+carries meaning, so a forgotten rating cannot pass as a floor. The readers
+therefore refuse a rarity other than `ordinary` without a harm level, and a
+harm level beside `ordinary`.
 
-Reach says how far the fault reaches a person:
+Reach says who meets the harm. An end user is a person who uses a shipped
+program: the desktop app or the command-line program. The developer is the
+person who builds Repo Edu and runs its developer-only tools. The two kinds
+follow the `developer-tool-platforms` boundary in `../plan/BOUNDARIES.md`,
+which divides the shipped programs from the developer-only tools. The test is
+one question: can an end user meet the harm?
 
-- `developer`: nothing an end user can see. The cost is rework,
-  re-derivation or regression risk during development.
-- `ordinary`: no special condition has to hold.
-- `rare`: a condition must hold that can arise while every component honours
-  its contract, such as unusual timing, an unusual user action, resource
-  exhaustion or an outage.
-- `very-rare`: the condition requires the platform to break its own contract,
-  such as an operating-system or filesystem facility failing to do what it
-  guarantees.
+- `end-user`: an end user can meet it. A fault in a tool that ends in a wrong
+  shipped program is `end-user`, because the end user meets the harm.
+- `developer`: in every other case. A fault that shows only when a tool runs,
+  such as the runner or a check, is `developer`. So is a cost of rework, of
+  working something out again or of a higher chance of breaking something
+  later.
 
-For `rare` and `very-rare`, the finding names the condition so the rating is
-checkable.
+The shared planning rules'
+[Changes to what a plan holds](../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds)
+say that the user is whoever uses what the plan builds, the developer for a
+tooling plan. That names the person a plan serves. Reach asks a different
+question and never reads through it, so a tool fault stays `developer` in a
+tooling plan's round too.
+
+Rarity says what must hold before the harm appears. It counts the independent
+rare conditions that must hold at the same time, because a count is the one
+measure of a rarer event that a vetter can check:
+
+- `ordinary`: none. A plain upkeep cost is `ordinary`, because it is paid
+  whenever the code is changed.
+- `rare`: one.
+- `very-rare`: two.
+- `extremely-rare`: three or more.
+
+Three rules govern the count:
+
+1. Each counted condition is rare by itself: it can arise while every part
+   honours its contract, such as unusual timing, an unusual user action,
+   resource exhaustion or an outage.
+2. Two conditions are independent when neither follows from the other and they
+   share no cause. Conditions that follow from one cause count as one.
+3. A platform that breaks its own contract, such as an operating-system or
+   filesystem facility failing to do what it guarantees, counts as two
+   conditions. Alone it is `very-rare`. With one more independent condition it
+   is `extremely-rare`.
+
+A finding whose rarity is not `ordinary` names every condition that must hold,
+so each vetter can check the count. Case:
+[`rarity-token`](../../../plan/CASES.md#rarity-token).
+
+Harm says how bad the harm is for the person who meets it, the person its
+reach names:
+
+- `low`: the person sees the harm, and an ordinary action undoes it, such as a
+  rerun, a retry, a reload or a restart.
+- `medium`: the person sees the harm and can put it right, but only with real
+  work, such as redoing unsaved work by hand.
+- `high`: the harm cannot be undone, such as lost or damaged saved data or a
+  leaked secret, or the person cannot see it, such as a report of success for
+  work that did not happen. Harm the person cannot see is `high` whatever would
+  put them back, because nobody undoes or reports what nobody sees.
+
+The level reads the consequence the finding states under
+[Finding explanations](#finding-explanations). The finding names what puts the
+person back, so each vetter can check the level. A `rare` finding carries the
+level too, so one rule says when the token stands: exactly when the finding
+names a condition. An `ordinary` finding carries no level. A plain upkeep cost
+has no ordinary action that undoes it, and an implementation tier already names
+the harm, so a level there would rate one fact twice. Case:
+[`harm-token`](../../../plan/CASES.md#harm-token).
 
 Complexity says how the correction changes the maintenance burden as a whole:
 what future work must understand, preserve and coordinate, never the effort of
@@ -245,12 +300,13 @@ One burden scale serves commit marks, findings and yield reports. Scope,
 evidence and output stay prescribed while burden size is judged. The account
 makes disagreement inspectable; it does not make the scale mechanical.
 
-Reach and complexity form one pair. Growth pattern 6 says a user-facing cost
-can veto while a complexity cost goes unpriced. A run of developer, very-rare
-or rare reach beside growing complexity on the same machinery exposes that
-trade for the watch. A reduction is the opposite signal and does not join the
-run. The values rate facts, not worth. Their one direct role in choosing an
-answer is the rare-case rule under [Real choices](#real-choices).
+Reach and rarity pair with complexity. Growth pattern 6 says a user-facing cost
+can veto while a complexity cost goes unpriced. A run of findings with
+`developer` reach or a rarity other than `ordinary`, beside growing complexity
+on the same machinery, exposes that trade for the watch. A reduction is the
+opposite signal and does not join the run. The values rate facts, not worth.
+Their one direct role in choosing an answer is the rare-case rule under
+[Real choices](#real-choices).
 
 ## Finding explanations
 
@@ -269,7 +325,8 @@ produces without the correction. A planning finding states what the
 implementation session would do differently and what wrong code or behaviour
 would result. For a runtime defect, name the triggering situation and concrete
 outcome. A planning finding also says how often a person meets that situation.
-When the cost is only rework or re-derivation, say so and use developer reach.
+When the cost is only rework or re-derivation, say so and use `developer` reach
+with `ordinary` rarity.
 A D finding derives its consequence for grading but need not report it. A tier
 claim without a consequence does not stand; drop a finding whose trace ends
 with the same behaviour shipping.
@@ -300,7 +357,8 @@ Without this rule a conjecture written as a fact passes the quote check,
 because there is no quote to test. Case: [`premise-kinds`](../../../plan/CASES.md#premise-kinds).
 
 At tiers A to C, explain the trade when the growth-pattern value is not `none`,
-reach is not `ordinary` and complexity is an increase. State the simplest
+the finding is not an `end-user` harm with `ordinary` rarity and complexity is
+an increase. State the simplest
 mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery
 costs to build and own, what it gives the user over that mechanism and whether a
 boundary entry or user decision settles the choice. Deletion or doing nothing
@@ -433,7 +491,8 @@ such an audit.
 ## Completed commit metadata
 
 Plan and implementation audits exclude completed commits' metadata: kinds,
-scopes, capability tags, model records, severity, reach and complexity labels.
+scopes, capability tags, model records, severity, reach, rarity, harm and
+complexity labels.
 This includes commits named as audit targets. Naming one selects its code
 changes, not its metadata. Incorrect labels create no finding, correction,
 reporting, deferral or follow-up duty. Correcting them adds work without

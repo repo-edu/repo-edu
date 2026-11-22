@@ -349,6 +349,11 @@ are never edited by hand.
 **A finding** holds one review per vetter of the panel: the vetter's tag, its verdict, its revised
 tier and the rebuttal's answer to it.
 
+- It keeps the audit report's ratings: the reach, the rarity and, beside a rarity other than
+  `ordinary`, the harm level. A kept finding also keeps the record's tier, reach and rarity where a
+  narrowing changed them, because those three set the commit subject's marks.
+- An entry written before the rarity token keeps its old reach value and carries no rarity, harm or
+  final rarity. The schema admits it and no reader converts it.
 - A vet report reading carries each finding's audit report number, audit report tier, verdict and
   optional revised tier. A review records a revised tier only when its `Revise to [<tier>]` line
   differs from the audit report tier.

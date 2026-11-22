@@ -14,7 +14,8 @@ const areaKinds = new Map([
   ["area-x", "partition"],
   ["cover-llm-runtime", "cover"],
 ])
-const ratings = "[growth-pattern:none] [reach:developer] [complexity:none]"
+const ratings =
+  "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
 const codeFinding = `- [C] [area:tool-audit-round] ${ratings} Correct: the record.`
 const planFinding = `- C [section:decisions] ${ratings} Correct: the record.`
 const planningFinding = planFinding.replace("- C ", "- C [field:missing] ")
@@ -533,7 +534,7 @@ test("an amendment recalculates removed and regraded findings", () => {
   const first = stamp(original)
   const regraded = first
     .replace("[C]", "[D]")
-    .replace("reach:developer", "reach:ordinary")
+    .replace("reach:developer", "reach:end-user")
   assert.match(stamp(regraded), /^example\/impl-audit-1 oth !D1: s/)
   assert.equal(
     stamp(first.replace(`\n${codeFinding}\n`, "")),

@@ -82,8 +82,15 @@ test("subject totals still validate findings without per-commit duplicate facts"
     "oth pruning-high !B1C1a1d1 redesign(x): reshape",
     [
       bullet("area:area-a", "A"),
-      bullet("area:area-a", "B", ratings.replace("developer", "ordinary")),
-      bullet("area:area-b", "C", ratings.replace("developer", "rare")),
+      bullet("area:area-a", "B", ratings.replace("developer", "end-user")),
+      bullet(
+        "area:area-b",
+        "C",
+        ratings.replace(
+          "[reach:developer] [rarity:ordinary]",
+          "[reach:end-user] [rarity:rare] [harm:low]",
+        ),
+      ),
       bullet("area:area-b", "D"),
     ].join("\n"),
   )
@@ -195,6 +202,8 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
   assert.deepEqual(evidence.tokens, {
     growthPattern: { recurrence: 3 },
     reach: { developer: 3 },
+    rarity: { ordinary: 3 },
+    harm: {},
     complexity: { low: 3 },
     sections: { decisions: 1 },
     areas: { "area-a": 2 },
@@ -235,6 +244,8 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       tokens: {
         growthPattern: { recurrence: 1 },
         reach: { developer: 1 },
+        rarity: { ordinary: 1 },
+        harm: {},
         complexity: { low: 1 },
         sections: { decisions: 1 },
         areas: {},
@@ -280,6 +291,8 @@ test("the watch view keeps only the reduced repository and commit evidence", () 
       tokens: {
         growthPattern: { recurrence: 2 },
         reach: { developer: 2 },
+        rarity: { ordinary: 2 },
+        harm: {},
         complexity: { low: 2 },
         sections: {},
         areas: { "area-a": 2 },
@@ -391,7 +404,7 @@ test("each finding resolves current, split and unknown areas while all other tok
     bullet(
       "area:area-a",
       "C",
-      "[cover:cover-x] [growth-pattern:recurrence,ownership] [reach:rare] [complexity:low]",
+      "[cover:cover-x] [growth-pattern:recurrence,ownership] [reach:end-user] [rarity:rare] [harm:low] [complexity:low]",
     ),
     bullet("area:retired", "C"),
     bullet("area:missing", "D"),
@@ -411,7 +424,9 @@ test("each finding resolves current, split and unknown areas while all other tok
   assert.equal("unresolved" in findings[2], false)
   assert.deepEqual(data.tokens, {
     growthPattern: { recurrence: 1, ownership: 1, none: 2 },
-    reach: { rare: 1, developer: 2 },
+    reach: { "end-user": 1, developer: 2 },
+    rarity: { rare: 1, ordinary: 2 },
+    harm: { low: 1 },
     complexity: { low: 1, none: 2 },
     sections: {},
     areas: { "area-a": 1, "child-a": 1, "child-b": 1 },
@@ -429,7 +444,7 @@ test("each finding resolves current, split and unknown areas while all other tok
 
 test("run evidence counts distinct graded commits including off-plan and D-only work", () => {
   const tokens =
-    "[growth-pattern:recurrence] [reach:developer] [complexity:medium]"
+    "[growth-pattern:recurrence] [reach:developer] [rarity:ordinary] [complexity:medium]"
   const repeated = commit(
     "oth growth-none d2 docs(x): wording",
     [
@@ -446,8 +461,14 @@ test("run evidence counts distinct graded commits including off-plan and D-only 
   assert.deepEqual(episode(history(repeated)).runs.growthPatterns, [])
 })
 
-test("complexity runs include all three non-ordinary reaches and positive levels only", () => {
-  for (const reach of ["developer", "very-rare", "rare", "ordinary"]) {
+test("complexity runs include every rating but an end-user harm with ordinary rarity, and positive levels only", () => {
+  for (const rating of [
+    "[reach:developer] [rarity:ordinary]",
+    "[reach:developer] [rarity:extremely-rare] [harm:high]",
+    "[reach:end-user] [rarity:rare] [harm:low]",
+    "[reach:end-user] [rarity:very-rare] [harm:medium]",
+    "[reach:end-user] [rarity:ordinary]",
+  ]) {
     for (const complexity of [
       "low",
       "medium",
@@ -462,16 +483,17 @@ test("complexity runs include all three non-ordinary reaches and positive levels
         bullet(
           "area:area-a",
           "C",
-          `[growth-pattern:none] [reach:${reach}] [complexity:${complexity}]`,
+          `[growth-pattern:none] ${rating} [complexity:${complexity}]`,
         ),
       )
       const data = episode(history(c, c))
       const eligible =
-        reach !== "ordinary" && ["low", "medium", "high"].includes(complexity)
+        rating !== "[reach:end-user] [rarity:ordinary]" &&
+        ["low", "medium", "high"].includes(complexity)
       assert.equal(
         data.runs.complexity.length,
         eligible ? 1 : 0,
-        `${reach}/${complexity}`,
+        `${rating}/${complexity}`,
       )
       assert.deepEqual(data.runs.growthPatterns, [])
     }
@@ -490,7 +512,7 @@ test("complexity runs include all three non-ordinary reaches and positive levels
     "- [C] [area:area-a] Old tokens.",
   )
   assert.deepEqual(episode(history(c, broken, c)).runs.complexity, [])
-  // Different bullets cannot supply the reach and complexity halves of a pair.
+  // Different bullets cannot supply the rating and complexity halves of a pair.
   const unpaired = commit(
     "oth growth-none C1c1 fix(x): separate trades",
     [
@@ -498,7 +520,7 @@ test("complexity runs include all three non-ordinary reaches and positive levels
         "area:area-a",
         "C",
         ratings
-          .replace("developer", "ordinary")
+          .replace("developer", "end-user")
           .replace("complexity:none", "complexity:high"),
       ),
       bullet(),

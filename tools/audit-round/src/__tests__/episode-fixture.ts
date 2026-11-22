@@ -19,7 +19,7 @@ export const areas: readonly Area[] = [
 ]
 
 export const ratings =
-  "[growth-pattern:none] [reach:developer] [complexity:none]"
+  "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
 export const bullet = (
   location = "area:area-a",
   tier = "C",
@@ -77,6 +77,7 @@ function roundFinding(
     title,
     tier: "B",
     reach: "developer",
+    rarity: "ordinary",
     complexity: "none",
     growthPattern: "none",
     location,
@@ -87,6 +88,7 @@ function roundFinding(
     outcome,
     finalTier: null,
     finalReach: null,
+    finalRarity: null,
   }
 }
 

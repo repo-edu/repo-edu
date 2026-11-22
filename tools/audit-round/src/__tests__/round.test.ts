@@ -112,6 +112,7 @@ const reportFinding: ReportFinding = {
   title: "Fixture finding",
   tier: "B",
   reach: "developer",
+  rarity: "ordinary",
   complexity: "none",
   growthPattern: "none",
   location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
@@ -1298,6 +1299,7 @@ const reviewedFinding = {
   outcome: null,
   finalTier: null,
   finalReach: null,
+  finalRarity: null,
 } as const satisfies RoundFinding
 
 for (const stopped of ["unanswered", "failed-fix"] as const) {
@@ -1753,6 +1755,7 @@ function reviewedAccount(
         outcome: null,
         finalTier: null,
         finalReach: null,
+        finalRarity: null,
       },
     ],
   }
@@ -1903,6 +1906,7 @@ test("the round data retains review, rebuttal and settlement outcomes", async ()
         outcome: "dropped",
         finalTier: null,
         finalReach: null,
+        finalRarity: null,
       },
     ],
   })
@@ -2491,14 +2495,14 @@ test("a plan round records only the landed commits that carry its stem", async (
     sha: "1".repeat(40),
     subject: "other/plan-audit obx growth-none B1: correct the other plan",
     message:
-      "- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+      "- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: Apply the correction.",
   }
   const own = {
     repository: "plan" as const,
     sha: "2".repeat(40),
     subject: "example/plan-audit ath growth-none B1: correct the plan",
     message:
-      "- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction.",
+      "- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: Apply the correction.",
   }
 
   const result = await runRound(
@@ -2523,7 +2527,7 @@ test("a plan round records only the landed commits that carry its stem", async (
 test("a commit round records only the commits that open with its series label", async () => {
   const round = controlledRound()
   const finding =
-    "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: Apply the correction."
+    "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: Apply the correction."
   const landed = (sha: string, subject: string) => ({
     repository: "repo-edu" as const,
     sha: sha.repeat(40),

@@ -8,7 +8,8 @@ import { findingSequence, printSequence } from "../sequence.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
 const strict = "plan-audit"
-const rating = "[growth-pattern:none] [reach:developer] [complexity:none]"
+const rating =
+  "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
 
 test("the round grammar's record-bullet examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("record/")) {
@@ -41,7 +42,7 @@ test("graded and untiered bullets expose deferral citations", () => {
   const firstSha = "a".repeat(40)
   const secondSha = "b".repeat(40)
   const standingSha = "c".repeat(40)
-  const graded = `- C [section:decisions] [applies:${firstSha}/1] [applies:${secondSha}/2] [growth-pattern:none] [reach:developer] [complexity:none] Apply: the plan changes.`
+  const graded = `- C [section:decisions] [applies:${firstSha}/1] [applies:${secondSha}/2] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Apply: the plan changes.`
   const standing = `- [applies:${standingSha}/3] The plan stands.`
   const bullets = readRecordBullets(
     `${graded}\n${standing}`,
@@ -66,19 +67,19 @@ test("graded and untiered bullets expose deferral citations", () => {
 
 test("a leading finding token carries the audit report finding number", () => {
   const [numbered] = readFindings(
-    "- [B] [finding:12] [area:area-a] [growth-pattern:none] [reach:developer] [complexity:none] Any title: Explanation.",
+    "- [B] [finding:12] [area:area-a] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Any title: Explanation.",
     "repo-edu",
     strict,
   )
   assert.equal(numbered.number, 12)
   const [planning] = readFindings(
-    "- C [finding:2] [field:excess] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Any title: Explanation.",
+    "- C [finding:2] [field:excess] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Any title: Explanation.",
     "plan",
     "plan-audit",
   )
   assert.equal(planning.number, 2)
   const [plain] = readFindings(
-    "- C [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Any title: Explanation.",
+    "- C [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Any title: Explanation.",
     "plan",
     "impl-audit-1",
   )
@@ -87,7 +88,7 @@ test("a leading finding token carries the audit report finding number", () => {
     assert.throws(
       () =>
         readFindings(
-          `- [B] [finding:${value}] [area:area-a] [growth-pattern:none] [reach:developer] [complexity:none] Title: Explanation.`,
+          `- [B] [finding:${value}] [area:area-a] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Title: Explanation.`,
           "repo-edu",
           strict,
         ),
@@ -113,21 +114,21 @@ test("the round grammar's area tokens use current area IDs", () => {
   }
 })
 
-test("both bullet forms derive sorted tier counts, all reach cases and D findings", () => {
+test("both bullet forms derive sorted tier counts, every reach and rarity and D findings", () => {
   const cases = [
-    ["D", "developer"],
-    ["C", "rare"],
-    ["A", "developer"],
-    ["B", "ordinary"],
-    ["C", "very-rare"],
-    ["D", "developer"],
+    ["D", "[reach:developer] [rarity:ordinary]"],
+    ["C", "[reach:end-user] [rarity:rare] [harm:low]"],
+    ["A", "[reach:developer] [rarity:very-rare] [harm:medium]"],
+    ["B", "[reach:end-user] [rarity:ordinary]"],
+    ["C", "[reach:end-user] [rarity:extremely-rare] [harm:high]"],
+    ["D", "[reach:developer] [rarity:ordinary]"],
   ]
   for (const repository of ["repo-edu", "plan"] as const) {
     const body = cases
       .map(([tier, reach]) =>
         repository === "repo-edu"
-          ? `- [${tier}] [area:area-a] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern: Explanation.`
-          : `- ${tier} [field:missing] [section:decisions] [growth-pattern:none] [reach:${reach}] [complexity:none] Concern: Explanation.`,
+          ? `- [${tier}] [area:area-a] [growth-pattern:none] ${reach} [complexity:none] Concern: Explanation.`
+          : `- ${tier} [field:missing] [section:decisions] [growth-pattern:none] ${reach} [complexity:none] Concern: Explanation.`,
       )
       .join("\n")
     const findings = readFindings(body, repository, strict)
@@ -135,12 +136,15 @@ test("both bullet forms derive sorted tier counts, all reach cases and D finding
     assert.equal(printSequence(findingSequence(findings)), "!B1C2a1d2")
     assert.equal(printSequence(findingSequence([])), "clean")
   }
-  const rare = readFindings(
-    `- [D] [area:area-a] ${rating.replace("developer", "very-rare")} Wording: Explanation.`,
-    "repo-edu",
-    strict,
-  )
-  assert.equal(printSequence(findingSequence(rare)), "D1")
+  // A condition keeps the letter case of its reach and never sets the `!`.
+  const rare = (reach: string) =>
+    readFindings(
+      `- [D] [area:area-a] ${rating.replace("[reach:developer] [rarity:ordinary]", `[reach:${reach}] [rarity:very-rare] [harm:low]`)} Wording: Explanation.`,
+      "repo-edu",
+      strict,
+    )
+  assert.equal(printSequence(findingSequence(rare("end-user"))), "D1")
+  assert.equal(printSequence(findingSequence(rare("developer"))), "d1")
 })
 
 test("strict reads require each token and name the offending bullet", () => {
@@ -158,11 +162,32 @@ test("strict reads require each token and name the offending bullet", () => {
       valid.replace("[area:area-a]", "[area:area-a] [section:elsewhere]"),
       /location/,
     ],
-    ...["growth-pattern", "reach", "complexity"].flatMap((key) => [
+    ...["growth-pattern", "reach", "rarity", "complexity"].flatMap((key) => [
       [valid.replace(new RegExp(`\\[${key}:[^\\]]+\\] `), ""), new RegExp(key)],
       [valid.replace(" Correct", ` [${key}:none] Correct`), new RegExp(key)],
     ]),
     [valid.replace("reach:developer", "reach:none"), /invalid \[reach/],
+    [valid.replace("reach:developer", "reach:ordinary"), /invalid \[reach/],
+    [valid.replace("rarity:ordinary", "rarity:common"), /invalid \[rarity/],
+    [
+      valid.replace("rarity:ordinary", "rarity:rare"),
+      /no \[harm:\.\.\.\] token after \[rarity:rare\]/,
+    ],
+    [
+      valid.replace("[rarity:ordinary]", "[rarity:ordinary] [harm:low]"),
+      /a \[harm:\.\.\.\] token after \[rarity:ordinary\]/,
+    ],
+    [
+      valid.replace("[rarity:ordinary]", "[rarity:rare] [harm:severe]"),
+      /invalid \[harm/,
+    ],
+    [
+      valid.replace(
+        "[rarity:ordinary] [complexity:none]",
+        "[rarity:rare] [complexity:none] [harm:low]",
+      ),
+      /unexpected \[harm/,
+    ],
     [valid.replace(" Correct", " [reach:] Correct"), /reach/],
     [valid.replace(" Correct", " [area:] Correct"), /location/],
     [valid.replace("area:area-a", "plan: "), /location/],
@@ -206,7 +231,13 @@ test("strict reads require each token and name the offending bullet", () => {
     )
   }
   const plan = `- C [field:missing] [section:decisions] ${rating} Correct: it.`
-  for (const key of ["section", "growth-pattern", "reach", "complexity"]) {
+  for (const key of [
+    "section",
+    "growth-pattern",
+    "reach",
+    "rarity",
+    "complexity",
+  ]) {
     assert.throws(
       () =>
         readFindings(

@@ -248,8 +248,22 @@ is always named in full.
 
 ## Finding ratings
 
-- **Reach**: how far a finding's fault reaches a person: developer, ordinary,
-  rare or very rare.
+- **Reach**: who meets a finding's harm: an end user or the developer.
+- **End user**: a person who uses a shipped program, the desktop app or the
+  command-line program. A finding has end-user reach when such a person can
+  meet its harm, even when the fault sits in a tool that built a wrong program.
+- **Developer**: the person who builds Repo Edu and runs its developer-only
+  tools, such as the runner and the checks. A fault that shows only when a tool
+  runs, or a cost of rework, has developer reach. The doctrine's "the user",
+  who rules on a round, is the same person.
+- **Rarity**: how many independent rare conditions must hold at the same time
+  before a finding's harm appears: none, one, two, or three or more, written
+  ordinary, rare, very rare and extremely rare. A platform that breaks its own
+  contract counts as two.
+- **Harm**: how bad a finding's harm is for the person who meets it. It is low
+  when an ordinary action such as a retry undoes it, medium when putting it
+  right takes real work, and high when it cannot be undone or the person cannot
+  see it. Only a finding whose rarity is not ordinary carries it.
 - **Complexity**: how a correction or a commit changes the whole maintenance
   burden, from a high reduction through none to a high increase. It measures
   what future work must understand, preserve and coordinate, never the effort

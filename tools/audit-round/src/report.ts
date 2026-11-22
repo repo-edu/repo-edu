@@ -2,12 +2,12 @@ import { fromMarkdown } from "mdast-util-from-markdown"
 import {
   areaLocationTokenKeys,
   findingLabelSchema,
-  findingRatingsSchema,
   findingRatingTokenKeys,
   findingTokenSequenceIssue,
   findingTokenValues,
   type JudgedRepositorySet,
   type ReportLocationToken,
+  readFindingRatings,
   readFindingTokenPrefix,
   reportLocationTable,
 } from "./finding-tokens.js"
@@ -203,18 +203,21 @@ function findingData(
   if (heading[3].includes(": "))
     throw new Error(`Finding ${heading[1]} title cannot contain ": "`)
   const { tokens } = tokenPrefix
-  const expectedTokenKeys =
+  const locationTokenKeys =
     reportClass !== "implementation"
-      ? (["field", "section", ...findingRatingTokenKeys] as const)
+      ? (["field", "section"] as const)
       : tokens[0]?.key === "section" || tokens[0]?.key === "plan"
-        ? ([tokens[0].key, ...findingRatingTokenKeys] as const)
-        : ([
-            ...areaLocationTokenKeys(tokens, 0),
-            ...findingRatingTokenKeys,
-          ] as const)
+        ? ([tokens[0].key] as const)
+        : areaLocationTokenKeys(tokens, 0)
+  const expectedTokenKeys = [
+    ...locationTokenKeys,
+    ...findingRatingTokenKeys(tokens, locationTokenKeys.length),
+  ] as const
+  const fail: (reason: string) => never = (reason) => {
+    throw new Error(`Finding ${heading[1]} has ${reason}`)
+  }
   const tokenIssue = findingTokenSequenceIssue(tokens, expectedTokenKeys)
-  if (tokenIssue !== null)
-    throw new Error(`Finding ${heading[1]} has ${tokenIssue}`)
+  if (tokenIssue !== null) fail(tokenIssue)
   const values = (key: string) => findingTokenValues(tokens, key)
   const one = (key: string): string => {
     const found = values(key)
@@ -224,16 +227,7 @@ function findingData(
       )
     return found[0]
   }
-  const foundReach = one("reach")
-  const foundComplexity = one("complexity")
-  const foundGrowth = one("growth-pattern")
-  const ratings = findingRatingsSchema.safeParse({
-    "growth-pattern": foundGrowth,
-    reach: foundReach,
-    complexity: foundComplexity,
-  })
-  if (!ratings.success)
-    throw new Error(`Finding ${heading[1]} has an invalid rating token`)
+  const ratings = readFindingRatings(tokens, fail)
 
   let location: RoundFindingLocation
   if (reportClass !== "implementation") {
@@ -308,9 +302,11 @@ function findingData(
     number: Number(heading[1]),
     title: heading[3],
     tier: heading[2] as ReportFinding["tier"],
-    reach: ratings.data.reach,
-    complexity: ratings.data.complexity,
-    growthPattern: ratings.data["growth-pattern"],
+    reach: ratings.reach,
+    rarity: ratings.rarity,
+    ...(ratings.harm === undefined ? {} : { harm: ratings.harm }),
+    complexity: ratings.complexity,
+    growthPattern: ratings["growth-pattern"],
     location,
   }
 }

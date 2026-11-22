@@ -130,6 +130,7 @@ function bugFinding(tier: "A" | "B" | "C" | "D" = "B") {
     title: `${tier} finding`,
     tier,
     reach: "developer" as const,
+    rarity: "ordinary" as const,
     complexity: "none" as const,
     growthPattern: "none",
     location: {
@@ -141,6 +142,7 @@ function bugFinding(tier: "A" | "B" | "C" | "D" = "B") {
     outcome: "kept" as const,
     finalTier: null,
     finalReach: null,
+    finalRarity: null,
   }
 }
 

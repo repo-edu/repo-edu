@@ -69,6 +69,7 @@ function disproveRound(
         title: "Unsupported claim",
         tier: "B",
         reach: "developer",
+        rarity: "ordinary",
         complexity: "none",
         growthPattern: "none",
         location: {
@@ -84,6 +85,7 @@ function disproveRound(
         outcome: verdicts.includes("drop") ? "dropped" : "kept",
         finalTier: null,
         finalReach: null,
+        finalRarity: null,
       },
     ],
     judge: null,

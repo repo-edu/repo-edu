@@ -186,7 +186,7 @@ test("a rerun asks again for a stopped serious contest on its kept reports befor
                   cwd: f.repoRoot,
                   subject:
                     "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
-                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
+                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: The owning contract decides the correction.",
                 },
               ],
             },
@@ -243,6 +243,7 @@ test("a rerun asks again for a stopped serious contest on its kept reports befor
     title: "Fixture finding",
     tier: "B",
     reach: "developer",
+    rarity: "ordinary",
     complexity: "none",
     growthPattern: "none",
     location: {
@@ -261,6 +262,7 @@ test("a rerun asks again for a stopped serious contest on its kept reports befor
     outcome: "kept",
     finalTier: null,
     finalReach: null,
+    finalRarity: null,
   })
   // The finished fix keeps the round's reports until the close.
   for (const path of [f.report, f.vet, f.rebut]) await readFile(path)
@@ -330,7 +332,7 @@ test("a targetless round's rerun names its plan and continues it after another p
                   cwd: f.repoRoot,
                   subject:
                     "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored contest ruling",
-                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The owning contract decides the correction.",
+                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: The owning contract decides the correction.",
                 },
               ],
             },
@@ -445,7 +447,7 @@ test("a rerun asks again for a stopped panel split before a fresh fix that reads
                   cwd: f.repoRoot,
                   subject:
                     "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
-                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+                  body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: The Claude vet was right.",
                 },
               ],
             },
@@ -618,7 +620,7 @@ test("a fix that failed after the user named a split's winner finishes on the re
             cwd: f.repoRoot,
             subject:
               "example/impl-audit-1 obh growth-none b1 fix(audit-round): apply stored split ruling",
-            body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Fixture finding: The Claude vet was right.",
+            body: "- [B] [finding:1] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: The Claude vet was right.",
           },
         ],
       }),
@@ -959,7 +961,7 @@ async function configureWideningSeries(
 }
 
 const deferralRatings =
-  "[growth-pattern:none] [reach:developer] [complexity:none]"
+  "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
 
 function implementationDeferralReport(head: string): string {
   return `Implementation audit workflow

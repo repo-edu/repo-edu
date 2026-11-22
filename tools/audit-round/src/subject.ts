@@ -71,7 +71,7 @@ export type Run = {
 
 /** `<sequence>`: the same form in both repositories. */
 export type Sequence = {
-  /** The leading `!`, which says at least one concern has ordinary reach. */
+  /** The leading `!`, which says at least one concern is an end-user harm with ordinary rarity. */
   readonly ordinary: boolean
   readonly upper: readonly Run[]
   readonly lower: readonly Run[]

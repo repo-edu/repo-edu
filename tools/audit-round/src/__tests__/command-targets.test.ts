@@ -64,7 +64,7 @@ async function deferPlanChoice(repoRoot: string) {
 
 gpt-6.1-sol xhigh
 
-- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Plan choice: The plan needs a decision.`,
+- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Plan choice: The plan needs a decision.`,
   )
   const sha = (await execa("git", ["rev-parse", "HEAD"], { cwd: repoRoot }))
     .stdout

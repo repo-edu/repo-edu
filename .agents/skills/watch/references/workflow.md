@@ -169,10 +169,12 @@ omits the rework where drift shows.
 Finding bullets carry the tokens the shared round protocol's finding metadata
 prescribes. Read `[section:<heading>]` as the cluster key on plan-side rounds
 and one `[growth-pattern:<label>]` label repeating across rounds as growth drift.
-Read a run of `low`, `medium` or `high` `[complexity:...]` beside
-`[reach:developer]`, `[reach:very-rare]` or `[reach:rare]` as the unpriced
-trade the pattern `unpriced-complexity` names: rounds that keep adding
-machinery for situations hardly anyone meets. A `minus-` complexity value is
+Read `[reach:...]` as who meets the defended harm, `[rarity:...]` as how many
+independent conditions it needs and `[harm:...]` as how bad it is. Read a run
+of `low`, `medium` or `high` `[complexity:...]` beside `[reach:developer]` or a
+`[rarity:...]` other than `ordinary` as the unpriced trade the pattern
+`unpriced-complexity` names: rounds that keep adding machinery for situations
+hardly anyone meets. A `minus-` complexity value is
 net burden removed and never joins such a run. On Repo Edu commits the
 subject's leading mark gives the same reading over whole commits, so
 `git log --oneline` shows a `growth-medium` or `growth-high` run without
@@ -195,7 +197,8 @@ the model read-out's comparison or Git's ownership of episode membership and
 accepted records.
 
 Bullets outside the current token form are listed as unreadable and supply
-no partial counts. Their subjects still supply independent severity evidence.
+no partial counts. Every bullet written before the rarity token is outside it.
+Their subjects still supply independent severity evidence.
 Repo Edu findings keep their primary area and cover IDs. An ID in the current
 area model resolves directly; a retired ID resolves once into each current
 area recording it under `splitFrom`. An ID in neither stays unresolved on
@@ -206,8 +209,8 @@ A broad heading can collect unrelated defects; a count alone does not justify
 redesign. Read the named bullets and current artifact to establish a shared
 structural cause before suggesting a response.
 
-When growth repeats or the supplied reach and complexity pairs show a run, read its cost in four
-parts: how often the defended event has occurred or what condition it requires, the simplest
+When growth repeats or the supplied rating and complexity pairs show a run, read its cost in four
+parts: how often the defended event has occurred or what conditions it requires, the simplest
 mechanism that meets [BOUNDARIES.md](../../../../../plan/BOUNDARIES.md), the amount and interaction
 of the obligations the current design adds and what it gives the user over that simpler mechanism.
 Ground developer reach in recorded events. Check alternatives against the artifact's recorded
@@ -273,7 +276,8 @@ the response and may still read the diagnostic directly.
   issues an end user can meet and lowercase counts are developer-only. A run of
   rounds whose uppercase counts have reached zero says the episode stopped
   finding user-facing faults, whatever its severity maximum still reads, and a
-  leading `!` marks the rounds that found a fault needing no special condition.
+  leading `!` marks the rounds that found a fault an end user meets with no
+  special condition.
 - The leading mark is a third trajectory, burden, read alongside severity and reach and never merged
   into either. `growth` says the round increased maintenance burden. `pruning` says it reduced it
   and `growth-none` that it left the burden unchanged. The level grades the size of that net change

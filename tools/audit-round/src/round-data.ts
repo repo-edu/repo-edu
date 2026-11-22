@@ -3,7 +3,13 @@ import { readdir, readFile, stat } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { z } from "zod"
 import type { RoundDataRoots } from "./context.js"
-import { complexitySchema, reachSchema } from "./finding-tokens.js"
+import {
+  complexitySchema,
+  type FindingRatings,
+  harmSchema,
+  raritySchema,
+  reachValues,
+} from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
 import { parseSubject, type Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
@@ -93,12 +99,23 @@ export const roundFindingReviewSchema = z.strictObject({
   answer: z.enum(["agree", "contest", "for-user-ruling"]).nullable(),
 })
 
+/**
+ * Entries written before the rarity token keep their old reach value, which
+ * rated the condition as well as the person, and carry no rarity, harm or final
+ * rarity. No reader converts them.
+ */
+const oldReachValues = ["ordinary", "rare", "very-rare", "developer"] as const
+const storedReach = z.enum([...reachValues, ...oldReachValues])
+
 export const roundFindingSchema = z
   .strictObject({
     number: z.number().int().positive().nullable(),
     title: z.string().min(1),
     tier,
-    reach: reachSchema,
+    reach: storedReach,
+    rarity: raritySchema.optional(),
+    /** Present exactly when the rarity is present and not ordinary. */
+    harm: harmSchema.optional(),
     complexity: complexitySchema,
     growthPattern: z.string().min(1),
     location: roundFindingLocationSchema,
@@ -126,9 +143,40 @@ export const roundFindingSchema = z
       .optional(),
     outcome: z.enum(["kept", "dropped", "unmatched"]).nullable(),
     finalTier: tier.nullable(),
-    finalReach: reachSchema.nullable(),
+    finalReach: storedReach.nullable(),
+    /** The record's rarity where a narrowing changed it; old entries carry none. */
+    finalRarity: raritySchema.nullable().optional(),
   })
   .superRefine((finding, context) => {
+    const current = finding.rarity !== undefined
+    const reaches: readonly string[] = current ? reachValues : oldReachValues
+    for (const key of ["reach", "finalReach"] as const) {
+      const value = finding[key]
+      if (value !== null && !reaches.includes(value))
+        context.addIssue({
+          code: "custom",
+          message: current
+            ? "A finding with a rarity has end-user or developer reach"
+            : "A finding without a rarity keeps an old reach value",
+          path: [key],
+        })
+    }
+    if (
+      current
+        ? (finding.harm === undefined) !== (finding.rarity === "ordinary")
+        : finding.harm !== undefined
+    )
+      context.addIssue({
+        code: "custom",
+        message: "A harm level stands exactly on a rarity other than ordinary",
+        path: ["harm"],
+      })
+    if (current !== (finding.finalRarity !== undefined))
+      context.addIssue({
+        code: "custom",
+        message: "A final rarity stands exactly beside a rarity",
+        path: ["finalRarity"],
+      })
     if (finding.outcome === "unmatched" && finding.number !== null)
       context.addIssue({
         code: "custom",
@@ -143,11 +191,13 @@ export const roundFindingSchema = z
       })
     if (
       finding.outcome !== "kept" &&
-      (finding.finalTier !== null || finding.finalReach !== null)
+      (finding.finalTier !== null ||
+        finding.finalReach !== null ||
+        (finding.finalRarity ?? null) !== null)
     )
       context.addIssue({
         code: "custom",
-        message: "Only a kept finding can record a final tier or reach",
+        message: "Only a kept finding can record a final tier, reach or rarity",
         path: ["outcome"],
       })
     finding.reviews.forEach((review, index) => {
@@ -358,10 +408,22 @@ export type RoundFinding = z.infer<typeof roundFindingSchema>
 export type SeriesAnswer = NonNullable<z.infer<typeof seriesAnswerSchema>>
 export type SeriesDecision = SeriesAnswer["answer"]
 export type RoundFindingReview = z.infer<typeof roundFindingReviewSchema>
+/** A finding the current audit report reader produced, always in the current rating form. */
 export type ReportFinding = Omit<
   RoundFinding,
-  "reviews" | "ruling" | "outcome" | "finalTier" | "finalReach"
-> & { readonly number: number }
+  | "reach"
+  | "rarity"
+  | "reviews"
+  | "ruling"
+  | "outcome"
+  | "finalTier"
+  | "finalReach"
+  | "finalRarity"
+> & {
+  readonly number: number
+  readonly reach: FindingRatings["reach"]
+  readonly rarity: FindingRatings["rarity"]
+}
 export type VetVerdict = RoundFindingReview["verdict"]
 export type RebuttalAnswer = NonNullable<RoundFindingReview["answer"]>
 export type RulingWinner = z.infer<typeof rulingWinnerSchema>
@@ -727,6 +789,7 @@ export function reviewedRoundFindings(
     outcome: null,
     finalTier: null,
     finalReach: null,
+    finalRarity: null,
   }))
 }
 
@@ -807,6 +870,8 @@ function recordFindings(
           title: finding.title,
           tier: finding.tier.toUpperCase() as RoundFinding["tier"],
           reach: finding.reach,
+          rarity: finding.rarity,
+          ...(finding.harm === undefined ? {} : { harm: finding.harm }),
           complexity: finding.complexity,
           growthPattern: finding.growthPattern,
           location: recordLocation(finding, record.repository),
@@ -814,6 +879,7 @@ function recordFindings(
           outcome: "unmatched",
           finalTier: null,
           finalReach: null,
+          finalRarity: null,
         },
         repositories: new Set([record.repository]),
       })
@@ -847,6 +913,7 @@ export function settleRoundFindings(
       outcome: "kept",
       finalTier: final.tier === finding.tier ? null : final.tier,
       finalReach: final.reach === finding.reach ? null : final.reach,
+      finalRarity: final.rarity === finding.rarity ? null : final.rarity,
     }
   })
   return [

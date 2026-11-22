@@ -2,6 +2,8 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import {
   complexityValues,
+  harmValues,
+  rarityValues,
   reachValues,
   reportLocationTable,
 } from "../finding-tokens.js"
@@ -61,11 +63,20 @@ test("the round grammar's audit report examples are parser fixtures", () => {
 
 test("every shared rating and location-table cell has its labelled audit report example", () => {
   const examples = roundGrammarExamples("report/")
-  for (const reach of reachValues)
-    assert.ok(
-      examples.some((example) => example.source.includes(`[reach:${reach}]`)),
-      reach,
-    )
+  for (const [key, values] of [
+    ["reach", reachValues],
+    ["rarity", rarityValues],
+    ["harm", harmValues],
+  ] as const)
+    for (const value of values)
+      assert.ok(
+        examples.some(
+          (example) =>
+            example.outcome === "parsed" &&
+            example.source.includes(`[${key}:${value}]`),
+        ),
+        `${key}:${value}`,
+      )
   for (const complexity of complexityValues)
     assert.ok(
       examples.some((example) =>
@@ -113,7 +124,8 @@ test("audit report routing reads the named workflow only in the opening", () => 
     assert.throws(() => reportKind(source), /Audit report opening must name/)
 })
 
-const ratings = "[growth-pattern:none] [reach:developer] [complexity:none]"
+const ratings =
+  "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
 function finding(
   number = 1,
   location = "[area:tool-audit-round]",
@@ -277,7 +289,7 @@ test("widening audit reports end with their settling line and retain it", () => 
   // The line closes the document, so it is not the last finding's evidence.
   const found = widening(
     "No excess findings.",
-    "### 1. B: Name the owner\n\n[field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none]\n\nOne owner is missing.",
+    "### 1. B: Name the owner\n\n[field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]\n\nOne owner is missing.",
   ).replace(
     settlingLine,
     "Settling: keep open. Finding 1 names the open question in `plan-steps.ts`.",

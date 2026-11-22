@@ -74,6 +74,7 @@ const finding = (
   title,
   tier: "B",
   reach: "developer",
+  rarity: "ordinary",
   complexity: "none",
   growthPattern: "none",
   location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
@@ -84,6 +85,7 @@ const finding = (
   outcome,
   finalTier: null,
   finalReach: null,
+  finalRarity: null,
 })
 
 const round = (

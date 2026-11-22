@@ -2,19 +2,17 @@ import { z } from "zod"
 import {
   areaLocationTokenKeys,
   deferralCitationTokenKeys,
+  type FindingRatings,
   findingLabelSchema,
-  findingRatingsSchema,
   findingRatingTokenKeys,
   findingTokenSequenceIssue,
   findingTokenValues,
+  readFindingRatings,
   readFindingTokenPrefix,
 } from "./finding-tokens.js"
 import { type Repository, SubjectError, type TierLetter } from "./subject.js"
 
-export type Finding = Omit<
-  z.infer<typeof findingRatingsSchema>,
-  "growth-pattern"
-> & {
+export type Finding = Omit<FindingRatings, "growth-pattern"> & {
   /** The growth-pattern labels the flagged work could violate, comma-joined, or `none`. */
   readonly growthPattern: string
   readonly tier: TierLetter
@@ -106,9 +104,7 @@ export function readRecordBullets(
       ? readFindingTokenPrefix(remainder.slice(1))
       : null
     if (prefix === null || prefix.remainder.trim().length === 0)
-      fail(
-        "needs location, growth-pattern, reach and complexity tokens followed by prose",
-      )
+      fail("needs location and rating tokens followed by prose")
     const { tokens } = prefix
     const planning = repository === "plan" && role === "plan-audit"
     const numbered = tokens[0]?.key === "finding"
@@ -143,7 +139,7 @@ export function readRecordBullets(
         ] as const)
     const completeTokenKeys = [
       ...expectedTokenKeys,
-      ...findingRatingTokenKeys,
+      ...findingRatingTokenKeys(tokens, expectedTokenKeys.length),
     ] as const
     const tokenIssue = findingTokenSequenceIssue(tokens, completeTokenKeys)
     if (tokenIssue !== null) {
@@ -181,15 +177,7 @@ export function readRecordBullets(
     for (const area of [...values("area"), ...values("cover")])
       if (!findingLabelSchema.safeParse(area).success)
         fail(`invalid area ID: ${area}`)
-    const checked = findingRatingsSchema.safeParse({
-      "growth-pattern": values("growth-pattern")[0],
-      reach: values("reach")[0],
-      complexity: values("complexity")[0],
-    })
-    if (!checked.success) {
-      const issue = checked.error.issues[0]
-      fail(`invalid [${String(issue.path[0])}:...]: ${issue.message}`)
-    }
+    const ratings = readFindingRatings(tokens, fail)
     if (
       planning &&
       !z.enum(["excess", "missing"]).safeParse(values("field")[0]).success
@@ -202,9 +190,11 @@ export function readRecordBullets(
     )
       fail('needs the `Title: prose` form, a title before the first ": "')
     bullets.push({
-      growthPattern: checked.data["growth-pattern"],
-      reach: checked.data.reach,
-      complexity: checked.data.complexity,
+      growthPattern: ratings["growth-pattern"],
+      reach: ratings.reach,
+      rarity: ratings.rarity,
+      ...(ratings.harm === undefined ? {} : { harm: ratings.harm }),
+      complexity: ratings.complexity,
       tier: start[1].toLowerCase() as TierLetter,
       number,
       title: prefix.remainder.slice(0, separator),

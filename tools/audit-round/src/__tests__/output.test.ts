@@ -59,6 +59,7 @@ const splitFinding: RoundAccount["findings"][number] = {
   title: "Serious split",
   tier: "B",
   reach: "developer",
+  rarity: "ordinary",
   complexity: "none",
   growthPattern: "none",
   location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
@@ -69,6 +70,7 @@ const splitFinding: RoundAccount["findings"][number] = {
   outcome: "kept",
   finalTier: "B",
   finalReach: "developer",
+  finalRarity: null,
 }
 
 for (const phase of [

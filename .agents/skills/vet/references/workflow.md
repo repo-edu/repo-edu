@@ -114,9 +114,13 @@ Follow the shared protocol's **History reads**.
 
 Then check that the finding's consequence holds at the claimed tier under the
 [implementation tiers](../../../references/round-protocol.md#implementation-tiers). Verify the wrong
-behaviour and, when reach is `rare` or `very-rare`, the condition that produces it. When the cost is
-only rework or re-derivation, verify that cost. These facts may share the finding's prose; no
-separate trace is required. A trace that ends with the same behaviour shipping is not a finding, so
+behaviour and whether an end user can meet it, which sets the reach. When the rarity is not
+`ordinary`, verify every condition the finding names, that the conditions are independent and that
+their count gives the rarity under the shared
+[Reach and complexity](../../../references/round-protocol.md#reach-and-complexity). Then verify the
+harm level from what the finding says puts the person back. When the cost is only rework or
+re-derivation, verify that cost. These facts may share the finding's prose; no separate trace is
+required. A trace that ends with the same behaviour shipping is not a finding, so
 the verdict is drop.
 
 Apply the shared [Vet checks](../../../references/round-protocol.md#vet-checks)

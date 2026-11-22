@@ -78,8 +78,8 @@ export async function correctionFixture(
   await execa("git", ["add", "correction.md"], { cwd })
   const bullet =
     repository === "plan"
-      ? "- C [section:decisions] [growth-pattern:none] [reach:developer] [complexity:none] Correct: the behaviour."
-      : "- [C] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Correct: the behaviour."
+      ? "- C [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Correct: the behaviour."
+      : "- [C] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Correct: the behaviour."
   const kind = repository === "plan" ? "docs(example)" : "fix(audit-round)"
   return commitFixture(
     cwd,
@@ -199,7 +199,7 @@ Audit ranges: 1.
   )
   const report = join(outputRoot, "audit-source.md")
   const finding = (location: string) =>
-    `### 1. B: Fixture finding\n\n${location} [growth-pattern:none] [reach:developer] [complexity:none]\n\nCorrect the fixture.\n`
+    `### 1. B: Fixture finding\n\n${location} [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]\n\nCorrect the fixture.\n`
   await writeFile(
     report,
     (working === "plan"

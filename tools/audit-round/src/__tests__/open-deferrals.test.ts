@@ -3,7 +3,8 @@ import { test } from "node:test"
 import type { LogCommit } from "../episode-log.js"
 import { openDeferrals } from "../open-deferrals.js"
 
-const ratings = "[growth-pattern:none] [reach:developer] [complexity:none]"
+const ratings =
+  "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
 
 function commit(
   sha: string,

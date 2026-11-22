@@ -9,7 +9,11 @@ import {
   SubjectError,
 } from "./subject.js"
 
-/** Reduce graded bullets to the sequence's two sorted runs. */
+/**
+ * Reduce graded bullets to the sequence's two sorted runs. A letter is upper
+ * case when an end user meets the harm, and the leading `!` marks an end-user
+ * harm that needs no special condition.
+ */
 export function findingSequence(findings: readonly Finding[]): Severity {
   if (findings.length === 0) return "clean"
   const upper: Run[] = []
@@ -24,7 +28,10 @@ export function findingSequence(findings: readonly Finding[]): Severity {
     if (developer > 0) lower.push({ tier, count: developer })
   }
   return {
-    ordinary: findings.some((finding) => finding.reach === "ordinary"),
+    ordinary: findings.some(
+      (finding) =>
+        finding.reach === "end-user" && finding.rarity === "ordinary",
+    ),
     upper,
     lower,
   }

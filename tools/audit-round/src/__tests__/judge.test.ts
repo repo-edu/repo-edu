@@ -37,6 +37,7 @@ function finding(tier: "A" | "B" | "C" | "D") {
     title: `${tier} finding`,
     tier,
     reach: "developer" as const,
+    rarity: "ordinary" as const,
     complexity: "none" as const,
     growthPattern: "none",
     location: {
@@ -48,6 +49,7 @@ function finding(tier: "A" | "B" | "C" | "D") {
     outcome: "kept" as const,
     finalTier: null,
     finalReach: null,
+    finalRarity: null,
   }
 }
 

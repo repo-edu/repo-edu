@@ -52,13 +52,17 @@ names the parser refusal it demonstrates.
 <plan-target>        ::= non-empty text without "]" or a line break
 
 <growth-pattern>     ::= <label>(","<label>)*
-<reach>              ::= developer | very-rare | rare | ordinary
+<reach>              ::= end-user | developer
+<unusual-rarity>     ::= rare | very-rare | extremely-rare
+<harm>               ::= low | medium | high
 <complexity>         ::= minus-high | minus-medium | minus-low | none | low | medium | high
 
 <growth-token>       ::= "[growth-pattern:"<growth-pattern>"]"
 <reach-token>        ::= "[reach:"<reach>"]"
+<rarity-tokens>      ::= "[rarity:ordinary]"
+                       | "[rarity:"<unusual-rarity>"] [harm:"<harm>"]"
 <complexity-token>   ::= "[complexity:"<complexity>"]"
-<rating-tokens>      ::= <growth-token>" "<reach-token>" "<complexity-token>
+<rating-tokens>      ::= <growth-token>" "<reach-token>" "<rarity-tokens>" "<complexity-token>
 
 <field-token>        ::= "[field:"<field>"]"
 <field>              ::= excess | missing
@@ -70,8 +74,10 @@ names the parser refusal it demonstrates.
 ```
 
 The growth-pattern syntax is open. `GROWTH-PATTERNS.md` in the plan repo owns
-the admitted labels and their order. Reach and complexity are the closed sets
-above.
+the admitted labels and their order. Reach, rarity, harm and complexity are the
+closed sets above. A harm token follows the rarity exactly when the rarity is
+not `ordinary`, so a reader refuses a rarity other than `ordinary` without one
+and a harm token after `[rarity:ordinary]`.
 
 A `<sha>` is written as the commit's first six characters, the one short form
 every report, record and round file shares, so each has the same shape. A
@@ -192,7 +198,7 @@ Judged repos: plan@abc123
 
 ### 1. B: Remove repeated admission rules
 
-[field:excess] [section:decisions] [growth-pattern:hardening,growing-lists] [reach:developer] [complexity:minus-high]
+[field:excess] [section:decisions] [growth-pattern:hardening,growing-lists] [reach:developer] [rarity:ordinary] [complexity:minus-high]
 
 One owner can replace the repeated rules.
 
@@ -200,7 +206,7 @@ One owner can replace the repeated rules.
 
 ### 2. C: Name the parser owner
 
-[field:missing] [section:target-state] [growth-pattern:none] [reach:very-rare] [complexity:minus-medium]
+[field:missing] [section:target-state] [growth-pattern:none] [reach:end-user] [rarity:very-rare] [harm:medium] [complexity:minus-medium]
 
 The target state needs one owner.
 ```
@@ -336,7 +342,7 @@ Judged repos: plan@abc123
 
 ### 1. B: Keep the plan decision
 
-[section:decisions] [growth-pattern:none] [reach:rare] [complexity:minus-low]
+[section:decisions] [growth-pattern:none] [reach:end-user] [rarity:rare] [harm:low] [complexity:minus-low]
 
 The correction belongs in the plan.
 ```
@@ -353,7 +359,7 @@ Judged repos: plan@abc123
 
 ### 1. C: Defer the implementation correction
 
-[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
+[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:end-user] [rarity:ordinary] [complexity:none]
 
 The correction belongs in Repo Edu, outside the judged repo set.
 ```
@@ -372,7 +378,7 @@ Judged repos: plan@abc123
 
 ### 1. C: Reject a local plan deferral
 
-[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
+[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
 
 The plan repo is already in the judged repo set.
 ```
@@ -391,7 +397,7 @@ Judged repos: repo-edu@def456
 
 ### 1. C: Reject an unjudged plan location
 
-[section:decisions] [growth-pattern:none] [reach:developer] [complexity:none]
+[section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
 
 The plan repo is outside the judged repo set.
 ```
@@ -408,7 +414,7 @@ Judged repos: repo-edu@def456
 
 ### 1. B: Correct the audit report reader
 
-[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low]
+[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:low]
 
 The correction belongs in Repo Edu.
 ```
@@ -425,7 +431,7 @@ Judged repos: repo-edu@def456
 
 ### 1. C: Defer the doctrine correction
 
-[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:very-rare] [complexity:medium]
+[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [rarity:very-rare] [harm:high] [complexity:medium]
 
 The correction belongs in the plan repo, outside the judged repo set.
 ```
@@ -442,7 +448,7 @@ Judged repos: plan@abc123, repo-edu@def456
 
 ### 1. B: Correct the shared decision
 
-[section:decisions] [growth-pattern:none] [reach:rare] [complexity:high]
+[section:decisions] [growth-pattern:none] [reach:end-user] [rarity:extremely-rare] [harm:high] [complexity:high]
 
 The correction belongs in the judged plan repo.
 ```
@@ -459,7 +465,7 @@ Judged repos: plan@abc123, repo-edu@def456
 
 ### 1. C: Correct the shared reader
 
-[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:none]
+[area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:end-user] [rarity:ordinary] [complexity:none]
 
 The correction belongs in the judged Repo Edu checkout.
 ```
@@ -478,7 +484,7 @@ Judged repos: plan@abc123, repo-edu@def456
 
 ### 1. C: Reject a deferral inside the judged repo set
 
-[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none]
+[plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
 
 The plan repo is already in the judged repo set.
 ```
@@ -511,7 +517,7 @@ Judged repos: repo-edu@def456
 
 ### 1. C: Reject an empty plan target
 
-[plan:] [growth-pattern:none] [reach:developer] [complexity:none]
+[plan:] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
 
 A plan deferral must name its destination.
 ```
@@ -530,7 +536,7 @@ Judged repos: repo-edu@def456
 
 ### 1. C: Reject an unknown token
 
-[area:pkg-application] [foo:bar] [growth-pattern:none] [reach:developer] [complexity:none]
+[area:pkg-application] [foo:bar] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
 
 The token is outside the grammar.
 ```
@@ -549,9 +555,47 @@ Judged repos: plan@abc123
 
 ### 1. C: Reject a cover beside a section
 
-[section:decisions] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:none]
+[section:decisions] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
 
 A cover belongs only after an area.
+```
+
+#### `report/missing-harm` — refused
+
+Refusal: `Finding 1 has no [harm:...] token after [rarity:rare]`
+
+```markdown
+# Implementation audit workflow
+
+Target: HEAD-1
+Judged repos: repo-edu@def456
+
+## Findings
+
+### 1. C: Reject a rarity without its harm
+
+[area:pkg-application] [growth-pattern:none] [reach:end-user] [rarity:rare] [complexity:none]
+
+A finding that needs a condition rates its harm.
+```
+
+#### `report/ordinary-harm` — refused
+
+Refusal: `Finding 1 has a [harm:...] token after [rarity:ordinary]`
+
+```markdown
+# Implementation audit workflow
+
+Target: HEAD-1
+Judged repos: repo-edu@def456
+
+## Findings
+
+### 1. C: Reject a harm without a condition
+
+[area:pkg-application] [growth-pattern:none] [reach:end-user] [rarity:ordinary] [harm:low] [complexity:none]
+
+A finding that needs no condition carries no harm level.
 ```
 
 ## Vet report
@@ -997,49 +1041,49 @@ present, including for the first and only deferral.
 #### `record/repo-edu-local` — parsed
 
 ```text
-- [B] [finding:2] [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [complexity:low] Shared token owner: the audit report and record readers use one definition.
+- [B] [finding:2] [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:low] Shared token owner: the audit report and record readers use one definition.
 ```
 
 #### `record/repo-edu-plan-deferral` — parsed
 
 ```text
-- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [complexity:none] Doctrine correction: the plan records the missing decision.
+- [C] [plan:../plan/example.md#decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Doctrine correction: the plan records the missing decision.
 ```
 
 #### `record/repo-edu-applies` — parsed
 
 ```text
-- [C] [area:tool-audit-round] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [applies:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/2] [growth-pattern:none] [reach:developer] [complexity:none] Reader correction: the cited deferrals are applied.
+- [C] [area:tool-audit-round] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [applies:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/2] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Reader correction: the cited deferrals are applied.
 ```
 
 #### `record/plan-audit` — parsed
 
 ```text
-- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the decision names the one owner.
+- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:end-user] [rarity:rare] [harm:low] [complexity:minus-low] Parser ownership: the decision names the one owner.
 ```
 
 #### `record/plan-audit-applies` — parsed
 
 ```text
-- B [finding:1] [field:missing] [section:decisions] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [growth-pattern:none] [reach:rare] [complexity:minus-low] Parser ownership: the cited deferral is applied.
+- B [finding:1] [field:missing] [section:decisions] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [growth-pattern:none] [reach:end-user] [rarity:rare] [harm:low] [complexity:minus-low] Parser ownership: the cited deferral is applied.
 ```
 
 #### `record/plan-local` — parsed
 
 ```text
-- C [section:implementation-plan] [growth-pattern:none] [reach:developer] [complexity:none] Step scope: the step names its hosting repo.
+- C [section:implementation-plan] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Step scope: the step names its hosting repo.
 ```
 
 #### `record/plan-audit-deferral` — parsed
 
 ```text
-- B [field:excess] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [complexity:none] Parser correction: Repo Edu owns the parser change.
+- B [field:excess] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Parser correction: Repo Edu owns the parser change.
 ```
 
 #### `record/plan-repo-edu-deferral` — parsed
 
 ```text
-- B [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:ordinary] [complexity:medium] Reader correction: Repo Edu owns the parser change.
+- B [area:pkg-application] [cover:cover-analysis-workflow] [growth-pattern:none] [reach:end-user] [rarity:ordinary] [complexity:medium] Reader correction: Repo Edu owns the parser change.
 ```
 
 #### `record/plan-stands` — parsed
@@ -1059,7 +1103,7 @@ present, including for the first and only deferral.
 Refusal: `expected 40 lowercase commit sha characters and a position from 1`
 
 ```text
-- [C] [area:tool-audit-round] [applies:ABC123/0] [growth-pattern:none] [reach:developer] [complexity:none] Citation shape: the token names a full lowercase commit ID and a position from one.
+- [C] [area:tool-audit-round] [applies:ABC123/0] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Citation shape: the token names a full lowercase commit ID and a position from one.
 ```
 
 #### `record/plan-audit-applies-out-of-order` — refused
@@ -1067,7 +1111,7 @@ Refusal: `expected 40 lowercase commit sha characters and a position from 1`
 Refusal: `unexpected [applies:...] at 5`
 
 ```text
-- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [reach:rare] [complexity:minus-low] Citation placement: the applies token follows the location.
+- B [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [applies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1] [reach:end-user] [rarity:rare] [harm:low] [complexity:minus-low] Citation placement: the applies token follows the location.
 ```
 
 #### `record/plan-stands-reason` — refused
@@ -1083,7 +1127,7 @@ Refusal: `must say exactly "The plan stands."`
 Refusal: `unexpected [finding:...] at 2; expected [growth-pattern:...]`
 
 ```text
-- [C] [area:tool-audit-round] [finding:1] [growth-pattern:none] [reach:developer] [complexity:none] Number placement: the finding number opens the tokens.
+- [C] [area:tool-audit-round] [finding:1] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Number placement: the finding number opens the tokens.
 ```
 
 #### `record/repo-edu-misplaced-field` — refused
@@ -1091,7 +1135,7 @@ Refusal: `unexpected [finding:...] at 2; expected [growth-pattern:...]`
 Refusal: `unexpected [field:...] at 2; expected [growth-pattern:...]`
 
 ```text
-- [C] [area:tool-audit-round] [field:excess] [growth-pattern:none] [reach:developer] [complexity:none] Field placement: Repo Edu records have no search direction.
+- [C] [area:tool-audit-round] [field:excess] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Field placement: Repo Edu records have no search direction.
 ```
 
 #### `record/repo-edu-out-of-order` — refused
@@ -1099,7 +1143,23 @@ Refusal: `unexpected [field:...] at 2; expected [growth-pattern:...]`
 Refusal: `unexpected [reach:...] at 2; expected [growth-pattern:...]`
 
 ```text
-- [C] [area:tool-audit-round] [reach:developer] [growth-pattern:none] [complexity:none] Token order: Rating tokens keep grammar order.
+- [C] [area:tool-audit-round] [reach:developer] [growth-pattern:none] [rarity:ordinary] [complexity:none] Token order: Rating tokens keep grammar order.
+```
+
+#### `record/repo-edu-missing-harm` — refused
+
+Refusal: `no [harm:...] token after [rarity:very-rare]`
+
+```text
+- [B] [area:tool-audit-round] [growth-pattern:none] [reach:developer] [rarity:very-rare] [complexity:low] Missing harm: A finding that needs a condition rates its harm.
+```
+
+#### `record/plan-audit-ordinary-harm` — refused
+
+Refusal: `a [harm:...] token after [rarity:ordinary]`
+
+```text
+- C [finding:1] [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [harm:low] [complexity:none] Ordinary harm: A finding that needs no condition carries no harm level.
 ```
 
 ## Implementation-plan step
