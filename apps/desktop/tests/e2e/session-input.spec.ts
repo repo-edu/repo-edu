@@ -1,13 +1,14 @@
 import { writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
-import { expect, test } from "@playwright/test"
+import { type ElectronApplication, expect, test } from "@playwright/test"
 import { build } from "esbuild"
 import { createPackagedTrustRuntime } from "./packaged-trust-runtime"
 
 let runtime: Awaited<ReturnType<typeof createPackagedTrustRuntime>>
+let application: ElectronApplication
 
 test.beforeAll("prepare the packaged session fixture", async () => {
-  // Runtime copying and bundling have their own budget, outside UI assertions.
+  // Packaged fixture setup has its own budget, outside UI assertions.
   test.setTimeout(60_000)
   runtime = await createPackagedTrustRuntime()
   const bundle = await build({
@@ -152,126 +153,125 @@ test.beforeAll("prepare the packaged session fixture", async () => {
     `
       const { app, BrowserWindow } = require("electron")
       app.whenReady().then(() => {
-        const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true } })
+        const window = new BrowserWindow({
+          show: false,
+          webPreferences: {
+            sandbox: true,
+            contextIsolation: true,
+            // Playwright waits for animation frames before each click.
+            backgroundThrottling: false,
+          },
+        })
         window.loadFile(require("node:path").join(__dirname, "index.html"))
       })
     `,
   )
+  application = await runtime.launch(main, [
+    `--user-data-dir=${runtime.documentPath("user-data")}`,
+  ])
 })
 
 test.afterAll(async () => {
+  await application?.close()
   await runtime?.dispose()
 })
 
 test("admits command cancellation while freezing edits and reports picker failures", async () => {
-  let application: Awaited<ReturnType<typeof runtime.launch>> | undefined
-  try {
-    application = await runtime.launch(
-      runtime.documentPath("session-input-main.cjs"),
-      [`--user-data-dir=${runtime.documentPath("user-data")}`],
-    )
-    const page = await application.firstWindow()
-    const errors: string[] = []
-    page.on("pageerror", (error) => errors.push(error.message))
-    const draft = page.getByRole("textbox", { name: "Local draft" })
-    await expect(draft).toHaveValue("original")
+  const page = await application.firstWindow()
+  const errors: string[] = []
+  page.on("pageerror", (error) => errors.push(error.message))
+  const draft = page.getByRole("textbox", { name: "Local draft" })
+  await expect(draft).toHaveValue("original")
 
-    for (const input of ["mouse", "Enter", "Space"]) {
-      await page.evaluate("window.inputTest.reserve()")
-      await page.getByRole("button", { name: "Change selection" }).click()
-      await expect(draft).toHaveValue("original")
-      await draft.press("ArrowRight")
-      await draft.pressSequentially("blocked")
-      await expect(draft).toHaveValue("original")
-      await page.evaluate("window.inputTest.begin()")
-      const stop = page.getByRole("button", { name: "Stop", exact: true })
-      if (input === "mouse") await stop.click()
-      else {
-        await draft.focus()
-        for (let attempt = 0; attempt < 12; attempt++) {
-          await page.keyboard.press("Tab")
-          if (
-            await stop.evaluate((element) => element === document.activeElement)
-          )
-            break
-        }
-        await expect(stop).toBeFocused()
-        await page.keyboard.press(input)
-      }
-      await expect
-        .poll(() => page.evaluate("window.inputTest.settled()"))
-        .toBe(true)
-      await page.getByRole("button", { name: "Change selection" }).click()
-      await expect(draft).toHaveValue("original")
-      await page.evaluate("window.inputTest.release()")
-      await expect(stop).toHaveCount(0)
-    }
-    expect(await page.evaluate("window.inputTest.stops()")).toBe(3)
-
-    // Keep the last focused tab different from the selected tab, as happens
-    // when the app opens another view after a file selection.
-    const roster = page.getByRole("tab", { name: "Roster", exact: true })
-    const analysis = page.getByRole("tab", { name: "Analysis", exact: true })
-    await roster.click()
-    await page.keyboard.press("ArrowRight")
-    await expect(analysis).toBeFocused()
-    await expect(roster).toHaveAttribute("aria-selected", "true")
-    await page.keyboard.press("Enter")
-    await expect(analysis).toHaveAttribute("aria-selected", "true")
-    await page.evaluate('window.inputTest.selectTab("roster")')
-    await page.keyboard.press("Tab")
-    const listing = page.getByRole("button", { name: "List repositories" })
-    await expect(listing).toBeFocused()
-    await page.keyboard.press("Enter")
-    await expect(listing).toBeDisabled()
-    await page.keyboard.press("Shift+Tab")
-    await expect(analysis).toBeFocused()
-    await expect(roster).toHaveAttribute("aria-selected", "true")
-    for (const key of ["ArrowLeft", "Space", "Enter", "Escape"]) {
-      await page.keyboard.press(key)
-      await expect(analysis).toBeFocused()
-      await expect(roster).toHaveAttribute("aria-selected", "true")
-    }
-    await page.keyboard.press("Tab")
-    await expect(
-      page.getByRole("button", { name: "Change selection" }),
-    ).toBeFocused()
-    await page.keyboard.press("Enter")
-    await expect(draft).toHaveValue("original")
-    const cancel = page.getByRole("button", { name: "Cancel listing" })
-    for (let attempt = 0; attempt < 12; attempt++) {
-      await page.keyboard.press("Tab")
-      if (
-        await cancel.evaluate((element) => element === document.activeElement)
-      )
-        break
-    }
-    await expect(cancel).toBeFocused()
-    await page.keyboard.press("Shift+Tab")
-    await expect(
-      page.getByRole("button", { name: "Open import" }),
-    ).toBeFocused()
-    await page.keyboard.press("Tab")
-    await expect(cancel).toBeFocused()
-    await page.keyboard.press("Enter")
-    await expect(cancel).toHaveCount(0)
-    await expect(listing).toBeEnabled()
-    expect(await page.evaluate("window.inputTest.operationStops()")).toBe(1)
+  for (const input of ["mouse", "Enter", "Space"]) {
+    await page.evaluate("window.inputTest.reserve()")
     await page.getByRole("button", { name: "Change selection" }).click()
-    await expect(draft).toHaveValue("selected")
-
-    await page.getByRole("button", { name: "Open import" }).click()
-    const dialog = page.getByRole("dialog", { name: "Import Students" })
-    await dialog.getByRole("button", { name: "Browse" }).click()
-    await expect(dialog.getByText("Native picker failed")).toBeVisible()
-    await page.evaluate("window.inputTest.reserve(); window.inputTest.begin()")
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click()
-    await expect(dialog).toBeVisible()
-    await page.evaluate("window.inputTest.dispose()")
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click()
-    await expect(dialog).toBeVisible()
-    expect(errors).toEqual([])
-  } finally {
-    await application?.close()
+    await expect(draft).toHaveValue("original")
+    await draft.press("ArrowRight")
+    await draft.pressSequentially("blocked")
+    await expect(draft).toHaveValue("original")
+    await page.evaluate("window.inputTest.begin()")
+    const stop = page.getByRole("button", { name: "Stop", exact: true })
+    if (input === "mouse") await stop.click()
+    else {
+      await draft.focus()
+      for (let attempt = 0; attempt < 12; attempt++) {
+        await page.keyboard.press("Tab")
+        if (
+          await stop.evaluate((element) => element === document.activeElement)
+        )
+          break
+      }
+      await expect(stop).toBeFocused()
+      await page.keyboard.press(input)
+    }
+    await expect
+      .poll(() => page.evaluate("window.inputTest.settled()"))
+      .toBe(true)
+    await page.getByRole("button", { name: "Change selection" }).click()
+    await expect(draft).toHaveValue("original")
+    await page.evaluate("window.inputTest.release()")
+    await expect(stop).toHaveCount(0)
   }
+  expect(await page.evaluate("window.inputTest.stops()")).toBe(3)
+
+  // Keep the last focused tab different from the selected tab, as happens
+  // when the app opens another view after a file selection.
+  const roster = page.getByRole("tab", { name: "Roster", exact: true })
+  const analysis = page.getByRole("tab", { name: "Analysis", exact: true })
+  await roster.click()
+  await page.keyboard.press("ArrowRight")
+  await expect(analysis).toBeFocused()
+  await expect(roster).toHaveAttribute("aria-selected", "true")
+  await page.keyboard.press("Enter")
+  await expect(analysis).toHaveAttribute("aria-selected", "true")
+  await page.evaluate('window.inputTest.selectTab("roster")')
+  await page.keyboard.press("Tab")
+  const listing = page.getByRole("button", { name: "List repositories" })
+  await expect(listing).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(listing).toBeDisabled()
+  await page.keyboard.press("Shift+Tab")
+  await expect(analysis).toBeFocused()
+  await expect(roster).toHaveAttribute("aria-selected", "true")
+  for (const key of ["ArrowLeft", "Space", "Enter", "Escape"]) {
+    await page.keyboard.press(key)
+    await expect(analysis).toBeFocused()
+    await expect(roster).toHaveAttribute("aria-selected", "true")
+  }
+  await page.keyboard.press("Tab")
+  await expect(
+    page.getByRole("button", { name: "Change selection" }),
+  ).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(draft).toHaveValue("original")
+  const cancel = page.getByRole("button", { name: "Cancel listing" })
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await page.keyboard.press("Tab")
+    if (await cancel.evaluate((element) => element === document.activeElement))
+      break
+  }
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(page.getByRole("button", { name: "Open import" })).toBeFocused()
+  await page.keyboard.press("Tab")
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(cancel).toHaveCount(0)
+  await expect(listing).toBeEnabled()
+  expect(await page.evaluate("window.inputTest.operationStops()")).toBe(1)
+  await page.getByRole("button", { name: "Change selection" }).click()
+  await expect(draft).toHaveValue("selected")
+
+  await page.getByRole("button", { name: "Open import" }).click()
+  const dialog = page.getByRole("dialog", { name: "Import Students" })
+  await dialog.getByRole("button", { name: "Browse" }).click()
+  await expect(dialog.getByText("Native picker failed")).toBeVisible()
+  await page.evaluate("window.inputTest.reserve(); window.inputTest.begin()")
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(dialog).toBeVisible()
+  await page.evaluate("window.inputTest.dispose()")
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(dialog).toBeVisible()
+  expect(errors).toEqual([])
 })
