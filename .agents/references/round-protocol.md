@@ -605,7 +605,10 @@ or decision. A finding that changes what a plan holds follows the shared
 planning rules'
 [Changes to what a plan holds](../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds).
 
-Check the finding's rarity against its cited evidence. A choice about cost that
+Check the finding's ratings against its cited evidence with one question: does
+the evidence put the finding in a raised cell of
+[What a round raises](#what-a-round-raises)? [Vet verdicts](#vet-verdicts) says
+which verdict a rating value read differently takes. A choice about cost that
 is real under [Real choices](#real-choices) goes to the user's ruling; the vet
 never settles it. When that section settles the choice, the verdict carries the
 winning option as the correction.
@@ -672,6 +675,26 @@ A change that leaves the landed result the same, such as clearer wording or an e
 Accept with a note. A Revise is the vetter's claim about what should land, and the split rule under
 [Reconciliation](#reconciliation) tests that claim against the other vetters of the panel. Wording
 advice written as a Revise would read as a disagreement about what lands.
+
+A rating value the vetter reads differently from the audit report, for reach, rarity or harm, is
+such a change: an Accept with a note. The audit report's values stand in the record. Two exceptions
+change what the fix lands:
+
+1. The vetter's values put the finding in a "not raised" cell of
+   [What a round raises](#what-a-round-raises). The verdict is Drop.
+2. The vetter's rarity changes the correction through case 2 of [Real choices](#real-choices). The
+   verdict is Revise, and it carries the winning option as the correction.
+
+A contest or split on such a Drop keeps its judge under [Reconciliation](#reconciliation): the ruler
+on a C or D finding and the user on an A or B finding. So does a revision that adds a correction for
+a harm in a "not raised" cell, which What a round raises forbids: the rebuttal contests it. The
+judge reads the ratings against that section's table. A vetter never refers a rating to the user,
+because a rating states a fact and [Real choices](#real-choices) sends only a choice about cost to
+the user.
+
+Without the note rule, each rating value a vetter reads differently could become a split or a
+contest, and three rating tokens give more of them. Case:
+[`rating-note`](../../../plan/CASES.md#rating-note).
 
 Free text explains a verdict but never changes its kind. Return the complete vet
 report in the final response.

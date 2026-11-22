@@ -18,7 +18,11 @@ work so no phase checks itself:
 1. **Audit.** One assistant reads the bounded target and writes an audit report with findings or a
    clean result.
 2. **Vet.** Every vetter listed for the work class checks each finding for authority, evidence and
-   fit, side by side and each from a fresh context. A clean audit report skips this phase.
+   fit, side by side and each from a fresh context. A reach, rarity or harm value that a vetter
+   reads differently is an `Accept` with a note, and the audit report's value stands. It is a
+   `Drop` only when it puts the finding in a cell that a round does not raise, and a `Revise` only
+   when its rarity changes the correction. A dispute on such a `Drop` or `Revise` reaches the ruler
+   or you like any other. A clean audit report skips this phase.
 3. **Rebuttal.** A new session answers only revisions, drops and ruling items for the audit report,
    on the same model and effort as the audit. One rebuttal answers every vetter. When every vetter
    accepts every finding, this phase is skipped.
