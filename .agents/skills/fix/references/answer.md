@@ -119,8 +119,8 @@ proposed record, and that yes grants no permission to run a command.
       the rule itself, at lines 482 to 484. Vetter `abx` is right.
    2. Would the close lose rules? No. Its workflow states each of them
       itself, at lines 51, 71 and 138. Vetter `abx` is right.
-   3. Is Walk-through item 2.4 false? No. "Both kinds" means both kinds
-      of round, by Decision 4, item 1. Vetter `abx` is right.
+   3. Is Failure-record check item 2.4 false? No. "Both kinds" means
+      both kinds of round, by Decision 4, item 1. Vetter `abx` is right.
    ```
 
    Each point keeps its source and the place, so the user can check any point

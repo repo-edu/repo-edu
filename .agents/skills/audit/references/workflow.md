@@ -142,8 +142,8 @@ Compare the files the in-scope steps changed, in each judged repo, with that
 repo's paths in the supplied list of files. Apply the implementation-audit
 duties of the shared planning rules'
 [Doctrine changes](../../../../../plan/.agents/references/planning-rules.md#doctrine-changes),
-which own the walk-through, the finding for a plan without one and the call on
-a finding whose correction goes beyond the walk-through. When a step changed a
+which own the failure-record check, the finding for a plan without one and the call on
+a finding whose correction goes beyond the failure-record check. When a step changed a
 listed file, read `../plan/FAILURES.md` whole, and the audit report's opening
 says so and cites that section and the failure record.
 
