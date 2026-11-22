@@ -203,8 +203,9 @@ is always named in full.
   take part in its discussion. It is not committed, and no round reads it.
 - **Listed file**: a doctrine file that tells a round session how to judge,
   named on the runner's list of such files or sitting under a folder the list
-  names. It changes only inside a plan, as a step or as a fix from that plan's
-  implementation audit.
+  names. A change to it that alters what a session does lands only inside a
+  plan, as a step or as a fix from that plan's implementation audit. A wording
+  change lands in a chat's off-plan commit.
 - **Failure record**: the plan repo's root file with one entry for each failure
   the round doctrine exists to prevent. A plan that changes a listed file and
   its audit rounds measure the change against it.

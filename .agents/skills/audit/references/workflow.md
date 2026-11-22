@@ -148,8 +148,8 @@ listed file, read `../plan/FAILURES.md` whole, and the audit report's opening
 says so and cites that section and the failure record.
 
 A commit-scoped round makes no comparison, because no plan covers its work.
-Its fix leaves a listed-file finding to a plan under `commit-scope.md`'s
-**Record**.
+Its fix applies no listed-file finding, and `commit-scope.md`'s **Record** says
+where that finding goes.
 
 ## Findings
 

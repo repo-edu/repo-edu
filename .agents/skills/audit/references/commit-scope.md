@@ -150,10 +150,11 @@ record follows the shared protocol's **Finding metadata** and the
 The fix does not apply a finding whose correction changes a listed file, as the
 shared planning rules'
 [Doctrine changes](../../../../../plan/.agents/references/planning-rules.md#doctrine-changes)
-define it, because such a file changes only inside a plan and this round has
-none. It names that finding in its handoff as work for a plan, and the record
-leaves it out. A round whose every accepted finding is of that kind lands no
-record.
+define it. Under that section's **Route**, only a plan or a chat's off-plan
+commit changes such a file, and this round is neither. It names that finding in
+its handoff, as work for a chat when its correction is wording and as work for a
+plan otherwise, and the record leaves it out. A round whose every accepted
+finding is of that kind lands no record.
 
 A clean round lands one empty record in the commit-audit form with `clean` in
 the severity slot, so the log shows that the audit ran and found nothing. The

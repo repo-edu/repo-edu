@@ -17,8 +17,8 @@ Before this rule the file held the automatic-series rules in four places.
 - This file holds the sections that other documents link to by name, and the commands:
   **Ownership**, **Plan targets**, **Round files**, **Phase routing**, **Stopped rounds**,
   **Report lifecycle**, **Commands** and **Invocation**. Keep each heading and keep its subject
-  under it. Listed files are among the linking documents, and a listed file changes only inside a
-  plan.
+  under it. Listed files are among the linking documents, and a change to a listed file that alters
+  what a session does lands only inside a plan.
 - A reference file holds one subject that no outside document links to by name. This file is
   loaded whole into every session that works on the runner, while a reference file costs only the
   work that needs it.

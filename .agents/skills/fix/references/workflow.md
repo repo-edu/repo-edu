@@ -129,7 +129,8 @@ for their contents, including a clean record reached through reconciliation. A
 commit round's records take the commit-audit form in either repo, under the
 commit scope's [Record](../../audit/references/commit-scope.md#record). Its fix
 does not apply a finding whose correction changes a listed file; it names that
-finding in its handoff as work for a plan, under the same section.
+finding in its handoff as work for a chat or for a plan, under the same
+section.
 
 The invocation grants the round's record commits, any directed plan-repo
 correction commit and any stale-text plan-repo correction admitted by the
