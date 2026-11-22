@@ -32,8 +32,8 @@ export type RoleName = PlanRoleName | typeof seriesRole
 /**
  * The role of a chat's commit on one active plan's file outside a round. Its
  * form carries the plan's stem for the person reading the log, while no
- * reader that groups commits by plan counts it as the plan's own: every such
- * reader finds the edit by the plan file's path, as it finds an off-plan one.
+ * reader that groups commits by plan counts it as the plan's own. A reader that
+ * needs the edit finds it by the plan file's path, as it finds an off-plan one.
  */
 export const chatRole = "chat"
 

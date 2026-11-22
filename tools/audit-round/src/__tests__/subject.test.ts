@@ -470,9 +470,9 @@ test("a chat's form names its plan for the reader while no plan reader counts it
     parseSubject("source-file-split/chat atx: reopen the plan", "plan").class,
     "P5",
   )
-  // Every reader that groups commits by plan finds a chat's edit by the plan
-  // file's path, as it finds an off-plan one, while the hook still reads its
-  // role.
+  // No reader that groups commits by plan counts a chat's edit as the plan's
+  // own, while the hook still reads its role. A reader that needs the edit
+  // finds it by the plan file's path, as it finds an off-plan one.
   const chat = "source-file-split/chat atx: reopen the plan"
   assert.equal(planForm(chat), null)
   assert.equal(looseRole(chat), "chat")

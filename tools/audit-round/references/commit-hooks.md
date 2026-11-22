@@ -28,8 +28,9 @@ else from them.
   reads a series form as no plan form, so every reader that groups commits by plan reads through
   it and never takes a series label for a plan stem.
 - The plan-form read also reads a chat's form as no plan form, though the form opens with a
-  plan's stem. A chat may land the same plan edit without the form, so every reader finds that
-  edit by the plan file's path instead.
+  plan's stem. A chat may land the same plan edit without the form, so no reader that groups
+  commits by plan counts the commit as the plan's own. A reader that needs that edit finds it by
+  the plan file's path instead.
 - The role read returns the role of any form, for the hook and the record bullet readers.
 
 ### Record bullets
