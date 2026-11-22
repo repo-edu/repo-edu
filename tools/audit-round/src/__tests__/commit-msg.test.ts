@@ -715,6 +715,68 @@ test("an off-plan commit whose graded bullets are all tier D changes a listed pa
   )
 })
 
+test("a chat's plan-file commit takes an off-plan plan-repo commit's severity and changes no listed file", () => {
+  const wording = planFinding
+    .replace("- C ", "- D ")
+    .replace("Correct: the record.", "Wording: the sentence reads plainer.")
+  const changing = (
+    subject: string,
+    body: string,
+    repository: Repository,
+    changedPaths: readonly string[],
+  ) =>
+    stampCommitMessage(message(subject, body), repository, none, areaKinds, {
+      openContests: [],
+      changedPaths,
+    })
+  const plan = ["active/example.md"]
+  // Without graded bullets the subject carries no sequence, and an authored
+  // one is removed.
+  for (const subject of ["example/chat oth: s", "example/chat oth C9: s"])
+    assert.equal(
+      changing(subject, "", "plan", plan),
+      message("example/chat oth: s"),
+    )
+  // A graded bullet takes its sequence beside the authored burden mark.
+  assert.equal(
+    changing("example/chat oth growth-low: s", planFinding, "plan", plan),
+    message("example/chat oth growth-low c1: s", planFinding),
+  )
+  assert.throws(
+    () => changing("example/chat oth: s", planFinding, "plan", plan),
+    /carries a growth or pruning mark/,
+  )
+  // Only planning-audit bullets carry a search direction.
+  assert.throws(
+    () =>
+      changing("example/chat oth growth-low: s", planningFinding, "plan", plan),
+    /field.*only to a planning audit/,
+  )
+  for (const body of ["", codeFinding])
+    assert.throws(
+      () => changing("example/chat oth: s", body, "repo-edu", []),
+      /belongs to the plan repository/,
+    )
+  // The wording pass admits only an off-plan subject, so a chat's plan-file
+  // commit leaves a listed file to a commit of its own.
+  for (const [subject, body] of [
+    ["example/chat oth: s", ""],
+    ["example/chat oth growth-none: s", wording],
+  ] as const)
+    assert.throws(
+      () =>
+        changing(subject, body, "plan", [
+          ...plan,
+          ".agents/references/planning-rules.md",
+        ]),
+      (error: unknown) =>
+        error instanceof SubjectError &&
+        error.message.startsWith(
+          ".agents/references/planning-rules.md is a listed file",
+        ),
+    )
+})
+
 test("the hook entry writes the derived sequence and leaves a refused file untouched", async () => {
   const directory = await mkdtemp(join(tmpdir(), "commit-msg-"))
   try {

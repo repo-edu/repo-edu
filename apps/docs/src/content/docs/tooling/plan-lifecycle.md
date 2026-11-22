@@ -20,7 +20,9 @@ them and nothing is lost in a conversion.
 
 The stem is the plan's identity. It is the filename without `.md` or `-widen`, and it ties the
 plan, step commits, audit targets and closing records together. It stays the same when the plan
-settles or reopens.
+settles or reopens. A chat that commits a change to the plan's file outside a round opens the
+subject with `<stem>/chat`, so the commit stands beside the plan's rounds in the commit graph. The
+runner still reads such a commit as an edit of the plan file, not as one of the plan's records.
 
 The plan's product constraints and settled decisions continue to govern later stages. A later audit
 may correct a decision when new correctness or quality evidence proves it wrong, but it records why

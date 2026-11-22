@@ -27,7 +27,10 @@ else from them.
 - The plan-form read is the one test that tells a commit audit's series form from a plan form. It
   reads a series form as no plan form, so every reader that groups commits by plan reads through
   it and never takes a series label for a plan stem.
-- The role read returns the role of either form, for the hook and the record bullet readers.
+- The plan-form read also reads a chat's form as no plan form, though the form opens with a
+  plan's stem. A chat may land the same plan edit without the form, so every reader finds that
+  edit by the plan file's path instead.
+- The role read returns the role of any form, for the hook and the record bullet readers.
 
 ### Record bullets
 
@@ -79,8 +82,8 @@ Refusals:
 - a ready marker without its coder;
 - a commit that changes a listed file unless the subject has an `impl-<n>` or
   `impl-audit-<scope>` role, or is off-plan, class O1 or O2, with at least one graded bullet and
-  every graded bullet at tier D. A commit audit's record and a planning round's record are refused
-  too, because their series form and plan form are no off-plan class. The D grades are the
+  every graded bullet at tier D. A commit audit's record, a planning round's record and a chat's
+  plan-file commit are refused too, because their forms are no off-plan class. The D grades are the
   writer's claim that the change is wording, and the hook cannot see whether it alters what a
   session does. That refusal names `FAILURES.md` and the plan repo's **Route** under
   **Doctrine changes**, which owns the route.

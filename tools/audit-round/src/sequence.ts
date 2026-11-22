@@ -1,5 +1,6 @@
 import type { Finding } from "./findings.js"
 import {
+  chatRole,
   isAuditRole,
   locateSubjectSlots,
   looseRole,
@@ -51,8 +52,11 @@ export function printSequence(sequence: Severity): string {
 /**
  * Fill only the severity slot before full subject validation. The role, repo
  * and presence of a kind decide whether this class takes findings or clean. A
- * commit audit's record takes them as a plan's audit record does. Everything
- * outside the derived slot remains subject to parseSubject.
+ * commit audit's record takes them as a plan's audit record does, and a chat's
+ * plan-file commit as an off-plan plan-repo commit does: a sequence when it
+ * closes a graded concern and none otherwise. Everything outside the derived
+ * slot remains subject to parseSubject, which also keeps the chat form out of
+ * Repo Edu.
  */
 export function stampSequence(
   line: string,
@@ -71,11 +75,11 @@ export function stampSequence(
   const sequence = findingSequence(findings)
   const audit = isAuditRole(role ?? "")
   const hasKind = kind !== null
-  if (audit || role === null) {
+  if (audit || role === null || role === chatRole) {
     if (sequence !== "clean") tags.splice(slot, 0, printSequence(sequence))
     else if (role === "plan-audit" || (audit && !hasKind))
       tags.splice(slot, 0, "clean")
-    else if (audit || repository === "repo-edu")
+    else if (audit || (role === null && repository === "repo-edu"))
       throw new SubjectError(
         "a fix or off-plan Repo Edu commit needs at least one graded finding bullet",
       )

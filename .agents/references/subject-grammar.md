@@ -112,7 +112,7 @@ Audit, vet and rebuttal took 7 min.
 <form>      ::= <stem>/<role> | <series>/commit-audit
 <stem>      ::= <stem-char>+                ; the plan file's name without .md and without a -widen postfix
 <stem-char> ::= any character except / and space
-<role>      ::= init | plan-audit | settle | ready | disprove | impl-<n> | impl-audit-<scope> | implemented | closed
+<role>      ::= init | plan-audit | settle | ready | disprove | chat | impl-<n> | impl-audit-<scope> | implemented | closed
 <series>    ::= commit-<group>[+<group>]     ; a commit series' label
 <group>     ::= <sha6> | <sha6>..<sha6>
 <sha6>      ::= six lowercase hexadecimal characters ; a commit's first six
@@ -153,7 +153,8 @@ runner's [Names](../../tools/audit-round/CLAUDE.md#names) rules own the label, w
 series' round files and round data. The `commit-audit` role marks the form, never the label's
 spelling: a series label is no plan stem, and a plan whose stem looks like a label keeps its plan
 forms. The parser holds the one test that tells the two forms apart, and every reader that groups
-commits by plan uses it.
+commits by plan uses it. The same test reads a chat's form as no plan form, though it opens with a
+plan's stem. The plan repo's **Commit message convention** owns when a chat writes it.
 
 The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
 `<conventional>` is the Angular set that Conventional Commits recommends, plus `redesign`; a new
@@ -185,6 +186,7 @@ Plan-file commits, plan repo only. No `<kind>`:
                | <stem>/disprove: <target>" round "<n>" vet finding "<n>
                | <stem>/disprove: <target>" by "<model>" "<effort-name>
 <target>     ::= non-empty text without spaces
+<P5 chat>    ::= <stem>/chat <tag>[ <growth> <sequence>]: <S>
 ```
 
 Implementation commits, either repo. A commit lands in the repo whose files it
@@ -228,8 +230,8 @@ Rules across the classes:
   implementation forms**, and its body opens with a `<step-model-record>`. Other independently
   written tagged commits use the single-model record.
 - Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
-  off-plan plan-repo commit (O2) carries one when it closes a graded concern
-  and none otherwise.
+  off-plan plan-repo commit (O2) and a chat's plan-file commit (P5) carry one
+  when they close a graded concern and none otherwise.
 - P1, P3, I3, I4, I5 and C2 change no graded file and fill only the slots
   their productions show. I3 changes no file in its own repo at all.
 - Body placement follows the shared round protocol's **Shared implementation
@@ -244,6 +246,7 @@ Rules across the classes:
 | `settle` | plan | rename onto the bare topic name without changing text |
 | `ready` | plan | plan declared ready for implementation, no file change |
 | `disprove` | plan | user's later ruling that one audit finding or vet verdict was wrong |
+| `chat` | plan | a chat's commit on one active plan's file outside a round |
 | `impl-<n>` | either | one implementation step, exactly one step per commit |
 | `impl-audit-<scope>` | either | an implementation-audit fix commit or record |
 | `implemented` | either | every step this repo hosts has landed |
@@ -269,6 +272,8 @@ P3        planning-rounds/closed oth:
 P4        planning-rounds/disprove: planning-rounds-plan-audit round 2 finding 1
 P4        planning-rounds/disprove: planning-rounds-plan-audit round 2 vet finding 1
 P4        planning-rounds/disprove: planning-rounds-plan-audit by gpt-5.6-sol xhigh
+P5        planning-rounds/chat ath:
+P5        planning-rounds/chat ath growth-low b1:
 I1        planning-rounds/impl-3 oth feat(audit-round):
 I2        round-file-naming/impl-audit-1-4 oth growth-none d1 docs(vet):
 I2        round-file-naming/impl-audit-2-3 oth pruning-low c3 docs(audit):

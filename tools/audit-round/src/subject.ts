@@ -14,6 +14,7 @@ const planRoles = [
   "settle",
   "ready",
   "disprove",
+  "chat",
   "impl",
   "impl-audit",
   "implemented",
@@ -27,6 +28,14 @@ export type PlanRoleName = (typeof planRoles)[number]
  */
 const seriesRole = "commit-audit"
 export type RoleName = PlanRoleName | typeof seriesRole
+
+/**
+ * The role of a chat's commit on one active plan's file outside a round. Its
+ * form carries the plan's stem for the person reading the log, while no
+ * reader that groups commits by plan counts it as the plan's own: every such
+ * reader finds the edit by the plan file's path, as it finds an off-plan one.
+ */
+export const chatRole = "chat"
 
 /** `<stem>/<role>`: a plan's form, with the step or step scope the role carries. */
 export type PlanForm = {
@@ -106,6 +115,7 @@ export type SubjectClass =
   | "P2"
   | "P3"
   | "P4"
+  | "P5"
   | "I1"
   | "I2"
   | "I3"
@@ -304,6 +314,13 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (severity === null) fail(`${where} needs a severity sequence or clean`)
       if (kind !== null) fail(`${where} carries no conventional kind`)
       return "P2"
+    case "chat":
+      if (tag === null) fail(`${where} needs a capability tag`)
+      if (repository !== "plan") fail(`${where} belongs to the plan repository`)
+      if (kind !== null) fail(`${where} carries no conventional kind`)
+      if (severity === "clean")
+        fail(`${where} carries a severity sequence or nothing, never clean`)
+      return "P5"
     case "closed":
       if (tag === null) fail(`${where} needs a capability tag`)
       if (!empty) fail(`${where} carries nothing after its tag`)
@@ -434,10 +451,16 @@ function looseSplit(line: string): LooseForm | null {
  * reads as none. The role decides, not the label's spelling, so a plan whose
  * stem looks like a label keeps its plan forms. Every reader that groups
  * commits by plan reads through it.
+ *
+ * A chat's form reads as none too. It names its plan only for the person
+ * reading the log, and a chat may still land the same edit without it, so a
+ * reader keyed on the stem would read one edit two ways.
  */
 export function planForm(line: string): LooseForm | null {
   const form = looseSplit(line)
-  return form === null || form.role === seriesRole ? null : form
+  return form === null || form.role === seriesRole || form.role === chatRole
+    ? null
+    : form
 }
 
 /**

@@ -285,6 +285,20 @@ const refusals: [Repository, string, RegExp][] = [
     /no conventional kind/,
   ],
   ["plan", "example/init atx docs(x): s", /nothing after its tag/],
+  // A chat's plan-file commit takes an off-plan plan-repo commit's slots
+  // without its kind.
+  ["repo-edu", "example/chat atx: s", /belongs to the plan/],
+  ["repo-edu", "example/chat atx growth-none c1: s", /belongs to the plan/],
+  ["plan", "example/chat: s", /capability tag/],
+  ["plan", "example/chat atx docs(plan): s", /no conventional kind/],
+  [
+    "plan",
+    "example/chat atx growth-none c1 docs(plan): s",
+    /no conventional kind/,
+  ],
+  ["plan", "example/chat atx clean: s", /never clean/],
+  ["plan", "example/chat atx c1: s", /carries a growth or pruning mark/],
+  ["plan", "example/chat atx growth-low: s", /beside a severity/],
   ["plan", "example/closed atx B1: s", /nothing after its tag/],
   ["repo-edu", "example/implemented atx c1: s", /nothing after its tag/],
   [
@@ -430,6 +444,40 @@ test("the role, not the label's spelling, tells a series form from a plan form",
     parseSubject("commit-804833/impl-audit-1 abx clean: x", "repo-edu").class,
     "I4",
   )
+})
+
+test("a chat's form names its plan for the reader while no plan reader counts it", () => {
+  assert.deepEqual(
+    parseSubject(
+      "source-file-split/chat atx growth-low b1: keep three constraints",
+      "plan",
+    ),
+    {
+      class: "P5",
+      form: { stem: "source-file-split", role: "chat", scope: null },
+      tag: { vendor: "a", tier: "t", effort: "x" },
+      burden: { direction: "growth", level: "low" },
+      severity: {
+        ordinary: false,
+        upper: [],
+        lower: [{ tier: "b", count: 1 }],
+      },
+      kind: null,
+      sentence: "keep three constraints",
+    },
+  )
+  assert.equal(
+    parseSubject("source-file-split/chat atx: reopen the plan", "plan").class,
+    "P5",
+  )
+  // Every reader that groups commits by plan finds a chat's edit by the plan
+  // file's path, as it finds an off-plan one, while the hook still reads its
+  // role.
+  const chat = "source-file-split/chat atx: reopen the plan"
+  assert.equal(planForm(chat), null)
+  assert.equal(looseRole(chat), "chat")
+  assert.equal(seriesLabel(chat), null)
+  assert.equal(isAuditRole("chat"), false)
 })
 
 test("a commit round reads its records by their series label and writes that label itself", () => {
