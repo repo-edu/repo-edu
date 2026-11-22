@@ -242,6 +242,7 @@ Linux only, per the `developer-tool-platforms` boundary.
    ```
 
 2. Run `pnpm install`, which installs the hook.
+
 3. On macOS, GitKraken and other desktop apps do not see the shell PATH, so a
    hook they start cannot find `pnpm` or `betterleaks`. Husky reads
    `~/.config/husky/init.sh` before every hook. Put the folders that hold the

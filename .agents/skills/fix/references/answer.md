@@ -52,6 +52,7 @@ proposed record, and that yes grants no permission to run a command.
 
    When several runs wait, it names their targets. Ask the user which one.
    When none waits, say so and stop.
+
 2. **Read the evidence yourself.** Read the ruling file whole when `ruling`
    names one. For each finding that needs an answer, read its part of every
    round report: the audit report's finding, each vet verdict, the rebuttal's
@@ -70,6 +71,7 @@ proposed record, and that yes grants no permission to run a command.
    `ruling.md` holds. Apply **Real choices** to each open item and price each
    option under that paragraph. A serious contest or split still needs the
    user's winner when **Real choices** settles the recommendation.
+
 3. **Explain and propose the record.** The first message shows what the user
    needs to decide and keeps the rest of the record for a request. It holds
    three parts, in this order:
@@ -185,6 +187,7 @@ proposed record, and that yes grants no permission to run a command.
    each change, show the new record and wait again. Send nothing before the
    yes. Without it a winner, reason or choice that the chat proposed or read
    from free words would reach the run unseen.
+
 5. **Send and relay.** Write the record as one JSON document in the form
    `ruling` printed, to a new file under `$TMPDIR` with the chat's file-editing
    tool. Send it with `answer`, naming the target `ruling` printed. Relay the

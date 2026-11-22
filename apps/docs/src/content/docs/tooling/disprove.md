@@ -63,6 +63,7 @@ The command never rewrites the old audit report, commit or finding metadata.
       it with the archive move.`
    2. With `--vet`, it prints `Recorded the disproved vet verdict in <path>. Loop-close will commit
       it with the archive move.`
+
 2. **An archived plan.** The entry goes into the archived round-data file, which is committed alone
    in the plan repo as `<stem>/disprove: <target> round <n> finding <n>`,
    `<stem>/disprove: <target> round <n> vet finding <n>` or
