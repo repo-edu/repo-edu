@@ -77,12 +77,13 @@ export type ClosedRoundFiles = {
 /**
  * Move every round file of a closed plan from the round folder into the
  * plan's own folder under `archive/` of the evidence checkout, so the round
- * folder lists live work only and the evidence root lists groups only. The plan's files are found through the names `round-paths.ts`
- * owns, so another plan whose stem extends this one stays. A file of the same
- * name in the destination is replaced; every earlier file is already in Git.
- * The close's own log may still be open: a rename keeps its open handle on
- * the moved file, so its last lines land there. The command's evidence commit
- * takes the move.
+ * folder lists live work only and the evidence root lists groups only. The
+ * plan's files are found through the names `round-paths.ts` owns, so another
+ * plan whose stem extends this one stays. A file of the same name in the
+ * destination is replaced; every earlier file is already in Git. The close's
+ * own log may still be open: a rename keeps its open handle on the moved
+ * file, so its last lines land there. The command's evidence commit takes the
+ * move.
  */
 export async function moveClosedRoundFiles(
   evidenceRoot: string,
