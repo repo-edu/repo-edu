@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { access, mkdir, readFile } from "node:fs/promises"
+import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import {
@@ -147,6 +147,42 @@ test("per-plan data replaces a target round in place and appends new identities"
   )
   assert.deepEqual(file.disproved, [])
   await assert.rejects(access(`${path}.tmp`), { code: "ENOENT" })
+})
+
+test("appending a round keeps an entry written before the rarity token", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.roundRoot, "example-impl-rounds.json")
+  // Only the old form admits `rare` as a reach value; `developer` is valid in both.
+  const old = {
+    ...entry("example-impl-audit-01..01", 1),
+    findings: [
+      {
+        number: 1,
+        title: "Old finding",
+        tier: "B",
+        reach: "rare",
+        complexity: "none",
+        growthPattern: "none",
+        location: { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+        reviews: [{ vet: "abh", verdict: "accept", answer: null }],
+        outcome: "kept",
+        finalTier: null,
+        finalReach: null,
+      },
+    ],
+  }
+  await writeFile(path, JSON.stringify({ rounds: [old], disproved: [] }))
+  const current: ImplementationRoundData = {
+    ...entry("example-impl-audit-01..01", 2),
+    findings: [...reviewedRoundFindings([reportFinding(1, "Current finding")])],
+  }
+
+  writeRoundData(path, current)
+
+  assert.deepEqual(
+    parseRoundDataFile(path, await readFile(path, "utf8")).rounds,
+    [old, current],
+  )
 })
 
 test("round data admits every end state", async (t) => {
