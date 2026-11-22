@@ -1,8 +1,12 @@
-import { mkdir, readdir, rename } from "node:fs/promises"
+import { mkdir, readdir, rename, rmdir } from "node:fs/promises"
 import { join } from "node:path"
 import { execa } from "execa"
 import { errorMessage } from "./feedback.js"
-import { planRoundFile } from "./round-paths.js"
+import {
+  commitArchiveFolder,
+  commitSeriesFile,
+  planRoundFile,
+} from "./round-paths.js"
 
 /** What one evidence commit did. */
 export type EvidenceCommit =
@@ -101,4 +105,82 @@ export function closedRoundFilesText(
   return moved.names.length === 0
     ? `No round file of ${stem} is left in the round folder.`
     : `Moved ${moved.names.length} round ${moved.names.length === 1 ? "file" : "files"} of ${stem} to ${moved.folder}.`
+}
+
+/** The round files one commit-series move took and the folder it took them to. */
+export type MovedSeriesFiles = {
+  readonly folder: string
+  readonly names: readonly string[]
+}
+
+/** The names of one commit series' files directly inside one folder, sorted. */
+async function commitSeriesFiles(
+  folder: string,
+  label: string,
+): Promise<readonly string[]> {
+  try {
+    return (await readdir(folder, { withFileTypes: true }))
+      .filter((file) => file.isFile() && commitSeriesFile(label, file.name))
+      .map((file) => file.name)
+      .sort()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw error
+  }
+}
+
+/**
+ * Move every file of one completed commit series from the round folder into
+ * its own folder under `commits/`, so the round folder lists live work only.
+ * The series' files are found through the names `round-paths.ts` owns, so a
+ * neighbouring label stays. Each file moves by one rename and so sits in
+ * exactly one of the two folders at every moment: a move that stops partway
+ * loses nothing, and the next rerun restores the rest. The last round's log
+ * may still be open, and a rename keeps its open handle on the moved file.
+ */
+export async function archiveCommitSeries(
+  evidenceRoot: string,
+  roundRoot: string,
+  label: string,
+): Promise<MovedSeriesFiles> {
+  const folder = commitArchiveFolder(evidenceRoot, label)
+  const names = await commitSeriesFiles(roundRoot, label)
+  if (names.length > 0) await mkdir(folder, { recursive: true })
+  for (const name of names)
+    await rename(join(roundRoot, name), join(folder, name))
+  return { folder, names }
+}
+
+/**
+ * Move an archived commit series back into the round folder before a rerun
+ * reads it, so its numbering, earlier fixes and queue are read where every
+ * round writes them. A series that was never archived moves nothing. The
+ * emptied archive folder goes, so `commits/` holds completed series only.
+ */
+export async function restoreCommitSeries(
+  evidenceRoot: string,
+  roundRoot: string,
+  label: string,
+): Promise<MovedSeriesFiles> {
+  const archived = commitArchiveFolder(evidenceRoot, label)
+  const names = await commitSeriesFiles(archived, label)
+  for (const name of names)
+    await rename(join(archived, name), join(roundRoot, name))
+  try {
+    await rmdir(archived)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code !== "ENOENT" && code !== "ENOTEMPTY") throw error
+  }
+  return { folder: roundRoot, names }
+}
+
+/** The line a commit-series move prints, or null when it moved nothing. */
+export function movedSeriesText(
+  label: string,
+  moved: MovedSeriesFiles,
+): string | null {
+  const count = moved.names.length
+  if (count === 0) return null
+  return `Moved ${count} round ${count === 1 ? "file" : "files"} of ${label} to ${moved.folder}.`
 }

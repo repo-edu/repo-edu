@@ -15,6 +15,7 @@ import {
   readAllPlanRoundData,
   type SeriesDecision,
 } from "./round-data.js"
+import { commitArchiveRoot } from "./round-paths.js"
 import type { Auditor } from "./settings.js"
 
 const baselineBefore = "2026-11-08T18:53:13Z"
@@ -265,7 +266,7 @@ export async function replayRows(
 ): Promise<readonly ReplayRow[]> {
   const [files, commitFiles, plan, repoEdu] = await Promise.all([
     readAllPlanRoundData(roots),
-    readAllCommitRoundData(roots),
+    readAllCommitRoundData(roots, commitArchiveRoot(roots.evidenceRoot)),
     readLog(roots.planRoot),
     readLog(roots.repoEduRoot),
   ])

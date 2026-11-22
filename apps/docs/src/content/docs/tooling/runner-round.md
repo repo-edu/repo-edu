@@ -135,7 +135,9 @@ rules.
 
 A settle or ready answer ends the series and prints the `settle` or `ready` command to run; the
 plan itself is left unchanged for your call. A commit series' later rounds read the original commits
-plus the fixes landed so far.
+plus the fixes landed so far. When a commit series completes, its files move to
+`../plan-evidence/commits/<commit-label>/`, and a later audit of the same commits moves them back,
+as [Find round outputs](/repo-edu/tooling/find-round-outputs/#what-remains) describes.
 
 ### Deferrals
 
@@ -151,7 +153,8 @@ prints the remaining open deferrals or says there are none.
 
 `pnpm audit-round replay` applies the same decision function to every retained automatic-series
 answer. It prints the computed answer, stored answer and next round's findings, followed by ordinary
-totals and the fixed Baseline totals. It starts no assistant and writes nothing. Use its output when
+totals and the fixed Baseline totals. It reads each commit series where it lives, live or archived.
+It starts no assistant and writes nothing. Use its output when
 considering a change to the rules in `../plan/STOP-CONDITIONS.md`.
 
 ## Output

@@ -415,7 +415,9 @@ resolves which handoffs stand on the current chain from
   whether the handoff matches the chain it stands on.
 - Keep: a handoff is never deleted. It stays in `plan-evidence/active/` until
   loop-close moves it with the plan's other round files into
-  `plan-evidence/<stem>/`. The read gate already leaves an older, paused or
+  `plan-evidence/<stem>/`. A commit series' handoff moves with the series into
+  `plan-evidence/commits/<series>/` when the series completes, and returns when
+  the same commits are audited again. The read gate already leaves an older, paused or
   orphaned handoff alone, so a kept handoff changes no read. The reason is its
   content: what the round considered and rejected is not visible in the
   artifact or the git log, and keeping it also removes a duty from every round.

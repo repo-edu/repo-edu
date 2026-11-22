@@ -42,7 +42,7 @@ Before this rule the file held the automatic-series rules in four places.
 | Files | Own | Described in |
 | --- | --- | --- |
 | `main.ts` | The process entry: the macOS sleep hold, the stop signals and the ruling dialog it supplies | [Invocation](#invocation), [Ruling wait](references/rounds.md#ruling-wait) |
-| `command.ts` | The command grammar, startup and final reporting, and the round sequence on a target with its counter | [Commands](#commands), [Commit targets](#commit-targets), [The evidence commit](#the-evidence-commit), [Series](references/series.md#series), [Selections](references/sessions.md#selections), [Time readings](references/output.md#time-readings), [Full-screen view](references/model-read-out.md#full-screen-view) |
+| `command.ts` | The command grammar, startup and final reporting, and the round sequence on a target with its counter | [Commands](#commands), [Commit targets](#commit-targets), [The evidence commit](#the-evidence-commit), [The commit-series move](#the-commit-series-move), [Series](references/series.md#series), [Selections](references/sessions.md#selections), [Time readings](references/output.md#time-readings), [Full-screen view](references/model-read-out.md#full-screen-view) |
 | `context.ts` | The installed Repo Edu checkout and its two sibling checkouts | [Invocation](#invocation) |
 | `target.ts` | The argument grammar for rounds | [Plan targets](#plan-targets), [Commit targets](#commit-targets), [Clean audits](references/rounds.md#clean-audits), [Watch](references/watch.md#watch) |
 | `default-target.ts` | The round a plan argument or no target selects, the resolution of commit references and the stage a run starts at | [Plan targets](#plan-targets), [Commit targets](#commit-targets), [The run](#the-run) |
@@ -59,10 +59,10 @@ Before this rule the file held the automatic-series rules in four places.
 | `glance.ts` | The rule that decides whether the watch is due, and the write of the cadence entry | [Watch](references/watch.md#watch) |
 | `episode.ts`, `episode-log.ts`, `episode-facts.ts` | Episode membership and history facts for the glance and the watch evidence | [Episode evidence](references/watch.md#episode-evidence), [No target](#no-target) |
 | `ruling-wait.ts` | A ruling's wait, the check of its answer and the ruling dialog | [Ruling wait](references/rounds.md#ruling-wait) |
-| `round-paths.ts` | The file-name grammar, target names, round numbers and titles, and the match of one plan's round files | [Round files](#round-files), [Phase routing](#phase-routing), [The close move](#the-close-move), [Manual queue](references/series.md#manual-queue) |
+| `round-paths.ts` | The file-name grammar, target names, round numbers and titles, the match of one plan's or one commit series' round files and the commit-series archive folder | [Round files](#round-files), [Phase routing](#phase-routing), [The close move](#the-close-move), [The commit-series move](#the-commit-series-move), [Manual queue](references/series.md#manual-queue) |
 | `round-data.ts` | The checked round-data schemas, readers and writers, the split rule and highest grade, and which statuses mean a stopped round | [Round data](#round-data), [Where a range list starts](#where-a-range-list-starts), [Stopped rounds](#stopped-rounds), [Winners and rulings](references/rounds.md#winners-and-rulings), [Ranges](references/model-read-out.md#ranges), [Vetter pairs](references/model-read-out.md#vetter-pairs) |
 | `run-files.ts` | The exclusive creation of the claim and every required file write | [Numbers and claims](#numbers-and-claims), [Step logs](#step-logs), [Output](references/output.md) |
-| `evidence.ts` | The two writes that change the evidence checkout | [Report lifecycle](#report-lifecycle) |
+| `evidence.ts` | The writes that change the evidence checkout | [Report lifecycle](#report-lifecycle) |
 | `lifecycle.ts` | The plan-file preflight and the Git operations for settle, ready, the `implemented` marker and the close's round-data commit, and the check that a planning round's plan is committed | [settle](#settle), [ready](#ready), [implement](#implement), [close](#close), [Plan targets](#plan-targets), [The run](#the-run) |
 | `plan-links.ts` | The rewrite of the Markdown links that settle points at the plan's new name | [settle](#settle) |
 | `implement.ts`, `implement-output.ts` | The implementation of plan steps and its logs | [implement](#implement), [Step logs](#step-logs) |
@@ -272,6 +272,11 @@ ruling, a close log, a handoff or a yield report. Each form is read whole past t
 bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's round data
 is not among them, because the close archives it beside the plan.
 
+**One commit series' files.** `commitSeriesFile` says whether a file belongs to one commit series:
+a claim, phase file, queue or handoff under its label, or its round data. It reads each form whole
+past the label in the same way, so a neighbouring label that extends this one never matches.
+`commitArchiveFolder` names the series' folder under `commits/` of the evidence checkout.
+
 ### Numbers and claims
 
 `round-paths.ts` scans the round folder for the next target-wide number. Round data does not
@@ -315,8 +320,9 @@ are never edited by hand.
 - Plan files also hold the user's later rulings in a `disproved` list. Commit files have none.
 - A round on an active plan updates its file in the round folder, and loop-close moves the files
   beside the archived plan. Closed-plan data remains archive evidence.
-- A commit file stays beside its round files in the round folder for good, because a commit target
-  has no close. The replay reads it. Plan readers and the model read-out ignore it.
+- A commit file stays beside its round files and moves with them under
+  [The commit-series move](#the-commit-series-move). The replay reads it in either place. Plan
+  readers and the model read-out ignore it.
 
 **A round entry** records:
 
@@ -518,11 +524,11 @@ The `Rerun:` line is the command the user typed, built from the parsed invocatio
 
 Nothing deletes a round's files. The coordinator deletes no round file: a round's audit, vet,
 rebuttal and ruler reports stay in the round folder after a finished fix, a failure, a ruling or a
-clean audit, until the close moves them. A commit series has no close, so its files stay in the
-round folder for good.
+clean audit, until the close moves them. A commit series has no close, so the completed series moves
+under [The commit-series move](#the-commit-series-move) instead.
 
-`evidence.ts` owns the two writes that change the evidence checkout: the evidence commit and the
-close move.
+`evidence.ts` owns the writes that change the evidence checkout: the evidence commit, the close move
+and the commit-series move.
 
 ### The evidence commit
 
@@ -559,6 +565,29 @@ lists live work only. The move follows the round data's move beside the archived
 - The close log may still be open. A rename keeps its open handle on the moved file, so its last
   lines land there.
 - The command's evidence commit takes the move.
+
+### The commit-series move
+
+A commit series that completes moves out of the round folder, so the round folder lists live work
+only. The series runner returns the ending, and `command.ts` asks `evidence.ts` for the move.
+
+- **When.** A series completes when every requested round has run: an automatic `stop` answer or a
+  manual queue that runs out after a finished round. A failure, an unanswered ruling and the round
+  maximum with another auditor due leave it in the round folder. The series' ending
+  keeps the maximum apart from completion, because both end the series without the user.
+- **What.** `archiveCommitSeries` moves every file that `commitSeriesFile` matches for the series'
+  label, round data, claims, logs, reports, rulings, handoffs and queue included, into
+  `commits/<label>/` of the evidence checkout. Each file keeps its name and contents. The last
+  round's log is still open, and a rename keeps its open handle, so the move's own line lands in the
+  moved log. The command's evidence commit takes the move.
+- **Rerun.** Before a series on a commit target reads its history, picks an auditor, writes a queue
+  or claims a round, `restoreCommitSeries` moves any archived file of that label back and removes
+  the emptied folder. The series then keeps its earlier fixes and its next number, and every later
+  write uses the round folder.
+- **A move cut short.** Each file moves by one rename, so it sits in exactly one folder at every
+  moment. A rerun restores whatever the archive folder holds, so no file is lost and no number is
+  claimed twice.
+- The loose files directly in `commits/` are recovered evidence that no series owns.
 
 ## Commands
 
@@ -960,8 +989,10 @@ omitted stem.
 
 ### replay
 
-`replay` reads every active and archived plan's retained round data and every active
-commit-series file. It starts no assistant and writes nothing.
+`replay` reads every active and archived plan's retained round data and every commit-series file,
+live in the round folder or archived in its own folder under `commits/`. Each series' file sits in
+one of the two places, so its answers count once, and the loose recovered files directly in
+`commits/` stay out. It starts no assistant and writes nothing.
 
 - It applies the automatic-series decision function of `judge.ts` to each stored answer.
   `replay.ts` reads each answer stored without an auditor list as the assistant-keyed rules that

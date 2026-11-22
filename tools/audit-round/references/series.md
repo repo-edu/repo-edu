@@ -23,8 +23,9 @@ plan or commit target runs an [automatic series](#automatic-series). With `--aud
 - Failure or leaving a ruling without a reply stops either kind of sequence. A submitted reply
   resumes the fix, then the sequence after the round completes.
 - The series returns its ending as a value, so a reader never parses the printed lines: `settle` or
-  `ready` for the runner's lifecycle answer, `ended` for a runner stop, the maximum or an emptied
-  manual queue, and `stopped` for an ending that needs the user.
+  `ready` for the runner's lifecycle answer, `complete` for a runner stop or an emptied manual
+  queue, `limit` for the maximum and `stopped` for an ending that needs the user. A complete commit
+  series moves under [The commit-series move](../CLAUDE.md#the-commit-series-move).
 
 ### Auditor options
 
@@ -103,9 +104,9 @@ unanswered ruling, a red watch or a phase change.
 
 Commit targets use the same fixed rules and maximum. A commit series has no lifecycle answer and no
 watch: the runner stops it or chooses another listed auditor. The series decision reads one active
-commit series. The series runner reads the commit data file before reruns, and the runner reads it
-after automatic rounds. [Commit targets](../CLAUDE.md#commit-targets) says how each later round's
-commit set grows.
+commit series. The series runner reads the commit data file before reruns, after restoring an
+archived series, and the runner reads it after automatic rounds.
+[Commit targets](../CLAUDE.md#commit-targets) says how each later round's commit set grows.
 
 ### Scope lists
 
@@ -176,7 +177,8 @@ valid across rounds, so an editor holding it open keeps editing the file the run
 - A clean audit removes queued entries that resolve to that round's assistant, model and effort.
   Other settings remain. A fix that lands a clean record removes none.
 - Failure, a round requiring a ruling, a red watch or an empty queue stops the manual sequence.
-  The queue file stays until the close moves it.
+  The queue file stays until the close moves it, or a completed commit series moves it with the
+  series.
 
 `queue.ts` owns the shared entry splitter and the queue file's contents. Commit references, plan
 scopes, `--auditor`, `--first` and queue files admit entries separated by commas, spaces or line

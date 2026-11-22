@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import { readdir, readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { test } from "node:test"
+import { commitArchiveFolder } from "../round-paths.js"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { recorded } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
@@ -265,15 +266,23 @@ for (const target of ["implementation", "planning", "commits"] as const) {
       assert.match(visible, /Auditor sequence stopped: the watch graded red\./)
       assert.equal(visible.match(/\[watch\] finished/g)?.length, 1)
     }
-    // A finished fix deletes nothing: the reports stay until the close.
-    const files = await readdir(f.roundRoot)
+    // A finished fix deletes nothing: the reports stay until the close, or
+    // move together with their completed commit series.
+    const folder =
+      target === "commits"
+        ? commitArchiveFolder(
+            f.evidenceRoot,
+            basename(f.report).replace(/-\d{2,}-2-audit\..+$/, ""),
+          )
+        : f.roundRoot
+    const files = await readdir(folder)
     for (const kind of ["2-audit", "3-vet", "4-rebut"])
       assert.ok(
         files.some((name) => name.includes(`-01-${kind}.`)),
         `${kind} in ${files.join(", ")}`,
       )
     for (const name of await f.roundFiles()) {
-      const text = await readFile(join(f.roundRoot, name), "utf8")
+      const text = await readFile(join(folder, name), "utf8")
       assert.match(text, /## fix|\[fix\] finished/)
     }
   })

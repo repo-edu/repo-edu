@@ -1,10 +1,11 @@
 import assert from "node:assert/strict"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { completeClean } from "../clean.js"
 import { stampCommitMessage } from "../commit-msg.js"
+import { commitArchiveFolder } from "../round-paths.js"
 import { planStem } from "../target.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { recordedTag } from "./helpers.js"
@@ -239,13 +240,18 @@ for (const { name, args, judged, owner } of [
         ),
         message,
       )
+    // The completed series waits in its archive folder.
+    const archived = commitArchiveFolder(f.evidenceRoot, label)
     const data = JSON.parse(
-      await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
+      await readFile(join(archived, `${label}-rounds.json`), "utf8"),
     ) as { rounds: { commits: { repository: string; sha: string }[] }[] }
     assert.deepEqual(data.rounds[0]?.commits, [
       { repository: owner, sha: await git("rev-parse", "HEAD") },
     ])
-    assert.match(await readFile(f.report, "utf8"), /No findings/)
+    assert.match(
+      await readFile(join(archived, basename(f.report)), "utf8"),
+      /No findings/,
+    )
     const { log, markdown } = await f.records()
     assert.doesNotMatch(log, /\[(?:vet|rebut|fix|watch)\] starting/)
     assert.match(markdown, /Clean audit recorded\. Audit report retained/)

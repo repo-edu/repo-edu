@@ -1,5 +1,5 @@
 import { readFileSync, renameSync, writeFileSync } from "node:fs"
-import { readdir, readFile } from "node:fs/promises"
+import { readdir, readFile, stat } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { z } from "zod"
 import type { RoundDataRoots } from "./context.js"
@@ -487,14 +487,50 @@ export async function readAllPlanRoundData(
   )
 }
 
-/** Read every active commit-series round-data file under its checked schema. */
+/**
+ * Read every commit-series round-data file under its checked schema: the live
+ * series in the round folder and each completed series in its own labelled
+ * folder of the archive root. A series' file sits in one of the two places,
+ * so each stored answer is read once. Loose files directly in the archive
+ * root are recovered evidence and stay out.
+ */
 export async function readAllCommitRoundData(
   roots: Pick<RoundDataRoots, "roundRoot">,
+  archiveRoot: string,
 ): Promise<readonly RetainedCommitRoundData[]> {
-  const files = (await readdir(roots.roundRoot, { withFileTypes: true }))
+  const active = (await readdir(roots.roundRoot, { withFileTypes: true }))
     .filter((entry) => entry.isFile() && isCommitRoundDataName(entry.name))
     .map((entry) => join(roots.roundRoot, entry.name))
-    .sort()
+  let archived: string[] = []
+  try {
+    const folders = (await readdir(archiveRoot, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+    archived = (
+      await Promise.all(
+        folders.map(async (label) => {
+          const file = join(
+            archiveRoot,
+            label,
+            roundDataFilename(label, "commit"),
+          )
+          try {
+            return (await stat(file)).isFile() ? [file] : []
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+            throw error
+          }
+        }),
+      )
+    ).flat()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+  }
+  const files = [...active, ...archived].sort(
+    (first, second) =>
+      basename(first).localeCompare(basename(second)) ||
+      first.localeCompare(second),
+  )
   return Promise.all(
     files.map(async (file) => {
       const name = basename(file)

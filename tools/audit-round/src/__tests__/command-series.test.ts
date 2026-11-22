@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { documentTag } from "../round-paths.js"
+import { commitArchiveFolder, documentTag } from "../round-paths.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
@@ -731,7 +731,10 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
   )
   const stored = JSON.parse(
     await readFile(
-      join(f.roundRoot, `commit-${head.slice(0, 6)}-rounds.json`),
+      join(
+        commitArchiveFolder(f.evidenceRoot, `commit-${head.slice(0, 6)}`),
+        `commit-${head.slice(0, 6)}-rounds.json`,
+      ),
       "utf8",
     ),
   ) as { rounds: { status: string; groups: { references: string[] }[] }[] }
@@ -1757,7 +1760,10 @@ test("a commit series keeps its label while the next auditor reads the original 
   assert.equal(secondGroup.startingHead, manual[0])
 
   const data = JSON.parse(
-    await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
+    await readFile(
+      join(commitArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
+      "utf8",
+    ),
   ) as {
     rounds: {
       target: string
@@ -1800,7 +1806,10 @@ test("a commit series keeps its clean record out of the next round's audited set
   )
 
   const data = JSON.parse(
-    await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
+    await readFile(
+      join(commitArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
+      "utf8",
+    ),
   ) as {
     rounds: {
       commits: { sha: string }[]
@@ -1871,11 +1880,16 @@ test("a rerun starts with fixes retained by the same commit-series label", async
       0,
       `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
     )
-    assert.match(f.visible.at(-1) ?? "", new RegExp(expected))
+    // The archive line follows the series' stop.
+    assert.match(f.visible.at(-2) ?? "", new RegExp(expected))
+    assert.match(f.visible.at(-1) ?? "", new RegExp(`^Moved .* of ${label} `))
   }
 
   const data = JSON.parse(
-    await readFile(join(f.roundRoot, `${label}-rounds.json`), "utf8"),
+    await readFile(
+      join(commitArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
+      "utf8",
+    ),
   ) as {
     rounds: { commits: { repository: string; sha: string }[] }[]
   }

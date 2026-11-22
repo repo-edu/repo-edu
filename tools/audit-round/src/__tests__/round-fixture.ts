@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
-import { readdirSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import type { TestContext } from "node:test"
 import { execa } from "execa"
 import type { Assistant } from "../phase.js"
@@ -312,27 +312,47 @@ Audit ranges: 1.
     },
     cacheRoot,
   }
-  const roundFiles = async () =>
-    (await readdir(outputRoot)).filter((name) =>
-      /-1-round\.[ao][btu][lmhx]\.(md|log)$/.test(name),
+  // A completed commit series moves into its own folder under `commits/`,
+  // so the round files a test reads sit in the round folder or there.
+  const outputRoots = () => {
+    const archive = join(evidenceRoot, "commits")
+    const folders = existsSync(archive)
+      ? readdirSync(archive, { withFileTypes: true })
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => join(archive, entry.name))
+      : []
+    return [outputRoot, ...folders]
+  }
+  const located = (path: string) => {
+    if (existsSync(path)) return path
+    return (
+      outputRoots()
+        .map((root) => join(root, basename(path)))
+        .find((candidate) => existsSync(candidate)) ?? path
     )
+  }
+  const roundFiles = async () =>
+    (await Promise.all(outputRoots().map((root) => readdir(root))))
+      .flat()
+      .filter((name) => /-1-round\.[ao][btu][lmhx]\.(md|log)$/.test(name))
   const records = async () => {
     const names = await roundFiles()
     assert.equal(names.length, 2)
     const log = await readFile(
-      join(outputRoot, names.find((name) => name.endsWith(".log")) as string),
+      located(
+        join(outputRoot, names.find((name) => name.endsWith(".log")) as string),
+      ),
       "utf8",
     )
-    const transcript = join(
-      outputRoot,
-      names.find((name) => name.endsWith(".md")) as string,
+    const transcript = located(
+      join(outputRoot, names.find((name) => name.endsWith(".md")) as string),
     )
     const markdown = await readFile(transcript, "utf8")
     return { log, markdown, transcript }
   }
   const document = (kind: string, fallback: string) => {
     // Finished fixes remove their reports; the run log retains the paths passed to phases.
-    for (const root of [outputRoot, repoRoot]) {
+    for (const root of [...outputRoots(), repoRoot]) {
       for (const name of readdirSync(root)
         .filter((name) => name.endsWith(".log"))
         .sort()

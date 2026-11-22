@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises"
 import { basename, join } from "node:path"
 import type { ExecutionContext } from "./context.js"
+import { roundDataFilename } from "./round-data.js"
 import {
   type AuditTarget,
   type CommitGroup,
@@ -133,6 +134,35 @@ export function planRoundFile(stem: string, name: string): boolean {
       `${prefix}-yield-\\d-[a-z]+\\.${tagPattern}\\.md`,
     ].join("|")})$`,
   ).test(name)
+}
+
+/**
+ * Whether a file belongs to one commit series: a claim, phase file, queue,
+ * handoff or the series' round data. Every form is read whole past the label,
+ * so a neighbouring label that extends this one never matches.
+ */
+export function commitSeriesFile(label: string, name: string): boolean {
+  if (name === roundDataFilename(label, "commit")) return true
+  const prefix = escapedPattern(label)
+  const phase = readPhaseFilename(name)
+  if (phase !== null)
+    return new RegExp(`^${prefix}-\\d{2,}$`).test(phase.nameStart)
+  return new RegExp(
+    `^${prefix}-(?:\\d{2,}-0-claim|queue|handoff\\.[0-9a-f]{6,})\\.md$`,
+  ).test(name)
+}
+
+/** The folder of the evidence checkout that holds every completed commit series. */
+export function commitArchiveRoot(evidenceRoot: string): string {
+  return join(evidenceRoot, "commits")
+}
+
+/** The folder that holds one completed commit series under its label. */
+export function commitArchiveFolder(
+  evidenceRoot: string,
+  label: string,
+): string {
+  return join(commitArchiveRoot(evidenceRoot), label)
 }
 
 /** The bounded label that owns one commit series and its retained evidence. */

@@ -82,8 +82,13 @@ A manual series' queue stays there too.
 
 At loop-close, the plan and its plan-scoped round data move into the plan's archive folder. The
 runner then moves every other round file of the plan into `../plan-evidence/<stem>/`, so
-`../plan-evidence/active/` lists live work only. Briefs stay beside the plan. A commit series has no
-close, so its files and data stay in `../plan-evidence/active/` for good.
+`../plan-evidence/active/` lists live work only. Briefs stay beside the plan.
+
+A commit series has no close. Its files and data stay in `../plan-evidence/active/` while it runs
+or waits for you. Once every requested round has run, on a runner stop or an emptied manual queue,
+the runner moves them all into `../plan-evidence/commits/<commit-label>/`. A failure, a pending
+ruling or the round maximum with another auditor due leaves them in place. Auditing the same commits
+again moves the series back first, so it keeps its earlier fixes and continues its round numbers.
 
 ## Commits
 

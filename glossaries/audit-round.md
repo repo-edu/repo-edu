@@ -103,8 +103,9 @@ is always named in full.
   widening fix. It advises settle or keep open, with a one-line reason, and the
   runner keeps the latest one as the round's settling recommendation.
 - **Evidence repo**: the private checkout `plan-evidence` beside the plan and
-  Repo Edu checkouts. It holds the round folder and, after each close, the
-  closed plan's round files. Only the runner commits it.
+  Repo Edu checkouts. It holds the round folder, after each close the closed
+  plan's round files and, under `commits/`, each completed commit series. Only
+  the runner commits it.
 - **Round folder**: the `active/` folder of the evidence repo. It holds every
   round file of live work. The plan checkout's own `active/` folder holds plans
   and their briefs only.
@@ -160,8 +161,10 @@ is always named in full.
   whether the series ends or which listed auditor reads next. A series runs
   this way whenever the user types no manual queue.
 - **Commit series**: a series whose target is a set of commits rather than a
-  plan. Each later round adds the fixes the series has landed. It has no close,
-  so its round files stay in the round folder. Its series label, `commit-`
+  plan. Each later round adds the fixes the series has landed. It has no close:
+  the runner moves its round files out of the round folder when every requested
+  round has run, and brings them back when the same commits are audited again.
+  Its series label, `commit-`
   followed by the short IDs of the commits it first audited, names its round
   files and round data and opens every record its rounds land, where a plan's
   records open with the plan's stem.

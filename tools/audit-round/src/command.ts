@@ -26,11 +26,14 @@ import {
 import { readWatchEvidence } from "./episode.js"
 import { readLog } from "./episode-log.js"
 import {
+  archiveCommitSeries,
   closedRoundFilesText,
   commitEvidence,
   evidenceFailureText,
   moveClosedRoundFiles,
+  movedSeriesText,
   planRoundFiles,
+  restoreCommitSeries,
 } from "./evidence.js"
 import { errorMessage, observedOutput } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
@@ -488,12 +491,14 @@ function watchEvidencePage(evidence: string, range: LineRange): string {
 
 /**
  * How one auditor series ended. `settle` and `ready` carry the runner's
- * lifecycle answer, `ended` a stop answer, the round maximum or an
- * exhausted manual queue, and `stopped` an ending that needs the user: a
- * failure, an unanswered ruling, a red watch, a phase change or a chained
- * deferral round that ended the series.
+ * lifecycle answer and `complete` says every requested round ran: a stop
+ * answer, an exhausted manual queue or the one round a target without a
+ * series asked for. `limit` is the round maximum reached with another auditor
+ * due, and `stopped` an ending that needs the user: a failure, an unanswered
+ * ruling, a red watch, a phase change or a chained deferral round that ended
+ * the series.
  */
-type SeriesEnding = "settle" | "ready" | "ended" | "stopped"
+type SeriesEnding = "settle" | "ready" | "complete" | "limit" | "stopped"
 
 type DeferralState = {
   readonly deferrals: readonly OpenDeferral[]
@@ -2243,7 +2248,7 @@ export async function runCommand(
             if (automatic) await printDeferrals()
             return "stopped"
           }
-          if (!automatic && queue === null) break
+          if (!automatic && queue === null) return "complete"
           if (automatic && "plan" in target) {
             const previousPhase = planPhase(target.plan)
             const plan = await resolvePlan(context, planStem(target.plan))
@@ -2277,7 +2282,7 @@ export async function runCommand(
                 `${series} stopped after ${completed} round${completed === 1 ? "" : "s"}. ${decision.reason}`,
               )
               await printDeferrals()
-              break
+              return "complete"
             }
             if (decision.answer === "settle") {
               if (!("plan" in target))
@@ -2306,7 +2311,7 @@ export async function runCommand(
                 `${series} reached its maximum of ${settings.maximumAutomaticRounds} round${settings.maximumAutomaticRounds === 1 ? "" : "s"}.`,
               )
               await printDeferrals()
-              break
+              return "limit"
             }
             // A `--first` selection opens the first round after a
             // continued one, because the continued round is not its own.
@@ -2325,7 +2330,7 @@ export async function runCommand(
           const ending = round.cleanAudit ? "Clean audit" : null
           const ended =
             ending === null ? null : auditorSetting(ranSeat, releases, settings)
-          if (queue === null) break
+          if (queue === null) return "complete"
           const taken = await takeNext(queue, ended, releases, settings)
           if (taken.skipped > 0)
             await active.message(
@@ -2342,16 +2347,47 @@ export async function runCommand(
               : `Next round: ${seat.assistant}; ${rest.length + 1} auditor entries remain.`,
           )
         } while (seat !== null)
-        return "ended"
+        return "complete"
       }
-      let ending: SeriesEnding = "ended"
+      const say = async (text: string | null) => {
+        if (text === null) return
+        if (output === undefined) options.terminal.write(text)
+        else await output.message(text)
+      }
+      let ending: SeriesEnding = "complete"
       for (const [index, target] of targets.entries()) {
         const later = targets.slice(index + 1)
         if (index > 0 && "plan" in target)
           await output?.message(
             `Next scope: ${roundSubject(target, planStem(target.plan))}; ${later.length} scope${later.length === 1 ? "" : "s"} remain after it.`,
           )
+        // A completed commit series waits in its archive folder. A rerun
+        // brings it back before anything reads it, so the series keeps its
+        // numbering and earlier fixes and every round writes where it did.
+        const label = "groups" in target ? commitTargetLabel(target) : null
+        if (label !== null)
+          await say(
+            movedSeriesText(
+              label,
+              await restoreCommitSeries(
+                context.evidenceRoot,
+                context.roundRoot,
+                label,
+              ),
+            ),
+          )
         ending = await runSeries(target)
+        if (label !== null && ending === "complete")
+          await say(
+            movedSeriesText(
+              label,
+              await archiveCommitSeries(
+                context.evidenceRoot,
+                context.roundRoot,
+                label,
+              ),
+            ),
+          )
         // Every ending but stopped lets the next scope run.
         if (ending !== "stopped") continue
         const unrun = later.flatMap((scope) =>
