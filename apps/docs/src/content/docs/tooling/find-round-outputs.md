@@ -81,8 +81,10 @@ handoffs and round data stay in `../plan-evidence/active/` after a fix, a ruling
 A manual series' queue stays there too.
 
 At loop-close, the plan and its plan-scoped round data move into the plan's archive folder. The
-runner then moves every other round file of the plan into `../plan-evidence/<stem>/`, so
-`../plan-evidence/active/` lists live work only. Briefs stay beside the plan.
+runner then moves every other round file of the plan, the close log included, into
+`../plan-evidence/archive/<stem>/`, so `../plan-evidence/active/` lists live work only. Look there
+for a closed plan's reports by its stem, whether it shipped or was aborted. Briefs stay beside the
+plan.
 
 A commit series has no close. Its files and data stay in `../plan-evidence/active/` while it runs
 or waits for you. Once every requested round has run, on a runner stop or an emptied manual queue,

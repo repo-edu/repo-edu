@@ -76,8 +76,8 @@ The run leaves what its stages leave:
    `<stem>/ready` marker with the assigned coder.
 3. **The implementation** leaves one checked step commit per hosting repo, each repo's `implemented`
    marker and one log per started step.
-4. **The close** archives the plan, writes the closing commits and leaves
-   `../plan-evidence/active/<stem>-close.<tag>.log`.
+4. **The close** archives the plan, writes the closing commits and moves the plan's round files,
+   its log `<stem>-close.<tag>.log` included, into `../plan-evidence/archive/<stem>/`.
 
 [Find round outputs](/repo-edu/tooling/find-round-outputs/) names every file and when it goes.
 

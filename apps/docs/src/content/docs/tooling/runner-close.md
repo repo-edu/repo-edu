@@ -59,9 +59,9 @@ nothing. An aborted plan skips the audit checks and keeps its backlog rows.
 The round-data files are the one part the runner does itself. Once the session has moved the plan,
 the runner moves `<stem>-plan-rounds.json` and `<stem>-impl-rounds.json` from
 `../plan-evidence/active/` into the plan's archive folder and commits them as a second
-`<stem>/closed` record, because it cannot see whether a session remembered them. It then moves
-every other round file of the plan, reports, handoffs, rulings, watches, logs and yield reports
-included, from `../plan-evidence/active/` into `../plan-evidence/<stem>/` and prints how many it
+`<stem>/closed` record, because it cannot see whether a session remembered them. It then moves every
+other round file of the plan, reports, handoffs, rulings, watches, logs and yield reports included,
+from `../plan-evidence/active/` into `../plan-evidence/archive/<stem>/` and prints how many it
 moved. The command's evidence commit takes the move. A plan whose stem extends this one keeps its
 files.
 
@@ -74,8 +74,10 @@ files.
    `<stem>/closed` commit when Repo Edu hosted a landed step and, before it, a `chore(sweep)` commit
    when a committed backlog row named the plan. The runner prints `Committed <sha>: <subject>` for
    its own commit.
-3. **The close log** at `../plan-evidence/active/<stem>-close.<tag>.log`, which stays after the
-   close.
+3. **The close log** `<stem>-close.<tag>.log`, written in `../plan-evidence/active/` and moved
+   with the plan's other round files into `../plan-evidence/archive/<stem>/` once the close
+   finishes. A close that stops first leaves it in `../plan-evidence/active/` until the rerun
+   finishes the close.
 
 A close session that finishes with the plan still in `../plan/active/` fails, because the move is
 the close. A finished session whose plan the runner cannot find once under `../plan/archive/` fails

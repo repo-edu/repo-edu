@@ -76,8 +76,8 @@ export type ClosedRoundFiles = {
 
 /**
  * Move every round file of a closed plan from the round folder into the
- * plan's own folder of the evidence checkout, so the round folder lists live
- * work only. The plan's files are found through the names `round-paths.ts`
+ * plan's own folder under `archive/` of the evidence checkout, so the round
+ * folder lists live work only and the evidence root lists groups only. The plan's files are found through the names `round-paths.ts`
  * owns, so another plan whose stem extends this one stays. A file of the same
  * name in the destination is replaced; every earlier file is already in Git.
  * The close's own log may still be open: a rename keeps its open handle on
@@ -89,7 +89,7 @@ export async function moveClosedRoundFiles(
   roundRoot: string,
   stem: string,
 ): Promise<ClosedRoundFiles> {
-  const folder = join(evidenceRoot, stem)
+  const folder = join(evidenceRoot, "archive", stem)
   const names = await planRoundFiles(roundRoot, stem)
   if (names.length > 0) await mkdir(folder, { recursive: true })
   for (const name of names)

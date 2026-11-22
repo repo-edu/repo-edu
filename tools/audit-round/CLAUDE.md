@@ -562,9 +562,11 @@ The commit has these edges:
 ### The close move
 
 Loop-close moves every file of the closed plan that `planRoundFile` matches from the round folder
-into the plan's own folder of the evidence checkout, `plan-evidence/<stem>/`, so the round folder
-lists live work only. The move follows the round data's move beside the archived plan, under
-[close](#close).
+into the plan's own folder under `archive/` of the evidence checkout,
+`plan-evidence/archive/<stem>/`, so the round folder lists live work only and the evidence root
+lists only its groups. The stem names the folder whether the plan shipped or was aborted. The move
+follows the round data's move beside the archived plan, under [close](#close), and a close that
+finishes an earlier one moves the same way.
 
 - A file of the same name there is replaced, because every earlier file is already in Git.
 - The close log may still be open. A rename keeps its open handle on the moved file, so its last

@@ -191,7 +191,10 @@ const endings: readonly (readonly [
 
 /** What the fake close move reports for one plan. */
 function closedFiles(stem: string) {
-  return { folder: `/evidence/${stem}`, names: [`${stem}-close.obh.log`] }
+  return {
+    folder: `/evidence/archive/${stem}`,
+    names: [`${stem}-close.obh.log`],
+  }
 }
 
 function controlledRound(

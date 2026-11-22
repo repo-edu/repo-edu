@@ -157,12 +157,16 @@ test("close supplies open deferrals to one close session from the plan checkout"
     [["codex", f.planRoot]],
   )
   // The runner moved every round file of the plan, the close log included,
-  // into the plan's own folder, and left every other file in the round folder.
-  const folder = join(f.evidenceRoot, "example")
+  // into the plan's own folder under archive/, and left every other file in
+  // the round folder.
+  const folder = join(f.evidenceRoot, "archive/example")
   assert.deepEqual(
     (await readdir(folder)).sort(),
     [...closedPlanFiles, "example-close.obh.log"].sort(),
   )
+  await assert.rejects(access(join(f.evidenceRoot, "example")), {
+    code: "ENOENT",
+  })
   assert.deepEqual(
     (await readdir(f.roundRoot)).sort(),
     ["audit-source.md", ...otherRoundFiles].sort(),
@@ -205,7 +209,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
     new RegExp(`Committed ${sha}: example/closed obh: archive the round data`),
   )
   const log = await readFile(
-    join(f.evidenceRoot, "example/example-close.obh.log"),
+    join(f.evidenceRoot, "archive/example/example-close.obh.log"),
     "utf8",
   )
   assert.match(log, /Close of plan example\.md\n/)
@@ -267,7 +271,7 @@ test("close without a stem takes the plan that plan prints and passes an abort r
     f.errors.join("\n"),
   )
   const log = await readFile(
-    join(f.evidenceRoot, "example/example-close.obh.log"),
+    join(f.evidenceRoot, "archive/example/example-close.obh.log"),
     "utf8",
   )
   assert.ok(
@@ -365,14 +369,14 @@ test("close of an archived plan finishes its round-data and round-file moves wit
     await assert.rejects(access(join(f.roundRoot, file)), { code: "ENOENT" })
   assert.equal(
     f.visible.at(-1),
-    `Committed ${sha}: example/closed obh: archive the round data\nMoved 1 round file of example to ${join(f.evidenceRoot, "example")}.`,
+    `Committed ${sha}: example/closed obh: archive the round data\nMoved 1 round file of example to ${join(f.evidenceRoot, "archive/example")}.`,
   )
   await assert.rejects(access(join(f.roundRoot, "example-close.obh.log")), {
     code: "ENOENT",
   })
   assert.equal(
     await readFile(
-      join(f.evidenceRoot, "example/example-close.obh.log"),
+      join(f.evidenceRoot, "archive/example/example-close.obh.log"),
       "utf8",
     ),
     "close\n",

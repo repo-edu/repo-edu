@@ -305,8 +305,55 @@ can veto while a complexity cost goes unpriced. A run of findings with
 `developer` reach or a rarity other than `ordinary`, beside growing complexity
 on the same machinery, exposes that trade for the watch. A reduction is the
 opposite signal and does not join the run. The values rate facts, not worth.
-Their one direct role in choosing an answer is the rare-case rule under
-[Real choices](#real-choices).
+Rarity and harm decide whether a round raises a harm, under
+[What a round raises](#what-a-round-raises). Beyond that, their one direct role
+in choosing an answer is the rare-case rule under [Real choices](#real-choices).
+
+## What a round raises
+
+The rarer a harm is, the worse it must be before a round raises it. The rarity
+and the harm level under [Reach and complexity](#reach-and-complexity) decide
+whether a harm becomes a finding:
+
+| Rarity | `low` harm | `medium` harm | `high` harm |
+| --- | --- | --- | --- |
+| `rare` | raised | raised | raised |
+| `very-rare` | not raised | raised | raised |
+| `extremely-rare` | not raised | not raised | `end-user` reach: raised; `developer` reach: not raised |
+
+An `ordinary` harm carries no level and is raised. For a harm in a "not raised"
+cell the auditor writes no finding, and a vetter's revision adds no correction
+for it to another finding. Not raised means not reported at all, never reported
+at a lower tier: a harm that would grade A is dropped like any other.
+
+The lines between the cells follow whether a dropped finding comes back:
+
+1. A `rare` harm is raised at every level.
+2. A `low` or `medium` harm is one the person sees and can put right, so a
+   dropped finding comes back: when the event happens, the person reports it
+   and it is fixed then. A `low` harm, which an ordinary action undoes, is
+   dropped from two conditions on. A `medium` harm, which takes real work, is
+   dropped from three.
+3. A `high` harm does not come back. A loss that stays cannot be repaired after
+   the event, and nobody reports harm that nobody sees. It is raised up to
+   `extremely-rare` when an end user meets it.
+4. A `developer` harm at `extremely-rare` has no exception. The developer who
+   meets the event is the person who reports and fixes it.
+
+A miscount by one moves a finding one row. It cannot drop a `high` harm that an
+end user meets, and it drops a harm with one condition only when that harm is
+`low`.
+
+A boundary duty keeps no finding alive in a "not raised" cell. An entry of
+`../plan/BOUNDARIES.md` still states what the program must do, and a round
+raises a breach of it in every raised cell. The `quick-failure` boundary itself
+says that "a clean restart is successful containment, not a defect".
+
+The rule stops new findings only. It never removes a guard that a plan or the
+code already holds. Such a guard leaves only through a finding under the shared
+planning rules'
+[Changes to what a plan holds](../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds).
+Case: [`raise-rule`](../../../plan/CASES.md#raise-rule).
 
 ## Finding explanations
 
@@ -473,7 +520,7 @@ resolves which handoffs stand on the current chain from
   whether the handoff matches the chain it stands on.
 - Keep: a handoff is never deleted. It stays in `plan-evidence/active/` until
   loop-close moves it with the plan's other round files into
-  `plan-evidence/<stem>/`. A commit series' handoff moves with the series into
+  `plan-evidence/archive/<stem>/`. A commit series' handoff moves with the series into
   `plan-evidence/commits/<series>/` when the series completes, and returns when
   the same commits are audited again. The read gate already leaves an older, paused or
   orphaned handoff alone, so a kept handoff changes no read. The reason is its
@@ -578,11 +625,17 @@ The choice is settled in three cases:
 
 1. One option is at least as good as every other on every cost and on what it
    gives. Unclear evidence rules this case out.
-2. The finding's reach is rare or very-rare. The option with the least upkeep
-   wins under [Reach and complexity](#reach-and-complexity). Doing nothing and
-   changing only wording count as options. On equal upkeep, the option better
-   for people using the app wins. Waiting for a ruling on a rare case costs
-   more than its answer is worth.
+2. The finding's rarity is `rare` or `very-rare`, whatever its reach. The
+   option with the least upkeep wins under
+   [Reach and complexity](#reach-and-complexity). Doing nothing and changing
+   only wording count as options. On equal upkeep, the option better for the
+   person who meets the harm wins. Waiting for a ruling on a rare case costs
+   more than its answer is worth. An `extremely-rare` finding that
+   [What a round raises](#what-a-round-raises) raises stays out of this case.
+   Doing nothing nearly always has the least upkeep, so this case would settle
+   such a finding for doing nothing and its raised cell would mean nothing. Its
+   remedy is weighed on its cost against the loss, and cases 1 and 3 can still
+   settle it.
 3. The costlier option's only advantage is a guard against a mistake no round
    has found. Such a guard buys nothing the evidence shows, so the option with
    the least upkeep wins. A crumb of yield does not make a choice real.
