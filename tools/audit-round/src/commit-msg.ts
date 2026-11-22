@@ -36,8 +36,8 @@ export type CommitAdmission = {
 /**
  * The changed paths that `listed-files.json` names for this repository: a
  * path equal to a listed file or under a listed folder, whose entry ends in
- * `/`. Such a file changes only inside a plan, under the plan repo's
- * Doctrine changes rule.
+ * `/`. A change to such a file goes through a plan unless it is wording,
+ * under the plan repo's Doctrine changes rule.
  */
 export function listedPaths(
   paths: readonly string[],
@@ -128,7 +128,8 @@ export function readStepModelRecord(body: string): StepModelRecord {
  * round's series label opens the subject with the commit-audit form, so every
  * commit the round lands is its record. A commit audit's record is an audit
  * record like a plan's. A commit that changes a listed file must carry a step
- * or implementation-audit subject, so a commit audit's record is refused one.
+ * or implementation-audit subject, or be an off-plan commit whose graded
+ * bullets are all tier D, so a commit audit's record is refused one.
  */
 export function stampCommitMessage(
   text: string,
@@ -180,13 +181,21 @@ export function stampCommitMessage(
   const subjectLine = stampSequence(tokens.join(" "), findings, repository)
   const subject = parseSubject(subjectLine, repository)
   const listed = listedPaths(admission.changedPaths, repository)
+  // An off-plan commit whose every graded bullet is D claims a wording change,
+  // which needs no plan. Whether the change alters what a session does is the
+  // writer's judgement, so the hook checks only that the claim is on the page.
+  const wording =
+    (subject.class === "O1" || subject.class === "O2") &&
+    findings.length > 0 &&
+    findings.every((finding) => finding.tier === "d")
   if (
     listed.length > 0 &&
     subject.form?.role !== "impl" &&
-    subject.form?.role !== "impl-audit"
+    subject.form?.role !== "impl-audit" &&
+    !wording
   )
     throw new SubjectError(
-      `${listed.join(", ")} ${listed.length === 1 ? "is a listed file" : "are listed files"}, which change only as a plan step (<stem>/impl-<n>) or a fix from that plan's implementation audit (<stem>/impl-audit-<scope>); the change rule is Doctrine changes in .agents/references/planning-rules.md and the failure record is FAILURES.md, both in the plan checkout`,
+      `${listed.join(", ")} ${listed.length === 1 ? "is a listed file" : "are listed files"}, which change only as a plan step (<stem>/impl-<n>), a fix from that plan's implementation audit (<stem>/impl-audit-<scope>) or, for a wording change alone, an off-plan commit with at least one graded bullet and every graded bullet at tier D; the change rule is Route under Doctrine changes in .agents/references/planning-rules.md and the failure record is FAILURES.md, both in the plan checkout`,
     )
 
   // Git strips comment lines and reads the body from the first blank line, so

@@ -556,7 +556,7 @@ test("the hook blocks both repositories while serious contests need winners", ()
     )
 })
 
-test("only a plan step or an implementation-audit fix changes a listed path of its repository", () => {
+test("a plan step or an implementation-audit fix changes a listed path of its repository", () => {
   const changing = (
     subject: string,
     repository: Repository,
@@ -638,6 +638,79 @@ test("only a plan step or an implementation-audit fix changes a listed path of i
         ".agents/skills/fix/references/workflow.md",
       ]),
     /GROWTH-PATTERNS\.md, \.agents\/skills\/fix\/references\/workflow\.md are listed files/,
+  )
+})
+
+test("an off-plan commit whose graded bullets are all tier D changes a listed path", () => {
+  const listed = {
+    "repo-edu": ".agents/references/round-protocol.md",
+    plan: ".agents/references/planning-rules.md",
+  } as const
+  const changing = (
+    subject: string,
+    body: string,
+    repository: Repository,
+    series: string | null = null,
+  ) =>
+    stampCommitMessage(
+      message(subject, body),
+      repository,
+      { ...none, series },
+      areaKinds,
+      { openContests: [], changedPaths: [listed[repository]] },
+    )
+  const refused = (repository: Repository) => (error: unknown) =>
+    error instanceof SubjectError &&
+    error.message.startsWith(`${listed[repository]} is a listed file`) &&
+    /off-plan commit with at least one graded bullet and every graded bullet at tier D/.test(
+      error.message,
+    )
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const finding = repository === "repo-edu" ? codeFinding : planFinding
+    const wording = (
+      repository === "repo-edu"
+        ? finding.replace("- [C] ", "- [D] ")
+        : finding.replace("- C ", "- D ")
+    ).replace("Correct: the record.", "Wording: the sentence reads plainer.")
+    assert.match(
+      changing(
+        "oth growth-none docs(x): s",
+        `${wording}\n${wording}`,
+        repository,
+      ),
+      /^oth growth-none d2 docs\(x\): s\n/,
+    )
+    assert.throws(
+      () =>
+        changing(
+          "oth growth-none docs(x): s",
+          `${wording}\n${finding}`,
+          repository,
+        ),
+      refused(repository),
+    )
+    // The round hands its series label to the hook, which opens the subject
+    // with the commit-audit form whatever the fix session typed.
+    assert.throws(
+      () =>
+        changing(
+          "oth growth-none docs(x): s",
+          wording,
+          repository,
+          "commit-804833",
+        ),
+      refused(repository),
+    )
+  }
+  assert.throws(() => changing("oth docs(x): s", "", "plan"), refused("plan"))
+  assert.throws(
+    () =>
+      changing(
+        "example/plan-audit oth growth-none: s",
+        planningFinding.replace("- C ", "- D "),
+        "plan",
+      ),
+    refused("plan"),
   )
 })
 

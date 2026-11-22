@@ -5,8 +5,9 @@
 # tools/audit-round/src/subject.ts is the grammar's one reader. Also refuses a
 # commit that changes a file tools/audit-round/src/listed-files.json lists for
 # this repository unless its subject is a plan step or an implementation-audit
-# fix; the hook passes the changed paths, both names of a rename included, and
-# the reader asks Git nothing. Git writes a merge's subject, so a merge commit
+# fix, or it is an off-plan commit with at least one graded bullet and every
+# graded bullet at tier D; the hook passes the changed paths, both names of a
+# rename included, and the reader asks Git nothing. Git writes a merge's subject, so a merge commit
 # is admitted unchecked.
 if git rev-parse -q --verify MERGE_HEAD >/dev/null; then exit 0; fi
 git diff --cached --name-only --no-renames -z |

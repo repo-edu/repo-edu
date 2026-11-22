@@ -426,7 +426,9 @@ line is refused. A `ready` marker has no model record, but its body must carry
 the assigned coder.
 
 Each hook also refuses a non-merge commit that changes a listed file of its
-repo unless the subject is a step or implementation-audit form. The plan repo's
+repo unless the subject is a step or implementation-audit form. It admits one
+other commit: an off-plan commit with at least one graded bullet and every
+graded bullet at tier D, which claims a wording change. The plan repo's
 [Doctrine changes](../plan/.agents/references/planning-rules.md#doctrine-changes)
 rule owns that route, and the refusal names it and `FAILURES.md`.
 

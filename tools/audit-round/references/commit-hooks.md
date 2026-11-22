@@ -78,14 +78,18 @@ Refusals:
 - a step record without active implementation time;
 - a ready marker without its coder;
 - a commit that changes a listed file unless the subject has an `impl-<n>` or
-  `impl-audit-<scope>` role, so a commit audit's record is refused too. That refusal names
-  `FAILURES.md` and the plan repo's **Doctrine changes** rule, which owns the route.
+  `impl-audit-<scope>` role, or is off-plan, class O1 or O2, with at least one graded bullet and
+  every graded bullet at tier D. A commit audit's record and a planning round's record are refused
+  too, because their series form and plan form are no off-plan class. The D grades are the
+  writer's claim that the change is wording, and the hook cannot see whether it alters what a
+  session does. That refusal names `FAILURES.md` and the plan repo's **Route** under
+  **Doctrine changes**, which owns the route.
 
 ### Listed files
 
 `listed-files.json` keeps each repository's listed paths apart. A path ending in `/` names a
 folder and covers every path under it, and any other path names one file. The list names its own
-path, so a change to it goes through a plan too.
+path, so the same route covers a change to the list.
 
 Each hook collects the paths the commit changes in its own repository, both names of a rename
 included, and passes them on standard input; the reader asks Git nothing. The plan repo's hook
