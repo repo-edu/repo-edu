@@ -120,6 +120,21 @@ resolves to the official TypeScript 6 compatibility package, because TypeScript
 check therefore proves the move against TypeScript 6 only; `pnpm check` after
 the move batch proves it against TypeScript 7.
 
+The root `package.json` declares that package under the alias `typescript`.
+When moved code uses it, the engine can write an import of a path inside pnpm's
+package store, such as `.pnpm/typescript@6.0.3/node_modules/typescript`,
+instead of `typescript`. The TypeScript 6 check accepts that path, so the
+command's own check and the list command's `clean` reply let it through.
+
+1. A value import of the path fails when Node runs the code: Node rejects it
+   with `ERR_INVALID_MODULE_SPECIFIER`.
+2. An `import type` of the path never reaches Node. The base configuration
+   sets `verbatimModuleSyntax`, so the import is erased.
+3. After a move run by hand, replace the path with `typescript`.
+4. A [split](../audit-round/CLAUDE.md#split) call of the audit-round runner
+   edits no import. A value import of the path fails its checks or tests, and
+   the call then puts the files back and reports that the checks failed.
+
 ## Conventions
 
 - `src/move-service.ts` is the only module that calls the TypeScript language
