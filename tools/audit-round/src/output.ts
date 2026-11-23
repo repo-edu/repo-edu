@@ -1115,7 +1115,12 @@ export class RoundOutput<R extends Run = Run> {
       },
       phases: [...this.ran].flatMap(([key, ran]) => {
         const { phase, tag } = ran
-        if (phase === "close" || phase === "implement" || ran.spent === null)
+        if (
+          phase === "close" ||
+          phase === "implement" ||
+          phase === "design" ||
+          ran.spent === null
+        )
           return []
         const entry = this.run.phases.find(
           (candidate) => slotKey(candidate.phase, candidate.tag) === key,

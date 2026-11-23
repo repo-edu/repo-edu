@@ -8,6 +8,7 @@ import {
   planRepositoryPrefix,
   planTargetRequest,
   resolvePlan,
+  splitSource,
 } from "../target.js"
 import { fixture } from "./helpers.js"
 
@@ -237,4 +238,23 @@ test("stem resolution accepts active plans and refuses archived targets", async 
     resolvePlan(roots, "missing"),
     /No active plan named missing/,
   )
+})
+
+test("a split source is a file inside one workspace package, named from the Repo Edu root", async (t) => {
+  const f = await fixture(t)
+  await mkdir(join(f.root, "packages/demo/src"), { recursive: true })
+  await writeFile(join(f.root, "packages/demo/src/a.ts"), "export {}\n")
+  await writeFile(join(f.root, "outside.ts"), "export {}\n")
+  assert.equal(
+    await splitSource(f.root, "./packages/demo/src/a.ts"),
+    "packages/demo/src/a.ts",
+  )
+  for (const [value, refusal] of [
+    [join(f.root, "packages/demo/src/a.ts"), /relative to the Repo Edu root/],
+    ["../repo-edu/packages/demo/src/a.ts", /relative to the Repo Edu root/],
+    ["outside.ts", /outside the workspace packages/],
+    ["packages/demo/src/b.ts", /No file packages\/demo\/src\/b\.ts/],
+    ["packages/demo/src", /is not a file/],
+  ] as const)
+    await assert.rejects(splitSource(f.root, value), refusal)
 })

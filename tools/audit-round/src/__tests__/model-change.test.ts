@@ -23,7 +23,7 @@ const newRelease = { model: "new-release", effort: "high" } as const
 const pinnedRelease = { model: "pinned-release", effort: "xhigh" } as const
 
 function phase(
-  name: Exclude<Phase, "close" | "implement">,
+  name: Exclude<Phase, "close" | "implement" | "design">,
   assistant: Assistant,
   launched: ModelSelection | undefined,
   reported: ModelSelection,

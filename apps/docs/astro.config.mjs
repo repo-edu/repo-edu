@@ -153,6 +153,7 @@ export default defineConfig({
                     { label: "pnpm audit-round ready", slug: "tooling/ready" },
                     { label: "pnpm audit-round implement", slug: "tooling/implement" },
                     { label: "pnpm audit-round close", slug: "tooling/runner-close" },
+                    { label: "pnpm audit-round split", slug: "tooling/split" },
                     { label: "pnpm audit-round plan", slug: "tooling/plan" },
                     {
                       label: "pnpm audit-round:contract",

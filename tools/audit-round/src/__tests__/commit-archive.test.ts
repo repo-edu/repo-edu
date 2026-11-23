@@ -83,12 +83,14 @@ test("a move-list series' files are read past its label as a commit series' are"
     `${label}-01-0-claim.md`,
     `${label}-02-3-vet.abx.md`,
     `${label}-rounds.json`,
+    `${label}-split.log`,
   ])
     assert.equal(seriesFile(label, name), true, name)
   for (const name of [
     "split-packages+domain+src+roster.tsx-01-0-claim.md",
     "split-packages+domain+src+rosterXts-rounds.json",
     "split-packages+domain-01-0-claim.md",
+    "split-packages+domain+src+roster.tsx-split.log",
   ])
     assert.equal(seriesFile(label, name), false, name)
 })

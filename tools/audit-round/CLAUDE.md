@@ -42,7 +42,7 @@ Before this rule the file held the automatic-series rules in four places.
 | Files | Own | Described in |
 | --- | --- | --- |
 | `main.ts` | The process entry: the macOS sleep hold, the stop signals and the ruling dialog it supplies | [Invocation](#invocation), [Ruling wait](references/rounds.md#ruling-wait) |
-| `command.ts` | The command grammar, startup and final reporting, and the round sequence on a target with its counter | [Commands](#commands), [Commit targets](#commit-targets), [The evidence commit](#the-evidence-commit), [The series move](#the-series-move), [Series](references/series.md#series), [Selections](references/sessions.md#selections), [Time readings](references/output.md#time-readings), [Full-screen view](references/model-read-out.md#full-screen-view) |
+| `command.ts` | The command grammar, startup and final reporting, the round sequence on a target with its counter and the split call's stage | [Commands](#commands), [split](#split), [Commit targets](#commit-targets), [The evidence commit](#the-evidence-commit), [The series move](#the-series-move), [Series](references/series.md#series), [Selections](references/sessions.md#selections), [Time readings](references/output.md#time-readings), [Full-screen view](references/model-read-out.md#full-screen-view) |
 | `context.ts` | The installed Repo Edu checkout and its two sibling checkouts | [Invocation](#invocation) |
 | `target.ts` | The argument grammar for rounds | [Plan targets](#plan-targets), [Commit targets](#commit-targets), [Clean audits](references/rounds.md#clean-audits), [Watch](references/watch.md#watch) |
 | `default-target.ts` | The round a plan argument or no target selects, the resolution of commit references and the stage a run starts at | [Plan targets](#plan-targets), [Commit targets](#commit-targets), [The run](#the-run) |
@@ -76,6 +76,7 @@ Before this rule the file held the automatic-series rules in four places.
 | `models.ts`, `model-evidence.ts`, `model-comparison.ts`, `pager.ts`, `pinned-headings.ts` | The model read-out and its full-screen view | [Model read-out](references/model-read-out.md) |
 | `contract-main.ts`, `contract.ts` | The contract command's entry and the CLI contract recorder | [Contract recorder](#contract-recorder) |
 | `move-list.ts`, `split-result.ts` | The reader of a move list, and the reader and writer of the split result line | [Move list](../../.agents/references/round-grammar.md#move-list), [Split result](../../.agents/references/round-grammar.md#split-result) |
+| `split.ts`, `split-attempt.ts`, `split-output.ts` | One split call: the read of the file's move list, the split lock, the attempt in a child process, the write, the checks and the commit or the restore, and the design selection and log | [split](#split), [Phase routing](#phase-routing) |
 
 Workflows own findings, authority, gates and phase outcomes. The shared protocol's
 [Runner result](../../.agents/references/round-protocol.md#runner-result) rule defines the meaning
@@ -259,9 +260,9 @@ Skipped phases leave gaps.
 
 **Tags.**
 
-- Five forms omit the tag: the claim, the settle and reopen marker files, the handoff and the
-  target-wide [queue](references/series.md#manual-queue). The plan doctrine owns the handoff's
-  six-character commit name.
+- Six forms omit the tag: the claim, the settle and reopen marker files, the handoff, the
+  target-wide [queue](references/series.md#manual-queue) and a move-list series' split log, under
+  [split](#split). The plan doctrine owns the handoff's six-character commit name.
 - Later phases preserve the audit report's target and round. Their tag names their own writer
   under Repo Edu's **Commit Capability Tag**, not the audit report's auditor.
 - The transcript and its log use the auditor tag.
@@ -274,7 +275,8 @@ bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The 
 is not among them, because the close archives it beside the plan.
 
 **One series' files.** `seriesFile` says whether a file belongs to one commit or move-list series:
-a claim, phase file, queue or handoff under its label, or its round data. It reads each form whole
+a claim, phase file, queue or handoff under its label, a move-list series' split log, or its round
+data. It reads each form whole
 past the label in the same way, so a neighbouring label that extends this one never matches.
 `seriesArchiveFolder` names the series' folder under `commits/` or `splits/` of the evidence
 checkout.
@@ -396,9 +398,13 @@ restore the working directory.
 
 `round-paths.ts` supplies each phase's absolute arguments in this order:
 
+- design: the source file's path relative to the Repo Edu root and the blob hash the runner read
+  before the session. The session returns its answer as text and writes no file, under
+  [split](#split)
 - audit: audit report output, then either a plan with an optional implementation
   scope and open-deferral object, a plan with an open-deferral object for a
-  chained planning round, or one structured object per commit group carrying
+  chained planning round, the move list's absolute path for a move-list round,
+  or one structured object per commit group carrying
   its `repository`, its carried `references`, its starting HEAD as
   `startingHead`, its advancing exact commit set as `commits`, its original
   commit set as `originalCommits` and its resolved `shortReferences`
@@ -546,9 +552,9 @@ or model record, because nothing reads that log as a trajectory. `command.ts` ca
 moments, so every round file is in Git within one command of being written:
 
 - Every command that may write a round file commits once it ends, after its run files close and
-  whatever its outcome: the run, `round`, `round-commits`, `implement`, `close`, `mark`, `settle`
-  and `disprove`. The other commands write nothing there, so a hand-run session's file waits for the
-  next of these.
+  whatever its outcome: the run, `round`, `round-commits`, `implement`, `close`, `mark`, `settle`,
+  `disprove` and `split`. The other commands write nothing there, so a hand-run session's file waits
+  for the next of these.
 - Before each ruling wait, the shared wait commits too, because a further open decision replaces
   the ruling in the same file and the commit keeps every version.
 
@@ -579,14 +585,19 @@ finishes an earlier one moves the same way.
 ### The series move
 
 A commit series or a move-list series that completes moves out of the round folder, so the round
-folder lists live work only. The series runner returns the ending, and `command.ts` asks
-`evidence.ts` for the move.
+folder lists live work only. `command.ts` asks `evidence.ts` for the move: after a commit series,
+on the ending the series runner returns, and after a split call, on the call's outcome.
 
-- **When.** A series completes when every requested round has run: an automatic `stop` answer or a
-  manual queue that runs out after a finished round. A move-list series also ends when a fix
-  withdraws its list. A failure, an unanswered ruling and the round maximum with another auditor due
-  leave it in the round folder. The series' ending keeps the maximum apart from completion, because
-  both end the series without the user.
+- **When.** A commit series completes when every requested round has run: an automatic `stop`
+  answer or a manual queue that runs out after a finished round. A failure, an unanswered ruling and
+  the round maximum with another auditor due leave it in the round folder. The series' ending keeps
+  the maximum apart from completion, because both end the series without the user.
+- **When, for a move-list series.** The move follows the split call, so the call's last lines land
+  in the moved split log. The series stays in the round folder while it is live work: after a
+  failed phase or an unanswered ruling, at the round maximum and when another call wrote the list
+  first, whose rounds are that call's. Every other ending moves the label's files: a rules stop,
+  whatever the split code then reports, a fix that withdrew the list and a call that ended before
+  any round, such as a design that judged the file fine.
 - **What.** `archiveSeries` moves every file that `seriesFile` matches for the series' label, round
   data, claims, logs, reports, rulings, handoffs and queue included, into `commits/<label>/` or
   `splits/<label>/` of the evidence checkout. Each file keeps its name and contents. The last
@@ -595,7 +606,8 @@ folder lists live work only. The series runner returns the ending, and `command.
 - **Rerun.** Before a series reads its history, picks an auditor, writes a queue or claims a round,
   `restoreSeries` moves any archived file of that label back and removes the emptied folder. The
   series then keeps its earlier fixes and its next number, and every later write uses the round
-  folder.
+  folder. A split call restores before it opens its split log, because a log opened first would be
+  replaced by the archived one.
 - **A move cut short.** Each file moves by one rename, so it sits in exactly one folder at every
   moment. A rerun restores whatever the archive folder holds, so no file is lost and no number is
   claimed twice.
@@ -619,6 +631,7 @@ folder lists live work only. The series runner returns the ending, and `command.
 | [`ready`](#ready) | Record the user's ready call and assign the coder | Listed |
 | [`implement`](#implement) | Implement the pending steps of a ready plan | Listed |
 | [`close`](#close) | Close a plan's loop | Listed |
+| [`split`](#split) | Split one source file by a move list that audit rounds judged | Listed |
 | [`plan`](#plan) | Print the plan an omitted target selects | Listed |
 | [`models`](references/model-read-out.md) | Print the model read-out | Listed |
 | [`replay`](#replay) | Recompute the stored series answers | Listed |
@@ -814,6 +827,8 @@ pnpm audit-round implement example 2-4
 pnpm audit-round close example
 pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
+pnpm audit-round split packages/domain/src/roster.ts
+pnpm audit-round split packages/domain/src/roster.ts -v
 pnpm audit-round run example
 pnpm audit-round run example -v
 pnpm audit-round mark reopen
@@ -1004,6 +1019,84 @@ files still sit in the round folder does only those moves and starts no session.
 session moved the plan without the runner there, so the rerun finishes the close. It stamps the
 round-data commit from the close selection alone.
 
+### split
+
+`split <path> [-v]` splits one source file by its move list, or says why no split happens.
+`runSplit` in `split.ts` owns the call, and `command.ts` supplies its design session, its series,
+its attempt and its checks. The round grammar's
+[Move list](../../.agents/references/round-grammar.md#move-list) and
+[Split result](../../.agents/references/round-grammar.md#split-result) own the two forms the call
+reads and writes.
+
+**What it takes.** A path relative to the Repo Edu root that names a file inside one workspace
+package under `apps/`, `packages/` or `tools/`, because that package's tests prove the split.
+`splitSource` in `target.ts` refuses any other path before startup.
+
+**The list.** The call reads the source's blob hash, as `git hash-object` prints it, and the
+file's move list, `moveListFile` in the plan checkout.
+
+1. A list that names the current content is not designed again. A withdrawn list gives the result
+   it records, without a session. A list of moves goes to the early attempt and then to the rounds.
+2. Otherwise the design session runs on `splitAudit.designer` under the
+   [design workflow](../../.agents/skills/design/references/workflow.md). Its answer must be a move
+   list that names the same source and hash. An answer of fine or needs a plan ends the call with
+   that result and writes no list.
+3. Under the split lock the call then looks again for a list that names the current content. When
+   another call wrote one meanwhile, it drops its own design and ends as skipped. Otherwise it tries
+   the designed list, writes it and commits it alone in the plan repo, in the subject grammar's
+   design form.
+
+**The rounds.** When a listed auditor of `splitAudit` lacks a current read of the list,
+`missingReads` in `judge.ts` says so and an automatic move-list series runs, under
+[Move-list series](references/series.md#move-list-series). With every read current no round runs,
+so a list whose split was skipped or whose checks failed is carried out on a later call without
+another round. After each finished round that changed the list, the call tries the changed list
+before the series decides; a refusal or a changed source halts the series.
+
+**The split.** Under the split lock the call tries the list once more, asks Git for uncommitted
+changes in the attempt's file set, keeps each file's text and writes the files. Outside the lock it
+runs `pnpm check` and then `pnpm test <package>`.
+
+- Both pass: the call commits exactly the file set in the subject grammar's split form. Code
+  writes its sentence and its body from the list: the model record, the list's path and one bullet
+  per target with its responsibility.
+- Either fails: the call puts every file back under the lock, removing the ones it created, and
+  reports the failed command with its whole output. An interrupted check puts the files back too.
+
+**The lock.** `withSplitLock` takes a `proper-lockfile` lock at `audit-round-split.lock` in the Repo
+Edu checkout's Git folder, and a second call waits for it. A killed holder's lock is stale after 10
+seconds. The lock covers each attempt, the design commit beside its attempt, the uncommitted check
+with the write, and the restore. The rounds, the checks, the tests and the split commit hold none.
+
+**The attempt.** `split-attempt.ts` runs the statement move tool's `list` command in a child process
+and reads its reply. The attempt builds a TypeScript 6 project before and after each move, which
+blocks a process for seconds. In a child process the runner's event loop stays free, so the lock's
+refresh timer keeps running and no waiting call takes the lock as stale.
+
+**Endings.** A call with a result prints its `SPLIT RESULT:` line last and exits 0.
+
+| Ending | Result |
+| --- | --- |
+| The split committed | `made` |
+| The design or a withdrawn list judged the file fine | `fine` |
+| The design or a withdrawn list judged that it needs a plan, a move was refused or the rounds reached their maximum | `needs-plan` |
+| The source changed, a file to write had uncommitted changes or another call wrote the list first | `skipped` |
+| A check or the package's tests failed | `checks-failed` |
+
+A failed design session prints its reason, its `Session:` line and a `Rerun:` line naming the same
+command, and exits 1. A stopped round prints its own ending and the `Rerun:` line, which names the
+split command, under [Stopped rounds](#stopped-rounds).
+
+**The split log.** Each call appends to `<label>-split.log` in the round folder: its opening, the
+design session, each attempt, the write, the checks, the commits and the result. The log carries no
+tag, because settings may change the designer between calls and each opening records the model.
+The rounds keep their own files, and every file of the label moves under
+[The series move](#the-series-move).
+
+**Stamps.** The design commit and the split commit carry the capability tag and model record of the
+design selection, which `split-output.ts` resolves once per call. The runner sets no round stamps
+on them, so their own record stands.
+
 ### plan
 
 `plan` prints the plan an omitted target selects, as its absolute path, and writes nothing, so a
@@ -1012,18 +1105,19 @@ omitted stem.
 
 ### replay
 
-`replay` reads every active and archived plan's retained round data and every commit-series file,
-live in the round folder or archived in its own folder under `commits/`. Each series' file sits in
-one of the two places, so its answers count once, and the loose recovered files directly in
-`commits/` stay out. It starts no assistant and writes nothing.
+`replay` reads every active and archived plan's retained round data and every commit-series and
+move-list series file, live in the round folder or archived in its own folder under `commits/` or
+`splits/`. Each series' file sits in one of the two places, so its answers count once, and the loose
+recovered files directly in `commits/` stay out. It starts no assistant and writes nothing.
 
 - It applies the automatic-series decision function of `judge.ts` to each stored answer.
   `replay.ts` reads each answer stored without an auditor list as the assistant-keyed rules that
   produced it.
 - It prints the computed answer, the stored answer, the next round's findings and whether the row
   is in the fixed corpus.
-- Its ordinary totals cover every stored answer and count commit series as their own phase.
-- Its fixed Baseline totals exclude commit series and use plan entries started before
+- Its ordinary totals cover every stored answer and count commit series and move-list series each
+  as their own phase.
+- Its fixed Baseline totals exclude both kinds of series and use plan entries started before
   `2026-11-08T18:53:13Z`, with the historical auditor list fixed by the deterministic-judge plan.
 
 ### disprove

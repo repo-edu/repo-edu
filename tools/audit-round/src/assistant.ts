@@ -189,6 +189,15 @@ export function runAssistantInvocation(
         if (report !== null)
           await writeFile(report, `${withoutPhaseResult(finalText)}\n`, "utf8")
       }
+      // The design session's answer is its text; the runner reads it as a
+      // move list and writes the list itself.
+      if (input.phase === "design" && result.status === "finished") {
+        const document = withoutPhaseResult(finalText)
+        return {
+          phaseResult: result,
+          complete: () => ({ ...result, document }),
+        }
+      }
       if (input.phase === "watch" && result.status === "finished") {
         const output = watchOutput(finalText)
         return {

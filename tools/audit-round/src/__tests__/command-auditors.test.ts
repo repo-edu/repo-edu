@@ -381,6 +381,9 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["run", "example", "--no-watch"],
     ["-v", "round", "example"],
     ["-v", "run", "example"],
+    ["split"],
+    ["split", "../outside.ts"],
+    ["split", "packages/missing/src/missing.ts"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
   assert.match(f.errors.join("\n"), /Auditor entry 2 \(other\): expected/)
@@ -406,6 +409,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["models", "--help"],
     ["replay", "--help"],
     ["disprove", "--help"],
+    ["split", "--help"],
     ["plan", "--help"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 0)
@@ -434,6 +438,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     "audit-round ready [stem]",
     "audit-round implement [options] <stem> [scope]",
     "audit-round close [options] [stem]",
+    "audit-round split [options] <path>",
     "audit-round plan",
   ]
   for (const forms of [rootForms, roundForms, commitForms]) {

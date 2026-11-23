@@ -93,6 +93,37 @@ export type AuditTarget =
   | MoveListTarget
 
 /**
+ * The source a split call names, as a path relative to the Repo Edu root with
+ * `/` separators. It must name a file inside one workspace package, because
+ * that package's tests prove the split.
+ */
+export async function splitSource(
+  repoEduRoot: string,
+  value: string,
+): Promise<string> {
+  const source = posix.normalize(value)
+  if (posix.isAbsolute(source) || source === ".." || source.startsWith("../"))
+    throw new InvalidArgumentError(
+      "Name the source file by its path relative to the Repo Edu root.",
+    )
+  if (!/^(?:apps|packages|tools)\/[^/]+\/./.test(source))
+    throw new InvalidArgumentError(
+      `${source} is outside the workspace packages under apps/, packages/ and tools/.`,
+    )
+  let file: Awaited<ReturnType<typeof stat>>
+  try {
+    file = await stat(join(repoEduRoot, source))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    throw new InvalidArgumentError(
+      `No file ${source} in the Repo Edu checkout ${repoEduRoot}.`,
+    )
+  }
+  if (!file.isFile()) throw new InvalidArgumentError(`${source} is not a file.`)
+  return source
+}
+
+/**
  * The move list of one source file, relative to the plan checkout's root: the
  * source's path under `splits/`, with its extension replaced by `.mv.md`, so
  * the list is found from the source's path alone.

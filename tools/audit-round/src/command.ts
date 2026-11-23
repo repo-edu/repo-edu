@@ -49,7 +49,12 @@ import {
   implementationIdentity,
   implementationRun,
 } from "./implement-output.js"
-import { auditorText, openingAuditor, readSeriesEvidence } from "./judge.js"
+import {
+  auditorText,
+  missingReads,
+  openingAuditor,
+  readSeriesEvidence,
+} from "./judge.js"
 import {
   activeRoundData,
   archiveRoundData,
@@ -121,6 +126,7 @@ import {
   planTargetKind,
   queueFile,
   roundSubject,
+  splitLabel,
   targetLabel,
 } from "./round-paths.js"
 import { readRulerReport } from "./ruler-report.js"
@@ -138,6 +144,10 @@ import {
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
+import { runChecks, runSplit, type SplitSeriesEnding } from "./split.js"
+import { attemptMoveList } from "./split-attempt.js"
+import { designIdentity, splitRun } from "./split-output.js"
+import { splitResultLine } from "./split-result.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import { parseSubject } from "./subject.js"
 import {
@@ -148,6 +158,7 @@ import {
   type CommitTarget,
   commitTargetRequest,
   isActivePlanPath,
+  type MoveListTarget,
   moveListFile,
   planPhase,
   planRepositoryPrefix,
@@ -159,6 +170,7 @@ import {
   requiredActivePlan,
   resolvePlan,
   roundContext,
+  splitSource,
   type TargetRequest,
 } from "./target.js"
 import { readRebuttal, readVet } from "./vet.js"
@@ -247,6 +259,12 @@ type Invocation =
       /** A failed worker's step and session, which this entry resumes. */
       readonly resume?: WorkerResume
     }
+  | {
+      readonly kind: "split"
+      /** The source file as typed, relative to the Repo Edu root. */
+      readonly source: string
+      readonly verbose?: boolean
+    }
 
 /**
  * The commands that may write a round file. Each ends with an evidence commit;
@@ -262,6 +280,7 @@ const roundFileWriters: ReadonlySet<Invocation["kind"]> = new Set([
   "mark",
   "settle",
   "disprove",
+  "split",
 ])
 
 /** Both round commands use these options. The full plan run supplies the defaults. */
@@ -495,16 +514,18 @@ function watchEvidencePage(evidence: string, range: LineRange): string {
  * How one auditor series ended. `settle` and `ready` carry the runner's
  * lifecycle answer and `complete` says every requested round ran: a stop
  * answer, an exhausted manual queue or the one round a target without a
- * series asked for. `withdrawn` says a fix withdrew the move list. `limit` is
- * the round maximum reached with another auditor due, and `stopped` an ending
- * that needs the user: a failure, an unanswered ruling, a red watch, a phase
- * change or a chained deferral round that ended the series.
+ * series asked for. `withdrawn` says a fix withdrew the move list, and
+ * `halted` that a changed move list did not pass the split call's attempt.
+ * `limit` is the round maximum reached with another auditor due, and `stopped`
+ * an ending that needs the user: a failure, an unanswered ruling, a red watch,
+ * a phase change or a chained deferral round that ended the series.
  */
 type SeriesEnding =
   | "settle"
   | "ready"
   | "complete"
   | "withdrawn"
+  | "halted"
   | "limit"
   | "stopped"
 
@@ -636,6 +657,7 @@ function parseInvocation(
        audit-round ready [stem]
        audit-round implement [options] <stem> [scope]
        audit-round close [options] [stem]
+       audit-round split [options] <path>
        audit-round plan`,
     )
     .configureOutput({
@@ -995,6 +1017,41 @@ Examples (from either checkout):
         )
       },
     )
+  command
+    .command("split")
+    .description(
+      "Split one source file by a move list that audit rounds judged, or say why no split happens.",
+    )
+    .argument(
+      "<path>",
+      "the source file, relative to the Repo Edu root, inside one workspace package",
+    )
+    .option("-v, --verbose", "show tool calls as well as assistant text")
+    .addHelpText(
+      "after",
+      `
+The call reads the file's move list in the plan repo, under splits/ with the
+source's extension replaced by .mv.md. When no list names the file's current
+content, a design session reads the file whole and answers that it is fine,
+that it needs a plan, or with a move list, which the call tries in memory and
+commits. Move-list rounds then judge the list until every listed auditor of
+splitAudit in settings.json has a current read. The call tries the list once
+more, writes the files, runs pnpm check and the package's tests and commits
+the split, or restores the files when a check fails.
+
+A lock makes two splits take turns while they change files; the rounds, the
+checks and the tests hold none. A dispute on a serious finding waits for your
+ruling, as a round on a plan does. The call ends with one line:
+SPLIT RESULT: {"result":...,"hash":...,"message":...}, where the result is
+made, fine, needs-plan, skipped or checks-failed.
+
+Example (from either checkout):
+
+  $ pnpm audit-round split packages/domain/src/roster.ts`,
+    )
+    .action((source: string, flags: { verbose?: boolean }) => {
+      invocation = { kind: "split", source, ...flags }
+    })
   command
     .command("plan")
     .description(
@@ -1384,13 +1441,21 @@ export async function runCommand(
           ? await preparedClose(context, invocation)
           : invocation.kind === "run"
             ? await preparedRun(context, invocation)
-            : {
-                ...invocation,
-                targets: await resolveTargets(
-                  context,
-                  requestedTarget(invocation),
-                ),
-              }
+            : invocation.kind === "split"
+              ? {
+                  ...invocation,
+                  source: await splitSource(
+                    context.repoEduRoot,
+                    invocation.source,
+                  ),
+                }
+              : {
+                  ...invocation,
+                  targets: await resolveTargets(
+                    context,
+                    requestedTarget(invocation),
+                  ),
+                }
     if (prepared.kind === "round")
       requireSingleTarget(prepared, prepared.targets)
     // The close moves the plan and commits in the plan checkout first.
@@ -1402,7 +1467,9 @@ export async function runCommand(
           ? "planning"
           : prepared.kind === "run"
             ? stageRoundKind(prepared.stage)
-            : prepared.targets[0].roundKind,
+            : prepared.kind === "split"
+              ? "split"
+              : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
@@ -1796,10 +1863,8 @@ export async function runCommand(
     const rerunCommand = (target: AuditTarget): string => {
       if (invocation.kind === "run")
         return shellJoin(planRunCommand(invocation))
-      if (invocation.kind !== "round" && invocation.kind !== "round-commits")
-        throw new Error(`The ${invocation.kind} command opens no round`)
       // A move-list target belongs to the split command, which names the source.
-      if ("source" in target)
+      if (invocation.kind === "split" && "source" in target)
         return shellJoin([
           "pnpm",
           "audit-round",
@@ -1807,6 +1872,10 @@ export async function runCommand(
           target.source,
           ...(invocation.verbose === true ? ["-v"] : []),
         ])
+      if (invocation.kind !== "round" && invocation.kind !== "round-commits")
+        throw new Error(`The ${invocation.kind} command opens no round`)
+      if ("source" in target)
+        throw new Error("Only the split command opens a move-list round")
       const words =
         "groups" in target
           ? target.originalGroups.flatMap((group) =>
@@ -1839,11 +1908,14 @@ export async function runCommand(
     /**
      * The audit series a resolved target list asks for, one per target in
      * order. The ending is the last series' own, or `stopped` when a series
-     * needed the user and the rest of the list did not run.
+     * needed the user and the rest of the list did not run. A split call
+     * passes `afterRound`, which a move-list series calls after each finished
+     * round that left the list in place; a false answer halts the series.
      */
     const seriesStage = async (
-      targets: AuditTargets,
+      targets: AuditTargets | readonly [MoveListTarget],
       series: SeriesOptions,
+      afterRound?: () => Promise<boolean>,
     ): Promise<SeriesEnding> => {
       const seriesSession = roundContext(context, targets[0].roundKind)
       const [first, ...queued] = series.auditor ?? []
@@ -2279,6 +2351,12 @@ export async function runCommand(
               )
               return "withdrawn"
             }
+            if (afterRound !== undefined && !(await afterRound())) {
+              await active.message(
+                `${seriesName(target)} stopped after ${completed} round${completed === 1 ? "" : "s"}: the list the fix changed did not pass its attempt.`,
+              )
+              return "halted"
+            }
           }
           if (!automatic && queue === null) return "complete"
           if (automatic && "plan" in target) {
@@ -2393,43 +2471,36 @@ export async function runCommand(
           await output?.message(
             `Next scope: ${roundSubject(target, planStem(target.plan))}; ${later.length} scope${later.length === 1 ? "" : "s"} remain after it.`,
           )
-        // A finished commit or move-list series waits in its archive folder.
-        // A rerun brings it back before anything reads it, so the series keeps
-        // its numbering and earlier fixes and every round writes where it did.
-        const archive =
-          "groups" in target
-            ? { kind: "commit" as const, label: targetLabel(target) }
-            : "source" in target
-              ? { kind: "split" as const, label: targetLabel(target) }
-              : null
-        if (archive !== null)
+        // A finished commit series waits in its archive folder. A rerun
+        // brings it back before anything reads it, so the series keeps its
+        // numbering and earlier fixes and every round writes where it did. A
+        // move-list series moves under the split call, after its split.
+        const label = "groups" in target ? targetLabel(target) : null
+        if (label !== null)
           await say(
             movedSeriesText(
-              archive.label,
+              label,
               await restoreSeries(
                 context.evidenceRoot,
                 context.roundRoot,
-                archive.kind,
-                archive.label,
+                "commit",
+                label,
               ),
             ),
           )
         ending = await runSeries(target)
-        // A series is finished when the rules stop it or a fix withdraws its
-        // move list. The maximum and every ending that needs the user leave it
-        // in the round folder, where its rerun reads it.
-        if (
-          archive !== null &&
-          (ending === "complete" || ending === "withdrawn")
-        )
+        // A series is finished when the rules stop it. The maximum and every
+        // ending that needs the user leave it in the round folder, where its
+        // rerun reads it.
+        if (label !== null && ending === "complete")
           await say(
             movedSeriesText(
-              archive.label,
+              label,
               await archiveSeries(
                 context.evidenceRoot,
                 context.roundRoot,
-                archive.kind,
-                archive.label,
+                "commit",
+                label,
               ),
             ),
           )
@@ -2540,6 +2611,118 @@ export async function runCommand(
         await say(`Run of ${stem} finished: the plan is closed. ${runTime()}`)
       else await ended(current)
     }
+    /**
+     * One split call on one source file. A finished move-list series waits in
+     * its archive folder, so the call brings it back before it opens the
+     * call's log or reads the series. When the call ends, the series moves
+     * again unless it is still live work: a stopped round, the round maximum
+     * or a list that another call wrote first. The result line comes last.
+     */
+    const splitStage = async (source: string): Promise<void> => {
+      const label = splitLabel(source)
+      const target: MoveListTarget = { roundKind: "split", source }
+      const restored = movedSeriesText(
+        label,
+        await restoreSeries(
+          context.evidenceRoot,
+          context.roundRoot,
+          "split",
+          label,
+        ),
+      )
+      if (restored !== null) options.terminal.write(restored)
+      const identity = designIdentity(releases, settings)
+      const splitSession = roundContext(context, "split")
+      const active = new RoundOutput(
+        await splitRun(source, context, now(), releases, settings, identity),
+        { ...options, verbose, clock },
+      )
+      try {
+        const poolAuditors = auditRoles("split", settings).auditors.map(
+          (auditor) => auditorSetting(listedSeat(auditor), releases, settings),
+        )
+        const seriesEnding: Record<SeriesEnding, SplitSeriesEnding | null> = {
+          complete: "finished",
+          withdrawn: "withdrawn",
+          halted: "halted",
+          limit: "limit",
+          stopped: "stopped",
+          settle: null,
+          ready: null,
+        }
+        const outcome = await runSplit(
+          { ...context, source, identity },
+          {
+            design: async (hash) => {
+              const designed = await runAssistantPhase<"design">(
+                {
+                  phase: "design",
+                  ...splitSession,
+                  ...identity.phaseRun,
+                  arguments: [source, hash],
+                  sessionId: null,
+                },
+                active.phase,
+                { ...runtime, cwd: splitSession.cwd },
+              )
+              return designed.status === "finished"
+                ? { status: "finished", document: designed.document }
+                : designed
+            },
+            roundsDue: async () =>
+              missingReads(
+                await readSeriesEvidence({ ...context, target }),
+                label,
+                poolAuditors,
+              ).length > 0,
+            series: async (afterRound) => {
+              const ending =
+                seriesEnding[
+                  await seriesStage(
+                    [target],
+                    { watch: false, verbose },
+                    afterRound,
+                  )
+                ]
+              if (ending === null)
+                throw new Error(
+                  "A move-list series returned a plan's lifecycle answer",
+                )
+              return ending
+            },
+            attempt: (list) => attemptMoveList(context.repoEduRoot, list),
+            checks: (pkg) =>
+              runChecks(context.repoEduRoot, pkg, runtime.signal),
+            message: active.message,
+          },
+        )
+        if (outcome.status === "design-failed") {
+          code = 1
+          await active.message(
+            `[design] failed: ${outcome.reason}\nSession: ${outcome.sessionId ?? "unavailable"}\nRerun: ${rerunCommand(target)}`,
+          )
+          return
+        }
+        // A stopped round printed its own ending and the line that continues it.
+        if (outcome.status === "stopped") return
+        if (!outcome.live) {
+          const moved = movedSeriesText(
+            label,
+            await archiveSeries(
+              context.evidenceRoot,
+              context.roundRoot,
+              "split",
+              label,
+            ),
+          )
+          if (moved !== null) await active.message(moved)
+        }
+        code = 0
+        await active.message(splitResultLine(outcome.result))
+      } finally {
+        active.close()
+      }
+    }
     if (prepared.kind === "implement")
       await implementStage(prepared, {
         command: [
@@ -2554,6 +2737,7 @@ export async function runCommand(
       })
     else if (prepared.kind === "close") await closeStage(prepared)
     else if (prepared.kind === "run") await runStages(prepared)
+    else if (prepared.kind === "split") await splitStage(prepared.source)
     else await seriesStage(prepared.targets, prepared)
   } catch (error) {
     code = error instanceof InvalidArgumentError ? 2 : 1

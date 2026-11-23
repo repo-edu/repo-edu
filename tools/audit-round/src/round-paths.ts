@@ -104,6 +104,15 @@ function stepNumber(step: number): string {
   return String(step).padStart(2, "0")
 }
 
+/**
+ * The log every split call of one source file appends to, under the series'
+ * label. It carries no tag, because settings may change the designer between
+ * calls and each call's opening records the model.
+ */
+export function splitLogFilename(label: string): string {
+  return `${label}-split.log`
+}
+
 /** The log one loop-close keeps. */
 export function closeLogFilename(stem: string, tag: string): string {
   return `${stem}-close.${tag}.log`
@@ -141,11 +150,16 @@ export function planRoundFile(stem: string, name: string): boolean {
 
 /**
  * Whether a file belongs to one commit or move-list series: a claim, phase
- * file, queue, handoff or the series' round data. Every form is read whole
- * past the label, so a neighbouring label that extends this one never matches.
+ * file, queue, handoff, a move-list series' split log or the series' round
+ * data. Every form is read whole past the label, so a neighbouring label that
+ * extends this one never matches.
  */
 export function seriesFile(label: string, name: string): boolean {
-  if (name === roundDataFilename(label, "series")) return true
+  if (
+    name === roundDataFilename(label, "series") ||
+    name === splitLogFilename(label)
+  )
+    return true
   const prefix = escapedPattern(label)
   const phase = readPhaseFilename(name)
   if (phase !== null)

@@ -28,8 +28,8 @@ A run description names the run, lists the phases it may run and locates its fil
 
 - Every round records a log and a transcript.
 - A round on an active plan updates one machine-readable per-plan data file.
-- A commit audit updates its label's machine-readable commit data file.
-- A close records only its log.
+- A commit or move-list audit updates its label's machine-readable series data file.
+- A close and a split call record only their log.
 
 Startup messages go only to the terminal. The run log begins with the models table.
 

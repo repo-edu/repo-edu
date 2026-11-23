@@ -73,6 +73,7 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | --- | --- | --- |
 | I want to inspect growing source files | [`/sweep`](/repo-edu/tooling/sweep/) in Repo Edu | One file and a proposed verdict; you choose whether to record, plan or refactor it |
 | I want to work through flagged refactors | Claude [`/refactor`](/repo-edu/tooling/refactor/) in Repo Edu | The backlog head and a recommended route; work starts only after your answer |
+| I want one large file split into smaller files | [`pnpm audit-round split <path>`](/repo-edu/tooling/split/) | A designed move list, its audit rounds and either a checked split commit or the reason no split happens |
 
 ### Chat helpers
 

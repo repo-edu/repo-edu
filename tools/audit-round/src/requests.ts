@@ -157,9 +157,11 @@ function phaseOpening(input: PhaseInput, session: "fresh" | "resumed"): string {
   const { phase } = input
   return phase === "close"
     ? `Run the close phase, the unattended loop-close of one plan, in this ${session} session.`
-    : phase === "implement"
-      ? `Run the implement phase, one unattended plan-step worker, in this ${session} session.`
-      : `Run the ${phase} phase of an unattended ${roundNames[input.roundKind]} round in this ${session} session.`
+    : phase === "design"
+      ? `Run the design phase, the unattended design session of one file split, in this ${session} session.`
+      : phase === "implement"
+        ? `Run the implement phase, one unattended plan-step worker, in this ${session} session.`
+        : `Run the ${phase} phase of an unattended ${roundNames[input.roundKind]} round in this ${session} session.`
 }
 
 function runnerResultRule(repoEduRoot: string): string {

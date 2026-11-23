@@ -629,6 +629,20 @@ export function openingAuditor(
 }
 
 /**
+ * Rule 1 before any round of a call: the listed auditors without a current
+ * read of the target. A split call that finds none carries its move list out
+ * without another round, so a list whose split was skipped or whose checks
+ * failed is not judged again.
+ */
+export function missingReads(
+  evidence: SeriesEvidence,
+  target: string,
+  pool: readonly Auditor[],
+): readonly Auditor[] {
+  return currentReads(evidence, target, pool).missing
+}
+
+/**
  * Apply the three automatic-series rules. A read is current only when it
  * started after the newest event that changed its scope. Every listed auditor
  * must have one current read before the phase can end.

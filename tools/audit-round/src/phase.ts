@@ -43,10 +43,11 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
 }
 
 /**
- * The phases an assistant session can run. `implement` and `close` run alone;
- * the other phases belong to an audit round.
+ * The phases an assistant session can run. `implement`, `close` and a file
+ * split's `design` run alone; the other phases belong to an audit round.
  */
 export type Phase =
+  | "design"
   | "audit"
   | "vet"
   | "rebut"
@@ -56,10 +57,11 @@ export type Phase =
   | "watch"
   | "close"
 
-export type RoundPhase = Exclude<Phase, "implement">
+export type RoundPhase = Exclude<Phase, "implement" | "design">
 
 /** Each phase's skill name, which names its workflow folder. */
 export const phaseSkills: Record<Phase, string> = {
+  design: "design",
   audit: "audit",
   vet: "vet",
   rebut: "rebut",
@@ -74,14 +76,17 @@ export const phaseSkills: Record<Phase, string> = {
  * A round phase's workflow follows the round's kind, so it lives in the
  * working checkout. A move-list round's audit and fix have workflows of their
  * own beside the implementation ones, and its vet, rebuttal and ruler use the
- * implementation workflows. The watch and a step's implementation use Repo
- * Edu's workflow, and loop-close, which is plan doctrine, the plan checkout's.
+ * implementation workflows. The watch, a step's implementation and a split's
+ * design use Repo Edu's workflow, and loop-close, which is plan doctrine, the
+ * plan checkout's.
  */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root =
     input.phase === "close"
       ? input.planRoot
-      : input.phase === "implement" || input.phase === "watch"
+      : input.phase === "implement" ||
+          input.phase === "watch" ||
+          input.phase === "design"
         ? input.repoEduRoot
         : input.cwd
   const own =
@@ -626,6 +631,11 @@ export type RulingRequest = {
 }
 
 type PhaseArguments = {
+  design: {
+    /** The source's path relative to the Repo Edu root and the blob hash read before the session. */
+    readonly arguments: readonly [source: string, hash: string]
+    readonly sessionId: null
+  }
   audit: {
     readonly arguments: readonly [
       report: string,
@@ -787,7 +797,14 @@ type ImplementResult =
 /** A finished ruler returns its admitted winners and the sources it opened. */
 export type RuleResult = ReportResult & { readonly reading: RulerReading }
 
+/**
+ * A finished design session returns its answer as text, which the runner
+ * reads as a move list; the session writes no file.
+ */
+export type DesignResult = ReportResult & { readonly document: string }
+
 type PhaseControlResults = {
+  design: ReportResult
   audit: ReportResult
   vet: ReportResult
   rebut: ReportResult
@@ -804,6 +821,7 @@ export type PhaseControlResult<P extends Phase = Phase> =
   | PhaseControlResults[P]
 
 type PhaseResults = {
+  design: DesignResult
   audit: ReportResult
   vet: ReportResult
   rebut: ReportResult
@@ -881,7 +899,7 @@ export type RoundDependencies = {
     repository: LandedRecord["repository"],
   ) => Promise<LandedRecord>
   readonly runPhase: {
-    readonly [P in Exclude<Phase, "implement">]: (
+    readonly [P in RoundPhase]: (
       input: PhaseInput<P>,
     ) => Promise<PhaseResult<P>>
   }

@@ -184,7 +184,7 @@ const runRound: typeof runRoundWithAccount = async (...arguments_) =>
  */
 const endings: readonly (readonly [
   ending: "ruling" | "watch",
-  phases: readonly Exclude<Phase, "implement">[],
+  phases: readonly Exclude<Phase, "implement" | "design">[],
 ])[] = [
   ["ruling", phases],
   ["watch", watchPhases],
@@ -251,7 +251,9 @@ function controlledRound(
     ],
   }
   const movedLists: string[] = []
-  const results: { [P in Exclude<Phase, "implement">]: PhaseResult<P> } = {
+  const results: {
+    [P in Exclude<Phase, "implement" | "design">]: PhaseResult<P>
+  } = {
     audit: {
       status: "finished",
       sessionId: "audit-session",
@@ -289,6 +291,7 @@ function controlledRound(
     // Only a finished report phase leaves its report behind.
     if (
       input.phase === "implement" ||
+      input.phase === "design" ||
       results[input.phase].status !== "finished"
     )
       return
@@ -2946,8 +2949,8 @@ for (const [ending, sequence] of endings) {
     const entered = sequence.map(() => Promise.withResolvers<void>())
     const release = sequence.map(() => Promise.withResolvers<void>())
     const round = controlledRound(async (input) => {
-      if (input.phase === "implement")
-        throw new Error("A round cannot start an implementation worker")
+      if (input.phase === "implement" || input.phase === "design")
+        throw new Error(`A round cannot start the ${input.phase} phase`)
       const index = sequence.indexOf(input.phase)
       entered[index].resolve()
       await release[index].promise

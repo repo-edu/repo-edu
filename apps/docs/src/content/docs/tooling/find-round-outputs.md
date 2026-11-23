@@ -24,7 +24,8 @@ The target ends in `-plan-audit` for a planning round and `-impl-audit-<a>..<b>`
 implementation range. A one-step range repeats its endpoint. Implementation worker logs use
 `-impl-<step>`, so a sorted file list shows a plan's worker logs, implementation audits and plan
 audits as three separate groups. Commit targets begin with `commit-`, so every commit audit sorts
-together. The same label opens every commit the audit lands, as `commit-804833/commit-audit`, so
+together. Move-list targets begin with `split-`, followed by the source path's segments joined by
+`+`. The same label opens every commit the audit lands, as `commit-804833/commit-audit`, so
 `git log --oneline` shows its records beside the audited commits. A clean commit audit lands one
 empty record with the label, so the log shows that the audit ran. The round number is not a commit
 number. A run's opening line names it as the file round. For a planning round that line first counts
@@ -91,6 +92,11 @@ or waits for you. Once every requested round has run, on a runner stop or an emp
 the runner moves them all into `../plan-evidence/commits/<commit-label>/`. A failure, a pending
 ruling or the round maximum with another auditor due leaves them in place. Auditing the same commits
 again moves the series back first, so it keeps its earlier fixes and continues its round numbers.
+
+A move-list series of [`split`](/repo-edu/tooling/split/) moves the same way, into
+`../plan-evidence/splits/<split-label>/`, together with its split log, when its split call ends. A
+failure, a pending ruling, the round maximum and a call that found another call's list leave them in
+place. The next call on the same file moves them back first.
 
 ## Commits
 
