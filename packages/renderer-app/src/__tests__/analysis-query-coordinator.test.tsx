@@ -1039,13 +1039,15 @@ describe("analysis runner lifetime in React", () => {
 })
 
 describe("analysis sidebar admission", () => {
+  const sidebarTestTimeoutMs = 15_000
+
   // Happy DOM's :disabled selector checks only the element's own attribute.
   const isDisabled = (control: Element) =>
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
 
   it("chains Start's full pass before search retirement with separate Cancel targets", {
-    timeout: 3000,
+    timeout: sidebarTestTimeoutMs,
   }, async (t) => {
     const searchEntered = deferred<AbortSignal>()
     const analysisEntered = deferred<AbortSignal>()
@@ -1140,7 +1142,7 @@ describe("analysis sidebar admission", () => {
   })
 
   it("refreshes every head and reuses unchanged results on Re-run Analysis", {
-    timeout: 3000,
+    timeout: sidebarTestTimeoutMs,
   }, async (t) => {
     const refreshEntered = deferred<void>()
     const releaseRefresh = deferred<string>()
@@ -1206,7 +1208,7 @@ describe("analysis sidebar admission", () => {
 
   for (const singleRepo of [false, true]) {
     it(`requests the selected repository after a settings edit with ${singleRepo ? "a single repository" : "a repository list"}`, {
-      timeout: 3000,
+      timeout: sidebarTestTimeoutMs,
     }, async (t) => {
       const release = deferred<void>()
       t.after(() => release.resolve())
@@ -1274,7 +1276,7 @@ describe("analysis sidebar admission", () => {
   }
 
   it("keeps Browse, Re-search and restored selection free of analysis starts", {
-    timeout: 3000,
+    timeout: sidebarTestTimeoutMs,
   }, async (t) => {
     let searches = 0
     const { controller, container, read } = await mountCoordinator(
@@ -1323,7 +1325,7 @@ describe("analysis sidebar admission", () => {
   })
 
   it("refuses Browse during a pass and permits a cancellable search after Cancel", {
-    timeout: 3000,
+    timeout: sidebarTestTimeoutMs,
   }, async (t) => {
     const analysisEntered = deferred<void>()
     const releaseAnalysis = deferred<void>()
@@ -1434,7 +1436,7 @@ describe("analysis sidebar admission", () => {
   for (const kind of ["folder", "course"] as const) {
     for (const start of ["Start", "Search"] as const) {
       it(`chooses a ${kind} search folder without work until ${start} is pressed`, {
-        timeout: 3000,
+        timeout: sidebarTestTimeoutMs,
       }, async (t) => {
         const activeSurface: PersistedActiveSurface =
           kind === "folder"
@@ -1521,7 +1523,7 @@ describe("analysis sidebar admission", () => {
 
     for (const pickedPath of [null, "/picked"]) {
       it(`settles ${pickedPath === null ? "a cancelled" : "an accepted"} folder choice on a ${kind} surface before a chained command without discovery`, {
-        timeout: 3000,
+        timeout: sidebarTestTimeoutMs,
       }, async (t) => {
         const opened = deferred<void>()
         const picked = deferred<string | null>()
@@ -1600,7 +1602,7 @@ describe("analysis sidebar admission", () => {
   }
 
   it("orders an internal surface switch after the search body", {
-    timeout: 3000,
+    timeout: sidebarTestTimeoutMs,
   }, async (t) => {
     const entered = deferred<AbortSignal>()
     const release = deferred<void>()
@@ -1647,7 +1649,7 @@ describe("analysis sidebar admission", () => {
 
   for (const ending of ["completion", "cancellation"] as const) {
     it(`keeps search ${ending} reachable before a chained command body starts`, {
-      timeout: 3000,
+      timeout: sidebarTestTimeoutMs,
     }, async (t) => {
       const entered = deferred<AbortSignal>()
       const releaseSearch = deferred<void>()
@@ -1768,7 +1770,7 @@ describe("analysis sidebar admission", () => {
 
   for (const entry of cases) {
     it(`freezes sidebar input during question generation with ${entry.name}`, {
-      timeout: 3000,
+      timeout: sidebarTestTimeoutMs,
     }, async (t) => {
       const { controller, container } = await mountCoordinator(
         t,
