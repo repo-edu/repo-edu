@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { moveStatements } from "../move.js"
-import type { MoveCandidate } from "../move-service.js"
+import { type MoveCandidate, moveStatements } from "../move.js"
+import {
+  attemptMoveList,
+  type MoveList,
+  type MoveListReply,
+} from "../move-list.js"
 
 const PACKAGE_JSON = JSON.stringify({
   name: "fixture",
@@ -94,9 +99,46 @@ export class FixtureProject {
     })
   }
 
+  /**
+   * Tries a move list whose source and targets are package-relative. The
+   * hash defaults to the source's current Git blob hash.
+   */
+  attemptList(
+    source: string,
+    entries: readonly {
+      readonly target: string
+      readonly ranges: readonly {
+        readonly start: number
+        readonly end: number
+      }[]
+    }[],
+    hash = blobHash(this.read(source)),
+  ): MoveListReply {
+    const list: MoveList = {
+      source: path.join("pkg", source),
+      hash,
+      entries: entries.map((entry) => ({
+        target: path.join("pkg", entry.target),
+        ranges: [...entry.ranges],
+      })),
+    }
+    return attemptMoveList(this.root, list)
+  }
+
   dispose(): void {
     fs.rmSync(this.root, { recursive: true, force: true })
   }
+}
+
+/**
+ * Git's blob hash of LF text, computed without Git: the SHA-1 of a `blob`
+ * header with the byte length, a NUL byte and the content.
+ */
+function blobHash(text: string): string {
+  return createHash("sha1")
+    .update(`blob ${Buffer.byteLength(text)}\0`)
+    .update(text)
+    .digest("hex")
 }
 
 /** Runs the body against a fresh fixture project and always removes it. */

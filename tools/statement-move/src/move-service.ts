@@ -1,13 +1,30 @@
 import * as path from "node:path"
 import ts from "typescript"
+import {
+  countKeys,
+  fileDiagnostics,
+  introduced,
+  type KeyedDiagnostic,
+  projectDiagnostics,
+  type ReportedDiagnostic,
+  report,
+} from "./diagnostics.js"
 import { MoveInputError } from "./input-error.js"
+import {
+  describeLines,
+  type SelectedStatement,
+  selectedStatement,
+  selectStatements,
+} from "./statement-selection.js"
 
 /**
  * The one owner of the TypeScript 6 language service. It loads the package's
  * typecheck configuration, serves saved files through `ts.sys` with candidate
  * text in an in-memory overlay, asks the engine for its Move to file edits,
  * applies the service's own import-kind fixes and compares project
- * diagnostics before and after. It writes no file.
+ * diagnostics before and after each move. Every move of one request shares
+ * the overlay, so a later move reads the text the earlier moves left. It
+ * writes no file.
  */
 
 const MOVE_TO_FILE = "Move to file"
@@ -34,19 +51,23 @@ const FORMAT_SETTINGS: ts.FormatCodeSettings = {
 
 export type ImportEnding = "js" | "minimal"
 
-export interface MoveRequest {
+/** One engine move: a line range of the source and the file it goes to. */
+export interface MoveRange {
+  readonly targetPath: string
+  /**
+   * One-based and inclusive, in the lines of the source as it is saved before
+   * the request's first move.
+   */
+  readonly startLine: number
+  readonly endLine: number
+}
+
+export interface MovesRequest {
   readonly root: string
   readonly configPath: string
   readonly sourcePath: string
-  readonly startLine: number
-  readonly endLine: number
-  readonly targetPath: string
-}
-
-export interface SelectedStatement {
-  readonly startLine: number
-  readonly endLine: number
-  readonly firstLine: string
+  /** Carried out in this order. */
+  readonly moves: readonly MoveRange[]
 }
 
 export interface CandidateFile {
@@ -55,34 +76,47 @@ export interface CandidateFile {
   readonly isNew: boolean
 }
 
-export interface ReportedDiagnostic {
-  readonly path: string | undefined
-  readonly line: number | undefined
-  readonly column: number | undefined
-  readonly code: number
-  readonly message: string
-}
-
-interface CandidateBase {
+/** One move the engine carried out into the overlay. */
+export interface MoveRecord {
   readonly statements: readonly SelectedStatement[]
-  readonly importEnding: ImportEnding
   readonly fixes: readonly string[]
 }
 
-export type MoveCandidate =
-  | (CandidateBase & {
-      readonly kind: "accepted"
-      readonly files: readonly CandidateFile[]
-    })
-  | (CandidateBase & {
-      readonly kind: "refused"
+/**
+ * Why the move at `index` of the request was refused: its range or the
+ * engine could not carry it out, or its candidate added project diagnostics.
+ */
+export type MoveRefusal =
+  | {
+      readonly kind: "input"
+      readonly index: number
+      readonly message: string
+    }
+  | {
+      readonly kind: "diagnostics"
+      readonly index: number
       readonly diagnostics: readonly ReportedDiagnostic[]
-    })
+    }
 
-interface KeyedDiagnostic {
-  readonly key: string
-  readonly diagnostic: ts.Diagnostic
-}
+/**
+ * The outcome of a whole request. `moves` holds a record for each move the
+ * engine carried out, a move its diagnostics refused included. The first
+ * refused move ends the request, because each later range is followed through
+ * the moves before it.
+ */
+export type MovesCandidate =
+  | {
+      readonly kind: "accepted"
+      readonly importEnding: ImportEnding
+      readonly moves: readonly MoveRecord[]
+      readonly files: readonly CandidateFile[]
+    }
+  | {
+      readonly kind: "refused"
+      readonly importEnding: ImportEnding
+      readonly moves: readonly MoveRecord[]
+      readonly refusal: MoveRefusal
+    }
 
 interface OverlayEntry {
   text: string
@@ -90,9 +124,130 @@ interface OverlayEntry {
   readonly isNew: boolean
 }
 
-export function prepareMove(request: MoveRequest): MoveCandidate {
+/**
+ * One move resolved against the saved source. Each anchor is the start of one
+ * selected statement in the source as the overlay now holds it. An edit that
+ * replaces the text at an anchor leaves none.
+ */
+interface PlannedMove {
+  readonly range: MoveRange
+  readonly statements: readonly SelectedStatement[]
+  readonly anchors: (number | undefined)[]
+}
+
+interface MoveContext {
+  readonly service: ts.LanguageService
+  readonly overlay: Map<string, OverlayEntry>
+  readonly sourcePath: string
+  /** The source's name as the engine spells it in its edits. */
+  readonly sourceFileName: string
+  readonly planned: readonly PlannedMove[]
+  readonly preferences: ts.UserPreferences
+  readonly display: (fileName: string) => string
+}
+
+interface MoveOutcome {
+  readonly fixes: readonly string[]
+  readonly after: readonly KeyedDiagnostic[]
+  readonly added: readonly KeyedDiagnostic[]
+}
+
+export function prepareMoves(request: MovesRequest): MovesCandidate {
   const parsed = loadConfiguration(request)
   const overlay = new Map<string, OverlayEntry>()
+  const service = createService(parsed, overlay, request.configPath)
+  const display = (fileName: string) => path.relative(request.root, fileName)
+
+  const program = requireProgram(service)
+  const sourceFile = program.getSourceFile(request.sourcePath)
+  if (sourceFile === undefined) {
+    throw new MoveInputError(
+      `${display(request.sourcePath)} is not part of ${display(request.configPath)}`,
+    )
+  }
+  const importEnding = sourceImportEnding(sourceFile)
+  const refused = (
+    moves: readonly MoveRecord[],
+    refusal: MoveRefusal,
+  ): MovesCandidate => ({ kind: "refused", importEnding, moves, refusal })
+
+  // Every range is resolved against the saved source before the first move,
+  // so a range that selects no complete statements costs no engine move.
+  const planned: PlannedMove[] = []
+  const claimed = new Set<ts.Statement>()
+  for (const [index, range] of request.moves.entries()) {
+    try {
+      planned.push(
+        planMove(
+          sourceFile,
+          program.getTypeChecker(),
+          range,
+          claimed,
+          display(request.sourcePath),
+        ),
+      )
+    } catch (error) {
+      if (!(error instanceof MoveInputError)) {
+        throw error
+      }
+      return refused([], { kind: "input", index, message: error.message })
+    }
+  }
+
+  const context: MoveContext = {
+    service,
+    overlay,
+    sourcePath: request.sourcePath,
+    sourceFileName: sourceFile.fileName,
+    planned,
+    preferences: {
+      allowTextChangesInNewFiles: true,
+      provideRefactorNotApplicableReason: true,
+      importModuleSpecifierEnding: importEnding,
+    },
+    display,
+  }
+  let baseline = countKeys(projectDiagnostics(program))
+  const records: MoveRecord[] = []
+  for (const [index, move] of planned.entries()) {
+    let outcome: MoveOutcome
+    try {
+      outcome = carryOut(context, move, baseline)
+    } catch (error) {
+      if (!(error instanceof MoveInputError)) {
+        throw error
+      }
+      return refused(records, { kind: "input", index, message: error.message })
+    }
+    records.push({ statements: move.statements, fixes: outcome.fixes })
+    if (outcome.added.length > 0) {
+      return refused(records, {
+        kind: "diagnostics",
+        index,
+        diagnostics: outcome.added.map(({ diagnostic }) =>
+          report(diagnostic, display),
+        ),
+      })
+    }
+    baseline = countKeys(outcome.after)
+  }
+  return {
+    kind: "accepted",
+    importEnding,
+    moves: records,
+    files: [...overlay.entries()].map(([fileName, entry]) => ({
+      path: fileName,
+      text: entry.text,
+      isNew: entry.isNew,
+    })),
+  }
+}
+
+function createService(
+  parsed: ts.ParsedCommandLine,
+  overlay: ReadonlyMap<string, OverlayEntry>,
+  configPath: string,
+): ts.LanguageService {
   const readFile = (fileName: string): string | undefined =>
     overlay.get(fileName)?.text ?? ts.sys.readFile(fileName)
   const host: ts.LanguageServiceHost = {
@@ -108,7 +263,7 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
       const text = readFile(fileName)
       return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text)
     },
-    getCurrentDirectory: () => path.dirname(request.configPath),
+    getCurrentDirectory: () => path.dirname(configPath),
     getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
     fileExists: (fileName) =>
       overlay.has(fileName) || ts.sys.fileExists(fileName),
@@ -126,34 +281,51 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
     realpath: ts.sys.realpath,
     useCaseSensitiveFileNames: () => ts.sys.useCaseSensitiveFileNames,
   }
-  const service = ts.createLanguageService(host, ts.createDocumentRegistry())
-  const display = (fileName: string) => path.relative(request.root, fileName)
+  return ts.createLanguageService(host, ts.createDocumentRegistry())
+}
 
-  const program = requireProgram(service)
-  const sourceFile = program.getSourceFile(request.sourcePath)
-  if (sourceFile === undefined) {
+function planMove(
+  sourceFile: ts.SourceFile,
+  checker: ts.TypeChecker,
+  range: MoveRange,
+  claimed: Set<ts.Statement>,
+  sourceLabel: string,
+): PlannedMove {
+  const selected = selectStatements(sourceFile, checker, range, sourceLabel)
+  const repeated = selected.find((statement) => claimed.has(statement))
+  if (repeated !== undefined) {
     throw new MoveInputError(
-      `${display(request.sourcePath)} is not part of ${display(request.configPath)}`,
+      `lines ${range.startLine}-${range.endLine} hold the statement at ${describeLines(sourceFile, repeated)}, which an earlier range already moves`,
     )
   }
-  const selection = selectStatements(
-    sourceFile,
-    program.getTypeChecker(),
-    request,
-    display,
-  )
-  const importEnding = sourceImportEnding(sourceFile)
-  const preferences: ts.UserPreferences = {
-    allowTextChangesInNewFiles: true,
-    provideRefactorNotApplicableReason: true,
-    importModuleSpecifierEnding: importEnding,
+  for (const statement of selected) {
+    claimed.add(statement)
   }
-  const before = countKeys(projectDiagnostics(program))
+  return {
+    range,
+    statements: selected.map((statement) =>
+      selectedStatement(sourceFile, statement),
+    ),
+    anchors: selected.map((statement) => statement.getStart(sourceFile)),
+  }
+}
+
+function carryOut(
+  context: MoveContext,
+  move: PlannedMove,
+  baseline: ReadonlyMap<string, number>,
+): MoveOutcome {
+  const { service, sourcePath, preferences, display } = context
+  const sourceFile = requireProgram(service).getSourceFile(sourcePath)
+  if (sourceFile === undefined) {
+    throw new Error("the source left the program during the moves")
+  }
+  const range = locate(sourceFile, move)
 
   const offered = service
     .getApplicableRefactors(
-      request.sourcePath,
-      selection.range,
+      sourcePath,
+      range,
       preferences,
       "invoked",
       MOVE_TO_FILE_KIND,
@@ -169,15 +341,15 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
     )
   }
   const edits = service.getEditsForRefactor(
-    request.sourcePath,
+    sourcePath,
     FORMAT_SETTINGS,
-    selection.range,
+    range,
     MOVE_TO_FILE,
     MOVE_TO_FILE,
     preferences,
     // The refactor keeps this spelling for a new file. Its later reads use
     // forward slashes, so the overlay must receive the same path on Windows.
-    { targetFile: request.targetPath.replaceAll(path.sep, "/") },
+    { targetFile: move.range.targetPath.replaceAll(path.sep, "/") },
   )
   if (edits?.notApplicableReason !== undefined) {
     throw new MoveInputError(
@@ -187,31 +359,19 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
   if (edits === undefined || edits.edits.length === 0) {
     throw new MoveInputError("the language service returned no edits")
   }
-
-  const applyFileChanges = (changes: readonly ts.FileTextChanges[]) => {
-    for (const change of changes) {
-      const current = overlay.get(change.fileName)
-      const base =
-        current?.text ??
-        (change.isNewFile ? "" : (ts.sys.readFile(change.fileName) ?? ""))
-      overlay.set(change.fileName, {
-        text: applyTextChanges(base, change.textChanges),
-        version: (current?.version ?? 0) + 1,
-        isNew: current?.isNew ?? change.isNewFile === true,
-      })
-    }
-  }
-  applyFileChanges(edits.edits)
+  applyChanges(context, edits.edits)
 
   const fixes: string[] = []
   const attempted = new Set<string>()
   for (;;) {
     const changedProgram = requireProgram(service)
-    const changedDiagnostics = [...overlay.keys()].flatMap((fileName) => {
-      const file = changedProgram.getSourceFile(fileName)
-      return file === undefined ? [] : fileDiagnostics(changedProgram, file)
-    })
-    const next = introduced(before, changedDiagnostics).find(
+    const changedDiagnostics = [...context.overlay.keys()].flatMap(
+      (fileName) => {
+        const file = changedProgram.getSourceFile(fileName)
+        return file === undefined ? [] : fileDiagnostics(changedProgram, file)
+      },
+    )
+    const next = introduced(baseline, changedDiagnostics).find(
       ({ key, diagnostic }) =>
         IMPORT_KIND_FIXES.has(diagnostic.code) && !attempted.has(key),
     )
@@ -224,7 +384,7 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
     const fixName = IMPORT_KIND_FIXES.get(diagnostic.code)
     const fix = service
       .getCodeFixesAtPosition(
-        diagnostic.file?.fileName ?? request.sourcePath,
+        diagnostic.file?.fileName ?? sourcePath,
         start,
         start + (diagnostic.length ?? 0),
         [diagnostic.code],
@@ -235,33 +395,98 @@ export function prepareMove(request: MoveRequest): MoveCandidate {
     if (fix === undefined) {
       continue
     }
-    applyFileChanges(fix.changes)
+    applyChanges(context, fix.changes)
     fixes.push(
       `${fix.description} in ${display(diagnostic.file?.fileName ?? "")}`,
     )
   }
 
-  const added = introduced(before, projectDiagnostics(requireProgram(service)))
-  const base = { statements: selection.statements, importEnding, fixes }
-  if (added.length > 0) {
-    return {
-      ...base,
-      kind: "refused",
-      diagnostics: added.map(({ diagnostic }) => report(diagnostic, display)),
-    }
+  const after = projectDiagnostics(requireProgram(service))
+  return { fixes, after, added: introduced(baseline, after) }
+}
+
+/**
+ * Finds the planned statements in the source as the earlier moves left it.
+ * They must still be one run of consecutive top-level statements, so the
+ * range handed to the engine selects exactly them.
+ */
+function locate(sourceFile: ts.SourceFile, move: PlannedMove): ts.TextRange {
+  const { statements } = sourceFile
+  const positions = move.anchors.map((anchor) =>
+    anchor === undefined
+      ? -1
+      : statements.findIndex(
+          (statement) =>
+            statement.getStart(sourceFile) <= anchor && anchor < statement.end,
+        ),
+  )
+  const first = positions[0]
+  if (
+    positions.some(
+      (position, offset) => position === -1 || position !== first + offset,
+    )
+  ) {
+    throw new MoveInputError(
+      `an earlier move changed or separated the statements at lines ${move.range.startLine}-${move.range.endLine}`,
+    )
   }
   return {
-    ...base,
-    kind: "accepted",
-    files: [...overlay.entries()].map(([fileName, entry]) => ({
-      path: fileName,
-      text: entry.text,
-      isNew: entry.isNew,
-    })),
+    pos: statements[first].getStart(sourceFile),
+    end: statements[positions[positions.length - 1]].end,
   }
 }
 
-function loadConfiguration(request: MoveRequest): ts.ParsedCommandLine {
+function applyChanges(
+  context: MoveContext,
+  changes: readonly ts.FileTextChanges[],
+): void {
+  for (const change of changes) {
+    const current = context.overlay.get(change.fileName)
+    const base =
+      current?.text ??
+      (change.isNewFile ? "" : (ts.sys.readFile(change.fileName) ?? ""))
+    context.overlay.set(change.fileName, {
+      text: applyTextChanges(base, change.textChanges),
+      version: (current?.version ?? 0) + 1,
+      isNew: current?.isNew ?? change.isNewFile === true,
+    })
+    if (change.fileName === context.sourceFileName) {
+      for (const move of context.planned) {
+        mapAnchors(move.anchors, change.textChanges)
+      }
+    }
+  }
+}
+
+/**
+ * Moves each anchor past the changes before it. The changes are ascending
+ * and refer to the text before any of them. An insertion at an anchor lands
+ * before it, such as the `export` the engine adds to a declaration the moved
+ * code uses. An anchor inside replaced text is lost.
+ */
+function mapAnchors(
+  anchors: (number | undefined)[],
+  changes: readonly ts.TextChange[],
+): void {
+  for (const [index, anchor] of anchors.entries()) {
+    if (anchor === undefined) {
+      continue
+    }
+    let shift = 0
+    let lost = false
+    for (const { span, newText } of changes) {
+      if (span.start + span.length <= anchor) {
+        shift += newText.length - span.length
+      } else if (span.start <= anchor) {
+        lost = true
+        break
+      }
+    }
+    anchors[index] = lost ? undefined : anchor + shift
+  }
+}
+
+function loadConfiguration(request: MovesRequest): ts.ParsedCommandLine {
   let unrecoverable: string | undefined
   const parsed = ts.getParsedCommandLineOfConfigFile(
     request.configPath,
@@ -300,89 +525,6 @@ function requireProgram(service: ts.LanguageService): ts.Program {
     throw new Error("the language service produced no program")
   }
   return program
-}
-
-function selectStatements(
-  sourceFile: ts.SourceFile,
-  checker: ts.TypeChecker,
-  request: MoveRequest,
-  display: (fileName: string) => string,
-): { statements: SelectedStatement[]; range: ts.TextRange } {
-  const lineStarts = sourceFile.getLineStarts()
-  const { startLine, endLine } = request
-  if (startLine < 1 || endLine < startLine || endLine > lineStarts.length) {
-    throw new MoveInputError(
-      `lines ${startLine}-${endLine} are outside ${display(request.sourcePath)}, which has ${lineStarts.length} lines`,
-    )
-  }
-  const rangeStart = lineStarts[startLine - 1]
-  const rangeEnd =
-    endLine < lineStarts.length ? lineStarts[endLine] : sourceFile.text.length
-  const lineOf = (position: number) =>
-    sourceFile.getLineAndCharacterOfPosition(position).line + 1
-  const describe = (statement: ts.Statement) =>
-    `lines ${lineOf(statement.getStart(sourceFile))}-${lineOf(statement.end)}`
-
-  const selected = sourceFile.statements.filter(
-    (statement) =>
-      statement.getStart(sourceFile) < rangeEnd && statement.end > rangeStart,
-  )
-  if (selected.length === 0) {
-    throw new MoveInputError(
-      `lines ${startLine}-${endLine} hold no top-level statement`,
-    )
-  }
-  for (const statement of selected) {
-    if (
-      statement.getStart(sourceFile) < rangeStart ||
-      statement.end > rangeEnd
-    ) {
-      throw new MoveInputError(
-        `lines ${startLine}-${endLine} cut the top-level statement at ${describe(statement)}`,
-      )
-    }
-    if (
-      ts.isImportDeclaration(statement) ||
-      (ts.isImportEqualsDeclaration(statement) &&
-        ts.isExternalModuleReference(statement.moduleReference))
-    ) {
-      throw new MoveInputError(
-        `the import at ${describe(statement)} cannot be moved; imports follow the moved statements`,
-      )
-    }
-    // The engine moves every declaration of an overloaded function together.
-    if (ts.isFunctionDeclaration(statement) && statement.name !== undefined) {
-      const declarations = new Set<ts.Node>(
-        checker.getSymbolAtLocation(statement.name)?.declarations,
-      )
-      const outside = sourceFile.statements.find(
-        (other) => declarations.has(other) && !selected.includes(other),
-      )
-      if (outside !== undefined) {
-        throw new MoveInputError(
-          `${statement.name.text} has a declaration at ${describe(outside)} outside lines ${startLine}-${endLine}; select all its declarations`,
-        )
-      }
-    }
-  }
-  const first = selected[0]
-  const last = selected[selected.length - 1]
-  return {
-    statements: selected.map((statement) => {
-      const start = statement.getStart(sourceFile)
-      const line = lineOf(start)
-      const lineEnd =
-        line < lineStarts.length ? lineStarts[line] : sourceFile.text.length
-      return {
-        startLine: line,
-        endLine: lineOf(statement.end),
-        firstLine: sourceFile.text
-          .slice(lineStarts[line - 1], lineEnd)
-          .trimEnd(),
-      }
-    }),
-    range: { pos: first.getStart(sourceFile), end: last.end },
-  }
 }
 
 /**
@@ -437,88 +579,4 @@ function applyTextChanges(
       result.slice(span.start + span.length)
   }
   return result
-}
-
-function projectDiagnostics(program: ts.Program): KeyedDiagnostic[] {
-  const global = [
-    ...program.getOptionsDiagnostics(),
-    ...program.getGlobalDiagnostics(),
-  ].map(keyed)
-  const files = program
-    .getSourceFiles()
-    .filter(
-      (file) =>
-        !file.isDeclarationFile &&
-        !program.isSourceFileFromExternalLibrary(file),
-    )
-    .flatMap((file) => fileDiagnostics(program, file))
-  return [...global, ...files]
-}
-
-function fileDiagnostics(
-  program: ts.Program,
-  file: ts.SourceFile,
-): KeyedDiagnostic[] {
-  return [
-    ...program.getSyntacticDiagnostics(file),
-    ...program.getSemanticDiagnostics(file),
-  ].map(keyed)
-}
-
-// Positions shift when code moves, so a diagnostic is identified by its file,
-// code and message. A count per key lets a repeated message count once per
-// occurrence.
-function keyed(diagnostic: ts.Diagnostic): KeyedDiagnostic {
-  const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")
-  return {
-    key: `${diagnostic.file?.fileName ?? ""}\u0000${diagnostic.code}\u0000${message}`,
-    diagnostic,
-  }
-}
-
-function countKeys(
-  diagnostics: readonly KeyedDiagnostic[],
-): Map<string, number> {
-  const counts = new Map<string, number>()
-  for (const { key } of diagnostics) {
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  }
-  return counts
-}
-
-function introduced(
-  before: ReadonlyMap<string, number>,
-  after: readonly KeyedDiagnostic[],
-): KeyedDiagnostic[] {
-  const remaining = new Map(before)
-  const result: KeyedDiagnostic[] = []
-  for (const entry of after) {
-    const left = remaining.get(entry.key) ?? 0
-    if (left > 0) {
-      remaining.set(entry.key, left - 1)
-    } else {
-      result.push(entry)
-    }
-  }
-  return result
-}
-
-function report(
-  diagnostic: ts.Diagnostic,
-  display: (fileName: string) => string,
-): ReportedDiagnostic {
-  const position =
-    diagnostic.file !== undefined && diagnostic.start !== undefined
-      ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
-      : undefined
-  return {
-    path:
-      diagnostic.file === undefined
-        ? undefined
-        : display(diagnostic.file.fileName),
-    line: position === undefined ? undefined : position.line + 1,
-    column: position === undefined ? undefined : position.character + 1,
-    code: diagnostic.code,
-    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
-  }
 }

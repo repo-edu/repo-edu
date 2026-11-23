@@ -1,9 +1,10 @@
+import * as fs from "node:fs"
 import * as path from "node:path"
 import { fileURLToPath } from "node:url"
 import { Command, InvalidArgumentError } from "commander"
 import { MoveInputError } from "./input-error.js"
-import { moveStatements } from "./move.js"
-import type { MoveCandidate } from "./move-service.js"
+import { type MoveCandidate, moveStatements } from "./move.js"
+import { attemptMoveList, parseMoveList } from "./move-list.js"
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -53,8 +54,12 @@ function render(source: string, candidate: MoveCandidate): string {
 const program = new Command()
   .name("move-statements")
   .description(
-    "Move complete top-level TypeScript statements to another file with TypeScript's Move to file refactor.",
+    "Move complete top-level TypeScript statements to other files with TypeScript's Move to file refactor.",
   )
+
+program
+  .command("move", { isDefault: true })
+  .description("Move one line range to a target and write the changed files.")
   .argument("<source>", "workspace-relative source file")
   .argument("<start-line>", "first line of the range", lineNumber)
   .argument("<end-line>", "last line of the range", lineNumber)
@@ -83,5 +88,27 @@ const program = new Command()
       }
     },
   )
+
+program
+  .command("list")
+  .description(
+    "Try a whole move list, read as JSON from standard input, in memory and print the reply as JSON. No file is written.",
+  )
+  .action(() => {
+    try {
+      const reply = attemptMoveList(
+        ROOT,
+        parseMoveList(fs.readFileSync(0, "utf8")),
+      )
+      process.stdout.write(`${JSON.stringify(reply)}\n`)
+    } catch (error) {
+      if (error instanceof MoveInputError) {
+        console.error(`move-statements list: ${error.message}`)
+        process.exitCode = 1
+        return
+      }
+      throw error
+    }
+  })
 
 program.parse()
