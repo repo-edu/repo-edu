@@ -1,17 +1,16 @@
 # Audit round
 
-This file defines the words of the planning and implementation-audit rounds
-and of the runner that drives them. Words the home Planning vocabulary
-defines, such as round, watch, glance, episode, handoff, settle and stem, keep
-their entries there. A report on its own means any kind of report; each kind
-is always named in full.
+This file defines the words of the planning, implementation-audit and move-list rounds, of a file
+split and of the runner that drives them. Words the home Planning vocabulary defines, such as round,
+watch, glance, episode, handoff, settle and stem, keep their entries there. A report on its own
+means any kind of report; each kind is always named in full.
 
 ## Phases and roles
 
-- **Phase**: two senses. A round phase is one part of a round, or one runner
-  command, that runs in its own assistant session, such as the audit, the vet,
-  the rebuttal, the ruler, the fix, the watch, a step's implementation or the close. A
-  plan's phase is widening or detailing, which the plan's filename shows.
+- **Phase**: two senses. A round phase is one part of a round, or one runner command, that runs in
+  its own assistant session, such as the audit, the vet, the rebuttal, the ruler, the fix, the
+  watch, a step's implementation, a split's design or the close. A plan's phase is widening or
+  detailing, which the plan's filename shows.
 - **Auditor**: the selection that runs or ran an audit, whether it is on the
   auditor list or not, and that audit's session. An entry of the auditor list
   is an auditor even before it has run. The auditor does not defend the audit
@@ -41,7 +40,7 @@ is always named in full.
 - **Fixer**: the selection that runs a round's fix. Planning rounds and commit
   audits of plan commits only use the planning fixer. Implementation audits use
   the plan's coder, and commit audits with a Repo Edu commit use the first
-  coder.
+  coder. Move-list rounds use the split level's fixer.
 - **Implementer**: the session that implements one plan step.
 
 ## Findings, verdicts and rulings
@@ -50,12 +49,15 @@ is always named in full.
   that vetter can read. A contest is serious when the audit report or a vetter
   graded the finding A or B. A serious contest goes to the user and any other
   contest to the ruler.
-- **Split**: two senses. A panel split is two vetters whose verdicts on one
+- **Split**: three senses. A panel split is two vetters whose verdicts on one
   finding differ, or who both revise it while the rebuttal does not agree with
   both. It is serious when the audit report or a vetter graded the finding A
   or B. A serious split goes to the user and any other split to the ruler. A
   plan split divides one topic's work into peer
-  plans, a shape decision recorded with its reason.
+  plans, a shape decision recorded with its reason. A file split divides one
+  source file into several by moving complete top-level statements, as the
+  file's move list says. The split result, the split level and the split work
+  class take this third sense.
 - **Referral**: a vetter's verdict that sends a finding to the user's ruling
   instead of settling it. Like any verdict it is a claim about the evidence,
   and a later phase may overturn it.
@@ -138,12 +140,16 @@ is always named in full.
   selection an audit ran on, which only the audit records, with its alias
   resolved when the runner started, and which the series rules match against
   each listed auditor.
-- **Work class**: planning or implementation, the kind of work a round's
+- **Work class**: planning, implementation or split, the kind of work a round's
   target belongs to. Plan rounds and commit audits of plan commits only are
   planning. Implementation audits and commit audits with any Repo Edu commit
-  are implementation. The work class picks the audit level.
+  are implementation. Move-list rounds are split work. The work class picks the
+  audit level.
 - **Audit level**: the runner settings for one work class: its auditor list,
-  its vetter list, its watch writer and, for planning, its fixer.
+  its vetter list and its ruler. The planning and implementation levels also
+  name a watch writer, and the planning level its fixer. The split level names
+  the designer and the fixer of a file split and no watch writer, because a
+  move-list series has no watch.
 - **Auditor list**: the ordered auditors of one work class's audit level. An
   automatic series opens from it and picks every later auditor from it.
 - **Listed auditor**: one entry of a work class's auditor list. Each listed
@@ -223,6 +229,28 @@ is always named in full.
 - **Yield review**: a hand-run rating of each plan decision's benefit to the
   user against its complexity, with optional vet, rebuttal and final reports
   of its own. It allocates no audit round and lands no commit.
+
+## File splits
+
+- **Design session**: the phase that reads one source file whole and answers
+  that the file is fine, that it needs a plan, or with a move list, and its
+  session. It changes no code. The designer is the split level's selection
+  that runs it.
+- **Move list**: the committed file in the plan repo that says how one source
+  file is split. It names the source's path, its content hash and its area, and
+  then each target file in order, with the one responsibility the target holds
+  and the line ranges of complete top-level statements that go there. A source
+  file has one move list, beside the source's path under the plan repo's
+  `splits/` folder, with the source's extension replaced by `.mv.md`. A
+  withdrawn move list holds no moves and records why no split happens: the file
+  is fine or needs a plan.
+- **Move-list round**: an audit round that judges one move list. Its phases run
+  as in a planning round, and its fix changes the list in place or withdraws
+  it. A move list is carried out only after its rounds have judged it.
+- **Split result**: one of the five ways a split call ends, each with a message
+  and the content hash of the file the design session read. The split was
+  made, or no split happens because the file is fine, the file needs a plan,
+  the call was skipped or the checks failed.
 
 ## What binds a round
 

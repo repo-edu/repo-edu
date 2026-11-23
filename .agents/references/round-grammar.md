@@ -6,9 +6,10 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The eleven forms are the audit report, vet report, rebuttal report, ruler
+The thirteen forms are the audit report, vet report, rebuttal report, ruler
 report, commit record bullet, implementation-plan step, audit-range sentence,
-phase result, watch grade, settling line and watch record.
+phase result, watch grade, settling line, watch record, move list and split
+result.
 
 ## Notation
 
@@ -44,6 +45,7 @@ names the parser refusal it demonstrates.
 <sha>                ::= <short-sha><lower-hex>*
 <short-sha>          ::= six <lower-hex> characters
 <full-sha>           ::= forty <lower-hex> characters
+<blob-hash>          ::= forty <lower-hex> characters
 <lower-hex>          ::= <digit> | a | b | c | d | e | f
 <label>              ::= <label-part>("-"<label-part>)*
 <label-part>         ::= one or more lowercase ASCII letters or digits
@@ -85,6 +87,11 @@ reader resolves it by prefix and accepts a longer form, because records
 written before the six-character rule carry full commit IDs. An
 `<applies-token>` is the exception. It keeps the full commit ID and resolves it
 exactly, so one citation cannot close two deferrals whose short forms collide.
+
+A `<blob-hash>` is Git's blob hash of one source file's content, as
+`git hash-object <path>` prints it in the Repo Edu checkout. Git hashes the
+file after the line-ending normalisation of the repository's attributes, so a
+hash of the raw bytes can differ.
 
 ## Audit report
 
@@ -1386,8 +1393,8 @@ Audit ranges: 1-2, 2-4.
 ```
 
 The phase result is the response's last line and stays outside a code fence.
-The JSON object has exactly the two fields shown. Audit, vet, rebuttal, ruler, watch
-and close admit `finished` or `failed`. Fix and implement also
+The JSON object has exactly the two fields shown. Audit, vet, rebuttal, ruler, design,
+watch and close admit `finished` or `failed`. Fix and implement also
 admit `needs-ruling`.
 
 ### Phase table
@@ -1578,4 +1585,248 @@ Refusal: `Watch record is missing the repo-edu head`
     "written": "2026-10-12"
   }
 }
+```
+
+## Move list
+
+### Production
+
+```text
+<move-list>      ::= "# Move list" BLANK <source-line> NL <hash-line> NL <area-line>
+                     BLANK (<moves> | <no-split>)
+<source-line>    ::= "Source: `"<repo-path>"`"
+<hash-line>      ::= "Hash: "<blob-hash>
+<area-line>      ::= "Area: "<label>
+<moves>          ::= "## Moves" BLANK <move>(BLANK <move>)*
+<move>           ::= "### "<n>". `"<repo-path>"`" BLANK
+                     "Responsibility: "<sentence> NL
+                     "Ranges: "<line-range>(", "<line-range>)*
+<line-range>     ::= <n> | <n>"-"<n>
+<no-split>       ::= "## No split" BLANK "Result: "<list-result>". "<one-line-reason>
+<list-result>    ::= fine | needs-plan
+<repo-path>      ::= a path relative to the Repo Edu root, without "`" or a line break
+<sentence>       ::= non-empty text on one line
+```
+
+A move list says how one source file is divided. It names the source by its
+path, the source's content as its blob hash and the source's primary area by
+its area ID. Every line number in the list counts lines of that content, before
+any move.
+
+Each move names one target file and the ranges of complete top-level statements
+that go there. The moves are numbered from 1 without gaps, in the order the
+statement move tool carries them out, and no target appears twice. A target's
+ranges go to it in the order given. A range is one line or two line numbers
+whose second is not smaller than its first, and it includes both ends. The
+responsibility line states in one sentence what the target holds.
+
+The no-split form holds a result instead of moves. `fine` says the file should
+stay whole and `needs-plan` says its division needs a plan, and the reason
+follows on the same line. A fix that withdraws a list replaces its moves with
+this form and keeps the opening as it was. A design session that answers that
+the file is fine or needs a plan returns this form too.
+
+The document holds nothing else. Leading and trailing whitespace carry no
+content, and one or more empty lines count as one `BLANK`.
+
+### Examples
+
+#### `move-list/moves` — parsed
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+
+## Moves
+
+### 1. `packages/domain/src/roster-names.ts`
+
+Responsibility: Builds and compares the display names of roster members.
+Ranges: 10-40, 52-60
+
+### 2. `packages/domain/src/roster-import.ts`
+
+Responsibility: Reads a roster from an imported student list.
+Ranges: 61-118, 120
+```
+
+#### `move-list/no-split` — parsed
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+
+## No split
+
+Result: needs-plan. The seam between names and imports cuts through one function.
+```
+
+#### `move-list/short-hash` — refused
+
+Refusal: `Move list hash must be forty lowercase hexadecimal characters`
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e5
+Area: pkg-domain
+
+## No split
+
+Result: fine. The file holds one responsibility.
+```
+
+#### `move-list/numbering-gap` — refused
+
+Refusal: `Move list move 2 is numbered 3`
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+
+## Moves
+
+### 1. `packages/domain/src/roster-names.ts`
+
+Responsibility: Builds and compares the display names of roster members.
+Ranges: 10-40
+
+### 3. `packages/domain/src/roster-import.ts`
+
+Responsibility: Reads a roster from an imported student list.
+Ranges: 61-118
+```
+
+#### `move-list/reversed-range` — refused
+
+Refusal: `Move list move 1 has the range 40-10, whose end comes before its start`
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+
+## Moves
+
+### 1. `packages/domain/src/roster-names.ts`
+
+Responsibility: Builds and compares the display names of roster members.
+Ranges: 40-10
+```
+
+#### `move-list/repeated-target` — refused
+
+Refusal: `Move list names the target packages/domain/src/roster-names.ts in moves 1 and 2`
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+
+## Moves
+
+### 1. `packages/domain/src/roster-names.ts`
+
+Responsibility: Builds the display names of roster members.
+Ranges: 10-40
+
+### 2. `packages/domain/src/roster-names.ts`
+
+Responsibility: Compares the display names of roster members.
+Ranges: 52-60
+```
+
+#### `move-list/unknown-result` — refused
+
+Refusal: `Move list result must be fine or needs-plan`
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+
+## No split
+
+Result: skipped. Another run changed the file.
+```
+
+## Split result
+
+### Production
+
+```text
+<split-result-line> ::= "SPLIT RESULT: "<split-result>
+<split-result>      ::= {"result":<result-word>,"hash":<hash-string>,"message":<message-string>}
+<result-word>       ::= "made" | "fine" | "needs-plan" | "skipped" | "checks-failed"
+<hash-string>       ::= a JSON string containing a <blob-hash>
+<message-string>    ::= a JSON string containing non-whitespace text
+```
+
+A split call ends with one split result line, which the `split` command prints
+last. The JSON object has exactly the three fields shown. The result word names
+one of the five results:
+
+1. `made`: the split was made and committed.
+2. `fine`: no split, because the file should stay whole.
+3. `needs-plan`: no split, because the file needs a plan.
+4. `skipped`: no split, because the call was skipped.
+5. `checks-failed`: no split, because the checks or the tests failed and the
+   files are back as they were.
+
+The hash names the content of the source file that the design session read.
+The message says why, and may span lines inside its JSON string. A move list's
+no-split form uses the words `fine` and `needs-plan` with these meanings.
+
+### Examples
+
+#### `split-result/made` — parsed
+
+```text
+SPLIT RESULT: {"result":"made","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"packages/domain/src/roster.ts was split into 2 new files."}
+```
+
+#### `split-result/checks-failed` — parsed
+
+```text
+SPLIT RESULT: {"result":"checks-failed","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"pnpm check failed:\nsrc/roster.ts(4,10): error TS2305."}
+```
+
+#### `split-result/unknown-result` — refused
+
+Refusal: `Split result must be made, fine, needs-plan, skipped or checks-failed`
+
+```text
+SPLIT RESULT: {"result":"split","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"The split was made."}
+```
+
+#### `split-result/short-hash` — refused
+
+Refusal: `Split result hash must be forty lowercase hexadecimal characters`
+
+```text
+SPLIT RESULT: {"result":"fine","hash":"3b18e5","message":"The file holds one responsibility."}
+```
+
+#### `split-result/empty-message` — refused
+
+Refusal: `Split result needs a message`
+
+```text
+SPLIT RESULT: {"result":"skipped","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":" "}
 ```

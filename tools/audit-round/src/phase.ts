@@ -472,8 +472,9 @@ export function closePhase(config: RoundSettings): PhaseRun {
 /**
  * Every model a round's phases may name for one assistant, whoever audits:
  * the default selection, every class's listed auditors, vetters, ruler and
- * watch writer, the planning fixer, the coders, the close's own pin and each tier a
- * tag can ask for.
+ * watch writer, the planning fixer, the coders, the close's own pin, the split
+ * level's designer, auditors, vetters, ruler and fixer and each tier a tag can
+ * ask for.
  */
 export function namedModels(
   assistant: Assistant,
@@ -491,6 +492,11 @@ export function namedModels(
       ...config.implementationAudit.vetters,
       config.implementationAudit.ruler,
       config.implementationAudit.watch,
+      config.splitAudit.designer,
+      ...config.splitAudit.auditors,
+      ...config.splitAudit.vetters,
+      config.splitAudit.ruler,
+      config.splitAudit.fixer,
     ].map((entry) => implementationPhase(entry)),
     ...(["claude", "codex"] as const).flatMap((auditor) =>
       [null, ...strengths].map((strength) =>

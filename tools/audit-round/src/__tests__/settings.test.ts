@@ -588,10 +588,64 @@ test("every audit report of a class gets that class's whole panel, whoever audit
   assert.ok(namedModels("claude", config).has("planning-vetter"))
 })
 
+test("the split level names each of its roles and resolves every default when the file loads", () => {
+  const config = settingsSchema.parse({
+    ...settings,
+    defaults: {
+      claude: { model: "claude-default", effort: "xhigh" },
+      codex: { model: "codex-default", effort: "medium" },
+    },
+    splitAudit: {
+      designer: { assistant: "claude", model: "default", effort: "low" },
+      auditors: [
+        { assistant: "codex", model: "default", effort: "default" },
+        { assistant: "claude", model: "split-auditor", effort: "default" },
+      ],
+      vetters: [{ assistant: "codex", model: "split-vetter", effort: "high" }],
+      ruler: { assistant: "claude", model: "split-ruler", effort: "default" },
+      fixer: { assistant: "codex", model: "default", effort: "low" },
+    },
+  })
+  assert.deepEqual(config.splitAudit, {
+    designer: { assistant: "claude", model: "claude-default", effort: "low" },
+    auditors: [
+      { assistant: "codex", model: "codex-default", effort: "medium" },
+      { assistant: "claude", model: "split-auditor", effort: "xhigh" },
+    ],
+    vetters: [{ assistant: "codex", model: "split-vetter", effort: "high" }],
+    ruler: { assistant: "claude", model: "split-ruler", effort: "xhigh" },
+    fixer: { assistant: "codex", model: "codex-default", effort: "low" },
+  })
+  // Startup resolves a release for every model the split level names.
+  for (const model of ["split-auditor", "split-ruler"])
+    assert.ok(namedModels("claude", config).has(model), model)
+  assert.ok(namedModels("codex", config).has("split-vetter"))
+  // The split level has no watch, and a file without the level or a role stops with the validation error.
+  assert.equal(
+    settingsSchema.safeParse({
+      ...settings,
+      splitAudit: { ...settings.splitAudit, watch: settings.close },
+    }).success,
+    false,
+  )
+  const { splitAudit, ...withoutSplit } = settings
+  assert.equal(settingsSchema.safeParse(withoutSplit).success, false)
+  for (const role of Object.keys(splitAudit)) {
+    const { [role as keyof typeof splitAudit]: _, ...withoutRole } = splitAudit
+    assert.equal(
+      settingsSchema.safeParse({ ...settings, splitAudit: withoutRole })
+        .success,
+      false,
+      role,
+    )
+  }
+})
+
 test("a vetter list needs one entry and refuses two entries with one tag", () => {
   for (const [workClass, level] of [
     ["planning", "planningAudit"],
     ["implementation", "implementationAudit"],
+    ["split", "splitAudit"],
   ] as const) {
     const config = (vetters: readonly unknown[]) => ({
       ...settings,

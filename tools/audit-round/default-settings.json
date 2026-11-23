@@ -99,6 +99,42 @@
         "model": "default",
         "effort": "default"
     },
+    "splitAudit": {
+        "designer": {
+            "assistant": "claude",
+            "model": "default",
+            "effort": "default"
+        },
+        "auditors": [
+            {
+                "assistant": "codex",
+                "model": "default",
+                "effort": "default"
+            }
+        ],
+        "vetters": [
+            {
+                "assistant": "claude",
+                "model": "opus",
+                "effort": "xhigh"
+            },
+            {
+                "assistant": "codex",
+                "model": "default",
+                "effort": "default"
+            }
+        ],
+        "ruler": {
+            "assistant": "claude",
+            "model": "fable",
+            "effort": "xhigh"
+        },
+        "fixer": {
+            "assistant": "codex",
+            "model": "default",
+            "effort": "default"
+        }
+    },
     "maximumAutomaticRounds": 10,
     "strengthModels": {
         "claude": {

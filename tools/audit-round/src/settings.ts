@@ -41,6 +41,9 @@ export type Coder = z.infer<typeof coderSchema>
 export type Auditor = Coder
 const strengths = z.strictObject({ base: model, top: model })
 
+/** Every settings level that holds a vetter panel, under its work class's name. */
+const panelLevels = { ...auditLevels, split: "splitAudit" } as const
+
 /**
  * A listed entry's `default` resolves once, when the file loads, so every reader
  * sees the selection the entry runs. A ready marker therefore records that
@@ -102,6 +105,22 @@ export const settingsSchema = z
     }),
     /** Loop-close belongs to no round, so it sits under neither audit level. */
     close: assignedSelection,
+    /**
+     * A file split belongs to no plan, so its level follows the plan's fields.
+     * It lists its roles in the order a split runs them and has no watch.
+     */
+    splitAudit: z.strictObject({
+      /** The one writer of every move list. */
+      designer: assignedSelection,
+      /** The ordered auditor list for move lists. */
+      auditors: z.array(assignedSelection).min(1),
+      /** The panel that vets every move-list audit report, run in parallel. */
+      vetters: z.array(assignedSelection).min(1),
+      /** The one judge of every contest and split on a C or D move-list finding. */
+      ruler: assignedSelection,
+      /** The one fixer of move lists. */
+      fixer: assignedSelection,
+    }),
     maximumAutomaticRounds: z.number().int().positive(),
     strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   })
@@ -124,6 +143,13 @@ export const settingsSchema = z
         ruler: resolve(settings.implementationAudit.ruler),
         watch: resolve(settings.implementationAudit.watch),
       },
+      splitAudit: {
+        designer: resolve(settings.splitAudit.designer),
+        auditors: settings.splitAudit.auditors.map(resolve),
+        vetters: settings.splitAudit.vetters.map(resolve),
+        ruler: resolve(settings.splitAudit.ruler),
+        fixer: resolve(settings.splitAudit.fixer),
+      },
     }
   })
   /**
@@ -133,7 +159,7 @@ export const settingsSchema = z
    * tier and effort; changing one effort lets both run.
    */
   .superRefine((settings, context) => {
-    for (const [workClass, level] of Object.entries(auditLevels)) {
+    for (const [workClass, level] of Object.entries(panelLevels)) {
       const tags = settings[level].vetters.map(({ assistant, model, effort }) =>
         selectionTag(assistant, model, effort, settings),
       )

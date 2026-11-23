@@ -25,6 +25,8 @@ const formPrefixes = [
   "settling/",
   "judge/",
   "watch/",
+  "move-list/",
+  "split-result/",
 ] as const
 
 let cached: readonly RoundGrammarExample[] | null = null

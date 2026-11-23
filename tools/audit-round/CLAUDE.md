@@ -75,6 +75,7 @@ Before this rule the file held the automatic-series rules in four places.
 | `output-format.ts` | The text of the settings header, the time and token readings, the capability tag and the commit stamps | [Selections](references/sessions.md#selections), [Output](references/output.md), [The hook's rule](references/commit-hooks.md#the-hooks-rule) |
 | `models.ts`, `model-evidence.ts`, `model-comparison.ts`, `pager.ts`, `pinned-headings.ts` | The model read-out and its full-screen view | [Model read-out](references/model-read-out.md) |
 | `contract-main.ts`, `contract.ts` | The contract command's entry and the CLI contract recorder | [Contract recorder](#contract-recorder) |
+| `move-list.ts`, `split-result.ts` | The reader of a move list, and the reader and writer of the split result line | [Move list](../../.agents/references/round-grammar.md#move-list), [Split result](../../.agents/references/round-grammar.md#split-result) |
 
 Workflows own findings, authority, gates and phase outcomes. The shared protocol's
 [Runner result](../../.agents/references/round-protocol.md#runner-result) rule defines the meaning
@@ -642,8 +643,11 @@ in the order a plan meets them: `planningAudit`, `coders`,
 `implementationAudit` and `close`, for the planning audits, the
 implementation, the implementation audits and then the close.
 Each audit level lists its roles in the order a round runs them: `auditors`,
-`vetters`, `ruler`, for planning `fixer`, and `watch`. `maximumAutomaticRounds` and
-`strengthModels` close the file. The runner reads the fields in any order.
+`vetters`, `ruler`, for planning `fixer`, and `watch`. `splitAudit` follows,
+because a file split belongs to no plan, and lists its roles in the order a
+split runs them: `designer`, `auditors`, `vetters`, `ruler` and `fixer`.
+`maximumAutomaticRounds` and `strengthModels` close the file. The runner reads
+the fields in any order.
 
 - `defaultAuditor` selects which entry in the target work class's auditor list opens a series when
   neither `--auditor` nor `--first` is given and the retained data gives rule 3 no opener. `first`
@@ -654,11 +658,10 @@ Each audit level lists its roles in the order a round runs them: `auditors`,
   or list field that says `default` reads it, and `--auditor claude` or
   `--auditor codex` runs the audit on it. Neither CLI's own model configuration
   is ever read, so this file alone decides what every phase runs on.
-- A `default` in a list field, in an audit level's `ruler`, in `planningAudit.fixer` or in an audit
-  level's `watch` resolves when
-  the file loads. The auditor list, the `models` read-out, a fix and a ready marker therefore all
-  name the resolved selection. A ready marker keeps the coder it recorded when `defaults` changes
-  later.
+- A `default` in a list field, in an audit level's `ruler`, in `planningAudit.fixer`, in an audit
+  level's `watch` or in a `splitAudit` role resolves when the file loads. The auditor list, the
+  `models` read-out, a fix and a ready marker therefore all name the resolved selection. A ready
+  marker keeps the coder it recorded when `defaults` changes later.
 - `planningAudit.auditors` and `implementationAudit.auditors` are non-empty ordered lists. Each
   entry names its assistant, a model and an effort, such as Claude Fable at high and Claude Opus at
   xhigh; either field may say `default`. An automatic series opens from the target work class's
@@ -692,6 +695,15 @@ Each audit level lists its roles in the order a round runs them: `auditors`,
   that write the watch after a round of that work class. Either field may say `default`. The watch
   sits in the audit level because it follows that level's rounds, so each work class can run its
   watch on its own selection.
+- `splitAudit` names the roles of a file split, the split work class. `designer` runs the design
+  session under the [design workflow](../../.agents/skills/design/references/workflow.md).
+  `auditors`, `vetters`, `ruler` and `fixer` fill the roles of a move-list round that the fields of
+  those names fill in the other levels, and the vetter list refuses two entries with one tag as
+  theirs do. Each field may say `default`. The tracked defaults hold one auditor and two vetters:
+  the design session is the file's first reader and one auditor adds a second, and two vetters are
+  the fewest that can disagree. The level has no `watch`, because a move-list series runs none. A
+  file without the level, or a level without one of its five roles, is refused like any other
+  invalid file.
 - `close` names the assistant, model and effort of the loop-close. Each field names a value or says
   `default`; `null` is refused. A named model must suit the selected CLI. It sits at the top level,
   under neither audit level, because the close belongs to no round. The old `planning` and
