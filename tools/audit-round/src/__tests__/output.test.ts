@@ -615,6 +615,9 @@ test("written status stamps chain into the running total", async (t) => {
     },
     "Prompt",
   )
+  assert.ok(
+    visible.at(-1)?.endsWith(`${output.title}\n[fix] starting codex (resumed)`),
+  )
   // A resumed session carries context the round never observed.
   await context(131000)
   await text()

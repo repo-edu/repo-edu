@@ -31,7 +31,9 @@ A run description names the run, lists the phases it may run and locates its fil
 - A commit or move-list audit updates its label's machine-readable series data file.
 - A close and a split call record only their log.
 
-Startup messages go only to the terminal. The run log begins with the models table.
+Startup messages go only to the terminal. The terminal and log show the run title before the
+models table. Each later phase repeats the title above its start line, including each vetter and
+a fix resuming after a ruling.
 
 ## Settings header
 

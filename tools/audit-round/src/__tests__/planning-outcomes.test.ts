@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
+import { documentTag } from "../round-paths.js"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream, recordedTag } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
@@ -232,6 +233,14 @@ for (const working of ["repo-edu", "plan"] as const) {
         0,
       )
       const { log, markdown } = await f.records()
+      const phases = [`vet ${documentTag(f.vet)}`, "rebut", "fix"]
+      if (due) phases.push("watch")
+      for (const text of [log, f.visible.join("\n")]) {
+        const title = /^═{72}\n(.+)$/m.exec(text)?.[1]
+        assert.ok(title)
+        for (const phase of phases)
+          assert.ok(text.includes(`${title}\n[${phase}] starting `), phase)
+      }
       assert.match(
         log,
         due

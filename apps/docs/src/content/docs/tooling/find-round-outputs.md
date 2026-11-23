@@ -27,9 +27,11 @@ audits as three separate groups. Commit targets begin with `commit-`, so every c
 together. Move-list targets begin with `split-`, followed by the source path's segments joined by
 `+`. The same label opens every commit the audit lands, as `commit-804833/commit-audit`, so
 `git log --oneline` shows its records beside the audited commits. A clean commit audit lands one
-empty record with the label, so the log shows that the audit ran. The round number is not a commit
-number. A run's opening line names it as the file round. For a planning round that line first counts
-the round from the plan's latest settle or reopen marker, as `(detailing round 3, file round 6)`.
+empty record with the label, so the log shows that the audit ran.
+
+The terminal and log show the round title at the start of the run and again above each later
+phase's start line. The title includes the file round number. For a planning round it also counts
+from the plan's latest settle or reopen marker, as `(detailing round 3, file round 6)`.
 The order number places the phases in reading order, and a skipped phase leaves a gap. The
 three-letter tag identifies the assistant, model tier and effort that wrote the file. The claim, the
 settle and reopen markers, the handoff and the queue carry no tag.

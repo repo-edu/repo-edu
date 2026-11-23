@@ -769,8 +769,10 @@ export class RoundOutput<R extends Run = Run> {
       peakContext: earlier?.peakContext ?? null,
       compactions: earlier?.compactions ?? 0,
     })
+    const title =
+      input.phase === this.run.phases[0]?.phase ? "" : `${this.run.title}\n`
     this.say(
-      `\n${separator}\n[${key}] starting ${input.assistant} (${this.mode(slot)})`,
+      `\n${separator}\n${title}[${key}] starting ${input.assistant} (${this.mode(slot)})`,
     )
     this.files.log(`[${key}] prompt:\n${prompt}\n`)
     if (slot.held === null) this.heading(slot)
