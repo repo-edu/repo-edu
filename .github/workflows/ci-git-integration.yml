@@ -27,21 +27,19 @@ on:
       INTEGRATION_GITHUB_ORG:
         required: true
 
-concurrency:
-  group: ci-git-integration
-  cancel-in-progress: false
-  queue: max
-
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  live-git-providers:
-    name: live-git-providers
+  gitea-gitlab:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      commit: ${{ steps.checkout.outputs.commit }}
+      run-github: ${{ steps.github-run.outputs.run }}
     steps:
       - uses: actions/checkout@v7
+        id: checkout
         with:
           ref: ${{ inputs.ref || github.ref }}
 
@@ -75,8 +73,23 @@ jobs:
               ;;
           esac
 
+  live-github:
+    needs: gitea-gitlab
+    if: needs.gitea-gitlab.outputs.run-github == 'true'
+    concurrency:
+      group: ci-git-integration
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gitea-gitlab.outputs.commit }}
+
+      - uses: ./.github/actions/setup
+
       - name: Test GitHub replies
-        if: steps.github-run.outputs.run == 'true'
         env:
           INTEGRATION_GITHUB_ORG: ${{ secrets.INTEGRATION_GITHUB_ORG }}
           INTEGRATION_GITHUB_TOKEN: ${{ secrets.INTEGRATION_GITHUB_TOKEN }}

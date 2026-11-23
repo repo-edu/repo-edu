@@ -24,10 +24,12 @@ once and reused across platforms:
 - `ci.yml` — the aggregate workflow that fans out across all five platform
   wrappers and the live Git-provider workflow. It triggers on pushes to
   `renovate/**`, on `workflow_dispatch`, and via `workflow_call`.
-- `ci-git-integration.yml` — one Linux job that runs the live suite against
-  pinned Gitea and GitLab containers and a disposable GitHub organisation. It
-  also runs directly on `main` when Git integration code, its contracts, the
-  live harness or the Node HTTP port changes.
+- `ci-git-integration.yml` runs Gitea and GitLab in pinned Docker containers
+  on each run's own Linux runner. These jobs can run concurrently across
+  branches. When GitHub is selected, a second job tests the same commit after
+  Gitea and GitLab pass. Only this job queues for the shared GitHub test
+  organisation. The workflow also runs directly on `main` when Git integration
+  code, its contracts, the live harness or the Node HTTP port changes.
 
 The GitHub part is deliberately rate-bound. The job tests GitHub on every
 `main` and release run. On a `renovate/**` push it tests GitHub only when the
@@ -151,6 +153,5 @@ fast-forwards onto `main` without a human in the loop. A PR surfaces only when
 CI fails. So a bad upstream release becomes a red branch, never a broken
 `main`.
 
-The live GitHub step receives its fine-grained token and disposable organisation
-only for that process. The same live job runs when `release.yml` calls `ci.yml`,
-so a release cannot bypass the provider replies.
+Only the live GitHub test step receives the token and test organisation. A
+release runs both provider jobs through `ci.yml` and requires them to pass.
