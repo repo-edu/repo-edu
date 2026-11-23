@@ -682,7 +682,7 @@ function auditorVetterSection(
       `No ${workClass} ${tierWords(range)} finding was judged by a vetter on its auditor's model and effort beside another vetter.`,
     ]
   return [
-    `| Auditor as vetter | Other vetter | Shared findings | Auditor as vetter challenged | Other challenged | ${endingColumns} |`,
+    `| Auditor as vetter | Other vetter | Shared findings | Challenges by auditor as vetter | Challenges by other vetter | ${endingColumns} |`,
     "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows.map(
       (row) =>

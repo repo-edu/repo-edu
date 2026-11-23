@@ -1660,7 +1660,7 @@ test("vetters by auditor compare the vetter on the auditor's exact model with ea
     "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
   ]
   const byAuditorHead = [
-    "| Auditor as vetter | Other vetter | Shared findings | Auditor as vetter challenged | Other challenged | Ruled splits | Auditor as vetter only right | Other only right | Both right | Neither right |",
+    "| Auditor as vetter | Other vetter | Shared findings | Challenges by auditor as vetter | Challenges by other vetter | Ruled splits | Auditor as vetter only right | Other only right | Both right | Neither right |",
     "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ]
   const byJudgeHead = [
