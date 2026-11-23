@@ -475,7 +475,10 @@ test("argument errors and help start no assistant processes", async (t) => {
   ])
     assert.match(visible, new RegExp(`^\\s+${name}\\s`, "m"))
   assert.match(visible, /--aborted <reason>/)
-  assert.match(visible, /--all\s+print per-plan round data and excluded plans/)
+  assert.match(
+    visible,
+    /--all\s+print\s+the\s+C\s+vetters\s+by\s+auditor\s+and\s+judge,\s+per-plan\s+round\s+data\s+and\s+excluded\s+plans/,
+  )
   assert.match(
     visible,
     /--vet\s+record that the finding's vet verdict was wrong/,

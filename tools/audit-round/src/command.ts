@@ -976,7 +976,10 @@ Examples (from either checkout):
     .description(
       "Read auditor, vetter and coder results, the user's rulings and the ruler's winners from retained records without starting assistants.",
     )
-    .option("--all", "print per-plan round data and excluded plans")
+    .option(
+      "--all",
+      "print the C vetters by auditor and judge, per-plan round data and excluded plans",
+    )
     .action((flags: { all?: boolean }) => {
       invocation = { kind: "models", all: flags.all === true }
     })

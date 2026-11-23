@@ -18,7 +18,8 @@ in `tools/audit-round/settings.json`.
 
 ```text
 pnpm audit-round models              print the auditor, vetter, coder and ruling read-out
-pnpm audit-round models --all        also print measured per-plan data and excluded plans
+pnpm audit-round models --all        also print the C vetters by auditor and judge, per-plan round data
+                                     and excluded plans
 pnpm audit-round models -h | --help  show the command's help
 ```
 
