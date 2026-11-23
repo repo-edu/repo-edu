@@ -1166,11 +1166,7 @@ async function concludeFixed(
     seriesMayContinue =
       "groups" in input ||
       ("source" in input
-        ? (
-            await dependencies.readMoveList(
-              join(input.planRoot, moveListFile(input.source)),
-            )
-          ).kind === "moves"
+        ? (await dependencies.readMoveList(input.source)).kind === "moves"
         : currentPlan !== null &&
           planPhase(currentPlan) === planPhase(input.plan) &&
           watched.grade !== "red")

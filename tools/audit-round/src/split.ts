@@ -159,26 +159,47 @@ export async function runChecks(
   return null
 }
 
-async function readList(path: string): Promise<MoveList | null> {
-  let text: string
-  try {
-    text = await readFile(path, "utf8")
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null
-    throw error
-  }
-  return readMoveList(text)
+/**
+ * The text of a source's move list as the plan checkout's HEAD holds it, or
+ * null when HEAD holds none. The series rules date every read by commits, so
+ * only committed text has rounds behind it: a split call reports, tries and
+ * carries out no other.
+ */
+export async function committedListText(
+  planRoot: string,
+  source: string,
+): Promise<string | null> {
+  const path = `HEAD:${moveListFile(source)}`
+  const held = await execa("git", ["cat-file", "-e", path], {
+    cwd: planRoot,
+    reject: false,
+  })
+  if (held.exitCode !== 0) return null
+  return (await execa("git", ["show", path], { cwd: planRoot })).stdout
+}
+
+/** The committed text of a move list that a commit must already hold. */
+export async function heldListText(
+  planRoot: string,
+  source: string,
+): Promise<string> {
+  const text = await committedListText(planRoot, source)
+  if (text === null)
+    throw new Error(
+      `The plan checkout's HEAD holds no move list ${moveListFile(source)}`,
+    )
+  return text
 }
 
 /** The paths of the file set that Git shows with any change beside HEAD. */
 async function uncommitted(
-  repoEduRoot: string,
+  root: string,
   paths: readonly string[],
 ): Promise<readonly string[]> {
   const { stdout } = await execa(
     "git",
     ["status", "--porcelain=v1", "--untracked-files=all", "--", ...paths],
-    { cwd: repoEduRoot },
+    { cwd: root },
   )
   return stdout
     .split("\n")
@@ -210,11 +231,11 @@ function listed(names: readonly string[]): string {
 
 /**
  * Carry out one split call on one source file under the plan's Decision 17:
- * read the file's move list, design one when none names the current content,
- * try every list in memory before a round judges it, run the move-list rounds
- * the series rules call for, then write, check and commit the split or put
- * the files back. Every ending with a result names the content hash of the
- * file the call read.
+ * read the file's committed move list, design one when none names the
+ * current content, try every list in memory before a round judges it, run the
+ * move-list rounds the series rules call for, then write, check and commit
+ * the split or put the files back. Every ending with a result names the
+ * content hash of the file the call read.
  */
 export async function runSplit(
   input: SplitInput,
@@ -258,8 +279,25 @@ export async function runSplit(
       await say(`Trying the move list ${listFile} in memory.`)
       return tried(await dependencies.attempt(list))
     })
+  const committedList = async (): Promise<MoveList | null> => {
+    const text = await committedListText(planRoot, source)
+    return text === null ? null : readMoveList(text)
+  }
+  /**
+   * End the call as skipped when the move list has uncommitted changes. A new
+   * design would overwrite them. A round reads the list in the plan checkout,
+   * so it may have judged them in place of the committed list a split would
+   * carry out.
+   */
+  const listEdited = async (): Promise<SplitOutcome | null> =>
+    (await uncommitted(planRoot, [listFile])).length === 0
+      ? null
+      : ended(
+          "skipped",
+          `The move list ${listFile} has uncommitted changes; commit or discard them before the next call.`,
+        )
 
-  const found = await readList(listPath)
+  const found = await committedList()
   let list: Moves
   if (found !== null && found.hash === hash) {
     // The list names the current content, so the call designs nothing.
@@ -299,13 +337,15 @@ export async function runSplit(
     const published = await withSplitLock(repoEduRoot, async () => {
       // Another call may have designed the same content meanwhile, and its
       // rounds may already judge its list.
-      const other = await readList(listPath)
+      const other = await committedList()
       if (other !== null && other.hash === hash)
         return ended(
           "skipped",
           `Another call wrote the move list ${listFile} for this content first.`,
           true,
         )
+      const edited = await listEdited()
+      if (edited !== null) return edited
       await say(`Trying the designed move list in memory.`)
       const outcome = tried(await dependencies.attempt(answer))
       if (outcome !== null) return outcome
@@ -319,13 +359,15 @@ export async function runSplit(
     list = answer
   }
 
+  // An uncommitted change beside a committed list does not stop the rounds: a
+  // stopped fix leaves its change so, and the series continues that round.
   if (await dependencies.roundsDue()) {
-    // The text the latest attempt passed, so a round that leaves the list
-    // unchanged needs no attempt of its own.
-    let attempted = await readFile(listPath, "utf8")
+    // The committed text the latest attempt passed, so a round that leaves
+    // the list unchanged needs no attempt of its own.
+    let attempted = await heldListText(planRoot, source)
     let halted: SplitOutcome | null = null
     const ending = await dependencies.series(async () => {
-      const text = await readFile(listPath, "utf8")
+      const text = await heldListText(planRoot, source)
       if (text === attempted) return true
       const changed = readMoveList(text)
       if (changed.kind !== "moves") return true
@@ -345,7 +387,7 @@ export async function runSplit(
         "The move-list rounds reached their maximum before every listed auditor had a current read of the list.",
         true,
       )
-    const judged = readMoveList(await readFile(listPath, "utf8"))
+    const judged = readMoveList(await heldListText(planRoot, source))
     if (judged.kind === "no-split")
       return ended(
         judged.result,
@@ -369,6 +411,8 @@ export async function runSplit(
           readonly originals: readonly Original[]
         }
     > => {
+      const edited = await listEdited()
+      if (edited !== null) return { ended: edited }
       await say(`Trying the move list ${listFile} in memory before the write.`)
       const reply = await dependencies.attempt(list)
       const outcome = tried(reply)

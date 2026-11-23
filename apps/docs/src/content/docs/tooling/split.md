@@ -40,10 +40,11 @@ A call handles one file in three parts.
 3. **The split.** The call tries the list once more, writes the files, runs `pnpm check` and the
    package's tests and commits the split. When a check fails, it puts every file back.
 
-A file keeps one move list, at `../plan/splits/<path>` with the extension replaced by `.mv.md`. A
-call that finds a list for the file's current content designs nothing and goes on where the list
-stands: more rounds, the split or the withdrawal the list records. So a split that was skipped or
-whose checks failed runs again on a later call without another design or another round.
+A file keeps one move list, at `../plan/splits/<path>` with the extension replaced by `.mv.md`. The
+call reads the list as the plan repo's last commit holds it, because only committed text has rounds
+behind it. A call that finds a list for the file's current content designs nothing and goes on where
+the list stands: more rounds, the split or the withdrawal the list records. So a split that was
+skipped or whose checks failed runs again on a later call without another design or another round.
 
 A lock lets two calls take turns while they write files. The rounds, the checks and the tests hold
 no lock, so another call can run meanwhile. When another call wrote a list for the same content
@@ -65,7 +66,7 @@ ended as it did.
 | `made` | The split is committed; the message names the commit |
 | `fine` | The design session or the withdrawn list judged that the file should stay whole |
 | `needs-plan` | The design session or the withdrawn list judged that the split needs a plan, the statement move tool refused a move or the rounds reached their maximum |
-| `skipped` | The file changed, a file the split would write had uncommitted changes or another call wrote the list first |
+| `skipped` | The file changed, a file the split would write had uncommitted changes, the move list had uncommitted changes or another call wrote the list first |
 | `checks-failed` | `pnpm check` or the package's tests failed; the files are back as they were and the message holds the output |
 
 Beside the split commit a call leaves:

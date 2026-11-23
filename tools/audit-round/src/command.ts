@@ -144,7 +144,12 @@ import {
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
-import { runChecks, runSplit, type SplitSeriesEnding } from "./split.js"
+import {
+  heldListText,
+  runChecks,
+  runSplit,
+  type SplitSeriesEnding,
+} from "./split.js"
 import { attemptMoveList } from "./split-attempt.js"
 import { designIdentity, splitRun } from "./split-output.js"
 import { splitResultLine } from "./split-result.js"
@@ -159,7 +164,6 @@ import {
   commitTargetRequest,
   isActivePlanPath,
   type MoveListTarget,
-  moveListFile,
   planPhase,
   planRepositoryPrefix,
   planStem,
@@ -1581,7 +1585,8 @@ export async function runCommand(
       readRuler: async (file, findings, panel) =>
         readRulerReport(await readFile(file, "utf8"), findings, panel),
       seriesEvidence: readSeriesEvidence,
-      readMoveList: async (file) => readMoveList(await readFile(file, "utf8")),
+      readMoveList: async (source) =>
+        readMoveList(await heldListText(context.planRoot, source)),
       chainDeferrals,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
@@ -2340,10 +2345,7 @@ export async function runCommand(
           // rules apply, as a plan's phase change does.
           if ("source" in target) {
             const list = readMoveList(
-              await readFile(
-                join(context.planRoot, moveListFile(target.source)),
-                "utf8",
-              ),
+              await heldListText(context.planRoot, target.source),
             )
             if (list.kind === "no-split") {
               await active.message(

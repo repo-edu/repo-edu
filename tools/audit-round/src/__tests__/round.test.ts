@@ -415,8 +415,8 @@ function controlledRound(
       assert.ok(record, `No landed record ${sha}`)
       return record
     },
-    readMoveList: async (file) => {
-      movedLists.push(file)
+    readMoveList: async (source) => {
+      movedLists.push(source)
       return moveList
     },
     seriesEvidence: async (): Promise<SeriesEvidence> => ({
@@ -3784,7 +3784,7 @@ test("a move-list round audits its list, lands its record in the plan repo and r
         call.phase,
       )
     assert.deepEqual(round.glances, [])
-    assert.deepEqual(round.movedLists, [list])
+    assert.deepEqual(round.movedLists, [setup.source])
     assert.deepEqual(round.settledWrites[0]?.commits, [
       { repository: "plan", sha: record.sha },
     ])

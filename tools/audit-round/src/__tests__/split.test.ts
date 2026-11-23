@@ -279,10 +279,12 @@ test("a call whose content another call designed first drops its own design and 
       await mkdir(join(context.planRoot, "splits/packages/demo/src"), {
         recursive: true,
       })
+      // The other call writes and commits its list under the lock.
       await writeFile(
         join(context.planRoot, listFile),
         listText(hash, "Holds the other design's b."),
       )
+      await commitAll(context.planRoot, "the other call's design")
       return { status: "finished", document: listText(hash) }
     },
   })
@@ -362,6 +364,7 @@ test("a withdrawn list for the current content gives its recorded result without
     join(context.planRoot, listFile),
     noSplitText(hash, "needs-plan"),
   )
+  await commitAll(context.planRoot, "withdraw the list")
   const { calls, dependencies: deps } = dependencies(context, {})
   const outcome = await runSplit({ ...context, source, identity }, deps)
   assert.equal(outcome.status, "result")
@@ -375,6 +378,86 @@ test("a withdrawn list for the current content gives its recorded result without
   assert.deepEqual(calls.attempts, [])
 })
 
+test("an uncommitted withdrawal is not reported, and a new design does not overwrite it", async (t) => {
+  const { context, hash } = await splitFixture(t)
+  const listPath = join(context.planRoot, listFile)
+  await mkdir(join(context.planRoot, "splits/packages/demo/src"), {
+    recursive: true,
+  })
+  await writeFile(listPath, noSplitText(hash, "fine"))
+  const head = await git(context.planRoot, "rev-parse", "HEAD")
+  const { calls, dependencies: deps } = dependencies(context, {
+    design: { status: "finished", document: listText(hash) },
+  })
+  const outcome = await runSplit({ ...context, source, identity }, deps)
+  assert.equal(outcome.status, "result")
+  if (outcome.status !== "result") return
+  assert.equal(outcome.result.result, "skipped")
+  assert.match(outcome.result.message, /has uncommitted changes/)
+  assert.equal(calls.designs, 1)
+  assert.deepEqual(calls.attempts, [])
+  assert.equal(await readFile(listPath, "utf8"), noSplitText(hash, "fine"))
+  assert.equal(await git(context.planRoot, "rev-parse", "HEAD"), head)
+})
+
+test("a stopped fix's uncommitted change does not stop its rounds, and only the committed list is tried", async (t) => {
+  const { context, hash } = await splitFixture(t)
+  const listPath = join(context.planRoot, listFile)
+  await mkdir(join(context.planRoot, "splits/packages/demo/src"), {
+    recursive: true,
+  })
+  await writeFile(listPath, listText(hash))
+  await commitAll(context.planRoot, "write the list")
+  const fixed = listText(hash, "Holds b, as the stopped fix put it.")
+  await writeFile(listPath, fixed)
+  const { calls, dependencies: deps } = dependencies(context, {
+    series: async (afterRound) => {
+      // The continued fix reads its own change and commits it.
+      assert.equal(await readFile(listPath, "utf8"), fixed)
+      await commitAll(context.planRoot, "the continued fix commits the list")
+      return (await afterRound()) ? "finished" : "halted"
+    },
+  })
+  const outcome = await runSplit({ ...context, source, identity }, deps)
+  assert.equal(outcome.status, "result")
+  if (outcome.status !== "result") return
+  assert.equal(outcome.result.result, "made")
+  assert.deepEqual(
+    calls.attempts.map((list) => list.moves[0].responsibility),
+    [
+      "Holds b.",
+      "Holds b, as the stopped fix put it.",
+      "Holds b, as the stopped fix put it.",
+    ],
+  )
+})
+
+test("an uncommitted change to a list that no round reads skips the split", async (t) => {
+  const { context, hash } = await splitFixture(t)
+  const listPath = join(context.planRoot, listFile)
+  await mkdir(join(context.planRoot, "splits/packages/demo/src"), {
+    recursive: true,
+  })
+  await writeFile(listPath, listText(hash))
+  await commitAll(context.planRoot, "write the list")
+  await writeFile(listPath, listText(hash, "Holds b, as edited by hand."))
+  const { calls, dependencies: deps } = dependencies(context, {
+    roundsDue: false,
+  })
+  const outcome = await runSplit({ ...context, source, identity }, deps)
+  assert.equal(outcome.status, "result")
+  if (outcome.status !== "result") return
+  assert.equal(outcome.result.result, "skipped")
+  assert.match(outcome.result.message, /has uncommitted changes/)
+  // Only the early attempt, on the committed list.
+  assert.deepEqual(
+    calls.attempts.map((list) => list.moves[0].responsibility),
+    ["Holds b."],
+  )
+  assert.deepEqual(calls.checks, [])
+  assert.equal(await git(context.repoEduRoot, "status", "--porcelain"), "")
+})
+
 test("a fix that changes the list is tried before the next round, and a refusal halts the series", async (t) => {
   const { context, hash } = await splitFixture(t)
   const listPath = join(context.planRoot, listFile)
@@ -386,6 +469,7 @@ test("a fix that changes the list is tried before the next round, and a refusal 
       // A clean round leaves the list in place and needs no attempt.
       assert.equal(await afterRound(), true)
       await writeFile(listPath, listText(hash, "Holds b, as the fix put it."))
+      await commitAll(context.planRoot, "the fix changes the list")
       continued = await afterRound()
       return continued ? "finished" : "halted"
     },

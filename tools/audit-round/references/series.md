@@ -119,9 +119,9 @@ fixed rules and maximum as a commit series, with no lifecycle answer and no watc
 - The split call starts the series only when a listed auditor lacks a current read of the list. A
   list whose split was skipped or whose checks failed therefore gets no second series once every
   read is current.
-- After each finished round, before the rules apply, the series reads the list again. A fix that
-  withdrew it ends the series as `withdrawn`. A fix that changed it hands the new list to the split
-  call's attempt, and a refusal or a changed source ends the series as `halted`.
+- After each finished round, before the rules apply, the series reads the committed list again. A
+  fix that withdrew it ends the series as `withdrawn`. A fix that changed it hands the new list to
+  the split call's attempt, and a refusal or a changed source ends the series as `halted`.
 - The series reads its label's round data before reruns and after the split call restores an
   archived series.
 

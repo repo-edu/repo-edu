@@ -872,8 +872,11 @@ export type RoundDependencies = {
   readonly readHead: (root: string) => Promise<string>
   /** Resolve the plan's current file after a fix may have changed its phase. */
   readonly resolvePlan: (roots: PlanRoots, stem: string) => Promise<string>
-  /** Read a move list after a fix may have withdrawn it. */
-  readonly readMoveList: (file: string) => Promise<MoveList>
+  /**
+   * Read a source's move list as the plan checkout's HEAD holds it, after a
+   * fix may have withdrawn it.
+   */
+  readonly readMoveList: (source: string) => Promise<MoveList>
   /**
    * Whether a file exists: a round's kept report, or the plan a finished close
    * left in place.

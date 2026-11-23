@@ -1033,7 +1033,9 @@ package under `apps/`, `packages/` or `tools/`, because that package's tests pro
 `splitSource` in `target.ts` refuses any other path before startup.
 
 **The list.** The call reads the source's blob hash, as `git hash-object` prints it, and the
-file's move list, `moveListFile` in the plan checkout.
+file's move list, `moveListFile`, as the plan checkout's HEAD holds it. The series rules date every
+read by commits, so only committed text has rounds behind it. The call reports, tries and carries
+out no other text, and the series reads the committed list after each round too.
 
 1. A list that names the current content is not designed again. A withdrawn list gives the result
    it records, without a session. A list of moves goes to the early attempt and then to the rounds.
@@ -1042,9 +1044,10 @@ file's move list, `moveListFile` in the plan checkout.
    list that names the same source and hash. An answer of fine or needs a plan ends the call with
    that result and writes no list.
 3. Under the split lock the call then looks again for a list that names the current content. When
-   another call wrote one meanwhile, it drops its own design and ends as skipped. Otherwise it tries
-   the designed list, writes it and commits it alone in the plan repo, in the subject grammar's
-   design form.
+   another call wrote one meanwhile, it drops its own design and ends as skipped. It also ends as
+   skipped when the list's path has uncommitted changes, which the write would overwrite. Otherwise
+   it tries the designed list, writes it and commits it alone in the plan repo, in the subject
+   grammar's design form.
 
 **The rounds.** When a listed auditor of `splitAudit` lacks a current read of the list,
 `missingReads` in `judge.ts` says so and an automatic move-list series runs, under
@@ -1053,9 +1056,15 @@ so a list whose split was skipped or whose checks failed is carried out on a lat
 another round. After each finished round that changed the list, the call tries the changed list
 before the series decides; a refusal or a changed source halts the series.
 
-**The split.** Under the split lock the call tries the list once more, asks Git for uncommitted
-changes in the attempt's file set, keeps each file's text and writes the files. Outside the lock it
-runs `pnpm check` and then `pnpm test <package>`.
+An uncommitted change beside a committed list for the current content does not stop the rounds. A
+stopped fix leaves its change so, and the series continues that round, whose fix reads the change
+and commits it.
+
+**The split.** Under the split lock the call ends as skipped when the move list has uncommitted
+changes, because a round reads the list in the plan checkout and may have judged that text in place
+of the committed list. It then tries the list once more, asks Git for uncommitted changes in the
+attempt's file set, keeps each file's text and writes the files. Outside the lock it runs
+`pnpm check` and then `pnpm test <package>`.
 
 - Both pass: the call commits exactly the file set in the subject grammar's split form. Code
   writes its sentence and its body from the list: the model record, the list's path and one bullet
@@ -1080,7 +1089,7 @@ refresh timer keeps running and no waiting call takes the lock as stale.
 | The split committed | `made` |
 | The design or a withdrawn list judged the file fine | `fine` |
 | The design or a withdrawn list judged that it needs a plan, a move was refused or the rounds reached their maximum | `needs-plan` |
-| The source changed, a file to write had uncommitted changes or another call wrote the list first | `skipped` |
+| The source changed, a file to write had uncommitted changes, the move list had uncommitted changes or another call wrote the list first | `skipped` |
 | A check or the package's tests failed | `checks-failed` |
 
 A failed design session prints its reason, its `Session:` line and a `Rerun:` line naming the same
