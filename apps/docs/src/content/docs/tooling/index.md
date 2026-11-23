@@ -50,7 +50,7 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | I want to check several ranges in one sitting | [`pnpm audit-round round <stem> 2,3-5,6-7`](/repo-edu/tooling/runner-round/) | One series per scope in list order |
 | I want to check work outside a plan | [`pnpm audit-round round-commits <commits>`](/repo-edu/tooling/runner-round/) | A series over the named commits and any fixes it lands |
 | I want to check a round's trajectory | [`/watch [stem\|commit]`](/repo-edu/tooling/watch/) | A grounded green, amber or red judgement; you decide the response |
-| I want to compare the recorded auditors, vetters and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | Auditor results, vetter pairs and times, the findings you ruled on, the ruler's winners and a coder recommendation when the records clearly support one |
+| I want to compare the recorded auditors, vetters and coders | [`pnpm audit-round models`](/repo-edu/tooling/models/) | Auditor results, vetter pairs, vetters by auditor and vetter times, the findings you ruled on, the ruler's winners and a coder recommendation when the records clearly support one |
 | I found that an earlier audit finding or vet verdict was wrong | [`pnpm audit-round disprove ...`](/repo-edu/tooling/disprove/) | Your dated ruling, chosen side and full reason enter the plan's round data |
 
 ### Implementation

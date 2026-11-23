@@ -16,15 +16,18 @@ settings, it creates a missing `settings.json` from the defaults.
 It prints these parts in order:
 
 1. Planning auditors and implementation auditors.
-2. Planning and implementation vetter pairs, then vetter times for each class.
+2. Planning and implementation vetter pairs, then planning and implementation vetters by auditor,
+   then vetter times for each class.
 3. Coders.
 4. Planning and implementation ruling winners.
 5. Planning and implementation ruler winners.
 6. Disproved findings.
 
-Under `--all` it also prints the planning and implementation rounds by plan, once per range, and
-then the excluded plans. Both print only under `--all`, because a reader comparing models does not
-need the measured rows or the plans that supplied no evidence every time.
+Under `--all` it also prints the planning and implementation vetters by auditor and judge, after
+the vetters by auditor. At the end it prints the planning and implementation rounds by plan, once
+per range, and then the excluded plans. These print only under `--all`, because a reader comparing
+models does not need the judges, the measured rows or the plans that supplied no evidence every
+time.
 
 ## Owners
 
@@ -32,9 +35,10 @@ need the measured rows or the plans that supplied no evidence every time.
 - `model-evidence.ts` reads checked round data once, in the round folder and the closed-plan
   archives. It records each auditor sample's plan and whether it is that class's first complete
   round on the plan. It builds one sample per pair of panel vetters and shared finding, with its
-  highest grade, split and ending. It totals vetter times and participant counts from the recorded
-  vet phases of each round. It collects the findings whose round stored a winner, split by
-  who named it. It then joins the step, ready and closed records from both Git histories.
+  highest grade, the round's auditor, both verdicts and the ending and judge of a ruled split. It
+  totals vetter times and participant counts from the recorded vet phases of each round. It collects
+  the findings whose round stored a winner, split by who named it. It then joins the step, ready and
+  closed records from both Git histories.
 - `model-comparison.ts` owns the same-plan comparison, the floor, the opener bounds and the direct
   range comparisons that remain for coders.
 - `pager.ts` owns the [full-screen view](#full-screen-view).
@@ -43,7 +47,8 @@ need the measured rows or the plans that supplied no evidence every time.
 
 ## Ranges
 
-Every auditor, vetter-pair and rounds-by-plan part prints twice in each work class. The one coder
+Every auditor, vetter-pair, vetters-by-auditor and rounds-by-plan part prints twice in each work
+class. The one coder
 part prints twice without a work class. Each heading names the findings it counts. The first section
 counts A and B findings. The second counts C findings only, so models can be compared on C findings
 independently of their serious findings. `tierRanges` in `round-data.ts` lists the two groups.
@@ -103,6 +108,7 @@ Planning and implementation each have a vetter-pair table. A vetter is a model a
 - A winner counts whoever named it, the user or the ruler. A split without a winner counts only as
   shared until its winner is stored, so the table has no open column.
 - A row needs no auditor column, because both vetters judged the same audit reports.
+  [Vetters by auditor](#vetters-by-auditor) groups the same samples by auditor.
 
 The latest ruling decides the ending:
 
@@ -110,6 +116,33 @@ The latest ruling decides the ending:
 - The round's `report` winner proves right the vetters that accepted the finding. A later vet
   ruling does the same.
 - A later disproved finding proves right the vetters that dropped it.
+
+## Vetters by auditor
+
+Planning and implementation each have a vetters-by-auditor table, so a reader can see whether a
+vetter does as well on its own model's audit reports as on another model's.
+
+- A row is an ordered pair from one [vetter-pair](#vetter-pairs) sample. The first vetter ran on
+  the model and effort the round's audit reported. The second is the other vetter of the pair,
+  on another model or effort.
+- Only an exact match of the reported model and effort counts. A shared vendor, an alias or a
+  missing effort does not, so such a pair, and a pair of two outside vetters, supplies no row here.
+  A pair whose two vetters both match supplies none either.
+- A panel of three can give one auditor two rows, one with each other vetter.
+- Each direction gets a row as soon as it has one shared finding, so a missing reverse row means
+  no such finding rather than a measured zero. An empty section says so.
+- A row counts the shared findings, each side's challenges and the ruled splits with their four
+  endings: only the auditor's model right, only the other right, both or neither. The endings sum
+  to the ruled splits.
+- A challenge is a revise, a drop or a referral to the user. An accept with a note is an accept.
+- The splits, the winners and the latest ruling are the vetter-pair samples' own, so the
+  vetter-pair totals hold unchanged.
+
+Under `--all`, each class adds a C table by judge. It breaks each row's ruled splits down by who
+named the latest ruling: `user`, or `ruler` with the model and effort of the round's rule phase
+entry, or `ruler not recorded` without that entry. A later disproval is the user's ruling, so it
+replaces the round's judge and ending, and a row's judge rows add back to its default C row. The
+A/B sections get no such table, because the user is their only judge.
 
 ## Vetter times
 

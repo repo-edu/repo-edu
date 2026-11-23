@@ -92,6 +92,21 @@ export type VetterTimeRow = {
 export type PairEnding = "first" | "second" | "both" | "neither"
 
 /**
+ * Who named the latest ruling on a finding: the user, through the round's
+ * winner or a later disproval, or the ruler, with the model and effort of the
+ * round's rule phase entry or null without that entry.
+ */
+export type RulingJudge =
+  | { readonly kind: "user" }
+  | { readonly kind: "ruler"; readonly identity: ModelIdentity | null }
+
+/** One vetter of a pair and its verdict on the finding both judged. */
+export type PairVetter = {
+  readonly identity: ModelIdentity
+  readonly verdict: VetVerdict
+}
+
+/**
  * One finding that two vetters of one panel both judged. The pair is ordered by
  * model text, so every sample of two models has one orientation.
  */
@@ -99,11 +114,15 @@ export type VetPairSample = {
   readonly workClass: WorkClass
   /** The highest tier the audit report or a vetter gave the finding. */
   readonly grade: RoundFinding["tier"]
-  readonly first: ModelIdentity
-  readonly second: ModelIdentity
-  readonly split: boolean
-  /** Null without a split or while the split has no ruling. */
-  readonly ending: PairEnding | null
+  /** The model and effort the round's audit reported. */
+  readonly auditor: ModelIdentity
+  readonly first: PairVetter
+  readonly second: PairVetter
+  /** The ruled split's ending and its judge; null without a split or while the split has no ruling. */
+  readonly ruling: {
+    readonly ending: PairEnding
+    readonly judge: RulingJudge
+  } | null
 }
 
 /** A finding whose round stored a winner, the user's or the ruler's. */
@@ -548,26 +567,51 @@ function disprovedEvidence(
     )
 }
 
-/**
- * Which verdicts the latest ruling on a finding proved right, or null without
- * one. A later disproval outranks the round's own ruling. A disproved finding
- * proves its drops right, and a disproved vet verdict proves its accepts
- * right. The round's `report` winner proves the accepts right too, because the
- * finding stood as written.
- */
-function rulingProof(
-  finding: RoundFinding,
-  disproved: RoundRecord["disprovedFindingNumbers"],
-): ((review: RoundFindingReview) => boolean) | null {
-  if (finding.number !== null && disproved.finding.has(finding.number))
-    return (review) => disprovalProves("finding", review.verdict)
-  if (finding.number !== null && disproved.vet.has(finding.number))
-    return (review) => disprovalProves("vet", review.verdict)
-  const winner = finding.ruling?.winner
-  if (winner === undefined) return null
+type LatestRuling = {
+  readonly proves: (review: RoundFindingReview) => boolean
+  readonly judge: RulingJudge
+}
+
+/** Which verdicts the round's own winner proved right. */
+function winnerProof(
+  winner: RulingWinner,
+): (review: RoundFindingReview) => boolean {
   if (winner === "report") return (review) => review.verdict === "accept"
   if (winner === "neither") return () => false
   return (review) => winner.includes(review.vet)
+}
+
+/**
+ * Which verdicts the latest ruling on a finding proved right and who named it,
+ * or null without one. A later disproval is the user's and outranks the
+ * round's own ruling. A disproved finding proves its drops right, and a
+ * disproved vet verdict proves its accepts right. The round's `report` winner
+ * proves the accepts right too, because the finding stood as written.
+ */
+function latestRuling(
+  finding: RoundFinding,
+  disproved: RoundRecord["disprovedFindingNumbers"],
+  ruler: ModelIdentity | null,
+): LatestRuling | null {
+  const user = { kind: "user" } as const
+  if (finding.number !== null && disproved.finding.has(finding.number))
+    return {
+      proves: (review) => disprovalProves("finding", review.verdict),
+      judge: user,
+    }
+  if (finding.number !== null && disproved.vet.has(finding.number))
+    return {
+      proves: (review) => disprovalProves("vet", review.verdict),
+      judge: user,
+    }
+  if (finding.ruling === undefined) return null
+  return {
+    proves: winnerProof(finding.ruling.winner),
+    judge:
+      finding.ruling.namedBy === "user"
+        ? user
+        : { kind: "ruler", identity: ruler },
+  }
 }
 
 function pairEnding(firstRight: boolean, secondRight: boolean): PairEnding {
@@ -615,10 +659,19 @@ function vetterTimes(
  * of one vetter has no pair, so it supplies none.
  */
 function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
-  return records.flatMap((record) =>
-    record.data.findings.flatMap((finding) => {
+  return records.flatMap((record) => {
+    const auditor = selectionIdentity(
+      record.data.auditor.assistant,
+      record.data.auditor,
+    )
+    const ruler = roundRuler(record.data)
+    return record.data.findings.flatMap((finding) => {
       const grade = highestGrade(finding)
-      const proof = rulingProof(finding, record.disprovedFindingNumbers)
+      const ruling = latestRuling(
+        finding,
+        record.disprovedFindingNumbers,
+        ruler,
+      )
       const judged = roundVets(record.data, finding).flatMap((vet) => {
         const review = finding.reviews.find(
           (candidate) => candidate.vet === vet.tag,
@@ -632,22 +685,30 @@ function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
             0
               ? [right, left]
               : [left, right]
-          const split = reviewsSplit(first.review, second.review)
           return {
             workClass: record.workClass,
             grade,
-            first: first.identity,
-            second: second.identity,
-            split,
-            ending:
-              split && proof !== null
-                ? pairEnding(proof(first.review), proof(second.review))
+            auditor,
+            first: { identity: first.identity, verdict: first.review.verdict },
+            second: {
+              identity: second.identity,
+              verdict: second.review.verdict,
+            },
+            ruling:
+              reviewsSplit(first.review, second.review) && ruling !== null
+                ? {
+                    ending: pairEnding(
+                      ruling.proves(first.review),
+                      ruling.proves(second.review),
+                    ),
+                    judge: ruling.judge,
+                  }
                 : null,
           }
         }),
       )
-    }),
-  )
+    })
+  })
 }
 
 /**

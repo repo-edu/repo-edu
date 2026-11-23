@@ -22,9 +22,11 @@ import {
   modelKey,
   modelText,
   type PairEnding,
+  type PairVetter,
   type RoundVet,
   type RuledFinding,
   type RulerWinner,
+  type RulingJudge,
   readModelEvidence,
   type VetPairSample,
   type VetterTimeRow,
@@ -478,12 +480,44 @@ function coderTable(
   ]
 }
 
-type VetPairRow = {
+/** An ordered pair of vetters and how its ruled splits ended. */
+type RuledPairCounts = {
   readonly first: ModelIdentity
   readonly second: ModelIdentity
-  shared: number
   splits: number
   readonly endings: Record<PairEnding, number>
+}
+
+type VetPairRow = RuledPairCounts & { shared: number }
+
+function pairKey(first: ModelIdentity, second: ModelIdentity): string {
+  return `${auditorKey(first)}\u0000${auditorKey(second)}`
+}
+
+function sortedPairRows<
+  Row extends { readonly first: ModelIdentity; readonly second: ModelIdentity },
+>(rows: Iterable<Row>, after: (first: Row, second: Row) => number = () => 0) {
+  return [...rows].sort(
+    (first, second) =>
+      modelText(first.first).localeCompare(modelText(second.first)) ||
+      modelText(first.second).localeCompare(modelText(second.second)) ||
+      after(first, second),
+  )
+}
+
+function emptyEndings(): Record<PairEnding, number> {
+  return { first: 0, second: 0, both: 0, neither: 0 }
+}
+
+function classSamples(
+  samples: readonly VetPairSample[],
+  workClass: WorkClass,
+  range: TierRange,
+): VetPairSample[] {
+  return samples.filter(
+    (sample) =>
+      sample.workClass === workClass && tierWithin(sample.grade, range),
+  )
 }
 
 /** One row per pair of vetters with a shared finding of the class graded within the range. */
@@ -493,28 +527,22 @@ function vetPairRows(
   range: TierRange,
 ): VetPairRow[] {
   const rows = new Map<string, VetPairRow>()
-  for (const sample of samples) {
-    if (sample.workClass !== workClass || !tierWithin(sample.grade, range))
-      continue
-    const key = `${auditorKey(sample.first)}\u0000${auditorKey(sample.second)}`
+  for (const sample of classSamples(samples, workClass, range)) {
+    const key = pairKey(sample.first.identity, sample.second.identity)
     const row = rows.get(key) ?? {
-      first: sample.first,
-      second: sample.second,
+      first: sample.first.identity,
+      second: sample.second.identity,
       shared: 0,
       splits: 0,
-      endings: { first: 0, second: 0, both: 0, neither: 0 },
+      endings: emptyEndings(),
     }
     rows.set(key, row)
     row.shared += 1
-    if (sample.ending === null) continue
+    if (sample.ruling === null) continue
     row.splits += 1
-    row.endings[sample.ending] += 1
+    row.endings[sample.ruling.ending] += 1
   }
-  return [...rows.values()].sort(
-    (first, second) =>
-      modelText(first.first).localeCompare(modelText(second.first)) ||
-      modelText(first.second).localeCompare(modelText(second.second)),
-  )
+  return sortedPairRows(rows.values())
 }
 
 function vetPairSection(
@@ -533,6 +561,182 @@ function vetPairSection(
     ...rows.map(
       (row) =>
         `| ${escapeCell(modelText(row.first))} | ${escapeCell(modelText(row.second))} | ${row.shared} | ${row.splits} | ${row.endings.first} | ${row.endings.second} | ${row.endings.both} | ${row.endings.neither} |`,
+    ),
+  ]
+}
+
+/**
+ * A shared finding seen from the vetter that ran on its auditor's model and
+ * effort: that vetter first and the ending turned to match. Only an exact
+ * release and effort match counts, so a shared vendor, an alias or a missing
+ * effort does not. A pair with no such vetter, or with two, supplies none.
+ */
+type AuditorVetterSample = {
+  readonly own: PairVetter
+  readonly other: PairVetter
+  readonly ruling: VetPairSample["ruling"]
+}
+
+function sameSelection(vetter: ModelIdentity, auditor: ModelIdentity): boolean {
+  return (
+    vetter.effort !== null &&
+    vetter.model === auditor.model &&
+    vetter.effort === auditor.effort
+  )
+}
+
+const turnedEnding: Record<PairEnding, PairEnding> = {
+  first: "second",
+  second: "first",
+  both: "both",
+  neither: "neither",
+}
+
+function auditorVetterSample(
+  sample: VetPairSample,
+): AuditorVetterSample | null {
+  const firstOwn = sameSelection(sample.first.identity, sample.auditor)
+  const secondOwn = sameSelection(sample.second.identity, sample.auditor)
+  if (firstOwn === secondOwn) return null
+  if (firstOwn)
+    return { own: sample.first, other: sample.second, ruling: sample.ruling }
+  return {
+    own: sample.second,
+    other: sample.first,
+    ruling:
+      sample.ruling === null
+        ? null
+        : { ...sample.ruling, ending: turnedEnding[sample.ruling.ending] },
+  }
+}
+
+function auditorVetterSamples(
+  samples: readonly VetPairSample[],
+  workClass: WorkClass,
+  range: TierRange,
+): AuditorVetterSample[] {
+  return classSamples(samples, workClass, range).flatMap((sample) => {
+    const turned = auditorVetterSample(sample)
+    return turned === null ? [] : [turned]
+  })
+}
+
+/** A challenge is any verdict but Accept; an Accept with a note stays an Accept. */
+function challenged(vetter: PairVetter): number {
+  return vetter.verdict === "accept" ? 0 : 1
+}
+
+type AuditorVetterRow = VetPairRow & {
+  ownChallenged: number
+  otherChallenged: number
+}
+
+/** One row per ordered pair: the vetter on the auditor's model, then the other vetter. */
+function auditorVetterRows(
+  samples: readonly AuditorVetterSample[],
+): AuditorVetterRow[] {
+  const rows = new Map<string, AuditorVetterRow>()
+  for (const sample of samples) {
+    const key = pairKey(sample.own.identity, sample.other.identity)
+    const row = rows.get(key) ?? {
+      first: sample.own.identity,
+      second: sample.other.identity,
+      shared: 0,
+      ownChallenged: 0,
+      otherChallenged: 0,
+      splits: 0,
+      endings: emptyEndings(),
+    }
+    rows.set(key, row)
+    row.shared += 1
+    row.ownChallenged += challenged(sample.own)
+    row.otherChallenged += challenged(sample.other)
+    if (sample.ruling === null) continue
+    row.splits += 1
+    row.endings[sample.ruling.ending] += 1
+  }
+  return sortedPairRows(rows.values())
+}
+
+function tierWords(range: TierRange): string {
+  return range === "A/B" ? "A or B" : "C"
+}
+
+function endingCells(row: RuledPairCounts): string {
+  return `${row.splits} | ${row.endings.first} | ${row.endings.second} | ${row.endings.both} | ${row.endings.neither}`
+}
+
+const endingColumns =
+  "Ruled splits | Auditor as vetter only right | Other only right | Both right | Neither right"
+
+function auditorVetterSection(
+  samples: readonly VetPairSample[],
+  workClass: WorkClass,
+  range: TierRange,
+): string[] {
+  const rows = auditorVetterRows(
+    auditorVetterSamples(samples, workClass, range),
+  )
+  if (rows.length === 0)
+    return [
+      `No ${workClass} ${tierWords(range)} finding was judged by a vetter on its auditor's model and effort beside another vetter.`,
+    ]
+  return [
+    `| Auditor as vetter | Other vetter | Shared findings | Auditor as vetter challenged | Other challenged | ${endingColumns} |`,
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...rows.map(
+      (row) =>
+        `| ${escapeCell(modelText(row.first))} | ${escapeCell(modelText(row.second))} | ${row.shared} | ${row.ownChallenged} | ${row.otherChallenged} | ${endingCells(row)} |`,
+    ),
+  ]
+}
+
+function judgeText(judge: RulingJudge): string {
+  if (judge.kind === "user") return "user"
+  return judge.identity === null
+    ? "ruler not recorded"
+    : `ruler ${modelText(judge.identity)}`
+}
+
+type AuditorJudgeRow = RuledPairCounts & { readonly judge: string }
+
+/**
+ * The ruled C splits of each ordered pair, one row per judge. A later
+ * disproval is the user's ruling, so it replaces the round's judge and ending,
+ * and each pair's rows add back to its default row.
+ */
+function auditorJudgeSection(
+  samples: readonly VetPairSample[],
+  workClass: WorkClass,
+): string[] {
+  const rows = new Map<string, AuditorJudgeRow>()
+  for (const sample of auditorVetterSamples(samples, workClass, "C")) {
+    if (sample.ruling === null) continue
+    const judge = judgeText(sample.ruling.judge)
+    const key = `${pairKey(sample.own.identity, sample.other.identity)}\u0000${judge}`
+    const row = rows.get(key) ?? {
+      first: sample.own.identity,
+      second: sample.other.identity,
+      judge,
+      splits: 0,
+      endings: emptyEndings(),
+    }
+    rows.set(key, row)
+    row.splits += 1
+    row.endings[sample.ruling.ending] += 1
+  }
+  if (rows.size === 0)
+    return [
+      `No ${workClass} C finding judged by a vetter on its auditor's model and effort beside another vetter holds a ruled split.`,
+    ]
+  return [
+    `| Auditor as vetter | Other vetter | Judge | ${endingColumns} |`,
+    "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ...sortedPairRows(rows.values(), (first, second) =>
+      first.judge.localeCompare(second.judge),
+    ).map(
+      (row) =>
+        `| ${escapeCell(modelText(row.first))} | ${escapeCell(modelText(row.second))} | ${escapeCell(row.judge)} | ${endingCells(row)} |`,
     ),
   ]
 }
@@ -856,6 +1060,26 @@ export async function modelsReport(
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
     "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel. The highest tier given by the audit report or any vetter determines the section. Ruled splits counts the shared findings where the two vetters split and a winner is stored. The user names the winner on an A or B finding and the ruler on a C finding. The four Split columns show how those ruled splits ended. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
+    "",
+    ...rangeSections("Planning vetters by auditor", (range) =>
+      auditorVetterSection(evidence.vetPairs, "planning", range),
+    ),
+    ...rangeSections("Implementation vetters by auditor", (range) =>
+      auditorVetterSection(evidence.vetPairs, "implementation", range),
+    ),
+    ...(options.all
+      ? [
+          "## Planning vetters by auditor and judge, C findings",
+          "",
+          ...auditorJudgeSection(evidence.vetPairs, "planning"),
+          "",
+          "## Implementation vetters by auditor and judge, C findings",
+          "",
+          ...auditorJudgeSection(evidence.vetPairs, "implementation"),
+          "",
+        ]
+      : []),
+    `Auditor as vetter ran on the model and effort the round's audit reported, and the other vetter on another model or effort of the same panel. A row counts the findings both judged in that auditor's audit reports, so a row and its reverse show whether the result changes with the auditor. A missing row means no such finding, not a zero. A challenge is a revise, a drop or a referral to the user, and an accept with a note counts as an accept. Ruled splits and their four endings follow the vetter-pair rule above and sum to ruled splits.${options.all ? " The tables by judge break each ruled C split down by who named its latest ruling: the user, including a later disproval, or the ruler by its recorded model and effort. They add back to the C rows." : ""}`,
     "",
     ...vetterTimeSection(evidence.vetterTimes.planning, "planning"),
     "",

@@ -1502,6 +1502,252 @@ test("a read-out without a panel of two vetters prints no vetter pairs", async (
   )
 })
 
+test("vetters by auditor compare the vetter on the auditor's exact model with each other vetter, per class and range", async (t) => {
+  const f = await modelFixture(t)
+  const { alpha, beta, gamma } = panelVets
+  const auditedBy = (
+    vet: RoundData["phases"][number],
+    effort = vet.effort,
+  ): RoundData["auditor"] => ({
+    assistant: vet.assistant,
+    model: vet.model,
+    effort,
+    chosenBy: "settings",
+  })
+  const audit = (vet: RoundData["phases"][number]) =>
+    phase("audit", vet.assistant, vet.model, 60_000, vet.effort ?? "low")
+  const reason = "fixture ruling"
+  const byRuler = (
+    entry: RoundFinding,
+    winner: NonNullable<RoundFinding["ruling"]>["winner"],
+  ): RoundFinding => ({
+    ...entry,
+    ruling: { winner, reason, namedBy: "ruler" },
+  })
+  const planPath = join(f.roundRoot, "byauditor-plan-rounds.json")
+  const planRound = (
+    roundNumber: number,
+    auditor: RoundData["auditor"],
+    phases: RoundData["phases"],
+    findings: RoundFinding[],
+  ) =>
+    writeRoundData(planPath, {
+      ...round(
+        "byauditor-plan-audit",
+        roundNumber,
+        `2026-10-0${roundNumber}T10:00:00.000Z`,
+        auditor,
+        panelSettings(phases.filter((entry) => entry.phase === "vet")),
+        phases,
+        [],
+        findings,
+      ),
+      phase: "detailing",
+      settling: "",
+    })
+  planRound(
+    1,
+    auditedBy(alpha),
+    [
+      audit(alpha),
+      alpha,
+      beta,
+      gamma,
+      phase("rule", "claude", "rule-model", 60_000, "xhigh"),
+    ],
+    [
+      ruledFinding(
+        1,
+        "user-ruled B split",
+        "B",
+        [
+          review("atl", "accept"),
+          review("obl", "drop"),
+          review("abm", "accept"),
+        ],
+        { winner: ["atl", "abm"], reason },
+      ),
+      ruledFinding(2, "open B split", "B", [
+        review("atl", "revise"),
+        review("obl", "revise"),
+        review("abm", "accept"),
+      ]),
+      byRuler(
+        ruledFinding(3, "ruler-ruled C split", "C", [
+          review("atl", "accept"),
+          review("obl", "drop"),
+          review("abm", "drop"),
+        ]),
+        ["obl", "abm"],
+      ),
+      byRuler(
+        ruledFinding(4, "later-disproved C split", "C", [
+          review("atl", "drop"),
+          review("obl", "accept"),
+          review("abm", "accept"),
+        ]),
+        "report",
+      ),
+    ],
+  )
+  planRound(
+    2,
+    auditedBy(beta),
+    [audit(beta), alpha, beta],
+    [
+      byRuler(
+        ruledFinding(1, "C split without a recorded ruler", "C", [
+          review("atl", "accept"),
+          review("obl", "drop"),
+        ]),
+        ["obl"],
+      ),
+      ruledFinding(
+        2,
+        "B split nobody won",
+        "B",
+        [review("atl", "drop"), review("obl", "accept")],
+        { winner: "neither", reason },
+      ),
+    ],
+  )
+  planRound(
+    3,
+    auditedBy(gamma, "low"),
+    [audit(gamma), alpha, gamma],
+    [
+      ruledFinding(
+        1,
+        "other effort",
+        "B",
+        [review("atl", "accept"), review("abm", "drop")],
+        { winner: ["abm"], reason },
+      ),
+    ],
+  )
+  writeDisprovedFinding(planPath, {
+    date: "2026-11-01",
+    reason: "The claim did not hold.",
+    target: "byauditor-plan-audit",
+    round: 1,
+    finding: 4,
+  })
+  writeRoundData(join(f.roundRoot, "byauditor-impl-rounds.json"), {
+    ...round(
+      "byauditor-impl-audit-01..01",
+      1,
+      "2026-10-04T10:00:00.000Z",
+      auditedBy(alpha),
+      panelSettings([alpha, beta]),
+      [audit(alpha), alpha, beta],
+      [],
+      [
+        ruledFinding(
+          1,
+          "implementation B split",
+          "B",
+          [review("atl", "drop"), review("obl", "accept")],
+          { winner: ["atl"], reason },
+        ),
+      ],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const pairHead = (range: TierRange) => [
+    `| Vetter 1 | Vetter 2 | Shared ${range} findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |`,
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+  ]
+  const byAuditorHead = [
+    "| Auditor as vetter | Other vetter | Shared findings | Auditor as vetter challenged | Other challenged | Ruled splits | Auditor as vetter only right | Other only right | Both right | Neither right |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+  ]
+  const byJudgeHead = [
+    "| Auditor as vetter | Other vetter | Judge | Ruled splits | Auditor as vetter only right | Other only right | Both right | Neither right |",
+    "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |",
+  ]
+  const pairs = [
+    "## Planning vetter pairs, A/B findings",
+    "",
+    ...pairHead("A/B"),
+    "| vet-alpha low | vet-beta low | 3 | 2 | 1 | 0 | 0 | 1 |",
+    "| vet-alpha low | vet-gamma medium | 3 | 1 | 0 | 1 | 0 | 0 |",
+    "| vet-beta low | vet-gamma medium | 2 | 1 | 0 | 1 | 0 | 0 |",
+    "",
+    "## Planning vetter pairs, C findings",
+    "",
+    ...pairHead("C"),
+    "| vet-alpha low | vet-beta low | 3 | 3 | 1 | 2 | 0 | 0 |",
+    "| vet-alpha low | vet-gamma medium | 2 | 2 | 1 | 1 | 0 | 0 |",
+    "| vet-beta low | vet-gamma medium | 2 | 0 | 0 | 0 | 0 | 0 |",
+    "",
+    "## Implementation vetter pairs, A/B findings",
+    "",
+    ...pairHead("A/B"),
+    "| vet-alpha low | vet-beta low | 1 | 1 | 1 | 0 | 0 | 0 |",
+    "",
+    "## Implementation vetter pairs, C findings",
+    "",
+    "No two implementation vetters have judged the same C finding.",
+  ]
+  const byAuditor = [
+    "## Planning vetters by auditor, A/B findings",
+    "",
+    ...byAuditorHead,
+    "| vet-alpha low | vet-beta low | 2 | 1 | 2 | 1 | 1 | 0 | 0 | 0 |",
+    "| vet-alpha low | vet-gamma medium | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |",
+    "| vet-beta low | vet-alpha low | 1 | 0 | 1 | 1 | 0 | 0 | 0 | 1 |",
+    "",
+    "## Planning vetters by auditor, C findings",
+    "",
+    ...byAuditorHead,
+    "| vet-alpha low | vet-beta low | 2 | 1 | 1 | 2 | 1 | 1 | 0 | 0 |",
+    "| vet-alpha low | vet-gamma medium | 2 | 1 | 1 | 2 | 1 | 1 | 0 | 0 |",
+    "| vet-beta low | vet-alpha low | 1 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |",
+    "",
+    "## Implementation vetters by auditor, A/B findings",
+    "",
+    ...byAuditorHead,
+    "| vet-alpha low | vet-beta low | 1 | 1 | 0 | 1 | 1 | 0 | 0 | 0 |",
+    "",
+    "## Implementation vetters by auditor, C findings",
+    "",
+    "No implementation C finding was judged by a vetter on its auditor's model and effort beside another vetter.",
+  ]
+  const byJudge = [
+    "## Planning vetters by auditor and judge, C findings",
+    "",
+    ...byJudgeHead,
+    "| vet-alpha low | vet-beta low | ruler rule-model xhigh | 1 | 0 | 1 | 0 | 0 |",
+    "| vet-alpha low | vet-beta low | user | 1 | 1 | 0 | 0 | 0 |",
+    "| vet-alpha low | vet-gamma medium | ruler rule-model xhigh | 1 | 0 | 1 | 0 | 0 |",
+    "| vet-alpha low | vet-gamma medium | user | 1 | 1 | 0 | 0 | 0 |",
+    "| vet-beta low | vet-alpha low | ruler not recorded | 1 | 1 | 0 | 0 | 0 |",
+    "",
+    "## Implementation vetters by auditor and judge, C findings",
+    "",
+    "No implementation C finding judged by a vetter on its auditor's model and effort beside another vetter holds a ruled split.",
+  ]
+  const section = (report: string) =>
+    report
+      .split("\n\nAuditor rows sort by")[1]
+      .split("\n\nAuditor as vetter ran on")[0]
+      .split(/\n\nA vetter is a model and an effort\.[^\n]*\n\n/)
+
+  const [defaultPairs, defaultByAuditor] = section(
+    await modelsReport(f.runtime, testSettings),
+  )
+  assert.equal(defaultPairs.split(/^[^\n]*\n\n/)[1], pairs.join("\n"))
+  assert.equal(defaultByAuditor, byAuditor.join("\n"))
+
+  const [allPairs, allByAuditor] = section(
+    await modelsReport(f.runtime, testSettings, { all: true }),
+  )
+  assert.equal(allPairs, defaultPairs)
+  assert.equal(allByAuditor, [...byAuditor, "", ...byJudge].join("\n"))
+})
+
 test("vetter times count actual participants and pool runs only in each vetter's rounds and class", async (t) => {
   const f = await modelFixture(t)
   const { alpha, beta, gamma } = panelVets
