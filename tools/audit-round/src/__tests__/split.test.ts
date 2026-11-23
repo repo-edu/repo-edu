@@ -35,6 +35,14 @@ const identity = {
   record: "claude-opus-5 xhigh",
 }
 
+/** One call's input: it waits after its rounds unless the test asks for one flow. */
+const input = (context: ReturnType<typeof testContext>, wait = true) => ({
+  ...context,
+  source,
+  identity,
+  wait,
+})
+
 async function repository(root: string): Promise<void> {
   await mkdir(root, { recursive: true })
   await execa("git", ["init", "--quiet"], { cwd: root })
@@ -200,7 +208,7 @@ test("a design that judges the file fine ends the call with no list", async (t) 
   const { calls, dependencies: deps } = dependencies(context, {
     design: { status: "finished", document: noSplitText(hash, "fine") },
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.deepEqual(outcome, {
     status: "result",
     result: {
@@ -216,12 +224,47 @@ test("a design that judges the file fine ends the call with no list", async (t) 
   await assert.rejects(readFile(join(context.planRoot, listFile), "utf8"))
 })
 
-test("a designed list is tried, committed, judged, written, checked and committed as the split", async (t) => {
+test("a call whose rounds finished ends as waiting with no file changed, and the next call carries the list out", async (t) => {
   const { context, hash } = await splitFixture(t)
   const { calls, dependencies: deps } = dependencies(context, {
     design: { status: "finished", document: listText(hash) },
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const before = await git(context.repoEduRoot, "rev-parse", "HEAD")
+  assert.deepEqual(await runSplit(input(context), deps), {
+    status: "result",
+    result: {
+      result: "waiting",
+      hash,
+      message: `The rounds on the move list ${listFile} have finished, and the next call on ${source} carries out the split.`,
+    },
+    // Every read is current, so the series has finished and moves.
+    live: false,
+  })
+  assert.equal(calls.series, 1)
+  // Only the designed list before its commit: no attempt before a write.
+  assert.equal(calls.attempts.length, 1)
+  assert.deepEqual(calls.checks, [])
+  assert.equal(await git(context.repoEduRoot, "rev-parse", "HEAD"), before)
+  assert.equal(await git(context.repoEduRoot, "status", "--porcelain"), "")
+  const next = await runSplit(input(context), deps)
+  assert.equal(next.status, "result")
+  if (next.status !== "result") return
+  assert.equal(next.result.result, "made")
+  assert.equal(calls.designs, 1)
+  assert.equal(calls.series, 1)
+  assert.deepEqual(calls.checks, ["packages/demo"])
+  assert.equal(
+    await git(context.repoEduRoot, "show", "--name-only", "--format=", "HEAD"),
+    [source, target].join("\n"),
+  )
+})
+
+test("a call that does not wait tries, commits, judges, writes, checks and commits a designed list as the split", async (t) => {
+  const { context, hash } = await splitFixture(t)
+  const { calls, dependencies: deps } = dependencies(context, {
+    design: { status: "finished", document: listText(hash) },
+  })
+  const outcome = await runSplit(input(context, false), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "made")
@@ -268,7 +311,7 @@ test("a refused design list ends the call as one that needs a plan and writes no
       { outcome: "refused", message: "entry 1: the move adds diagnostics" },
     ],
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "needs-plan")
@@ -295,7 +338,7 @@ test("a call whose content another call designed first drops its own design and 
       return { status: "finished", document: listText(hash) }
     },
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "skipped")
@@ -318,7 +361,7 @@ test("a list that names the current content goes on without a design, and a dirt
   const { calls, dependencies: deps } = dependencies(context, {
     roundsDue: false,
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "skipped")
@@ -348,7 +391,7 @@ test("failed checks put every written file back as it was", async (t) => {
     checks: { command: "pnpm check", output: "src/target.ts(1,1): error" },
   })
   const head = await git(context.repoEduRoot, "rev-parse", "HEAD")
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context, false), deps)
   assert.deepEqual(outcome, {
     status: "result",
     result: {
@@ -373,7 +416,7 @@ test("a withdrawn list for the current content gives its recorded result without
   )
   await commitAll(context.planRoot, "withdraw the list")
   const { calls, dependencies: deps } = dependencies(context, {})
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "needs-plan")
@@ -398,7 +441,7 @@ test("an uncommitted withdrawal is not reported, and a new design does not overw
   const { calls, dependencies: deps } = dependencies(context, {
     design: { status: "finished", document: listText(hash) },
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "skipped")
@@ -427,7 +470,7 @@ test("a stopped fix's uncommitted change does not stop its rounds, and only the 
       return (await afterRound()) ? "finished" : "halted"
     },
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context, false), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "made")
@@ -453,7 +496,7 @@ test("an uncommitted change to a list that no round reads skips the split", asyn
   const { calls, dependencies: deps } = dependencies(context, {
     roundsDue: false,
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "skipped")
@@ -483,7 +526,7 @@ test("a fix that changes the list is tried before the next round, and a refusal 
       return continued ? "finished" : "halted"
     },
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(continued, false)
   assert.equal(calls.attempts.length, 2)
   assert.equal(
@@ -517,7 +560,7 @@ test("a later call that ends before any round keeps an unfinished series live an
       roundsDue,
       attempts: [refused],
     })
-    const outcome = await runSplit({ ...context, source, identity }, deps)
+    const outcome = await runSplit(input(context), deps)
     assert.equal(outcome.status, "result")
     if (outcome.status !== "result") return
     assert.equal(outcome.result.result, "needs-plan")
@@ -533,7 +576,7 @@ test("the round maximum ends the call as one that needs a plan and keeps the ser
     design: { status: "finished", document: listText(hash) },
     series: async () => "limit",
   })
-  const outcome = await runSplit({ ...context, source, identity }, deps)
+  const outcome = await runSplit(input(context), deps)
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "needs-plan")
@@ -547,10 +590,9 @@ test("a stopped round and a failed design give no result", async (t) => {
     design: { status: "finished", document: listText(hash) },
     series: async () => "stopped",
   })
-  assert.deepEqual(
-    await runSplit({ ...context, source, identity }, stopped.dependencies),
-    { status: "stopped" },
-  )
+  assert.deepEqual(await runSplit(input(context), stopped.dependencies), {
+    status: "stopped",
+  })
   await writeFile(join(context.repoEduRoot, source), "export const c = 3\n")
   await commitAll(context.repoEduRoot, "change the source")
   const failed = dependencies(context, {
@@ -560,10 +602,11 @@ test("a stopped round and a failed design give no result", async (t) => {
       sessionId: "design-session",
     },
   })
-  assert.deepEqual(
-    await runSplit({ ...context, source, identity }, failed.dependencies),
-    { status: "design-failed", reason: "blocked", sessionId: "design-session" },
-  )
+  assert.deepEqual(await runSplit(input(context), failed.dependencies), {
+    status: "design-failed",
+    reason: "blocked",
+    sessionId: "design-session",
+  })
 })
 
 test("the split command runs the design session, logs the call under its label and ends with the result line", async (t) => {
@@ -625,4 +668,42 @@ test("the split command runs the design session, logs the call under its label a
     readFile(join(f.roundRoot, `${label}-split.log`), "utf8"),
   )
   await assert.rejects(readFile(join(f.planRoot, listFile), "utf8"))
+})
+
+test("a failed design under --no-wait keeps the flag in its rerun line", async (t) => {
+  const f = await roundFixture(
+    t,
+    "codex",
+    "repo-edu",
+    false,
+    null,
+    false,
+    "repo-edu",
+    true,
+  )
+  await mkdir(join(f.repoRoot, "packages/demo/src"), { recursive: true })
+  await writeFile(join(f.repoRoot, source), "export const a = 1\n")
+  await commitAll(f.repoRoot, "add the source")
+  await f.configure({
+    phases: {
+      ...f.phases,
+      design: {
+        stream: await phaseStream(
+          "claude",
+          'Design failed.\nPHASE RESULT: {"status":"failed","reason":"Missing input"}',
+          "design-session",
+        ),
+      },
+    },
+  })
+  const code = await runCommand(
+    ["split", source, "--no-wait"],
+    f.runtime,
+    f.options,
+  )
+  assert.equal(code, 1)
+  assert.match(
+    f.visible.join("\n"),
+    /^Rerun: pnpm audit-round split packages\/demo\/src\/source\.ts --no-wait$/m,
+  )
 })

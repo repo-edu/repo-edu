@@ -1,8 +1,9 @@
 import { z } from "zod"
 
-/** The five results a split call ends with, in the order of the round grammar. */
+/** The six results a split call ends with, in the order of the round grammar. */
 export const splitResults = [
   "made",
+  "waiting",
   "fine",
   "needs-plan",
   "skipped",

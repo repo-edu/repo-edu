@@ -631,8 +631,8 @@ export function openingAuditor(
 /**
  * Rule 1 before any round of a call: the listed auditors without a current
  * read of the target. A split call that finds none carries its move list out
- * without another round, so a list whose split was skipped or whose checks
- * failed is not judged again.
+ * without another round, so a list that waits for its split, or whose split
+ * was skipped or whose checks failed, is not judged again.
  */
 export function missingReads(
   evidence: SeriesEvidence,

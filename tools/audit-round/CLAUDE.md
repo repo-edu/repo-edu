@@ -833,6 +833,7 @@ pnpm audit-round close example
 pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
 pnpm audit-round split packages/domain/src/roster.ts
+pnpm audit-round split packages/domain/src/roster.ts --no-wait
 pnpm audit-round split packages/domain/src/roster.ts -v
 pnpm audit-round run example
 pnpm audit-round run example -v
@@ -1026,7 +1027,8 @@ round-data commit from the close selection alone.
 
 ### split
 
-`split <path> [-v]` splits one source file by its move list, or says why no split happens.
+`split <path> [--no-wait] [-v]` splits one source file by its move list, or says why no split
+happens.
 `runSplit` in `split.ts` owns the call, and `command.ts` supplies its design session, its series,
 its attempt and its checks. The round grammar's
 [Move list](../../.agents/references/round-grammar.md#move-list) and
@@ -1057,13 +1059,20 @@ out no other text, and the series reads the committed list after each round too.
 **The rounds.** When a listed auditor of `splitAudit` lacks a current read of the list,
 `missingReads` in `judge.ts` says so and an automatic move-list series runs, under
 [Move-list series](references/series.md#move-list-series). With every read current no round runs,
-so a list whose split was skipped or whose checks failed is carried out on a later call without
-another round. After each finished round that changed the list, the call tries the changed list
-before the series decides; a refusal or a changed source halts the series.
+so a list that waits for its split, or whose split was skipped or whose checks failed, is carried
+out on a later call without another round. After each finished round that changed the list, the
+call tries the changed list before the series decides; a refusal or a changed source halts the
+series.
 
 An uncommitted change beside a committed list for the current content does not stop the rounds. A
 stopped fix leaves its change so, and the series continues that round, whose fix reads the change
 and commits it.
+
+**The wait.** A call whose series finished with a list of moves ends there as `waiting` and writes
+no file. The split changes and commits code, so it starts only on a call made for it, and stopping
+before the split needs no interrupt. The next call finds every read current, runs no round and goes
+on to the split. `--no-wait` makes one call of both: the call goes on to the split right after its
+rounds. A stopped round's `Rerun:` line keeps the flag.
 
 **The split.** Under the split lock the call ends as skipped when the move list has uncommitted
 changes, because a round reads the list in the plan checkout and may have judged that text in place
@@ -1092,6 +1101,7 @@ refresh timer keeps running and no waiting call takes the lock as stale.
 | Ending | Result |
 | --- | --- |
 | The split committed | `made` |
+| The rounds finished and the call ran without `--no-wait` | `waiting` |
 | The design or a withdrawn list judged the file fine | `fine` |
 | The design or a withdrawn list judged that it needs a plan, a move was refused or the rounds reached their maximum | `needs-plan` |
 | The source changed, a file to write had uncommitted changes, the move list had uncommitted changes or another call wrote the list first | `skipped` |

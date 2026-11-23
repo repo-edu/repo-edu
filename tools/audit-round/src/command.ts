@@ -267,6 +267,8 @@ type Invocation =
       readonly kind: "split"
       /** The source file as typed, relative to the Repo Edu root. */
       readonly source: string
+      /** False under `--no-wait`, which makes one call of the rounds and the split. */
+      readonly wait: boolean
       readonly verbose?: boolean
     }
 
@@ -1033,6 +1035,10 @@ Examples (from either checkout):
       "<path>",
       "the source file, relative to the Repo Edu root, inside one workspace package",
     )
+    .option(
+      "--no-wait",
+      "go on to the split right after the rounds, in the same call",
+    )
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .addHelpText(
       "after",
@@ -1042,21 +1048,26 @@ source's extension replaced by .mv.md. When no list names the file's current
 content, a design session reads the file whole and answers that it is fine,
 that it needs a plan, or with a move list, which the call tries in memory and
 commits. Move-list rounds then judge the list until every listed auditor of
-splitAudit in settings.json has a current read. The call tries the list once
-more, writes the files, runs pnpm check and the package's tests and commits
-the split, or restores the files when a check fails.
+splitAudit in settings.json has a current read.
+
+A call whose rounds finished ends there as waiting and changes no code, so
+the split starts only when you run the command again. That next call tries
+the list once more, writes the files, runs pnpm check and the package's tests
+and commits the split, or restores the files when a check fails. --no-wait
+makes one call of both.
 
 A lock makes two splits take turns while they change files; the rounds, the
 checks and the tests hold none. A dispute on a serious finding waits for your
 ruling, as a round on a plan does. The call ends with one line:
 SPLIT RESULT: {"result":...,"hash":...,"message":...}, where the result is
-made, fine, needs-plan, skipped or checks-failed.
+made, waiting, fine, needs-plan, skipped or checks-failed.
 
-Example (from either checkout):
+Examples (from either checkout):
 
-  $ pnpm audit-round split packages/domain/src/roster.ts`,
+  $ pnpm audit-round split packages/domain/src/roster.ts
+  $ pnpm audit-round split packages/domain/src/roster.ts --no-wait`,
     )
-    .action((source: string, flags: { verbose?: boolean }) => {
+    .action((source: string, flags: { wait: boolean; verbose?: boolean }) => {
       invocation = { kind: "split", source, ...flags }
     })
   command
@@ -1878,6 +1889,7 @@ export async function runCommand(
           "audit-round",
           "split",
           target.source,
+          ...(invocation.wait ? [] : ["--no-wait"]),
           ...(invocation.verbose === true ? ["-v"] : []),
         ])
       if (invocation.kind !== "round" && invocation.kind !== "round-commits")
@@ -2624,7 +2636,7 @@ export async function runCommand(
      * series or a list that another call wrote first. The result line comes
      * last.
      */
-    const splitStage = async (source: string): Promise<void> => {
+    const splitStage = async (source: string, wait: boolean): Promise<void> => {
       const label = splitLabel(source)
       const target: MoveListTarget = { roundKind: "split", source }
       const restored = movedSeriesText(
@@ -2657,7 +2669,7 @@ export async function runCommand(
           ready: null,
         }
         const outcome = await runSplit(
-          { ...context, source, identity },
+          { ...context, source, identity, wait },
           {
             design: async (hash) => {
               const designed = await runAssistantPhase<"design">(
@@ -2743,7 +2755,8 @@ export async function runCommand(
       })
     else if (prepared.kind === "close") await closeStage(prepared)
     else if (prepared.kind === "run") await runStages(prepared)
-    else if (prepared.kind === "split") await splitStage(prepared.source)
+    else if (prepared.kind === "split")
+      await splitStage(prepared.source, prepared.wait)
     else await seriesStage(prepared.targets, prepared)
   } catch (error) {
     code = error instanceof InvalidArgumentError ? 2 : 1

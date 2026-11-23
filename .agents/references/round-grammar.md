@@ -1888,20 +1888,22 @@ Result: skipped. Another run changed the file.
 ```text
 <split-result-line> ::= "SPLIT RESULT: "<split-result>
 <split-result>      ::= {"result":<result-word>,"hash":<hash-string>,"message":<message-string>}
-<result-word>       ::= "made" | "fine" | "needs-plan" | "skipped" | "checks-failed"
+<result-word>       ::= "made" | "waiting" | "fine" | "needs-plan" | "skipped" | "checks-failed"
 <hash-string>       ::= a JSON string containing a <blob-hash>
 <message-string>    ::= a JSON string containing non-whitespace text
 ```
 
 A split call ends with one split result line, which the `split` command prints
 last. The JSON object has exactly the three fields shown. The result word names
-one of the five results:
+one of the six results:
 
 1. `made`: the split was made and committed.
-2. `fine`: no split, because the file should stay whole.
-3. `needs-plan`: no split, because the file needs a plan.
-4. `skipped`: no split, because the call was skipped.
-5. `checks-failed`: no split, because the checks or the tests failed and the
+2. `waiting`: no split yet, because the call ended after its rounds and the
+   next call carries the list out.
+3. `fine`: no split, because the file should stay whole.
+4. `needs-plan`: no split, because the file needs a plan.
+5. `skipped`: no split, because the call was skipped.
+6. `checks-failed`: no split, because the checks or the tests failed and the
    files are back as they were.
 
 The hash names the content of the source file that the design session read.
@@ -1916,6 +1918,12 @@ no-split form uses the words `fine` and `needs-plan` with these meanings.
 SPLIT RESULT: {"result":"made","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"packages/domain/src/roster.ts was split into 2 new files."}
 ```
 
+#### `split-result/waiting` — parsed
+
+```text
+SPLIT RESULT: {"result":"waiting","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"The rounds on the move list have finished, and the next call carries out the split."}
+```
+
 #### `split-result/checks-failed` — parsed
 
 ```text
@@ -1924,7 +1932,7 @@ SPLIT RESULT: {"result":"checks-failed","hash":"3b18e512dba79e4c8300dd08aeb37f8e
 
 #### `split-result/unknown-result` — refused
 
-Refusal: `Split result must be made, fine, needs-plan, skipped or checks-failed`
+Refusal: `Split result must be made, waiting, fine, needs-plan, skipped or checks-failed`
 
 ```text
 SPLIT RESULT: {"result":"split","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"The split was made."}

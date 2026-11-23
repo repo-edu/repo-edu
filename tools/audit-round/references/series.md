@@ -117,8 +117,8 @@ and never with `--auditor` or `--first`. It reads the `splitAudit` auditor list 
 fixed rules and maximum as a commit series, with no lifecycle answer and no watch.
 
 - The split call starts the series only when a listed auditor lacks a current read of the list. A
-  list whose split was skipped or whose checks failed therefore gets no second series once every
-  read is current.
+  list that waits for its split, or whose split was skipped or whose checks failed, therefore gets
+  no second series once every read is current.
 - After each finished round, before the rules apply, the series reads the committed list again. A
   fix that withdrew it ends the series as `withdrawn`. A fix that changed it hands the new list to
   the split call's attempt, and a refusal or a changed source ends the series as `halted`.

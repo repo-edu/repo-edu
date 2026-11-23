@@ -256,10 +256,11 @@ means any kind of report; each kind is always named in full.
 - **Move-list round**: an audit round that judges one move list. Its phases run
   as in a planning round, and its fix changes the list in place or withdraws
   it. A move list is carried out only after its rounds have judged it.
-- **Split result**: one of the five ways a split call ends, each with a message
+- **Split result**: one of the six ways a split call ends, each with a message
   and the content hash of the file the design session read. The split was
-  made, or no split happens because the file is fine, the file needs a plan,
-  the call was skipped or the checks failed.
+  made, the split waits for the next call after its rounds, or no split happens
+  because the file is fine, the file needs a plan, the call was skipped or the
+  checks failed.
 
 ## What binds a round
 

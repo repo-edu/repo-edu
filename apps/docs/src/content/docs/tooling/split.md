@@ -6,7 +6,8 @@ description: Split one source file by a move list that audit rounds judged, or l
 `pnpm audit-round split <path>` splits one source file into smaller files, or says why it does not.
 A design session decides how the file divides and writes that down as a move list. Audit rounds
 judge the list. Code then carries it out, proves it with the checks and the package's tests and
-commits it.
+commits it. The call that ran the rounds ends before any code changes, and the next call carries
+the list out, so you pick when the split starts. `--no-wait` makes one call of both.
 
 | Fact | Detail |
 | --- | --- |
@@ -16,7 +17,8 @@ commits it.
 ## Usage
 
 ```text
-pnpm audit-round split <path>              split one file, or say why no split happens
+pnpm audit-round split <path>              design and judge the list, or carry out a judged one
+pnpm audit-round split <path> --no-wait    go on to the split right after the rounds
 pnpm audit-round split <path> -v | --verbose  also show assistant tool calls
 pnpm audit-round split -h | --help         show the command's help
 ```
@@ -26,7 +28,8 @@ The path is relative to the Repo Edu root and names a file inside one workspace 
 
 ## Behaviour
 
-A call handles one file in three parts.
+One file is handled in three parts. Parts 1 and 2 run in one call and part 3 in the next, unless
+`--no-wait` makes one call of all three.
 
 1. **The design session.** One fresh session on the `splitAudit` designer in
    `tools/audit-round/settings.json` reads the file whole. It answers that the file is fine, that it
@@ -36,15 +39,17 @@ A call handles one file in three parts.
    runs move-list rounds on it. These are audit rounds like a plan's: audit, vet, rebuttal, ruler or
    your ruling, and a fix that changes the list or withdraws it. The rounds stop under the same
    fixed rules as any automatic series, once every listed `splitAudit` auditor has a current read
-   of the list.
-3. **The split.** The call tries the list once more, writes the files, runs `pnpm check` and the
-   package's tests and commits the split. When a check fails, it puts every file back.
+   of the list. The call then ends with the result `waiting` and has changed no code.
+3. **The split.** Run the same command again. The call finds the judged list, runs no round, tries
+   the list once more, writes the files, runs `pnpm check` and the package's tests and commits the
+   split. When a check fails, it puts every file back. Under `--no-wait` the call of part 2 goes on
+   to this part itself.
 
 A file keeps one move list, at `../plan/splits/<path>` with the extension replaced by `.mv.md`. The
 call reads the list as the plan repo's last commit holds it, because only committed text has rounds
 behind it. A call that finds a list for the file's current content designs nothing and goes on where
-the list stands: more rounds, the split or the withdrawal the list records. So a split that was
-skipped or whose checks failed runs again on a later call without another design or another round.
+the list stands: more rounds, the split or the withdrawal the list records. So a split that waits,
+was skipped or whose checks failed runs on a later call without another design or another round.
 
 A lock lets two calls take turns while they write files. The rounds, the checks and the tests hold
 no lock, so another call can run meanwhile. When another call wrote a list for the same content
@@ -64,6 +69,7 @@ ended as it did.
 | Result | What happened |
 | --- | --- |
 | `made` | The split is committed; the message names the commit |
+| `waiting` | The rounds judged the list and the call ended before the split; run the same command again to carry it out |
 | `fine` | The design session or the withdrawn list judged that the file should stay whole |
 | `needs-plan` | The design session or the withdrawn list judged that the split needs a plan, the statement move tool refused a move or the rounds reached their maximum |
 | `skipped` | The file changed, a file the split would write had uncommitted changes, the move list had uncommitted changes or another call wrote the list first |
@@ -100,7 +106,7 @@ The runner prints `audit-round: <reason>`, starts no session and exits with stat
 1. **The design session fails.** The call prints the reason, the `Session:` line and a `Rerun:`
    line, and exits with status 1. Correct the problem it names and run the same command.
 2. **A round stops.** A failed phase or a ruling you leave unanswered stops the call as it stops
-   any round. The printed `Rerun:` command is the same `split` call, and it continues the stopped
-   round. See [Recover a run](/repo-edu/tooling/recover-run/).
+   any round. The printed `Rerun:` command is the same `split` call, with `--no-wait` when you gave
+   it, and it continues the stopped round. See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The checks fail.** The files are already back as they were. Fix what the output names, then
    run the same command.

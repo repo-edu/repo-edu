@@ -68,6 +68,11 @@ export type SplitInput = ExecutionContext & {
   /** The source file's path relative to the Repo Edu root, with `/` separators. */
   readonly source: string
   readonly identity: DesignIdentity
+  /**
+   * Whether a call whose rounds finished ends before the write as `waiting`,
+   * so the next call carries the list out. False makes one call of both.
+   */
+  readonly wait: boolean
 }
 
 /**
@@ -250,8 +255,10 @@ function listed(names: readonly string[]): string {
  * read the file's committed move list, design one when none names the
  * current content, try every list in memory before a round judges it, run the
  * move-list rounds the series rules call for, then write, check and commit
- * the split or put the files back. Every ending with a result names the
- * content hash of the file the call read.
+ * the split or put the files back. A call whose rounds finished ends before
+ * the write unless its input asks for one flow, because the split changes and
+ * commits code and so starts only on a call made for it. Every ending with a
+ * result names the content hash of the file the call read.
  */
 export async function runSplit(
   input: SplitInput,
@@ -445,6 +452,12 @@ async function splitCall(
       )
     if (ending === "withdrawn")
       throw new Error("The move-list series ended withdrawn on a list of moves")
+    // Every read is current now, so the next call runs no round and writes.
+    if (input.wait)
+      return ended(
+        "waiting",
+        `The rounds on the move list ${listFile} have finished, and the next call on ${source} carries out the split.`,
+      )
     list = judged
   } else
     await say(
