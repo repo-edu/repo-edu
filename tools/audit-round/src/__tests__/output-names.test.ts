@@ -118,6 +118,7 @@ test("different auditors cannot open the same candidate and the next run advance
     basename(next.paths.markdown),
     "example-impl-audit-02..04-02-1-round.abh.md",
   )
+  assert.ok(next.watch)
   assert.equal(
     basename(next.watch),
     "example-impl-audit-02..04-02-9-watch.obh.md",

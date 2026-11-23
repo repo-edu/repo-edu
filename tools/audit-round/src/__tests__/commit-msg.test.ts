@@ -497,6 +497,60 @@ test("a commit round's label opens every record its fix lands, in place of any f
   )
 })
 
+test("a move-list round's label opens its record, and its design and split carry no severity", () => {
+  const label = "split-packages+domain+src+roster.ts"
+  const moveFinding = `- B [finding:1] [section:move-2] ${ratings} Merge: the moves.`
+  const stamps = {
+    auditor: "otx",
+    phases: "audit, rebut: gpt-6-astra xhigh\nfix: gpt-6-astra high",
+    series: label,
+  }
+  // The round stamps its label over any form the fix wrote.
+  for (const subject of [
+    "a growth-none: s",
+    "example/plan-audit a growth-none: s",
+  ]) {
+    const stamped = stampCommitMessage(
+      message(subject, moveFinding),
+      "plan",
+      stamps,
+      areaKinds,
+    )
+    assert.equal(
+      stamped,
+      message(
+        `${label}/split-audit otx growth-none b1: s`,
+        moveFinding,
+        stamps.phases,
+      ),
+    )
+  }
+  assert.equal(
+    stampCommitMessage(message("a: s"), "plan", stamps, areaKinds),
+    message(`${label}/split-audit otx clean: s`, "", stamps.phases),
+  )
+  assert.throws(
+    () => stampCommitMessage(message("a: s"), "repo-edu", stamps, areaKinds),
+    /belongs to the plan repository/,
+  )
+  // The design and the split land without a graded bullet, as a step does.
+  for (const [subject, repository] of [
+    [`${label}/design oth: s`, "plan"],
+    [`${label}/split oth refactor(pkg-domain): s`, "repo-edu"],
+  ] as const) {
+    assert.equal(stamp(message(subject), repository), message(subject), subject)
+    assert.throws(
+      () =>
+        stamp(
+          message(subject, repository === "plan" ? moveFinding : codeFinding),
+          repository,
+        ),
+      /carries no severity/,
+      subject,
+    )
+  }
+})
+
 test("round stamps replace the whole opening model record and time line without changing on a second stamp", () => {
   const stamps = {
     auditor: "ath",

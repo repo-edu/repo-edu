@@ -106,8 +106,8 @@ means any kind of report; each kind is always named in full.
   runner keeps the latest one as the round's settling recommendation.
 - **Evidence repo**: the private checkout `plan-evidence` beside the plan and
   Repo Edu checkouts. It holds the round folder, after each close the closed
-  plan's round files and, under `commits/`, each completed commit series. Only
-  the runner commits it.
+  plan's round files, under `commits/` each completed commit series and under
+  `splits/` each finished move-list series. Only the runner commits it.
 - **Round folder**: the `active/` folder of the evidence repo. It holds every
   round file of live work. The plan checkout's own `active/` folder holds plans
   and their briefs only.
@@ -174,12 +174,20 @@ means any kind of report; each kind is always named in full.
   followed by the short IDs of the commits it first audited, names its round
   files and round data and opens every record its rounds land, where a plan's
   records open with the plan's stem.
+- **Move-list series**: a series whose target is one move list. It has no
+  close and no watch: the runner moves its round files out of the round folder
+  when every requested round has run or a fix withdraws the list, and brings
+  them back when the same source file is called again. Its series label,
+  `split-` followed by the source path's segments joined by `+`, each
+  percent-encoded, names its round files and round data and opens its design
+  commit, its round records and its split commit.
 - **Current read**: a listed auditor's audit of the target that started after
   the latest event that changed the target's scope. Those events are a settle
-  or reopen, a plan step, a plan-file edit outside a round and an audit with a
-  real bug.
+  or reopen, a plan step, an edit to the plan file or the move list outside a
+  round and an audit with a real bug.
 - **Real bug**: an accepted finding grave enough to make earlier reads stale:
-  A in widening, and A or B in detailing, implementation and commit series.
+  A in widening, and A or B in detailing, implementation, commit series and
+  move-list series.
 - **Read floor**: the point where every listed auditor of the target's work
   class has a current read. An automatic series ends there with its series
   answer.

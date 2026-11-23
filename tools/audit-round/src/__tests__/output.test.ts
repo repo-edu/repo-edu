@@ -316,10 +316,12 @@ test("commit stamps retain each phase's reported selection across later phases",
     ["fix", { model: "gpt-6-astra", effort: "medium" }],
     ["watch", { model: "gpt-5.6-sol", effort: "low" }],
   ] as const) {
+    const phaseRun = phase === "vet" ? phases.vet[0] : phases[phase]
+    assert.ok(phaseRun)
     await inTurn(output).start(
       {
         ...setup,
-        ...(phase === "vet" ? phases.vet[0] : phases[phase]),
+        ...phaseRun,
         ...(phase === "audit"
           ? {
               phase,

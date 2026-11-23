@@ -1,15 +1,18 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
+import type { LogCommit } from "../episode-log.js"
 import {
   decideSeries,
   openingAuditor,
   type SeriesCommit,
   type SeriesEvidence,
+  splitSeriesEvidence,
 } from "../judge.js"
 import type {
   ImplementationRoundData,
   PlanningRoundData,
   RoundData,
+  SplitRoundData,
 } from "../round-data.js"
 import type { Auditor } from "../settings.js"
 
@@ -114,7 +117,7 @@ function commit(
     files: ["active/example.md"],
     renames: [],
     acceptedTiers: [],
-    changesPlan: true,
+    changesDocument: true,
     ownStem: true,
     ...overrides,
   }
@@ -142,6 +145,7 @@ function evidence(
     ),
     roundCommitTimes: commitTimes,
     commits,
+    document: "plan",
   }
 }
 
@@ -193,7 +197,7 @@ test("the rule 3 reason names the event that made the last read stale", () => {
         repository: "repo-edu",
         role: "impl-2",
         files: [],
-        changesPlan: false,
+        changesDocument: false,
       }),
       "step 2 landed as aaaaaa",
     ],
@@ -374,13 +378,13 @@ test("only the current stem's steps and audits invalidate its reads", () => {
     committed: "2026-11-08T10:30:00Z",
     role: "impl-2",
     ownStem: false,
-    changesPlan: false,
+    changesDocument: false,
   })
   const sharedDocument = commit({
     committed: "2026-11-08T10:45:00Z",
     role: null,
     ownStem: false,
-    changesPlan: false,
+    changesDocument: false,
   })
   assert.equal(
     decideSeries(
@@ -393,7 +397,7 @@ test("only the current stem's steps and audits invalidate its reads", () => {
 
   const outsidePlanEdit = {
     ...sharedDocument,
-    changesPlan: true,
+    changesDocument: true,
   }
   assert.deepEqual(
     decideSeries(
@@ -477,7 +481,7 @@ test("a series opens on the listed auditor without a current read when another h
     subject: "example/impl-2 oth feat(audit-round): step",
     role: "impl-2",
     files: [],
-    changesPlan: false,
+    changesDocument: false,
   })
   assert.equal(openingAuditor(evidence([claude], [step]), target, pool), null)
 
@@ -487,4 +491,125 @@ test("a series opens on the listed auditor without a current read when another h
     target: "example-impl-audit-03..03",
   }
   assert.equal(openingAuditor(evidence([otherScope]), target, pool), null)
+})
+
+test("a move-list series reads its own forms and every edit to its list", () => {
+  const label = "split-a+b.ts"
+  const list = "splits/a/b.mv.md"
+  function splitRound(
+    auditor: Auditor,
+    round: number,
+    started: string,
+  ): SplitRoundData {
+    const {
+      target: _target,
+      scope: _scope,
+      judgedRepos: _judgedRepos,
+      ...common
+    } = implementationRound(auditor, round, started)
+    return { ...common, target: label, source: "a/b.ts" }
+  }
+  function logged(
+    sha: string,
+    committedAt: string,
+    subject: string,
+    files: readonly string[],
+    body = "",
+  ): LogCommit {
+    return {
+      sha: sha.repeat(40),
+      committedAt,
+      subject,
+      body,
+      files,
+      renames: [],
+    }
+  }
+  const claude = splitRound(opus, 1, "2026-11-08T10:00:00Z")
+  const codex = splitRound(sol, 2, "2026-11-08T11:00:00Z")
+  const between = "2026-11-08T10:30:00Z"
+  const design = logged(
+    "c",
+    "2026-11-08T09:00:00Z",
+    `${label}/design abx: write the move list`,
+    [list],
+  )
+  const records = [
+    logged(
+      "1",
+      "2026-11-08T10:10:00Z",
+      `${label}/split-audit abx clean: x`,
+      [],
+    ),
+    logged(
+      "2",
+      "2026-11-08T11:10:00Z",
+      `${label}/split-audit obx clean: x`,
+      [],
+    ),
+  ]
+  // Another series' list and an unrelated plan-repo commit stay out.
+  const unrelated = [
+    logged("e", between, "split-a+c.ts/design abx: x", ["splits/a/c.mv.md"]),
+    logged("f", between, "abx growth-none c1 docs(claude): x", ["CLAUDE.md"]),
+  ]
+  const decide = (log: readonly LogCommit[]) => {
+    const evidence = splitSeriesEvidence({
+      label,
+      list,
+      rounds: [claude, codex],
+      log,
+    })
+    return { evidence, answer: decideSeries(evidence, current(codex), pool) }
+  }
+
+  const quiet = decide([design, ...records, ...unrelated])
+  assert.equal(quiet.evidence.document, "move list")
+  assert.equal(quiet.evidence.roundData.file, `${label}-rounds.json`)
+  assert.deepEqual(
+    quiet.evidence.commits.map((commit) => [
+      commit.sha[0],
+      commit.role,
+      commit.ownStem,
+      commit.changesDocument,
+    ]),
+    [
+      ["c", "design", true, true],
+      ["1", "split-audit", true, false],
+      ["2", "split-audit", true, false],
+    ],
+  )
+  assert.deepEqual(quiet.answer, {
+    answer: "stop",
+    reason:
+      "Rule 2: every listed auditor has a current read; the series stops.",
+  })
+
+  const bullet =
+    "- B [finding:1] [section:move-2] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Merge the moves: they cut one responsibility."
+  for (const [event, text] of [
+    [
+      logged("d", between, `${label}/design abx: write the move list`, [list]),
+      "the design dddddd landed",
+    ],
+    [
+      logged("d", between, "abx growth-none d1 docs(plan): x", [list]),
+      "the move list edit dddddd landed",
+    ],
+    [
+      logged(
+        "d",
+        between,
+        `${label}/split-audit abx growth-none b1: x`,
+        [list],
+        bullet,
+      ),
+      "the audit dddddd landed an accepted B",
+    ],
+  ] as const)
+    assert.equal(
+      decide([design, ...records, event]).answer.reason,
+      `Rule 3: claude claude-opus-5-5 xhigh last read in round 1, before ${text}, so it reads again.`,
+      text,
+    )
 })

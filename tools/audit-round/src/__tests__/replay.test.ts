@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -8,6 +8,7 @@ import type {
   CommitRoundData,
   ImplementationRoundData,
   PlanningRoundData,
+  SplitRoundData,
 } from "../round-data.js"
 import { writeRoundData } from "../round-data.js"
 import type { Auditor } from "../settings.js"
@@ -101,6 +102,25 @@ function commitRound(
     originalGroups: [group],
     groups: [group],
     judgedRepos: ["repo-edu"],
+  }
+}
+
+function splitRound(
+  auditor: Auditor,
+  number: number,
+  started: string,
+  answer: SplitRoundData["judge"],
+): SplitRoundData {
+  const {
+    phase: _phase,
+    settling: _settling,
+    ...common
+  } = round(auditor, number, started, "a".repeat(40), answer)
+  return {
+    ...common,
+    target: "split-a+b.ts",
+    source: "a/b.ts",
+    pool: [claude, codex],
   }
 }
 
@@ -387,5 +407,89 @@ test("replay keeps real-bug events from other round kinds", async (t) => {
       { round: 1, computed: codex },
       { round: 2, computed: claude },
     ],
+  )
+})
+
+test("replay reads an archived move-list series and dates an edit to its list", async (t) => {
+  const f = await fixture(t)
+  await commitFixture(
+    f.runtime.planRoot,
+    "split-a+b.ts/design abh: write the move list",
+    "2026-11-09T09:00:00Z",
+  )
+  await commitFixture(
+    f.runtime.repoEduRoot,
+    "fixture commit",
+    "2026-11-09T09:00:00Z",
+  )
+  const folder = join(f.runtime.evidenceRoot, "splits", "split-a+b.ts")
+  await mkdir(folder, { recursive: true })
+  const file = join(folder, "split-a+b.ts-rounds.json")
+  writeRoundData(
+    file,
+    splitRound(claude, 1, "2026-11-09T10:00:00Z", {
+      answer: codex,
+      reason: "Stored continuation",
+    }),
+  )
+  writeRoundData(
+    file,
+    splitRound(codex, 2, "2026-11-09T11:00:00Z", {
+      answer: "stop",
+      reason: "Stored ending",
+    }),
+  )
+
+  const quiet = await replayRows(f.runtime)
+  assert.deepEqual(
+    quiet.map(({ target, round, phase, computed, matches }) => ({
+      target,
+      round,
+      phase,
+      computed,
+      matches,
+    })),
+    [
+      {
+        target: "split-a+b.ts",
+        round: 1,
+        phase: "split",
+        computed: codex,
+        matches: true,
+      },
+      {
+        target: "split-a+b.ts",
+        round: 2,
+        phase: "split",
+        computed: "stop",
+        matches: true,
+      },
+    ],
+  )
+  const report = formatReplay(quiet)
+  assert.match(report, /\| split \| 2 \| 2 \| 0 \|/)
+  assert.doesNotMatch(
+    report.slice(report.indexOf("## Fixed corpus")),
+    /\| split \|/,
+  )
+
+  // An edit to the list after the first read makes that read stale.
+  await mkdir(join(f.runtime.planRoot, "splits/a"), { recursive: true })
+  await writeFile(join(f.runtime.planRoot, "splits/a/b.mv.md"), "Edited\n")
+  await execa("git", ["add", "splits/a/b.mv.md"], { cwd: f.runtime.planRoot })
+  await execa(
+    "git",
+    ["commit", "--quiet", "-m", "abh growth-none d1 docs(plan): edit the list"],
+    {
+      cwd: f.runtime.planRoot,
+      env: {
+        GIT_AUTHOR_DATE: "2026-11-09T10:30:00Z",
+        GIT_COMMITTER_DATE: "2026-11-09T10:30:00Z",
+      },
+    },
+  )
+  assert.deepEqual(
+    (await replayRows(f.runtime)).map((row) => row.computed),
+    [codex, claude],
   )
 })

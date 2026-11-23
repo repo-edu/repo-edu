@@ -45,7 +45,7 @@ import {
   transcribed,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
-import { readReport } from "./report.js"
+import { readReport, targetReportClass } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
@@ -128,7 +128,10 @@ export type Run = {
   readonly title: string
   /** The plan stem or commit label the run serves; a ruling wait answers to it. */
   readonly target: string
-  /** A commit round's series label, which opens every record it lands; absent otherwise. */
+  /**
+   * A commit or move-list round's series label, which opens every record it
+   * lands; absent otherwise.
+   */
   readonly series?: string
   readonly phases: readonly RunEntry[]
   readonly releases: Record<Assistant, ModelReleases>
@@ -171,6 +174,10 @@ export type Run = {
     | {
         readonly originalGroups: RoundDataCommitGroups
         readonly groups: RoundDataCommitGroups
+      }
+    | {
+        /** The source file whose move list the round judges. */
+        readonly source: string
       }
   )
   /** The reading that dates the run files. */
@@ -224,10 +231,10 @@ function fileTag(
 
 /** Where a round's entry is stored; a plan outside the active folder keeps none. */
 function roundDataPath(setup: RoundSetup): string | null {
-  if ("groups" in setup)
+  if ("groups" in setup || "source" in setup)
     return join(
       setup.roundRoot,
-      roundDataFilename(targetLabel(setup), "commit"),
+      roundDataFilename(targetLabel(setup), "series"),
     )
   return isActivePlanPath(setup.activeRoot, setup.plan)
     ? join(
@@ -284,9 +291,7 @@ async function continuedRound(
   try {
     readReport(
       await readFile(report, "utf8"),
-      setup.roundKind === "implementation"
-        ? "implementation"
-        : planPhase(setup.plan),
+      targetReportClass(setup),
       reportTarget(setup),
     )
   } catch {
@@ -311,7 +316,8 @@ export async function roundRun(
 ): Promise<
   Run & {
     readonly nameStart: string
-    readonly watch: string
+    /** The watch's document; null for a move-list round, which runs no watch. */
+    readonly watch: string | null
     readonly documents: RoundDocuments
     readonly paths: { readonly claim: string | null; readonly markdown: string }
     /** What the round runs on: the call's setup, or the stopped round's. */
@@ -332,12 +338,17 @@ export async function roundRun(
     setup,
     targetWorkClass(setup),
   )
-  const entry = (phase: SinglePhase): RunEntry => ({ phase, ...phases[phase] })
+  const entry = (phase: SinglePhase): RunEntry => {
+    const run = phases[phase]
+    if (run === null) throw new Error(`The round has no ${phase} phase`)
+    return { phase, ...run }
+  }
   const tag = (phase: SinglePhase): string =>
     fileTag(entry(phase), releases, settings)
-  // The close runs alone, so a round needs no close tag.
+  // The close runs alone, so a round needs no close tag, and a move-list round
+  // runs no watch.
   for (const phase of singlePhases) {
-    if (phase !== "close") tag(phase)
+    if (phase !== "close" && phases[phase] !== null) tag(phase)
   }
   // Each vetter's vet report and record are named by its own tag.
   const vets = phases.vet.map((run) => {
@@ -374,40 +385,42 @@ export async function roundRun(
   const data =
     record === undefined
       ? undefined
-      : "groups" in setup
-        ? {
-            ...record,
-            originalGroups: setup.originalGroups.map(
-              ({ repository, commits, startingHead }) => ({
-                repository,
-                commits,
-                startingHead,
-              }),
-            ),
-            groups: setup.groups.map(
-              ({ repository, commits, startingHead, references }) => ({
-                repository,
-                commits,
-                startingHead,
-                references,
-              }),
-            ),
-          }
-        : setup.roundKind === "planning"
+      : "source" in setup
+        ? { ...record, source: setup.source }
+        : "groups" in setup
           ? {
               ...record,
-              phase: planPhase(setup.plan),
-              ...(setup.deferrals === undefined
-                ? {}
-                : { deferrals: setup.deferrals }),
+              originalGroups: setup.originalGroups.map(
+                ({ repository, commits, startingHead }) => ({
+                  repository,
+                  commits,
+                  startingHead,
+                }),
+              ),
+              groups: setup.groups.map(
+                ({ repository, commits, startingHead, references }) => ({
+                  repository,
+                  commits,
+                  startingHead,
+                  references,
+                }),
+              ),
             }
-          : {
-              ...record,
-              scope: setup.scope,
-              ...(setup.deferrals === undefined
-                ? {}
-                : { deferrals: setup.deferrals }),
-            }
+          : setup.roundKind === "planning"
+            ? {
+                ...record,
+                phase: planPhase(setup.plan),
+                ...(setup.deferrals === undefined
+                  ? {}
+                  : { deferrals: setup.deferrals }),
+              }
+            : {
+                ...record,
+                scope: setup.scope,
+                ...(setup.deferrals === undefined
+                  ? {}
+                  : { deferrals: setup.deferrals }),
+              }
   const runPhases: readonly RunEntry[] = [
     audit,
     ...vets,
@@ -422,7 +435,7 @@ export async function roundRun(
   )
   return {
     nameStart,
-    watch: `${path("watch", "watch")}.md`,
+    watch: phases.watch === null ? null : `${path("watch", "watch")}.md`,
     documents: {
       report: `${named("audit", auditTag)}.md`,
       vets: vets.map((vet) => `${named("vet", vet.tag)}.md`),
@@ -432,7 +445,7 @@ export async function roundRun(
     },
     name: "Audit round",
     target: "plan" in setup ? planStem(setup.plan) : targetLabel(setup),
-    ...("groups" in setup ? { series: targetLabel(setup) } : {}),
+    ...("plan" in setup ? {} : { series: targetLabel(setup) }),
     title: stored === undefined ? title : `${title}, continued`,
     phases: runPhases,
     paths: {
@@ -1143,24 +1156,26 @@ export class RoundOutput<R extends Run = Run> {
                 ? {}
                 : { deferrals: [...data.deferrals] }),
             }
-          : {
-              originalGroups: data.originalGroups.map(
-                ({ repository, commits, startingHead }) => ({
-                  repository,
-                  commits: [...commits],
-                  startingHead,
-                }),
-              ),
-              groups: data.groups.map((group) => ({
-                repository: group.repository,
-                commits: [...group.commits],
-                startingHead: group.startingHead,
-                ...(group.references === undefined
-                  ? {}
-                  : { references: [...group.references] }),
-              })),
-              judgedRepos: [...account.judgedRepos],
-            }),
+          : "source" in data
+            ? { source: data.source }
+            : {
+                originalGroups: data.originalGroups.map(
+                  ({ repository, commits, startingHead }) => ({
+                    repository,
+                    commits: [...commits],
+                    startingHead,
+                  }),
+                ),
+                groups: data.groups.map((group) => ({
+                  repository: group.repository,
+                  commits: [...group.commits],
+                  startingHead: group.startingHead,
+                  ...(group.references === undefined
+                    ? {}
+                    : { references: [...group.references] }),
+                })),
+                judgedRepos: [...account.judgedRepos],
+              }),
     })
   }
 }

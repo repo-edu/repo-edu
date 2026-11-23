@@ -11,6 +11,7 @@ import {
   reachValues,
 } from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
+import type { SeriesKind } from "./round-paths.js"
 import { parseSubject, type Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
@@ -348,10 +349,18 @@ export const commitRoundDataSchema = commonRoundData.extend({
   groups: z.array(auditedCommitGroup).min(1),
   judgedRepos: z.array(repository),
 })
+/**
+ * A move-list round names the source file whose list it judged. The plan repo
+ * is its only judged repo, so it stores none.
+ */
+export const splitRoundDataSchema = commonRoundData.extend({
+  source: z.string().min(1),
+})
 export const roundDataSchema = z.union([
   planningRoundDataSchema,
   implementationRoundDataSchema,
   commitRoundDataSchema,
+  splitRoundDataSchema,
 ])
 const commonDisprovedFinding = {
   date: z.iso.date(),
@@ -384,23 +393,33 @@ const implementationRoundFileSchema = z.strictObject({
 const commitRoundFileSchema = z.strictObject({
   rounds: z.array(commitRoundDataSchema),
 })
+const splitRoundFileSchema = z.strictObject({
+  rounds: z.array(splitRoundDataSchema),
+})
 const roundDataFilenamePattern = /-(?:plan|impl)-rounds\.json$/
 
-function isCommitRoundDataName(name: string): boolean {
-  return (
-    !roundDataFilenamePattern.test(name) &&
-    /^commit-.+-rounds\.json$/.test(name)
-  )
+/**
+ * The kind of series one round-data file name belongs to, or null for a plan's
+ * file and any other name. A series' label opens with its kind's word.
+ */
+function seriesDataKind(name: string): SeriesKind | null {
+  if (roundDataFilenamePattern.test(name)) return null
+  const match = /^(commit|split)-.+-rounds\.json$/.exec(name)
+  return match === null ? null : (match[1] as SeriesKind)
 }
 
-/** The one file name shared by round-data writers and readers. */
+/**
+ * The one file name shared by round-data writers and readers: a plan's
+ * planning or implementation file under its stem, or a commit or move-list
+ * series' one file under its label.
+ */
 export function roundDataFilename(
-  stem: string,
-  kind: RoundKind | "commit",
+  name: string,
+  kind: Exclude<RoundKind, "split"> | "series",
 ): string {
-  return kind === "commit"
-    ? `${stem}-rounds.json`
-    : `${stem}-${kind === "planning" ? "plan" : "impl"}-rounds.json`
+  return kind === "series"
+    ? `${name}-rounds.json`
+    : `${name}-${kind === "planning" ? "plan" : "impl"}-rounds.json`
 }
 
 export type RoundFindingLocation = z.infer<typeof roundFindingLocationSchema>
@@ -433,12 +452,17 @@ export type PlanRoundDataFile =
   | z.infer<typeof planningRoundFileSchema>
   | z.infer<typeof implementationRoundFileSchema>
 export type CommitRoundDataFile = z.infer<typeof commitRoundFileSchema>
-export type RoundDataFile = PlanRoundDataFile | CommitRoundDataFile
+export type SplitRoundDataFile = z.infer<typeof splitRoundFileSchema>
+export type SeriesRoundDataFile = CommitRoundDataFile | SplitRoundDataFile
+export type RoundDataFile = PlanRoundDataFile | SeriesRoundDataFile
 export type PlanningRoundData = z.infer<typeof planningRoundDataSchema>
 export type ImplementationRoundData = z.infer<
   typeof implementationRoundDataSchema
 >
 export type CommitRoundData = z.infer<typeof commitRoundDataSchema>
+export type SplitRoundData = z.infer<typeof splitRoundDataSchema>
+/** One round of a series that is no plan's. */
+export type SeriesRoundData = CommitRoundData | SplitRoundData
 export type PlanRoundData = {
   readonly planning?: readonly PlanningRoundData[]
   readonly implementation?: readonly ImplementationRoundData[]
@@ -456,11 +480,19 @@ export type RetainedPlanRoundData =
       readonly kind: "implementation"
       readonly rounds: readonly ImplementationRoundData[]
     }
-export type RetainedCommitRoundData = {
-  readonly file: string
-  readonly label: string
-  readonly rounds: readonly CommitRoundData[]
-}
+export type RetainedSeriesRoundData =
+  | {
+      readonly file: string
+      readonly label: string
+      readonly kind: "commit"
+      readonly rounds: readonly CommitRoundData[]
+    }
+  | {
+      readonly file: string
+      readonly label: string
+      readonly kind: "split"
+      readonly rounds: readonly SplitRoundData[]
+    }
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
 
@@ -550,59 +582,78 @@ export async function readAllPlanRoundData(
 }
 
 /**
- * Read every commit-series round-data file under its checked schema: the live
- * series in the round folder and each completed series in its own labelled
- * folder of the archive root. A series' file sits in one of the two places,
- * so each stored answer is read once. Loose files directly in the archive
- * root are recovered evidence and stay out.
+ * Read every commit-series and move-list-series round-data file under its
+ * checked schema: the live series in the round folder and each finished series
+ * in its own labelled folder of its kind's archive root. A series' file sits
+ * in one of the two places, so each stored answer is read once. Loose files
+ * directly in an archive root are recovered evidence and stay out.
  */
-export async function readAllCommitRoundData(
+export async function readAllSeriesRoundData(
   roots: Pick<RoundDataRoots, "roundRoot">,
-  archiveRoot: string,
-): Promise<readonly RetainedCommitRoundData[]> {
+  archiveRoots: Readonly<Record<SeriesKind, string>>,
+): Promise<readonly RetainedSeriesRoundData[]> {
   const active = (await readdir(roots.roundRoot, { withFileTypes: true }))
-    .filter((entry) => entry.isFile() && isCommitRoundDataName(entry.name))
+    .filter((entry) => entry.isFile() && seriesDataKind(entry.name) !== null)
     .map((entry) => join(roots.roundRoot, entry.name))
-  let archived: string[] = []
-  try {
-    const folders = (await readdir(archiveRoot, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-    archived = (
-      await Promise.all(
-        folders.map(async (label) => {
-          const file = join(
-            archiveRoot,
-            label,
-            roundDataFilename(label, "commit"),
-          )
+  const archived = (
+    await Promise.all(
+      (Object.entries(archiveRoots) as [SeriesKind, string][]).map(
+        async ([kind, archiveRoot]) => {
+          let folders: string[]
           try {
-            return (await stat(file)).isFile() ? [file] : []
+            folders = (await readdir(archiveRoot, { withFileTypes: true }))
+              .filter((entry) => entry.isDirectory())
+              .map((entry) => entry.name)
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
             throw error
           }
-        }),
-      )
-    ).flat()
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-  }
+          return (
+            await Promise.all(
+              folders.map(async (label) => {
+                const file = join(
+                  archiveRoot,
+                  label,
+                  roundDataFilename(label, "series"),
+                )
+                if (seriesDataKind(basename(file)) !== kind) return []
+                try {
+                  return (await stat(file)).isFile() ? [file] : []
+                } catch (error) {
+                  if ((error as NodeJS.ErrnoException).code === "ENOENT")
+                    return []
+                  throw error
+                }
+              }),
+            )
+          ).flat()
+        },
+      ),
+    )
+  ).flat()
   const files = [...active, ...archived].sort(
     (first, second) =>
       basename(first).localeCompare(basename(second)) ||
       first.localeCompare(second),
   )
   return Promise.all(
-    files.map(async (file) => {
+    files.map(async (file): Promise<RetainedSeriesRoundData> => {
       const name = basename(file)
-      return {
-        file,
-        label: name.slice(0, -"-rounds.json".length),
-        rounds: commitRoundFileSchema.parse(
-          JSON.parse(await readFile(file, "utf8")),
-        ).rounds,
-      }
+      const label = name.slice(0, -"-rounds.json".length)
+      const source = JSON.parse(await readFile(file, "utf8"))
+      return seriesDataKind(name) === "split"
+        ? {
+            file,
+            label,
+            kind: "split",
+            rounds: splitRoundFileSchema.parse(source).rounds,
+          }
+        : {
+            file,
+            label,
+            kind: "commit",
+            rounds: commitRoundFileSchema.parse(source).rounds,
+          }
     }),
   )
 }
@@ -646,13 +697,23 @@ export async function readPlanRoundData(
   }
 }
 
-/** Read one active commit series' checked data file by its bounded label. */
-export async function readCommitRoundData(
+/**
+ * Read one active commit or move-list series' checked data file by its label,
+ * or no rounds before the series' first round has written it.
+ */
+export async function readSeriesRoundData(
   roots: Pick<RoundDataRoots, "roundRoot">,
   label: string,
-): Promise<readonly CommitRoundData[]> {
-  const path = join(roots.roundRoot, roundDataFilename(label, "commit"))
-  return commitRoundFileSchema.parse(JSON.parse(await readFile(path, "utf8")))
+): Promise<readonly SeriesRoundData[]> {
+  const path = join(roots.roundRoot, roundDataFilename(label, "series"))
+  let source: string
+  try {
+    source = await readFile(path, "utf8")
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw error
+  }
+  return (fileSchema(path).parse(JSON.parse(source)) as SeriesRoundDataFile)
     .rounds
 }
 
@@ -924,14 +985,12 @@ export function settleRoundFindings(
   ]
 }
 
-function isCommitRoundDataPath(path: string): boolean {
-  return isCommitRoundDataName(basename(path))
-}
-
 function fileSchema(path: string) {
   if (path.endsWith("-plan-rounds.json")) return planningRoundFileSchema
   if (path.endsWith("-impl-rounds.json")) return implementationRoundFileSchema
-  if (isCommitRoundDataPath(path)) return commitRoundFileSchema
+  const series = seriesDataKind(basename(path))
+  if (series === "commit") return commitRoundFileSchema
+  if (series === "split") return splitRoundFileSchema
   throw new Error(`Invalid round data path: ${path}`)
 }
 
@@ -955,16 +1014,17 @@ function writeRoundDataFile(path: string, value: unknown): void {
 export function writeRoundData(path: string, value: RoundData): void {
   const schema = fileSchema(path)
   const data = roundDataSchema.parse(value)
-  const commitFile = isCommitRoundDataPath(path)
+  const series = seriesDataKind(basename(path))
   const matches = path.endsWith("-plan-rounds.json")
     ? "phase" in data
     : path.endsWith("-impl-rounds.json")
       ? "scope" in data
-      : "originalGroups" in data
+      : series === "commit"
+        ? "originalGroups" in data
+        : "source" in data
   if (!matches) throw new Error(`Round data kind does not match ${path}`)
-  let file: RoundDataFile = commitFile
-    ? { rounds: [] }
-    : { rounds: [], disproved: [] }
+  let file: RoundDataFile =
+    series !== null ? { rounds: [] } : { rounds: [], disproved: [] }
   try {
     file = schema.parse(JSON.parse(readFileSync(path, "utf8")))
   } catch (error) {
@@ -978,7 +1038,7 @@ export function writeRoundData(path: string, value: RoundData): void {
   else entries[index] = data
   writeRoundDataFile(
     path,
-    commitFile
+    series !== null
       ? { rounds: entries }
       : {
           rounds: entries,
@@ -1014,8 +1074,8 @@ export function writeDisprovedFinding(
   path: string,
   value: DisprovedFinding,
 ): void {
-  if (isCommitRoundDataPath(path))
-    throw new Error("Commit round data has no disproved findings")
+  if (seriesDataKind(basename(path)) !== null)
+    throw new Error("Series round data has no disproved findings")
   const schema = fileSchema(path)
   const disproved = disprovedFindingSchema.parse(value)
   let file: PlanRoundDataFile = { rounds: [], disproved: [] }

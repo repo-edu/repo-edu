@@ -12,6 +12,7 @@ import type {
   PinnedField,
 } from "./phase.js"
 import { phaseWorkflow } from "./phase.js"
+import type { RoundKind } from "./target.js"
 
 export const claudeSettingsRequest = {
   type: "control_request",
@@ -112,7 +113,9 @@ function phaseInstructions(workflow: string): ReadonlyMap<string, string> {
     if (files.has(source)) return
     const content = readFileSync(source, "utf8")
     files.set(source, content)
-    if (basename(source) !== "workflow.md") return
+    // A workflow is `workflow.md`, or `<kind>-workflow.md` beside the one its
+    // phase runs in other rounds; every other supplied file is read whole.
+    if (!/^(?:.+-)?workflow\.md$/.test(basename(source))) return
     const file = new VFile({ path: source, value: content })
     matter(file)
     const header = workflowHeader.safeParse(file.data.matter)
@@ -142,6 +145,13 @@ export type AssistantPrompt = {
   readonly resultRequest?: string
 }
 
+/** How a phase prompt names each kind of round. */
+const roundNames = {
+  planning: "planning",
+  implementation: "implementation-audit",
+  split: "move-list",
+} as const satisfies Record<RoundKind, string>
+
 /** Opens every phase prompt and names the unattended phase the session runs. */
 function phaseOpening(input: PhaseInput, session: "fresh" | "resumed"): string {
   const { phase } = input
@@ -149,7 +159,7 @@ function phaseOpening(input: PhaseInput, session: "fresh" | "resumed"): string {
     ? `Run the close phase, the unattended loop-close of one plan, in this ${session} session.`
     : phase === "implement"
       ? `Run the implement phase, one unattended plan-step worker, in this ${session} session.`
-      : `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${session} session.`
+      : `Run the ${phase} phase of an unattended ${roundNames[input.roundKind]} round in this ${session} session.`
 }
 
 function runnerResultRule(repoEduRoot: string): string {

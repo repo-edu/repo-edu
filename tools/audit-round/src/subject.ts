@@ -27,7 +27,21 @@ export type PlanRoleName = (typeof planRoles)[number]
  * the label before it, tells a series form from a plan form.
  */
 const seriesRole = "commit-audit"
-export type RoleName = PlanRoleName | typeof seriesRole
+
+/**
+ * The roles a move-list series' forms carry: the commit that writes a design,
+ * a round's record and the split commit. The role tells each from a plan form.
+ */
+const splitRoles = ["design", "split-audit", "split"] as const
+type SplitRole = (typeof splitRoles)[number]
+
+/** A role that opens with a series label rather than a plan's stem. */
+type SeriesRole = typeof seriesRole | SplitRole
+export type RoleName = PlanRoleName | SeriesRole
+
+function isSeriesRole(role: string): role is SeriesRole {
+  return role === seriesRole || splitRoles.some((name) => name === role)
+}
 
 /**
  * The role of a chat's commit on one active plan's file outside a round. Its
@@ -45,10 +59,13 @@ export type PlanForm = {
   readonly scope: string | null
 }
 
-/** `<series>/commit-audit`: a commit audit's record, named by its series' label. */
+/**
+ * `<series>/commit-audit` or `<split>/<split-role>`: a form that a series'
+ * label opens, a commit audit's record or one of a move-list series' commits.
+ */
 export type SeriesForm = {
   readonly series: string
-  readonly role: typeof seriesRole
+  readonly role: SeriesRole
 }
 
 /** `<form>`: a plan form or a commit series' form. */
@@ -123,6 +140,9 @@ export type SubjectClass =
   | "I5"
   | "C1"
   | "C2"
+  | "S1"
+  | "S2"
+  | "S3"
   | "O1"
   | "O2"
 
@@ -150,6 +170,11 @@ const stepPattern = /^[1-9]\d*$/
 const auditScopePattern = /^(?:[1-9]\d*|[1-9]\d*-[1-9]\d*)$/
 const seriesPattern =
   /^commit-[0-9a-f]{6}(?:\.\.[0-9a-f]{6})?(?:\+[0-9a-f]{6}(?:\.\.[0-9a-f]{6})?)?$/
+/** `split-` and percent-encoded path segments joined by `+`. */
+const splitSegment = "(?:[A-Za-z0-9._~!*'()-]|%[0-9A-F]{2})+"
+const splitPattern = new RegExp(
+  `^split-${splitSegment}(?:\\+${splitSegment})*$`,
+)
 
 function fail(message: string): never {
   throw new SubjectError(message)
@@ -164,6 +189,13 @@ function parseForm(token: string): Form {
     if (!seriesPattern.test(stem))
       fail(
         `the series label ${stem} is not commit-<group>[+<group>], each group <sha6> or <sha6>..<sha6>`,
+      )
+    return { series: stem, role }
+  }
+  if (isSeriesRole(role)) {
+    if (!splitPattern.test(stem))
+      fail(
+        `the series label ${stem} is not split- and the source path's percent-encoded segments joined by +`,
       )
     return { series: stem, role }
   }
@@ -354,6 +386,24 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (severity !== "clean")
         fail(`${where} needs a conventional kind after its severity sequence`)
       return "C2"
+    case "design":
+      if (tag === null) fail(`${where} needs a capability tag`)
+      if (repository !== "plan") fail(`${where} belongs to the plan repository`)
+      if (!empty) fail(`${where} carries nothing after its tag`)
+      return "S1"
+    case "split-audit":
+      if (tag === null) fail(`${where} needs a capability tag`)
+      if (repository !== "plan") fail(`${where} belongs to the plan repository`)
+      if (severity === null) fail(`${where} needs a severity sequence or clean`)
+      if (kind !== null) fail(`${where} carries no conventional kind`)
+      return "S2"
+    case "split":
+      if (tag === null) fail(`${where} needs a capability tag`)
+      if (repository !== "repo-edu")
+        fail(`${where} belongs to the Repo Edu repository`)
+      if (severity !== null) fail("a split subject carries no severity")
+      if (kind === null) fail(`${where} needs a conventional kind`)
+      return "S3"
   }
 }
 
@@ -458,9 +508,23 @@ function looseSplit(line: string): LooseForm | null {
  */
 export function planForm(line: string): LooseForm | null {
   const form = looseSplit(line)
-  return form === null || form.role === seriesRole || form.role === chatRole
+  return form === null || isSeriesRole(form.role) || form.role === chatRole
     ? null
     : form
+}
+
+/**
+ * The form a series' label opens, read loosely as `planForm` reads a plan's:
+ * the label and the role, or null for every other subject. A move-list series
+ * reads its own commits by it.
+ */
+export function seriesForm(
+  line: string,
+): { readonly label: string; readonly role: string } | null {
+  const form = looseSplit(line)
+  return form !== null && isSeriesRole(form.role)
+    ? { label: form.stem, role: form.role }
+    : null
 }
 
 /**
@@ -473,34 +537,46 @@ export function looseRole(line: string): string | null {
 }
 
 /**
- * The series label a commit audit's record opens with, read loosely as
- * `planForm` reads a plan's stem; null for every other subject. A commit
- * round collects its records by it, as a plan round collects by its stem.
+ * The series label a commit audit's or a move-list round's record opens with,
+ * read loosely as `planForm` reads a plan's stem; null for every other
+ * subject. A commit or move-list round collects its records by it, as a plan
+ * round collects by its stem.
  */
 export function seriesLabel(line: string): string | null {
   const form = looseSplit(line)
-  return form?.role === seriesRole ? form.stem : null
+  return form?.role === seriesRole || form?.role === "split-audit"
+    ? form.stem
+    : null
 }
 
 /**
- * Open a subject with a commit series' form, in place of any form it opened
- * with. The commit hook writes a commit round's label this way, so a fix
- * session never types it.
+ * The role of a round record that a series' label opens. The runner builds
+ * every label, and a move-list series' label opens with `split-`.
+ */
+function seriesRecordRole(series: string): SeriesRole {
+  return series.startsWith("split-") ? "split-audit" : seriesRole
+}
+
+/**
+ * Open a subject with a series' record form, in place of any form it opened
+ * with. The commit hook writes a commit or move-list round's label this way,
+ * so a fix session never types it.
  */
 export function withSeriesForm(line: string, series: string): string {
   const tokens = line.split(" ")
   const rest = looseSplit(line) === null ? tokens : tokens.slice(1)
-  return [`${series}/${seriesRole}`, ...rest].join(" ")
+  return [`${series}/${seriesRecordRole(series)}`, ...rest].join(" ")
 }
 
 /**
  * Whether a loosely read role is an audit record's: a plan round, an
- * implementation-audit round or a commit audit.
+ * implementation-audit round, a commit audit or a move-list round.
  */
 export function isAuditRole(role: string): boolean {
   return (
     role === "plan-audit" ||
     role.startsWith("impl-audit-") ||
-    role === seriesRole
+    role === seriesRole ||
+    role === "split-audit"
   )
 }

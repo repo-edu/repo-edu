@@ -639,6 +639,87 @@ Judged repos: repo-edu@def456
 A finding that needs no condition carries no harm level.
 ```
 
+#### `report/move-list-findings` — parsed
+
+```markdown
+# Move-list audit workflow
+
+Target: splits/packages/domain/src/roster.mv.md
+Judged repos: plan@abc123
+
+| Row | Responsibility | Ranges | Crossing names | Disposition |
+| --- | --- | --- | --- | --- |
+| `packages/domain/src/roster.ts` | Names roster members and reads imported lists. | 1-120 | none | divides |
+| 1. `packages/domain/src/roster-names.ts` | Builds and compares member names. | 10-40 | in: `RosterMember`; out: `displayName` | holds |
+| 2. `packages/domain/src/roster-import.ts` | Reads imported lists and checks their names. | 52-60, 70-90 | in: `displayName`; out: none | mixes |
+
+## Findings
+
+### 1. B: Move the name check beside the names
+
+[section:move-2] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:minus-low]
+
+The name check at lines 52-60 belongs with the names that move 1 carries.
+
+### 2. D: Name the import target for what it reads
+
+[section:moves] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
+
+Each target's name should say what it holds.
+```
+
+#### `report/move-list-empty` — parsed
+
+```markdown
+# Move-list audit workflow
+
+Target: splits/packages/domain/src/roster.mv.md
+Judged repos: plan@abc123
+
+| Row | Responsibility | Ranges | Crossing names | Disposition |
+| --- | --- | --- | --- | --- |
+| `packages/domain/src/roster.ts` | Names roster members and reads imported lists. | 1-120 | none | divides |
+| 1. `packages/domain/src/roster-names.ts` | Builds and compares member names. | 10-40 | in: `RosterMember`; out: `displayName` | holds |
+
+## Findings
+
+No findings.
+```
+
+#### `report/move-list-section` — refused
+
+Refusal: `Finding 1 has an invalid move-list section`
+
+```markdown
+# Move-list audit workflow
+
+Target: splits/packages/domain/src/roster.mv.md
+Judged repos: plan@abc123
+
+## Findings
+
+### 1. C: Reject a plan section
+
+[section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
+
+A move-list finding names a numbered move or the whole list.
+```
+
+#### `report/move-list-judged-repo-edu` — refused
+
+Refusal: `Audit report needs one Judged repos: opening with each audited head`
+
+```markdown
+# Move-list audit workflow
+
+Target: splits/packages/domain/src/roster.mv.md
+Judged repos: repo-edu@def456
+
+## Findings
+
+No findings.
+```
+
 ## Vet report
 
 ### Production

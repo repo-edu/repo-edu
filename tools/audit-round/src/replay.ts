@@ -7,16 +7,18 @@ import {
   planSeriesEvidence,
   retainedRoundCommitTimes,
   type SeriesEvidence,
+  splitSeriesEvidence,
 } from "./judge.js"
 import {
   type RetainedPlanRoundData,
   type RoundData,
-  readAllCommitRoundData,
   readAllPlanRoundData,
+  readAllSeriesRoundData,
   type SeriesDecision,
 } from "./round-data.js"
-import { commitArchiveRoot } from "./round-paths.js"
+import { seriesArchiveRoot } from "./round-paths.js"
 import type { Auditor } from "./settings.js"
+import { moveListFile } from "./target.js"
 
 const baselineBefore = "2026-11-08T18:53:13Z"
 const legacyPool: readonly Auditor[] = [
@@ -46,7 +48,12 @@ export type ReplayRow = {
   readonly stem: string
   readonly target: string
   readonly round: number
-  readonly phase: "widening" | "detailing" | "implementation" | "commit"
+  readonly phase:
+    | "widening"
+    | "detailing"
+    | "implementation"
+    | "commit"
+    | "split"
   readonly started: string
   readonly computed: SeriesDecision
   readonly stored: SeriesDecision
@@ -131,6 +138,7 @@ function historicalEvidence(
   const currentCommits = new Set(entry.commits.map((commit) => commit.sha))
   const before = decisionTime(entry)
   return {
+    document: evidence.document,
     roundData: {
       file: evidence.roundData.file,
       rounds: evidence.roundData.rounds
@@ -218,6 +226,7 @@ function answerText(answer: SeriesDecision): string {
 
 function phase(entry: RoundData): ReplayRow["phase"] {
   if ("originalGroups" in entry) return "commit"
+  if ("source" in entry) return "split"
   return "phase" in entry ? entry.phase : "implementation"
 }
 
@@ -264,9 +273,12 @@ function appendRows(
 export async function replayRows(
   roots: ExecutionContext,
 ): Promise<readonly ReplayRow[]> {
-  const [files, commitFiles, plan, repoEdu] = await Promise.all([
+  const [files, seriesFiles, plan, repoEdu] = await Promise.all([
     readAllPlanRoundData(roots),
-    readAllCommitRoundData(roots, commitArchiveRoot(roots.evidenceRoot)),
+    readAllSeriesRoundData(roots, {
+      commit: seriesArchiveRoot(roots.evidenceRoot, "commit"),
+      split: seriesArchiveRoot(roots.evidenceRoot, "split"),
+    }),
     readLog(roots.planRoot),
     readLog(roots.repoEduRoot),
   ])
@@ -293,16 +305,35 @@ export async function replayRows(
       appendRows(rows, stem, file.rounds, evidence)
     }
   }
-  for (const file of commitFiles)
-    appendRows(rows, file.label, file.rounds, {
-      roundData: { file: file.file, rounds: file.rounds },
-      roundCommits: new Set(),
-      roundCommitTimes: retainedRoundCommitTimes(file.rounds, {
-        plan,
-        "repo-edu": repoEdu,
+  for (const file of seriesFiles) {
+    if (file.kind === "commit") {
+      appendRows(rows, file.label, file.rounds, {
+        document: null,
+        roundData: { file: file.file, rounds: file.rounds },
+        roundCommits: new Set(),
+        roundCommitTimes: retainedRoundCommitTimes(file.rounds, {
+          plan,
+          "repo-edu": repoEdu,
+        }),
+        commits: [],
+      })
+      continue
+    }
+    // Every round of a move-list series judged the one list of one source.
+    const source = file.rounds[0]?.source
+    if (source === undefined) continue
+    appendRows(
+      rows,
+      file.label,
+      file.rounds,
+      splitSeriesEvidence({
+        label: file.label,
+        list: moveListFile(source),
+        rounds: file.rounds,
+        log: plan,
       }),
-      commits: [],
-    })
+    )
+  }
   return rows.toSorted(
     (first, second) =>
       timestamp(first.started) - timestamp(second.started) ||
@@ -311,12 +342,12 @@ export async function replayRows(
   )
 }
 
-function totals(rows: readonly ReplayRow[], includeCommit: boolean): string[] {
+function totals(rows: readonly ReplayRow[], includeSeries: boolean): string[] {
   const phases: readonly (ReplayRow["phase"] | "all")[] = [
     "widening",
     "detailing",
     "implementation",
-    ...(includeCommit ? (["commit"] as const) : []),
+    ...(includeSeries ? (["commit", "split"] as const) : []),
     "all",
   ]
   return phases.map((phase) => {
@@ -329,7 +360,9 @@ function totals(rows: readonly ReplayRow[], includeCommit: boolean): string[] {
 
 function inFixedCorpus(row: ReplayRow): boolean {
   return (
-    row.phase !== "commit" && timestamp(row.started) < timestamp(baselineBefore)
+    row.phase !== "commit" &&
+    row.phase !== "split" &&
+    timestamp(row.started) < timestamp(baselineBefore)
   )
 }
 

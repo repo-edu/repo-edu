@@ -109,13 +109,16 @@ Audit, vet and rebuttal took 7 min.
 ## Terminals and small non-terminals
 
 ```text
-<form>      ::= <stem>/<role> | <series>/commit-audit
+<form>      ::= <stem>/<role> | <series>/commit-audit | <split>/<split-role>
 <stem>      ::= <stem-char>+                ; the plan file's name without .md and without a -widen postfix
 <stem-char> ::= any character except / and space
 <role>      ::= init | plan-audit | settle | ready | disprove | chat | impl-<n> | impl-audit-<scope> | implemented | closed
 <series>    ::= commit-<group>[+<group>]     ; a commit series' label
 <group>     ::= <sha6> | <sha6>..<sha6>
 <sha6>      ::= six lowercase hexadecimal characters ; a commit's first six
+<split>     ::= split-<segment>(+<segment>)* ; a move-list series' label
+<segment>   ::= one segment of the source file's path, percent-encoded
+<split-role> ::= design | split-audit | split
 <scope>     ::= <n> | <n>-<n>
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -155,6 +158,14 @@ spelling: a series label is no plan stem, and a plan whose stem looks like a lab
 forms. The parser holds the one test that tells the two forms apart, and every reader that groups
 commits by plan uses it. The same test reads a chat's form as no plan form, though it opens with a
 plan's stem. The plan repo's **Commit message convention** owns when a chat writes it.
+
+A move-list series' commits open with its label where a plan form has its stem. The label is
+`split-` and the source file's path, each segment percent-encoded as JavaScript's
+`encodeURIComponent` writes it and the segments joined by `+`. A segment's own `+` and `%` are
+escaped, so two paths never share a label: `packages/domain/src/roster.ts` gives
+`split-packages+domain+src+roster.ts`. The same label names the series' round files and round data.
+The `<split-role>` marks the form, as `commit-audit` does, so the plan-form read reads it as no plan
+form.
 
 The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
 `<conventional>` is the Angular set that Conventional Commits recommends, plus `redesign`; a new
@@ -209,6 +220,15 @@ changes:
 <C2 clean record> ::= <series>/commit-audit <tag> clean: <S>
 ```
 
+Move-list commits. `design` and `split-audit` land in the plan repo and `split` in Repo Edu:
+
+```text
+<S1 design>       ::= <split>/design <tag>: <S>
+<S2 round record> ::= <split>/split-audit <tag> <growth> <sequence>: <S>
+                    | <split>/split-audit <tag> clean: <S>
+<S3 split>        ::= <split>/split <tag> <kind>: <S>
+```
+
 Off-plan commits, no `<form>`:
 
 ```text
@@ -228,11 +248,14 @@ Rules across the classes:
   model record.
 - I1 carries no `<severity>`, under the shared round protocol's **Shared
   implementation forms**, and its body opens with a `<step-model-record>`. Other independently
-  written tagged commits use the single-model record.
-- Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
-  off-plan plan-repo commit (O2) and a chat's plan-file commit (P5) carry one
+  written tagged commits use the single-model record. S1 and S3 carry the
+  design selection's record.
+- S3 carries no `<severity>`, under the shared round protocol's **Severity
+  sequence**: the rounds that judged its move list each landed an S2 record.
+- Every file-changing Repo Edu commit except I1 and S3 carries a `<sequence>`.
+  An off-plan plan-repo commit (O2) and a chat's plan-file commit (P5) carry one
   when they close a graded concern and none otherwise.
-- P1, P3, I3, I4, I5 and C2 change no graded file and fill only the slots
+- P1, P3, I3, I4, I5, C2 and S1 change no graded file and fill only the slots
   their productions show. I3 changes no file in its own repo at all.
 - Body placement follows the shared round protocol's **Shared implementation
   forms**.
@@ -252,6 +275,9 @@ Rules across the classes:
 | `implemented` | either | every step this repo hosts has landed |
 | `closed` | either | Repo Edu: its audit rounds have settled; plan: the loop-close move to `archive/` |
 | `commit-audit` | either | a commit audit's fix commit or clean record; its name pairs it with `plan-audit` and `impl-audit-<scope>`, so a record says which audit it was |
+| `design` | plan | a design session's move list, written and committed by the runner |
+| `split-audit` | plan | one move-list round's record, the list's change or clean; its name pairs it with the other audit roles |
+| `split` | Repo Edu | the split commit that carries out a move list, written by the runner |
 
 ## Subject examples
 
@@ -282,6 +308,9 @@ I4        planning-rounds/impl-audit-1-6 otm clean:
 I5        planning-rounds/implemented oth:
 C1        commit-e8128b/commit-audit abx growth-none c1 docs(claude):
 C2        commit-e8128b/commit-audit obx clean:
+S1        split-packages+domain+src+roster.ts/design abx:
+S2        split-packages+domain+src+roster.ts/split-audit obx growth-none b1c1:
+S2        split-packages+domain+src+roster.ts/split-audit obx clean:
 O2        ath chore(repo):
 O2        ath growth-none c1 docs(claude):
 O2        ath growth-low B1c1 docs(claude):
@@ -298,6 +327,7 @@ I5           planning-rounds/closed oth:
 C1           commit-804833/commit-audit abx pruning-low c3 docs(audit-round):
 C1           commit-733686..d081b7/commit-audit abx growth-none c1 fix(audit-round):
 C2           commit-83bde0+3095d1/commit-audit obx clean:
+S3           split-packages+domain+src+roster.ts/split abx refactor(pkg-domain):
 O1           ath growth-medium c1 feat(audit-round):
 O1           abx pruning-low c1 redesign(audit-round):
 O1           abx growth-low c1d1 fix(repo):

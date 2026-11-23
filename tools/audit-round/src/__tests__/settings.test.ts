@@ -127,6 +127,7 @@ test("phase fields read the assistant's defaults and apply partial auditor overr
     effort: { value: "xhigh", source: "audit-round defaults" },
   })
   assert.deepEqual(phases.rebut, phases.audit)
+  assert.ok(phases.watch)
   assert.deepEqual(phases.watch.model, {
     model: {
       value: "listed-watch",

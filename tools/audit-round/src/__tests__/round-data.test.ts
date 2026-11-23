@@ -11,11 +11,14 @@ import {
   type ReportFinding,
   type RoundFinding,
   type RoundFindingReview,
+  readAllSeriesRoundData,
   readPlanRoundData,
+  readSeriesRoundData,
   reviewedRoundFindings,
   reviewsSplit,
   roundDataFilename,
   roundDataFiles,
+  type SplitRoundData,
   settleRoundFindings,
   writeDisprovedFinding,
   writeRoundData,
@@ -105,10 +108,27 @@ test("round data names both files from the round kind", () => {
     "example-impl-rounds.json",
   )
   assert.equal(
-    roundDataFilename("commit-abc123", "commit"),
+    roundDataFilename("commit-abc123", "series"),
     "commit-abc123-rounds.json",
   )
+  assert.equal(
+    roundDataFilename("split-a+b.ts", "series"),
+    "split-a+b.ts-rounds.json",
+  )
 })
+
+const splitEntry = (
+  target: string,
+  round: number,
+  status: SplitRoundData["status"] = "finished",
+): SplitRoundData => {
+  const {
+    scope: _scope,
+    judgedRepos: _judgedRepos,
+    ...common
+  } = entry(target, round, status)
+  return { ...common, source: "a/b.ts" }
+}
 
 test("commit data replaces a target round in place and appends new identities", async (t) => {
   const f = await fixture(t)
@@ -788,6 +808,48 @@ test("plan round data discovery ignores commit round data", async (t) => {
   assert.deepEqual(
     await readPlanRoundData(f.runtime.roundRoot, "commit-abc123"),
     {},
+  )
+})
+
+test("series data of both kinds is read from the round folder and each kind's archive", async (t) => {
+  const f = await fixture(t)
+  const { evidenceRoot, roundRoot } = f.runtime
+  const active = join(roundRoot, "split-a+b.ts-rounds.json")
+  writeRoundData(active, splitEntry("split-a+b.ts", 1, "in-progress"))
+  writeRoundData(active, splitEntry("split-a+b.ts", 1))
+  const archives = {
+    commit: join(evidenceRoot, "commits"),
+    split: join(evidenceRoot, "splits"),
+  }
+  for (const [folder, label, data] of [
+    [archives.commit, "commit-abc123", commitEntry("commit-abc123", 1)],
+    [archives.split, "split-c.ts", splitEntry("split-c.ts", 1)],
+    // A folder holds only its own kind's series.
+    [archives.split, "commit-def456", commitEntry("commit-def456", 1)],
+  ] as const) {
+    await mkdir(join(folder, label), { recursive: true })
+    writeRoundData(join(folder, label, `${label}-rounds.json`), data)
+  }
+
+  assert.deepEqual(
+    (await readSeriesRoundData(f.runtime, "split-a+b.ts")).map(
+      ({ round, status }) => ({ round, status }),
+    ),
+    [{ round: 1, status: "finished" }],
+  )
+  assert.deepEqual(await readSeriesRoundData(f.runtime, "split-x.ts"), [])
+  assert.deepEqual(
+    (await readAllSeriesRoundData(f.runtime, archives))
+      .map(({ kind, label }) => `${kind} ${label}`)
+      .sort(),
+    ["commit commit-abc123", "split split-a+b.ts", "split split-c.ts"],
+  )
+  assert.deepEqual(await roundDataFiles(f.runtime), [])
+  const file = parseRoundDataFile(active, await readFile(active, "utf8"))
+  assert.equal("disproved" in file, false)
+  assert.throws(
+    () => writeDisprovedFinding(active, {} as never),
+    /no disproved findings/,
   )
 })
 

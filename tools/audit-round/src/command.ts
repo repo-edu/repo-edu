@@ -26,14 +26,14 @@ import {
 import { readWatchEvidence } from "./episode.js"
 import { readLog } from "./episode-log.js"
 import {
-  archiveCommitSeries,
+  archiveSeries,
   closedRoundFilesText,
   commitEvidence,
   evidenceFailureText,
   moveClosedRoundFiles,
   movedSeriesText,
   planRoundFiles,
-  restoreCommitSeries,
+  restoreSeries,
 } from "./evidence.js"
 import { errorMessage, observedOutput } from "./feedback.js"
 import { runGlance, writeWatchRecord } from "./glance.js"
@@ -63,6 +63,7 @@ import {
   settlePlan,
 } from "./lifecycle.js"
 import { modelsReport } from "./models.js"
+import { readMoveList } from "./move-list.js"
 import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
   closeRun,
@@ -109,7 +110,7 @@ import {
   type LandedCommit,
   parseRoundDataFile,
   type RoundFinding,
-  readCommitRoundData,
+  readSeriesRoundData,
   roundDataFilename,
   writeDisprovedFinding,
 } from "./round-data.js"
@@ -147,6 +148,7 @@ import {
   type CommitTarget,
   commitTargetRequest,
   isActivePlanPath,
+  moveListFile,
   planPhase,
   planRepositoryPrefix,
   planStem,
@@ -493,12 +495,18 @@ function watchEvidencePage(evidence: string, range: LineRange): string {
  * How one auditor series ended. `settle` and `ready` carry the runner's
  * lifecycle answer and `complete` says every requested round ran: a stop
  * answer, an exhausted manual queue or the one round a target without a
- * series asked for. `limit` is the round maximum reached with another auditor
- * due, and `stopped` an ending that needs the user: a failure, an unanswered
- * ruling, a red watch, a phase change or a chained deferral round that ended
- * the series.
+ * series asked for. `withdrawn` says a fix withdrew the move list. `limit` is
+ * the round maximum reached with another auditor due, and `stopped` an ending
+ * that needs the user: a failure, an unanswered ruling, a red watch, a phase
+ * change or a chained deferral round that ended the series.
  */
-type SeriesEnding = "settle" | "ready" | "complete" | "limit" | "stopped"
+type SeriesEnding =
+  | "settle"
+  | "ready"
+  | "complete"
+  | "withdrawn"
+  | "limit"
+  | "stopped"
 
 type DeferralState = {
   readonly deferrals: readonly OpenDeferral[]
@@ -1506,6 +1514,7 @@ export async function runCommand(
       readRuler: async (file, findings, panel) =>
         readRulerReport(await readFile(file, "utf8"), findings, panel),
       seriesEvidence: readSeriesEvidence,
+      readMoveList: async (file) => readMoveList(await readFile(file, "utf8")),
       chainDeferrals,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
@@ -1789,6 +1798,15 @@ export async function runCommand(
         return shellJoin(planRunCommand(invocation))
       if (invocation.kind !== "round" && invocation.kind !== "round-commits")
         throw new Error(`The ${invocation.kind} command opens no round`)
+      // A move-list target belongs to the split command, which names the source.
+      if ("source" in target)
+        return shellJoin([
+          "pnpm",
+          "audit-round",
+          "split",
+          target.source,
+          ...(invocation.verbose === true ? ["-v"] : []),
+        ])
       const words =
         "groups" in target
           ? target.originalGroups.flatMap((group) =>
@@ -1832,6 +1850,7 @@ export async function runCommand(
       const automatic =
         series.auditor === undefined &&
         ("groups" in targets[0] ||
+          "source" in targets[0] ||
           isActivePlanPath(context.activeRoot, targets[0].plan))
       const coin =
         options.coin ?? ((count: number) => Math.floor(Math.random() * count))
@@ -1930,9 +1949,10 @@ export async function runCommand(
               ...chainedRun.setup,
               documents: chainedRun.documents,
               transcript: chainedRun.paths.markdown,
-              watch: series.watch
-                ? { file: chainedRun.watch, cacheRoot }
-                : null,
+              watch:
+                series.watch && chainedRun.watch !== null
+                  ? { file: chainedRun.watch, cacheRoot }
+                  : null,
               ...(chainedRun.stored === undefined
                 ? {}
                 : { stored: chainedRun.stored }),
@@ -2001,11 +2021,7 @@ export async function runCommand(
           if (opened !== undefined || !automatic) return null
           const label = targetLabel(initial)
           const opening = openingAuditor(
-            await readSeriesEvidence({
-              ...seriesSession,
-              stem: "plan" in initial ? planStem(initial.plan) : label,
-              seriesKind: "groups" in initial ? "commit" : "plan",
-            }),
+            await readSeriesEvidence({ ...seriesSession, target: initial }),
             label,
             poolAuditors,
           )
@@ -2018,7 +2034,9 @@ export async function runCommand(
         const seriesName = (value: AuditTarget): string =>
           "plan" in value
             ? `${roundSubject(value, planStem(value.plan))}: automatic auditor series`
-            : "Commit audit: automatic auditor series"
+            : "source" in value
+              ? `Move-list audit of ${value.source}: automatic auditor series`
+              : "Commit audit: automatic auditor series"
         const advanceCommitTarget = async (
           value: CommitTarget,
           landed: readonly LandedCommit[],
@@ -2095,7 +2113,7 @@ export async function runCommand(
           let retainedCommits: readonly LandedCommit[] = []
           try {
             retainedCommits = (
-              await readCommitRoundData(context, commitTargetLabel(target))
+              await readSeriesRoundData(context, commitTargetLabel(target))
             ).flatMap((round) => round.commits)
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
@@ -2208,12 +2226,10 @@ export async function runCommand(
               ...run.setup,
               documents: run.documents,
               transcript: run.paths.markdown,
-              watch: series.watch
-                ? {
-                    file: run.watch,
-                    cacheRoot,
-                  }
-                : null,
+              watch:
+                series.watch && run.watch !== null
+                  ? { file: run.watch, cacheRoot }
+                  : null,
               ...(run.stored === undefined ? {} : { stored: run.stored }),
             },
             dependenciesFor(active, seriesSession, async ({ plan }) => {
@@ -2247,6 +2263,22 @@ export async function runCommand(
             )
             if (automatic) await printDeferrals()
             return "stopped"
+          }
+          // A fix that withdrew the move list ends its series before the
+          // rules apply, as a plan's phase change does.
+          if ("source" in target) {
+            const list = readMoveList(
+              await readFile(
+                join(context.planRoot, moveListFile(target.source)),
+                "utf8",
+              ),
+            )
+            if (list.kind === "no-split") {
+              await active.message(
+                `${seriesName(target)} ended after ${completed} round${completed === 1 ? "" : "s"}: the fix withdrew the list, which records ${list.result}. ${list.reason}`,
+              )
+              return "withdrawn"
+            }
           }
           if (!automatic && queue === null) return "complete"
           if (automatic && "plan" in target) {
@@ -2361,30 +2393,43 @@ export async function runCommand(
           await output?.message(
             `Next scope: ${roundSubject(target, planStem(target.plan))}; ${later.length} scope${later.length === 1 ? "" : "s"} remain after it.`,
           )
-        // A completed commit series waits in its archive folder. A rerun
-        // brings it back before anything reads it, so the series keeps its
-        // numbering and earlier fixes and every round writes where it did.
-        const label = "groups" in target ? commitTargetLabel(target) : null
-        if (label !== null)
+        // A finished commit or move-list series waits in its archive folder.
+        // A rerun brings it back before anything reads it, so the series keeps
+        // its numbering and earlier fixes and every round writes where it did.
+        const archive =
+          "groups" in target
+            ? { kind: "commit" as const, label: targetLabel(target) }
+            : "source" in target
+              ? { kind: "split" as const, label: targetLabel(target) }
+              : null
+        if (archive !== null)
           await say(
             movedSeriesText(
-              label,
-              await restoreCommitSeries(
+              archive.label,
+              await restoreSeries(
                 context.evidenceRoot,
                 context.roundRoot,
-                label,
+                archive.kind,
+                archive.label,
               ),
             ),
           )
         ending = await runSeries(target)
-        if (label !== null && ending === "complete")
+        // A series is finished when the rules stop it or a fix withdraws its
+        // move list. The maximum and every ending that needs the user leave it
+        // in the round folder, where its rerun reads it.
+        if (
+          archive !== null &&
+          (ending === "complete" || ending === "withdrawn")
+        )
           await say(
             movedSeriesText(
-              label,
-              await archiveCommitSeries(
+              archive.label,
+              await archiveSeries(
                 context.evidenceRoot,
                 context.roundRoot,
-                label,
+                archive.kind,
+                archive.label,
               ),
             ),
           )

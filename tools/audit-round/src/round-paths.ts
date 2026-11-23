@@ -21,13 +21,16 @@ type NamingTarget = ExecutionContext & AuditTarget
 const planTargetRole = {
   planning: "plan-audit",
   implementation: "impl-audit",
-} as const satisfies Record<RoundKind, string>
+} as const satisfies Record<Exclude<RoundKind, "split">, string>
 
 /** The capability tag a tagged round-file name carries. */
 const tagPattern = "[ao][btu][lmhx]"
 
 /** The round kind a plan's stored target names, or null for any other target. */
-export function planTargetKind(stem: string, target: string): RoundKind | null {
+export function planTargetKind(
+  stem: string,
+  target: string,
+): Exclude<RoundKind, "split"> | null {
   if (target === `${stem}-${planTargetRole.planning}`) return "planning"
   if (target.startsWith(`${stem}-${planTargetRole.implementation}-`))
     return "implementation"
@@ -137,12 +140,12 @@ export function planRoundFile(stem: string, name: string): boolean {
 }
 
 /**
- * Whether a file belongs to one commit series: a claim, phase file, queue,
- * handoff or the series' round data. Every form is read whole past the label,
- * so a neighbouring label that extends this one never matches.
+ * Whether a file belongs to one commit or move-list series: a claim, phase
+ * file, queue, handoff or the series' round data. Every form is read whole
+ * past the label, so a neighbouring label that extends this one never matches.
  */
-export function commitSeriesFile(label: string, name: string): boolean {
-  if (name === roundDataFilename(label, "commit")) return true
+export function seriesFile(label: string, name: string): boolean {
+  if (name === roundDataFilename(label, "series")) return true
   const prefix = escapedPattern(label)
   const phase = readPhaseFilename(name)
   if (phase !== null)
@@ -152,17 +155,27 @@ export function commitSeriesFile(label: string, name: string): boolean {
   ).test(name)
 }
 
-/** The folder of the evidence checkout that holds every completed commit series. */
-export function commitArchiveRoot(evidenceRoot: string): string {
-  return join(evidenceRoot, "commits")
+/** A series that is no plan's: a commit series or a move-list series. */
+export type SeriesKind = "commit" | "split"
+
+/**
+ * The folder of the evidence checkout that holds every finished series of one
+ * kind: `commits/` for commit series and `splits/` for move-list series.
+ */
+export function seriesArchiveRoot(
+  evidenceRoot: string,
+  kind: SeriesKind,
+): string {
+  return join(evidenceRoot, kind === "commit" ? "commits" : "splits")
 }
 
-/** The folder that holds one completed commit series under its label. */
-export function commitArchiveFolder(
+/** The folder that holds one finished series under its label. */
+export function seriesArchiveFolder(
   evidenceRoot: string,
+  kind: SeriesKind,
   label: string,
 ): string {
-  return join(commitArchiveRoot(evidenceRoot), label)
+  return join(seriesArchiveRoot(evidenceRoot, kind), label)
 }
 
 /** The bounded label that owns one commit series and its retained evidence. */
@@ -175,10 +188,22 @@ export function commitTargetLabel(target: CommitTarget): string {
   return `commit-${target.originalGroups.map(groupLabel).join("+")}`
 }
 
+/**
+ * The label that owns one move-list series and its retained evidence: `split-`
+ * and the source path with each segment percent-encoded and the segments
+ * joined by `+`. The encoding writes every `+` and `%` of a segment as an
+ * escape, so two paths never share a label, and the label holds no path
+ * separator.
+ */
+export function splitLabel(source: string): string {
+  return `split-${source.split("/").map(encodeURIComponent).join("+")}`
+}
+
 /** The bounded label that owns one target's round files and round data. */
 export function targetLabel(target: AuditTarget): string {
   // Keep list filenames bounded; the title and phase arguments carry every reference.
   if ("groups" in target) return commitTargetLabel(target)
+  if ("source" in target) return splitLabel(target.source)
   const stem = planStem(target.plan)
   if (target.roundKind === "planning")
     return `${stem}-${planTargetRole.planning}`
@@ -199,7 +224,9 @@ async function targetDescription(target: NamingTarget): Promise<{
     title:
       "groups" in target
         ? `Commit audit of ${target.groups.flatMap((group) => group.references).join(" ")}`
-        : roundSubject(target, target.plan),
+        : "source" in target
+          ? `Move-list audit of ${target.source}`
+          : roundSubject(target, target.plan),
   }
 }
 
@@ -209,7 +236,7 @@ async function targetDescription(target: NamingTarget): Promise<{
  * phrase so the two cannot drift.
  */
 export function roundSubject(
-  target: Exclude<AuditTarget, { groups: unknown }>,
+  target: Extract<AuditTarget, { plan: unknown }>,
   plan: string,
 ): string {
   if (target.roundKind === "planning") return `Plan audit of ${plan}`

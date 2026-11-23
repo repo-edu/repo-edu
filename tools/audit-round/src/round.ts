@@ -1,3 +1,4 @@
+import { join } from "node:path"
 import { isDeepStrictEqual } from "node:util"
 import type { ClosedRoundFiles } from "./evidence.js"
 import { errorMessage, type ModelReleases } from "./feedback.js"
@@ -33,7 +34,7 @@ import {
   targetWorkClass,
   watchPhase,
 } from "./phase.js"
-import type { AuditReport } from "./report.js"
+import { type AuditReport, targetReportClass } from "./report.js"
 import {
   findingSplit,
   highestGrade,
@@ -63,10 +64,12 @@ import {
   type CommitGroup,
   type CommitTarget,
   commitAuditGroups,
+  moveListFile,
   planPhase,
   planRepositoryPrefix,
   planStem,
   type RoundContext,
+  type RoundKind,
   reportTarget,
 } from "./target.js"
 
@@ -628,7 +631,11 @@ export async function runClose(
  * The grade is null when the watch was not due or was not asked for.
  */
 async function runWatch(
-  input: RoundContext & Pick<RoundInput, "watch"> & { readonly plan: string },
+  input: RoundContext &
+    Pick<RoundInput, "watch"> & {
+      readonly plan: string
+      readonly roundKind: Exclude<RoundKind, "split">
+    },
   dependencies: Pick<
     RoundDependencies,
     | "runPhase"
@@ -759,8 +766,7 @@ async function runSeriesDecision(
     )
     const evidence = await dependencies.seriesEvidence({
       ...context,
-      stem: "plan" in input ? planStem(input.plan) : currentRound.target,
-      seriesKind: "groups" in input ? "commit" : "plan",
+      target: input,
     })
     return { answer: decideSeries(evidence, currentRound, pool) }
   } catch (error) {
@@ -910,9 +916,7 @@ async function reviewRound(
     () =>
       dependencies.readReport(
         report,
-        input.roundKind === "implementation"
-          ? "implementation"
-          : planPhase(input.plan),
+        targetReportClass(input),
         reportTarget(input),
       ),
     () =>
@@ -923,9 +927,11 @@ async function reviewRound(
         arguments:
           "groups" in input
             ? [report, ...commitAuditGroups(input)]
-            : input.roundKind === "planning"
-              ? [report, input.plan, ...deferralScope]
-              : [report, input.plan, input.scope, ...deferralScope],
+            : "source" in input
+              ? [report, join(input.planRoot, moveListFile(input.source))]
+              : input.roundKind === "planning"
+                ? [report, input.plan, ...deferralScope]
+                : [report, input.plan, input.scope, ...deferralScope],
         sessionId: null,
       }),
     dependencies,
@@ -1114,8 +1120,9 @@ async function concludeClean(
 
 /**
  * Finish a round once its fix ended: publish the settled account, run the
- * watch that follows it, chain any planning round for open deferrals and
- * apply the series rules.
+ * watch that follows a plan round, chain any planning round for open deferrals
+ * and apply the series rules. A fix that changed the plan's phase or withdrew
+ * the move list ends the series before the rules apply.
  */
 async function concludeFixed(
   input: RoundInput,
@@ -1154,11 +1161,22 @@ async function concludeFixed(
       ? await runWatch(input, dependencies, settings)
       : { grade: null }
   if ("status" in watched) return { ...watched, commits, account }
-  const seriesMayContinue =
-    "groups" in input ||
-    (currentPlan !== null &&
-      planPhase(currentPlan) === planPhase(input.plan) &&
-      watched.grade !== "red")
+  let seriesMayContinue: boolean
+  try {
+    seriesMayContinue =
+      "groups" in input ||
+      ("source" in input
+        ? (
+            await dependencies.readMoveList(
+              join(input.planRoot, moveListFile(input.source)),
+            )
+          ).kind === "moves"
+        : currentPlan !== null &&
+          planPhase(currentPlan) === planPhase(input.plan) &&
+          watched.grade !== "red")
+  } catch (error) {
+    return failed(error)
+  }
   let deferralChain: DeferralChainOutcome = "none"
   if (seriesMayContinue) {
     try {
@@ -1517,8 +1535,16 @@ export async function runRound(
           throw new Error("Only a widening fix returns a settling line")
         if (fix.settling !== null)
           account = { ...account, settling: fix.settling }
-        if ("plan" in input && landed.every((records) => records.length === 0))
-          throw new Error("The finished fix landed no commit for a plan target")
+        // A plan or move-list fix lands the round's record with its change;
+        // only a commit round whose findings all need a listed-file change
+        // lands nothing.
+        if (
+          !("groups" in input) &&
+          landed.every((records) => records.length === 0)
+        )
+          throw new Error(
+            `The finished fix landed no commit for a ${"source" in input ? "move-list" : "plan"} target`,
+          )
         for (const [index, records] of landed.entries()) {
           for (const { subject } of records) {
             parseSubject(subject, repositories[index].repository)

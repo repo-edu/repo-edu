@@ -41,9 +41,6 @@ export type Coder = z.infer<typeof coderSchema>
 export type Auditor = Coder
 const strengths = z.strictObject({ base: model, top: model })
 
-/** Every settings level that holds a vetter panel, under its work class's name. */
-const panelLevels = { ...auditLevels, split: "splitAudit" } as const
-
 /**
  * A listed entry's `default` resolves once, when the file loads, so every reader
  * sees the selection the entry runs. A ready marker therefore records that
@@ -159,7 +156,7 @@ export const settingsSchema = z
    * tier and effort; changing one effort lets both run.
    */
   .superRefine((settings, context) => {
-    for (const [workClass, level] of Object.entries(panelLevels)) {
+    for (const [workClass, level] of Object.entries(auditLevels)) {
       const tags = settings[level].vetters.map(({ assistant, model, effort }) =>
         selectionTag(assistant, model, effort, settings),
       )

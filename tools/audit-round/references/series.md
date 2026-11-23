@@ -24,8 +24,9 @@ plan or commit target runs an [automatic series](#automatic-series). With `--aud
   resumes the fix, then the sequence after the round completes.
 - The series returns its ending as a value, so a reader never parses the printed lines: `settle` or
   `ready` for the runner's lifecycle answer, `complete` for a runner stop or an emptied manual
-  queue, `limit` for the maximum and `stopped` for an ending that needs the user. A complete commit
-  series moves under [The commit-series move](../CLAUDE.md#the-commit-series-move).
+  queue, `withdrawn` for a move-list fix that withdrew its list, `limit` for the maximum and
+  `stopped` for an ending that needs the user. A complete or withdrawn series moves under
+  [The series move](../CLAUDE.md#the-series-move).
 
 ### Auditor options
 

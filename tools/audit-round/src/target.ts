@@ -1,11 +1,15 @@
 import { readdir, stat } from "node:fs/promises"
-import { basename, dirname, join, resolve } from "node:path"
+import { basename, dirname, join, posix, resolve } from "node:path"
 import { InvalidArgumentError } from "commander"
 import type { ExecutionContext, PlanRoots } from "./context.js"
 import { splitEntries } from "./queue.js"
 import type { Repository } from "./subject.js"
 
-export type RoundKind = "planning" | "implementation"
+/**
+ * The kind of round a target runs, which picks its working checkout and its
+ * workflows. A move-list round is its own kind, the split work class.
+ */
+export type RoundKind = "planning" | "implementation" | "split"
 export type PlanPhase = "widening" | "detailing"
 export type RoundContext = ExecutionContext & {
   readonly roundKind: RoundKind
@@ -70,6 +74,13 @@ export function commitAuditGroups(
   return groups as [CommitAuditGroup, ...CommitAuditGroup[]]
 }
 
+/** A move-list round's target: the one move list of a source file. */
+export type MoveListTarget = {
+  readonly roundKind: "split"
+  /** The source file's path relative to the Repo Edu root, with `/` separators. */
+  readonly source: string
+}
+
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =
   | { readonly roundKind: "planning"; readonly plan: string }
@@ -79,6 +90,20 @@ export type AuditTarget =
       readonly scope: string
     }
   | CommitTarget
+  | MoveListTarget
+
+/**
+ * The move list of one source file, relative to the plan checkout's root: the
+ * source's path under `splits/`, with its extension replaced by `.mv.md`, so
+ * the list is found from the source's path alone.
+ */
+export function moveListFile(source: string): string {
+  return posix.join(
+    "splits",
+    posix.dirname(source),
+    `${posix.basename(source, posix.extname(source))}.mv.md`,
+  )
+}
 
 /**
  * The scope word that names a plan's planning round whatever has landed. The
@@ -133,6 +158,7 @@ export function planStem(plan: string): string {
 export function reportTarget(target: AuditTarget): string {
   if ("groups" in target)
     return target.groups.flatMap((group) => group.references).join(" ")
+  if ("source" in target) return moveListFile(target.source)
   const plan = basename(target.plan)
   return target.roundKind === "planning" ? plan : `${plan} ${target.scope}`
 }

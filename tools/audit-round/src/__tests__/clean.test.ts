@@ -5,11 +5,12 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { completeClean } from "../clean.js"
 import { stampCommitMessage } from "../commit-msg.js"
-import { commitArchiveFolder } from "../round-paths.js"
+import { seriesArchiveFolder } from "../round-paths.js"
+import { parseSubject } from "../subject.js"
 import { planStem } from "../target.js"
 import { runCommand, testSettings } from "./configured-runner.js"
-import { recordedTag } from "./helpers.js"
-import { roundFixture, shortCommit } from "./round-fixture.js"
+import { fixture, recordedTag } from "./helpers.js"
+import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
 
 const singleAuditorSettings = {
   ...testSettings,
@@ -241,7 +242,7 @@ for (const { name, args, judged, owner } of [
         message,
       )
     // The completed series waits in its archive folder.
-    const archived = commitArchiveFolder(f.evidenceRoot, label)
+    const archived = seriesArchiveFolder(f.evidenceRoot, "commit", label)
     const data = JSON.parse(
       await readFile(join(archived, `${label}-rounds.json`), "utf8"),
     ) as { rounds: { commits: { repository: string; sha: string }[] }[] }
@@ -408,4 +409,36 @@ test("clean records share archived and widening plan identities with output file
     ),
     /audit's model/,
   )
+})
+
+test("a clean move-list audit records in the plan repo under its series label", async (t) => {
+  const f = await fixture(t)
+  const { planRoot } = f.runtime
+  const git = async (...args: string[]) =>
+    (await execa("git", args, { cwd: planRoot })).stdout
+  await commitFixture(planRoot)
+  const phases = "audit: gpt-5.6-sol xhigh\nAudit took 2 min."
+
+  const completion = await completeClean(
+    {
+      ...f.runtime,
+      roundKind: "split",
+      cwd: f.runtime.repoEduRoot,
+      source: "packages/domain/src/roster.ts",
+      report: join(f.runtime.roundRoot, "split-01-2-audit.obx.md"),
+      judgedRepos: ["plan"],
+    },
+    { auditor: "obx", phases, series: null },
+  )
+
+  const subject =
+    "split-packages+domain+src+roster.ts/split-audit obx clean: record audit with no findings"
+  assert.equal(
+    await git("log", "-1", "--format=%B"),
+    `${subject}\n\n${phases}\n`,
+  )
+  assert.deepEqual(completion.commits, [
+    { repository: "plan", sha: await git("rev-parse", "HEAD") },
+  ])
+  assert.equal(parseSubject(subject, "plan").class, "S2")
 })

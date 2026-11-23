@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { commitArchiveFolder, documentTag } from "../round-paths.js"
+import { documentTag, seriesArchiveFolder } from "../round-paths.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
@@ -734,7 +734,11 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
   const stored = JSON.parse(
     await readFile(
       join(
-        commitArchiveFolder(f.evidenceRoot, `commit-${head.slice(0, 6)}`),
+        seriesArchiveFolder(
+          f.evidenceRoot,
+          "commit",
+          `commit-${head.slice(0, 6)}`,
+        ),
         `commit-${head.slice(0, 6)}-rounds.json`,
       ),
       "utf8",
@@ -1763,7 +1767,10 @@ test("a commit series keeps its label while the next auditor reads the original 
 
   const data = JSON.parse(
     await readFile(
-      join(commitArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
+      join(
+        seriesArchiveFolder(f.evidenceRoot, "commit", label),
+        `${label}-rounds.json`,
+      ),
       "utf8",
     ),
   ) as {
@@ -1809,7 +1816,10 @@ test("a commit series keeps its clean record out of the next round's audited set
 
   const data = JSON.parse(
     await readFile(
-      join(commitArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
+      join(
+        seriesArchiveFolder(f.evidenceRoot, "commit", label),
+        `${label}-rounds.json`,
+      ),
       "utf8",
     ),
   ) as {
@@ -1889,7 +1899,10 @@ test("a rerun starts with fixes retained by the same commit-series label", async
 
   const data = JSON.parse(
     await readFile(
-      join(commitArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
+      join(
+        seriesArchiveFolder(f.evidenceRoot, "commit", label),
+        `${label}-rounds.json`,
+      ),
       "utf8",
     ),
   ) as {

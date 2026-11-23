@@ -16,6 +16,7 @@ import {
 } from "../glance.js"
 import type { SeriesEvidence } from "../judge.js"
 import type { LifecycleCommit } from "../lifecycle.js"
+import type { MoveList } from "../move-list.js"
 import {
   panelPhases,
   phaseWorkflow,
@@ -235,6 +236,21 @@ function controlledRound(
   const storedRecords = new Map<string, LandedRecord>()
   // The choice the stub ruler leaves open on every finding it is given.
   const ruler: { choice: string | null } = { choice: null }
+  // The move list a move-list round's fix leaves, and every read of it.
+  let moveList: MoveList = {
+    source: "a/b.ts",
+    hash: "0".repeat(40),
+    area: "tool-audit-round",
+    kind: "moves",
+    moves: [
+      {
+        target: "a/c.ts",
+        responsibility: "Holds c.",
+        ranges: [{ start: 1, end: 2 }],
+      },
+    ],
+  }
+  const movedLists: string[] = []
   const results: { [P in Exclude<Phase, "implement">]: PhaseResult<P> } = {
     audit: {
       status: "finished",
@@ -396,7 +412,12 @@ function controlledRound(
       assert.ok(record, `No landed record ${sha}`)
       return record
     },
+    readMoveList: async (file) => {
+      movedLists.push(file)
+      return moveList
+    },
     seriesEvidence: async (): Promise<SeriesEvidence> => ({
+      document: "plan",
       roundData: { file: "example-impl-rounds.json", rounds: [] },
       roundCommits: new Set(),
       roundCommitTimes: new Map(),
@@ -492,6 +513,17 @@ function controlledRound(
     refused,
     storedRecords,
     ruler,
+    movedLists,
+    withdrawList() {
+      moveList = {
+        source: moveList.source,
+        hash: moveList.hash,
+        area: moveList.area,
+        kind: "no-split",
+        result: "fine",
+        reason: "The file holds one responsibility.",
+      }
+    },
   }
 }
 
@@ -3037,6 +3069,7 @@ test("an automatic round publishes its settled entry before the series decision"
       seriesEvidence: async () => {
         assert.equal(round.settledWrites.length, 1)
         return {
+          document: "plan",
           roundData: {
             file: "example-impl-rounds.json",
             rounds: [
@@ -3660,4 +3693,125 @@ test("a fix needing a ruling is not graded or required to have landed work", asy
   assert.equal(result.status, "awaiting-ruling")
   assert.deepEqual(result.commits, [])
   assert.deepEqual(round.settledWrites, [])
+})
+
+test("a move-list round audits its list, lands its record in the plan repo and runs no watch", async () => {
+  const label = "split-a+b.ts"
+  const setup = {
+    ...files,
+    ...testSetup(repoRoot, "split"),
+    transcript: `${repoRoot}/${label}-01-1-round.oth.md`,
+    source: "a/b.ts",
+  }
+  const list = join(setup.planRoot, "splits/a/b.mv.md")
+  const subject = `${label}/split-audit obx growth-none b1: merge the moves`
+  const record = {
+    repository: "plan" as const,
+    sha: "2".repeat(40),
+    subject,
+    message: `${subject}\n\n${fixPhaseStamp}\n\n- B [finding:1] [section:move-1] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none] Fixture finding: Apply the correction.`,
+  }
+  const pool = testSettings.splitAudit.auditors
+  const {
+    scope: _scope,
+    judgedRepos: _judgedRepos,
+    ...opening
+  } = implementationRead("codex", 1, "in-progress")
+  for (const withdrawn of [false, true]) {
+    const round = controlledRound()
+    if (withdrawn) round.withdrawList()
+    // A move-list series has no watch, whatever the glance would answer.
+    round.decide({ due: true, text: "A rule holds." })
+    round.evidence.findings = [
+      {
+        ...reportFinding,
+        location: { kind: "plan", section: "move-1" },
+      },
+    ]
+    const evidence: SeriesEvidence = {
+      document: "move list",
+      roundData: {
+        file: `${label}-rounds.json`,
+        rounds: [
+          {
+            ...opening,
+            target: label,
+            source: "a/b.ts",
+            auditor: { ...pool[0], chosenBy: "settings" },
+          },
+        ],
+      },
+      roundCommits: new Set(),
+      roundCommitTimes: new Map(),
+      commits: [],
+    }
+
+    const result = await runRound(
+      { ...setup, pool },
+      {
+        ...round.dependencies,
+        readRecords: async (root) => (root === setup.planRoot ? [record] : []),
+        seriesEvidence: async (input) => {
+          assert.deepEqual(input.target, { ...setup, pool })
+          return evidence
+        },
+      },
+    )
+
+    assert.equal(result.status, "finished", JSON.stringify(result))
+    assert.deepEqual(
+      round.calls.map((call) => call.phase),
+      ["audit", "vet", "rebut", "fix"],
+    )
+    const audit = round.calls[0]
+    assert.equal(audit.phase, "audit")
+    assert.deepEqual(audit.arguments, [setup.documents.report, list])
+    for (const call of round.calls)
+      assert.equal(
+        phaseWorkflow(call),
+        join(
+          repoRoot,
+          ".agents/skills",
+          call.phase,
+          "references",
+          call.phase === "audit" || call.phase === "fix"
+            ? "move-list-workflow.md"
+            : "workflow.md",
+        ),
+        call.phase,
+      )
+    assert.deepEqual(round.glances, [])
+    assert.deepEqual(round.movedLists, [list])
+    assert.deepEqual(round.settledWrites[0]?.commits, [
+      { repository: "plan", sha: record.sha },
+    ])
+    assert.equal(round.settledWrites[0]?.account.findings[0]?.outcome, "kept")
+    // A withdrawn list ends the series before its rules run.
+    assert.deepEqual(
+      result.status === "finished" ? result.decision : null,
+      withdrawn
+        ? null
+        : {
+            answer: "stop",
+            reason:
+              "Rule 2: every listed auditor has a current read; the series stops.",
+          },
+    )
+  }
+})
+
+test("a move-list fix that lands no record fails the round", async () => {
+  const round = controlledRound()
+  round.evidence.subjects = []
+  const result = await runRound(
+    { ...files, ...testSetup(repoRoot, "split"), source: "a/b.ts" },
+    round.dependencies,
+  )
+  assert.equal(result.status, "failed")
+  if (result.status === "failed")
+    assert.equal(
+      result.reason,
+      "The finished fix landed no commit for a move-list target",
+    )
+  assert.deepEqual(round.movedLists, [])
 })

@@ -6,6 +6,7 @@ import type { ClosedRoundFiles } from "./evidence.js"
 import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { SeriesEvidence, SeriesEvidenceInput } from "./judge.js"
 import type { LifecycleCommit } from "./lifecycle.js"
+import type { MoveList } from "./move-list.js"
 import type { OpenDeferral } from "./open-deferrals.js"
 import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
 import type {
@@ -71,8 +72,10 @@ export const phaseSkills: Record<Phase, string> = {
 
 /**
  * A round phase's workflow follows the round's kind, so it lives in the
- * working checkout. The watch and a step's implementation use Repo Edu's
- * workflow, and loop-close, which is plan doctrine, the plan checkout's.
+ * working checkout. A move-list round's audit and fix have workflows of their
+ * own beside the implementation ones, and its vet, rebuttal and ruler use the
+ * implementation workflows. The watch and a step's implementation use Repo
+ * Edu's workflow, and loop-close, which is plan doctrine, the plan checkout's.
  */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
   const root =
@@ -81,11 +84,15 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
       : input.phase === "implement" || input.phase === "watch"
         ? input.repoEduRoot
         : input.cwd
+  const own =
+    input.roundKind === "split" &&
+    (input.phase === "audit" || input.phase === "fix")
   return join(
     root,
     ".agents/skills",
     phaseSkills[input.phase],
-    "references/workflow.md",
+    "references",
+    own ? "move-list-workflow.md" : "workflow.md",
   )
 }
 
@@ -312,14 +319,15 @@ export function panelPhases(
 
 /**
  * The watch reads joined trajectory evidence, so the auditor does not select
- * it: the target work class's audit level names its one writer.
+ * it: the target work class's audit level names its one writer. A move-list
+ * series runs no watch, so the split level names none.
  */
 export function watchPhase(
-  workClass: RoundKind,
+  workClass: Exclude<RoundKind, "split">,
   config: RoundSettings,
 ): PhaseRun {
   return implementationPhase(
-    auditRoles(workClass, config).watch,
+    config[auditLevels[workClass]].watch,
     `audit-round ${workClass} watch`,
   )
 }
@@ -346,7 +354,8 @@ export type RoundFixer = {
 
 /**
  * The one owner of a target's work class. A commit target is implementation
- * work when any group is in Repo Edu and planning work otherwise.
+ * work when any group is in Repo Edu and planning work otherwise. A move-list
+ * target is split work.
  */
 export function targetWorkClass(target: AuditTarget): RoundKind {
   if (!("groups" in target)) return target.roundKind
@@ -356,19 +365,26 @@ export function targetWorkClass(target: AuditTarget): RoundKind {
 }
 
 /**
- * The settings level that holds each work class's auditor list, vetter panel,
- * ruler and watch writer.
+ * The settings level that holds each work class's auditor list, vetter panel
+ * and ruler.
  */
 export const auditLevels = {
   planning: "planningAudit",
   implementation: "implementationAudit",
+  split: "splitAudit",
 } as const satisfies Record<RoundKind, string>
 
-/** The auditor list, vetter panel, ruler and watch writer of one work class. */
+/** The roles every audit level names. */
+type AuditRoles = Pick<
+  RoundSettings["implementationAudit"],
+  "auditors" | "vetters" | "ruler"
+>
+
+/** The auditor list, vetter panel and ruler of one work class. */
 export function auditRoles(
   workClass: RoundKind,
   config: RoundSettings,
-): RoundSettings["implementationAudit"] {
+): AuditRoles {
   return config[auditLevels[workClass]]
 }
 
@@ -379,13 +395,18 @@ export function auditRoles(
  * implementation target on its plan's ready assignment, and a commit target
  * with a Repo Edu group on the first coder. The caller reads the assignment
  * only for an implementation plan target; an implementation target without one
- * also takes the first coder.
+ * also takes the first coder. Split work fixes on the split level's fixer.
  */
 export function roundFixer(
   target: AuditTarget,
   assigned: Coder | null,
   config: RoundSettings,
 ): RoundFixer {
+  if (targetWorkClass(target) === "split")
+    return {
+      fixer: config.splitAudit.fixer,
+      fixerSource: "audit-round split fixer",
+    }
   const planning: RoundFixer = {
     fixer: config.planningAudit.fixer,
     fixerSource: "audit-round planning fixer",
@@ -403,11 +424,15 @@ export function roundFixer(
 
 /**
  * Who runs each phase of a round. Every phase has one run except the vet,
- * whose panel runs one vet session per listed vetter, in list order.
+ * whose panel runs one vet session per listed vetter, in list order, and the
+ * watch, which a move-list round does not have.
  */
 export type RoundPhases = Readonly<
-  Record<Exclude<RoundPhase, "vet">, PhaseRun>
-> & { readonly vet: readonly PhaseRun[] }
+  Record<Exclude<RoundPhase, "vet" | "watch">, PhaseRun>
+> & {
+  readonly vet: readonly PhaseRun[]
+  readonly watch: PhaseRun | null
+}
 
 /**
  * The single owner of who runs each round phase and on what. The runner invokes
@@ -429,7 +454,7 @@ export function roundPhases(
     rebut: audit,
     rule: rulerPhase(workClass, config),
     fix: implementationPhase(fixer, fixerSource),
-    watch: watchPhase(workClass, config),
+    watch: workClass === "split" ? null : watchPhase(workClass, config),
     close: closePhase(config),
   }
 }
@@ -829,6 +854,8 @@ export type RoundDependencies = {
   readonly readHead: (root: string) => Promise<string>
   /** Resolve the plan's current file after a fix may have changed its phase. */
   readonly resolvePlan: (roots: PlanRoots, stem: string) => Promise<string>
+  /** Read a move list after a fix may have withdrawn it. */
+  readonly readMoveList: (file: string) => Promise<MoveList>
   /**
    * Whether a file exists: a round's kept report, or the plan a finished close
    * left in place.

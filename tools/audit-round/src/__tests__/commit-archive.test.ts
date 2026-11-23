@@ -3,9 +3,9 @@ import { readdir, readFile, rename, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { archiveCommitSeries, restoreCommitSeries } from "../evidence.js"
+import { archiveSeries, restoreSeries } from "../evidence.js"
 import { replayRows } from "../replay.js"
-import { commitArchiveFolder, commitSeriesFile } from "../round-paths.js"
+import { seriesArchiveFolder, seriesFile, splitLabel } from "../round-paths.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { evidencePending, fixture } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
@@ -24,7 +24,7 @@ const singleAuditorSettings = {
 async function seriesFiles(folder: string, label: string): Promise<string[]> {
   try {
     return (await readdir(folder))
-      .filter((name) => commitSeriesFile(label, name))
+      .filter((name) => seriesFile(label, name))
       .sort()
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
@@ -60,7 +60,7 @@ test("a series file is read whole past its label, so a neighbouring label never 
     "commit-abcdef-handoff.123abc.md",
     "commit-abcdef-rounds.json",
   ])
-    assert.equal(commitSeriesFile(label, name), true, name)
+    assert.equal(seriesFile(label, name), true, name)
   for (const name of [
     "commit-abcdef+123456-01-0-claim.md",
     "commit-abcdef..123456-rounds.json",
@@ -68,44 +68,69 @@ test("a series file is read whole past its label, so a neighbouring label never 
     "commit-abcdef-notes.md",
     "example-plan-audit-01-0-claim.md",
   ])
-    assert.equal(commitSeriesFile(label, name), false, name)
+    assert.equal(seriesFile(label, name), false, name)
 })
 
-test("an archive and its restore move exactly one series and lose nothing when cut short", async (t) => {
-  const f = await fixture(t)
-  const { evidenceRoot, roundRoot } = f.runtime
-  const label = "commit-abcdef"
-  const own = [
-    `${label}-01-0-claim.md`,
-    `${label}-01-2-audit.obx.md`,
-    `${label}-queue.md`,
-    `${label}-rounds.json`,
-  ]
-  const neighbour = "commit-abcdef+123456-01-0-claim.md"
-  for (const name of [...own, neighbour])
-    await writeFile(join(roundRoot, name), name)
-
-  const archived = await archiveCommitSeries(evidenceRoot, roundRoot, label)
-  const folder = commitArchiveFolder(evidenceRoot, label)
-  assert.equal(archived.folder, folder)
-  assert.deepEqual(archived.names, own)
-  assert.deepEqual(await seriesFiles(folder, label), own)
-  assert.deepEqual(await readdir(roundRoot), [neighbour])
-
-  // A move cut short leaves part of the series in each folder.
-  for (const name of own.slice(0, 2))
-    await rename(join(folder, name), join(roundRoot, name))
-  const restored = await restoreCommitSeries(evidenceRoot, roundRoot, label)
-  assert.deepEqual(restored.names, own.slice(2))
-  assert.deepEqual(await seriesFiles(roundRoot, label), own)
-  for (const name of own)
-    assert.equal(await readFile(join(roundRoot, name), "utf8"), name)
-  await assert.rejects(readdir(folder), { code: "ENOENT" })
-  assert.deepEqual(
-    (await restoreCommitSeries(evidenceRoot, roundRoot, label)).names,
-    [],
+test("a move-list series' files are read past its label as a commit series' are", () => {
+  const label = splitLabel("packages/domain/src/roster.ts")
+  assert.equal(label, "split-packages+domain+src+roster.ts")
+  assert.equal(
+    splitLabel("a+b/c%d.ts"),
+    "split-a%2Bb+c%25d.ts",
+    "a path's own + and % never read as a join",
   )
+  for (const name of [
+    `${label}-01-0-claim.md`,
+    `${label}-02-3-vet.abx.md`,
+    `${label}-rounds.json`,
+  ])
+    assert.equal(seriesFile(label, name), true, name)
+  for (const name of [
+    "split-packages+domain+src+roster.tsx-01-0-claim.md",
+    "split-packages+domain+src+rosterXts-rounds.json",
+    "split-packages+domain-01-0-claim.md",
+  ])
+    assert.equal(seriesFile(label, name), false, name)
 })
+
+for (const [kind, label, neighbour, root] of [
+  ["commit", "commit-abcdef", "commit-abcdef+123456-01-0-claim.md", "commits"],
+  ["split", "split-a+b.ts", "split-a+b.ts+c.ts-01-0-claim.md", "splits"],
+] as const)
+  test(`an archive and its restore move exactly one ${kind} series and lose nothing when cut short`, async (t) => {
+    const f = await fixture(t)
+    const { evidenceRoot, roundRoot } = f.runtime
+    const own = [
+      `${label}-01-0-claim.md`,
+      `${label}-01-2-audit.obx.md`,
+      `${label}-queue.md`,
+      `${label}-rounds.json`,
+    ]
+    for (const name of [...own, neighbour])
+      await writeFile(join(roundRoot, name), name)
+
+    const archived = await archiveSeries(evidenceRoot, roundRoot, kind, label)
+    const folder = seriesArchiveFolder(evidenceRoot, kind, label)
+    assert.equal(folder, join(evidenceRoot, root, label))
+    assert.equal(archived.folder, folder)
+    assert.deepEqual(archived.names, own)
+    assert.deepEqual(await seriesFiles(folder, label), own)
+    assert.deepEqual(await readdir(roundRoot), [neighbour])
+
+    // A move cut short leaves part of the series in each folder.
+    for (const name of own.slice(0, 2))
+      await rename(join(folder, name), join(roundRoot, name))
+    const restored = await restoreSeries(evidenceRoot, roundRoot, kind, label)
+    assert.deepEqual(restored.names, own.slice(2))
+    assert.deepEqual(await seriesFiles(roundRoot, label), own)
+    for (const name of own)
+      assert.equal(await readFile(join(roundRoot, name), "utf8"), name)
+    await assert.rejects(readdir(folder), { code: "ENOENT" })
+    assert.deepEqual(
+      (await restoreSeries(evidenceRoot, roundRoot, kind, label)).names,
+      [],
+    )
+  })
 
 test("an automatic stop archives the whole series and its evidence commit records the move", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "c")
@@ -118,7 +143,7 @@ test("an automatic stop archives the whole series and its evidence commit record
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
-  const folder = commitArchiveFolder(f.evidenceRoot, label)
+  const folder = seriesArchiveFolder(f.evidenceRoot, "commit", label)
   const archived = await seriesFiles(folder, label)
   assert.deepEqual(await seriesFiles(f.roundRoot, label), [])
   assert.ok(archived.includes(`${label}-rounds.json`))
@@ -155,7 +180,10 @@ test("a manual queue that runs out archives the series with its queue", async (t
   assert.deepEqual(await seriesFiles(f.roundRoot, label), [])
   assert.ok(
     (
-      await seriesFiles(commitArchiveFolder(f.evidenceRoot, label), label)
+      await seriesFiles(
+        seriesArchiveFolder(f.evidenceRoot, "commit", label),
+        label,
+      )
     ).includes(`${label}-queue.md`),
   )
 })
@@ -174,7 +202,10 @@ test("a series that reaches its maximum with another auditor due stays active", 
   assert.match(f.visible.join("\n"), /reached its maximum of 1 round\./)
   assert.ok((await seriesFiles(f.roundRoot, label)).length > 0)
   assert.deepEqual(
-    await seriesFiles(commitArchiveFolder(f.evidenceRoot, label), label),
+    await seriesFiles(
+      seriesArchiveFolder(f.evidenceRoot, "commit", label),
+      label,
+    ),
     [],
   )
 })
@@ -190,7 +221,10 @@ test("a failed round and a pending ruling leave the series active", async (t) =>
     await roundCommits(f, ["HEAD"])
     assert.ok((await seriesFiles(f.roundRoot, label)).length > 0, ending)
     assert.deepEqual(
-      await seriesFiles(commitArchiveFolder(f.evidenceRoot, label), label),
+      await seriesFiles(
+        seriesArchiveFolder(f.evidenceRoot, "commit", label),
+        label,
+      ),
       [],
       ending,
     )
@@ -208,7 +242,7 @@ test("a rerun restores the archived series, reads its earlier fix, takes the nex
     ),
   )
   const label = `commit-${original[0].slice(0, 6)}..${original[1].slice(0, 6)}`
-  const folder = commitArchiveFolder(f.evidenceRoot, label)
+  const folder = seriesArchiveFolder(f.evidenceRoot, "commit", label)
   assert.equal(
     await roundCommits(f, original),
     0,
@@ -230,9 +264,9 @@ test("a rerun restores the archived series, reads its earlier fix, takes the nex
   }
   const archivedRows = await replayRows(roots)
   assert.ok(archivedRows.some((row) => row.target === label))
-  await restoreCommitSeries(f.evidenceRoot, f.roundRoot, label)
+  await restoreSeries(f.evidenceRoot, f.roundRoot, "commit", label)
   assert.deepEqual(await replayRows(roots), archivedRows)
-  await archiveCommitSeries(f.evidenceRoot, f.roundRoot, label)
+  await archiveSeries(f.evidenceRoot, f.roundRoot, "commit", label)
   assert.deepEqual(await replayRows(roots), archivedRows)
 
   // An archive cut short leaves its first files in the round folder.
@@ -284,6 +318,6 @@ test("a rerun restores the archived series, reads its earlier fix, takes the nex
 
   // Replay gives the same rows before and after the archive moves them.
   const rows = await replayRows(roots)
-  await restoreCommitSeries(f.evidenceRoot, f.roundRoot, label)
+  await restoreSeries(f.evidenceRoot, f.roundRoot, "commit", label)
   assert.deepEqual(await replayRows(roots), rows)
 })

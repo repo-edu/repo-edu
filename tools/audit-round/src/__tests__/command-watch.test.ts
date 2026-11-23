@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
-import { commitArchiveFolder } from "../round-paths.js"
+import { seriesArchiveFolder } from "../round-paths.js"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { recorded } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
@@ -270,8 +270,9 @@ for (const target of ["implementation", "planning", "commits"] as const) {
     // move together with their completed commit series.
     const folder =
       target === "commits"
-        ? commitArchiveFolder(
+        ? seriesArchiveFolder(
             f.evidenceRoot,
+            "commit",
             basename(f.report).replace(/-\d{2,}-2-audit\..+$/, ""),
           )
         : f.roundRoot
