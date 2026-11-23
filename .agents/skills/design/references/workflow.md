@@ -86,14 +86,16 @@ Write the moves under these rules:
 
 ### Targets
 
-Every target joins the source's primary area. That area is the partition area
-in the area model with a member pattern that matches the source's path. Write
-its ID on the `Area:` line.
+Every target joins the source's primary area. Write that area's ID on the
+`Area:` line.
 
-The area model decides each file's area from its path alone. A member pattern
+The area model decides each file's area from its path alone. Each partition
+area has member patterns, and some also have `exclude` patterns. Each pattern
 is a regular expression that is matched against the path relative to the Repo
-Edu root. Choose each target path so that a member pattern of the source's area
-matches it and no member pattern of another partition area does. Several areas
+Edu root. A partition area owns a path when one of its member patterns matches
+the path and none of its `exclude` patterns does. The source's area is the
+partition area that owns the source's path. Choose each target path so that the
+source's area owns it and no other partition area does. Several areas
 match files by exact name or by name prefix, so a path without that name or
 prefix lands in another area or in none. When no path fits a target, the file
 needs a plan, because a split that needs a new area needs a plan.

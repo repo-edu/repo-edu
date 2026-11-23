@@ -69,9 +69,11 @@ mechanical rule answers any of them.
    each cut, in both directions. The statements that stay in the source are on
    one side of every cut.
 4. **Does each statement sit in the right target, and do each target's name and
-   area fit?** A target's area fits when a member pattern of the source's area
-   matches the target's path and no member pattern of another partition area
-   does. The list's `Area:` line names the source's area.
+   area fit?** A partition area owns a path when one of its member patterns
+   matches the path and none of its `exclude` patterns does. The source's area
+   is the partition area that owns the source's path, and the list's `Area:`
+   line names it. A target's area fits when the source's area owns the
+   target's path and no other partition area does.
 
 ## What a finding asks
 
