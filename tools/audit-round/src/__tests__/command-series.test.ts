@@ -1319,6 +1319,16 @@ test("an implementation deferral chains a clean planning round before the series
     })
   ).stdout
   assert.match(planBody, /- \[applies:[0-9a-f]{40}\/1\] The plan stands\./)
+  const opening =
+    /Plan audit of [^\n]+\n\n?The implementation audit series for step 1 uses this round to review 1 deferred plan correction\.\n\n?Started /
+  assert.match(f.visible.join("\n"), opening)
+  const files = (await f.roundFiles()).filter((name) =>
+    name.startsWith("example-plan-audit-"),
+  )
+  assert.equal(files.length, 2)
+  for (const name of files) {
+    assert.match(await readFile(join(f.roundRoot, name), "utf8"), opening)
+  }
   assert.match(f.visible.join("\n"), /No deferrals are open for example\./)
 })
 
@@ -1420,6 +1430,10 @@ test("an automatic series opens with a chained deferral round", async (t) => {
   )
   assert.match(audits[0].prompt, /unattended planning round/)
   assert.match(audits[1].prompt, /unattended implementation-audit round/)
+  assert.match(
+    f.visible.join("\n"),
+    /The implementation audit series for step 1 uses this round to review 1 deferred plan correction\./,
+  )
   assert.deepEqual(
     audits.map((call) => call.assistant),
     ["claude", "codex"],

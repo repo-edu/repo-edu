@@ -244,6 +244,10 @@ async function targetDescription(target: NamingTarget): Promise<{
   }
 }
 
+export function stepScopeText(scope: string): string {
+  return `${scope.includes("-") ? "steps" : "step"} ${scope}`
+}
+
 /**
  * The round's kind and scope around one plan name. The transcript title names
  * the plan by its path and a series message by its stem, through this one
@@ -254,8 +258,7 @@ export function roundSubject(
   plan: string,
 ): string {
   if (target.roundKind === "planning") return `Plan audit of ${plan}`
-  const steps = `${target.scope.includes("-") ? "steps" : "step"} ${target.scope}`
-  return `Implementation audit of ${plan}, ${steps}`
+  return `Implementation audit of ${plan}, ${stepScopeText(target.scope)}`
 }
 
 /**

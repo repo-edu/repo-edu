@@ -791,10 +791,7 @@ async function runDeferralChain(
     !("plan" in input)
   )
     return "none"
-  return dependencies.chainDeferrals({
-    plan: input.plan,
-    auditor: input.auditor,
-  })
+  return dependencies.chainDeferrals(input)
 }
 
 /** A round that stopped, with what it landed and the account it reached. */

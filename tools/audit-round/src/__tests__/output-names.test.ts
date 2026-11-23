@@ -545,16 +545,27 @@ test("a chained call continues a stopped chained round on its stored deferral li
   }
   const report = `Planning round workflow\nTarget: example.md\nJudged repos: plan@${head}\n\n## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\nNo missing findings.\n`
   const chained = await stoppedRound(
-    { ...planning, deferrals: [deferral] },
+    { ...planning, deferrals: [deferral, { ...deferral, position: 2 }] },
     report,
   )
   const next = await roundRun(
-    { ...planning, deferrals: [{ ...deferral, position: 2 }] },
+    {
+      ...planning,
+      deferrals: [{ ...deferral, position: 3 }],
+      implementationSeriesScope: "2-4",
+    },
     0,
     releases,
   )
   assert.equal(next.nameStart, chained.nameStart)
-  assert.deepEqual(next.setup.deferrals, [deferral])
+  assert.deepEqual(next.setup.deferrals, [
+    deferral,
+    { ...deferral, position: 2 },
+  ])
+  assert.equal(
+    next.openingNote,
+    "The implementation audit series for steps 2-4 uses this round to review 2 deferred plan corrections.",
+  )
 })
 
 test("a continued implementation round keeps the deferral list its audit received, an empty one included", async (t) => {

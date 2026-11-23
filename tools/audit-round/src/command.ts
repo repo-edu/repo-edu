@@ -1957,8 +1957,6 @@ export async function runCommand(
             settings.defaultAuditor === "random" ? coin(auditors.length) : 0
           ],
         )
-      const planningOpener = (): AuditorSeat =>
-        settingsOpener(settings.planningAudit.auditors)
       const opened = first ?? series.first
       // The series routes among the listed auditors only.
       const pool: readonly AuditorSeat[] = classAuditors.map(listedSeat)
@@ -2001,12 +1999,13 @@ export async function runCommand(
         }
       }
       const runDeferralRound = async (
-        plan: string,
-        seat: AuditorSeat,
-        deferrals: readonly OpenDeferral[],
+        parent: Extract<AuditTarget, { scope: string }>,
         nested: boolean,
       ): Promise<DeferralChainOutcome> => {
-        const currentPlan = await resolvePlan(context, planStem(plan))
+        const { deferrals } = await deferralsInto(parent.plan, "plan")
+        if (deferrals.length === 0) return "none"
+        const seat = settingsOpener(settings.planningAudit.auditors)
+        const currentPlan = await resolvePlan(context, planStem(parent.plan))
         const planningSession = roundContext(context, "planning")
         const setup = {
           ...planningSession,
@@ -2022,7 +2021,7 @@ export async function runCommand(
           deferrals,
         }
         const chainedRun = await roundRun(
-          setup,
+          { ...setup, implementationSeriesScope: parent.scope },
           now(),
           releases,
           settings,
@@ -2234,22 +2233,10 @@ export async function runCommand(
           await printDeferrals()
           return "stopped"
         }
-        if (
-          automatic &&
-          seriesSession.roundKind === "implementation" &&
-          "plan" in target
-        ) {
-          const openPlanDeferrals = await deferralsInto(target.plan, "plan")
-          if (openPlanDeferrals.deferrals.length > 0) {
-            const outcome = await runDeferralRound(
-              target.plan,
-              planningOpener(),
-              openPlanDeferrals.deferrals,
-              false,
-            )
-            if (outcome !== "none" && outcome !== "finished")
-              return stopForChain(outcome)
-          }
+        if (automatic && "scope" in target) {
+          const outcome = await runDeferralRound(target, false)
+          if (outcome !== "none" && outcome !== "finished")
+            return stopForChain(outcome)
         }
         do {
           if (completed > 0 && !automatic && "plan" in target) {
@@ -2324,16 +2311,9 @@ export async function runCommand(
                   : null,
               ...(run.stored === undefined ? {} : { stored: run.stored }),
             },
-            dependenciesFor(active, seriesSession, async ({ plan }) => {
-              const openPlanDeferrals = await deferralsInto(plan, "plan")
-              if (openPlanDeferrals.deferrals.length === 0) return "none"
-              return runDeferralRound(
-                plan,
-                planningOpener(),
-                openPlanDeferrals.deferrals,
-                true,
-              )
-            }),
+            dependenciesFor(active, seriesSession, (parent) =>
+              runDeferralRound(parent, true),
+            ),
             releases,
             settings,
           )

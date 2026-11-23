@@ -917,10 +917,9 @@ export type RoundDependencies = {
     input: SeriesEvidenceInput,
   ) => Promise<SeriesEvidence>
   /** Apply open plan-bound deferrals before the implementation series decision. */
-  readonly chainDeferrals: (input: {
-    readonly plan: string
-    readonly auditor: Assistant
-  }) => Promise<DeferralChainOutcome>
+  readonly chainDeferrals: (
+    target: Extract<AuditTarget, { scope: string }>,
+  ) => Promise<DeferralChainOutcome>
   /** Publish settled findings before the watch and series rules read the current entry. */
   readonly writeSettledRound: (
     commits: readonly LandedCommit[],

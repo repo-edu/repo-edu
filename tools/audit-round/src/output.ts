@@ -71,6 +71,7 @@ import {
   newestRound,
   phaseFilename,
   roundIdentity,
+  stepScopeText,
   targetLabel,
 } from "./round-paths.js"
 import {
@@ -126,6 +127,7 @@ export type Run = {
   /** The run's kind, as the terminal names it when it ends. */
   readonly name: string
   readonly title: string
+  readonly openingNote?: string
   /** The plan stem or commit label the run serves; a ruling wait answers to it. */
   readonly target: string
   /**
@@ -308,7 +310,7 @@ async function continuedRound(
  * number for a new round.
  */
 export async function roundRun(
-  call: RoundSetup,
+  call: RoundSetup & { readonly implementationSeriesScope?: string },
   started: number,
   releases: Record<Assistant, ModelReleases>,
   settings: RoundSettings,
@@ -330,6 +332,7 @@ export async function roundRun(
   const continued =
     dataPath === null ? null : await continuedRound(call, dataPath)
   const setup = continued?.setup ?? call
+  const correctionCount = setup.deferrals?.length
   const stored = continued?.stored
   const phases = roundPhases(
     setup.auditor,
@@ -447,6 +450,12 @@ export async function roundRun(
     target: "plan" in setup ? planStem(setup.plan) : targetLabel(setup),
     ...("plan" in setup ? {} : { series: targetLabel(setup) }),
     title: stored === undefined ? title : `${title}, continued`,
+    ...(call.implementationSeriesScope !== undefined &&
+    correctionCount !== undefined
+      ? {
+          openingNote: `The implementation audit series for ${stepScopeText(call.implementationSeriesScope)} uses this round to review ${correctionCount} deferred plan correction${correctionCount === 1 ? "" : "s"}.`,
+        }
+      : {}),
     phases: runPhases,
     paths: {
       claim:
@@ -629,11 +638,14 @@ export class RoundOutput<R extends Run = Run> {
       const started = `Started ${format(new Date(run.started), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
       const texts =
         this.paths.markdown === null ? "" : `\nTexts: ${this.paths.markdown}`
-      this.transcribe(`# ${run.title}\n\n${started}\n`)
+      const opening = [run.title, run.openingNote, started].filter(
+        (line) => line !== undefined,
+      )
+      this.transcribe(`# ${opening.join("\n\n")}\n`)
       // The heavy rule sits directly above the title so the run opening is
       // the first thing a reader sees after the previous run's closing rule.
       this.say(
-        `\n${runRule}\n${run.title}\n${started}\nLog: ${this.paths.log}${texts}`,
+        `\n${runRule}\n${opening.join("\n")}\nLog: ${this.paths.log}${texts}`,
       )
       this.models(run.releases)
     } catch (error) {

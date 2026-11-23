@@ -308,6 +308,9 @@ A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
   number alone does not say how far the current phase is. Before the first marker file both
   numbers are equal.
 - A continued round's title counts from the latest marker before it.
+- When an implementation audit series opens a planning round, the line below the title names the
+  series' step or range and the number of deferred plan corrections the round will review. This
+  explains why the series is running a plan audit.
 
 ### Round data
 
