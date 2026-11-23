@@ -5,7 +5,7 @@ packages:
 
 catalog:
   "@openai/codex-sdk": 0.166.0
-  koffi: 3.3.7
+  koffi: 3.3.8
   write-file-atomic: 8.0.0
 
 # Sandboxed sessions run pnpm scripts without registry access. A stale
