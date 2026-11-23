@@ -940,7 +940,7 @@ Examples (from either checkout):
   command
     .command("models")
     .description(
-      "Read auditor, vetter-pair and coder results, the user's rulings and the ruler's winners from retained records without starting assistants.",
+      "Read auditor, vetter and coder results, the user's rulings and the ruler's winners from retained records without starting assistants.",
     )
     .option("--all", "print per-plan round data and excluded plans")
     .action((flags: { all?: boolean }) => {

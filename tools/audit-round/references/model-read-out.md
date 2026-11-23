@@ -16,7 +16,7 @@ settings, it creates a missing `settings.json` from the defaults.
 It prints these parts in order:
 
 1. Planning auditors and implementation auditors.
-2. Planning and implementation vetter pairs.
+2. Planning and implementation vetter pairs, then vetter times for each class.
 3. Coders.
 4. Planning and implementation ruling winners.
 5. Planning and implementation ruler winners.
@@ -32,7 +32,8 @@ need the measured rows or the plans that supplied no evidence every time.
 - `model-evidence.ts` reads checked round data once, in the round folder and the closed-plan
   archives. It records each auditor sample's plan and whether it is that class's first complete
   round on the plan. It builds one sample per pair of panel vetters and shared finding, with its
-  highest grade, split and ending. It collects the findings whose round stored a winner, split by
+  highest grade, split and ending. It totals vetter times and participant counts from the recorded
+  vet phases of each round. It collects the findings whose round stored a winner, split by
   who named it. It then joins the step, ready and closed records from both Git histories.
 - `model-comparison.ts` owns the same-plan comparison, the floor, the opener bounds and the direct
   range comparisons that remain for coders.
@@ -109,6 +110,17 @@ The latest ruling decides the ending:
 - The round's `report` winner proves right the vetters that accepted the finding. A later vet
   ruling does the same.
 - A later disproved finding proves right the vetters that dropped it.
+
+## Vetter times
+
+Each class has one timing table across all finding tiers. Each row covers the rounds in which
+the model and effort have a recorded vet phase, including solo and stopped rounds.
+
+- The average number of vetters is the total number of recorded vet runs in those rounds divided
+  by the round count.
+- The own average is the model and effort's total vet minutes divided by its recorded vet runs.
+- The all-vetters average is the total vet minutes of everyone in those rounds divided by their
+  total vet runs. This includes the row's own vetter.
 
 ## Rounds by plan
 

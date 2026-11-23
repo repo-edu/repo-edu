@@ -1495,10 +1495,82 @@ test("a read-out without a panel of two vetters prints no vetter pairs", async (
   })
 
   const report = await modelsReport(f.runtime, testSettings)
+  assert.match(report, /No implementation vetter times are recorded\./)
   assert.match(
     report,
     /## Planning vetter pairs, A\/B findings\n\nNo two planning vetters have judged the same A or B finding\.\n\n## Planning vetter pairs, C findings\n\nNo two planning vetters have judged the same C finding\.\n\n## Implementation vetter pairs, A\/B findings\n\nNo two implementation vetters have judged the same A or B finding\.\n\n## Implementation vetter pairs, C findings\n\nNo two implementation vetters have judged the same C finding\.\n/,
   )
+})
+
+test("vetter times count actual participants and pool runs only in each vetter's rounds and class", async (t) => {
+  const f = await modelFixture(t)
+  const { alpha, beta, gamma } = panelVets
+  const audit = phase("audit", "claude", "auditor", 6_000_000)
+  const timedRound = (
+    target: string,
+    number: number,
+    vets: RoundData["phases"],
+  ) =>
+    round(
+      target,
+      number,
+      "2026-10-01T10:00:00.000Z",
+      { assistant: "claude", ...selection("auditor"), chosenBy: "settings" },
+      panelSettings([alpha, beta, gamma]),
+      [audit, ...vets],
+      [],
+      [],
+    )
+  const planningPanels = [
+    [alpha, { ...beta, milliseconds: 180_000 }],
+    [
+      { ...alpha, milliseconds: 420_000 },
+      { ...beta, milliseconds: 360_000 },
+      { ...gamma, milliseconds: 480_000 },
+    ],
+    [{ ...gamma, milliseconds: 120_000 }],
+    [],
+  ]
+  for (const [index, panel] of planningPanels.entries())
+    writeRoundData(join(f.roundRoot, "times-plan-rounds.json"), {
+      ...timedRound("times-plan-audit", index + 1, panel),
+      status: index === 2 ? "interrupted" : "finished",
+      phase: "detailing",
+      settling: "",
+    })
+  writeRoundData(join(f.roundRoot, "times-impl-rounds.json"), {
+    ...timedRound("times-impl-audit-01..01", 1, [
+      alpha,
+      {
+        ...gamma,
+        model: alpha.model,
+        effort: alpha.effort,
+        milliseconds: 420_000,
+      },
+      { ...beta, milliseconds: 0 },
+    ]),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+
+  const report = await modelsReport(f.runtime, testSettings)
+  const table = (title: string) =>
+    report.split(`## ${title} vetter times\n\n`)[1].split("\n\n")[0].split("\n")
+  const header = [
+    "| Vetter | Rounds | Average number of vetters in those rounds | Own average (min) | All vetters in those rounds (min) |",
+    "| --- | ---: | ---: | ---: | ---: |",
+  ]
+  assert.deepEqual(table("Planning"), [
+    ...header,
+    "| vet-alpha low | 2 | 2.5 | 4.0 | 5.0 |",
+    "| vet-beta low | 2 | 2.5 | 4.5 | 5.0 |",
+    "| vet-gamma medium | 2 | 2.0 | 5.0 | 5.8 |",
+  ])
+  assert.deepEqual(table("Implementation"), [
+    ...header,
+    "| vet-alpha low | 1 | 3.0 | 4.0 | 2.7 |",
+    "| vet-beta low | 1 | 3.0 | 0.0 | 2.7 |",
+  ])
 })
 
 test("ruling winners and ruler winners each list planning and implementation findings separately, newest round first", async (t) => {

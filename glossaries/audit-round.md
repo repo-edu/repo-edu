@@ -124,7 +124,7 @@ is always named in full.
   planning rounds and one for its implementation audits, and each commit
   series has its own. A plan's round data moves beside the archived plan at
   its close.
-- **Model read-out**: the runner's comparison of auditors, vetter pairs and
+- **Model read-out**: the runner's comparison of auditors, vetters and
   coders, built from round data and both Git histories. It starts no assistant
   and writes no round file or round data.
 

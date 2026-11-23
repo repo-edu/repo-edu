@@ -79,6 +79,15 @@ export type RoundVet = {
   readonly verdict: VetVerdict | null
 }
 
+export type VetterTimeRow = {
+  readonly identity: ModelIdentity
+  rounds: number
+  ownRuns: number
+  ownMilliseconds: number
+  panelRuns: number
+  panelMilliseconds: number
+}
+
 /** Which vetters of a split pair the latest ruling proved right. */
 export type PairEnding = "first" | "second" | "both" | "neither"
 
@@ -165,6 +174,7 @@ export type ModelEvidence = {
   readonly auditors: ReadonlyMap<string, AuditorRow>
   readonly coders: ReadonlyMap<string, CoderRow>
   readonly vetPairs: readonly VetPairSample[]
+  readonly vetterTimes: Record<WorkClass, ReadonlyMap<string, VetterTimeRow>>
   /** The user's winners, newest round first, then in finding order. */
   readonly rulings: readonly RuledFinding[]
   /** The ruler's winners, in the same order. */
@@ -564,6 +574,40 @@ function pairEnding(firstRight: boolean, secondRight: boolean): PairEnding {
   if (firstRight && secondRight) return "both"
   if (firstRight) return "first"
   return secondRight ? "second" : "neither"
+}
+
+/** Count each model's rounds once and pool the recorded vetter runs in those rounds. */
+function vetterTimes(
+  records: readonly RoundRecord[],
+): ModelEvidence["vetterTimes"] {
+  const rows = {
+    planning: new Map<string, VetterTimeRow>(),
+    implementation: new Map<string, VetterTimeRow>(),
+  }
+  for (const { data, workClass } of records) {
+    const panel = data.phases.filter((phase) => phase.phase === "vet")
+    const panelMilliseconds = panel.reduce(
+      (sum, vet) => sum + vet.milliseconds,
+      0,
+    )
+    for (const [key, runs] of Map.groupBy(panel, auditorKey)) {
+      const row = rows[workClass].get(key) ?? {
+        identity: selectionIdentity(runs[0].assistant, runs[0]),
+        rounds: 0,
+        ownRuns: 0,
+        ownMilliseconds: 0,
+        panelRuns: 0,
+        panelMilliseconds: 0,
+      }
+      row.rounds += 1
+      row.ownRuns += runs.length
+      for (const run of runs) row.ownMilliseconds += run.milliseconds
+      row.panelRuns += panel.length
+      row.panelMilliseconds += panelMilliseconds
+      rows[workClass].set(key, row)
+    }
+  }
+  return rows
 }
 
 /**
@@ -1070,6 +1114,7 @@ export async function readModelEvidence(
     auditors: auditorRows(records, disproved),
     coders: await coderRows(context, records),
     vetPairs: vetPairSamples(records),
+    vetterTimes: vetterTimes(records),
     rulings: winners.user,
     rulerWinners: winners.ruler,
     disproved,

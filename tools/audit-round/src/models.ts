@@ -27,6 +27,7 @@ import {
   type RulerWinner,
   readModelEvidence,
   type VetPairSample,
+  type VetterTimeRow,
   type WorkClass,
 } from "./model-evidence.js"
 import { type TierRange, tierRanges, tierWithin } from "./round-data.js"
@@ -536,6 +537,29 @@ function vetPairSection(
   ]
 }
 
+function vetterTimeSection(
+  rows: ReadonlyMap<string, VetterTimeRow>,
+  workClass: WorkClass,
+): string[] {
+  const heading = `## ${titleCase(workClass)} vetter times`
+  if (rows.size === 0)
+    return [heading, "", `No ${workClass} vetter times are recorded.`]
+  return [
+    heading,
+    "",
+    "| Vetter | Rounds | Average number of vetters in those rounds | Own average (min) | All vetters in those rounds (min) |",
+    "| --- | ---: | ---: | ---: | ---: |",
+    ...sortedRows(rows).map(([, row]) => {
+      const panelSize = numberText(row.panelRuns / row.rounds)
+      const ownTime = numberText(row.ownMilliseconds / row.ownRuns / 60_000)
+      const panelTime = numberText(
+        row.panelMilliseconds / row.panelRuns / 60_000,
+      )
+      return `| ${escapeCell(modelText(row.identity))} | ${row.rounds} | ${panelSize} | ${ownTime} | ${panelTime} |`
+    }),
+  ]
+}
+
 /** The text through the first `.`, `!` or `?` that ends a sentence, or all of it when none does. */
 function firstSentence(text: string): string {
   return /^.*?[.!?](?=\s|$)/s.exec(text)?.[0] ?? text
@@ -800,7 +824,7 @@ function rangeSections(
 }
 
 /**
- * Read every retained model record and render the auditor, vetter-pair and coder
+ * Read every retained model record and render the auditor, vetter and coder
  * results with the user's rulings and the ruler's winners.
  * The excluded plans print only under `all`: they explain which plans supplied
  * no evidence, which a reader comparing models does not need every time.
@@ -832,6 +856,12 @@ export async function modelsReport(
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
     "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel. The highest tier given by the audit report or any vetter determines the section. Ruled splits counts the shared findings where the two vetters split and a winner is stored. The user names the winner on an A or B finding and the ruler on a C finding. The four Split columns show how those ruled splits ended. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
+    "",
+    ...vetterTimeSection(evidence.vetterTimes.planning, "planning"),
+    "",
+    ...vetterTimeSection(evidence.vetterTimes.implementation, "implementation"),
+    "",
+    "Each row covers the rounds in which that vetter ran. The last column averages every recorded vetter run in those rounds, including the vetter's own.",
     "",
     ...rangeSections("Coders", (range) => [
       ...coderReading(coders, settings, range),

@@ -4,8 +4,8 @@ description: Compare retained auditor, vetter and coder results without starting
 ---
 
 `pnpm audit-round models` reads the kept evidence for each auditor in every class where it has a
-complete round, for each pair of vetters that judged the same findings and for each coder with an
-admitted plan. You can use the recorded yield, time and rulings to change `planningAudit.auditors`,
+complete round, for each vetter that ran and for each coder with an admitted plan.
+You can use the recorded yield, time and rulings to change `planningAudit.auditors`,
 `implementationAudit.auditors`, `planningAudit.vetters`, `implementationAudit.vetters` or `coders`
 in `tools/audit-round/settings.json`.
 
@@ -17,7 +17,7 @@ in `tools/audit-round/settings.json`.
 ## Usage
 
 ```text
-pnpm audit-round models              print the auditor, vetter-pair, coder and ruling read-out
+pnpm audit-round models              print the auditor, vetter, coder and ruling read-out
 pnpm audit-round models --all        also print measured per-plan data and excluded plans
 pnpm audit-round models -h | --help  show the command's help
 ```
@@ -65,12 +65,12 @@ only in the A/B auditor figures and gets a zero-round row if its auditor has no 
 
 ## Output
 
-The report prints auditors, vetter pairs and coders first, followed by ruling winners, ruler
-winners and disproved findings. Each auditor, vetter-pair and coder part has two sections, whose
-headings end in `A/B findings` and `C findings`. Under `--all`, the report also shows planning
-and implementation rounds by plan for each range, followed by excluded plans. Each auditor
-section prints its main table, then a second table under `Fewer than 5 shared plans:` when a model
-is below that floor.
+The report prints auditors, vetter pairs, vetter times and coders first, followed by ruling winners,
+ruler winners and disproved findings. Each auditor, vetter-pair and coder part has two sections,
+whose headings end in `A/B findings` and `C findings`. Under `--all`, the report also shows planning
+and implementation rounds by plan for each range, followed by excluded plans. Each auditor section
+prints its main table, then a second table under `Fewer than 5 shared plans:` when a model is below
+that floor.
 
 1. **Auditor tables** sort by the gap between the model's findings per round and the other auditors'
    findings per round, then by time. Each side shows its kept findings in rounds, such as
@@ -88,28 +88,32 @@ is below that floor.
    right or neither. A split without a winner counts only as shared. A later disproved finding makes
    the vetters that dropped it right, and a later vet ruling makes the vetters that accepted it
    right. A round with one vetter adds no row.
-3. **Each coder table** sorts by its range's kept findings per step, fewest first, then by time. It
+3. **Vetter times** show one row per model and effort in each class. After the round count comes
+   the average number of vetters who ran in those rounds. The time columns compare the vetter's
+   own average minutes with the average of every recorded vet run in those rounds, including its
+   own. A solo round counts as one participant. A stopped round counts if it recorded vet time.
+4. **Each coder table** sorts by its range's kept findings per step, fewest first, then by time. It
    shows plans, steps, kept findings, kept per step and time per step. Each coder section gives its
    own verdict from its own figures.
-4. **Ruling winners** list the winners you named in planning rounds, then in implementation rounds.
+5. **Ruling winners** list the winners you named in planning rounds, then in implementation rounds.
    Each table starts with the newest round and numbers its findings and reasons from 1. Each row
    shows the plan and round, the finding and its tier, the auditor, every vetter's verdict, your
    answer and your reason. A winning vetter is named by its model. The table shows each reason's
    first sentence, then the full reasons as a numbered list.
-5. **Ruler winners** list the planning ruler's decisions first, then the implementation ruler's.
+6. **Ruler winners** list the planning ruler's decisions first, then the implementation ruler's.
    The tables use the same form with a column for the ruler's model and effort. You can check
    each winner and overturn it with
    [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
-6. **Later rulings** print in up to six numbered tables, each named by its work class and by the
+7. **Later rulings** print in up to six numbered tables, each named by its work class and by the
    claim your ruling overturned: auditor findings, vetter verdicts or ruler winners. A ruling that
    proves a ruler's winner wrong prints under ruler winners. The `Wrong` and `Right` columns name
    each auditor, vetter and ruler on the side your ruling put it, with a vetter's verdict or the
    ruler's winner in brackets. Every table shows each reason's first sentence, then the full
    reasons as a numbered list, numbered across the section.
-7. **Rounds by plan** list the plan with the newest round first, and a plan's rows by model. A plan
+8. **Rounds by plan** list the plan with the newest round first, and a plan's rows by model. A plan
    without a retained round comes last. Their finding columns sum to the class totals
    behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.
-8. **Excluded plans** group by reason with their recorded models.
+9. **Excluded plans** group by reason with their recorded models.
 
 When the read-out is taller than the terminal window, the command first shows it in a full-screen
 view that you scroll yourself. The view keeps three things in sight for the part under the top
