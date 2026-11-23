@@ -46,7 +46,8 @@ settings.
 2. **The attached `--vet` form** requires at least one vetter's `Revise`, `Drop` or
    `Needs user's ruling` verdict and records that those verdicts were wrong. Every table then reads
    the finding as kept, including the coder table for an implementation audit. In the vetter-pair
-   and vetters-by-auditor tables it makes the vetters that accepted the finding right.
+   and vetters-by-auditor tables it makes the vetters that accepted the finding right, and it counts
+   as your ruling in the tables by judge.
 3. **One retained ruling per finding** means that either attached form replaces the earlier entry
    for the same round and finding, including an entry in the other direction.
 4. **The `--by` form** records the date, full reason and the named model and effort, for a finding
