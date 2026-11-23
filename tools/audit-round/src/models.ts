@@ -16,7 +16,6 @@ import {
   auditorKey,
   type CoderRow,
   type DisprovedEvidence,
-  type DisprovedParty,
   type FindingCounts,
   type ModelIdentity,
   modelKey,
@@ -27,6 +26,7 @@ import {
   type RuledFinding,
   type RulerWinner,
   type RulingJudge,
+  type RulingParty,
   readModelEvidence,
   type VetPairSample,
   type VetterTimeRow,
@@ -809,20 +809,23 @@ function vetsCell(vets: readonly RoundVet[]): string {
   )
 }
 
-/** The stored winner, with each winning vetter named by its model. */
-function answerCell(entry: RuledFinding): string {
-  if (typeof entry.winner === "string") return entry.winner
+function partiesCell(parties: readonly RulingParty[], empty: string): string {
+  if (parties.length === 0) return empty
   return escapeCell(
-    entry.winner
-      .map((tag) => {
-        const vet = entry.vets.find((candidate) => candidate.tag === tag)
-        return vet === undefined ? tag : modelText(vet.identity)
-      })
+    parties
+      .map(
+        (party) =>
+          `${party.role} ${party.identity === null ? "not recorded" : modelText(party.identity)}${party.detail === null ? "" : ` (${party.detail})`}`,
+      )
       .join("; "),
   )
 }
 
-/** The row cells a stored winner shares in the user's list and the ruler's. */
+/**
+ * The row cells a ruled finding shares in the user's list and the ruler's. The
+ * last cell names everyone the winner proved right, or `none` when it proved
+ * nobody right.
+ */
 function winnerCells(entry: RuledFinding, ruler: readonly string[]): ReasonRow {
   return {
     cells: [
@@ -832,7 +835,7 @@ function winnerCells(entry: RuledFinding, ruler: readonly string[]): ReasonRow {
       escapeCell(modelText(entry.auditor)),
       vetsCell(entry.vets),
       ...ruler,
-      answerCell(entry),
+      partiesCell(entry.winners, "none"),
     ],
     reason: entry.reason,
   }
@@ -849,7 +852,7 @@ function rulingSection(
   return [
     ...lines,
     ...reasonTable(
-      ["Plan and round", "Finding", "Tier", "Auditor", "Vetters", "Answer"],
+      ["Plan and round", "Finding", "Tier", "Auditor", "Vetters", "Winners"],
       findings.map((entry) => winnerCells(entry, [])),
       1,
     ),
@@ -878,7 +881,7 @@ function rulerSection(
         "Auditor",
         "Vetters",
         "Ruler",
-        "Answer",
+        "Winners",
       ],
       winners.map((entry) =>
         winnerCells(entry, [
@@ -890,18 +893,6 @@ function rulerSection(
       1,
     ),
   ]
-}
-
-function partiesCell(parties: readonly DisprovedParty[]): string {
-  if (parties.length === 0) return "—"
-  return escapeCell(
-    parties
-      .map(
-        (party) =>
-          `${party.role} ${party.identity === null ? "not recorded" : modelText(party.identity)}${party.detail === null ? "" : ` (${party.detail})`}`,
-      )
-      .join("; "),
-  )
 }
 
 function disprovedRow(entry: DisprovedEvidence): ReasonRow {
@@ -921,8 +912,8 @@ function disprovedRow(entry: DisprovedEvidence): ReasonRow {
             escapeCell(`#${entry.finding} ${entry.title}`),
             entry.tier,
           ]),
-      partiesCell(entry.wrong),
-      partiesCell(entry.right),
+      partiesCell(entry.wrong, "—"),
+      partiesCell(entry.right, "—"),
     ],
     reason: entry.reason,
   }
@@ -1059,7 +1050,7 @@ export async function modelsReport(
     ...rangeSections("Implementation vetter pairs", (range) =>
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
-    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel. The highest tier given by the audit report or any vetter determines the section. Ruled splits counts the shared findings where the two vetters split and a winner is stored. The user names the winner on an A or B finding and the ruler on a C finding. The four Split columns show how those ruled splits ended. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
+    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel. The highest tier given by the audit report or any vetter determines the section. Ruled splits counts the shared findings where the two vetters split and a winner is stored. The user names the winner on an A or B finding and the ruler on a C finding. The four Split columns show how those ruled splits ended. A winner that names vetters proves them right, and with them every vetter that gave the same accept, drop or referral. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
     "",
     ...rangeSections("Planning vetters by auditor", (range) =>
       auditorVetterSection(evidence.vetPairs, "planning", range),

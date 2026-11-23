@@ -110,12 +110,18 @@ Planning and implementation each have a vetter-pair table. A vetter is a model a
 - A row needs no auditor column, because both vetters judged the same audit reports.
   [Vetters by auditor](#vetters-by-auditor) groups the same samples by auditor.
 
-The latest ruling decides the ending:
+The latest ruling decides the ending. A later ruling from `disprove` outranks the round's winner:
 
-- A list of vetter tags proves those vetters right, and `neither` proves no vetter right.
-- The round's `report` winner proves right the vetters that accepted the finding. A later vet
-  ruling does the same.
-- A later disproved finding proves right the vetters that dropped it.
+- A later disproved finding proves right the vetters that dropped it, and a later vet ruling the
+  vetters that accepted it.
+- The round's `report` winner proves right the vetters that accepted the finding, and `neither`
+  proves no vetter right.
+- A list of vetter tags proves those vetters right. It also proves right every other vetter that
+  gave the same accept, drop or referral as a named vetter, because each of those verdicts states
+  one position. A revision is the vetter's own correction, so only a named revision is right.
+
+`winnerProof` in `model-evidence.ts` owns the two round-winner rules. Without the same-verdict
+rule, a vetter that accepted beside a named accepting vetter counted as not right.
 
 ## Vetters by auditor
 
@@ -204,13 +210,25 @@ The comparison works as follows:
 Ruling winners and ruler winners each have a planning section followed by an implementation
 section. Each section lists its newest round first and keeps findings in order within a round.
 
-The ruling winners tables list every winner the user named in a round. Each row shows
-the plan and round, the finding and its tier, the auditor, the vetters, the answer and the reason.
-The `Vetters` column names each vetter of the round by its model and effort, with its verdict on
-the finding or `no verdict`.
+The ruling winners tables list every finding whose winner the user named in a round. Each row
+shows the plan and round, the finding and its tier, the auditor, the vetters, the winners and the
+reason. The `Vetters` column names each vetter of the round by its model and effort, with its
+verdict on the finding or `no verdict`.
 
-- The answer names each winning vetter by its model rather than its tag, because a tag names a
-  vetter only within its round.
+The `Winners` column names everyone the round's winner proved right, not the stored winner word.
+That word names one side only: `report` hides the vetters that accepted, and a named vetter that
+accepted hides the auditor.
+
+- The auditor is a winner when the finding stood as written: the winner is `report` or names a
+  vetter that accepted.
+- A vetter is a winner under the two round-winner rules of [Vetter pairs](#vetter-pairs). A vetter
+  without a verdict on the finding took no part.
+- Each party is its role word and its model and effort, in the order auditor, vetters in panel
+  order. The model names a vetter because a tag names it only within its round. The role word
+  tells a vetter from an auditor on the same model.
+- A winner that proved nobody right prints `none`.
+- A later ruling from `disprove` does not change the column. It prints under
+  [Disproved findings](#disproved-findings).
 - Splits and contests share the list, because both end in the same ruling.
 
 The ruler-winners tables use the same form, with a ruler column that names the model and effort

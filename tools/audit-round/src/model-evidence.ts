@@ -137,7 +137,12 @@ export type RuledFinding = {
   readonly auditor: ModelIdentity
   /** Every vetter of the round, with its verdict on the finding when it gave one. */
   readonly vets: readonly RoundVet[]
-  readonly winner: RulingWinner
+  /**
+   * Everyone the round's winner proved right: the auditor when the finding
+   * stood as written, then the vetters in panel order. Empty when it proved
+   * nobody right.
+   */
+  readonly winners: readonly RulingParty[]
   readonly reason: string
 }
 
@@ -148,14 +153,18 @@ export type RulerWinner = RuledFinding & {
 }
 
 /**
- * One auditor, vetter or ruler of a disproved finding, on the side the later
- * ruling put it.
+ * One auditor, vetter or ruler of a ruled finding, on the side a ruling put
+ * it: the round's own winner or a later disproval.
  */
-export type DisprovedParty = {
+export type RulingParty = {
   readonly role: "auditor" | "vetter" | "ruler"
   /** Null for a ruler whose round kept no rule phase entry. */
   readonly identity: ModelIdentity | null
-  /** A vetter's verdict, or the winner a ruler named with each vetter as its model. */
+  /**
+   * In a disproved row, a vetter's verdict or the winner a ruler named with
+   * each vetter as its model. Null in a winners list, whose row shows every
+   * verdict beside it.
+   */
   readonly detail: string | null
 }
 
@@ -170,10 +179,10 @@ type DisprovedBase = {
    * proves it wrong, else the vet verdicts of a vet ruling, else the auditor's
    * finding.
    */
-  readonly claim: DisprovedParty["role"]
+  readonly claim: RulingParty["role"]
   /** In the order auditor, vetters in panel order, ruler. */
-  readonly wrong: readonly DisprovedParty[]
-  readonly right: readonly DisprovedParty[]
+  readonly wrong: readonly RulingParty[]
+  readonly right: readonly RulingParty[]
 }
 
 export type DisprovedEvidence =
@@ -424,6 +433,16 @@ function roundVets(round: RoundData, finding: RoundFinding): RoundVet[] {
   )
 }
 
+/** Each vetter the round ran that judged the finding, with its review. */
+function judgedVets(round: RoundData, finding: RoundFinding) {
+  return roundVets(round, finding).flatMap((vet) => {
+    const review = finding.reviews.find(
+      (candidate) => candidate.vet === vet.tag,
+    )
+    return review === undefined ? [] : [{ ...vet, review }]
+  })
+}
+
 /** The round's ruler, as its rule phase entry reported it. */
 function roundRuler(round: RoundData): ModelIdentity | null {
   const entry = round.phases.find((phase) => phase.phase === "rule")
@@ -454,8 +473,8 @@ function disprovedSides(
   ruling: RoundFinding["ruling"],
   ruler: ModelIdentity | null,
 ): Pick<DisprovedBase, "claim" | "wrong" | "right"> {
-  const wrong: DisprovedParty[] = []
-  const right: DisprovedParty[] = []
+  const wrong: RulingParty[] = []
+  const right: RulingParty[] = []
   ;(side === "finding" ? wrong : right).push({
     role: "auditor",
     identity: auditor,
@@ -572,21 +591,79 @@ type LatestRuling = {
   readonly judge: RulingJudge
 }
 
-/** Which verdicts the round's own winner proved right. */
+/** Who the round's own winner proved right. */
+type WinnerProof = {
+  /** Whether the finding stood as written, which proves the auditor right. */
+  readonly auditor: boolean
+  readonly proves: (review: RoundFindingReview) => boolean
+}
+
+/**
+ * The one rule for who a round's winner proved right. `report` proves the
+ * accepts right, because the finding stood as written, and `neither` proves
+ * nobody right. A list proves its named vetters right, and with them every
+ * vetter that gave the same accept, drop or referral, because each of those
+ * verdicts states one position. A revision is the vetter's own correction, so
+ * only a named revision is right. Naming a vetter that accepted says the
+ * finding stood, as `report` does.
+ */
 function winnerProof(
   winner: RulingWinner,
-): (review: RoundFindingReview) => boolean {
-  if (winner === "report") return (review) => review.verdict === "accept"
-  if (winner === "neither") return () => false
-  return (review) => winner.includes(review.vet)
+  reviews: readonly RoundFindingReview[],
+): WinnerProof {
+  if (winner === "report")
+    return { auditor: true, proves: (review) => review.verdict === "accept" }
+  if (winner === "neither") return { auditor: false, proves: () => false }
+  const positions = new Set(
+    reviews
+      .filter(
+        (review) => winner.includes(review.vet) && review.verdict !== "revise",
+      )
+      .map((review) => review.verdict),
+  )
+  return {
+    auditor: positions.has("accept"),
+    proves: (review) =>
+      winner.includes(review.vet) || positions.has(review.verdict),
+  }
+}
+
+/**
+ * Everyone the round's winner proved right, in the order auditor, vetters in
+ * panel order. A vetter without a verdict on the finding took no part.
+ */
+function rulingWinners(
+  auditor: ModelIdentity,
+  round: RoundData,
+  finding: RoundFinding,
+  winner: RulingWinner,
+): RulingParty[] {
+  const proof = winnerProof(winner, finding.reviews)
+  const auditorParty: RulingParty = {
+    role: "auditor",
+    identity: auditor,
+    detail: null,
+  }
+  return [
+    ...(proof.auditor ? [auditorParty] : []),
+    ...judgedVets(round, finding)
+      .filter((vet) => proof.proves(vet.review))
+      .map(
+        (vet): RulingParty => ({
+          role: "vetter",
+          identity: vet.identity,
+          detail: null,
+        }),
+      ),
+  ]
 }
 
 /**
  * Which verdicts the latest ruling on a finding proved right and who named it,
  * or null without one. A later disproval is the user's and outranks the
  * round's own ruling. A disproved finding proves its drops right, and a
- * disproved vet verdict proves its accepts right. The round's `report` winner
- * proves the accepts right too, because the finding stood as written.
+ * disproved vet verdict proves its accepts right. Without a disproval the
+ * round's own winner decides, under `winnerProof`.
  */
 function latestRuling(
   finding: RoundFinding,
@@ -606,7 +683,7 @@ function latestRuling(
     }
   if (finding.ruling === undefined) return null
   return {
-    proves: winnerProof(finding.ruling.winner),
+    proves: winnerProof(finding.ruling.winner, finding.reviews).proves,
     judge:
       finding.ruling.namedBy === "user"
         ? user
@@ -672,12 +749,7 @@ function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
         record.disprovedFindingNumbers,
         ruler,
       )
-      const judged = roundVets(record.data, finding).flatMap((vet) => {
-        const review = finding.reviews.find(
-          (candidate) => candidate.vet === vet.tag,
-        )
-        return review === undefined ? [] : [{ ...vet, review }]
-      })
+      const judged = judgedVets(record.data, finding)
       return judged.flatMap((left, index) =>
         judged.slice(index + 1).map((right): VetPairSample => {
           const [first, second] =
@@ -712,9 +784,10 @@ function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
 }
 
 /**
- * Every stored winner, newest round first and in finding order within a round,
- * split by who named it. The user's and the ruler's stay apart, so the user can
- * check the ruler's winners without them burying the user's own.
+ * Every finding with a stored winner, newest round first and in finding order
+ * within a round, split by who named the winner. The user's and the ruler's
+ * stay apart, so the user can check the ruler's winners without them burying
+ * the user's own.
  */
 function ruledFindings(records: readonly RoundRecord[]): {
   readonly user: RuledFinding[]
@@ -722,7 +795,11 @@ function ruledFindings(records: readonly RoundRecord[]): {
 } {
   const user: RuledFinding[] = []
   const ruler: RulerWinner[] = []
-  for (const record of [...records].reverse())
+  for (const record of [...records].reverse()) {
+    const auditor = selectionIdentity(
+      record.data.auditor.assistant,
+      record.data.auditor,
+    )
     for (const finding of record.data.findings) {
       if (finding.ruling === undefined || finding.number === null) continue
       const entry: RuledFinding = {
@@ -733,17 +810,20 @@ function ruledFindings(records: readonly RoundRecord[]): {
         finding: finding.number,
         title: finding.title,
         tier: finding.tier,
-        auditor: selectionIdentity(
-          record.data.auditor.assistant,
-          record.data.auditor,
-        ),
+        auditor,
         vets: roundVets(record.data, finding),
-        winner: finding.ruling.winner,
+        winners: rulingWinners(
+          auditor,
+          record.data,
+          finding,
+          finding.ruling.winner,
+        ),
         reason: finding.ruling.reason,
       }
       if (finding.ruling.namedBy === "user") user.push(entry)
       else ruler.push({ ...entry, ruler: roundRuler(record.data) })
     }
+  }
   return { user, ruler }
 }
 

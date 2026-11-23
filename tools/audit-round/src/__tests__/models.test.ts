@@ -1957,11 +1957,11 @@ test("ruling winners and ruler winners each list planning and implementation fin
       .split("## Planning ruling winners\n\n")[1]
       .split("\n\n## Disproved after the round")[0],
     [
-      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Answer | Reason |",
+      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-plan-audit round 2 | #1 ruled split | A | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | report | The finding stood as written. |",
-      "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-alpha low: revise; vet-beta low: drop | vet-alpha low; vet-beta low | Both corrections hold. |",
-      "| 3 | ruled; ruled-plan-audit round 1 | #1 old contest | B | audit-alpha low | vet-beta low: drop | vet-beta low | The vet was right. |",
+      "| 1 | ruled; ruled-plan-audit round 2 | #1 ruled split | A | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | auditor audit-alpha low; vetter vet-alpha low | The finding stood as written. |",
+      "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-alpha low: revise; vet-beta low: drop | vetter vet-alpha low; vetter vet-beta low | Both corrections hold. |",
+      "| 3 | ruled; ruled-plan-audit round 1 | #1 old contest | B | audit-alpha low | vet-beta low: drop | vetter vet-beta low | The vet was right. |",
       "",
       "1. The finding stood as written.",
       "2. Both corrections hold.",
@@ -1969,27 +1969,113 @@ test("ruling winners and ruler winners each list planning and implementation fin
       "",
       "## Implementation ruling winners",
       "",
-      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Answer | Reason |",
+      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #2 ruled contest | B | audit-beta low | vet-alpha low: drop; vet-beta low: drop | neither | Neither side held; a third correction landed. |",
+      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #2 ruled contest | B | audit-beta low | vet-alpha low: drop; vet-beta low: drop | none | Neither side held; a third correction landed. |",
       "",
       "1. Neither side held; a third correction landed.",
       "",
       "## Planning ruler winners",
       "",
-      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Answer | Reason |",
+      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-plan-audit round 2 | #4 plan wording | C | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | plan-ruler high | report | The plan uses both terms. |",
+      "| 1 | ruled; ruled-plan-audit round 2 | #4 plan wording | C | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | plan-ruler high | auditor audit-alpha low; vetter vet-alpha low | The plan uses both terms. |",
       "",
       "1. The plan uses both terms.",
       "",
       "## Implementation ruler winners",
       "",
-      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Answer | Reason |",
+      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #1 ruled C split | C | audit-beta low | vet-alpha low: accept; vet-beta low: drop | rule-model xhigh | vet-alpha low | The ruler opened the cited test. |",
+      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #1 ruled C split | C | audit-beta low | vet-alpha low: accept; vet-beta low: drop | rule-model xhigh | auditor audit-beta low; vetter vet-alpha low | The ruler opened the cited test. |",
       "",
       "1. The ruler opened the cited test. It covers the case.",
+    ].join("\n"),
+  )
+})
+
+test("a winner that names one vetter also proves right each vetter with the same accept, drop or referral, and the auditor when it accepted", async (t) => {
+  const f = await modelFixture(t)
+  const { alpha, beta, gamma } = panelVets
+  const named = (
+    number: number,
+    title: string,
+    verdicts: readonly [
+      Review["verdict"],
+      Review["verdict"],
+      Review["verdict"],
+    ],
+    winner: string,
+  ) =>
+    ruledFinding(
+      number,
+      title,
+      "B",
+      [
+        review("atl", verdicts[0]),
+        review("obl", verdicts[1]),
+        review("abm", verdicts[2]),
+      ],
+      { winner: [winner], reason: "fixture ruling" },
+    )
+  writeRoundData(join(f.roundRoot, "same-plan-rounds.json"), {
+    ...round(
+      "same-plan-audit",
+      1,
+      "2026-10-01T10:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      panelSettings([alpha, beta, gamma]),
+      [phase("audit", "claude", "audit-alpha", 60_000), alpha, beta, gamma],
+      [],
+      [
+        named(1, "named accept", ["accept", "revise", "accept"], "atl"),
+        named(2, "named drop", ["accept", "drop", "drop"], "obl"),
+        named(3, "named revision", ["revise", "revise", "accept"], "obl"),
+        named(
+          4,
+          "named referral",
+          ["needs-user-ruling", "needs-user-ruling", "drop"],
+          "atl",
+        ),
+      ],
+    ),
+    phase: "detailing",
+    settling: "",
+  })
+
+  const report = await modelsReport(f.runtime, testSettings)
+  assert.equal(
+    report
+      .split("## Planning ruling winners\n\n")[1]
+      .split("\n\n## Implementation ruling winners")[0],
+    [
+      "| # | Plan and round | Finding | Tier | Auditor | Vetters | Winners | Reason |",
+      "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | same; same-plan-audit round 1 | #1 named accept | B | audit-alpha low | vet-alpha low: accept; vet-beta low: revise; vet-gamma medium: accept | auditor audit-alpha low; vetter vet-alpha low; vetter vet-gamma medium | fixture ruling |",
+      "| 2 | same; same-plan-audit round 1 | #2 named drop | B | audit-alpha low | vet-alpha low: accept; vet-beta low: drop; vet-gamma medium: drop | vetter vet-beta low; vetter vet-gamma medium | fixture ruling |",
+      "| 3 | same; same-plan-audit round 1 | #3 named revision | B | audit-alpha low | vet-alpha low: revise; vet-beta low: revise; vet-gamma medium: accept | vetter vet-beta low | fixture ruling |",
+      "| 4 | same; same-plan-audit round 1 | #4 named referral | B | audit-alpha low | vet-alpha low: needs-user-ruling; vet-beta low: needs-user-ruling; vet-gamma medium: drop | vetter vet-alpha low; vetter vet-beta low | fixture ruling |",
+      "",
+      "1. fixture ruling",
+      "2. fixture ruling",
+      "3. fixture ruling",
+      "4. fixture ruling",
+    ].join("\n"),
+  )
+  assert.equal(
+    report
+      .split("## Planning vetter pairs, A/B findings\n\n")[1]
+      .split("\n\n## Planning vetter pairs, C findings")[0],
+    [
+      "| Vetter 1 | Vetter 2 | Shared A/B findings | Ruled splits | Split: vetter 1 right | Split: vetter 2 right | Split: both right | Split: neither right |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+      "| vet-alpha low | vet-beta low | 4 | 2 | 1 | 1 | 0 | 0 |",
+      "| vet-alpha low | vet-gamma medium | 4 | 3 | 1 | 1 | 0 | 1 |",
+      "| vet-beta low | vet-gamma medium | 4 | 3 | 2 | 1 | 0 | 0 |",
     ].join("\n"),
   )
 })

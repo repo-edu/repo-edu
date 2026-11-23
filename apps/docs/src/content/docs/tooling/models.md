@@ -95,9 +95,10 @@ followed by excluded plans. Each auditor section prints its main table, then a s
 2. **Vetter-pair tables** have one row per pair of vetters, where a vetter is a model and an effort.
    A row counts the findings of its range both vetters judged on one panel, the splits with a stored
    winner, yours or the ruler's, and how each such split ended: vetter 1 right, vetter 2 right, both
-   right or neither. A split without a winner counts only as shared. A later disproved finding makes
-   the vetters that dropped it right, and a later vet ruling makes the vetters that accepted it
-   right. A round with one vetter adds no row.
+   right or neither. A split without a winner counts only as shared. A winner that names a vetter
+   also makes right every vetter that gave the same accept, drop or referral. A later disproved
+   finding makes the vetters that dropped it right, and a later vet ruling makes the vetters that
+   accepted it right. A round with one vetter adds no row.
 3. **Vetters-by-auditor tables** name the vetter on the auditor's model and effort first and the
    other vetter second. Only an exact match of the recorded release and effort counts. A row counts
    the shared findings, how often each side challenged the audit with a revise, a drop or a
@@ -114,9 +115,12 @@ followed by excluded plans. Each auditor section prints its main table, then a s
    own verdict from its own figures.
 6. **Ruling winners** list the winners you named in planning rounds, then in implementation rounds.
    Each table starts with the newest round and numbers its findings and reasons from 1. Each row
-   shows the plan and round, the finding and its tier, the auditor, every vetter's verdict, your
-   answer and your reason. A winning vetter is named by its model. The table shows each reason's
-   first sentence, then the full reasons as a numbered list.
+   shows the plan and round, the finding and its tier, the auditor, every vetter's verdict, the
+   winners and your reason. The `Winners` column names everyone your answer proved right, each by
+   its role and model. The auditor is a winner when the finding stood as written. A vetter is a
+   winner when you named it or when it gave the same accept, drop or referral as a vetter you
+   named. `none` means your answer proved nobody right. The table shows each reason's first
+   sentence, then the full reasons as a numbered list.
 7. **Ruler winners** list the planning ruler's decisions first, then the implementation ruler's.
    The tables use the same form with a column for the ruler's model and effort. You can check
    each winner and overturn it with
