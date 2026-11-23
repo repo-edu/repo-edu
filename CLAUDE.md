@@ -253,22 +253,22 @@ arrived as a direct or a transitive dependency; the unit of concern is the
 resolved version lagging its latest published release, not how it got there.
 
 Renovate is the standing mechanism (`renovate.json`). It admits ordinary
-updates throughout Saturday and Sunday. It keeps at most four update branches
-open to limit how many rerun CI when `main` advances. Four leaves room for one
-more update when three branches are blocked. Pull-request creation has no
-separate concurrency or hourly cap, so every failed branch becomes visible.
+updates throughout Saturday and Sunday. It keeps at most three update branches
+open, which leaves room for the non-major batch beside two other updates. The
+limit is low because every open branch reruns CI each time `main` advances.
+Pull-request creation has no separate concurrency or hourly cap, so every
+failed branch becomes visible.
 
-Non-major updates land in six groups, one for each part of the repository where
-a failure would show: the LLM SDKs, the Electron runtime, the docs site, the
-renderer UI stack, development tooling and a catch-all for every other library.
-`main` then gets one commit per group instead of one per package, and a failure
-holds only the updates of its own group. The catch-all groups a new dependency
-without a config edit. The named groups match by package name, because a
-package declared in several manifests would otherwise split over two branches.
-Only the docs site matches by manifest, since its packages appear in no other
-one. Major updates stay out of these groups, because each one can break on its
-own. The peer-coupled Anthropic and MCP SDKs are the exception: they must move
-in lockstep, so they also share their major branch.
+Non-major updates land in one batch: a single branch for every minor, patch,
+pin and digest update. On a still `main` the batch needs one CI run and one
+landing. Several branches cost more, because Renovate lands one branch per run
+and each landing puts every other open branch behind `main`, which reruns its
+CI. One failing update holds the whole batch until it is fixed. The batch takes
+a new dependency without a config edit. Electron stays out of the batch,
+because its updates follow their own schedule and maturity window. Major
+updates stay out too, because each one can break on its own. The peer-coupled
+Anthropic and MCP SDKs must move in lockstep, so their major updates share one
+branch.
 
 Renovate holds each new release for a maturity window before adopting it so
 others hit the early bugs first, raises security fixes immediately and runs

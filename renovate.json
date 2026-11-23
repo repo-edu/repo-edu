@@ -6,7 +6,7 @@
   "dependencyDashboard": {
     "enabled": true
   },
-  "branchConcurrentLimit": 4,
+  "branchConcurrentLimit": 3,
   "prConcurrentLimit": 0,
   "prHourlyLimit": 0,
   "automerge": true,
@@ -28,69 +28,9 @@
   },
   "packageRules": [
     {
-      "description": "Non-major updates outside the narrower groups below: one branch for product and tool libraries, so a new dependency is grouped without a config edit",
+      "description": "Non-major updates: one branch for every minor, patch, pin and digest update, so they need one CI run and one landing, and a new dependency joins without a config edit",
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "libraries"
-    },
-    {
-      "description": "Development tooling: lint, format, type-check, test and build tools that never ship in the app, so their failures show in the checks and not in the product",
-      "matchPackageNames": [
-        "@biomejs/biome",
-        "rumdl",
-        "husky",
-        "tsx",
-        "bun",
-        "pnpm",
-        "globby",
-        "esbuild",
-        "typescript",
-        "@typescript/**",
-        "@types/**",
-        "@playwright/test",
-        "happy-dom",
-        "dependency-cruiser",
-        "@faker-js/faker"
-      ],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "dev tooling"
-    },
-    {
-      "description": "CI actions and the Git server images of the integration tests join development tooling: they never ship in the app either",
-      "matchManagers": ["github-actions", "docker-compose"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "dev tooling"
-    },
-    {
-      "description": "React stack of renderer-app and ui: matched by package name because a package declared in several manifests would otherwise split over two branches",
-      "matchPackageNames": [
-        "react",
-        "react-dom",
-        "@types/react",
-        "@types/react-dom",
-        "@radix-ui/**",
-        "@dnd-kit/**",
-        "@tanstack/**",
-        "tailwindcss",
-        "@tailwindcss/**",
-        "tailwind-merge",
-        "class-variance-authority",
-        "clsx",
-        "lucide-react",
-        "recharts",
-        "react-resizable-panels",
-        "zustand",
-        "immer",
-        "shiki",
-        "@shikijs/**"
-      ],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "renderer ui"
-    },
-    {
-      "description": "Docs site: matched by manifest because its packages appear in no other one, and a failure there cannot reach the app",
-      "matchFileNames": ["apps/docs/**"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "docs site"
+      "groupName": "non-major dependencies"
     },
     {
       "description": "Electron runtime patch/minor updates: weekly with a short maturity window because Electron carries Chromium and has a short support cycle",
@@ -101,14 +41,9 @@
       "minimumReleaseAge": "2 days"
     },
     {
-      "description": "Peer-coupled Anthropic and MCP SDKs: grouped for every update type so they move in lockstep",
+      "description": "Peer-coupled Anthropic and MCP SDKs: their major updates share one branch so they move in lockstep",
       "matchPackageNames": ["@anthropic-ai/**", "@modelcontextprotocol/sdk"],
-      "groupName": "llm sdks"
-    },
-    {
-      "description": "Codex SDK non-major updates join the LLM SDKs: a failure shows in the same LLM integration, while its major updates keep their own branch",
-      "matchPackageNames": ["@openai/codex-sdk"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "matchUpdateTypes": ["major"],
       "groupName": "llm sdks"
     },
     {
