@@ -16,7 +16,7 @@ Read this file from the Repo Edu checkout; plan-repo workflows reach it at
 ## Finding tiers
 
 Use the rubric for the work being judged. The same letters carry different
-meanings in planning and implementation rounds.
+meanings in planning, implementation and move-list rounds.
 
 ### Planning tiers
 
@@ -47,12 +47,26 @@ admission and grading discipline, including the C admission rule.
   non-critical path.
 - **D**: wording, style, formatting or low-risk polish.
 
+### Move-list tiers
+
+- **A**: the list should be withdrawn, because the file is fine or needs a
+  plan.
+- **B**: the division is wrong. A target mixes responsibilities, or a cut
+  divides one.
+- **C**: one statement sits in the wrong target.
+- **D**: a target's name.
+
+The tier follows what the correction does to the list, so a small correction
+cannot carry a high tier.
+
 ## Severity sequence
 
 The sequence is a sorted run-length count of graded concerns, with zero
 categories omitted. It carries severity, reach and maintenance-burden change
 into the commit graph, where a reader can see the trajectory without opening
-every body. Steps and markers carry no graded concerns and no sequence.
+every body. Steps, split commits and markers carry no graded concerns and no
+sequence. A split commit carries out a move list whose rounds have each landed
+a graded or a clean record.
 
 The [subject grammar](subject-grammar.md) owns the sequence's shape, its slot and
 which commit classes carry it. The commit hook derives the counts, letter case
@@ -108,6 +122,8 @@ Location says which owner the correction belongs to:
 
 - A planning finding names its search direction and artifact section.
 - A local plan-repo implementation finding names its section.
+- A move-list finding names, as its section, the move it concerns or the whole
+  list.
 - A local Repo Edu finding names its primary area and any cross-cutting cover
   areas from `tools/architecture-check/src/area-model.json`.
 - A cross-repo finding names the destination owner. It is a deferral only when
@@ -377,6 +393,13 @@ with `ordinary` rarity.
 A D finding derives its consequence for grading but need not report it. A tier
 claim without a consequence does not stand; drop a finding whose trace ends
 with the same behaviour shipping.
+
+A move-list finding states what the list does to the division without the
+correction, such as a needless split, a target that mixes responsibilities, a
+cut through one responsibility or a statement in the wrong target. No split
+changes behaviour, so the drop of a trace that ends with the same behaviour
+shipping does not apply to it. A move-list finding whose correction leaves the
+list as it is has no consequence, so it still drops.
 
 When a plan rule reads records that already exist, a finding about what that
 rule prints or decides states what the rule gives on those records today, read
@@ -894,9 +917,10 @@ watch. An automatic series still applies its fixed decision rules. This route av
 fix session whose only work would be an empty record.
 
 Return the complete audit report under [Runner result](#runner-result). The
-runner retains it and lands the clean record, for a plan target and a commit
-target alike, so the log shows that the audit ran. It keeps the audit report,
-because a round's files stay in the evidence repo.
+runner retains it and lands the clean record, for a plan target, a commit
+target and a move-list target alike, so the log shows that the audit ran. A
+move-list target's record lands in the plan repo, beside its list. It keeps the
+audit report, because a round's files stay in the evidence repo.
 
 Use the
 [record meanings and placement](#shared-implementation-forms) and the shared

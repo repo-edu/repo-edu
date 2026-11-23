@@ -99,17 +99,20 @@ hash of the raw bytes can differ.
 
 ```text
 <report>                  ::= <widening-report> | <detailing-report>
-                            | <implementation-report>
+                            | <implementation-report> | <move-list-report>
 
 <widening-report>         ::= <planning-opening><planning-fields> BLANK
                               <settling-line>
 <detailing-report>        ::= <planning-opening><planning-fields>
 <implementation-report>  ::= <implementation-opening><implementation-field>
+<move-list-report>        ::= <move-list-opening><move-list-field>
 
 <planning-opening>        ::= <opening containing "Planning round workflow">
                               <target-line><planning-judged-line><opening-markdown>
 <implementation-opening>  ::= <opening containing "Implementation audit workflow">
                               <target-line><implementation-judged-line><opening-markdown>
+<move-list-opening>       ::= <opening containing "Move-list audit workflow">
+                              <target-line><planning-judged-line><opening-markdown>
 <opening-markdown>        ::= free Markdown before the first <report-field-heading>
 <report-field-heading>    ::= "## Excess functionality"
                             | "## Missing functionality"
@@ -119,9 +122,11 @@ hash of the raw bytes can differ.
 <target>                  ::= <plan-file>                        ; planning round
                             | <plan-file>" "<step-scope>         ; step audit
                             | <commit-reference>(" "<commit-reference>)*
+                            | <move-list-path>                   ; move-list round
 <plan-file>               ::= the plan's current filename in the plan checkout's active folder
 <step-scope>              ::= <n> | <n>"-"<n>
 <commit-reference>        ::= a reference as typed, plan@ prefix included
+<move-list-path>          ::= the move list's path relative to the plan checkout's root
 
 <planning-judged-line>       ::= "Judged repos: plan@"<sha>
 <implementation-judged-line> ::= "Judged repos: plan@"<sha>
@@ -135,12 +140,17 @@ hash of the raw bytes can differ.
                               (<planning-findings> | "No missing findings.")
 <implementation-field>    ::= "## Findings" BLANK
                               (<implementation-findings> | "No findings.")
+<move-list-field>         ::= "## Findings" BLANK
+                              (<move-list-findings> | "No findings.")
 
 <planning-findings>       ::= <planning-finding>+
 <implementation-findings> ::= <implementation-finding>+
+<move-list-findings>      ::= <move-list-finding>+
 <planning-finding>        ::= <finding-title> BLANK <planning-token-line>
                               BLANK <finding-evidence>
 <implementation-finding> ::= <finding-title> BLANK <implementation-token-line>
+                              BLANK <finding-evidence>
+<move-list-finding>       ::= <finding-title> BLANK <move-list-token-line>
                               BLANK <finding-evidence>
 <finding-title>           ::= "### "<n>". "<tier>": "<title>
 <planning-token-line>     ::= <field-token>" "<section-token>" "<rating-tokens>
@@ -148,28 +158,35 @@ hash of the raw bytes can differ.
 <implementation-location> ::= <section-token>
                               | <area-token>(" "<cover-token>)*
                               | <plan-token>
+<move-list-token-line>    ::= <move-list-section>" "<rating-tokens>
+<move-list-section>       ::= "[section:moves]" | "[section:move-"<n>"]"
 <finding-evidence>        ::= free Markdown without a heading of depth 1 to 3
 ```
 
 The workflow phrase, exactly one plain `Target:` line and exactly one plain `Judged repos:` line
 occur in the opening. An audit report field heading ends the opening; another level-2 heading
 remains part of its free Markdown. The target line repeats the round's target as the runner resolved
-it: the plan's filename for a planning round, the filename and step scope for a step audit or the
-carried commit references for a commit-scoped round. The first commit round carries the user's
-spelling. A later commit-series round carries the runner-built exact set as full commit IDs. The
-plan filename carries the phase, so the opening names no phase of its own. The runner compares the
-line with the round it is running and refuses an audit report that names another target or none
+it: the plan's filename for a planning round, the filename and step scope for a step audit, the
+carried commit references for a commit-scoped round or the move list's path, as
+`splits/packages/domain/src/roster.mv.md`, for a move-list round. The first commit round carries the
+user's spelling. A later commit-series round carries the runner-built exact set as full commit IDs.
+The plan filename carries the phase, so the opening names no phase of its own. The runner compares
+the line with the round it is running and refuses an audit report that names another target or none
 before any later phase starts, so a vetter never has to ask which target an audit report judged. A
-planning audit report uses only the plan head. An implementation audit report uses one of the three
-ordered repository sets above. A finding's token line is the first block after its heading. Finding
-numbers run from 1 without gaps across all fields and titles are distinct across the audit report.
+planning audit report uses only the plan head. A move-list audit report uses only the plan head too,
+which names the commit of the list it judged, because its fix changes the list and no other file. An
+implementation audit report uses one of the three ordered repository sets above. A move-list
+finding's section names the one numbered move it concerns, or `moves` when it concerns several moves
+or the whole list. A finding's token line is the first block after its heading. Finding numbers run
+from 1 without gaps across all fields and titles are distinct across the audit report.
 
 Each field contains findings or its exact empty sentence, never both.
 
 A widening audit report ends with the [settling line](#settling-line) as its last line, after the
 last finding field, so the reader meets the round's advice where the audit report stops instead of
 hunting for it in the opening. The reader requires that line on a widening audit report and refuses
-one on a detailing or implementation audit report, where no series recommendation belongs.
+one on a detailing, implementation or move-list audit report, where no series recommendation
+belongs.
 
 An implementation audit report's opening holds its coverage table, closed by one coverage line. A
 plan-scoped round counts steps in the line
@@ -179,6 +196,23 @@ round counts commits in the line
 six-character SHA in each commit cell with its repo, as `repo-edu@c5c651` or `plan@e8128b`. Each
 supplied deferral into Repo Edu whose correction already holds adds one line to the opening in the
 form `Satisfied deferral: <full-sha>/<position> <title>.` No parser reads these lines.
+
+A move-list audit report's opening holds its coverage table, with or without findings. Its columns
+are the row, the responsibility, the ranges, the crossing names and the disposition, in that order.
+Its first row is the file's, named by the source path, and each later row is one target's, named
+by its move number and target path, in move order. The responsibility is one sentence. The ranges
+are lines of the source that show that responsibility. The crossing names are the names that cross
+the target's cut: after `in:` the names the target takes from the rest of the file, and after
+`out:` the names the rest takes from the target. The file's row has `none` there. The file's
+disposition is `divides`, `fine` or `needs-plan`, and a target's is `holds`, `mixes`, `cuts`,
+`misplaced` or `misnamed`. No parser reads the table.
+
+```text
+| Row | Responsibility | Ranges | Crossing names | Disposition |
+| --- | --- | --- | --- | --- |
+| `packages/domain/src/roster.ts` | Names roster members and reads imported lists. | 1-120 | none | divides |
+| 1. `packages/domain/src/roster-names.ts` | Builds and compares member names. | 10-40, 52-60 | in: `RosterMember`; out: `displayName` | holds |
+```
 
 ### Implementation location table
 

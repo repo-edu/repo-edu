@@ -16,10 +16,10 @@ The runner supplies them whole. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
 
 The ruler names the winner of each contest or split on a C or D finding of an implementation-audit
-round, under the shared protocol's **Reconciliation**. The round's audit report, its vet reports and
-its rebuttal report are its inputs, and the fix then applies its winners. Its duties, its read-only
-limit and its delivery are the shared protocol's **Ruler duties**. It works each finding in the
-**Reading order** of `ruling.md`, and the
+round or a move-list round, under the shared protocol's **Reconciliation**. The round's audit
+report, its vet reports and its rebuttal report are its inputs, and the fix then applies its
+winners. Its duties, its read-only limit and its delivery are the shared protocol's
+**Ruler duties**. It works each finding in the **Reading order** of `ruling.md`, and the
 [ruler report grammar](../../../references/round-grammar.md#ruler-report) owns the report's form.
 Follow the shared protocol's **Runner result** for every ending.
 
@@ -37,7 +37,9 @@ explanations**, **Judging deviations**, **Vet checks** and **Real choices**. A f
 a plan decision is judged under the shared planning rules'
 [Changes to what a plan holds](../../../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds).
 Read the plan steps the audit report's scope names and every **Decisions** entry a side cites. Read
-the code and the test that covers it at current HEAD, by absolute path.
+the code and the test that covers it at current HEAD, by absolute path. In a move-list round, read
+in place of the plan steps the move list the audit report's target names and the source file its
+`Source:` line names, whole and by absolute path.
 
 Then stop. The fix applies the winners under the runner's
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
