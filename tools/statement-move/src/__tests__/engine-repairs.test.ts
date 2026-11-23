@@ -3,10 +3,15 @@ import * as path from "node:path"
 import { test } from "node:test"
 import { withProject } from "./fixture-project.js"
 
-// The shapes that the patch of the installed TypeScript 6 engine repairs. The
-// published engine refuses or crashes on each of them, so these moves fail
-// when the patch is missing.
+// Moves through the patched TypeScript 6 engine. Some tests prove a shape that
+// the patch repairs, and they fail when the patch is missing. The others prove
+// a result of the published engine that the repairs must keep.
 
+// The default export of `checks` makes TypeScript give each `import * as` of
+// it a symbol of its own, so a repair must compare those imports by module.
+// Like `node:path`, `separators` exports one object through `export =`, so a
+// default import and an `import * as` of it resolve to the same symbol. Its
+// namespace lets the engine write an `import * as` of it.
 const MODULES = `declare module "assertion" {
   function assertion(value: unknown): void
   namespace assertion {
@@ -17,6 +22,15 @@ const MODULES = `declare module "assertion" {
 
 declare module "checks" {
   export function equal(actual: unknown, expected: unknown): void
+  export default function ok(value: unknown): void
+}
+
+declare module "separators" {
+  namespace separators {
+    type Name = "posix" | "windows"
+  }
+  const separators: Record<separators.Name, string>
+  export = separators
 }
 
 declare module "runner" {
@@ -128,16 +142,22 @@ export function base(): void {
   )
 })
 
-test("imports a default and an import * as name that the target holds under other names", () => {
+test("a list adds each name the target lacks for a default or import * as name and then reuses it", () => {
   withProject(
     {
       "src/modules.d.ts": MODULES,
       "src/cases.ts": `import assertion from "assertion"
+import verify from "assertion"
 import * as checks from "checks"
 
 export function check(value: unknown): void {
   assertion.equal(value, 1)
+  verify.equal(value, 1)
   checks.equal(value, 1)
+}
+
+export function recheck(value: unknown): void {
+  assertion.equal(value, 2)
 }
 `,
       "src/fixture.ts": `import verify from "assertion"
@@ -150,20 +170,56 @@ export function base(): void {
 `,
     },
     (project) => {
-      const result = project.move("src/cases.ts", 4, 7, "src/fixture.ts")
+      const reply = project.attemptList("src/cases.ts", [
+        {
+          target: "src/fixture.ts",
+          ranges: [
+            { start: 5, end: 9 },
+            { start: 11, end: 13 },
+          ],
+        },
+      ])
 
-      assert.equal(result.kind, "accepted")
-      const target = project.read("src/fixture.ts")
-      assert.deepEqual(linesMatching(target, /^import /).sort(), [
+      assert.equal(reply.outcome, "clean", JSON.stringify(reply))
+      assert.ok(reply.outcome === "clean")
+      const target = reply.files.find(
+        (file) => file.path === path.join("pkg", "src", "fixture.ts"),
+      )
+      assert.deepEqual(linesMatching(target?.text ?? "", /^import /).sort(), [
         `import * as checks from "checks"`,
         `import * as rules from "checks"`,
         `import assertion from "assertion"`,
         `import verify from "assertion"`,
       ])
-      assert.match(
-        target,
-        /^export function check\(value: unknown\): void \{$/m,
-      )
+      assert.match(target?.text ?? "", /export function check\(/)
+      assert.match(target?.text ?? "", /export function recheck\(/)
+    },
+  )
+})
+
+test("refuses to reuse a default import for an import * as name of the same name", () => {
+  withProject(
+    {
+      "src/modules.d.ts": MODULES,
+      "src/cases.ts": `import * as separators from "separators"
+
+export function posix(): string {
+  return separators.posix
+}
+`,
+      "src/fixture.ts": `import separators from "separators"
+
+export function windows(): string {
+  return separators.windows
+}
+`,
+    },
+    (project) => {
+      const before = project.snapshot()
+      const result = project.move("src/cases.ts", 3, 5, "src/fixture.ts")
+
+      assert.equal(result.kind, "refused")
+      assert.deepEqual(project.snapshot(), before)
     },
   )
 })
@@ -218,6 +274,57 @@ try {
       ])
       assert.match(target, /^\} catch \(error\) \{$/m)
       assert.doesNotMatch(project.read("src/results.ts"), /try|catch/)
+    },
+  )
+})
+
+// A global of the same name and type, such as the DOM's `origin`, would let a
+// reader cut off from a loop's `var` read the global with no new diagnostic.
+const ORIGIN_GLOBAL = `declare var origin: string
+`
+
+test("imports a loop's var into a moved reader", () => {
+  withProject(
+    {
+      "src/globals.d.ts": ORIGIN_GLOBAL,
+      "src/source.ts": `for (var origin of ["course"]) {}
+
+export { origin }
+
+export function read(): string {
+  return origin
+}
+`,
+    },
+    (project) => {
+      const result = project.move("src/source.ts", 5, 7, "src/reader.ts")
+
+      assert.equal(result.kind, "accepted")
+      assert.deepEqual(
+        linesMatching(project.read("src/reader.ts"), /^import /),
+        [`import { origin } from "./source.js"`],
+      )
+    },
+  )
+})
+
+test("refuses to move a loop away from a reader of its var", () => {
+  withProject(
+    {
+      "src/globals.d.ts": ORIGIN_GLOBAL,
+      "src/source.ts": `for (var origin of ["course"]) {}
+
+export function read(): string {
+  return origin
+}
+`,
+    },
+    (project) => {
+      const before = project.snapshot()
+      const result = project.move("src/source.ts", 1, 1, "src/loop.ts")
+
+      assert.equal(result.kind, "refused")
+      assert.deepEqual(project.snapshot(), before)
     },
   )
 })

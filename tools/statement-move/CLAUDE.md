@@ -143,29 +143,46 @@ command's own check and the list command's `clean` reply let it through.
 
 pnpm applies `patches/typescript-6.0.3.patch` to the installed
 `typescript@6.0.3` at every install, because `pnpm-workspace.yaml` lists it
-under `patchedDependencies`. The patch changes three functions of
-**Move to file** in `lib/typescript.js`. The published engine refuses or
-crashes on each shape they repair:
+under `patchedDependencies`. The patch changes five functions of
+**Move to file** in `lib/typescript.js`: `forEachReference`, `getUsageInfo`,
+`forEachTopLevelDeclaration`, `isTopLevelDeclaration` and `getExistingLocals`.
+They repair three shapes:
 
 1. A name that the source still uses only as a short-form property, as in
    `{ cacheRoot }`, counts as a use. The source then gets an import of the
    moved declaration. Without the repair the move adds diagnostic 18004.
+
 2. A default import or an `import * as name` import that the target already
-   has counts as present when the moved code uses the same local name.
-   Without the repair the engine writes the import a second time and the move
-   adds diagnostic 2300. A target that holds the import under another name
-   still gets an import under the moved code's name.
-3. A variable counts as a top-level name only when a top-level variable
-   statement declares it. Without the repair the name of a top-level loop or
-   `catch` is imported into the target and exported from the source. The move
-   then adds diagnostics 2305 and 1030, or the engine stops with
-   `Debug Failure. False expression: Changes overlap`.
+   has counts as present only when the moved code's import has the same form,
+   the same module and the same local name. Each name under which the target
+   imports a module counts on its own. Without the repair the engine writes
+   the import a second time and the move adds diagnostic 2300. In every other
+   case the engine writes the moved code's own import. Under another name that
+   import is valid. In the other form under the same name it adds diagnostic
+   2300, so the move is refused and the moved code never reads a different
+   value.
+
+3. A loop name declared with `const` or `let`, and a `catch` name, belong to
+   their statement and not to the file. Without the repair the engine imports
+   such a name into the target and exports it from the source. The move then
+   adds diagnostics 2305 and 1030, or the engine stops with
+   `Debug Failure. False expression: Changes overlap`. A `var` that a top-level
+   loop declares belongs to the whole file, so a move must keep its readers
+   connected to it:
+   1. A reader that moves away from the loop imports the `var`. When the
+      source does not export it, the move adds a diagnostic and is refused.
+   2. A loop that moves away from a reader of its `var` is always refused,
+      because the engine writes no export for a loop's `var`.
+
+   Without this rule a reader cut off from the `var` could read a global of
+   the same name, such as the DOM's `origin`, with no new diagnostic.
 
 The tool's own rules do not change: it applies only the import-kind fixes and
 refuses every move that adds a diagnostic. The fixtures in
 `src/__tests__/engine-repairs.test.ts` prove each repaired shape and fail when
-the patch is missing. Every user of TypeScript 6 in the workspace loads the
-patched file. The three functions serve only **Move to file**,
+the patch is missing. Other fixtures there prove results of the published
+engine that the repairs must keep. Every user of TypeScript 6 in the workspace
+loads the patched file. The five functions serve only **Move to file**,
 **Move to a new file** and paste with imports.
 
 The entry names the exact version, so the patch never reaches the TypeScript 7
@@ -174,12 +191,14 @@ name. Repo Edu does not set `allowUnusedPatches`, so once the lockfile resolves
 a newer TypeScript 6, `pnpm install` stops with `ERR_PNPM_UNUSED_PATCH`. A
 session then moves the patch to the new version:
 
-1. Remove the entry from `patchedDependencies`, keeping its comment, delete
-   the old patch file and run `pnpm install`. Git keeps the old patch's text.
+1. Remove the entry from `patchedDependencies`, keeping its comment, and
+   delete the old patch file. Git keeps the old patch's text. Then finish the
+   update that stopped, so that the lockfile holds the new version: run its
+   command again, such as `pnpm deps:latest`, or run `pnpm install` on a
+   branch whose lockfile already holds the new version.
 2. Run `pnpm patch typescript@<new version>`. In the folder it prints, make
-   the old patch's three changes in `lib/typescript.js`, in
-   `forEachReference`, `isTopLevelDeclaration` and `getExistingLocals`. Their
-   line numbers differ between versions.
+   the old patch's changes in `lib/typescript.js`, in the five functions named
+   above. Their line numbers differ between versions.
 3. Run `pnpm patch-commit <folder>`. pnpm writes the patch file, the entry and
    the lockfile, and installs.
 4. Rename the patch file from `typescript@<version>.patch` to
