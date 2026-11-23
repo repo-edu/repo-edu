@@ -593,11 +593,16 @@ on the ending the series runner returns, and after a split call, on the call's o
   the round maximum with another auditor due leave it in the round folder. The series' ending keeps
   the maximum apart from completion, because both end the series without the user.
 - **When, for a move-list series.** The move follows the split call, so the call's last lines land
-  in the moved split log. The series stays in the round folder while it is live work: after a
-  failed phase or an unanswered ruling, at the round maximum and when another call wrote the list
-  first, whose rounds are that call's. Every other ending moves the label's files: a rules stop,
-  whatever the split code then reports, a fix that withdrew the list and a call that ended before
-  any round, such as a design that judged the file fine.
+  in the moved split log. The series has finished once every listed auditor has a current read,
+  whatever the split code then reports, or once a fix withdrew the list. A call that leaves no
+  committed list has no series, such as a first design that judged the file fine, so its split log
+  moves alone. Every ending moves the label's files except these, which leave the series in the
+  round folder as live work:
+  1. a failed phase or an unanswered ruling, which end the call without a result;
+  2. a call that found the list another call wrote first, whose rounds are that call's;
+  3. any ending while the series is unfinished: the committed list holds moves and a listed auditor
+     lacks a current read of it. The round maximum ends a series so, and a refused move or a
+     changed source can, also on a later call that runs no round.
 - **What.** `archiveSeries` moves every file that `seriesFile` matches for the series' label, round
   data, claims, logs, reports, rulings, handoffs and queue included, into `commits/<label>/` or
   `splits/<label>/` of the evidence checkout. Each file keeps its name and contents. The last

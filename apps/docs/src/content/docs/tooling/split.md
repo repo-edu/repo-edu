@@ -80,9 +80,10 @@ Beside the split commit a call leaves:
 
 The label is `split-` followed by the source path's segments joined by `+`, as
 `split-packages+domain+src+roster.ts`. While the series is
-live work, its files stay in `../plan-evidence/active/`. Otherwise they move into
-`../plan-evidence/splits/<label>/` when the call ends, and a later call on the same file moves
-them back first.
+unfinished, or another call's rounds run on it, its files stay in `../plan-evidence/active/`.
+Otherwise they move into `../plan-evidence/splits/<label>/` when the call ends, and a later call on
+the same file moves them back first. [Find round outputs](/repo-edu/tooling/find-round-outputs/)
+lists the cases.
 
 ## Refuses when
 

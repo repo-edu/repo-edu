@@ -72,10 +72,10 @@ export type SplitInput = ExecutionContext & {
 
 /**
  * How one split call ended. A call with a result keeps its series in the round
- * folder only when the series is still live work: at the round maximum, or
- * when another call wrote the list first and its rounds are that call's. A
- * call without a result stopped on a failed phase or an unanswered ruling,
- * whose rerun continues where it stood.
+ * folder only when the series is still live work: when it is unfinished under
+ * `seriesUnfinished`, or when another call wrote the list first and its rounds
+ * are that call's. A call without a result stopped on a failed phase or an
+ * unanswered ruling, whose rerun continues where it stood.
  */
 export type SplitOutcome =
   | {
@@ -83,12 +83,28 @@ export type SplitOutcome =
       readonly result: SplitResult
       readonly live: boolean
     }
+  | CallStop
+
+type CallStop =
   | {
       readonly status: "design-failed"
       readonly reason: string
       readonly sessionId: string | null
     }
   | { readonly status: "stopped" }
+
+/**
+ * How the steps of one split call ended, before the call reads whether its
+ * series is unfinished. `othersWork` marks the list that another call wrote
+ * first.
+ */
+type CallEnding =
+  | {
+      readonly status: "result"
+      readonly result: SplitResult
+      readonly othersWork: boolean
+    }
+  | CallStop
 
 /** A commit whose environment carries no round's stamps, so its own record stands. */
 const ownRecord: CommitStamps = { auditor: null, phases: null, series: null }
@@ -241,6 +257,41 @@ export async function runSplit(
   input: SplitInput,
   dependencies: SplitDependencies,
 ): Promise<SplitOutcome> {
+  const ending = await splitCall(input, dependencies)
+  if (ending.status !== "result") return ending
+  return {
+    status: "result",
+    result: ending.result,
+    live:
+      ending.othersWork ||
+      (await seriesUnfinished(input, dependencies.roundsDue)),
+  }
+}
+
+/**
+ * Whether the source's move-list series is unfinished: the committed list
+ * holds moves and a listed auditor lacks a current read of it. The series has
+ * finished when every read is current, whatever the call then reports, or
+ * when a fix withdrew the list. So a call that ends before any round, such as
+ * a later call whose attempt is refused, leaves an unfinished series as it
+ * found it. With no committed list the source has no series, and the call's
+ * split log stands alone.
+ */
+async function seriesUnfinished(
+  input: SplitInput,
+  roundsDue: () => Promise<boolean>,
+): Promise<boolean> {
+  const text = await committedListText(input.planRoot, input.source)
+  return (
+    text !== null && readMoveList(text).kind === "moves" && (await roundsDue())
+  )
+}
+
+/** The steps of one split call, under `runSplit`. */
+async function splitCall(
+  input: SplitInput,
+  dependencies: SplitDependencies,
+): Promise<CallEnding> {
   const { repoEduRoot, planRoot, source } = input
   const label = splitLabel(source)
   const listFile = moveListFile(source)
@@ -250,18 +301,18 @@ export async function runSplit(
   const ended = (
     result: SplitResultWord,
     message: string,
-    live = false,
-  ): SplitOutcome => ({
+    othersWork = false,
+  ): CallEnding => ({
     status: "result",
     result: { result, hash, message },
-    live,
+    othersWork,
   })
   /**
    * Try a list under the split lock and write nothing. A refused move makes
    * the file one that needs a plan, and a changed file ends the call as
    * skipped. A clean attempt answers null, so the call goes on.
    */
-  const tried = (reply: AttemptReply): SplitOutcome | null => {
+  const tried = (reply: AttemptReply): CallEnding | null => {
     if (reply.outcome === "refused")
       return ended(
         "needs-plan",
@@ -289,7 +340,7 @@ export async function runSplit(
    * so it may have judged them in place of the committed list a split would
    * carry out.
    */
-  const listEdited = async (): Promise<SplitOutcome | null> =>
+  const listEdited = async (): Promise<CallEnding | null> =>
     (await uncommitted(planRoot, [listFile])).length === 0
       ? null
       : ended(
@@ -365,7 +416,7 @@ export async function runSplit(
     // The committed text the latest attempt passed, so a round that leaves
     // the list unchanged needs no attempt of its own.
     let attempted = await heldListText(planRoot, source)
-    let halted: SplitOutcome | null = null
+    let halted: CallEnding | null = null
     const ending = await dependencies.series(async () => {
       const text = await heldListText(planRoot, source)
       if (text === attempted) return true
@@ -385,7 +436,6 @@ export async function runSplit(
       return ended(
         "needs-plan",
         "The move-list rounds reached their maximum before every listed auditor had a current read of the list.",
-        true,
       )
     const judged = readMoveList(await heldListText(planRoot, source))
     if (judged.kind === "no-split")
@@ -405,7 +455,7 @@ export async function runSplit(
   const written = await withSplitLock(
     repoEduRoot,
     async (): Promise<
-      | { readonly ended: SplitOutcome }
+      | { readonly ended: CallEnding }
       | {
           readonly files: readonly AttemptFile[]
           readonly originals: readonly Original[]

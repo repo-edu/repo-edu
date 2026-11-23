@@ -93,10 +93,19 @@ the runner moves them all into `../plan-evidence/commits/<commit-label>/`. A fai
 ruling or the round maximum with another auditor due leaves them in place. Auditing the same commits
 again moves the series back first, so it keeps its earlier fixes and continues its round numbers.
 
-A move-list series of [`split`](/repo-edu/tooling/split/) moves the same way, into
-`../plan-evidence/splits/<split-label>/`, together with its split log, when its split call ends. A
-failure, a pending ruling, the round maximum and a call that found another call's list leave them in
-place. The next call on the same file moves them back first.
+A move-list series of [`split`](/repo-edu/tooling/split/) moves into
+`../plan-evidence/splits/<split-label>/`, together with its split log, when a split call ends with
+the series finished: every listed auditor has a current read, or a fix withdrew the list. These
+endings leave the files in place:
+
+1. A failure or a pending ruling.
+2. A call that found another call's list, whose rounds are that call's.
+3. Any ending while a listed auditor still lacks a current read, such as the round maximum or a
+   refused move after a fix.
+
+A call that leaves the file without a committed list, such as a first design that judged the file
+fine, has no series, and its split log moves there alone. The next call on the same file moves the
+files back first.
 
 ## Commits
 

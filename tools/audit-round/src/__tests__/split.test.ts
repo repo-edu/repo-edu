@@ -146,6 +146,8 @@ function dependencies(
     messages: [],
   }
   const replies = [...(arranged.attempts ?? [])]
+  // A series that finishes leaves every listed auditor with a current read.
+  let due = arranged.roundsDue ?? true
   return {
     calls,
     dependencies: {
@@ -155,12 +157,15 @@ function dependencies(
         if (design === undefined) throw new Error("No design was arranged")
         return typeof design === "function" ? design() : design
       },
-      roundsDue: async () => arranged.roundsDue ?? true,
+      roundsDue: async () => due,
       series: async (afterRound) => {
         calls.series += 1
-        return arranged.series === undefined
-          ? "finished"
-          : arranged.series(afterRound)
+        const ending =
+          arranged.series === undefined
+            ? "finished"
+            : await arranged.series(afterRound)
+        if (ending === "finished") due = false
+        return ending
       },
       attempt: async (list) => {
         // Every attempt runs under the split lock.
@@ -268,6 +273,8 @@ test("a refused design list ends the call as one that needs a plan and writes no
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "needs-plan")
   assert.match(outcome.result.message, /refused the move list: entry 1/)
+  // No committed list means no series, so the call's split log moves alone.
+  assert.equal(outcome.live, false)
   assert.equal(calls.series, 0)
   await assert.rejects(readFile(join(context.planRoot, listFile), "utf8"))
 })
@@ -374,6 +381,8 @@ test("a withdrawn list for the current content gives its recorded result without
     outcome.result.message,
     /records this result for the current content/,
   )
+  // A withdrawn list ends its series, so the series moves.
+  assert.equal(outcome.live, false)
   assert.equal(calls.designs, 0)
   assert.deepEqual(calls.attempts, [])
 })
@@ -458,7 +467,7 @@ test("an uncommitted change to a list that no round reads skips the split", asyn
   assert.equal(await git(context.repoEduRoot, "status", "--porcelain"), "")
 })
 
-test("a fix that changes the list is tried before the next round, and a refusal halts the series", async (t) => {
+test("a fix that changes the list is tried before the next round, and a refusal halts the unfinished series and keeps it live", async (t) => {
   const { context, hash } = await splitFixture(t)
   const listPath = join(context.planRoot, listFile)
   let continued: boolean | undefined
@@ -484,8 +493,38 @@ test("a fix that changes the list is tried before the next round, and a refusal 
   assert.equal(outcome.status, "result")
   if (outcome.status !== "result") return
   assert.equal(outcome.result.result, "needs-plan")
-  assert.equal(outcome.live, false)
+  // A listed auditor still lacks a current read, so the series is not finished.
+  assert.equal(outcome.live, true)
   assert.deepEqual(calls.checks, [])
+})
+
+test("a later call that ends before any round keeps an unfinished series live and moves a finished one", async (t) => {
+  const { context, hash } = await splitFixture(t)
+  await mkdir(join(context.planRoot, "splits/packages/demo/src"), {
+    recursive: true,
+  })
+  await writeFile(join(context.planRoot, listFile), listText(hash))
+  await commitAll(context.planRoot, "write the list")
+  const refused: AttemptReply = {
+    outcome: "refused",
+    message: "entry 1: refused",
+  }
+  for (const [roundsDue, live] of [
+    [true, true],
+    [false, false],
+  ] as const) {
+    const { calls, dependencies: deps } = dependencies(context, {
+      roundsDue,
+      attempts: [refused],
+    })
+    const outcome = await runSplit({ ...context, source, identity }, deps)
+    assert.equal(outcome.status, "result")
+    if (outcome.status !== "result") return
+    assert.equal(outcome.result.result, "needs-plan")
+    assert.equal(outcome.live, live)
+    assert.equal(calls.series, 0)
+    assert.equal(calls.attempts.length, 1)
+  }
 })
 
 test("the round maximum ends the call as one that needs a plan and keeps the series live", async (t) => {

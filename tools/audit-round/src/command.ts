@@ -2617,8 +2617,9 @@ export async function runCommand(
      * One split call on one source file. A finished move-list series waits in
      * its archive folder, so the call brings it back before it opens the
      * call's log or reads the series. When the call ends, the series moves
-     * again unless it is still live work: a stopped round, the round maximum
-     * or a list that another call wrote first. The result line comes last.
+     * again unless it is still live work: a stopped round, an unfinished
+     * series or a list that another call wrote first. The result line comes
+     * last.
      */
     const splitStage = async (source: string): Promise<void> => {
       const label = splitLabel(source)
