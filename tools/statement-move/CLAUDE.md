@@ -116,14 +116,18 @@ and no reply, and the command exits with status 1.
 
 The workspace runs TypeScript 7 for `tsc`, while the `typescript` import
 resolves to the official TypeScript 6 compatibility package, because TypeScript
-7 does not yet ship **Move to file** or a stable program interface. The command's own
+7 does not yet ship **Move to file** or a stable program interface. That
+package loads the TypeScript 6 compiler, which pnpm patches, as
+**The patched engine** below says. The command's own
 check therefore proves the move against TypeScript 6 only; `pnpm check` after
 the move batch proves it against TypeScript 7.
 
 The root `package.json` declares that package under the alias `typescript`.
 When moved code uses it, the engine can write an import of a path inside pnpm's
-package store, such as `.pnpm/typescript@6.0.3/node_modules/typescript`,
-instead of `typescript`. The TypeScript 6 check accepts that path, so the
+package store, such as
+`.pnpm/typescript@6.0.3_patch_hash=<hash>/node_modules/typescript`, instead of
+`typescript`. The folder of a patched package carries the `_patch_hash=` part
+in its name. The TypeScript 6 check accepts that path, so the
 command's own check and the list command's `clean` reply let it through.
 
 1. A value import of the path fails when Node runs the code: Node rejects it
@@ -134,6 +138,55 @@ command's own check and the list command's `clean` reply let it through.
 4. A [split](../audit-round/CLAUDE.md#split) call of the audit-round runner
    edits no import. A value import of the path fails its checks or tests, and
    the call then puts the files back and reports that the checks failed.
+
+## The patched engine
+
+pnpm applies `patches/typescript-6.0.3.patch` to the installed
+`typescript@6.0.3` at every install, because `pnpm-workspace.yaml` lists it
+under `patchedDependencies`. The patch changes three functions of
+**Move to file** in `lib/typescript.js`. The published engine refuses or
+crashes on each shape they repair:
+
+1. A name that the source still uses only as a short-form property, as in
+   `{ cacheRoot }`, counts as a use. The source then gets an import of the
+   moved declaration. Without the repair the move adds diagnostic 18004.
+2. A default import or an `import * as name` import that the target already
+   has counts as present when the moved code uses the same local name.
+   Without the repair the engine writes the import a second time and the move
+   adds diagnostic 2300. A target that holds the import under another name
+   still gets an import under the moved code's name.
+3. A variable counts as a top-level name only when a top-level variable
+   statement declares it. Without the repair the name of a top-level loop or
+   `catch` is imported into the target and exported from the source. The move
+   then adds diagnostics 2305 and 1030, or the engine stops with
+   `Debug Failure. False expression: Changes overlap`.
+
+The tool's own rules do not change: it applies only the import-kind fixes and
+refuses every move that adds a diagnostic. The fixtures in
+`src/__tests__/engine-repairs.test.ts` prove each repaired shape and fail when
+the patch is missing. Every user of TypeScript 6 in the workspace loads the
+patched file. The three functions serve only **Move to file**,
+**Move to a new file** and paste with imports.
+
+The entry names the exact version, so the patch never reaches the TypeScript 7
+package that the alias `@typescript/native` resolves under the same package
+name. Repo Edu does not set `allowUnusedPatches`, so once the lockfile resolves
+a newer TypeScript 6, `pnpm install` stops with `ERR_PNPM_UNUSED_PATCH`. A
+session then moves the patch to the new version:
+
+1. Remove the entry from `patchedDependencies`, keeping its comment, delete
+   the old patch file and run `pnpm install`. Git keeps the old patch's text.
+2. Run `pnpm patch typescript@<new version>`. In the folder it prints, make
+   the old patch's three changes in `lib/typescript.js`, in
+   `forEachReference`, `isTopLevelDeclaration` and `getExistingLocals`. Their
+   line numbers differ between versions.
+3. Run `pnpm patch-commit <folder>`. pnpm writes the patch file, the entry and
+   the lockfile, and installs.
+4. Rename the patch file from `typescript@<version>.patch` to
+   `typescript-<version>.patch` and change its entry to match. The commit's
+   leak scan reads the `@` form as an email address.
+5. Run `pnpm test tools/statement-move`. The repair fixtures prove the moved
+   patch.
 
 ## Conventions
 

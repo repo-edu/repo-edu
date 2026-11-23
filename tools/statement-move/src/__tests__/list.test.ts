@@ -81,13 +81,15 @@ test("a clean list follows its ranges through the moves and writes nothing", () 
 test("a refused entry is named with its diagnostics and nothing is written", () => {
   withProject(
     {
-      "src/round.ts": `export const cacheRoot = "/tmp/cache"
+      "src/round.ts": `export const LIMIT = 1
 
-export function options() {
-  return { cacheRoot }
+export function double() {
+  return LIMIT * 2
 }
 
 export const LABEL = "round"
+`,
+      "src/fixture.ts": `export const LIMIT = 2
 `,
     },
     (project) => {
@@ -105,11 +107,12 @@ export const LABEL = "round"
         `entry 2 (${path.join("pkg", "src", "fixture.ts")}), lines 1-1: the move adds TypeScript 6 project diagnostics`,
       )
       assert.ok(
-        reply.diagnostics.some(
-          (diagnostic) =>
-            diagnostic.code === 18004 &&
-            diagnostic.path === path.join("pkg", "src", "round.ts"),
-        ),
+        reply.diagnostics.length > 0 &&
+          reply.diagnostics.every(
+            (diagnostic) =>
+              diagnostic.code === 2451 &&
+              diagnostic.path === path.join("pkg", "src", "fixture.ts"),
+          ),
       )
       assert.deepEqual(project.snapshot(), before)
     },
