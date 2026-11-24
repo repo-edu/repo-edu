@@ -43,7 +43,7 @@
         "@types/react-dom": "^19.2.3",
         "electron": "^45.0.0",
         "electron-builder": "^26.8.1",
-        "electron-vite": "^5.0.0",
+        "electron-vite": "^6.0.0",
         "esbuild": "^0.28.2",
         "tailwindcss": "^4.2.2"
     },
