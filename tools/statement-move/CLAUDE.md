@@ -168,20 +168,30 @@ helper `getWholeImport`. They repair three shapes:
    unrelated `const`, the import adds diagnostic 2300 or 2440. The move is
    then refused, so the moved code never reads a different value.
 
-   Two cases stop the engine with a `Debug Failure` before it returns any
-   edit, so the command writes nothing:
-   1. An import typed by a wildcard declaration, such as
+   In two cases the engine can stop with a `Debug Failure` before it returns
+   any edit. When it stops, the command writes nothing:
+   1. A wildcard import, one typed by a wildcard declaration such as
       `declare module "*.wasm?url"`, never counts as present. One wildcard
       symbol stands for many files, so it cannot show that two imports read
-      the same file. The engine then stops with
-      `Expected symbol to be a module`, also when the target imports the same
-      file under the same name.
-   2. The moved code needs two local names that the target lacks for one
-      module's default export, or two such `import * as` names for one
-      module. The engine stops when it writes the second name, whether it
-      adds a new import or extends one the target has.
+      the same file. The engine therefore writes the moved code's own import.
+      A default import stops the engine with `Expected symbol to be a module`
+      when its wildcard declaration exports a constant as its default. An
+      example is the URL string of
+      `declare module "*.wasm?url" { const url: string; export default url }`.
+      It stops even when the target imports the same file under the same
+      name. An `import * as` import typed by a wildcard declaration does not
+      stop the engine. When the target uses that name, the move adds
+      diagnostic 2300 and is refused. In both cases no file changes.
+   2. The engine stops when it must put two default names, or two
+      `import * as` names, for one module into the same import. This holds
+      whether it creates that import or extends one the target has. An empty
+      target can accept a value default and an `import type` default for one
+      export, because the engine writes them as separate imports. A target
+      may already hold a named value import from that module, such as
+      `import { x } from "widget"`. The engine then puts both default names
+      into that import and stops.
 
-   Carry such a move by hand.
+   Carry a move that stops the engine by hand.
 
 3. A loop name declared with `const` or `let`, and a `catch` name, belong to
    their statement and not to the file. Without the repair the engine imports
