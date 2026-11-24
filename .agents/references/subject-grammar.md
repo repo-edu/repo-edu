@@ -116,8 +116,9 @@ Audit, vet and rebuttal took 7 min.
 <series>    ::= commit-<group>[+<group>]     ; a commit series' label
 <group>     ::= <sha6> | <sha6>..<sha6>
 <sha6>      ::= six lowercase hexadecimal characters ; a commit's first six
-<split>     ::= split-<segment>(+<segment>)* ; a move-list series' label
-<segment>   ::= one segment of the source file's path, percent-encoded
+<split>     ::= split-<file-name>-<hash5>   ; a move-list series' label
+<file-name> ::= the source file's name, percent-encoded
+<hash5>     ::= five lowercase hexadecimal characters ; the first five of the source path's SHA-256
 <split-role> ::= design | split-audit | split
 <scope>     ::= <n> | <n>-<n>
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
@@ -160,12 +161,15 @@ commits by plan uses it. The same test reads a chat's form as no plan form, thou
 plan's stem. The plan repo's **Commit message convention** owns when a chat writes it.
 
 A move-list series' commits open with its label where a plan form has its stem. The label is
-`split-` and the source file's path, each segment percent-encoded as JavaScript's
-`encodeURIComponent` writes it and the segments joined by `+`. A segment's own `+` and `%` are
-escaped, so two paths never share a label: `packages/domain/src/roster.ts` gives
-`split-packages+domain+src+roster.ts`. The same label names the series' round files and round data.
-The `<split-role>` marks the form, as `commit-audit` does, so the plan-form read reads it as no plan
-form.
+`split-`, the source file's name, a hyphen and the first five characters of the SHA-256 of the
+source file's path: `packages/domain/src/roster.ts` gives `split-roster.ts-58b58`. The name is
+percent-encoded as JavaScript's `encodeURIComponent` writes it, so the label is one token with no
+path separator. The label leaves the folders out, because a label that spells the whole path fills
+the start of every subject of the series and pushes the role, the tag and the severity out of a
+one-line log. The hash tells same-named files apart, so two paths share a label only when the name
+and the five characters both agree. The move list's own path under `splits/` gives the full path.
+The same label names the series' round files and round data. The `<split-role>` marks the form, as
+`commit-audit` does, so the plan-form read reads it as no plan form.
 
 The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
 `<conventional>` is the Angular set that Conventional Commits recommends, plus `redesign`; a new
@@ -308,9 +312,9 @@ I4        planning-rounds/impl-audit-1-6 otm clean:
 I5        planning-rounds/implemented oth:
 C1        commit-e8128b/commit-audit abx growth-none c1 docs(claude):
 C2        commit-e8128b/commit-audit obx clean:
-S1        split-packages+domain+src+roster.ts/design abx:
-S2        split-packages+domain+src+roster.ts/split-audit obx growth-none b1c1:
-S2        split-packages+domain+src+roster.ts/split-audit obx clean:
+S1        split-roster.ts-58b58/design abx:
+S2        split-roster.ts-58b58/split-audit obx growth-none b1c1:
+S2        split-roster.ts-58b58/split-audit obx clean:
 O2        ath chore(repo):
 O2        ath growth-none c1 docs(claude):
 O2        ath growth-low B1c1 docs(claude):
@@ -327,7 +331,7 @@ I5           planning-rounds/closed oth:
 C1           commit-804833/commit-audit abx pruning-low c3 docs(audit-round):
 C1           commit-733686..d081b7/commit-audit abx growth-none c1 fix(audit-round):
 C2           commit-83bde0+3095d1/commit-audit obx clean:
-S3           split-packages+domain+src+roster.ts/split abx refactor(pkg-domain):
+S3           split-roster.ts-58b58/split abx refactor(pkg-domain):
 O1           ath growth-medium c1 feat(audit-round):
 O1           abx pruning-low c1 redesign(audit-round):
 O1           abx growth-low c1d1 fix(repo):

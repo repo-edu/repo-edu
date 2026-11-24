@@ -24,10 +24,10 @@ The target ends in `-plan-audit` for a planning round and `-impl-audit-<a>..<b>`
 implementation range. A one-step range repeats its endpoint. Implementation worker files use
 `-impl-<step>`, so a sorted file list shows a plan's worker files, implementation audits and plan
 audits as three separate groups. Commit targets begin with `commit-`, so every commit audit sorts
-together. Move-list targets begin with `split-`, followed by the source path's segments joined by
-`+`. The same label opens every commit the audit lands, as `commit-804833/commit-audit`, so
-`git log --oneline` shows its records beside the audited commits. A clean commit audit lands one
-empty record with the label, so the log shows that the audit ran.
+together. Move-list targets begin with `split-`, followed by the source file's name and the first
+five characters of a hash of its path. The same label opens every commit the audit lands, as
+`commit-804833/commit-audit`, so `git log --oneline` shows its records beside the audited commits. A
+clean commit audit lands one empty record with the label, so the log shows that the audit ran.
 
 The terminal and log show the round title at the start of the run and again above each later
 phase's start line. The title includes the file round number. For a planning round it also counts

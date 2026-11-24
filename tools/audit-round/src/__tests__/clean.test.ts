@@ -432,7 +432,7 @@ test("a clean move-list audit records in the plan repo under its series label", 
   )
 
   const subject =
-    "split-packages+domain+src+roster.ts/split-audit obx clean: record audit with no findings"
+    "split-roster.ts-58b58/split-audit obx clean: record audit with no findings"
   assert.equal(
     await git("log", "-1", "--format=%B"),
     `${subject}\n\n${phases}\n`,

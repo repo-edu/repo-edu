@@ -494,7 +494,7 @@ test("a series opens on the listed auditor without a current read when another h
 })
 
 test("a move-list series reads its own forms and every edit to its list", () => {
-  const label = "split-a+b.ts"
+  const label = "split-b.ts-868d9"
   const list = "splits/a/b.mv.md"
   function splitRound(
     auditor: Auditor,
@@ -550,7 +550,9 @@ test("a move-list series reads its own forms and every edit to its list", () => 
   ]
   // Another series' list and an unrelated plan-repo commit stay out.
   const unrelated = [
-    logged("e", between, "split-a+c.ts/design abx: x", ["splits/a/c.mv.md"]),
+    logged("e", between, "split-c.ts-e13fa/design abx: x", [
+      "splits/a/c.mv.md",
+    ]),
     logged("f", between, "abx growth-none c1 docs(claude): x", ["CLAUDE.md"]),
   ]
   const decide = (log: readonly LogCommit[]) => {

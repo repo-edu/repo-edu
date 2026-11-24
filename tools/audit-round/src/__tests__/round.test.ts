@@ -3699,7 +3699,7 @@ test("a fix needing a ruling is not graded or required to have landed work", asy
 })
 
 test("a move-list round audits its list, lands its record in the plan repo and runs no watch", async () => {
-  const label = "split-a+b.ts"
+  const label = "split-b.ts-868d9"
   const setup = {
     ...files,
     ...testSetup(repoRoot, "split"),

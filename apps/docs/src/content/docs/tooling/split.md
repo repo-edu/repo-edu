@@ -86,8 +86,9 @@ Beside the split commit a call leaves:
 3. **The split log** `<label>-split.log` beside the rounds' files. Each call on the file adds to
    it.
 
-The label is `split-` followed by the source path's segments joined by `+`, as
-`split-packages+domain+src+roster.ts`. While the series is
+The label is `split-` followed by the source file's name and the first five characters of a hash of
+its path, as `split-roster.ts-58b58` for `packages/domain/src/roster.ts`. The hash tells same-named
+files apart, and the move list's path under `splits/` gives the full path. While the series is
 unfinished, or another call's rounds run on it, its files stay in `../plan-evidence/active/`.
 Otherwise they move into `../plan-evidence/splits/<label>/` when the call ends, and a later call on
 the same file moves them back first. [Find round outputs](/repo-edu/tooling/find-round-outputs/)

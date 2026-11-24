@@ -118,7 +118,7 @@ function splitRound(
   } = round(auditor, number, started, "a".repeat(40), answer)
   return {
     ...common,
-    target: "split-a+b.ts",
+    target: "split-b.ts-868d9",
     source: "a/b.ts",
     pool: [claude, codex],
   }
@@ -414,7 +414,7 @@ test("replay reads an archived move-list series and dates an edit to its list", 
   const f = await fixture(t)
   await commitFixture(
     f.runtime.planRoot,
-    "split-a+b.ts/design abh: write the move list",
+    "split-b.ts-868d9/design abh: write the move list",
     "2026-11-09T09:00:00Z",
   )
   await commitFixture(
@@ -422,9 +422,9 @@ test("replay reads an archived move-list series and dates an edit to its list", 
     "fixture commit",
     "2026-11-09T09:00:00Z",
   )
-  const folder = join(f.runtime.evidenceRoot, "splits", "split-a+b.ts")
+  const folder = join(f.runtime.evidenceRoot, "splits", "split-b.ts-868d9")
   await mkdir(folder, { recursive: true })
-  const file = join(folder, "split-a+b.ts-rounds.json")
+  const file = join(folder, "split-b.ts-868d9-rounds.json")
   writeRoundData(
     file,
     splitRound(claude, 1, "2026-11-09T10:00:00Z", {
@@ -451,14 +451,14 @@ test("replay reads an archived move-list series and dates an edit to its list", 
     })),
     [
       {
-        target: "split-a+b.ts",
+        target: "split-b.ts-868d9",
         round: 1,
         phase: "split",
         computed: codex,
         matches: true,
       },
       {
-        target: "split-a+b.ts",
+        target: "split-b.ts-868d9",
         round: 2,
         phase: "split",
         computed: "stop",

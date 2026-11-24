@@ -28,7 +28,7 @@ import { roundFixture } from "./round-fixture.js"
 const source = "packages/demo/src/source.ts"
 const target = "packages/demo/src/target.ts"
 const listFile = "splits/packages/demo/src/source.mv.md"
-const label = "split-packages+demo+src+source.ts"
+const label = "split-source.ts-f4ed5"
 const identity = {
   phaseRun: implementationPhase(testSettings.splitAudit.designer),
   tag: "abx",

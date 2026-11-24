@@ -382,26 +382,36 @@ const refusals: [Repository, string, RegExp][] = [
   // A move-list series' forms and their label.
   ["plan", "example/design abx: s", /series label example/],
   ["plan", "split-a/b.ts/design abx: s", /role b.ts\/design/],
-  ["plan", "split-a+b%2f.ts/design abx: s", /series label/],
-  ["plan", "split-a+/design abx: s", /series label/],
-  ["repo-edu", "split-a+b.ts/design abx: s", /belongs to the plan/],
-  ["plan", "split-a+b.ts/design: s", /capability tag/],
-  ["plan", "split-a+b.ts/design abx docs(x): s", /nothing after its tag/],
-  ["repo-edu", "split-a+b.ts/split-audit abx clean: s", /belongs to the plan/],
-  ["plan", "split-a+b.ts/split-audit abx: s", /needs a severity/],
-  [
-    "plan",
-    "split-a+b.ts/split-audit abx growth-none b1 docs(x): s",
-    /no conventional kind/,
-  ],
-  ["plan", "split-a+b.ts/split-audit abx b1: s", /growth or pruning mark/],
-  ["plan", "split-a+b.ts/split abx refactor(x): s", /belongs to the Repo Edu/],
+  ["plan", "split-b%2f.ts-868d9/design abx: s", /series label/],
+  ["plan", "split-b.ts/design abx: s", /series label/],
+  ["plan", "split-b.ts-868D9/design abx: s", /series label/],
+  ["plan", "split-a+b.ts-868d9/design abx: s", /series label/],
+  ["repo-edu", "split-b.ts-868d9/design abx: s", /belongs to the plan/],
+  ["plan", "split-b.ts-868d9/design: s", /capability tag/],
+  ["plan", "split-b.ts-868d9/design abx docs(x): s", /nothing after its tag/],
   [
     "repo-edu",
-    "split-a+b.ts/split abx growth-none c1 refactor(x): s",
+    "split-b.ts-868d9/split-audit abx clean: s",
+    /belongs to the plan/,
+  ],
+  ["plan", "split-b.ts-868d9/split-audit abx: s", /needs a severity/],
+  [
+    "plan",
+    "split-b.ts-868d9/split-audit abx growth-none b1 docs(x): s",
+    /no conventional kind/,
+  ],
+  ["plan", "split-b.ts-868d9/split-audit abx b1: s", /growth or pruning mark/],
+  [
+    "plan",
+    "split-b.ts-868d9/split abx refactor(x): s",
+    /belongs to the Repo Edu/,
+  ],
+  [
+    "repo-edu",
+    "split-b.ts-868d9/split abx growth-none c1 refactor(x): s",
     /split subject carries no severity/,
   ],
-  ["repo-edu", "split-a+b.ts/split abx: s", /needs a conventional kind/],
+  ["repo-edu", "split-b.ts-868d9/split abx: s", /needs a conventional kind/],
 ]
 
 test("the parser refuses what the grammar refuses and names the slot", () => {
@@ -528,7 +538,7 @@ test("a commit round reads its records by their series label and writes that lab
 })
 
 test("a move-list series' forms open with its label and name no plan", () => {
-  const label = "split-packages+domain+src+roster.ts"
+  const label = "split-roster.ts-58b58"
   assert.deepEqual(parseSubject(`${label}/design abx: s`, "plan"), {
     class: "S1",
     form: { series: label, role: "design" },
@@ -573,9 +583,9 @@ test("a move-list series' forms open with its label and name no plan", () => {
       sentence: "s",
     },
   )
-  // A percent-encoded segment keeps a path's own + and % apart from the joins.
+  // A percent-encoded name keeps the label one token.
   assert.equal(
-    parseSubject("split-a%2Bb+c%25.ts/design abx: s", "plan").class,
+    parseSubject("split-c%25d.ts-977a1/design abx: s", "plan").class,
     "S1",
   )
   for (const role of ["design", "split-audit", "split"]) {

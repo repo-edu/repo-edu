@@ -498,7 +498,7 @@ test("a commit round's label opens every record its fix lands, in place of any f
 })
 
 test("a move-list round's label opens its record, and its design and split carry no severity", () => {
-  const label = "split-packages+domain+src+roster.ts"
+  const label = "split-roster.ts-58b58"
   const moveFinding = `- B [finding:1] [section:move-2] ${ratings} Merge: the moves.`
   const stamps = {
     auditor: "otx",

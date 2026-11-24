@@ -112,8 +112,8 @@ test("round data names both files from the round kind", () => {
     "commit-abc123-rounds.json",
   )
   assert.equal(
-    roundDataFilename("split-a+b.ts", "series"),
-    "split-a+b.ts-rounds.json",
+    roundDataFilename("split-b.ts-868d9", "series"),
+    "split-b.ts-868d9-rounds.json",
   )
 })
 
@@ -817,16 +817,16 @@ test("plan round data discovery ignores commit round data", async (t) => {
 test("series data of both kinds is read from the round folder and each kind's archive", async (t) => {
   const f = await fixture(t)
   const { evidenceRoot, roundRoot } = f.runtime
-  const active = join(roundRoot, "split-a+b.ts-rounds.json")
-  writeRoundData(active, splitEntry("split-a+b.ts", 1, "in-progress"))
-  writeRoundData(active, splitEntry("split-a+b.ts", 1))
+  const active = join(roundRoot, "split-b.ts-868d9-rounds.json")
+  writeRoundData(active, splitEntry("split-b.ts-868d9", 1, "in-progress"))
+  writeRoundData(active, splitEntry("split-b.ts-868d9", 1))
   const archives = {
     commit: join(evidenceRoot, "commits"),
     split: join(evidenceRoot, "splits"),
   }
   for (const [folder, label, data] of [
     [archives.commit, "commit-abc123", commitEntry("commit-abc123", 1)],
-    [archives.split, "split-c.ts", splitEntry("split-c.ts", 1)],
+    [archives.split, "split-c.ts-f5f87", splitEntry("split-c.ts-f5f87", 1)],
     // A folder holds only its own kind's series.
     [archives.split, "commit-def456", commitEntry("commit-def456", 1)],
   ] as const) {
@@ -835,17 +835,21 @@ test("series data of both kinds is read from the round folder and each kind's ar
   }
 
   assert.deepEqual(
-    (await readSeriesRoundData(f.runtime, "split-a+b.ts")).map(
+    (await readSeriesRoundData(f.runtime, "split-b.ts-868d9")).map(
       ({ round, status }) => ({ round, status }),
     ),
     [{ round: 1, status: "finished" }],
   )
-  assert.deepEqual(await readSeriesRoundData(f.runtime, "split-x.ts"), [])
+  assert.deepEqual(await readSeriesRoundData(f.runtime, "split-x.ts-00000"), [])
   assert.deepEqual(
     (await readAllSeriesRoundData(f.runtime, archives))
       .map(({ kind, label }) => `${kind} ${label}`)
       .sort(),
-    ["commit commit-abc123", "split split-a+b.ts", "split split-c.ts"],
+    [
+      "commit commit-abc123",
+      "split split-b.ts-868d9",
+      "split split-c.ts-f5f87",
+    ],
   )
   assert.deepEqual(await roundDataFiles(f.runtime), [])
   const file = parseRoundDataFile(active, await readFile(active, "utf8"))

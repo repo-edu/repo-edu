@@ -184,9 +184,9 @@ means any kind of report; each kind is always named in full.
   close and no watch: the runner moves its round files out of the round folder
   when every requested round has run or a fix withdraws the list, and brings
   them back when the same source file is called again. Its series label,
-  `split-` followed by the source path's segments joined by `+`, each
-  percent-encoded, names its round files and round data and opens its design
-  commit, its round records and its split commit.
+  `split-` followed by the source file's percent-encoded name and the first
+  five characters of a hash of its path, names its round files and round data
+  and opens its design commit, its round records and its split commit.
 - **Current read**: a listed auditor's audit of the target that started after
   the latest event that changed the target's scope. Those events are a settle
   or reopen, a plan step, an edit to the plan file or the move list outside a

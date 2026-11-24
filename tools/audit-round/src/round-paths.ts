@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readdir } from "node:fs/promises"
 import { basename, join } from "node:path"
 import type { ExecutionContext } from "./context.js"
@@ -199,14 +200,16 @@ export function commitTargetLabel(target: CommitTarget): string {
 }
 
 /**
- * The label that owns one move-list series and its retained evidence: `split-`
- * and the source path with each segment percent-encoded and the segments
- * joined by `+`. The encoding writes every `+` and `%` of a segment as an
- * escape, so two paths never share a label, and the label holds no path
- * separator.
+ * The label that owns one move-list series and its retained evidence: `split-`,
+ * the source file's percent-encoded name and the first five characters of the
+ * SHA-256 of its path. It leaves the folders out, so a commit subject reaches
+ * its role and tags early in a one-line log. The hash tells same-named files
+ * apart: two paths share a label only when the name and the five characters
+ * both agree. The encoding keeps the label one token with no path separator.
  */
 export function splitLabel(source: string): string {
-  return `split-${source.split("/").map(encodeURIComponent).join("+")}`
+  const hash = createHash("sha256").update(source).digest("hex").slice(0, 5)
+  return `split-${encodeURIComponent(basename(source))}-${hash}`
 }
 
 /** The bounded label that owns one target's round files and round data. */

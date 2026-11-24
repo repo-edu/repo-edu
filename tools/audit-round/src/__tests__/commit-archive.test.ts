@@ -73,11 +73,16 @@ test("a series file is read whole past its label, so a neighbouring label never 
 
 test("a move-list series' files are read past its label as a commit series' are", () => {
   const label = splitLabel("packages/domain/src/roster.ts")
-  assert.equal(label, "split-packages+domain+src+roster.ts")
+  assert.equal(label, "split-roster.ts-58b58")
   assert.equal(
     splitLabel("a+b/c%d.ts"),
-    "split-a%2Bb+c%25d.ts",
-    "a path's own + and % never read as a join",
+    "split-c%25d.ts-977a1",
+    "the name is percent-encoded and the folders show only in the hash",
+  )
+  assert.notEqual(
+    splitLabel("packages/other/src/roster.ts"),
+    label,
+    "the hash tells same-named files apart",
   )
   for (const name of [
     `${label}-01-0-claim.md`,
@@ -87,17 +92,22 @@ test("a move-list series' files are read past its label as a commit series' are"
   ])
     assert.equal(seriesFile(label, name), true, name)
   for (const name of [
-    "split-packages+domain+src+roster.tsx-01-0-claim.md",
-    "split-packages+domain+src+rosterXts-rounds.json",
-    "split-packages+domain-01-0-claim.md",
-    "split-packages+domain+src+roster.tsx-split.log",
+    "split-roster.ts-58b58.bak-12345-01-0-claim.md",
+    "split-rosterXts-58b58-rounds.json",
+    "split-roster.tsx-9fc30-01-0-claim.md",
+    "split-roster.ts-58b58.bak-12345-split.log",
   ])
     assert.equal(seriesFile(label, name), false, name)
 })
 
 for (const [kind, label, neighbour, root] of [
   ["commit", "commit-abcdef", "commit-abcdef+123456-01-0-claim.md", "commits"],
-  ["split", "split-a+b.ts", "split-a+b.ts+c.ts-01-0-claim.md", "splits"],
+  [
+    "split",
+    "split-b.ts-868d9",
+    "split-b.ts-868d9.bak-12345-01-0-claim.md",
+    "splits",
+  ],
 ] as const)
   test(`an archive and its restore move exactly one ${kind} series and lose nothing when cut short`, async (t) => {
     const f = await fixture(t)

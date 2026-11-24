@@ -170,11 +170,9 @@ const stepPattern = /^[1-9]\d*$/
 const auditScopePattern = /^(?:[1-9]\d*|[1-9]\d*-[1-9]\d*)$/
 const seriesPattern =
   /^commit-[0-9a-f]{6}(?:\.\.[0-9a-f]{6})?(?:\+[0-9a-f]{6}(?:\.\.[0-9a-f]{6})?)?$/
-/** `split-` and percent-encoded path segments joined by `+`. */
-const splitSegment = "(?:[A-Za-z0-9._~!*'()-]|%[0-9A-F]{2})+"
-const splitPattern = new RegExp(
-  `^split-${splitSegment}(?:\\+${splitSegment})*$`,
-)
+/** `split-`, the percent-encoded file name and five characters of the path's hash. */
+const splitPattern =
+  /^split-(?:[A-Za-z0-9._~!*'()-]|%[0-9A-F]{2})+-[0-9a-f]{5}$/
 
 function fail(message: string): never {
   throw new SubjectError(message)
@@ -195,7 +193,7 @@ function parseForm(token: string): Form {
   if (isSeriesRole(role)) {
     if (!splitPattern.test(stem))
       fail(
-        `the series label ${stem} is not split- and the source path's percent-encoded segments joined by +`,
+        `the series label ${stem} is not split-<file-name>-<hash5>, the name percent-encoded and the hash five lowercase hexadecimal characters`,
       )
     return { series: stem, role }
   }
