@@ -224,6 +224,129 @@ export function windows(): string {
   )
 })
 
+function labelReader(module: string): string {
+  return `import label from "${module}"
+
+export function read(): string {
+  return String(label)
+}
+`
+}
+
+const VALUE = `export default "value"
+`
+
+// The target holds the default export that the moved code imports as `label`,
+// while its own `label` names another value.
+for (const { holder, files } of [
+  {
+    holder: "a named import of it",
+    files: {
+      "src/value.ts": VALUE,
+      "src/source.ts": labelReader("./value.js"),
+      "src/target.ts": `import { default as saved } from "./value.js"
+
+const label = "target"
+
+export const both = [saved, label]
+`,
+    },
+  },
+  {
+    holder: "its declaration",
+    files: {
+      "src/source.ts": labelReader("./target.js"),
+      "src/target.ts": `export default "value"
+
+const label = "target"
+
+export const own = label
+`,
+    },
+  },
+]) {
+  test(`refuses a moved default import whose name the target gives another value beside ${holder}`, () => {
+    withProject(files, (project) => {
+      const before = project.snapshot()
+      const result = project.move("src/source.ts", 3, 5, "src/target.ts")
+
+      assert.equal(result.kind, "refused")
+      assert.deepEqual(project.snapshot(), before)
+    })
+  })
+}
+
+// The target's `label` names the default export that the moved code imports.
+for (const { holder, files } of [
+  {
+    holder: "a named import",
+    files: {
+      "src/value.ts": VALUE,
+      "src/source.ts": labelReader("./value.js"),
+      "src/target.ts": `import { default as label } from "./value.js"
+
+export const held = label
+`,
+    },
+  },
+  {
+    holder: "its own declaration",
+    files: {
+      "src/source.ts": labelReader("./target.js"),
+      "src/target.ts": `export default function label(): string {
+  return "value"
+}
+`,
+    },
+  },
+]) {
+  test(`reuses the target's binding of the moved default import through ${holder}`, () => {
+    withProject(files, (project) => {
+      const before = linesMatching(project.read("src/target.ts"), /^import /)
+      const result = project.move("src/source.ts", 3, 5, "src/target.ts")
+
+      assert.equal(result.kind, "accepted")
+      const target = project.read("src/target.ts")
+      assert.deepEqual(linesMatching(target, /^import /), before)
+      assert.match(target, /^export function read\(\): string \{$/m)
+    })
+  })
+}
+
+// One wildcard declaration types the default import of every `*.wasm?url`
+// file, so its symbol cannot tell two files apart. The engine writes the
+// moved code's own import and stops.
+test("stops on an import that a wildcard declaration types and writes nothing", () => {
+  withProject(
+    {
+      "src/wasm-url.d.ts": `declare module "*.wasm?url" {
+  const url: string
+  export default url
+}
+`,
+      "src/source.ts": `import url from "./first.wasm?url"
+
+export function read(): string {
+  return url
+}
+`,
+      "src/target.ts": `import url from "./second.wasm?url"
+
+export const second = url
+`,
+    },
+    (project) => {
+      const before = project.snapshot()
+
+      assert.throws(
+        () => project.move("src/source.ts", 3, 5, "src/target.ts"),
+        /Expected symbol to be a module/,
+      )
+      assert.deepEqual(project.snapshot(), before)
+    },
+  )
+})
+
 test("moves a top-level loop without taking its loop name for a name of the file", () => {
   withProject(
     {
@@ -279,15 +402,23 @@ try {
 })
 
 // A global of the same name and type, such as the DOM's `origin`, would let a
-// reader cut off from a loop's `var` read the global with no new diagnostic.
+// reader cut off from a name of the file read the global with no new
+// diagnostic.
 const ORIGIN_GLOBAL = `declare var origin: string
 `
 
-test("imports a loop's var into a moved reader", () => {
-  withProject(
-    {
-      "src/globals.d.ts": ORIGIN_GLOBAL,
-      "src/source.ts": `for (var origin of ["course"]) {}
+// A top-level loop's `var` belongs to the file, and so does a name that a
+// destructuring pattern declares in a top-level loop or statement.
+for (const declaration of [
+  `for (var origin of ["course"]) {}`,
+  `for (var { origin } of [{ origin: "course" }]) {}`,
+  `const { origin } = { origin: "course" }`,
+]) {
+  test(`imports the file's name into a moved reader: ${declaration}`, () => {
+    withProject(
+      {
+        "src/globals.d.ts": ORIGIN_GLOBAL,
+        "src/source.ts": `${declaration}
 
 export { origin }
 
@@ -295,18 +426,19 @@ export function read(): string {
   return origin
 }
 `,
-    },
-    (project) => {
-      const result = project.move("src/source.ts", 5, 7, "src/reader.ts")
+      },
+      (project) => {
+        const result = project.move("src/source.ts", 5, 7, "src/reader.ts")
 
-      assert.equal(result.kind, "accepted")
-      assert.deepEqual(
-        linesMatching(project.read("src/reader.ts"), /^import /),
-        [`import { origin } from "./source.js"`],
-      )
-    },
-  )
-})
+        assert.equal(result.kind, "accepted")
+        assert.deepEqual(
+          linesMatching(project.read("src/reader.ts"), /^import /),
+          [`import { origin } from "./source.js"`],
+        )
+      },
+    )
+  })
+}
 
 test("refuses to move a loop away from a reader of its var", () => {
   withProject(

@@ -1,5 +1,5 @@
 diff --git a/lib/typescript.js b/lib/typescript.js
-index 3ba0ce46aad370919b20e29429b3bc72011151a2..51046f8cf9a4829081878fa2581e684fddfb0e95 100644
+index 3ba0ce46aad370919b20e29429b3bc72011151a2..d52402bbd073df98a8874848444bb17847084e9f 100644
 --- a/lib/typescript.js
 +++ b/lib/typescript.js
 @@ -148489,7 +148489,7 @@ function getUsageInfo(oldFile, toMove, checker, existingTargetLocals = /* @__PUR
@@ -7,7 +7,7 @@ index 3ba0ce46aad370919b20e29429b3bc72011151a2..51046f8cf9a4829081878fa2581e684f
          return;
        }
 -      if (existingTargetLocals.has(skipAlias(symbol, checker))) {
-+      if (existingTargetLocals.has(symbol) || existingTargetLocals.has(skipAlias(symbol, checker))) {
++      if (some(symbol.declarations, (d) => isImportClause(d) || isNamespaceImport(d)) ? existingTargetLocals.has(symbol) : existingTargetLocals.has(skipAlias(symbol, checker))) {
          unusedImportsFromOldFile.add(symbol);
          return;
        }
@@ -38,44 +38,29 @@ index 3ba0ce46aad370919b20e29429b3bc72011151a2..51046f8cf9a4829081878fa2581e684f
    }
  }
  function isInImport(decl) {
-@@ -148600,7 +148606,7 @@ function isVariableDeclarationInImport(decl) {
+@@ -148600,10 +148606,12 @@ function isVariableDeclarationInImport(decl) {
    );
  }
  function isTopLevelDeclaration(node) {
 -  return isNonVariableTopLevelDeclaration(node) && isSourceFile(node.parent) || isVariableDeclaration(node) && isSourceFile(node.parent.parent.parent);
-+  return isNonVariableTopLevelDeclaration(node) && isSourceFile(node.parent) || isVariableDeclaration(node) && isSourceFile(node.parent.parent.parent) && (isVariableStatement(node.parent.parent) || !isBlockOrCatchScoped(node));
++  const root = getRootDeclaration(node);
++  return isNonVariableTopLevelDeclaration(node) && isSourceFile(node.parent) || isVariableDeclaration(root) && isSourceFile(root.parent.parent.parent) && (isVariableStatement(root.parent.parent) || !isBlockOrCatchScoped(root));
  }
  function sourceFileOfTopLevelDeclaration(node) {
-   return isVariableDeclaration(node) ? node.parent.parent.parent : node.parent;
-@@ -148694,6 +148700,7 @@ function getOverloadRangeToMove(sourceFile, statement) {
+-  return isVariableDeclaration(node) ? node.parent.parent.parent : node.parent;
++  const root = getRootDeclaration(node);
++  return isVariableDeclaration(root) ? root.parent.parent.parent : node.parent;
  }
- function getExistingLocals(sourceFile, statements, checker) {
-   const existingLocals = /* @__PURE__ */ new Set();
-+  const wholeImports = [];
-   for (const moduleSpecifier of sourceFile.imports) {
-     const declaration = importFromModuleSpecifier(moduleSpecifier);
-     if (isImportDeclaration(declaration) && declaration.importClause && declaration.importClause.namedBindings && isNamedImports(declaration.importClause.namedBindings)) {
-@@ -148712,6 +148719,14 @@ function getExistingLocals(sourceFile, statements, checker) {
-         }
-       }
-     }
-+    if (isImportDeclaration(declaration) && declaration.importClause) {
-+      for (const local of [declaration.importClause, declaration.importClause.namedBindings]) {
-+        const wholeImport = local && getWholeImport(local, checker);
-+        if (wholeImport) {
-+          wholeImports.push(wholeImport);
-+        }
-+      }
-+    }
-   }
-   for (const statement of statements) {
-     forEachReference(
-@@ -148724,11 +148739,20 @@ function getExistingLocals(sourceFile, statements, checker) {
+ function forEachTopLevelDeclarationInBindingName(name, cb) {
+   switch (name.kind) {
+@@ -148724,11 +148732,22 @@ function getExistingLocals(sourceFile, statements, checker) {
          if (symbol.valueDeclaration && getSourceFileOfNode(symbol.valueDeclaration).path === sourceFile.path) {
            existingLocals.add(symbol);
          }
 +        const used = firstDefined(s.declarations, (d) => getWholeImport(d, checker));
-+        if (used && some(wholeImports, (w) => w.moduleSymbol === used.moduleSymbol && w.isNamespace === used.isNamespace && w.name === used.name)) {
++        const local = used && checker.resolveName(used.name, sourceFile, 111551 /* Value */ | 788968 /* Type */ | 1920 /* Namespace */, /*excludeGlobals*/ true);
++        const held = local && firstDefined(local.declarations, (d) => getWholeImport(d, checker));
++        if (held ? held.moduleSymbol === used.moduleSymbol && held.isNamespace === used.isNamespace : local && !used.isNamespace && skipAlias(local, checker) === symbol) {
 +          existingLocals.add(s);
 +        }
        }
@@ -86,7 +71,7 @@ index 3ba0ce46aad370919b20e29429b3bc72011151a2..51046f8cf9a4829081878fa2581e684f
 +function getWholeImport(declaration, checker) {
 +  const importDeclaration = isImportClause(declaration) && declaration.name ? declaration.parent : isNamespaceImport(declaration) ? declaration.parent.parent : void 0;
 +  const moduleSymbol = importDeclaration && checker.getSymbolAtLocation(importDeclaration.moduleSpecifier);
-+  return moduleSymbol && { moduleSymbol, isNamespace: isNamespaceImport(declaration), name: declaration.name.text };
++  return moduleSymbol && !some(moduleSymbol.declarations, (d) => isAmbientModule(d) && d.name.text.includes("*")) ? { moduleSymbol, isNamespace: isNamespaceImport(declaration), name: declaration.name.text } : void 0;
 +}
  
  // src/services/refactors/helpers.ts

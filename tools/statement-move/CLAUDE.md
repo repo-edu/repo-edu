@@ -143,46 +143,72 @@ command's own check and the list command's `clean` reply let it through.
 
 pnpm applies `patches/typescript-6.0.3.patch` to the installed
 `typescript@6.0.3` at every install, because `pnpm-workspace.yaml` lists it
-under `patchedDependencies`. The patch changes five functions of
+under `patchedDependencies`. The patch changes six functions of
 **Move to file** in `lib/typescript.js`: `forEachReference`, `getUsageInfo`,
-`forEachTopLevelDeclaration`, `isTopLevelDeclaration` and `getExistingLocals`.
-They repair three shapes:
+`forEachTopLevelDeclaration`, `isTopLevelDeclaration`,
+`sourceFileOfTopLevelDeclaration` and `getExistingLocals`. It also adds the
+helper `getWholeImport`. They repair three shapes:
 
 1. A name that the source still uses only as a short-form property, as in
    `{ cacheRoot }`, counts as a use. The source then gets an import of the
    moved declaration. Without the repair the move adds diagnostic 18004.
 
-2. A default import or an `import * as name` import that the target already
-   has counts as present only when the moved code's import has the same form,
-   the same module and the same local name. Each name under which the target
-   imports a module counts on its own. Without the repair the engine writes
-   the import a second time and the move adds diagnostic 2300. In every other
-   case the engine writes the moved code's own import. Under another name that
-   import is valid. In the other form under the same name it adds diagnostic
-   2300, so the move is refused and the moved code never reads a different
-   value.
+2. The moved code's default import or `import * as name` import counts as
+   present when its local name, looked up in the target, names the same
+   value. An import of the same form from the same module names it. For a
+   default import, so does another binding of the same export under that
+   name, such as `import { default as label }` or the target's own
+   `export default function label`. Each name counts on its own. Without the
+   repair the engine writes the import a second time and the move adds
+   diagnostic 2300.
+
+   In every other case the engine writes the moved code's own import. When
+   the target does not use the name, that import is valid. When the target
+   gives the name to another value, such as the other form of import or an
+   unrelated `const`, the import adds diagnostic 2300 or 2440. The move is
+   then refused, so the moved code never reads a different value.
+
+   Two cases stop the engine with a `Debug Failure` before it returns any
+   edit, so the command writes nothing:
+   1. An import typed by a wildcard declaration, such as
+      `declare module "*.wasm?url"`, never counts as present. One wildcard
+      symbol stands for many files, so it cannot show that two imports read
+      the same file. The engine then stops with
+      `Expected symbol to be a module`, also when the target imports the same
+      file under the same name.
+   2. The moved code needs two local names that the target lacks for one
+      module's default export, or two such `import * as` names for one
+      module. The engine stops when it writes the second name, whether it
+      adds a new import or extends one the target has.
+
+   Carry such a move by hand.
 
 3. A loop name declared with `const` or `let`, and a `catch` name, belong to
    their statement and not to the file. Without the repair the engine imports
    such a name into the target and exports it from the source. The move then
    adds diagnostics 2305 and 1030, or the engine stops with
    `Debug Failure. False expression: Changes overlap`. A `var` that a top-level
-   loop declares belongs to the whole file, so a move must keep its readers
-   connected to it:
-   1. A reader that moves away from the loop imports the `var`. When the
-      source does not export it, the move adds a diagnostic and is refused.
-   2. A loop that moves away from a reader of its `var` is always refused,
-      because the engine writes no export for a loop's `var`.
+   loop declares belongs to the whole file. So does each name that a
+   destructuring pattern declares there or in a top-level variable statement,
+   as in `for (var { origin } of items)` or `const { origin } = value`. A move
+   must keep the readers of such a name connected to it:
+   1. A reader that moves away imports the name from the source. The engine
+      adds `export` to a variable statement, but it cannot export a loop's
+      `var`. Without an explicit `export { name }` that move is refused.
+   2. A loop that moves together with its `export { name }` takes the export
+      along, and a reader that stays imports the `var` from the target. A
+      loop that moves alone away from a reader is refused, because the engine
+      writes no export for a loop's `var`.
 
-   Without this rule a reader cut off from the `var` could read a global of
-   the same name, such as the DOM's `origin`, with no new diagnostic.
+   Without these rules a reader cut off from such a name could read a global
+   of the same name, such as the DOM's `origin`, with no new diagnostic.
 
 The tool's own rules do not change: it applies only the import-kind fixes and
 refuses every move that adds a diagnostic. The fixtures in
 `src/__tests__/engine-repairs.test.ts` prove each repaired shape and fail when
 the patch is missing. Other fixtures there prove results of the published
 engine that the repairs must keep. Every user of TypeScript 6 in the workspace
-loads the patched file. The five functions serve only **Move to file**,
+loads the patched file. The six functions serve only **Move to file**,
 **Move to a new file** and paste with imports.
 
 The entry names the exact version, so the patch never reaches the TypeScript 7
@@ -197,8 +223,8 @@ session then moves the patch to the new version:
    command again, such as `pnpm deps:latest`, or run `pnpm install` on a
    branch whose lockfile already holds the new version.
 2. Run `pnpm patch typescript@<new version>`. In the folder it prints, make
-   the old patch's changes in `lib/typescript.js`, in the five functions named
-   above. Their line numbers differ between versions.
+   the old patch's changes in `lib/typescript.js`, in the six functions and
+   the helper named above. Their line numbers differ between versions.
 3. Run `pnpm patch-commit <folder>`. pnpm writes the patch file, the entry and
    the lockfile, and installs.
 4. Rename the patch file from `typescript@<version>.patch` to
