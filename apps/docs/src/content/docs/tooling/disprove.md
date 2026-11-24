@@ -75,8 +75,8 @@ The command never rewrites the old audit report, commit or finding metadata.
 
 ## Refuses when
 
-An argument error exits with status 2. Conflicting options and an invalid `--by` value get
-the parser's `error:` prefix. Other refusals get the runner's `audit-round:` prefix.
+An argument error exits with status 2. Commander, the command-line parser, reports errors
+with the prefix `error:`. The runner reports its own errors with the prefix `audit-round:`.
 A refusal while looking up the plan, finding or revision exits with status 1.
 
 1. **The stem is a path, or the target does not start with `<stem>-`.**

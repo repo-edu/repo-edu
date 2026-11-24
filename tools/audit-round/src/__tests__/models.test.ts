@@ -1859,8 +1859,8 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
       panelSettings([alpha, beta]),
       [
         phase("audit", "claude", "audit-alpha", 60_000),
-        alpha,
         beta,
+        alpha,
         phase("rule", "codex", "plan-ruler", 60_000, "high"),
       ],
       [],
@@ -1899,7 +1899,8 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
     phase: "detailing",
     settling: "",
   })
-  writeRoundData(join(f.roundRoot, "ruled-impl-rounds.json"), {
+  const implPath = join(f.roundRoot, "ruled-impl-rounds.json")
+  writeRoundData(implPath, {
     ...round(
       "ruled-impl-audit-01..01",
       1,
@@ -1912,8 +1913,8 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
       panelSettings([alpha, beta]),
       [
         phase("audit", "codex", "audit-beta", 60_000),
-        alpha,
         beta,
+        alpha,
         phase("rule", "claude", "rule-model", 60_000, "xhigh"),
       ],
       [],
@@ -1965,6 +1966,13 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
     finding: 4,
     reason: "The original wording was correct.",
   })
+  writeDisprovedFinding(implPath, {
+    target: "ruled-impl-audit-01..01",
+    date: later.date,
+    round: 1,
+    finding: 2,
+    reason: "Both vetters correctly dropped the finding.",
+  })
 
   const report = await modelsReport(f.runtime, testSettings, { winners: true })
   assert.equal(
@@ -1974,8 +1982,8 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
     [
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-plan-audit round 2 | #1 ruled split | A | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | auditor audit-alpha low; vetter vet-alpha low | The finding stood as written. |",
-      "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-alpha low: revise; vet-beta low: drop | **Disproved** vetter vet-alpha low; vetter vet-beta low **Winning** vetter vet-alpha low | Both corrections hold. |",
+      "| 1 | ruled; ruled-plan-audit round 2 | #1 ruled split | A | audit-alpha low | vet-beta low: drop; vet-alpha low: accept | auditor audit-alpha low; vetter vet-alpha low | The finding stood as written. |",
+      "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-beta low: drop; vet-alpha low: revise | **Disproved** vetter vet-alpha low; vetter vet-beta low **Winning** vetter vet-alpha low | Both corrections hold. |",
       "| 3 | ruled; ruled-plan-audit round 1 | #1 old contest | B | audit-alpha low | vet-beta low: drop | vetter vet-beta low | The vet was right. |",
       "",
       "1. The finding stood as written.",
@@ -1986,7 +1994,7 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
       "",
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #2 ruled contest | B | audit-beta low | vet-alpha low: drop; vet-beta low: drop | none | Neither side held; a third correction landed. |",
+      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #2 ruled contest | B | audit-beta low | vet-beta low: drop; vet-alpha low: drop | **Disproved** none **Winning** vetter vet-alpha low; vetter vet-beta low | Neither side held; a third correction landed. |",
       "",
       "1. Neither side held; a third correction landed.",
       "",
@@ -1994,7 +2002,7 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
       "",
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-plan-audit round 2 | #4 plan wording | C | audit-alpha low | vet-alpha low: accept; vet-beta low: revise | plan-ruler high | **Disproved** auditor audit-alpha low; vetter vet-alpha low **Winning** none | The plan uses both terms. |",
+      "| 1 | ruled; ruled-plan-audit round 2 | #4 plan wording | C | audit-alpha low | vet-beta low: revise; vet-alpha low: accept | plan-ruler high | **Disproved** auditor audit-alpha low; vetter vet-alpha low **Winning** none | The plan uses both terms. |",
       "",
       "1. The plan uses both terms.",
       "",
@@ -2002,7 +2010,7 @@ test("ruling and ruler winner tables show changed winners and keep the round's r
       "",
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #1 ruled C split | C | audit-beta low | vet-alpha low: accept; vet-beta low: drop | rule-model xhigh | auditor audit-beta low; vetter vet-alpha low | The ruler opened the cited test. |",
+      "| 1 | ruled; ruled-impl-audit-01..01 round 1 | #1 ruled C split | C | audit-beta low | vet-beta low: drop; vet-alpha low: accept | rule-model xhigh | auditor audit-beta low; vetter vet-alpha low | The ruler opened the cited test. |",
       "",
       "1. The ruler opened the cited test. It covers the case.",
     ].join("\n"),

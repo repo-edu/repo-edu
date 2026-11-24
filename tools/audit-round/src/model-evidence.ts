@@ -405,13 +405,15 @@ function roundVets(round: RoundData, finding: RoundFinding): RoundVet[] {
   )
 }
 
-/** Each vetter the round ran that judged the finding, with its review. */
+/** Reviews in panel order, with the model and effort from each vet phase. */
 function judgedVets(round: RoundData, finding: RoundFinding) {
-  return roundVets(round, finding).flatMap((vet) => {
-    const review = finding.reviews.find(
-      (candidate) => candidate.vet === vet.tag,
+  return finding.reviews.flatMap((review) => {
+    const vet = round.phases.find(
+      (phase) => phase.phase === "vet" && phase.tag === review.vet,
     )
-    return review === undefined ? [] : [{ ...vet, review }]
+    return vet === undefined
+      ? []
+      : [{ review, identity: selectionIdentity(vet.assistant, vet) }]
   })
 }
 
@@ -476,14 +478,14 @@ function laterRulingParties(
     detail: null,
   })
   const vets = judgedVets(round, finding)
-  for (const vet of vets) {
-    if (later.outcome !== "kept" && vet.verdict === "needs-user-ruling")
+  for (const { review, identity } of vets) {
+    if (later.outcome !== "kept" && review.verdict === "needs-user-ruling")
       continue
-    const proved = later.proof.proves(vet.review)
+    const proved = later.proof.proves(review)
     ;(proved ? right : wrong).push({
       role: "vetter",
-      identity: vet.identity,
-      detail: vet.verdict,
+      identity,
+      detail: review.verdict,
     })
   }
   const claim = later.proof.auditor ? "vetter" : "auditor"
