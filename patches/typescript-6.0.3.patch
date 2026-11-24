@@ -1,5 +1,5 @@
 diff --git a/lib/typescript.js b/lib/typescript.js
-index 3ba0ce46aad370919b20e29429b3bc72011151a2..d52402bbd073df98a8874848444bb17847084e9f 100644
+index 3ba0ce46aad370919b20e29429b3bc72011151a2..713a2707bf4cc868fb46ad6ff77d4079f2ecbafc 100644
 --- a/lib/typescript.js
 +++ b/lib/typescript.js
 @@ -148489,7 +148489,7 @@ function getUsageInfo(oldFile, toMove, checker, existingTargetLocals = /* @__PUR
@@ -11,7 +11,19 @@ index 3ba0ce46aad370919b20e29429b3bc72011151a2..d52402bbd073df98a8874848444bb178
          unusedImportsFromOldFile.add(symbol);
          return;
        }
-@@ -148548,11 +148548,11 @@ function inferNewFileName(importsFromNewFile, movedSymbols) {
+@@ -148509,6 +148509,11 @@ function getUsageInfo(oldFile, toMove, checker, existingTargetLocals = /* @__PUR
+     unusedImportsFromOldFile.add(unusedImport);
+   }
+   const oldFileImportsFromTargetFile = /* @__PURE__ */ new Map();
++  for (const symbol of movedSymbols) {
++    if (some(symbol.declarations, (d) => getSourceFileOfNode(d) === oldFile && !some(toMove, (s) => rangeContainsRange(s, d)))) {
++      oldFileImportsFromTargetFile.set(symbol, false);
++    }
++  }
+   for (const statement of oldFile.statements) {
+     if (contains(toMove, statement)) continue;
+     if (jsxNamespaceSymbol && !!(statement.transformFlags & 2 /* ContainsJsx */)) {
+@@ -148548,11 +148553,11 @@ function inferNewFileName(importsFromNewFile, movedSymbols) {
  }
  function forEachReference(node, checker, enclosingRange, onReference) {
    node.forEachChild(function cb(node2) {
@@ -25,42 +37,39 @@ index 3ba0ce46aad370919b20e29429b3bc72011151a2..d52402bbd073df98a8874848444bb178
        if (sym) onReference(sym, isValidTypeOnlyAliasUseSite(node2));
      } else {
        node2.forEachChild(cb);
-@@ -148575,6 +148575,12 @@ function forEachTopLevelDeclaration(statement, cb) {
+@@ -148575,6 +148580,10 @@ function forEachTopLevelDeclaration(statement, cb) {
        const { expression } = statement;
        return isBinaryExpression(expression) && getAssignmentDeclarationKind(expression) === 1 /* ExportsProperty */ ? cb(statement) : void 0;
      }
-+    case 249 /* ForStatement */:
-+    case 250 /* ForInStatement */:
-+    case 251 /* ForOfStatement */: {
-+      const { initializer } = statement;
-+      return initializer && isVariableDeclarationList(initializer) ? firstDefined(initializer.declarations, (decl) => isTopLevelDeclaration(decl) ? forEachTopLevelDeclarationInBindingName(decl.name, cb) : void 0) : void 0;
-+    }
++    default:
++      return forEachChild(statement, function visit(node) {
++        return isVariableDeclaration(node) && isTopLevelDeclaration(node) ? forEachTopLevelDeclarationInBindingName(node.name, cb) : forEachChild(node, visit);
++      });
    }
  }
  function isInImport(decl) {
-@@ -148600,10 +148606,12 @@ function isVariableDeclarationInImport(decl) {
+@@ -148600,10 +148609,11 @@ function isVariableDeclarationInImport(decl) {
    );
  }
  function isTopLevelDeclaration(node) {
 -  return isNonVariableTopLevelDeclaration(node) && isSourceFile(node.parent) || isVariableDeclaration(node) && isSourceFile(node.parent.parent.parent);
 +  const root = getRootDeclaration(node);
-+  return isNonVariableTopLevelDeclaration(node) && isSourceFile(node.parent) || isVariableDeclaration(root) && isSourceFile(root.parent.parent.parent) && (isVariableStatement(root.parent.parent) || !isBlockOrCatchScoped(root));
++  return isNonVariableTopLevelDeclaration(node) && isSourceFile(node.parent) || isVariableDeclaration(root) && (isVariableStatement(root.parent.parent) && isSourceFile(root.parent.parent.parent) || !isBlockOrCatchScoped(root) && isSourceFile(findAncestor(root.parent, (n) => isFunctionLikeOrClassStaticBlockDeclaration(n) || isModuleDeclaration(n) || isSourceFile(n))));
  }
  function sourceFileOfTopLevelDeclaration(node) {
 -  return isVariableDeclaration(node) ? node.parent.parent.parent : node.parent;
-+  const root = getRootDeclaration(node);
-+  return isVariableDeclaration(root) ? root.parent.parent.parent : node.parent;
++  return getSourceFileOfNode(node);
  }
  function forEachTopLevelDeclarationInBindingName(name, cb) {
    switch (name.kind) {
-@@ -148724,11 +148732,22 @@ function getExistingLocals(sourceFile, statements, checker) {
+@@ -148724,11 +148734,22 @@ function getExistingLocals(sourceFile, statements, checker) {
          if (symbol.valueDeclaration && getSourceFileOfNode(symbol.valueDeclaration).path === sourceFile.path) {
            existingLocals.add(symbol);
          }
 +        const used = firstDefined(s.declarations, (d) => getWholeImport(d, checker));
 +        const local = used && checker.resolveName(used.name, sourceFile, 111551 /* Value */ | 788968 /* Type */ | 1920 /* Namespace */, /*excludeGlobals*/ true);
 +        const held = local && firstDefined(local.declarations, (d) => getWholeImport(d, checker));
-+        if (held ? held.moduleSymbol === used.moduleSymbol && held.isNamespace === used.isNamespace : local && !used.isNamespace && skipAlias(local, checker) === symbol) {
++        if (held ? held.moduleSymbol === used.moduleSymbol && held.isNamespace === used.isNamespace : local && !used.isNamespace && skipAlias(local, checker) === symbol && (local.flags & 2097152 /* Alias */ || local === checker.getImmediateAliasedSymbol(s))) {
 +          existingLocals.add(s);
 +        }
        }

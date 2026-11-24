@@ -313,6 +313,29 @@ export const held = label
   })
 }
 
+// `export default label` copies the value of `label` when it runs, so the
+// target's own `label` can later hold another value than the default export.
+test("stops on a moved default import whose name the target gives the variable its export default copied", () => {
+  withProject(
+    {
+      "src/source.ts": labelReader("./target.js"),
+      "src/target.ts": `let label = "first"
+export default label
+label = "last"
+`,
+    },
+    (project) => {
+      const before = project.snapshot()
+
+      assert.throws(
+        () => project.move("src/source.ts", 3, 5, "src/target.ts"),
+        /Expected symbol to be a module/,
+      )
+      assert.deepEqual(project.snapshot(), before)
+    },
+  )
+})
+
 // One wildcard declaration types the default import of every `*.wasm?url`
 // file, so its symbol cannot tell two files apart. The engine writes the
 // moved code's own import and stops.
@@ -407,10 +430,13 @@ try {
 const ORIGIN_GLOBAL = `declare var origin: string
 `
 
-// A top-level loop's `var` belongs to the file, and so does a name that a
-// destructuring pattern declares in a top-level loop or statement.
+// A `var` belongs to the file wherever a top-level statement declares it
+// outside a function, and so does a name that a destructuring pattern
+// declares there or in a top-level variable statement.
 for (const declaration of [
   `for (var origin of ["course"]) {}`,
+  `for (const item of ["course"]) { var origin = item }`,
+  `while (true) { var origin = "course"; break }`,
   `for (var { origin } of [{ origin: "course" }]) {}`,
   `const { origin } = { origin: "course" }`,
 ]) {
@@ -440,26 +466,60 @@ export function read(): string {
   })
 }
 
-test("refuses to move a loop away from a reader of its var", () => {
-  withProject(
-    {
-      "src/globals.d.ts": ORIGIN_GLOBAL,
-      "src/source.ts": `for (var origin of ["course"]) {}
+for (const declaration of [
+  `for (var origin of ["course"]) {}`,
+  `for (const item of ["course"]) { var origin = item }`,
+  `while (true) { var origin = "course"; break }`,
+]) {
+  test(`refuses to move a loop away from a reader of its var: ${declaration}`, () => {
+    withProject(
+      {
+        "src/globals.d.ts": ORIGIN_GLOBAL,
+        "src/source.ts": `${declaration}
 
 export function read(): string {
   return origin
 }
 `,
-    },
-    (project) => {
-      const before = project.snapshot()
-      const result = project.move("src/source.ts", 1, 1, "src/loop.ts")
+      },
+      (project) => {
+        const before = project.snapshot()
+        const result = project.move("src/source.ts", 1, 1, "src/loop.ts")
 
-      assert.equal(result.kind, "refused")
-      assert.deepEqual(project.snapshot(), before)
-    },
-  )
-})
+        assert.equal(result.kind, "refused")
+        assert.deepEqual(project.snapshot(), before)
+      },
+    )
+  })
+}
+
+// Two declarations of one `var` name one variable, so a move may not divide
+// them.
+for (const declaration of [
+  `for (var value of ["first"]) {}`,
+  `var value = "first"`,
+]) {
+  test(`refuses to divide two declarations of one var: ${declaration}`, () => {
+    withProject(
+      {
+        "src/source.ts": `${declaration}
+export function read(): string {
+  return value
+}
+${declaration.replace("first", "last")}
+export const observed = read()
+`,
+      },
+      (project) => {
+        const before = project.snapshot()
+        const result = project.move("src/source.ts", 1, 4, "src/moved.ts")
+
+        assert.equal(result.kind, "refused")
+        assert.deepEqual(project.snapshot(), before)
+      },
+    )
+  })
+}
 
 test("a list sends two ranges that use one default import to one new target", () => {
   withProject(

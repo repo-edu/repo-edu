@@ -187,7 +187,7 @@ packageExtensionsChecksum: sha256-QRbB427jafr2uug/EWFsqEu7c3tQtQOSJcLU8vaXoEA=
 
 patchedDependencies:
   outmatch@1.0.0: 00736bb8dea770a48a56b89f9bebc9b2bb5e3d5cf7106f7615c258d9f99619e0
-  typescript@6.0.3: 09ac6504792c4bf52d5cb4da9788a7d58c4cd85b8232fa778de8d839588d729e
+  typescript@6.0.3: 85c309c79ef88f781231a7f5d6981661d515e23a5df5dd18e9cd48b4025b3e58
 
 importers:
 
@@ -9993,7 +9993,7 @@ snapshots:
 
   '@typescript/typescript6@6.0.2':
     dependencies:
-      '@typescript/old': typescript@6.0.3(patch_hash=09ac6504792c4bf52d5cb4da9788a7d58c4cd85b8232fa778de8d839588d729e)
+      '@typescript/old': typescript@6.0.3(patch_hash=85c309c79ef88f781231a7f5d6981661d515e23a5df5dd18e9cd48b4025b3e58)
 
   '@ungap/structured-clone@1.4.0': {}
 
@@ -13372,7 +13372,7 @@ snapshots:
     dependencies:
       semver: 7.8.6
 
-  typescript@6.0.3(patch_hash=09ac6504792c4bf52d5cb4da9788a7d58c4cd85b8232fa778de8d839588d729e): {}
+  typescript@6.0.3(patch_hash=85c309c79ef88f781231a7f5d6981661d515e23a5df5dd18e9cd48b4025b3e58): {}
 
   typescript@7.0.2:
     optionalDependencies:

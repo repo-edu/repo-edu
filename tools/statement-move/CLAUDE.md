@@ -156,32 +156,47 @@ helper `getWholeImport`. They repair three shapes:
 2. The moved code's default import or `import * as name` import counts as
    present when its local name, looked up in the target, names the same
    value. An import of the same form from the same module names it. For a
-   default import, so does another binding of the same export under that
-   name, such as `import { default as label }` or the target's own
-   `export default function label`. Each name counts on its own. Without the
-   repair the engine writes the import a second time and the move adds
-   diagnostic 2300.
+   default import, two more bindings name it under that name: an import of
+   the same default export, such as `import { default as label }`, and the
+   target's own `export default function label`. A variable that the
+   target's `export default label` copied does not count. That statement
+   took the variable's value when it ran, and the variable can change later.
+   Each name counts on its own. Without the repair the engine writes the
+   import a second time and the move adds diagnostic 2300.
 
-   In every other case the engine writes the moved code's own import. When
-   the target does not use the name, that import is valid. When the target
-   gives the name to another value, such as the other form of import or an
-   unrelated `const`, the import adds diagnostic 2300 or 2440. The move is
-   then refused, so the moved code never reads a different value.
+   A wildcard import, one typed by a wildcard declaration such as
+   `declare module "*.wasm?url"`, never counts as present. One wildcard
+   symbol stands for many files, so it cannot show that two imports read the
+   same file.
+
+   In every other case the engine writes the moved code's own import:
+   1. When the target already uses the name, the import adds diagnostic 2300
+      or 2440 and the move is refused, so the moved code never reads a
+      different value. The target can use the name for the other form of
+      import, an unrelated `const` or a wildcard `import * as` import. It can
+      also use it for a default import of another module, even when that
+      module forwards the same default export, as
+      `export { default } from "./value.js"` does.
+   2. When the target does not use the name, the import is valid, with one
+      exception. For an `import * as` import typed by a wildcard declaration,
+      the engine writes the declaration's pattern as the path. For example,
+      `"./first.wasm?url"` in the source becomes `"*.wasm?url"` in the
+      target. TypeScript accepts that path, so the command lets it through.
+      After such a move, write the asset's own path back by hand, relative to
+      the target file.
 
    In two cases the engine can stop with a `Debug Failure` before it returns
    any edit. When it stops, the command writes nothing:
-   1. A wildcard import, one typed by a wildcard declaration such as
-      `declare module "*.wasm?url"`, never counts as present. One wildcard
-      symbol stands for many files, so it cannot show that two imports read
-      the same file. The engine therefore writes the moved code's own import.
-      A default import stops the engine with `Expected symbol to be a module`
-      when its wildcard declaration exports a constant as its default. An
-      example is the URL string of
+   1. The engine stops with `Expected symbol to be a module` when it must
+      write a default import and the module's default export is a
+      declaration that the module does not export under its own name.
+      `export default count` and `export { count as default }` make such a
+      default export for a local `count`. So does the URL string of
       `declare module "*.wasm?url" { const url: string; export default url }`.
-      It stops even when the target imports the same file under the same
-      name. An `import * as` import typed by a wildcard declaration does not
-      stop the engine. When the target uses that name, the move adds
-      diagnostic 2300 and is refused. In both cases no file changes.
+      The engine therefore stops on a target whose `label` is the variable
+      that its own `export default label` copied. It also stops on a
+      wildcard import of the URL string, even when the target imports the
+      same file under the same name.
    2. The engine stops when it must put two default names, or two
       `import * as` names, for one module into the same import. This holds
       whether it creates that import or extends one the target has. An empty
@@ -197,18 +212,27 @@ helper `getWholeImport`. They repair three shapes:
    their statement and not to the file. Without the repair the engine imports
    such a name into the target and exports it from the source. The move then
    adds diagnostics 2305 and 1030, or the engine stops with
-   `Debug Failure. False expression: Changes overlap`. A `var` that a top-level
-   loop declares belongs to the whole file. So does each name that a
-   destructuring pattern declares there or in a top-level variable statement,
-   as in `for (var { origin } of items)` or `const { origin } = value`. A move
-   must keep the readers of such a name connected to it:
+   `Debug Failure. False expression: Changes overlap`. A `var` belongs to the
+   whole file wherever a top-level statement declares it outside a function,
+   a class or a namespace. It can sit in a loop's head, in a loop's body or
+   in another block, such as an `if` branch. Each name that a destructuring
+   pattern declares in such a `var` or in a top-level variable statement
+   belongs to the file too, as in `for (var { origin } of items)` or
+   `const { origin } = value`. A move must keep the readers of such a name
+   connected to it:
    1. A reader that moves away imports the name from the source. The engine
-      adds `export` to a variable statement, but it cannot export a loop's
-      `var`. Without an explicit `export { name }` that move is refused.
-   2. A loop that moves together with its `export { name }` takes the export
-      along, and a reader that stays imports the `var` from the target. A
-      loop that moves alone away from a reader is refused, because the engine
-      writes no export for a loop's `var`.
+      adds `export` to a variable statement, but it cannot export a `var`
+      inside another statement. Without an explicit `export { name }` that
+      move is refused.
+   2. A statement that moves together with its `export { name }` takes the
+      export along, and a reader that stays imports the `var` from the
+      target. A statement that moves alone away from a reader is refused,
+      because the engine writes no export for a `var` inside it.
+   3. Two declarations of one `var` name one variable, so a move must not
+      divide them. The source then imports the moved name beside the
+      declaration it keeps, and the move adds a diagnostic and is refused.
+      The same holds for any name with declarations on both sides, such as a
+      `namespace` declared twice.
 
    Without these rules a reader cut off from such a name could read a global
    of the same name, such as the DOM's `origin`, with no new diagnostic.
