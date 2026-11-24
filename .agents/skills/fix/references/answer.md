@@ -21,6 +21,25 @@ The two are halves of one contract and change together.
 The chat writes only its answer file. It never edits a ruling, the round's
 files, the plan or the code.
 
+## Finding and vetter summaries
+
+Start each finding summary with `Auditor: <model> <effort>`. Start each
+vetter's summary with `Vetter <tag>: <model> <effort>`. Take the model and
+effort from that phase's record or round log. Match each vet report to its
+phase by tag. Write `extra high` as `xhigh`. If only the launch setting is
+available, label it as such. Say when a value is missing.
+
+Immediately below each role line, copy the finding's whole token line from
+the audit report verbatim. If the line is missing, say so. Repeat it for each
+vetter so the reader can compare its verdict with the auditor's ratings.
+Explain any rating the vetter disputes in the verdict summary. Use these
+prefixes only for items that concern a finding.
+
+```text
+Vetter otx: gpt-6.2-astra xhigh
+[field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
+```
+
 ## Runner commands
 
 The chat uses two hidden runner commands. Run each as a bare `pnpm` command
@@ -79,12 +98,11 @@ proposed record, and that yes grants no permission to run a command.
       recommends, or that a point that decides the open item could not be
       checked. On a ruling, the line also says whether the chat's reading
       supports the ruling's suggested answer or differs from it. The result
-      leads because it is what the user acts on first. For an audit round,
-      follow the opening recommendations with one line, `Auditor model: <model> <effort>`.
-      Use the model and effort the audit phase reported in that round's log.
-      Write `extra high` as `xhigh`.
+      leads because it is what the user acts on first.
    2. **Each open item in turn.** Under a heading that names the open item,
-      such as `Finding 2`, the open item shows:
+      such as `Finding 2`, summarise the audit finding and each vetter's verdict
+      with the [summary prefixes](#finding-and-vetter-summaries) when the item
+      concerns a finding. Cover the following for every open item.
       1. what is being decided, each option and what it means for the user
       2. what each option costs, as that paragraph prices it
       3. the chat's recommendation with its reason

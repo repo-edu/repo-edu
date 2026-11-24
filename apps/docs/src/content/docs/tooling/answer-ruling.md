@@ -59,14 +59,16 @@ asks for your answer.
    files and the sources they cite.
 3. **Its own reading.** Before its first message the chat lists the points an open item rests on,
    opens every source behind them itself and builds its own full record. The first message opens
-   with one line for each open item: what the chat recommends and, on a ruling, whether its reading
-   supports the ruling's suggested answer. For an audit round, the next line shows the auditor's
-   model and effort, for example `Auditor model: gpt-6.2-astra xhigh`.
-4. **Each open item.** What is being decided, each option and what it means for you, what each
-   option costs and the chat's recommendation. Then the points that settle it, as a short numbered
-   list: the question, the source the chat opened with the place in it and what that source
-   settles. On a ruling, a difference from the ruling's record that changes the answer is told with
-   its evidence; any other difference gets one line.
+   with one line for each open item. It gives the chat's recommendation and, on a ruling, says
+   whether its reading supports the ruling's suggested answer.
+4. **Each open item.** For a finding, the chat shows the auditor's account and each vetter's
+   verdict. Each summary starts with the reviewer's role, model and effort. A vetter's label also
+   gives its tag. The next line shows the finding's tokens as the auditor wrote them.
+   The chat explains the decision, what each option means for you, its cost and the reason for
+   the recommendation. A short numbered list gives the points that settle it. Each point names
+   the question, where the chat checked it and what the source settles. On a ruling, the chat
+   gives evidence for any difference from the ruling's record that changes the answer. Other
+   differences get one line each.
 5. **The record it proposes to send.** Each finding's winner and reason or its choice, and any free
    text for a fix or worker that wrote a ruling, in the words that will be sent. It is the last
    part of the first message; only the request for your yes and the line of item 6 follow it. When
