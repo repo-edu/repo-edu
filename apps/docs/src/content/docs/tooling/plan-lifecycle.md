@@ -28,8 +28,9 @@ The plan's product constraints and settled decisions continue to govern later st
 may correct a decision when new correctness or quality evidence proves it wrong, but it records why
 the direction changed. A finding that changes or removes something the plan holds states what you
 get from it and whether you still get it afterwards. When you would lose something the plan says you
-get, you choose. Your ruling is recorded as a numbered product constraint with its date and your
-words. A reversal is cheapest while the shape is open, before detail stacks on top of it.
+get, you choose. The fix records your ruling in a paragraph of the decision it answers. It files
+a numbered product constraint only when you explicitly call your ruling a product constraint.
+A reversal is cheapest while the shape is open, before detail stacks on top of it.
 
 ## Stages
 

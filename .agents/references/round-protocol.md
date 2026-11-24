@@ -861,8 +861,18 @@ accepted. Apply [Real choices](#real-choices) before presenting it. A settled
 choice is presented like a decided verdict. When the user picks the simpler
 mechanism, that becomes the finding's correction. When the ruling changes a
 plan reason, carry the correction and reason as a cross-repo finding so it is
-applied or deferred without re-derivation. When the user keeps the machinery,
-the record carries the ruling and reason.
+applied or deferred without re-derivation.
+
+The fix that writes the plan change records the ruling once under the planning
+rules' [Recording a ruling](../../../plan/.agents/references/planning-rules.md#recording-a-ruling).
+
+1. When the plan repo is in the judged repo set, this round's fix records the
+   ruling with the change.
+2. When the change is deferred, the finding also names the round and the
+   finding or open item the user answered. The planning fix reads that item's
+   entries in the round's reports and the answer in the round file.
+
+When the user keeps the machinery, the record carries the ruling and reason.
 
 A cross-repo finding left open by the audit report goes to the user here. Carry the
 answer and reason in the deferral, or keep the choice open when the user does

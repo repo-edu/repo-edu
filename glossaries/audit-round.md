@@ -72,6 +72,11 @@ means any kind of report; each kind is always named in full.
   call: a referral no later phase overturned or an open choice a ruler states.
   The user gives it in the ruling chat before the fix. A choice credits no
   reviewer and is not stored, so a stopped round asks for it again.
+- **Ruling paragraph**: the paragraph in a plan decision that records the
+  date, the round and the finding or open item the user answered. It gives
+  the options the sources name and the answer. The decision stays a plan
+  decision, so a later round may change it with a fact the paragraph does
+  not hold.
 - **Open item**: one numbered decision in a ruling that still needs the user's
   answer.
 - **Evidence record**: a judging session's own account of what it read for one

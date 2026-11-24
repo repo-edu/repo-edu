@@ -173,6 +173,10 @@ proposed record, and that yes grants no permission to run a command.
    2. A finding that needs a choice gets the user's choice: what the fix does,
       in the user's words. A choice credits no reviewer.
 
+   The chat never proposes that an answer is a product constraint. Only the
+   user's own words can say so. The record then holds that sentence unchanged,
+   in the reason or the choice.
+
    Use the winner words `ruling` printed, because the runner's one list owns
    them. A winner may name one or more vetter tags, written as a list.
 
