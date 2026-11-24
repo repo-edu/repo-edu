@@ -115,6 +115,7 @@ const closedPlanFiles = [
   "example-impl-audit-01..02-01-2-audit.obh.md",
   "example-handoff.abc123.md",
   "example-impl-01-implement.log",
+  "example-impl-01-implement.md",
   "example-impl-01-implement-ruling.abh.md",
   "example-yield-1-report.abh.md",
 ]
@@ -124,6 +125,7 @@ const otherRoundFiles = [
   "example-two-plan-audit-01-2-audit.obh.md",
   "example-two-handoff.abc123.md",
   "example-two-impl-01-implement.log",
+  "example-two-impl-01-implement.md",
   "example-two-close.obh.log",
   "commit-abc123-01-2-audit.obh.md",
 ]

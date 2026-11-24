@@ -21,8 +21,8 @@ The common form is:
 ```
 
 The target ends in `-plan-audit` for a planning round and `-impl-audit-<a>..<b>` for an
-implementation range. A one-step range repeats its endpoint. Implementation worker logs use
-`-impl-<step>`, so a sorted file list shows a plan's worker logs, implementation audits and plan
+implementation range. A one-step range repeats its endpoint. Implementation worker files use
+`-impl-<step>`, so a sorted file list shows a plan's worker files, implementation audits and plan
 audits as three separate groups. Commit targets begin with `commit-`, so every commit audit sorts
 together. Move-list targets begin with `split-`, followed by the source path's segments joined by
 `+`. The same label opens every commit the audit lands, as `commit-804833/commit-audit`, so
@@ -67,15 +67,17 @@ hand.
 
 ## Implementation worker files
 
-Implementation workers use two simpler names in the same folder:
+Each implementation worker writes its files in the same folder.
 
 ```text
+<stem>-impl-<step>-implement.md
 <stem>-impl-<step>-implement.log
 <stem>-impl-<step>-implement-ruling.<tag>.md
 ```
 
-The log keeps the first turn and every recovery turn. The ruling exists only when the worker needed
-the user's decision.
+Open the transcript for the worker's commentary and final summary. Open the log for prompts and
+tool calls. A recovery appends to both files. The ruling file holds the worker's question when it
+needs your decision.
 
 ## What remains
 

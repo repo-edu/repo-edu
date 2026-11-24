@@ -526,6 +526,12 @@ test("the command launches the assigned worker, verifies its share and writes th
   }
   await f.configure({ phases: f.phases })
 
+  // Restarting a pending step without --resume starts both records afresh.
+  const base = "example-impl-01-implement"
+  const log = join(f.roundRoot, `${base}.log`)
+  const transcript = join(f.roundRoot, `${base}.md`)
+  await writeFile(log, "Abandoned attempt\n")
+  await writeFile(transcript, "Abandoned attempt\n")
   assert.equal(
     await runCommand(["implement", "example"], f.runtime, f.options),
     0,
@@ -564,17 +570,14 @@ test("the command launches the assigned worker, verifies its share and writes th
     ).stdout.trimEnd(),
     "gpt-5.6-sol xhigh",
   )
-  // The step log is a round file, so it lands in the evidence round folder.
+  const markdown = await readFile(transcript, "utf8")
+  assert.match(markdown, /^# Implementation of example\.md, step 1/m)
+  assert.match(markdown, /## implement \(codex, fresh\)/)
+  assert.ok(markdown.includes(finishedText))
+  assert.doesNotMatch(markdown, /Abandoned attempt|\[implement\] prompt:/)
+  assert.doesNotMatch(await readFile(log, "utf8"), /Abandoned attempt/)
   assert.deepEqual(
-    (await readdir(f.roundRoot)).filter((name) =>
-      name.endsWith("-implement.log"),
-    ),
-    ["example-impl-01-implement.log"],
-  )
-  assert.deepEqual(
-    (await readdir(f.activeRoot)).filter((name) =>
-      name.endsWith("-implement.log"),
-    ),
+    (await readdir(f.activeRoot)).filter((name) => name.startsWith(base)),
     [],
   )
 })
@@ -623,7 +626,7 @@ Audit ranges: 1-2.
   return { f, usage, failed }
 }
 
-test("a standalone recovery re-enters its scoped entry, appends its log after a tag-setting change and stops at its scope", async (t) => {
+test("a standalone recovery appends to both step files after a tag change and stops at its scope", async (t) => {
   const { f, usage, failed } = await recoveryFixture(t)
   f.phases.implement = { stream: failed, usage }
   await f.configure({ phases: f.phases })
@@ -641,6 +644,9 @@ test("a standalone recovery re-enters its scoped entry, appends its log after a 
   assert.doesNotMatch(printed, /codex .*resume/)
   const log = join(f.roundRoot, "example-impl-01-implement.log")
   const failedLog = await readFile(log, "utf8")
+  const transcript = join(f.roundRoot, "example-impl-01-implement.md")
+  const failedTranscript = await readFile(transcript, "utf8")
+  assert.match(failedTranscript, /Lost the stream\./)
 
   f.phases.implement = {
     commits: [
@@ -655,7 +661,7 @@ test("a standalone recovery re-enters its scoped entry, appends its log after a 
   await f.configure({ phases: f.phases })
   f.visible.length = 0
   // Reclassifying the coder's release changes its capability tag, but the
-  // recovery still appends to the step log the failed turn wrote.
+  // recovery still appends to the files the failed turn wrote.
   const settings = structuredClone(testSettings)
   settings.strengthModels.codex.base = "another-base-model"
   assert.equal(
@@ -692,6 +698,12 @@ test("a standalone recovery re-enters its scoped entry, appends its log after a 
     recovered.slice(failedLog.length),
     /Implementation of example\.md, step 1, resuming session implementation-session/,
   )
+  const recoveredTranscript = await readFile(transcript, "utf8")
+  assert.ok(recoveredTranscript.startsWith(failedTranscript))
+  const resumedText = recoveredTranscript.slice(failedTranscript.length)
+  assert.match(resumedText, /resuming session implementation-session/)
+  assert.match(resumedText, /## implement \(codex, resumed\)/)
+  assert.ok(resumedText.includes(finishedText))
 })
 
 test("a failure without a session prints no runner resume command", async (t) => {

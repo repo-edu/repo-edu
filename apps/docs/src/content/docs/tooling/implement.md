@@ -55,9 +55,9 @@ the session stays unused. Fresh workers then take the remaining pending steps.
 
 1. **Step commits.** One checked `<stem>/impl-<n>` commit in each repo that hosts the step.
 2. **Markers.** Each repo's `<stem>/implemented` marker once all its shares have landed.
-3. **A log per started step** at `../plan-evidence/active/<stem>-impl-<step>-implement.log`. A
-   recovery appends to it, so the log shows the failed turn, the recovery and the later ending in
-   order.
+3. **A transcript and log per started step** in `../plan-evidence/active/`. Open
+   `<stem>-impl-<step>-implement.md` to read the worker's commentary, ruling replies and final
+   summary. The matching `.log` holds the prompt and tool calls. A recovery appends to both files.
 4. **A ruling** at `../plan-evidence/active/<stem>-impl-<step>-implement-ruling.<tag>.md` while a
    worker waits for your answer.
 

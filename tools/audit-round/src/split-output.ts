@@ -61,7 +61,7 @@ export async function splitRun(
       claim: null,
       log: join(roots.roundRoot, splitLogFilename(label)),
       markdown: null,
-      reopenLog: true,
+      mode: "a",
     },
     previousModels: await readPreviousRoundModels(roots),
     started,

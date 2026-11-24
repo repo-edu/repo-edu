@@ -107,7 +107,7 @@ test("each ruling is committed before its wait, so a replaced ruling keeps its f
   assert.deepEqual(await evidencePending(f.evidenceRoot), [])
 })
 
-test("a step run commits its step log", async (t) => {
+test("a step run commits its log and transcript", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -147,7 +147,9 @@ test("a step run commits its step log", async (t) => {
     "audit-round implement example",
   ])
   assert.deepEqual(await evidencePending(f.evidenceRoot), [])
-  assert.ok((await tracked(f)).includes("example-impl-01-implement.log"))
+  const files = await tracked(f)
+  assert.ok(files.includes("example-impl-01-implement.log"))
+  assert.ok(files.includes("example-impl-01-implement.md"))
 })
 
 test("a command that writes no round file commits nothing and leaves a pending file for the next writer", async (t) => {

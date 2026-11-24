@@ -560,12 +560,9 @@ export function recorded(phase: Phase): boolean {
   )
 }
 
-/**
- * The assistant phase texts that enter the round transcript: the recorded
- * phases and the ruler.
- */
+/** The phases whose assistant text is kept in a round or step transcript. */
 export function transcribed(phase: Phase): boolean {
-  return recorded(phase) || phase === "rule"
+  return recorded(phase) || phase === "rule" || phase === "implement"
 }
 
 /** The open-deferral object a phase receives. */

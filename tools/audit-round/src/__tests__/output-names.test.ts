@@ -433,7 +433,7 @@ test("a call continues its target's newest stopped round on the kept audit repor
   assert.equal(next.stored?.round, 1)
   assert.equal(next.setup.auditor, "codex")
   assert.equal(next.paths.claim, null)
-  assert.equal(next.paths.reopenLog, true)
+  assert.equal(next.paths.mode, "a")
   assert.equal(next.paths.markdown, stopped.paths.markdown)
   assert.equal(next.documents.report, stopped.documents.report)
   assert.match(next.title, /\(round 1\), continued$/)

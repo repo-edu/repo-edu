@@ -3,7 +3,7 @@ import type { ModelReleases } from "./feedback.js"
 import type { Run } from "./output.js"
 import { capabilityTag, phaseSelection } from "./output-format.js"
 import { type Assistant, implementationPhase, type PhaseRun } from "./phase.js"
-import { stepLogFilename, stepRulingFilename } from "./round-paths.js"
+import { stepOutputName, stepRulingFilename } from "./round-paths.js"
 import type { Coder, RoundSettings } from "./settings.js"
 import { planStem } from "./target.js"
 
@@ -34,11 +34,8 @@ export function implementationIdentity(
 }
 
 /**
- * One worker owns one retained step log and ruling document. A recovery
- * names the session it resumes and appends to that step's log, so the log
- * keeps the failed turn beside the new invocation's opening. The log name
- * carries no capability tag: settings may reclassify the coder's release
- * between invocations, and the log opening already records the model.
+ * A recovery appends to the same step log and transcript. Their names omit
+ * the coder's tag because settings may reclassify its release between turns.
  */
 export function implementationRun(
   plan: string,
@@ -51,6 +48,7 @@ export function implementationRun(
   resumedSession: string | null,
 ): Run & { readonly ruling: string } {
   const stem = planStem(plan)
+  const base = join(roundRoot, stepOutputName(stem, step))
   return {
     ruling: join(roundRoot, stepRulingFilename(stem, step, identity.tag)),
     name: "Implementation",
@@ -61,9 +59,9 @@ export function implementationRun(
     releases,
     paths: {
       claim: null,
-      log: join(roundRoot, stepLogFilename(stem, step)),
-      markdown: null,
-      reopenLog: resumedSession !== null,
+      log: `${base}.log`,
+      markdown: `${base}.md`,
+      mode: resumedSession === null ? "w" : "a",
     },
     previousModels: [],
     started,

@@ -4,14 +4,10 @@ export type RunPaths = {
   /** Null for a close, implementation step or contract probe, which reserves no round. */
   readonly claim: string | null
   readonly log: string
-  /** Null when the run keeps no transcript: a close and an implementation step only log. */
+  /** Null when the run keeps only its log. */
   readonly markdown: string | null
-  /**
-   * True when a recovery reopens retained run files and appends to each one.
-   * Other logs without a transcript start empty and round files are created
-   * exclusively.
-   */
-  readonly reopenLog: boolean
+  /** Open the log and transcript together: create exclusively, replace or append. */
+  readonly mode: "wx" | "w" | "a"
 }
 
 export type RunFiles = {
@@ -29,14 +25,10 @@ export function claimRound(path: string): void {
 export function openRunFiles(paths: RunPaths): RunFiles {
   // A claim is retained even when opening or writing the tagged files fails.
   if (paths.claim !== null) claimRound(paths.claim)
-  const log = openSync(
-    paths.log,
-    paths.reopenLog ? "a" : paths.markdown === null ? "w" : "wx",
-  )
+  const log = openSync(paths.log, paths.mode)
   let markdown: number | null = null
   try {
-    if (paths.markdown !== null)
-      markdown = openSync(paths.markdown, paths.reopenLog ? "a" : "wx")
+    if (paths.markdown !== null) markdown = openSync(paths.markdown, paths.mode)
   } catch (error) {
     closeSync(log)
     throw error

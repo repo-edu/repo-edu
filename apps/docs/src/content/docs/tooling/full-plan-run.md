@@ -75,7 +75,7 @@ The run leaves what its stages leave:
 2. **Settle** renames the plan and commits `<stem>/settle`; **ready** commits the empty
    `<stem>/ready` marker with the assigned coder.
 3. **The implementation** leaves one checked step commit per hosting repo, each repo's `implemented`
-   marker and one log per started step.
+   marker and a transcript and log for each started step.
 4. **The close** archives the plan, writes the closing commits and moves the plan's round files,
    its log `<stem>-close.<tag>.log` included, into `../plan-evidence/archive/<stem>/`.
 

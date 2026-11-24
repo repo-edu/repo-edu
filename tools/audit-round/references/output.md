@@ -26,7 +26,7 @@ The runner documentation owns the neighbouring subjects: file names and round da
 
 A run description names the run, lists the phases it may run and locates its files:
 
-- Every round records a log and a transcript.
+- Every audit round and every started implementation step records a log and a transcript.
 - A round on an active plan updates one machine-readable per-plan data file.
 - A commit or move-list audit updates its label's machine-readable series data file.
 - A close and a split call record only their log.

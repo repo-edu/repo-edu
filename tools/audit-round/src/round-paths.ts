@@ -15,7 +15,7 @@ type NamingTarget = ExecutionContext & AuditTarget
 
 /**
  * A plan round's target names its kind with the commit role its records use.
- * Step logs keep the step role `impl-<n>`, so a sorted file list holds
+ * Step files keep the step role `impl-<n>`, so a sorted file list holds
  * implementation steps, implementation audits and plan audits in three groups.
  */
 const planTargetRole = {
@@ -86,9 +86,9 @@ function readPhaseFilename(name: string): {
   }
 }
 
-/** The log one implementation worker keeps for its step. */
-export function stepLogFilename(stem: string, step: number): string {
-  return `${stem}-impl-${stepNumber(step)}-implement.log`
+/** The name shared by a step's log, transcript and ruling. */
+export function stepOutputName(stem: string, step: number): string {
+  return `${stem}-impl-${String(step).padStart(2, "0")}-implement`
 }
 
 /** The ruling one implementation worker writes for its step. */
@@ -97,11 +97,7 @@ export function stepRulingFilename(
   step: number,
   tag: string,
 ): string {
-  return `${stem}-impl-${stepNumber(step)}-implement-ruling.${tag}.md`
-}
-
-function stepNumber(step: number): string {
-  return String(step).padStart(2, "0")
+  return `${stepOutputName(stem, step)}-ruling.${tag}.md`
 }
 
 /**
@@ -124,8 +120,8 @@ function escapedPattern(text: string): string {
 
 /**
  * Whether a file in the round folder belongs to one plan: a claim, marker,
- * phase file or queue of its plan or implementation audits, a step log or
- * step ruling, a close log, a handoff or a yield report. Every form is read
+ * phase file or queue of its plan or implementation audits, a step log,
+ * transcript or ruling, a close log, a handoff or a yield report. Every form is read
  * whole past the stem, never as a bare `<stem>-` prefix, so a plan whose stem
  * extends this one never matches. The plan's round data is no such file,
  * because the close archives it beside the plan.
@@ -140,7 +136,7 @@ export function planRoundFile(stem: string, name: string): boolean {
     `^(?:${[
       `${target}-\\d{2,}-0-(?:claim|settle|reopen)\\.md`,
       `${target}-queue\\.md`,
-      `${prefix}-impl-\\d{2,}-implement(?:\\.log|-ruling\\.${tagPattern}\\.md)`,
+      `${prefix}-impl-\\d{2,}-implement(?:\\.(?:log|md)|-ruling\\.${tagPattern}\\.md)`,
       `${prefix}-close\\.${tagPattern}\\.log`,
       `${prefix}-handoff\\.[0-9a-f]{6,}\\.md`,
       `${prefix}-yield-\\d-[a-z]+\\.${tagPattern}\\.md`,

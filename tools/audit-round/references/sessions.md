@@ -45,9 +45,9 @@ audit and the rebuttal together, because the rebuttal answers for the audit repo
 field carries what named it, including which of the two options a tag came from, so the settings
 header never guesses, and either CLI accepts one.
 
-**Transcript.** `phase.ts` owns which phases' texts enter the round transcript: audit, vet,
-rebuttal, ruler and fix. `transcribed` names those phases, the four recorded phases and the ruler.
-The ruling and the watch are separate documents: the fix writes the ruling.
+**Transcript.** `transcribed` in `phase.ts` includes audit, vet, rebuttal, ruler and fix text in
+the round transcript and implement text in the step transcript. The fix writes its ruling and
+the watch writes its own document.
 
 **Workflows.** `phase.ts` owns workflow selection, and `phaseSkills` names each phase's skill
 folder. It also defines the private inputs and results for assistant invocations and the shared

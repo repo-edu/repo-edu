@@ -65,7 +65,7 @@ Before this rule the file held the automatic-series rules in four places.
 | `evidence.ts` | The writes that change the evidence checkout | [Report lifecycle](#report-lifecycle) |
 | `lifecycle.ts` | The plan-file preflight and the Git operations for settle, ready, the `implemented` marker and the close's round-data commit, and the check that a planning round's plan is committed | [settle](#settle), [ready](#ready), [implement](#implement), [close](#close), [Plan targets](#plan-targets), [The run](#the-run) |
 | `plan-links.ts` | The rewrite of the Markdown links that settle points at the plan's new name | [settle](#settle) |
-| `implement.ts`, `implement-output.ts` | The implementation of plan steps and its logs | [implement](#implement), [Step logs](#step-logs) |
+| `implement.ts`, `implement-output.ts` | The implementation of plan steps and their output files | [implement](#implement), [Step logs](#step-logs) |
 | `subject.ts`, `commit-msg.ts`, `commit-msg-main.ts`, `findings.ts`, `sequence.ts` | The commit subject reader, the record bullet reader and the commit hook's rule | [Commit hooks](references/commit-hooks.md#commit-hooks) |
 | `listed-files.json` | Each repository's listed files | [Listed files](references/commit-hooks.md#listed-files) |
 | `startup.ts`, `requests.ts` | The cache root, the update checks, release resolution, and every phase's arguments and prompt | [Phase routing](#phase-routing), [Assistant sessions](references/sessions.md#assistant-sessions), [Ruler report](references/rounds.md#ruler-report), [The watch record](references/watch.md#the-watch-record) |
@@ -212,8 +212,8 @@ among its round's landed commits.
 
 ## Round files
 
-`round-paths.ts` owns every round filename and order number. It also names the step log, the step
-ruling and the close log. Round files live in the round folder.
+`round-paths.ts` owns every round filename and order number. It also names the step transcript,
+log and ruling and the close log. Round files live in the round folder.
 Plans and their briefs stay in the plan checkout's `active/` folder; no code needs a plan and a
 round file in one folder. The runner supplies every phase path. The evidence checkout is a Git
 repository, and [Report lifecycle](#report-lifecycle) says when the runner commits it.
@@ -245,8 +245,8 @@ Skipped phases leave gaps.
 - A plan audit target ends in `-plan-audit`. An implementation audit target ends in
   `-impl-audit-<a>..<b>`, with step and round numbers padded to at least two digits. A single step
   repeats its endpoint.
-- Both targets use the commit role of their records, as step logs use `impl-<n>`, so a sorted file
-  list keeps a plan's step logs, implementation audits and plan audits in three separate groups.
+- Both targets use the commit role of their records, as step files use `impl-<n>`, so a sorted file
+  list keeps a plan's step files, implementation audits and plan audits in three separate groups.
 - A commit target opens with the fixed word `commit-`, so every commit audit sits together in a
   sorted file list as plan targets do under their stem.
 - Each commit group's original ordered exact set owns its label: one commit uses its six-character
@@ -260,19 +260,19 @@ Skipped phases leave gaps.
 
 **Tags.**
 
-- Six forms omit the tag: the claim, the settle and reopen marker files, the handoff, the
-  target-wide [queue](references/series.md#manual-queue) and a move-list series' split log, under
-  [split](#split). The plan doctrine owns the handoff's six-character commit name.
+- The claim, settle and reopen marker files, handoff, target-wide
+  [queue](references/series.md#manual-queue), step transcript and log and a move-list series'
+  [split log](#split) omit the tag. The plan doctrine owns the handoff's six-character commit name.
 - Later phases preserve the audit report's target and round. Their tag names their own writer
   under Repo Edu's **Commit Capability Tag**, not the audit report's auditor.
 - The transcript and its log use the auditor tag.
 - The runner resolves every file-writing phase's tag before opening output.
 
-**One plan's files.** `planRoundFile` says whether a file in the round folder belongs to one plan:
-a claim, marker, phase file or queue of its plan or implementation audits, a step log or step
+**One plan's files.** `planRoundFile` says whether a file in the round folder belongs to one plan: a
+claim, marker, phase file or queue of its plan or implementation audits, a step transcript, log or
 ruling, a close log, a handoff or a yield report. Each form is read whole past the stem, never as a
-bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's round data
-is not among them, because the close archives it beside the plan.
+bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's round data is
+not among them, because the close archives it beside the plan.
 
 **One series' files.** `seriesFile` says whether a file belongs to one commit or move-list series:
 a claim, phase file, queue or handoff under its label, a move-list series' split log, or its round
@@ -383,18 +383,14 @@ complete replacement by temporary file rename.
 
 ### Step logs
 
-The implement command retains one log and one possible ruling per step in the round folder, as
-`<stem>-impl-<step>-implement.log` and `<stem>-impl-<step>-implement-ruling.<tag>.md`.
-`implement-output.ts` names one log and one ruling path per step. These are round files but not
-phase files, because no numbered
-round writes them.
+Each started step writes `<stem>-impl-<step>-implement.md` and a matching `.log` in the round
+folder. The transcript keeps the worker's commentary, ruling replies and final response. The log
+records prompts and tool calls. A worker that needs a ruling writes its question to
+`<stem>-impl-<step>-implement-ruling.<tag>.md`.
 
-- The log name carries no tag. Settings may change the coder's tag between a failed run and its
-  recovery, and the log opening already records the model.
-- A fresh worker owns each step log and starts it empty.
-- A recovery reopens the log for appending through `RunPaths.reopenLog`, the only append route in
-  `run-files.ts`, and writes a new invocation opening before the resumed phase. The one log then
-  shows the failed turn, the recovery and the later ending in order.
+A fresh worker starts both the transcript and log empty. A recovery appends to both and opens with
+the session it resumes. Both filenames omit the tag so they stay the same if settings reclassify
+the coder between runs.
 
 ## Phase routing
 
@@ -969,7 +965,7 @@ optional step scope, the per-repo landed-share scan and the sequential worker lo
 - After the loop, each hosting repo with every share landed receives its current `implemented`
   marker, which the runner writes through `lifecycle.ts`. The marker carries the assigned coder's
   resolved model record and capability tag.
-- The command retains one log per started step, under [Step logs](#step-logs).
+- Each started step retains its transcript and log under [Step logs](#step-logs).
 
 **Recovery.** No recovery file exists, and the runner never retries a failed worker on its own.
 
