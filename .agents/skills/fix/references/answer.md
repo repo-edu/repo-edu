@@ -79,7 +79,10 @@ proposed record, and that yes grants no permission to run a command.
       recommends, or that a point that decides the open item could not be
       checked. On a ruling, the line also says whether the chat's reading
       supports the ruling's suggested answer or differs from it. The result
-      leads because it is what the user acts on first.
+      leads because it is what the user acts on first. For an audit round,
+      follow the opening recommendations with one line, `Auditor model: <model> <effort>`.
+      Use the model and effort the audit phase reported in that round's log.
+      Write `extra high` as `xhigh`.
    2. **Each open item in turn.** Under a heading that names the open item,
       such as `Finding 2`, the open item shows:
       1. what is being decided, each option and what it means for the user

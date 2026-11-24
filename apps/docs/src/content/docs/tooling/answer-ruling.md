@@ -60,7 +60,8 @@ asks for your answer.
 3. **Its own reading.** Before its first message the chat lists the points an open item rests on,
    opens every source behind them itself and builds its own full record. The first message opens
    with one line for each open item: what the chat recommends and, on a ruling, whether its reading
-   supports the ruling's suggested answer.
+   supports the ruling's suggested answer. For an audit round, the next line shows the auditor's
+   model and effort, for example `Auditor model: gpt-6.2-astra xhigh`.
 4. **Each open item.** What is being decided, each option and what it means for you, what each
    option costs and the chat's recommendation. Then the points that settle it, as a short numbered
    list: the question, the source the chat opened with the place in it and what that source
