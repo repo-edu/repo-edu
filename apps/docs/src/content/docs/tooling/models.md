@@ -122,8 +122,11 @@ followed by excluded plans. Each auditor section prints its main table, then a s
    winners and your reason. The `Winners` column names everyone your answer proved right, each by
    its role and model. The auditor is a winner when the finding stood as written. A vetter is a
    winner when you named it or when it gave the same accept, drop or referral as a vetter you
-   named. `none` means your answer proved nobody right. The table shows each reason's first
-   sentence, then the full reasons as a numbered list.
+   named. If a later ruling changes who was right, **Disproved** introduces the round's winners
+   and **Winning** introduces the corrected winners. An empty list reads `none`. If the later
+   ruling confirms the winners, you see the plain list. The table keeps the round's reason,
+   with its first sentence in the row and the full text below. The later reason appears under
+   **Later rulings**.
 7. **Ruler winners** list the planning ruler's decisions first, then the implementation ruler's.
    The tables use the same form with a column for the ruler's model and effort. You can check
    each winner and overturn it with

@@ -821,12 +821,9 @@ function partiesCell(parties: readonly RulingParty[], empty: string): string {
   )
 }
 
-/**
- * The row cells a ruled finding shares in the user's list and the ruler's. The
- * last cell names everyone the winner proved right, or `none` when it proved
- * nobody right.
- */
+/** The row cells shared by the user's and the ruler's winner tables. */
 function winnerCells(entry: RuledFinding, ruler: readonly string[]): ReasonRow {
+  const winners = partiesCell(entry.winners, "none")
   return {
     cells: [
       escapeCell(`${entry.stem}; ${entry.target} round ${entry.round}`),
@@ -835,7 +832,9 @@ function winnerCells(entry: RuledFinding, ruler: readonly string[]): ReasonRow {
       escapeCell(modelText(entry.auditor)),
       vetsCell(entry.vets),
       ...ruler,
-      partiesCell(entry.winners, "none"),
+      entry.laterWinners === null
+        ? winners
+        : `**Disproved** ${winners} **Winning** ${partiesCell(entry.laterWinners, "none")}`,
     ],
     reason: entry.reason,
   }

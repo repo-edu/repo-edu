@@ -1813,7 +1813,7 @@ test("vetter times count actual participants and pool runs only in each vetter's
   ])
 })
 
-test("ruling winners and ruler winners each list planning and implementation findings separately, newest round first", async (t) => {
+test("ruling and ruler winner tables show changed winners and keep the round's reason and order", async (t) => {
   const f = await modelFixture(t)
   const { alpha, beta } = panelVets
   const planPath = join(f.roundRoot, "ruled-plan-rounds.json")
@@ -1886,7 +1886,7 @@ test("ruling winners and ruler winners each list planning and implementation fin
         {
           ...ruledFinding(4, "plan wording", "C", [
             review("atl", "accept"),
-            review("obl", "drop"),
+            review("obl", "revise"),
           ]),
           ruling: {
             winner: "report",
@@ -1945,6 +1945,27 @@ test("ruling winners and ruler winners each list planning and implementation fin
     judgedRepos: ["repo-edu"],
   })
 
+  const later = { target: "ruled-plan-audit", date: "2026-11-01" }
+  writeDisprovedFinding(planPath, {
+    ...later,
+    round: 1,
+    finding: 1,
+    reason: "The guard was already in place.",
+  })
+  writeDisprovedFinding(planPath, {
+    ...later,
+    round: 2,
+    finding: 3,
+    revision: "atl",
+    reason: "Only the revision held.",
+  })
+  writeDisprovedFinding(planPath, {
+    ...later,
+    round: 2,
+    finding: 4,
+    reason: "The original wording was correct.",
+  })
+
   const report = await modelsReport(f.runtime, testSettings, { winners: true })
   assert.equal(
     report
@@ -1954,7 +1975,7 @@ test("ruling winners and ruler winners each list planning and implementation fin
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
       "| 1 | ruled; ruled-plan-audit round 2 | #1 ruled split | A | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | auditor audit-alpha low; vetter vet-alpha low | The finding stood as written. |",
-      "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-alpha low: revise; vet-beta low: drop | vetter vet-alpha low; vetter vet-beta low | Both corrections hold. |",
+      "| 2 | ruled; ruled-plan-audit round 2 | #3 two corrections | B | audit-alpha low | vet-alpha low: revise; vet-beta low: drop | **Disproved** vetter vet-alpha low; vetter vet-beta low **Winning** vetter vet-alpha low | Both corrections hold. |",
       "| 3 | ruled; ruled-plan-audit round 1 | #1 old contest | B | audit-alpha low | vet-beta low: drop | vetter vet-beta low | The vet was right. |",
       "",
       "1. The finding stood as written.",
@@ -1973,7 +1994,7 @@ test("ruling winners and ruler winners each list planning and implementation fin
       "",
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Ruler | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | ruled; ruled-plan-audit round 2 | #4 plan wording | C | audit-alpha low | vet-alpha low: accept; vet-beta low: drop | plan-ruler high | auditor audit-alpha low; vetter vet-alpha low | The plan uses both terms. |",
+      "| 1 | ruled; ruled-plan-audit round 2 | #4 plan wording | C | audit-alpha low | vet-alpha low: accept; vet-beta low: revise | plan-ruler high | **Disproved** auditor audit-alpha low; vetter vet-alpha low **Winning** none | The plan uses both terms. |",
       "",
       "1. The plan uses both terms.",
       "",

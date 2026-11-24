@@ -217,9 +217,8 @@ shows the plan and round, the finding and its tier, the auditor, the vetters, th
 reason. The `Vetters` column names each vetter of the round by its model and effort, with its
 verdict on the finding or `no verdict`.
 
-The `Winners` column names everyone the round's winner proved right, not the stored winner word.
-That word names one side only: `report` hides the vetters that accepted, and a named vetter that
-accepted hides the auditor.
+The `Winners` column names everyone the round's winner proved right. The stored winner word
+alone would hide some parties. For example, `report` also credits the vetters who accepted.
 
 - The auditor is a winner when the finding stood as written: the winner is `report` or names a
   vetter that accepted.
@@ -229,8 +228,10 @@ accepted hides the auditor.
   order. The model names a vetter because a tag names it only within its round. The role word
   tells a vetter from an auditor on the same model.
 - A winner that proved nobody right prints `none`.
-- A later ruling from `disprove` does not change the column. It prints under
-  [Later rulings](#later-rulings).
+- When a later ruling changes who was right, the cell shows **Disproved** before the round's
+  winners and **Winning** before the later winners. Either list can read `none`. A later ruling
+  that confirms the same parties keeps the plain list. The row gives the round's reason. The
+  later reason appears under [Later rulings](#later-rulings).
 - Splits and contests share the list, because both end in the same ruling.
 
 The ruler-winners tables use the same form, with a ruler column that names the model and effort

@@ -144,6 +144,8 @@ export type RuledFinding = {
    * nobody right.
    */
   readonly winners: readonly RulingParty[]
+  /** The later winners when the credited parties changed. An empty list means nobody won. */
+  readonly laterWinners: readonly RulingParty[] | null
   readonly reason: string
 }
 
@@ -464,7 +466,8 @@ function laterRulingParties(
   auditor: ModelIdentity,
   round: RoundData,
   finding: RoundFinding,
-): Pick<DisprovedBase, "claim" | "wrong" | "right"> {
+): Pick<DisprovedBase, "claim" | "wrong" | "right"> &
+  Pick<RuledFinding, "laterWinners"> {
   const wrong: RulingParty[] = []
   const right: RulingParty[] = []
   ;(later.proof.auditor ? right : wrong).push({
@@ -485,14 +488,18 @@ function laterRulingParties(
   }
   const claim = later.proof.auditor ? "vetter" : "auditor"
   const ruling = finding.ruling
-  if (ruling?.namedBy !== "ruler") return { claim, wrong, right }
+  const original = ruling && winnerProof(ruling.winner, finding.reviews)
+  const winnersChanged =
+    original !== undefined &&
+    (original.auditor !== later.proof.auditor ||
+      vets.some(
+        ({ review }) => original.proves(review) !== later.proof.proves(review),
+      ))
+  const laterWinners = winnersChanged
+    ? right.map((party) => ({ ...party, detail: null }))
+    : null
+  if (ruling?.namedBy !== "ruler") return { claim, wrong, right, laterWinners }
   const winner = ruling.winner
-  const original = winnerProof(winner, finding.reviews)
-  const rulerRight =
-    original.auditor === later.proof.auditor &&
-    vets.every(
-      ({ review }) => original.proves(review) === later.proof.proves(review),
-    )
   const named =
     typeof winner === "string"
       ? winner
@@ -506,20 +513,24 @@ function laterRulingParties(
               : modelText(selectionIdentity(vet.assistant, vet))
           })
           .join(", ")
-  ;(rulerRight ? right : wrong).push({
+  ;(winnersChanged ? wrong : right).push({
     role: "ruler",
     identity: roundRuler(round),
     detail: `named ${named}`,
   })
   return {
-    claim: rulerRight ? claim : "ruler",
+    claim: winnersChanged ? "ruler" : claim,
     wrong,
     right,
+    laterWinners,
   }
 }
 
 function readLaterRulings(files: readonly RoundFileRecord[]) {
-  const byFinding = new Map<RoundFinding, LaterRuling>()
+  const byFinding = new Map<
+    RoundFinding,
+    LaterRuling & Pick<RuledFinding, "laterWinners">
+  >()
   const entries = files
     .flatMap((file) =>
       file.data.disproved.map((entry): DisprovedEvidence => {
@@ -554,7 +565,13 @@ function readLaterRulings(files: readonly RoundFileRecord[]) {
           round.auditor,
         )
         const later = resolveLaterRuling(entry, finding)
-        byFinding.set(finding, later)
+        const { laterWinners, ...parties } = laterRulingParties(
+          later,
+          auditor,
+          round,
+          finding,
+        )
+        byFinding.set(finding, { ...later, laterWinners })
         return {
           kind: "attached",
           stem: file.stem,
@@ -562,7 +579,7 @@ function readLaterRulings(files: readonly RoundFileRecord[]) {
           date: entry.date,
           reason: entry.reason,
           auditor,
-          ...laterRulingParties(later, auditor, round, finding),
+          ...parties,
           target: entry.target,
           round: entry.round,
           finding: entry.finding,
@@ -770,7 +787,10 @@ function vetPairSamples(
  * stay apart, so the user can check the ruler's winners without them burying
  * the user's own.
  */
-function ruledFindings(records: readonly RoundRecord[]): {
+function ruledFindings(
+  records: readonly RoundRecord[],
+  rulings: ReadonlyMap<RoundFinding, Pick<RuledFinding, "laterWinners">>,
+): {
   readonly user: RuledFinding[]
   readonly ruler: RulerWinner[]
 } {
@@ -799,6 +819,7 @@ function ruledFindings(records: readonly RoundRecord[]): {
           finding,
           finding.ruling.winner,
         ),
+        laterWinners: rulings.get(finding)?.laterWinners ?? null,
         reason: finding.ruling.reason,
       }
       if (finding.ruling.namedBy === "user") user.push(entry)
@@ -1218,7 +1239,7 @@ export async function readModelEvidence(
   const files = await readRoundFiles(context)
   const { byFinding, entries } = readLaterRulings(files)
   const records = roundRecords(files, byFinding)
-  const winners = ruledFindings(records)
+  const winners = ruledFindings(records, byFinding)
   return {
     auditors: auditorRows(records, entries),
     coders: await coderRows(context, records),
