@@ -94,7 +94,7 @@ export type PairEnding = "first" | "second" | "both" | "neither"
 
 /**
  * Who named the latest ruling on a finding: the user, through the round's
- * winner or a later disproval, or the ruler, with the model and effort of the
+ * winner or a later ruling, or the ruler, with the model and effort of the
  * round's rule phase entry or null without that entry.
  */
 export type RulingJudge =
@@ -157,14 +157,14 @@ export type RulerWinner = RuledFinding & {
 
 /**
  * One auditor, vetter or ruler of a ruled finding, on the side a ruling put
- * it: the round's own winner or a later disproval.
+ * it: the round's own winner or a later ruling.
  */
 export type RulingParty = {
   readonly role: "auditor" | "vetter" | "ruler"
   /** Null for a ruler whose round kept no rule phase entry. */
   readonly identity: ModelIdentity | null
   /**
-   * In a disproved row, a vetter's verdict or the winner a ruler named with
+   * In a later-ruling row, a vetter's verdict or the winner a ruler named with
    * each vetter as its model. Null in a winners list, whose row shows every
    * verdict beside it.
    */
@@ -457,8 +457,8 @@ function resolveLaterRuling(
 }
 
 /**
- * Every party of a disproved finding on the side the ruling put it. A vetter
- * without a verdict took no part. A vetter that sent a disproved finding to
+ * Who the later ruling proved right or wrong. A vetter without a verdict
+ * took no part. A vetter that sent a disproved finding to
  * the user took no side either, so it is on neither.
  */
 function laterRulingParties(
@@ -558,7 +558,7 @@ function readLaterRulings(files: readonly RoundFileRecord[]) {
         )
         if (round === undefined || finding === undefined)
           throw new Error(
-            `Disproved finding ${entry.target} round ${entry.round} finding ${entry.finding} has no retained finding in ${file.file}`,
+            `Later ruling on ${entry.target} round ${entry.round} finding ${entry.finding} has no retained finding in ${file.file}`,
           )
         const auditor = selectionIdentity(
           round.auditor.assistant,

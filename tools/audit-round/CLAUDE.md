@@ -316,7 +316,7 @@ A round's title opens with its kind and scope, such as `Plan audit of <plan>` or
 
 `round-data.ts` owns `<stem>-plan-rounds.json`, `<stem>-impl-rounds.json` and
 `<commit-label>-rounds.json`. It owns their checked JSON schemas, the atomic replace-or-append
-writer, the disproved-finding writer, the read of one plan's existing round-kind files from one
+writer, the writer for later rulings, the read of one plan's existing round-kind files from one
 selected active or archive folder and the commit-series readers. These are machine artifacts and
 are never edited by hand.
 

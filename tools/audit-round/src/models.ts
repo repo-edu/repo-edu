@@ -701,9 +701,9 @@ function judgeText(judge: RulingJudge): string {
 type AuditorJudgeRow = RuledPairCounts & { readonly judge: string }
 
 /**
- * The ruled C splits of each ordered pair, one row per judge. A later
- * disproval is the user's ruling, so it replaces the round's judge and ending,
- * and each pair's rows add back to its default row.
+ * The ruled C splits of each ordered pair, one row per judge. A later ruling
+ * comes from the user and replaces the round's judge and ending. Each pair's
+ * rows add back to its default row.
  */
 function auditorJudgeSection(
   samples: readonly VetPairSample[],
@@ -1065,7 +1065,7 @@ export async function modelsReport(
           "",
         ]
       : []),
-    `Auditor as vetter ran on the model and effort the round's audit reported, and the other vetter on another model or effort of the same panel. A row counts the findings both judged in that auditor's audit reports, so a row and its reverse show whether the result changes with the auditor. A missing row means no such finding, not a zero. A challenge is a revise, a drop or a referral to the user, and an accept with a note counts as an accept. Ruled splits and their four endings follow the vetter-pair rule above and sum to ruled splits.${options.all ? " The tables by judge break each ruled C split down by who named its latest ruling: the user, including a later disproval, or the ruler by its recorded model and effort. They add back to the C rows." : ""}`,
+    `Auditor as vetter ran on the model and effort the round's audit reported, and the other vetter on another model or effort of the same panel. A row counts the findings both judged in that auditor's audit reports, so a row and its reverse show whether the result changes with the auditor. A missing row means no such finding, not a zero. A challenge is a revise, a drop or a referral to the user, and an accept with a note counts as an accept. Ruled splits and their four endings follow the vetter-pair rule above and sum to ruled splits.${options.all ? " The tables by judge group each ruled C split by who named its latest ruling. They show the ruler's recorded model and effort when the ruler decided. A later ruling always counts under the user. The totals add back to the C rows." : ""}`,
     "",
     ...vetterTimeSection(evidence.vetterTimes.planning, "planning"),
     "",

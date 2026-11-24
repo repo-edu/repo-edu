@@ -148,8 +148,8 @@ vetter does as well on its own model's audit reports as on another model's.
 
 Under `--all`, each class adds a C table by judge. It breaks each row's ruled splits down by who
 named the latest ruling: `user`, or `ruler` with the model and effort of the round's rule phase
-entry, or `ruler not recorded` without that entry. A later disproval is the user's ruling, so it
-replaces the round's judge and ending, and a row's judge rows add back to its default C row. The
+entry, or `ruler not recorded` without that entry. A later ruling comes from the user and replaces
+the round's judge and ending. Each pair's rows add back to its default C row. The
 A/B sections get no such table, because the user is their only judge.
 
 ## Vetter times
