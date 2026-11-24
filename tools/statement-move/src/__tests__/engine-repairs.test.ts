@@ -521,6 +521,142 @@ export const observed = read()
   })
 }
 
+// A target that imports the loop's `var` from the source and exports it again
+// names that same variable, so the loop can move without its own export.
+test("moves a loop into a target that already exports its var", () => {
+  withProject(
+    {
+      "src/source.ts": `for (const item of ["course"]) { var origin = item }
+
+export { origin }
+
+export function read(): string {
+  return origin
+}
+`,
+      "src/target.ts": `import { origin } from "./source.js"
+
+export { origin }
+`,
+    },
+    (project) => {
+      const result = project.move("src/source.ts", 1, 1, "src/target.ts")
+
+      assert.equal(result.kind, "accepted")
+      const target = project.read("src/target.ts")
+      assert.deepEqual(linesMatching(target, /^import /), [])
+      assert.deepEqual(linesMatching(target, /^export /), [`export { origin }`])
+      assert.match(target, /^for \(const item of \["course"\]\) \{ var origin/m)
+      assert.deepEqual(
+        linesMatching(project.read("src/source.ts"), /^import /),
+        [`import { origin } from "./target.js"`],
+      )
+    },
+  )
+})
+
+// A move connects a reader to a name through a file's exports, and it can add
+// an export of the name. When that file already exports the name as another
+// value, directly or through `export *`, the reader or an existing importer
+// of the file would read that value with no new diagnostic.
+for (const { name, files, start, end, target } of [
+  {
+    name: "a moved reader whose source exports the name as another value",
+    files: {
+      "src/source.ts": `const { origin } = { origin: "course" }
+const other = "other"
+export { other as origin }
+
+export function read(): string {
+  return origin
+}
+`,
+    },
+    start: 5,
+    end: 7,
+    target: "src/reader.ts",
+  },
+  {
+    name: "a moved reader whose source exports the name through export *",
+    files: {
+      "src/other.ts": `export const origin = "other"
+`,
+      "src/source.ts": `export * from "./other.js"
+
+const { origin } = { origin: "course" }
+
+export function read(): string {
+  return origin
+}
+`,
+    },
+    start: 5,
+    end: 7,
+    target: "src/reader.ts",
+  },
+  {
+    name: "a moved reader whose source would export another name of the statement over export *",
+    files: {
+      "src/other.ts": `export const extra = "other"
+`,
+      "src/source.ts": `export * from "./other.js"
+
+const { origin, extra } = { origin: "course", extra: "course" }
+
+export function read(): string {
+  return origin
+}
+`,
+    },
+    start: 5,
+    end: 7,
+    target: "src/reader.ts",
+  },
+  {
+    name: "a loop moved into a target that exports its var's name as another value",
+    files: {
+      "src/source.ts": `for (const item of ["course"]) { var origin = item }
+
+export function read(): string {
+  return origin
+}
+`,
+      "src/target.ts": `const other = "target"
+export { other as origin }
+`,
+    },
+    start: 1,
+    end: 1,
+    target: "src/target.ts",
+  },
+  {
+    name: "a declaration moved into a target that exports its name through export *",
+    files: {
+      "src/other.ts": `export const origin = "other"
+`,
+      "src/source.ts": `export const origin = "course"
+`,
+      "src/target.ts": `export * from "./other.js"
+`,
+    },
+    start: 1,
+    end: 1,
+    target: "src/target.ts",
+  },
+]) {
+  test(`refuses ${name}`, () => {
+    withProject(files, (project) => {
+      const before = project.snapshot()
+
+      assert.throws(
+        () => project.move("src/source.ts", start, end, target),
+        /declined the move: "(origin|extra)" names another value exported from/,
+      )
+      assert.deepEqual(project.snapshot(), before)
+    })
+  })
+}
+
 test("a list sends two ranges that use one default import to one new target", () => {
   withProject(
     {

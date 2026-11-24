@@ -143,11 +143,14 @@ command's own check and the list command's `clean` reply let it through.
 
 pnpm applies `patches/typescript-6.0.3.patch` to the installed
 `typescript@6.0.3` at every install, because `pnpm-workspace.yaml` lists it
-under `patchedDependencies`. The patch changes six functions of
-**Move to file** in `lib/typescript.js`: `forEachReference`, `getUsageInfo`,
+under `patchedDependencies`. The patch changes eight functions of
+**Move to file** in `lib/typescript.js`: `getRefactorEditsToMoveToFile`,
+`doChange3`, `forEachReference`, `getUsageInfo`,
 `forEachTopLevelDeclaration`, `isTopLevelDeclaration`,
 `sourceFileOfTopLevelDeclaration` and `getExistingLocals`. It also adds the
-helper `getWholeImport`. They repair three shapes:
+helpers `getWholeImport` and `getTakenExportName`. `doChange3` is the
+bundle's name for the `doChange` of `moveToFile.ts`, so its number can differ
+in another version. The functions repair three shapes:
 
 1. A name that the source still uses only as a short-form property, as in
    `{ cacheRoot }`, counts as a use. The source then gets an import of the
@@ -224,25 +227,54 @@ helper `getWholeImport`. They repair three shapes:
       adds `export` to a variable statement, but it cannot export a `var`
       inside another statement. Without an explicit `export { name }` that
       move is refused.
-   2. A statement that moves together with its `export { name }` takes the
-      export along, and a reader that stays imports the `var` from the
-      target. A statement that moves alone away from a reader is refused,
-      because the engine writes no export for a `var` inside it.
+
+   2. When the statement moves, a reader that stays imports the `var` from
+      the target. The target must then export that variable. The statement
+      can move together with its `export { name }`. Or the target already
+      exports the same variable, as with
+      `import { origin } from "./source.js"` and `export { origin }`.
+      Otherwise the move is refused, because the engine writes no export for
+      a `var` inside a statement.
+
    3. Two declarations of one `var` name one variable, so a move must not
       divide them. The source then imports the moved name beside the
       declaration it keeps, and the move adds a diagnostic and is refused.
       The same holds for any name with declarations on both sides, such as a
       `namespace` declared twice.
 
+   4. A reader reaches the name through the other file's export of that
+      name, so that export must be the variable itself. When a file already
+      exports the name as another value, the engine refuses the move before
+      it returns any edit. The other value can come from
+      `export { other as origin }` or from `export *`. The check covers two
+      kinds of name:
+      1. every name that one file will import from the other
+      2. every name that the move newly exports from either file, such as
+         the other names of a statement that gets `export`
+
+      A new export of a name that the file already exports directly adds a
+      diagnostic anyway. So for a new export, only a name that comes through
+      `export *` needs the check. The check holds for any name, not only a
+      file's `var`. A refused single move ends with an error such as this
+      one:
+
+      ```text
+      the language service declined the move: "origin" names another value exported from source.ts
+      ```
+
+      The list command answers `refused` for that entry. Neither writes a
+      file.
+
    Without these rules a reader cut off from such a name could read a global
-   of the same name, such as the DOM's `origin`, with no new diagnostic.
+   of the same name, such as the DOM's `origin`, or another value exported
+   under that name, with no new diagnostic.
 
 The tool's own rules do not change: it applies only the import-kind fixes and
 refuses every move that adds a diagnostic. The fixtures in
 `src/__tests__/engine-repairs.test.ts` prove each repaired shape and fail when
 the patch is missing. Other fixtures there prove results of the published
 engine that the repairs must keep. Every user of TypeScript 6 in the workspace
-loads the patched file. The six functions serve only **Move to file**,
+loads the patched file. The eight functions serve only **Move to file**,
 **Move to a new file** and paste with imports.
 
 The entry names the exact version, so the patch never reaches the TypeScript 7
@@ -257,8 +289,8 @@ session then moves the patch to the new version:
    command again, such as `pnpm deps:latest`, or run `pnpm install` on a
    branch whose lockfile already holds the new version.
 2. Run `pnpm patch typescript@<new version>`. In the folder it prints, make
-   the old patch's changes in `lib/typescript.js`, in the six functions and
-   the helper named above. Their line numbers differ between versions.
+   the old patch's changes in `lib/typescript.js`, in the eight functions and
+   the two helpers named above. Their line numbers differ between versions.
 3. Run `pnpm patch-commit <folder>`. pnpm writes the patch file, the entry and
    the lockfile, and installs.
 4. Rename the patch file from `typescript@<version>.patch` to
