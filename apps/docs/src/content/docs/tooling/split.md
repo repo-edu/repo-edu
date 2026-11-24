@@ -35,7 +35,8 @@ One file is handled in three parts. Parts 1 and 2 run in one call and part 3 in 
    `tools/audit-round/settings.json` reads the file whole. It answers that the file is fine, that it
    needs a plan, or with a move list. It changes no code. The list opens with the source path, hash,
    area and size in lines before the split. It names each target file, the one
-   responsibility it holds and the line ranges of whole top-level statements that go there.
+   responsibility it holds and the line ranges of whole top-level statements that go there. The
+   session makes the fewest targets that leave every file small enough to hold in one reading.
 2. **The move-list rounds.** The call tries the list in memory, commits it in the plan repo and
    runs move-list rounds on it. These are audit rounds like a plan's: audit, vet, rebuttal, ruler or
    your ruling, and a fix that changes the list or withdraws it. The rounds stop under the same

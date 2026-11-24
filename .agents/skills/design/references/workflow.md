@@ -70,19 +70,26 @@ Give exactly one answer:
 
 Write the moves under these rules:
 
-1. **Ranges.** Every range names lines of the file as you read it, before any
+1. **Number of targets.** Make the fewest targets that leave every file small
+   enough to hold in one reading, the source included. When a group could move
+   or stay, it stays. When two groups could share a target under one
+   responsibility or stand apart, they share one. A file has many sound
+   divisions, and each added target adds a border that every later reader must
+   cross. A coarse division loses little, because a later move list can still
+   divide a target that grew.
+2. **Ranges.** Every range names lines of the file as you read it, before any
    move. Do no arithmetic between moves: the tool follows each range through
    the moves before it. A range holds complete top-level statements: no
    statement may start or end outside it, it holds no import and it holds
    every declaration of an overloaded function. No statement sits in two
    ranges. A statement that no range names stays in the source.
-2. **Order.** List the moves in the order the tool carries them out. In a test
+3. **Order.** List the moves in the order the tool carries them out. In a test
    file, first move the shared helpers to a module that holds no tests, then
    move the tests. A test file that imports another test file runs that file's
    tests again.
-3. **Responsibility.** Give each target one sentence that states the one
+4. **Responsibility.** Give each target one sentence that states the one
    responsibility it holds. The audit tests these sentences against the file.
-4. **Names.** Name each target after what it holds, in the naming style of its
+5. **Names.** Name each target after what it holds, in the naming style of its
    folder.
 
 ### Targets
