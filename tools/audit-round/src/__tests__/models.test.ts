@@ -155,6 +155,84 @@ test("the model read-out ignores commit round data", async (t) => {
   assert.deepEqual(evidence.disproved, [])
 })
 
+test("--from counts back to local midnight and follows the round start for later rulings", async (t) => {
+  const f = await modelFixture(t)
+  const file = join(f.roundRoot, "example-plan-rounds.json")
+  const midnight = new Date(2025, 11, 20).getTime()
+  const instants = [midnight - 1, midnight, new Date(2026, 10, 24).getTime()]
+  for (const [i, instant] of instants.entries()) {
+    const model = ["before-midnight", "at-midnight", "today"][i]
+    writeRoundData(file, {
+      ...round(
+        "example-plan-audit",
+        i + 1,
+        new Date(instant).toISOString(),
+        { assistant: "codex", ...selection(model), chosenBy: "settings" },
+        settings,
+        [phase("vet", "claude", `vet-${model}`, 60_000)],
+        [{ repository: "plan", sha: "a".repeat(40) }],
+      ),
+      phase: "detailing",
+      settling: "",
+    })
+    writeDisprovedFinding(file, {
+      date: "2026-11-24",
+      target: "example-plan-audit",
+      round: i + 1,
+      finding: 1,
+      reason: `Ruling on ${model}.`,
+    })
+  }
+  writeDisprovedFinding(file, {
+    date: "2026-11-24",
+    auditor: { model: "undated", effort: "low" },
+    reason: "Detached ruling.",
+  })
+  const visible: string[] = []
+  const errors: string[] = []
+  const options = {
+    repoEduRoot: f.root,
+    now: () => new Date(2026, 10, 24, 12).getTime(),
+    terminal: {
+      write: (text) => visible.push(text),
+      status: () => {},
+      clear: () => {},
+    },
+    emergency: (text) => errors.push(text),
+  } satisfies Parameters<typeof runCommand>[2]
+  const filtered = async (date: string) => {
+    assert.equal(
+      await runCommand(["models", "--all", "--from", date], f.runtime, options),
+      0,
+      errors.join("\n"),
+    )
+    return visible.pop() ?? ""
+  }
+  const december = await filtered("20-12")
+  assert.match(december, /20-12-2025/)
+  assert.match(december, /Ruling on at-midnight/)
+  assert.match(december, /vet-at-midnight/)
+  assert.match(december, /Ruling on today/)
+  assert.doesNotMatch(december, /before-midnight|undated|Detached ruling/)
+  const today = await filtered("24-11")
+  assert.match(today, /24-11-2026/)
+  assert.match(today, /Ruling on today/)
+  assert.doesNotMatch(today, /at-midnight|before-midnight/)
+  assert.match(await filtered("29-02"), /29-02-2024/)
+  for (const invalid of ["31-04", "2-12", "20-12-2025", "12-20"]) {
+    assert.equal(
+      await runCommand(["models", "--from", invalid], f.runtime, options),
+      2,
+    )
+    assert.match(errors.at(-1) ?? "", /DD-MM/)
+  }
+
+  const evidence = await readModelEvidence(f.runtime, new Date(midnight))
+  const samples = [...evidence.auditors.values()].flatMap((row) => row.samples)
+  assert.equal(samples.length, 2)
+  assert.ok(samples.every((sample) => !sample.first))
+})
+
 type StepHost = "repo-edu" | "plan" | "both"
 
 function archivedPlanSource(hosts: readonly StepHost[]): string {
@@ -2960,6 +3038,26 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.doesNotMatch(
     visible[0].text,
     /^## .*by auditor and judge|^## .*rounds by plan|^## Excluded plans/m,
+  )
+  visible.length = 0
+  assert.equal(
+    await runCommand(["models", "--from", "04-10", "--all"], f.runtime, {
+      ...commandOptions,
+      now: () => new Date(2026, 9, 6).getTime(),
+    }),
+    0,
+  )
+  assert.match(
+    visible[0].text,
+    /\| coder-alpha low \| 1 \| 1 \| 1 \| 1\.00 \| 10\.0 \|/,
+  )
+  assert.match(
+    visible[0].text,
+    /effort-mixed: coder-alpha high, coder-alpha low/,
+  )
+  assert.doesNotMatch(
+    visible[0].text,
+    /audit-alpha|audit-claude|audit-third|coder-beta/,
   )
 })
 

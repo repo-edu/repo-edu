@@ -6,7 +6,7 @@ import {
   InvalidArgumentError,
   Option,
 } from "commander"
-import { format } from "date-fns"
+import { format, isValid, parse } from "date-fns"
 import { execa } from "execa"
 import { join as shellJoin } from "shellwords"
 import {
@@ -634,8 +634,21 @@ const auditorSelectionHelp = `Auditor selection (--auditor <selections>):
   with --auditor.
   Settings file: tools/audit-round/settings.json in the Repo Edu checkout.`
 
+/** Resolve a yearless local date backwards, including 29 February across non-leap years. */
+function modelsFromDate(value: string, now: number): Date {
+  const inYear = (year: number) => parse(value, "dd-MM", new Date(year, 0, 1))
+  const leapYearDate = inYear(2000)
+  if (!isValid(leapYearDate) || format(leapYearDate, "dd-MM") !== value)
+    throw new InvalidArgumentError("Expected a calendar date in DD-MM format.")
+  for (let year = new Date(now).getFullYear(); ; year--) {
+    const date = inYear(year)
+    if (date.getTime() <= now) return date
+  }
+}
+
 function parseInvocation(
   argv: readonly string[],
+  started: number,
   options: Pick<OutputOptions, "terminal"> & {
     readonly emergency: (text: string) => void
   },
@@ -977,6 +990,11 @@ Examples (from either checkout):
     .description(
       "Read auditor, vetter and coder results and later rulings from retained records without starting assistants.",
     )
+    .option(
+      "--from <DD-MM>",
+      "include runs starting at local midnight on the most recent matching date or later",
+      (value) => modelsFromDate(value, started),
+    )
     .option("--winners", "include the ruling and ruler winner tables")
     .option(
       "--all",
@@ -1303,7 +1321,7 @@ export async function runCommand(
   const now = options.now ?? Date.now
   // One clock per invocation, so the run reading spans every output it opens.
   const clock = new RunClock(now)
-  const invocation = parseInvocation(argv, options)
+  const invocation = parseInvocation(argv, clock.invocation.instant, options)
   if (typeof invocation === "number") return invocation
   let output: RoundOutput | undefined
   let result: RoundResult | CloseResult | undefined

@@ -1,3 +1,4 @@
+import { format } from "date-fns"
 import { mean } from "simple-statistics"
 import type { ExecutionContext } from "./context.js"
 import {
@@ -1014,6 +1015,7 @@ function rangeSections(
 }
 
 export type ModelsReportOptions = {
+  readonly from?: Date
   readonly winners?: boolean
   readonly all?: boolean
 }
@@ -1024,13 +1026,19 @@ export async function modelsReport(
   settings: RoundSettings,
   options: ModelsReportOptions = {},
 ): Promise<string> {
-  const evidence = await readModelEvidence(context)
+  const evidence = await readModelEvidence(context, options.from)
   const planning = classRows(evidence.auditors, "planning")
   const implementation = classRows(evidence.auditors, "implementation")
   const coders = admittedCoders(evidence.coders)
   const lines = [
     "# Model read-out",
     "",
+    ...(options.from
+      ? [
+          `Runs from ${format(options.from, "dd-MM-yyyy")} (local midnight).`,
+          "",
+        ]
+      : []),
     ...rangeSections("Planning auditors", (range) =>
       auditorSection(planning, "planning", settings, range),
     ),

@@ -74,8 +74,10 @@ export function compareAuditorPlans(
     ownRounds += own.length
     otherFindings += others.reduce((total, sample) => total + sample.yield, 0)
     otherRounds += others.length
-    if (own.some((sample) => sample.first)) openedPlans += 1
-    evenOpenedPlans += 1 / (otherGroups.length + 1)
+    const opened = own.some((sample) => sample.first)
+    if (opened) openedPlans += 1
+    if (opened || others.some((sample) => sample.first))
+      evenOpenedPlans += 1 / (otherGroups.length + 1)
   }
 
   return {

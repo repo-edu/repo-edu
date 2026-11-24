@@ -18,6 +18,7 @@ in `tools/audit-round/settings.json`.
 
 ```text
 pnpm audit-round models              print auditor, vetter and coder results and later rulings
+pnpm audit-round models --from 20-12 include runs starting on or after the most recent 20 December
 pnpm audit-round models --winners    also print the ruling and ruler winner tables
 pnpm audit-round models --all        include the winner tables, C vetters by auditor and judge,
                                      per-plan round data and excluded plans
@@ -25,6 +26,12 @@ pnpm audit-round models -h | --help  show the command's help
 ```
 
 ## Behaviour
+
+`--from DD-MM` counts back to the latest matching day, including today, and starts at local
+midnight. The report shows the year it selected. You can combine the date with `--winners` or
+`--all`. A ruling follows the start of its round. Rulings without a known round are omitted.
+Coder results compare whole implementations, so a plan needs its ready marker and all its
+implementation rounds within the period.
 
 The command reads every checked planning and implementation round-data file in
 `../plan-evidence/active/` and the closed-plan archive, and joins it with the step, ready and closed

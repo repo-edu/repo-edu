@@ -528,15 +528,19 @@ function laterRulingParties(
   }
 }
 
-function readLaterRulings(files: readonly RoundFileRecord[]) {
+function readLaterRulings(
+  files: readonly RoundFileRecord[],
+  included: ReadonlySet<RoundData> | undefined,
+) {
   const byFinding = new Map<
     RoundFinding,
     LaterRuling & Pick<RuledFinding, "laterWinners">
   >()
   const entries = files
     .flatMap((file) =>
-      file.data.disproved.map((entry): DisprovedEvidence => {
+      file.data.disproved.flatMap<DisprovedEvidence>((entry) => {
         if ("auditor" in entry) {
+          if (included !== undefined) return []
           const auditor = { assistant: null, ...entry.auditor }
           return {
             kind: "detached",
@@ -562,6 +566,7 @@ function readLaterRulings(files: readonly RoundFileRecord[]) {
           throw new Error(
             `Later ruling on ${entry.target} round ${entry.round} finding ${entry.finding} has no retained finding in ${file.file}`,
           )
+        if (included !== undefined && !included.has(round)) return []
         const auditor = selectionIdentity(
           round.auditor.assistant,
           round.auditor,
@@ -834,6 +839,7 @@ function ruledFindings(
 function auditorRows(
   records: readonly RoundRecord[],
   disproved: readonly DisprovedEvidence[],
+  included: ReadonlySet<RoundData> | undefined,
 ): Map<string, AuditorRow> {
   const rows = new Map<string, AuditorRow>()
   const firstCompleteRounds = new Set<string>()
@@ -848,18 +854,20 @@ function auditorRows(
     return row
   }
   for (const record of records) {
+    const complete = modelRoundComplete(record.data)
+    const planClass = `${record.workClass}:${record.stem}`
+    const first = !firstCompleteRounds.has(planClass)
+    if (complete) firstCompleteRounds.add(planClass)
+    if (included !== undefined && !included.has(record.data)) continue
     const identity = selectionIdentity(
       record.data.auditor.assistant,
       record.data.auditor,
     )
     const row = ensureRow(identity)
-    if (!modelRoundComplete(record.data)) continue
+    if (!complete) continue
     const owned = record.data.phases.filter(
       (phase) => phase.phase === "audit" || phase.phase === "rebut",
     )
-    const planClass = `${record.workClass}:${record.stem}`
-    const first = !firstCompleteRounds.has(planClass)
-    firstCompleteRounds.add(planClass)
     row.samples.push({
       plan: record.stem,
       started: record.data.started,
@@ -1132,6 +1140,7 @@ function planAdmission(
 async function coderRows(
   context: ExecutionContext,
   records: readonly RoundRecord[],
+  from: Date | undefined,
 ): Promise<Map<string, CoderRow>> {
   const logs = await readImplementationLogs(context)
   const repoEduHistory = historyCommits("repo-edu", logs["repo-edu"])
@@ -1169,8 +1178,19 @@ async function coderRows(
     if (!plan.stepShares.has(key))
       plan.stepShares.set(key, { record: stepRecord(commit) })
   }
+  // A coder sample covers the whole implementation, starting with its ready marker.
+  // Keep all its step records and audits together on either side of the cutoff.
+  const selectedPlans = [...plans.values()].filter(
+    (plan) =>
+      from === undefined ||
+      (plan.readyCommit !== null &&
+        Date.parse(plan.readyCommit.committedAt) >= from.getTime() &&
+        plan.rounds.every(
+          (round) => Date.parse(round.data.started) >= from.getTime(),
+        )),
+  )
   await Promise.all(
-    [...plans.values()].map(async (plan) => {
+    selectedPlans.map(async (plan) => {
       if (plan.closed)
         plan.listedSteps = await readArchivedPlanSteps(context, plan)
     }),
@@ -1188,7 +1208,7 @@ async function coderRows(
     return row
   }
 
-  for (const plan of plans.values()) {
+  for (const plan of selectedPlans) {
     const actual = new Map<string, ModelIdentity>()
     const expectedShares =
       typeof plan.listedSteps === "string"
@@ -1237,14 +1257,29 @@ async function coderRows(
 /** Load the retained round data once, then join the two commit histories. */
 export async function readModelEvidence(
   context: ExecutionContext,
+  from?: Date,
 ): Promise<ModelEvidence> {
   const files = await readRoundFiles(context)
-  const { byFinding, entries } = readLaterRulings(files)
-  const records = roundRecords(files, byFinding)
+  const included =
+    from === undefined
+      ? undefined
+      : new Set<RoundData>(
+          files.flatMap((file) =>
+            file.data.rounds.filter(
+              (round) => Date.parse(round.started) >= from.getTime(),
+            ),
+          ),
+        )
+  const { byFinding, entries } = readLaterRulings(files, included)
+  const allRecords = roundRecords(files, byFinding)
+  const records =
+    included === undefined
+      ? allRecords
+      : allRecords.filter((record) => included.has(record.data))
   const winners = ruledFindings(records, byFinding)
   return {
-    auditors: auditorRows(records, entries),
-    coders: await coderRows(context, records),
+    auditors: auditorRows(allRecords, entries, included),
+    coders: await coderRows(context, allRecords, from),
     vetPairs: vetPairSamples(records, byFinding),
     vetterTimes: vetterTimes(records),
     rulings: winners.user,

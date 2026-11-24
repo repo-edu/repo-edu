@@ -13,6 +13,16 @@ its retained data and `coders` before assistant startup or release resolution. I
 Markdown, starts no assistant and writes no round file or round data. Like other commands that read
 settings, it creates a missing `settings.json` from the defaults.
 
+`--from DD-MM` includes rounds whose recorded start is at or after local midnight on the most
+recent occurrence of that day and month, including today. The report prints the resolved date.
+A continued round keeps its original start. A later ruling follows its round into the report.
+A detached ruling has no round start, so it is omitted when filtering. An opener counts only
+when the plan's actual first complete round in that class falls in the window.
+
+The coder sample covers a whole implementation. With a date filter, its ready marker and all
+its retained implementation rounds must fall in the window. This also scopes the excluded-plans
+list. A plan without a ready marker has no recorded start for that whole sample.
+
 It prints the selected sections in this order.
 
 1. Planning auditors and implementation auditors.
