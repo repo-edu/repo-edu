@@ -1951,7 +1951,7 @@ test("ruling winners and ruler winners each list planning and implementation fin
     judgedRepos: ["repo-edu"],
   })
 
-  const report = await modelsReport(f.runtime, testSettings)
+  const report = await modelsReport(f.runtime, testSettings, { winners: true })
   assert.equal(
     report
       .split("## Planning ruling winners\n\n")[1]
@@ -2047,7 +2047,7 @@ test("a winner that names one vetter also proves right each vetter with the same
     settling: "",
   })
 
-  const report = await modelsReport(f.runtime, testSettings)
+  const report = await modelsReport(f.runtime, testSettings, { winners: true })
   assert.equal(
     report
       .split("## Planning ruling winners\n\n")[1]
@@ -2775,6 +2775,15 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.equal(visible[0].format, "markdown")
   const output = visible[0].text
   assert.deepEqual(paged, [output])
+  const winnerHeadings =
+    /^## (?:Planning|Implementation) (?:ruling|ruler) winners$/gm
+  const expectedWinnerHeadings = [
+    "## Planning ruling winners",
+    "## Implementation ruling winners",
+    "## Planning ruler winners",
+    "## Implementation ruler winners",
+  ]
+  assert.deepEqual(output.match(winnerHeadings), expectedWinnerHeadings)
   assert.match(output, /## Planning auditors/)
   assert.match(output, /## Implementation auditors/)
   assert.match(output, /audit-alpha low/)
@@ -2822,6 +2831,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   visible.length = 0
   assert.equal(await runCommand(["models"], f.runtime, commandOptions), 0)
   assert.equal(visible.length, 1)
+  assert.doesNotMatch(visible[0].text, winnerHeadings)
   assert.doesNotMatch(visible[0].text, /## Excluded plans/)
   assert.doesNotMatch(visible[0].text, /## Planning rounds by plan/)
   assert.doesNotMatch(visible[0].text, /## Implementation rounds by plan/)
@@ -2829,6 +2839,19 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.match(visible[0].text, /## Disproved after the round/)
   assert.ok(visible[0].text.endsWith("\n"))
   assert.ok(!visible[0].text.endsWith("\n\n"))
+  visible.length = 0
+  assert.equal(
+    await runCommand(["models", "--winners"], f.runtime, commandOptions),
+    0,
+  )
+  assert.deepEqual(
+    visible[0].text.match(winnerHeadings),
+    expectedWinnerHeadings,
+  )
+  assert.doesNotMatch(
+    visible[0].text,
+    /^## .*by auditor and judge|^## .*rounds by plan|^## Excluded plans/m,
+  )
 })
 
 test("coder spread and worst plan do not block an otherwise clear lead, and each tier range gives its own verdict", async (t) => {

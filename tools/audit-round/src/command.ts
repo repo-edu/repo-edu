@@ -67,7 +67,7 @@ import {
   type SettleCommit,
   settlePlan,
 } from "./lifecycle.js"
-import { modelsReport } from "./models.js"
+import { type ModelsReportOptions, modelsReport } from "./models.js"
 import { readMoveList } from "./move-list.js"
 import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
@@ -186,7 +186,7 @@ type Invocation =
       readonly target?: string
       readonly lines: LineRange
     }
-  | { readonly kind: "models"; readonly all: boolean }
+  | (ModelsReportOptions & { readonly kind: "models" })
   | { readonly kind: "replay" }
   | {
       readonly kind: "disprove"
@@ -976,14 +976,15 @@ Examples (from either checkout):
   command
     .command("models")
     .description(
-      "Read auditor, vetter and coder results, the user's rulings and the ruler's winners from retained records without starting assistants.",
+      "Read auditor, vetter and coder results and later rulings from retained records without starting assistants.",
     )
+    .option("--winners", "include the ruling and ruler winner tables")
     .option(
       "--all",
-      "print the C vetters by auditor and judge, per-plan round data and excluded plans",
+      "include the winner tables, C vetters by auditor and judge, per-plan round data and excluded plans",
     )
-    .action((flags: { all?: boolean }) => {
-      invocation = { kind: "models", all: flags.all === true }
+    .action((flags: ModelsReportOptions) => {
+      invocation = { kind: "models", ...flags }
     })
   command
     .command("replay")
@@ -1325,9 +1326,7 @@ export async function runCommand(
     }
     if (invocation.kind === "models") {
       const modelSettings = options.settings ?? (await readSettings())
-      const readOut = await modelsReport(context, modelSettings, {
-        all: invocation.all,
-      })
+      const readOut = await modelsReport(context, modelSettings, invocation)
       await options.pager?.(readOut)
       options.terminal.write(readOut, "markdown")
       return 0

@@ -17,9 +17,10 @@ in `tools/audit-round/settings.json`.
 ## Usage
 
 ```text
-pnpm audit-round models              print the auditor, vetter, coder and ruling read-out
-pnpm audit-round models --all        also print the C vetters by auditor and judge, per-plan round data
-                                     and excluded plans
+pnpm audit-round models              print auditor, vetter and coder results and later rulings
+pnpm audit-round models --winners    also print the ruling and ruler winner tables
+pnpm audit-round models --all        include the winner tables, C vetters by auditor and judge,
+                                     per-plan round data and excluded plans
 pnpm audit-round models -h | --help  show the command's help
 ```
 
@@ -75,7 +76,8 @@ only in the A/B auditor figures and gets a zero-round row if its auditor has no 
 ## Output
 
 The report prints auditors, vetter pairs, vetters by auditor, vetter times and coders first,
-followed by ruling winners, ruler winners and disproved findings. Each auditor, vetter-pair,
+followed by disproved findings. With `--winners` or `--all`, the ruling and ruler winner tables
+appear between coders and disproved findings. Each auditor, vetter-pair,
 vetters-by-auditor and coder part has two sections, whose headings end in `A/B findings` and
 `C findings`. Under `--all`, the report also shows the C vetters by auditor and judge after the
 vetters by auditor, and at the end planning and implementation rounds by plan for each range,

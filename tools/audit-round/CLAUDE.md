@@ -820,6 +820,7 @@ pnpm audit-round round-commits HEAD-2..HEAD
 pnpm audit-round round-commits HEAD plan@HEAD
 pnpm audit-round round --auditor codex
 pnpm audit-round models
+pnpm audit-round models --winners
 pnpm audit-round models --all
 pnpm audit-round replay
 pnpm audit-round disprove example example-plan-audit 2 1 "The claim did not hold."

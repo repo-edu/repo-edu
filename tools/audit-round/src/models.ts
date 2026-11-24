@@ -1018,16 +1018,16 @@ function rangeSections(
   ])
 }
 
-/**
- * Read every retained model record and render the auditor, vetter and coder
- * results with the user's rulings and the ruler's winners.
- * The excluded plans print only under `all`: they explain which plans supplied
- * no evidence, which a reader comparing models does not need every time.
- */
+export type ModelsReportOptions = {
+  readonly winners?: boolean
+  readonly all?: boolean
+}
+
+/** Render the model comparisons and the requested detail tables from retained records. */
 export async function modelsReport(
   context: ExecutionContext,
   settings: RoundSettings,
-  options: { readonly all: boolean } = { all: false },
+  options: ModelsReportOptions = {},
 ): Promise<string> {
   const evidence = await readModelEvidence(context)
   const planning = classRows(evidence.auditors, "planning")
@@ -1085,14 +1085,18 @@ export async function modelsReport(
     ]),
     "Rows sort by the per-step figure, the mean over plans of accepted findings per step, fewest first, then by time. Each section's verdict rests on its own figures. One coder example is one closed plan with a readable model record for every hosted step share, one recorded coder and a complete whole-plan implementation audit after the final step. A ready assignment, when present, must name that coder's assistant and effort. The assignment may be a family alias, so the records name the release. A step without recorded active time uses the span from the ready marker or previous step to its own later share commit, and a plan whose step time cannot be read is excluded. Time adds step time and implementation-round fix time. Planning-round fixes do not enter coder evidence.",
     "",
-    ...rulingSection(evidence.rulings, "planning"),
-    "",
-    ...rulingSection(evidence.rulings, "implementation"),
-    "",
-    ...rulerSection(evidence.rulerWinners, "planning"),
-    "",
-    ...rulerSection(evidence.rulerWinners, "implementation"),
-    "",
+    ...(options.winners || options.all
+      ? [
+          ...rulingSection(evidence.rulings, "planning"),
+          "",
+          ...rulingSection(evidence.rulings, "implementation"),
+          "",
+          ...rulerSection(evidence.rulerWinners, "planning"),
+          "",
+          ...rulerSection(evidence.rulerWinners, "implementation"),
+          "",
+        ]
+      : []),
     ...disprovedSection(evidence.disproved),
     ...(options.all
       ? [

@@ -13,14 +13,14 @@ its retained data and `coders` before assistant startup or release resolution. I
 Markdown, starts no assistant and writes no round file or round data. Like other commands that read
 settings, it creates a missing `settings.json` from the defaults.
 
-It prints these parts in order:
+It prints the selected sections in this order.
 
 1. Planning auditors and implementation auditors.
 2. Planning and implementation vetter pairs, then planning and implementation vetters by auditor,
    then vetter times for each class.
 3. Coders.
-4. Planning and implementation ruling winners.
-5. Planning and implementation ruler winners.
+4. Planning and implementation ruling winners, with `--winners` or `--all`.
+5. Planning and implementation ruler winners, with `--winners` or `--all`.
 6. Disproved findings.
 
 Under `--all` it also prints the planning and implementation vetters by auditor and judge, after
