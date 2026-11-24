@@ -68,6 +68,7 @@ test("a move list refuses a missing section, a move without its lines and text a
     "Source: `packages/domain/src/roster.ts`",
     "Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad",
     "Area: pkg-domain",
+    "Size: 120 lines",
     "",
   ]
   const refusals: readonly [readonly string[], string][] = [
@@ -107,8 +108,12 @@ test("a move list refuses a missing section, a move without its lines and text a
       "Move list ## No split section needs one line Result: with its word and reason",
     ],
     [
-      ["# Move list", "", "Source: packages/domain/src/roster.ts"],
-      "Move list needs Source:, Hash: and Area: lines after its heading",
+      opening.filter((line) => !line.startsWith("Size:")),
+      "Move list needs Source:, Hash:, Area: and Size: lines after its heading",
+    ],
+    [
+      opening.map((line) => line.replace("120 lines", "120 bytes")),
+      "Move list Size: line must give the source line count as n lines",
     ],
   ]
   for (const [lines, refusal] of refusals)

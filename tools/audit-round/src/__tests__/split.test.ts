@@ -94,6 +94,7 @@ function listText(hash: string, responsibility = "Holds b."): string {
 Source: \`${source}\`
 Hash: ${hash}
 Area: pkg-demo
+Size: 2 lines
 
 ## Moves
 
@@ -110,6 +111,7 @@ function noSplitText(hash: string, result: "fine" | "needs-plan"): string {
 Source: \`${source}\`
 Hash: ${hash}
 Area: pkg-demo
+Size: 2 lines
 
 ## No split
 

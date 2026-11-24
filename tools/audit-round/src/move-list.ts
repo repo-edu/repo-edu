@@ -62,11 +62,11 @@ function blocks(text: string): string[][] {
 }
 
 function readOpening(lines: readonly string[] | undefined): Opening {
-  if (lines?.length !== 3)
+  if (lines?.length !== 4)
     throw new Error(
-      "Move list needs Source:, Hash: and Area: lines after its heading",
+      "Move list needs Source:, Hash:, Area: and Size: lines after its heading",
     )
-  const [sourceLine, hashLine, areaLine] = lines
+  const [sourceLine, hashLine, areaLine, sizeLine] = lines
   const source = /^Source: `([^`]+)`$/.exec(sourceLine)?.[1]
   if (source === undefined)
     throw new Error("Move list Source: line must name one path in backticks")
@@ -80,6 +80,10 @@ function readOpening(lines: readonly string[] | undefined): Opening {
   const area = /^Area: (.*)$/.exec(areaLine)?.[1]
   if (area === undefined || !areaPattern.test(area))
     throw new Error("Move list Area: line must name one area ID")
+  if (!/^Size: (?:0|[1-9]\d*) lines$/.test(sizeLine))
+    throw new Error(
+      "Move list Size: line must give the source line count as n lines",
+    )
   return { source, hash, area }
 }
 

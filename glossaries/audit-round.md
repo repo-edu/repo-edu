@@ -250,14 +250,13 @@ means any kind of report; each kind is always named in full.
   that the file is fine, that it needs a plan, or with a move list, and its
   session. It changes no code. The designer is the split level's selection
   that runs it.
-- **Move list**: the committed file in the plan repo that says how one source
-  file is split. It names the source's path, its content hash and its area, and
-  then each target file in order, with the one responsibility the target holds
-  and the line ranges of complete top-level statements that go there. A source
-  file has one move list, beside the source's path under the plan repo's
-  `splits/` folder, with the source's extension replaced by `.mv.md`. A
-  withdrawn move list holds no moves and records why no split happens: the file
-  is fine or needs a plan.
+- **Move list**: the committed file in the plan repo that says how one source file is split. Its
+  opening gives the source path, content hash, area and size in lines before the split. It lists
+  each target file in order, with the one responsibility it holds and the line ranges of complete
+  top-level statements that go there. A source file has one move list, beside the source's path
+  under the plan repo's `splits/` folder, with the source's extension replaced by `.mv.md`. A
+  withdrawn move list holds no moves and records why no split happens: the file is fine or needs a
+  plan.
 - **Move-list round**: an audit round that judges one move list. Its phases run
   as in a planning round, and its fix changes the list in place or withdraws
   it. A move list is carried out only after its rounds have judged it.

@@ -33,9 +33,10 @@ move admits and how the tool carries out a whole list.
 
 ## Read the file
 
-Read the source file whole, with its line numbers. Search the workspace for the
-files that import it, and read them and the files it imports as far as you
-need them to judge its seams.
+Read the source file whole, numbering blank lines too. Use the last line number
+for the move list's `Size:` field, or zero for an empty file. Search the workspace
+for the files that import it and read them and the files it imports as far as
+you need them to judge its seams.
 
 ## Judge whether to split
 

@@ -1708,10 +1708,11 @@ Refusal: `Watch record is missing the repo-edu head`
 
 ```text
 <move-list>      ::= "# Move list" BLANK <source-line> NL <hash-line> NL <area-line>
-                     BLANK (<moves> | <no-split>)
+                     NL <size-line> BLANK (<moves> | <no-split>)
 <source-line>    ::= "Source: `"<repo-path>"`"
 <hash-line>      ::= "Hash: "<blob-hash>
 <area-line>      ::= "Area: "<label>
+<size-line>      ::= "Size: "(0 | <n>)" lines"
 <moves>          ::= "## Moves" BLANK <move>(BLANK <move>)*
 <move>           ::= "### "<n>". `"<repo-path>"`" BLANK
                      "Responsibility: "<sentence> NL
@@ -1723,10 +1724,10 @@ Refusal: `Watch record is missing the repo-edu head`
 <sentence>       ::= non-empty text on one line
 ```
 
-A move list says how one source file is divided. It names the source by its
-path, the source's content as its blob hash and the source's primary area by
-its area ID. Every line number in the list counts lines of that content, before
-any move.
+A move list opens with the source path, its Git blob hash, its primary area ID
+and its size in lines before any move. Count every source line, including blank
+lines and a final line without a newline. An empty file has zero lines. Every
+range uses the line numbers of that same content.
 
 Each move names one target file and the ranges of complete top-level statements
 that go there. The moves are numbered from 1 without gaps, in the order the
@@ -1754,6 +1755,7 @@ content, and one or more empty lines count as one `BLANK`.
 Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
+Size: 120 lines
 
 ## Moves
 
@@ -1776,6 +1778,7 @@ Ranges: 61-118, 120
 Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
+Size: 120 lines
 
 ## No split
 
@@ -1792,6 +1795,7 @@ Refusal: `Move list hash must be forty lowercase hexadecimal characters`
 Source: `packages/domain/src/roster.ts`
 Hash: 3b18e5
 Area: pkg-domain
+Size: 120 lines
 
 ## No split
 
@@ -1808,6 +1812,7 @@ Refusal: `Move list move 2 is numbered 3`
 Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
+Size: 120 lines
 
 ## Moves
 
@@ -1832,6 +1837,7 @@ Refusal: `Move list move 1 has the range 40-10, whose end comes before its start
 Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
+Size: 120 lines
 
 ## Moves
 
@@ -1851,6 +1857,7 @@ Refusal: `Move list names the target packages/domain/src/roster-names.ts in move
 Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
+Size: 120 lines
 
 ## Moves
 
@@ -1875,6 +1882,7 @@ Refusal: `Move list result must be fine or needs-plan`
 Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
+Size: 120 lines
 
 ## No split
 
