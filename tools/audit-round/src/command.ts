@@ -112,6 +112,7 @@ import {
 } from "./round.js"
 import {
   type DisprovedFinding,
+  findingRevision,
   type LandedCommit,
   parseRoundDataFile,
   type RoundFinding,
@@ -193,9 +194,14 @@ type Invocation =
       readonly stem: string
       readonly target: string
       readonly reason: string
-      readonly side: "finding" | "vet"
       readonly finding:
-        | { readonly round: number; readonly number: number }
+        | {
+            readonly round: number
+            readonly number: number
+            readonly statement:
+              | { side: "finding" | "vet" }
+              | { revision: string }
+          }
         | {
             readonly auditor: {
               readonly model: string
@@ -354,12 +360,17 @@ function positiveInteger(value: string, name: string): number {
   return parsed
 }
 
+type DisproveOptions = {
+  by?: DisprovedAuditor
+  vet?: boolean
+  revision?: string
+}
+
 function disproveInvocation(
   value: string,
   target: string,
   details: readonly string[],
-  auditor?: DisprovedAuditor,
-  vet = false,
+  { by: auditor, vet, revision }: DisproveOptions,
 ): Extract<Invocation, { kind: "disprove" }> {
   if (/[\\/]/.test(value))
     throw new InvalidArgumentError("Name the plan by its stem, without a path.")
@@ -368,8 +379,6 @@ function disproveInvocation(
     throw new InvalidArgumentError(
       `Expected the stored round target to start with ${stem}-.`,
     )
-  if (auditor !== undefined && vet)
-    throw new InvalidArgumentError("--vet cannot be used with --by.")
   const reasonAt = auditor === undefined ? 2 : 0
   const reason = details.slice(reasonAt).join(" ").trim()
   if (reason.length === 0)
@@ -380,7 +389,6 @@ function disproveInvocation(
       stem,
       target,
       reason,
-      side: "finding",
       finding: { auditor },
     }
   if (details.length < 3)
@@ -392,10 +400,13 @@ function disproveInvocation(
     stem,
     target,
     reason,
-    side: vet ? "vet" : "finding",
     finding: {
       round: positiveInteger(details[0], "round"),
       number: positiveInteger(details[1], "finding"),
+      statement:
+        revision === undefined
+          ? { side: vet ? "vet" : "finding" }
+          : { revision },
     },
   }
 }
@@ -440,7 +451,6 @@ async function requireDisprovedFinding(
   path: string,
   target: string,
   finding: { readonly round: number; readonly number: number },
-  side: "finding" | "vet",
 ): Promise<RoundFinding> {
   let source: string
   try {
@@ -462,13 +472,6 @@ async function requireDisprovedFinding(
   if (retained === undefined)
     throw new Error(
       `No finding ${finding.number} exists in ${target} round ${finding.round}.`,
-    )
-  if (
-    side === "vet" &&
-    retained.reviews.every((review) => review.verdict === "accept")
-  )
-    throw new Error(
-      `Finding ${finding.number} in ${target} round ${finding.round} has no non-Accept vet verdict.`,
     )
   return retained
 }
@@ -658,7 +661,7 @@ function parseInvocation(
        audit-round round-commits ${commitRoundUsage}
        audit-round models [options]
        audit-round replay
-       audit-round disprove [--vet] <stem> <target> <round> <finding> <reason>
+       audit-round disprove [options] <stem> <target> <round> <finding> <reason>
        audit-round settle [stem]
        audit-round ready [stem]
        audit-round implement [options] <stem> [scope]
@@ -996,9 +999,7 @@ Examples (from either checkout):
     })
   command
     .command("disprove")
-    .description(
-      "Record the user's later ruling that one audit finding or vet verdict was disproved.",
-    )
+    .description("Record a later ruling on an audit finding.")
     .argument("<stem>", "the active or archived plan")
     .argument("<target>", "the round-data target exactly as stored")
     .argument(
@@ -1010,21 +1011,25 @@ Examples (from either checkout):
       "record a finding absent from retained round data",
       disprovedAuditor,
     )
-    .option("--vet", "record that the finding's vet verdict was wrong")
+    .addOption(
+      new Option("--vet", "record that the finding stood as written").conflicts(
+        "by",
+      ),
+    )
+    .addOption(
+      new Option(
+        "--revision <tag>",
+        "credit this vetter's revision of the finding",
+      ).conflicts(["by", "vet"]),
+    )
     .action(
       (
         stem: string,
         target: string,
         details: string[],
-        flags: { by?: DisprovedAuditor; vet?: boolean },
+        flags: DisproveOptions,
       ) => {
-        invocation = disproveInvocation(
-          stem,
-          target,
-          details,
-          flags.by,
-          flags.vet === true,
-        )
+        invocation = disproveInvocation(stem, target, details, flags)
       },
     )
   command
@@ -1341,21 +1346,26 @@ export async function runCommand(
       let entry: DisprovedFinding
       let subject: string
       if ("round" in invocation.finding) {
-        await requireDisprovedFinding(
+        const finding = await requireDisprovedFinding(
           file.path,
           invocation.target,
           invocation.finding,
-          invocation.side,
         )
+        const statement = invocation.finding.statement
+        if ("revision" in statement)
+          findingRevision(finding, statement.revision)
         entry = {
           date,
           reason: invocation.reason,
           target: invocation.target,
           round: invocation.finding.round,
           finding: invocation.finding.number,
-          side: invocation.side,
+          ...statement,
         }
-        const side = invocation.side === "vet" ? "vet finding" : "finding"
+        const side =
+          "side" in statement && statement.side === "vet"
+            ? "vet finding"
+            : "finding"
         subject = `${invocation.stem}/disprove: ${invocation.target} round ${invocation.finding.round} ${side} ${invocation.finding.number}`
       } else {
         entry = {
@@ -1375,9 +1385,8 @@ export async function runCommand(
         })
         options.terminal.write(`Committed ${commit.sha}: ${commit.subject}`)
       } else {
-        const side = invocation.side === "vet" ? "vet verdict" : "finding"
         options.terminal.write(
-          `Recorded the disproved ${side} in ${file.path}. Loop-close will commit it with the archive move.`,
+          `Recorded the later ruling in ${file.path}. Loop-close will commit it with the archive move.`,
         )
       }
       return 0

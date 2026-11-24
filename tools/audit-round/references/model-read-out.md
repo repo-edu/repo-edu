@@ -21,7 +21,7 @@ It prints the selected sections in this order.
 3. Coders.
 4. Planning and implementation ruling winners, with `--winners` or `--all`.
 5. Planning and implementation ruler winners, with `--winners` or `--all`.
-6. Disproved findings.
+6. Later rulings.
 
 Under `--all` it also prints the planning and implementation vetters by auditor and judge, after
 the vetters by auditor. At the end it prints the planning and implementation rounds by plan, once
@@ -64,8 +64,10 @@ findings are exclusive counts. A downgrade is a kept finding whose final tier fe
 section's range. A C finding raised to A or B stays kept in the C section. Later rulings from
 `disprove` move findings between the counts:
 
-- A later finding ruling removes a kept finding from coder evidence.
-- A later vet ruling moves a dropped or downgraded finding to kept for the auditor and the coder.
+- A wrong finding counts as disproved if the round kept it and as dropped if the round dropped it.
+- A finding that stood as written counts as kept at the reported tier.
+- A winning revision supplies the final tier. It keeps the reported tier if the vetter gave no new
+  one. A B revised to C counts once as downgraded in A/B and adds no kept finding against the coder.
 - A detached disproval has no recorded tier. Only the A/B auditor figures include it.
 
 ## Auditors
@@ -112,8 +114,8 @@ Planning and implementation each have a vetter-pair table. A vetter is a model a
 
 The latest ruling decides the ending. A later ruling from `disprove` outranks the round's winner:
 
-- A later disproved finding proves right the vetters that dropped it, and a later vet ruling the
-  vetters that accepted it.
+- A wrong finding credits the vetters who dropped it. A finding that stood as written credits
+  the vetters who accepted it. A winning revision credits only its vetter.
 - The round's `report` winner proves right the vetters that accepted the finding, and `neither`
   proves no vetter right.
 - A list of vetter tags proves those vetters right. It also proves right every other vetter that
@@ -228,24 +230,24 @@ accepted hides the auditor.
   tells a vetter from an auditor on the same model.
 - A winner that proved nobody right prints `none`.
 - A later ruling from `disprove` does not change the column. It prints under
-  [Disproved findings](#disproved-findings).
+  [Later rulings](#later-rulings).
 - Splits and contests share the list, because both end in the same ruling.
 
 The ruler-winners tables use the same form, with a ruler column that names the model and effort
 of the round's rule phase entry. Separate tables keep the user's decisions easy to find. The
 user can check a ruler's winner and overturn it with `disprove`.
 
-## Disproved findings
+## Later rulings
 
 Each later ruling prints once, in one of six numbered tables. A table is named by its work class
-and by the claim the ruling overturned, like the sections above it: `Planning auditor findings`,
+and by its subject, like the sections above it: `Planning auditor findings`,
 `Implementation auditor findings`, `Planning vetter verdicts`, `Implementation vetter verdicts`,
 `Planning ruler winners` and `Implementation ruler winners`. They print in that order, and a table
 without rows is not printed.
 
-- A finding ruling prints under auditor findings and a vet ruling under vetter verdicts.
-- A ruling that proves a ruler's winner wrong prints under ruler winners instead, because the
-  ruler judged the finding last.
+- A ruling that changes who the ruler proved right prints under ruler winners.
+- Otherwise a finding that stood as written prints under vetter verdicts. The other rulings print
+  under auditor findings.
 - Rows group by the auditor, or by the ruler in a ruler table, and run newest first within one.
 - A detached entry prints under its work class's auditor findings and says that no retained round
   data holds the finding.
@@ -258,21 +260,22 @@ The `Wrong` and `Right` columns list who the ruling proved wrong and who right. 
 role word, its model and effort and, in brackets, a vetter's verdict or the winner a ruler named.
 The order is auditor, vetters in panel order, ruler. The finding shares the auditor's side.
 
-- A finding ruling puts the auditor under `Wrong`. A vetter that dropped the finding is right, and
+- A wrong finding puts the auditor under `Wrong`. A vetter that dropped the finding is right, and
   one that accepted or revised it is wrong. A vetter that sent it to the user took no side and is
   in neither column.
-- A vet ruling puts the auditor under `Right`. A vetter that accepted is right and every other
-  vetter is wrong.
+- A finding that stood as written credits the auditor and every vetter who accepted it. When
+  everyone accepted and no ruler was wrong, `Wrong` is empty.
+- A winning revision puts only its vetter under `Right` among the auditor and vetters. The auditor
+  and every other vetter who gave a verdict appear under `Wrong`.
 - A vetter without a verdict on the finding is in neither column.
-- A ruler is right when every vetter it named is right, when it named `report` and the finding
-  stood, or when it named `neither` and the ruling proved the finding wrong and no vetter right.
-  Otherwise it is wrong. A ruler that is right stays in the auditor or vetter table.
+- A ruler is right when its winner and the later ruling credit exactly the same parties.
+  A ruler that is right stays in the auditor or vetter table.
 
 The vetter rule is the one the [vetter pairs](#vetter-pairs) count by.
 
 ## Reasons
 
-These rules hold for ruling winners, ruler winners and disproved findings:
+These rules hold for ruling winners, ruler winners and later rulings.
 
 - Every table shows each reason's first sentence, because a full reason wraps the terminal table
   into an unreadable grid.

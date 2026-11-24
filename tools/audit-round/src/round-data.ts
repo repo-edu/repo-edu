@@ -366,14 +366,17 @@ const commonDisprovedFinding = {
   date: z.iso.date(),
   reason: z.string().min(1),
 }
+const attachedRuling = z.strictObject({
+  ...commonDisprovedFinding,
+  target: z.string().min(1),
+  round: z.number().int().positive(),
+  finding: z.number().int().positive(),
+})
 export const disprovedFindingSchema = z.union([
-  z.strictObject({
-    ...commonDisprovedFinding,
-    target: z.string().min(1),
-    round: z.number().int().positive(),
-    finding: z.number().int().positive(),
+  attachedRuling.extend({
     side: z.enum(["finding", "vet"]).optional(),
   }),
+  attachedRuling.extend({ revision: capabilityTag }),
   z.strictObject({
     ...commonDisprovedFinding,
     auditor: z.strictObject({
@@ -786,6 +789,21 @@ export function findingSplit(reviews: readonly RoundFindingReview[]): boolean {
   return reviews.some((first, index) =>
     reviews.slice(index + 1).some((second) => reviewsSplit(first, second)),
   )
+}
+
+/** The recorded revision that an attached later ruling names. */
+export function findingRevision(
+  finding: RoundFinding,
+  tag: string,
+): RoundFindingReview {
+  const revision = finding.reviews.find(
+    (review) => review.vet === tag && review.verdict === "revise",
+  )
+  if (revision === undefined)
+    throw new Error(
+      `Vetter ${tag} gave no revision on finding ${finding.number}.`,
+    )
+  return revision
 }
 
 /** The finding groups in report order for every work class. */

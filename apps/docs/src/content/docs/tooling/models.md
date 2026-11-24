@@ -50,11 +50,11 @@ The read-out compares rather than ranks by taste:
    share. A step record without active time falls back to the span from the ready marker or the
    previous step to that step's later share commit. A plan whose step time cannot be read is
    excluded.
-5. **Later rulings**, recorded with
-   [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/), read in either direction. A finding
-   ruling counts against the auditor and removes it from coder evidence. A vet ruling restores a
-   dropped or downgraded finding as kept for the auditor and coder. Either ruling outranks the
-   winner named in the round when a vetter-pair table ends a split.
+5. **Later rulings** take precedence over the round when counting a finding or deciding which
+   vetter was right. A wrong finding adds nothing to the coder's kept count. A finding that
+   stood as written counts as kept at its reported tier. A winning revision supplies the final
+   tier. For example, a B revised to C counts once as downgraded in A/B and adds no kept finding
+   against the coder. See [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
 
 In both planning and implementation, auditors, vetter pairs and vetters by auditor have one table
 for A and B findings and another for C findings only. Coders use the same two groups. Auditor and
@@ -76,8 +76,8 @@ only in the A/B auditor figures and gets a zero-round row if its auditor has no 
 ## Output
 
 The report prints auditors, vetter pairs, vetters by auditor, vetter times and coders first,
-followed by disproved findings. With `--winners` or `--all`, the ruling and ruler winner tables
-appear between coders and disproved findings. Each auditor, vetter-pair,
+followed by `Later rulings`. With `--winners` or `--all`, the ruling and ruler winner tables
+appear between coders and later rulings. Each auditor, vetter-pair,
 vetters-by-auditor and coder part has two sections, whose headings end in `A/B findings` and
 `C findings`. Under `--all`, the report also shows the C vetters by auditor and judge after the
 vetters by auditor, and at the end planning and implementation rounds by plan for each range,
@@ -98,9 +98,10 @@ followed by excluded plans. Each auditor section prints its main table, then a s
    A row counts the findings of its range both vetters judged on one panel, the splits with a stored
    winner, yours or the ruler's, and how each such split ended: vetter 1 right, vetter 2 right, both
    right or neither. A split without a winner counts only as shared. A winner that names a vetter
-   also makes right every vetter that gave the same accept, drop or referral. A later disproved
-   finding makes the vetters that dropped it right, and a later vet ruling makes the vetters that
-   accepted it right. A round with one vetter adds no row.
+   also makes right every vetter that gave the same accept, drop or referral. When you later rule
+   that a finding was wrong, the vetters who dropped it get credit. When it stood as written,
+   the vetters who accepted it get credit. A winning revision credits only the vetter you named.
+   A round with one vetter adds no row.
 3. **Vetters-by-auditor tables** name the vetter on the auditor's model and effort first and the
    other vetter second. Only an exact match of the recorded release and effort counts. A row counts
    the shared findings, how often each side challenged the audit with a revise, a drop or a
@@ -127,9 +128,10 @@ followed by excluded plans. Each auditor section prints its main table, then a s
    The tables use the same form with a column for the ruler's model and effort. You can check
    each winner and overturn it with
    [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
-8. **Later rulings** print in up to six numbered tables, each named by its work class and by the
-   claim your ruling overturned: auditor findings, vetter verdicts or ruler winners. A ruling that
-   proves a ruler's winner wrong prints under ruler winners. The `Wrong` and `Right` columns name
+8. **Later rulings** print in up to six numbered tables. A ruling that changes who the ruler
+   credited prints under ruler winners for that work class. Otherwise a finding that stood as
+   written prints under vetter verdicts. The rest print under auditor findings. The `Wrong` column
+   can be empty when everyone was right. The `Wrong` and `Right` columns name
    each auditor, vetter and ruler on the side your ruling put it, with a vetter's verdict or the
    ruler's winner in brackets. Every table shows each reason's first sentence, then the full
    reasons as a numbered list, numbered across the section.

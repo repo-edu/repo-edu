@@ -8,6 +8,7 @@ import type { Assistant } from "./phase.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
   type DisprovedFinding,
+  findingRevision,
   highestGrade,
   type PlanRoundDataFile,
   parseRoundDataFile,
@@ -175,9 +176,8 @@ type DisprovedBase = {
   readonly reason: string
   readonly auditor: ModelIdentity
   /**
-   * Whose claim the ruling overturned last: the ruler's winner when the ruling
-   * proves it wrong, else the vet verdicts of a vet ruling, else the auditor's
-   * finding.
+   * The table for this ruling: ruler winners when the winner changed, vetter
+   * verdicts when the finding stood as written, otherwise auditor findings.
    */
   readonly claim: RulingParty["role"]
   /** In the order auditor, vetters in panel order, ruler. */
@@ -222,10 +222,7 @@ type RoundRecord = {
   readonly stem: string
   readonly workClass: WorkClass
   readonly data: RoundData
-  readonly disprovedFindingNumbers: {
-    readonly finding: ReadonlySet<number>
-    readonly vet: ReadonlySet<number>
-  }
+  readonly counts: Record<TierRange, FindingCounts>
 }
 
 type HistoryCommit = LogCommit & {
@@ -300,41 +297,24 @@ function emptyFindingCounts(): FindingCounts {
  */
 function findingCounts(
   findings: readonly RoundFinding[],
-  disproved: RoundRecord["disprovedFindingNumbers"],
+  rulings: ReadonlyMap<RoundFinding, LaterRuling>,
   range: TierRange,
 ): FindingCounts {
   const counts = { ...emptyFindingCounts() }
   for (const finding of findings) {
     if (!tierWithin(finding.tier, range)) continue
-    if (finding.number !== null && disproved.vet.has(finding.number)) {
-      counts.kept += 1
+    const result = rulings.get(finding) ?? finding
+    if (result.outcome === "dropped" || result.outcome === "disproved") {
+      counts[result.outcome] += 1
       continue
     }
-    if (finding.outcome === "dropped") {
-      counts.dropped += 1
-      continue
-    }
-    if (finding.outcome !== "kept") continue
-    if (finding.number !== null && disproved.finding.has(finding.number)) {
-      counts.disproved += 1
-      continue
-    }
-    const finalTier = finding.finalTier ?? finding.tier
+    if (result.outcome !== "kept") continue
+    const finalTier = result.finalTier ?? finding.tier
     if (finalTier < finding.tier || tierWithin(finalTier, range))
       counts.kept += 1
     else counts.downgraded += 1
   }
   return counts
-}
-
-function rangeCounts(
-  findings: readonly RoundFinding[],
-  disproved: RoundRecord["disprovedFindingNumbers"],
-): Record<TierRange, FindingCounts> {
-  return {
-    "A/B": findingCounts(findings, disproved, "A/B"),
-    C: findingCounts(findings, disproved, "C"),
-  }
 }
 
 function roundDataStem(file: string): string {
@@ -346,22 +326,6 @@ function roundDataStem(file: string): string {
 
 function roundWorkClass(file: string): WorkClass {
   return file.endsWith("-plan-rounds.json") ? "planning" : "implementation"
-}
-
-function attachedNumbers(
-  disproved: readonly DisprovedFinding[],
-  round: RoundData,
-): RoundRecord["disprovedFindingNumbers"] {
-  const finding = new Set<number>()
-  const vet = new Set<number>()
-  for (const entry of disproved)
-    if (
-      "target" in entry &&
-      entry.target === round.target &&
-      entry.round === round.round
-    )
-      (entry.side === "vet" ? vet : finding).add(entry.finding)
-  return { finding, vet }
 }
 
 async function readRoundFiles(
@@ -391,7 +355,10 @@ async function readRoundFiles(
   )
 }
 
-function roundRecords(files: readonly RoundFileRecord[]): RoundRecord[] {
+function roundRecords(
+  files: readonly RoundFileRecord[],
+  rulings: ReadonlyMap<RoundFinding, LaterRuling>,
+): RoundRecord[] {
   return files
     .flatMap((file) =>
       (file.data.rounds as readonly RoundData[]).map(
@@ -400,7 +367,10 @@ function roundRecords(files: readonly RoundFileRecord[]): RoundRecord[] {
           stem: file.stem,
           workClass: file.workClass,
           data,
-          disprovedFindingNumbers: attachedNumbers(file.data.disproved, data),
+          counts: {
+            "A/B": findingCounts(data.findings, rulings, "A/B"),
+            C: findingCounts(data.findings, rulings, "C"),
+          },
         }),
       ),
     )
@@ -449,16 +419,39 @@ function roundRuler(round: RoundData): ModelIdentity | null {
   return entry === undefined ? null : selectionIdentity(entry.assistant, entry)
 }
 
-type DisprovedSide = NonNullable<
-  Extract<DisprovedFinding, { readonly target: string }>["side"]
->
+type LaterRuling = {
+  readonly outcome: RoundFinding["outcome"] | "disproved"
+  readonly finalTier: RoundFinding["tier"] | null
+  readonly proof: WinnerProof
+}
 
-/**
- * Which verdict a later ruling proves right. A disproved finding proves its
- * drops right, and a disproved vet verdict proves its accepts right.
- */
-function disprovalProves(side: DisprovedSide, verdict: VetVerdict): boolean {
-  return verdict === (side === "finding" ? "drop" : "accept")
+function resolveLaterRuling(
+  entry: Extract<DisprovedFinding, { target: string }>,
+  finding: RoundFinding,
+): LaterRuling {
+  const { reviews, tier } = finding
+  if ("revision" in entry) {
+    const revision = findingRevision(finding, entry.revision)
+    return {
+      outcome: "kept",
+      finalTier: revision.revisedTier ?? tier,
+      proof: winnerProof([revision.vet], reviews),
+    }
+  }
+  if (entry.side === "vet")
+    return {
+      outcome: "kept",
+      finalTier: tier,
+      proof: winnerProof("report", reviews),
+    }
+  const drops = reviews
+    .filter((review) => review.verdict === "drop")
+    .map((review) => review.vet)
+  return {
+    outcome: finding.outcome === "kept" ? "disproved" : finding.outcome,
+    finalTier: null,
+    proof: winnerProof(drops.length === 0 ? "neither" : drops, reviews),
+  }
 }
 
 /**
@@ -466,66 +459,68 @@ function disprovalProves(side: DisprovedSide, verdict: VetVerdict): boolean {
  * without a verdict took no part. A vetter that sent a disproved finding to
  * the user took no side either, so it is on neither.
  */
-function disprovedSides(
-  side: DisprovedSide,
+function laterRulingParties(
+  later: LaterRuling,
   auditor: ModelIdentity,
-  vets: readonly RoundVet[],
-  ruling: RoundFinding["ruling"],
-  ruler: ModelIdentity | null,
+  round: RoundData,
+  finding: RoundFinding,
 ): Pick<DisprovedBase, "claim" | "wrong" | "right"> {
   const wrong: RulingParty[] = []
   const right: RulingParty[] = []
-  ;(side === "finding" ? wrong : right).push({
+  ;(later.proof.auditor ? right : wrong).push({
     role: "auditor",
     identity: auditor,
     detail: null,
   })
-  const rightTags = new Set<string>()
+  const vets = judgedVets(round, finding)
   for (const vet of vets) {
-    if (vet.verdict === null) continue
-    const proved = disprovalProves(side, vet.verdict)
-    if (proved) rightTags.add(vet.tag)
-    else if (side === "finding" && vet.verdict === "needs-user-ruling") continue
+    if (later.outcome !== "kept" && vet.verdict === "needs-user-ruling")
+      continue
+    const proved = later.proof.proves(vet.review)
     ;(proved ? right : wrong).push({
       role: "vetter",
       identity: vet.identity,
       detail: vet.verdict,
     })
   }
-  if (ruling?.namedBy !== "ruler")
-    return { claim: side === "vet" ? "vetter" : "auditor", wrong, right }
+  const claim = later.proof.auditor ? "vetter" : "auditor"
+  const ruling = finding.ruling
+  if (ruling?.namedBy !== "ruler") return { claim, wrong, right }
   const winner = ruling.winner
+  const original = winnerProof(winner, finding.reviews)
   const rulerRight =
-    winner === "report"
-      ? side === "vet"
-      : winner === "neither"
-        ? side === "finding" && rightTags.size === 0
-        : winner.every((tag) => rightTags.has(tag))
+    original.auditor === later.proof.auditor &&
+    vets.every(
+      ({ review }) => original.proves(review) === later.proof.proves(review),
+    )
   const named =
     typeof winner === "string"
       ? winner
       : winner
           .map((tag) => {
-            const vet = vets.find((candidate) => candidate.tag === tag)
-            return vet === undefined ? tag : modelText(vet.identity)
+            const vet = round.phases.find(
+              (phase) => phase.phase === "vet" && phase.tag === tag,
+            )
+            return vet === undefined
+              ? tag
+              : modelText(selectionIdentity(vet.assistant, vet))
           })
           .join(", ")
   ;(rulerRight ? right : wrong).push({
     role: "ruler",
-    identity: ruler,
+    identity: roundRuler(round),
     detail: `named ${named}`,
   })
   return {
-    claim: rulerRight ? (side === "vet" ? "vetter" : "auditor") : "ruler",
+    claim: rulerRight ? claim : "ruler",
     wrong,
     right,
   }
 }
 
-function disprovedEvidence(
-  files: readonly RoundFileRecord[],
-): DisprovedEvidence[] {
-  return files
+function readLaterRulings(files: readonly RoundFileRecord[]) {
+  const byFinding = new Map<RoundFinding, LaterRuling>()
+  const entries = files
     .flatMap((file) =>
       file.data.disproved.map((entry): DisprovedEvidence => {
         if ("auditor" in entry) {
@@ -537,7 +532,9 @@ function disprovedEvidence(
             date: entry.date,
             reason: entry.reason,
             auditor,
-            ...disprovedSides("finding", auditor, [], undefined, null),
+            claim: "auditor",
+            wrong: [{ role: "auditor", identity: auditor, detail: null }],
+            right: [],
           }
         }
         const round = (file.data.rounds as readonly RoundData[]).find(
@@ -556,6 +553,8 @@ function disprovedEvidence(
           round.auditor.assistant,
           round.auditor,
         )
+        const later = resolveLaterRuling(entry, finding)
+        byFinding.set(finding, later)
         return {
           kind: "attached",
           stem: file.stem,
@@ -563,13 +562,7 @@ function disprovedEvidence(
           date: entry.date,
           reason: entry.reason,
           auditor,
-          ...disprovedSides(
-            entry.side ?? "finding",
-            auditor,
-            roundVets(round, finding),
-            finding.ruling,
-            roundRuler(round),
-          ),
+          ...laterRulingParties(later, auditor, round, finding),
           target: entry.target,
           round: entry.round,
           finding: entry.finding,
@@ -584,6 +577,7 @@ function disprovedEvidence(
         second.date.localeCompare(first.date) ||
         first.stem.localeCompare(second.stem),
     )
+  return { byFinding, entries }
 }
 
 type LatestRuling = {
@@ -591,7 +585,7 @@ type LatestRuling = {
   readonly judge: RulingJudge
 }
 
-/** Who the round's own winner proved right. */
+/** Who the winner of a round or a later ruling proved right. */
 type WinnerProof = {
   /** Whether the finding stood as written, which proves the auditor right. */
   readonly auditor: boolean
@@ -660,27 +654,15 @@ function rulingWinners(
 
 /**
  * Which verdicts the latest ruling on a finding proved right and who named it,
- * or null without one. A later disproval is the user's and outranks the
- * round's own ruling. A disproved finding proves its drops right, and a
- * disproved vet verdict proves its accepts right. Without a disproval the
- * round's own winner decides, under `winnerProof`.
+ * or null without one. The user's later ruling takes precedence.
  */
 function latestRuling(
   finding: RoundFinding,
-  disproved: RoundRecord["disprovedFindingNumbers"],
+  later: LaterRuling | undefined,
   ruler: ModelIdentity | null,
 ): LatestRuling | null {
   const user = { kind: "user" } as const
-  if (finding.number !== null && disproved.finding.has(finding.number))
-    return {
-      proves: (review) => disprovalProves("finding", review.verdict),
-      judge: user,
-    }
-  if (finding.number !== null && disproved.vet.has(finding.number))
-    return {
-      proves: (review) => disprovalProves("vet", review.verdict),
-      judge: user,
-    }
+  if (later !== undefined) return { proves: later.proof.proves, judge: user }
   if (finding.ruling === undefined) return null
   return {
     proves: winnerProof(finding.ruling.winner, finding.reviews).proves,
@@ -735,7 +717,10 @@ function vetterTimes(
  * One sample per pair of panel vetters and finding they both judged. A round
  * of one vetter has no pair, so it supplies none.
  */
-function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
+function vetPairSamples(
+  records: readonly RoundRecord[],
+  rulings: ReadonlyMap<RoundFinding, LaterRuling>,
+): VetPairSample[] {
   return records.flatMap((record) => {
     const auditor = selectionIdentity(
       record.data.auditor.assistant,
@@ -744,11 +729,7 @@ function vetPairSamples(records: readonly RoundRecord[]): VetPairSample[] {
     const ruler = roundRuler(record.data)
     return record.data.findings.flatMap((finding) => {
       const grade = highestGrade(finding)
-      const ruling = latestRuling(
-        finding,
-        record.disprovedFindingNumbers,
-        ruler,
-      )
+      const ruling = latestRuling(finding, rulings.get(finding), ruler)
       const judged = judgedVets(record.data, finding)
       return judged.flatMap((left, index) =>
         judged.slice(index + 1).map((right): VetPairSample => {
@@ -853,10 +834,6 @@ function auditorRows(
     const owned = record.data.phases.filter(
       (phase) => phase.phase === "audit" || phase.phase === "rebut",
     )
-    const counts = rangeCounts(
-      record.data.findings,
-      record.disprovedFindingNumbers,
-    )
     const planClass = `${record.workClass}:${record.stem}`
     const first = !firstCompleteRounds.has(planClass)
     firstCompleteRounds.add(planClass)
@@ -867,7 +844,7 @@ function auditorRows(
       workClass: record.workClass,
       minutes:
         owned.reduce((total, phase) => total + phase.milliseconds, 0) / 60_000,
-      counts,
+      counts: record.counts,
     })
   }
   for (const entry of disproved)
@@ -1218,16 +1195,7 @@ async function coderRows(
         modelRoundComplete(round.data),
       )
       const kept = (range: TierRange) =>
-        complete.reduce(
-          (total, round) =>
-            total +
-            findingCounts(
-              round.data.findings,
-              round.disprovedFindingNumbers,
-              range,
-            ).kept,
-          0,
-        )
+        complete.reduce((total, round) => total + round.counts[range].kept, 0)
       const fixMinutes = plan.rounds
         .flatMap((round) => round.data.phases)
         .filter((phase) => phase.phase === "fix")
@@ -1248,16 +1216,16 @@ export async function readModelEvidence(
   context: ExecutionContext,
 ): Promise<ModelEvidence> {
   const files = await readRoundFiles(context)
-  const records = roundRecords(files)
-  const disproved = disprovedEvidence(files)
+  const { byFinding, entries } = readLaterRulings(files)
+  const records = roundRecords(files, byFinding)
   const winners = ruledFindings(records)
   return {
-    auditors: auditorRows(records, disproved),
+    auditors: auditorRows(records, entries),
     coders: await coderRows(context, records),
-    vetPairs: vetPairSamples(records),
+    vetPairs: vetPairSamples(records, byFinding),
     vetterTimes: vetterTimes(records),
     rulings: winners.user,
     rulerWinners: winners.ruler,
-    disproved,
+    disproved: entries,
   }
 }

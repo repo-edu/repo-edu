@@ -748,7 +748,7 @@ test("all complete rounds count, a model without shared plans moves to the secon
     /Fewer than 5 shared plans:\n\n\| Model [^\n]+\n\| --- [^\n]+\n\| audit-thin low \| 0 \| 0 in 0 \| — \| 0 in 0 \| — \| 1\.0 \| 0% \|/,
   )
   assert.doesNotMatch(report, /finds (more|fewer) than|more shared plan/)
-  assert.match(report, /## Disproved after the round/)
+  assert.match(report, /## Later rulings/)
   assert.match(report, /#4 later disproved claim/)
   assert.match(report, /vetter vet-model low \(accept\)/)
   assert.match(report, /The retained claim did not hold\./)
@@ -1020,7 +1020,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
 
   const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
-    report.split("## Disproved after the round\n\n")[1],
+    report.split("## Later rulings\n\n")[1],
     [
       "### Planning auditor findings",
       "",
@@ -1050,7 +1050,7 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
   )
 })
 
-test("a read-out with only vet rulings prints only the vetter verdicts table", async (t) => {
+test("restoring a unanimously accepted finding leaves the Wrong column empty", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
     f.root,
@@ -1074,20 +1074,14 @@ test("a read-out with only vet rulings prints only the vetter verdicts table", a
         phase("vet", "codex", "vet-model", 60_000),
       ],
       [{ repository: "repo-edu", sha: audit }],
-      [
-        {
-          ...finding("dropped claim"),
-          reviews: [{ vet: fixtureVetTag, verdict: "drop", answer: "agree" }],
-          outcome: "dropped",
-        },
-      ],
+      [finding("accepted claim")],
     ),
     phase: "detailing",
     settling: "",
   })
   writeDisprovedFinding(path, {
     date: "2026-11-01",
-    reason: "The dropped finding was right.",
+    reason: "The finding stood as written.",
     target: "audit-alpha-plan-audit",
     round: 1,
     finding: 1,
@@ -1096,15 +1090,15 @@ test("a read-out with only vet rulings prints only the vetter verdicts table", a
 
   const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
-    report.split("## Disproved after the round\n\n")[1],
+    report.split("## Later rulings\n\n")[1],
     [
       "### Planning vetter verdicts",
       "",
       "| # | Date | Plan and round | Finding | Tier | Wrong | Right | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
-      "| 1 | 2026-11-01 | evidence; audit-alpha-plan-audit round 1 | #1 dropped claim | B | vetter vet-model low (drop) | auditor audit-alpha low | The dropped finding was right. |",
+      "| 1 | 2026-11-01 | evidence; audit-alpha-plan-audit round 1 | #1 accepted claim | B | — | auditor audit-alpha low; vetter vet-model low (accept) | The finding stood as written. |",
       "",
-      "1. The dropped finding was right.",
+      "1. The finding stood as written.",
       "",
     ].join("\n"),
   )
@@ -1220,7 +1214,7 @@ test("a ruling against a ruler's winner prints in the ruler table of its work cl
 
   const report = await modelsReport(f.runtime, testSettings)
   assert.equal(
-    report.split("## Disproved after the round\n\n")[1],
+    report.split("## Later rulings\n\n")[1],
     [
       "### Implementation auditor findings",
       "",
@@ -1955,7 +1949,7 @@ test("ruling winners and ruler winners each list planning and implementation fin
   assert.equal(
     report
       .split("## Planning ruling winners\n\n")[1]
-      .split("\n\n## Disproved after the round")[0],
+      .split("\n\n## Later rulings")[0],
     [
       "| # | Plan and round | Finding | Tier | Auditor | Vetters | Winners | Reason |",
       "| ---: | --- | --- | --- | --- | --- | --- | --- |",
@@ -2523,6 +2517,92 @@ test("vet rulings restore dropped and downgraded findings for auditor and coder 
   assert.match(report, /The implementation claim was wrong\./)
 })
 
+test("one winning revision supplies the grade for auditor and coder counts and the winner for a vetter pair", async (t) => {
+  const f = await modelFixture(t)
+  const stem = "revised"
+  const target = "revised-impl-audit-01..01"
+  await commit(
+    f.root,
+    "revised/impl-1 obl feat(audit-round): fixture step",
+    "coder-alpha low\nImplementation took 1 min.",
+  )
+  const audit = await commit(
+    f.root,
+    "revised/impl-audit-1 obl clean: fixture audit",
+    "coder-alpha low",
+  )
+  await commit(
+    f.planRoot,
+    "revised/closed obl: close the fixture plan",
+    "coder-alpha low",
+  )
+  const archive = await archivePlan(f.planRoot, stem, ["repo-edu"])
+  const path = join(archive, "revised-impl-rounds.json")
+  const { alpha, beta } = panelVets
+  writeRoundData(path, {
+    ...round(
+      target,
+      1,
+      "2026-11-01T10:00:00.000Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      panelSettings([alpha, beta]),
+      [alpha, beta],
+      [{ repository: "repo-edu", sha: audit }],
+      [
+        {
+          ...ruledFinding(1, "two revisions", "B", [
+            review("atl", "revise", { revisedTier: "C", answer: "contest" }),
+            review("obl", "revise"),
+          ]),
+          finalTier: "D",
+        },
+      ],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+  const entry = {
+    target,
+    round: 1,
+    finding: 1,
+    date: "2026-11-03",
+    reason: "The named revision was right.",
+  }
+  for (const [revision, kept, ending] of [
+    ["atl", 0, "first"],
+    ["obl", 1, "second"],
+  ] as const) {
+    writeDisprovedFinding(path, { ...entry, revision })
+    const evidence = await readModelEvidence(f.runtime)
+    const auditor = evidence.auditors.get(
+      JSON.stringify(["audit-alpha", "low"]),
+    )
+    assert.deepEqual(auditor?.samples[0]?.counts, {
+      "A/B": { kept, downgraded: 1 - kept, dropped: 0, disproved: 0 },
+      C: { kept: 0, downgraded: 0, dropped: 0, disproved: 0 },
+    })
+    const coder = evidence.coders.get(
+      modelKey({ assistant: "codex", model: "coder-alpha", effort: "low" }),
+    )
+    assert.deepEqual(coder?.samples[0]?.kept, { "A/B": kept, C: 0 })
+    assert.equal(evidence.vetPairs.length, 1)
+    assert.deepEqual(evidence.vetPairs[0]?.ruling, {
+      judge: { kind: "user" },
+      ending,
+    })
+    const row = evidence.disproved[0]
+    assert.equal(row?.claim, "auditor")
+    assert.deepEqual(
+      row?.right.map((party) => party.identity?.model),
+      [revision === "atl" ? "vet-alpha" : "vet-beta"],
+    )
+  }
+})
+
 test("an active plan remains excluded without a step count", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
@@ -2836,7 +2916,7 @@ test("models groups every recorded model, counts rebuttal cost, admits settings 
   assert.doesNotMatch(visible[0].text, /## Planning rounds by plan/)
   assert.doesNotMatch(visible[0].text, /## Implementation rounds by plan/)
   assert.doesNotMatch(visible[0].text, /mixed:/)
-  assert.match(visible[0].text, /## Disproved after the round/)
+  assert.match(visible[0].text, /## Later rulings\n\nNo later rulings\./)
   assert.ok(visible[0].text.endsWith("\n"))
   assert.ok(!visible[0].text.endsWith("\n\n"))
   visible.length = 0

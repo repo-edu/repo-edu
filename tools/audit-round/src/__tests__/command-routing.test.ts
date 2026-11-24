@@ -914,8 +914,35 @@ test("disprove appends an attached ruling to active data without committing", as
   )
   assert.equal(
     f.visible.at(-1),
-    `Recorded the disproved finding in ${path}. Loop-close will commit it with the archive move.`,
+    `Recorded the later ruling in ${path}. Loop-close will commit it with the archive move.`,
   )
+  assert.equal(
+    await runCommand(
+      [
+        "disprove",
+        "example",
+        "example-impl-audit-01..01",
+        "1",
+        "1",
+        "--vet",
+        "The finding stood as written.",
+      ],
+      f.runtime,
+      { ...f.options, now: () => Date.UTC(2026, 10, 6, 12) },
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const restored = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in restored)
+  assert.deepEqual(restored.disproved, [
+    {
+      ...data.disproved[0],
+      date: "2026-11-06",
+      reason: "The finding stood as written.",
+      side: "vet",
+    },
+  ])
 })
 
 test("disprove --vet commits only an archived attached ruling and names its side", async (t) => {
@@ -976,80 +1003,43 @@ test("disprove --vet commits only an archived attached ruling and names its side
   )
 })
 
-test("disprove --vet accepts any non-Accept verdict of the panel and refuses a panel that accepted", async (t) => {
+test("disprove --revision stores only a revision on the named finding and uses the plain archive subject", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
-  await lifecyclePlan(f, "settled")
-  const path = join(f.roundRoot, "example-impl-rounds.json")
+  const archive = await archivedPlan(f)
+  const path = join(archive, "example-impl-rounds.json")
   const target = "example-impl-audit-01..01"
-  for (const [roundNumber, verdicts] of [
-    [1, ["accept"]],
-    [2, ["revise"]],
-    [3, ["drop"]],
-    [4, ["needs-user-ruling"]],
-    [5, ["accept", "accept"]],
-    [6, ["accept", "drop"]],
-  ] as const)
-    writeRoundData(path, disproveRound(target, roundNumber, verdicts))
-
-  for (const roundNumber of [1, 5]) {
-    assert.equal(
-      await runCommand(
-        [
-          "disprove",
-          "example",
-          target,
-          String(roundNumber),
-          "1",
-          "--vet",
-          "Reason.",
-        ],
-        f.runtime,
-        f.options,
-      ),
-      1,
+  writeRoundData(path, disproveRound(target, 1, ["accept", "revise"]))
+  const reason = "The smaller revision was enough."
+  const rule = (tag: string) =>
+    runCommand(
+      ["disprove", "example", target, "1", "1", "--revision", tag, reason],
+      f.runtime,
+      { ...f.options, now: () => Date.UTC(2026, 10, 5, 12) },
     )
-    assert.match(f.errors.at(-1) ?? "", /has no non-Accept vet verdict/)
-  }
-
-  for (const roundNumber of [2, 3, 4, 6])
-    assert.equal(
-      await runCommand(
-        [
-          "disprove",
-          "example",
-          target,
-          String(roundNumber),
-          "1",
-          "--vet",
-          `Vet ruling ${roundNumber}.`,
-        ],
-        f.runtime,
-        f.options,
-      ),
-      0,
-      f.errors.join("\n"),
-    )
+  assert.equal(await rule("atx"), 0, f.errors.join("\n"))
 
   assert.equal(
-    f.visible.at(-1),
-    `Recorded the disproved vet verdict in ${path}. Loop-close will commit it with the archive move.`,
+    (
+      await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
+    ).stdout.trim(),
+    `example/disprove: ${target} round 1 finding 1\n\n${reason}`,
   )
-
+  for (const tag of ["abx", "otx"]) {
+    assert.equal(await rule(tag), 1)
+    assert.match(f.errors.at(-1) ?? "", /gave no revision on finding 1/)
+  }
   const data = parseRoundDataFile(path, await readFile(path, "utf8"))
   assert.ok("disproved" in data)
-  assert.deepEqual(
-    data.disproved.map((entry) =>
-      "target" in entry
-        ? { round: entry.round, finding: entry.finding, side: entry.side }
-        : entry,
-    ),
-    [
-      { round: 2, finding: 1, side: "vet" },
-      { round: 3, finding: 1, side: "vet" },
-      { round: 4, finding: 1, side: "vet" },
-      { round: 6, finding: 1, side: "vet" },
-    ],
-  )
+  assert.deepEqual(data.disproved, [
+    {
+      target,
+      round: 1,
+      finding: 1,
+      date: "2026-11-05",
+      reason,
+      revision: "atx",
+    },
+  ])
 })
 
 test("disprove creates and commits detached archived data", async (t) => {
@@ -1134,7 +1124,28 @@ test("disprove prints an action refusal with the runner prefix and a parser refu
     ),
     2,
   )
-  assert.match(f.errors.at(-1) ?? "", /--vet cannot be used with --by/)
+  assert.match(f.errors.at(-1) ?? "", /cannot be used with/)
+  for (const flags of [["--vet"], ["--by", "gpt-5.6-sol xhigh"]]) {
+    assert.equal(
+      await runCommand(
+        [
+          "disprove",
+          "example",
+          "example-plan-audit",
+          "1",
+          "1",
+          "--revision",
+          "abx",
+          ...flags,
+          "Reason.",
+        ],
+        f.runtime,
+        f.options,
+      ),
+      2,
+    )
+    assert.match(f.errors.at(-1) ?? "", /cannot be used with/)
+  }
 })
 
 for (const [command, phase, pattern] of [

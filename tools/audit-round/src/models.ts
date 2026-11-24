@@ -939,12 +939,8 @@ const disprovedClaims = [
  * table shows a reason's first sentence and its numbered list the full reason.
  */
 function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
-  const lines = ["## Disproved after the round", ""]
-  if (entries.length === 0)
-    return [
-      ...lines,
-      "No findings or vet verdicts were disproved after a round.",
-    ]
+  const lines = ["## Later rulings", ""]
+  if (entries.length === 0) return [...lines, "No later rulings."]
   let numbered = 0
   for (const [claim, title] of disprovedClaims)
     for (const workClass of ["planning", "implementation"] as const) {
@@ -1050,7 +1046,7 @@ export async function modelsReport(
     ...rangeSections("Implementation vetter pairs", (range) =>
       vetPairSection(evidence.vetPairs, "implementation", range),
     ),
-    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel. The highest tier given by the audit report or any vetter determines the section. Ruled splits counts the shared findings where the two vetters split and a winner is stored. The user names the winner on an A or B finding and the ruler on a C finding. The four Split columns show how those ruled splits ended. A winner that names vetters proves them right, and with them every vetter that gave the same accept, drop or referral. A later disproved finding proves right the vetters that dropped it, and a later vet ruling proves right the vetters that accepted it.",
+    "A vetter is a model and an effort. Each row counts the findings that both vetters judged on one panel. The highest tier given by the audit report or any vetter determines the section. Ruled splits counts the shared findings where the two vetters split and a winner is stored. The user names the winner on an A or B finding and the ruler on a C finding. The four Split columns show how those ruled splits ended. A winner that names vetters proves them right, and with them every vetter that gave the same accept, drop or referral. A later ruling takes precedence. A wrong finding credits the vetters who dropped it. A finding that stood as written credits the vetters who accepted it. A winning revision credits only its vetter.",
     "",
     ...rangeSections("Planning vetters by auditor", (range) =>
       auditorVetterSection(evidence.vetPairs, "planning", range),

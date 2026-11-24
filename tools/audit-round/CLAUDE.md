@@ -368,10 +368,14 @@ tier and the rebuttal's answer to it.
   vetter tags, with its reason and who named it, the user or the ruler. A user's winner also
   records whether the user's answer added a choice to it, but never the choice itself.
 
-**A disproved entry** records its date and full reason. It then records either its target, round
-and finding numbers with the side the ruling disproves, or the manually named auditor model and
-effort. An attached entry names whether the finding or its non-Accept vet verdicts were wrong. An
-attached entry without that side predates the field and disproves the finding.
+**A later ruling** records its date and full reason in the `disproved` list. A detached entry
+names the auditor's model and effort. An attached entry names its target, round and finding.
+
+| Attached entry | Meaning |
+| --- | --- |
+| `side: "finding"` or neither field | The finding was wrong. |
+| `side: "vet"` | The finding stood as written. |
+| `revision: "<tag>"` in place of `side` | The named vetter's revision was right. |
 
 **Writes.** `RoundOutput` writes the settled findings as `in-progress` before later phases, then
 replaces the entry with its final state. The writer checks the whole object and publishes a
@@ -825,6 +829,7 @@ pnpm audit-round models --all
 pnpm audit-round replay
 pnpm audit-round disprove example example-plan-audit 2 1 "The claim did not hold."
 pnpm audit-round disprove example example-plan-audit 2 1 --vet "The vet verdict did not hold."
+pnpm audit-round disprove example example-plan-audit 2 1 --revision abx "The smaller correction was enough."
 pnpm audit-round disprove example example-plan-audit --by "gpt-5.6-sol xhigh" "The finding predates the data."
 pnpm audit-round plan
 pnpm audit-round settle example
@@ -1155,10 +1160,10 @@ data. It writes through the shared atomic writer, starts no assistant and reads 
 
 - `disprove <stem> <target> <round> <finding> <reason>` resolves a finding in the plan's checked
   round data and writes the user's date and full reason. A rerun on the same target, round and
-  finding replaces that entry, including a ruling in the other direction.
-- Adding `--vet` before the reason records that the non-Accept vet verdicts were wrong and the
-  finding stood instead. It requires at least one non-Accept vet verdict on the attached finding,
-  so it is refused for a finding every vetter accepted. It is also refused beside `--by`.
+  finding replaces that entry. Without an option the ruling says the finding was wrong.
+- Adding `--vet` records that the finding stood as written, even if every vetter accepted it.
+- Adding `--revision <tag>` credits the named vetter's revision. The command checks that the
+  vetter revised this finding. Only one of `--revision`, `--vet` and `--by` may be used.
 - `disprove <stem> <target> --by "<model> <effort>" <reason>` records a finding that retained
   round data does not hold, under the manually named auditor. It creates the round-kind file when
   it does not exist. Each such ruling appends, because two unrecorded findings by one auditor may
@@ -1166,7 +1171,8 @@ data. It writes through the shared atomic writer, starts no assistant and reads 
 
 An active plan's file in the round folder stays there until loop-close moves it. An archived
 plan's file is committed alone, as the tag-free `<stem>/disprove:` form with the reason as its
-body. An attached vet ruling names `vet finding` in that subject.
+body. A finding that stood as written uses `vet finding` in that subject. Both other attached
+rulings use `finding`.
 
 ### mark
 

@@ -680,7 +680,7 @@ test("round data stores attached and detached disproved findings beside rounds",
   ])
 })
 
-test("a second ruling on the same finding replaces the first across sides while detached rulings append", async (t) => {
+test("a later ruling replaces any earlier statement on the same finding while detached rulings append", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.roundRoot, "example-impl-rounds.json")
   writeRoundData(path, entry("example-impl-audit-01..01", 1))
@@ -709,6 +709,16 @@ test("a second ruling on the same finding replaces the first across sides while 
     reason: "A second finding the retained data never held.",
     auditor: { model: "gpt-5.6-sol", effort: "xhigh" },
   })
+  const revision = {
+    date: "2026-11-07",
+    reason: "The vetter's revision was right.",
+    target: "example-impl-audit-01..01",
+    round: 1,
+    finding: 2,
+    revision: "abx",
+  }
+  writeDisprovedFinding(path, revision)
+  assert.throws(() => writeDisprovedFinding(path, { ...revision, side: "vet" }))
 
   const file = parseRoundDataFile(path, await readFile(path, "utf8"))
   assert.ok("disproved" in file)
@@ -720,17 +730,10 @@ test("a second ruling on the same finding replaces the first across sides while 
     },
     {
       date: "2026-11-06",
-      reason: "The vet verdict was wrong instead.",
-      target: "example-impl-audit-01..01",
-      round: 1,
-      finding: 2,
-      side: "vet",
-    },
-    {
-      date: "2026-11-06",
       reason: "A second finding the retained data never held.",
       auditor: { model: "gpt-5.6-sol", effort: "xhigh" },
     },
+    revision,
   ])
 })
 
