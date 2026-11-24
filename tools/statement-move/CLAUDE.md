@@ -156,9 +156,12 @@ shape they repair:
    present when the target holds the same import: the same form, the same
    module and the same local name. Each name counts on its own. Without the
    repair the engine writes the import a second time and the move adds
-   diagnostic 2300. In every other case the engine writes the moved code's
-   own import, so a target that uses the name for the other form of import
-   gets diagnostic 2300 and the move is refused.
+   diagnostic 2300. When the target holds the name in the other form of
+   import, the engine writes the moved code's own import. The move then adds
+   diagnostic 2300 and is refused. JSX in a moved statement still brings its
+   own import of the name that JSX needs, such as `React`. A target that
+   already imports that name then gets diagnostic 2300, and the move is
+   refused.
 3. A loop's `let` or `const` and a `catch` name belong to their statement, not
    to the file. Without the repair the engine imports such a name into the
    target and exports it from the source. The move then adds diagnostics 2305
