@@ -143,139 +143,53 @@ command's own check and the list command's `clean` reply let it through.
 
 pnpm applies `patches/typescript-6.0.3.patch` to the installed
 `typescript@6.0.3` at every install, because `pnpm-workspace.yaml` lists it
-under `patchedDependencies`. The patch changes eight functions of
-**Move to file** in `lib/typescript.js`: `getRefactorEditsToMoveToFile`,
-`doChange3`, `forEachReference`, `getUsageInfo`,
-`forEachTopLevelDeclaration`, `isTopLevelDeclaration`,
-`sourceFileOfTopLevelDeclaration` and `getExistingLocals`. It also adds the
-helpers `getWholeImport` and `getTakenExportName`. `doChange3` is the
-bundle's name for the `doChange` of `moveToFile.ts`, so its number can differ
-in another version. The functions repair three shapes:
+under `patchedDependencies`. The patch changes four functions of
+**Move to file** in `lib/typescript.js`: `forEachReference`,
+`getExistingLocals`, `getUsageInfo` and `isTopLevelDeclaration`. It also adds
+the helper `getWholeImport`. The published engine refuses or crashes on each
+shape they repair:
 
 1. A name that the source still uses only as a short-form property, as in
    `{ cacheRoot }`, counts as a use. The source then gets an import of the
    moved declaration. Without the repair the move adds diagnostic 18004.
-
 2. The moved code's default import or `import * as name` import counts as
-   present when its local name, looked up in the target, names the same
-   value. An import of the same form from the same module names it. For a
-   default import, two more bindings name it under that name: an import of
-   the same default export, such as `import { default as label }`, and the
-   target's own `export default function label`. A variable that the
-   target's `export default label` copied does not count. That statement
-   took the variable's value when it ran, and the variable can change later.
-   Each name counts on its own. Without the repair the engine writes the
-   import a second time and the move adds diagnostic 2300.
+   present when the target holds the same import: the same form, the same
+   module and the same local name. Each name counts on its own. Without the
+   repair the engine writes the import a second time and the move adds
+   diagnostic 2300. In every other case the engine writes the moved code's
+   own import, so a target that uses the name for the other form of import
+   gets diagnostic 2300 and the move is refused.
+3. A loop's `let` or `const` and a `catch` name belong to their statement, not
+   to the file. Without the repair the engine imports such a name into the
+   target and exports it from the source. The move then adds diagnostics 2305
+   and 1030, or the engine stops with
+   `Debug Failure. False expression: Changes overlap`. A `var` in a loop's
+   head stays a name of the file, as in the published engine.
 
-   A wildcard import, one typed by a wildcard declaration such as
-   `declare module "*.wasm?url"`, never counts as present. One wildcard
-   symbol stands for many files, so it cannot show that two imports read the
-   same file.
+The tool's promise is the one of **What the command does**: it applies only
+the import-kind fixes and writes nothing when a move adds a TypeScript 6
+diagnostic. A move can pass that check and still read a different value, on
+the published engine and on the patched one. The patch leaves every fault
+outside the three shapes to TypeScript. Two moves end differently on the
+patched engine, and it accepts both without a diagnostic:
 
-   In every other case the engine writes the moved code's own import:
-   1. When the target already uses the name, the import adds diagnostic 2300
-      or 2440 and the move is refused, so the moved code never reads a
-      different value. The target can use the name for the other form of
-      import, an unrelated `const` or a wildcard `import * as` import. It can
-      also use it for a default import of another module, even when that
-      module forwards the same default export, as
-      `export { default } from "./value.js"` does.
-   2. When the target does not use the name, the import is valid, with one
-      exception. For an `import * as` import typed by a wildcard declaration,
-      the engine writes the declaration's pattern as the path. For example,
-      `"./first.wasm?url"` in the source becomes `"*.wasm?url"` in the
-      target. TypeScript accepts that path, so the command lets it through.
-      After such a move, write the asset's own path back by hand, relative to
-      the target file.
+1. A loop declares a `let` or `const` in its head and a `var` in its body,
+   and it moves away from a reader of that `var`. The published engine
+   refuses the move only because it takes the head's name for a name of the
+   file. When a global of the same name is in scope, the reader then reads
+   that global.
+2. Two files import different assets under one name through one wildcard
+   declaration, such as `declare module "*.wasm?url"`, and a reader moves
+   from one to the other. The published engine stops with a `Debug Failure`.
+   The patched engine counts the target's import as present, so the reader
+   then reads the target's asset.
 
-   In two cases the engine can stop with a `Debug Failure` before it returns
-   any edit. When it stops, the command writes nothing:
-   1. The engine stops with `Expected symbol to be a module` when it must
-      write a default import and the module's default export is a
-      declaration that the module does not export under its own name.
-      `export default count` and `export { count as default }` make such a
-      default export for a local `count`. So does the URL string of
-      `declare module "*.wasm?url" { const url: string; export default url }`.
-      The engine therefore stops on a target whose `label` is the variable
-      that its own `export default label` copied. It also stops on a
-      wildcard import of the URL string, even when the target imports the
-      same file under the same name.
-   2. The engine stops when it must put two default names, or two
-      `import * as` names, for one module into the same import. This holds
-      whether it creates that import or extends one the target has. An empty
-      target can accept a value default and an `import type` default for one
-      export, because the engine writes them as separate imports. A target
-      may already hold a named value import from that module, such as
-      `import { x } from "widget"`. The engine then puts both default names
-      into that import and stops.
-
-   Carry a move that stops the engine by hand.
-
-3. A loop name declared with `const` or `let`, and a `catch` name, belong to
-   their statement and not to the file. Without the repair the engine imports
-   such a name into the target and exports it from the source. The move then
-   adds diagnostics 2305 and 1030, or the engine stops with
-   `Debug Failure. False expression: Changes overlap`. A `var` belongs to the
-   whole file wherever a top-level statement declares it outside a function,
-   a class or a namespace. It can sit in a loop's head, in a loop's body or
-   in another block, such as an `if` branch. Each name that a destructuring
-   pattern declares in such a `var` or in a top-level variable statement
-   belongs to the file too, as in `for (var { origin } of items)` or
-   `const { origin } = value`. A move must keep the readers of such a name
-   connected to it:
-   1. A reader that moves away imports the name from the source. The engine
-      adds `export` to a variable statement, but it cannot export a `var`
-      inside another statement. Without an explicit `export { name }` that
-      move is refused.
-
-   2. When the statement moves, a reader that stays imports the `var` from
-      the target. The target must then export that variable. The statement
-      can move together with its `export { name }`. Or the target already
-      exports the same variable, as with
-      `import { origin } from "./source.js"` and `export { origin }`.
-      Otherwise the move is refused, because the engine writes no export for
-      a `var` inside a statement.
-
-   3. Two declarations of one `var` name one variable, so a move must not
-      divide them. The source then imports the moved name beside the
-      declaration it keeps, and the move adds a diagnostic and is refused.
-      The same holds for any name with declarations on both sides, such as a
-      `namespace` declared twice.
-
-   4. A reader reaches the name through the other file's export of that
-      name, so that export must be the variable itself. When a file already
-      exports the name as another value, the engine refuses the move before
-      it returns any edit. The other value can come from
-      `export { other as origin }` or from `export *`. The check covers two
-      kinds of name:
-      1. every name that one file will import from the other
-      2. every name that the move newly exports from either file, such as
-         the other names of a statement that gets `export`
-
-      A new export of a name that the file already exports directly adds a
-      diagnostic anyway. So for a new export, only a name that comes through
-      `export *` needs the check. The check holds for any name, not only a
-      file's `var`. A refused single move ends with an error such as this
-      one:
-
-      ```text
-      the language service declined the move: "origin" names another value exported from source.ts
-      ```
-
-      The list command answers `refused` for that entry. Neither writes a
-      file.
-
-   Without these rules a reader cut off from such a name could read a global
-   of the same name, such as the DOM's `origin`, or another value exported
-   under that name, with no new diagnostic.
-
-The tool's own rules do not change: it applies only the import-kind fixes and
-refuses every move that adds a diagnostic. The fixtures in
-`src/__tests__/engine-repairs.test.ts` prove each repaired shape and fail when
-the patch is missing. Other fixtures there prove results of the published
-engine that the repairs must keep. Every user of TypeScript 6 in the workspace
-loads the patched file. The eight functions serve only **Move to file**,
-**Move to a new file** and paste with imports.
+The fixtures in `src/__tests__/engine-repairs.test.ts` prove each repaired
+shape and fail when the patch is missing. Two more prove the limits of the
+repairs: the other form of import under one name, and the `var` in a loop's
+head. Every user of TypeScript 6 in the workspace loads the patched file. The
+four functions serve only **Move to file**, **Move to a new file** and paste
+with imports.
 
 The entry names the exact version, so the patch never reaches the TypeScript 7
 package that the alias `@typescript/native` resolves under the same package
@@ -289,8 +203,8 @@ session then moves the patch to the new version:
    command again, such as `pnpm deps:latest`, or run `pnpm install` on a
    branch whose lockfile already holds the new version.
 2. Run `pnpm patch typescript@<new version>`. In the folder it prints, make
-   the old patch's changes in `lib/typescript.js`, in the eight functions and
-   the two helpers named above. Their line numbers differ between versions.
+   the old patch's changes in `lib/typescript.js`, in the four functions and
+   the helper named above. Their line numbers differ between versions.
 3. Run `pnpm patch-commit <folder>`. pnpm writes the patch file, the entry and
    the lockfile, and installs.
 4. Rename the patch file from `typescript@<version>.patch` to
