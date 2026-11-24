@@ -114,9 +114,8 @@ import {
   type DisprovedFinding,
   findingRevision,
   type LandedCommit,
-  parseRoundDataFile,
-  type RoundFinding,
   readSeriesRoundData,
+  readStoredRound,
   roundDataFilename,
   writeDisprovedFinding,
 } from "./round-data.js"
@@ -436,44 +435,41 @@ async function disproveFile(
     directory = dirname(plans[0])
     archived = true
   }
-  const kind = planTargetKind(invocation.stem, invocation.target)
-  if (kind === null)
-    throw new InvalidArgumentError(
-      `The target must be ${invocation.stem}-plan-audit or a stored ${invocation.stem}-impl-audit-<scope> target.`,
-    )
   return {
-    path: join(directory, roundDataFilename(invocation.stem, kind)),
+    path: await disprovePath(directory, invocation),
     archived,
   }
 }
 
-async function requireDisprovedFinding(
-  path: string,
-  target: string,
-  finding: { readonly round: number; readonly number: number },
-): Promise<RoundFinding> {
-  let source: string
-  try {
-    source = await readFile(path, "utf8")
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT")
-      throw new Error(`No round data exists at ${path}.`)
-    throw error
+async function disprovePath(
+  directory: string,
+  { stem, target, finding }: Extract<Invocation, { kind: "disprove" }>,
+): Promise<string> {
+  if ("auditor" in finding) {
+    const kind = planTargetKind(stem, target)
+    if (kind === null)
+      throw new InvalidArgumentError(
+        `The target must be ${stem}-plan-audit or a ${stem}-impl-audit-<scope> target.`,
+      )
+    return join(directory, roundDataFilename(stem, kind))
   }
-  const file = parseRoundDataFile(path, source)
-  const round = file.rounds.find(
-    (entry) => entry.target === target && entry.round === finding.round,
-  )
-  if (round === undefined)
-    throw new Error(`No ${target} round ${finding.round} exists in ${path}.`)
-  const retained = round.findings.find(
-    (entry) => entry.number === finding.number,
-  )
-  if (retained === undefined)
-    throw new Error(
-      `No finding ${finding.number} exists in ${target} round ${finding.round}.`,
+
+  for (const kind of ["planning", "implementation"] as const) {
+    const path = join(directory, roundDataFilename(stem, kind))
+    const round = await readStoredRound(path, target, finding.round)
+    if (round === null) continue
+    const retained = round.findings.find(
+      (entry) => entry.number === finding.number,
     )
-  return retained
+    if (retained === undefined)
+      throw new Error(
+        `No finding ${finding.number} exists in ${target} round ${finding.round}.`,
+      )
+    if ("revision" in finding.statement)
+      findingRevision(retained, finding.statement.revision)
+    return path
+  }
+  throw new Error(`No ${target} round ${finding.round} exists for ${stem}.`)
 }
 
 function lineRange(value: string): LineRange {
@@ -1346,14 +1342,7 @@ export async function runCommand(
       let entry: DisprovedFinding
       let subject: string
       if ("round" in invocation.finding) {
-        const finding = await requireDisprovedFinding(
-          file.path,
-          invocation.target,
-          invocation.finding,
-        )
         const statement = invocation.finding.statement
-        if ("revision" in statement)
-          findingRevision(finding, statement.revision)
         entry = {
           date,
           reason: invocation.reason,

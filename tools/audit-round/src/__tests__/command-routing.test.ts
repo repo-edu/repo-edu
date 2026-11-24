@@ -1003,19 +1003,21 @@ test("disprove --vet commits only an archived attached ruling and names its side
   )
 })
 
-test("disprove --revision stores only a revision on the named finding and uses the plain archive subject", async (t) => {
+test("disprove --revision uses the archived round's stored target and checks the named vetter", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
   const archive = await archivedPlan(f)
   const path = join(archive, "example-impl-rounds.json")
-  const target = "example-impl-audit-01..01"
+  const target = "example-impl-01..01"
   writeRoundData(path, disproveRound(target, 1, ["accept", "revise"]))
   const reason = "The smaller revision was enough."
-  const rule = (tag: string) =>
+  const rule = (tag: string, roundTarget = target) =>
     runCommand(
-      ["disprove", "example", target, "1", "1", "--revision", tag, reason],
+      ["disprove", "example", roundTarget, "1", "1", "--revision", tag, reason],
       f.runtime,
       { ...f.options, now: () => Date.UTC(2026, 10, 5, 12) },
     )
+  assert.equal(await rule("atx", "example-impl-audit-01..01"), 1)
+  assert.match(f.errors.at(-1) ?? "", /No example-impl-audit-01\.\.01 round 1/)
   assert.equal(await rule("atx"), 0, f.errors.join("\n"))
 
   assert.equal(

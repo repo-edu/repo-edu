@@ -120,9 +120,10 @@ followed by excluded plans. Each auditor section prints its main table, then a s
    Each table starts with the newest round and numbers its findings and reasons from 1. Each row
    shows the plan and round, the finding and its tier, the auditor, every vetter's verdict, the
    winners and your reason. The `Winners` column names everyone your answer proved right, each by
-   its role and model. The auditor is a winner when the finding stood as written. A vetter is a
-   winner when you named it or when it gave the same accept, drop or referral as a vetter you
-   named. If a later ruling changes who was right, **Disproved** introduces the round's winners
+   its role and model. Choosing `report` credits the auditor and every vetter who accepted the
+   finding. Naming a vetter credits that vetter and any who gave the same accept, drop or
+   referral. Naming a vetter who accepted also credits the auditor.
+   If a later ruling changes who was right, **Disproved** introduces the round's winners
    and **Winning** introduces the corrected winners. An empty list reads `none`. If the later
    ruling confirms the winners, you see the plain list. The table keeps the round's reason,
    with its first sentence in the row and the full text below. The later reason appears under

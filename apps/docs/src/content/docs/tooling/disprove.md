@@ -32,15 +32,16 @@ pnpm audit-round disprove example example-plan-audit 2 1 --revision abx "The sma
 pnpm audit-round disprove example example-plan-audit --by "gpt-5.6-sol high" "The report predates the data."
 ```
 
-`<target>` is the round-data target exactly as stored: `<stem>-plan-audit` or
-`<stem>-impl-audit-<scope>`. Read the round and finding numbers from that plan's round data. The
-reason is the rest of the line. Quote it so the shell keeps it whole.
+For a recorded finding, copy the target exactly as stored, including any older spelling.
+Take the round and finding numbers from the same record. For `--by`, use `<stem>-plan-audit`
+or `<stem>-impl-audit-<scope>`. The reason is the rest of the line. Quote it so the shell
+keeps it whole.
 
 ## Behaviour
 
-The command finds the plan in `../plan/active/` or, failing that, in the archive, and picks the
-planning or implementation round-data file from the target. It starts no assistant and reads no
-settings.
+The command finds the plan in `../plan/active/` or in the archive. For a recorded finding,
+it uses the plan's file that contains the exact target and round number. It starts no
+assistant and reads no settings.
 
 1. **The attached finding form** checks that the round and finding exist, then records that the
    finding was wrong. The model read-out stops counting it as kept for its auditor and coder. In
@@ -83,9 +84,8 @@ A refusal while looking up the plan, finding or revision exits with status 1.
 3. **Two of `--vet`, `--revision` and `--by` appear together.**
 4. **The `--by` value is not `"<model> <effort>"`** with effort `low`, `medium`, `high` or `xhigh`.
 5. **No active or archived plan has the stem**, or more than one archived plan does.
-6. **The target is neither the plan audit nor a stored implementation-audit target.**
-7. **The attached finding does not resolve.** `No round data exists at <path>.`,
-   `No <target> round <n> exists in <path>.` or `No finding <n> exists in <target> round <n>.` Read
-   the numbers from the round data and run the command again, or use `--by`.
+6. **The `--by` target has an unknown form.** Use one of the two forms under Usage.
+7. **The plan has no matching round or the round has no such finding.** Check the stored target
+   and numbers. Use `--by` for a finding the round data never held.
 8. **The named vetter gave no revision on this finding.** Use the tag from the finding's
    recorded reviews.

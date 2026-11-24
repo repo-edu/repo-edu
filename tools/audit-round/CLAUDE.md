@@ -1158,9 +1158,10 @@ recovered files directly in `commits/` stay out. It starts no assistant and writ
 `disprove` records the user's later ruling on a finding in one active or archived plan's round
 data. It writes through the shared atomic writer, starts no assistant and reads no settings.
 
-- `disprove <stem> <target> <round> <finding> <reason>` resolves a finding in the plan's checked
-  round data and writes the user's date and full reason. A rerun on the same target, round and
-  finding replaces that entry. Without an option the ruling says the finding was wrong.
+- `disprove <stem> <target> <round> <finding> <reason>` finds the exact stored target and round
+  number in the plan's planning or implementation round data. Older target names still identify
+  their rounds. The command records the date and the user's full reason on the named finding.
+  A rerun replaces that entry. Without an option the ruling says the finding was wrong.
 - Adding `--vet` records that the finding stood as written, even if every vetter accepted it.
 - Adding `--revision <tag>` credits the named vetter's revision. The command checks that the
   vetter revised this finding. Only one of `--revision`, `--vet` and `--by` may be used.
