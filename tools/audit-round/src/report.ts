@@ -93,13 +93,6 @@ const classKinds = {
  */
 const moveListSection = /^(?:moves|move-[1-9]\d*)$/
 
-type OpeningLine = {
-  /** Formatted spans read as a marker, so only plain text can match. */
-  readonly plain: string
-  /** Formatted spans keep their source, so a reason loses no words. */
-  readonly text: string
-}
-
 /**
  * A widening audit report ends on its settling line, so its reader meets the advice
  * where the audit report stops. No other audit report class carries one. The line is read
@@ -130,33 +123,14 @@ function reportSettling(
 
 function openingLines(
   children: readonly Block[],
-  source: string,
-): readonly OpeningLine[] {
+  spanText: (child: Paragraph["children"][number]) => string,
+): readonly string[] {
   return children.slice(0, openingEndIndex(children)).flatMap((node) => {
     if (node.type !== "paragraph") return []
-    // Only text and breaks end lines, so both readings split alike.
-    const lines = (
-      formatted: (child: Paragraph["children"][number]) => string,
-    ) =>
-      node.children
-        .map((child) =>
-          child.type === "text"
-            ? child.value
-            : child.type === "break"
-              ? "\n"
-              : formatted(child),
-        )
-        .join("")
-        .split(/\r?\n/)
-    const text = lines((child) =>
-      source
-        .slice(child.position?.start.offset, child.position?.end.offset)
-        .replace(/\s*\n\s*/g, " "),
-    )
-    return lines(() => "\0").map((plain, index) => ({
-      plain,
-      text: text[index],
-    }))
+    return node.children
+      .map((child) => (child.type === "break" ? "\n" : spanText(child)))
+      .join("")
+      .split(/\r?\n/)
   })
 }
 
@@ -166,21 +140,25 @@ function checkTarget(
   source: string,
   target: string,
 ): void {
-  const lines = openingLines(children, source)
-    .map((line) => line.plain)
-    .filter((line) => line.startsWith("Target:"))
+  const lines = openingLines(children, (child) => {
+    const raw = source.slice(
+      child.position?.start.offset,
+      child.position?.end.offset,
+    )
+    // A line inside a formatted span cannot introduce a target.
+    return child.type === "text" ? raw : raw.replace(/\r?\n/g, "\0")
+  }).filter((line) => line.startsWith("Target:"))
   if (lines.length !== 1 || lines[0] !== `Target: ${target}`)
     throw new Error(`Audit report needs one Target: opening naming ${target}`)
 }
 
 function judgedRepos(
   children: readonly Block[],
-  source: string,
   reportClass: ReportClass,
 ): readonly Repository[] {
-  const lines = openingLines(children, source)
-    .map((line) => line.plain)
-    .filter((line) => line.startsWith("Judged repos:"))
+  const lines = openingLines(children, (child) =>
+    child.type === "text" ? child.value : "\0",
+  ).filter((line) => line.startsWith("Judged repos:"))
   const pattern =
     reportClass === "implementation"
       ? /^Judged repos: (?:plan@[0-9a-f]+(?:, repo-edu@[0-9a-f]+)?|repo-edu@[0-9a-f]+)$/
@@ -377,7 +355,7 @@ export function readReport(
         ]
   const children = fromMarkdown(source).children
   checkTarget(children, source, target)
-  const repositories = judgedRepos(children, source, reportClass)
+  const repositories = judgedRepos(children, reportClass)
   const settling = reportSettling(children, source, reportClass)
   // The settling line closes the document, not the last field.
   const body = settling === "" ? children : children.slice(0, -1)

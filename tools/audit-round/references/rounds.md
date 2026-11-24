@@ -98,6 +98,8 @@ fields.
 
 - The first grammar-owned field heading ends the opening. Other level-2 headings stay inside it, so
   presentation depth cannot hide the workflow, target or judged repositories from the reader.
+- The target is compared with its literal spelling in the opening paragraph because a path such
+  as `src/__tests__/round.test.mv.md` contains Markdown formatting characters.
 - Planning audit reports have Excess functionality and Missing functionality fields.
   Implementation audit reports have one Findings field, which includes deferred findings.
 - Each field holds depth-3 finding headings or its exact empty-field sentence. A heading form keeps

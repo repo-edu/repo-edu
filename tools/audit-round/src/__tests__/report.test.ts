@@ -273,6 +273,22 @@ test("the audit report opening names the round's target exactly once in plain te
   )
 })
 
+test("a move-list target keeps its literal path through Markdown parsing", () => {
+  const target = "splits/tools/audit-round/src/__tests__/round.test.mv.md"
+  const example = roundGrammarExample("report/move-list-findings").source
+  const line = `Target: ${target}`
+  const report = example.replace(`Target: ${targets["move-list"]}`, line)
+  assert.doesNotThrow(() => readAuditReport(report, "move-list", target))
+  for (const other of [
+    line.replace("__tests__", "**tests**"),
+    `\`Example:\n${line}\nEnd\``,
+  ])
+    assert.throws(
+      () => readAuditReport(report.replace(line, other), "move-list", target),
+      /Audit report needs one Target:/,
+    )
+})
+
 test("settled audit reports carry findings and judged repositories after routing", () => {
   assert.deepEqual(
     readAuditReport(implementation("No findings."), "implementation"),
