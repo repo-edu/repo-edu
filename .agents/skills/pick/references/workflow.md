@@ -28,7 +28,8 @@ code. A change crossing several files costs time finding them and following name
 
 Choose one whole answer, including a designer's no-split answer when it fits. When lists are equal,
 choose the one with fewer targets. A refusal is evidence about whether a plan is needed. A refused
-list is ineligible. If every division is wrong, you may give your own no-split answer.
+list is ineligible. You may give your own no-split answer only when every move list fails the first
+question.
 
 ## Repair a fault
 
