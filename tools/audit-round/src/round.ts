@@ -64,13 +64,13 @@ import {
   type CommitGroup,
   type CommitTarget,
   commitAuditGroups,
-  moveListFile,
   planPhase,
   planRepositoryPrefix,
   planStem,
   type RoundContext,
   type RoundKind,
   reportTarget,
+  roundListPath,
 } from "./target.js"
 
 /**
@@ -925,7 +925,7 @@ async function reviewRound(
           "groups" in input
             ? [report, ...commitAuditGroups(input)]
             : "source" in input
-              ? [report, join(input.planRoot, moveListFile(input.source))]
+              ? [report, join(input.planRoot, roundListPath(input.source))]
               : input.roundKind === "planning"
                 ? [report, input.plan, ...deferralScope]
                 : [report, input.plan, input.scope, ...deferralScope],

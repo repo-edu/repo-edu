@@ -26,6 +26,7 @@ const formPrefixes = [
   "judge/",
   "watch/",
   "move-list/",
+  "pick/",
   "split-result/",
 ] as const
 

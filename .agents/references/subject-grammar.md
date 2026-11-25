@@ -41,16 +41,15 @@ literal, including spaces inside a production.
 <sentence>  ::= free text on one line
 ```
 
-The five slots of `<tags>` keep this order and only the last filled slot is
-followed by the colon. Which slots a subject fills is decided by its class
-under [Classes](#classes). The P3 `settle` and `ready` productions and the P4
-`disprove` production omit the `<tag>` slot.
+The five slots of `<tags>` keep this order and only the last filled slot is followed by the colon.
+Which slots a subject fills is decided by its class under [Classes](#classes). The P3 `settle` and
+`ready` productions, P4 `disprove` and S4 `choose` omit the `<tag>` slot.
 
 ## Commit model record
 
 The body of every tagged commit opens with one of these records. Blank lines
 and Git comment lines may precede it. The P3 `settle` and `ready` subjects and
-the P4 `disprove` subject have no model record. A `ready` body instead carries
+the P4 `disprove` and S4 `choose` subjects have no model record. A `ready` body instead carries
 the coder that owns the plan. A `disprove` body carries the user's full reason.
 
 ```text
@@ -119,7 +118,7 @@ Audit, vet and rebuttal took 7 min.
 <split>     ::= split-<file-name>-<hash5>   ; a move-list series' label
 <file-name> ::= the source file's name, percent-encoded
 <hash5>     ::= five lowercase hexadecimal characters ; the first five of the source path's SHA-256
-<split-role> ::= design | split-audit | split
+<split-role> ::= design | choose | split-audit | split
 <scope>     ::= <n> | <n>-<n>
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -224,13 +223,15 @@ changes:
 <C2 clean record> ::= <series>/commit-audit <tag> clean: <S>
 ```
 
-Move-list commits. `design` and `split-audit` land in the plan repo and `split` in Repo Edu:
+Move-list commits. `design`, `choose` and `split-audit` land in the plan repo and `split` in Repo
+Edu:
 
 ```text
 <S1 design>       ::= <split>/design <tag>: <S>
 <S2 round record> ::= <split>/split-audit <tag> <growth> <sequence>: <S>
                     | <split>/split-audit <tag> clean: <S>
 <S3 split>        ::= <split>/split <tag> <kind>: <S>
+<S4 choice>       ::= <split>/choose: <S>
 ```
 
 Off-plan commits, no `<form>`:
@@ -242,20 +243,20 @@ Off-plan commits, no `<form>`:
 
 Rules across the classes:
 
-- Every subject except the P3 `settle` and `ready` forms and the P4 `disprove`
-  form carries exactly one `<tag>`, attributed under Repo Edu's **Commit
+- Every subject except the P3 `settle` and `ready` forms and the tag-free `disprove` and `choose`
+  forms carries exactly one `<tag>`, attributed under Repo Edu's **Commit
   Capability Tag** rule. The two runner-written markers and the user's ruling
   report no assistant work.
 - The P3 `ready` body consists of one `<ready-coder-record>`. The P3 `settle`
   body has no record.
 - The P4 `disprove` body contains the user's non-empty free-text reason and no
   model record.
-- I1 carries no `<severity>`, under the shared round protocol's **Shared
-  implementation forms**, and its body opens with a `<step-model-record>`. Other independently
-  written tagged commits use the single-model record. S1 and S3 carry the
-  design selection's record.
+- I1 carries no `<severity>`, under the shared round protocol's **Shared implementation forms**, and
+  its body opens with a `<step-model-record>`. Other independently written tagged commits use the
+  single-model record. S1 credits the picker and S3 credits the writer of the numbered answer it
+  carries out.
 - S3 carries no `<severity>`, under the shared round protocol's **Severity
-  sequence**: the rounds that judged its move list each landed an S2 record.
+  sequence**: the commit carries out the chosen list.
 - Every file-changing Repo Edu commit except I1 and S3 carries a `<sequence>`.
   An off-plan plan-repo commit (O2) and a chat's plan-file commit (P5) carry one
   when they close a graded concern and none otherwise.
@@ -279,7 +280,8 @@ Rules across the classes:
 | `implemented` | either | every step this repo hosts has landed |
 | `closed` | either | Repo Edu: its audit rounds have settled; plan: the loop-close move to `archive/` |
 | `commit-audit` | either | a commit audit's fix commit or clean record; its name pairs it with `plan-audit` and `impl-audit-<scope>`, so a record says which audit it was |
-| `design` | plan | a design session's move list, written and committed by the runner |
+| `design` | plan | the numbered answer the picker chose, committed by the runner |
+| `choose` | plan | the numbered answer the user chose to run |
 | `split-audit` | plan | one move-list round's record, the list's change or clean; its name pairs it with the other audit roles |
 | `split` | Repo Edu | the split commit that carries out a move list, written by the runner |
 
@@ -312,6 +314,7 @@ I4        planning-rounds/impl-audit-1-6 otm clean:
 I5        planning-rounds/implemented oth:
 C1        commit-e8128b/commit-audit abx growth-none c1 docs(claude):
 C2        commit-e8128b/commit-audit obx clean:
+S4        split-roster.ts-58b58/choose:
 S1        split-roster.ts-58b58/design abx:
 S2        split-roster.ts-58b58/split-audit obx growth-none b1c1:
 S2        split-roster.ts-58b58/split-audit obx clean:

@@ -21,9 +21,9 @@ import type { Auditor } from "./settings.js"
 import { planForm, type Repository, seriesForm } from "./subject.js"
 import {
   type AuditTarget,
-  moveListFile,
   planStem,
   type RoundKind,
+  roundListPath,
 } from "./target.js"
 
 export type SeriesCommit = {
@@ -299,7 +299,7 @@ async function readSplitSeriesEvidence(
   ])
   return splitSeriesEvidence({
     label,
-    list: moveListFile(source),
+    list: roundListPath(source),
     rounds: rounds.filter(
       (round): round is SplitRoundData => "source" in round,
     ),

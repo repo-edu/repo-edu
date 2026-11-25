@@ -124,7 +124,7 @@ export function readStepModelRecord(body: string): StepModelRecord {
  * auditor the round holds, every subject parses under the repository's form,
  * a tagged subject's body opens with the model the work ran on, and a
  * single-model record agrees with the tag on the effort. Runner-written settle
- * and ready markers and the user's disprove ruling have neither. A commit
+ * and ready markers and the user's choose and disprove forms have neither. A commit
  * round's series label opens the subject with the commit-audit form, so every
  * commit the round lands is its record. A commit audit's record is an audit
  * record like a plan's. A commit that changes a listed file must carry a step

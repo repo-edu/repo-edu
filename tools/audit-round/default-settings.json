@@ -99,12 +99,28 @@
         "model": "default",
         "effort": "default"
     },
-    "splitAudit": {
-        "designer": {
+    "split": {
+        "designers": [
+            {
+                "assistant": "codex",
+                "model": "default",
+                "effort": "default",
+                "density": "normal"
+            },
+            {
+                "assistant": "claude",
+                "model": "default",
+                "effort": "default",
+                "density": "coarse"
+            }
+        ],
+        "picker": {
             "assistant": "claude",
             "model": "default",
             "effort": "default"
-        },
+        }
+    },
+    "splitAudit": {
         "auditors": [
             {
                 "assistant": "codex",

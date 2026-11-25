@@ -110,6 +110,38 @@ export function splitLogFilename(label: string): string {
   return `${label}-split.log`
 }
 
+/** Each source numbers its answers across all designers and calls. */
+export function answerNumber(number: number): string {
+  return String(number).padStart(2, "0")
+}
+
+export function designFilename(
+  label: string,
+  number: number,
+  tag: string,
+): string {
+  return `${label}-design-${answerNumber(number)}.${tag}.md`
+}
+
+export function readDesignFilename(name: string) {
+  const match = /^(split-.+)-design-(\d{2,})\.([ao][btu][lmhx])\.md$/.exec(name)
+  return match === null
+    ? null
+    : { label: match[1], number: Number(match[2]), tag: match[3] }
+}
+
+export function designsFilename(label: string): string {
+  return `${label}-designs.json`
+}
+
+export function pickFilename(
+  label: string,
+  first: number,
+  tag: string,
+): string {
+  return `${label}-pick-${answerNumber(first)}.${tag}.md`
+}
+
 /** The log one loop-close keeps. */
 export function closeLogFilename(stem: string, tag: string): string {
   return `${stem}-close.${tag}.log`
@@ -154,7 +186,12 @@ export function planRoundFile(stem: string, name: string): boolean {
 export function seriesFile(label: string, name: string): boolean {
   if (
     name === roundDataFilename(label, "series") ||
-    name === splitLogFilename(label)
+    name === splitLogFilename(label) ||
+    name === designsFilename(label) ||
+    readDesignFilename(name)?.label === label ||
+    new RegExp(
+      `^${escapedPattern(label)}-pick-\\d{2,}\\.${tagPattern}\\.md$`,
+    ).test(name)
   )
     return true
   const prefix = escapedPattern(label)

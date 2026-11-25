@@ -647,7 +647,7 @@ export class RoundOutput<R extends Run = Run> {
       this.say(
         `\n${runRule}\n${opening.join("\n")}\nLog: ${this.paths.log}${texts}`,
       )
-      this.models(run.releases)
+      if (run.phases.length > 0) this.models(run.releases)
     } catch (error) {
       this.files.close()
       throw error
@@ -749,10 +749,13 @@ export class RoundOutput<R extends Run = Run> {
   private start(input: AssistantTurnInput, prompt: string): PhaseRecorder {
     this.clock.active()
     const started = this.clock.mark()
-    // A vetter is named by the tag its vet report carries, so each vetter of a panel
-    // keeps its own slot and record.
+    // Vetter tags and designer positions distinguish concurrent sessions.
     const tag =
-      input.phase === "vet" ? documentTag(input.arguments[1]) : undefined
+      input.phase === "design"
+        ? String(input.number)
+        : input.phase === "vet"
+          ? documentTag(input.arguments[1])
+          : undefined
     const key = slotKey(input.phase, tag)
     const slot: ActiveSlot = {
       input,
@@ -763,7 +766,7 @@ export class RoundOutput<R extends Run = Run> {
       previousToolTokens: null,
       // A fresh session starts empty, so its first stamp reports the startup context.
       statusTokens: input.sessionId === null ? 0 : null,
-      held: input.phase === "vet" ? [] : null,
+      held: input.phase === "vet" || input.phase === "design" ? [] : null,
       ended: null,
     }
     this.active.set(key, slot)
@@ -819,7 +822,7 @@ export class RoundOutput<R extends Run = Run> {
     if (visible.length > 0) this.options.terminal.write(visible, "markdown")
   }
 
-  /** Write a vetter's held texts whole, under its heading, once that vetter ends. */
+  /** Write a concurrent session's held texts together under its heading. */
   private flush(slot: ActiveSlot): void {
     if (slot.held === null) return
     this.heading(slot)
@@ -1133,6 +1136,7 @@ export class RoundOutput<R extends Run = Run> {
           phase === "close" ||
           phase === "implement" ||
           phase === "design" ||
+          phase === "pick" ||
           ran.spent === null
         )
           return []

@@ -438,7 +438,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     "audit-round ready [stem]",
     "audit-round implement [options] <stem> [scope]",
     "audit-round close [options] [stem]",
-    "audit-round split [options] <path>",
+    "audit-round split [options] [design | run] <path>",
     "audit-round plan",
   ]
   for (const forms of [rootForms, roundForms, commitForms]) {

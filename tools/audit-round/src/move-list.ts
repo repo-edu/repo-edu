@@ -166,3 +166,20 @@ export function readMoveList(text: string): MoveList {
     "Move list needs a ## Moves or a ## No split section after its opening",
   )
 }
+
+/** Only a new answer follows the pick report. An unchanged pick names the saved answer. */
+export function readPick(text: string) {
+  const boundary = /^# Move list$/m.exec(text)
+  const report = text.slice(0, boundary?.index ?? text.length).trim()
+  const lines = report.split("\n").filter((line) => line.startsWith("Pick:"))
+  const choice = /^Pick: (none|[0-9]+)$/.exec(lines[0] ?? "")
+  if (lines.length !== 1 || !choice || report.split("\n").at(-1) !== lines[0])
+    throw new Error(
+      "The pick report must end with one Pick: line naming an answer number or none",
+    )
+  const number = choice[1] === "none" ? null : Number(choice[1])
+  const document = boundary ? text.slice(boundary.index).trimEnd() + "\n" : null
+  if (number === null && document === null)
+    throw new Error("A pick of none must supply its no-split answer")
+  return { report, number, document }
+}

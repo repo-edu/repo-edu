@@ -1,6 +1,7 @@
 import { readdir, stat } from "node:fs/promises"
 import { basename, dirname, join, posix, resolve } from "node:path"
 import { InvalidArgumentError } from "commander"
+import { execa } from "execa"
 import type { ExecutionContext, PlanRoots } from "./context.js"
 import { splitEntries } from "./queue.js"
 import type { Repository } from "./subject.js"
@@ -123,17 +124,42 @@ export async function splitSource(
   return source
 }
 
-/**
- * The move list of one source file, relative to the plan checkout's root: the
- * source's path under `splits/`, with its extension replaced by `.mv.md`, so
- * the list is found from the source's path alone.
- */
-export function moveListFile(source: string): string {
+function listStem(source: string): string {
   return posix.join(
     "splits",
     posix.dirname(source),
-    `${posix.basename(source, posix.extname(source))}.mv.md`,
+    posix.basename(source, posix.extname(source)),
   )
+}
+
+/** The plan path that preserves a saved answer's number. */
+export function numberedListPath(source: string, number: number): string {
+  return `${listStem(source)}.${String(number).padStart(2, "0")}.mv.md`
+}
+
+/** Read HEAD so an edited, renamed or deleted working copy cannot hide a committed list. */
+export async function committedListPath(
+  planRoot: string,
+  source: string,
+): Promise<string | undefined> {
+  const prefix = listStem(source) + "."
+  const { stdout } = await execa(
+    "git",
+    ["ls-tree", "-rz", "--name-only", "HEAD", "--", posix.dirname(prefix)],
+    { cwd: planRoot },
+  )
+  return stdout
+    .split("\0")
+    .find(
+      (path) =>
+        path.startsWith(prefix) &&
+        /^\d{2,}\.mv\.md$/.test(path.slice(prefix.length)),
+    )
+}
+
+/** The unnumbered path recorded by the earlier move-list audit rounds. */
+export function roundListPath(source: string): string {
+  return `${listStem(source)}.mv.md`
 }
 
 /**
@@ -189,7 +215,7 @@ export function planStem(plan: string): string {
 export function reportTarget(target: AuditTarget): string {
   if ("groups" in target)
     return target.groups.flatMap((group) => group.references).join(" ")
-  if ("source" in target) return moveListFile(target.source)
+  if ("source" in target) return roundListPath(target.source)
   const plan = basename(target.plan)
   return target.roundKind === "planning" ? plan : `${plan} ${target.scope}`
 }

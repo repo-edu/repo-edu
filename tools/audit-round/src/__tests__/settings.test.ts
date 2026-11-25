@@ -49,6 +49,29 @@ test("a missing settings file is generated from the built-in defaults", async (t
   assert.equal(await readFile(path, "utf8"), contents)
 })
 
+test("split designers may repeat and each omitted density resolves to normal", () => {
+  const role = { assistant: "codex", model: "default", effort: "default" }
+  const split = {
+    designers: [role, { ...role, density: "coarse" }],
+    picker: role,
+  }
+  const parsed = settingsSchema.parse({ ...settings, split }).split
+  assert.deepEqual(parsed.picker, {
+    assistant: "codex",
+    ...settings.defaults.codex,
+  })
+  assert.deepEqual(
+    parsed.designers,
+    ["normal", "coarse"].map((density) => ({ ...parsed.picker, density })),
+  )
+  for (const designers of [[], [{ ...role, density: "fine" }]])
+    assert.equal(
+      settingsSchema.safeParse({ ...settings, split: { ...split, designers } })
+        .success,
+      false,
+    )
+})
+
 test("settings may carry comments and trailing commas", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "audit-settings-"))
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -597,7 +620,6 @@ test("the split level names each of its roles and resolves every default when th
       codex: { model: "codex-default", effort: "medium" },
     },
     splitAudit: {
-      designer: { assistant: "claude", model: "default", effort: "low" },
       auditors: [
         { assistant: "codex", model: "default", effort: "default" },
         { assistant: "claude", model: "split-auditor", effort: "default" },
@@ -608,7 +630,6 @@ test("the split level names each of its roles and resolves every default when th
     },
   })
   assert.deepEqual(config.splitAudit, {
-    designer: { assistant: "claude", model: "claude-default", effort: "low" },
     auditors: [
       { assistant: "codex", model: "codex-default", effort: "medium" },
       { assistant: "claude", model: "split-auditor", effort: "xhigh" },

@@ -15,16 +15,16 @@ requirement to the whole session and skip its confirm-and-wait step.
 
 A design session reads one source file whole and gives one of three answers:
 the file is fine, the file needs a plan, or a move list. It changes no code and
-writes no file. The runner tries a move list in memory, writes it into the plan
-repo and commits it. Audit rounds then judge the list before code carries it
-out. An answer without moves ends the call with its result, and no list is
-written.
+writes no file. Other listed designers read the same source independently. The
+runner saves each answer and tries its moves in memory. A fresh picker chooses
+among the answers when a choice remains.
 
 The phase arguments are exactly:
 
 1. the source file's path, relative to the Repo Edu root
 2. the blob hash of the source's content, which the runner read before this
    session started
+3. this designer's density, `normal` or `coarse`
 
 The round grammar's [Move list](../../../references/round-grammar.md#move-list)
 owns the form of every answer. The statement move tool's
@@ -44,7 +44,12 @@ First judge whether the file should be split at all. Ask three questions:
 
 1. Does the file hold more than one responsibility?
 2. Does it have natural seams?
-3. Is it too large to hold in one reading?
+3. Would splitting the file improve AI efficiency?
+
+A split saves reading when work on one responsibility can leave the others
+unopened. It costs reading when one change needs several files and the reader
+must find them and follow the names between them. Judge both costs by the
+responsibilities in the source.
 
 Size made the file a candidate, but size never decides the answer. A large file
 that holds one responsibility is fine. No line count, metric or other
@@ -70,13 +75,10 @@ Give exactly one answer:
 
 Write the moves under these rules:
 
-1. **Number of targets.** Make the fewest targets that leave every file small
-   enough to hold in one reading, the source included. When a group could move
-   or stay, it stays. When two groups could share a target under one
-   responsibility or stand apart, they share one. A file has many sound
-   divisions, and each added target adds a border that every later reader must
-   cross. A coarse division loses little, because a later move list can still
-   divide a target that grew.
+1. **Number of targets.** Add a target only where it improves AI efficiency.
+   At `normal` density, weigh both costs and favour fewer targets when in doubt.
+   At `coarse` density, move a group only where work on it almost never needs
+   the rest of the file, accepting larger files.
 2. **Ranges.** Every range names lines of the file as you read it, before any
    move. Do no arithmetic between moves: the tool follows each range through
    the moves before it. A range holds complete top-level statements: no
@@ -88,7 +90,7 @@ Write the moves under these rules:
    move the tests. A test file that imports another test file runs that file's
    tests again.
 4. **Responsibility.** Give each target one sentence that states the one
-   responsibility it holds. The audit tests these sentences against the file.
+   responsibility it holds. The picker checks these sentences against the file.
 5. **Names.** Name each target after what it holds, in the naming style of its
    folder.
 

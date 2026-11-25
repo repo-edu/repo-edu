@@ -18,7 +18,7 @@ import {
 } from "./round-data.js"
 import { seriesArchiveRoot } from "./round-paths.js"
 import type { Auditor } from "./settings.js"
-import { moveListFile } from "./target.js"
+import { roundListPath } from "./target.js"
 
 const baselineBefore = "2026-11-08T18:53:13Z"
 const legacyPool: readonly Auditor[] = [
@@ -328,7 +328,7 @@ export async function replayRows(
       file.rounds,
       splitSeriesEvidence({
         label: file.label,
-        list: moveListFile(source),
+        list: roundListPath(source),
         rounds: file.rounds,
         log: plan,
       }),

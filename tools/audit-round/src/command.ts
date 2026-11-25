@@ -49,12 +49,7 @@ import {
   implementationIdentity,
   implementationRun,
 } from "./implement-output.js"
-import {
-  auditorText,
-  missingReads,
-  openingAuditor,
-  readSeriesEvidence,
-} from "./judge.js"
+import { auditorText, openingAuditor, readSeriesEvidence } from "./judge.js"
 import {
   activeRoundData,
   archiveRoundData,
@@ -126,7 +121,6 @@ import {
   planTargetKind,
   queueFile,
   roundSubject,
-  splitLabel,
   targetLabel,
 } from "./round-paths.js"
 import { readRulerReport } from "./ruler-report.js"
@@ -144,15 +138,9 @@ import {
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
-import {
-  heldListText,
-  runChecks,
-  runSplit,
-  type SplitSeriesEnding,
-} from "./split.js"
-import { attemptMoveList } from "./split-attempt.js"
-import { designIdentity, splitRun } from "./split-output.js"
-import { splitResultLine } from "./split-result.js"
+import { heldListText } from "./split.js"
+import { namedAnswer } from "./split-answers.js"
+import { splitStage } from "./split-output.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import { parseSubject } from "./subject.js"
 import {
@@ -270,10 +258,8 @@ type Invocation =
     }
   | {
       readonly kind: "split"
-      /** The source file as typed, relative to the Repo Edu root. */
-      readonly source: string
-      /** False under `--no-wait`, which makes one call of the rounds and the split. */
-      readonly wait: boolean
+      readonly mode: "both" | "run" | "design"
+      readonly path: string
       readonly verbose?: boolean
     }
 
@@ -675,7 +661,7 @@ function parseInvocation(
        audit-round ready [stem]
        audit-round implement [options] <stem> [scope]
        audit-round close [options] [stem]
-       audit-round split [options] <path>
+       audit-round split [options] [design | run] <path>
        audit-round plan`,
     )
     .configureOutput({
@@ -1049,47 +1035,37 @@ Examples (from either checkout):
   command
     .command("split")
     .description(
-      "Split one source file by a move list that audit rounds judged, or say why no split happens.",
+      "Design and carry out a file split, design only or run a saved answer.",
     )
+    .argument("<path-or-mode>", "source path, design or run")
     .argument(
-      "<path>",
-      "the source file, relative to the Repo Edu root, inside one workspace package",
-    )
-    .option(
-      "--no-wait",
-      "go on to the split right after the rounds, in the same call",
+      "[path]",
+      "source for design, or numbered move list or designer's answer for run",
     )
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .addHelpText(
       "after",
-      `
-The call reads the file's move list in the plan repo, under splits/ with the
-source's extension replaced by .mv.md. When no list names the file's current
-content, a design session reads the file whole and answers that it is fine,
-that it needs a plan, or with a move list, which the call tries in memory and
-commits. Move-list rounds then judge the list until every listed auditor of
-splitAudit in settings.json has a current read.
-
-A call whose rounds finished ends there as waiting and changes no code, so
-the split starts only when you run the command again. That next call tries
-the list once more, writes the files, runs pnpm check and the package's tests
-and commits the split, or restores the files when a check fails. --no-wait
-makes one call of both.
-
-A lock makes two splits take turns while they change files; the rounds, the
-checks and the tests hold none. A dispute on a serious finding waits for your
-ruling, as a round on a plan does. The call ends with one line:
-SPLIT RESULT: {"result":...,"hash":...,"message":...}, where the result is
-made, waiting, fine, needs-plan, skipped or checks-failed.
-
-Examples (from either checkout):
-
-  $ pnpm audit-round split packages/domain/src/roster.ts
-  $ pnpm audit-round split packages/domain/src/roster.ts --no-wait`,
+      "\n  split <source>\n  split design <source>\n  split run <move list>",
     )
-    .action((source: string, flags: { wait: boolean; verbose?: boolean }) => {
-      invocation = { kind: "split", source, ...flags }
-    })
+    .action(
+      (
+        first: string,
+        path: string | undefined,
+        flags: { verbose?: boolean },
+      ) => {
+        if (first === "design" || first === "run") {
+          if (!path)
+            throw new InvalidArgumentError(`split ${first} needs a path`)
+          invocation = { kind: "split", mode: first, path, ...flags }
+        } else {
+          if (path)
+            throw new InvalidArgumentError(
+              "Use split <source>, split design <source> or split run <move list>",
+            )
+          invocation = { kind: "split", mode: "both", path: first, ...flags }
+        }
+      },
+    )
   command
     .command("plan")
     .description(
@@ -1460,6 +1436,47 @@ export async function runCommand(
       }
       return 0
     }
+    const prepare = (cwd: string, settings: RoundSettings) =>
+      prepareAssistants(
+        { ...runtime, cwd },
+        {
+          message: async (text) => options.terminal.write(text),
+          warning: async (text) => options.terminal.write(`Warning: ${text}`),
+        },
+        settings,
+        { cacheRoot: options.cacheRoot },
+      )
+    if (invocation.kind === "split") {
+      const call =
+        invocation.mode === "run"
+          ? {
+              mode: invocation.mode,
+              named: await namedAnswer(context, runtime.cwd, invocation.path),
+            }
+          : {
+              mode: invocation.mode,
+              source: await splitSource(context.repoEduRoot, invocation.path),
+            }
+      const settings = options.settings ?? (await readSettings())
+      const releases =
+        call.mode === "run"
+          ? {
+              claude: new Map<string, string>(),
+              codex: new Map<string, string>(),
+            }
+          : await prepare(context.repoEduRoot, settings)
+      runtime.signal?.throwIfAborted()
+      return await splitStage(
+        context,
+        call,
+        runtime,
+        { ...options, clock, verbose: invocation.verbose },
+        settings,
+        releases,
+        now(),
+        `pnpm ${commandText}`,
+      )
+    }
     const prepared =
       invocation.kind === "implement"
         ? {
@@ -1474,21 +1491,13 @@ export async function runCommand(
           ? await preparedClose(context, invocation)
           : invocation.kind === "run"
             ? await preparedRun(context, invocation)
-            : invocation.kind === "split"
-              ? {
-                  ...invocation,
-                  source: await splitSource(
-                    context.repoEduRoot,
-                    invocation.source,
-                  ),
-                }
-              : {
-                  ...invocation,
-                  targets: await resolveTargets(
-                    context,
-                    requestedTarget(invocation),
-                  ),
-                }
+            : {
+                ...invocation,
+                targets: await resolveTargets(
+                  context,
+                  requestedTarget(invocation),
+                ),
+              }
     if (prepared.kind === "round")
       requireSingleTarget(prepared, prepared.targets)
     // The close moves the plan and commits in the plan checkout first.
@@ -1500,21 +1509,11 @@ export async function runCommand(
           ? "planning"
           : prepared.kind === "run"
             ? stageRoundKind(prepared.stage)
-            : prepared.kind === "split"
-              ? "split"
-              : prepared.targets[0].roundKind,
+            : prepared.targets[0].roundKind,
     )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
-    const releases = await prepareAssistants(
-      { ...runtime, cwd: session.cwd },
-      {
-        message: async (text) => options.terminal.write(text),
-        warning: async (text) => options.terminal.write(`Warning: ${text}`),
-      },
-      settings,
-      { cacheRoot: options.cacheRoot },
-    )
+    const releases = await prepare(session.cwd, settings)
     runtime.signal?.throwIfAborted()
     /**
      * Each round records its own file pair, so a chained run opens one output
@@ -1897,16 +1896,6 @@ export async function runCommand(
     const rerunCommand = (target: AuditTarget): string => {
       if (invocation.kind === "run")
         return shellJoin(planRunCommand(invocation))
-      // A move-list target belongs to the split command, which names the source.
-      if (invocation.kind === "split" && "source" in target)
-        return shellJoin([
-          "pnpm",
-          "audit-round",
-          "split",
-          target.source,
-          ...(invocation.wait ? [] : ["--no-wait"]),
-          ...(invocation.verbose === true ? ["-v"] : []),
-        ])
       if (invocation.kind !== "round" && invocation.kind !== "round-commits")
         throw new Error(`The ${invocation.kind} command opens no round`)
       if ("source" in target)
@@ -2623,119 +2612,6 @@ export async function runCommand(
         await say(`Run of ${stem} finished: the plan is closed. ${runTime()}`)
       else await ended(current)
     }
-    /**
-     * One split call on one source file. A finished move-list series waits in
-     * its archive folder, so the call brings it back before it opens the
-     * call's log or reads the series. When the call ends, the series moves
-     * again unless it is still live work: a stopped round, an unfinished
-     * series or a list that another call wrote first. The result line comes
-     * last.
-     */
-    const splitStage = async (source: string, wait: boolean): Promise<void> => {
-      const label = splitLabel(source)
-      const target: MoveListTarget = { roundKind: "split", source }
-      const restored = movedSeriesText(
-        label,
-        await restoreSeries(
-          context.evidenceRoot,
-          context.roundRoot,
-          "split",
-          label,
-        ),
-      )
-      if (restored !== null) options.terminal.write(restored)
-      const identity = designIdentity(releases, settings)
-      const splitSession = roundContext(context, "split")
-      const active = new RoundOutput(
-        await splitRun(source, context, now(), releases, settings, identity),
-        { ...options, verbose, clock },
-      )
-      try {
-        const poolAuditors = auditRoles("split", settings).auditors.map(
-          (auditor) => auditorSetting(listedSeat(auditor), releases, settings),
-        )
-        const seriesEnding: Record<SeriesEnding, SplitSeriesEnding | null> = {
-          complete: "finished",
-          withdrawn: "withdrawn",
-          halted: "halted",
-          limit: "limit",
-          stopped: "stopped",
-          settle: null,
-          ready: null,
-        }
-        const outcome = await runSplit(
-          { ...context, source, identity, wait },
-          {
-            design: async (hash) => {
-              const designed = await runAssistantPhase<"design">(
-                {
-                  phase: "design",
-                  ...splitSession,
-                  ...identity.phaseRun,
-                  arguments: [source, hash],
-                  sessionId: null,
-                },
-                active.phase,
-                { ...runtime, cwd: splitSession.cwd },
-              )
-              return designed.status === "finished"
-                ? { status: "finished", document: designed.document }
-                : designed
-            },
-            roundsDue: async () =>
-              missingReads(
-                await readSeriesEvidence({ ...context, target }),
-                label,
-                poolAuditors,
-              ).length > 0,
-            series: async (afterRound) => {
-              const ending =
-                seriesEnding[
-                  await seriesStage(
-                    [target],
-                    { watch: false, verbose },
-                    afterRound,
-                  )
-                ]
-              if (ending === null)
-                throw new Error(
-                  "A move-list series returned a plan's lifecycle answer",
-                )
-              return ending
-            },
-            attempt: (list) => attemptMoveList(context.repoEduRoot, list),
-            checks: (pkg) =>
-              runChecks(context.repoEduRoot, pkg, runtime.signal),
-            message: active.message,
-          },
-        )
-        if (outcome.status === "design-failed") {
-          code = 1
-          await active.message(
-            `[design] failed: ${outcome.reason}\nSession: ${outcome.sessionId ?? "unavailable"}\nRerun: ${rerunCommand(target)}`,
-          )
-          return
-        }
-        // A stopped round printed its own ending and the line that continues it.
-        if (outcome.status === "stopped") return
-        if (!outcome.live) {
-          const moved = movedSeriesText(
-            label,
-            await archiveSeries(
-              context.evidenceRoot,
-              context.roundRoot,
-              "split",
-              label,
-            ),
-          )
-          if (moved !== null) await active.message(moved)
-        }
-        code = 0
-        await active.message(splitResultLine(outcome.result))
-      } finally {
-        active.close()
-      }
-    }
     if (prepared.kind === "implement")
       await implementStage(prepared, {
         command: [
@@ -2750,8 +2626,6 @@ export async function runCommand(
       })
     else if (prepared.kind === "close") await closeStage(prepared)
     else if (prepared.kind === "run") await runStages(prepared)
-    else if (prepared.kind === "split")
-      await splitStage(prepared.source, prepared.wait)
     else await seriesStage(prepared.targets, prepared)
   } catch (error) {
     code = error instanceof InvalidArgumentError ? 2 : 1

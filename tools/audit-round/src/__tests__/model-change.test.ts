@@ -8,7 +8,7 @@ import {
   previousRoundModels,
   readPreviousRoundModels,
 } from "../model-change.js"
-import type { Assistant, Phase } from "../phase.js"
+import type { Assistant, RoundPhase } from "../phase.js"
 import {
   type ImplementationRoundData,
   type RoundData,
@@ -23,7 +23,7 @@ const newRelease = { model: "new-release", effort: "high" } as const
 const pinnedRelease = { model: "pinned-release", effort: "xhigh" } as const
 
 function phase(
-  name: Exclude<Phase, "close" | "implement" | "design">,
+  name: Exclude<RoundPhase, "close">,
   assistant: Assistant,
   launched: ModelSelection | undefined,
   reported: ModelSelection,

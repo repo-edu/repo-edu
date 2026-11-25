@@ -44,9 +44,10 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
 
 /**
  * The phases an assistant session can run. `implement`, `close` and a file
- * split's `design` run alone; the other phases belong to an audit round.
+ * split's design and pick run outside audit rounds.
  */
 export type Phase =
+  | "pick"
   | "design"
   | "audit"
   | "vet"
@@ -57,11 +58,12 @@ export type Phase =
   | "watch"
   | "close"
 
-export type RoundPhase = Exclude<Phase, "implement" | "design">
+export type RoundPhase = Exclude<Phase, "implement" | "design" | "pick">
 
 /** Each phase's skill name, which names its workflow folder. */
 export const phaseSkills: Record<Phase, string> = {
   design: "design",
+  pick: "pick",
   audit: "audit",
   vet: "vet",
   rebut: "rebut",
@@ -77,7 +79,7 @@ export const phaseSkills: Record<Phase, string> = {
  * working checkout. A move-list round's audit and fix have workflows of their
  * own beside the implementation ones, and its vet, rebuttal and ruler use the
  * implementation workflows. The watch, a step's implementation and a split's
- * design use Repo Edu's workflow, and loop-close, which is plan doctrine, the
+ * design and pick use Repo Edu's workflows, and loop-close, which is plan doctrine, the
  * plan checkout's.
  */
 export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
@@ -86,7 +88,8 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
       ? input.planRoot
       : input.phase === "implement" ||
           input.phase === "watch" ||
-          input.phase === "design"
+          input.phase === "design" ||
+          input.phase === "pick"
         ? input.repoEduRoot
         : input.cwd
   const own =
@@ -503,7 +506,7 @@ export function closePhase(config: RoundSettings): PhaseRun {
  * Every model a round's phases may name for one assistant, whoever audits:
  * the default selection, every class's listed auditors, vetters, ruler and
  * watch writer, the planning fixer, the coders, the close's own pin, the split
- * level's designer, auditors, vetters, ruler and fixer and each tier a tag can
+ * designers and picker, the split audit roles and each tier a tag can
  * ask for.
  */
 export function namedModels(
@@ -522,7 +525,8 @@ export function namedModels(
       ...config.implementationAudit.vetters,
       config.implementationAudit.ruler,
       config.implementationAudit.watch,
-      config.splitAudit.designer,
+      ...config.split.designers,
+      config.split.picker,
       ...config.splitAudit.auditors,
       ...config.splitAudit.vetters,
       config.splitAudit.ruler,
@@ -629,8 +633,25 @@ export type RulingRequest = {
 
 type PhaseArguments = {
   design: {
-    /** The source's path relative to the Repo Edu root and the blob hash read before the session. */
-    readonly arguments: readonly [source: string, hash: string]
+    /** The designer's one-based position in settings identifies its output. */
+    readonly number: number
+    readonly arguments: readonly [
+      source: string,
+      hash: string,
+      density: import("./settings.js").Density,
+    ]
+    readonly sessionId: null
+  }
+  pick: {
+    readonly arguments: readonly [
+      source: string,
+      hash: string,
+      answers: readonly {
+        number: number
+        path: string
+        refusal: string | null
+      }[],
+    ]
     readonly sessionId: null
   }
   audit: {
@@ -795,12 +816,12 @@ type ImplementResult =
 export type RuleResult = ReportResult & { readonly reading: RulerReading }
 
 /**
- * A finished design session returns its answer as text, which the runner
- * reads as a move list; the session writes no file.
+ * A finished design or pick session returns its document for the runner to save.
  */
 export type DesignResult = ReportResult & { readonly document: string }
 
 type PhaseControlResults = {
+  pick: ReportResult
   design: ReportResult
   audit: ReportResult
   vet: ReportResult
@@ -818,6 +839,7 @@ export type PhaseControlResult<P extends Phase = Phase> =
   | PhaseControlResults[P]
 
 type PhaseResults = {
+  pick: DesignResult
   design: DesignResult
   audit: ReportResult
   vet: ReportResult

@@ -4,6 +4,9 @@ import { z } from "zod"
 import defaults from "../default-settings.json" with { type: "json" }
 import { auditLevels, efforts, selectionTag } from "./phase.js"
 
+export const densitySchema = z.enum(["normal", "coarse"])
+export type Density = z.infer<typeof densitySchema>
+
 const assistant = z.enum(["claude", "codex"])
 const model = z
   .string()
@@ -106,9 +109,17 @@ export const settingsSchema = z
      * A file split belongs to no plan, so its level follows the plan's fields.
      * It lists its roles in the order a split runs them and has no watch.
      */
+    split: z.strictObject({
+      designers: z
+        .array(
+          assignedSelection.extend({
+            density: densitySchema.default("normal"),
+          }),
+        )
+        .min(1),
+      picker: assignedSelection,
+    }),
     splitAudit: z.strictObject({
-      /** The one writer of every move list. */
-      designer: assignedSelection,
       /** The ordered auditor list for move lists. */
       auditors: z.array(assignedSelection).min(1),
       /** The panel that vets every move-list audit report, run in parallel. */
@@ -140,8 +151,14 @@ export const settingsSchema = z
         ruler: resolve(settings.implementationAudit.ruler),
         watch: resolve(settings.implementationAudit.watch),
       },
+      split: {
+        designers: settings.split.designers.map((entry) => ({
+          ...resolve(entry),
+          density: entry.density,
+        })),
+        picker: resolve(settings.split.picker),
+      },
       splitAudit: {
-        designer: resolve(settings.splitAudit.designer),
         auditors: settings.splitAudit.auditors.map(resolve),
         vetters: settings.splitAudit.vetters.map(resolve),
         ruler: resolve(settings.splitAudit.ruler),

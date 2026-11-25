@@ -246,23 +246,32 @@ means any kind of report; each kind is always named in full.
 
 ## File splits
 
-- **Design session**: the phase that reads one source file whole and answers
-  that the file is fine, that it needs a plan, or with a move list, and its
-  session. It changes no code. The designer is the split level's selection
-  that runs it.
+- **Design session**: one designer's independent reading of a whole source
+  file. Its numbered answer gives moves, judges the file fine or says its
+  division needs a plan.
+- **Designer list**: the ordered settings entries that each design the same
+  split. Each has a selection and a density, normal or coarse.
+- **Pick**: the phase that judges all the answers and chooses one. It may
+  repair a factual fault in a chosen list or give a no-split answer of its own.
+- **Picker**: the selection for the pick and its fresh session, which wrote
+  none of the designers' answers.
+- **Pick report**: the picker's judgement on each answer, its choice and the
+  fact behind each repair.
+- **Design data file**: the per-source record in the evidence repo that names
+  each numbered answer's writer, model and effort. A designer's entry also
+  records its position in the list and its density.
 - **Move list**: the committed file in the plan repo that says how one source file is split. Its
   opening gives the source path, content hash, area and size in lines before the split. It lists
   each target file in order, with the one responsibility it holds and the line ranges of complete
-  top-level statements that go there. A source file has one move list, beside the source's path
-  under the plan repo's `splits/` folder, with the source's extension replaced by `.mv.md`. A
-  withdrawn move list holds no moves and records why no split happens: the file is fine or needs a
-  plan.
+  top-level statements that go there. Each proposed answer has a number. The chosen moves keep
+  that number in the plan repo, as in `splits/packages/domain/src/roster.01.mv.md`. A no-split
+  answer keeps its reason in the evidence repo.
 - **Move-list round**: an audit round that judges one move list. Its phases run
   as in a planning round, and its fix changes the list in place or withdraws
   it. A move list is carried out only after its rounds have judged it.
 - **Split result**: one of the six ways a split call ends, each with a message
   and the content hash of the file the design session read. The split was
-  made, the split waits for the next call after its rounds, or no split happens
+  made, a design call committed a list, or no split happens
   because the file is fine, the file needs a plan, the call was skipped or the
   checks failed.
 

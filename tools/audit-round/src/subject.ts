@@ -32,7 +32,7 @@ const seriesRole = "commit-audit"
  * The roles a move-list series' forms carry: the commit that writes a design,
  * a round's record and the split commit. The role tells each from a plan form.
  */
-const splitRoles = ["design", "split-audit", "split"] as const
+const splitRoles = ["design", "choose", "split-audit", "split"] as const
 type SplitRole = (typeof splitRoles)[number]
 
 /** A role that opens with a series label rather than a plan's stem. */
@@ -143,6 +143,7 @@ export type SubjectClass =
   | "S1"
   | "S2"
   | "S3"
+  | "S4"
   | "O1"
   | "O2"
 
@@ -384,6 +385,11 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (severity !== "clean")
         fail(`${where} needs a conventional kind after its severity sequence`)
       return "C2"
+    case "choose":
+      if (repository !== "plan") fail(`${where} belongs to the plan repository`)
+      if (tag !== null || !empty)
+        fail(`${where} carries nothing after its form`)
+      return "S4"
     case "design":
       if (tag === null) fail(`${where} needs a capability tag`)
       if (repository !== "plan") fail(`${where} belongs to the plan repository`)
@@ -450,7 +456,8 @@ export function parseSubject(line: string, repository: Repository): Subject {
   const tag = located.hasTag ? parseTag(tags[located.tag]) : null
   if (
     tag === null &&
-    (form === null || !["settle", "ready", "disprove"].includes(form.role))
+    (form === null ||
+      !["settle", "ready", "disprove", "choose"].includes(form.role))
   )
     parseTag(tags[located.tag])
   const burden =

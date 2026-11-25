@@ -355,11 +355,10 @@ Follow the same section for cross-repo deferrals and directed plan-file fixes.
 
 ## Commit Capability Tag
 
-Every commit subject except the runner-written `settle` and `ready` plan
-markers carries a three-character tag naming what produced it: the assistant,
-the strength and the effort, one letter each. Those two markers record the
-user's call without running an assistant, so attributing them to one would be
-false.
+Every commit subject except the runner-written `settle` and `ready` markers, the user's `choose` of
+a move list and the user's `disprove` ruling carries a three-character tag naming what produced it:
+the assistant, the strength and the effort, one letter each. Those forms record the user's call
+without running an assistant, so attributing them to one would be false.
 
 - `a` for Claude and `o` for Codex, naming the vendor rather than the product,
   because both products start with a C.
@@ -395,9 +394,9 @@ the full auditor tag from the audit report filename. The commit hook, this repo'
 
 ## Commit Model Record
 
-Every commit body except a runner-written `settle` or `ready` marker opens with
+Every commit body except the tag-free `settle`, `ready`, `choose` and `disprove` forms opens with
 the model the work ran on, so the log says what produced a change without
-spending subject width on it. Those two commits run no model and carry no model
+spending subject width on it. Those commits run no model and carry no model
 record. The [subject grammar](.agents/references/subject-grammar.md#commit-model-record)
 owns both record forms and their examples.
 
@@ -420,14 +419,12 @@ the split across a step hosted in both repos. A hand-run session committing on
 its own writes its own line: it knows the model it was told to run and reads its
 effort from the environment.
 
-Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the
-record when a round supplies it. Each hook refuses any non-merge commit whose
-body does not open with a model record, except the tag-free `settle` and `ready`
-forms. It checks the line's shape rather than a list of model names, so a new
-model family needs no edit here. It also refuses a single-model record whose
-effort disagrees with the subject's tag. A step commit without its active-time
-line is refused. A `ready` marker has no model record, but its body must carry
-the assigned coder.
+Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the record when a round
+supplies it. Each hook refuses any non-merge commit whose body does not open with a model record,
+except the tag-free forms above. It checks the line's shape rather than a list of model names, so a
+new model family needs no edit here. It also refuses a single-model record whose effort disagrees
+with the subject's tag. A step commit without its active-time line is refused. A `ready` marker has
+no model record, but its body must carry the assigned coder.
 
 Each hook also refuses a non-merge commit that changes a listed file of its
 repo unless the subject is a step or implementation-audit form. It admits one

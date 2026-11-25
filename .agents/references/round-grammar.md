@@ -6,10 +6,10 @@ the audit-round runner reads. The
 they exist. The [subject grammar](subject-grammar.md) owns commit subjects and
 commit model records.
 
-The thirteen forms are the audit report, vet report, rebuttal report, ruler
+The fourteen forms are the audit report, vet report, rebuttal report, ruler
 report, commit record bullet, implementation-plan step, audit-range sentence,
-phase result, watch grade, settling line, watch record, move list and split
-result.
+phase result, watch grade, settling line, watch record, move list, pick report
+and split result.
 
 ## Notation
 
@@ -1508,7 +1508,7 @@ Audit ranges: 1-2, 2-4.
 ```
 
 The phase result is the response's last line and stays outside a code fence.
-The JSON object has exactly the two fields shown. Audit, vet, rebuttal, ruler, design,
+The JSON object has exactly the two fields shown. Audit, vet, rebuttal, ruler, design, pick,
 watch and close admit `finished` or `failed`. Fix and implement also
 admit `needs-ruling`.
 
@@ -1889,6 +1889,40 @@ Size: 120 lines
 Result: skipped. Another run changed the file.
 ```
 
+## Pick report
+
+The report gives the picker's judgement on each numbered answer, the reason for
+its choice and the fact behind each repair. Its last line names the original
+answer number, or `none` for the picker's own no-split answer.
+
+### Production
+
+```text
+<pick>         ::= <report-prose> NL "Pick: " (<number> | "none") [BLANK <move-list>]
+<number>       ::= one supplied answer number, with or without leading zeroes
+```
+
+An unchanged pick has no appended document. A repair appends the full list of
+moves. A pick of `none` appends a move list with a no-split result.
+
+### Examples
+
+#### `pick/unchanged` — parsed
+
+```text
+Answer 01 keeps the shared setup with its callers. Answer 02 separates them.
+Pick: 01
+```
+
+#### `pick/missing-answer` — refused
+
+Refusal: `A pick of none must supply its no-split answer`
+
+```text
+The two responsibilities need one another.
+Pick: none
+```
+
 ## Split result
 
 ### Production
@@ -1896,7 +1930,7 @@ Result: skipped. Another run changed the file.
 ```text
 <split-result-line> ::= "SPLIT RESULT: "<split-result>
 <split-result>      ::= {"result":<result-word>,"hash":<hash-string>,"message":<message-string>}
-<result-word>       ::= "made" | "waiting" | "fine" | "needs-plan" | "skipped" | "checks-failed"
+<result-word>       ::= "made" | "designed" | "fine" | "needs-plan" | "skipped" | "checks-failed"
 <hash-string>       ::= a JSON string containing a <blob-hash>
 <message-string>    ::= a JSON string containing non-whitespace text
 ```
@@ -1906,8 +1940,7 @@ last. The JSON object has exactly the three fields shown. The result word names
 one of the six results:
 
 1. `made`: the split was made and committed.
-2. `waiting`: no split yet, because the call ended after its rounds and the
-   next call carries the list out.
+2. `designed`: the chosen move list was committed. The message names its path.
 3. `fine`: no split, because the file should stay whole.
 4. `needs-plan`: no split, because the file needs a plan.
 5. `skipped`: no split, because the call was skipped.
@@ -1926,10 +1959,10 @@ no-split form uses the words `fine` and `needs-plan` with these meanings.
 SPLIT RESULT: {"result":"made","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"packages/domain/src/roster.ts was split into 2 new files."}
 ```
 
-#### `split-result/waiting` — parsed
+#### `split-result/designed` — parsed
 
 ```text
-SPLIT RESULT: {"result":"waiting","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"The rounds on the move list have finished, and the next call carries out the split."}
+SPLIT RESULT: {"result":"designed","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"/plan/splits/packages/domain/src/roster.01.mv.md"}
 ```
 
 #### `split-result/checks-failed` — parsed
@@ -1940,7 +1973,7 @@ SPLIT RESULT: {"result":"checks-failed","hash":"3b18e512dba79e4c8300dd08aeb37f8e
 
 #### `split-result/unknown-result` — refused
 
-Refusal: `Split result must be made, waiting, fine, needs-plan, skipped or checks-failed`
+Refusal: `Split result must be made, designed, fine, needs-plan, skipped or checks-failed`
 
 ```text
 SPLIT RESULT: {"result":"split","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"The split was made."}

@@ -76,6 +76,7 @@ Before this rule the file held the automatic-series rules in four places.
 | `models.ts`, `model-evidence.ts`, `model-comparison.ts`, `pager.ts`, `pinned-headings.ts` | The model read-out and its full-screen view | [Model read-out](references/model-read-out.md) |
 | `contract-main.ts`, `contract.ts` | The contract command's entry and the CLI contract recorder | [Contract recorder](#contract-recorder) |
 | `move-list.ts`, `split-result.ts` | The reader of a move list, and the reader and writer of the split result line | [Move list](../../.agents/references/round-grammar.md#move-list), [Split result](../../.agents/references/round-grammar.md#split-result) |
+| `split-answers.ts`, `split-design.ts` | Saved answers and their writers, parallel design and the pick | [Round files](#round-files), [split](#split) |
 | `split.ts`, `split-attempt.ts`, `split-output.ts` | One split call: the read of the file's move list, the split lock, the attempt in a child process, the write, the checks and the commit or the restore, and the design selection and log | [split](#split), [Phase routing](#phase-routing) |
 
 Workflows own findings, authority, gates and phase outcomes. The shared protocol's
@@ -274,12 +275,18 @@ ruling, a close log, a handoff or a yield report. Each form is read whole past t
 bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's round data is
 not among them, because the close archives it beside the plan.
 
-**One series' files.** `seriesFile` says whether a file belongs to one commit or move-list series:
-a claim, phase file, queue or handoff under its label, a move-list series' split log, or its round
-data. It reads each form whole
-past the label in the same way, so a neighbouring label that extends this one never matches.
-`seriesArchiveFolder` names the series' folder under `commits/` or `splits/` of the evidence
-checkout.
+**Split answers.** Designers share one number sequence per source. The next number follows the
+highest saved answer filename. Each `<label>-design-<n>.<tag>.md` has at least two digits. A new
+answer from the picker takes the next number. An unchanged answer keeps its name and text.
+`<label>-pick-<first>.<tag>.md` holds the report for the call starting at that number.
+`<label>-designs.json` records each writer and each designer's position and density. The plan list
+keeps the selected number as `splits/<source stem>.<n>.mv.md`.
+
+**One series' files.** `seriesFile` says whether a file belongs to one commit or move-list series: a
+claim, phase file, queue or handoff under its label, a split's numbered answers, pick reports,
+writer records and log, or its round data. It reads each form whole past the label in the same way,
+so a neighbouring label that extends this one never matches. `seriesArchiveFolder` names the series'
+folder under `commits/` or `splits/` of the evidence checkout.
 
 ### Numbers and claims
 
@@ -401,9 +408,10 @@ restore the working directory.
 
 `round-paths.ts` supplies each phase's absolute arguments in this order:
 
-- design: the source file's path relative to the Repo Edu root and the blob hash the runner read
-  before the session. The session returns its answer as text and writes no file, under
-  [split](#split)
+- design: the source path relative to Repo Edu, its blob hash and this entry's density.
+- pick: the source path, the same hash and the answers in designer order. Each entry gives the
+  number, absolute answer path and any refusal. The session returns the
+  [pick report](../../.agents/references/round-grammar.md#pick-report).
 - audit: audit report output, then either a plan with an optional implementation
   scope and open-deferral object, a plan with an open-deferral object for a
   chained planning round, the move list's absolute path for a move-list round,
@@ -595,17 +603,8 @@ on the ending the series runner returns, and after a split call, on the call's o
   answer or a manual queue that runs out after a finished round. A failure, an unanswered ruling and
   the round maximum with another auditor due leave it in the round folder. The series' ending keeps
   the maximum apart from completion, because both end the series without the user.
-- **When, for a move-list series.** The move follows the split call, so the call's last lines land
-  in the moved split log. The series has finished once every listed auditor has a current read,
-  whatever the split code then reports, or once a fix withdrew the list. A call that leaves no
-  committed list has no series, such as a first design that judged the file fine, so its split log
-  moves alone. Every ending moves the label's files except these, which leave the series in the
-  round folder as live work:
-  1. a failed phase or an unanswered ruling, which end the call without a result;
-  2. a call that found the list another call wrote first, whose rounds are that call's;
-  3. any ending while the series is unfinished: the committed list holds moves and a listed auditor
-     lacks a current read of it. The round maximum ends a series so, and a refused move or a
-     changed source can, also on a later call that runs no round.
+- **When, for a split.** Every result archives the split's files. A failed session leaves them in
+  the round folder.
 - **What.** `archiveSeries` moves every file that `seriesFile` matches for the series' label, round
   data, claims, logs, reports, rulings, handoffs and queue included, into `commits/<label>/` or
   `splits/<label>/` of the evidence checkout. Each file keeps its name and contents. The last
@@ -639,7 +638,7 @@ on the ending the series runner returns, and after a split call, on the call's o
 | [`ready`](#ready) | Record the user's ready call and assign the coder | Listed |
 | [`implement`](#implement) | Implement the pending steps of a ready plan | Listed |
 | [`close`](#close) | Close a plan's loop | Listed |
-| [`split`](#split) | Split one source file by a move list that audit rounds judged | Listed |
+| [`split`](#split) | Split one source file by a chosen numbered move list | Listed |
 | [`plan`](#plan) | Print the plan an omitted target selects | Listed |
 | [`models`](references/model-read-out.md) | Print the model read-out | Listed |
 | [`replay`](#replay) | Recompute the stored series answers | Listed |
@@ -663,16 +662,12 @@ When it is missing, the runner creates it from
 defaults, as plain JSON. An invalid file stops the command with a validation
 error and is left unchanged.
 
-The file opens with `defaultAuditor` and `defaults`. Then it lists four fields
-in the order a plan meets them: `planningAudit`, `coders`,
-`implementationAudit` and `close`, for the planning audits, the
-implementation, the implementation audits and then the close.
-Each audit level lists its roles in the order a round runs them: `auditors`,
-`vetters`, `ruler`, for planning `fixer`, and `watch`. `splitAudit` follows,
-because a file split belongs to no plan, and lists its roles in the order a
-split runs them: `designer`, `auditors`, `vetters`, `ruler` and `fixer`.
-`maximumAutomaticRounds` and `strengthModels` close the file. The runner reads
-the fields in any order.
+The file opens with `defaultAuditor` and `defaults`. Then it lists four fields in the order a plan
+meets them: `planningAudit`, `coders`, `implementationAudit` and `close`, for the planning audits,
+the implementation, the implementation audits and then the close. Each audit level lists its roles
+in the order a round runs them: `auditors`, `vetters`, `ruler`, for planning `fixer`, and `watch`.
+The `split` settings name the designers and picker. `maximumAutomaticRounds` and `strengthModels`
+close the file. The runner reads the fields in any order.
 
 - `defaultAuditor` selects which entry in the target work class's auditor list opens a series when
   neither `--auditor` nor `--first` is given and the retained data gives rule 3 no opener. `first`
@@ -684,7 +679,7 @@ the fields in any order.
   `--auditor codex` runs the audit on it. Neither CLI's own model configuration
   is ever read, so this file alone decides what every phase runs on.
 - A `default` in a list field, in an audit level's `ruler`, in `planningAudit.fixer`, in an audit
-  level's `watch` or in a `splitAudit` role resolves when the file loads. The auditor list, the
+  level's `watch` or in a split role resolves when the file loads. The auditor list, the
   `models` read-out, a fix and a ready marker therefore all name the resolved selection. A ready
   marker keeps the coder it recorded when `defaults` changes later.
 - `planningAudit.auditors` and `implementationAudit.auditors` are non-empty ordered lists. Each
@@ -720,15 +715,10 @@ the fields in any order.
   that write the watch after a round of that work class. Either field may say `default`. The watch
   sits in the audit level because it follows that level's rounds, so each work class can run its
   watch on its own selection.
-- `splitAudit` names the roles of a file split, the split work class. `designer` runs the design
-  session under the [design workflow](../../.agents/skills/design/references/workflow.md).
-  `auditors`, `vetters`, `ruler` and `fixer` fill the roles of a move-list round that the fields of
-  those names fill in the other levels, and the vetter list refuses two entries with one tag as
-  theirs do. Each field may say `default`. The tracked defaults hold one auditor and two vetters:
-  the design session is the file's first reader and one auditor adds a second, and two vetters are
-  the fewest that can disagree. The level has no `watch`, because a move-list series runs none. A
-  file without the level, or a level without one of its five roles, is refused like any other
-  invalid file.
+- `split.designers` is a non-empty list of selections. An entry can appear twice. Each has a density
+  of `normal` (the default) or `coarse`. The tracked settings give Codex normal density and Claude
+  coarse density. `split.picker` selects one fresh session, by default Claude. Both roles accept
+  `default` for model and effort.
 - `close` names the assistant, model and effort of the loop-close. Each field names a value or says
   `default`; `null` is refused. A named model must suit the selected CLI. It sits at the top level,
   under neither audit level, because the close belongs to no round. The old `planning` and
@@ -838,7 +828,8 @@ pnpm audit-round close example
 pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
 pnpm audit-round split packages/domain/src/roster.ts
-pnpm audit-round split packages/domain/src/roster.ts --no-wait
+pnpm audit-round split design packages/domain/src/roster.ts
+pnpm audit-round split run ../plan/splits/packages/domain/src/roster.01.mv.md
 pnpm audit-round split packages/domain/src/roster.ts -v
 pnpm audit-round run example
 pnpm audit-round run example -v
@@ -1032,99 +1023,34 @@ round-data commit from the close selection alone.
 
 ### split
 
-`split <path> [--no-wait] [-v]` splits one source file by its move list, or says why no split
-happens.
-`runSplit` in `split.ts` owns the call, and `command.ts` supplies its design session, its series,
-its attempt and its checks. The round grammar's
-[Move list](../../.agents/references/round-grammar.md#move-list) and
-[Split result](../../.agents/references/round-grammar.md#split-result) own the two forms the call
-reads and writes.
+1. `split design <source>` runs independent design sessions, then a fresh picker when a choice
+   remains. Every call designs anew. It ends as `designed` with the committed path when the chosen
+   answer has moves.
+2. `split run <move list>` reads a numbered committed plan path from Git's HEAD or a designer's
+   answer by its evidence path. It checks the source hash before acting. A designer's moves are
+   published in a tag-free `choose` commit. A no-split answer returns its saved reason. The command
+   starts no assistant and looks up no release.
+3. `split <source>` makes a new design and immediately carries out the selected moves.
 
-**What it takes.** A path relative to the Repo Edu root that names a file inside one workspace
-package under `apps/`, `packages/` or `tools/`, because that package's tests prove the split.
-`splitSource` in `target.ts` refuses any other path before startup.
+The source path is relative to Repo Edu and belongs to a workspace package. All designers run side
+by side. Every moves answer gets a trial in memory. The picker sees the tool's refusal on any
+ineligible list. Unanimous no-split results need no pick. If every answer is a refused list, the
+call ends as `needs-plan`.
 
-**The list.** The call reads the source's blob hash, as `git hash-object` prints it, and the
-file's move list, `moveListFile`, as the plan checkout's HEAD holds it. The series rules date every
-read by commits, so only committed text has rounds behind it. The call reports, tries and carries
-out no other text, and the series reads the committed list after each round too.
+The final attempt runs under the split lock. A clean result supplies every path and text to write. A
+picked or user-chosen list is copied from its saved answer and replaces the older numbered plan list
+in one commit. Local edits to either plan path skip publication. An immediate split holds the same
+lock while checking Repo Edu for local edits and writing the returned texts. A run of the committed
+list reads Git's version and leaves working-copy edits to that list in place.
 
-1. A list that names the current content is not designed again. A withdrawn list gives the result
-   it records, without a session. A list of moves goes to the early attempt and then to the rounds.
-2. Otherwise the design session runs on `splitAudit.designer` under the
-   [design workflow](../../.agents/skills/design/references/workflow.md). Its answer must be a move
-   list that names the same source and hash. An answer of fine or needs a plan ends the call with
-   that result and writes no list.
-3. Under the split lock the call then looks again for a list that names the current content. When
-   another call wrote one meanwhile, it drops its own design and ends as skipped. It also ends as
-   skipped when the list's path has uncommitted changes, which the write would overwrite. Otherwise
-   it tries the designed list, writes it and commits it alone in the plan repo, in the subject
-   grammar's design form.
+The lock lives in the Repo Edu Git folder. The statement move tool runs in a child process so the
+lock can refresh. Checks and package tests run outside the lock. A failed check restores the files
+under the lock. A successful split commit credits the saved answer's writer. A design commit credits
+the picker and names the original answer and its designers.
 
-**The rounds.** When a listed auditor of `splitAudit` lacks a current read of the list,
-`missingReads` in `judge.ts` says so and an automatic move-list series runs, under
-[Move-list series](references/series.md#move-list-series). With every read current no round runs,
-so a list that waits for its split, or whose split was skipped or whose checks failed, is carried
-out on a later call without another round. After each finished round that changed the list, the
-call tries the changed list before the series decides; a refusal or a changed source halts the
-series.
-
-An uncommitted change beside a committed list for the current content does not stop the rounds. A
-stopped fix leaves its change so, and the series continues that round, whose fix reads the change
-and commits it.
-
-**The wait.** A call whose series finished with a list of moves ends there as `waiting` and writes
-no file. The split changes and commits code, so it starts only on a call made for it, and stopping
-before the split needs no interrupt. The next call finds every read current, runs no round and goes
-on to the split. `--no-wait` makes one call of both: the call goes on to the split right after its
-rounds. A stopped round's `Rerun:` line keeps the flag.
-
-**The split.** Under the split lock the call ends as skipped when the move list has uncommitted
-changes, because a round reads the list in the plan checkout and may have judged that text in place
-of the committed list. It then tries the list once more, asks Git for uncommitted changes in the
-attempt's file set, keeps each file's text and writes the files. Outside the lock it runs
-`pnpm check` and then `pnpm test <package>`.
-
-- Both pass: the call commits exactly the file set in the subject grammar's split form. Code
-  writes its sentence and its body from the list: the model record, the list's path and one bullet
-  per target with its responsibility.
-- Either fails: the call puts every file back under the lock, removing the ones it created, and
-  reports the failed command with its whole output. An interrupted check puts the files back too.
-
-**The lock.** `withSplitLock` takes a `proper-lockfile` lock at `audit-round-split.lock` in the Repo
-Edu checkout's Git folder, and a second call waits for it. A killed holder's lock is stale after 10
-seconds. The lock covers each attempt, the design commit beside its attempt, the uncommitted check
-with the write, and the restore. The rounds, the checks, the tests and the split commit hold none.
-
-**The attempt.** `split-attempt.ts` runs the statement move tool's `list` command in a child process
-and reads its reply. The attempt builds a TypeScript 6 project before and after each move, which
-blocks a process for seconds. In a child process the runner's event loop stays free, so the lock's
-refresh timer keeps running and no waiting call takes the lock as stale.
-
-**Endings.** A call with a result prints its `SPLIT RESULT:` line last and exits 0.
-
-| Ending | Result |
-| --- | --- |
-| The split committed | `made` |
-| The rounds finished and the call ran without `--no-wait` | `waiting` |
-| The design or a withdrawn list judged the file fine | `fine` |
-| The design or a withdrawn list judged that it needs a plan, a move was refused or the rounds reached their maximum | `needs-plan` |
-| The source changed, a file to write had uncommitted changes, the move list had uncommitted changes or another call wrote the list first | `skipped` |
-| A check or the package's tests failed | `checks-failed` |
-
-A failed design session prints its reason, its `Session:` line and a `Rerun:` line naming the same
-command, and exits 1. A stopped round prints its own ending and the `Rerun:` line, which names the
-split command, under [Stopped rounds](#stopped-rounds).
-
-**The split log.** Each call appends to `<label>-split.log` in the round folder: its opening, the
-design session, each attempt, the write, the checks, the commits and the result. The log carries no
-tag, because settings may change the designer between calls and each opening records the model.
-The rounds keep their own files, and every file of the label moves under
-[The series move](#the-series-move).
-
-**Stamps.** The design commit and the split commit carry the capability tag and model record of the
-design selection, which `split-output.ts` resolves once per call. The runner sets no round stamps
-on them, so their own record stands.
+The final line follows the
+[split result grammar](../../.agents/references/round-grammar.md#split-result). A failed session
+prints its reason, session ID and rerun command. The next design runs every designer again.
 
 ### plan
 

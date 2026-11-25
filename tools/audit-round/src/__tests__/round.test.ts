@@ -20,6 +20,7 @@ import type { MoveList } from "../move-list.js"
 import {
   panelPhases,
   phaseWorkflow,
+  type RoundPhase,
   type RulerScope,
   type RulingRequest,
 } from "../phase.js"
@@ -184,7 +185,7 @@ const runRound: typeof runRoundWithAccount = async (...arguments_) =>
  */
 const endings: readonly (readonly [
   ending: "ruling" | "watch",
-  phases: readonly Exclude<Phase, "implement" | "design">[],
+  phases: readonly RoundPhase[],
 ])[] = [
   ["ruling", phases],
   ["watch", watchPhases],
@@ -252,7 +253,7 @@ function controlledRound(
   }
   const movedLists: string[] = []
   const results: {
-    [P in Exclude<Phase, "implement" | "design">]: PhaseResult<P>
+    [P in RoundPhase]: PhaseResult<P>
   } = {
     audit: {
       status: "finished",
@@ -292,6 +293,7 @@ function controlledRound(
     if (
       input.phase === "implement" ||
       input.phase === "design" ||
+      input.phase === "pick" ||
       results[input.phase].status !== "finished"
     )
       return
@@ -2949,7 +2951,11 @@ for (const [ending, sequence] of endings) {
     const entered = sequence.map(() => Promise.withResolvers<void>())
     const release = sequence.map(() => Promise.withResolvers<void>())
     const round = controlledRound(async (input) => {
-      if (input.phase === "implement" || input.phase === "design")
+      if (
+        input.phase === "implement" ||
+        input.phase === "design" ||
+        input.phase === "pick"
+      )
         throw new Error(`A round cannot start the ${input.phase} phase`)
       const index = sequence.indexOf(input.phase)
       entered[index].resolve()

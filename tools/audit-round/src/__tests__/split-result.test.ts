@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
+import { readPick } from "../move-list.js"
 import { readSplitResult, splitResultLine } from "../split-result.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
@@ -49,4 +50,15 @@ test("a split result keeps a message across lines and refuses another shape", ()
       (error: unknown) => error instanceof Error && error.message === refusal,
       refusal,
     )
+})
+
+test("pick report examples name an existing answer or supply a new document", () => {
+  for (const entry of roundGrammarExamples("pick/")) {
+    if (entry.outcome === "parsed")
+      assert.equal(readPick(entry.source).number, 1)
+    else
+      assert.throws(() => readPick(entry.source), {
+        message: entry.refusal ?? "",
+      })
+  }
 })

@@ -3,7 +3,7 @@ import { z } from "zod"
 /** The six results a split call ends with, in the order of the round grammar. */
 export const splitResults = [
   "made",
-  "waiting",
+  "designed",
   "fine",
   "needs-plan",
   "skipped",
