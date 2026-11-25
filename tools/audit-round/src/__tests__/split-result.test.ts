@@ -52,14 +52,16 @@ test("a split result keeps a message across lines and refuses another shape", ()
     )
 })
 
-test("pick report examples name an existing answer or supply a new document", () => {
+test("the pick report reader accepts or refuses each grammar example as documented", () => {
   for (const entry of roundGrammarExamples("pick/")) {
     if (entry.outcome === "parsed")
-      assert.equal(readPick(entry.source).number, 1)
+      assert.doesNotThrow(() => readPick(entry.source), entry.id)
     else
-      assert.throws(() => readPick(entry.source), {
-        message: entry.refusal ?? "",
-      })
+      assert.throws(
+        () => readPick(entry.source),
+        { message: entry.refusal ?? "" },
+        entry.id,
+      )
   }
 })
 

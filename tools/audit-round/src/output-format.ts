@@ -70,20 +70,18 @@ export function phaseSelection(
   }
 }
 
-/**
- * One phase of a run, as the commit body and the settings header list it. A
- * vet entry names its vetter's tag, because a panel runs one vetter per tag.
- */
+/** One phase of a run, as the commit body and the settings header list it. */
 export type RunEntry = {
   readonly phase: Phase
   readonly assistant: Assistant
   readonly model: PinnedModel
+  /** Identifies the vetter or designer in the phase's slot key. */
   readonly tag?: string
 }
 
 /**
- * The key of one phase's record in a run: the phase, or for a vetter the phase
- * and its tag, which also opens each line the output writes for it.
+ * A slot key starts with the phase name. Vet slots add the vetter's tag.
+ * Design slots add the designer's position in this call, starting at 1.
  */
 export function slotKey(phase: Phase, tag?: string): string {
   return tag === undefined ? phase : `${phase} ${tag}`
@@ -92,7 +90,7 @@ export function slotKey(phase: Phase, tag?: string): string {
 /** One started phase: what it ran on and the assistant time it took. */
 export type RanPhase = {
   readonly phase: Phase
-  /** A vetter's tag; other phases have none. */
+  /** The vetter's tag or the designer's position in this call, starting at 1. */
   readonly tag?: string
   /** What the settings named for the phase; the round data keeps it. */
   readonly launched: ModelSelection
