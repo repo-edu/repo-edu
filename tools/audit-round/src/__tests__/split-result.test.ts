@@ -63,15 +63,19 @@ test("pick report examples name an existing answer or supply a new document", ()
   }
 })
 
-test("a pick can end with a full stop before an indented replacement list", () => {
+test("the final Pick: line decides the answer and can precede an indented replacement list", () => {
+  const prose = "Pick: Answer 2 keeps the shared setup together."
+  const report = `${prose}\nPick: 02`
+  assert.deepEqual(readPick(report), { report, number: 2, document: null })
+
   const source = roundGrammarExample("move-list/no-split").source
   const indented = source
     .split("\n")
     .map((line) => `  ${line}`)
     .join("\n")
-  const pick = readPick(`Keep the source together.\nPick: none.\n\n${indented}`)
+  const pick = readPick(`${prose}\nPick: none.\n\n${indented}`)
   assert.equal(pick.number, null)
-  assert.equal(pick.report, "Keep the source together.\nPick: none.")
+  assert.equal(pick.report, `${prose}\nPick: none.`)
   assert.ok(pick.document)
   assert.deepEqual(readMoveList(pick.document), readMoveList(source))
 })

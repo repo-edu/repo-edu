@@ -170,7 +170,7 @@ export function readMoveList(text: string): MoveList {
 /** Only a new answer follows the pick report. An unchanged pick names the saved answer. */
 export function readPick(text: string) {
   const lines = text.trim().split("\n")
-  const last = lines.findIndex((line) => line.startsWith("Pick:"))
+  const last = lines.findLastIndex((line) => line.startsWith("Pick:"))
   const choice = /^Pick: (none|[0-9]+)\.?$/.exec(lines[last]?.trimEnd() ?? "")
   const appended = lines
     .slice(last + 1)

@@ -240,6 +240,8 @@ export async function evidenceRepository(root: string): Promise<void> {
     "user.name": "Test",
     "user.email": "test@example.test",
     "commit.gpgsign": "false",
+    // Finish Git's maintenance before test cleanup removes the repository.
+    "maintenance.autoDetach": "false",
   }))
     await execa("git", ["config", key, value], { cwd: root })
 }
